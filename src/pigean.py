@@ -926,81 +926,95 @@ if len(args) < 1:
 mode = args[0]
 _enforce_pigean_mode_ownership(mode)
 
-run_huge = False
-run_beta_tilde = False
-run_beta = False
-run_priors = False
-run_naive_priors = False
-run_gibbs = False
-run_factor = False
-run_phewas = False
+def _make_mode_state():
+    return {
+        "run_huge": False,
+        "run_beta_tilde": False,
+        "run_beta": False,
+        "run_priors": False,
+        "run_naive_priors": False,
+        "run_gibbs": False,
+        "run_factor": False,
+        "run_phewas": False,
+        "run_naive_factor": False,
+        "run_sim": False,
+        "pops_defaults": False,
+        "use_phewas_for_factoring": False,
+        "factor_gene_set_x_pheno": False,
+        "expand_gene_sets": False,
+    }
 
-run_naive_factor = False
-run_sim = False
-pops_defaults = False
-use_phewas_for_factoring = False
-factor_gene_set_x_pheno = False
-expand_gene_sets = False
+
+def _run_mode_huge(_state, _options, _mode):
+    _state["run_huge"] = True
 
 
-if mode == "huge" or mode == "huge_calc":
-    run_huge = True
-elif mode == "beta_tildes" or mode == "beta_tilde":
-    run_beta_tilde = True
-elif mode == "betas" or mode == "beta":
-    run_beta = True
-elif mode == "priors" or mode == "prior":
-    run_priors = True
-elif mode == "naive_priors" or mode == "naive_prior":
-    run_naive_priors = True
-elif mode == "gibbs" or mode == "em":
-    run_gibbs = True
-elif mode == "factor" or mode == "naive_factor": #run factoring, phewas factoring, or pheno factoring
-    run_factor = True
-    if options.add_gene_sets_by_naive is not None:
-        run_naive_factor = True
-    if mode == "naive_factor":
-        run_naive_factor = True
+def _run_mode_beta_tildes(_state, _options, _mode):
+    _state["run_beta_tilde"] = True
+
+
+def _run_mode_betas(_state, _options, _mode):
+    _state["run_beta"] = True
+
+
+def _run_mode_priors(_state, _options, _mode):
+    _state["run_priors"] = True
+
+
+def _run_mode_naive_priors(_state, _options, _mode):
+    _state["run_naive_priors"] = True
+
+
+def _run_mode_gibbs(_state, _options, _mode):
+    _state["run_gibbs"] = True
+
+
+def _run_mode_factor(_state, _options, _mode):
+    _state["run_factor"] = True
+    if _options.add_gene_sets_by_naive is not None:
+        _state["run_naive_factor"] = True
+    if _mode == "naive_factor":
+        _state["run_naive_factor"] = True
 
     error = None
-    if options.anchor_genes is not None and len(options.anchor_genes) == 1:
-        factor_type = "single gene anchoring (to %s)" % options.anchor_genes
-        if options.gene_set_phewas_stats_in is None or options.gene_phewas_bfs_in is None:
+    if _options.anchor_genes is not None and len(_options.anchor_genes) == 1:
+        factor_type = "single gene anchoring (to %s)" % _options.anchor_genes
+        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
             error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif options.anchor_genes is not None and len(options.anchor_genes) > 1:
-        factor_type = "multiple gene anchoring (to %s)" % options.anchor_genes
-        if options.gene_set_phewas_stats_in is None or options.gene_phewas_bfs_in is None:
+    elif _options.anchor_genes is not None and len(_options.anchor_genes) > 1:
+        factor_type = "multiple gene anchoring (to %s)" % _options.anchor_genes
+        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
             error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif options.anchor_any_gene:
+    elif _options.anchor_any_gene:
         factor_type = "any gene anchoring"
-        if options.gene_set_phewas_stats_in is None or options.gene_phewas_bfs_in is None:
+        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
             error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif options.anchor_gene_set:
+    elif _options.anchor_gene_set:
         factor_type = "gene set anchoring (to input phenotype/gene set)"
-        if options.run_phewas_from_gene_phewas_stats_in is None:
+        if _options.run_phewas_from_gene_phewas_stats_in is None:
             error = "Require --run-phewas-from-gene-phewas-stats"
-    elif options.anchor_phenos is not None and len(options.anchor_phenos) == 1:
-        factor_type = "single phenotype anchoring (to %s) but with phewas statistics used" % options.anchor_phenos
-        if options.gene_set_phewas_stats_in is None or options.gene_phewas_bfs_in is None:
+    elif _options.anchor_phenos is not None and len(_options.anchor_phenos) == 1:
+        factor_type = "single phenotype anchoring (to %s) but with phewas statistics used" % _options.anchor_phenos
+        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
             error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif options.anchor_phenos is not None and len(options.anchor_phenos) > 1:
-        factor_type = "multiple phenotype anchoring (to %s)" % options.anchor_phenos
-        if options.gene_set_phewas_stats_in is None or options.gene_phewas_bfs_in is None:
+    elif _options.anchor_phenos is not None and len(_options.anchor_phenos) > 1:
+        factor_type = "multiple phenotype anchoring (to %s)" % _options.anchor_phenos
+        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
             error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif options.anchor_any_pheno:
+    elif _options.anchor_any_pheno:
         factor_type = "any phenotype anchoring"
-        if options.gene_set_phewas_stats_in is None or options.gene_phewas_bfs_in is None:
+        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
             error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
     else:
-        factor_type = "single phenotype anchoring (to %s) using default statistics" % options.anchor_phenos
-        if options.gene_set_phewas_stats_in is not None or options.gene_phewas_bfs_in is not None:
-            factor_type = "%s. Will project using %s" % (factor_type, options.gene_set_phewas_stats_in if options.gene_set_phewas_stats_in is not None else options.gene_phewas_bfs_in)
+        factor_type = "single phenotype anchoring (to %s) using default statistics" % _options.anchor_phenos
+        if _options.gene_set_phewas_stats_in is not None or _options.gene_phewas_bfs_in is not None:
+            factor_type = "%s. Will project using %s" % (factor_type, _options.gene_set_phewas_stats_in if _options.gene_set_phewas_stats_in is not None else _options.gene_phewas_bfs_in)
 
-    factor_gene_set_x_pheno = options.anchor_genes or options.anchor_any_gene or options.anchor_gene_set
-    use_phewas_for_factoring = options.anchor_phenos is not None or options.anchor_any_pheno or options.anchor_genes is not None or options.anchor_any_gene
-    expand_gene_sets = options.anchor_genes is not None and len(options.anchor_genes) > 1
+    _state["factor_gene_set_x_pheno"] = _options.anchor_genes or _options.anchor_any_gene or _options.anchor_gene_set
+    _state["use_phewas_for_factoring"] = _options.anchor_phenos is not None or _options.anchor_any_pheno or _options.anchor_genes is not None or _options.anchor_any_gene
+    _state["expand_gene_sets"] = _options.anchor_genes is not None and len(_options.anchor_genes) > 1
 
-    if (options.add_gene_sets_by_enrichment_p is not None or options.add_gene_sets_by_fraction is not None or options.add_gene_sets_by_naive is not None or options.add_gene_sets_by_gibbs is not None) and not expand_gene_sets:
+    if (_options.add_gene_sets_by_enrichment_p is not None or _options.add_gene_sets_by_fraction is not None or _options.add_gene_sets_by_naive is not None or _options.add_gene_sets_by_gibbs is not None) and not _state["expand_gene_sets"]:
         warn("Ignoring options to add gene sets based on association with anchor genes because only 1 anchor gene was specified")
 
     if error is not None:
@@ -1008,22 +1022,68 @@ elif mode == "factor" or mode == "naive_factor": #run factoring, phewas factorin
     else:
         log("Running factoring type: %s" % factor_type)
 
-    if ((use_phewas_for_factoring or factor_gene_set_x_pheno) and not options.anchor_gene_set) and (options.gene_set_stats_in or options.gwas_in or options.huge_statistics_in or options.exomes_in or options.positive_controls_in or options.positive_controls_list is not None or options.case_counts_in):
-        if use_phewas_for_factoring:
+    if ((_state["use_phewas_for_factoring"] or _state["factor_gene_set_x_pheno"]) and not _options.anchor_gene_set) and (_options.gene_set_stats_in or _options.gwas_in or _options.huge_statistics_in or _options.exomes_in or _options.positive_controls_in or _options.positive_controls_list is not None or _options.case_counts_in):
+        if _state["use_phewas_for_factoring"]:
             warn("Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode")
-        elif factor_gene_set_x_pheno:
+        elif _state["factor_gene_set_x_pheno"]:
             warn("Ignoring all arguments for reading Y or reading betas in --anchor-genes mode")
 
-elif mode == "sim" or mode == "simulate":
-    run_sim = True
-elif mode == "pops":
-    pops_defaults = True
-    run_priors = True
-elif mode == "naive_pops":
-    pops_defaults = True
-    run_naive_priors = True
-else:
+
+def _run_mode_sim(_state, _options, _mode):
+    _state["run_sim"] = True
+
+
+def _run_mode_pops(_state, _options, _mode):
+    _state["pops_defaults"] = True
+    _state["run_priors"] = True
+
+
+def _run_mode_naive_pops(_state, _options, _mode):
+    _state["pops_defaults"] = True
+    _state["run_naive_priors"] = True
+
+
+MODE_DISPATCH = {
+    "huge": _run_mode_huge,
+    "huge_calc": _run_mode_huge,
+    "beta_tildes": _run_mode_beta_tildes,
+    "beta_tilde": _run_mode_beta_tildes,
+    "betas": _run_mode_betas,
+    "beta": _run_mode_betas,
+    "priors": _run_mode_priors,
+    "prior": _run_mode_priors,
+    "naive_priors": _run_mode_naive_priors,
+    "naive_prior": _run_mode_naive_priors,
+    "gibbs": _run_mode_gibbs,
+    "em": _run_mode_gibbs,
+    "factor": _run_mode_factor,
+    "naive_factor": _run_mode_factor,
+    "sim": _run_mode_sim,
+    "simulate": _run_mode_sim,
+    "pops": _run_mode_pops,
+    "naive_pops": _run_mode_naive_pops,
+}
+
+mode_state = _make_mode_state()
+mode_handler = MODE_DISPATCH.get(mode)
+if mode_handler is None:
     bail("Unrecognized mode %s" % mode)
+mode_handler(mode_state, options, mode)
+
+run_huge = mode_state["run_huge"]
+run_beta_tilde = mode_state["run_beta_tilde"]
+run_beta = mode_state["run_beta"]
+run_priors = mode_state["run_priors"]
+run_naive_priors = mode_state["run_naive_priors"]
+run_gibbs = mode_state["run_gibbs"]
+run_factor = mode_state["run_factor"]
+run_phewas = mode_state["run_phewas"]
+run_naive_factor = mode_state["run_naive_factor"]
+run_sim = mode_state["run_sim"]
+pops_defaults = mode_state["pops_defaults"]
+use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
+expand_gene_sets = mode_state["expand_gene_sets"]
 
 if options.run_phewas_from_gene_phewas_stats_in is not None:
     run_phewas = True
