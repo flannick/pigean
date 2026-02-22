@@ -8819,6 +8819,9 @@ class GeneSetData(object):
 
     def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, eps=0.01):
 
+        # ==========================================================================
+        # Gibbs Phase 0: Normalize controls and resolve per-epoch iteration budgets.
+        # ==========================================================================
         if max_num_restarts is None or max_num_restarts < 0:
             max_num_restarts = 0
         target_num_epochs = max_num_restarts + 1
@@ -9157,6 +9160,91 @@ class GeneSetData(object):
         aggregated_sum_Ds_missing_m = []
         aggregated_num_sum_priors_missing_m = []
 
+        # These helpers keep epoch aggregation logic centralized and make the
+        # restart/stack path easier to reason about.
+        def __has_aggregated_epochs():
+            return len(aggregated_sum_betas_m) > 0
+
+        def __build_diag_sums():
+            if __has_aggregated_epochs():
+                diag_sum_betas_m = np.vstack(aggregated_sum_betas_m + [sum_betas_m])
+                diag_sum_betas2_m = np.vstack(aggregated_sum_betas2_m + [sum_betas2_m])
+                diag_num_sum_beta_m = np.vstack(aggregated_num_sum_beta_m + [num_sum_beta_m])
+                diag_sum_Ds_m = np.vstack(aggregated_sum_Ds_m + [sum_Ds_m])
+                diag_num_sum_Y_m = np.vstack(aggregated_num_sum_Y_m + [num_sum_Y_m])
+            else:
+                diag_sum_betas_m = sum_betas_m
+                diag_sum_betas2_m = sum_betas2_m
+                diag_num_sum_beta_m = num_sum_beta_m
+                diag_sum_Ds_m = sum_Ds_m
+                diag_num_sum_Y_m = num_sum_Y_m
+            return (diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, diag_sum_Ds_m, diag_num_sum_Y_m)
+
+        def __append_epoch_aggregates():
+            aggregated_sum_betas_m.append(copy.copy(sum_betas_m))
+            aggregated_sum_betas2_m.append(copy.copy(sum_betas2_m))
+            aggregated_sum_betas_uncorrected_m.append(copy.copy(sum_betas_uncorrected_m))
+            aggregated_sum_betas_uncorrected2_m.append(copy.copy(sum_betas_uncorrected2_m))
+            aggregated_sum_postp_m.append(copy.copy(sum_postp_m))
+            aggregated_sum_beta_tildes_m.append(copy.copy(sum_beta_tildes_m))
+            aggregated_sum_z_scores_m.append(copy.copy(sum_z_scores_m))
+            aggregated_num_sum_beta_m.append(copy.copy(num_sum_beta_m))
+
+            aggregated_sum_Ys_m.append(copy.copy(sum_Ys_m))
+            aggregated_sum_Ys2_m.append(copy.copy(sum_Ys2_m))
+            aggregated_sum_Y_raws_m.append(copy.copy(sum_Y_raws_m))
+            aggregated_sum_log_pos_m.append(copy.copy(sum_log_pos_m))
+            aggregated_sum_log_pos2_m.append(copy.copy(sum_log_pos2_m))
+            aggregated_sum_log_po_raws_m.append(copy.copy(sum_log_po_raws_m))
+            aggregated_sum_log_po_raws2_m.append(copy.copy(sum_log_po_raws2_m))
+            aggregated_sum_priors_m.append(copy.copy(sum_priors_m))
+            aggregated_sum_priors2_m.append(copy.copy(sum_priors2_m))
+            aggregated_sum_Ds_m.append(copy.copy(sum_Ds_m))
+            aggregated_sum_D_raws_m.append(copy.copy(sum_D_raws_m))
+            aggregated_sum_bf_orig_m.append(copy.copy(sum_bf_orig_m))
+            aggregated_sum_bf_uncorrected_m.append(copy.copy(sum_bf_uncorrected_m))
+            aggregated_sum_bf_orig_raw_m.append(copy.copy(sum_bf_orig_raw_m))
+            aggregated_sum_bf_orig_raw2_m.append(copy.copy(sum_bf_orig_raw2_m))
+            aggregated_num_sum_Y_m.append(copy.copy(num_sum_Y_m))
+
+            if self.genes_missing is not None:
+                aggregated_sum_priors_missing_m.append(copy.copy(sum_priors_missing_m))
+                aggregated_sum_Ds_missing_m.append(copy.copy(sum_Ds_missing_m))
+                aggregated_num_sum_priors_missing_m.append(copy.copy(num_sum_priors_missing_m))
+
+        def __stack_aggregated_epochs():
+            stacked = {
+                "sum_betas_m": np.vstack(aggregated_sum_betas_m),
+                "sum_betas2_m": np.vstack(aggregated_sum_betas2_m),
+                "sum_betas_uncorrected_m": np.vstack(aggregated_sum_betas_uncorrected_m),
+                "sum_betas_uncorrected2_m": np.vstack(aggregated_sum_betas_uncorrected2_m),
+                "sum_postp_m": np.vstack(aggregated_sum_postp_m),
+                "sum_beta_tildes_m": np.vstack(aggregated_sum_beta_tildes_m),
+                "sum_z_scores_m": np.vstack(aggregated_sum_z_scores_m),
+                "num_sum_beta_m": np.vstack(aggregated_num_sum_beta_m),
+                "sum_Ys_m": np.vstack(aggregated_sum_Ys_m),
+                "sum_Ys2_m": np.vstack(aggregated_sum_Ys2_m),
+                "sum_Y_raws_m": np.vstack(aggregated_sum_Y_raws_m),
+                "sum_log_pos_m": np.vstack(aggregated_sum_log_pos_m),
+                "sum_log_pos2_m": np.vstack(aggregated_sum_log_pos2_m),
+                "sum_log_po_raws_m": np.vstack(aggregated_sum_log_po_raws_m),
+                "sum_log_po_raws2_m": np.vstack(aggregated_sum_log_po_raws2_m),
+                "sum_priors_m": np.vstack(aggregated_sum_priors_m),
+                "sum_priors2_m": np.vstack(aggregated_sum_priors2_m),
+                "sum_Ds_m": np.vstack(aggregated_sum_Ds_m),
+                "sum_D_raws_m": np.vstack(aggregated_sum_D_raws_m),
+                "sum_bf_orig_m": np.vstack(aggregated_sum_bf_orig_m),
+                "sum_bf_uncorrected_m": np.vstack(aggregated_sum_bf_uncorrected_m),
+                "sum_bf_orig_raw_m": np.vstack(aggregated_sum_bf_orig_raw_m),
+                "sum_bf_orig_raw2_m": np.vstack(aggregated_sum_bf_orig_raw2_m),
+                "num_sum_Y_m": np.vstack(aggregated_num_sum_Y_m),
+            }
+            if self.genes_missing is not None:
+                stacked["sum_priors_missing_m"] = np.vstack(aggregated_sum_priors_missing_m)
+                stacked["sum_Ds_missing_m"] = np.vstack(aggregated_sum_Ds_missing_m)
+                stacked["num_sum_priors_missing_m"] = np.vstack(aggregated_num_sum_priors_missing_m)
+            return stacked
+
         if gene_set_stats_trace_out is not None:
             gene_set_stats_trace_fh = open_gz(gene_set_stats_trace_out, 'w')
             gene_set_stats_trace_fh.write("It\tChain\tGene_Set\tbeta_tilde\tP\tZ\tSE\tbeta_uncorrected\tbeta\tpostp\tbeta_tilde_outlier_z\tR\tSEM\n")
@@ -9168,6 +9256,9 @@ class GeneSetData(object):
         else:
             gene_stats_trace_fh = None
 
+        # ==========================================================================
+        # Gibbs Phase 1: Run one or more epochs (optionally restarting on stalls).
+        # ==========================================================================
         while num_attempts < max_num_attempt_restarts and num_completed_epochs < target_num_epochs and remaining_total_iter > 0:
 
             num_attempts += 1
@@ -10420,18 +10511,7 @@ class GeneSetData(object):
                     if np.all(num_sum_Y_m > 1) and np.all(num_sum_beta_m > 1) and ((iteration_num + 1) % diag_every == 0 or iteration_num + 1 == epoch_max_num_iter):
                         # For stopping diagnostics, aggregate previous completed epochs with the
                         # current in-progress epoch so MCSE aligns with final reported MCSE.
-                        if len(aggregated_sum_betas_m) > 0:
-                            diag_sum_betas_m = np.vstack(aggregated_sum_betas_m + [sum_betas_m])
-                            diag_sum_betas2_m = np.vstack(aggregated_sum_betas2_m + [sum_betas2_m])
-                            diag_num_sum_beta_m = np.vstack(aggregated_num_sum_beta_m + [num_sum_beta_m])
-                            diag_sum_Ds_m = np.vstack(aggregated_sum_Ds_m + [sum_Ds_m])
-                            diag_num_sum_Y_m = np.vstack(aggregated_num_sum_Y_m + [num_sum_Y_m])
-                        else:
-                            diag_sum_betas_m = sum_betas_m
-                            diag_sum_betas2_m = sum_betas2_m
-                            diag_num_sum_beta_m = num_sum_beta_m
-                            diag_sum_Ds_m = sum_Ds_m
-                            diag_num_sum_Y_m = num_sum_Y_m
+                        (diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, diag_sum_Ds_m, diag_num_sum_Y_m) = __build_diag_sums()
 
                         num_chains_effective_for_diag = diag_sum_betas_m.shape[0]
 
@@ -10609,36 +10689,7 @@ class GeneSetData(object):
             assert(np.all(num_sum_Y_m > 0))
             assert(np.all(num_sum_beta_m > 0))
 
-            aggregated_sum_betas_m.append(copy.copy(sum_betas_m))
-            aggregated_sum_betas2_m.append(copy.copy(sum_betas2_m))
-            aggregated_sum_betas_uncorrected_m.append(copy.copy(sum_betas_uncorrected_m))
-            aggregated_sum_betas_uncorrected2_m.append(copy.copy(sum_betas_uncorrected2_m))
-            aggregated_sum_postp_m.append(copy.copy(sum_postp_m))
-            aggregated_sum_beta_tildes_m.append(copy.copy(sum_beta_tildes_m))
-            aggregated_sum_z_scores_m.append(copy.copy(sum_z_scores_m))
-            aggregated_num_sum_beta_m.append(copy.copy(num_sum_beta_m))
-
-            aggregated_sum_Ys_m.append(copy.copy(sum_Ys_m))
-            aggregated_sum_Ys2_m.append(copy.copy(sum_Ys2_m))
-            aggregated_sum_Y_raws_m.append(copy.copy(sum_Y_raws_m))
-            aggregated_sum_log_pos_m.append(copy.copy(sum_log_pos_m))
-            aggregated_sum_log_pos2_m.append(copy.copy(sum_log_pos2_m))
-            aggregated_sum_log_po_raws_m.append(copy.copy(sum_log_po_raws_m))
-            aggregated_sum_log_po_raws2_m.append(copy.copy(sum_log_po_raws2_m))
-            aggregated_sum_priors_m.append(copy.copy(sum_priors_m))
-            aggregated_sum_priors2_m.append(copy.copy(sum_priors2_m))
-            aggregated_sum_Ds_m.append(copy.copy(sum_Ds_m))
-            aggregated_sum_D_raws_m.append(copy.copy(sum_D_raws_m))
-            aggregated_sum_bf_orig_m.append(copy.copy(sum_bf_orig_m))
-            aggregated_sum_bf_uncorrected_m.append(copy.copy(sum_bf_uncorrected_m))
-            aggregated_sum_bf_orig_raw_m.append(copy.copy(sum_bf_orig_raw_m))
-            aggregated_sum_bf_orig_raw2_m.append(copy.copy(sum_bf_orig_raw2_m))
-            aggregated_num_sum_Y_m.append(copy.copy(num_sum_Y_m))
-
-            if self.genes_missing is not None:
-                aggregated_sum_priors_missing_m.append(copy.copy(sum_priors_missing_m))
-                aggregated_sum_Ds_missing_m.append(copy.copy(sum_Ds_missing_m))
-                aggregated_num_sum_priors_missing_m.append(copy.copy(num_sum_priors_missing_m))
+            __append_epoch_aggregates()
 
             num_completed_epochs += 1
             log("Completed Gibbs epoch %d/%d (iter=%d, remaining_total_iter=%d)" % (num_completed_epochs, target_num_epochs, iterations_run_this_epoch, remaining_total_iter), INFO)
@@ -10646,36 +10697,37 @@ class GeneSetData(object):
             if (not stop_due_to_stall) and (not stop_due_to_precision) and num_completed_epochs < target_num_epochs and remaining_total_iter > 0 and num_attempts < max_num_attempt_restarts:
                 continue
 
-            sum_betas_m = np.vstack(aggregated_sum_betas_m)
-            sum_betas2_m = np.vstack(aggregated_sum_betas2_m)
-            sum_betas_uncorrected_m = np.vstack(aggregated_sum_betas_uncorrected_m)
-            sum_betas_uncorrected2_m = np.vstack(aggregated_sum_betas_uncorrected2_m)
-            sum_postp_m = np.vstack(aggregated_sum_postp_m)
-            sum_beta_tildes_m = np.vstack(aggregated_sum_beta_tildes_m)
-            sum_z_scores_m = np.vstack(aggregated_sum_z_scores_m)
-            num_sum_beta_m = np.vstack(aggregated_num_sum_beta_m)
+            stacked_epoch_sums = __stack_aggregated_epochs()
+            sum_betas_m = stacked_epoch_sums["sum_betas_m"]
+            sum_betas2_m = stacked_epoch_sums["sum_betas2_m"]
+            sum_betas_uncorrected_m = stacked_epoch_sums["sum_betas_uncorrected_m"]
+            sum_betas_uncorrected2_m = stacked_epoch_sums["sum_betas_uncorrected2_m"]
+            sum_postp_m = stacked_epoch_sums["sum_postp_m"]
+            sum_beta_tildes_m = stacked_epoch_sums["sum_beta_tildes_m"]
+            sum_z_scores_m = stacked_epoch_sums["sum_z_scores_m"]
+            num_sum_beta_m = stacked_epoch_sums["num_sum_beta_m"]
 
-            sum_Ys_m = np.vstack(aggregated_sum_Ys_m)
-            sum_Ys2_m = np.vstack(aggregated_sum_Ys2_m)
-            sum_Y_raws_m = np.vstack(aggregated_sum_Y_raws_m)
-            sum_log_pos_m = np.vstack(aggregated_sum_log_pos_m)
-            sum_log_pos2_m = np.vstack(aggregated_sum_log_pos2_m)
-            sum_log_po_raws_m = np.vstack(aggregated_sum_log_po_raws_m)
-            sum_log_po_raws2_m = np.vstack(aggregated_sum_log_po_raws2_m)
-            sum_priors_m = np.vstack(aggregated_sum_priors_m)
-            sum_priors2_m = np.vstack(aggregated_sum_priors2_m)
-            sum_Ds_m = np.vstack(aggregated_sum_Ds_m)
-            sum_D_raws_m = np.vstack(aggregated_sum_D_raws_m)
-            sum_bf_orig_m = np.vstack(aggregated_sum_bf_orig_m)
-            sum_bf_uncorrected_m = np.vstack(aggregated_sum_bf_uncorrected_m)
-            sum_bf_orig_raw_m = np.vstack(aggregated_sum_bf_orig_raw_m)
-            sum_bf_orig_raw2_m = np.vstack(aggregated_sum_bf_orig_raw2_m)
-            num_sum_Y_m = np.vstack(aggregated_num_sum_Y_m)
+            sum_Ys_m = stacked_epoch_sums["sum_Ys_m"]
+            sum_Ys2_m = stacked_epoch_sums["sum_Ys2_m"]
+            sum_Y_raws_m = stacked_epoch_sums["sum_Y_raws_m"]
+            sum_log_pos_m = stacked_epoch_sums["sum_log_pos_m"]
+            sum_log_pos2_m = stacked_epoch_sums["sum_log_pos2_m"]
+            sum_log_po_raws_m = stacked_epoch_sums["sum_log_po_raws_m"]
+            sum_log_po_raws2_m = stacked_epoch_sums["sum_log_po_raws2_m"]
+            sum_priors_m = stacked_epoch_sums["sum_priors_m"]
+            sum_priors2_m = stacked_epoch_sums["sum_priors2_m"]
+            sum_Ds_m = stacked_epoch_sums["sum_Ds_m"]
+            sum_D_raws_m = stacked_epoch_sums["sum_D_raws_m"]
+            sum_bf_orig_m = stacked_epoch_sums["sum_bf_orig_m"]
+            sum_bf_uncorrected_m = stacked_epoch_sums["sum_bf_uncorrected_m"]
+            sum_bf_orig_raw_m = stacked_epoch_sums["sum_bf_orig_raw_m"]
+            sum_bf_orig_raw2_m = stacked_epoch_sums["sum_bf_orig_raw2_m"]
+            num_sum_Y_m = stacked_epoch_sums["num_sum_Y_m"]
 
             if self.genes_missing is not None:
-                sum_priors_missing_m = np.vstack(aggregated_sum_priors_missing_m)
-                sum_Ds_missing_m = np.vstack(aggregated_sum_Ds_missing_m)
-                num_sum_priors_missing_m = np.vstack(aggregated_num_sum_priors_missing_m)
+                sum_priors_missing_m = stacked_epoch_sums["sum_priors_missing_m"]
+                sum_Ds_missing_m = stacked_epoch_sums["sum_Ds_missing_m"]
+                num_sum_priors_missing_m = stacked_epoch_sums["num_sum_priors_missing_m"]
 
             num_chains_effective = sum_betas_m.shape[0]
 
@@ -18782,6 +18834,9 @@ def query_lmm(query, auth_key=None, lmm_model=None):
 
 def main():
 
+    # ==========================================================================
+    # Main Phase A: Runtime setup and global option echo.
+    # ==========================================================================
     if not options.hide_opts:
         log("Python version: %s" % sys.version)
         log("Numpy version: %s" % np.__version__)
@@ -18800,6 +18855,9 @@ def main():
 
     sigma2_cond = options.sigma2_cond
 
+    # ==========================================================================
+    # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
+    # ==========================================================================
     def _configure_sigma_and_hyper():
         nonlocal sigma2_cond
 
@@ -18849,6 +18907,9 @@ def main():
     if options.gene_loc_file:
         g.init_gene_locs(options.gene_loc_file)
 
+    # ==========================================================================
+    # Main Phase C: Input loading helpers (Y, then X/gene sets).
+    # ==========================================================================
     def _default_for_gene_list():
         options.ols = True
         if options.positive_controls_all_in is None:
@@ -18890,6 +18951,7 @@ def main():
 
     Y_not_loaded = _load_initial_y_inputs()
 
+    # Resolve optional factor-specific gene set ID filtering before reading X.
     def _prepare_factor_gene_set_ids():
         gene_set_ids = None
         if run_factor:
@@ -18906,6 +18968,7 @@ def main():
                 log("Will read %d gene sets" % (len(gene_set_ids)), DEBUG)
         return gene_set_ids
 
+    # Read X inputs, initialize p/sigma context, and emit optional matrix outputs.
     def _read_x_and_initialize_p(gene_set_ids, Y_not_loaded):
         #read in the matrices
         if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
@@ -18986,6 +19049,9 @@ def main():
         if options.V_out:
             g.write_V(options.V_out)
 
+    # ==========================================================================
+    # Main Phase D: Core model computation (betas, priors, outer Gibbs).
+    # ==========================================================================
     def _compute_gene_set_stats_and_betas():
         run_gibbs_for_factor = False
         run_beta_for_factor = False
@@ -19212,6 +19278,9 @@ def main():
 
     _run_non_huge_pipeline(Y_not_loaded)
 
+    # ==========================================================================
+    # Main Phase E: Output writers and optional downstream analyses.
+    # ==========================================================================
     def _write_primary_outputs():
         if options.gene_set_stats_out:
             g.write_gene_set_statistics(options.gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
