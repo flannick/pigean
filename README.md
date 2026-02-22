@@ -11,9 +11,8 @@ PIGEAN codebase split into:
 
 ## Quick start
 
-1. Create and activate a venv.
-2. Populate `catalog/bundles.json` from `catalog/bundles.example.json`.
-3. Download required bundles:
+1. Populate `catalog/bundles.json` from `catalog/bundles.example.json`.
+2. Download required bundles:
 
 ```bash
 python scripts/fetch_bundles.py --catalog catalog/bundles.json --profile minimal --mode gene_list
@@ -26,7 +25,7 @@ python scripts/fetch_bundles.py --catalog catalog/bundles.json --profile minimal
 ```bash
 GENE_CSV=$(awk 'NF && $1 !~ /^#/ {print $1}' data/mody.gene.list | awk '!seen[$1]++' | paste -sd ',' -)
 
-../../.venv/bin/python legacy/priors.py \
+python legacy/priors.py \
   --config config/profiles/gene_list.default.json \
   --positive-controls-list "$GENE_CSV" \
   --gene-stats-out results/MODY.gene_stats.out \

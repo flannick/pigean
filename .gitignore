@@ -21,3 +21,7 @@ catalog/bundles.json
 
 # Build staging
 .tmp_bundle_stage/
+
+# Intermediate doc files
+docs/*.aux
+docs/*.log
