@@ -16337,14 +16337,23 @@ class GeneSetData(object):
 
         return (beta_tildes, ses, z_scores, p_values, se_inflation_factors)
 
-    #there are two levels of parallelization here:
-    #1. num_chains: sample multiple independent chains with the same beta/se/V
-    #2. multiple parallel runs with different beta/se (and potentially V). To do this, pass in lists of beta and se (must be the same length) and an optional list of V (V must have same length as beta OR must be not a list, in which case the same V will be used for all betas and ses
-
-    #to run this in parallel, pass in two-dimensional matrix for beta_tildes (rows are parallel runs, columns are beta_tildes)
-    #you can pass in multiple V as well with rows/columns mapping to gene sets and a first dimension mapping to parallel runs
+    # ==========================================================================
+    # Section: Beta Sampling Core (inner Gibbs for gene-set effects).
+    # ==========================================================================
+    # there are two levels of parallelization here:
+    # 1. num_chains: sample multiple independent chains with the same beta/se/V
+    # 2. multiple parallel runs with different beta/se (and potentially V). To do this,
+    #    pass in lists of beta and se (must be the same length) and an optional list of V
+    #    (V must have same length as beta OR be a single shared matrix).
+    #
+    # to run this in parallel, pass in a two-dimensional beta_tildes matrix where rows are
+    # parallel runs and columns are gene sets. V can also be 3D with first dimension matching
+    # parallel runs.
     def _calculate_non_inf_betas(self, initial_p, return_sample=False, max_num_burn_in=None, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, eps=0.01, max_frac_sem=0.01, max_allowed_batch_correlation=None, beta_outlier_iqr_threshold=5, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, adjust_hyper_sigma_p=False, only_update_hyper=False, sigma_num_devs_to_top=2.0, p_noninf_inflate=1.0, num_p_pseudo=1, sparse_solution=False, sparse_frac_betas=None, betas_trace_out=None, betas_trace_gene_sets=None, beta_tildes=None, ses=None, V=None, X_orig=None, scale_factors=None, mean_shifts=None, is_dense_gene_set=None, ps=None, sigma2s=None, assume_independent=False, num_missing_gene_sets=None, debug_genes=None, debug_gene_sets=None, init_betas=None, init_postp=None):
 
+        # ==========================================================================
+        # Inner Beta Gibbs Phase 0: Validate inputs and set defaults.
+        # ==========================================================================
         debug_gene_sets = None
 
         if max_num_burn_in is None:
@@ -16398,6 +16407,9 @@ class GeneSetData(object):
         if len(beta_tildes.shape) == 0 or beta_tildes.shape[0] == 0:
             bail("No gene sets are left!")
 
+        # ==========================================================================
+        # Inner Beta Gibbs Phase 1: Normalize all inputs to parallel-friendly shapes.
+        # ==========================================================================
         #convert the beta_tildes and ses to matrices -- columns are num_parallel
         #they are always stored as matrices, with 1 column as needed
         #V on the other hand will be a 2-D matrix if it is constant across all parallel (or if there is only 1)
@@ -16460,51 +16472,39 @@ class GeneSetData(object):
         if scale_factors.shape != mean_shifts.shape:
             bail("scale_factors must have same dimension as mean_shifts")
 
-        if len(scale_factors.shape) == 2 and not scale_factors.shape[0] == num_parallel:
-            bail("scale_factors must have same number of parallel runs as beta_tildes")
-        elif len(scale_factors.shape) == 1 and num_parallel == 1:
-            scale_factors_m = scale_factors[np.newaxis,:]
-            mean_shifts_m = mean_shifts[np.newaxis,:]
-        elif len(scale_factors.shape) == 1 and num_parallel > 1:
-            scale_factors_m = np.tile(scale_factors, num_parallel).reshape((num_parallel, len(scale_factors)))
-            mean_shifts_m = np.tile(mean_shifts, num_parallel).reshape((num_parallel, len(mean_shifts)))
-        else:
-            scale_factors_m = copy.copy(scale_factors)
-            mean_shifts_m = copy.copy(mean_shifts)
+        def _to_parallel_matrix(values, name):
+            values = np.asarray(values)
+            if values.ndim == 1:
+                if values.shape[0] != num_gene_sets:
+                    bail("%s must have length num_gene_sets=%d; got %d" % (name, num_gene_sets, values.shape[0]))
+                if num_parallel == 1:
+                    return values[np.newaxis, :]
+                return np.tile(values, num_parallel).reshape((num_parallel, values.shape[0]))
+            if values.ndim == 2:
+                if values.shape[0] != num_parallel:
+                    bail("%s must have num_parallel=%d rows; got %d" % (name, num_parallel, values.shape[0]))
+                if values.shape[1] != num_gene_sets:
+                    bail("%s must have num_gene_sets=%d columns; got %d" % (name, num_gene_sets, values.shape[1]))
+                return copy.copy(values)
+            bail("%s must be a 1D or 2D array" % name)
 
-        if len(is_dense_gene_set.shape) == 2 and not is_dense_gene_set.shape[0] == num_parallel:
-            bail("is_dense_gene_set must have same number of parallel runs as beta_tildes")
-        elif len(is_dense_gene_set.shape) == 1 and num_parallel == 1:
-            is_dense_gene_set_m = is_dense_gene_set[np.newaxis,:]
-        elif len(is_dense_gene_set.shape) == 1 and num_parallel > 1:
-            is_dense_gene_set_m = np.tile(is_dense_gene_set, num_parallel).reshape((num_parallel, len(is_dense_gene_set)))
-        else:
-            is_dense_gene_set_m = copy.copy(is_dense_gene_set)
+        scale_factors_m = _to_parallel_matrix(scale_factors, "scale_factors")
+        mean_shifts_m = _to_parallel_matrix(mean_shifts, "mean_shifts")
+        is_dense_gene_set_m = _to_parallel_matrix(is_dense_gene_set, "is_dense_gene_set")
 
         if ps is not None:
-            if len(ps.shape) == 2 and not ps.shape[0] == num_parallel:
-                bail("ps must have same number of parallel runs as beta_tildes")
-            elif len(ps.shape) == 1 and num_parallel == 1:
-                ps_m = ps[np.newaxis,:]
-            elif len(ps.shape) == 1 and num_parallel > 1:
-                ps_m = np.tile(ps, num_parallel).reshape((num_parallel, len(ps)))
-            else:
-                ps_m = copy.copy(ps)
+            ps_m = _to_parallel_matrix(ps, "ps")
         else:
             ps_m = self.p
 
         if sigma2s is not None:
-            if len(sigma2s.shape) == 2 and not sigma2s.shape[0] == num_parallel:
-                bail("sigma2s must have same number of parallel runs as beta_tildes")
-            elif len(sigma2s.shape) == 1 and num_parallel == 1:
-                orig_sigma2_m = sigma2s[np.newaxis,:]
-            elif len(sigma2s.shape) == 1 and num_parallel > 1:
-                orig_sigma2_m = np.tile(sigma2s, num_parallel).reshape((num_parallel, len(sigma2s)))
-            else:
-                orig_sigma2_m = copy.copy(sigma2s)
+            orig_sigma2_m = _to_parallel_matrix(sigma2s, "sigma2s")
         else:
             orig_sigma2_m = self.sigma2
 
+        # ==========================================================================
+        # Inner Beta Gibbs Phase 2: Build gene-set batches and initialize state.
+        # ==========================================================================
         #for efficiency, batch genes to be updated each cycle
         if assume_independent:
             gene_set_masks = [np.full(beta_tildes_m.shape[1], True)]
@@ -16687,6 +16687,10 @@ class GeneSetData(object):
         sigma_underflow = False
         printed_warning_swing = False
         printed_warning_increase = False
+
+        # ==========================================================================
+        # Inner Beta Gibbs Phase 3: Iterative Gibbs updates + convergence checks.
+        # ==========================================================================
         while iteration_num < max_num_iter:  #Big iteration
 
             #if some have not converged, only sample for those that have not converged (for efficiency)
@@ -16713,6 +16717,7 @@ class GeneSetData(object):
             #generate normal random variable sampling
             rand_norms_t = scipy.stats.norm.rvs(0, 1, tensor_shape)
 
+            # 3a) Update each gene-set batch conditional on current chain state.
             for gene_set_mask_ind in range(len(gene_set_masks)):
 
                 #the challenge here is that gene_set_mask_m produces a ragged (non-square) tensor
@@ -16927,6 +16932,7 @@ class GeneSetData(object):
             sum_betas_t[:,compute_mask_v,:] = sum_betas_t[:,compute_mask_v,:] + curr_post_means_t[:,compute_mask_v,:]
             sum_betas2_t[:,compute_mask_v,:] = sum_betas2_t[:,compute_mask_v,:] + np.square(curr_post_means_t[:,compute_mask_v,:])
 
+            # 3b) Update convergence diagnostics and stopping conditions.
             #now calculate the convergence metrics
             R_m = np.zeros(matrix_shape)
             beta_weights_m = np.zeros(matrix_shape)
@@ -17179,6 +17185,7 @@ class GeneSetData(object):
                         #    break
                         
             else:
+                # 3c) Adapt hyperparameters (p, sigma) while still in burn-in.
                 if update_hyper_p or update_hyper_sigma:
                     # Hyper-updates use Rao-Blackwellized moments to avoid sigma collapse.
                     # conditional slab mean m = hdmp_hdmpn * res_beta_hat
@@ -17390,6 +17397,9 @@ class GeneSetData(object):
             if will_break:
                 break
 
+        # ==========================================================================
+        # Inner Beta Gibbs Phase 4: Finalize posterior summaries and return.
+        # ==========================================================================
 
         if betas_trace_out is not None:
             betas_trace_fh.close()
