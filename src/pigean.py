@@ -1730,7 +1730,6 @@ class GeneSetData(object):
         self.betas_mcse = None
         self.betas_uncorrected_r_hat = None
         self.betas_uncorrected_mcse = None
-        self.inf_betas = None
         self.non_inf_avg_cond_betas = None
         self.non_inf_avg_postps = None
 
@@ -1744,19 +1743,16 @@ class GeneSetData(object):
         self.betas_mcse_missing = None
         self.betas_uncorrected_r_hat_missing = None
         self.betas_uncorrected_mcse_missing = None
-        self.inf_betas_missing = None
         self.non_inf_avg_cond_betas_missing = None
         self.non_inf_avg_postps_missing = None
 
         self.betas_orig = None
         self.betas_uncorrected_orig = None
-        self.inf_betas_orig = None
         self.non_inf_avg_cond_betas_orig = None
         self.non_inf_avg_postps_orig = None
 
         self.betas_missing_orig = None
         self.betas_uncorrected_missing_orig = None
-        self.inf_betas_missing_orig = None
         self.non_inf_avg_cond_betas_missing_orig = None
         self.non_inf_avg_postps_missing_orig = None
 
@@ -8212,9 +8208,6 @@ class GeneSetData(object):
             if self.normalize_betas:
                 self.betas -= np.mean(self.betas)
 
-    def calculate_inf_betas(self, update_hyper_sigma=True, max_num_iter=20, eps=0.01):
-        bail("Infinitesimal beta path has been removed; use calculate_non_inf_betas()")
-
     def run_cross_val(self, cross_val_num_explore_each_direction, folds=4, cross_val_max_num_tries=2, p=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=4, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, **kwargs):
 
         log("Running cross validation", DEBUG)
@@ -8998,12 +8991,10 @@ class GeneSetData(object):
 
         self.betas_orig = copy.copy(self.betas)
         self.betas_uncorrected_orig = copy.copy(self.betas_uncorrected)
-        self.inf_betas_orig = copy.copy(self.inf_betas)
         self.non_inf_avg_cond_betas_orig = copy.copy(self.non_inf_avg_cond_betas)
         self.non_inf_avg_postps_orig = copy.copy(self.non_inf_avg_postps)
         self.betas_missing_orig = copy.copy(self.betas_missing)
         self.betas_uncorrected_missing_orig = copy.copy(self.betas_uncorrected_missing)
-        self.inf_betas_missing_orig = copy.copy(self.inf_betas_missing)
         self.non_inf_avg_cond_betas_missing_orig = copy.copy(self.non_inf_avg_cond_betas_missing)
         self.non_inf_avg_postps_missing_orig = copy.copy(self.non_inf_avg_postps_missing)
 
@@ -10843,7 +10834,6 @@ class GeneSetData(object):
             self.betas_mcse = beta_mcse_v
             self.betas_uncorrected_r_hat = beta_uncorrected_r_hat_v
             self.betas_uncorrected_mcse = beta_uncorrected_mcse_v
-            self.inf_betas = None
             self.non_inf_avg_cond_betas = None
             self.non_inf_avg_postps = avg_postp_v
 
@@ -12580,8 +12570,6 @@ class GeneSetData(object):
                 header = "%s\t%s" % (header, "scale")
             if self.beta_tildes is not None:
                 header = "%s\t%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde", "beta_tilde_internal", "P", "Z", "SE")
-            if self.inf_betas is not None and not basic:
-                header = "%s\t%s" % (header, "inf_beta")            
             if self.betas is not None:
                 header = "%s\t%s\t%s" % (header, "beta", "beta_internal")
                 if self.betas_r_hat is not None:
@@ -12597,8 +12585,6 @@ class GeneSetData(object):
                     header = "%s\t%s" % (header, "avg_postp")            
                 if self.beta_tildes_orig is not None:
                     header = "%s\t%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde_orig", "beta_tilde_internal_orig", "P_orig", "Z_orig", "SE_orig")
-                if self.inf_betas_orig is not None:
-                    header = "%s\t%s" % (header, "inf_beta_orig")            
                 if self.betas_orig is not None:
                     header = "%s\t%s\t%s" % (header, "beta_orig", "beta_internal_orig")
                 if self.betas_uncorrected_orig is not None:
@@ -12649,8 +12635,6 @@ class GeneSetData(object):
 
                 if self.beta_tildes is not None:
                     line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, self.beta_tildes[i] / self.scale_factors[i], self.beta_tildes[i], self.p_values[i], self.z_scores[i], self.ses[i] / self.scale_factors[i])
-                if self.inf_betas is not None and not basic:
-                    line = "%s\t%.3g" % (line, self.inf_betas[i] / self.scale_factors[i])            
                 if self.betas is not None:
                     line = "%s\t%.3g\t%.3g" % (line, self.betas[i] / self.scale_factors[i], self.betas[i])
                     if self.betas_r_hat is not None:
@@ -12666,8 +12650,6 @@ class GeneSetData(object):
                         line = "%s\t%.3g" % (line, self.non_inf_avg_postps[i])
                     if self.beta_tildes_orig is not None:
                         line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, self.beta_tildes_orig[i] / self.scale_factors[i], self.beta_tildes_orig[i], self.p_values_orig[i], self.z_scores_orig[i], self.ses_orig[i] / self.scale_factors[i])
-                    if self.inf_betas_orig is not None:
-                        line = "%s\t%.3g" % (line, self.inf_betas_orig[i] / self.scale_factors[i])            
                     if self.betas_orig is not None:
                         line = "%s\t%.3g\t%.3g" % (line, self.betas_orig[i] / self.scale_factors[i], self.betas_orig[i])
                     if self.betas_uncorrected_orig is not None:
@@ -12717,8 +12699,6 @@ class GeneSetData(object):
 
                     if self.beta_tildes is not None:
                         line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, self.beta_tildes_missing[i] / self.scale_factors_missing[i], self.beta_tildes_missing[i], self.p_values_missing[i], self.z_scores_missing[i], self.ses_missing[i] / self.scale_factors_missing[i])
-                    if self.inf_betas is not None and not basic:
-                        line = "%s\t%.3g" % (line, self.inf_betas_missing[i] / self.scale_factors_missing[i])            
                     if self.betas is not None:
                         line = "%s\t%.3g\t%.3g" % (line, self.betas_missing[i] / self.scale_factors_missing[i], self.betas_missing[i])
                         if self.betas_r_hat is not None:
@@ -12734,8 +12714,6 @@ class GeneSetData(object):
                             line = "%s\t%.3g" % (line, self.non_inf_avg_postps_missing[i])
                         if self.beta_tildes_orig is not None:
                             line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, self.beta_tildes_missing_orig[i] / self.scale_factors_missing[i], self.beta_tildes_missing_orig[i], self.p_values_missing_orig[i], self.z_scores_missing_orig[i], self.ses_missing_orig[i] / self.scale_factors_missing[i])
-                        if self.inf_betas_orig is not None:
-                            line = "%s\t%.3g" % (line, self.inf_betas_missing_orig[i] / self.scale_factors_missing[i])            
                         if self.betas_orig is not None:
                             line = "%s\t%.3g\t%.3g" % (line, self.betas_missing_orig[i] / self.scale_factors_missing[i], self.betas_missing_orig[i])
                         if self.betas_uncorrected_orig is not None:
@@ -12795,8 +12773,6 @@ class GeneSetData(object):
                             line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, self.beta_tildes_ignored[i] / scale_factor_denom, self.beta_tildes_ignored[i], self.p_values_ignored[i], self.z_scores_ignored[i], self.ses_ignored[i] / scale_factor_denom)
                         else:
                             line = "%s\t%s\t%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA", "NA", "NA")
-                    if self.inf_betas is not None and not basic:
-                        line = "%s\t%.3g" % (line, 0)            
                     if self.betas is not None:
                         line = "%s\t%.3g\t%.3g" % (line, ignored_beta_value, ignored_beta_value)
                         if self.betas_r_hat is not None:
@@ -12815,8 +12791,6 @@ class GeneSetData(object):
                                 line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, self.beta_tildes_ignored[i] / scale_factor_denom, self.beta_tildes_ignored[i], self.p_values_ignored[i], self.z_scores_ignored[i], self.ses_ignored[i] / scale_factor_denom)
                             else:
                                 line = "%s\t%s\t%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA", "NA", "NA")
-                        if self.inf_betas_orig is not None:
-                            line = "%s\t%.3g" % (line, 0)
                         if self.betas_orig is not None:
                             line = "%s\t%.3g\t%.3g" % (line, 0, 0)
                         if self.betas_uncorrected_orig is not None:
@@ -14239,12 +14213,6 @@ class GeneSetData(object):
                 extra_genes.append(gene)
 
         return (gene_bfs, extra_genes, np.array(extra_gene_bfs), gene_in_combined, gene_in_priors)
-
-    def _read_gene_zs(self, *args, **kwargs):
-        bail("Gene-Z score input mode has been removed; use --gene-stats-in or --gwas-in")
-
-    def _read_gene_percentiles(self, *args, **kwargs):
-        bail("Gene-percentile input mode has been removed; use --gene-stats-in or --gwas-in")
 
     def _read_gene_covs(self, gene_covs_in, gene_covs_id_col=None, gene_covs_cov_cols=None, **kwargs):
 
@@ -16333,9 +16301,6 @@ class GeneSetData(object):
                 se_inflation_factors = np.squeeze(se_inflation_factors, axis=0)
 
         return (beta_tildes, ses, z_scores, p_values, se_inflation_factors)
-
-    def _calculate_inf_betas(self, beta_tildes=None, ses=None, V=None, V_cor=None, se_inflation_factors=None, V_inv=None, scale_factors=None, is_dense_gene_set=None):
-        bail("Infinitesimal beta path has been removed; use _calculate_non_inf_betas()")
 
     #there are two levels of parallelization here:
     #1. num_chains: sample multiple independent chains with the same beta/se/V
@@ -18472,9 +18437,6 @@ class GeneSetData(object):
             if self.mean_qc_metrics is not None:
                 self.mean_qc_metrics_missing = self.mean_qc_metrics[remove_mask]
 
-            if self.inf_betas is not None:
-                self.inf_betas_missing = self.inf_betas[remove_mask]
-
             if self.betas_uncorrected is not None:
                 self.betas_uncorrected_missing = self.betas_uncorrected[remove_mask]
             if self.betas_r_hat is not None:
@@ -18493,8 +18455,6 @@ class GeneSetData(object):
             if self.non_inf_avg_postps is not None:
                 self.non_inf_avg_postps_missing = self.non_inf_avg_postps[remove_mask]
 
-            if self.inf_betas_orig is not None:
-                self.inf_betas_missing_orig = self.inf_betas_orig[remove_mask]
             if self.betas_orig is not None:
                 self.betas_missing_orig = self.betas_orig[remove_mask]
             if self.betas_uncorrected_orig is not None:
@@ -18561,9 +18521,6 @@ class GeneSetData(object):
         if self.mean_qc_metrics is not None:
             self.mean_qc_metrics = self.mean_qc_metrics[subset_mask]
 
-        if self.inf_betas is not None:
-            self.inf_betas = self.inf_betas[subset_mask]
-
         if self.betas_uncorrected is not None:
             self.betas_uncorrected = self.betas_uncorrected[subset_mask]
         if self.betas_r_hat is not None:
@@ -18582,8 +18539,6 @@ class GeneSetData(object):
         if self.non_inf_avg_postps is not None:
             self.non_inf_avg_postps = self.non_inf_avg_postps[subset_mask]
 
-        if self.inf_betas_orig is not None:
-            self.inf_betas_orig = self.inf_betas_orig[subset_mask]
         if self.betas_orig is not None:
             self.betas_orig = self.betas_orig[subset_mask]
         if self.betas_uncorrected_orig is not None:
@@ -18694,10 +18649,6 @@ class GeneSetData(object):
             self.ses_orig = np.append(self.ses_orig, self.ses_missing_orig)
             self.ses_missing_orig = None
 
-        if self.inf_betas_missing is not None:
-            self.inf_betas = np.append(self.inf_betas, self.inf_betas_missing)
-            self.inf_betas_missing = None
-
         if self.betas_uncorrected_missing is not None:
             self.betas_uncorrected = np.append(self.betas_uncorrected, self.betas_uncorrected_missing)
             self.betas_uncorrected_missing = None
@@ -18724,9 +18675,6 @@ class GeneSetData(object):
             self.non_inf_avg_postps = np.append(self.non_inf_avg_postps, self.non_inf_avg_postps_missing)
             self.non_inf_avg_postps_missing = None
 
-        if self.inf_betas_missing_orig is not None:
-            self.inf_betas_orig = np.append(self.inf_betas_orig, self.inf_betas_missing_orig)
-            self.inf_betas_missing_orig = None
         if self.betas_missing_orig is not None:
             self.betas_orig = np.append(self.betas_orig, self.betas_missing_orig)
             self.betas_missing_orig = None
