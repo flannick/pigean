@@ -1,4 +1,4 @@
-# pigean
+# PIGEAN
 
 PIGEAN codebase split into:
 - `src/`: new cleaned implementation (`pigean.py` and future modules)
