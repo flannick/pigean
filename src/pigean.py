@@ -539,7 +539,6 @@ parser.add_option("","--max-num-restarts",type=int,default=10) #maximum number o
 
 # Secondary precision controls.
 parser.add_option("","--stall-min-post-burn-samples",type=int,dest="stall_min_post_burn_in",default=50) #minimum post-burn-in samples before applying stall detectors
-parser.add_option("","--stall-min-post-burn-in",type=int,dest="stall_min_post_burn_in",default=50) #deprecated alias for --stall-min-post-burn-samples
 parser.add_option("","--stop-mcse-quantile",type=float,default=None) #use this quantile for MCSE-based stopping metrics
 parser.add_option("","--stop-patience",type=int,default=2) #require this many consecutive stopping passes
 
@@ -548,8 +547,6 @@ parser.add_option("","--strict-stopping",action="store_true",default=False) #swi
 parser.add_option("","--use-max-r-for-convergence",action="store_true") #for burn-in, use max beta R-hat (q=1.0) instead of --burn-in-rhat-quantile
 parser.add_option("","--burn-in-rhat-quantile",type=float,default=0.90) #use this quantile of active beta R-hat values for burn-in completion
 parser.add_option("","--burn-in-patience",type=int,default=2) #require this many consecutive burn-in passes
-parser.add_option("","--burn-in-post-reserve",type=int,dest="min_num_post_burn_in",default=None) #deprecated alias for --min-num-post-burn-in
-parser.add_option("","--min-post-burn-in",type=int,dest="min_num_post_burn_in",default=None) #deprecated alias for --min-num-post-burn-in
 parser.add_option("","--burn-in-stall-window",type=int,default=3) #if burn-in R-hat quantile fails to improve over this many diagnostics, stop burn-in
 parser.add_option("","--burn-in-stall-delta",type=float,default=0.01) #minimum R-hat quantile improvement over burn-in stall window
 parser.add_option("","--active-beta-top-k",type=int,default=200) #monitor this many top |beta| gene sets for diagnostics
@@ -838,6 +835,9 @@ REMOVED_OPTION_REPLACEMENTS = {
     "chisq_dynamic": None,
     "desired_intercept_difference": None,
     "chisq_threshold": None,
+    "stall_min_post_burn_in": "--stall-min-post-burn-samples",
+    "burn_in_post_reserve": "--min-num-post-burn-in",
+    "min_post_burn_in": "--min-num-post-burn-in",
 }
 
 def _fail_removed_cli_aliases(_argv):
@@ -906,14 +906,6 @@ if options.seed is not None:
     random.seed(options.seed)
     np.random.seed(options.seed)
     log("Using deterministic random seed %d" % options.seed, INFO)
-
-if "--min-post-burn-in" in sys.argv:
-    warn("Flag --min-post-burn-in is deprecated; use --min-num-post-burn-in instead")
-if "--burn-in-post-reserve" in sys.argv:
-    warn("Flag --burn-in-post-reserve is deprecated; use --min-num-post-burn-in instead")
-if "--stall-min-post-burn-in" in sys.argv:
-    warn("Flag --stall-min-post-burn-in is deprecated; use --stall-min-post-burn-samples instead")
-
 
 try:
     options.x_sparsify = [int(x) for x in options.x_sparsify]
