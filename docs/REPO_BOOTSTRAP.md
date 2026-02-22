@@ -10,7 +10,7 @@ git init
 ## 2) Stage legacy script snapshot
 
 ```bash
-python scripts/stage_legacy.py --source /ABS/PATH/TO/priors.warm_stopping.py
+python scripts/stage_legacy.py --source /ABS/PATH/TO/priors.py
 ```
 
 ## 3) Create/update bundle catalog
@@ -29,11 +29,17 @@ python scripts/fetch_bundles.py --catalog catalog/bundles.json --profile minimal
 ## 5) Run a profile
 
 ```bash
-python scripts/run_legacy.py \
+## edit config/profiles/common.factor.json first:
+## replace __BUNDLE_ROOT__ with your bundle root, e.g. /abs/path/to/pigean/bundles/current
+
+GENE_CSV=$(awk 'NF && $1 !~ /^#/ {print $1}' data/mody.gene.list | awk '!seen[$1]++' | paste -sd ',' -)
+
+../../.venv/bin/python legacy/priors.py \
   --config config/profiles/gene_list.default.json \
-  --gene-list-in data/mody.gene.list \
-  --out-dir results \
-  --run-name MODY
+  --positive-controls-list "$GENE_CSV" \
+  --gene-stats-out results/MODY.gene_stats.out \
+  --gene-set-stats-out results/MODY.gene_set_stats.out \
+  --params-out results/MODY.params.out
 ```
 
 ## 6) Publish bundles

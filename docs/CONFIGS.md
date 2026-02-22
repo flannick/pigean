@@ -6,6 +6,9 @@ Users should provide:
 1. `--config config/profiles/<profile>.default.json`
 2. exactly one runtime input file (`--gwas-in`, `--exomes-in`, `--huge-statistics-in`, or `--gene-list-in`)
 
+`config/profiles/common.factor.json` uses `__BUNDLE_ROOT__` placeholders.
+After downloading bundles, replace `__BUNDLE_ROOT__` with your bundle root (usually `<repo>/bundles/current`).
+
 For `--X-list` behavior parity with separate `--X-in`, each line should include explicit batch labels:
 
 ```text

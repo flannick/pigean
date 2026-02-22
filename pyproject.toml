@@ -1,7 +1,7 @@
 [project]
 name = "pigean"
 version = "0.1.0"
-description = "PIGEAN refactor + legacy compatibility repo"
+description = "PIGEAN (Priors Inferred from GEne ANnotations"
 requires-python = ">=3.10"
 
 [tool.pytest.ini_options]

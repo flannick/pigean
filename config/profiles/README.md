@@ -1,11 +1,14 @@
 # Default profiles
 
-These profiles provide all static bundle-backed resources so users only pass:
-- a profile config
-- one runtime input (`--gwas-in`, `--exomes-in`, `--huge-statistics-in`, or `--gene-list-in`)
+These profiles provide static bundle-backed resources.
 
-Use via wrapper:
+Before running, edit `config/profiles/common.factor.json`:
+- replace `__BUNDLE_ROOT__` with your installed bundle root (typically `<repo>/bundles/current`).
+
+Use directly with `legacy/priors.py`:
 
 ```bash
-python scripts/run_legacy.py --config config/profiles/gwas.default.json --gwas-in <file>
+../../.venv/bin/python legacy/priors.py \
+  --config config/profiles/gwas.default.json \
+  --gwas-in <file>
 ```

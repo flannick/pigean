@@ -21,7 +21,7 @@ def sha256_file(path: Path) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Copy a legacy priors script snapshot into legacy/")
     ap.add_argument("--source", type=Path, required=True)
-    ap.add_argument("--dest", type=Path, default=Path("legacy/priors.warm_stopping.py"))
+    ap.add_argument("--dest", type=Path, default=Path("legacy/priors.py"))
     args = ap.parse_args()
 
     src = args.source.resolve()

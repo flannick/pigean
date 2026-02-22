@@ -174,6 +174,13 @@ def main() -> int:
             print(f"Installed {name} -> {install_dir}")
             print(f"Updated link {current_link} -> {current_link.readlink()}")
 
+    if not args.dry_run:
+        bundle_root = (args.dest / "current").resolve()
+        print("")
+        print("Next step:")
+        print(f"- Edit config/profiles/common.factor.json and replace __BUNDLE_ROOT__ with:")
+        print(f"  {bundle_root}")
+
     return 0
 
 
