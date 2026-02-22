@@ -56,6 +56,12 @@ class PigeanCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("option --stall-min-post-burn-in has been removed; use --stall-min-post-burn-samples instead", err)
 
+    def test_removed_min_num_iter_alias_has_replacement_message(self) -> None:
+        proc = self._run("gibbs", "--min-num-iter", "50")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("option --min-num-iter has been removed; use --min-num-post-burn-in instead", err)
+
     def test_deterministic_sets_seed_zero(self) -> None:
         proc = self._run("gibbs", "--deterministic", "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
@@ -118,6 +124,19 @@ class PigeanCliTest(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             err = (proc.stderr or "") + (proc.stdout or "")
             self.assertIn("Config key 'min_post_burn_in' has been removed", err)
+            self.assertIn("use 'min_num_post_burn_in' (CLI: --min-num-post-burn-in) instead", err)
+
+    def test_config_removed_min_num_iter_alias_has_replacement_message(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            cfg_path = Path(td) / "cfg.json"
+            cfg_path.write_text(
+                json.dumps({"mode": "gibbs", "options": {"min_num_iter": 50}}),
+                encoding="utf-8",
+            )
+            proc = self._run("--config", str(cfg_path))
+            self.assertNotEqual(proc.returncode, 0)
+            err = (proc.stderr or "") + (proc.stdout or "")
+            self.assertIn("Config key 'min_num_iter' has been removed", err)
             self.assertIn("use 'min_num_post_burn_in' (CLI: --min-num-post-burn-in) instead", err)
 
     def test_factor_mode_disabled_in_pigean(self) -> None:
