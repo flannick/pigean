@@ -18989,12 +18989,22 @@ def main():
     def _compute_gene_set_stats_and_betas():
         run_gibbs_for_factor = False
         run_beta_for_factor = False
+        needs_gene_set_stats = (
+            run_beta_tilde
+            or run_beta
+            or run_priors
+            or run_naive_priors
+            or run_gibbs
+            or (run_factor and not use_phewas_for_factoring and (options.anchor_gene_set is not None or not factor_gene_set_x_pheno))
+            or (run_factor and (options.add_gene_sets_by_naive or options.add_gene_sets_by_gibbs))
+            or run_sim
+        )
 
-        if run_factor is not None and options.const_gene_set_beta is not None:
+        if run_factor and options.const_gene_set_beta is not None:
             g.beta_tildes = np.full(len(g.gene_sets), options.const_gene_set_beta)
         elif options.gene_set_stats_in is not None and not use_phewas_for_factoring:
             g.read_gene_set_statistics(options.gene_set_stats_in, stats_id_col=options.gene_set_stats_id_col, stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col, stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col, stats_p_col=options.gene_set_stats_p_col, stats_se_col=options.gene_set_stats_se_col, stats_beta_col=options.gene_set_stats_beta_col, stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col, ignore_negative_exp_beta=options.ignore_negative_exp_beta, max_gene_set_p=options.max_gene_set_read_p, min_gene_set_beta=options.min_gene_set_read_beta, min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected)
-        elif run_beta_tilde or run_beta or run_priors or run_naive_priors or run_gibbs or (run_factor and not use_phewas_for_factoring and (options.anchor_gene_set is not None or not factor_gene_set_x_pheno)) or (run_factor and (options.add_gene_sets_by_naive or options.add_gene_sets_by_gibbs)) or run_sim:
+        elif needs_gene_set_stats:
             if run_factor:
                 run_beta_for_factor = True
                 if not run_naive_factor:
@@ -19012,24 +19022,48 @@ def main():
             if options.gene_phewas_bfs_in:
                 g.read_gene_phewas_bfs(gene_phewas_bfs_in=options.gene_phewas_bfs_in,gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, anchor_genes=options.anchor_genes, anchor_phenos=options.anchor_phenos, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id, min_value=options.min_gene_phewas_read_value, max_num_entries_at_once=options.max_read_entries_at_once)
 
-        if (run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor) and g.sigma2 is None:
+        needs_gene_set_betas = run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor
+        if needs_gene_set_betas and g.sigma2 is None:
             bail("Sigma2 was not initialized; provide --sigma2 explicitly")
 
         if options.cross_val:
             g.run_cross_val(options.cross_val_num_explore_each_direction, folds=options.cross_val_folds, cross_val_max_num_tries=options.cross_val_max_num_tries, p=g.p, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, run_logistic=not options.linear, max_for_linear=options.max_for_linear, run_corrected_ols=not options.ols, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas)
 
         #gene set betas
-        if run_factor is not None and options.const_gene_set_beta is not None:
+        if run_factor and options.const_gene_set_beta is not None:
             g.betas = np.full(len(g.gene_sets), options.const_gene_set_beta)
             g.betas_uncorrected = np.full(len(g.gene_sets), options.const_gene_set_beta)
         elif (not run_factor or not use_phewas_for_factoring) and options.gene_set_betas_in:
             g.read_betas(options.gene_set_betas_in)
-        elif run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor:
+        elif needs_gene_set_betas:
             #update hyper was done above while while reading x
-            g.calculate_non_inf_betas(g.p, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, max_allowed_batch_correlation=options.max_allowed_batch_correlation, gauss_seidel=options.gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, pre_filter_batch_size=options.pre_filter_batch_size, pre_filter_small_batch_size=options.pre_filter_small_batch_size, betas_trace_out=options.betas_trace_out)
+            beta_sampling_kwargs = dict(
+                max_num_burn_in=options.max_num_burn_in,
+                max_num_iter=options.max_num_iter_betas,
+                min_num_iter=options.min_num_iter_betas,
+                num_chains=options.num_chains_betas,
+                r_threshold_burn_in=options.r_threshold_burn_in_betas,
+                use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
+                max_frac_sem=options.max_frac_sem_betas,
+                max_allowed_batch_correlation=options.max_allowed_batch_correlation,
+                gauss_seidel=options.gauss_seidel_betas,
+                update_hyper_sigma=False,
+                update_hyper_p=False,
+                sparse_solution=options.sparse_solution,
+                sparse_frac_betas=options.sparse_frac_betas,
+                pre_filter_batch_size=options.pre_filter_batch_size,
+                pre_filter_small_batch_size=options.pre_filter_small_batch_size,
+                betas_trace_out=options.betas_trace_out,
+            )
+            g.calculate_non_inf_betas(g.p, **beta_sampling_kwargs)
 
             if options.betas_uncorrected_from_phewas:
-                g.calculate_non_inf_betas(g.p, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, max_allowed_batch_correlation=options.max_allowed_batch_correlation, gauss_seidel=options.gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, pre_filter_batch_size=options.pre_filter_batch_size, pre_filter_small_batch_size=options.pre_filter_small_batch_size, betas_trace_out=options.betas_trace_out, run_betas_using_phewas=options.betas_from_phewas, run_uncorrected_using_phewas=True)
+                phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
+                phewas_beta_sampling_kwargs.update({
+                    "run_betas_using_phewas": options.betas_from_phewas,
+                    "run_uncorrected_using_phewas": True,
+                })
+                g.calculate_non_inf_betas(g.p, **phewas_beta_sampling_kwargs)
 
         return run_gibbs_for_factor
 
@@ -19040,7 +19074,7 @@ def main():
             g.calculate_naive_priors(adjust_priors=options.adjust_priors)
 
     def _run_outer_gibbs_if_requested(run_gibbs_for_factor):
-        if run_factor is not None and options.const_gene_log_bf is not None:
+        if run_factor and options.const_gene_log_bf is not None:
             g.Y = np.full(len(g.genes), options.const_gene_log_bf)
             g.combined_prior_Ys = np.full(len(g.genes), options.const_gene_log_bf)
         elif run_gibbs or run_gibbs_for_factor:
@@ -19076,6 +19110,9 @@ def main():
         if options.gene_effectors_out:
             g.write_gene_effectors(options.gene_effectors_out)
 
+    def _run_gene_phewas(bfs_to_use, run_for_factors=False, batch_size=1500, min_gene_factor_weight=0):
+        g.run_phewas(gene_phewas_bfs_in=bfs_to_use,gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, run_for_factors=run_for_factors, batch_size=batch_size, min_gene_factor_weight=min_gene_factor_weight)
+
     def _run_phewas_if_requested():
         if run_phewas:
             bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
@@ -19084,7 +19121,7 @@ def main():
                 #we can skip reading if we are using the same file as previously read and we didn't threshold that file
                 bfs_to_use = None
 
-            g.run_phewas(gene_phewas_bfs_in=bfs_to_use,gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas)
+            _run_gene_phewas(bfs_to_use)
             if options.phewas_stats_out:
                 g.write_phewas_statistics(options.phewas_stats_out)
 
@@ -19130,7 +19167,7 @@ def main():
                     #we can skip reading if we are using the same file as previously read and we didn't threshold that file
                     bfs_to_use = None
 
-                g.run_phewas(gene_phewas_bfs_in=bfs_to_use,gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, run_for_factors=True, batch_size=300, min_gene_factor_weight=options.factor_phewas_min_gene_factor_weight)
+                _run_gene_phewas(bfs_to_use, run_for_factors=True, batch_size=300, min_gene_factor_weight=options.factor_phewas_min_gene_factor_weight)
                 if options.factor_phewas_stats_out:
                     g.write_factor_phewas_statistics(options.factor_phewas_stats_out)
             else:
