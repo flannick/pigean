@@ -8213,64 +8213,7 @@ class GeneSetData(object):
                 self.betas -= np.mean(self.betas)
 
     def calculate_inf_betas(self, update_hyper_sigma=True, max_num_iter=20, eps=0.01):
-        #catch the "death spiral"
-        orig_sigma2 = self.sigma2
-        orig_inf_betas = None
-        significant_decrease = 0
-        total = 0
-        converged = False
-
-        V = self._get_V()
-
-        if self.y_corr_sparse is not None:
-            V_cor = self._calculate_V_internal(self.X_orig, None, self.mean_shifts, self.scale_factors, y_corr_sparse=self.y_corr_sparse)
-            V_inv = self._invert_sym_matrix(V)
-        else:
-            V_cor = None
-            V_inv = None
-
-        for i in range(max_num_iter):
-            inf_betas = self._calculate_inf_betas(V_cor=V_cor, V_inv=V_inv, se_inflation_factors=self.se_inflation_factors)
-
-            if not update_hyper_sigma:
-                break
-
-            if orig_inf_betas is None:
-                orig_inf_betas = inf_betas
-
-            h2 = inf_betas.dot(V).dot(inf_betas)
-            if self.sigma_power is not None:
-                #np.sum(sigma2 * np.square(self.scale_factors)) = h2
-                new_sigma2 = h2 / np.sum(np.power(self.scale_factors, self.sigma_power))
-            else:
-                new_sigma2 = h2 / len(inf_betas)
-            if abs(new_sigma2 - self.sigma2) / self.sigma2 < eps:
-                converged = True
-                break
-            log("Updating sigma to: %.4g" % new_sigma2, TRACE)
-
-            total += 1
-            if new_sigma2 < self.sigma2:
-                significant_decrease += 1
-            self.set_sigma(new_sigma2, self.sigma_power)
-            if new_sigma2 == 0:
-                break
-
-        #don't degrade it too much
-        if total > 0 and not converged and float(significant_decrease) / float(total) == 1:
-            log("Reverting to original sigma=%.4g due to convergence to 0" % orig_sigma2, TRACE)
-            inf_betas = orig_inf_betas
-            self.set_sigma(orig_sigma2, self.sigma_power)
-
-        if self.betas is None or self.betas is self.inf_betas:
-            self.betas = inf_betas
-
-        self.inf_betas = inf_betas
-
-        if self.gene_sets_missing is not None:
-            self.betas_missing = np.zeros(len(self.gene_sets_missing))
-            self.betas_uncorrected_missing = np.zeros(len(self.gene_sets_missing))
-            self.inf_betas_missing = np.zeros(len(self.gene_sets_missing))
+        bail("Infinitesimal beta path has been removed; use calculate_non_inf_betas()")
 
     def run_cross_val(self, cross_val_num_explore_each_direction, folds=4, cross_val_max_num_tries=2, p=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=4, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, **kwargs):
 
@@ -16392,53 +16335,7 @@ class GeneSetData(object):
         return (beta_tildes, ses, z_scores, p_values, se_inflation_factors)
 
     def _calculate_inf_betas(self, beta_tildes=None, ses=None, V=None, V_cor=None, se_inflation_factors=None, V_inv=None, scale_factors=None, is_dense_gene_set=None):
-        if V is None:
-            bail("Require V")
-        if beta_tildes is None:
-            beta_tildes = self.beta_tildes
-        if ses is None:
-            ses = self.ses
-        if scale_factors is None:
-            scale_factors = self.scale_factors
-        if is_dense_gene_set is None:
-            is_dense_gene_set = self.is_dense_gene_set
-
-        if V is None:
-            bail("V is required for this operation")
-        if beta_tildes is None:
-            bail("Cannot calculate sigma with no stats loaded!")
-        if self.sigma2 is None:
-            bail("Need sigma to calculate betas!")
-
-        log("Calculating infinitesimal betas")
-        sigma2 = self.sigma2
-        if self.sigma_power is not None:
-            #sigma2 = self.sigma2 * np.power(scale_factors, self.sigma_power)
-            sigma2 = self.get_scaled_sigma2(scale_factors, self.sigma2, self.sigma_power, self.sigma_threshold_k, self.sigma_threshold_xo)
-
-            #for dense gene sets, scaling by size doesn't make sense. So use mean size across sparse gene sets
-            if np.sum(is_dense_gene_set) > 0:
-                if np.sum(~is_dense_gene_set) > 0:
-                    #sigma2[is_dense_gene_set] = self.sigma2 * np.power(np.mean(scale_factors[~is_dense_gene_set]), self.sigma_power)
-                    sigma2[is_dense_gene_set] = self.get_scaled_sigma2(np.mean(scale_factors[~is_dense_gene_set]), self.sigma2, self.sigma_power, self.sigma_threshold_k, self.sigma_threshold_xo)
-
-                else:
-                    #sigma2[is_dense_gene_set] = self.sigma2 * np.power(np.mean(scale_factors), self.sigma_power)
-                    sigma2[is_dense_gene_set] = self.get_scaled_sigma2(np.mean(scale_factors), self.sigma2, self.sigma_power, self.sigma_threshold_k, self.sigma_threshold_xo)
-
-        orig_shrinkage_fac=np.diag(np.square(ses)/sigma2)
-        shrinkage_fac = orig_shrinkage_fac
-
-        #handle corrected OLS case
-        if V_cor is not None and se_inflation_factors is not None:
-            if V_inv is None:
-                V_inv = self._invert_sym_matrix(V)
-            shrinkage_fac = V_cor.dot(V_inv).dot(shrinkage_fac / np.square(se_inflation_factors))
-            shrinkage_inv = self._invert_matrix(V + shrinkage_fac)
-            return shrinkage_inv.dot(beta_tildes)
-        else:
-            cho_factor = scipy.linalg.cho_factor(V + shrinkage_fac)
-            return scipy.linalg.cho_solve(cho_factor, beta_tildes)
+        bail("Infinitesimal beta path has been removed; use _calculate_non_inf_betas()")
 
     #there are two levels of parallelization here:
     #1. num_chains: sample multiple independent chains with the same beta/se/V
@@ -19197,8 +19094,6 @@ def main():
         elif (not run_factor or not use_phewas_for_factoring) and options.gene_set_betas_in:
             g.read_betas(options.gene_set_betas_in)
         elif run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor:
-            #if False:
-            #    g.calculate_inf_betas(update_hyper_sigma=options.update_hyper_sigma)
             #update hyper was done above while while reading x
             g.calculate_non_inf_betas(g.p, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, max_allowed_batch_correlation=options.max_allowed_batch_correlation, gauss_seidel=options.gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, pre_filter_batch_size=options.pre_filter_batch_size, pre_filter_small_batch_size=options.pre_filter_small_batch_size, betas_trace_out=options.betas_trace_out)
 
