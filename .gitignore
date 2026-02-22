@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Outputs
+results/
+figures/
+reports/
+logs/
+
+# Bundles (downloaded artifacts)
+bundles/current/
+bundles/*.tar
+bundles/*.tar.gz
+dist/bundles/
+
+# Local overrides
+catalog/bundles.json
+
+# Build staging
+.tmp_bundle_stage/

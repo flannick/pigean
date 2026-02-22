@@ -1,0 +1,30 @@
+{
+  "profiles": {
+    "minimal": ["core_small", "x_panels"],
+    "standard": ["core_small", "x_panels", "phewas_large"],
+    "all": ["*"]
+  },
+  "modes": {
+    "gwas": ["core_small", "x_panels", "phewas_large"],
+    "exomes": ["core_small", "x_panels", "phewas_large"],
+    "huge_scores": ["core_small", "x_panels", "phewas_large"],
+    "gene_list": ["core_small", "x_panels", "phewas_large"]
+  },
+  "bundles": {
+    "core_small": {
+      "version": "2026.02.0",
+      "url": "https://REPLACE_WITH_STORAGE_URL/core_small-2026.02.0.tar.gz",
+      "sha256": "REPLACE_WITH_SHA256"
+    },
+    "x_panels": {
+      "version": "2026.02.0",
+      "url": "https://REPLACE_WITH_STORAGE_URL/x_panels-2026.02.0.tar.gz",
+      "sha256": "REPLACE_WITH_SHA256"
+    },
+    "phewas_large": {
+      "version": "2026.02.0",
+      "url": "https://REPLACE_WITH_STORAGE_URL/phewas_large-2026.02.0.tar.gz",
+      "sha256": "REPLACE_WITH_SHA256"
+    }
+  }
+}
