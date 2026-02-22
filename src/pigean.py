@@ -19000,6 +19000,26 @@ def main():
             or run_sim
         )
 
+        def _build_gene_set_stats_kwargs(max_gene_set_p, run_using_phewas=False):
+            kwargs = dict(
+                max_gene_set_p=max_gene_set_p,
+                run_gls=False,
+                run_logistic=not options.linear,
+                max_for_linear=options.max_for_linear,
+                run_corrected_ols=not options.ols,
+                use_sampling_for_betas=options.use_sampling_for_betas,
+                correct_betas_mean=options.correct_betas_mean,
+                correct_betas_var=options.correct_betas_var,
+                gene_loc_file=options.gene_loc_file,
+                gene_cor_file=options.gene_cor_file,
+                gene_cor_file_gene_col=options.gene_cor_file_gene_col,
+                gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
+            )
+            if run_using_phewas:
+                kwargs["Y"] = g.gene_pheno_Y
+                kwargs["run_using_phewas"] = True
+            return kwargs
+
         if run_factor and options.const_gene_set_beta is not None:
             g.beta_tildes = np.full(len(g.gene_sets), options.const_gene_set_beta)
         elif options.gene_set_stats_in is not None and not use_phewas_for_factoring:
@@ -19010,10 +19030,11 @@ def main():
                 if not run_naive_factor:
                     run_gibbs_for_factor = True
 
-            g.calculate_gene_set_statistics(max_gene_set_p=options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1, run_gls=False, run_logistic=not options.linear, max_for_linear=options.max_for_linear, run_corrected_ols=not options.ols, use_sampling_for_betas=options.use_sampling_for_betas, correct_betas_mean=options.correct_betas_mean, correct_betas_var=options.correct_betas_var, gene_loc_file=options.gene_loc_file, gene_cor_file=options.gene_cor_file, gene_cor_file_gene_col=options.gene_cor_file_gene_col, gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col)
+            max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
+            g.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs(max_gene_set_p=max_gene_set_p))
 
             if options.betas_uncorrected_from_phewas:
-                g.calculate_gene_set_statistics(max_gene_set_p=1, run_gls=False, run_logistic=not options.linear, max_for_linear=options.max_for_linear, run_corrected_ols=not options.ols, use_sampling_for_betas=options.use_sampling_for_betas, correct_betas_mean=options.correct_betas_mean, correct_betas_var=options.correct_betas_var, gene_loc_file=options.gene_loc_file, gene_cor_file=options.gene_cor_file, gene_cor_file_gene_col=options.gene_cor_file_gene_col, gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col, Y=g.gene_pheno_Y, run_using_phewas=True)
+                g.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs(max_gene_set_p=1, run_using_phewas=True))
 
         if run_factor:
             if options.gene_set_phewas_stats_in is not None:
@@ -19067,30 +19088,127 @@ def main():
 
         return run_gibbs_for_factor
 
+    def _build_priors_kwargs():
+        return dict(
+            max_gene_set_p=options.filter_gene_set_p,
+            num_gene_batches=options.priors_num_gene_batches,
+            correct_betas_mean=options.correct_betas_mean,
+            correct_betas_var=options.correct_betas_var,
+            gene_loc_file=options.gene_loc_file,
+            gene_cor_file=options.gene_cor_file,
+            gene_cor_file_gene_col=options.gene_cor_file_gene_col,
+            gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
+            p_noninf=g.p,
+            run_logistic=not options.linear,
+            max_for_linear=options.max_for_linear,
+            adjust_priors=options.adjust_priors,
+            max_num_burn_in=options.max_num_burn_in,
+            max_num_iter=options.max_num_iter_betas,
+            min_num_iter=options.min_num_iter_betas,
+            num_chains=options.num_chains_betas,
+            r_threshold_burn_in=options.r_threshold_burn_in_betas,
+            use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
+            max_frac_sem=options.max_frac_sem_betas,
+            max_allowed_batch_correlation=options.max_allowed_batch_correlation,
+            gauss_seidel=options.gauss_seidel_betas,
+            sparse_solution=options.sparse_solution,
+            sparse_frac_betas=options.sparse_frac_betas,
+        )
+
     def _compute_priors_if_requested():
         if run_priors:
-            g.calculate_priors(max_gene_set_p=options.filter_gene_set_p, num_gene_batches=options.priors_num_gene_batches, correct_betas_mean=options.correct_betas_mean, correct_betas_var=options.correct_betas_var, gene_loc_file=options.gene_loc_file, gene_cor_file=options.gene_cor_file, gene_cor_file_gene_col=options.gene_cor_file_gene_col, gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col, p_noninf=g.p, run_logistic=not options.linear, max_for_linear=options.max_for_linear, adjust_priors=options.adjust_priors, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, max_allowed_batch_correlation=options.max_allowed_batch_correlation, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas)
+            g.calculate_priors(**_build_priors_kwargs())
         elif run_naive_priors or (run_naive_factor and not use_phewas_for_factoring):
             g.calculate_naive_priors(adjust_priors=options.adjust_priors)
+
+    def _build_gibbs_kwargs():
+        return dict(
+            max_num_iter=options.max_num_iter,
+            total_num_iter=options.total_num_iter_gibbs,
+            max_num_restarts=options.max_num_restarts,
+            num_chains=options.num_chains,
+            num_mad=options.num_mad,
+            r_threshold_burn_in=options.r_threshold_burn_in,
+            use_max_r_for_convergence=options.use_max_r_for_convergence,
+            increase_hyper_if_betas_below=options.increase_hyper_if_betas_below,
+            update_huge_scores=options.update_huge_scores,
+            top_gene_prior=options.top_gene_prior,
+            min_num_burn_in=options.min_num_burn_in,
+            max_num_burn_in=options.max_num_burn_in,
+            min_num_post_burn_in=options.min_num_post_burn_in,
+            max_num_post_burn_in=options.max_num_post_burn_in,
+            max_num_iter_betas=options.max_num_iter_betas,
+            min_num_iter_betas=options.min_num_iter_betas,
+            num_chains_betas=options.num_chains_betas,
+            r_threshold_burn_in_betas=options.r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=options.use_max_r_for_convergence_betas,
+            max_frac_sem_betas=options.max_frac_sem_betas,
+            use_mean_betas=not options.use_sampled_betas_in_gibbs,
+            warm_start=options.warm_start,
+            burn_in_rhat_quantile=options.burn_in_rhat_quantile,
+            burn_in_patience=options.burn_in_patience,
+            burn_in_stall_window=options.burn_in_stall_window,
+            burn_in_stall_delta=options.burn_in_stall_delta,
+            stop_mcse_quantile=options.stop_mcse_quantile,
+            stop_patience=options.stop_patience,
+            stop_top_gene_k=options.stop_top_gene_k,
+            stop_min_gene_d=options.stop_min_gene_d,
+            max_abs_mcse_d=options.max_abs_mcse_d,
+            max_rel_mcse_beta=options.max_rel_mcse_beta,
+            active_beta_top_k=options.active_beta_top_k,
+            active_beta_min_abs=options.active_beta_min_abs,
+            beta_rel_mcse_denom_floor=options.beta_rel_mcse_denom_floor,
+            stall_window=options.stall_window,
+            stall_min_burn_in=options.stall_min_burn_in,
+            stall_min_post_burn_in=options.stall_min_post_burn_in,
+            stall_delta_rhat=options.stall_delta_rhat,
+            stall_delta_mcse=options.stall_delta_mcse,
+            stall_recent_window=options.stall_recent_window,
+            stall_recent_eps=options.stall_recent_eps,
+            stopping_preset_name=options.gibbs_stopping_preset,
+            diag_every=options.diag_every,
+            sparse_frac_gibbs=options.sparse_frac_gibbs,
+            sparse_max_gibbs=options.sparse_max_gibbs,
+            sparse_solution=options.sparse_solution,
+            sparse_frac_betas=options.sparse_frac_betas,
+            pre_filter_batch_size=options.pre_filter_batch_size,
+            pre_filter_small_batch_size=options.pre_filter_small_batch_size,
+            max_allowed_batch_correlation=options.max_allowed_batch_correlation,
+            gauss_seidel=options.gauss_seidel,
+            gauss_seidel_betas=options.gauss_seidel_betas,
+            num_batches_parallel=options.gibbs_num_batches_parallel,
+            max_mb_X_h=options.gibbs_max_mb_X_h,
+            initial_linear_filter=options.initial_linear_filter,
+            adjust_priors=options.adjust_priors,
+            correct_betas_mean=options.correct_betas_mean,
+            correct_betas_var=options.correct_betas_var,
+            gene_set_stats_trace_out=options.gene_set_stats_trace_out,
+            gene_stats_trace_out=options.gene_stats_trace_out,
+            betas_trace_out=options.betas_trace_out,
+        )
 
     def _run_outer_gibbs_if_requested(run_gibbs_for_factor):
         if run_factor and options.const_gene_log_bf is not None:
             g.Y = np.full(len(g.genes), options.const_gene_log_bf)
             g.combined_prior_Ys = np.full(len(g.genes), options.const_gene_log_bf)
         elif run_gibbs or run_gibbs_for_factor:
-            g.run_gibbs(max_num_iter=options.max_num_iter, total_num_iter=options.total_num_iter_gibbs, max_num_restarts=options.max_num_restarts, num_chains=options.num_chains, num_mad=options.num_mad, r_threshold_burn_in=options.r_threshold_burn_in, use_max_r_for_convergence=options.use_max_r_for_convergence, increase_hyper_if_betas_below=options.increase_hyper_if_betas_below, update_huge_scores=options.update_huge_scores, top_gene_prior=options.top_gene_prior, min_num_burn_in=options.min_num_burn_in, max_num_burn_in=options.max_num_burn_in, min_num_post_burn_in=options.min_num_post_burn_in, max_num_post_burn_in=options.max_num_post_burn_in, max_num_iter_betas=options.max_num_iter_betas, min_num_iter_betas=options.min_num_iter_betas, num_chains_betas=options.num_chains_betas, r_threshold_burn_in_betas=options.r_threshold_burn_in_betas, use_max_r_for_convergence_betas=options.use_max_r_for_convergence_betas, max_frac_sem_betas=options.max_frac_sem_betas, use_mean_betas=not options.use_sampled_betas_in_gibbs, warm_start=options.warm_start, burn_in_rhat_quantile=options.burn_in_rhat_quantile, burn_in_patience=options.burn_in_patience, burn_in_stall_window=options.burn_in_stall_window, burn_in_stall_delta=options.burn_in_stall_delta, stop_mcse_quantile=options.stop_mcse_quantile, stop_patience=options.stop_patience, stop_top_gene_k=options.stop_top_gene_k, stop_min_gene_d=options.stop_min_gene_d, max_abs_mcse_d=options.max_abs_mcse_d, max_rel_mcse_beta=options.max_rel_mcse_beta, active_beta_top_k=options.active_beta_top_k, active_beta_min_abs=options.active_beta_min_abs, beta_rel_mcse_denom_floor=options.beta_rel_mcse_denom_floor, stall_window=options.stall_window, stall_min_burn_in=options.stall_min_burn_in, stall_min_post_burn_in=options.stall_min_post_burn_in, stall_delta_rhat=options.stall_delta_rhat, stall_delta_mcse=options.stall_delta_mcse, stall_recent_window=options.stall_recent_window, stall_recent_eps=options.stall_recent_eps, stopping_preset_name=options.gibbs_stopping_preset, diag_every=options.diag_every, sparse_frac_gibbs=options.sparse_frac_gibbs, sparse_max_gibbs=options.sparse_max_gibbs, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, pre_filter_batch_size=options.pre_filter_batch_size, pre_filter_small_batch_size=options.pre_filter_small_batch_size, max_allowed_batch_correlation=options.max_allowed_batch_correlation, gauss_seidel=options.gauss_seidel, gauss_seidel_betas=options.gauss_seidel_betas, num_batches_parallel=options.gibbs_num_batches_parallel, max_mb_X_h=options.gibbs_max_mb_X_h, initial_linear_filter=options.initial_linear_filter, adjust_priors=options.adjust_priors, correct_betas_mean=options.correct_betas_mean, correct_betas_var=options.correct_betas_var, gene_set_stats_trace_out=options.gene_set_stats_trace_out, gene_stats_trace_out=options.gene_stats_trace_out, betas_trace_out=options.betas_trace_out)
+            g.run_gibbs(**_build_gibbs_kwargs())
+
+    def _run_non_huge_core(Y_not_loaded):
+        gene_set_ids = _prepare_factor_gene_set_ids()
+        _read_x_and_initialize_p(gene_set_ids, Y_not_loaded)
+
+        if run_sim:
+            g.run_sim(sigma2=g.sigma2, p=g.p, sigma_power=g.sigma_power, log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult, treat_sigma2_as_sigma2_cond=False, only_positive=options.sim_only_positive)
+
+        run_gibbs_for_factor = _compute_gene_set_stats_and_betas()
+        _compute_priors_if_requested()
+        _run_outer_gibbs_if_requested(run_gibbs_for_factor)
 
     def _run_non_huge_pipeline(Y_not_loaded):
-        if not run_huge:
-            gene_set_ids = _prepare_factor_gene_set_ids()
-            _read_x_and_initialize_p(gene_set_ids, Y_not_loaded)
-
-            if run_sim:
-                g.run_sim(sigma2=g.sigma2, p=g.p, sigma_power=g.sigma_power, log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult, treat_sigma2_as_sigma2_cond=False, only_positive=options.sim_only_positive)
-
-            run_gibbs_for_factor = _compute_gene_set_stats_and_betas()
-            _compute_priors_if_requested()
-            _run_outer_gibbs_if_requested(run_gibbs_for_factor)
+        if run_huge:
+            return
+        _run_non_huge_core(Y_not_loaded)
 
     _run_non_huge_pipeline(Y_not_loaded)
 
