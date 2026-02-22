@@ -226,14 +226,6 @@ parser.add_option("","--gene-stats-prior-col",default=None,dest="gene_stats_prio
 parser.add_option("","--gene-stats-prob-col",default=None,dest="gene_stats_prob_col")
 parser.add_option("","--const-gene-log-bf",default=None,type=float)
 
-#gene percentiles to use in calculating gene set statistics. Will be converted to BFs using inverse normal function
-parser.add_option("","--gene-percentiles-in",default=None)
-parser.add_option("","--gene-percentiles-id-col",default=None)
-parser.add_option("","--gene-percentiles-value-col",default=None)
-parser.add_option("","--gene-zs-in",default=None)
-parser.add_option("","--gene-zs-id-col",default=None)
-parser.add_option("","--gene-zs-value-col",default=None)
-
 #locations of genes
 #ALL GENE LOC FILES MUST BE IN FORMAT "GENE CHROM START END STRAND GENE" 
 parser.add_option("","--gene-loc-file",default=None)
@@ -359,20 +351,8 @@ parser.add_option("","--weighted-prune-gene-sets",type=float,default=None) #gene
 parser.add_option("","--prune-deterministically",action="store_true") #prune in order of gene set size, not in order of p-value
 
 
-#parameters for learning sigma
-parser.add_option("","--chisq-dynamic",action="store_true") #dynamically determine the chisq threshold based on intercept and sigma
-parser.add_option("","--desired-intercept-difference",type=float,default=1.3) #if dynamically determining chisq threshold, stop when intercept is less than this far away from 1
-parser.add_option("","--chisq-threshold",type="float",default=5) #threshold outlier gene sets during sigma computation
-
-
-#gene percentile parameters
-parser.add_option("","--gene-percentiles-top-posterior",type=float,default=0.99) #specify maximum posterior, used in inverse normal conversion of percentile to posterior
-parser.add_option("","--gene-percentiles-higher-is-better",default=False,action='store_true')
-#gene z parameters
-parser.add_option("","--gene-zs-gws-threshold",type=float,default=None) #specify significance threshold for genes to use for mapping to gws-posterior
+#gwas/huge mapping parameter
 parser.add_option("","--gene-zs-gws-prob-true",type=float,default=None) #specify probability genes at the significance threshold are true associations
-#gene Z parameters
-parser.add_option("","--gene-zs-max-mean-posterior",type=float,default=None) #specify significance threshold for genes to use for mapping to max-mean-posterior
 
 #huge exomes parametersa
 parser.add_option("","--exomes-high-p",type=float,default=5e-2) #specify the larger p-threshold for which we will constrain posterior
@@ -784,8 +764,10 @@ def _apply_config_overrides(_options, _args, _parser, _argv):
             if normalized_config_key.startswith("--"):
                 normalized_config_key = normalized_config_key[2:]
             normalized_config_key = normalized_config_key.replace("-", "_")
-            if normalized_config_key in REMOVED_GENE_BFS_OPTION_REPLACEMENTS:
-                replacement = REMOVED_GENE_BFS_OPTION_REPLACEMENTS[normalized_config_key]
+            if normalized_config_key in REMOVED_OPTION_REPLACEMENTS:
+                replacement = REMOVED_OPTION_REPLACEMENTS[normalized_config_key]
+                if replacement is None:
+                    bail("Config key '%s' has been removed in %s and is no longer supported" % (raw_key, config_path))
                 replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
                 bail("Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (raw_key, config_path, replacement_config_key, replacement))
         key = raw_key
@@ -836,13 +818,26 @@ def _json_safe(_value):
         return {str(k): _json_safe(v) for k, v in _value.items()}
     return _value
 
-REMOVED_GENE_BFS_OPTION_REPLACEMENTS = {
+REMOVED_OPTION_REPLACEMENTS = {
     "gene_bfs_in": "--gene-stats-in",
     "gene_bfs_id_col": "--gene-stats-id-col",
     "gene_bfs_log_bf_col": "--gene-stats-log-bf-col",
     "gene_bfs_combined_col": "--gene-stats-combined-col",
     "gene_bfs_prior_col": "--gene-stats-prior-col",
     "gene_bfs_prob_col": "--gene-stats-prob-col",
+    "gene_percentiles_in": None,
+    "gene_percentiles_id_col": None,
+    "gene_percentiles_value_col": None,
+    "gene_percentiles_top_posterior": None,
+    "gene_percentiles_higher_is_better": None,
+    "gene_zs_in": None,
+    "gene_zs_id_col": None,
+    "gene_zs_value_col": None,
+    "gene_zs_gws_threshold": None,
+    "gene_zs_max_mean_posterior": None,
+    "chisq_dynamic": None,
+    "desired_intercept_difference": None,
+    "chisq_threshold": None,
 }
 
 def _fail_removed_cli_aliases(_argv):
@@ -851,8 +846,8 @@ def _fail_removed_cli_aliases(_argv):
             continue
         _flag = _arg.split("=", 1)[0]
         _normalized = _flag[2:].replace("-", "_")
-        if _normalized in REMOVED_GENE_BFS_OPTION_REPLACEMENTS:
-            replacement = REMOVED_GENE_BFS_OPTION_REPLACEMENTS[_normalized]
+        if _normalized in REMOVED_OPTION_REPLACEMENTS:
+            replacement = REMOVED_OPTION_REPLACEMENTS[_normalized]
             if replacement is None:
                 sys.stderr.write("Error: option %s has been removed and is no longer supported\n" % _flag)
                 sys.exit(2)
@@ -933,7 +928,6 @@ _enforce_pigean_mode_ownership(mode)
 
 run_huge = False
 run_beta_tilde = False
-run_sigma = False
 run_beta = False
 run_priors = False
 run_naive_priors = False
@@ -953,8 +947,6 @@ if mode == "huge" or mode == "huge_calc":
     run_huge = True
 elif mode == "beta_tildes" or mode == "beta_tilde":
     run_beta_tilde = True
-elif mode == "sigma":
-    run_sigma = True
 elif mode == "betas" or mode == "beta":
     run_beta = True
 elif mode == "priors" or mode == "prior":
@@ -1016,7 +1008,7 @@ elif mode == "factor" or mode == "naive_factor": #run factoring, phewas factorin
     else:
         log("Running factoring type: %s" % factor_type)
 
-    if ((use_phewas_for_factoring or factor_gene_set_x_pheno) and not options.anchor_gene_set) and (options.gene_set_stats_in or options.gene_zs_in or options.gene_percentiles_in or options.gwas_in or options.huge_statistics_in or options.exomes_in or options.positive_controls_in or options.positive_controls_list is not None or options.case_counts_in):
+    if ((use_phewas_for_factoring or factor_gene_set_x_pheno) and not options.anchor_gene_set) and (options.gene_set_stats_in or options.gwas_in or options.huge_statistics_in or options.exomes_in or options.positive_controls_in or options.positive_controls_list is not None or options.case_counts_in):
         if use_phewas_for_factoring:
             warn("Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode")
         elif factor_gene_set_x_pheno:
@@ -1058,8 +1050,6 @@ if mode == "pops" or mode == "naive_pops":
     options.sparse_frac_betas = options.sparse_frac_betas if options.sparse_frac_betas is not None else 0
     options.sparse_solution = options.sparse_solution if options.sparse_solution is not None else False
 
-    options.gene_zs_id_col = options.gene_zs_id_col if options.gene_zs_id_col is not None else "GENE"
-    options.gene_zs_value_col = options.gene_zs_value_col if options.gene_zs_value_col is not None else "ZSTAT"
 else:
     options.correct_betas_mean = options.correct_betas_mean if options.correct_betas_mean is not None else True
     options.adjust_priors = options.adjust_priors if options.adjust_priors is not None else True
@@ -1911,7 +1901,7 @@ class GeneSetData(object):
         const_Y = np.full(len(self.genes), value)
         self._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
 
-    def read_Y(self, gwas_in=None, huge_statistics_in=None, huge_statistics_out=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, gene_percentiles_in=None, gene_zs_in=None, gene_loc_file=None, gene_covs_in=None, hold_out_chrom=None, **kwargs):
+    def read_Y(self, gwas_in=None, huge_statistics_in=None, huge_statistics_out=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, gene_loc_file=None, gene_covs_in=None, hold_out_chrom=None, **kwargs):
 
         Y1_exomes = np.array([])
         extra_genes_all = []
@@ -2096,10 +2086,6 @@ class GeneSetData(object):
 
             if gene_bfs_in is not None:
                 (Y1,extra_genes,extra_Y, gene_combined_map, gene_prior_map)  = self._read_gene_bfs(gene_bfs_in, **kwargs)
-            elif gene_percentiles_in is not None:
-                (Y1,extra_genes,extra_Y) = self._read_gene_percentiles(gene_percentiles_in, **kwargs)
-            elif gene_zs_in is not None:
-                (Y1,extra_genes,extra_Y) = self._read_gene_zs(gene_zs_in, **kwargs)
             elif exomes_in is not None:
                 (Y1,extra_genes,extra_Y) = (np.zeros(Y1_exomes.shape), [], [])
             elif positive_controls_in is not None or positive_controls_list is not None:
@@ -2107,7 +2093,7 @@ class GeneSetData(object):
             elif case_counts_in is not None:
                 (Y1,extra_genes,extra_Y) = (np.zeros(Y1_case_counts.shape), [], [])
             else:
-                bail("Need to specify either gene_bfs_in or gene_percentiles_in or gene_zs_in or exomes_in or positive_controls_in or case_counts_in")
+                bail("Need to specify either gene_bfs_in or exomes_in or positive_controls_in or case_counts_in")
 
             (Y1,extra_genes,extra_Y) = __hold_out_chrom(Y1,extra_genes,extra_Y)
             Y1_for_regression = copy.copy(Y1)
@@ -7794,7 +7780,7 @@ class GeneSetData(object):
                 bail("Couldn't find any match for %s" % list(anchor_phenos))
 
 
-    def calculate_gene_set_statistics(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, gene_percentiles_in=None, gene_zs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_gls=False, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
+    def calculate_gene_set_statistics(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_gls=False, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
         if self.X_orig is None:
             bail("Error: X is required")
         #now calculate the betas and p-values
@@ -7810,11 +7796,11 @@ class GeneSetData(object):
             Y = self.Y_for_regression
 
         if Y is None:
-            if gwas_in is None and exomes_in is None and gene_bfs_in is None and gene_percentiles_in is None and gene_zs_in is None and positive_controls_in is None and positive_controls_list is None and case_counts_in is None and ctrl_counts_in is None:
-                bail("Need --gwas-in or --exomes-in or --gene-stats-in or --gene-percentiles-in or --gene-zs-in or --positive-controls-in or --case-counts_in")
+            if gwas_in is None and exomes_in is None and gene_bfs_in is None and positive_controls_in is None and positive_controls_list is None and case_counts_in is None and ctrl_counts_in is None:
+                bail("Need --gwas-in or --exomes-in or --gene-stats-in or --positive-controls-in or --case-counts_in")
 
             log("Reading Y within calculate_gene_set_statistics; parameters may not be honored")
-            self.read_Y(gwas_in=gwas_in, exomes_in=exomes_in, positive_controls_in=positive_controls_in, positive_controls_list=positive_controls_list, case_counts_in=case_counts_in, ctrl_counts_in=ctrl_counts_in, gene_bfs_in=gene_bfs_in, gene_percentiles_in=gene_percentiles_in, gene_zs_in=gene_zs_in, **kwargs)
+            self.read_Y(gwas_in=gwas_in, exomes_in=exomes_in, positive_controls_in=positive_controls_in, positive_controls_list=positive_controls_list, case_counts_in=case_counts_in, ctrl_counts_in=ctrl_counts_in, gene_bfs_in=gene_bfs_in, **kwargs)
             Y = self.Y_for_regression
 
         #FIXME: need to make this so don't always read in correlations, and add priors where needed
@@ -8088,200 +8074,6 @@ class GeneSetData(object):
         #minimum bound
         if self.sigma2 is None:
             return
-
-    def calculate_sigma(self, V, sigma_power=None, chisq_threshold=None, chisq_dynamic=False, desired_intercept_difference=1.3):
-        if self.z_scores is None:
-            bail("Cannot calculate sigma with no stats loaded!")
-        if V is None:
-            V = self._get_V()
-        if len(self.z_scores) == 0:
-            bail("No gene sets were in both V and stats!")
-        self.sigma_power = sigma_power
-       
-        log("Calculating OSC", DEBUG)
-
-        #generating batches are most expensive part here, so do each one only once
-        self.osc = np.zeros(self.X_orig.shape[1])
-        if self.X_orig_missing_gene_sets is not None:
-            self.osc_missing = np.zeros(self.X_orig_missing_gene_sets.shape[1])
-
-        for X_b1, begin1, end1, batch1 in self._get_X_blocks(whiten=False, full_whiten=True):
-            #begin block for calculating OSC between non-missing gene sets and non-missing gene sets
-            for X_b2, begin2, end2, batch2 in self._get_X_blocks(start_batch=batch1, whiten=False, full_whiten=False):
-                self.osc[begin1:end1] = np.add(self.osc[begin1:end1], np.sum(np.power(self._compute_V(X_b1, self.mean_shifts[begin1:end1], self.scale_factors[begin1:end1], X_orig2=X_b2, mean_shifts2=self.mean_shifts[begin2:end2], scale_factors2=self.scale_factors[begin2:end2]), 2), axis=1))
-                if not batch1 == batch2:
-                    self.osc[begin2:end2] = np.add(self.osc[begin2:end2], np.sum(np.power(self._compute_V(X_b2, self.mean_shifts[begin2:end2], self.scale_factors[begin2:end2], X_orig2=X_b1, mean_shifts2=self.mean_shifts[begin1:end1], scale_factors2=self.scale_factors[begin1:end1]), 2), axis=1))
-            #end block for calculating OSC between non-missing gene sets and non-missing gene sets
-
-            if self.X_orig_missing_gene_sets is not None:
-                for X_m_b1, m_begin1, m_end1, m_batch1 in self._get_X_blocks(get_missing=True, whiten=False, full_whiten=False):
-                    #since we have the missing blocks, do the missing/missing osc as well
-                    #but only want to do this once
-                    #osc between non-missing and missing
-                    self.osc[begin1:end1] = np.add(self.osc[begin1:end1], np.sum(np.power(self._compute_V(X_b1, self.mean_shifts[begin1:end1], self.scale_factors[begin1:end1], X_orig2=X_m_b1, mean_shifts2=self.mean_shifts_missing[m_begin1:m_end1], scale_factors2=self.scale_factors_missing[m_begin1:m_end1]), 2), axis=1))
-                    #osc between missing and non-missing
-                    self.osc_missing[m_begin1:m_end1] = np.add(self.osc_missing[m_begin1:m_end1], np.sum(np.power(self._compute_V(X_m_b1, self.mean_shifts_missing[m_begin1:m_end1], self.scale_factors_missing[m_begin1:m_end1], X_orig2=X_b1, mean_shifts2 = self.mean_shifts[begin1:end1], scale_factors2 = self.scale_factors[begin1:end1]), 2), axis=1))
-
-        if self.X_orig_missing_gene_sets is not None:
-            for X_m_b1, m_begin1, m_end1, m_batch1 in self._get_X_blocks(get_missing=True, whiten=False, full_whiten=True):
-                for X_m_b2, m_begin2, m_end2, m_batch2 in self._get_X_blocks(get_missing=True, whiten=False, full_whiten=False, start_batch=m_batch1):
-                    self.osc_missing[m_begin1:m_end1] = np.add(self.osc_missing[m_begin1:m_end1], np.sum(np.power(self._compute_V(X_m_b1, self.mean_shifts_missing[m_begin1:m_end1], self.scale_factors_missing[m_begin1:m_end1], X_orig2=X_m_b2, mean_shifts2=self.mean_shifts_missing[m_begin2:m_end2], scale_factors2=self.scale_factors_missing[m_begin2:m_end2]), 2), axis=1))
-                    if not m_batch1 == m_batch2:
-                        self.osc_missing[m_begin2:m_end2] = np.add(self.osc_missing[m_begin2:m_end2], np.sum(np.power(self._compute_V(X_m_b2, self.mean_shifts_missing[m_begin2:m_end2], self.scale_factors_missing[m_begin2:m_end2], X_orig2=X_m_b1, mean_shifts2=self.mean_shifts_missing[m_begin1:m_end1], scale_factors2=self.scale_factors_missing[m_begin1:m_end1]), 2), axis=1))
-
-        #X_osc is in units of standardized X
-        self.X_osc = self.osc/np.square(self.ses)
-        if self.X_orig_missing_gene_sets is not None:
-            self.X_osc_missing = self.osc_missing/np.square(self.ses_missing)
-            osc = np.append(self.osc, self.osc_missing)
-            denominator = np.square(np.append(self.ses, self.ses_missing))
-            scale_factors = np.append(self.scale_factors, self.scale_factors_missing)
-            Y_chisq=np.square(np.append(self.z_scores, self.z_scores_missing))
-        else:
-            self.osc_missing = None
-            self.X_osc_missing = None
-            osc = self.osc
-            denominator = np.square(self.ses)
-            scale_factors = self.scale_factors
-            Y_chisq=np.square(self.z_scores)
-
-        X_osc = osc/denominator
-        if self.sigma_power is not None:
-            #all of the X_osc have been scaled by 1/scale_factor**2 (because each X is scaled by 1/scale_factor)
-            #so we need to multiply by scale_factor
-            if np.sum(~self.is_dense_gene_set) > 0:
-                X_osc[~self.is_dense_gene_set] = X_osc[~self.is_dense_gene_set] * np.power(scale_factors[~self.is_dense_gene_set], self.sigma_power)
-                X_osc[self.is_dense_gene_set] = X_osc[self.is_dense_gene_set] * np.power(np.mean(scale_factors[~self.is_dense_gene_set]), self.sigma_power)
-                self.X_osc[~self.is_dense_gene_set] = self.X_osc[~self.is_dense_gene_set] * np.power(self.scale_factors[~self.is_dense_gene_set], self.sigma_power)
-                self.X_osc[self.is_dense_gene_set] = self.X_osc[self.is_dense_gene_set] * np.power(np.mean(self.scale_factors[~self.is_dense_gene_set]), self.sigma_power)
-
-                if self.X_orig_missing_gene_sets is not None:
-                    self.X_osc_missing[~self.is_dense_gene_set_missing] = self.X_osc_missing[~self.is_dense_gene_set_missing] * np.power(self.scale_factors_missing[~self.is_dense_gene_set_missing], self.sigma_power)
-                    self.X_osc_missing[self.is_dense_gene_set_missing] = self.X_osc_missing[self.is_dense_gene_set_missing] * np.power(np.mean(self.scale_factors[~self.is_dense_gene_set]), self.sigma_power)
-            else:
-                X_osc[self.is_dense_gene_set] = X_osc[self.is_dense_gene_set] * np.power(np.mean(scale_factors), self.sigma_power)
-                self.X_osc[self.is_dense_gene_set] = self.X_osc[self.is_dense_gene_set] * np.power(np.mean(self.scale_factors), self.sigma_power)
-                if self.X_orig_missing_gene_sets is not None:
-                    self.X_osc_missing[self.is_dense_gene_set_missing] = self.X_osc_missing[self.is_dense_gene_set_missing] * np.power(np.mean(self.scale_factors), self.sigma_power)
-
-        #X_osc is N l_j
-        #osc is l_j
-
-        #OLD
-        #osc_weights = 1/(np.square(1 + X_osc) * X_osc)
-        #NEW
-        tau = (np.power(np.mean(Y_chisq), 2) - 1) / (np.mean(X_osc))
-        osc_weights = 1/(osc * np.square(1 + X_osc * tau))
-
-        #OLD
-        #self.osc_weights = 1/(np.square(1 + self.X_osc) * self.X_osc)
-        #NEW
-        self.osc_weights = 1/(self.osc * np.square(1 + tau * self.X_osc))
-
-        if self.X_orig_missing_gene_sets is not None:
-            #OLD
-            #self.osc_weights_missing = 1/(np.square(1 + self.X_osc_missing) * self.X_osc_missing)
-            #NEW
-            self.osc_weights_missing = 1/(self.osc_missing * np.square(1 + tau * self.X_osc_missing))
-        else:
-            self.osc_weights_missing = None
-
-        orig_mask = ~(np.isnan(Y_chisq) | np.isinf(Y_chisq) | np.isnan(X_osc) | np.isinf(X_osc) | np.isnan(osc_weights) | np.isinf(osc_weights))
-
-        if chisq_dynamic:
-            cur_chisq_threshold = max(Y_chisq)
-            best_intercept_difference = None
-            best_chisq_threshold = None
-            min_chisq_threshold = 5
-        elif chisq_threshold is not None:
-            cur_chisq_threshold = chisq_threshold
-        else:
-            cur_chisq_threshold = np.inf
-
-        log("Running OSC regressions", DEBUG)
-
-        while True:
-
-            mask = np.logical_and(orig_mask, Y_chisq < cur_chisq_threshold)
-
-            #run to get intercept
-            constant_term = np.ones(len(X_osc[mask]))
-            X = np.vstack((X_osc[mask], constant_term))
-            Y = Y_chisq[mask] 
-            #add weights for WLS
-            X[0,] = X[0,] * np.sqrt(osc_weights[mask])
-            X[1,] = X[1,] * np.sqrt(osc_weights[mask])
-            Y = Y * np.sqrt(osc_weights[mask])
-            try:
-                mat_inv = np.linalg.inv(X.dot(X.T) + np.eye)
-            except np.linalg.LinAlgError:
-                mat_inv = np.linalg.inv(X.dot(X.T) + 0.2 * np.eye(X.shape[0]))
-
-            result = mat_inv.dot(X.dot(Y))
-            result_ses = np.sqrt(np.diag(np.var(Y - result.dot(X)) * mat_inv))
-            cur_beta = result[0]
-            cur_beta_se = result_ses[0]
-            cur_beta_z = cur_beta / cur_beta_se
-            cur_beta_p = 2*scipy.stats.norm.cdf(-np.abs(cur_beta_z))
-            cur_intercept = result[1]
-            cur_intercept_se = result_ses[1]
-            cur_intercept_z = cur_intercept / cur_intercept_se
-            cur_intercept_p = 2*scipy.stats.norm.cdf(-np.abs(cur_intercept_z))
-
-            def __write_results(beta, beta_se, beta_p, intercept=None, intercept_se=None, intercept_p=None, level=INFO):
-                log("=================================================", level=level)
-                log("value        coef%s      std err      P" % ("" if beta > 0 and (intercept is None or intercept > 0) else " "), level=level)
-                log("-------------------------------------------------", level=level)
-                log("beta         %.4g%s    %.4g       %.4g" % (beta, " " if beta > 0 else "", beta_se, beta_p), level=level)
-                if intercept is not None:
-                    log("intercept    %.4g%s    %.4g       %.3g" % (intercept, " " if intercept > 0 else "", intercept_se, intercept_p), level=level)
-                log("================================================", level=level)
-
-            log("Results from full regression (chisq-threshold=%.3g):" % cur_chisq_threshold, TRACE)
-            __write_results(cur_beta, cur_beta_se, cur_beta_p, cur_intercept, cur_intercept_se, cur_intercept_p, TRACE)
-
-            #log("Results from regression with pinned intercept at 1:")
-
-            #X = X[0,:]
-            #Y = (Y_chisq[mask] - 1) * np.sqrt(osc_weights[mask])
-            #beta = X.dot(Y) / X.dot(X)
-            #beta_se = np.sqrt(np.var(Y - beta * X) / X.dot(X))
-            #beta_z = beta / beta_se
-            #beta_p = 2*scipy.stats.norm.cdf(-np.abs(beta_z))
-            #__write_results(beta, beta_se, beta_p)
-
-            #first log the results with the intercept
-            if not chisq_dynamic:
-                best_chisq_threshold = cur_chisq_threshold
-                intercept = cur_intercept
-                beta = cur_beta
-                beta_se = cur_beta_se
-                beta_p = cur_beta_p
-                break
-            else:
-                if best_intercept_difference is None or np.abs(cur_intercept - 1) < best_intercept_difference:
-                    best_intercept_difference = np.abs(cur_intercept - 1)
-                    best_chisq_threshold=cur_chisq_threshold
-                    intercept = cur_intercept
-                    beta = cur_beta
-                    beta_se = cur_beta_se
-                    beta_p = cur_beta_p
-                if cur_chisq_threshold < min_chisq_threshold or best_intercept_difference < desired_intercept_difference:
-                    break
-                else:
-                    cur_chisq_threshold /= 1.5
-
-        log("Results from full regression (chisq-threshold=%.3g):" % best_chisq_threshold, INFO)
-        __write_results(cur_beta, cur_beta_se, cur_beta_p, cur_intercept, cur_intercept_se, cur_intercept_p, INFO)
-        log("Final sigma results:")
-        self.intercept = intercept
-        self.set_sigma(beta, self.sigma_power, sigma2_osc=beta, sigma2_se=beta_se, sigma2_p=beta_p, sigma2_scale_factors=scale_factors)
-        #self.write_params(None)
-
-        #now log the results with the pinned
-        #log("Results with pinned intercept:")
-        #self.set_sigma(beta, self.sigma_power, beta_se, beta_p, sigma2_scale_factors=scale_factors)
-        #self.write_sigma(None)
 
     def write_params(self, output_file):
         if output_file is not None:
@@ -14453,194 +14245,11 @@ class GeneSetData(object):
 
         return (gene_bfs, extra_genes, np.array(extra_gene_bfs), gene_in_combined, gene_in_priors)
 
-    '''
-    Read in gene Z scores for linear mapping
-    '''
-    def _read_gene_zs(self, gene_zs_in, gene_zs_id_col=None, gene_zs_value_col=None, background_95_prior=None, use_zs_as_log_odds=True, gws_threshold=None, gws_prob_true=None, max_mean_posterior=None, **kwargs):
+    def _read_gene_zs(self, *args, **kwargs):
+        bail("Gene-Z score input mode has been removed; use --gene-stats-in or --gwas-in")
 
-        if gene_zs_in is None:
-            bail("Require --gene-zs-in for this operation")
-
-        log("Reading --gene-zs-in file %s" % gene_zs_in, INFO)
-        if gws_threshold is not None and gws_prob_true is not None and max_mean_posterior is not None:
-            use_zs_as_log_odds = False
-            log("Mapping gene Z-scores to logistic probabilities", DEBUG)
-        else:
-            log("Treating gene Z-scores as raw log-odds", DEBUG)
-
-        with open_gz(gene_zs_in) as gene_zs_fh:
-            header_cols = gene_zs_fh.readline().strip('\n').split()
-            if gene_zs_id_col is None:
-                bail("--gene-zs-id-col required for this operation")
-            if gene_zs_value_col is None:
-                bail("--gene-zs-value-col required for this operation")
-            id_col = self._get_col(gene_zs_id_col, header_cols)
-            value_col = self._get_col(gene_zs_value_col, header_cols)
-            gene_zs = {}
-            line_num_to_gene = []
-            line_num = 0
-            for line in gene_zs_fh:
-                cols = line.strip('\n').split()
-                if id_col > len(cols) or value_col > len(cols):
-                    warn("Skipping due to too few columns in line: %s" % line)
-                    continue
-
-                gene = cols[id_col]
-                if self.gene_label_map is not None and gene in self.gene_label_map:
-                    gene = self.gene_label_map[gene]
-
-                line_num_to_gene.append(gene)
-                try:
-                    value = float(cols[value_col])
-                except ValueError:
-                    if not cols[value_col] == "NA":
-                        warn("Skipping unconvertible beta_tilde value %s for gene_set %s" % (cols[value_col], gene))
-                    continue
-                gene_zs[gene] = value
-                line_num += 1
-
-        if use_zs_as_log_odds:
-            mean_z = np.mean(list(gene_zs.values()))
-        else:
-            for gene in gene_zs:
-                gene_zs[gene] = np.abs(gene_zs[gene])
-            #top posterior specifies what we want the posterior of the top ranked gene to actually be
-            gws_z_threshold = -scipy.stats.norm.ppf(gws_threshold/2)
-            median_z = np.median(np.array(list(gene_zs.values())))
-
-            #logistic = L/(1 + exp(-k*(x-xo)))
-            #Need:
-            #L = asymptote (max allowed is 20%?)
-            #then need two points to constrain it
-            #average over all genes equals 0.05
-            #gws threshold (how is this different from max?)
-            #k = (log(1/y2 - L) - log(1/y1 - 1))/(x2-x1)
-            #xo = (x1 * log(1/y2 - L) - x2 * log(1/y1 - L)) / (log(1/y2 - L) - log(1/y1 - L))
-
-            x1 = median_z
-            y1 = self.background_prior
-            y1_bf = np.log(y1 / (1 - y1))
-
-            x2 = gws_z_threshold
-            y2 = gws_prob_true * max_mean_posterior
-            y2_bf = np.log(y2 / (1 - y2))
-
-            log("Fitting prop true logistic model with max bf=%.3g, points (%.3g,%.3g) and (%.3g,%.3g)" % (max_mean_posterior, x1, y1, x2, y2))
-
-            L_param = max_mean_posterior
-            k_param = (np.log(y2 / (L_param - y2)) - np.log(y1 / (L_param - y1))) / (x2 - x1)
-            x_o_param = np.log((L_param - y2) / y2) / k_param + x2
-
-            log("Using L=%.3g, k=%.3g, x_o=%.3g for logistic model of BF(Z)" % (L_param, k_param, x_o_param))
-
-        if self.genes is not None:
-            genes = self.genes
-            gene_to_ind = self.gene_to_ind
-        else:
-            genes = []
-            gene_to_ind = {}
-
-        gene_bfs = np.array([np.nan] * len(genes))
-        extra_gene_bfs = []
-        extra_genes = []
-        #determine scale factor
-        for gene in gene_zs:
-
-            if use_zs_as_log_odds:
-                bf = gene_zs[gene] - mean_z + self.background_log_bf
-            else:
-                posterior = L_param / (1 + np.exp(-k_param * (gene_zs[gene] - x_o_param)))
-                bf = np.log(posterior / (1.0 - posterior)) - self.background_log_bf
-
-            if gene in gene_to_ind:
-                gene_bfs[gene_to_ind[gene]] = bf
-            else:
-                extra_gene_bfs.append(bf)
-                extra_genes.append(gene)
-
-
-        extra_gene_bfs = np.array(extra_gene_bfs)
-
-        #if len(gene_bfs) == 0:
-        #    bail("No genes in gene sets had percentiles!")
-
-        return (gene_bfs, extra_genes, extra_gene_bfs)
-
-    '''
-    Read in gene percentiles for INVERSE_NORMALIZE mapping
-    '''
-    def _read_gene_percentiles(self, gene_percentiles_in, gene_percentiles_id_col=None, gene_percentiles_value_col=None, gene_percentiles_higher_is_better=False, top_posterior=0.99, min_prob=1e-4, max_prob=1-1e-4, **kwargs):
-
-        if gene_percentiles_in is None:
-            bail("Require --gene-percentiles-in for this operation")
-
-        #top posterior specifies what we want the posterior of the top ranked gene to actually be
-        top_log_pos_odd=np.log(top_posterior / (1-top_posterior))
-
-        log("Reading --gene-percentiles-in file %s" % gene_percentiles_in, INFO)
-        with open(gene_percentiles_in) as gene_percentiles_fh:
-            header_cols = gene_percentiles_fh.readline().strip('\n').split()
-            if gene_percentiles_id_col is None:
-                bail("--gene-percentiles-id-col required for this operation")
-            if gene_percentiles_value_col is None:
-                bail("--gene-percentiles-value-col required for this operation")
-            id_col = self._get_col(gene_percentiles_id_col, header_cols)
-            value_col = self._get_col(gene_percentiles_value_col, header_cols)
-            gene_percentiles = {}
-            line_num_to_gene = []
-            line_num = 0
-            for line in gene_percentiles_fh:
-                cols = line.strip('\n').split()
-                if id_col > len(cols) or value_col > len(cols):
-                    warn("Skipping due to too few columns in line: %s" % line)
-                    continue
-
-                gene = cols[id_col]
-                if self.gene_label_map is not None and gene in self.gene_label_map:
-                    gene = self.gene_label_map[gene]
-
-                line_num_to_gene.append(gene)
-                try:
-                    value = float(cols[value_col])
-                except ValueError:
-                    if not cols[value_col] == "NA":
-                        warn("Skipping unconvertible beta_tilde value %s for gene_set %s" % (cols[value_col], gene))
-                    continue
-                gene_percentiles[gene] = value
-                line_num += 1
-
-            sorted_gene_percentiles = sorted(gene_percentiles.keys(), key=lambda x: gene_percentiles[x], reverse=gene_percentiles_higher_is_better)
-            scale_factor=(top_log_pos_odd - self.background_log_bf)/scipy.stats.norm.ppf(float(len(sorted_gene_percentiles))/(len(sorted_gene_percentiles)+1))
-            log("Using mean=%.3g, scale=%.3g for inverse normalized model of prob true" % (self.background_log_bf, scale_factor))
-
-            #first gene is best
-            for i in range(len(sorted_gene_percentiles)):
-                gene_percentiles[sorted_gene_percentiles[i]] = 1 - float(i+1) / (len(sorted_gene_percentiles)+1)
-
-            if self.genes is not None:
-                genes = self.genes
-                gene_to_ind = self.gene_to_ind
-            else:
-                genes = []
-                gene_to_ind = {}
-
-            gene_bf = np.array([np.nan] * len(genes))
-            extra_gene_bf = []
-            extra_genes = []
-            #determine scale factor
-            for gene in gene_percentiles:
-                bf = scipy.stats.norm.ppf(gene_percentiles[gene], loc=self.background_log_bf, scale=scale_factor)
-                if gene in gene_to_ind:
-                    gene_bf[gene_to_ind[gene]] = bf
-                else:
-                    extra_gene_bf.append(bf)
-                    extra_genes.append(gene)
-            extra_gene_bf = np.array(extra_gene_bf)
-
-        if len(gene_bf) == 0:
-            bail("No genes in gene sets had percentiles!")
-
-        return (gene_bf, extra_genes, extra_gene_bf)
+    def _read_gene_percentiles(self, *args, **kwargs):
+        bail("Gene-percentile input mode has been removed; use --gene-stats-in or --gwas-in")
 
     def _read_gene_covs(self, gene_covs_in, gene_covs_id_col=None, gene_covs_cov_cols=None, **kwargs):
 
@@ -19375,7 +18984,7 @@ def main():
 
     Y_not_loaded = False
 
-    if (not run_factor or not use_phewas_for_factoring or extend_for_gene) and ((run_factor and expand_gene_sets and extend_for_gene) or run_huge or run_beta_tilde or run_sigma or run_beta or run_priors or run_naive_priors or run_gibbs or run_factor):
+    if (not run_factor or not use_phewas_for_factoring or extend_for_gene) and ((run_factor and expand_gene_sets and extend_for_gene) or run_huge or run_beta_tilde or run_beta or run_priors or run_naive_priors or run_gibbs or run_factor):
 
         if not extend_for_gene and options.gene_stats_in:
             g.read_Y(gene_bfs_in=options.gene_stats_in,show_progress=not options.hide_progress, gene_bfs_id_col=options.gene_stats_id_col, gene_bfs_log_bf_col=options.gene_stats_log_bf_col, gene_bfs_combined_col=options.gene_stats_combined_col, gene_bfs_prob_col=options.gene_stats_prob_col, gene_bfs_prior_col=options.gene_stats_prior_col, gene_covs_in=options.gene_covs_in, hold_out_chrom=options.hold_out_chrom)
@@ -19387,15 +18996,11 @@ def main():
             if not options.gene_phewas_bfs_in:
                 bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
             g.read_gene_phewas_bfs(gene_phewas_bfs_in=options.gene_phewas_bfs_in,gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, anchor_genes=options.anchor_genes, anchor_phenos=options.anchor_phenos, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id, min_value=options.min_gene_phewas_read_value, max_num_entries_at_once=options.max_read_entries_at_once)
-        elif options.gene_percentiles_in:
-            g.read_Y(gene_percentiles_in=options.gene_percentiles_in,show_progress=not options.hide_progress, gene_percentiles_id_col=options.gene_percentiles_id_col, gene_percentiles_value_col=options.gene_percentiles_value_col, gene_percentiles_higher_is_better=options.gene_percentiles_higher_is_better, gene_percentiles_top_posterior=options.top_posterior, gene_covs_in=options.gene_covs_in, hold_out_chrom=options.hold_out_chrom)
-        elif options.gene_zs_in:
-            g.read_Y(gene_zs_in=options.gene_zs_in,show_progress=not options.hide_progress, gene_zs_id_col=options.gene_zs_id_col, gene_zs_value_col=options.gene_zs_value_col, gws_threshold=options.gene_zs_gws_threshold, gws_prob_true=options.gene_zs_gws_prob_true, max_mean_posterior=options.gene_zs_max_mean_posterior, gene_covs_in=options.gene_covs_in, hold_out_chrom=options.hold_out_chrom)
         else:
             Y_not_loaded = True
 
         #else:
-        #    bail("Need --gwas-in or --exomes-in or --gene-bfs-in or --gene-percentiles-in or --gene-zs-in")
+        #    bail("Need --gwas-in or --exomes-in or --gene-stats-in")
 
     if not run_huge:
 
@@ -19442,7 +19047,7 @@ def main():
             while True:
                 orig_sigma2 = g.sigma2
 
-                skip_betas = (run_huge or run_beta_tilde or run_sigma or run_factor) and (not run_beta and not run_priors and not run_naive_priors and not run_gibbs and (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded))
+                skip_betas = (run_huge or run_beta_tilde or run_factor) and (not run_beta and not run_priors and not run_naive_priors and not run_gibbs and (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded))
 
                 genes_to_inc = None
                 if run_factor and use_phewas_for_factoring:
@@ -19505,7 +19110,7 @@ def main():
             g.beta_tildes = np.full(len(g.gene_sets), options.const_gene_set_beta)
         elif options.gene_set_stats_in is not None and not use_phewas_for_factoring:
             g.read_gene_set_statistics(options.gene_set_stats_in, stats_id_col=options.gene_set_stats_id_col, stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col, stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col, stats_p_col=options.gene_set_stats_p_col, stats_se_col=options.gene_set_stats_se_col, stats_beta_col=options.gene_set_stats_beta_col, stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col, ignore_negative_exp_beta=options.ignore_negative_exp_beta, max_gene_set_p=options.max_gene_set_read_p, min_gene_set_beta=options.min_gene_set_read_beta, min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected)
-        elif run_beta_tilde or run_sigma or run_beta or run_priors or run_naive_priors or run_gibbs or (run_factor and not use_phewas_for_factoring and (options.anchor_gene_set is not None or not factor_gene_set_x_pheno)) or (run_factor and (options.add_gene_sets_by_naive or options.add_gene_sets_by_gibbs)) or run_sim:
+        elif run_beta_tilde or run_beta or run_priors or run_naive_priors or run_gibbs or (run_factor and not use_phewas_for_factoring and (options.anchor_gene_set is not None or not factor_gene_set_x_pheno)) or (run_factor and (options.add_gene_sets_by_naive or options.add_gene_sets_by_gibbs)) or run_sim:
             if run_factor:
                 run_beta_for_factor = True
                 if not run_naive_factor:
@@ -19523,8 +19128,8 @@ def main():
             if options.gene_phewas_bfs_in:
                 g.read_gene_phewas_bfs(gene_phewas_bfs_in=options.gene_phewas_bfs_in,gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, anchor_genes=options.anchor_genes, anchor_phenos=options.anchor_phenos, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id, min_value=options.min_gene_phewas_read_value, max_num_entries_at_once=options.max_read_entries_at_once)
 
-        if run_sigma or ((run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor) and g.sigma2 is None):
-            g.calculate_sigma(options.sigma_power, options.chisq_threshold, options.chisq_dynamic, options.desired_intercept_difference)
+        if (run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor) and g.sigma2 is None:
+            bail("Sigma2 was not initialized; provide --sigma2 explicitly")
 
         if options.cross_val:
             g.run_cross_val(options.cross_val_num_explore_each_direction, folds=options.cross_val_folds, cross_val_max_num_tries=options.cross_val_max_num_tries, p=g.p, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, run_logistic=not options.linear, max_for_linear=options.max_for_linear, run_corrected_ols=not options.ols, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas)
