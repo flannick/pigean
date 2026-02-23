@@ -1877,7 +1877,7 @@ class GeneSetData(object):
         )
 
     def remove_genes_for_phewas_factor(self, *args, **kwargs):
-        return _state_remove_genes_for_phewas_factor(self.__dict__, *args, **kwargs)
+        return self._remove_genes_for_phewas_factor_impl(*args, **kwargs)
 
     def _remove_genes_for_phewas_factor_impl(self, keep_genes=None, naive_gt=None, num_gt=None, num_top_per_factor=None, num_top=None):
         if self.genes is None:
@@ -1933,15 +1933,14 @@ class GeneSetData(object):
 
 
     def set_const_Y(self, *args, **kwargs):
-        return _state_set_const_Y(self.__dict__, *args, **kwargs)
+        return self._set_const_Y_impl(*args, **kwargs)
 
     def _set_const_Y_impl(self, value):
         const_Y = np.full(len(self.genes), value)
         self._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
 
     def read_Y(self, gwas_in=None, huge_statistics_in=None, huge_statistics_out=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, gene_loc_file=None, gene_covs_in=None, hold_out_chrom=None, **kwargs):
-        return _state_read_Y(
-            self.__dict__,
+        return self._read_Y_impl(
             gwas_in=gwas_in,
             huge_statistics_in=huge_statistics_in,
             huge_statistics_out=huge_statistics_out,
@@ -1989,8 +1988,7 @@ class GeneSetData(object):
             return (Y, extra_genes, extra_Y)
 
         if exomes_in is not None:
-            (Y1_exomes,extra_genes_exomes,extra_Y_exomes) = _state_calculate_huge_scores_exomes(
-                self.__dict__,
+            (Y1_exomes,extra_genes_exomes,extra_Y_exomes) = self._calculate_huge_scores_exomes_impl(
                 exomes_in,
                 hold_out_chrom=hold_out_chrom,
                 gene_loc_file=gene_loc_file,
@@ -2017,8 +2015,7 @@ class GeneSetData(object):
         extra_Y_positive_controls = []
 
         if positive_controls_in is not None or positive_controls_list is not None:
-            (Y1_positive_controls,extra_genes_positive_controls,extra_Y_positive_controls) = _state_read_positive_controls(
-                self.__dict__,
+            (Y1_positive_controls,extra_genes_positive_controls,extra_Y_positive_controls) = self._read_positive_controls_impl(
                 positive_controls_in,
                 positive_controls_list=positive_controls_list,
                 hold_out_chrom=hold_out_chrom,
@@ -2079,8 +2076,7 @@ class GeneSetData(object):
             if case_counts_in is None or ctrl_counts_in is None:
                 bail("If specify one of --case-counts-in or --ctrl-counts-in must specify both of them")
 
-            (Y1_case_counts,extra_genes_case_counts,extra_Y_case_counts) = _state_read_count_file(
-                self.__dict__,
+            (Y1_case_counts,extra_genes_case_counts,extra_Y_case_counts) = self._read_count_file_impl(
                 case_counts_in,
                 ctrl_counts_in,
                 hold_out_chrom=hold_out_chrom,
@@ -2152,8 +2148,7 @@ class GeneSetData(object):
             (Y1,extra_genes,extra_Y,Y1_for_regression,extra_Y_for_regression) = self.read_huge_statistics(huge_statistics_in)
             missing_value = 0
         elif gwas_in is not None:
-            (Y1,extra_genes,extra_Y,Y1_for_regression,extra_Y_for_regression) = _state_calculate_huge_scores_gwas(
-                self.__dict__,
+            (Y1,extra_genes,extra_Y,Y1_for_regression,extra_Y_for_regression) = self._calculate_huge_scores_gwas_impl(
                 gwas_in,
                 gene_loc_file=gene_loc_file,
                 hold_out_chrom=hold_out_chrom,
@@ -2167,8 +2162,7 @@ class GeneSetData(object):
             self.huge_signal_bfs_for_regression = None
 
             if gene_bfs_in is not None:
-                (Y1,extra_genes,extra_Y, gene_combined_map, gene_prior_map)  = _state_read_gene_bfs(
-                    self.__dict__,
+                (Y1,extra_genes,extra_Y, gene_combined_map, gene_prior_map)  = self._read_gene_bfs_impl(
                     gene_bfs_in,
                     **kwargs
                 )
@@ -2374,7 +2368,7 @@ class GeneSetData(object):
 
         if gene_covs_in is not None:
             #read in the covariates, ignoring any extra
-            (cov_names, gene_covs, _, _) = _state_read_gene_covs(self.__dict__, gene_covs_in, **kwargs)
+            (cov_names, gene_covs, _, _) = self._read_gene_covs_impl(gene_covs_in, **kwargs)
             cov_dirs = np.array([0]*len(cov_names))
 
             #mean imputation
@@ -2483,7 +2477,7 @@ class GeneSetData(object):
 
 
     def read_X(self, *args, **kwargs):
-        return _state_read_X(self.__dict__, *args, **kwargs)
+        return self._read_X_impl(*args, **kwargs)
 
     #Initialize the matrices, genes, and gene sets
     #This can be called multiple times; it will subset the current matrices down to the new set of gene sets
@@ -4047,7 +4041,7 @@ class GeneSetData(object):
     #this reads a V matrix directly from a file
     #it does not initialize an X matrix; if the X-matrix is needed, read_X should be used instead
     def read_V(self, *args, **kwargs):
-        return _state_read_V(self.__dict__, *args, **kwargs)
+        return self._read_V_impl(*args, **kwargs)
 
     def _read_V_impl(self, V_in):
 
@@ -4086,7 +4080,7 @@ class GeneSetData(object):
 
 
     def write_V(self, *args, **kwargs):
-        return _state_write_V(self.__dict__, *args, **kwargs)
+        return self._write_V_impl(*args, **kwargs)
 
     def _write_V_impl(self, V_out):
         if self.X_orig is not None:
@@ -4097,7 +4091,7 @@ class GeneSetData(object):
             warn("V has not been initialized; skipping writing")
 
     def write_Xd(self, *args, **kwargs):
-        return _state_write_Xd(self.__dict__, *args, **kwargs)
+        return self._write_Xd_impl(*args, **kwargs)
 
     def _write_Xd_impl(self, X_out):
         if self.X_orig is not None:
@@ -4108,7 +4102,7 @@ class GeneSetData(object):
             warn("X has not been initialized; skipping writing")
 
     def write_X(self, *args, **kwargs):
-        return _state_write_X(self.__dict__, *args, **kwargs)
+        return self._write_X_impl(*args, **kwargs)
 
     def _write_X_impl(self, X_out):
         if self.genes is None or self.X_orig is None or self.gene_sets is None:
@@ -4133,7 +4127,7 @@ class GeneSetData(object):
                 output_fh.write("%s\n" % line)
 
     def calculate_huge_scores_gwas(self, *args, **kwargs):
-        return _state_calculate_huge_scores_gwas(self.__dict__, *args, **kwargs)
+        return self._calculate_huge_scores_gwas_impl(*args, **kwargs)
 
     def _calculate_huge_scores_gwas_impl(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         if gwas_in is None:
@@ -5865,7 +5859,7 @@ class GeneSetData(object):
         return _read_huge_statistics_with_state_impl(self.__dict__, huge_statistics_in)
 
     def calculate_huge_scores_exomes(self, *args, **kwargs):
-        return _state_calculate_huge_scores_exomes(self.__dict__, *args, **kwargs)
+        return self._calculate_huge_scores_exomes_impl(*args, **kwargs)
 
     def _calculate_huge_scores_exomes_impl(self, exomes_in, exomes_gene_col=None, exomes_p_col=None, exomes_beta_col=None, exomes_se_col=None, exomes_n_col=None, exomes_n=None, exomes_units=None, allelic_var=0.36, exomes_low_p=2.5e-6, exomes_high_p=0.05, exomes_low_p_posterior=0.95, exomes_high_p_posterior=0.10, hold_out_chrom=None, gene_loc_file=None, **kwargs):
 
@@ -6168,7 +6162,7 @@ class GeneSetData(object):
             return (gene_bf, extra_genes, extra_gene_bf)
 
     def read_positive_controls(self, *args, **kwargs):
-        return _state_read_positive_controls(self.__dict__, *args, **kwargs)
+        return self._read_positive_controls_impl(*args, **kwargs)
 
     def _read_positive_controls_impl(self, positive_controls_in, positive_controls_id_col=None, positive_controls_prob_col=None, positive_controls_default_prob=0.95, positive_controls_has_header=True, positive_controls_list=None, positive_controls_all_in=None, positive_controls_all_id_col=None, positive_controls_all_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
         if positive_controls_in is None and positive_controls_list is None:
@@ -6279,7 +6273,7 @@ class GeneSetData(object):
         return (positive_controls, extra_genes, np.array(extra_positive_controls))
 
     def read_all_genes(self, *args, **kwargs):
-        return _state_read_all_genes(self.__dict__, *args, **kwargs)
+        return self._read_all_genes_impl(*args, **kwargs)
 
     def _read_all_genes_impl(self, all_genes_in=None, all_genes_id_col=None, all_genes_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
         if all_genes_in is None:
@@ -6336,7 +6330,7 @@ class GeneSetData(object):
 
     #written by o3
     def read_count_file(self, *args, **kwargs):
-        return _state_read_count_file(self.__dict__, *args, **kwargs)
+        return self._read_count_file_impl(*args, **kwargs)
 
     def _read_count_file_impl(self, case_counts_in, ctrl_counts_in, min_revels=None, mean_rrs=None, case_counts_gene_col=None, ctrl_counts_gene_col=None, case_counts_revel_col=None, ctrl_counts_revel_col=None, case_counts_count_col=None, ctrl_counts_count_col=None, case_counts_tot_col=None, ctrl_counts_tot_col=None, case_counts_max_freq_col=None, ctrl_counts_max_freq_col=None, max_case_freq=0.001, max_ctrl_freq=0.001, syn_revel_threshold=0, syn_fisher_p=1e-4, nu=1, beta=1.0, hold_out_chrom=None, gene_loc_file=None, bound_zero=True, **kwargs):
 
@@ -6789,7 +6783,7 @@ class GeneSetData(object):
                     self.gene_to_huge_score[gene] += self.gene_to_exomes_huge_score[gene]
 
     def read_gene_set_statistics(self, *args, **kwargs):
-        return _state_read_gene_set_statistics(self.__dict__, *args, **kwargs)
+        return self._read_gene_set_statistics_impl(*args, **kwargs)
 
     def _read_gene_set_statistics_impl(self, stats_in, stats_id_col=None, stats_exp_beta_tilde_col=None, stats_beta_tilde_col=None, stats_p_col=None, stats_se_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, ignore_negative_exp_beta=False, max_gene_set_p=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, return_only_ids=False):
 
@@ -7024,7 +7018,7 @@ class GeneSetData(object):
                 warn("Excluding %s values from previously loaded files because absent from --stats-in file" % (len(subset_mask) - sum(subset_mask)))
                 if self.beta_tildes is not None and not need_to_take_log and sum(self.beta_tildes < 0) == 0:
                     warn("All beta_tilde values are positive. Are you sure that the values in column %s are not exp(beta_tilde)?" % stats_beta_col)
-                _state_subset_gene_sets(self.__dict__, subset_mask, keep_missing=True)
+                self._subset_gene_sets_impl(subset_mask, keep_missing=True)
             log("Done subsetting matrices", DEBUG)
         else:
             self.X_orig_missing_gene_sets = None
@@ -7061,7 +7055,7 @@ class GeneSetData(object):
 
 
     def read_gene_set_phewas_statistics(self, *args, **kwargs):
-        return _state_read_gene_set_phewas_statistics(self.__dict__, *args, **kwargs)
+        return self._read_gene_set_phewas_statistics_impl(*args, **kwargs)
 
     def _read_gene_set_phewas_statistics_impl(self, stats_in, stats_id_col=None, stats_pheno_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, update_X=False, phenos_to_match=None, return_only_ids=False, max_num_entries_at_once=None):
 
@@ -7238,7 +7232,7 @@ class GeneSetData(object):
                 #need to subset existing matrices
                 if sum(subset_mask) != len(subset_mask):
                     warn("Excluding %s values from previously loaded files because absent from --stats-in file" % (len(subset_mask) - sum(subset_mask)))
-                    _state_subset_gene_sets(self.__dict__, subset_mask, keep_missing=True)
+                    self._subset_gene_sets_impl(subset_mask, keep_missing=True)
                 log("Done subsetting matrices", DEBUG)
 
             self._set_X(self.X_orig, self.genes, self.gene_sets, skip_N=True)
@@ -7283,10 +7277,10 @@ class GeneSetData(object):
     def _reread_gene_phewas_bfs(self):
         if self.cached_gene_phewas_call is not None:
             log("Rereading gene phewas bfs...")
-            _state_read_gene_phewas_bfs(self.__dict__, **self.cached_gene_phewas_call)
+            self._read_gene_phewas_bfs_impl(**self.cached_gene_phewas_call)
 
     def read_gene_phewas_bfs(self, *args, **kwargs):
-        return _state_read_gene_phewas_bfs(self.__dict__, *args, **kwargs)
+        return self._read_gene_phewas_bfs_impl(*args, **kwargs)
 
     def _read_gene_phewas_bfs_impl(self, gene_phewas_bfs_in, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, anchor_genes=None, anchor_phenos=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, phewas_gene_to_X_gene_in=None, min_value=None, max_num_entries_at_once=None, **kwargs):
 
@@ -7552,7 +7546,7 @@ class GeneSetData(object):
 
 
     def calculate_gene_set_statistics(self, *args, **kwargs):
-        return _state_calculate_gene_set_statistics(self.__dict__, *args, **kwargs)
+        return self._calculate_gene_set_statistics_impl(*args, **kwargs)
 
     def _calculate_gene_set_statistics_impl(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_gls=False, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
         if self.X_orig is None:
@@ -7574,8 +7568,7 @@ class GeneSetData(object):
                 bail("Need --gwas-in or --exomes-in or --gene-stats-in or --positive-controls-in or --case-counts_in")
 
             log("Reading Y within calculate_gene_set_statistics; parameters may not be honored")
-            _state_read_Y(
-                self.__dict__,
+            self._read_Y_impl(
                 gwas_in=gwas_in,
                 exomes_in=exomes_in,
                 positive_controls_in=positive_controls_in,
@@ -7606,7 +7599,7 @@ class GeneSetData(object):
         #subset gene sets to remove empty ones first
         #number of gene sets in each gene set
         col_sums = self.get_col_sums(self.X_orig, num_nonzero=True)
-        _state_subset_gene_sets(self.__dict__, col_sums > 0, keep_missing=False, skip_V=True, skip_scale_factors=True)
+        self._subset_gene_sets_impl(col_sums > 0, keep_missing=False, skip_V=True, skip_scale_factors=True)
 
         #CAN REMOVE
         #mean of Y is now zero
@@ -7734,7 +7727,7 @@ class GeneSetData(object):
                 if np.sum(gene_set_mask) == 0 and len(self.p_values) > 0:
                     gene_set_mask = self.p_values == np.min(self.p_values)
                 log("Keeping %d gene sets that passed threshold of p<%.3g" % (np.sum(gene_set_mask), max_gene_set_p))
-                _state_subset_gene_sets(self.__dict__, gene_set_mask, keep_missing=True, skip_V=True)
+                self._subset_gene_sets_impl(gene_set_mask, keep_missing=True, skip_V=True)
 
                 if len(self.gene_sets) < 1:
                     log("No gene sets left!")
@@ -7784,7 +7777,7 @@ class GeneSetData(object):
         )
 
     def write_params(self, *args, **kwargs):
-        return _state_write_params(self.__dict__, *args, **kwargs)
+        return self._write_params_impl(*args, **kwargs)
 
     def _write_params_impl(self, output_file):
         if output_file is not None:
@@ -7803,7 +7796,7 @@ class GeneSetData(object):
             params_fh.close()
 
     def read_betas(self, *args, **kwargs):
-        return _state_read_betas(self.__dict__, *args, **kwargs)
+        return self._read_betas_impl(*args, **kwargs)
 
     def _read_betas_impl(self, betas_in):
 
@@ -7865,7 +7858,7 @@ class GeneSetData(object):
                     warn("Ignored %s values from --betas-in file because absent from previously loaded files" % ignored)
                 if sum(subset_mask) != len(subset_mask):
                     warn("Excluding %s values from previously loaded files because absent from --betas-in file" % (len(subset_mask) - sum(subset_mask)))
-                    _state_subset_gene_sets(self.__dict__, subset_mask, keep_missing=False)
+                    self._subset_gene_sets_impl(subset_mask, keep_missing=False)
             else:
                 self.gene_sets = gene_sets
                 self.gene_set_to_ind = gene_set_to_ind
@@ -7875,7 +7868,7 @@ class GeneSetData(object):
                 self.betas -= np.mean(self.betas)
 
     def run_cross_val(self, *args, **kwargs):
-        return _state_run_cross_val(self.__dict__, *args, **kwargs)
+        return self._run_cross_val_impl(*args, **kwargs)
 
     def _run_cross_val_impl(self, cross_val_num_explore_each_direction, folds=4, cross_val_max_num_tries=2, p=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=4, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, **kwargs):
 
@@ -7991,7 +7984,7 @@ class GeneSetData(object):
                 break
         
     def calculate_non_inf_betas(self, *args, **kwargs):
-        return _state_calculate_non_inf_betas(self.__dict__, *args, **kwargs)
+        return self._calculate_non_inf_betas_impl(*args, **kwargs)
 
     def _calculate_non_inf_betas_impl(self, p, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, sparse_solution=False, pre_filter_batch_size=None, pre_filter_small_batch_size=500, sparse_frac_betas=None, betas_trace_out=None, run_betas_using_phewas=False, run_uncorrected_using_phewas=False, **kwargs):
 
@@ -8104,7 +8097,7 @@ class GeneSetData(object):
                 self.non_inf_avg_cond_betas_missing = np.zeros(len(self.gene_sets_missing))
 
     def calculate_priors(self, *args, **kwargs):
-        return _state_calculate_priors(self.__dict__, *args, **kwargs)
+        return self._calculate_priors_impl(*args, **kwargs)
 
     def _calculate_priors_impl(self, max_gene_set_p=None, num_gene_batches=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, p_noninf=None, run_logistic=True, max_for_linear=0.95, adjust_priors=False, tag="", **kwargs):
         if self.X_orig is None:
@@ -8420,7 +8413,7 @@ class GeneSetData(object):
                 #self.set_p(orig_p)
 
             #now restore previous subsets
-            _state_subset_gene_sets(self.__dict__, revert_subset_mask, keep_missing=True, skip_V=True)
+            self._subset_gene_sets_impl(revert_subset_mask, keep_missing=True, skip_V=True)
 
         #now for the genes that were not included in X
         if self.X_orig_missing_genes is not None:
@@ -8470,7 +8463,7 @@ class GeneSetData(object):
                 self.priors_adj_missing = priors_adj_missing
 
     def calculate_naive_priors(self, *args, **kwargs):
-        return _state_calculate_naive_priors(self.__dict__, *args, **kwargs)
+        return self._calculate_naive_priors_impl(*args, **kwargs)
 
     def _calculate_naive_priors_impl(self, adjust_priors=False):
         if self.X_orig is None:
@@ -8498,7 +8491,7 @@ class GeneSetData(object):
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
     def run_gibbs(self, *args, **kwargs):
-        return _state_run_gibbs(self.__dict__, *args, **kwargs)
+        return self._run_gibbs_impl(*args, **kwargs)
 
     def _run_gibbs_impl(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, eps=0.01):
 
@@ -11022,7 +11015,7 @@ class GeneSetData(object):
 
 
     def num_factors(self, *args, **kwargs):
-        return _state_num_factors(self.__dict__, *args, **kwargs)
+        return self._num_factors_impl(*args, **kwargs)
 
     def _num_factors_impl(self):
         if self.exp_lambdak is None:
@@ -11052,7 +11045,7 @@ class GeneSetData(object):
 
 
     def run_factor(self, *args, **kwargs):
-        return _state_run_factor(self.__dict__, *args, **kwargs)
+        return self._run_factor_impl(*args, **kwargs)
 
     def _run_factor_impl(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False):
 
@@ -11865,18 +11858,18 @@ class GeneSetData(object):
             return [sparse_corr_matrix[i * n:(i + 1) * n, i * n:(i + 1) * n] for i in range(k)]
 
     def read_gene_phewas(self, *args, **kwargs):
-        return _state_read_gene_phewas(self.__dict__, *args, **kwargs)
+        return self._read_gene_phewas_impl(*args, **kwargs)
 
     def _read_gene_phewas_impl(self):
         return self.gene_pheno_Y is not None or  self.gene_pheno_combined_prior_Ys is not None and self.gene_pheno_priors is not None
 
     def run_phewas(self, *args, **kwargs):
-        return _state_run_phewas(self.__dict__, *args, **kwargs)
+        return self._run_phewas_impl(*args, **kwargs)
 
     def _run_phewas_impl(self, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, run_for_factors=False, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, min_gene_factor_weight=0, **kwargs):
 
         #require X matrix
-        if gene_phewas_bfs_in is None and not _state_read_gene_phewas(self.__dict__):
+        if gene_phewas_bfs_in is None and not self._read_gene_phewas_impl():
             bail("Require --gene-stats-in or --gene-phewas-bfs-in with a column for log_bf/Y in this operation")
 
         if run_for_factors:
@@ -12225,7 +12218,7 @@ class GeneSetData(object):
                         self.pheno_combined_prior_Ys_vs_input_priors_beta, self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde, self.pheno_combined_prior_Ys_vs_input_priors_se, self.pheno_combined_prior_Ys_vs_input_priors_Z, self.pheno_combined_prior_Ys_vs_input_priors_p_value, _ = __update_pheno_vec(self.pheno_combined_prior_Ys_vs_input_priors_beta, self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde, self.pheno_combined_prior_Ys_vs_input_priors_se, self.pheno_combined_prior_Ys_vs_input_priors_Z, self.pheno_combined_prior_Ys_vs_input_priors_p_value, None, beta[2,:], beta_tilde[2,:], se[2,:], Z[2,:], p_value[2,:], None)
 
     def run_sim(self, *args, **kwargs):
-        return _state_run_sim(self.__dict__, *args, **kwargs)
+        return self._run_sim_impl(*args, **kwargs)
 
     def _run_sim_impl(self, sigma2, p, sigma_power, log_bf_noise_sigma_mult=0, treat_sigma2_as_sigma2_cond=True, only_positive=False):
 
@@ -12290,7 +12283,7 @@ class GeneSetData(object):
                 return self.gene_N + (self.gene_ignored_N if self.gene_ignored_N is not None else 0)
 
     def write_gene_set_statistics(self, *args, **kwargs):
-        return _state_write_gene_set_statistics(self.__dict__, *args, **kwargs)
+        return self._write_gene_set_statistics_impl(*args, **kwargs)
 
     def _write_gene_set_statistics_impl(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
         log("Writing gene set stats to %s" % output_file, INFO)
@@ -12554,7 +12547,7 @@ class GeneSetData(object):
                     output_fh.write("%s\n" % line)
 
     def write_phewas_gene_set_statistics(self, *args, **kwargs):
-        return _state_write_phewas_gene_set_statistics(self.__dict__, *args, **kwargs)
+        return self._write_phewas_gene_set_statistics_impl(*args, **kwargs)
 
     def _write_phewas_gene_set_statistics_impl(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
 
@@ -12617,7 +12610,7 @@ class GeneSetData(object):
                     output_fh.write("%s\n" % line)
 
     def write_gene_statistics(self, *args, **kwargs):
-        return _state_write_gene_statistics(self.__dict__, *args, **kwargs)
+        return self._write_gene_statistics_impl(*args, **kwargs)
 
     def _write_gene_statistics_impl(self, output_file):
         log("Writing gene stats to %s" % output_file, INFO)
@@ -12974,7 +12967,7 @@ class GeneSetData(object):
                 output_fh.write("%s\n" % line)
 
     def write_gene_gene_set_statistics(self, *args, **kwargs):
-        return _state_write_gene_gene_set_statistics(self.__dict__, *args, **kwargs)
+        return self._write_gene_gene_set_statistics_impl(*args, **kwargs)
 
     def _write_gene_gene_set_statistics_impl(self, output_file, max_no_write_gene_gene_set_beta=0.0001, write_filter_beta_uncorrected=False):
         log("Writing gene gene set stats to %s" % output_file, INFO)
@@ -13104,7 +13097,7 @@ class GeneSetData(object):
 
 
     def write_gene_set_overlap_statistics(self, *args, **kwargs):
-        return _state_write_gene_set_overlap_statistics(self.__dict__, *args, **kwargs)
+        return self._write_gene_set_overlap_statistics_impl(*args, **kwargs)
 
     def _write_gene_set_overlap_statistics_impl(self, output_file):
         log("Writing gene set overlap stats to %s" % output_file, INFO)
@@ -13158,7 +13151,7 @@ class GeneSetData(object):
 
 
     def write_gene_covariates(self, *args, **kwargs):
-        return _state_write_gene_covariates(self.__dict__, *args, **kwargs)
+        return self._write_gene_covariates_impl(*args, **kwargs)
 
     def _write_gene_covariates_impl(self, output_file):
         if self.genes is None or self.gene_covariates is None:
@@ -13187,7 +13180,7 @@ class GeneSetData(object):
 
 
     def write_gene_effectors(self, *args, **kwargs):
-        return _state_write_gene_effectors(self.__dict__, *args, **kwargs)
+        return self._write_gene_effectors_impl(*args, **kwargs)
 
     def _write_gene_effectors_impl(self, output_file):
         if self.genes is None or self.huge_signal_bfs is None:
@@ -13271,7 +13264,7 @@ class GeneSetData(object):
 
 
     def write_phewas_statistics(self, *args, **kwargs):
-        return _state_write_phewas_statistics(self.__dict__, *args, **kwargs)
+        return self._write_phewas_statistics_impl(*args, **kwargs)
 
     def _write_phewas_statistics_impl(self, output_file):
         if self.phenos is None or len(self.phenos) == 0:
@@ -13341,7 +13334,7 @@ class GeneSetData(object):
                     output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "combined_vs_prior", self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde[i], self.pheno_combined_prior_Ys_vs_input_priors_p_value[i], self.pheno_combined_prior_Ys_vs_input_priors_Z[i], self.pheno_combined_prior_Ys_vs_input_priors_se[i], self.pheno_combined_prior_Ys_vs_input_priors_beta[i]))
 
     def write_factor_phewas_statistics(self, *args, **kwargs):
-        return _state_write_factor_phewas_statistics(self.__dict__, *args, **kwargs)
+        return self._write_factor_phewas_statistics_impl(*args, **kwargs)
 
     def _write_factor_phewas_statistics_impl(self, output_file):
         if self.phenos is None or len(self.phenos) == 0:
@@ -13380,7 +13373,7 @@ class GeneSetData(object):
 
 
     def write_matrix_factors(self, *args, **kwargs):
-        return _state_write_matrix_factors(self.__dict__, *args, **kwargs)
+        return self._write_matrix_factors_impl(*args, **kwargs)
 
     def _write_matrix_factors_impl(self, factors_output_file=None, write_anchor_specific=False):
 
@@ -13459,7 +13452,7 @@ class GeneSetData(object):
                         output_fh.write("%s\n" % (line))
 
     def write_clusters(self, *args, **kwargs):
-        return _state_write_clusters(self.__dict__, *args, **kwargs)
+        return self._write_clusters_impl(*args, **kwargs)
 
     def _write_clusters_impl(self, gene_set_clusters_output_file=None, gene_clusters_output_file=None, pheno_clusters_output_file=None, write_anchor_specific=False, anchor_genes=None):
 
@@ -13774,7 +13767,7 @@ class GeneSetData(object):
 
 
     def write_gene_pheno_statistics(self, *args, **kwargs):
-        return _state_write_gene_pheno_statistics(self.__dict__, *args, **kwargs)
+        return self._write_gene_pheno_statistics_impl(*args, **kwargs)
 
     def _write_gene_pheno_statistics_impl(self, output_file=None, min_value_to_print=0):
         if self.gene_pheno_Y is None and self.gene_pheno_combined_prior_Ys is None and self.gene_pheno_priors is None:
@@ -13863,7 +13856,7 @@ class GeneSetData(object):
                 self._record_param(param, params[param], overwrite=overwrite, record_only_first_time=record_only_first_time)
 
     def _read_gene_bfs(self, *args, **kwargs):
-        return _state_read_gene_bfs(self.__dict__, *args, **kwargs)
+        return self._read_gene_bfs_impl(*args, **kwargs)
 
     def _read_gene_bfs_impl(self, gene_bfs_in, gene_bfs_id_col=None, gene_bfs_log_bf_col=None, gene_bfs_combined_col=None, gene_bfs_prob_col=None, gene_bfs_prior_col=None, gene_bfs_sd_col=None, **kwargs):
 
@@ -13987,7 +13980,7 @@ class GeneSetData(object):
         return (gene_bfs, extra_genes, np.array(extra_gene_bfs), gene_in_combined, gene_in_priors)
 
     def _read_gene_covs(self, *args, **kwargs):
-        return _state_read_gene_covs(self.__dict__, *args, **kwargs)
+        return self._read_gene_covs_impl(*args, **kwargs)
 
     def _read_gene_covs_impl(self, gene_covs_in, gene_covs_id_col=None, gene_covs_cov_cols=None, **kwargs):
 
@@ -17775,7 +17768,7 @@ class GeneSetData(object):
 
     #subset the current state of the class to a reduced set of gene sets
     def subset_gene_sets(self, *args, **kwargs):
-        return _state_subset_gene_sets(self.__dict__, *args, **kwargs)
+        return self._subset_gene_sets_impl(*args, **kwargs)
 
     def _subset_gene_sets_impl(self, subset_mask, keep_missing=True, ignore_missing=False, skip_V=False, skip_scale_factors=False):
 
