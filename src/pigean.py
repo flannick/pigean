@@ -1929,7 +1929,10 @@ class GeneSetData(object):
             keep_genes_mask = keep_genes_mask[gene_mask]
 
 
-    def set_const_Y(self, value):
+    def set_const_Y(self, *args, **kwargs):
+        return _state_set_const_Y(self.__dict__, *args, **kwargs)
+
+    def _set_const_Y_impl(self, value):
         const_Y = np.full(len(self.genes), value)
         self._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
 
@@ -4046,7 +4049,10 @@ class GeneSetData(object):
         return V
 
 
-    def write_V(self, V_out):
+    def write_V(self, *args, **kwargs):
+        return _state_write_V(self.__dict__, *args, **kwargs)
+
+    def _write_V_impl(self, V_out):
         if self.X_orig is not None:
             V = self._get_V()
             log("Writing V matrix to %s" % V_out, INFO)
@@ -4054,7 +4060,10 @@ class GeneSetData(object):
         else:
             warn("V has not been initialized; skipping writing")
 
-    def write_Xd(self, X_out):
+    def write_Xd(self, *args, **kwargs):
+        return _state_write_Xd(self.__dict__, *args, **kwargs)
+
+    def _write_Xd_impl(self, X_out):
         if self.X_orig is not None:
             log("Writing X matrix to %s" % X_out, INFO)
             #FIXME: get_orig_X
@@ -4062,7 +4071,10 @@ class GeneSetData(object):
         else:
             warn("X has not been initialized; skipping writing")
 
-    def write_X(self, X_out):
+    def write_X(self, *args, **kwargs):
+        return _state_write_X(self.__dict__, *args, **kwargs)
+
+    def _write_X_impl(self, X_out):
         if self.genes is None or self.X_orig is None or self.gene_sets is None:
             return
             warn("X has not been initialized; skipping writing")
@@ -6725,7 +6737,10 @@ class GeneSetData(object):
                 if gene in self.gene_to_exomes_huge_score:
                     self.gene_to_huge_score[gene] += self.gene_to_exomes_huge_score[gene]
 
-    def read_gene_set_statistics(self, stats_in, stats_id_col=None, stats_exp_beta_tilde_col=None, stats_beta_tilde_col=None, stats_p_col=None, stats_se_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, ignore_negative_exp_beta=False, max_gene_set_p=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, return_only_ids=False):
+    def read_gene_set_statistics(self, *args, **kwargs):
+        return _state_read_gene_set_statistics(self.__dict__, *args, **kwargs)
+
+    def _read_gene_set_statistics_impl(self, stats_in, stats_id_col=None, stats_exp_beta_tilde_col=None, stats_beta_tilde_col=None, stats_p_col=None, stats_se_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, ignore_negative_exp_beta=False, max_gene_set_p=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, return_only_ids=False):
 
         if stats_in is None:
             bail("Require --stats-in for this operation")
@@ -6994,7 +7009,10 @@ class GeneSetData(object):
         self._set_X(self.X_orig, self.genes, self.gene_sets, skip_N=True)
 
 
-    def read_gene_set_phewas_statistics(self, stats_in, stats_id_col=None, stats_pheno_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, update_X=False, phenos_to_match=None, return_only_ids=False, max_num_entries_at_once=None):
+    def read_gene_set_phewas_statistics(self, *args, **kwargs):
+        return _state_read_gene_set_phewas_statistics(self.__dict__, *args, **kwargs)
+
+    def _read_gene_set_phewas_statistics_impl(self, stats_in, stats_id_col=None, stats_pheno_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, update_X=False, phenos_to_match=None, return_only_ids=False, max_num_entries_at_once=None):
 
         if stats_in is None:
             bail("Require --gene-set-stats-in or --gene-set-phewas-stats-in for this operation")
@@ -7216,7 +7234,10 @@ class GeneSetData(object):
             log("Rereading gene phewas bfs...")
             self.read_gene_phewas_bfs(**self.cached_gene_phewas_call)
 
-    def read_gene_phewas_bfs(self, gene_phewas_bfs_in, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, anchor_genes=None, anchor_phenos=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, phewas_gene_to_X_gene_in=None, min_value=None, max_num_entries_at_once=None, **kwargs):
+    def read_gene_phewas_bfs(self, *args, **kwargs):
+        return _state_read_gene_phewas_bfs(self.__dict__, *args, **kwargs)
+
+    def _read_gene_phewas_bfs_impl(self, gene_phewas_bfs_in, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, anchor_genes=None, anchor_phenos=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, phewas_gene_to_X_gene_in=None, min_value=None, max_num_entries_at_once=None, **kwargs):
 
         cached = dict(locals())
         cached.pop("self", None)
@@ -7479,7 +7500,10 @@ class GeneSetData(object):
                 bail("Couldn't find any match for %s" % list(anchor_phenos))
 
 
-    def calculate_gene_set_statistics(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_gls=False, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
+    def calculate_gene_set_statistics(self, *args, **kwargs):
+        return _state_calculate_gene_set_statistics(self.__dict__, *args, **kwargs)
+
+    def _calculate_gene_set_statistics_impl(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_gls=False, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
         if self.X_orig is None:
             bail("Error: X is required")
         #now calculate the betas and p-values
@@ -7698,7 +7722,10 @@ class GeneSetData(object):
             convert_sigma_to_internal_units=convert_sigma_to_internal_units,
         )
 
-    def write_params(self, output_file):
+    def write_params(self, *args, **kwargs):
+        return _state_write_params(self.__dict__, *args, **kwargs)
+
+    def _write_params_impl(self, output_file):
         if output_file is not None:
             log("Writing params to %s" % output_file, INFO)
             params_fh = open(output_file, 'w')
@@ -7714,7 +7741,10 @@ class GeneSetData(object):
                         
             params_fh.close()
 
-    def read_betas(self, betas_in):
+    def read_betas(self, *args, **kwargs):
+        return _state_read_betas(self.__dict__, *args, **kwargs)
+
+    def _read_betas_impl(self, betas_in):
 
         betas_format = "<gene_set_id> <beta>"
 
@@ -7783,7 +7813,10 @@ class GeneSetData(object):
             if self.normalize_betas:
                 self.betas -= np.mean(self.betas)
 
-    def run_cross_val(self, cross_val_num_explore_each_direction, folds=4, cross_val_max_num_tries=2, p=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=4, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, **kwargs):
+    def run_cross_val(self, *args, **kwargs):
+        return _state_run_cross_val(self.__dict__, *args, **kwargs)
+
+    def _run_cross_val_impl(self, cross_val_num_explore_each_direction, folds=4, cross_val_max_num_tries=2, p=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=4, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, **kwargs):
 
         log("Running cross validation", DEBUG)
 
@@ -8375,7 +8408,10 @@ class GeneSetData(object):
             else:
                 self.priors_adj_missing = priors_adj_missing
 
-    def calculate_naive_priors(self, adjust_priors=False):
+    def calculate_naive_priors(self, *args, **kwargs):
+        return _state_calculate_naive_priors(self.__dict__, *args, **kwargs)
+
+    def _calculate_naive_priors_impl(self, adjust_priors=False):
         if self.X_orig is None:
             bail("X is required for this operation")
         if self.betas is None:
@@ -10924,7 +10960,10 @@ class GeneSetData(object):
             #n_error # List of reconstruction errors (sum of squared errors) per iteration
 
 
-    def num_factors(self):
+    def num_factors(self, *args, **kwargs):
+        return _state_num_factors(self.__dict__, *args, **kwargs)
+
+    def _num_factors_impl(self):
         if self.exp_lambdak is None:
             return 0
         else:
@@ -10951,7 +10990,10 @@ class GeneSetData(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False):
+    def run_factor(self, *args, **kwargs):
+        return _state_run_factor(self.__dict__, *args, **kwargs)
+
+    def _run_factor_impl(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False):
 
         if self.X_orig is None:
             bail("Cannot run factoring without X")
@@ -11761,10 +11803,16 @@ class GeneSetData(object):
         else:
             return [sparse_corr_matrix[i * n:(i + 1) * n, i * n:(i + 1) * n] for i in range(k)]
 
-    def read_gene_phewas(self):
+    def read_gene_phewas(self, *args, **kwargs):
+        return _state_read_gene_phewas(self.__dict__, *args, **kwargs)
+
+    def _read_gene_phewas_impl(self):
         return self.gene_pheno_Y is not None or  self.gene_pheno_combined_prior_Ys is not None and self.gene_pheno_priors is not None
 
-    def run_phewas(self, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, run_for_factors=False, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, min_gene_factor_weight=0, **kwargs):
+    def run_phewas(self, *args, **kwargs):
+        return _state_run_phewas(self.__dict__, *args, **kwargs)
+
+    def _run_phewas_impl(self, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, run_for_factors=False, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, min_gene_factor_weight=0, **kwargs):
 
         #require X matrix
         if gene_phewas_bfs_in is None and not self.read_gene_phewas():
@@ -12115,7 +12163,10 @@ class GeneSetData(object):
                     if self.priors is not None:
                         self.pheno_combined_prior_Ys_vs_input_priors_beta, self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde, self.pheno_combined_prior_Ys_vs_input_priors_se, self.pheno_combined_prior_Ys_vs_input_priors_Z, self.pheno_combined_prior_Ys_vs_input_priors_p_value, _ = __update_pheno_vec(self.pheno_combined_prior_Ys_vs_input_priors_beta, self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde, self.pheno_combined_prior_Ys_vs_input_priors_se, self.pheno_combined_prior_Ys_vs_input_priors_Z, self.pheno_combined_prior_Ys_vs_input_priors_p_value, None, beta[2,:], beta_tilde[2,:], se[2,:], Z[2,:], p_value[2,:], None)
 
-    def run_sim(self, sigma2, p, sigma_power, log_bf_noise_sigma_mult=0, treat_sigma2_as_sigma2_cond=True, only_positive=False):
+    def run_sim(self, *args, **kwargs):
+        return _state_run_sim(self.__dict__, *args, **kwargs)
+
+    def _run_sim_impl(self, sigma2, p, sigma_power, log_bf_noise_sigma_mult=0, treat_sigma2_as_sigma2_cond=True, only_positive=False):
 
         if sigma2 is None or sigma2 <= 0:
             bail("Require positive --sigma2 for simulations")
@@ -12177,7 +12228,10 @@ class GeneSetData(object):
             else:
                 return self.gene_N + (self.gene_ignored_N if self.gene_ignored_N is not None else 0)
 
-    def write_gene_set_statistics(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
+    def write_gene_set_statistics(self, *args, **kwargs):
+        return _state_write_gene_set_statistics(self.__dict__, *args, **kwargs)
+
+    def _write_gene_set_statistics_impl(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
         log("Writing gene set stats to %s" % output_file, INFO)
         with open_gz(output_file, 'w') as output_fh:
             if self.gene_sets is None:
@@ -12438,7 +12492,10 @@ class GeneSetData(object):
 
                     output_fh.write("%s\n" % line)
 
-    def write_phewas_gene_set_statistics(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
+    def write_phewas_gene_set_statistics(self, *args, **kwargs):
+        return _state_write_phewas_gene_set_statistics(self.__dict__, *args, **kwargs)
+
+    def _write_phewas_gene_set_statistics_impl(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
 
         log("Writing phewas gene set stats to %s" % output_file, INFO)
         if self.p_values_phewas is None:
@@ -12498,7 +12555,10 @@ class GeneSetData(object):
                         line = "%s\t%.3g" % (line, self.betas_uncorrected_phewas[p,i] / self.scale_factors[i])            
                     output_fh.write("%s\n" % line)
 
-    def write_gene_statistics(self, output_file):
+    def write_gene_statistics(self, *args, **kwargs):
+        return _state_write_gene_statistics(self.__dict__, *args, **kwargs)
+
+    def _write_gene_statistics_impl(self, output_file):
         log("Writing gene stats to %s" % output_file, INFO)
 
         with open_gz(output_file, 'w') as output_fh:
@@ -12852,7 +12912,10 @@ class GeneSetData(object):
 
                 output_fh.write("%s\n" % line)
 
-    def write_gene_gene_set_statistics(self, output_file, max_no_write_gene_gene_set_beta=0.0001, write_filter_beta_uncorrected=False):
+    def write_gene_gene_set_statistics(self, *args, **kwargs):
+        return _state_write_gene_gene_set_statistics(self.__dict__, *args, **kwargs)
+
+    def _write_gene_gene_set_statistics_impl(self, output_file, max_no_write_gene_gene_set_beta=0.0001, write_filter_beta_uncorrected=False):
         log("Writing gene gene set stats to %s" % output_file, INFO)
 
         if self.genes is None or self.X_orig is None or (self.betas is None and self.beta_tildes is None):
@@ -12979,7 +13042,10 @@ class GeneSetData(object):
                     output_fh.write("%s\n" % line)
 
 
-    def write_gene_set_overlap_statistics(self, output_file):
+    def write_gene_set_overlap_statistics(self, *args, **kwargs):
+        return _state_write_gene_set_overlap_statistics(self.__dict__, *args, **kwargs)
+
+    def _write_gene_set_overlap_statistics_impl(self, output_file):
         log("Writing gene set overlap stats to %s" % output_file, INFO)
         with open_gz(output_file, 'w') as output_fh:
             if self.gene_sets is None:
@@ -13030,7 +13096,10 @@ class GeneSetData(object):
                         output_fh.write("%s\t%.3g\t%.3g\t%s\t%.3g\t%.3g\t%.3g\t%.3g\n" % (gene_sets[outer_ind], betas[outer_ind] / scale_factors[outer_ind], betas_uncorrected[outer_ind] / scale_factors[outer_ind], gene_sets[j], cur_V_beta[i, j] / scale_factors[i], cur_V[i,j], betas[j] / scale_factors[j], betas_uncorrected[j] / scale_factors[j]))
 
 
-    def write_gene_covariates(self, output_file):
+    def write_gene_covariates(self, *args, **kwargs):
+        return _state_write_gene_covariates(self.__dict__, *args, **kwargs)
+
+    def _write_gene_covariates_impl(self, output_file):
         if self.genes is None or self.gene_covariates is None:
             return
 
@@ -13056,7 +13125,10 @@ class GeneSetData(object):
                 output_fh.write("%s\n" % value_out)
 
 
-    def write_gene_effectors(self, output_file):
+    def write_gene_effectors(self, *args, **kwargs):
+        return _state_write_gene_effectors(self.__dict__, *args, **kwargs)
+
+    def _write_gene_effectors_impl(self, output_file):
         if self.genes is None or self.huge_signal_bfs is None:
             return
 
@@ -13137,7 +13209,10 @@ class GeneSetData(object):
                     output_fh.write("%s\n" % line)
 
 
-    def write_phewas_statistics(self, output_file):
+    def write_phewas_statistics(self, *args, **kwargs):
+        return _state_write_phewas_statistics(self.__dict__, *args, **kwargs)
+
+    def _write_phewas_statistics_impl(self, output_file):
         if self.phenos is None or len(self.phenos) == 0:
             return
 
@@ -13204,7 +13279,10 @@ class GeneSetData(object):
                 if self.pheno_combined_prior_Ys_vs_input_priors_beta is not None:
                     output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "combined_vs_prior", self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde[i], self.pheno_combined_prior_Ys_vs_input_priors_p_value[i], self.pheno_combined_prior_Ys_vs_input_priors_Z[i], self.pheno_combined_prior_Ys_vs_input_priors_se[i], self.pheno_combined_prior_Ys_vs_input_priors_beta[i]))
 
-    def write_factor_phewas_statistics(self, output_file):
+    def write_factor_phewas_statistics(self, *args, **kwargs):
+        return _state_write_factor_phewas_statistics(self.__dict__, *args, **kwargs)
+
+    def _write_factor_phewas_statistics_impl(self, output_file):
         if self.phenos is None or len(self.phenos) == 0:
             return
 
@@ -13240,7 +13318,10 @@ class GeneSetData(object):
                         output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "combined_huber", self.factor_phewas_combined_prior_Ys_huber_betas[f,i], self.factor_phewas_combined_prior_Ys_huber_p_values[f,i], self.factor_phewas_combined_prior_Ys_huber_one_sided_p_values[f,i], self.factor_phewas_combined_prior_Ys_huber_zs[f,i], self.factor_phewas_combined_prior_Ys_huber_ses[f,i]))
 
 
-    def write_matrix_factors(self, factors_output_file=None, write_anchor_specific=False):
+    def write_matrix_factors(self, *args, **kwargs):
+        return _state_write_matrix_factors(self.__dict__, *args, **kwargs)
+
+    def _write_matrix_factors_impl(self, factors_output_file=None, write_anchor_specific=False):
 
         if self.num_factors() <= 0:
             return
@@ -13316,7 +13397,10 @@ class GeneSetData(object):
 
                         output_fh.write("%s\n" % (line))
 
-    def write_clusters(self, gene_set_clusters_output_file=None, gene_clusters_output_file=None, pheno_clusters_output_file=None, write_anchor_specific=False, anchor_genes=None):
+    def write_clusters(self, *args, **kwargs):
+        return _state_write_clusters(self.__dict__, *args, **kwargs)
+
+    def _write_clusters_impl(self, gene_set_clusters_output_file=None, gene_clusters_output_file=None, pheno_clusters_output_file=None, write_anchor_specific=False, anchor_genes=None):
 
         if self.num_factors() == 0:
             log("No factors; not writing clusters")
@@ -13628,7 +13712,10 @@ class GeneSetData(object):
                         output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % (multiplier * raw_pheno_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * specific_pheno_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * combined_pheno_factor_loadings[i,k]) for k in ordered_inds])))                    
 
 
-    def write_gene_pheno_statistics(self, output_file=None, min_value_to_print=0):
+    def write_gene_pheno_statistics(self, *args, **kwargs):
+        return _state_write_gene_pheno_statistics(self.__dict__, *args, **kwargs)
+
+    def _write_gene_pheno_statistics_impl(self, output_file=None, min_value_to_print=0):
         if self.gene_pheno_Y is None and self.gene_pheno_combined_prior_Ys is None and self.gene_pheno_priors is None:
             return
 
@@ -17794,7 +17881,10 @@ class GeneSetData(object):
         #        x[:] = np.concatenate((x[gene_mask], x[~gene_mask]))
 
     #subset the current state of the class to a reduced set of gene sets
-    def subset_gene_sets(self, subset_mask, keep_missing=True, ignore_missing=False, skip_V=False, skip_scale_factors=False):
+    def subset_gene_sets(self, *args, **kwargs):
+        return _state_subset_gene_sets(self.__dict__, *args, **kwargs)
+
+    def _subset_gene_sets_impl(self, subset_mask, keep_missing=True, ignore_missing=False, skip_V=False, skip_scale_factors=False):
 
         if subset_mask is None or np.sum(~subset_mask) == 0:
             return
@@ -18349,6 +18439,9 @@ def init_gene_locs_with_state(runtime_state, gene_loc_file):
     )
 
 
+# ==========================================================================
+# Runtime-state bridge wrappers for legacy method implementations.
+# ==========================================================================
 def _state_read_Y(runtime_state, *args, **kwargs):
     return GeneSetData._read_Y_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
@@ -18370,123 +18463,123 @@ def _state_run_gibbs(runtime_state, *args, **kwargs):
 
 
 def _state_set_const_Y(runtime_state, *args, **kwargs):
-    return GeneSetData.set_const_Y(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._set_const_Y_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_X(runtime_state, *args, **kwargs):
-    return GeneSetData.write_X(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_X_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_Xd(runtime_state, *args, **kwargs):
-    return GeneSetData.write_Xd(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_Xd_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_V(runtime_state, *args, **kwargs):
-    return GeneSetData.write_V(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_V_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_read_gene_set_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.read_gene_set_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._read_gene_set_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_read_gene_set_phewas_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.read_gene_set_phewas_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._read_gene_set_phewas_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_read_gene_phewas_bfs(runtime_state, *args, **kwargs):
-    return GeneSetData.read_gene_phewas_bfs(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._read_gene_phewas_bfs_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_calculate_gene_set_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.calculate_gene_set_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._calculate_gene_set_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_run_cross_val(runtime_state, *args, **kwargs):
-    return GeneSetData.run_cross_val(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._run_cross_val_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_read_betas(runtime_state, *args, **kwargs):
-    return GeneSetData.read_betas(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._read_betas_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_calculate_naive_priors(runtime_state, *args, **kwargs):
-    return GeneSetData.calculate_naive_priors(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._calculate_naive_priors_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_run_sim(runtime_state, *args, **kwargs):
-    return GeneSetData.run_sim(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._run_sim_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_gene_set_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.write_gene_set_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_gene_set_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_phewas_gene_set_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.write_phewas_gene_set_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_phewas_gene_set_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_gene_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.write_gene_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_gene_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_gene_gene_set_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.write_gene_gene_set_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_gene_gene_set_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_gene_set_overlap_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.write_gene_set_overlap_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_gene_set_overlap_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_gene_covariates(runtime_state, *args, **kwargs):
-    return GeneSetData.write_gene_covariates(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_gene_covariates_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_gene_effectors(runtime_state, *args, **kwargs):
-    return GeneSetData.write_gene_effectors(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_gene_effectors_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_run_phewas(runtime_state, *args, **kwargs):
-    return GeneSetData.run_phewas(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._run_phewas_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_read_gene_phewas(runtime_state, *args, **kwargs):
-    return GeneSetData.read_gene_phewas(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._read_gene_phewas_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_phewas_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.write_phewas_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_phewas_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_subset_gene_sets(runtime_state, *args, **kwargs):
-    return GeneSetData.subset_gene_sets(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._subset_gene_sets_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_run_factor(runtime_state, *args, **kwargs):
-    return GeneSetData.run_factor(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._run_factor_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_matrix_factors(runtime_state, *args, **kwargs):
-    return GeneSetData.write_matrix_factors(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_matrix_factors_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_clusters(runtime_state, *args, **kwargs):
-    return GeneSetData.write_clusters(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_clusters_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_gene_pheno_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.write_gene_pheno_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_gene_pheno_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_num_factors(runtime_state, *args, **kwargs):
-    return GeneSetData.num_factors(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._num_factors_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_factor_phewas_statistics(runtime_state, *args, **kwargs):
-    return GeneSetData.write_factor_phewas_statistics(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_factor_phewas_statistics_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_params(runtime_state, *args, **kwargs):
-    return GeneSetData.write_params(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+    return GeneSetData._write_params_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 # ==========================================================================
