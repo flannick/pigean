@@ -1876,7 +1876,10 @@ class GeneSetData(object):
             allow_multi=allow_multi,
         )
 
-    def remove_genes_for_phewas_factor(self, keep_genes=None, naive_gt=None, num_gt=None, num_top_per_factor=None, num_top=None):
+    def remove_genes_for_phewas_factor(self, *args, **kwargs):
+        return _state_remove_genes_for_phewas_factor(self.__dict__, *args, **kwargs)
+
+    def _remove_genes_for_phewas_factor_impl(self, keep_genes=None, naive_gt=None, num_gt=None, num_top_per_factor=None, num_top=None):
         if self.genes is None:
             return
 
@@ -1986,7 +1989,13 @@ class GeneSetData(object):
             return (Y, extra_genes, extra_Y)
 
         if exomes_in is not None:
-            (Y1_exomes,extra_genes_exomes,extra_Y_exomes) = self.calculate_huge_scores_exomes(exomes_in, hold_out_chrom=hold_out_chrom, gene_loc_file=gene_loc_file, **kwargs)
+            (Y1_exomes,extra_genes_exomes,extra_Y_exomes) = _state_calculate_huge_scores_exomes(
+                self.__dict__,
+                exomes_in,
+                hold_out_chrom=hold_out_chrom,
+                gene_loc_file=gene_loc_file,
+                **kwargs
+            )
             if self.genes is None:
                 self._set_X(self.X_orig, extra_genes_exomes, self.gene_sets, skip_N=True, skip_V=True)
                 #set this temporarily for use in huge
@@ -2008,7 +2017,14 @@ class GeneSetData(object):
         extra_Y_positive_controls = []
 
         if positive_controls_in is not None or positive_controls_list is not None:
-            (Y1_positive_controls,extra_genes_positive_controls,extra_Y_positive_controls) = self.read_positive_controls(positive_controls_in, positive_controls_list=positive_controls_list, hold_out_chrom=hold_out_chrom, gene_loc_file=gene_loc_file, **kwargs)
+            (Y1_positive_controls,extra_genes_positive_controls,extra_Y_positive_controls) = _state_read_positive_controls(
+                self.__dict__,
+                positive_controls_in,
+                positive_controls_list=positive_controls_list,
+                hold_out_chrom=hold_out_chrom,
+                gene_loc_file=gene_loc_file,
+                **kwargs
+            )
             if self.genes is None:
                 #this is the first time genes were read in
                 assert(len(Y1_exomes) == 0)
@@ -2063,7 +2079,14 @@ class GeneSetData(object):
             if case_counts_in is None or ctrl_counts_in is None:
                 bail("If specify one of --case-counts-in or --ctrl-counts-in must specify both of them")
 
-            (Y1_case_counts,extra_genes_case_counts,extra_Y_case_counts) = self.read_count_file(case_counts_in, ctrl_counts_in, hold_out_chrom=hold_out_chrom, gene_loc_file=gene_loc_file, **kwargs)
+            (Y1_case_counts,extra_genes_case_counts,extra_Y_case_counts) = _state_read_count_file(
+                self.__dict__,
+                case_counts_in,
+                ctrl_counts_in,
+                hold_out_chrom=hold_out_chrom,
+                gene_loc_file=gene_loc_file,
+                **kwargs
+            )
             if self.genes is None:
                 assert(len(Y1_exomes) == 0)
                 assert(len(Y1_positive_controls) == 0)
@@ -2129,7 +2152,13 @@ class GeneSetData(object):
             (Y1,extra_genes,extra_Y,Y1_for_regression,extra_Y_for_regression) = self.read_huge_statistics(huge_statistics_in)
             missing_value = 0
         elif gwas_in is not None:
-            (Y1,extra_genes,extra_Y,Y1_for_regression,extra_Y_for_regression) = self.calculate_huge_scores_gwas(gwas_in, gene_loc_file=gene_loc_file, hold_out_chrom=hold_out_chrom, **kwargs)
+            (Y1,extra_genes,extra_Y,Y1_for_regression,extra_Y_for_regression) = _state_calculate_huge_scores_gwas(
+                self.__dict__,
+                gwas_in,
+                gene_loc_file=gene_loc_file,
+                hold_out_chrom=hold_out_chrom,
+                **kwargs
+            )
             if huge_statistics_out is not None:
                 self.write_huge_statistics(huge_statistics_out, Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression)
             missing_value = 0
@@ -4013,7 +4042,10 @@ class GeneSetData(object):
 
     #this reads a V matrix directly from a file
     #it does not initialize an X matrix; if the X-matrix is needed, read_X should be used instead
-    def read_V(self, V_in):
+    def read_V(self, *args, **kwargs):
+        return _state_read_V(self.__dict__, *args, **kwargs)
+
+    def _read_V_impl(self, V_in):
 
         log("Reading V from --V-in file %s" % V_in, INFO)
         with open(V_in) as V_fh:
@@ -4096,7 +4128,10 @@ class GeneSetData(object):
 
                 output_fh.write("%s\n" % line)
 
-    def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
+    def calculate_huge_scores_gwas(self, *args, **kwargs):
+        return _state_calculate_huge_scores_gwas(self.__dict__, *args, **kwargs)
+
+    def _calculate_huge_scores_gwas_impl(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         if gwas_in is None:
             bail("Require --gwas-in for this operation")
         if gene_loc_file is None:
@@ -5825,7 +5860,10 @@ class GeneSetData(object):
     def read_huge_statistics(self, huge_statistics_in):
         return _read_huge_statistics_with_state_impl(self.__dict__, huge_statistics_in)
 
-    def calculate_huge_scores_exomes(self, exomes_in, exomes_gene_col=None, exomes_p_col=None, exomes_beta_col=None, exomes_se_col=None, exomes_n_col=None, exomes_n=None, exomes_units=None, allelic_var=0.36, exomes_low_p=2.5e-6, exomes_high_p=0.05, exomes_low_p_posterior=0.95, exomes_high_p_posterior=0.10, hold_out_chrom=None, gene_loc_file=None, **kwargs):
+    def calculate_huge_scores_exomes(self, *args, **kwargs):
+        return _state_calculate_huge_scores_exomes(self.__dict__, *args, **kwargs)
+
+    def _calculate_huge_scores_exomes_impl(self, exomes_in, exomes_gene_col=None, exomes_p_col=None, exomes_beta_col=None, exomes_se_col=None, exomes_n_col=None, exomes_n=None, exomes_units=None, allelic_var=0.36, exomes_low_p=2.5e-6, exomes_high_p=0.05, exomes_low_p_posterior=0.95, exomes_high_p_posterior=0.10, hold_out_chrom=None, gene_loc_file=None, **kwargs):
 
         if exomes_in is None:
             bail("Require --exomes-in for this operation")
@@ -6125,7 +6163,10 @@ class GeneSetData(object):
             self.combine_huge_scores()
             return (gene_bf, extra_genes, extra_gene_bf)
 
-    def read_positive_controls(self, positive_controls_in, positive_controls_id_col=None, positive_controls_prob_col=None, positive_controls_default_prob=0.95, positive_controls_has_header=True, positive_controls_list=None, positive_controls_all_in=None, positive_controls_all_id_col=None, positive_controls_all_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
+    def read_positive_controls(self, *args, **kwargs):
+        return _state_read_positive_controls(self.__dict__, *args, **kwargs)
+
+    def _read_positive_controls_impl(self, positive_controls_in, positive_controls_id_col=None, positive_controls_prob_col=None, positive_controls_default_prob=0.95, positive_controls_has_header=True, positive_controls_list=None, positive_controls_all_in=None, positive_controls_all_id_col=None, positive_controls_all_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
         if positive_controls_in is None and positive_controls_list is None:
             bail("Require --positive-controls-in or --positive-controls-list for this operation")
 
@@ -6233,7 +6274,10 @@ class GeneSetData(object):
 
         return (positive_controls, extra_genes, np.array(extra_positive_controls))
 
-    def read_all_genes(self, all_genes_in=None, all_genes_id_col=None, all_genes_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
+    def read_all_genes(self, *args, **kwargs):
+        return _state_read_all_genes(self.__dict__, *args, **kwargs)
+
+    def _read_all_genes_impl(self, all_genes_in=None, all_genes_id_col=None, all_genes_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
         if all_genes_in is None:
             bail("Require --all-genes-in")
 
@@ -6287,7 +6331,10 @@ class GeneSetData(object):
 
 
     #written by o3
-    def read_count_file(self, case_counts_in, ctrl_counts_in, min_revels=None, mean_rrs=None, case_counts_gene_col=None, ctrl_counts_gene_col=None, case_counts_revel_col=None, ctrl_counts_revel_col=None, case_counts_count_col=None, ctrl_counts_count_col=None, case_counts_tot_col=None, ctrl_counts_tot_col=None, case_counts_max_freq_col=None, ctrl_counts_max_freq_col=None, max_case_freq=0.001, max_ctrl_freq=0.001, syn_revel_threshold=0, syn_fisher_p=1e-4, nu=1, beta=1.0, hold_out_chrom=None, gene_loc_file=None, bound_zero=True, **kwargs):
+    def read_count_file(self, *args, **kwargs):
+        return _state_read_count_file(self.__dict__, *args, **kwargs)
+
+    def _read_count_file_impl(self, case_counts_in, ctrl_counts_in, min_revels=None, mean_rrs=None, case_counts_gene_col=None, ctrl_counts_gene_col=None, case_counts_revel_col=None, ctrl_counts_revel_col=None, case_counts_count_col=None, ctrl_counts_count_col=None, case_counts_tot_col=None, ctrl_counts_tot_col=None, case_counts_max_freq_col=None, ctrl_counts_max_freq_col=None, max_case_freq=0.001, max_ctrl_freq=0.001, syn_revel_threshold=0, syn_fisher_p=1e-4, nu=1, beta=1.0, hold_out_chrom=None, gene_loc_file=None, bound_zero=True, **kwargs):
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
             (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
@@ -18468,6 +18515,10 @@ def _state_read_X(runtime_state, *args, **kwargs):
     return GeneSetData._read_X_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
+def _state_read_V(runtime_state, *args, **kwargs):
+    return GeneSetData._read_V_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
 def _state_calculate_non_inf_betas(runtime_state, *args, **kwargs):
     return GeneSetData._calculate_non_inf_betas_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
@@ -18526,6 +18577,30 @@ def _state_calculate_naive_priors(runtime_state, *args, **kwargs):
 
 def _state_run_sim(runtime_state, *args, **kwargs):
     return GeneSetData._run_sim_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
+def _state_calculate_huge_scores_gwas(runtime_state, *args, **kwargs):
+    return GeneSetData._calculate_huge_scores_gwas_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
+def _state_calculate_huge_scores_exomes(runtime_state, *args, **kwargs):
+    return GeneSetData._calculate_huge_scores_exomes_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
+def _state_read_positive_controls(runtime_state, *args, **kwargs):
+    return GeneSetData._read_positive_controls_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
+def _state_read_count_file(runtime_state, *args, **kwargs):
+    return GeneSetData._read_count_file_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
+def _state_remove_genes_for_phewas_factor(runtime_state, *args, **kwargs):
+    return GeneSetData._remove_genes_for_phewas_factor_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
+def _state_read_all_genes(runtime_state, *args, **kwargs):
+    return GeneSetData._read_all_genes_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
 def _state_write_gene_set_statistics(runtime_state, *args, **kwargs):
