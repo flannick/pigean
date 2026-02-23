@@ -1128,15 +1128,29 @@ def _warn_if_factor_mode_ignores_y_inputs(_state, _options):
         warn(warning_msg)
 
 
+def _is_factor_gene_set_x_pheno_mode(_options):
+    return _options.anchor_genes or _options.anchor_any_gene or _options.anchor_gene_set
+
+
+def _is_factor_phewas_mode(_options):
+    return _options.anchor_phenos is not None or _options.anchor_any_pheno or _options.anchor_genes is not None or _options.anchor_any_gene
+
+
+def _is_factor_expand_mode(_options):
+    return _options.anchor_genes is not None and len(_options.anchor_genes) > 1
+
+
+def _is_naive_factor_mode_requested(_options, _mode):
+    return _options.add_gene_sets_by_naive is not None or _mode == "naive_factor"
+
+
 def _set_factor_mode_state_flags(_state, _options, _mode):
     _state["run_factor"] = True
-    if _options.add_gene_sets_by_naive is not None:
+    if _is_naive_factor_mode_requested(_options, _mode):
         _state["run_naive_factor"] = True
-    if _mode == "naive_factor":
-        _state["run_naive_factor"] = True
-    _state["factor_gene_set_x_pheno"] = _options.anchor_genes or _options.anchor_any_gene or _options.anchor_gene_set
-    _state["use_phewas_for_factoring"] = _options.anchor_phenos is not None or _options.anchor_any_pheno or _options.anchor_genes is not None or _options.anchor_any_gene
-    _state["expand_gene_sets"] = _options.anchor_genes is not None and len(_options.anchor_genes) > 1
+    _state["factor_gene_set_x_pheno"] = _is_factor_gene_set_x_pheno_mode(_options)
+    _state["use_phewas_for_factoring"] = _is_factor_phewas_mode(_options)
+    _state["expand_gene_sets"] = _is_factor_expand_mode(_options)
 
 
 def _warn_if_factor_expand_options_are_ignored(_state, _options):
@@ -1273,8 +1287,12 @@ def _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_phen
     _apply_non_pops_expand_override(_options, _run_factor, _factor_gene_set_x_pheno)
 
 
+def _is_pops_like_mode(_mode):
+    return _mode == "pops" or _mode == "naive_pops"
+
+
 def _apply_mode_defaults(_options, _mode, _run_factor, _factor_gene_set_x_pheno):
-    if _mode == "pops" or _mode == "naive_pops":
+    if _is_pops_like_mode(_mode):
         _apply_pops_mode_defaults(_options)
     else:
         _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_pheno)
