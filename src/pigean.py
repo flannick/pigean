@@ -20029,7 +20029,7 @@ def _build_read_x_input_file_kwargs_for_main(options):
     )
 
 
-def _build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, filter_gene_set_p):
+def _build_read_x_gene_set_selection_kwargs_for_main(options, gene_set_ids, genes_to_inc):
     return dict(
         min_gene_set_size=options.min_gene_set_size,
         max_gene_set_size=options.max_gene_set_size,
@@ -20037,6 +20037,11 @@ def _build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, fi
         only_inc_genes=genes_to_inc,
         fraction_inc_genes=options.add_gene_sets_by_fraction,
         add_all_genes=options.add_all_genes,
+    )
+
+
+def _build_read_x_gene_set_weighting_kwargs_for_main(options):
+    return dict(
         prune_gene_sets=options.prune_gene_sets,
         weighted_prune_gene_sets=options.weighted_prune_gene_sets,
         prune_deterministically=options.prune_deterministically,
@@ -20048,22 +20053,46 @@ def _build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, fi
         threshold_weights=options.threshold_weights,
         cap_weights=options.cap_weights,
         permute_gene_sets=options.permute_gene_sets,
+    )
+
+
+def _build_read_x_gene_set_filtering_kwargs_for_main(options, filter_gene_set_p):
+    return dict(
         max_gene_set_p=options.max_gene_set_read_p,
         filter_gene_set_p=filter_gene_set_p,
         filter_using_phewas=options.betas_uncorrected_from_phewas,
         increase_filter_gene_set_p=options.increase_filter_gene_set_p,
+    )
+
+
+def _build_read_x_gene_set_count_limits_kwargs_for_main(options):
+    return dict(
         max_num_gene_sets_initial=options.max_num_gene_sets_initial,
         max_num_gene_sets=options.max_num_gene_sets,
         max_num_gene_sets_hyper=options.max_num_gene_sets_hyper,
     )
 
 
-def _build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond, xin_to_p_noninf_ind):
+def _build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, filter_gene_set_p):
+    kwargs = {}
+    kwargs.update(_build_read_x_gene_set_selection_kwargs_for_main(options, gene_set_ids, genes_to_inc))
+    kwargs.update(_build_read_x_gene_set_weighting_kwargs_for_main(options))
+    kwargs.update(_build_read_x_gene_set_filtering_kwargs_for_main(options, filter_gene_set_p))
+    kwargs.update(_build_read_x_gene_set_count_limits_kwargs_for_main(options))
+    return kwargs
+
+
+def _build_read_x_regression_model_kwargs_for_main(options, skip_betas):
     return dict(
         skip_betas=skip_betas,
         run_logistic=not options.linear,
         max_for_linear=options.max_for_linear,
         filter_gene_set_metric_z=options.filter_gene_set_metric_z,
+    )
+
+
+def _build_read_x_prior_sigma_kwargs_for_main(state, options, sigma2_cond, xin_to_p_noninf_ind):
+    return dict(
         initial_p=options.p_noninf,
         xin_to_p_noninf_ind=xin_to_p_noninf_ind,
         initial_sigma2=state.sigma2,
@@ -20073,6 +20102,11 @@ def _build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond,
         sigma_soft_threshold_5=options.sigma_soft_threshold_5,
         run_gls=False,
         run_corrected_ols=not options.ols,
+    )
+
+
+def _build_read_x_covariate_model_kwargs_for_main(options):
+    return dict(
         correct_betas_mean=options.correct_betas_mean,
         correct_betas_var=options.correct_betas_var,
         gene_loc_file=options.gene_loc_file,
@@ -20080,6 +20114,14 @@ def _build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond,
         gene_cor_file_gene_col=options.gene_cor_file_gene_col,
         gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
     )
+
+
+def _build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond, xin_to_p_noninf_ind):
+    kwargs = {}
+    kwargs.update(_build_read_x_regression_model_kwargs_for_main(options, skip_betas))
+    kwargs.update(_build_read_x_prior_sigma_kwargs_for_main(state, options, sigma2_cond, xin_to_p_noninf_ind))
+    kwargs.update(_build_read_x_covariate_model_kwargs_for_main(options))
+    return kwargs
 
 
 def _build_read_x_hyper_update_kwargs_for_main(options):
