@@ -1191,10 +1191,9 @@ def _apply_gibbs_stopping_defaults(_options):
     _apply_disable_stall_detection_compat_overrides(_options)
 
 
-mode_state = _resolve_mode_state(mode, options)
-
-_apply_mode_defaults(options, mode, mode_state["run_factor"], mode_state["factor_gene_set_x_pheno"])
-_apply_gibbs_stopping_defaults(options)
+def _apply_post_parse_mode_and_stopping_defaults(_options, _mode, _mode_state):
+    _apply_mode_defaults(_options, _mode, _mode_state["run_factor"], _mode_state["factor_gene_set_x_pheno"])
+    _apply_gibbs_stopping_defaults(_options)
 
 def _flag_present_in_argv(_argv, *flag_names):
     for arg in _argv:
@@ -1296,9 +1295,15 @@ def _emit_effective_config_and_exit_if_requested(_options, _mode):
     sys.exit(0)
 
 
-_derive_memory_controls_from_max_gb(options, sys.argv[1:])
-_apply_post_parse_option_normalization(options)
-_emit_effective_config_and_exit_if_requested(options, mode)
+def _finalize_options_after_parse(_options, _mode, _mode_state, _argv):
+    _apply_post_parse_mode_and_stopping_defaults(_options, _mode, _mode_state)
+    _derive_memory_controls_from_max_gb(_options, _argv)
+    _apply_post_parse_option_normalization(_options)
+    _emit_effective_config_and_exit_if_requested(_options, _mode)
+
+
+mode_state = _resolve_mode_state(mode, options)
+_finalize_options_after_parse(options, mode, mode_state, sys.argv[1:])
 
 def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
     import urllib.request
@@ -19592,12 +19597,24 @@ def _load_initial_y_from_gene_phewas_for_main(state, options):
     state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
 
 
+def _attempt_initial_y_load_for_main(state, options, extend_for_gene, use_phewas_for_factoring):
+    if not extend_for_gene and options.gene_stats_in:
+        _load_initial_y_from_gene_stats_for_main(state, options)
+        return False
+    if _should_load_y_from_sources_for_main(options, extend_for_gene):
+        _load_initial_y_from_sources_for_main(state, options, use_phewas_for_factoring)
+        return False
+    if options.betas_uncorrected_from_phewas:
+        _load_initial_y_from_gene_phewas_for_main(state, options)
+        return False
+    return True
+
+
 def _load_initial_y_inputs_for_main(
     state,
     options,
     mode_state,
 ):
-    run_factor = mode_state["run_factor"]
     use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
 
     # For factor mode with gene-set expansion, seed Y from anchor genes first.
@@ -19611,21 +19628,12 @@ def _load_initial_y_inputs_for_main(
     #we don't need to read in any matrices if we are anchoring to phenotypes, because those will use the (later) phewas files
     extend_for_gene = _compute_extend_for_gene_for_main(options, mode_state)
 
-    Y_not_loaded = False
+    if not _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
+        return False
 
-    if _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
-        if not extend_for_gene and options.gene_stats_in:
-            _load_initial_y_from_gene_stats_for_main(state, options)
-        elif _should_load_y_from_sources_for_main(options, extend_for_gene):
-            _load_initial_y_from_sources_for_main(state, options, use_phewas_for_factoring)
-        elif options.betas_uncorrected_from_phewas:
-            _load_initial_y_from_gene_phewas_for_main(state, options)
-        else:
-            Y_not_loaded = True
-
-        #else:
-        #    bail("Need --gwas-in or --exomes-in or --gene-stats-in")
-    return Y_not_loaded
+    #else:
+    #    bail("Need --gwas-in or --exomes-in or --gene-stats-in")
+    return _attempt_initial_y_load_for_main(state, options, extend_for_gene, use_phewas_for_factoring)
 
 
 def _read_x_and_initialize_p_for_main(
