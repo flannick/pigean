@@ -19898,7 +19898,7 @@ def _finalize_x_loading_for_main(state, options, Y_not_loaded):
     _maybe_write_loaded_matrix_artifacts_for_main(state, options)
 
 
-def _build_priors_kwargs_for_main(options, p_noninf):
+def _build_priors_data_kwargs_for_main(options, p_noninf):
     return dict(
         max_gene_set_p=options.filter_gene_set_p,
         num_gene_batches=options.priors_num_gene_batches,
@@ -19909,9 +19909,19 @@ def _build_priors_kwargs_for_main(options, p_noninf):
         gene_cor_file_gene_col=options.gene_cor_file_gene_col,
         gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
         p_noninf=p_noninf,
+    )
+
+
+def _build_priors_model_kwargs_for_main(options):
+    return dict(
         run_logistic=not options.linear,
         max_for_linear=options.max_for_linear,
         adjust_priors=options.adjust_priors,
+    )
+
+
+def _build_priors_sampling_kwargs_for_main(options):
+    return dict(
         max_num_burn_in=options.max_num_burn_in,
         max_num_iter=options.max_num_iter_betas,
         min_num_iter=options.min_num_iter_betas,
@@ -19926,7 +19936,15 @@ def _build_priors_kwargs_for_main(options, p_noninf):
     )
 
 
-def _build_gibbs_kwargs_for_main(options):
+def _build_priors_kwargs_for_main(options, p_noninf):
+    kwargs = {}
+    kwargs.update(_build_priors_data_kwargs_for_main(options, p_noninf))
+    kwargs.update(_build_priors_model_kwargs_for_main(options))
+    kwargs.update(_build_priors_sampling_kwargs_for_main(options))
+    return kwargs
+
+
+def _build_gibbs_epoch_and_chain_kwargs_for_main(options):
     return dict(
         max_num_iter=options.max_num_iter,
         total_num_iter=options.total_num_iter_gibbs,
@@ -19942,6 +19960,11 @@ def _build_gibbs_kwargs_for_main(options):
         max_num_burn_in=options.max_num_burn_in,
         min_num_post_burn_in=options.min_num_post_burn_in,
         max_num_post_burn_in=options.max_num_post_burn_in,
+    )
+
+
+def _build_gibbs_inner_beta_kwargs_for_main(options):
+    return dict(
         max_num_iter_betas=options.max_num_iter_betas,
         min_num_iter_betas=options.min_num_iter_betas,
         num_chains_betas=options.num_chains_betas,
@@ -19950,6 +19973,11 @@ def _build_gibbs_kwargs_for_main(options):
         max_frac_sem_betas=options.max_frac_sem_betas,
         use_mean_betas=not options.use_sampled_betas_in_gibbs,
         warm_start=options.warm_start,
+    )
+
+
+def _build_gibbs_precision_kwargs_for_main(options):
+    return dict(
         burn_in_rhat_quantile=options.burn_in_rhat_quantile,
         burn_in_patience=options.burn_in_patience,
         burn_in_stall_window=options.burn_in_stall_window,
@@ -19963,6 +19991,11 @@ def _build_gibbs_kwargs_for_main(options):
         active_beta_top_k=options.active_beta_top_k,
         active_beta_min_abs=options.active_beta_min_abs,
         beta_rel_mcse_denom_floor=options.beta_rel_mcse_denom_floor,
+    )
+
+
+def _build_gibbs_stall_kwargs_for_main(options):
+    return dict(
         stall_window=options.stall_window,
         stall_min_burn_in=options.stall_min_burn_in,
         stall_min_post_burn_in=options.stall_min_post_burn_in,
@@ -19972,6 +20005,11 @@ def _build_gibbs_kwargs_for_main(options):
         stall_recent_eps=options.stall_recent_eps,
         stopping_preset_name=options.gibbs_stopping_preset,
         diag_every=options.diag_every,
+    )
+
+
+def _build_gibbs_sparse_and_batch_kwargs_for_main(options):
+    return dict(
         sparse_frac_gibbs=options.sparse_frac_gibbs,
         sparse_max_gibbs=options.sparse_max_gibbs,
         sparse_solution=options.sparse_solution,
@@ -19987,27 +20025,51 @@ def _build_gibbs_kwargs_for_main(options):
         adjust_priors=options.adjust_priors,
         correct_betas_mean=options.correct_betas_mean,
         correct_betas_var=options.correct_betas_var,
+    )
+
+
+def _build_gibbs_trace_output_kwargs_for_main(options):
+    return dict(
         gene_set_stats_trace_out=options.gene_set_stats_trace_out,
         gene_stats_trace_out=options.gene_stats_trace_out,
         betas_trace_out=options.betas_trace_out,
     )
 
 
-def _write_primary_outputs_for_main(state, options):
+def _build_gibbs_kwargs_for_main(options):
+    kwargs = {}
+    kwargs.update(_build_gibbs_epoch_and_chain_kwargs_for_main(options))
+    kwargs.update(_build_gibbs_inner_beta_kwargs_for_main(options))
+    kwargs.update(_build_gibbs_precision_kwargs_for_main(options))
+    kwargs.update(_build_gibbs_stall_kwargs_for_main(options))
+    kwargs.update(_build_gibbs_sparse_and_batch_kwargs_for_main(options))
+    kwargs.update(_build_gibbs_trace_output_kwargs_for_main(options))
+    return kwargs
+
+
+def _write_primary_gene_set_outputs_for_main(state, options):
     if options.gene_set_stats_out:
         state.write_gene_set_statistics(options.gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
     if options.phewas_gene_set_stats_out:
         state.write_phewas_gene_set_statistics(options.phewas_gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
+    if options.gene_set_overlap_stats_out:
+        state.write_gene_set_overlap_statistics(options.gene_set_overlap_stats_out)
+
+
+def _write_primary_gene_outputs_for_main(state, options):
     if options.gene_stats_out:
         state.write_gene_statistics(options.gene_stats_out)
     if options.gene_gene_set_stats_out:
         state.write_gene_gene_set_statistics(options.gene_gene_set_stats_out, max_no_write_gene_gene_set_beta=options.max_no_write_gene_gene_set_beta, write_filter_beta_uncorrected=options.use_beta_uncorrected_for_gene_gene_set_write_filter)
-    if options.gene_set_overlap_stats_out:
-        state.write_gene_set_overlap_statistics(options.gene_set_overlap_stats_out)
     if options.gene_covs_out:
         state.write_gene_covariates(options.gene_covs_out)
     if options.gene_effectors_out:
         state.write_gene_effectors(options.gene_effectors_out)
+
+
+def _write_primary_outputs_for_main(state, options):
+    _write_primary_gene_set_outputs_for_main(state, options)
+    _write_primary_gene_outputs_for_main(state, options)
 
 
 def _run_gene_phewas_for_main(state, options, bfs_to_use, run_for_factors=False, batch_size=1500, min_gene_factor_weight=0):
@@ -20139,20 +20201,29 @@ def _write_factor_outputs_for_main(state, options):
         state.write_gene_pheno_statistics(options.gene_pheno_stats_out, min_value_to_print=options.max_no_write_gene_pheno)
 
 
+def _resolve_factor_phewas_bfs_input_for_main(state, options):
+    bfs_to_use = options.factor_phewas_from_gene_phewas_stats_in
+    if _can_reuse_loaded_gene_phewas_bfs_for_factor_phewas_for_main(state, options, bfs_to_use):
+        #we can skip reading if we are using the same file as previously read and we didn't threshold that file
+        return None
+    return bfs_to_use
+
+
+def _write_factor_phewas_outputs_if_requested_for_main(state, options):
+    if options.factor_phewas_stats_out:
+        state.write_factor_phewas_statistics(options.factor_phewas_stats_out)
+
+
 def _run_factor_phewas_if_requested_for_main(state, options):
-    if options.factor_phewas_from_gene_phewas_stats_in is not None:
-        if state.num_factors() > 0:
-            bfs_to_use = options.factor_phewas_from_gene_phewas_stats_in
+    if options.factor_phewas_from_gene_phewas_stats_in is None:
+        return
+    if state.num_factors() <= 0:
+        log("No factors; not performing factor phewas")
+        return
 
-            if _can_reuse_loaded_gene_phewas_bfs_for_factor_phewas_for_main(state, options, bfs_to_use):
-                #we can skip reading if we are using the same file as previously read and we didn't threshold that file
-                bfs_to_use = None
-
-            _run_gene_phewas_for_main(state, options, bfs_to_use, run_for_factors=True, batch_size=300, min_gene_factor_weight=options.factor_phewas_min_gene_factor_weight)
-            if options.factor_phewas_stats_out:
-                state.write_factor_phewas_statistics(options.factor_phewas_stats_out)
-        else:
-            log("No factors; not performing factor phewas")
+    bfs_to_use = _resolve_factor_phewas_bfs_input_for_main(state, options)
+    _run_gene_phewas_for_main(state, options, bfs_to_use, run_for_factors=True, batch_size=300, min_gene_factor_weight=options.factor_phewas_min_gene_factor_weight)
+    _write_factor_phewas_outputs_if_requested_for_main(state, options)
 
 
 def _can_reuse_loaded_gene_phewas_bfs_for_factor_phewas_for_main(state, options, bfs_to_use):
