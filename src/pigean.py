@@ -934,7 +934,6 @@ def _make_mode_state():
         "run_phewas": False,
         "run_naive_factor": False,
         "run_sim": False,
-        "pops_defaults": False,
         "use_phewas_for_factoring": False,
         "factor_gene_set_x_pheno": False,
         "expand_gene_sets": False,
@@ -965,13 +964,7 @@ def _run_mode_gibbs(_state, _options, _mode):
     _state["run_gibbs"] = True
 
 
-def _run_mode_factor(_state, _options, _mode):
-    _state["run_factor"] = True
-    if _options.add_gene_sets_by_naive is not None:
-        _state["run_naive_factor"] = True
-    if _mode == "naive_factor":
-        _state["run_naive_factor"] = True
-
+def _resolve_factor_mode_requirements(_options):
     error = None
     if _options.anchor_genes is not None and len(_options.anchor_genes) == 1:
         factor_type = "single gene anchoring (to %s)" % _options.anchor_genes
@@ -1005,6 +998,26 @@ def _run_mode_factor(_state, _options, _mode):
         factor_type = "single phenotype anchoring (to %s) using default statistics" % _options.anchor_phenos
         if _options.gene_set_phewas_stats_in is not None or _options.gene_phewas_bfs_in is not None:
             factor_type = "%s. Will project using %s" % (factor_type, _options.gene_set_phewas_stats_in if _options.gene_set_phewas_stats_in is not None else _options.gene_phewas_bfs_in)
+    return factor_type, error
+
+
+def _warn_if_factor_mode_ignores_y_inputs(_state, _options):
+    has_direct_y_inputs = _options.gene_set_stats_in or _options.gwas_in or _options.huge_statistics_in or _options.exomes_in or _options.positive_controls_in or _options.positive_controls_list is not None or _options.case_counts_in
+    if ((_state["use_phewas_for_factoring"] or _state["factor_gene_set_x_pheno"]) and not _options.anchor_gene_set) and has_direct_y_inputs:
+        if _state["use_phewas_for_factoring"]:
+            warn("Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode")
+        elif _state["factor_gene_set_x_pheno"]:
+            warn("Ignoring all arguments for reading Y or reading betas in --anchor-genes mode")
+
+
+def _run_mode_factor(_state, _options, _mode):
+    _state["run_factor"] = True
+    if _options.add_gene_sets_by_naive is not None:
+        _state["run_naive_factor"] = True
+    if _mode == "naive_factor":
+        _state["run_naive_factor"] = True
+
+    factor_type, error = _resolve_factor_mode_requirements(_options)
 
     _state["factor_gene_set_x_pheno"] = _options.anchor_genes or _options.anchor_any_gene or _options.anchor_gene_set
     _state["use_phewas_for_factoring"] = _options.anchor_phenos is not None or _options.anchor_any_pheno or _options.anchor_genes is not None or _options.anchor_any_gene
@@ -1018,11 +1031,7 @@ def _run_mode_factor(_state, _options, _mode):
     else:
         log("Running factoring type: %s" % factor_type)
 
-    if ((_state["use_phewas_for_factoring"] or _state["factor_gene_set_x_pheno"]) and not _options.anchor_gene_set) and (_options.gene_set_stats_in or _options.gwas_in or _options.huge_statistics_in or _options.exomes_in or _options.positive_controls_in or _options.positive_controls_list is not None or _options.case_counts_in):
-        if _state["use_phewas_for_factoring"]:
-            warn("Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode")
-        elif _state["factor_gene_set_x_pheno"]:
-            warn("Ignoring all arguments for reading Y or reading betas in --anchor-genes mode")
+    _warn_if_factor_mode_ignores_y_inputs(_state, _options)
 
 
 def _run_mode_sim(_state, _options, _mode):
@@ -1030,12 +1039,10 @@ def _run_mode_sim(_state, _options, _mode):
 
 
 def _run_mode_pops(_state, _options, _mode):
-    _state["pops_defaults"] = True
     _state["run_priors"] = True
 
 
 def _run_mode_naive_pops(_state, _options, _mode):
-    _state["pops_defaults"] = True
     _state["run_naive_priors"] = True
 
 
@@ -19205,7 +19212,9 @@ def _default_for_gene_list_options(options):
             bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
 
 
-def _prepare_factor_gene_set_ids_for_main(state, options, run_factor, use_phewas_for_factoring):
+def _prepare_factor_gene_set_ids_for_main(state, options, mode_state):
+    run_factor = mode_state["run_factor"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
     gene_set_ids = None
     if run_factor:
         # here we are only getting the IDs we'll keep.
@@ -19696,6 +19705,40 @@ def _compute_gene_set_stats_and_betas_for_main(
     return run_gibbs_for_factor
 
 
+def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, sigma2_cond):
+    if mode_state["run_huge"]:
+        return
+
+    gene_set_ids = _prepare_factor_gene_set_ids_for_main(state, options, mode_state)
+    _read_x_and_initialize_p_for_main(
+        state,
+        options,
+        gene_set_ids,
+        Y_not_loaded,
+        sigma2_cond,
+        mode_state,
+    )
+
+    if mode_state["run_sim"]:
+        state.run_sim(sigma2=state.sigma2, p=state.p, sigma_power=state.sigma_power, log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult, treat_sigma2_as_sigma2_cond=False, only_positive=options.sim_only_positive)
+
+    run_gibbs_for_factor = _compute_gene_set_stats_and_betas_for_main(
+        state,
+        options,
+        mode_state,
+    )
+    _compute_priors_if_requested_for_main(state, options, mode_state)
+    _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state)
+
+
+def _run_post_model_outputs_for_main(state, options, mode_state):
+    _write_primary_outputs_for_main(state, options)
+    _run_phewas_if_requested_for_main(state, options, mode_state)
+    _run_factor_if_requested_for_main(state, options, mode_state)
+    _write_factor_outputs_for_main(state, options)
+    _run_factor_phewas_if_requested_for_main(state, options)
+
+
 def main():
 
     # ==========================================================================
@@ -19708,14 +19751,6 @@ def main():
         log("Options: %s" % options)
 
     state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
-
-    #state.read_X(options.X_in)
-    #y = []
-    #for line in open("c"):
-    #    a = line.strip('\n').split()
-    #    y.append(a)
-    #y = np.array(y)
-    #bail("")
 
     sigma2_cond = options.sigma2_cond
 
@@ -19741,36 +19776,12 @@ def main():
     # ==========================================================================
     # Main Phase D: Core model computation (betas, priors, outer Gibbs).
     # ==========================================================================
-    if not mode_state["run_huge"]:
-        gene_set_ids = _prepare_factor_gene_set_ids_for_main(state, options, mode_state["run_factor"], mode_state["use_phewas_for_factoring"])
-        _read_x_and_initialize_p_for_main(
-            state,
-            options,
-            gene_set_ids,
-            Y_not_loaded,
-            sigma2_cond,
-            mode_state,
-        )
-
-        if mode_state["run_sim"]:
-            state.run_sim(sigma2=state.sigma2, p=state.p, sigma_power=state.sigma_power, log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult, treat_sigma2_as_sigma2_cond=False, only_positive=options.sim_only_positive)
-
-        run_gibbs_for_factor = _compute_gene_set_stats_and_betas_for_main(
-            state,
-            options,
-            mode_state,
-        )
-        _compute_priors_if_requested_for_main(state, options, mode_state)
-        _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state)
+    _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, sigma2_cond)
 
     # ==========================================================================
     # Main Phase E: Output writers and optional downstream analyses.
     # ==========================================================================
-    _write_primary_outputs_for_main(state, options)
-    _run_phewas_if_requested_for_main(state, options, mode_state)
-    _run_factor_if_requested_for_main(state, options, mode_state)
-    _write_factor_outputs_for_main(state, options)
-    _run_factor_phewas_if_requested_for_main(state, options)
+    _run_post_model_outputs_for_main(state, options, mode_state)
 
     if options.params_out:
         state.write_params(options.params_out)
