@@ -1857,38 +1857,24 @@ class GeneSetData(object):
         self.factor_phewas_combined_prior_Ys_huber_one_sided_p_values = None #phewas statistics
 
     def init_gene_locs(self, gene_loc_file):
-        log("Reading --gene-loc-file %s" % gene_loc_file)
-        (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
+        init_gene_locs_with_state(self.__dict__, gene_loc_file)
 
     def read_gene_map(self, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
-        self.gene_label_map = self._read_gene_map(gene_map_in, gene_map_orig_gene_col, gene_map_new_gene_col, allow_multi)         
+        read_gene_map_with_state(
+            self.__dict__,
+            gene_map_in,
+            gene_map_orig_gene_col=gene_map_orig_gene_col,
+            gene_map_new_gene_col=gene_map_new_gene_col,
+            allow_multi=allow_multi,
+        )
 
     def _read_gene_map(self, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
-
-        gene_label_map = {}
-
-        gene_map_orig_gene_col -= 1
-        if gene_map_orig_gene_col < 0:
-            bail("--gene-map-orig-gene-col must be greater than 1")
-        gene_map_new_gene_col -= 1
-        if gene_map_new_gene_col < 0:
-            bail("--gene-map-new-gene-col must be greater than 1")
-
-        with open(gene_map_in) as map_fh:
-            for line in map_fh:
-                cols = line.strip('\n').split()
-                if len(cols) <= gene_map_orig_gene_col or len(cols) <= gene_map_new_gene_col:
-                    bail("Not enough columns in --gene-map-in:\n\t%s" % line)
-
-                orig_gene = cols[0]
-                new_gene = cols[1]
-                if allow_multi:
-                    if orig_gene not in gene_label_map:
-                        gene_label_map[orig_gene] = set()
-                    gene_label_map[orig_gene].add(new_gene)
-                else:
-                    gene_label_map[orig_gene] = new_gene
-        return gene_label_map
+        return _read_gene_map_impl(
+            gene_map_in,
+            gene_map_orig_gene_col=gene_map_orig_gene_col,
+            gene_map_new_gene_col=gene_map_new_gene_col,
+            allow_multi=allow_multi,
+        )
 
     def remove_genes_for_phewas_factor(self, keep_genes=None, naive_gt=None, num_gt=None, num_top_per_factor=None, num_top=None):
         if self.genes is None:
@@ -5783,382 +5769,28 @@ class GeneSetData(object):
             return (gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
 
     def _is_huge_statistics_bundle(self, huge_statistics_file):
-        lower = huge_statistics_file.lower()
-        return lower.endswith(".tar.gz") or lower.endswith(".tgz") or lower.endswith(".tar")
+        return _is_huge_statistics_bundle_path(huge_statistics_file)
 
     def _get_huge_statistics_paths(self, prefix):
-        return {
-            "meta": "%s.huge.meta.json.gz" % prefix,
-            "cache_genes": "%s.huge.cache_genes.tsv.gz" % prefix,
-            "extra_scores": "%s.huge.extra_scores.tsv.gz" % prefix,
-            "matrix_row_genes": "%s.huge.matrix_row_genes.tsv.gz" % prefix,
-            "gene_scores": "%s.huge.gene_scores.tsv.gz" % prefix,
-            "gene_covariates": "%s.huge.gene_covariates.tsv.gz" % prefix,
-            "bfs_data": "%s.huge_signal_bfs.data.tsv.gz" % prefix,
-            "bfs_indices": "%s.huge_signal_bfs.indices.tsv.gz" % prefix,
-            "bfs_indptr": "%s.huge_signal_bfs.indptr.tsv.gz" % prefix,
-            "bfs_reg_data": "%s.huge_signal_bfs_for_regression.data.tsv.gz" % prefix,
-            "bfs_reg_indices": "%s.huge_signal_bfs_for_regression.indices.tsv.gz" % prefix,
-            "bfs_reg_indptr": "%s.huge_signal_bfs_for_regression.indptr.tsv.gz" % prefix,
-            "signal_posteriors": "%s.huge_signal_posteriors.tsv.gz" % prefix,
-            "signal_posteriors_for_regression": "%s.huge_signal_posteriors_for_regression.tsv.gz" % prefix,
-            "signal_sum_gene_cond_probabilities": "%s.huge_signal_sum_gene_cond_probabilities.tsv.gz" % prefix,
-            "signal_sum_gene_cond_probabilities_for_regression": "%s.huge_signal_sum_gene_cond_probabilities_for_regression.tsv.gz" % prefix,
-            "signal_mean_gene_pos": "%s.huge_signal_mean_gene_pos.tsv.gz" % prefix,
-            "signal_mean_gene_pos_for_regression": "%s.huge_signal_mean_gene_pos_for_regression.tsv.gz" % prefix,
-        }
+        return _get_huge_statistics_paths_for_prefix(prefix)
 
     def _write_huge_statistics_vector(self, out_file, values, value_type=float):
-        with open_gz(out_file, 'w') as out_fh:
-            if values is None:
-                return
-            values = np.ravel(np.array(values))
-            for value in values:
-                if value_type == int:
-                    out_fh.write("%d\n" % int(value))
-                else:
-                    out_fh.write("%.18g\n" % float(value))
+        return _write_huge_statistics_vector_file(out_file, values, value_type=value_type)
 
     def _read_huge_statistics_vector(self, in_file, value_type=float):
-        values = []
-        with open_gz(in_file) as in_fh:
-            for line in in_fh:
-                line = line.strip()
-                if line == "":
-                    continue
-                if value_type == int:
-                    values.append(int(line))
-                else:
-                    values.append(float(line))
-        if value_type == int:
-            return np.array(values, dtype=int)
-        return np.array(values, dtype=float)
+        return _read_huge_statistics_vector_file(in_file, value_type=value_type)
 
     def _write_huge_statistics_prefix(self, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-        paths = self._get_huge_statistics_paths(prefix)
-
-        def _jsonify(value):
-            if isinstance(value, np.generic):
-                return value.item()
-            if isinstance(value, np.ndarray):
-                return [_jsonify(x) for x in value.tolist()]
-            if isinstance(value, tuple):
-                return [_jsonify(x) for x in value]
-            if isinstance(value, list):
-                return [_jsonify(x) for x in value]
-            if isinstance(value, dict):
-                return {str(k): _jsonify(v) for k, v in value.items()}
-            return value
-
-        cache_genes = list(self.genes) if self.genes is not None else []
-        extra_genes = list(extra_genes)
-
-        huge_signal_bfs = self.huge_signal_bfs if self.huge_signal_bfs is not None else sparse.csc_matrix((0, 0))
-        huge_signal_bfs_for_regression = self.huge_signal_bfs_for_regression if self.huge_signal_bfs_for_regression is not None else sparse.csc_matrix((0, 0))
-
-        num_matrix_rows = huge_signal_bfs.shape[0]
-        if len(cache_genes) > 0:
-            if num_matrix_rows < len(cache_genes):
-                bail("Error writing HuGE statistics cache: matrix rows %d < number of genes %d" % (num_matrix_rows, len(cache_genes)))
-            num_extra_matrix_rows = num_matrix_rows - len(cache_genes)
-            if num_extra_matrix_rows > len(extra_genes):
-                bail("Error writing HuGE statistics cache: matrix rows require %d extra genes but only %d were provided" % (num_extra_matrix_rows, len(extra_genes)))
-            matrix_row_genes = cache_genes + extra_genes[:num_extra_matrix_rows]
-        else:
-            if num_matrix_rows > len(extra_genes):
-                bail("Error writing HuGE statistics cache: matrix rows %d > number of extra genes %d" % (num_matrix_rows, len(extra_genes)))
-            matrix_row_genes = extra_genes[:num_matrix_rows]
-
-        gene_to_score = {}
-        if self.gene_to_gwas_huge_score is not None:
-            gene_to_score = dict(self.gene_to_gwas_huge_score)
-
-        gene_to_score_uncorrected = {}
-        if self.gene_to_gwas_huge_score_uncorrected is not None:
-            gene_to_score_uncorrected = dict(self.gene_to_gwas_huge_score_uncorrected)
-
-        gene_to_score_for_regression = {}
-        for i in range(min(len(cache_genes), len(gene_bf_for_regression))):
-            gene_to_score_for_regression[cache_genes[i]] = float(gene_bf_for_regression[i])
-        for i in range(min(len(extra_genes), len(extra_gene_bf_for_regression))):
-            gene_to_score_for_regression[extra_genes[i]] = float(extra_gene_bf_for_regression[i])
-
-        for i in range(min(len(cache_genes), len(gene_bf))):
-            gene = cache_genes[i]
-            if gene not in gene_to_score:
-                gene_to_score[gene] = float(gene_bf[i])
-            if gene not in gene_to_score_uncorrected:
-                gene_to_score_uncorrected[gene] = float(gene_bf[i])
-
-        for i in range(min(len(extra_genes), len(extra_gene_bf))):
-            gene = extra_genes[i]
-            if gene not in gene_to_score:
-                gene_to_score[gene] = float(extra_gene_bf[i])
-            if gene not in gene_to_score_uncorrected:
-                gene_to_score_uncorrected[gene] = float(extra_gene_bf[i])
-
-        meta = {
-            "version": 1,
-            "huge_signal_bfs_shape": [int(huge_signal_bfs.shape[0]), int(huge_signal_bfs.shape[1])],
-            "huge_signal_bfs_for_regression_shape": [int(huge_signal_bfs_for_regression.shape[0]), int(huge_signal_bfs_for_regression.shape[1])],
-            "huge_signal_max_closest_gene_prob": (None if self.huge_signal_max_closest_gene_prob is None else float(self.huge_signal_max_closest_gene_prob)),
-            "huge_cap_region_posterior": bool(self.huge_cap_region_posterior),
-            "huge_scale_region_posterior": bool(self.huge_scale_region_posterior),
-            "huge_phantom_region_posterior": bool(self.huge_phantom_region_posterior),
-            "huge_allow_evidence_of_absence": bool(self.huge_allow_evidence_of_absence),
-            "huge_sparse_mode": bool(self.huge_sparse_mode),
-            "huge_signals": [] if self.huge_signals is None else [[str(x[0]), int(x[1]), float(x[2]), x[3]] for x in self.huge_signals],
-            "gene_covariate_names": (None if self.gene_covariate_names is None else list(self.gene_covariate_names)),
-            "gene_covariate_directions": (None if self.gene_covariate_directions is None else list(np.array(self.gene_covariate_directions, dtype=float))),
-            "gene_covariate_intercept_index": self.gene_covariate_intercept_index,
-            "gene_covariate_slope_defaults": (None if self.gene_covariate_slope_defaults is None else list(np.array(self.gene_covariate_slope_defaults, dtype=float))),
-            "total_qc_metric_betas_defaults": (None if self.total_qc_metric_betas_defaults is None else list(np.array(self.total_qc_metric_betas_defaults, dtype=float))),
-            "total_qc_metric_intercept_defaults": (None if self.total_qc_metric_intercept_defaults is None else float(self.total_qc_metric_intercept_defaults)),
-            "total_qc_metric2_betas_defaults": (None if self.total_qc_metric2_betas_defaults is None else list(np.array(self.total_qc_metric2_betas_defaults, dtype=float))),
-            "total_qc_metric2_intercept_defaults": (None if self.total_qc_metric2_intercept_defaults is None else float(self.total_qc_metric2_intercept_defaults)),
-            "recorded_params": _jsonify(self.params),
-            "recorded_param_keys": _jsonify(self.param_keys),
-        }
-
-        with open_gz(paths["meta"], 'w') as out_fh:
-            json.dump(meta, out_fh, sort_keys=True)
-            out_fh.write("\n")
-
-        with open_gz(paths["cache_genes"], 'w') as out_fh:
-            for gene in cache_genes:
-                out_fh.write("%s\n" % gene)
-
-        with open_gz(paths["extra_scores"], 'w') as out_fh:
-            out_fh.write("Gene\tlog_bf\tlog_bf_for_regression\n")
-            for i in range(len(extra_genes)):
-                bf = np.nan
-                if i < len(extra_gene_bf):
-                    bf = extra_gene_bf[i]
-                bf_for_regression = np.nan
-                if i < len(extra_gene_bf_for_regression):
-                    bf_for_regression = extra_gene_bf_for_regression[i]
-                out_fh.write("%s\t%.18g\t%.18g\n" % (extra_genes[i], bf, bf_for_regression))
-
-        with open_gz(paths["matrix_row_genes"], 'w') as out_fh:
-            for gene in matrix_row_genes:
-                out_fh.write("%s\n" % gene)
-
-        ordered_genes = []
-        seen = set()
-        for gene in cache_genes + extra_genes + list(gene_to_score.keys()) + list(gene_to_score_uncorrected.keys()):
-            if gene not in seen:
-                seen.add(gene)
-                ordered_genes.append(gene)
-
-        with open_gz(paths["gene_scores"], 'w') as out_fh:
-            out_fh.write("Gene\tlog_bf\tlog_bf_uncorrected\tlog_bf_for_regression\n")
-            for gene in ordered_genes:
-                score = gene_to_score.get(gene, np.nan)
-                score_uncorrected = gene_to_score_uncorrected.get(gene, np.nan)
-                score_for_regression = gene_to_score_for_regression.get(gene, np.nan)
-                out_fh.write("%s\t%.18g\t%.18g\t%.18g\n" % (gene, score, score_uncorrected, score_for_regression))
-
-        if self.gene_covariates is not None:
-            if self.gene_covariates.shape[0] != len(matrix_row_genes):
-                bail("Error writing HuGE statistics cache: gene covariates have %d rows but matrix has %d rows" % (self.gene_covariates.shape[0], len(matrix_row_genes)))
-            with open_gz(paths["gene_covariates"], 'w') as out_fh:
-                out_fh.write("Gene\t%s\n" % ("\t".join(self.gene_covariate_names)))
-                for i in range(len(matrix_row_genes)):
-                    out_fh.write("%s\t%s\n" % (matrix_row_genes[i], "\t".join(["%.18g" % x for x in self.gene_covariates[i, :]])))
-
-        self._write_huge_statistics_vector(paths["signal_posteriors"], self.huge_signal_posteriors, value_type=float)
-        self._write_huge_statistics_vector(paths["signal_posteriors_for_regression"], self.huge_signal_posteriors_for_regression, value_type=float)
-        self._write_huge_statistics_vector(paths["signal_sum_gene_cond_probabilities"], self.huge_signal_sum_gene_cond_probabilities, value_type=float)
-        self._write_huge_statistics_vector(paths["signal_sum_gene_cond_probabilities_for_regression"], self.huge_signal_sum_gene_cond_probabilities_for_regression, value_type=float)
-        self._write_huge_statistics_vector(paths["signal_mean_gene_pos"], self.huge_signal_mean_gene_pos, value_type=float)
-        self._write_huge_statistics_vector(paths["signal_mean_gene_pos_for_regression"], self.huge_signal_mean_gene_pos_for_regression, value_type=float)
-
-        self._write_huge_statistics_vector(paths["bfs_data"], huge_signal_bfs.data, value_type=float)
-        self._write_huge_statistics_vector(paths["bfs_indices"], huge_signal_bfs.indices, value_type=int)
-        self._write_huge_statistics_vector(paths["bfs_indptr"], huge_signal_bfs.indptr, value_type=int)
-        self._write_huge_statistics_vector(paths["bfs_reg_data"], huge_signal_bfs_for_regression.data, value_type=float)
-        self._write_huge_statistics_vector(paths["bfs_reg_indices"], huge_signal_bfs_for_regression.indices, value_type=int)
-        self._write_huge_statistics_vector(paths["bfs_reg_indptr"], huge_signal_bfs_for_regression.indptr, value_type=int)
+        return _write_huge_statistics_prefix_with_state(self.__dict__, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
 
     def _read_huge_statistics_prefix(self, prefix):
-        paths = self._get_huge_statistics_paths(prefix)
-        if not os.path.exists(paths["meta"]):
-            bail("Could not find HuGE statistics cache file %s" % paths["meta"])
-
-        with open_gz(paths["meta"]) as in_fh:
-            meta = json.load(in_fh)
-
-        if meta.get("recorded_params") is not None:
-            self.params = meta["recorded_params"]
-        if meta.get("recorded_param_keys") is not None:
-            self.param_keys = list(meta["recorded_param_keys"])
-
-        cache_genes = []
-        with open_gz(paths["cache_genes"]) as in_fh:
-            for line in in_fh:
-                gene = line.strip()
-                if gene != "":
-                    cache_genes.append(gene)
-
-        extra_genes = []
-        extra_gene_bf = []
-        extra_gene_bf_for_regression = []
-        with open_gz(paths["extra_scores"]) as in_fh:
-            header = in_fh.readline()
-            for line in in_fh:
-                cols = line.strip("\n").split("\t")
-                if len(cols) < 3:
-                    continue
-                extra_genes.append(cols[0])
-                extra_gene_bf.append(float(cols[1]))
-                extra_gene_bf_for_regression.append(float(cols[2]))
-
-        matrix_row_genes = []
-        with open_gz(paths["matrix_row_genes"]) as in_fh:
-            for line in in_fh:
-                gene = line.strip()
-                if gene != "":
-                    matrix_row_genes.append(gene)
-
-        gene_to_score = {}
-        gene_to_score_uncorrected = {}
-        gene_to_score_for_regression = {}
-        with open_gz(paths["gene_scores"]) as in_fh:
-            header = in_fh.readline()
-            for line in in_fh:
-                cols = line.strip("\n").split("\t")
-                if len(cols) < 4:
-                    continue
-                gene = cols[0]
-                gene_to_score[gene] = float(cols[1])
-                gene_to_score_uncorrected[gene] = float(cols[2])
-                gene_to_score_for_regression[gene] = float(cols[3])
-
-        if self.genes is None:
-            if len(cache_genes) > 0:
-                bail("HuGE cache was generated with preloaded genes but this run has no preloaded genes")
-            if len(matrix_row_genes) > 0 and matrix_row_genes != extra_genes[:len(matrix_row_genes)]:
-                bail("HuGE cache is inconsistent: matrix rows do not match extra gene ordering")
-            gene_bf = np.array([])
-            gene_bf_for_regression = np.array([])
-        else:
-            if cache_genes != self.genes:
-                bail("HuGE cache gene ordering does not match current run. Rebuild cache for this run setup.")
-            if len(matrix_row_genes) < len(self.genes) or matrix_row_genes[:len(self.genes)] != self.genes:
-                bail("HuGE cache matrix row ordering does not match current run genes")
-            gene_bf = np.array([gene_to_score.get(gene, np.nan) for gene in self.genes])
-            gene_bf_for_regression = np.array([gene_to_score_for_regression.get(gene, np.nan) for gene in self.genes])
-
-        huge_signal_bfs_shape = tuple(meta["huge_signal_bfs_shape"])
-        huge_signal_bfs_for_regression_shape = tuple(meta["huge_signal_bfs_for_regression_shape"])
-
-        bfs_data = self._read_huge_statistics_vector(paths["bfs_data"], value_type=float)
-        bfs_indices = self._read_huge_statistics_vector(paths["bfs_indices"], value_type=int)
-        bfs_indptr = self._read_huge_statistics_vector(paths["bfs_indptr"], value_type=int)
-        bfs_reg_data = self._read_huge_statistics_vector(paths["bfs_reg_data"], value_type=float)
-        bfs_reg_indices = self._read_huge_statistics_vector(paths["bfs_reg_indices"], value_type=int)
-        bfs_reg_indptr = self._read_huge_statistics_vector(paths["bfs_reg_indptr"], value_type=int)
-
-        self.huge_signal_bfs = sparse.csc_matrix((bfs_data, bfs_indices, bfs_indptr), shape=huge_signal_bfs_shape)
-        self.huge_signal_bfs_for_regression = sparse.csc_matrix((bfs_reg_data, bfs_reg_indices, bfs_reg_indptr), shape=huge_signal_bfs_for_regression_shape)
-
-        self.huge_signal_posteriors = self._read_huge_statistics_vector(paths["signal_posteriors"], value_type=float)
-        self.huge_signal_posteriors_for_regression = self._read_huge_statistics_vector(paths["signal_posteriors_for_regression"], value_type=float)
-        self.huge_signal_sum_gene_cond_probabilities = self._read_huge_statistics_vector(paths["signal_sum_gene_cond_probabilities"], value_type=float)
-        self.huge_signal_sum_gene_cond_probabilities_for_regression = self._read_huge_statistics_vector(paths["signal_sum_gene_cond_probabilities_for_regression"], value_type=float)
-        self.huge_signal_mean_gene_pos = self._read_huge_statistics_vector(paths["signal_mean_gene_pos"], value_type=float)
-        self.huge_signal_mean_gene_pos_for_regression = self._read_huge_statistics_vector(paths["signal_mean_gene_pos_for_regression"], value_type=float)
-
-        self.huge_signal_max_closest_gene_prob = meta["huge_signal_max_closest_gene_prob"]
-        self.huge_cap_region_posterior = bool(meta["huge_cap_region_posterior"])
-        self.huge_scale_region_posterior = bool(meta["huge_scale_region_posterior"])
-        self.huge_phantom_region_posterior = bool(meta["huge_phantom_region_posterior"])
-        self.huge_allow_evidence_of_absence = bool(meta["huge_allow_evidence_of_absence"])
-        self.huge_sparse_mode = bool(meta["huge_sparse_mode"])
-        self.huge_signals = [tuple(x) for x in meta["huge_signals"]]
-
-        self.gene_covariates = None
-        self.gene_covariates_mask = None
-        self.gene_covariate_names = meta.get("gene_covariate_names")
-        self.gene_covariate_directions = None
-        if meta.get("gene_covariate_directions") is not None:
-            self.gene_covariate_directions = np.array(meta["gene_covariate_directions"], dtype=float)
-        self.gene_covariate_intercept_index = meta.get("gene_covariate_intercept_index")
-        self.gene_covariates_mat_inv = None
-        self.gene_covariate_zs = None
-        self.gene_covariate_adjustments = None
-
-        if os.path.exists(paths["gene_covariates"]):
-            covariate_rows = []
-            with open_gz(paths["gene_covariates"]) as in_fh:
-                header = in_fh.readline().strip("\n").split("\t")
-                if len(header) > 1 and self.gene_covariate_names is None:
-                    self.gene_covariate_names = header[1:]
-                for line in in_fh:
-                    cols = line.strip("\n").split("\t")
-                    if len(cols) <= 1:
-                        continue
-                    covariate_rows.append([float(x) for x in cols[1:]])
-            self.gene_covariates = np.array(covariate_rows)
-
-        self.gene_covariate_slope_defaults = None if meta.get("gene_covariate_slope_defaults") is None else np.array(meta.get("gene_covariate_slope_defaults"), dtype=float)
-        self.total_qc_metric_betas_defaults = None if meta.get("total_qc_metric_betas_defaults") is None else np.array(meta.get("total_qc_metric_betas_defaults"), dtype=float)
-        self.total_qc_metric_intercept_defaults = meta.get("total_qc_metric_intercept_defaults")
-        self.total_qc_metric2_betas_defaults = None if meta.get("total_qc_metric2_betas_defaults") is None else np.array(meta.get("total_qc_metric2_betas_defaults"), dtype=float)
-        self.total_qc_metric2_intercept_defaults = meta.get("total_qc_metric2_intercept_defaults")
-
-        self.gene_to_gwas_huge_score = gene_to_score
-        self.gene_to_gwas_huge_score_uncorrected = gene_to_score_uncorrected
-        self.combine_huge_scores()
-
-        if self.huge_signal_bfs.shape[1] != len(self.huge_signals):
-            bail("HuGE cache is inconsistent: huge_signal_bfs has %d columns but found %d signals" % (self.huge_signal_bfs.shape[1], len(self.huge_signals)))
-        if self.huge_signal_bfs.shape[0] != len(matrix_row_genes):
-            bail("HuGE cache is inconsistent: huge_signal_bfs has %d rows but found %d matrix-row genes" % (self.huge_signal_bfs.shape[0], len(matrix_row_genes)))
-
-        return (gene_bf, extra_genes, np.array(extra_gene_bf), gene_bf_for_regression, np.array(extra_gene_bf_for_regression))
+        return _read_huge_statistics_prefix_with_state(self.__dict__, prefix)
 
     def write_huge_statistics(self, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-        if huge_statistics_out is None:
-            return
-
-        log("Writing HuGE statistics cache to %s" % huge_statistics_out, INFO)
-        if self._is_huge_statistics_bundle(huge_statistics_out):
-            tar_mode = "w:gz"
-            if huge_statistics_out.lower().endswith(".tar"):
-                tar_mode = "w"
-            with tempfile.TemporaryDirectory() as tmpdir:
-                prefix = os.path.join(tmpdir, "huge_stats")
-                self._write_huge_statistics_prefix(prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
-                with tarfile.open(huge_statistics_out, tar_mode) as tar_fh:
-                    for name in sorted(os.listdir(tmpdir)):
-                        if name.startswith("huge_stats."):
-                            tar_fh.add(os.path.join(tmpdir, name), arcname=name)
-        else:
-            self._write_huge_statistics_prefix(huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+        return _write_huge_statistics_with_state_impl(self.__dict__, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
 
     def read_huge_statistics(self, huge_statistics_in):
-        if huge_statistics_in is None:
-            bail("Require --huge-statistics-in for this operation")
-
-        log("Reading HuGE statistics cache from %s" % huge_statistics_in, INFO)
-        if self._is_huge_statistics_bundle(huge_statistics_in):
-            with tempfile.TemporaryDirectory() as tmpdir:
-                with tarfile.open(huge_statistics_in, "r:*") as tar_fh:
-                    for member in tar_fh.getmembers():
-                        if member.name.startswith("/") or ".." in member.name.split("/"):
-                            bail("Refusing to read suspicious path in HuGE cache bundle: %s" % member.name)
-                    tar_fh.extractall(tmpdir)
-
-                meta_suffix = ".huge.meta.json.gz"
-                meta_files = [x for x in os.listdir(tmpdir) if x.endswith(meta_suffix)]
-                if len(meta_files) == 0:
-                    bail("HuGE cache bundle did not contain a %s file" % meta_suffix)
-                if len(meta_files) > 1:
-                    bail("HuGE cache bundle contained multiple metadata files: %s" % ", ".join(meta_files))
-                prefix = os.path.join(tmpdir, meta_files[0][:-len(meta_suffix)])
-                return self._read_huge_statistics_prefix(prefix)
-        return self._read_huge_statistics_prefix(huge_statistics_in)
+        return _read_huge_statistics_with_state_impl(self.__dict__, huge_statistics_in)
 
     def calculate_huge_scores_exomes(self, exomes_in, exomes_gene_col=None, exomes_p_col=None, exomes_beta_col=None, exomes_se_col=None, exomes_n_col=None, exomes_n=None, exomes_units=None, allelic_var=0.36, exomes_low_p=2.5e-6, exomes_high_p=0.05, exomes_low_p_posterior=0.95, exomes_high_p_posterior=0.10, hold_out_chrom=None, gene_loc_file=None, **kwargs):
 
@@ -14865,79 +14497,16 @@ class GeneSetData(object):
 
 
     def _read_loc_file(self, loc_file, return_intervals=False, hold_out_chrom=None):
-
-        gene_to_chrom = {}
-        gene_to_pos = {}
-        gene_chrom_name_pos = {}
-
-        chrom_interval_to_gene = {}
-
-        with open(loc_file) as loc_fh:
-            for line in loc_fh:
-                cols = line.strip('\n').split()
-                if len(cols) != 6:
-                    bail("Format for --gene-loc-file is:\n\tgene_id\tchrom\tstart\tstop\tstrand\tgene_name\nOffending line:\n\t%s" % line)
-                gene = cols[5]
-                if self.gene_label_map is not None and gene in self.gene_label_map:
-                    gene = self.gene_label_map[gene]
-                chrom = self._clean_chrom(cols[1])
-                if hold_out_chrom is not None and chrom == hold_out_chrom:
-                    continue
-                pos1 = int(cols[2])
-                pos2 = int(cols[3])
-
-                if gene in gene_to_chrom and gene_to_chrom[gene] != chrom:
-                    warn("Gene %s appears multiple times with different chromosomes; keeping only first" % gene)
-                    continue
-
-                if gene in gene_to_pos and np.abs(np.mean(gene_to_pos[gene]) - np.mean((pos1,pos2))) > 1e7:
-                    warn("Gene %s appears multiple times with far away positions; keeping only first" % gene)
-                    continue
-
-                gene_to_chrom[gene] = chrom
-                gene_to_pos[gene] = (pos1, pos2)
-
-                if chrom not in gene_chrom_name_pos:
-                    gene_chrom_name_pos[chrom] = {}
-                if gene not in gene_chrom_name_pos[chrom]:
-                    gene_chrom_name_pos[chrom][gene] = set()
-                if pos1 not in gene_chrom_name_pos[chrom][gene]:
-                    gene_chrom_name_pos[chrom][gene].add(pos1)
-                if pos2 not in gene_chrom_name_pos[chrom][gene]:
-                    gene_chrom_name_pos[chrom][gene].add(pos2)
-
-                if pos2 < pos1:
-                    t = pos1
-                    pos1 = pos2
-                    pos2 = t
-
-                if return_intervals:
-                    if chrom not in chrom_interval_to_gene:
-                        chrom_interval_to_gene[chrom] = {}
-
-                    if (pos1, pos2) not in chrom_interval_to_gene[chrom]:
-                        chrom_interval_to_gene[chrom][(pos1, pos2)] = []
-
-                    chrom_interval_to_gene[chrom][(pos1, pos2)].append(gene) 
-
-                #we consider distance to a gene to be both its start, its end, and also intermediate points within it
-                #split_gene_length determines how many intermediate points there are
-                split_gene_length = 1000000
-                if pos2 > pos1:
-                    for posm in range(pos1, pos2, split_gene_length)[1:]:
-                        gene_chrom_name_pos[chrom][gene].add(posm)
-
-        if return_intervals:
-            return chrom_interval_to_gene
-        else:
-            return (gene_chrom_name_pos, gene_to_chrom, gene_to_pos)
+        return _read_loc_file_with_gene_map(
+            loc_file,
+            self.gene_label_map,
+            return_intervals=return_intervals,
+            hold_out_chrom=hold_out_chrom,
+        )
 
 
     def _clean_chrom(self, chrom):
-        if chrom[:3] == 'chr':
-            return chrom[3:]
-        else:
-            return chrom
+        return _clean_chrom_name(chrom)
 
     def _read_correlations(self, gene_cor_file=None, gene_loc_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, compute_correlation_distance_function=True):
         if gene_cor_file is not None:
@@ -18715,6 +18284,127 @@ class GeneSetData(object):
 
 
 # ==========================================================================
+# State-agnostic parsing helpers used by both legacy objects and runtime-state.
+# ==========================================================================
+def _clean_chrom_name(chrom):
+    if chrom[:3] == 'chr':
+        return chrom[3:]
+    else:
+        return chrom
+
+
+def _read_gene_map_impl(gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
+    gene_label_map = {}
+
+    gene_map_orig_gene_col -= 1
+    if gene_map_orig_gene_col < 0:
+        bail("--gene-map-orig-gene-col must be greater than 1")
+    gene_map_new_gene_col -= 1
+    if gene_map_new_gene_col < 0:
+        bail("--gene-map-new-gene-col must be greater than 1")
+
+    with open(gene_map_in) as map_fh:
+        for line in map_fh:
+            cols = line.strip('\n').split()
+            if len(cols) <= gene_map_orig_gene_col or len(cols) <= gene_map_new_gene_col:
+                bail("Not enough columns in --gene-map-in:\n\t%s" % line)
+
+            orig_gene = cols[0]
+            new_gene = cols[1]
+            if allow_multi:
+                if orig_gene not in gene_label_map:
+                    gene_label_map[orig_gene] = set()
+                gene_label_map[orig_gene].add(new_gene)
+            else:
+                gene_label_map[orig_gene] = new_gene
+    return gene_label_map
+
+
+def read_gene_map_with_state(runtime_state, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
+    runtime_state["gene_label_map"] = _read_gene_map_impl(
+        gene_map_in,
+        gene_map_orig_gene_col=gene_map_orig_gene_col,
+        gene_map_new_gene_col=gene_map_new_gene_col,
+        allow_multi=allow_multi,
+    )
+
+
+def _read_loc_file_with_gene_map(loc_file, gene_label_map, return_intervals=False, hold_out_chrom=None):
+    gene_to_chrom = {}
+    gene_to_pos = {}
+    gene_chrom_name_pos = {}
+
+    chrom_interval_to_gene = {}
+
+    with open(loc_file) as loc_fh:
+        for line in loc_fh:
+            cols = line.strip('\n').split()
+            if len(cols) != 6:
+                bail("Format for --gene-loc-file is:\n\tgene_id\tchrom\tstart\tstop\tstrand\tgene_name\nOffending line:\n\t%s" % line)
+            gene = cols[5]
+            if gene_label_map is not None and gene in gene_label_map:
+                gene = gene_label_map[gene]
+            chrom = _clean_chrom_name(cols[1])
+            if hold_out_chrom is not None and chrom == hold_out_chrom:
+                continue
+            pos1 = int(cols[2])
+            pos2 = int(cols[3])
+
+            if gene in gene_to_chrom and gene_to_chrom[gene] != chrom:
+                warn("Gene %s appears multiple times with different chromosomes; keeping only first" % gene)
+                continue
+
+            if gene in gene_to_pos and np.abs(np.mean(gene_to_pos[gene]) - np.mean((pos1, pos2))) > 1e7:
+                warn("Gene %s appears multiple times with far away positions; keeping only first" % gene)
+                continue
+
+            gene_to_chrom[gene] = chrom
+            gene_to_pos[gene] = (pos1, pos2)
+
+            if chrom not in gene_chrom_name_pos:
+                gene_chrom_name_pos[chrom] = {}
+            if gene not in gene_chrom_name_pos[chrom]:
+                gene_chrom_name_pos[chrom][gene] = set()
+            if pos1 not in gene_chrom_name_pos[chrom][gene]:
+                gene_chrom_name_pos[chrom][gene].add(pos1)
+            if pos2 not in gene_chrom_name_pos[chrom][gene]:
+                gene_chrom_name_pos[chrom][gene].add(pos2)
+
+            if pos2 < pos1:
+                t = pos1
+                pos1 = pos2
+                pos2 = t
+
+            if return_intervals:
+                if chrom not in chrom_interval_to_gene:
+                    chrom_interval_to_gene[chrom] = {}
+
+                if (pos1, pos2) not in chrom_interval_to_gene[chrom]:
+                    chrom_interval_to_gene[chrom][(pos1, pos2)] = []
+
+                chrom_interval_to_gene[chrom][(pos1, pos2)].append(gene)
+
+            # we consider distance to a gene to be both endpoints and intermediate points.
+            split_gene_length = 1000000
+            if pos2 > pos1:
+                for posm in range(pos1, pos2, split_gene_length)[1:]:
+                    gene_chrom_name_pos[chrom][gene].add(posm)
+
+    if return_intervals:
+        return chrom_interval_to_gene
+    else:
+        return (gene_chrom_name_pos, gene_to_chrom, gene_to_pos)
+
+
+def init_gene_locs_with_state(runtime_state, gene_loc_file):
+    log("Reading --gene-loc-file %s" % gene_loc_file)
+    (runtime_state["gene_chrom_name_pos"], runtime_state["gene_to_chrom"], runtime_state["gene_to_pos"]) = _read_loc_file_with_gene_map(
+        gene_loc_file,
+        runtime_state.get("gene_label_map"),
+    )
+
+
+# ==========================================================================
 # Runtime state bridge: explicit state dictionary + legacy method dispatch.
 # ==========================================================================
 def create_runtime_state(background_prior=0.05, batch_size=4500):
@@ -18763,6 +18453,398 @@ def call_with_runtime_state(runtime_state, method_name, *args, **kwargs):
     return method(legacy_obj, *args, **kwargs)
 
 
+def _is_huge_statistics_bundle_path(huge_statistics_file):
+    lower = huge_statistics_file.lower()
+    return lower.endswith(".tar.gz") or lower.endswith(".tgz") or lower.endswith(".tar")
+
+
+def _get_huge_statistics_paths_for_prefix(prefix):
+    return {
+        "meta": "%s.huge.meta.json.gz" % prefix,
+        "cache_genes": "%s.huge.cache_genes.tsv.gz" % prefix,
+        "extra_scores": "%s.huge.extra_scores.tsv.gz" % prefix,
+        "matrix_row_genes": "%s.huge.matrix_row_genes.tsv.gz" % prefix,
+        "gene_scores": "%s.huge.gene_scores.tsv.gz" % prefix,
+        "gene_covariates": "%s.huge.gene_covariates.tsv.gz" % prefix,
+        "bfs_data": "%s.huge_signal_bfs.data.tsv.gz" % prefix,
+        "bfs_indices": "%s.huge_signal_bfs.indices.tsv.gz" % prefix,
+        "bfs_indptr": "%s.huge_signal_bfs.indptr.tsv.gz" % prefix,
+        "bfs_reg_data": "%s.huge_signal_bfs_for_regression.data.tsv.gz" % prefix,
+        "bfs_reg_indices": "%s.huge_signal_bfs_for_regression.indices.tsv.gz" % prefix,
+        "bfs_reg_indptr": "%s.huge_signal_bfs_for_regression.indptr.tsv.gz" % prefix,
+        "signal_posteriors": "%s.huge_signal_posteriors.tsv.gz" % prefix,
+        "signal_posteriors_for_regression": "%s.huge_signal_posteriors_for_regression.tsv.gz" % prefix,
+        "signal_sum_gene_cond_probabilities": "%s.huge_signal_sum_gene_cond_probabilities.tsv.gz" % prefix,
+        "signal_sum_gene_cond_probabilities_for_regression": "%s.huge_signal_sum_gene_cond_probabilities_for_regression.tsv.gz" % prefix,
+        "signal_mean_gene_pos": "%s.huge_signal_mean_gene_pos.tsv.gz" % prefix,
+        "signal_mean_gene_pos_for_regression": "%s.huge_signal_mean_gene_pos_for_regression.tsv.gz" % prefix,
+    }
+
+
+def _write_huge_statistics_vector_file(out_file, values, value_type=float):
+    with open_gz(out_file, 'w') as out_fh:
+        if values is None:
+            return
+        values = np.ravel(np.array(values))
+        for value in values:
+            if value_type == int:
+                out_fh.write("%d\n" % int(value))
+            else:
+                out_fh.write("%.18g\n" % float(value))
+
+
+def _read_huge_statistics_vector_file(in_file, value_type=float):
+    values = []
+    with open_gz(in_file) as in_fh:
+        for line in in_fh:
+            line = line.strip()
+            if line == "":
+                continue
+            if value_type == int:
+                values.append(int(line))
+            else:
+                values.append(float(line))
+    if value_type == int:
+        return np.array(values, dtype=int)
+    return np.array(values, dtype=float)
+
+
+def _write_huge_statistics_prefix_with_state(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
+    paths = _get_huge_statistics_paths_for_prefix(prefix)
+
+    def _jsonify(value):
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, np.ndarray):
+            return [_jsonify(x) for x in value.tolist()]
+        if isinstance(value, tuple):
+            return [_jsonify(x) for x in value]
+        if isinstance(value, list):
+            return [_jsonify(x) for x in value]
+        if isinstance(value, dict):
+            return {str(k): _jsonify(v) for k, v in value.items()}
+        return value
+
+    cache_genes = list(runtime_state["genes"]) if runtime_state.get("genes") is not None else []
+    extra_genes = list(extra_genes)
+
+    huge_signal_bfs = runtime_state.get("huge_signal_bfs")
+    if huge_signal_bfs is None:
+        huge_signal_bfs = sparse.csc_matrix((0, 0))
+    huge_signal_bfs_for_regression = runtime_state.get("huge_signal_bfs_for_regression")
+    if huge_signal_bfs_for_regression is None:
+        huge_signal_bfs_for_regression = sparse.csc_matrix((0, 0))
+
+    num_matrix_rows = huge_signal_bfs.shape[0]
+    if len(cache_genes) > 0:
+        if num_matrix_rows < len(cache_genes):
+            bail("Error writing HuGE statistics cache: matrix rows %d < number of genes %d" % (num_matrix_rows, len(cache_genes)))
+        num_extra_matrix_rows = num_matrix_rows - len(cache_genes)
+        if num_extra_matrix_rows > len(extra_genes):
+            bail("Error writing HuGE statistics cache: matrix rows require %d extra genes but only %d were provided" % (num_extra_matrix_rows, len(extra_genes)))
+        matrix_row_genes = cache_genes + extra_genes[:num_extra_matrix_rows]
+    else:
+        if num_matrix_rows > len(extra_genes):
+            bail("Error writing HuGE statistics cache: matrix rows %d > number of extra genes %d" % (num_matrix_rows, len(extra_genes)))
+        matrix_row_genes = extra_genes[:num_matrix_rows]
+
+    gene_to_score = {}
+    if runtime_state.get("gene_to_gwas_huge_score") is not None:
+        gene_to_score = dict(runtime_state["gene_to_gwas_huge_score"])
+
+    gene_to_score_uncorrected = {}
+    if runtime_state.get("gene_to_gwas_huge_score_uncorrected") is not None:
+        gene_to_score_uncorrected = dict(runtime_state["gene_to_gwas_huge_score_uncorrected"])
+
+    gene_to_score_for_regression = {}
+    for i in range(min(len(cache_genes), len(gene_bf_for_regression))):
+        gene_to_score_for_regression[cache_genes[i]] = float(gene_bf_for_regression[i])
+    for i in range(min(len(extra_genes), len(extra_gene_bf_for_regression))):
+        gene_to_score_for_regression[extra_genes[i]] = float(extra_gene_bf_for_regression[i])
+
+    for i in range(min(len(cache_genes), len(gene_bf))):
+        gene = cache_genes[i]
+        if gene not in gene_to_score:
+            gene_to_score[gene] = float(gene_bf[i])
+        if gene not in gene_to_score_uncorrected:
+            gene_to_score_uncorrected[gene] = float(gene_bf[i])
+
+    for i in range(min(len(extra_genes), len(extra_gene_bf))):
+        gene = extra_genes[i]
+        if gene not in gene_to_score:
+            gene_to_score[gene] = float(extra_gene_bf[i])
+        if gene not in gene_to_score_uncorrected:
+            gene_to_score_uncorrected[gene] = float(extra_gene_bf[i])
+
+    meta = {
+        "version": 1,
+        "huge_signal_bfs_shape": [int(huge_signal_bfs.shape[0]), int(huge_signal_bfs.shape[1])],
+        "huge_signal_bfs_for_regression_shape": [int(huge_signal_bfs_for_regression.shape[0]), int(huge_signal_bfs_for_regression.shape[1])],
+        "huge_signal_max_closest_gene_prob": (None if runtime_state.get("huge_signal_max_closest_gene_prob") is None else float(runtime_state.get("huge_signal_max_closest_gene_prob"))),
+        "huge_cap_region_posterior": bool(runtime_state.get("huge_cap_region_posterior", True)),
+        "huge_scale_region_posterior": bool(runtime_state.get("huge_scale_region_posterior", False)),
+        "huge_phantom_region_posterior": bool(runtime_state.get("huge_phantom_region_posterior", False)),
+        "huge_allow_evidence_of_absence": bool(runtime_state.get("huge_allow_evidence_of_absence", False)),
+        "huge_sparse_mode": bool(runtime_state.get("huge_sparse_mode", False)),
+        "huge_signals": [] if runtime_state.get("huge_signals") is None else [[str(x[0]), int(x[1]), float(x[2]), x[3]] for x in runtime_state.get("huge_signals")],
+        "gene_covariate_names": (None if runtime_state.get("gene_covariate_names") is None else list(runtime_state.get("gene_covariate_names"))),
+        "gene_covariate_directions": (None if runtime_state.get("gene_covariate_directions") is None else list(np.array(runtime_state.get("gene_covariate_directions"), dtype=float))),
+        "gene_covariate_intercept_index": runtime_state.get("gene_covariate_intercept_index"),
+        "gene_covariate_slope_defaults": (None if runtime_state.get("gene_covariate_slope_defaults") is None else list(np.array(runtime_state.get("gene_covariate_slope_defaults"), dtype=float))),
+        "total_qc_metric_betas_defaults": (None if runtime_state.get("total_qc_metric_betas_defaults") is None else list(np.array(runtime_state.get("total_qc_metric_betas_defaults"), dtype=float))),
+        "total_qc_metric_intercept_defaults": (None if runtime_state.get("total_qc_metric_intercept_defaults") is None else float(runtime_state.get("total_qc_metric_intercept_defaults"))),
+        "total_qc_metric2_betas_defaults": (None if runtime_state.get("total_qc_metric2_betas_defaults") is None else list(np.array(runtime_state.get("total_qc_metric2_betas_defaults"), dtype=float))),
+        "total_qc_metric2_intercept_defaults": (None if runtime_state.get("total_qc_metric2_intercept_defaults") is None else float(runtime_state.get("total_qc_metric2_intercept_defaults"))),
+        "recorded_params": _jsonify(runtime_state.get("params")),
+        "recorded_param_keys": _jsonify(runtime_state.get("param_keys")),
+    }
+
+    with open_gz(paths["meta"], 'w') as out_fh:
+        json.dump(meta, out_fh, sort_keys=True)
+        out_fh.write("\n")
+
+    with open_gz(paths["cache_genes"], 'w') as out_fh:
+        for gene in cache_genes:
+            out_fh.write("%s\n" % gene)
+
+    with open_gz(paths["extra_scores"], 'w') as out_fh:
+        out_fh.write("Gene\tlog_bf\tlog_bf_for_regression\n")
+        for i in range(len(extra_genes)):
+            bf = np.nan
+            if i < len(extra_gene_bf):
+                bf = extra_gene_bf[i]
+            bf_for_regression = np.nan
+            if i < len(extra_gene_bf_for_regression):
+                bf_for_regression = extra_gene_bf_for_regression[i]
+            out_fh.write("%s\t%.18g\t%.18g\n" % (extra_genes[i], bf, bf_for_regression))
+
+    with open_gz(paths["matrix_row_genes"], 'w') as out_fh:
+        for gene in matrix_row_genes:
+            out_fh.write("%s\n" % gene)
+
+    ordered_genes = []
+    seen = set()
+    for gene in cache_genes + extra_genes + list(gene_to_score.keys()) + list(gene_to_score_uncorrected.keys()):
+        if gene not in seen:
+            seen.add(gene)
+            ordered_genes.append(gene)
+
+    with open_gz(paths["gene_scores"], 'w') as out_fh:
+        out_fh.write("Gene\tlog_bf\tlog_bf_uncorrected\tlog_bf_for_regression\n")
+        for gene in ordered_genes:
+            score = gene_to_score.get(gene, np.nan)
+            score_uncorrected = gene_to_score_uncorrected.get(gene, np.nan)
+            score_for_regression = gene_to_score_for_regression.get(gene, np.nan)
+            out_fh.write("%s\t%.18g\t%.18g\t%.18g\n" % (gene, score, score_uncorrected, score_for_regression))
+
+    gene_covariates = runtime_state.get("gene_covariates")
+    if gene_covariates is not None:
+        if gene_covariates.shape[0] != len(matrix_row_genes):
+            bail("Error writing HuGE statistics cache: gene covariates have %d rows but matrix has %d rows" % (gene_covariates.shape[0], len(matrix_row_genes)))
+        with open_gz(paths["gene_covariates"], 'w') as out_fh:
+            out_fh.write("Gene\t%s\n" % ("\t".join(runtime_state.get("gene_covariate_names"))))
+            for i in range(len(matrix_row_genes)):
+                out_fh.write("%s\t%s\n" % (matrix_row_genes[i], "\t".join(["%.18g" % x for x in gene_covariates[i, :]])))
+
+    _write_huge_statistics_vector_file(paths["signal_posteriors"], runtime_state.get("huge_signal_posteriors"), value_type=float)
+    _write_huge_statistics_vector_file(paths["signal_posteriors_for_regression"], runtime_state.get("huge_signal_posteriors_for_regression"), value_type=float)
+    _write_huge_statistics_vector_file(paths["signal_sum_gene_cond_probabilities"], runtime_state.get("huge_signal_sum_gene_cond_probabilities"), value_type=float)
+    _write_huge_statistics_vector_file(paths["signal_sum_gene_cond_probabilities_for_regression"], runtime_state.get("huge_signal_sum_gene_cond_probabilities_for_regression"), value_type=float)
+    _write_huge_statistics_vector_file(paths["signal_mean_gene_pos"], runtime_state.get("huge_signal_mean_gene_pos"), value_type=float)
+    _write_huge_statistics_vector_file(paths["signal_mean_gene_pos_for_regression"], runtime_state.get("huge_signal_mean_gene_pos_for_regression"), value_type=float)
+
+    _write_huge_statistics_vector_file(paths["bfs_data"], huge_signal_bfs.data, value_type=float)
+    _write_huge_statistics_vector_file(paths["bfs_indices"], huge_signal_bfs.indices, value_type=int)
+    _write_huge_statistics_vector_file(paths["bfs_indptr"], huge_signal_bfs.indptr, value_type=int)
+    _write_huge_statistics_vector_file(paths["bfs_reg_data"], huge_signal_bfs_for_regression.data, value_type=float)
+    _write_huge_statistics_vector_file(paths["bfs_reg_indices"], huge_signal_bfs_for_regression.indices, value_type=int)
+    _write_huge_statistics_vector_file(paths["bfs_reg_indptr"], huge_signal_bfs_for_regression.indptr, value_type=int)
+
+
+def _read_huge_statistics_prefix_with_state(runtime_state, prefix):
+    paths = _get_huge_statistics_paths_for_prefix(prefix)
+    if not os.path.exists(paths["meta"]):
+        bail("Could not find HuGE statistics cache file %s" % paths["meta"])
+
+    with open_gz(paths["meta"]) as in_fh:
+        meta = json.load(in_fh)
+
+    if meta.get("recorded_params") is not None:
+        runtime_state["params"] = meta["recorded_params"]
+    if meta.get("recorded_param_keys") is not None:
+        runtime_state["param_keys"] = list(meta["recorded_param_keys"])
+
+    cache_genes = []
+    with open_gz(paths["cache_genes"]) as in_fh:
+        for line in in_fh:
+            gene = line.strip()
+            if gene != "":
+                cache_genes.append(gene)
+
+    extra_genes = []
+    extra_gene_bf = []
+    extra_gene_bf_for_regression = []
+    with open_gz(paths["extra_scores"]) as in_fh:
+        header = in_fh.readline()
+        for line in in_fh:
+            cols = line.strip("\n").split("\t")
+            if len(cols) < 3:
+                continue
+            extra_genes.append(cols[0])
+            extra_gene_bf.append(float(cols[1]))
+            extra_gene_bf_for_regression.append(float(cols[2]))
+
+    matrix_row_genes = []
+    with open_gz(paths["matrix_row_genes"]) as in_fh:
+        for line in in_fh:
+            gene = line.strip()
+            if gene != "":
+                matrix_row_genes.append(gene)
+
+    gene_to_score = {}
+    gene_to_score_uncorrected = {}
+    gene_to_score_for_regression = {}
+    with open_gz(paths["gene_scores"]) as in_fh:
+        header = in_fh.readline()
+        for line in in_fh:
+            cols = line.strip("\n").split("\t")
+            if len(cols) < 4:
+                continue
+            gene = cols[0]
+            gene_to_score[gene] = float(cols[1])
+            gene_to_score_uncorrected[gene] = float(cols[2])
+            gene_to_score_for_regression[gene] = float(cols[3])
+
+    genes = runtime_state.get("genes")
+    if genes is None:
+        if len(cache_genes) > 0:
+            bail("HuGE cache was generated with preloaded genes but this run has no preloaded genes")
+        if len(matrix_row_genes) > 0 and matrix_row_genes != extra_genes[:len(matrix_row_genes)]:
+            bail("HuGE cache is inconsistent: matrix rows do not match extra gene ordering")
+        gene_bf = np.array([])
+        gene_bf_for_regression = np.array([])
+    else:
+        if cache_genes != genes:
+            bail("HuGE cache gene ordering does not match current run. Rebuild cache for this run setup.")
+        if len(matrix_row_genes) < len(genes) or matrix_row_genes[:len(genes)] != genes:
+            bail("HuGE cache matrix row ordering does not match current run genes")
+        gene_bf = np.array([gene_to_score.get(gene, np.nan) for gene in genes])
+        gene_bf_for_regression = np.array([gene_to_score_for_regression.get(gene, np.nan) for gene in genes])
+
+    huge_signal_bfs_shape = tuple(meta["huge_signal_bfs_shape"])
+    huge_signal_bfs_for_regression_shape = tuple(meta["huge_signal_bfs_for_regression_shape"])
+
+    bfs_data = _read_huge_statistics_vector_file(paths["bfs_data"], value_type=float)
+    bfs_indices = _read_huge_statistics_vector_file(paths["bfs_indices"], value_type=int)
+    bfs_indptr = _read_huge_statistics_vector_file(paths["bfs_indptr"], value_type=int)
+    bfs_reg_data = _read_huge_statistics_vector_file(paths["bfs_reg_data"], value_type=float)
+    bfs_reg_indices = _read_huge_statistics_vector_file(paths["bfs_reg_indices"], value_type=int)
+    bfs_reg_indptr = _read_huge_statistics_vector_file(paths["bfs_reg_indptr"], value_type=int)
+
+    runtime_state["huge_signal_bfs"] = sparse.csc_matrix((bfs_data, bfs_indices, bfs_indptr), shape=huge_signal_bfs_shape)
+    runtime_state["huge_signal_bfs_for_regression"] = sparse.csc_matrix((bfs_reg_data, bfs_reg_indices, bfs_reg_indptr), shape=huge_signal_bfs_for_regression_shape)
+
+    runtime_state["huge_signal_posteriors"] = _read_huge_statistics_vector_file(paths["signal_posteriors"], value_type=float)
+    runtime_state["huge_signal_posteriors_for_regression"] = _read_huge_statistics_vector_file(paths["signal_posteriors_for_regression"], value_type=float)
+    runtime_state["huge_signal_sum_gene_cond_probabilities"] = _read_huge_statistics_vector_file(paths["signal_sum_gene_cond_probabilities"], value_type=float)
+    runtime_state["huge_signal_sum_gene_cond_probabilities_for_regression"] = _read_huge_statistics_vector_file(paths["signal_sum_gene_cond_probabilities_for_regression"], value_type=float)
+    runtime_state["huge_signal_mean_gene_pos"] = _read_huge_statistics_vector_file(paths["signal_mean_gene_pos"], value_type=float)
+    runtime_state["huge_signal_mean_gene_pos_for_regression"] = _read_huge_statistics_vector_file(paths["signal_mean_gene_pos_for_regression"], value_type=float)
+
+    runtime_state["huge_signal_max_closest_gene_prob"] = meta["huge_signal_max_closest_gene_prob"]
+    runtime_state["huge_cap_region_posterior"] = bool(meta["huge_cap_region_posterior"])
+    runtime_state["huge_scale_region_posterior"] = bool(meta["huge_scale_region_posterior"])
+    runtime_state["huge_phantom_region_posterior"] = bool(meta["huge_phantom_region_posterior"])
+    runtime_state["huge_allow_evidence_of_absence"] = bool(meta["huge_allow_evidence_of_absence"])
+    runtime_state["huge_sparse_mode"] = bool(meta["huge_sparse_mode"])
+    runtime_state["huge_signals"] = [tuple(x) for x in meta["huge_signals"]]
+
+    runtime_state["gene_covariates"] = None
+    runtime_state["gene_covariates_mask"] = None
+    runtime_state["gene_covariate_names"] = meta.get("gene_covariate_names")
+    runtime_state["gene_covariate_directions"] = None
+    if meta.get("gene_covariate_directions") is not None:
+        runtime_state["gene_covariate_directions"] = np.array(meta["gene_covariate_directions"], dtype=float)
+    runtime_state["gene_covariate_intercept_index"] = meta.get("gene_covariate_intercept_index")
+    runtime_state["gene_covariates_mat_inv"] = None
+    runtime_state["gene_covariate_zs"] = None
+    runtime_state["gene_covariate_adjustments"] = None
+
+    if os.path.exists(paths["gene_covariates"]):
+        covariate_rows = []
+        with open_gz(paths["gene_covariates"]) as in_fh:
+            header = in_fh.readline().strip("\n").split("\t")
+            if len(header) > 1 and runtime_state.get("gene_covariate_names") is None:
+                runtime_state["gene_covariate_names"] = header[1:]
+            for line in in_fh:
+                cols = line.strip("\n").split("\t")
+                if len(cols) <= 1:
+                    continue
+                covariate_rows.append([float(x) for x in cols[1:]])
+        runtime_state["gene_covariates"] = np.array(covariate_rows)
+
+    runtime_state["gene_covariate_slope_defaults"] = None if meta.get("gene_covariate_slope_defaults") is None else np.array(meta.get("gene_covariate_slope_defaults"), dtype=float)
+    runtime_state["total_qc_metric_betas_defaults"] = None if meta.get("total_qc_metric_betas_defaults") is None else np.array(meta.get("total_qc_metric_betas_defaults"), dtype=float)
+    runtime_state["total_qc_metric_intercept_defaults"] = meta.get("total_qc_metric_intercept_defaults")
+    runtime_state["total_qc_metric2_betas_defaults"] = None if meta.get("total_qc_metric2_betas_defaults") is None else np.array(meta.get("total_qc_metric2_betas_defaults"), dtype=float)
+    runtime_state["total_qc_metric2_intercept_defaults"] = meta.get("total_qc_metric2_intercept_defaults")
+
+    runtime_state["gene_to_gwas_huge_score"] = gene_to_score
+    runtime_state["gene_to_gwas_huge_score_uncorrected"] = gene_to_score_uncorrected
+    call_with_runtime_state(runtime_state, "combine_huge_scores")
+
+    if runtime_state["huge_signal_bfs"].shape[1] != len(runtime_state["huge_signals"]):
+        bail("HuGE cache is inconsistent: huge_signal_bfs has %d columns but found %d signals" % (runtime_state["huge_signal_bfs"].shape[1], len(runtime_state["huge_signals"])))
+    if runtime_state["huge_signal_bfs"].shape[0] != len(matrix_row_genes):
+        bail("HuGE cache is inconsistent: huge_signal_bfs has %d rows but found %d matrix-row genes" % (runtime_state["huge_signal_bfs"].shape[0], len(matrix_row_genes)))
+
+    return (gene_bf, extra_genes, np.array(extra_gene_bf), gene_bf_for_regression, np.array(extra_gene_bf_for_regression))
+
+
+def _write_huge_statistics_with_state_impl(runtime_state, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
+    if huge_statistics_out is None:
+        return
+
+    log("Writing HuGE statistics cache to %s" % huge_statistics_out, INFO)
+    if _is_huge_statistics_bundle_path(huge_statistics_out):
+        tar_mode = "w:gz"
+        if huge_statistics_out.lower().endswith(".tar"):
+            tar_mode = "w"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            prefix = os.path.join(tmpdir, "huge_stats")
+            _write_huge_statistics_prefix_with_state(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+            with tarfile.open(huge_statistics_out, tar_mode) as tar_fh:
+                for name in sorted(os.listdir(tmpdir)):
+                    if name.startswith("huge_stats."):
+                        tar_fh.add(os.path.join(tmpdir, name), arcname=name)
+    else:
+        _write_huge_statistics_prefix_with_state(runtime_state, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+
+
+def _read_huge_statistics_with_state_impl(runtime_state, huge_statistics_in):
+    if huge_statistics_in is None:
+        bail("Require --huge-statistics-in for this operation")
+
+    log("Reading HuGE statistics cache from %s" % huge_statistics_in, INFO)
+    if _is_huge_statistics_bundle_path(huge_statistics_in):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with tarfile.open(huge_statistics_in, "r:*") as tar_fh:
+                for member in tar_fh.getmembers():
+                    if member.name.startswith("/") or ".." in member.name.split("/"):
+                        bail("Refusing to read suspicious path in HuGE cache bundle: %s" % member.name)
+                tar_fh.extractall(tmpdir)
+
+            meta_suffix = ".huge.meta.json.gz"
+            meta_files = [x for x in os.listdir(tmpdir) if x.endswith(meta_suffix)]
+            if len(meta_files) == 0:
+                bail("HuGE cache bundle did not contain a %s file" % meta_suffix)
+            if len(meta_files) > 1:
+                bail("HuGE cache bundle contained multiple metadata files: %s" % ", ".join(meta_files))
+            prefix = os.path.join(tmpdir, meta_files[0][:-len(meta_suffix)])
+            return _read_huge_statistics_prefix_with_state(runtime_state, prefix)
+    return _read_huge_statistics_prefix_with_state(runtime_state, huge_statistics_in)
+
+
 def read_Y_with_state(runtime_state, *args, **kwargs):
     return call_with_runtime_state(runtime_state, "read_Y", *args, **kwargs)
 
@@ -18784,11 +18866,11 @@ def run_gibbs_with_state(runtime_state, *args, **kwargs):
 
 
 def read_huge_statistics_with_state(runtime_state, *args, **kwargs):
-    return call_with_runtime_state(runtime_state, "read_huge_statistics", *args, **kwargs)
+    return _read_huge_statistics_with_state_impl(runtime_state, *args, **kwargs)
 
 
 def write_huge_statistics_with_state(runtime_state, *args, **kwargs):
-    return call_with_runtime_state(runtime_state, "write_huge_statistics", *args, **kwargs)
+    return _write_huge_statistics_with_state_impl(runtime_state, *args, **kwargs)
 
 
 ##This function is for labelling clusters. Update it with your favorite LLM if desired
@@ -18903,9 +18985,9 @@ def main():
     _configure_sigma_and_hyper()
 
     if options.gene_map_in:
-        _call("read_gene_map",options.gene_map_in, options.gene_map_orig_gene_col, options.gene_map_orig_gene_col)
+        read_gene_map_with_state(runtime_state, options.gene_map_in, options.gene_map_orig_gene_col, options.gene_map_orig_gene_col)
     if options.gene_loc_file:
-        _call("init_gene_locs",options.gene_loc_file)
+        init_gene_locs_with_state(runtime_state, options.gene_loc_file)
 
     # ==========================================================================
     # Main Phase C: Input loading helpers (Y, then X/gene sets).
