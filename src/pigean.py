@@ -20076,7 +20076,7 @@ def _run_gene_phewas_for_main(state, options, bfs_to_use, run_for_factors=False,
     state.run_phewas(**_build_run_phewas_kwargs_for_main(options, bfs_to_use, run_for_factors, batch_size, min_gene_factor_weight))
 
 
-def _build_run_phewas_kwargs_for_main(options, bfs_to_use, run_for_factors=False, batch_size=1500, min_gene_factor_weight=0):
+def _build_run_phewas_input_kwargs_for_main(options, bfs_to_use):
     return dict(
         gene_phewas_bfs_in=bfs_to_use,
         gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
@@ -20084,6 +20084,11 @@ def _build_run_phewas_kwargs_for_main(options, bfs_to_use, run_for_factors=False
         gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
         gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
         gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+    )
+
+
+def _build_run_phewas_sampling_kwargs_for_main(options):
+    return dict(
         max_num_burn_in=options.max_num_burn_in,
         max_num_iter=options.max_num_iter_betas,
         min_num_iter=options.min_num_iter_betas,
@@ -20094,24 +20099,44 @@ def _build_run_phewas_kwargs_for_main(options, bfs_to_use, run_for_factors=False
         gauss_seidel=options.gauss_seidel_betas,
         sparse_solution=options.sparse_solution,
         sparse_frac_betas=options.sparse_frac_betas,
+    )
+
+
+def _build_run_phewas_factor_kwargs_for_main(run_for_factors=False, batch_size=1500, min_gene_factor_weight=0):
+    return dict(
         run_for_factors=run_for_factors,
         batch_size=batch_size,
         min_gene_factor_weight=min_gene_factor_weight,
     )
 
 
+def _build_run_phewas_kwargs_for_main(options, bfs_to_use, run_for_factors=False, batch_size=1500, min_gene_factor_weight=0):
+    kwargs = {}
+    kwargs.update(_build_run_phewas_input_kwargs_for_main(options, bfs_to_use))
+    kwargs.update(_build_run_phewas_sampling_kwargs_for_main(options))
+    kwargs.update(_build_run_phewas_factor_kwargs_for_main(run_for_factors, batch_size, min_gene_factor_weight))
+    return kwargs
+
+
+def _resolve_main_phewas_bfs_input_for_main(state, options):
+    bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
+    if _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
+        #we can skip reading if we are using the same file as previously read and we didn't threshold that file
+        return None
+    return bfs_to_use
+
+
+def _write_phewas_outputs_if_requested_for_main(state, options):
+    if options.phewas_stats_out:
+        state.write_phewas_statistics(options.phewas_stats_out)
+
+
 def _run_phewas_if_requested_for_main(state, options, mode_state):
-    run_phewas = mode_state["run_phewas"]
-    if run_phewas:
-        bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
-
-        if _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
-            #we can skip reading if we are using the same file as previously read and we didn't threshold that file
-            bfs_to_use = None
-
-        _run_gene_phewas_for_main(state, options, bfs_to_use)
-        if options.phewas_stats_out:
-            state.write_phewas_statistics(options.phewas_stats_out)
+    if not mode_state["run_phewas"]:
+        return
+    bfs_to_use = _resolve_main_phewas_bfs_input_for_main(state, options)
+    _run_gene_phewas_for_main(state, options, bfs_to_use)
+    _write_phewas_outputs_if_requested_for_main(state, options)
 
 
 def _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
@@ -20124,14 +20149,13 @@ def _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
 
 
 def _run_factor_if_requested_for_main(state, options, mode_state):
-    run_factor = mode_state["run_factor"]
+    if not mode_state["run_factor"]:
+        return
     expand_gene_sets = mode_state["expand_gene_sets"]
     factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
-    if run_factor:
-        _maybe_prune_gene_sets_for_factor_expand_for_main(state, options, expand_gene_sets)
-        gene_or_pheno_filter_value = _resolve_factor_gene_or_pheno_filter_value_for_main(options, factor_gene_set_x_pheno)
-
-        state.run_factor(**_build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value))
+    _maybe_prune_gene_sets_for_factor_expand_for_main(state, options, expand_gene_sets)
+    gene_or_pheno_filter_value = _resolve_factor_gene_or_pheno_filter_value_for_main(options, factor_gene_set_x_pheno)
+    state.run_factor(**_build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value))
 
 
 def _maybe_prune_gene_sets_for_factor_expand_for_main(state, options, expand_gene_sets):
@@ -20158,7 +20182,7 @@ def _resolve_factor_gene_or_pheno_filter_value_for_main(options, factor_gene_set
     return options.gene_filter_value
 
 
-def _build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value):
+def _build_run_factor_structure_kwargs_for_main(options, gene_or_pheno_filter_value):
     return dict(
         max_num_factors=options.max_num_factors,
         phi=options.phi,
@@ -20172,11 +20196,21 @@ def _build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value
         gene_prune_number=options.factor_prune_genes_num,
         gene_set_prune_value=options.factor_prune_gene_sets_val,
         gene_set_prune_number=options.factor_prune_gene_sets_num,
+    )
+
+
+def _build_run_factor_anchor_kwargs_for_main(state, options):
+    return dict(
         anchor_pheno_mask=state.anchor_pheno_mask,
         anchor_gene_mask=state.anchor_gene_mask,
         anchor_any_pheno=options.anchor_any_pheno,
         anchor_any_gene=options.anchor_any_gene,
         anchor_gene_set=options.anchor_gene_set,
+    )
+
+
+def _build_run_factor_output_kwargs_for_main(options):
+    return dict(
         run_transpose=not options.no_transpose,
         min_lambda_threshold=options.min_lambda_threshold,
         lmm_auth_key=options.lmm_auth_key,
@@ -20186,6 +20220,14 @@ def _build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value
         label_individually=options.label_individually,
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
     )
+
+
+def _build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value):
+    kwargs = {}
+    kwargs.update(_build_run_factor_structure_kwargs_for_main(options, gene_or_pheno_filter_value))
+    kwargs.update(_build_run_factor_anchor_kwargs_for_main(state, options))
+    kwargs.update(_build_run_factor_output_kwargs_for_main(options))
+    return kwargs
 
 
 def _write_factor_outputs_for_main(state, options):
@@ -20300,31 +20342,44 @@ def _needs_gene_set_stats_for_main(options, mode_state):
     )
 
 
+def _should_use_constant_gene_set_beta_tildes_for_main(mode_state, options):
+    return mode_state["run_factor"] and options.const_gene_set_beta is not None
+
+
+def _should_read_gene_set_stats_from_file_for_main(mode_state, options):
+    return options.gene_set_stats_in is not None and not mode_state["use_phewas_for_factoring"]
+
+
+def _resolve_factor_downstream_flags_from_gene_set_stats_for_main(mode_state):
+    run_beta_for_factor = False
+    run_gibbs_for_factor = False
+    if mode_state["run_factor"]:
+        run_beta_for_factor = True
+        if not mode_state["run_naive_factor"]:
+            run_gibbs_for_factor = True
+    return run_beta_for_factor, run_gibbs_for_factor
+
+
+def _calculate_gene_set_stats_for_main(state, options):
+    max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
+    state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=max_gene_set_p))
+    if options.betas_uncorrected_from_phewas:
+        state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=1, run_using_phewas=True))
+
+
 def _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state):
     # Resolve beta_tildes either from fixed values, read-in stats, or fresh fitting.
-    run_factor = mode_state["run_factor"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-    run_naive_factor = mode_state["run_naive_factor"]
     needs_gene_set_stats = _needs_gene_set_stats_for_main(options, mode_state)
-
     run_beta_for_factor = False
     run_gibbs_for_factor = False
 
-    if run_factor and options.const_gene_set_beta is not None:
+    if _should_use_constant_gene_set_beta_tildes_for_main(mode_state, options):
         state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
-    elif options.gene_set_stats_in is not None and not use_phewas_for_factoring:
+    elif _should_read_gene_set_stats_from_file_for_main(mode_state, options):
         state.read_gene_set_statistics(options.gene_set_stats_in, **_build_read_gene_set_statistics_kwargs_for_main(options))
     elif needs_gene_set_stats:
-        if run_factor:
-            run_beta_for_factor = True
-            if not run_naive_factor:
-                run_gibbs_for_factor = True
-
-        max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
-        state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=max_gene_set_p))
-
-        if options.betas_uncorrected_from_phewas:
-            state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=1, run_using_phewas=True))
+        run_beta_for_factor, run_gibbs_for_factor = _resolve_factor_downstream_flags_from_gene_set_stats_for_main(mode_state)
+        _calculate_gene_set_stats_for_main(state, options)
 
     return run_beta_for_factor, run_gibbs_for_factor
 
