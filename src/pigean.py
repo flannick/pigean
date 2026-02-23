@@ -19480,6 +19480,44 @@ def _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
     )
 
 
+def _should_load_y_from_sources_for_main(options, extend_for_gene):
+    return (
+        extend_for_gene
+        or options.gwas_in
+        or options.huge_statistics_in
+        or options.exomes_in
+        or options.positive_controls_in
+        or options.positive_controls_list is not None
+        or options.case_counts_in is not None
+    )
+
+
+def _should_apply_gene_list_defaults_before_source_y_load_for_main(options, use_phewas_for_factoring):
+    return (
+        not use_phewas_for_factoring
+        and options.gwas_in is None
+        and options.huge_statistics_in is None
+        and options.exomes_in is None
+        and options.case_counts_in is None
+    )
+
+
+def _load_initial_y_from_gene_stats_for_main(state, options):
+    state.read_Y(**_build_read_y_gene_bfs_kwargs_for_main(options))
+
+
+def _load_initial_y_from_sources_for_main(state, options, use_phewas_for_factoring):
+    if _should_apply_gene_list_defaults_before_source_y_load_for_main(options, use_phewas_for_factoring):
+        _default_for_gene_list_options(options)
+    state.read_Y(**_build_read_y_source_kwargs_for_main(options))
+
+
+def _load_initial_y_from_gene_phewas_for_main(state, options):
+    if not options.gene_phewas_bfs_in:
+        bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
+    state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
+
+
 def _load_initial_y_inputs_for_main(
     state,
     options,
@@ -19502,17 +19540,12 @@ def _load_initial_y_inputs_for_main(
     Y_not_loaded = False
 
     if _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
-
         if not extend_for_gene and options.gene_stats_in:
-            state.read_Y(**_build_read_y_gene_bfs_kwargs_for_main(options))
-        elif extend_for_gene or options.gwas_in or options.huge_statistics_in or options.exomes_in or options.positive_controls_in or options.positive_controls_list is not None or options.case_counts_in is not None:
-            if not use_phewas_for_factoring and options.gwas_in is None and options.huge_statistics_in is None and options.exomes_in is None and options.case_counts_in is None:
-                _default_for_gene_list_options(options)
-            state.read_Y(**_build_read_y_source_kwargs_for_main(options))
+            _load_initial_y_from_gene_stats_for_main(state, options)
+        elif _should_load_y_from_sources_for_main(options, extend_for_gene):
+            _load_initial_y_from_sources_for_main(state, options, use_phewas_for_factoring)
         elif options.betas_uncorrected_from_phewas:
-            if not options.gene_phewas_bfs_in:
-                bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-            state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
+            _load_initial_y_from_gene_phewas_for_main(state, options)
         else:
             Y_not_loaded = True
 
@@ -19571,30 +19604,56 @@ def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_lo
     force_reread = False
     while True:
         orig_sigma2 = state.sigma2
-
-        skip_betas = _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded)
-        genes_to_inc = _compute_genes_to_include_for_read_x_for_main(mode_state, options)
-
-        read_x_kwargs = _build_read_x_kwargs_for_main(
+        read_x_kwargs = _build_read_x_kwargs_for_iteration_for_main(
             state,
             options,
             gene_set_ids,
-            genes_to_inc,
-            filter_gene_set_p,
-            skip_betas,
+            Y_not_loaded,
             sigma2_cond,
-            force_reread,
+            mode_state,
             xin_to_p_noninf_ind,
+            filter_gene_set_p,
+            force_reread,
         )
         state.read_X(options.X_in, **read_x_kwargs)
 
-        should_reread, new_filter_gene_set_p = _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p)
+        should_reread, new_filter_gene_set_p = _prepare_reread_with_relaxed_filter_for_main(
+            state,
+            options,
+            gene_set_ids,
+            filter_gene_set_p,
+            orig_sigma2,
+        )
         if not should_reread:
             break
         filter_gene_set_p = new_filter_gene_set_p
         force_reread = True
-        #reset sigma
-        state.set_sigma(orig_sigma2, state.sigma_power)
+
+
+def _build_read_x_kwargs_for_iteration_for_main(
+    state,
+    options,
+    gene_set_ids,
+    Y_not_loaded,
+    sigma2_cond,
+    mode_state,
+    xin_to_p_noninf_ind,
+    filter_gene_set_p,
+    force_reread,
+):
+    skip_betas = _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded)
+    genes_to_inc = _compute_genes_to_include_for_read_x_for_main(mode_state, options)
+    return _build_read_x_kwargs_for_main(
+        state,
+        options,
+        gene_set_ids,
+        genes_to_inc,
+        filter_gene_set_p,
+        skip_betas,
+        sigma2_cond,
+        force_reread,
+        xin_to_p_noninf_ind,
+    )
 
 
 def _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded):
@@ -19635,6 +19694,14 @@ def _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, fi
         new_filter_gene_set_p = 1
     log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), new_filter_gene_set_p))
     return True, new_filter_gene_set_p
+
+
+def _prepare_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p, orig_sigma2):
+    should_reread, new_filter_gene_set_p = _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p)
+    if should_reread:
+        # Keep sigma stable across adaptive filter retries.
+        state.set_sigma(orig_sigma2, state.sigma_power)
+    return should_reread, new_filter_gene_set_p
 
 
 def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
@@ -19724,23 +19791,31 @@ def _set_p_without_x_inputs_for_main(state, options):
             bail("Multiple --p-noninf is not supported without --X-in inputs")
 
 
-def _finalize_x_loading_for_main(state, options, Y_not_loaded):
-
+def _ensure_gene_sets_loaded_for_main(state):
     if not state.has_gene_sets():
         log("No gene sets survived the input filters; stopping")
         sys.exit(0)
 
-    assert(state.p is not None)
 
+def _maybe_apply_const_gene_y_for_main(state, options, Y_not_loaded):
     if Y_not_loaded and options.const_gene_Y:
         state.set_const_Y(options.const_gene_Y)
 
+
+def _maybe_write_loaded_matrix_artifacts_for_main(state, options):
     if options.X_out:
         state.write_X(options.X_out)
     if options.Xd_out:
         state.write_Xd(options.Xd_out)
     if options.V_out:
         state.write_V(options.V_out)
+
+
+def _finalize_x_loading_for_main(state, options, Y_not_loaded):
+    _ensure_gene_sets_loaded_for_main(state)
+    assert(state.p is not None)
+    _maybe_apply_const_gene_y_for_main(state, options, Y_not_loaded)
+    _maybe_write_loaded_matrix_artifacts_for_main(state, options)
 
 
 def _build_priors_kwargs_for_main(options, p_noninf):
@@ -20156,40 +20231,57 @@ def _build_run_cross_val_kwargs_for_main(state, options):
     )
 
 
-def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_beta_for_factor):
-    # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
+def _needs_gene_set_betas_for_main(mode_state, run_beta_for_factor):
     run_beta = mode_state["run_beta"]
     run_priors = mode_state["run_priors"]
     run_naive_priors = mode_state["run_naive_priors"]
     run_gibbs = mode_state["run_gibbs"]
+    return run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor
+
+
+def _set_constant_gene_set_betas_for_main(state, options):
+    state.betas = np.full(len(state.gene_sets), options.const_gene_set_beta)
+    state.betas_uncorrected = np.full(len(state.gene_sets), options.const_gene_set_beta)
+
+
+def _should_read_gene_set_betas_from_file_for_main(mode_state, options):
     run_factor = mode_state["run_factor"]
     use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+    return (not run_factor or not use_phewas_for_factoring) and options.gene_set_betas_in
 
-    needs_gene_set_betas = run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor
+
+def _fit_gene_set_betas_for_main(state, options):
+    beta_sampling_kwargs = _build_beta_sampling_kwargs_for_main(options)
+    state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
+
+    if options.betas_uncorrected_from_phewas:
+        phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
+        phewas_beta_sampling_kwargs.update({
+            "run_betas_using_phewas": options.betas_from_phewas,
+            "run_uncorrected_using_phewas": True,
+        })
+        state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
+
+
+def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_beta_for_factor):
+    # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
+    run_factor = mode_state["run_factor"]
+
+    needs_gene_set_betas = _needs_gene_set_betas_for_main(mode_state, run_beta_for_factor)
     if needs_gene_set_betas and state.sigma2 is None:
         bail("Sigma2 was not initialized; provide --sigma2 explicitly")
 
     if options.cross_val:
         state.run_cross_val(options.cross_val_num_explore_each_direction, **_build_run_cross_val_kwargs_for_main(state, options))
 
-    #gene set betas
+    # Gene-set betas: fixed constant, loaded values, or fitted values.
     if run_factor and options.const_gene_set_beta is not None:
-        state.betas = np.full(len(state.gene_sets), options.const_gene_set_beta)
-        state.betas_uncorrected = np.full(len(state.gene_sets), options.const_gene_set_beta)
-    elif (not run_factor or not use_phewas_for_factoring) and options.gene_set_betas_in:
+        _set_constant_gene_set_betas_for_main(state, options)
+    elif _should_read_gene_set_betas_from_file_for_main(mode_state, options):
         state.read_betas(options.gene_set_betas_in)
     elif needs_gene_set_betas:
-        #update hyper was done above while while reading x
-        beta_sampling_kwargs = _build_beta_sampling_kwargs_for_main(options)
-        state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
-
-        if options.betas_uncorrected_from_phewas:
-            phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
-            phewas_beta_sampling_kwargs.update({
-                "run_betas_using_phewas": options.betas_from_phewas,
-                "run_uncorrected_using_phewas": True,
-            })
-            state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
+        # Hyper updates happen during X-read; this branch only samples betas.
+        _fit_gene_set_betas_for_main(state, options)
 
 
 def _compute_gene_set_stats_and_betas_for_main(
