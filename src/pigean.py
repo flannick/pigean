@@ -7638,33 +7638,13 @@ class GeneSetData(object):
 
     #FIXME: Update calls to use includes_non_missing and from_osc
     def has_gene_sets(self):
-        return self.X_orig is not None and self.X_orig.shape[1] > 0
+        return _state_has_gene_sets(self.__dict__)
 
     def set_p(self, p):
-        #if p is None:
-        #    log("Set p called with p=%s" % p, TRACE)
-        #else:
-        #    log("Set p called with p=%.3g" % p, TRACE)
-
-        if p is not None:
-            if p > 1:
-                p = 1
-            if p < 0:
-                p = 0
-        self.p = p
+        _state_set_p(self.__dict__, p)
 
     def get_sigma2(self, convert_sigma_to_external_units=False):
-        if self.sigma2 is not None and convert_sigma_to_external_units and self.sigma_power is not None:
-            if self.scale_factors is not None:
-                if self.is_dense_gene_set is not None and np.sum(~self.is_dense_gene_set) > 0:
-                    return self.sigma2 * np.mean(np.power(self.scale_factors[~self.is_dense_gene_set], self.sigma_power - 2))
-                else:
-                    return self.sigma2 * np.mean(np.power(self.scale_factors, self.sigma_power - 2))
-            else:
-                return self.sigma2 * np.power(self.MEAN_MOUSE_SCALE, self.sigma_power - 2)
-
-        else:
-            return self.sigma2
+        return _state_get_sigma2(self.__dict__, convert_sigma_to_external_units=convert_sigma_to_external_units)
 
     def get_scaled_sigma2(self, scale_factors, sigma2, sigma_power, sigma_threshold_k=None, sigma_threshold_xo=None):
         threshold = 1
@@ -7686,72 +7666,16 @@ class GeneSetData(object):
         return result
 
     def set_sigma(self, sigma2, sigma_power, sigma2_osc=None, sigma2_se=None, sigma2_p=None, sigma2_scale_factors=None, convert_sigma_to_internal_units=False):
-
-        #if sigma2 is None:
-        #    log("Set sigma called with sigma2=%s" % sigma2, TRACE)
-        #else:
-        #    log("Set sigma called with sigma2=%.3g" % sigma2, TRACE)            
-
-        #WARNING: sigma storage is not handled optimally right now
-        #if self.sigma_power=None, then sigma2 is in units of internal beta (because it is constant internally)
-        #so, sigma2 / np.square(self.scale_factors[i]) is the external beta unit
-        #if self.sigma_power != None, then sigma2 is in units of external beta (because it is constant externally)
-        #so, sigma2 * np.power(self.scale_factors[i], self.sigma_power) is the internal beta unit
-        #This setter does not validate any of this, so
-        #1. when getting sigma, you must convert to internal sigma units
-        #2. when setting sigma, you must pass in external units if const sigma and internal units if not
-
-
-        self.sigma_power = sigma_power
-        if sigma_power is None:
-            #default is to have constant sigma in external units of beta, so beta is 2
-            sigma_power = 2
-
-        if convert_sigma_to_internal_units:
-            #we divide by expected value of scale ** (power - 2) because:
-            #beta_internal_j = beta_j * scale_factors_j -> beta_j = beta_internal_j / scale_factors_j
-            #beta_internal_j ~ N(0, sigma2 * scale_factors_j ** sigma_power) -> beta_j ~ N(0, sigma2 * scale_factors_j ** (sigma_power-2))
-            #sigma2_ext = E[sigma2 * scale_factors_j ** (sigma_power - 2)] = sigma2 * E[scale_factors_j ** (sigma_power - 2)]
-            #sigma2 = sigma2_ext / E[scale_factors_j ** (sigma_power - 2)]
-            if self.scale_factors is not None:
-                if self.is_dense_gene_set is not None and np.sum(~self.is_dense_gene_set) > 0:
-                    self.sigma2 = sigma2 / np.mean(np.power(self.scale_factors[~self.is_dense_gene_set], self.sigma_power - 2))
-                else:
-                    self.sigma2 = sigma2 / np.mean(np.power(self.scale_factors, self.sigma_power - 2))
-            else:
-                self.sigma2 = sigma2 / np.power(self.MEAN_MOUSE_SCALE, self.sigma_power - 2)
-        else:
-            self.sigma2 = sigma2
-
-        if sigma2_osc is not None:
-            self.sigma2_osc = sigma2_osc
-
-        if sigma2_scale_factors is None:
-            sigma2_scale_factors = self.scale_factors
-
-        if sigma2_se is not None:
-            self.sigma2_se = sigma2_se
-        if self.sigma2_p is not None:
-            self.sigma2_p = sigma2_p
-
-        if self.sigma2 is None and self.sigma2_osc is None:
-            return
-
-        sigma2_for_var = self.sigma2_osc if self.sigma2_osc is not None else self.sigma2
-
-        if sigma2_for_var is not None and sigma2_scale_factors is not None:
-            if self.sigma_power is None:
-                self.sigma2_total_var = sigma2_for_var * len(sigma2_scale_factors)
-            else:
-                self.sigma2_total_var = sigma2_for_var * np.sum(np.square(sigma2_scale_factors))
-
-        if self.sigma2_total_var is not None and self.sigma2_se is not None:
-            self.sigma2_total_var_lower = self.sigma2_total_var * (sigma2_for_var - 1.96 * self.sigma2_se)/(sigma2_for_var)
-            self.sigma2_total_var_upper = self.sigma2_total_var * (sigma2_for_var + 1.96 * self.sigma2_se)/(sigma2_for_var)
-
-        #minimum bound
-        if self.sigma2 is None:
-            return
+        _state_set_sigma(
+            self.__dict__,
+            sigma2,
+            sigma_power,
+            sigma2_osc=sigma2_osc,
+            sigma2_se=sigma2_se,
+            sigma2_p=sigma2_p,
+            sigma2_scale_factors=sigma2_scale_factors,
+            convert_sigma_to_internal_units=convert_sigma_to_internal_units,
+        )
 
     def write_params(self, output_file):
         if output_file is not None:
@@ -13946,16 +13870,7 @@ class GeneSetData(object):
 
 
     def convert_prior_to_var(self, top_prior, num, frac):
-        top_bf = np.log((top_prior) / (1 - top_prior)) - self.background_log_bf 
-        if top_bf <= 0:
-            bail("--top-gene-set-prior must be above background (%.4g)" % self.background_prior) 
-        if frac is None:
-            frac = 1
-        if frac <= 0 or frac > 1:
-            bail("--frac-gene-sets-for-prior must be in (0,1]")
-        var = frac * np.square(top_bf / (-scipy.stats.norm.ppf(1.0 / (num * frac))))
-
-        return var
+        return _state_convert_prior_to_var(self.__dict__, top_prior, num, frac)
 
     def _determine_columns(self, filename):
         #try to determine columns for gene_id, var_id, chrom, pos, p, beta, se, freq, n
@@ -18405,6 +18320,102 @@ def init_gene_locs_with_state(runtime_state, gene_loc_file):
 
 
 # ==========================================================================
+# Runtime-state hyperparameter helpers (p/sigma/prior-variance primitives).
+# ==========================================================================
+def _state_has_gene_sets(runtime_state):
+    x_orig = runtime_state.get("X_orig")
+    return x_orig is not None and x_orig.shape[1] > 0
+
+
+def _state_set_p(runtime_state, p):
+    if p is not None:
+        if p > 1:
+            p = 1
+        if p < 0:
+            p = 0
+    runtime_state["p"] = p
+
+
+def _state_get_sigma2(runtime_state, convert_sigma_to_external_units=False):
+    sigma2 = runtime_state.get("sigma2")
+    sigma_power = runtime_state.get("sigma_power")
+    if sigma2 is not None and convert_sigma_to_external_units and sigma_power is not None:
+        scale_factors = runtime_state.get("scale_factors")
+        if scale_factors is not None:
+            is_dense_gene_set = runtime_state.get("is_dense_gene_set")
+            if is_dense_gene_set is not None and np.sum(~is_dense_gene_set) > 0:
+                return sigma2 * np.mean(np.power(scale_factors[~is_dense_gene_set], sigma_power - 2))
+            else:
+                return sigma2 * np.mean(np.power(scale_factors, sigma_power - 2))
+        else:
+            return sigma2 * np.power(runtime_state.get("MEAN_MOUSE_SCALE"), sigma_power - 2)
+
+    return sigma2
+
+
+def _state_set_sigma(runtime_state, sigma2, sigma_power, sigma2_osc=None, sigma2_se=None, sigma2_p=None, sigma2_scale_factors=None, convert_sigma_to_internal_units=False):
+    # Keep legacy sigma conventions exactly; this function is a direct extraction
+    # of the prior stateful method for safer refactoring.
+    runtime_state["sigma_power"] = sigma_power
+    if sigma_power is None:
+        sigma_power = 2
+
+    if convert_sigma_to_internal_units:
+        scale_factors = runtime_state.get("scale_factors")
+        is_dense_gene_set = runtime_state.get("is_dense_gene_set")
+        if scale_factors is not None:
+            if is_dense_gene_set is not None and np.sum(~is_dense_gene_set) > 0:
+                runtime_state["sigma2"] = sigma2 / np.mean(np.power(scale_factors[~is_dense_gene_set], runtime_state.get("sigma_power") - 2))
+            else:
+                runtime_state["sigma2"] = sigma2 / np.mean(np.power(scale_factors, runtime_state.get("sigma_power") - 2))
+        else:
+            runtime_state["sigma2"] = sigma2 / np.power(runtime_state.get("MEAN_MOUSE_SCALE"), runtime_state.get("sigma_power") - 2)
+    else:
+        runtime_state["sigma2"] = sigma2
+
+    if sigma2_osc is not None:
+        runtime_state["sigma2_osc"] = sigma2_osc
+
+    if sigma2_scale_factors is None:
+        sigma2_scale_factors = runtime_state.get("scale_factors")
+
+    if sigma2_se is not None:
+        runtime_state["sigma2_se"] = sigma2_se
+    if runtime_state.get("sigma2_p") is not None:
+        runtime_state["sigma2_p"] = sigma2_p
+
+    if runtime_state.get("sigma2") is None and runtime_state.get("sigma2_osc") is None:
+        return
+
+    sigma2_for_var = runtime_state.get("sigma2_osc") if runtime_state.get("sigma2_osc") is not None else runtime_state.get("sigma2")
+
+    if sigma2_for_var is not None and sigma2_scale_factors is not None:
+        if runtime_state.get("sigma_power") is None:
+            runtime_state["sigma2_total_var"] = sigma2_for_var * len(sigma2_scale_factors)
+        else:
+            runtime_state["sigma2_total_var"] = sigma2_for_var * np.sum(np.square(sigma2_scale_factors))
+
+    if runtime_state.get("sigma2_total_var") is not None and runtime_state.get("sigma2_se") is not None:
+        runtime_state["sigma2_total_var_lower"] = runtime_state.get("sigma2_total_var") * (sigma2_for_var - 1.96 * runtime_state.get("sigma2_se")) / (sigma2_for_var)
+        runtime_state["sigma2_total_var_upper"] = runtime_state.get("sigma2_total_var") * (sigma2_for_var + 1.96 * runtime_state.get("sigma2_se")) / (sigma2_for_var)
+
+    if runtime_state.get("sigma2") is None:
+        return
+
+
+def _state_convert_prior_to_var(runtime_state, top_prior, num, frac):
+    top_bf = np.log((top_prior) / (1 - top_prior)) - runtime_state.get("background_log_bf")
+    if top_bf <= 0:
+        bail("--top-gene-set-prior must be above background (%.4g)" % runtime_state.get("background_prior"))
+    if frac is None:
+        frac = 1
+    if frac <= 0 or frac > 1:
+        bail("--frac-gene-sets-for-prior must be in (0,1]")
+    var = frac * np.square(top_bf / (-scipy.stats.norm.ppf(1.0 / (num * frac))))
+    return var
+
+
+# ==========================================================================
 # Runtime state bridge: explicit state dictionary + legacy method dispatch.
 # ==========================================================================
 def create_runtime_state(background_prior=0.05, batch_size=4500):
@@ -18905,23 +18916,23 @@ def main():
 
         if sigma2_cond is not None:
             #map it with the scale factor
-            state_view.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=False)
-            sigma2_cond = state_view.get_sigma2()
-            state_view.set_sigma(None, _get("sigma_power"))
+            _state_set_sigma(runtime_state, options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=False)
+            sigma2_cond = _state_get_sigma2(runtime_state)
+            _state_set_sigma(runtime_state, None, _get("sigma_power"))
         elif options.sigma2_ext is not None:
-            state_view.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=True)
-            log("Setting sigma=%.4g (given external=%.4g) " % (state_view.get_sigma2(), state_view.get_sigma2(convert_sigma_to_external_units=True)))
+            _state_set_sigma(runtime_state, options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=True)
+            log("Setting sigma=%.4g (given external=%.4g) " % (_state_get_sigma2(runtime_state), _state_get_sigma2(runtime_state, convert_sigma_to_external_units=True)))
         elif options.sigma2 is not None:
-            state_view.set_sigma(options.sigma2, options.sigma_power, convert_sigma_to_internal_units=False)
+            _state_set_sigma(runtime_state, options.sigma2, options.sigma_power, convert_sigma_to_internal_units=False)
         elif options.top_gene_set_prior:
-            state_view.set_sigma(state_view.convert_prior_to_var(options.top_gene_set_prior, options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else len(_get("gene_sets")), options.frac_gene_sets_for_prior), options.sigma_power, convert_sigma_to_internal_units=True)
+            _state_set_sigma(runtime_state, _state_convert_prior_to_var(runtime_state, options.top_gene_set_prior, options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else len(_get("gene_sets")), options.frac_gene_sets_for_prior), options.sigma_power, convert_sigma_to_internal_units=True)
             if options.frac_gene_sets_for_prior == 1:
                 #in this case sigma2_cond was specified, not sigma2
-                sigma2_cond = state_view.get_sigma2()
-                log("Setting sigma_cond=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (state_view.get_sigma2(), state_view.get_sigma2(convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
-                state_view.set_sigma(None, _get("sigma_power"))
+                sigma2_cond = _state_get_sigma2(runtime_state)
+                log("Setting sigma_cond=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (_state_get_sigma2(runtime_state), _state_get_sigma2(runtime_state, convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
+                _state_set_sigma(runtime_state, None, _get("sigma_power"))
             else:
-                log("Setting sigma=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (state_view.get_sigma2(), state_view.get_sigma2(convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
+                log("Setting sigma=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (_state_get_sigma2(runtime_state), _state_get_sigma2(runtime_state, convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
 
         #sigma calculations
         if options.const_sigma:
@@ -19062,7 +19073,7 @@ def main():
                         log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(_get("gene_sets")), filter_gene_set_p))
                         force_reread = True
                         #reset sigma
-                        state_view.set_sigma(orig_sigma2, _get("sigma_power"))
+                        _state_set_sigma(runtime_state, orig_sigma2, _get("sigma_power"))
                     else:
                         break
                 else:
@@ -19071,11 +19082,11 @@ def main():
             #set p
             if options.p_noninf is not None:
                 if len(options.p_noninf) == 1:
-                    state_view.set_p(options.p_noninf[0])
+                    _state_set_p(runtime_state, options.p_noninf[0])
                 else:
                     bail("Multiple --p-noninf is not supported without --X-in inputs")
 
-        if not state_view.has_gene_sets():
+        if not _state_has_gene_sets(runtime_state):
             log("No gene sets survived the input filters; stopping")
             sys.exit(0)
 
