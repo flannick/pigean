@@ -1078,60 +1078,73 @@ def _resolve_mode_state(_mode, _options):
     return _state
 
 
+def _set_default_option(_options, _name, _value):
+    if getattr(_options, _name) is None:
+        setattr(_options, _name, _value)
+
+
+def _apply_pops_mode_defaults(_options):
+    _set_default_option(_options, "correct_betas_mean", False)
+    _set_default_option(_options, "adjust_priors", False)
+    _set_default_option(_options, "p_noninf", [1])
+    _set_default_option(_options, "sigma_power", 2)
+    _set_default_option(_options, "update_hyper", "none")
+    _set_default_option(_options, "filter_negative", False)
+    _set_default_option(_options, "prune_gene_sets", 1.1)
+    _set_default_option(_options, "weighted_prune_gene_sets", 1.1)
+    _set_default_option(_options, "top_gene_set_prior", 0.1)
+    _set_default_option(_options, "num_gene_sets_for_prior", 15000)
+    _set_default_option(_options, "filter_gene_set_p", 0.05)
+    _set_default_option(_options, "linear", True)
+    _set_default_option(_options, "max_for_linear", 1)
+    _set_default_option(_options, "min_gene_set_size", 1)
+    _set_default_option(_options, "cross_val", True)
+    _set_default_option(_options, "sparse_frac_betas", 0)
+    _set_default_option(_options, "sparse_solution", False)
+
+
+def _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_pheno):
+    _set_default_option(_options, "correct_betas_mean", True)
+    _set_default_option(_options, "adjust_priors", True)
+    _set_default_option(_options, "p_noninf", [0.001])
+    _set_default_option(_options, "sigma_power", -2)
+    _set_default_option(_options, "update_hyper", "p")
+    _set_default_option(_options, "filter_negative", True)
+
+    if _options.prune_gene_sets is None:
+        if _run_factor and _factor_gene_set_x_pheno:
+            _options.prune_gene_sets = 0.5
+        else:
+            _options.prune_gene_sets = 0.8
+
+    if _options.weighted_prune_gene_sets is None:
+        if _run_factor and _factor_gene_set_x_pheno:
+            _options.weighted_prune_gene_sets = 0.5
+        else:
+            _options.weighted_prune_gene_sets = 0.8
+
+    _set_default_option(_options, "top_gene_set_prior", 0.8)
+    _set_default_option(_options, "num_gene_sets_for_prior", 50)
+    _set_default_option(_options, "filter_gene_set_p", 0.01)
+    _set_default_option(_options, "linear", False)
+    _set_default_option(_options, "max_for_linear", 0.95)
+    _set_default_option(_options, "min_gene_set_size", 10)
+
+    # Keep legacy condition semantics exactly as-is.
+    if _run_factor and _factor_gene_set_x_pheno is not None:
+        if _options.add_gene_sets_by_enrichment_p is not None:
+            _options.filter_gene_set_p = _options.add_gene_sets_by_enrichment_p
+
+    _set_default_option(_options, "cross_val", False)
+    _set_default_option(_options, "sparse_frac_betas", 0.001)
+    _set_default_option(_options, "sparse_solution", True)
+
+
 def _apply_mode_defaults(_options, _mode, _run_factor, _factor_gene_set_x_pheno):
     if _mode == "pops" or _mode == "naive_pops":
-
-        _options.correct_betas_mean = _options.correct_betas_mean if _options.correct_betas_mean is not None else False
-        _options.adjust_priors = _options.adjust_priors if _options.adjust_priors is not None else False
-        _options.p_noninf = _options.p_noninf if _options.p_noninf is not None else [1]
-        _options.sigma_power = _options.sigma_power if _options.sigma_power is not None else 2
-        _options.update_hyper = _options.update_hyper if _options.update_hyper is not None else "none"
-        _options.filter_negative = _options.filter_negative if _options.filter_negative is not None else False
-        _options.prune_gene_sets = _options.prune_gene_sets if _options.prune_gene_sets is not None else 1.1
-        _options.weighted_prune_gene_sets = _options.weighted_prune_gene_sets if _options.weighted_prune_gene_sets is not None else 1.1
-        _options.top_gene_set_prior = _options.top_gene_set_prior if _options.top_gene_set_prior is not None else 0.1
-        _options.num_gene_sets_for_prior = _options.num_gene_sets_for_prior if _options.num_gene_sets_for_prior is not None else 15000
-        _options.filter_gene_set_p = _options.filter_gene_set_p if _options.filter_gene_set_p is not None else 0.05
-        _options.linear = _options.linear if _options.linear is not None else True
-        _options.max_for_linear = _options.max_for_linear if _options.max_for_linear is not None else 1
-        _options.min_gene_set_size = _options.min_gene_set_size if _options.min_gene_set_size is not None else 1
-        _options.cross_val = _options.cross_val if _options.cross_val is not None else True
-        _options.sparse_frac_betas = _options.sparse_frac_betas if _options.sparse_frac_betas is not None else 0
-        _options.sparse_solution = _options.sparse_solution if _options.sparse_solution is not None else False
-
+        _apply_pops_mode_defaults(_options)
     else:
-        _options.correct_betas_mean = _options.correct_betas_mean if _options.correct_betas_mean is not None else True
-        _options.adjust_priors = _options.adjust_priors if _options.adjust_priors is not None else True
-        _options.p_noninf = _options.p_noninf if _options.p_noninf is not None else [0.001]
-        _options.sigma_power = _options.sigma_power if _options.sigma_power is not None else -2
-        _options.update_hyper = _options.update_hyper if _options.update_hyper is not None else "p"
-        _options.filter_negative = _options.filter_negative if _options.filter_negative is not None else True
-        if _options.prune_gene_sets is None:
-            if _run_factor and _factor_gene_set_x_pheno:
-                _options.prune_gene_sets = 0.5
-            else:
-                _options.prune_gene_sets = 0.8
-
-        if _options.weighted_prune_gene_sets is None:
-            if _run_factor and _factor_gene_set_x_pheno:
-                _options.weighted_prune_gene_sets = 0.5
-            else:
-                _options.weighted_prune_gene_sets = 0.8
-
-        _options.top_gene_set_prior = _options.top_gene_set_prior if _options.top_gene_set_prior is not None else 0.8
-        _options.num_gene_sets_for_prior = _options.num_gene_sets_for_prior if _options.num_gene_sets_for_prior is not None else 50
-        _options.filter_gene_set_p = _options.filter_gene_set_p if _options.filter_gene_set_p is not None else 0.01
-        _options.linear = _options.linear if _options.linear is not None else False
-        _options.max_for_linear = _options.max_for_linear if _options.max_for_linear is not None else 0.95
-        _options.min_gene_set_size = _options.min_gene_set_size if _options.min_gene_set_size is not None else 10
-
-        if _run_factor and _factor_gene_set_x_pheno is not None:
-            if _options.add_gene_sets_by_enrichment_p is not None:
-                _options.filter_gene_set_p = _options.add_gene_sets_by_enrichment_p
-
-        _options.cross_val = _options.cross_val if _options.cross_val is not None else False
-        _options.sparse_frac_betas = _options.sparse_frac_betas if _options.sparse_frac_betas is not None else 0.001
-        _options.sparse_solution = _options.sparse_solution if _options.sparse_solution is not None else True
+        _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_pheno)
 
 
 def _apply_gibbs_stopping_defaults(_options):
@@ -1251,23 +1264,30 @@ def _derive_memory_controls_from_max_gb():
     if len(clamped) > 0:
         log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
 
-_derive_memory_controls_from_max_gb()
 
-if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
-    warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
-    options.ols = True
+def _apply_post_parse_option_normalization(_options):
+    if _options.gene_cor_file is None and _options.gene_loc_file is None and not _options.ols:
+        warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
+        _options.ols = True
+    if _options.betas_from_phewas:
+        _options.betas_uncorrected_from_phewas = True
 
-if options.betas_from_phewas:
-    options.betas_uncorrected_from_phewas = True
 
-if options.print_effective_config:
+def _emit_effective_config_and_exit_if_requested(_options, _mode):
+    if not _options.print_effective_config:
+        return
     effective_config = {
-        "mode": mode,
-        "config": options.config,
-        "options": _json_safe(vars(options)),
+        "mode": _mode,
+        "config": _options.config,
+        "options": _json_safe(vars(_options)),
     }
     sys.stdout.write("%s\n" % json.dumps(effective_config, indent=2, sort_keys=True))
     sys.exit(0)
+
+
+_derive_memory_controls_from_max_gb()
+_apply_post_parse_option_normalization(options)
+_emit_effective_config_and_exit_if_requested(options, mode)
 
 def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
     import urllib.request
