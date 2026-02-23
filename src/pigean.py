@@ -964,73 +964,143 @@ def _run_mode_gibbs(_state, _options, _mode):
     _state["run_gibbs"] = True
 
 
-def _resolve_factor_mode_requirements(_options):
-    error = None
-    if _options.anchor_genes is not None and len(_options.anchor_genes) == 1:
+def _missing_factor_phewas_inputs(_options):
+    return _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None
+
+
+def _resolve_factor_mode_for_anchor_genes(_options):
+    if _options.anchor_genes is None:
+        return None
+    if len(_options.anchor_genes) == 1:
         factor_type = "single gene anchoring (to %s)" % _options.anchor_genes
-        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
-            error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif _options.anchor_genes is not None and len(_options.anchor_genes) > 1:
-        factor_type = "multiple gene anchoring (to %s)" % _options.anchor_genes
-        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
-            error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif _options.anchor_any_gene:
-        factor_type = "any gene anchoring"
-        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
-            error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif _options.anchor_gene_set:
-        factor_type = "gene set anchoring (to input phenotype/gene set)"
-        if _options.run_phewas_from_gene_phewas_stats_in is None:
-            error = "Require --run-phewas-from-gene-phewas-stats"
-    elif _options.anchor_phenos is not None and len(_options.anchor_phenos) == 1:
-        factor_type = "single phenotype anchoring (to %s) but with phewas statistics used" % _options.anchor_phenos
-        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
-            error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif _options.anchor_phenos is not None and len(_options.anchor_phenos) > 1:
-        factor_type = "multiple phenotype anchoring (to %s)" % _options.anchor_phenos
-        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
-            error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    elif _options.anchor_any_pheno:
-        factor_type = "any phenotype anchoring"
-        if _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None:
-            error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
     else:
-        factor_type = "single phenotype anchoring (to %s) using default statistics" % _options.anchor_phenos
-        if _options.gene_set_phewas_stats_in is not None or _options.gene_phewas_bfs_in is not None:
-            factor_type = "%s. Will project using %s" % (factor_type, _options.gene_set_phewas_stats_in if _options.gene_set_phewas_stats_in is not None else _options.gene_phewas_bfs_in)
+        factor_type = "multiple gene anchoring (to %s)" % _options.anchor_genes
+    error = None
+    if _missing_factor_phewas_inputs(_options):
+        error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
     return factor_type, error
 
 
-def _warn_if_factor_mode_ignores_y_inputs(_state, _options):
-    has_direct_y_inputs = _options.gene_set_stats_in or _options.gwas_in or _options.huge_statistics_in or _options.exomes_in or _options.positive_controls_in or _options.positive_controls_list is not None or _options.case_counts_in
-    if ((_state["use_phewas_for_factoring"] or _state["factor_gene_set_x_pheno"]) and not _options.anchor_gene_set) and has_direct_y_inputs:
+def _resolve_factor_mode_for_anchor_any_gene(_options):
+    if not _options.anchor_any_gene:
+        return None
+    factor_type = "any gene anchoring"
+    error = None
+    if _missing_factor_phewas_inputs(_options):
+        error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
+    return factor_type, error
+
+
+def _resolve_factor_mode_for_anchor_gene_set(_options):
+    if not _options.anchor_gene_set:
+        return None
+    factor_type = "gene set anchoring (to input phenotype/gene set)"
+    error = None
+    if _options.run_phewas_from_gene_phewas_stats_in is None:
+        error = "Require --run-phewas-from-gene-phewas-stats"
+    return factor_type, error
+
+
+def _resolve_factor_mode_for_anchor_phenos(_options):
+    if _options.anchor_phenos is None:
+        return None
+    if len(_options.anchor_phenos) == 1:
+        factor_type = "single phenotype anchoring (to %s) but with phewas statistics used" % _options.anchor_phenos
+    else:
+        factor_type = "multiple phenotype anchoring (to %s)" % _options.anchor_phenos
+    error = None
+    if _missing_factor_phewas_inputs(_options):
+        error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
+    return factor_type, error
+
+
+def _resolve_factor_mode_for_anchor_any_pheno(_options):
+    if not _options.anchor_any_pheno:
+        return None
+    factor_type = "any phenotype anchoring"
+    error = None
+    if _missing_factor_phewas_inputs(_options):
+        error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
+    return factor_type, error
+
+
+def _resolve_factor_mode_default(_options):
+    factor_type = "single phenotype anchoring (to %s) using default statistics" % _options.anchor_phenos
+    if _options.gene_set_phewas_stats_in is not None or _options.gene_phewas_bfs_in is not None:
+        factor_type = "%s. Will project using %s" % (factor_type, _options.gene_set_phewas_stats_in if _options.gene_set_phewas_stats_in is not None else _options.gene_phewas_bfs_in)
+    return factor_type, None
+
+
+def _resolve_factor_mode_requirements(_options):
+    for resolver in (
+        _resolve_factor_mode_for_anchor_genes,
+        _resolve_factor_mode_for_anchor_any_gene,
+        _resolve_factor_mode_for_anchor_gene_set,
+        _resolve_factor_mode_for_anchor_phenos,
+        _resolve_factor_mode_for_anchor_any_pheno,
+    ):
+        resolved = resolver(_options)
+        if resolved is not None:
+            return resolved
+    return _resolve_factor_mode_default(_options)
+
+
+def _has_direct_y_inputs_for_factor_warning(_options):
+    return (
+        _options.gene_set_stats_in
+        or _options.gwas_in
+        or _options.huge_statistics_in
+        or _options.exomes_in
+        or _options.positive_controls_in
+        or _options.positive_controls_list is not None
+        or _options.case_counts_in
+    )
+
+
+def _factor_mode_ignore_warning_message(_state, _options):
+    if ((_state["use_phewas_for_factoring"] or _state["factor_gene_set_x_pheno"]) and not _options.anchor_gene_set):
         if _state["use_phewas_for_factoring"]:
-            warn("Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode")
-        elif _state["factor_gene_set_x_pheno"]:
-            warn("Ignoring all arguments for reading Y or reading betas in --anchor-genes mode")
+            return "Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode"
+        if _state["factor_gene_set_x_pheno"]:
+            return "Ignoring all arguments for reading Y or reading betas in --anchor-genes mode"
+    return None
 
 
-def _run_mode_factor(_state, _options, _mode):
+def _warn_if_factor_mode_ignores_y_inputs(_state, _options):
+    if not _has_direct_y_inputs_for_factor_warning(_options):
+        return
+    warning_msg = _factor_mode_ignore_warning_message(_state, _options)
+    if warning_msg is not None:
+        warn(warning_msg)
+
+
+def _set_factor_mode_state_flags(_state, _options, _mode):
     _state["run_factor"] = True
     if _options.add_gene_sets_by_naive is not None:
         _state["run_naive_factor"] = True
     if _mode == "naive_factor":
         _state["run_naive_factor"] = True
-
-    factor_type, error = _resolve_factor_mode_requirements(_options)
-
     _state["factor_gene_set_x_pheno"] = _options.anchor_genes or _options.anchor_any_gene or _options.anchor_gene_set
     _state["use_phewas_for_factoring"] = _options.anchor_phenos is not None or _options.anchor_any_pheno or _options.anchor_genes is not None or _options.anchor_any_gene
     _state["expand_gene_sets"] = _options.anchor_genes is not None and len(_options.anchor_genes) > 1
 
+
+def _warn_if_factor_expand_options_are_ignored(_state, _options):
     if (_options.add_gene_sets_by_enrichment_p is not None or _options.add_gene_sets_by_fraction is not None or _options.add_gene_sets_by_naive is not None or _options.add_gene_sets_by_gibbs is not None) and not _state["expand_gene_sets"]:
         warn("Ignoring options to add gene sets based on association with anchor genes because only 1 anchor gene was specified")
 
-    if error is not None:
-        bail("Cannot run factoring type: %s. %s" % (factor_type, error))
-    else:
-        log("Running factoring type: %s" % factor_type)
 
+def _validate_and_log_factor_mode_requirements(_factor_type, _error):
+    if _error is not None:
+        bail("Cannot run factoring type: %s. %s" % (_factor_type, _error))
+    log("Running factoring type: %s" % _factor_type)
+
+
+def _run_mode_factor(_state, _options, _mode):
+    _set_factor_mode_state_flags(_state, _options, _mode)
+    factor_type, error = _resolve_factor_mode_requirements(_options)
+    _warn_if_factor_expand_options_are_ignored(_state, _options)
+    _validate_and_log_factor_mode_requirements(factor_type, error)
     _warn_if_factor_mode_ignores_y_inputs(_state, _options)
 
 
