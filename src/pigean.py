@@ -19972,16 +19972,22 @@ def _build_read_x_kwargs_for_iteration_for_main(
     )
 
 
-def _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded):
-    run_huge = mode_state["run_huge"]
-    run_beta_tilde = mode_state["run_beta_tilde"]
+def _is_pre_beta_read_x_mode_for_main(mode_state):
+    return mode_state["run_huge"] or mode_state["run_beta_tilde"] or mode_state["run_factor"]
+
+
+def _is_beta_or_later_stage_requested_for_main(mode_state):
+    return mode_state["run_beta"] or mode_state["run_priors"] or mode_state["run_naive_priors"] or mode_state["run_gibbs"]
+
+
+def _can_skip_factor_betas_for_read_x_for_main(mode_state, options, Y_not_loaded):
     run_factor = mode_state["run_factor"]
-    run_beta = mode_state["run_beta"]
-    run_priors = mode_state["run_priors"]
-    run_naive_priors = mode_state["run_naive_priors"]
-    run_gibbs = mode_state["run_gibbs"]
     use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-    return (run_huge or run_beta_tilde or run_factor) and (not run_beta and not run_priors and not run_naive_priors and not run_gibbs and (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded))
+    return (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded)
+
+
+def _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded):
+    return _is_pre_beta_read_x_mode_for_main(mode_state) and (not _is_beta_or_later_stage_requested_for_main(mode_state)) and _can_skip_factor_betas_for_read_x_for_main(mode_state, options, Y_not_loaded)
 
 
 def _compute_genes_to_include_for_read_x_for_main(mode_state, options):
@@ -19994,20 +20000,36 @@ def _compute_genes_to_include_for_read_x_for_main(mode_state, options):
     return genes_to_inc
 
 
-def _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p):
+def _is_relaxed_reread_possible_for_read_x(state, options, gene_set_ids, filter_gene_set_p):
     if gene_set_ids is not None:
-        return False, filter_gene_set_p
-    if options.min_num_gene_sets is None or filter_gene_set_p is None or filter_gene_set_p >= 1 or state.gene_sets is None or len(state.gene_sets) >= options.min_num_gene_sets:
-        return False, filter_gene_set_p
+        return False
+    if options.min_num_gene_sets is None:
+        return False
+    if filter_gene_set_p is None or filter_gene_set_p >= 1:
+        return False
+    if state.gene_sets is None or len(state.gene_sets) >= options.min_num_gene_sets:
+        return False
+    return True
 
+
+def _compute_relaxed_filter_p_for_read_x(state, options, filter_gene_set_p):
     fraction_to_increase = float(options.min_num_gene_sets) / (len(state.gene_sets) + 1)
     if fraction_to_increase <= 1:
-        return False, filter_gene_set_p
-
+        return None
     #add in a fudge factor
     new_filter_gene_set_p = filter_gene_set_p * fraction_to_increase * 1.2
     if new_filter_gene_set_p > 1:
         new_filter_gene_set_p = 1
+    return new_filter_gene_set_p
+
+
+def _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p):
+    if not _is_relaxed_reread_possible_for_read_x(state, options, gene_set_ids, filter_gene_set_p):
+        return False, filter_gene_set_p
+
+    new_filter_gene_set_p = _compute_relaxed_filter_p_for_read_x(state, options, filter_gene_set_p)
+    if new_filter_gene_set_p is None:
+        return False, filter_gene_set_p
     log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), new_filter_gene_set_p))
     return True, new_filter_gene_set_p
 
@@ -20169,13 +20191,25 @@ def _build_read_x_hyper_and_sampling_kwargs_for_main(options):
     return kwargs
 
 
-def _build_read_x_runtime_kwargs_for_main(options, force_reread):
+def _build_read_x_progress_runtime_kwargs_for_main(options):
     return dict(
         show_progress=not options.hide_progress,
         skip_V=(options.max_gene_set_read_p is not None),
-        force_reread=force_reread,
         max_num_entries_at_once=options.max_read_entries_at_once,
     )
+
+
+def _build_read_x_reread_runtime_kwargs_for_main(force_reread):
+    return dict(
+        force_reread=force_reread,
+    )
+
+
+def _build_read_x_runtime_kwargs_for_main(options, force_reread):
+    kwargs = {}
+    kwargs.update(_build_read_x_progress_runtime_kwargs_for_main(options))
+    kwargs.update(_build_read_x_reread_runtime_kwargs_for_main(force_reread))
+    return kwargs
 
 
 def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
