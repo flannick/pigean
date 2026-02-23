@@ -5994,16 +5994,52 @@ class GeneSetData(object):
         return _read_huge_statistics_vector_file(in_file, value_type=value_type)
 
     def _write_huge_statistics_prefix(self, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-        return _write_huge_statistics_prefix_with_state(self.__dict__, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+        return _write_huge_statistics_prefix_impl(self, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
 
     def _read_huge_statistics_prefix(self, prefix):
-        return _read_huge_statistics_prefix_with_state(self.__dict__, prefix)
+        return _read_huge_statistics_prefix_impl(self, prefix)
 
     def write_huge_statistics(self, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-        return _write_huge_statistics_with_state_impl(self.__dict__, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+        if huge_statistics_out is None:
+            return
+
+        log("Writing HuGE statistics cache to %s" % huge_statistics_out, INFO)
+        if self._is_huge_statistics_bundle(huge_statistics_out):
+            tar_mode = "w:gz"
+            if huge_statistics_out.lower().endswith(".tar"):
+                tar_mode = "w"
+            with tempfile.TemporaryDirectory() as tmpdir:
+                prefix = os.path.join(tmpdir, "huge_stats")
+                self._write_huge_statistics_prefix(prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+                with tarfile.open(huge_statistics_out, tar_mode) as tar_fh:
+                    for name in sorted(os.listdir(tmpdir)):
+                        if name.startswith("huge_stats."):
+                            tar_fh.add(os.path.join(tmpdir, name), arcname=name)
+        else:
+            self._write_huge_statistics_prefix(huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
 
     def read_huge_statistics(self, huge_statistics_in):
-        return _read_huge_statistics_with_state_impl(self.__dict__, huge_statistics_in)
+        if huge_statistics_in is None:
+            bail("Require --huge-statistics-in for this operation")
+
+        log("Reading HuGE statistics cache from %s" % huge_statistics_in, INFO)
+        if self._is_huge_statistics_bundle(huge_statistics_in):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with tarfile.open(huge_statistics_in, "r:*") as tar_fh:
+                    for member in tar_fh.getmembers():
+                        if member.name.startswith("/") or ".." in member.name.split("/"):
+                            bail("Refusing to read suspicious path in HuGE cache bundle: %s" % member.name)
+                    tar_fh.extractall(tmpdir)
+
+                meta_suffix = ".huge.meta.json.gz"
+                meta_files = [x for x in os.listdir(tmpdir) if x.endswith(meta_suffix)]
+                if len(meta_files) == 0:
+                    bail("HuGE cache bundle did not contain a %s file" % meta_suffix)
+                if len(meta_files) > 1:
+                    bail("HuGE cache bundle contained multiple metadata files: %s" % ", ".join(meta_files))
+                prefix = os.path.join(tmpdir, meta_files[0][:-len(meta_suffix)])
+                return self._read_huge_statistics_prefix(prefix)
+        return self._read_huge_statistics_prefix(huge_statistics_in)
 
     def calculate_huge_scores_exomes(self, *args, **kwargs):
         return self._calculate_huge_scores_exomes_impl(*args, **kwargs)
@@ -18729,6 +18765,14 @@ def _is_huge_statistics_bundle_path(huge_statistics_file):
     return lower.endswith(".tar.gz") or lower.endswith(".tgz") or lower.endswith(".tar")
 
 
+def _coerce_runtime_state_dict(runtime_state):
+    if isinstance(runtime_state, dict):
+        return runtime_state
+    if hasattr(runtime_state, "__dict__"):
+        return runtime_state.__dict__
+    bail("Internal error: unsupported runtime state container for HuGE cache IO")
+
+
 def _get_huge_statistics_paths_for_prefix(prefix):
     return {
         "meta": "%s.huge.meta.json.gz" % prefix,
@@ -18780,7 +18824,8 @@ def _read_huge_statistics_vector_file(in_file, value_type=float):
     return np.array(values, dtype=float)
 
 
-def _write_huge_statistics_prefix_with_state(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
+def _write_huge_statistics_prefix_impl(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
+    runtime_state = _coerce_runtime_state_dict(runtime_state)
     paths = _get_huge_statistics_paths_for_prefix(prefix)
 
     def _jsonify(value):
@@ -18932,7 +18977,8 @@ def _write_huge_statistics_prefix_with_state(runtime_state, prefix, gene_bf, ext
     _write_huge_statistics_vector_file(paths["bfs_reg_indptr"], huge_signal_bfs_for_regression.indptr, value_type=int)
 
 
-def _read_huge_statistics_prefix_with_state(runtime_state, prefix):
+def _read_huge_statistics_prefix_impl(runtime_state, prefix):
+    runtime_state = _coerce_runtime_state_dict(runtime_state)
     paths = _get_huge_statistics_paths_for_prefix(prefix)
     if not os.path.exists(paths["meta"]):
         bail("Could not find HuGE statistics cache file %s" % paths["meta"])
@@ -19079,51 +19125,6 @@ def _read_huge_statistics_prefix_with_state(runtime_state, prefix):
         bail("HuGE cache is inconsistent: huge_signal_bfs has %d rows but found %d matrix-row genes" % (runtime_state["huge_signal_bfs"].shape[0], len(matrix_row_genes)))
 
     return (gene_bf, extra_genes, np.array(extra_gene_bf), gene_bf_for_regression, np.array(extra_gene_bf_for_regression))
-
-
-def _write_huge_statistics_with_state_impl(runtime_state, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-    if huge_statistics_out is None:
-        return
-
-    log("Writing HuGE statistics cache to %s" % huge_statistics_out, INFO)
-    if _is_huge_statistics_bundle_path(huge_statistics_out):
-        tar_mode = "w:gz"
-        if huge_statistics_out.lower().endswith(".tar"):
-            tar_mode = "w"
-        with tempfile.TemporaryDirectory() as tmpdir:
-            prefix = os.path.join(tmpdir, "huge_stats")
-            _write_huge_statistics_prefix_with_state(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
-            with tarfile.open(huge_statistics_out, tar_mode) as tar_fh:
-                for name in sorted(os.listdir(tmpdir)):
-                    if name.startswith("huge_stats."):
-                        tar_fh.add(os.path.join(tmpdir, name), arcname=name)
-    else:
-        _write_huge_statistics_prefix_with_state(runtime_state, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
-
-
-def _read_huge_statistics_with_state_impl(runtime_state, huge_statistics_in):
-    if huge_statistics_in is None:
-        bail("Require --huge-statistics-in for this operation")
-
-    log("Reading HuGE statistics cache from %s" % huge_statistics_in, INFO)
-    if _is_huge_statistics_bundle_path(huge_statistics_in):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with tarfile.open(huge_statistics_in, "r:*") as tar_fh:
-                for member in tar_fh.getmembers():
-                    if member.name.startswith("/") or ".." in member.name.split("/"):
-                        bail("Refusing to read suspicious path in HuGE cache bundle: %s" % member.name)
-                tar_fh.extractall(tmpdir)
-
-            meta_suffix = ".huge.meta.json.gz"
-            meta_files = [x for x in os.listdir(tmpdir) if x.endswith(meta_suffix)]
-            if len(meta_files) == 0:
-                bail("HuGE cache bundle did not contain a %s file" % meta_suffix)
-            if len(meta_files) > 1:
-                bail("HuGE cache bundle contained multiple metadata files: %s" % ", ".join(meta_files))
-            prefix = os.path.join(tmpdir, meta_files[0][:-len(meta_suffix)])
-            return _read_huge_statistics_prefix_with_state(runtime_state, prefix)
-    return _read_huge_statistics_prefix_with_state(runtime_state, huge_statistics_in)
-
 
 ##This function is for labelling clusters. Update it with your favorite LLM if desired
 def query_lmm(query, auth_key=None, lmm_model=None):
