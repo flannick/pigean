@@ -19825,7 +19825,31 @@ def _write_primary_outputs_for_main(state, options):
 
 
 def _run_gene_phewas_for_main(state, options, bfs_to_use, run_for_factors=False, batch_size=1500, min_gene_factor_weight=0):
-    state.run_phewas(gene_phewas_bfs_in=bfs_to_use, gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, run_for_factors=run_for_factors, batch_size=batch_size, min_gene_factor_weight=min_gene_factor_weight)
+    state.run_phewas(**_build_run_phewas_kwargs_for_main(options, bfs_to_use, run_for_factors, batch_size, min_gene_factor_weight))
+
+
+def _build_run_phewas_kwargs_for_main(options, bfs_to_use, run_for_factors=False, batch_size=1500, min_gene_factor_weight=0):
+    return dict(
+        gene_phewas_bfs_in=bfs_to_use,
+        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+        max_num_burn_in=options.max_num_burn_in,
+        max_num_iter=options.max_num_iter_betas,
+        min_num_iter=options.min_num_iter_betas,
+        num_chains=options.num_chains_betas,
+        r_threshold_burn_in=options.r_threshold_burn_in_betas,
+        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
+        max_frac_sem=options.max_frac_sem_betas,
+        gauss_seidel=options.gauss_seidel_betas,
+        sparse_solution=options.sparse_solution,
+        sparse_frac_betas=options.sparse_frac_betas,
+        run_for_factors=run_for_factors,
+        batch_size=batch_size,
+        min_gene_factor_weight=min_gene_factor_weight,
+    )
 
 
 def _run_phewas_if_requested_for_main(state, options, mode_state):
@@ -19864,7 +19888,37 @@ def _run_factor_if_requested_for_main(state, options, mode_state):
         else:
             gene_or_pheno_filter_value = options.gene_filter_value
 
-        state.run_factor(max_num_factors=options.max_num_factors, phi=options.phi, alpha0=options.alpha0, beta0=options.beta0, gene_set_filter_value=options.gene_set_filter_value, gene_or_pheno_filter_value=gene_or_pheno_filter_value, pheno_prune_value=options.factor_prune_phenos_val, pheno_prune_number=options.factor_prune_phenos_num, gene_prune_value=options.factor_prune_genes_val, gene_prune_number=options.factor_prune_genes_num, gene_set_prune_value=options.factor_prune_gene_sets_val, gene_set_prune_number=options.factor_prune_gene_sets_num, anchor_pheno_mask=state.anchor_pheno_mask, anchor_gene_mask=state.anchor_gene_mask, anchor_any_pheno=options.anchor_any_pheno, anchor_any_gene=options.anchor_any_gene, anchor_gene_set=options.anchor_gene_set, run_transpose=not options.no_transpose, min_lambda_threshold=options.min_lambda_threshold, lmm_auth_key=options.lmm_auth_key, lmm_model=options.lmm_model, label_gene_sets_only=options.label_gene_sets_only, label_include_phenos=options.label_include_phenos, label_individually=options.label_individually, project_phenos_from_gene_sets=options.project_phenos_from_gene_sets)
+        state.run_factor(**_build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value))
+
+
+def _build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value):
+    return dict(
+        max_num_factors=options.max_num_factors,
+        phi=options.phi,
+        alpha0=options.alpha0,
+        beta0=options.beta0,
+        gene_set_filter_value=options.gene_set_filter_value,
+        gene_or_pheno_filter_value=gene_or_pheno_filter_value,
+        pheno_prune_value=options.factor_prune_phenos_val,
+        pheno_prune_number=options.factor_prune_phenos_num,
+        gene_prune_value=options.factor_prune_genes_val,
+        gene_prune_number=options.factor_prune_genes_num,
+        gene_set_prune_value=options.factor_prune_gene_sets_val,
+        gene_set_prune_number=options.factor_prune_gene_sets_num,
+        anchor_pheno_mask=state.anchor_pheno_mask,
+        anchor_gene_mask=state.anchor_gene_mask,
+        anchor_any_pheno=options.anchor_any_pheno,
+        anchor_any_gene=options.anchor_any_gene,
+        anchor_gene_set=options.anchor_gene_set,
+        run_transpose=not options.no_transpose,
+        min_lambda_threshold=options.min_lambda_threshold,
+        lmm_auth_key=options.lmm_auth_key,
+        lmm_model=options.lmm_model,
+        label_gene_sets_only=options.label_gene_sets_only,
+        label_include_phenos=options.label_include_phenos,
+        label_individually=options.label_individually,
+        project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
+    )
 
 
 def _write_factor_outputs_for_main(state, options):
@@ -20026,6 +20080,27 @@ def _build_beta_sampling_kwargs_for_main(options):
     )
 
 
+def _build_run_cross_val_kwargs_for_main(state, options):
+    return dict(
+        folds=options.cross_val_folds,
+        cross_val_max_num_tries=options.cross_val_max_num_tries,
+        p=state.p,
+        max_num_burn_in=options.max_num_burn_in,
+        max_num_iter=options.max_num_iter_betas,
+        min_num_iter=options.min_num_iter_betas,
+        num_chains=options.num_chains_betas,
+        run_logistic=not options.linear,
+        max_for_linear=options.max_for_linear,
+        run_corrected_ols=not options.ols,
+        r_threshold_burn_in=options.r_threshold_burn_in_betas,
+        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
+        max_frac_sem=options.max_frac_sem_betas,
+        gauss_seidel=options.gauss_seidel_betas,
+        sparse_solution=options.sparse_solution,
+        sparse_frac_betas=options.sparse_frac_betas,
+    )
+
+
 def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_beta_for_factor):
     # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
     run_beta = mode_state["run_beta"]
@@ -20040,7 +20115,7 @@ def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_b
         bail("Sigma2 was not initialized; provide --sigma2 explicitly")
 
     if options.cross_val:
-        state.run_cross_val(options.cross_val_num_explore_each_direction, folds=options.cross_val_folds, cross_val_max_num_tries=options.cross_val_max_num_tries, p=state.p, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, run_logistic=not options.linear, max_for_linear=options.max_for_linear, run_corrected_ols=not options.ols, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas)
+        state.run_cross_val(options.cross_val_num_explore_each_direction, **_build_run_cross_val_kwargs_for_main(state, options))
 
     #gene set betas
     if run_factor and options.const_gene_set_beta is not None:
