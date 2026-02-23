@@ -19527,7 +19527,7 @@ def _build_read_y_source_base_kwargs_for_main(options):
     )
 
 
-def _build_read_y_source_gwas_kwargs_for_main(options):
+def _build_read_y_source_gwas_input_cols_kwargs_for_main(options):
     return dict(
         gwas_chrom_col=options.gwas_chrom_col,
         gwas_pos_col=options.gwas_pos_col,
@@ -19541,6 +19541,11 @@ def _build_read_y_source_gwas_kwargs_for_main(options):
         gwas_filter_col=options.gwas_filter_col,
         gwas_filter_value=options.gwas_filter_value,
         gwas_locus_col=options.gwas_locus_col,
+    )
+
+
+def _build_read_y_source_gwas_threshold_kwargs_for_main(options):
+    return dict(
         gwas_ignore_p_threshold=options.gwas_ignore_p_threshold,
         gwas_low_p=options.gwas_low_p,
         gwas_high_p=options.gwas_high_p,
@@ -19550,6 +19555,11 @@ def _build_read_y_source_gwas_kwargs_for_main(options):
         detect_high_power=options.gwas_detect_high_power,
         detect_adjust_huge=options.gwas_detect_adjust_huge,
         learn_window=options.learn_window,
+    )
+
+
+def _build_read_y_source_huge_weighting_kwargs_for_main(options):
+    return dict(
         closest_gene_prob=options.closest_gene_prob,
         max_closest_gene_prob=options.max_closest_gene_prob,
         scale_raw_closest_gene=options.scale_raw_closest_gene,
@@ -19560,6 +19570,11 @@ def _build_read_y_source_gwas_kwargs_for_main(options):
         allow_evidence_of_absence=options.allow_evidence_of_absence,
         correct_huge=options.correct_huge,
         gws_prob_true=options.gene_zs_gws_prob_true,
+    )
+
+
+def _build_read_y_source_signal_window_kwargs_for_main(options):
+    return dict(
         max_closest_gene_dist=options.max_closest_gene_dist,
         signal_window_size=options.signal_window_size,
         signal_min_sep=options.signal_min_sep,
@@ -19570,7 +19585,16 @@ def _build_read_y_source_gwas_kwargs_for_main(options):
     )
 
 
-def _build_read_y_source_exomes_and_controls_kwargs_for_main(options):
+def _build_read_y_source_gwas_kwargs_for_main(options):
+    kwargs = {}
+    kwargs.update(_build_read_y_source_gwas_input_cols_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_gwas_threshold_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_huge_weighting_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_signal_window_kwargs_for_main(options))
+    return kwargs
+
+
+def _build_read_y_source_exomes_kwargs_for_main(options):
     return dict(
         exomes_in=options.exomes_in,
         exomes_gene_col=options.exomes_gene_col,
@@ -19584,6 +19608,11 @@ def _build_read_y_source_exomes_and_controls_kwargs_for_main(options):
         exomes_high_p=options.exomes_high_p,
         exomes_low_p_posterior=options.exomes_low_p_posterior,
         exomes_high_p_posterior=options.exomes_high_p_posterior,
+    )
+
+
+def _build_read_y_source_positive_controls_kwargs_for_main(options):
+    return dict(
         positive_controls_in=options.positive_controls_in,
         positive_controls_id_col=options.positive_controls_id_col,
         positive_controls_prob_col=options.positive_controls_prob_col,
@@ -19594,6 +19623,13 @@ def _build_read_y_source_exomes_and_controls_kwargs_for_main(options):
         positive_controls_all_id_col=options.positive_controls_all_id_col,
         positive_controls_all_has_header=options.positive_controls_all_has_header,
     )
+
+
+def _build_read_y_source_exomes_and_controls_kwargs_for_main(options):
+    kwargs = {}
+    kwargs.update(_build_read_y_source_exomes_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_positive_controls_kwargs_for_main(options))
+    return kwargs
 
 
 def _build_read_y_source_counts_kwargs_for_main(options):
