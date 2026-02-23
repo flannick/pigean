@@ -19292,6 +19292,44 @@ def _read_x_and_initialize_p_for_main(
     sigma2_cond,
     mode_state,
 ):
+    #read in the matrices
+    if _has_x_inputs_for_main(options):
+        xin_to_p_noninf_ind = _build_xin_to_p_noninf_index_for_main(options)
+        _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_loaded, sigma2_cond, mode_state, xin_to_p_noninf_ind)
+    else:
+        _set_p_without_x_inputs_for_main(state, options)
+
+    _finalize_x_loading_for_main(state, options, Y_not_loaded)
+
+
+def _has_x_inputs_for_main(options):
+    return options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None
+
+
+def _build_xin_to_p_noninf_index_for_main(options):
+    if options.p_noninf is None:
+        return None
+    #we need the order of these
+    p_noninf_ind = 0
+    xin_to_p_noninf_ind = {}
+    for i in range(len(sys.argv)):
+        arg = sys.argv[i]
+        if arg in ("--X-in", "--X-list", "--Xd-in", "--Xd-list"):
+            if i + 1 < len(sys.argv):
+                val = sys.argv[i + 1]
+                if val in xin_to_p_noninf_ind:
+                    warn("You are passing the same file (%s) for two --X-in files; are you sure this is what you want to do?" % (val))
+                xin_to_p_noninf_ind[val] = p_noninf_ind
+                if len(options.p_noninf) > 1:
+                    p_noninf_ind += 1
+            else:
+                raise ValueError(f"Missing value after {arg}")
+    if len(options.p_noninf) > 1 and len(options.p_noninf) != p_noninf_ind:
+        bail("Error: if you pass in more than one --p-noninf, you need to have the same number of values as --X-* inputs")
+    return xin_to_p_noninf_ind
+
+
+def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_loaded, sigma2_cond, mode_state, xin_to_p_noninf_ind):
     run_huge = mode_state["run_huge"]
     run_beta_tilde = mode_state["run_beta_tilde"]
     run_factor = mode_state["run_factor"]
@@ -19301,68 +19339,140 @@ def _read_x_and_initialize_p_for_main(
     run_gibbs = mode_state["run_gibbs"]
     use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
 
-    #read in the matrices
-    if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
-        xin_to_p_noninf_ind = None
-        if options.p_noninf is not None:
-            #we need the order of these
-            p_noninf_ind = 0
-            xin_to_p_noninf_ind = {}
-            for i in range(len(sys.argv)):
-                arg = sys.argv[i]
-                if arg in ("--X-in", "--X-list", "--Xd-in", "--Xd-list"):
-                    if i + 1 < len(sys.argv):
-                        val = sys.argv[i + 1]
-                        if val in xin_to_p_noninf_ind:
-                            warn("You are passing the same file (%s) for two --X-in files; are you sure this is what you want to do?" % (val))
-                        xin_to_p_noninf_ind[val] = p_noninf_ind
-                        if len(options.p_noninf) > 1:
-                            p_noninf_ind += 1
-                    else:
-                        raise ValueError(f"Missing value after {arg}")
-            if len(options.p_noninf) > 1 and len(options.p_noninf) != p_noninf_ind:
-                bail("Error: if you pass in more than one --p-noninf, you need to have the same number of values as --X-* inputs")
+    filter_gene_set_p = options.filter_gene_set_p
+    force_reread = False
+    while True:
+        orig_sigma2 = state.sigma2
 
-        filter_gene_set_p = options.filter_gene_set_p
-        force_reread = False
-        while True:
-            orig_sigma2 = state.sigma2
+        skip_betas = (run_huge or run_beta_tilde or run_factor) and (not run_beta and not run_priors and not run_naive_priors and not run_gibbs and (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded))
 
-            skip_betas = (run_huge or run_beta_tilde or run_factor) and (not run_beta and not run_priors and not run_naive_priors and not run_gibbs and (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded))
+        genes_to_inc = None
+        if run_factor and use_phewas_for_factoring:
+            genes_to_inc = options.anchor_genes
+            options.max_num_gene_sets = None
 
-            genes_to_inc = None
-            if run_factor and use_phewas_for_factoring:
-                genes_to_inc = options.anchor_genes
-                options.max_num_gene_sets = None
+        read_x_kwargs = _build_read_x_kwargs_for_main(
+            state,
+            options,
+            gene_set_ids,
+            genes_to_inc,
+            filter_gene_set_p,
+            skip_betas,
+            sigma2_cond,
+            force_reread,
+            xin_to_p_noninf_ind,
+        )
+        state.read_X(options.X_in, **read_x_kwargs)
 
-            state.read_X(options.X_in, Xd_in=options.Xd_in, X_list=options.X_list, Xd_list=options.Xd_list, V_in=options.V_in, min_gene_set_size=options.min_gene_set_size, max_gene_set_size=options.max_gene_set_size, only_ids=gene_set_ids, only_inc_genes=genes_to_inc, fraction_inc_genes=options.add_gene_sets_by_fraction, add_all_genes=options.add_all_genes, prune_gene_sets=options.prune_gene_sets, weighted_prune_gene_sets=options.weighted_prune_gene_sets, prune_deterministically=options.prune_deterministically, x_sparsify=options.x_sparsify, add_ext=options.add_ext, add_top=options.add_top, add_bottom=options.add_bottom, filter_negative=options.filter_negative, threshold_weights=options.threshold_weights, cap_weights=options.cap_weights, permute_gene_sets=options.permute_gene_sets, max_gene_set_p=options.max_gene_set_read_p, filter_gene_set_p=filter_gene_set_p, filter_using_phewas=options.betas_uncorrected_from_phewas, increase_filter_gene_set_p=options.increase_filter_gene_set_p, max_num_gene_sets_initial=options.max_num_gene_sets_initial, max_num_gene_sets=options.max_num_gene_sets, max_num_gene_sets_hyper=options.max_num_gene_sets_hyper, skip_betas=skip_betas, run_logistic=not options.linear, max_for_linear=options.max_for_linear, filter_gene_set_metric_z=options.filter_gene_set_metric_z, initial_p=options.p_noninf, xin_to_p_noninf_ind=xin_to_p_noninf_ind, initial_sigma2=state.sigma2, initial_sigma2_cond=sigma2_cond, sigma_power=options.sigma_power, sigma_soft_threshold_95=options.sigma_soft_threshold_95, sigma_soft_threshold_5=options.sigma_soft_threshold_5, run_gls=False, run_corrected_ols=not options.ols, correct_betas_mean=options.correct_betas_mean, correct_betas_var=options.correct_betas_var, gene_loc_file=options.gene_loc_file, gene_cor_file=options.gene_cor_file, gene_cor_file_gene_col=options.gene_cor_file_gene_col, gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col, update_hyper_p=options.update_hyper_p, update_hyper_sigma=options.update_hyper_sigma, batch_all_for_hyper=options.batch_all_for_hyper, first_for_hyper=options.first_for_hyper, first_max_p_for_hyper=options.first_max_p_for_hyper, first_for_sigma_cond=options.first_for_sigma_cond, sigma_num_devs_to_top=options.sigma_num_devs_to_top, p_noninf_inflate=options.p_noninf_inflate, batch_separator=options.batch_separator, ignore_genes=set(options.ignore_genes), file_separator=options.file_separator, max_num_burn_in=options.max_num_burn_in, max_num_iter_betas=options.max_num_iter_betas, min_num_iter_betas=options.min_num_iter_betas, num_chains_betas=options.num_chains_betas, r_threshold_burn_in_betas=options.r_threshold_burn_in_betas, use_max_r_for_convergence_betas=options.use_max_r_for_convergence_betas, max_frac_sem_betas=options.max_frac_sem_betas, max_allowed_batch_correlation=options.max_allowed_batch_correlation, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, betas_trace_out=options.betas_trace_out, show_progress=not options.hide_progress, skip_V=(options.max_gene_set_read_p is not None), force_reread=force_reread, max_num_entries_at_once=options.max_read_entries_at_once)
-
-            if gene_set_ids is not None:
-                break
-            if options.min_num_gene_sets is None or filter_gene_set_p is None or filter_gene_set_p >= 1 or state.gene_sets is None or len(state.gene_sets) >= options.min_num_gene_sets:
-                break
-            if filter_gene_set_p < 1:
-                fraction_to_increase = float(options.min_num_gene_sets) / (len(state.gene_sets) + 1)
-                if fraction_to_increase > 1:
-                    #add in a fudge factor
-                    filter_gene_set_p *= fraction_to_increase * 1.2
-                    if filter_gene_set_p > 1:
-                        filter_gene_set_p = 1
-                    log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), filter_gene_set_p))
-                    force_reread = True
-                    #reset sigma
-                    state.set_sigma(orig_sigma2, state.sigma_power)
-                else:
-                    break
+        if gene_set_ids is not None:
+            break
+        if options.min_num_gene_sets is None or filter_gene_set_p is None or filter_gene_set_p >= 1 or state.gene_sets is None or len(state.gene_sets) >= options.min_num_gene_sets:
+            break
+        if filter_gene_set_p < 1:
+            fraction_to_increase = float(options.min_num_gene_sets) / (len(state.gene_sets) + 1)
+            if fraction_to_increase > 1:
+                #add in a fudge factor
+                filter_gene_set_p *= fraction_to_increase * 1.2
+                if filter_gene_set_p > 1:
+                    filter_gene_set_p = 1
+                log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), filter_gene_set_p))
+                force_reread = True
+                #reset sigma
+                state.set_sigma(orig_sigma2, state.sigma_power)
             else:
                 break
-    else:
-        #set p
-        if options.p_noninf is not None:
-            if len(options.p_noninf) == 1:
-                state.set_p(options.p_noninf[0])
-            else:
-                bail("Multiple --p-noninf is not supported without --X-in inputs")
+        else:
+            break
+
+
+def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
+    return dict(
+        Xd_in=options.Xd_in,
+        X_list=options.X_list,
+        Xd_list=options.Xd_list,
+        V_in=options.V_in,
+        min_gene_set_size=options.min_gene_set_size,
+        max_gene_set_size=options.max_gene_set_size,
+        only_ids=gene_set_ids,
+        only_inc_genes=genes_to_inc,
+        fraction_inc_genes=options.add_gene_sets_by_fraction,
+        add_all_genes=options.add_all_genes,
+        prune_gene_sets=options.prune_gene_sets,
+        weighted_prune_gene_sets=options.weighted_prune_gene_sets,
+        prune_deterministically=options.prune_deterministically,
+        x_sparsify=options.x_sparsify,
+        add_ext=options.add_ext,
+        add_top=options.add_top,
+        add_bottom=options.add_bottom,
+        filter_negative=options.filter_negative,
+        threshold_weights=options.threshold_weights,
+        cap_weights=options.cap_weights,
+        permute_gene_sets=options.permute_gene_sets,
+        max_gene_set_p=options.max_gene_set_read_p,
+        filter_gene_set_p=filter_gene_set_p,
+        filter_using_phewas=options.betas_uncorrected_from_phewas,
+        increase_filter_gene_set_p=options.increase_filter_gene_set_p,
+        max_num_gene_sets_initial=options.max_num_gene_sets_initial,
+        max_num_gene_sets=options.max_num_gene_sets,
+        max_num_gene_sets_hyper=options.max_num_gene_sets_hyper,
+        skip_betas=skip_betas,
+        run_logistic=not options.linear,
+        max_for_linear=options.max_for_linear,
+        filter_gene_set_metric_z=options.filter_gene_set_metric_z,
+        initial_p=options.p_noninf,
+        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
+        initial_sigma2=state.sigma2,
+        initial_sigma2_cond=sigma2_cond,
+        sigma_power=options.sigma_power,
+        sigma_soft_threshold_95=options.sigma_soft_threshold_95,
+        sigma_soft_threshold_5=options.sigma_soft_threshold_5,
+        run_gls=False,
+        run_corrected_ols=not options.ols,
+        correct_betas_mean=options.correct_betas_mean,
+        correct_betas_var=options.correct_betas_var,
+        gene_loc_file=options.gene_loc_file,
+        gene_cor_file=options.gene_cor_file,
+        gene_cor_file_gene_col=options.gene_cor_file_gene_col,
+        gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
+        update_hyper_p=options.update_hyper_p,
+        update_hyper_sigma=options.update_hyper_sigma,
+        batch_all_for_hyper=options.batch_all_for_hyper,
+        first_for_hyper=options.first_for_hyper,
+        first_max_p_for_hyper=options.first_max_p_for_hyper,
+        first_for_sigma_cond=options.first_for_sigma_cond,
+        sigma_num_devs_to_top=options.sigma_num_devs_to_top,
+        p_noninf_inflate=options.p_noninf_inflate,
+        batch_separator=options.batch_separator,
+        ignore_genes=set(options.ignore_genes),
+        file_separator=options.file_separator,
+        max_num_burn_in=options.max_num_burn_in,
+        max_num_iter_betas=options.max_num_iter_betas,
+        min_num_iter_betas=options.min_num_iter_betas,
+        num_chains_betas=options.num_chains_betas,
+        r_threshold_burn_in_betas=options.r_threshold_burn_in_betas,
+        use_max_r_for_convergence_betas=options.use_max_r_for_convergence_betas,
+        max_frac_sem_betas=options.max_frac_sem_betas,
+        max_allowed_batch_correlation=options.max_allowed_batch_correlation,
+        sparse_solution=options.sparse_solution,
+        sparse_frac_betas=options.sparse_frac_betas,
+        betas_trace_out=options.betas_trace_out,
+        show_progress=not options.hide_progress,
+        skip_V=(options.max_gene_set_read_p is not None),
+        force_reread=force_reread,
+        max_num_entries_at_once=options.max_read_entries_at_once,
+    )
+
+
+def _set_p_without_x_inputs_for_main(state, options):
+    #set p
+    if options.p_noninf is not None:
+        if len(options.p_noninf) == 1:
+            state.set_p(options.p_noninf[0])
+        else:
+            bail("Multiple --p-noninf is not supported without --X-in inputs")
+
+
+def _finalize_x_loading_for_main(state, options, Y_not_loaded):
 
     if not state.has_gene_sets():
         log("No gene sets survived the input filters; stopping")
@@ -19586,6 +19696,10 @@ def _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor,
         state.run_gibbs(**_build_gibbs_kwargs_for_main(options))
 
 
+# --------------------------------------------------------------------------
+# Phase D helpers: gene-set stats, optional factor-side inputs, and betas.
+# --------------------------------------------------------------------------
+
 def _build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p, run_using_phewas=False):
     kwargs = dict(
         max_gene_set_p=max_gene_set_p,
@@ -19607,11 +19721,8 @@ def _build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p, run_us
     return kwargs
 
 
-def _compute_gene_set_stats_and_betas_for_main(
-    state,
-    options,
-    mode_state,
-):
+def _needs_gene_set_stats_for_main(options, mode_state):
+    # Determine whether gene-set statistics are needed for any requested stage.
     run_beta_tilde = mode_state["run_beta_tilde"]
     run_beta = mode_state["run_beta"]
     run_priors = mode_state["run_priors"]
@@ -19621,11 +19732,7 @@ def _compute_gene_set_stats_and_betas_for_main(
     use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
     factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
     run_sim = mode_state["run_sim"]
-    run_naive_factor = mode_state["run_naive_factor"]
-
-    run_gibbs_for_factor = False
-    run_beta_for_factor = False
-    needs_gene_set_stats = (
+    return (
         run_beta_tilde
         or run_beta
         or run_priors
@@ -19635,6 +19742,17 @@ def _compute_gene_set_stats_and_betas_for_main(
         or (run_factor and (options.add_gene_sets_by_naive or options.add_gene_sets_by_gibbs))
         or run_sim
     )
+
+
+def _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state):
+    # Resolve beta_tildes either from fixed values, read-in stats, or fresh fitting.
+    run_factor = mode_state["run_factor"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+    run_naive_factor = mode_state["run_naive_factor"]
+    needs_gene_set_stats = _needs_gene_set_stats_for_main(options, mode_state)
+
+    run_beta_for_factor = False
+    run_gibbs_for_factor = False
 
     if run_factor and options.const_gene_set_beta is not None:
         state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
@@ -19652,12 +19770,49 @@ def _compute_gene_set_stats_and_betas_for_main(
         if options.betas_uncorrected_from_phewas:
             state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=1, run_using_phewas=True))
 
-    if run_factor:
-        if options.gene_set_phewas_stats_in is not None:
-            state.read_gene_set_phewas_statistics(options.gene_set_phewas_stats_in, stats_id_col=options.gene_set_phewas_stats_id_col, stats_pheno_col=options.gene_set_phewas_stats_pheno_col, stats_beta_col=options.gene_set_phewas_stats_beta_col, stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col, min_gene_set_beta=options.min_gene_set_read_beta, min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected, max_num_entries_at_once=options.max_read_entries_at_once)
+    return run_beta_for_factor, run_gibbs_for_factor
 
-        if options.gene_phewas_bfs_in:
-            state.read_gene_phewas_bfs(gene_phewas_bfs_in=options.gene_phewas_bfs_in, gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, anchor_genes=options.anchor_genes, anchor_phenos=options.anchor_phenos, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id, min_value=options.min_gene_phewas_read_value, max_num_entries_at_once=options.max_read_entries_at_once)
+
+def _maybe_load_factor_side_inputs_for_main(state, options, mode_state):
+    # Load optional phewas-side inputs only when factor mode is active.
+    if not mode_state["run_factor"]:
+        return
+    if options.gene_set_phewas_stats_in is not None:
+        state.read_gene_set_phewas_statistics(options.gene_set_phewas_stats_in, stats_id_col=options.gene_set_phewas_stats_id_col, stats_pheno_col=options.gene_set_phewas_stats_pheno_col, stats_beta_col=options.gene_set_phewas_stats_beta_col, stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col, min_gene_set_beta=options.min_gene_set_read_beta, min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected, max_num_entries_at_once=options.max_read_entries_at_once)
+    if options.gene_phewas_bfs_in:
+        state.read_gene_phewas_bfs(gene_phewas_bfs_in=options.gene_phewas_bfs_in, gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, anchor_genes=options.anchor_genes, anchor_phenos=options.anchor_phenos, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id, min_value=options.min_gene_phewas_read_value, max_num_entries_at_once=options.max_read_entries_at_once)
+
+
+def _build_beta_sampling_kwargs_for_main(options):
+    # Shared beta-sampling knobs used in both standard and phewas-derived updates.
+    return dict(
+        max_num_burn_in=options.max_num_burn_in,
+        max_num_iter=options.max_num_iter_betas,
+        min_num_iter=options.min_num_iter_betas,
+        num_chains=options.num_chains_betas,
+        r_threshold_burn_in=options.r_threshold_burn_in_betas,
+        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
+        max_frac_sem=options.max_frac_sem_betas,
+        max_allowed_batch_correlation=options.max_allowed_batch_correlation,
+        gauss_seidel=options.gauss_seidel_betas,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        sparse_solution=options.sparse_solution,
+        sparse_frac_betas=options.sparse_frac_betas,
+        pre_filter_batch_size=options.pre_filter_batch_size,
+        pre_filter_small_batch_size=options.pre_filter_small_batch_size,
+        betas_trace_out=options.betas_trace_out,
+    )
+
+
+def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_beta_for_factor):
+    # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
+    run_beta = mode_state["run_beta"]
+    run_priors = mode_state["run_priors"]
+    run_naive_priors = mode_state["run_naive_priors"]
+    run_gibbs = mode_state["run_gibbs"]
+    run_factor = mode_state["run_factor"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
 
     needs_gene_set_betas = run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor
     if needs_gene_set_betas and state.sigma2 is None:
@@ -19674,24 +19829,7 @@ def _compute_gene_set_stats_and_betas_for_main(
         state.read_betas(options.gene_set_betas_in)
     elif needs_gene_set_betas:
         #update hyper was done above while while reading x
-        beta_sampling_kwargs = dict(
-            max_num_burn_in=options.max_num_burn_in,
-            max_num_iter=options.max_num_iter_betas,
-            min_num_iter=options.min_num_iter_betas,
-            num_chains=options.num_chains_betas,
-            r_threshold_burn_in=options.r_threshold_burn_in_betas,
-            use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
-            max_frac_sem=options.max_frac_sem_betas,
-            max_allowed_batch_correlation=options.max_allowed_batch_correlation,
-            gauss_seidel=options.gauss_seidel_betas,
-            update_hyper_sigma=False,
-            update_hyper_p=False,
-            sparse_solution=options.sparse_solution,
-            sparse_frac_betas=options.sparse_frac_betas,
-            pre_filter_batch_size=options.pre_filter_batch_size,
-            pre_filter_small_batch_size=options.pre_filter_small_batch_size,
-            betas_trace_out=options.betas_trace_out,
-        )
+        beta_sampling_kwargs = _build_beta_sampling_kwargs_for_main(options)
         state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
 
         if options.betas_uncorrected_from_phewas:
@@ -19702,6 +19840,15 @@ def _compute_gene_set_stats_and_betas_for_main(
             })
             state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
 
+
+def _compute_gene_set_stats_and_betas_for_main(
+    state,
+    options,
+    mode_state,
+):
+    run_beta_for_factor, run_gibbs_for_factor = _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state)
+    _maybe_load_factor_side_inputs_for_main(state, options, mode_state)
+    _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_beta_for_factor)
     return run_gibbs_for_factor
 
 
