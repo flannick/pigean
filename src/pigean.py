@@ -1147,37 +1147,48 @@ def _apply_mode_defaults(_options, _mode, _run_factor, _factor_gene_set_x_pheno)
         _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_pheno)
 
 
-def _apply_gibbs_stopping_defaults(_options):
-    gibbs_stopping_presets = {
-        "lenient": {
-            "stop_mcse_quantile": 0.90,
-            "max_rel_mcse_beta": 0.20,
-            "max_abs_mcse_d": 0.10,
-        },
-        "strict": {
-            "stop_mcse_quantile": 0.95,
-            "max_rel_mcse_beta": 0.05,
-            "max_abs_mcse_d": 0.03,
-        },
-    }
+_GIBBS_STOPPING_PRESETS = {
+    "lenient": {
+        "stop_mcse_quantile": 0.90,
+        "max_rel_mcse_beta": 0.20,
+        "max_abs_mcse_d": 0.10,
+    },
+    "strict": {
+        "stop_mcse_quantile": 0.95,
+        "max_rel_mcse_beta": 0.05,
+        "max_abs_mcse_d": 0.03,
+    },
+}
 
+
+def _apply_gibbs_stopping_preset_defaults(_options):
     _options.gibbs_stopping_preset = "strict" if _options.strict_stopping else "lenient"
-    for opt_name, opt_value in gibbs_stopping_presets[_options.gibbs_stopping_preset].items():
-        if getattr(_options, opt_name) is None:
-            setattr(_options, opt_name, opt_value)
+    for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[_options.gibbs_stopping_preset].items():
+        _set_default_option(_options, opt_name, opt_value)
 
+
+def _apply_gibbs_epoch_backward_compat_defaults(_options):
     # Backward-compat defaults for simplified epoch controls.
     if _options.max_num_post_burn_in is None and _options.max_num_iter is not None:
         _options.max_num_post_burn_in = max(1, _options.max_num_iter - max(_options.min_num_burn_in, 0))
 
+
+def _apply_disable_stall_detection_compat_overrides(_options):
     # Explicitly disable all stall-based early exits/restarts.
-    if _options.disable_stall_detection:
-        _options.burn_in_stall_window = 0
-        _options.stall_window = 0
-        _options.stall_recent_window = 0
-        # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
-        _options.max_num_restarts = 0
-        _options.total_num_iter_gibbs = _options.max_num_iter
+    if not _options.disable_stall_detection:
+        return
+    _options.burn_in_stall_window = 0
+    _options.stall_window = 0
+    _options.stall_recent_window = 0
+    # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
+    _options.max_num_restarts = 0
+    _options.total_num_iter_gibbs = _options.max_num_iter
+
+
+def _apply_gibbs_stopping_defaults(_options):
+    _apply_gibbs_stopping_preset_defaults(_options)
+    _apply_gibbs_epoch_backward_compat_defaults(_options)
+    _apply_disable_stall_detection_compat_overrides(_options)
 
 
 mode_state = _resolve_mode_state(mode, options)
@@ -1185,22 +1196,22 @@ mode_state = _resolve_mode_state(mode, options)
 _apply_mode_defaults(options, mode, mode_state["run_factor"], mode_state["factor_gene_set_x_pheno"])
 _apply_gibbs_stopping_defaults(options)
 
-def _flag_present(*flag_names):
-    for arg in sys.argv[1:]:
+def _flag_present_in_argv(_argv, *flag_names):
+    for arg in _argv:
         for flag_name in flag_names:
             if arg == flag_name or arg.startswith(flag_name + "="):
                 return True
     return False
 
-def _derive_memory_controls_from_max_gb():
-    if options.max_gb is None:
-        options.max_gb = 2.0
-    if options.max_gb <= 0:
+def _derive_memory_controls_from_max_gb(_options, _argv):
+    if _options.max_gb is None:
+        _options.max_gb = 2.0
+    if _options.max_gb <= 0:
         bail("Option --max-gb must be > 0")
 
-    total_mb = int(round(options.max_gb * 1024.0))
+    total_mb = int(round(_options.max_gb * 1024.0))
     baseline_gb = 2.0
-    scale = options.max_gb / baseline_gb
+    scale = _options.max_gb / baseline_gb
     if scale <= 0:
         scale = 1.0
 
@@ -1208,8 +1219,8 @@ def _derive_memory_controls_from_max_gb():
     clamped = {}
 
     def _set_with_max_cap(opt_name, implied_max, flag_name):
-        current = getattr(options, opt_name)
-        explicit = _flag_present(flag_name)
+        current = getattr(_options, opt_name)
+        explicit = _flag_present_in_argv(_argv, flag_name)
         if current is None:
             new_value = implied_max
             derived[opt_name] = new_value
@@ -1219,11 +1230,11 @@ def _derive_memory_controls_from_max_gb():
                 clamped[opt_name] = (current, new_value, "max")
             elif not explicit and new_value != int(current):
                 derived[opt_name] = new_value
-        setattr(options, opt_name, int(new_value))
+        setattr(_options, opt_name, int(new_value))
 
     def _set_with_min_floor(opt_name, implied_min, flag_name):
-        current = getattr(options, opt_name)
-        explicit = _flag_present(flag_name)
+        current = getattr(_options, opt_name)
+        explicit = _flag_present_in_argv(_argv, flag_name)
         if current is None:
             new_value = implied_min
             derived[opt_name] = new_value
@@ -1233,7 +1244,7 @@ def _derive_memory_controls_from_max_gb():
                 clamped[opt_name] = (current, new_value, "min")
             elif not explicit and new_value != int(current):
                 derived[opt_name] = new_value
-        setattr(options, opt_name, int(new_value))
+        setattr(_options, opt_name, int(new_value))
 
     implied_batch_size_max = max(500, int(round(5000 * scale)))
     # Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
@@ -1241,8 +1252,8 @@ def _derive_memory_controls_from_max_gb():
     # read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
     implied_max_read_entries_at_once_max = max(100000, int(round(total_mb * 500)))
     implied_gibbs_num_batches_parallel_max = max(1, int(round(10 * scale)))
-    if options.num_chains is not None:
-        implied_gibbs_num_batches_parallel_max = min(implied_gibbs_num_batches_parallel_max, int(options.num_chains))
+    if _options.num_chains is not None:
+        implied_gibbs_num_batches_parallel_max = min(implied_gibbs_num_batches_parallel_max, int(_options.num_chains))
     implied_pre_filter_small_batch_size_max = max(100, int(round(500 * scale)))
     implied_pre_filter_batch_size_max = max(implied_pre_filter_small_batch_size_max, int(round(5000 * scale)))
     # For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
@@ -1254,11 +1265,11 @@ def _derive_memory_controls_from_max_gb():
     _set_with_max_cap("max_read_entries_at_once", implied_max_read_entries_at_once_max, "--max-read-entries-at-once")
     _set_with_max_cap("gibbs_num_batches_parallel", implied_gibbs_num_batches_parallel_max, "--gibbs-num-batches-parallel")
     _set_with_max_cap("pre_filter_small_batch_size", implied_pre_filter_small_batch_size_max, "--pre-filter-small-batch-size")
-    if options.pre_filter_batch_size is not None:
+    if _options.pre_filter_batch_size is not None:
         _set_with_max_cap("pre_filter_batch_size", implied_pre_filter_batch_size_max, "--pre-filter-batch-size")
     _set_with_min_floor("priors_num_gene_batches", implied_priors_num_gene_batches_min, "--priors-num-gene-batches")
 
-    log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (options.max_gb, total_mb, options.max_read_entries_at_once, options.priors_num_gene_batches, options.gibbs_num_batches_parallel, options.gibbs_max_mb_X_h, options.batch_size, str(options.pre_filter_batch_size), options.pre_filter_small_batch_size), INFO)
+    log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (_options.max_gb, total_mb, _options.max_read_entries_at_once, _options.priors_num_gene_batches, _options.gibbs_num_batches_parallel, _options.gibbs_max_mb_X_h, _options.batch_size, str(_options.pre_filter_batch_size), _options.pre_filter_small_batch_size), INFO)
     if len(derived) > 0:
         log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, derived[k]) for k in sorted(derived.keys())]), DEBUG)
     if len(clamped) > 0:
@@ -1285,7 +1296,7 @@ def _emit_effective_config_and_exit_if_requested(_options, _mode):
     sys.exit(0)
 
 
-_derive_memory_controls_from_max_gb()
+_derive_memory_controls_from_max_gb(options, sys.argv[1:])
 _apply_post_parse_option_normalization(options)
 _emit_effective_config_and_exit_if_requested(options, mode)
 
