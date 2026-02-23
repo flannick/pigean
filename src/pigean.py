@@ -19185,7 +19185,7 @@ def query_lmm(query, auth_key=None, lmm_model=None):
         return None
 
 
-def _configure_sigma_and_hyper_for_main(state, options, sigma2_cond):
+def _configure_initial_sigma_for_main(state, options, sigma2_cond):
     if sigma2_cond is not None:
         # map it with the scale factor
         state.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=False)
@@ -19213,26 +19213,37 @@ def _configure_sigma_and_hyper_for_main(state, options, sigma2_cond):
             state.set_sigma(None, state.sigma_power)
         else:
             log("Setting sigma=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (state.get_sigma2(), state.get_sigma2(convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
+    return sigma2_cond
 
-    # sigma calculations
+
+def _apply_const_sigma_override_for_main(options):
+    # Legacy behavior: force sigma-power to 2 when sigma is fixed.
     if options.const_sigma:
         options.sigma_power = 2
 
-    if options.update_hyper.lower() == "both":
+
+def _apply_update_hyper_mode_for_main(options):
+    update_hyper_mode = options.update_hyper.lower()
+    if update_hyper_mode == "both":
         options.update_hyper_p = True
         options.update_hyper_sigma = True
-    elif options.update_hyper.lower() == "p":
+    elif update_hyper_mode == "p":
         options.update_hyper_p = True
         options.update_hyper_sigma = False
-    elif options.update_hyper.lower() == "sigma2" or options.update_hyper.lower() == "sigma":
+    elif update_hyper_mode == "sigma2" or update_hyper_mode == "sigma":
         options.update_hyper_p = False
         options.update_hyper_sigma = True
-    elif options.update_hyper.lower() == "none":
+    elif update_hyper_mode == "none":
         options.update_hyper_p = False
         options.update_hyper_sigma = False
     else:
         bail("Invalid value for --update-hyper (both, p, sigma2, or none)")
 
+
+def _configure_sigma_and_hyper_for_main(state, options, sigma2_cond):
+    sigma2_cond = _configure_initial_sigma_for_main(state, options, sigma2_cond)
+    _apply_const_sigma_override_for_main(options)
+    _apply_update_hyper_mode_for_main(options)
     return sigma2_cond
 
 
@@ -19327,12 +19338,17 @@ def _build_read_y_gene_bfs_kwargs_for_main(options):
     )
 
 
-def _build_read_y_source_kwargs_for_main(options):
+def _build_read_y_source_base_kwargs_for_main(options):
     return dict(
         gwas_in=options.gwas_in,
         huge_statistics_in=options.huge_statistics_in,
         huge_statistics_out=options.huge_statistics_out,
         show_progress=not options.hide_progress,
+    )
+
+
+def _build_read_y_source_gwas_kwargs_for_main(options):
+    return dict(
         gwas_chrom_col=options.gwas_chrom_col,
         gwas_pos_col=options.gwas_pos_col,
         gwas_p_col=options.gwas_p_col,
@@ -19371,6 +19387,11 @@ def _build_read_y_source_kwargs_for_main(options):
         credible_set_span=options.credible_set_span,
         min_n_ratio=options.min_n_ratio,
         max_clump_ld=options.max_clump_ld,
+    )
+
+
+def _build_read_y_source_exomes_and_controls_kwargs_for_main(options):
+    return dict(
         exomes_in=options.exomes_in,
         exomes_gene_col=options.exomes_gene_col,
         exomes_p_col=options.exomes_p_col,
@@ -19392,6 +19413,11 @@ def _build_read_y_source_kwargs_for_main(options):
         positive_controls_all_in=options.positive_controls_all_in,
         positive_controls_all_id_col=options.positive_controls_all_id_col,
         positive_controls_all_has_header=options.positive_controls_all_has_header,
+    )
+
+
+def _build_read_y_source_counts_kwargs_for_main(options):
+    return dict(
         case_counts_in=options.case_counts_in,
         case_counts_gene_col=options.case_counts_gene_col,
         case_counts_revel_col=options.case_counts_revel_col,
@@ -19412,11 +19438,21 @@ def _build_read_y_source_kwargs_for_main(options):
         syn_fisher_p=options.counts_syn_fisher_p,
         nu=options.counts_nu,
         beta=options.counts_beta,
+    )
+
+
+def _build_read_y_source_covariate_and_loc_kwargs_for_main(options):
+    return dict(
         gene_loc_file=options.gene_loc_file_huge if options.gene_loc_file_huge is not None else options.gene_loc_file,
         gene_covs_in=options.gene_covs_in,
         hold_out_chrom=options.hold_out_chrom,
         exons_loc_file=options.exons_loc_file_huge,
         min_var_posterior=options.min_var_posterior,
+    )
+
+
+def _build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options):
+    return dict(
         s2g_in=options.s2g_in,
         s2g_chrom_col=options.s2g_chrom_col,
         s2g_pos_col=options.s2g_pos_col,
@@ -19429,6 +19465,17 @@ def _build_read_y_source_kwargs_for_main(options):
         credible_sets_pos_col=options.credible_sets_pos_col,
         credible_sets_ppa_col=options.credible_sets_ppa_col,
     )
+
+
+def _build_read_y_source_kwargs_for_main(options):
+    kwargs = {}
+    kwargs.update(_build_read_y_source_base_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_gwas_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_exomes_and_controls_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_counts_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_covariate_and_loc_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options))
+    return kwargs
 
 
 def _should_seed_positive_controls_for_expand_for_main(options, mode_state):
@@ -19564,7 +19611,7 @@ def _read_x_and_initialize_p_for_main(
 ):
     #read in the matrices
     if _has_x_inputs_for_main(options):
-        xin_to_p_noninf_ind = _build_xin_to_p_noninf_index_for_main(options)
+        xin_to_p_noninf_ind = _build_xin_to_p_noninf_index_for_main(options, sys.argv)
         _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_loaded, sigma2_cond, mode_state, xin_to_p_noninf_ind)
     else:
         _set_p_without_x_inputs_for_main(state, options)
@@ -19576,24 +19623,27 @@ def _has_x_inputs_for_main(options):
     return options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None
 
 
-def _build_xin_to_p_noninf_index_for_main(options):
+def _iter_x_input_values_from_argv(_argv):
+    for i in range(len(_argv)):
+        arg = _argv[i]
+        if arg in ("--X-in", "--X-list", "--Xd-in", "--Xd-list"):
+            if i + 1 >= len(_argv):
+                raise ValueError(f"Missing value after {arg}")
+            yield _argv[i + 1]
+
+
+def _build_xin_to_p_noninf_index_for_main(options, argv):
     if options.p_noninf is None:
         return None
     #we need the order of these
     p_noninf_ind = 0
     xin_to_p_noninf_ind = {}
-    for i in range(len(sys.argv)):
-        arg = sys.argv[i]
-        if arg in ("--X-in", "--X-list", "--Xd-in", "--Xd-list"):
-            if i + 1 < len(sys.argv):
-                val = sys.argv[i + 1]
-                if val in xin_to_p_noninf_ind:
-                    warn("You are passing the same file (%s) for two --X-in files; are you sure this is what you want to do?" % (val))
-                xin_to_p_noninf_ind[val] = p_noninf_ind
-                if len(options.p_noninf) > 1:
-                    p_noninf_ind += 1
-            else:
-                raise ValueError(f"Missing value after {arg}")
+    for val in _iter_x_input_values_from_argv(argv):
+        if val in xin_to_p_noninf_ind:
+            warn("You are passing the same file (%s) for two --X-in files; are you sure this is what you want to do?" % (val))
+        xin_to_p_noninf_ind[val] = p_noninf_ind
+        if len(options.p_noninf) > 1:
+            p_noninf_ind += 1
     if len(options.p_noninf) > 1 and len(options.p_noninf) != p_noninf_ind:
         bail("Error: if you pass in more than one --p-noninf, you need to have the same number of values as --X-* inputs")
     return xin_to_p_noninf_ind
@@ -19704,12 +19754,17 @@ def _prepare_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, f
     return should_reread, new_filter_gene_set_p
 
 
-def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
+def _build_read_x_input_file_kwargs_for_main(options):
     return dict(
         Xd_in=options.Xd_in,
         X_list=options.X_list,
         Xd_list=options.Xd_list,
         V_in=options.V_in,
+    )
+
+
+def _build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, filter_gene_set_p):
+    return dict(
         min_gene_set_size=options.min_gene_set_size,
         max_gene_set_size=options.max_gene_set_size,
         only_ids=gene_set_ids,
@@ -19734,6 +19789,11 @@ def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, fi
         max_num_gene_sets_initial=options.max_num_gene_sets_initial,
         max_num_gene_sets=options.max_num_gene_sets,
         max_num_gene_sets_hyper=options.max_num_gene_sets_hyper,
+    )
+
+
+def _build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond, xin_to_p_noninf_ind):
+    return dict(
         skip_betas=skip_betas,
         run_logistic=not options.linear,
         max_for_linear=options.max_for_linear,
@@ -19753,6 +19813,11 @@ def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, fi
         gene_cor_file=options.gene_cor_file,
         gene_cor_file_gene_col=options.gene_cor_file_gene_col,
         gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
+    )
+
+
+def _build_read_x_hyper_and_sampling_kwargs_for_main(options):
+    return dict(
         update_hyper_p=options.update_hyper_p,
         update_hyper_sigma=options.update_hyper_sigma,
         batch_all_for_hyper=options.batch_all_for_hyper,
@@ -19775,11 +19840,26 @@ def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, fi
         sparse_solution=options.sparse_solution,
         sparse_frac_betas=options.sparse_frac_betas,
         betas_trace_out=options.betas_trace_out,
+    )
+
+
+def _build_read_x_runtime_kwargs_for_main(options, force_reread):
+    return dict(
         show_progress=not options.hide_progress,
         skip_V=(options.max_gene_set_read_p is not None),
         force_reread=force_reread,
         max_num_entries_at_once=options.max_read_entries_at_once,
     )
+
+
+def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
+    kwargs = {}
+    kwargs.update(_build_read_x_input_file_kwargs_for_main(options))
+    kwargs.update(_build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, filter_gene_set_p))
+    kwargs.update(_build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond, xin_to_p_noninf_ind))
+    kwargs.update(_build_read_x_hyper_and_sampling_kwargs_for_main(options))
+    kwargs.update(_build_read_x_runtime_kwargs_for_main(options, force_reread))
+    return kwargs
 
 
 def _set_p_without_x_inputs_for_main(state, options):
