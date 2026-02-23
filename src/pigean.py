@@ -719,30 +719,20 @@ def _early_warn(_message):
     sys.stderr.write("Warning: %s\n" % _message)
     sys.stderr.flush()
 
-def _apply_config_overrides(_options, _args, _parser, _argv):
-    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
-    config_mode = None
-
-    if _options.config is None:
-        return _options, _args, config_mode
-
-    config_path = _resolve_config_path_value(_options.config, os.getcwd())
-    _options.config = config_path
-    config_dir = os.path.dirname(config_path)
-
-    config_data = _load_json_config(config_path)
-    if "mode" in config_data:
-        config_mode = config_data["mode"]
-
-    if "options" in config_data:
-        config_options = config_data["options"]
+def _extract_config_mode_and_options(_config_data):
+    config_mode = _config_data["mode"] if "mode" in _config_data else None
+    if "options" in _config_data:
+        config_options = _config_data["options"]
         if not isinstance(config_options, dict):
             bail("Config key 'options' must be a JSON object")
-    else:
-        config_options = dict(config_data)
-        config_options.pop("mode", None)
-        config_options.pop("include", None)
+        return config_mode, config_options
+    config_options = dict(_config_data)
+    config_options.pop("mode", None)
+    config_options.pop("include", None)
+    return config_mode, config_options
 
+
+def _build_parser_dest_lookup_maps(_parser):
     dest_to_option = {}
     long_key_to_dest = {}
     for opt in _iter_parser_options(_parser):
@@ -751,53 +741,103 @@ def _apply_config_overrides(_options, _args, _parser, _argv):
             key = long_opt.lstrip("-")
             long_key_to_dest[key] = opt.dest
             long_key_to_dest[key.replace("-", "_")] = opt.dest
+    return dest_to_option, long_key_to_dest
+
+
+def _normalize_config_key_for_removed_option_check(_raw_key):
+    if not isinstance(_raw_key, str):
+        return _raw_key
+    normalized_config_key = _raw_key
+    if normalized_config_key.startswith("--"):
+        normalized_config_key = normalized_config_key[2:]
+    return normalized_config_key.replace("-", "_")
+
+
+def _validate_config_key_not_removed(_raw_key, _config_path):
+    normalized_config_key = _normalize_config_key_for_removed_option_check(_raw_key)
+    if normalized_config_key not in REMOVED_OPTION_REPLACEMENTS:
+        return
+    replacement = REMOVED_OPTION_REPLACEMENTS[normalized_config_key]
+    if replacement is None:
+        bail("Config key '%s' has been removed in %s and is no longer supported" % (_raw_key, _config_path))
+    replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
+    bail("Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (_raw_key, _config_path, replacement_config_key, replacement))
+
+
+def _normalize_config_lookup_keys(_raw_key):
+    key = _raw_key
+    if isinstance(key, str) and key.startswith("--"):
+        key = key[2:]
+    key_norm = key.replace("-", "_") if isinstance(key, str) else key
+    return key, key_norm
+
+
+def _resolve_config_dest_from_lookup_keys(_key, _key_norm, _dest_to_option, _long_key_to_dest):
+    if _key in _dest_to_option:
+        return _key
+    if _key_norm in _dest_to_option:
+        return _key_norm
+    if _key in _long_key_to_dest:
+        return _long_key_to_dest[_key]
+    if _key_norm in _long_key_to_dest:
+        return _long_key_to_dest[_key_norm]
+    return None
+
+
+def _resolve_path_like_config_value(_dest, _coerced_value, _config_dir):
+    if not _is_path_like_dest(_dest):
+        return _coerced_value
+    if isinstance(_coerced_value, list):
+        return [_resolve_config_path_value(v, _config_dir) if isinstance(v, str) else v for v in _coerced_value]
+    if isinstance(_coerced_value, str):
+        return _resolve_config_path_value(_coerced_value, _config_dir)
+    return _coerced_value
+
+
+def _apply_single_config_option_override(_options, _raw_key, _raw_value, _config_path, _config_dir, _cli_specified_dests, _dest_to_option, _long_key_to_dest):
+    if _raw_key in ("mode", "options", "include"):
+        return
+    _validate_config_key_not_removed(_raw_key, _config_path)
+    key, key_norm = _normalize_config_lookup_keys(_raw_key)
+    dest = _resolve_config_dest_from_lookup_keys(key, key_norm, _dest_to_option, _long_key_to_dest)
+
+    if dest is None:
+        _early_warn("Ignoring unknown config key '%s' in %s" % (_raw_key, _config_path))
+        return
+    if dest in _cli_specified_dests:
+        return
+
+    opt = _dest_to_option[dest]
+    coerced_value = _coerce_config_value(opt, _raw_value)
+    coerced_value = _resolve_path_like_config_value(dest, coerced_value, _config_dir)
+    setattr(_options, dest, coerced_value)
+
+
+def _apply_config_overrides(_options, _args, _parser, _argv):
+    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
+
+    if _options.config is None:
+        return _options, _args, None
+
+    config_path = _resolve_config_path_value(_options.config, os.getcwd())
+    _options.config = config_path
+    config_dir = os.path.dirname(config_path)
+
+    config_data = _load_json_config(config_path)
+    config_mode, config_options = _extract_config_mode_and_options(_config_data=config_data)
+    dest_to_option, long_key_to_dest = _build_parser_dest_lookup_maps(_parser)
 
     for raw_key, raw_value in config_options.items():
-        if raw_key in ("mode", "options", "include"):
-            continue
-        if isinstance(raw_key, str):
-            normalized_config_key = raw_key
-            if normalized_config_key.startswith("--"):
-                normalized_config_key = normalized_config_key[2:]
-            normalized_config_key = normalized_config_key.replace("-", "_")
-            if normalized_config_key in REMOVED_OPTION_REPLACEMENTS:
-                replacement = REMOVED_OPTION_REPLACEMENTS[normalized_config_key]
-                if replacement is None:
-                    bail("Config key '%s' has been removed in %s and is no longer supported" % (raw_key, config_path))
-                replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
-                bail("Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (raw_key, config_path, replacement_config_key, replacement))
-        key = raw_key
-        if isinstance(key, str) and key.startswith("--"):
-            key = key[2:]
-        key_norm = key.replace("-", "_") if isinstance(key, str) else key
-
-        dest = None
-        if key in dest_to_option:
-            dest = key
-        elif key_norm in dest_to_option:
-            dest = key_norm
-        elif key in long_key_to_dest:
-            dest = long_key_to_dest[key]
-        elif key_norm in long_key_to_dest:
-            dest = long_key_to_dest[key_norm]
-
-        if dest is None:
-            _early_warn("Ignoring unknown config key '%s' in %s" % (raw_key, config_path))
-            continue
-
-        if dest in cli_specified_dests:
-            continue
-
-        opt = dest_to_option[dest]
-        coerced_value = _coerce_config_value(opt, raw_value)
-
-        if _is_path_like_dest(dest):
-            if isinstance(coerced_value, list):
-                coerced_value = [_resolve_config_path_value(v, config_dir) if isinstance(v, str) else v for v in coerced_value]
-            elif isinstance(coerced_value, str):
-                coerced_value = _resolve_config_path_value(coerced_value, config_dir)
-
-        setattr(_options, dest, coerced_value)
+        _apply_single_config_option_override(
+            _options,
+            raw_key,
+            raw_value,
+            config_path,
+            config_dir,
+            cli_specified_dests,
+            dest_to_option,
+            long_key_to_dest,
+        )
 
     return _options, _args, config_mode
 
@@ -859,40 +899,67 @@ def _enforce_pigean_mode_ownership(_mode):
     if _mode in factor_modes:
         bail("Mode '%s' is not available in pigean.py after repository split" % _mode)
 
-_fail_removed_cli_aliases(sys.argv[1:])
+def _parse_options_and_args_with_config(_parser, _argv):
+    _fail_removed_cli_aliases(_argv)
+    (_options, _args) = _parser.parse_args(_argv)
+    _options, _args, config_mode = _apply_config_overrides(_options, _args, _parser, _argv)
 
-(options, args) = parser.parse_args()
-options, args, config_mode = _apply_config_overrides(options, args, parser, sys.argv[1:])
+    if len(_args) < 1 and config_mode is not None:
+        _args = [config_mode]
+    elif len(_args) >= 1 and config_mode is not None and _args[0] != config_mode:
+        _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, _args[0]))
+    return _options, _args
 
-if len(args) < 1 and config_mode is not None:
-    args = [config_mode]
-elif len(args) >= 1 and config_mode is not None and args[0] != config_mode:
-    _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, args[0]))
 
-log_fh = None
-if options.log_file is not None:
-    log_fh = open(options.log_file, 'w')
-else:
-    log_fh = sys.stderr
+def _open_optional_log_handle(_filepath):
+    if _filepath is not None:
+        return open(_filepath, 'w')
+    return sys.stderr
+
+
+def _resolve_debug_level(_configured_level):
+    if _configured_level is None:
+        return INFO
+    return _configured_level
+
+
+def _apply_deterministic_seed_if_requested(_options, _log_fn):
+    if _options.deterministic and _options.seed is None:
+        _options.seed = 0
+    if _options.seed is not None:
+        random.seed(_options.seed)
+        np.random.seed(_options.seed)
+        _log_fn("Using deterministic random seed %d" % _options.seed, INFO)
+
+
+def _parse_x_sparsify_option(_options):
+    try:
+        _options.x_sparsify = [int(x) for x in _options.x_sparsify]
+    except ValueError:
+        bail("option --x-sparsify: invalid integer list %s" % _options.x_sparsify)
+
+
+def _resolve_mode_from_args(_args):
+    if len(_args) < 1:
+        bail(usage)
+    return _args[0]
+
+
+options, args = _parse_options_and_args_with_config(parser, sys.argv[1:])
+log_fh = _open_optional_log_handle(options.log_file)
 
 NONE=0
 INFO=1
 DEBUG=2
 TRACE=3
-debug_level = options.debug_level
-if debug_level is None:
-    debug_level = INFO
+debug_level = _resolve_debug_level(options.debug_level)
 def log(message, level=INFO, end_char='\n'):
     if level <= debug_level:
         log_fh.write("%s%s" % (message, end_char))
         log_fh.flush()
 
 #set up warnings
-warnings_fh = None
-if options.warnings_file is not None:
-    warnings_fh = open(options.warnings_file, 'w')
-else:
-    warnings_fh = sys.stderr
+warnings_fh = _open_optional_log_handle(options.warnings_file)
 
 def warn(message):
     if warnings_fh is not None:
@@ -900,22 +967,9 @@ def warn(message):
         warnings_fh.flush()
     log(message, level=INFO)
 
-if options.deterministic and options.seed is None:
-    options.seed = 0
-if options.seed is not None:
-    random.seed(options.seed)
-    np.random.seed(options.seed)
-    log("Using deterministic random seed %d" % options.seed, INFO)
-
-try:
-    options.x_sparsify = [int(x) for x in options.x_sparsify]
-except ValueError:
-    bail("option --x-sparsify: invalid integer list %s" % options.x_sparsify)
-
-if len(args) < 1:
-    bail(usage)
-
-mode = args[0]
+_apply_deterministic_seed_if_requested(options, log)
+_parse_x_sparsify_option(options)
+mode = _resolve_mode_from_args(args)
 _enforce_pigean_mode_ownership(mode)
 
 # ==========================================================================
@@ -1173,41 +1227,50 @@ def _apply_pops_mode_defaults(_options):
     _set_default_option(_options, "sparse_solution", False)
 
 
-def _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_pheno):
+def _default_prune_gene_sets_value_for_non_pops(_run_factor, _factor_gene_set_x_pheno):
+    if _run_factor and _factor_gene_set_x_pheno:
+        return 0.5
+    return 0.8
+
+
+def _apply_non_pops_core_defaults(_options):
     _set_default_option(_options, "correct_betas_mean", True)
     _set_default_option(_options, "adjust_priors", True)
     _set_default_option(_options, "p_noninf", [0.001])
     _set_default_option(_options, "sigma_power", -2)
     _set_default_option(_options, "update_hyper", "p")
     _set_default_option(_options, "filter_negative", True)
-
-    if _options.prune_gene_sets is None:
-        if _run_factor and _factor_gene_set_x_pheno:
-            _options.prune_gene_sets = 0.5
-        else:
-            _options.prune_gene_sets = 0.8
-
-    if _options.weighted_prune_gene_sets is None:
-        if _run_factor and _factor_gene_set_x_pheno:
-            _options.weighted_prune_gene_sets = 0.5
-        else:
-            _options.weighted_prune_gene_sets = 0.8
-
     _set_default_option(_options, "top_gene_set_prior", 0.8)
     _set_default_option(_options, "num_gene_sets_for_prior", 50)
     _set_default_option(_options, "filter_gene_set_p", 0.01)
     _set_default_option(_options, "linear", False)
     _set_default_option(_options, "max_for_linear", 0.95)
     _set_default_option(_options, "min_gene_set_size", 10)
+    _set_default_option(_options, "cross_val", False)
+    _set_default_option(_options, "sparse_frac_betas", 0.001)
+    _set_default_option(_options, "sparse_solution", True)
 
+
+def _apply_non_pops_pruning_defaults(_options, _run_factor, _factor_gene_set_x_pheno):
+    default_prune = _default_prune_gene_sets_value_for_non_pops(_run_factor, _factor_gene_set_x_pheno)
+    if _options.prune_gene_sets is None:
+        _options.prune_gene_sets = default_prune
+
+    if _options.weighted_prune_gene_sets is None:
+        _options.weighted_prune_gene_sets = default_prune
+
+
+def _apply_non_pops_expand_override(_options, _run_factor, _factor_gene_set_x_pheno):
     # Keep legacy condition semantics exactly as-is.
     if _run_factor and _factor_gene_set_x_pheno is not None:
         if _options.add_gene_sets_by_enrichment_p is not None:
             _options.filter_gene_set_p = _options.add_gene_sets_by_enrichment_p
 
-    _set_default_option(_options, "cross_val", False)
-    _set_default_option(_options, "sparse_frac_betas", 0.001)
-    _set_default_option(_options, "sparse_solution", True)
+
+def _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_pheno):
+    _apply_non_pops_core_defaults(_options)
+    _apply_non_pops_pruning_defaults(_options, _run_factor, _factor_gene_set_x_pheno)
+    _apply_non_pops_expand_override(_options, _run_factor, _factor_gene_set_x_pheno)
 
 
 def _apply_mode_defaults(_options, _mode, _run_factor, _factor_gene_set_x_pheno):
@@ -1272,6 +1335,74 @@ def _flag_present_in_argv(_argv, *flag_names):
                 return True
     return False
 
+
+def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_name, implied_max, flag_name):
+    current = getattr(_options, opt_name)
+    explicit = _flag_present_in_argv(_argv, flag_name)
+    if current is None:
+        new_value = implied_max
+        _derived[opt_name] = new_value
+    else:
+        new_value = min(int(current), int(implied_max))
+        if explicit and new_value < int(current):
+            _clamped[opt_name] = (current, new_value, "max")
+        elif not explicit and new_value != int(current):
+            _derived[opt_name] = new_value
+    setattr(_options, opt_name, int(new_value))
+
+
+def _set_memory_control_with_min_floor(_options, _argv, _derived, _clamped, opt_name, implied_min, flag_name):
+    current = getattr(_options, opt_name)
+    explicit = _flag_present_in_argv(_argv, flag_name)
+    if current is None:
+        new_value = implied_min
+        _derived[opt_name] = new_value
+    else:
+        new_value = max(int(current), int(implied_min))
+        if explicit and new_value > int(current):
+            _clamped[opt_name] = (current, new_value, "min")
+        elif not explicit and new_value != int(current):
+            _derived[opt_name] = new_value
+    setattr(_options, opt_name, int(new_value))
+
+
+def _compute_implied_memory_control_limits(_options, total_mb, scale):
+    implied = {}
+    implied["batch_size_max"] = max(500, int(round(5000 * scale)))
+    # Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
+    implied["gibbs_max_mb_X_h_max"] = max(32, int(round(total_mb * 0.20)))
+    # read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
+    implied["max_read_entries_at_once_max"] = max(100000, int(round(total_mb * 500)))
+    implied["gibbs_num_batches_parallel_max"] = max(1, int(round(10 * scale)))
+    if _options.num_chains is not None:
+        implied["gibbs_num_batches_parallel_max"] = min(implied["gibbs_num_batches_parallel_max"], int(_options.num_chains))
+    implied["pre_filter_small_batch_size_max"] = max(100, int(round(500 * scale)))
+    implied["pre_filter_batch_size_max"] = max(implied["pre_filter_small_batch_size_max"], int(round(5000 * scale)))
+    # For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
+    # This is an inverse memory knob: larger values use less memory.
+    implied["priors_num_gene_batches_min"] = max(1, int(np.ceil(20.0 / scale)))
+    return implied
+
+
+def _apply_implied_memory_controls(_options, _argv, implied, _derived, _clamped):
+    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "batch_size", implied["batch_size_max"], "--batch-size")
+    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], "--gibbs-max-mb-X-h")
+    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], "--max-read-entries-at-once")
+    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], "--gibbs-num-batches-parallel")
+    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], "--pre-filter-small-batch-size")
+    if _options.pre_filter_batch_size is not None:
+        _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], "--pre-filter-batch-size")
+    _set_memory_control_with_min_floor(_options, _argv, _derived, _clamped, "priors_num_gene_batches", implied["priors_num_gene_batches_min"], "--priors-num-gene-batches")
+
+
+def _log_memory_control_derivation(_options, total_mb, _derived, _clamped):
+    log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (_options.max_gb, total_mb, _options.max_read_entries_at_once, _options.priors_num_gene_batches, _options.gibbs_num_batches_parallel, _options.gibbs_max_mb_X_h, _options.batch_size, str(_options.pre_filter_batch_size), _options.pre_filter_small_batch_size), INFO)
+    if len(_derived) > 0:
+        log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, _derived[k]) for k in sorted(_derived.keys())]), DEBUG)
+    if len(_clamped) > 0:
+        log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, _clamped[k][0], _clamped[k][1], _clamped[k][2]) for k in sorted(_clamped.keys())]), INFO)
+
+
 def _derive_memory_controls_from_max_gb(_options, _argv):
     if _options.max_gb is None:
         _options.max_gb = 2.0
@@ -1287,62 +1418,9 @@ def _derive_memory_controls_from_max_gb(_options, _argv):
     derived = {}
     clamped = {}
 
-    def _set_with_max_cap(opt_name, implied_max, flag_name):
-        current = getattr(_options, opt_name)
-        explicit = _flag_present_in_argv(_argv, flag_name)
-        if current is None:
-            new_value = implied_max
-            derived[opt_name] = new_value
-        else:
-            new_value = min(int(current), int(implied_max))
-            if explicit and new_value < int(current):
-                clamped[opt_name] = (current, new_value, "max")
-            elif not explicit and new_value != int(current):
-                derived[opt_name] = new_value
-        setattr(_options, opt_name, int(new_value))
-
-    def _set_with_min_floor(opt_name, implied_min, flag_name):
-        current = getattr(_options, opt_name)
-        explicit = _flag_present_in_argv(_argv, flag_name)
-        if current is None:
-            new_value = implied_min
-            derived[opt_name] = new_value
-        else:
-            new_value = max(int(current), int(implied_min))
-            if explicit and new_value > int(current):
-                clamped[opt_name] = (current, new_value, "min")
-            elif not explicit and new_value != int(current):
-                derived[opt_name] = new_value
-        setattr(_options, opt_name, int(new_value))
-
-    implied_batch_size_max = max(500, int(round(5000 * scale)))
-    # Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
-    implied_gibbs_max_mb_X_h_max = max(32, int(round(total_mb * 0.20)))
-    # read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
-    implied_max_read_entries_at_once_max = max(100000, int(round(total_mb * 500)))
-    implied_gibbs_num_batches_parallel_max = max(1, int(round(10 * scale)))
-    if _options.num_chains is not None:
-        implied_gibbs_num_batches_parallel_max = min(implied_gibbs_num_batches_parallel_max, int(_options.num_chains))
-    implied_pre_filter_small_batch_size_max = max(100, int(round(500 * scale)))
-    implied_pre_filter_batch_size_max = max(implied_pre_filter_small_batch_size_max, int(round(5000 * scale)))
-    # For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
-    # This is an inverse memory knob: larger values use less memory.
-    implied_priors_num_gene_batches_min = max(1, int(np.ceil(20.0 / scale)))
-
-    _set_with_max_cap("batch_size", implied_batch_size_max, "--batch-size")
-    _set_with_max_cap("gibbs_max_mb_X_h", implied_gibbs_max_mb_X_h_max, "--gibbs-max-mb-X-h")
-    _set_with_max_cap("max_read_entries_at_once", implied_max_read_entries_at_once_max, "--max-read-entries-at-once")
-    _set_with_max_cap("gibbs_num_batches_parallel", implied_gibbs_num_batches_parallel_max, "--gibbs-num-batches-parallel")
-    _set_with_max_cap("pre_filter_small_batch_size", implied_pre_filter_small_batch_size_max, "--pre-filter-small-batch-size")
-    if _options.pre_filter_batch_size is not None:
-        _set_with_max_cap("pre_filter_batch_size", implied_pre_filter_batch_size_max, "--pre-filter-batch-size")
-    _set_with_min_floor("priors_num_gene_batches", implied_priors_num_gene_batches_min, "--priors-num-gene-batches")
-
-    log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (_options.max_gb, total_mb, _options.max_read_entries_at_once, _options.priors_num_gene_batches, _options.gibbs_num_batches_parallel, _options.gibbs_max_mb_X_h, _options.batch_size, str(_options.pre_filter_batch_size), _options.pre_filter_small_batch_size), INFO)
-    if len(derived) > 0:
-        log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, derived[k]) for k in sorted(derived.keys())]), DEBUG)
-    if len(clamped) > 0:
-        log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
+    implied = _compute_implied_memory_control_limits(_options, total_mb, scale)
+    _apply_implied_memory_controls(_options, _argv, implied, derived, clamped)
+    _log_memory_control_derivation(_options, total_mb, derived, clamped)
 
 
 def _apply_post_parse_option_normalization(_options):
@@ -20025,7 +20103,7 @@ def _build_priors_model_kwargs_for_main(options):
     )
 
 
-def _build_priors_sampling_kwargs_for_main(options):
+def _build_inner_beta_sampler_common_kwargs_for_main(options):
     return dict(
         max_num_burn_in=options.max_num_burn_in,
         max_num_iter=options.max_num_iter_betas,
@@ -20034,11 +20112,16 @@ def _build_priors_sampling_kwargs_for_main(options):
         r_threshold_burn_in=options.r_threshold_burn_in_betas,
         use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
         max_frac_sem=options.max_frac_sem_betas,
-        max_allowed_batch_correlation=options.max_allowed_batch_correlation,
         gauss_seidel=options.gauss_seidel_betas,
         sparse_solution=options.sparse_solution,
         sparse_frac_betas=options.sparse_frac_betas,
     )
+
+
+def _build_priors_sampling_kwargs_for_main(options):
+    kwargs = _build_inner_beta_sampler_common_kwargs_for_main(options)
+    kwargs["max_allowed_batch_correlation"] = options.max_allowed_batch_correlation
+    return kwargs
 
 
 def _build_priors_kwargs_for_main(options, p_noninf):
@@ -20193,18 +20276,7 @@ def _build_run_phewas_input_kwargs_for_main(options, bfs_to_use):
 
 
 def _build_run_phewas_sampling_kwargs_for_main(options):
-    return dict(
-        max_num_burn_in=options.max_num_burn_in,
-        max_num_iter=options.max_num_iter_betas,
-        min_num_iter=options.min_num_iter_betas,
-        num_chains=options.num_chains_betas,
-        r_threshold_burn_in=options.r_threshold_burn_in_betas,
-        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
-        max_frac_sem=options.max_frac_sem_betas,
-        gauss_seidel=options.gauss_seidel_betas,
-        sparse_solution=options.sparse_solution,
-        sparse_frac_betas=options.sparse_frac_betas,
-    )
+    return _build_inner_beta_sampler_common_kwargs_for_main(options)
 
 
 def _build_run_phewas_factor_kwargs_for_main(run_for_factors=False, batch_size=1500, min_gene_factor_weight=0):
@@ -20335,17 +20407,29 @@ def _build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value
     return kwargs
 
 
-def _write_factor_outputs_for_main(state, options):
+def _write_factor_matrix_outputs_for_main(state, options):
     if options.factors_out is not None:
         state.write_matrix_factors(options.factors_out)
     if options.factors_anchor_out is not None:
         state.write_matrix_factors(options.factors_anchor_out, write_anchor_specific=True)
+
+
+def _write_factor_cluster_outputs_for_main(state, options):
     if options.gene_set_clusters_out is not None or options.gene_clusters_out is not None or options.pheno_clusters_out is not None:
         state.write_clusters(options.gene_set_clusters_out, options.gene_clusters_out, options.pheno_clusters_out)
     if options.gene_set_anchor_clusters_out is not None or options.gene_anchor_clusters_out is not None or options.pheno_anchor_clusters_out is not None:
         state.write_clusters(options.gene_set_anchor_clusters_out, options.gene_anchor_clusters_out, options.pheno_anchor_clusters_out, write_anchor_specific=True)
+
+
+def _write_factor_stats_outputs_for_main(state, options):
     if options.gene_pheno_stats_out is not None:
         state.write_gene_pheno_statistics(options.gene_pheno_stats_out, min_value_to_print=options.max_no_write_gene_pheno)
+
+
+def _write_factor_outputs_for_main(state, options):
+    _write_factor_matrix_outputs_for_main(state, options)
+    _write_factor_cluster_outputs_for_main(state, options)
+    _write_factor_stats_outputs_for_main(state, options)
 
 
 def _resolve_factor_phewas_bfs_input_for_main(state, options):
@@ -20501,45 +20585,29 @@ def _maybe_load_factor_side_inputs_for_main(state, options, mode_state):
 
 def _build_beta_sampling_kwargs_for_main(options):
     # Shared beta-sampling knobs used in both standard and phewas-derived updates.
-    return dict(
-        max_num_burn_in=options.max_num_burn_in,
-        max_num_iter=options.max_num_iter_betas,
-        min_num_iter=options.min_num_iter_betas,
-        num_chains=options.num_chains_betas,
-        r_threshold_burn_in=options.r_threshold_burn_in_betas,
-        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
-        max_frac_sem=options.max_frac_sem_betas,
-        max_allowed_batch_correlation=options.max_allowed_batch_correlation,
-        gauss_seidel=options.gauss_seidel_betas,
-        update_hyper_sigma=False,
-        update_hyper_p=False,
-        sparse_solution=options.sparse_solution,
-        sparse_frac_betas=options.sparse_frac_betas,
-        pre_filter_batch_size=options.pre_filter_batch_size,
-        pre_filter_small_batch_size=options.pre_filter_small_batch_size,
-        betas_trace_out=options.betas_trace_out,
-    )
+    kwargs = _build_inner_beta_sampler_common_kwargs_for_main(options)
+    kwargs.update({
+        "max_allowed_batch_correlation": options.max_allowed_batch_correlation,
+        "update_hyper_sigma": False,
+        "update_hyper_p": False,
+        "pre_filter_batch_size": options.pre_filter_batch_size,
+        "pre_filter_small_batch_size": options.pre_filter_small_batch_size,
+        "betas_trace_out": options.betas_trace_out,
+    })
+    return kwargs
 
 
 def _build_run_cross_val_kwargs_for_main(state, options):
-    return dict(
+    kwargs = dict(
         folds=options.cross_val_folds,
         cross_val_max_num_tries=options.cross_val_max_num_tries,
         p=state.p,
-        max_num_burn_in=options.max_num_burn_in,
-        max_num_iter=options.max_num_iter_betas,
-        min_num_iter=options.min_num_iter_betas,
-        num_chains=options.num_chains_betas,
         run_logistic=not options.linear,
         max_for_linear=options.max_for_linear,
         run_corrected_ols=not options.ols,
-        r_threshold_burn_in=options.r_threshold_burn_in_betas,
-        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
-        max_frac_sem=options.max_frac_sem_betas,
-        gauss_seidel=options.gauss_seidel_betas,
-        sparse_solution=options.sparse_solution,
-        sparse_frac_betas=options.sparse_frac_betas,
     )
+    kwargs.update(_build_inner_beta_sampler_common_kwargs_for_main(options))
+    return kwargs
 
 
 def _needs_gene_set_betas_for_main(mode_state, run_beta_for_factor):
