@@ -18260,77 +18260,27 @@ def _compute_gene_set_stats_and_betas_for_main(
     _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state)
 
 
-def _run_simulation_if_requested_for_main(state, options, mode_state):
-    if not mode_state["run_sim"]:
-        return
-    state.run_sim(
-        sigma2=state.sigma2,
-        p=state.p,
-        sigma_power=state.sigma_power,
-        log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult,
-        treat_sigma2_as_sigma2_cond=False,
-        only_positive=options.sim_only_positive,
-    )
-
-
-def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, sigma2_cond):
-    if mode_state["run_huge"]:
-        return
-
-    _read_x_and_initialize_p_for_main(
-        state,
-        options,
-        None,
-        Y_not_loaded,
-        sigma2_cond,
-        mode_state,
-    )
-    _run_simulation_if_requested_for_main(state, options, mode_state)
-    _compute_gene_set_stats_and_betas_for_main(state, options, mode_state)
-    _compute_priors_if_requested_for_main(state, options, mode_state)
-    _run_outer_gibbs_if_requested_for_main(state, options, mode_state)
-
-
-def _run_post_model_outputs_for_main(state, options, mode_state):
-    _write_primary_outputs_for_main(state, options)
-    _run_phewas_if_requested_for_main(state, options, mode_state)
-
-
-def _log_runtime_environment_for_main(options):
-    if options.hide_opts:
-        return
-    log("Python version: %s" % sys.version)
-    log("Numpy version: %s" % np.__version__)
-    log("Scipy version: %s" % scipy.__version__)
-    log("Options: %s" % options)
-
-
-def _initialize_state_and_sigma_cond_for_main(options):
-    state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
-    sigma2_cond = options.sigma2_cond
-    return state, sigma2_cond
-
-
-def _maybe_load_gene_map_and_locs_for_main(state, options):
-    if options.gene_map_in:
-        state.read_gene_map(options.gene_map_in, options.gene_map_orig_gene_col, options.gene_map_new_gene_col)
-    if options.gene_loc_file:
-        state.init_gene_locs(options.gene_loc_file)
-
-
 def main():
 
     # ==========================================================================
     # Main Phase A: Runtime setup and global option echo.
     # ==========================================================================
-    _log_runtime_environment_for_main(options)
-    state, sigma2_cond = _initialize_state_and_sigma_cond_for_main(options)
+    if not options.hide_opts:
+        log("Python version: %s" % sys.version)
+        log("Numpy version: %s" % np.__version__)
+        log("Scipy version: %s" % scipy.__version__)
+        log("Options: %s" % options)
+    state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
+    sigma2_cond = options.sigma2_cond
 
     # ==========================================================================
     # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
     # ==========================================================================
     sigma2_cond = _configure_sigma_and_hyper_for_main(state, options, sigma2_cond)
-    _maybe_load_gene_map_and_locs_for_main(state, options)
+    if options.gene_map_in:
+        state.read_gene_map(options.gene_map_in, options.gene_map_orig_gene_col, options.gene_map_new_gene_col)
+    if options.gene_loc_file:
+        state.init_gene_locs(options.gene_loc_file)
 
     # ==========================================================================
     # Main Phase C: Input loading helpers (Y, then X/gene sets).
@@ -18344,23 +18294,36 @@ def main():
     # ==========================================================================
     # Main Phase D: Core model computation (betas, priors, outer Gibbs).
     # ==========================================================================
-    _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, sigma2_cond)
+    if not mode_state["run_huge"]:
+        _read_x_and_initialize_p_for_main(
+            state,
+            options,
+            None,
+            Y_not_loaded,
+            sigma2_cond,
+            mode_state,
+        )
+        if mode_state["run_sim"]:
+            state.run_sim(
+                sigma2=state.sigma2,
+                p=state.p,
+                sigma_power=state.sigma_power,
+                log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult,
+                treat_sigma2_as_sigma2_cond=False,
+                only_positive=options.sim_only_positive,
+            )
+        _compute_gene_set_stats_and_betas_for_main(state, options, mode_state)
+        _compute_priors_if_requested_for_main(state, options, mode_state)
+        _run_outer_gibbs_if_requested_for_main(state, options, mode_state)
 
     # ==========================================================================
     # Main Phase E: Output writers and optional downstream analyses.
     # ==========================================================================
-    _run_post_model_outputs_for_main(state, options, mode_state)
+    _write_primary_outputs_for_main(state, options)
+    _run_phewas_if_requested_for_main(state, options, mode_state)
 
     if options.params_out:
         state.write_params(options.params_out)
 
 if __name__ == '__main__':
-
-    #profiler = cProfile.Profile()
-    #profiler.enable()
-
-    #cProfile.run('main()')
     main()
-
-    #profiler.disable()
-    #profiler.dump_stats('output.prof')
