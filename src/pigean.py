@@ -1065,13 +1065,8 @@ def _make_mode_state():
         "run_priors": False,
         "run_naive_priors": False,
         "run_gibbs": False,
-        "run_factor": False,
         "run_phewas": False,
-        "run_naive_factor": False,
         "run_sim": False,
-        "use_phewas_for_factoring": False,
-        "factor_gene_set_x_pheno": False,
-        "expand_gene_sets": False,
     }
 
 
@@ -1097,161 +1092,6 @@ def _run_mode_naive_priors(_state, _options, _mode):
 
 def _run_mode_gibbs(_state, _options, _mode):
     _state["run_gibbs"] = True
-
-
-def _missing_factor_phewas_inputs(_options):
-    return _options.gene_set_phewas_stats_in is None or _options.gene_phewas_bfs_in is None
-
-
-def _resolve_factor_mode_for_anchor_genes(_options):
-    if _options.anchor_genes is None:
-        return None
-    if len(_options.anchor_genes) == 1:
-        factor_type = "single gene anchoring (to %s)" % _options.anchor_genes
-    else:
-        factor_type = "multiple gene anchoring (to %s)" % _options.anchor_genes
-    error = None
-    if _missing_factor_phewas_inputs(_options):
-        error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    return factor_type, error
-
-
-def _resolve_factor_mode_for_anchor_any_gene(_options):
-    if not _options.anchor_any_gene:
-        return None
-    factor_type = "any gene anchoring"
-    error = None
-    if _missing_factor_phewas_inputs(_options):
-        error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    return factor_type, error
-
-
-def _resolve_factor_mode_for_anchor_gene_set(_options):
-    if not _options.anchor_gene_set:
-        return None
-    factor_type = "gene set anchoring (to input phenotype/gene set)"
-    error = None
-    if _options.run_phewas_from_gene_phewas_stats_in is None:
-        error = "Require --run-phewas-from-gene-phewas-stats"
-    return factor_type, error
-
-
-def _resolve_factor_mode_for_anchor_phenos(_options):
-    if _options.anchor_phenos is None:
-        return None
-    if len(_options.anchor_phenos) == 1:
-        factor_type = "single phenotype anchoring (to %s) but with phewas statistics used" % _options.anchor_phenos
-    else:
-        factor_type = "multiple phenotype anchoring (to %s)" % _options.anchor_phenos
-    error = None
-    if _missing_factor_phewas_inputs(_options):
-        error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    return factor_type, error
-
-
-def _resolve_factor_mode_for_anchor_any_pheno(_options):
-    if not _options.anchor_any_pheno:
-        return None
-    factor_type = "any phenotype anchoring"
-    error = None
-    if _missing_factor_phewas_inputs(_options):
-        error = "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    return factor_type, error
-
-
-def _resolve_factor_mode_default(_options):
-    factor_type = "single phenotype anchoring (to %s) using default statistics" % _options.anchor_phenos
-    if _options.gene_set_phewas_stats_in is not None or _options.gene_phewas_bfs_in is not None:
-        factor_type = "%s. Will project using %s" % (factor_type, _options.gene_set_phewas_stats_in if _options.gene_set_phewas_stats_in is not None else _options.gene_phewas_bfs_in)
-    return factor_type, None
-
-
-def _resolve_factor_mode_requirements(_options):
-    for resolver in (
-        _resolve_factor_mode_for_anchor_genes,
-        _resolve_factor_mode_for_anchor_any_gene,
-        _resolve_factor_mode_for_anchor_gene_set,
-        _resolve_factor_mode_for_anchor_phenos,
-        _resolve_factor_mode_for_anchor_any_pheno,
-    ):
-        resolved = resolver(_options)
-        if resolved is not None:
-            return resolved
-    return _resolve_factor_mode_default(_options)
-
-
-def _has_direct_y_inputs_for_factor_warning(_options):
-    return (
-        _options.gene_set_stats_in
-        or _options.gwas_in
-        or _options.huge_statistics_in
-        or _options.exomes_in
-        or _options.positive_controls_in
-        or _options.positive_controls_list is not None
-        or _options.case_counts_in
-    )
-
-
-def _factor_mode_ignore_warning_message(_state, _options):
-    if ((_state["use_phewas_for_factoring"] or _state["factor_gene_set_x_pheno"]) and not _options.anchor_gene_set):
-        if _state["use_phewas_for_factoring"]:
-            return "Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode"
-        if _state["factor_gene_set_x_pheno"]:
-            return "Ignoring all arguments for reading Y or reading betas in --anchor-genes mode"
-    return None
-
-
-def _warn_if_factor_mode_ignores_y_inputs(_state, _options):
-    if not _has_direct_y_inputs_for_factor_warning(_options):
-        return
-    warning_msg = _factor_mode_ignore_warning_message(_state, _options)
-    if warning_msg is not None:
-        warn(warning_msg)
-
-
-def _is_factor_gene_set_x_pheno_mode(_options):
-    return _options.anchor_genes or _options.anchor_any_gene or _options.anchor_gene_set
-
-
-def _is_factor_phewas_mode(_options):
-    return _options.anchor_phenos is not None or _options.anchor_any_pheno or _options.anchor_genes is not None or _options.anchor_any_gene
-
-
-def _is_factor_expand_mode(_options):
-    return _options.anchor_genes is not None and len(_options.anchor_genes) > 1
-
-
-def _is_naive_factor_mode_requested(_options, _mode):
-    return _options.add_gene_sets_by_naive is not None or _mode == "naive_factor"
-
-
-def _set_factor_mode_state_flags(_state, _options, _mode):
-    _state["run_factor"] = True
-    if _is_naive_factor_mode_requested(_options, _mode):
-        _state["run_naive_factor"] = True
-    _state["factor_gene_set_x_pheno"] = _is_factor_gene_set_x_pheno_mode(_options)
-    _state["use_phewas_for_factoring"] = _is_factor_phewas_mode(_options)
-    _state["expand_gene_sets"] = _is_factor_expand_mode(_options)
-
-
-def _warn_if_factor_expand_options_are_ignored(_state, _options):
-    if (_options.add_gene_sets_by_enrichment_p is not None or _options.add_gene_sets_by_fraction is not None or _options.add_gene_sets_by_naive is not None or _options.add_gene_sets_by_gibbs is not None) and not _state["expand_gene_sets"]:
-        warn("Ignoring options to add gene sets based on association with anchor genes because only 1 anchor gene was specified")
-
-
-def _validate_and_log_factor_mode_requirements(_factor_type, _error):
-    if _error is not None:
-        bail("Cannot run factoring type: %s. %s" % (_factor_type, _error))
-    log("Running factoring type: %s" % _factor_type)
-
-
-def _run_mode_factor(_state, _options, _mode):
-    _set_factor_mode_state_flags(_state, _options, _mode)
-    factor_type, error = _resolve_factor_mode_requirements(_options)
-    _warn_if_factor_expand_options_are_ignored(_state, _options)
-    _validate_and_log_factor_mode_requirements(factor_type, error)
-    _warn_if_factor_mode_ignores_y_inputs(_state, _options)
-
 
 def _run_mode_sim(_state, _options, _mode):
     _state["run_sim"] = True
@@ -1320,9 +1160,7 @@ def _apply_pops_mode_defaults(_options):
     _set_default_option(_options, "sparse_solution", False)
 
 
-def _default_prune_gene_sets_value_for_non_pops(_run_factor, _factor_gene_set_x_pheno):
-    if _run_factor and _factor_gene_set_x_pheno:
-        return 0.5
+def _default_prune_gene_sets_value_for_non_pops():
     return 0.8
 
 
@@ -1344,8 +1182,8 @@ def _apply_non_pops_core_defaults(_options):
     _set_default_option(_options, "sparse_solution", True)
 
 
-def _apply_non_pops_pruning_defaults(_options, _run_factor, _factor_gene_set_x_pheno):
-    default_prune = _default_prune_gene_sets_value_for_non_pops(_run_factor, _factor_gene_set_x_pheno)
+def _apply_non_pops_pruning_defaults(_options):
+    default_prune = _default_prune_gene_sets_value_for_non_pops()
     if _options.prune_gene_sets is None:
         _options.prune_gene_sets = default_prune
 
@@ -1353,28 +1191,20 @@ def _apply_non_pops_pruning_defaults(_options, _run_factor, _factor_gene_set_x_p
         _options.weighted_prune_gene_sets = default_prune
 
 
-def _apply_non_pops_expand_override(_options, _run_factor, _factor_gene_set_x_pheno):
-    # Keep legacy condition semantics exactly as-is.
-    if _run_factor and _factor_gene_set_x_pheno is not None:
-        if _options.add_gene_sets_by_enrichment_p is not None:
-            _options.filter_gene_set_p = _options.add_gene_sets_by_enrichment_p
-
-
-def _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_pheno):
+def _apply_non_pops_mode_defaults(_options):
     _apply_non_pops_core_defaults(_options)
-    _apply_non_pops_pruning_defaults(_options, _run_factor, _factor_gene_set_x_pheno)
-    _apply_non_pops_expand_override(_options, _run_factor, _factor_gene_set_x_pheno)
+    _apply_non_pops_pruning_defaults(_options)
 
 
 def _is_pops_like_mode(_mode):
     return _mode == "pops" or _mode == "naive_pops"
 
 
-def _apply_mode_defaults(_options, _mode, _run_factor, _factor_gene_set_x_pheno):
+def _apply_mode_defaults(_options, _mode):
     if _is_pops_like_mode(_mode):
         _apply_pops_mode_defaults(_options)
     else:
-        _apply_non_pops_mode_defaults(_options, _run_factor, _factor_gene_set_x_pheno)
+        _apply_non_pops_mode_defaults(_options)
 
 
 _GIBBS_STOPPING_PRESETS = {
@@ -1422,7 +1252,7 @@ def _apply_gibbs_stopping_defaults(_options):
 
 
 def _apply_post_parse_mode_and_stopping_defaults(_options, _mode, _mode_state):
-    _apply_mode_defaults(_options, _mode, _mode_state["run_factor"], _mode_state["factor_gene_set_x_pheno"])
+    _apply_mode_defaults(_options, _mode)
     _apply_gibbs_stopping_defaults(_options)
 
 def _flag_present_in_argv(_argv, *flag_names):
@@ -19522,20 +19352,6 @@ def _build_read_gene_set_statistics_kwargs_for_main(options, return_only_ids=Fal
     )
 
 
-def _build_read_gene_set_phewas_statistics_kwargs_for_main(options, return_only_ids=False, phenos_to_match=None):
-    return dict(
-        stats_id_col=options.gene_set_phewas_stats_id_col,
-        stats_pheno_col=options.gene_set_phewas_stats_pheno_col,
-        stats_beta_col=options.gene_set_phewas_stats_beta_col,
-        stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col,
-        min_gene_set_beta=options.min_gene_set_read_beta,
-        min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
-        return_only_ids=return_only_ids,
-        phenos_to_match=phenos_to_match,
-        max_num_entries_at_once=options.max_read_entries_at_once,
-    )
-
-
 def _build_read_gene_phewas_bfs_kwargs_for_main(options):
     return dict(
         gene_phewas_bfs_in=options.gene_phewas_bfs_in,
@@ -19550,52 +19366,6 @@ def _build_read_gene_phewas_bfs_kwargs_for_main(options):
         min_value=options.min_gene_phewas_read_value,
         max_num_entries_at_once=options.max_read_entries_at_once,
     )
-
-
-def _should_prepare_factor_gene_set_ids_for_main(mode_state):
-    return mode_state["run_factor"]
-
-
-def _read_factor_gene_set_ids_from_gene_set_stats_for_main(state, options):
-    return state.read_gene_set_statistics(
-        options.gene_set_stats_in,
-        **_build_read_gene_set_statistics_kwargs_for_main(options, return_only_ids=True)
-    )
-
-
-def _read_factor_gene_set_ids_from_phewas_for_main(state, options):
-    if options.gene_set_phewas_stats_in is None:
-        bail("Need --gene-set-phewas-stats-in")
-    return state.read_gene_set_phewas_statistics(
-        options.gene_set_phewas_stats_in,
-        **_build_read_gene_set_phewas_statistics_kwargs_for_main(
-            options,
-            return_only_ids=True,
-            phenos_to_match=options.anchor_phenos,
-        )
-    )
-
-
-def _log_factor_gene_set_id_prefilter_for_main(gene_set_ids):
-    if gene_set_ids is not None:
-        log("Will read %d gene sets" % (len(gene_set_ids)), DEBUG)
-
-
-def _prepare_factor_gene_set_ids_for_main(state, options, mode_state):
-    if not _should_prepare_factor_gene_set_ids_for_main(mode_state):
-        return None
-
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-    gene_set_ids = None
-    # here we are only getting the IDs we'll keep.
-    # it saves time in read_X since we can skip gene sets not in these files.
-    if options.gene_set_stats_in is not None and not use_phewas_for_factoring:
-        gene_set_ids = _read_factor_gene_set_ids_from_gene_set_stats_for_main(state, options)
-    elif use_phewas_for_factoring:
-        gene_set_ids = _read_factor_gene_set_ids_from_phewas_for_main(state, options)
-
-    _log_factor_gene_set_id_prefilter_for_main(gene_set_ids)
-    return gene_set_ids
 
 
 # ==========================================================================
@@ -19834,64 +19604,30 @@ def _build_read_y_source_kwargs_for_main(options):
     return kwargs
 
 
-def _should_seed_positive_controls_for_expand_for_main(options, mode_state):
-    return (
-        mode_state["run_factor"]
-        and mode_state["expand_gene_sets"]
-        and (
-            options.add_gene_sets_by_enrichment_p is not None
-            or options.add_gene_sets_by_naive is not None
-            or options.add_gene_sets_by_gibbs is not None
-        )
-    )
-
-
-def _compute_extend_for_gene_for_main(options, mode_state):
-    #we need to use it if we are anchoring to a gene only if we are going to use the phewas results to factor
-    return (
-        mode_state["run_factor"]
-        and mode_state["use_phewas_for_factoring"]
-        and options.anchor_genes is not None
-        and (
-            options.add_gene_sets_by_enrichment_p is not None
-            or options.add_gene_sets_by_naive is not None
-            or options.add_gene_sets_by_gibbs is not None
-        )
-    )
-
-
-def _mode_requires_initial_y_load_for_main(mode_state, extend_for_gene):
-    run_factor = mode_state["run_factor"]
+def _mode_requires_initial_y_load_for_main(mode_state):
     run_huge = mode_state["run_huge"]
     run_beta_tilde = mode_state["run_beta_tilde"]
     run_beta = mode_state["run_beta"]
     run_priors = mode_state["run_priors"]
     run_naive_priors = mode_state["run_naive_priors"]
     run_gibbs = mode_state["run_gibbs"]
-    expand_gene_sets = mode_state["expand_gene_sets"]
     return (
-        (run_factor and expand_gene_sets and extend_for_gene)
-        or run_huge
+        run_huge
         or run_beta_tilde
         or run_beta
         or run_priors
         or run_naive_priors
         or run_gibbs
-        or run_factor
     )
 
 
-def _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
-    run_factor = mode_state["run_factor"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-    can_attempt_with_current_inputs = (not run_factor or not use_phewas_for_factoring or extend_for_gene)
-    return can_attempt_with_current_inputs and _mode_requires_initial_y_load_for_main(mode_state, extend_for_gene)
+def _should_attempt_initial_y_load_for_main(mode_state):
+    return _mode_requires_initial_y_load_for_main(mode_state)
 
 
-def _should_load_y_from_sources_for_main(options, extend_for_gene):
+def _should_load_y_from_sources_for_main(options):
     return (
-        extend_for_gene
-        or options.gwas_in
+        options.gwas_in
         or options.huge_statistics_in
         or options.exomes_in
         or options.positive_controls_in
@@ -19900,10 +19636,9 @@ def _should_load_y_from_sources_for_main(options, extend_for_gene):
     )
 
 
-def _should_apply_gene_list_defaults_before_source_y_load_for_main(options, use_phewas_for_factoring):
+def _should_apply_gene_list_defaults_before_source_y_load_for_main(options):
     return (
-        not use_phewas_for_factoring
-        and options.gwas_in is None
+        options.gwas_in is None
         and options.huge_statistics_in is None
         and options.exomes_in is None
         and options.case_counts_in is None
@@ -19914,8 +19649,8 @@ def _load_initial_y_from_gene_stats_for_main(state, options):
     state.read_Y(**_build_read_y_gene_bfs_kwargs_for_main(options))
 
 
-def _load_initial_y_from_sources_for_main(state, options, use_phewas_for_factoring):
-    if _should_apply_gene_list_defaults_before_source_y_load_for_main(options, use_phewas_for_factoring):
+def _load_initial_y_from_sources_for_main(state, options):
+    if _should_apply_gene_list_defaults_before_source_y_load_for_main(options):
         _default_for_gene_list_options(options)
     state.read_Y(**_build_read_y_source_kwargs_for_main(options))
 
@@ -19926,12 +19661,12 @@ def _load_initial_y_from_gene_phewas_for_main(state, options):
     state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
 
 
-def _attempt_initial_y_load_for_main(state, options, extend_for_gene, use_phewas_for_factoring):
-    if not extend_for_gene and options.gene_stats_in:
+def _attempt_initial_y_load_for_main(state, options):
+    if options.gene_stats_in:
         _load_initial_y_from_gene_stats_for_main(state, options)
         return False
-    if _should_load_y_from_sources_for_main(options, extend_for_gene):
-        _load_initial_y_from_sources_for_main(state, options, use_phewas_for_factoring)
+    if _should_load_y_from_sources_for_main(options):
+        _load_initial_y_from_sources_for_main(state, options)
         return False
     if options.betas_uncorrected_from_phewas:
         _load_initial_y_from_gene_phewas_for_main(state, options)
@@ -19944,25 +19679,12 @@ def _load_initial_y_inputs_for_main(
     options,
     mode_state,
 ):
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-
-    # For factor mode with gene-set expansion, seed Y from anchor genes first.
-    if _should_seed_positive_controls_for_expand_for_main(options, mode_state):
-        #we are going to use the machinery of betas/gibbs to expand the gene list
-        #even though internally this will be stored as betas/priors/etc, we will not be factoring this
-        #these will be overwritten during the factoring
-        options.positive_controls_list = options.anchor_genes
-        _default_for_gene_list_options(options)
-
-    #we don't need to read in any matrices if we are anchoring to phenotypes, because those will use the (later) phewas files
-    extend_for_gene = _compute_extend_for_gene_for_main(options, mode_state)
-
-    if not _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
+    if not _should_attempt_initial_y_load_for_main(mode_state):
         return False
 
     #else:
     #    bail("Need --gwas-in or --exomes-in or --gene-stats-in")
-    return _attempt_initial_y_load_for_main(state, options, extend_for_gene, use_phewas_for_factoring)
+    return _attempt_initial_y_load_for_main(state, options)
 
 
 def _read_x_and_initialize_p_for_main(
@@ -20071,31 +19793,19 @@ def _build_read_x_kwargs_for_iteration_for_main(
 
 
 def _is_pre_beta_read_x_mode_for_main(mode_state):
-    return mode_state["run_huge"] or mode_state["run_beta_tilde"] or mode_state["run_factor"]
+    return mode_state["run_huge"] or mode_state["run_beta_tilde"]
 
 
 def _is_beta_or_later_stage_requested_for_main(mode_state):
     return mode_state["run_beta"] or mode_state["run_priors"] or mode_state["run_naive_priors"] or mode_state["run_gibbs"]
 
 
-def _can_skip_factor_betas_for_read_x_for_main(mode_state, options, Y_not_loaded):
-    run_factor = mode_state["run_factor"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-    return (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded)
-
-
 def _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded):
-    return _is_pre_beta_read_x_mode_for_main(mode_state) and (not _is_beta_or_later_stage_requested_for_main(mode_state)) and _can_skip_factor_betas_for_read_x_for_main(mode_state, options, Y_not_loaded)
+    return _is_pre_beta_read_x_mode_for_main(mode_state) and (not _is_beta_or_later_stage_requested_for_main(mode_state))
 
 
 def _compute_genes_to_include_for_read_x_for_main(mode_state, options):
-    run_factor = mode_state["run_factor"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-    genes_to_inc = None
-    if run_factor and use_phewas_for_factoring:
-        genes_to_inc = options.anchor_genes
-        options.max_num_gene_sets = None
-    return genes_to_inc
+    return None
 
 
 def _is_relaxed_reread_possible_for_read_x(state, options, gene_set_ids, filter_gene_set_p):
@@ -20600,161 +20310,18 @@ def _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
     )
 
 
-def _run_factor_if_requested_for_main(state, options, mode_state):
-    if not mode_state["run_factor"]:
-        return
-    expand_gene_sets = mode_state["expand_gene_sets"]
-    factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
-    _maybe_prune_gene_sets_for_factor_expand_for_main(state, options, expand_gene_sets)
-    gene_or_pheno_filter_value = _resolve_factor_gene_or_pheno_filter_value_for_main(options, factor_gene_set_x_pheno)
-    state.run_factor(**_build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value))
-
-
-def _maybe_prune_gene_sets_for_factor_expand_for_main(state, options, expand_gene_sets):
-    if not expand_gene_sets:
-        return
-    if options.add_gene_sets_by_naive is None and options.add_gene_sets_by_gibbs is None:
-        return
-
-    assert(state.betas_uncorrected is not None)
-    prune_label = "gibbs" if options.add_gene_sets_by_gibbs is not None else "naive"
-    prune_threshold = options.add_gene_sets_by_gibbs if options.add_gene_sets_by_gibbs is not None else options.add_gene_sets_by_naive
-    #need to use external ones here
-    state.subset_gene_sets(state.betas_uncorrected / state.scale_factors > prune_threshold)
-    if len(state.gene_sets) == 0:
-        bail("Subsetting gene sets by %s removed all gene sets; try reducing threshold" % prune_label)
-    log("Pruning by %s resulted in %d gene sets; try reducing threshold" % (prune_label, len(state.gene_sets)), DEBUG)
-
-
-def _resolve_factor_gene_or_pheno_filter_value_for_main(options, factor_gene_set_x_pheno):
-    if options.anchor_gene_set:
-        return options.gene_set_pheno_filter_value
-    if factor_gene_set_x_pheno:
-        return options.pheno_filter_value
-    return options.gene_filter_value
-
-
-def _build_run_factor_structure_kwargs_for_main(options, gene_or_pheno_filter_value):
-    return dict(
-        max_num_factors=options.max_num_factors,
-        phi=options.phi,
-        alpha0=options.alpha0,
-        beta0=options.beta0,
-        gene_set_filter_value=options.gene_set_filter_value,
-        gene_or_pheno_filter_value=gene_or_pheno_filter_value,
-        pheno_prune_value=options.factor_prune_phenos_val,
-        pheno_prune_number=options.factor_prune_phenos_num,
-        gene_prune_value=options.factor_prune_genes_val,
-        gene_prune_number=options.factor_prune_genes_num,
-        gene_set_prune_value=options.factor_prune_gene_sets_val,
-        gene_set_prune_number=options.factor_prune_gene_sets_num,
-    )
-
-
-def _build_run_factor_anchor_kwargs_for_main(state, options):
-    return dict(
-        anchor_pheno_mask=state.anchor_pheno_mask,
-        anchor_gene_mask=state.anchor_gene_mask,
-        anchor_any_pheno=options.anchor_any_pheno,
-        anchor_any_gene=options.anchor_any_gene,
-        anchor_gene_set=options.anchor_gene_set,
-    )
-
-
-def _build_run_factor_output_kwargs_for_main(options):
-    return dict(
-        run_transpose=not options.no_transpose,
-        min_lambda_threshold=options.min_lambda_threshold,
-        lmm_auth_key=options.lmm_auth_key,
-        lmm_model=options.lmm_model,
-        label_gene_sets_only=options.label_gene_sets_only,
-        label_include_phenos=options.label_include_phenos,
-        label_individually=options.label_individually,
-        project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
-    )
-
-
-def _build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value):
-    kwargs = {}
-    kwargs.update(_build_run_factor_structure_kwargs_for_main(options, gene_or_pheno_filter_value))
-    kwargs.update(_build_run_factor_anchor_kwargs_for_main(state, options))
-    kwargs.update(_build_run_factor_output_kwargs_for_main(options))
-    return kwargs
-
-
-def _write_factor_matrix_outputs_for_main(state, options):
-    if options.factors_out is not None:
-        state.write_matrix_factors(options.factors_out)
-    if options.factors_anchor_out is not None:
-        state.write_matrix_factors(options.factors_anchor_out, write_anchor_specific=True)
-
-
-def _write_factor_cluster_outputs_for_main(state, options):
-    if options.gene_set_clusters_out is not None or options.gene_clusters_out is not None or options.pheno_clusters_out is not None:
-        state.write_clusters(options.gene_set_clusters_out, options.gene_clusters_out, options.pheno_clusters_out)
-    if options.gene_set_anchor_clusters_out is not None or options.gene_anchor_clusters_out is not None or options.pheno_anchor_clusters_out is not None:
-        state.write_clusters(options.gene_set_anchor_clusters_out, options.gene_anchor_clusters_out, options.pheno_anchor_clusters_out, write_anchor_specific=True)
-
-
-def _write_factor_stats_outputs_for_main(state, options):
-    if options.gene_pheno_stats_out is not None:
-        state.write_gene_pheno_statistics(options.gene_pheno_stats_out, min_value_to_print=options.max_no_write_gene_pheno)
-
-
-def _write_factor_outputs_for_main(state, options):
-    _write_factor_matrix_outputs_for_main(state, options)
-    _write_factor_cluster_outputs_for_main(state, options)
-    _write_factor_stats_outputs_for_main(state, options)
-
-
-def _resolve_factor_phewas_bfs_input_for_main(state, options):
-    bfs_to_use = options.factor_phewas_from_gene_phewas_stats_in
-    if _can_reuse_loaded_gene_phewas_bfs_for_factor_phewas_for_main(state, options, bfs_to_use):
-        #we can skip reading if we are using the same file as previously read and we didn't threshold that file
-        return None
-    return bfs_to_use
-
-
-def _write_factor_phewas_outputs_if_requested_for_main(state, options):
-    if options.factor_phewas_stats_out:
-        state.write_factor_phewas_statistics(options.factor_phewas_stats_out)
-
-
-def _run_factor_phewas_if_requested_for_main(state, options):
-    if options.factor_phewas_from_gene_phewas_stats_in is None:
-        return
-    if state.num_factors() <= 0:
-        log("No factors; not performing factor phewas")
-        return
-
-    bfs_to_use = _resolve_factor_phewas_bfs_input_for_main(state, options)
-    _run_gene_phewas_for_main(state, options, bfs_to_use, run_for_factors=True, batch_size=300, min_gene_factor_weight=options.factor_phewas_min_gene_factor_weight)
-    _write_factor_phewas_outputs_if_requested_for_main(state, options)
-
-
-def _can_reuse_loaded_gene_phewas_bfs_for_factor_phewas_for_main(state, options, bfs_to_use):
-    # Keep operator precedence aligned with legacy behavior.
-    return (options.gene_phewas_bfs_in is not None and bfs_to_use == options.gene_phewas_bfs_in) or (options.run_phewas_from_gene_phewas_stats_in is not None and bfs_to_use == options.run_phewas_from_gene_phewas_stats_in) and state.num_gene_phewas_filtered == 0
-
-
 def _compute_priors_if_requested_for_main(state, options, mode_state):
     run_priors = mode_state["run_priors"]
     run_naive_priors = mode_state["run_naive_priors"]
-    run_naive_factor = mode_state["run_naive_factor"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
     if run_priors:
         state.calculate_priors(**_build_priors_kwargs_for_main(options, state.p))
-    elif run_naive_priors or (run_naive_factor and not use_phewas_for_factoring):
+    elif run_naive_priors:
         state.calculate_naive_priors(adjust_priors=options.adjust_priors)
 
 
-def _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state):
-    run_factor = mode_state["run_factor"]
+def _run_outer_gibbs_if_requested_for_main(state, options, mode_state):
     run_gibbs = mode_state["run_gibbs"]
-    if run_factor and options.const_gene_log_bf is not None:
-        state.Y = np.full(len(state.genes), options.const_gene_log_bf)
-        state.combined_prior_Ys = np.full(len(state.genes), options.const_gene_log_bf)
-    elif run_gibbs or run_gibbs_for_factor:
+    if run_gibbs:
         state.run_gibbs(**_build_gibbs_kwargs_for_main(options))
 
 
@@ -20790,9 +20357,6 @@ def _needs_gene_set_stats_for_main(options, mode_state):
     run_priors = mode_state["run_priors"]
     run_naive_priors = mode_state["run_naive_priors"]
     run_gibbs = mode_state["run_gibbs"]
-    run_factor = mode_state["run_factor"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-    factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
     run_sim = mode_state["run_sim"]
     return (
         run_beta_tilde
@@ -20800,28 +20364,16 @@ def _needs_gene_set_stats_for_main(options, mode_state):
         or run_priors
         or run_naive_priors
         or run_gibbs
-        or (run_factor and not use_phewas_for_factoring and (options.anchor_gene_set is not None or not factor_gene_set_x_pheno))
-        or (run_factor and (options.add_gene_sets_by_naive or options.add_gene_sets_by_gibbs))
         or run_sim
     )
 
 
-def _should_use_constant_gene_set_beta_tildes_for_main(mode_state, options):
-    return mode_state["run_factor"] and options.const_gene_set_beta is not None
+def _should_use_constant_gene_set_beta_tildes_for_main(options):
+    return options.const_gene_set_beta is not None
 
 
-def _should_read_gene_set_stats_from_file_for_main(mode_state, options):
-    return options.gene_set_stats_in is not None and not mode_state["use_phewas_for_factoring"]
-
-
-def _resolve_factor_downstream_flags_from_gene_set_stats_for_main(mode_state):
-    run_beta_for_factor = False
-    run_gibbs_for_factor = False
-    if mode_state["run_factor"]:
-        run_beta_for_factor = True
-        if not mode_state["run_naive_factor"]:
-            run_gibbs_for_factor = True
-    return run_beta_for_factor, run_gibbs_for_factor
+def _should_read_gene_set_stats_from_file_for_main(options):
+    return options.gene_set_stats_in is not None
 
 
 def _calculate_gene_set_stats_for_main(state, options):
@@ -20834,28 +20386,13 @@ def _calculate_gene_set_stats_for_main(state, options):
 def _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state):
     # Resolve beta_tildes either from fixed values, read-in stats, or fresh fitting.
     needs_gene_set_stats = _needs_gene_set_stats_for_main(options, mode_state)
-    run_beta_for_factor = False
-    run_gibbs_for_factor = False
 
-    if _should_use_constant_gene_set_beta_tildes_for_main(mode_state, options):
+    if _should_use_constant_gene_set_beta_tildes_for_main(options):
         state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
-    elif _should_read_gene_set_stats_from_file_for_main(mode_state, options):
+    elif _should_read_gene_set_stats_from_file_for_main(options):
         state.read_gene_set_statistics(options.gene_set_stats_in, **_build_read_gene_set_statistics_kwargs_for_main(options))
     elif needs_gene_set_stats:
-        run_beta_for_factor, run_gibbs_for_factor = _resolve_factor_downstream_flags_from_gene_set_stats_for_main(mode_state)
         _calculate_gene_set_stats_for_main(state, options)
-
-    return run_beta_for_factor, run_gibbs_for_factor
-
-
-def _maybe_load_factor_side_inputs_for_main(state, options, mode_state):
-    # Load optional phewas-side inputs only when factor mode is active.
-    if not mode_state["run_factor"]:
-        return
-    if options.gene_set_phewas_stats_in is not None:
-        state.read_gene_set_phewas_statistics(options.gene_set_phewas_stats_in, **_build_read_gene_set_phewas_statistics_kwargs_for_main(options))
-    if options.gene_phewas_bfs_in:
-        state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
 
 
 def _build_beta_sampling_kwargs_for_main(options):
@@ -20885,12 +20422,12 @@ def _build_run_cross_val_kwargs_for_main(state, options):
     return kwargs
 
 
-def _needs_gene_set_betas_for_main(mode_state, run_beta_for_factor):
+def _needs_gene_set_betas_for_main(mode_state):
     run_beta = mode_state["run_beta"]
     run_priors = mode_state["run_priors"]
     run_naive_priors = mode_state["run_naive_priors"]
     run_gibbs = mode_state["run_gibbs"]
-    return run_beta or run_priors or run_naive_priors or run_gibbs or run_beta_for_factor
+    return run_beta or run_priors or run_naive_priors or run_gibbs
 
 
 def _set_constant_gene_set_betas_for_main(state, options):
@@ -20899,9 +20436,7 @@ def _set_constant_gene_set_betas_for_main(state, options):
 
 
 def _should_read_gene_set_betas_from_file_for_main(mode_state, options):
-    run_factor = mode_state["run_factor"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-    return (not run_factor or not use_phewas_for_factoring) and options.gene_set_betas_in
+    return options.gene_set_betas_in
 
 
 def _fit_gene_set_betas_for_main(state, options):
@@ -20917,11 +20452,9 @@ def _fit_gene_set_betas_for_main(state, options):
         state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
 
 
-def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_beta_for_factor):
+def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state):
     # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
-    run_factor = mode_state["run_factor"]
-
-    needs_gene_set_betas = _needs_gene_set_betas_for_main(mode_state, run_beta_for_factor)
+    needs_gene_set_betas = _needs_gene_set_betas_for_main(mode_state)
     if needs_gene_set_betas and state.sigma2 is None:
         bail("Sigma2 was not initialized; provide --sigma2 explicitly")
 
@@ -20929,7 +20462,7 @@ def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_b
         state.run_cross_val(options.cross_val_num_explore_each_direction, **_build_run_cross_val_kwargs_for_main(state, options))
 
     # Gene-set betas: fixed constant, loaded values, or fitted values.
-    if run_factor and options.const_gene_set_beta is not None:
+    if options.const_gene_set_beta is not None:
         _set_constant_gene_set_betas_for_main(state, options)
     elif _should_read_gene_set_betas_from_file_for_main(mode_state, options):
         state.read_betas(options.gene_set_betas_in)
@@ -20943,10 +20476,8 @@ def _compute_gene_set_stats_and_betas_for_main(
     options,
     mode_state,
 ):
-    run_beta_for_factor, run_gibbs_for_factor = _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state)
-    _maybe_load_factor_side_inputs_for_main(state, options, mode_state)
-    _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state, run_beta_for_factor)
-    return run_gibbs_for_factor
+    _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state)
+    _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state)
 
 
 def _run_simulation_if_requested_for_main(state, options, mode_state):
@@ -20963,7 +20494,7 @@ def _run_simulation_if_requested_for_main(state, options, mode_state):
 
 
 def _compute_gene_set_stage_for_main(state, options, mode_state):
-    return _compute_gene_set_stats_and_betas_for_main(
+    _compute_gene_set_stats_and_betas_for_main(
         state,
         options,
         mode_state,
@@ -20974,25 +20505,24 @@ def _compute_priors_stage_for_main(state, options, mode_state):
     _compute_priors_if_requested_for_main(state, options, mode_state)
 
 
-def _run_outer_gibbs_stage_for_main(state, options, mode_state, run_gibbs_for_factor):
-    _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state)
+def _run_outer_gibbs_stage_for_main(state, options, mode_state):
+    _run_outer_gibbs_if_requested_for_main(state, options, mode_state)
 
 
 def _run_priors_and_outer_gibbs_for_main(state, options, mode_state):
-    run_gibbs_for_factor = _compute_gene_set_stage_for_main(state, options, mode_state)
+    _compute_gene_set_stage_for_main(state, options, mode_state)
     _compute_priors_stage_for_main(state, options, mode_state)
-    _run_outer_gibbs_stage_for_main(state, options, mode_state, run_gibbs_for_factor)
+    _run_outer_gibbs_stage_for_main(state, options, mode_state)
 
 
 def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, sigma2_cond):
     if mode_state["run_huge"]:
         return
 
-    gene_set_ids = _prepare_factor_gene_set_ids_for_main(state, options, mode_state)
     _read_x_and_initialize_p_for_main(
         state,
         options,
-        gene_set_ids,
+        None,
         Y_not_loaded,
         sigma2_cond,
         mode_state,
