@@ -251,37 +251,20 @@ parser.add_option("","--gene-set-overlap-stats-out",default=None)
 parser.add_option("","--gene-covs-out",default=None)
 parser.add_option("","--gene-effectors-out",default=None)
 parser.add_option("","--phewas-stats-out",default=None)
-parser.add_option("","--factors-out",default=None)
-parser.add_option("","--factors-anchor-out",default=None)
-parser.add_option("","--gene-set-clusters-out",default=None)
-parser.add_option("","--gene-clusters-out",default=None)
-parser.add_option("","--pheno-clusters-out",default=None)
-parser.add_option("","--gene-set-anchor-clusters-out",default=None)
-parser.add_option("","--gene-anchor-clusters-out",default=None)
-parser.add_option("","--pheno-anchor-clusters-out",default=None)
-parser.add_option("","--factor-phewas-stats-out",default=None)
 
 #for beta calculation against additional traits
 parser.add_option("","--betas-from-phewas",action="store_true",default=False)
 parser.add_option("","--betas-uncorrected-from-phewas",action="store_true",default=False)
 
 
-#for pheno factoring
-parser.add_option("","--gene-pheno-stats-out",default=None)
-
 #run a phewas against the gene scores
 parser.add_option("","--run-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a phewas against. This is distinct from --factor-phewas-from-gene-phewas-stats-in because it does not do a phewas per any factors; it does a phewas across all of the genes
-
-#apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
-parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a factor phewas against
-parser.add_option("","--factor-phewas-min-gene-factor-weight",type=float,default=0.01) #if genes have max weight across factors less than this, remove them before running phewas
 
 #limit gene sets printed
 parser.add_option("","--max-no-write-gene-set-beta",type=float,default=None) #do not write gene sets to gene-set-stats-out that have absolute beta values of this or lower
 parser.add_option("","--max-no-write-gene-gene-set-beta",type=float,default=0) #do not write gene sets to gene-gene-set-stats-out that have absolute beta values of this or lower
 parser.add_option("","--use-beta-uncorrected-for-gene-gene-set-write-filter",action="store_true",default=False) #filter on beta uncorrected rather than beta when filtering gene/gene set pairs to write
 parser.add_option("","--max-no-write-gene-set-beta-uncorrected",type=float,default=None) #do not write gene sets to gene-set-stats-out that have absolute beta values of this or lower
-parser.add_option("","--max-no-write-gene-pheno",type=float,default=0) #write only gene-pheno pairs if one value in the row is higher than this
 
 #output for parameters
 parser.add_option("","--params-out",default=None)
@@ -410,72 +393,7 @@ parser.add_option("","--no-update-huge-scores",default=True,action='store_false'
 parser.add_option("","--top-gene-prior",type=float,default=None) #specify the top prior we are expecting any of the genes to have (after all of the calculations)
 parser.add_option("","--increase-hyper-if-betas-below",type=float,default=None) #increase p if gene sets aren't significant enough
 
-#factor parameters
-parser.add_option("","--lmm-auth-key",default=None,type=str) #pass authorization key to enable LLM cluster labelling
-parser.add_option("","--lmm-model",default="gpt-4o-mini",type=str) #choose model
-parser.add_option("","--label-gene-sets-only",default=False,action="store_true") #use only gene sets (rather than genes and gene sets) for label
-parser.add_option("","--label-include-phenos",default=False,action="store_true") #add phenos to the labels (if --label-gene-sets-only is specified, the labelling will use just gene sets and phenos but skip genes). When doing phenotype based factoring, this (confusingly) adds genes rather than phenos, since phenotypes are the default thing used to label
-parser.add_option("","--label-individually",default=False,action="store_true") #generate separate labels from genes, phenos, and gene sets separately
-parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
-parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
-parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
-parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
-parser.add_option("","--gene-set-filter-value",type=float,default=0.01) #choose value of filter for gene sets. Will use beta uncorrected if available, otherwise beta, otherwise no filter
-parser.add_option("","--gene-filter-value",type=float,default=1) #choose value of filter for genes. Will use combined if available, then priors, then Y, then nothing. Used only when anchoring to a pheno(s) (or default)
-parser.add_option("","--pheno-filter-value",type=float,default=1) #choose value of filter for phenos. Used only when anchoring to genes
-parser.add_option("","--gene-set-pheno-filter-value",type=float,default=0.01) #choose value of filter for gene set anchoring
-parser.add_option("","--no-transpose",action='store_true') #factor original X rather than tranpose
-parser.add_option("","--min-lambda-threshold",type=float,default=1e-3) #remove factors with lambdak values below this threshold, or sum(gene loadings) below this threshold, or sum(gene set loadings) below this threshold
-
-#options for controlling factoring behavior
-#Factoring decomposes the gene set x gene matrix or gene set x phenotype matrix while weighting matrix entries specific to an "anchor". An "anchor" can be either a single or set of phenotypes, or a single or set of genes
-#
-#Options for phenotype-based anchoring of factoring
-#1. By default, factoring will be performed across the gene set x gene matrix and weighted by the gene combined scores or the gene set beta scores. We refer to this as "single phenotype anchoring" since the weights are based on associations of the genes and gene sets with the phenotype.
-#   These will be computed as in a normal PIGEAN run, using --gwas-in or --positive-controls-in or --exomes-in or --gene-stats-in etc.
-#   To specify this behavior, simply run factor (or factor_naive to generate betas and combined scores using the incorrect but faster naive approach)
-#   Matrix to be factored is (probability gene relevant to anchor phenotype) * (probability gene set contains gene) * (probability that gene set is relevant to anchor phenotype)
-#   Gene anchor loadings are (probability gene relevant to anchor phenotype) * (probability pathway contains gene) and gene set anchor loadings (probability that gene set interrogates pathway) * (probability that pathway is relevant to anchor phenotype)
-#   Factor relevance scores are probability factor is relevant to anchor phenotype
-#2. A special case of number 1 is to factor an input gene list. In this case, the gene list is treated like a "phenotype" and gene/gene set scores are determined that predict membership in it. So even though it is a gene list, it is *unrelated* to the gene sets used to construct the matrix. Semantically, it is equivalent to single phenotype anchoring
-#   This is a way to decompose the gene set into distinct mechanisms and then (potentially) project it onto more phenotypes
-#   To run this, use the --positive-controls-in (which allows weighting of genes in the set) or the --positive-controls-list options
-#3. You can project the results of the "single phenotype anchoring" onto other phenotypes for which gene phewas or gene set phewas results are available. This will create factor loadings for all phenotypes in the file
-#   To run this, use the --gene-set-phewas-stats-in option or the --gene-phewas-stats-in options alongside the factor command. If both --gene-set-phewas-stats-in and --gene-phewas-stats-in are specified, --gene-phewas-stats-in will be ignored and --gene-set-phewas-in will be used.
-#   The factor command must include a way to obtain betas (e.g. as in a normal PIGEAN run) or you will get different behavior.
-#   The interpretation of phenotype anchor loadings file is (probability phenotype associated with pathway) under this setting
-#4. You can run a "multiple phenotype anchoring" factoring in which case the factorization will maximize the similarity of the approximated matrix to an input tensor, which is the input gene set x gene matrix projected along a third dimension (of length equal to the number of anchor phenotypes). Each matrix slice is obtained by the gene set x gene matrix (with entries equal to gene set weights) multiplied by the gene probabilities and gene set probabilities for the corresponding anchor phenotype.
-#   There will be multiple loadings for each gene, gene set, and factor per anchor phenotype (interpretable identically to the single phenotype anchoring case), each sharing a core indicator loading multiplied by the gene or gene set probability. All phenotypes will be automatically projected as well as a part of this
-#   To specify this behavior, run by passing in both --gene-phewas-stats-in and --gene-set-phewas-stats-in alongside factor model. Any other arguments to compute betas will be ignored here. You must also specify --anchor-phenos to determine the subset of phenotypes in the --phewas-stats-in to anchor on
-#5. If you want to factor the entire gene by gene set matrix across all phenotypes in the --phewas-stats-in files, you specify the same flags as in the multiple phenotype anchoring case but replace --anchor-phenos with --anchor-any-pheno. This will not actually compute loadings for each phenotype, but rather will construct an "uber" phenotype that represents the probability that the gene or gene set is associated with any of the phenotypes.
-#   The interpretation is as above, but instead of terms for (probability that X is relevant to the anchor phenotype) there are terms for (probability that X is relevant to any of the phenotypes)
-#   You can use the flags --factor-prune-phenos-num or --factor-prune-phenos-val to reduce the number of phenotypes going into this analysis. --factor-prune-genes and --factor-prune-gene-sets are also important for limiting run time
-#
-#Options for gene-based anchoring of factoring
-#6. To factor a gene set x phenotype matrix, you must anchor to a gene to determine the phenotype relevance scores and which gene sets to include. This is called "single gene anchoring"
-#   You specify this behavior by passing in --gene-phewas-stats-in and --gene-set-phewas-stats-in (any flags for computing betas will be ignored) and then specifying --anchor-genes.
-#   The entries in the input matrix represent (probability that gene is associated with phenotype) * (probability that gene set is associated with phenotype)
-#   The anchor loadings files are, for phenotypes the (probability that the anchor gene is associated with phenotype) * (probability that phenotype is associated with the pathway) and, for gene sets, the (probability that the gene set interrogates the pathway)
-#7. You can pass multiple comma separated values to --anchor-genes to run "multiple gene anchoring" factoring which behaves analogously to the mulitple phenotype anchoring. In this case, you can choose how gene sets are included in the matrix (either --add-gene-sets-by-enrichment-p, --add-gene-sets-by-fraction, --add-gene-sets-by-naive, or --add-gene-sets-by-gibbs)
-#8. Finally, you can anchor across all genes using --anchor-any-gene. Just as for --anchor-any-pheno, this doesn't actually produce loadings for every anchor gene but instead uses weights for phenotypes corresponding to the probability that they are associated with any gene (these will usually be very close to 1)
-#   To reduce the size of the matrix going into the factoring, you can use --factor-prune-phenos-num or --factor-prune-phenos-val which will remove phenotypes just as in the case of --anchor-any-pheno
-#
-#Options for gene-set-based anchoring of factoring
-#9. You can factor the gene set x phenotype matrix if you specify --anchor-gene-set and pass in enough information to run a pheWAS
-#   You need to pass in either positive controls, a GWAS, exomes, or gene-bfs, and then specify --run-phewas-from-gene-phewas-stats-in. This will then load the phewas statistics, which will then be used as weights in the factoring.
-#   This will produce a single weight for the entire gene set, which is distinct from --anchor-gene [gene set] which will produce weights for each gene in the gene set as part of the factoring.
-#   The entries in the input matrix represent (probability input gene set is associated with phenotype) * (probability that the input gene set is associated with gene set).
-#   The anchor loadings will be (probability input gene set is associated with phenotype) * (probability that the phenotype is associated with the pathway) and (probability that the gene set interrogates the gene) * (probability that the gene set is associated with the input gene set)
-
-#Note that the signle pheno anchoring with a gene list (option 2) and the multiple gene anchoring with the same gene list (option 7) both take a gene set as input, produce factors, and loadings across genes, phenos, and gene sets. The difference is in the interpretation of the factors. In the former case (option 2), the pathways are chosen to explain why each gene is in each gene set, with genes and gene sets weighted by similarity to the gene list. In the latter case (option 7), the pathways are chosen to explain why each pathway is associated with each phenotype, with phenotypes weighted according to how associated they are with each gene in the gene list
-
-
-parser.add_option("","--gene-set-phewas-stats-in",default=None)
-parser.add_option("","--gene-set-phewas-stats-id-col",default="Gene_Set")
-parser.add_option("","--gene-set-phewas-stats-beta-col",default=None)
-parser.add_option("","--gene-set-phewas-stats-beta-uncorrected-col",default=None)
-parser.add_option("","--gene-set-phewas-stats-pheno-col",default=None)
-
+# Gene-level phewas statistics input (used by --run-phewas-from-gene-phewas-stats-in).
 parser.add_option("","--gene-phewas-bfs-in",default=None)
 parser.add_option("","--gene-phewas-stats-in",dest="gene_phewas_bfs_in",default=None)
 parser.add_option("","--gene-phewas-bfs-id-col",default=None)
@@ -490,28 +408,6 @@ parser.add_option("","--gene-phewas-bfs-pheno-col",default=None)
 parser.add_option("","--gene-phewas-stats-pheno-col",default=None,dest="gene_phewas_bfs_pheno_col")
 parser.add_option("","--min-gene-phewas-read-value",type="float",default=1)
 parser.add_option("","--gene-phewas-id-to-X-id",default=None) #mapping from gene ids in the phewas file to gene ids in the gmt
-parser.add_option("","--project-phenos-from-gene-sets",action='store_true',default=False) #use gene set scores to project pheno loadings rather than gene scores. Note that this will also have the side effect of conditioning the regression only on the gene sets in the model rather than all gene sets
-
-parser.add_option("","--anchor-phenos",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple pheno anchoring
-parser.add_option("","--anchor-pheno",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None,dest="anchor_phenos") #run single or multiple pheno anchoring
-parser.add_option("","--anchor-any-pheno",action="store_true",default=False) #flatten all phenotypes into an uber weight
-parser.add_option("","--anchor-genes",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple gene anchoring
-parser.add_option("","--anchor-gene",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None,dest="anchor_genes") #run single or multiple gene anchoring
-parser.add_option("","--anchor-any-gene",action="store_true",default=False) #update phenotype associations to essentially be uniformly 1
-parser.add_option("","--anchor-gene-set",action="store_true",default=False) #run gene set anchoring
-
-parser.add_option("","--factor-prune-phenos-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce phenotypes by including only this many (add an independent set). Phenotypes will be sorted by average probability across genes
-parser.add_option("","--factor-prune-phenos-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce phenotypes by pruning those more correlated than this value. Phenotypes will be sorted by average probability across genes
-parser.add_option("","--factor-prune-genes-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce genes by including only this many (add an independent set). Genes will be sorted by average probability across phenotypes
-parser.add_option("","--factor-prune-genes-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce genes by pruning those more correlated than this value. Genes will be sorted by average probability across phenotypes
-parser.add_option("","--factor-prune-gene-sets-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by including only this many (add an independent set). Gene sets will be sorted by maximum association across phenotypes
-parser.add_option("","--factor-prune-gene-sets-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by pruning those more correlated than this value. Gene sets will be sorted by maximum assoication across phenotypes
-
-
-parser.add_option("","--add-gene-sets-by-enrichment-p",type='float',default=None) #when running multiple gene anchoring, add in gene sets that pass the enrichment filters. Filter according to p-value
-parser.add_option("","--add-gene-sets-by-fraction",type="float",default=None) #when running multiple gene anchoring, add in gene sets that have this fraction of input genes
-parser.add_option("","--add-gene-sets-by-naive",type="float",default=None) #when running multiple gene anchoring, add in gene sets with beta_uncorrected above this threshold after naive
-parser.add_option("","--add-gene-sets-by-gibbs",type="float",default=None) #when running multiple gene anchoring, add in gene sets with beta_uncorrected above this threshold after gibbs
 
 #simulation parameters
 parser.add_option("","--sim-log-bf-noise-sigma-mult",type=float,default=0) #noise to add to simulations (in standard devs)
@@ -758,6 +654,8 @@ def _validate_config_key_not_removed(_raw_key, _config_path):
     if normalized_config_key not in REMOVED_OPTION_REPLACEMENTS:
         return
     replacement = REMOVED_OPTION_REPLACEMENTS[normalized_config_key]
+    if replacement == "__MOVED_TO_EAGGL__":
+        bail("Config key '%s' moved to eaggl.py after repository split; run this in the eaggl repository" % _raw_key)
     if replacement is None:
         bail("Config key '%s' has been removed in %s and is no longer supported" % (_raw_key, _config_path))
     replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
@@ -926,6 +824,58 @@ REMOVED_OPTION_REPLACEMENTS = {
     "stall_min_post_burn_in": "--stall-min-post-burn-samples",
     "burn_in_post_reserve": "--min-num-post-burn-in",
     "min_post_burn_in": "--min-num-post-burn-in",
+    # moved to eaggl after repository split
+    "factors_out": "__MOVED_TO_EAGGL__",
+    "factors_anchor_out": "__MOVED_TO_EAGGL__",
+    "gene_set_clusters_out": "__MOVED_TO_EAGGL__",
+    "gene_clusters_out": "__MOVED_TO_EAGGL__",
+    "pheno_clusters_out": "__MOVED_TO_EAGGL__",
+    "gene_set_anchor_clusters_out": "__MOVED_TO_EAGGL__",
+    "gene_anchor_clusters_out": "__MOVED_TO_EAGGL__",
+    "pheno_anchor_clusters_out": "__MOVED_TO_EAGGL__",
+    "factor_phewas_stats_out": "__MOVED_TO_EAGGL__",
+    "gene_pheno_stats_out": "__MOVED_TO_EAGGL__",
+    "factor_phewas_from_gene_phewas_stats_in": "__MOVED_TO_EAGGL__",
+    "factor_phewas_min_gene_factor_weight": "__MOVED_TO_EAGGL__",
+    "lmm_auth_key": "__MOVED_TO_EAGGL__",
+    "lmm_model": "__MOVED_TO_EAGGL__",
+    "label_gene_sets_only": "__MOVED_TO_EAGGL__",
+    "label_include_phenos": "__MOVED_TO_EAGGL__",
+    "label_individually": "__MOVED_TO_EAGGL__",
+    "max_num_factors": "__MOVED_TO_EAGGL__",
+    "phi": "__MOVED_TO_EAGGL__",
+    "alpha0": "__MOVED_TO_EAGGL__",
+    "beta0": "__MOVED_TO_EAGGL__",
+    "gene_set_filter_value": "__MOVED_TO_EAGGL__",
+    "gene_filter_value": "__MOVED_TO_EAGGL__",
+    "pheno_filter_value": "__MOVED_TO_EAGGL__",
+    "gene_set_pheno_filter_value": "__MOVED_TO_EAGGL__",
+    "no_transpose": "__MOVED_TO_EAGGL__",
+    "min_lambda_threshold": "__MOVED_TO_EAGGL__",
+    "gene_set_phewas_stats_in": "__MOVED_TO_EAGGL__",
+    "gene_set_phewas_stats_id_col": "__MOVED_TO_EAGGL__",
+    "gene_set_phewas_stats_beta_col": "__MOVED_TO_EAGGL__",
+    "gene_set_phewas_stats_beta_uncorrected_col": "__MOVED_TO_EAGGL__",
+    "gene_set_phewas_stats_pheno_col": "__MOVED_TO_EAGGL__",
+    "project_phenos_from_gene_sets": "__MOVED_TO_EAGGL__",
+    "anchor_phenos": "__MOVED_TO_EAGGL__",
+    "anchor_pheno": "__MOVED_TO_EAGGL__",
+    "anchor_any_pheno": "__MOVED_TO_EAGGL__",
+    "anchor_genes": "__MOVED_TO_EAGGL__",
+    "anchor_gene": "__MOVED_TO_EAGGL__",
+    "anchor_any_gene": "__MOVED_TO_EAGGL__",
+    "anchor_gene_set": "__MOVED_TO_EAGGL__",
+    "factor_prune_phenos_num": "__MOVED_TO_EAGGL__",
+    "factor_prune_phenos_val": "__MOVED_TO_EAGGL__",
+    "factor_prune_genes_num": "__MOVED_TO_EAGGL__",
+    "factor_prune_genes_val": "__MOVED_TO_EAGGL__",
+    "factor_prune_gene_sets_num": "__MOVED_TO_EAGGL__",
+    "factor_prune_gene_sets_val": "__MOVED_TO_EAGGL__",
+    "add_gene_sets_by_enrichment_p": "__MOVED_TO_EAGGL__",
+    "add_gene_sets_by_fraction": "__MOVED_TO_EAGGL__",
+    "add_gene_sets_by_naive": "__MOVED_TO_EAGGL__",
+    "add_gene_sets_by_gibbs": "__MOVED_TO_EAGGL__",
+    "max_no_write_gene_pheno": "__MOVED_TO_EAGGL__",
 }
 
 def _fail_removed_cli_aliases(_argv):
@@ -936,6 +886,9 @@ def _fail_removed_cli_aliases(_argv):
         _normalized = _flag[2:].replace("-", "_")
         if _normalized in REMOVED_OPTION_REPLACEMENTS:
             replacement = REMOVED_OPTION_REPLACEMENTS[_normalized]
+            if replacement == "__MOVED_TO_EAGGL__":
+                sys.stderr.write("Error: option %s moved to eaggl.py after repository split; run this in the eaggl repository\n" % _flag)
+                sys.exit(2)
             if replacement is None:
                 sys.stderr.write("Error: option %s has been removed and is no longer supported\n" % _flag)
                 sys.exit(2)
@@ -946,43 +899,6 @@ def _enforce_pigean_mode_ownership(_mode):
     factor_modes = set(["factor", "naive_factor"])
     if _mode in factor_modes:
         bail("Mode '%s' is not available in pigean.py after repository split; run this in the eaggl repository" % _mode)
-
-
-def _fail_if_factor_options_used_in_pigean(_options):
-    # Factoring now lives in eaggl.py. Keep pigean focused on beta/priors/gibbs/phewas.
-    factor_only_option_checks = [
-        ("--gene-set-phewas-stats-in", _options.gene_set_phewas_stats_in is not None),
-        ("--anchor-phenos/--anchor-pheno", _options.anchor_phenos is not None),
-        ("--anchor-any-pheno", _options.anchor_any_pheno),
-        ("--anchor-genes/--anchor-gene", _options.anchor_genes is not None),
-        ("--anchor-any-gene", _options.anchor_any_gene),
-        ("--anchor-gene-set", _options.anchor_gene_set),
-        ("--factor-prune-phenos-num", _options.factor_prune_phenos_num is not None),
-        ("--factor-prune-phenos-val", _options.factor_prune_phenos_val is not None),
-        ("--factor-prune-genes-num", _options.factor_prune_genes_num is not None),
-        ("--factor-prune-genes-val", _options.factor_prune_genes_val is not None),
-        ("--factor-prune-gene-sets-num", _options.factor_prune_gene_sets_num is not None),
-        ("--factor-prune-gene-sets-val", _options.factor_prune_gene_sets_val is not None),
-        ("--add-gene-sets-by-enrichment-p", _options.add_gene_sets_by_enrichment_p is not None),
-        ("--add-gene-sets-by-fraction", _options.add_gene_sets_by_fraction is not None),
-        ("--add-gene-sets-by-naive", _options.add_gene_sets_by_naive is not None),
-        ("--add-gene-sets-by-gibbs", _options.add_gene_sets_by_gibbs is not None),
-        ("--project-phenos-from-gene-sets", _options.project_phenos_from_gene_sets),
-        ("--factors-out", _options.factors_out is not None),
-        ("--factors-anchor-out", _options.factors_anchor_out is not None),
-        ("--gene-set-clusters-out", _options.gene_set_clusters_out is not None),
-        ("--gene-clusters-out", _options.gene_clusters_out is not None),
-        ("--pheno-clusters-out", _options.pheno_clusters_out is not None),
-        ("--gene-set-anchor-clusters-out", _options.gene_set_anchor_clusters_out is not None),
-        ("--gene-anchor-clusters-out", _options.gene_anchor_clusters_out is not None),
-        ("--pheno-anchor-clusters-out", _options.pheno_anchor_clusters_out is not None),
-        ("--gene-pheno-stats-out", _options.gene_pheno_stats_out is not None),
-        ("--factor-phewas-from-gene-phewas-stats-in", _options.factor_phewas_from_gene_phewas_stats_in is not None),
-        ("--factor-phewas-stats-out", _options.factor_phewas_stats_out is not None),
-    ]
-    for flag_name, is_used in factor_only_option_checks:
-        if is_used:
-            bail("Option %s moved to eaggl.py after repository split; run this in the eaggl repository" % flag_name)
 
 def _parse_options_and_args_with_config(_parser, _argv):
     _fail_removed_cli_aliases(_argv)
@@ -1378,7 +1294,6 @@ def _finalize_options_after_parse(_options, _mode, _mode_state, _argv):
 
 
 mode_state = _resolve_mode_state(mode, options)
-_fail_if_factor_options_used_in_pigean(options)
 _finalize_options_after_parse(options, mode, mode_state, sys.argv[1:])
 
 def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
@@ -19357,8 +19272,6 @@ def _build_read_gene_phewas_bfs_kwargs_for_main(options):
         gene_phewas_bfs_in=options.gene_phewas_bfs_in,
         gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
         gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-        anchor_genes=options.anchor_genes,
-        anchor_phenos=options.anchor_phenos,
         gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
         gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
         gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
@@ -19865,7 +19778,7 @@ def _build_read_x_gene_set_selection_kwargs_for_main(options, gene_set_ids, gene
         max_gene_set_size=options.max_gene_set_size,
         only_ids=gene_set_ids,
         only_inc_genes=genes_to_inc,
-        fraction_inc_genes=options.add_gene_sets_by_fraction,
+        fraction_inc_genes=None,
         add_all_genes=options.add_all_genes,
     )
 

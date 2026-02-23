@@ -149,7 +149,7 @@ class PigeanCliTest(unittest.TestCase):
         proc = self._run("gibbs", "--factors-out", "factors.tsv")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("Option --factors-out moved to eaggl.py after repository split", err)
+        self.assertIn("option --factors-out moved to eaggl.py after repository split", err)
 
     def test_config_factor_option_disabled_in_pigean(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -161,7 +161,7 @@ class PigeanCliTest(unittest.TestCase):
             proc = self._run("--config", str(cfg_path))
             self.assertNotEqual(proc.returncode, 0)
             err = (proc.stderr or "") + (proc.stdout or "")
-            self.assertIn("Option --anchor-genes/--anchor-gene moved to eaggl.py after repository split", err)
+            self.assertIn("Config key 'anchor_genes' moved to eaggl.py after repository split", err)
 
 
 if __name__ == "__main__":
