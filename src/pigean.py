@@ -19999,7 +19999,7 @@ def _build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond,
     )
 
 
-def _build_read_x_hyper_and_sampling_kwargs_for_main(options):
+def _build_read_x_hyper_update_kwargs_for_main(options):
     return dict(
         update_hyper_p=options.update_hyper_p,
         update_hyper_sigma=options.update_hyper_sigma,
@@ -20009,9 +20009,19 @@ def _build_read_x_hyper_and_sampling_kwargs_for_main(options):
         first_for_sigma_cond=options.first_for_sigma_cond,
         sigma_num_devs_to_top=options.sigma_num_devs_to_top,
         p_noninf_inflate=options.p_noninf_inflate,
+    )
+
+
+def _build_read_x_text_parsing_kwargs_for_main(options):
+    return dict(
         batch_separator=options.batch_separator,
         ignore_genes=set(options.ignore_genes),
         file_separator=options.file_separator,
+    )
+
+
+def _build_read_x_inner_beta_sampler_kwargs_for_main(options):
+    return dict(
         max_num_burn_in=options.max_num_burn_in,
         max_num_iter_betas=options.max_num_iter_betas,
         min_num_iter_betas=options.min_num_iter_betas,
@@ -20024,6 +20034,14 @@ def _build_read_x_hyper_and_sampling_kwargs_for_main(options):
         sparse_frac_betas=options.sparse_frac_betas,
         betas_trace_out=options.betas_trace_out,
     )
+
+
+def _build_read_x_hyper_and_sampling_kwargs_for_main(options):
+    kwargs = {}
+    kwargs.update(_build_read_x_hyper_update_kwargs_for_main(options))
+    kwargs.update(_build_read_x_text_parsing_kwargs_for_main(options))
+    kwargs.update(_build_read_x_inner_beta_sampler_kwargs_for_main(options))
+    return kwargs
 
 
 def _build_read_x_runtime_kwargs_for_main(options, force_reread):
@@ -20687,14 +20705,26 @@ def _run_simulation_if_requested_for_main(state, options, mode_state):
     )
 
 
-def _run_priors_and_outer_gibbs_for_main(state, options, mode_state):
-    run_gibbs_for_factor = _compute_gene_set_stats_and_betas_for_main(
+def _compute_gene_set_stage_for_main(state, options, mode_state):
+    return _compute_gene_set_stats_and_betas_for_main(
         state,
         options,
         mode_state,
     )
+
+
+def _compute_priors_stage_for_main(state, options, mode_state):
     _compute_priors_if_requested_for_main(state, options, mode_state)
+
+
+def _run_outer_gibbs_stage_for_main(state, options, mode_state, run_gibbs_for_factor):
     _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state)
+
+
+def _run_priors_and_outer_gibbs_for_main(state, options, mode_state):
+    run_gibbs_for_factor = _compute_gene_set_stage_for_main(state, options, mode_state)
+    _compute_priors_stage_for_main(state, options, mode_state)
+    _run_outer_gibbs_stage_for_main(state, options, mode_state, run_gibbs_for_factor)
 
 
 def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, sigma2_cond):
