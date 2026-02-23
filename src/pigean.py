@@ -918,6 +918,10 @@ if len(args) < 1:
 mode = args[0]
 _enforce_pigean_mode_ownership(mode)
 
+# ==========================================================================
+# CLI Phase C: Mode resolution and mode-specific defaults.
+# ==========================================================================
+
 def _make_mode_state():
     return {
         "run_huge": False,
@@ -1056,116 +1060,110 @@ MODE_DISPATCH = {
     "naive_pops": _run_mode_naive_pops,
 }
 
-mode_state = _make_mode_state()
-mode_handler = MODE_DISPATCH.get(mode)
-if mode_handler is None:
-    bail("Unrecognized mode %s" % mode)
-mode_handler(mode_state, options, mode)
+def _resolve_mode_state(_mode, _options):
+    _state = _make_mode_state()
+    mode_handler = MODE_DISPATCH.get(_mode)
+    if mode_handler is None:
+        bail("Unrecognized mode %s" % _mode)
+    mode_handler(_state, _options, _mode)
+    if _options.run_phewas_from_gene_phewas_stats_in is not None:
+        _state["run_phewas"] = True
+    return _state
 
-run_huge = mode_state["run_huge"]
-run_beta_tilde = mode_state["run_beta_tilde"]
-run_beta = mode_state["run_beta"]
-run_priors = mode_state["run_priors"]
-run_naive_priors = mode_state["run_naive_priors"]
-run_gibbs = mode_state["run_gibbs"]
-run_factor = mode_state["run_factor"]
-run_phewas = mode_state["run_phewas"]
-run_naive_factor = mode_state["run_naive_factor"]
-run_sim = mode_state["run_sim"]
-pops_defaults = mode_state["pops_defaults"]
-use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
-expand_gene_sets = mode_state["expand_gene_sets"]
 
-if options.run_phewas_from_gene_phewas_stats_in is not None:
-    run_phewas = True
+def _apply_mode_defaults(_options, _mode, _run_factor, _factor_gene_set_x_pheno):
+    if _mode == "pops" or _mode == "naive_pops":
 
-#set defaults
+        _options.correct_betas_mean = _options.correct_betas_mean if _options.correct_betas_mean is not None else False
+        _options.adjust_priors = _options.adjust_priors if _options.adjust_priors is not None else False
+        _options.p_noninf = _options.p_noninf if _options.p_noninf is not None else [1]
+        _options.sigma_power = _options.sigma_power if _options.sigma_power is not None else 2
+        _options.update_hyper = _options.update_hyper if _options.update_hyper is not None else "none"
+        _options.filter_negative = _options.filter_negative if _options.filter_negative is not None else False
+        _options.prune_gene_sets = _options.prune_gene_sets if _options.prune_gene_sets is not None else 1.1
+        _options.weighted_prune_gene_sets = _options.weighted_prune_gene_sets if _options.weighted_prune_gene_sets is not None else 1.1
+        _options.top_gene_set_prior = _options.top_gene_set_prior if _options.top_gene_set_prior is not None else 0.1
+        _options.num_gene_sets_for_prior = _options.num_gene_sets_for_prior if _options.num_gene_sets_for_prior is not None else 15000
+        _options.filter_gene_set_p = _options.filter_gene_set_p if _options.filter_gene_set_p is not None else 0.05
+        _options.linear = _options.linear if _options.linear is not None else True
+        _options.max_for_linear = _options.max_for_linear if _options.max_for_linear is not None else 1
+        _options.min_gene_set_size = _options.min_gene_set_size if _options.min_gene_set_size is not None else 1
+        _options.cross_val = _options.cross_val if _options.cross_val is not None else True
+        _options.sparse_frac_betas = _options.sparse_frac_betas if _options.sparse_frac_betas is not None else 0
+        _options.sparse_solution = _options.sparse_solution if _options.sparse_solution is not None else False
 
-if mode == "pops" or mode == "naive_pops":
+    else:
+        _options.correct_betas_mean = _options.correct_betas_mean if _options.correct_betas_mean is not None else True
+        _options.adjust_priors = _options.adjust_priors if _options.adjust_priors is not None else True
+        _options.p_noninf = _options.p_noninf if _options.p_noninf is not None else [0.001]
+        _options.sigma_power = _options.sigma_power if _options.sigma_power is not None else -2
+        _options.update_hyper = _options.update_hyper if _options.update_hyper is not None else "p"
+        _options.filter_negative = _options.filter_negative if _options.filter_negative is not None else True
+        if _options.prune_gene_sets is None:
+            if _run_factor and _factor_gene_set_x_pheno:
+                _options.prune_gene_sets = 0.5
+            else:
+                _options.prune_gene_sets = 0.8
 
-    options.correct_betas_mean = options.correct_betas_mean if options.correct_betas_mean is not None else False
-    options.adjust_priors = options.adjust_priors if options.adjust_priors is not None else False
-    options.p_noninf = options.p_noninf if options.p_noninf is not None else [1]
-    options.sigma_power = options.sigma_power if options.sigma_power is not None else 2
-    options.update_hyper = options.update_hyper if options.update_hyper is not None else "none"
-    options.filter_negative = options.filter_negative if options.filter_negative is not None else False
-    options.prune_gene_sets = options.prune_gene_sets if options.prune_gene_sets is not None else 1.1
-    options.weighted_prune_gene_sets = options.weighted_prune_gene_sets if options.weighted_prune_gene_sets is not None else 1.1
-    options.top_gene_set_prior = options.top_gene_set_prior if options.top_gene_set_prior is not None else 0.1
-    options.num_gene_sets_for_prior = options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else 15000
-    options.filter_gene_set_p = options.filter_gene_set_p if options.filter_gene_set_p is not None else 0.05
-    options.linear = options.linear if options.linear is not None else True
-    options.max_for_linear = options.max_for_linear if options.max_for_linear is not None else 1
-    options.min_gene_set_size = options.min_gene_set_size if options.min_gene_set_size is not None else 1
-    options.cross_val = options.cross_val if options.cross_val is not None else True
-    options.sparse_frac_betas = options.sparse_frac_betas if options.sparse_frac_betas is not None else 0
-    options.sparse_solution = options.sparse_solution if options.sparse_solution is not None else False
+        if _options.weighted_prune_gene_sets is None:
+            if _run_factor and _factor_gene_set_x_pheno:
+                _options.weighted_prune_gene_sets = 0.5
+            else:
+                _options.weighted_prune_gene_sets = 0.8
 
-else:
-    options.correct_betas_mean = options.correct_betas_mean if options.correct_betas_mean is not None else True
-    options.adjust_priors = options.adjust_priors if options.adjust_priors is not None else True
-    options.p_noninf = options.p_noninf if options.p_noninf is not None else [0.001]
-    options.sigma_power = options.sigma_power if options.sigma_power is not None else -2
-    options.update_hyper = options.update_hyper if options.update_hyper is not None else "p"
-    options.filter_negative = options.filter_negative if options.filter_negative is not None else True
-    if options.prune_gene_sets is None:
-        if run_factor and factor_gene_set_x_pheno:
-            options.prune_gene_sets = 0.5
-        else:
-            options.prune_gene_sets = 0.8
+        _options.top_gene_set_prior = _options.top_gene_set_prior if _options.top_gene_set_prior is not None else 0.8
+        _options.num_gene_sets_for_prior = _options.num_gene_sets_for_prior if _options.num_gene_sets_for_prior is not None else 50
+        _options.filter_gene_set_p = _options.filter_gene_set_p if _options.filter_gene_set_p is not None else 0.01
+        _options.linear = _options.linear if _options.linear is not None else False
+        _options.max_for_linear = _options.max_for_linear if _options.max_for_linear is not None else 0.95
+        _options.min_gene_set_size = _options.min_gene_set_size if _options.min_gene_set_size is not None else 10
 
-    if options.weighted_prune_gene_sets is None:
-        if run_factor and factor_gene_set_x_pheno:
-            options.weighted_prune_gene_sets = 0.5
-        else:
-            options.weighted_prune_gene_sets = 0.8
+        if _run_factor and _factor_gene_set_x_pheno is not None:
+            if _options.add_gene_sets_by_enrichment_p is not None:
+                _options.filter_gene_set_p = _options.add_gene_sets_by_enrichment_p
 
-    options.top_gene_set_prior = options.top_gene_set_prior if options.top_gene_set_prior is not None else 0.8
-    options.num_gene_sets_for_prior = options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else 50
-    options.filter_gene_set_p = options.filter_gene_set_p if options.filter_gene_set_p is not None else 0.01
-    options.linear = options.linear if options.linear is not None else False
-    options.max_for_linear = options.max_for_linear if options.max_for_linear is not None else 0.95
-    options.min_gene_set_size = options.min_gene_set_size if options.min_gene_set_size is not None else 10
+        _options.cross_val = _options.cross_val if _options.cross_val is not None else False
+        _options.sparse_frac_betas = _options.sparse_frac_betas if _options.sparse_frac_betas is not None else 0.001
+        _options.sparse_solution = _options.sparse_solution if _options.sparse_solution is not None else True
 
-    if run_factor and factor_gene_set_x_pheno is not None:
-        if options.add_gene_sets_by_enrichment_p is not None:
-            options.filter_gene_set_p = options.add_gene_sets_by_enrichment_p
 
-    options.cross_val = options.cross_val if options.cross_val is not None else False
-    options.sparse_frac_betas = options.sparse_frac_betas if options.sparse_frac_betas is not None else 0.001
-    options.sparse_solution = options.sparse_solution if options.sparse_solution is not None else True
+def _apply_gibbs_stopping_defaults(_options):
+    gibbs_stopping_presets = {
+        "lenient": {
+            "stop_mcse_quantile": 0.90,
+            "max_rel_mcse_beta": 0.20,
+            "max_abs_mcse_d": 0.10,
+        },
+        "strict": {
+            "stop_mcse_quantile": 0.95,
+            "max_rel_mcse_beta": 0.05,
+            "max_abs_mcse_d": 0.03,
+        },
+    }
 
-gibbs_stopping_presets = {
-    "lenient": {
-        "stop_mcse_quantile": 0.90,
-        "max_rel_mcse_beta": 0.20,
-        "max_abs_mcse_d": 0.10,
-    },
-    "strict": {
-        "stop_mcse_quantile": 0.95,
-        "max_rel_mcse_beta": 0.05,
-        "max_abs_mcse_d": 0.03,
-    },
-}
+    _options.gibbs_stopping_preset = "strict" if _options.strict_stopping else "lenient"
+    for opt_name, opt_value in gibbs_stopping_presets[_options.gibbs_stopping_preset].items():
+        if getattr(_options, opt_name) is None:
+            setattr(_options, opt_name, opt_value)
 
-options.gibbs_stopping_preset = "strict" if options.strict_stopping else "lenient"
-for opt_name, opt_value in gibbs_stopping_presets[options.gibbs_stopping_preset].items():
-    if getattr(options, opt_name) is None:
-        setattr(options, opt_name, opt_value)
+    # Backward-compat defaults for simplified epoch controls.
+    if _options.max_num_post_burn_in is None and _options.max_num_iter is not None:
+        _options.max_num_post_burn_in = max(1, _options.max_num_iter - max(_options.min_num_burn_in, 0))
 
-# Backward-compat defaults for simplified epoch controls.
-if options.max_num_post_burn_in is None and options.max_num_iter is not None:
-    options.max_num_post_burn_in = max(1, options.max_num_iter - max(options.min_num_burn_in, 0))
+    # Explicitly disable all stall-based early exits/restarts.
+    if _options.disable_stall_detection:
+        _options.burn_in_stall_window = 0
+        _options.stall_window = 0
+        _options.stall_recent_window = 0
+        # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
+        _options.max_num_restarts = 0
+        _options.total_num_iter_gibbs = _options.max_num_iter
 
-# Explicitly disable all stall-based early exits/restarts.
-if options.disable_stall_detection:
-    options.burn_in_stall_window = 0
-    options.stall_window = 0
-    options.stall_recent_window = 0
-    # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
-    options.max_num_restarts = 0
-    options.total_num_iter_gibbs = options.max_num_iter
+
+mode_state = _resolve_mode_state(mode, options)
+
+_apply_mode_defaults(options, mode, mode_state["run_factor"], mode_state["factor_gene_set_x_pheno"])
+_apply_gibbs_stopping_defaults(options)
 
 def _flag_present(*flag_names):
     for arg in sys.argv[1:]:
@@ -19224,19 +19222,25 @@ def _prepare_factor_gene_set_ids_for_main(state, options, run_factor, use_phewas
     return gene_set_ids
 
 
+# ==========================================================================
+# Main pipeline helper functions (extracted from main()).
+# ==========================================================================
+
 def _load_initial_y_inputs_for_main(
     state,
     options,
-    run_factor,
-    expand_gene_sets,
-    use_phewas_for_factoring,
-    run_huge,
-    run_beta_tilde,
-    run_beta,
-    run_priors,
-    run_naive_priors,
-    run_gibbs,
+    mode_state,
 ):
+    run_factor = mode_state["run_factor"]
+    expand_gene_sets = mode_state["expand_gene_sets"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+    run_huge = mode_state["run_huge"]
+    run_beta_tilde = mode_state["run_beta_tilde"]
+    run_beta = mode_state["run_beta"]
+    run_priors = mode_state["run_priors"]
+    run_naive_priors = mode_state["run_naive_priors"]
+    run_gibbs = mode_state["run_gibbs"]
+
     # For factor mode with gene-set expansion, seed Y from anchor genes first.
     if run_factor and expand_gene_sets and (options.add_gene_sets_by_enrichment_p is not None or options.add_gene_sets_by_naive is not None or options.add_gene_sets_by_gibbs is not None):
         #we are going to use the machinery of betas/gibbs to expand the gene list
@@ -19277,15 +19281,17 @@ def _read_x_and_initialize_p_for_main(
     gene_set_ids,
     Y_not_loaded,
     sigma2_cond,
-    run_huge,
-    run_beta_tilde,
-    run_factor,
-    run_beta,
-    run_priors,
-    run_naive_priors,
-    run_gibbs,
-    use_phewas_for_factoring,
+    mode_state,
 ):
+    run_huge = mode_state["run_huge"]
+    run_beta_tilde = mode_state["run_beta_tilde"]
+    run_factor = mode_state["run_factor"]
+    run_beta = mode_state["run_beta"]
+    run_priors = mode_state["run_priors"]
+    run_naive_priors = mode_state["run_naive_priors"]
+    run_gibbs = mode_state["run_gibbs"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+
     #read in the matrices
     if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
         xin_to_p_noninf_ind = None
@@ -19482,7 +19488,8 @@ def _run_gene_phewas_for_main(state, options, bfs_to_use, run_for_factors=False,
     state.run_phewas(gene_phewas_bfs_in=bfs_to_use, gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, max_num_burn_in=options.max_num_burn_in, max_num_iter=options.max_num_iter_betas, min_num_iter=options.min_num_iter_betas, num_chains=options.num_chains_betas, r_threshold_burn_in=options.r_threshold_burn_in_betas, use_max_r_for_convergence=options.use_max_r_for_convergence_betas, max_frac_sem=options.max_frac_sem_betas, gauss_seidel=options.gauss_seidel_betas, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, run_for_factors=run_for_factors, batch_size=batch_size, min_gene_factor_weight=min_gene_factor_weight)
 
 
-def _run_phewas_if_requested_for_main(state, options, run_phewas):
+def _run_phewas_if_requested_for_main(state, options, mode_state):
+    run_phewas = mode_state["run_phewas"]
     if run_phewas:
         bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
 
@@ -19495,7 +19502,10 @@ def _run_phewas_if_requested_for_main(state, options, run_phewas):
             state.write_phewas_statistics(options.phewas_stats_out)
 
 
-def _run_factor_if_requested_for_main(state, options, run_factor, expand_gene_sets, factor_gene_set_x_pheno):
+def _run_factor_if_requested_for_main(state, options, mode_state):
+    run_factor = mode_state["run_factor"]
+    expand_gene_sets = mode_state["expand_gene_sets"]
+    factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
     if run_factor:
         if expand_gene_sets:
             if options.add_gene_sets_by_naive is not None or options.add_gene_sets_by_gibbs is not None:
@@ -19546,14 +19556,20 @@ def _run_factor_phewas_if_requested_for_main(state, options):
             log("No factors; not performing factor phewas")
 
 
-def _compute_priors_if_requested_for_main(state, options, run_priors, run_naive_priors, run_naive_factor, use_phewas_for_factoring):
+def _compute_priors_if_requested_for_main(state, options, mode_state):
+    run_priors = mode_state["run_priors"]
+    run_naive_priors = mode_state["run_naive_priors"]
+    run_naive_factor = mode_state["run_naive_factor"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
     if run_priors:
         state.calculate_priors(**_build_priors_kwargs_for_main(options, state.p))
     elif run_naive_priors or (run_naive_factor and not use_phewas_for_factoring):
         state.calculate_naive_priors(adjust_priors=options.adjust_priors)
 
 
-def _run_outer_gibbs_if_requested_for_main(state, options, run_factor, run_gibbs, run_gibbs_for_factor):
+def _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state):
+    run_factor = mode_state["run_factor"]
+    run_gibbs = mode_state["run_gibbs"]
     if run_factor and options.const_gene_log_bf is not None:
         state.Y = np.full(len(state.genes), options.const_gene_log_bf)
         state.combined_prior_Ys = np.full(len(state.genes), options.const_gene_log_bf)
@@ -19585,17 +19601,19 @@ def _build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p, run_us
 def _compute_gene_set_stats_and_betas_for_main(
     state,
     options,
-    run_beta_tilde,
-    run_beta,
-    run_priors,
-    run_naive_priors,
-    run_gibbs,
-    run_factor,
-    use_phewas_for_factoring,
-    factor_gene_set_x_pheno,
-    run_sim,
-    run_naive_factor,
+    mode_state,
 ):
+    run_beta_tilde = mode_state["run_beta_tilde"]
+    run_beta = mode_state["run_beta"]
+    run_priors = mode_state["run_priors"]
+    run_naive_priors = mode_state["run_naive_priors"]
+    run_gibbs = mode_state["run_gibbs"]
+    run_factor = mode_state["run_factor"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+    factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
+    run_sim = mode_state["run_sim"]
+    run_naive_factor = mode_state["run_naive_factor"]
+
     run_gibbs_for_factor = False
     run_beta_for_factor = False
     needs_gene_set_stats = (
@@ -19717,64 +19735,40 @@ def main():
     Y_not_loaded = _load_initial_y_inputs_for_main(
         state,
         options,
-        run_factor,
-        expand_gene_sets,
-        use_phewas_for_factoring,
-        run_huge,
-        run_beta_tilde,
-        run_beta,
-        run_priors,
-        run_naive_priors,
-        run_gibbs,
+        mode_state,
     )
 
     # ==========================================================================
     # Main Phase D: Core model computation (betas, priors, outer Gibbs).
     # ==========================================================================
-    if not run_huge:
-        gene_set_ids = _prepare_factor_gene_set_ids_for_main(state, options, run_factor, use_phewas_for_factoring)
+    if not mode_state["run_huge"]:
+        gene_set_ids = _prepare_factor_gene_set_ids_for_main(state, options, mode_state["run_factor"], mode_state["use_phewas_for_factoring"])
         _read_x_and_initialize_p_for_main(
             state,
             options,
             gene_set_ids,
             Y_not_loaded,
             sigma2_cond,
-            run_huge,
-            run_beta_tilde,
-            run_factor,
-            run_beta,
-            run_priors,
-            run_naive_priors,
-            run_gibbs,
-            use_phewas_for_factoring,
+            mode_state,
         )
 
-        if run_sim:
+        if mode_state["run_sim"]:
             state.run_sim(sigma2=state.sigma2, p=state.p, sigma_power=state.sigma_power, log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult, treat_sigma2_as_sigma2_cond=False, only_positive=options.sim_only_positive)
 
         run_gibbs_for_factor = _compute_gene_set_stats_and_betas_for_main(
             state,
             options,
-            run_beta_tilde,
-            run_beta,
-            run_priors,
-            run_naive_priors,
-            run_gibbs,
-            run_factor,
-            use_phewas_for_factoring,
-            factor_gene_set_x_pheno,
-            run_sim,
-            run_naive_factor,
+            mode_state,
         )
-        _compute_priors_if_requested_for_main(state, options, run_priors, run_naive_priors, run_naive_factor, use_phewas_for_factoring)
-        _run_outer_gibbs_if_requested_for_main(state, options, run_factor, run_gibbs, run_gibbs_for_factor)
+        _compute_priors_if_requested_for_main(state, options, mode_state)
+        _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state)
 
     # ==========================================================================
     # Main Phase E: Output writers and optional downstream analyses.
     # ==========================================================================
     _write_primary_outputs_for_main(state, options)
-    _run_phewas_if_requested_for_main(state, options, run_phewas)
-    _run_factor_if_requested_for_main(state, options, run_factor, expand_gene_sets, factor_gene_set_x_pheno)
+    _run_phewas_if_requested_for_main(state, options, mode_state)
+    _run_factor_if_requested_for_main(state, options, mode_state)
     _write_factor_outputs_for_main(state, options)
     _run_factor_phewas_if_requested_for_main(state, options)
 
