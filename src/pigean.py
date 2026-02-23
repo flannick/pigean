@@ -19536,26 +19536,13 @@ def _build_xin_to_p_noninf_index_for_main(options):
 
 
 def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_loaded, sigma2_cond, mode_state, xin_to_p_noninf_ind):
-    run_huge = mode_state["run_huge"]
-    run_beta_tilde = mode_state["run_beta_tilde"]
-    run_factor = mode_state["run_factor"]
-    run_beta = mode_state["run_beta"]
-    run_priors = mode_state["run_priors"]
-    run_naive_priors = mode_state["run_naive_priors"]
-    run_gibbs = mode_state["run_gibbs"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
-
     filter_gene_set_p = options.filter_gene_set_p
     force_reread = False
     while True:
         orig_sigma2 = state.sigma2
 
-        skip_betas = (run_huge or run_beta_tilde or run_factor) and (not run_beta and not run_priors and not run_naive_priors and not run_gibbs and (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded))
-
-        genes_to_inc = None
-        if run_factor and use_phewas_for_factoring:
-            genes_to_inc = options.anchor_genes
-            options.max_num_gene_sets = None
+        skip_betas = _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded)
+        genes_to_inc = _compute_genes_to_include_for_read_x_for_main(mode_state, options)
 
         read_x_kwargs = _build_read_x_kwargs_for_main(
             state,
@@ -19570,25 +19557,53 @@ def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_lo
         )
         state.read_X(options.X_in, **read_x_kwargs)
 
-        if gene_set_ids is not None:
+        should_reread, new_filter_gene_set_p = _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p)
+        if not should_reread:
             break
-        if options.min_num_gene_sets is None or filter_gene_set_p is None or filter_gene_set_p >= 1 or state.gene_sets is None or len(state.gene_sets) >= options.min_num_gene_sets:
-            break
-        if filter_gene_set_p < 1:
-            fraction_to_increase = float(options.min_num_gene_sets) / (len(state.gene_sets) + 1)
-            if fraction_to_increase > 1:
-                #add in a fudge factor
-                filter_gene_set_p *= fraction_to_increase * 1.2
-                if filter_gene_set_p > 1:
-                    filter_gene_set_p = 1
-                log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), filter_gene_set_p))
-                force_reread = True
-                #reset sigma
-                state.set_sigma(orig_sigma2, state.sigma_power)
-            else:
-                break
-        else:
-            break
+        filter_gene_set_p = new_filter_gene_set_p
+        force_reread = True
+        #reset sigma
+        state.set_sigma(orig_sigma2, state.sigma_power)
+
+
+def _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded):
+    run_huge = mode_state["run_huge"]
+    run_beta_tilde = mode_state["run_beta_tilde"]
+    run_factor = mode_state["run_factor"]
+    run_beta = mode_state["run_beta"]
+    run_priors = mode_state["run_priors"]
+    run_naive_priors = mode_state["run_naive_priors"]
+    run_gibbs = mode_state["run_gibbs"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+    return (run_huge or run_beta_tilde or run_factor) and (not run_beta and not run_priors and not run_naive_priors and not run_gibbs and (not run_factor or options.gene_set_stats_in is not None or use_phewas_for_factoring or Y_not_loaded))
+
+
+def _compute_genes_to_include_for_read_x_for_main(mode_state, options):
+    run_factor = mode_state["run_factor"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+    genes_to_inc = None
+    if run_factor and use_phewas_for_factoring:
+        genes_to_inc = options.anchor_genes
+        options.max_num_gene_sets = None
+    return genes_to_inc
+
+
+def _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p):
+    if gene_set_ids is not None:
+        return False, filter_gene_set_p
+    if options.min_num_gene_sets is None or filter_gene_set_p is None or filter_gene_set_p >= 1 or state.gene_sets is None or len(state.gene_sets) >= options.min_num_gene_sets:
+        return False, filter_gene_set_p
+
+    fraction_to_increase = float(options.min_num_gene_sets) / (len(state.gene_sets) + 1)
+    if fraction_to_increase <= 1:
+        return False, filter_gene_set_p
+
+    #add in a fudge factor
+    new_filter_gene_set_p = filter_gene_set_p * fraction_to_increase * 1.2
+    if new_filter_gene_set_p > 1:
+        new_filter_gene_set_p = 1
+    log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), new_filter_gene_set_p))
+    return True, new_filter_gene_set_p
 
 
 def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
