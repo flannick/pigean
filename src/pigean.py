@@ -7896,7 +7896,10 @@ class GeneSetData(object):
             else:
                 break
         
-    def calculate_non_inf_betas(self, p, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, sparse_solution=False, pre_filter_batch_size=None, pre_filter_small_batch_size=500, sparse_frac_betas=None, betas_trace_out=None, run_betas_using_phewas=False, run_uncorrected_using_phewas=False, **kwargs):
+    def calculate_non_inf_betas(self, *args, **kwargs):
+        return _state_calculate_non_inf_betas(self.__dict__, *args, **kwargs)
+
+    def _calculate_non_inf_betas_impl(self, p, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, sparse_solution=False, pre_filter_batch_size=None, pre_filter_small_batch_size=500, sparse_frac_betas=None, betas_trace_out=None, run_betas_using_phewas=False, run_uncorrected_using_phewas=False, **kwargs):
 
         run_using_phewas = run_betas_using_phewas or run_uncorrected_using_phewas
 
@@ -8006,7 +8009,10 @@ class GeneSetData(object):
                 self.non_inf_avg_postps_missing = np.zeros(len(self.gene_sets_missing))
                 self.non_inf_avg_cond_betas_missing = np.zeros(len(self.gene_sets_missing))
 
-    def calculate_priors(self, max_gene_set_p=None, num_gene_batches=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, p_noninf=None, run_logistic=True, max_for_linear=0.95, adjust_priors=False, tag="", **kwargs):
+    def calculate_priors(self, *args, **kwargs):
+        return _state_calculate_priors(self.__dict__, *args, **kwargs)
+
+    def _calculate_priors_impl(self, max_gene_set_p=None, num_gene_batches=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, p_noninf=None, run_logistic=True, max_for_linear=0.95, adjust_priors=False, tag="", **kwargs):
         if self.X_orig is None:
             bail("X is required for this operation")
         if self.betas is None:
@@ -8394,7 +8400,10 @@ class GeneSetData(object):
             if self.priors_adj is not None:
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
-    def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, eps=0.01):
+    def run_gibbs(self, *args, **kwargs):
+        return _state_run_gibbs(self.__dict__, *args, **kwargs)
+
+    def _run_gibbs_impl(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, eps=0.01):
 
         # ==========================================================================
         # Gibbs Phase 0: Normalize controls and resolve per-epoch iteration budgets.
@@ -18348,6 +18357,18 @@ def _state_read_X(runtime_state, *args, **kwargs):
     return GeneSetData._read_X_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
 
 
+def _state_calculate_non_inf_betas(runtime_state, *args, **kwargs):
+    return GeneSetData._calculate_non_inf_betas_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
+def _state_calculate_priors(runtime_state, *args, **kwargs):
+    return GeneSetData._calculate_priors_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
+def _state_run_gibbs(runtime_state, *args, **kwargs):
+    return GeneSetData._run_gibbs_impl(_legacy_view_from_runtime_state(runtime_state), *args, **kwargs)
+
+
 # ==========================================================================
 # Runtime-state hyperparameter helpers (p/sigma/prior-variance primitives).
 # ==========================================================================
@@ -19224,7 +19245,7 @@ def main():
                 pre_filter_small_batch_size=options.pre_filter_small_batch_size,
                 betas_trace_out=options.betas_trace_out,
             )
-            state_view.calculate_non_inf_betas(_get("p"), **beta_sampling_kwargs)
+            _state_calculate_non_inf_betas(runtime_state, _get("p"), **beta_sampling_kwargs)
 
             if options.betas_uncorrected_from_phewas:
                 phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
@@ -19232,7 +19253,7 @@ def main():
                     "run_betas_using_phewas": options.betas_from_phewas,
                     "run_uncorrected_using_phewas": True,
                 })
-                state_view.calculate_non_inf_betas(_get("p"), **phewas_beta_sampling_kwargs)
+                _state_calculate_non_inf_betas(runtime_state, _get("p"), **phewas_beta_sampling_kwargs)
 
         return run_gibbs_for_factor
 
@@ -19265,7 +19286,7 @@ def main():
 
     def _compute_priors_if_requested():
         if run_priors:
-            state_view.calculate_priors(**_build_priors_kwargs())
+            _state_calculate_priors(runtime_state, **_build_priors_kwargs())
         elif run_naive_priors or (run_naive_factor and not use_phewas_for_factoring):
             state_view.calculate_naive_priors(adjust_priors=options.adjust_priors)
 
@@ -19340,7 +19361,7 @@ def main():
             _set("Y", np.full(len(_get("genes")), options.const_gene_log_bf))
             _set("combined_prior_Ys", np.full(len(_get("genes")), options.const_gene_log_bf))
         elif run_gibbs or run_gibbs_for_factor:
-            state_view.run_gibbs(**_build_gibbs_kwargs())
+            _state_run_gibbs(runtime_state, **_build_gibbs_kwargs())
 
     def _run_non_huge_core(Y_not_loaded):
         gene_set_ids = _prepare_factor_gene_set_ids()
