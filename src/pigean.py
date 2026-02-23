@@ -16384,16 +16384,6 @@ class GeneSetData(object):
         cho_factor = scipy.linalg.cho_factor(matrix_in)
         return scipy.linalg.cho_solve(cho_factor, np.eye(matrix_in.shape[0]))
 
-    def _invert_matrix_old(self,matrix_in):
-        sparsity=(matrix_in.shape[0]*matrix_in.shape[1]-matrix_in.count_nonzero())/(matrix_in.shape[0]*matrix_in.shape[1])
-        log("Sparsity of matrix_in in invert_matrix %s" % sparsity, INFO)
-        if sparsity>0.65:
-            inv_matrix=np.linalg.inv(matrix_in.toarray()) # works efficiently for sparse matrix_in
-        else:
-            inv_matrix=sparse.linalg.inv(matrix_in) 
-        return inv_matrix
-
-
 # ==========================================================================
 # State-agnostic parsing helpers used by both legacy objects and runtime-state.
 # ==========================================================================
@@ -17429,27 +17419,6 @@ def _build_read_y_source_kwargs_for_main(options):
     return kwargs
 
 
-def _mode_requires_initial_y_load_for_main(mode_state):
-    run_huge = mode_state["run_huge"]
-    run_beta_tilde = mode_state["run_beta_tilde"]
-    run_beta = mode_state["run_beta"]
-    run_priors = mode_state["run_priors"]
-    run_naive_priors = mode_state["run_naive_priors"]
-    run_gibbs = mode_state["run_gibbs"]
-    return (
-        run_huge
-        or run_beta_tilde
-        or run_beta
-        or run_priors
-        or run_naive_priors
-        or run_gibbs
-    )
-
-
-def _should_attempt_initial_y_load_for_main(mode_state):
-    return _mode_requires_initial_y_load_for_main(mode_state)
-
-
 def _should_load_y_from_sources_for_main(options):
     return (
         options.gwas_in
@@ -17504,7 +17473,14 @@ def _load_initial_y_inputs_for_main(
     options,
     mode_state,
 ):
-    if not _should_attempt_initial_y_load_for_main(mode_state):
+    if not (
+        mode_state["run_huge"]
+        or mode_state["run_beta_tilde"]
+        or mode_state["run_beta"]
+        or mode_state["run_priors"]
+        or mode_state["run_naive_priors"]
+        or mode_state["run_gibbs"]
+    ):
         return False
 
     #else:
@@ -17602,8 +17578,11 @@ def _build_read_x_kwargs_for_iteration_for_main(
     filter_gene_set_p,
     force_reread,
 ):
-    skip_betas = _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded)
-    genes_to_inc = _compute_genes_to_include_for_read_x_for_main(mode_state, options)
+    skip_betas = (
+        (mode_state["run_huge"] or mode_state["run_beta_tilde"])
+        and not (mode_state["run_beta"] or mode_state["run_priors"] or mode_state["run_naive_priors"] or mode_state["run_gibbs"])
+    )
+    genes_to_inc = None
     return _build_read_x_kwargs_for_main(
         state,
         options,
@@ -17615,22 +17594,6 @@ def _build_read_x_kwargs_for_iteration_for_main(
         force_reread,
         xin_to_p_noninf_ind,
     )
-
-
-def _is_pre_beta_read_x_mode_for_main(mode_state):
-    return mode_state["run_huge"] or mode_state["run_beta_tilde"]
-
-
-def _is_beta_or_later_stage_requested_for_main(mode_state):
-    return mode_state["run_beta"] or mode_state["run_priors"] or mode_state["run_naive_priors"] or mode_state["run_gibbs"]
-
-
-def _compute_skip_betas_for_read_x_for_main(mode_state, options, Y_not_loaded):
-    return _is_pre_beta_read_x_mode_for_main(mode_state) and (not _is_beta_or_later_stage_requested_for_main(mode_state))
-
-
-def _compute_genes_to_include_for_read_x_for_main(mode_state, options):
-    return None
 
 
 def _is_relaxed_reread_possible_for_read_x(state, options, gene_set_ids, filter_gene_set_p):
@@ -18310,28 +18273,6 @@ def _run_simulation_if_requested_for_main(state, options, mode_state):
     )
 
 
-def _compute_gene_set_stage_for_main(state, options, mode_state):
-    _compute_gene_set_stats_and_betas_for_main(
-        state,
-        options,
-        mode_state,
-    )
-
-
-def _compute_priors_stage_for_main(state, options, mode_state):
-    _compute_priors_if_requested_for_main(state, options, mode_state)
-
-
-def _run_outer_gibbs_stage_for_main(state, options, mode_state):
-    _run_outer_gibbs_if_requested_for_main(state, options, mode_state)
-
-
-def _run_priors_and_outer_gibbs_for_main(state, options, mode_state):
-    _compute_gene_set_stage_for_main(state, options, mode_state)
-    _compute_priors_stage_for_main(state, options, mode_state)
-    _run_outer_gibbs_stage_for_main(state, options, mode_state)
-
-
 def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, sigma2_cond):
     if mode_state["run_huge"]:
         return
@@ -18345,7 +18286,9 @@ def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, 
         mode_state,
     )
     _run_simulation_if_requested_for_main(state, options, mode_state)
-    _run_priors_and_outer_gibbs_for_main(state, options, mode_state)
+    _compute_gene_set_stats_and_betas_for_main(state, options, mode_state)
+    _compute_priors_if_requested_for_main(state, options, mode_state)
+    _run_outer_gibbs_if_requested_for_main(state, options, mode_state)
 
 
 def _run_post_model_outputs_for_main(state, options, mode_state):
