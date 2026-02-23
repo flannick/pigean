@@ -1939,6 +1939,149 @@ class GeneSetData(object):
         const_Y = np.full(len(self.genes), value)
         self._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
 
+    def _align_extra_genes_with_new_source(
+        self,
+        existing_extra_genes,
+        existing_extra_values,
+        new_source_genes,
+        new_source_values,
+        existing_missing_values,
+        new_source_missing_value,
+    ):
+        """
+        Align existing extra-gene arrays to a new source's extra-gene ordering.
+        Returns:
+          merged_extra_genes,
+          aligned_existing_values (list of np.array, one per existing source),
+          aligned_new_source_values (np.array)
+        """
+        new_source_gene_to_ind = _construct_map_to_ind(new_source_genes)
+        merged_extra_genes = list(new_source_genes)
+        merged_new_source_values = list(new_source_values)
+        aligned_existing_values = [
+            list(np.full(len(merged_new_source_values), missing_value))
+            for missing_value in existing_missing_values
+        ]
+
+        for i in range(len(existing_extra_genes)):
+            gene = existing_extra_genes[i]
+            if gene in new_source_gene_to_ind:
+                source_ind = new_source_gene_to_ind[gene]
+                for j in range(len(existing_extra_values)):
+                    aligned_existing_values[j][source_ind] = existing_extra_values[j][i]
+            else:
+                merged_extra_genes.append(gene)
+                for j in range(len(existing_extra_values)):
+                    aligned_existing_values[j].append(existing_extra_values[j][i])
+                merged_new_source_values.append(new_source_missing_value)
+
+        return (
+            merged_extra_genes,
+            [np.array(x) for x in aligned_existing_values],
+            np.array(merged_new_source_values),
+        )
+
+    def _apply_hold_out_chrom_to_y(self, Y, extra_genes, extra_Y, hold_out_chrom, gene_loc_file):
+        if hold_out_chrom is None:
+            return (Y, extra_genes, extra_Y)
+
+        if self.gene_to_chrom is None:
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
+
+        extra_Y_mask = np.full(len(extra_Y), True)
+        for i in range(len(extra_genes)):
+            if extra_genes[i] in self.gene_to_chrom and self.gene_to_chrom[extra_genes[i]] == hold_out_chrom:
+                extra_Y_mask[i] = False
+        if np.sum(~extra_Y_mask) > 0:
+            extra_genes = [extra_genes[i] for i in range(len(extra_genes)) if extra_Y_mask[i]]
+            extra_Y = extra_Y[extra_Y_mask]
+
+        if self.genes is not None:
+            Y_nan_mask = np.full(len(Y), False)
+            for i in range(len(self.genes)):
+                if self.genes[i] in self.gene_to_chrom and self.gene_to_chrom[self.genes[i]] == hold_out_chrom:
+                    Y_nan_mask[i] = True
+            if np.sum(Y_nan_mask) > 0:
+                Y[Y_nan_mask] = np.nan
+
+        return (Y, extra_genes, extra_Y)
+
+    def _read_primary_y_source(
+        self,
+        gwas_in=None,
+        huge_statistics_in=None,
+        huge_statistics_out=None,
+        exomes_in=None,
+        positive_controls_in=None,
+        positive_controls_list=None,
+        case_counts_in=None,
+        gene_bfs_in=None,
+        hold_out_chrom=None,
+        gene_loc_file=None,
+        Y1_exomes=None,
+        Y1_positive_controls=None,
+        Y1_case_counts=None,
+        **kwargs,
+    ):
+        missing_value = None
+        gene_combined_map = None
+        gene_prior_map = None
+
+        # Read primary HuGE/gene-level signal source.
+        if huge_statistics_in is not None:
+            if gwas_in is not None:
+                warn("Both --gwas-in and --huge-statistics-in were passed; using --huge-statistics-in")
+            (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = self.read_huge_statistics(huge_statistics_in)
+            missing_value = 0
+        elif gwas_in is not None:
+            (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = self._calculate_huge_scores_gwas_impl(
+                gwas_in,
+                gene_loc_file=gene_loc_file,
+                hold_out_chrom=hold_out_chrom,
+                **kwargs
+            )
+            if huge_statistics_out is not None:
+                self.write_huge_statistics(huge_statistics_out, Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression)
+            missing_value = 0
+        else:
+            self.huge_signal_bfs = None
+            self.huge_signal_bfs_for_regression = None
+
+            if gene_bfs_in is not None:
+                (Y1, extra_genes, extra_Y, gene_combined_map, gene_prior_map) = self._read_gene_bfs_impl(
+                    gene_bfs_in,
+                    **kwargs
+                )
+            elif exomes_in is not None:
+                (Y1, extra_genes, extra_Y) = (np.zeros(Y1_exomes.shape), [], [])
+            elif positive_controls_in is not None or positive_controls_list is not None:
+                (Y1, extra_genes, extra_Y) = (np.zeros(Y1_positive_controls.shape), [], [])
+            elif case_counts_in is not None:
+                (Y1, extra_genes, extra_Y) = (np.zeros(Y1_case_counts.shape), [], [])
+            else:
+                bail("Need to specify either gene_bfs_in or exomes_in or positive_controls_in or case_counts_in")
+
+            (Y1, extra_genes, extra_Y) = self._apply_hold_out_chrom_to_y(
+                Y1,
+                extra_genes,
+                extra_Y,
+                hold_out_chrom=hold_out_chrom,
+                gene_loc_file=gene_loc_file,
+            )
+            Y1_for_regression = copy.copy(Y1)
+            extra_Y_for_regression = copy.copy(extra_Y)
+
+        return (
+            Y1,
+            extra_genes,
+            extra_Y,
+            Y1_for_regression,
+            extra_Y_for_regression,
+            missing_value,
+            gene_combined_map,
+            gene_prior_map,
+        )
+
     def read_Y(self, gwas_in=None, huge_statistics_in=None, huge_statistics_out=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, gene_loc_file=None, gene_covs_in=None, hold_out_chrom=None, **kwargs):
         return self._read_Y_impl(
             gwas_in=gwas_in,
@@ -1961,31 +2104,6 @@ class GeneSetData(object):
         Y1_exomes = np.array([])
         extra_genes_all = []
         extra_Y_exomes = []
-
-        def __hold_out_chrom(Y, extra_genes, extra_Y):
-            if hold_out_chrom is None:
-                return (Y, extra_genes, extra_Y)
-
-            if self.gene_to_chrom is None:
-                (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
-
-            extra_Y_mask = np.full(len(extra_Y), True)
-            for i in range(len(extra_genes)):
-                if extra_genes[i] in self.gene_to_chrom and self.gene_to_chrom[extra_genes[i]] == hold_out_chrom:
-                    extra_Y_mask[i] = False
-            if np.sum(~extra_Y_mask) > 0:
-                extra_genes = [extra_genes[i] for i in range(len(extra_genes)) if extra_Y_mask[i]]
-                extra_Y = extra_Y[extra_Y_mask]
-
-            if self.genes is not None:
-                Y_nan_mask = np.full(len(Y), False)
-                for i in range(len(self.genes)):
-                    if self.genes[i] in self.gene_to_chrom and self.gene_to_chrom[self.genes[i]] == hold_out_chrom:
-                        Y_nan_mask[i] = True
-                if np.sum(Y_nan_mask) > 0:
-                    Y[Y_nan_mask] = np.nan
-
-            return (Y, extra_genes, extra_Y)
 
         if exomes_in is not None:
             (Y1_exomes,extra_genes_exomes,extra_Y_exomes) = self._calculate_huge_scores_exomes_impl(
@@ -2038,28 +2156,17 @@ class GeneSetData(object):
                 #we need to:
                 #1. make sure Y1_exomes and Y1_positive_controls are the same length (already done)
                 #2. combine extra_genes for the two
-
                 #align these so that genes includes the union of exomes and positive controls
                 #and the extras moved in are no longer in extra
-                #only need to remove the extras from exomes, since it was loaded into self.genes already
-                extra_gene_to_ind = _construct_map_to_ind(extra_genes_positive_controls)
-                extra_Y_positive_controls = list(extra_Y_positive_controls)
-                new_extra_Y_exomes = list(np.full(len(extra_Y_positive_controls), missing_value_exomes))
-                num_add = 0
-                new_extra_genes_all = extra_genes_positive_controls
-                #iterate through extra genes, append if not in positive controls and otherwise set
-                for i in range(len(extra_genes_all)):
-                    if extra_genes_all[i] in extra_gene_to_ind:
-                        new_extra_Y_exomes[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_exomes[i]
-                    else:
-                        num_add += 1
-                        new_extra_genes_all.append(extra_genes_all[i])
-                        new_extra_Y_exomes.append(extra_Y_exomes[i])
-                        extra_Y_positive_controls.append(missing_value_positive_controls)
-
-                extra_genes_all = new_extra_genes_all
-                extra_Y_exomes = np.array(new_extra_Y_exomes)
-                extra_Y_positive_controls = np.array(extra_Y_positive_controls)
+                extra_genes_all, aligned_existing_values, extra_Y_positive_controls = self._align_extra_genes_with_new_source(
+                    existing_extra_genes=extra_genes_all,
+                    existing_extra_values=[extra_Y_exomes],
+                    new_source_genes=extra_genes_positive_controls,
+                    new_source_values=extra_Y_positive_controls,
+                    existing_missing_values=[missing_value_exomes],
+                    new_source_missing_value=missing_value_positive_controls,
+                )
+                extra_Y_exomes = aligned_existing_values[0]
         else:
             Y1_positive_controls = np.zeros(len(Y1_exomes))
             extra_Y_positive_controls = np.zeros(len(extra_Y_positive_controls))
@@ -2101,31 +2208,17 @@ class GeneSetData(object):
                 #we need to:
                 #1. make sure Y1_exomes and Y1_case_counts are the same length (already done)
                 #2. combine extra_genes for the two
-
-                #align these so that genes includes the union of exomes and case counts
-                #and the extras moved in are no longer in extra
-                #only need to remove the extras from exomes, since it was loaded into self.genes already
-                extra_gene_to_ind = _construct_map_to_ind(extra_genes_case_counts)
-                extra_Y_case_counts = list(extra_Y_case_counts)
-                new_extra_Y_exomes = list(np.full(len(extra_Y_case_counts), missing_value_exomes))
-                new_extra_Y_positive_controls = list(np.full(len(extra_Y_case_counts), missing_value_positive_controls))
-                num_add = 0
-                new_extra_genes_all = extra_genes_case_counts
-                for i in range(len(extra_genes_all)):
-                    if extra_genes_all[i] in extra_gene_to_ind:
-                        new_extra_Y_exomes[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_exomes[i]
-                        new_extra_Y_positive_controls[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_positive_controls[i]                        
-                    else:
-                        num_add += 1
-                        new_extra_genes_all.append(extra_genes_all[i])
-                        new_extra_Y_exomes.append(extra_Y_exomes[i])
-                        new_extra_Y_positive_controls.append(extra_Y_positive_controls[i])
-                        extra_Y_case_counts.append(missing_value_case_counts)
-
-                extra_genes_all = new_extra_genes_all
-                extra_Y_exomes = np.array(new_extra_Y_exomes)
-                extra_Y_positive_controls = np.array(new_extra_Y_positive_controls)
-                extra_Y_case_counts = np.array(extra_Y_case_counts)
+                #align these so that genes includes the union of exomes/positive-controls and case counts
+                extra_genes_all, aligned_existing_values, extra_Y_case_counts = self._align_extra_genes_with_new_source(
+                    existing_extra_genes=extra_genes_all,
+                    existing_extra_values=[extra_Y_exomes, extra_Y_positive_controls],
+                    new_source_genes=extra_genes_case_counts,
+                    new_source_values=extra_Y_case_counts,
+                    existing_missing_values=[missing_value_exomes, missing_value_positive_controls],
+                    new_source_missing_value=missing_value_case_counts,
+                )
+                extra_Y_exomes = aligned_existing_values[0]
+                extra_Y_positive_controls = aligned_existing_values[1]
         else:
             Y1_case_counts = np.zeros(len(Y1_exomes))
             extra_Y_case_counts = np.zeros(len(extra_Y_case_counts))
@@ -2136,48 +2229,22 @@ class GeneSetData(object):
         assert(len(Y1_exomes) == len(Y1_positive_controls))
         assert(len(Y1_exomes) == len(Y1_case_counts))
 
-        missing_value = None
-        gene_combined_map = None
-        gene_prior_map = None
-
-        #read these in here if there is a file
-
-        if huge_statistics_in is not None:
-            if gwas_in is not None:
-                warn("Both --gwas-in and --huge-statistics-in were passed; using --huge-statistics-in")
-            (Y1,extra_genes,extra_Y,Y1_for_regression,extra_Y_for_regression) = self.read_huge_statistics(huge_statistics_in)
-            missing_value = 0
-        elif gwas_in is not None:
-            (Y1,extra_genes,extra_Y,Y1_for_regression,extra_Y_for_regression) = self._calculate_huge_scores_gwas_impl(
-                gwas_in,
-                gene_loc_file=gene_loc_file,
-                hold_out_chrom=hold_out_chrom,
-                **kwargs
-            )
-            if huge_statistics_out is not None:
-                self.write_huge_statistics(huge_statistics_out, Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression)
-            missing_value = 0
-        else:
-            self.huge_signal_bfs = None
-            self.huge_signal_bfs_for_regression = None
-
-            if gene_bfs_in is not None:
-                (Y1,extra_genes,extra_Y, gene_combined_map, gene_prior_map)  = self._read_gene_bfs_impl(
-                    gene_bfs_in,
-                    **kwargs
-                )
-            elif exomes_in is not None:
-                (Y1,extra_genes,extra_Y) = (np.zeros(Y1_exomes.shape), [], [])
-            elif positive_controls_in is not None or positive_controls_list is not None:
-                (Y1,extra_genes,extra_Y) = (np.zeros(Y1_positive_controls.shape), [], [])
-            elif case_counts_in is not None:
-                (Y1,extra_genes,extra_Y) = (np.zeros(Y1_case_counts.shape), [], [])
-            else:
-                bail("Need to specify either gene_bfs_in or exomes_in or positive_controls_in or case_counts_in")
-
-            (Y1,extra_genes,extra_Y) = __hold_out_chrom(Y1,extra_genes,extra_Y)
-            Y1_for_regression = copy.copy(Y1)
-            extra_Y_for_regression = copy.copy(extra_Y)
+        (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression, missing_value, gene_combined_map, gene_prior_map) = self._read_primary_y_source(
+            gwas_in=gwas_in,
+            huge_statistics_in=huge_statistics_in,
+            huge_statistics_out=huge_statistics_out,
+            exomes_in=exomes_in,
+            positive_controls_in=positive_controls_in,
+            positive_controls_list=positive_controls_list,
+            case_counts_in=case_counts_in,
+            gene_bfs_in=gene_bfs_in,
+            hold_out_chrom=hold_out_chrom,
+            gene_loc_file=gene_loc_file,
+            Y1_exomes=Y1_exomes,
+            Y1_positive_controls=Y1_positive_controls,
+            Y1_case_counts=Y1_case_counts,
+            **kwargs,
+        )
 
         #we now need to construct several arrays
         #1. self.genes (if it hasn't been constructed already)
