@@ -2029,7 +2029,7 @@ class GeneSetData(object):
                 #align these so that genes includes the union of exomes and positive controls
                 #and the extras moved in are no longer in extra
                 #only need to remove the extras from exomes, since it was loaded into self.genes already
-                extra_gene_to_ind = self._construct_map_to_ind(extra_genes_positive_controls)
+                extra_gene_to_ind = _construct_map_to_ind(extra_genes_positive_controls)
                 extra_Y_positive_controls = list(extra_Y_positive_controls)
                 new_extra_Y_exomes = list(np.full(len(extra_Y_positive_controls), missing_value_exomes))
                 num_add = 0
@@ -2086,7 +2086,7 @@ class GeneSetData(object):
                 #align these so that genes includes the union of exomes and case counts
                 #and the extras moved in are no longer in extra
                 #only need to remove the extras from exomes, since it was loaded into self.genes already
-                extra_gene_to_ind = self._construct_map_to_ind(extra_genes_case_counts)
+                extra_gene_to_ind = _construct_map_to_ind(extra_genes_case_counts)
                 extra_Y_case_counts = list(extra_Y_case_counts)
                 new_extra_Y_exomes = list(np.full(len(extra_Y_case_counts), missing_value_exomes))
                 new_extra_Y_positive_controls = list(np.full(len(extra_Y_case_counts), missing_value_positive_controls))
@@ -2260,7 +2260,7 @@ class GeneSetData(object):
             Y_case_counts = Y1_case_counts
             Y_case_counts[np.isnan(Y1_case_counts)] = missing_value_case_counts
 
-            extra_gene_to_ind = self._construct_map_to_ind(extra_genes)
+            extra_gene_to_ind = _construct_map_to_ind(extra_genes)
             extra_Y = list(extra_Y)
             extra_Y_for_regression = list(extra_Y_for_regression)
             new_extra_Y_exomes = list(np.full(len(extra_Y), missing_value_exomes))
@@ -2781,7 +2781,7 @@ class GeneSetData(object):
         def __add_to_X(mat_info, genes, gene_sets, tag=None, skip_scale_factors=False, fname=None):
 
             #if self.genes_missing is not None:
-            #    gene_to_ind = self._construct_map_to_ind(genes)
+            #    gene_to_ind = _construct_map_to_ind(genes)
             #    #we are going to construct the full matrices including all of the missing genes
             #    #and then subset the matrix down
             #    genes += [x for x in self.genes_missing if x not in gene_to_ind]
@@ -2956,7 +2956,7 @@ class GeneSetData(object):
                     if self.genes_missing is not None:
                         genes += self.genes_missing
                     genes += [x for x in old_genes if (self.gene_to_ind is None or x not in self.gene_to_ind) and (self.gene_missing_to_ind is None or x not in self.gene_missing_to_ind)]
-                    gene_to_ind = self._construct_map_to_ind(genes)
+                    gene_to_ind = _construct_map_to_ind(genes)
                     index_map = {i: gene_to_ind[old_genes[i]] for i in range(len(old_genes))}
                     cur_X = sparse.csc_matrix((cur_X.data, [index_map[x] for x in cur_X.indices], cur_X.indptr), shape=(len(genes), cur_X.shape[1]))
 
@@ -3028,8 +3028,8 @@ class GeneSetData(object):
 
             if (self.Y is not None and len(genes) > len(self.Y)) or (self.genes is not None):
                 genes_missing_old = self.genes_missing if self.genes_missing is not None else []
-                gene_missing_old_to_ind = self._construct_map_to_ind(genes_missing_old)
-                gene_to_ind = self._construct_map_to_ind(genes)
+                gene_missing_old_to_ind = _construct_map_to_ind(genes_missing_old)
+                gene_to_ind = _construct_map_to_ind(genes)
 
                 #these are the genes that are new this time around
                 genes_missing_new = [x for x in genes if x not in self.gene_to_ind and x not in gene_missing_old_to_ind]
@@ -3041,7 +3041,7 @@ class GeneSetData(object):
 
                 #all genes missing
                 #genes_missing = set(genes_missing_new + genes_missing_int + genes_missing_old)
-                #gene_missing_to_ind = self._construct_map_to_ind(genes_missing)
+                #gene_missing_to_ind = _construct_map_to_ind(genes_missing)
                 #assert(len(genes_missing) == len(set(genes_missing)))
 
                 #subset down X to only non missing
@@ -3556,7 +3556,7 @@ class GeneSetData(object):
                     genes = copy.copy(self.genes)
                     if self.genes_missing is not None:
                         genes += self.genes_missing
-                    gene_to_ind = self._construct_map_to_ind(genes)
+                    gene_to_ind = _construct_map_to_ind(genes)
 
                 with open_gz(X_in) as gene_sets_fh:
 
@@ -3658,7 +3658,7 @@ class GeneSetData(object):
                             genes = copy.copy(self.genes)
                             if self.genes_missing is not None:
                                 genes += self.genes_missing
-                            gene_to_ind = self._construct_map_to_ind(genes)
+                            gene_to_ind = _construct_map_to_ind(genes)
                             new_gene_to_ind = {}
                             gene_sets = []
                             data = []
@@ -4025,7 +4025,7 @@ class GeneSetData(object):
         if len(gene_sets) < 1:
             bail("First line of --X-in must contain list of gene sets")
 
-        gene_set_to_ind = self._construct_map_to_ind(gene_sets)
+        gene_set_to_ind = _construct_map_to_ind(gene_sets)
         V = np.genfromtxt(V_in, skip_header=1)
         if V.shape[0] != V.shape[1] or V.shape[0] != len(gene_sets):
             bail("V matrix dimensions %s do not match number of gene sets in header line (%s)" % (V.shape, len(gene_sets)))
@@ -4040,7 +4040,7 @@ class GeneSetData(object):
                 warn("Excluding %s values from previously loaded files because absent from --V-in file" % (len(subset_mask) - sum(subset_mask)))
                 V = V[subset_mask,:][:,subset_mask]
                 self.gene_sets = list(itertools.compress(self.gene_sets, subset_mask))
-                self.gene_set_to_ind = self._construct_map_to_ind(self.gene_sets)
+                self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
             #now remove everything from the other files that are not in V
             old_subset_mask = np.array([(x in gene_set_to_ind) for x in self.gene_sets])
             if sum(old_subset_mask) != len(old_subset_mask):
@@ -4322,33 +4322,33 @@ class GeneSetData(object):
             pos_col = None
             locus_col = None
             if gwas_chrom_col is not None and gwas_pos_col is not None:
-                chrom_col = self._get_col(gwas_chrom_col, header_cols)
-                pos_col = self._get_col(gwas_pos_col, header_cols)
+                chrom_col = _get_col(gwas_chrom_col, header_cols)
+                pos_col = _get_col(gwas_pos_col, header_cols)
             else:
-                locus_col = self._get_col(gwas_locus_col, header_cols)
+                locus_col = _get_col(gwas_locus_col, header_cols)
 
             p_col = None
             if gwas_p_col is not None:
-                p_col = self._get_col(gwas_p_col, header_cols)
+                p_col = _get_col(gwas_p_col, header_cols)
 
             beta_col = None
             if gwas_beta_col is not None:
-                beta_col = self._get_col(gwas_beta_col, header_cols)
+                beta_col = _get_col(gwas_beta_col, header_cols)
 
             n_col = None
             se_col = None
             if gwas_n_col is not None:
-                n_col = self._get_col(gwas_n_col, header_cols)
+                n_col = _get_col(gwas_n_col, header_cols)
             if gwas_se_col is not None:
-                se_col = self._get_col(gwas_se_col, header_cols)
+                se_col = _get_col(gwas_se_col, header_cols)
 
             freq_col = None
             if gwas_freq_col is not None:
-                freq_col = self._get_col(gwas_freq_col, header_cols)
+                freq_col = _get_col(gwas_freq_col, header_cols)
 
             filter_col = None
             if gwas_filter_col is not None:
-                filter_col = self._get_col(gwas_filter_col, header_cols)
+                filter_col = _get_col(gwas_filter_col, header_cols)
 
             chrom_pos_p_beta_se_freq = {}
             seen_chrom_pos = {}
@@ -4551,12 +4551,12 @@ class GeneSetData(object):
 
                 with open_gz(s2g_in) as s2g_fh:
                     header_cols = s2g_fh.readline().strip('\n').split()
-                    chrom_col = self._get_col(s2g_chrom_col, header_cols)
-                    pos_col = self._get_col(s2g_pos_col, header_cols)
-                    gene_col = self._get_col(s2g_gene_col, header_cols)
+                    chrom_col = _get_col(s2g_chrom_col, header_cols)
+                    pos_col = _get_col(s2g_pos_col, header_cols)
+                    gene_col = _get_col(s2g_gene_col, header_cols)
                     prob_col = None
                     if s2g_prob_col is not None:
-                        prob_col = self._get_col(s2g_prob_col, header_cols)
+                        prob_col = _get_col(s2g_prob_col, header_cols)
 
                     for line in s2g_fh:
 
@@ -4632,14 +4632,14 @@ class GeneSetData(object):
 
                 with open_gz(credible_sets_in) as credible_sets_fh:
                     header_cols = credible_sets_fh.readline().strip('\n').split()
-                    chrom_col = self._get_col(credible_sets_chrom_col, header_cols)
-                    pos_col = self._get_col(credible_sets_pos_col, header_cols)
+                    chrom_col = _get_col(credible_sets_chrom_col, header_cols)
+                    pos_col = _get_col(credible_sets_pos_col, header_cols)
                     id_col = None
                     if credible_sets_id_col is not None:
-                        id_col = self._get_col(credible_sets_id_col, header_cols)
+                        id_col = _get_col(credible_sets_id_col, header_cols)
                     ppa_col = None
                     if credible_sets_ppa_col is not None:
-                        ppa_col = self._get_col(credible_sets_ppa_col, header_cols)
+                        ppa_col = _get_col(credible_sets_ppa_col, header_cols)
 
                     for line in credible_sets_fh:
 
@@ -4780,7 +4780,7 @@ class GeneSetData(object):
                     gene_names_non_unique = np.array(gene_zipped[0])
 
                     gene_names, gene_index_to_name_index = np.unique(gene_names_non_unique, return_inverse=True)
-                    gene_name_to_index = self._construct_map_to_ind(gene_names)
+                    gene_name_to_index = _construct_map_to_ind(gene_names)
                     gene_pos = np.array(gene_zipped[1])
 
                     #get a map from position to gene
@@ -5050,7 +5050,7 @@ class GeneSetData(object):
                             gene_end_indices = np.zeros(len(gene_names), dtype=int)
                             gene_num_indices = np.zeros(len(gene_names), dtype=int)
 
-                            gene_name_to_ind = self._construct_map_to_ind(gene_names)
+                            gene_name_to_ind = _construct_map_to_ind(gene_names)
                             for i in range(len(gene_names_non_unique)):
                                 gene_name_ind = gene_name_to_ind[gene_names_non_unique[i]]
                                 if gene_start_indices[gene_name_ind] == 0:
@@ -5652,7 +5652,7 @@ class GeneSetData(object):
                 gene_to_ind = self.gene_to_ind
             else:
                 genes = list(gene_to_chrom.keys())
-                gene_to_ind = self._construct_map_to_ind(genes)
+                gene_to_ind = _construct_map_to_ind(genes)
 
             #need to remap the indices
             extra_genes = []
@@ -5927,22 +5927,22 @@ class GeneSetData(object):
             
         with open_gz(exomes_in) as exomes_fh:
             header_cols = exomes_fh.readline().strip('\n').split(delim)
-            gene_col = self._get_col(exomes_gene_col, header_cols)
+            gene_col = _get_col(exomes_gene_col, header_cols)
 
             p_col = None
             if exomes_p_col is not None:
-                p_col = self._get_col(exomes_p_col, header_cols)
+                p_col = _get_col(exomes_p_col, header_cols)
 
             beta_col = None
             if exomes_beta_col is not None:
-                beta_col = self._get_col(exomes_beta_col, header_cols)
+                beta_col = _get_col(exomes_beta_col, header_cols)
 
             n_col = None
             se_col = None
             if exomes_n_col is not None:
-                n_col = self._get_col(exomes_n_col, header_cols)
+                n_col = _get_col(exomes_n_col, header_cols)
             if exomes_se_col is not None:
-                se_col = self._get_col(exomes_se_col, header_cols)
+                se_col = _get_col(exomes_se_col, header_cols)
             
             chrom_pos_p_se = {}
 
@@ -6163,10 +6163,10 @@ class GeneSetData(object):
                             if len(cols) > 1 and cur_id_col is None:
                                 bail("--positive-controls-id-col required for positive control files with more than one column")
                             elif cur_id_col is not None:
-                                id_col = self._get_col(cur_id_col, cols)
+                                id_col = _get_col(cur_id_col, cols)
 
                             if cur_prob_col is not None:
-                                prob_col = self._get_col(cur_prob_col, cols)
+                                prob_col = _get_col(cur_prob_col, cols)
 
                             if has_header and cur_id_col is not None:
                                 continue
@@ -6252,7 +6252,7 @@ class GeneSetData(object):
                         if len(cols) > 1 and all_genes_id_col is None:
                             bail("--all-genes-id-col required for positive control files with more than one column")
                         elif all_genes_id_col is not None:
-                            id_col = self._get_col(all_genes_id_col, cols)
+                            id_col = _get_col(all_genes_id_col, cols)
 
                         if all_genes_has_header and all_genes_id_col is not None:
                             continue
@@ -6321,36 +6321,36 @@ class GeneSetData(object):
                 header_cols = fh.readline().strip('\n').split()
                 
                 if gene_col_in is not None:
-                    gene_col = self._get_col(gene_col_in, header_cols, True)
+                    gene_col = _get_col(gene_col_in, header_cols, True)
                 else:
-                    gene_col = self._get_col("gene", header_cols, False)
+                    gene_col = _get_col("gene", header_cols, False)
                     if gene_col is None:
                         bail("Require gene col for %s counts" % tag)
 
                 if revel_col_in is not None:
-                    revel_col = self._get_col(revel_col_in, header_cols, True)
+                    revel_col = _get_col(revel_col_in, header_cols, True)
                 else:
-                    revel_col = self._get_col("revel", header_cols, False)
+                    revel_col = _get_col("revel", header_cols, False)
                     if revel_col is None:
                         bail("Require revel col for %s counts" % tag)
 
                 if count_col_in is not None:
-                    count_col = self._get_col(count_col_in, header_cols, True)
+                    count_col = _get_col(count_col_in, header_cols, True)
                 else:
-                    count_col = self._get_col("count", header_cols, False)
+                    count_col = _get_col("count", header_cols, False)
                     if count_col is None:
                         bail("Require count col for %s counts" % tag)
 
                 if total_col_in is not None:
-                    total_col = self._get_col(total_col_in, header_cols, True)
+                    total_col = _get_col(total_col_in, header_cols, True)
                 else:
-                    total_col = self._get_col("total", header_cols, False)
+                    total_col = _get_col("total", header_cols, False)
                     if total_col is None:
                         bail("Require total col for %s counts" % tag)
 
                 max_freq_col = None
                 if max_freq_col_in is not None:
-                    max_freq_col = self._get_col(max_freq_col_in, header_cols, True)
+                    max_freq_col = _get_col(max_freq_col_in, header_cols, True)
 
                 #first get max_N
                 for line in fh:
@@ -6753,15 +6753,15 @@ class GeneSetData(object):
 
         with open_gz(stats_in) as stats_fh:
             header_cols = stats_fh.readline().strip('\n').split()
-            id_col = self._get_col(stats_id_col, header_cols)
+            id_col = _get_col(stats_id_col, header_cols)
             beta_tilde_col = None
 
             if stats_beta_tilde_col is not None:
-                beta_tilde_col = self._get_col(stats_beta_tilde_col, header_cols, False)
+                beta_tilde_col = _get_col(stats_beta_tilde_col, header_cols, False)
             if beta_tilde_col is not None:
                 log("Using col %s for beta_tilde values" % stats_beta_tilde_col)
             elif stats_exp_beta_tilde_col is not None:
-                beta_tilde_col = self._get_col(stats_exp_beta_tilde_col, header_cols)
+                beta_tilde_col = _get_col(stats_exp_beta_tilde_col, header_cols)
                 need_to_take_log = True
                 if beta_tilde_col is not None:
                     log("Using %s for exp(beta_tilde) values" % stats_exp_beta_tilde_col)
@@ -6770,23 +6770,23 @@ class GeneSetData(object):
 
             p_col = None
             if stats_p_col is not None:
-                p_col = self._get_col(stats_p_col, header_cols, False)            
+                p_col = _get_col(stats_p_col, header_cols, False)            
 
             se_col = None
             if stats_se_col is not None:
-                se_col = self._get_col(stats_se_col, header_cols, False)            
+                se_col = _get_col(stats_se_col, header_cols, False)            
 
             beta_col = None
             if stats_beta_col is not None:
-                beta_col = self._get_col(stats_beta_col, header_cols, True)
+                beta_col = _get_col(stats_beta_col, header_cols, True)
             else:
-                beta_col = self._get_col("beta", header_cols, False)
+                beta_col = _get_col("beta", header_cols, False)
                 
             beta_uncorrected_col = None
             if stats_beta_uncorrected_col is not None:
-                beta_uncorrected_col = self._get_col(stats_beta_uncorrected_col, header_cols, True)
+                beta_uncorrected_col = _get_col(stats_beta_uncorrected_col, header_cols, True)
             else:
-                beta_uncorrected_col = self._get_col("beta_uncorrected", header_cols, False)
+                beta_uncorrected_col = _get_col("beta_uncorrected", header_cols, False)
 
             if se_col is None and p_col is None and beta_tilde_col is None and beta_col is None and beta_uncorrected_col is None:
                 bail("Require at least something to read from --gene-set-stats-in")
@@ -6973,7 +6973,7 @@ class GeneSetData(object):
                 warn("Excluding %s values from previously loaded files because absent from --stats-in file" % (len(subset_mask) - sum(subset_mask)))
                 if self.beta_tildes is not None and not need_to_take_log and sum(self.beta_tildes < 0) == 0:
                     warn("All beta_tilde values are positive. Are you sure that the values in column %s are not exp(beta_tilde)?" % stats_beta_col)
-                self.subset_gene_sets(subset_mask, keep_missing=True)
+                _state_subset_gene_sets(self.__dict__, subset_mask, keep_missing=True)
             log("Done subsetting matrices", DEBUG)
         else:
             self.X_orig_missing_gene_sets = None
@@ -7031,20 +7031,20 @@ class GeneSetData(object):
                 if len(header_cols) == 1:
                     success = False
                     continue
-                id_col = self._get_col(stats_id_col, header_cols)
-                pheno_col = self._get_col(stats_pheno_col, header_cols)
+                id_col = _get_col(stats_id_col, header_cols)
+                pheno_col = _get_col(stats_pheno_col, header_cols)
 
                 beta_col = None
                 if stats_beta_col is not None:
-                    beta_col = self._get_col(stats_beta_col, header_cols, True)
+                    beta_col = _get_col(stats_beta_col, header_cols, True)
                 else:
-                    beta_col = self._get_col("beta", header_cols, False)
+                    beta_col = _get_col("beta", header_cols, False)
 
                 beta_uncorrected_col = None
                 if stats_beta_uncorrected_col is not None:
-                    beta_uncorrected_col = self._get_col(stats_beta_uncorrected_col, header_cols, True)
+                    beta_uncorrected_col = _get_col(stats_beta_uncorrected_col, header_cols, True)
                 else:
-                    beta_uncorrected_col = self._get_col("beta_uncorrected", header_cols, False)
+                    beta_uncorrected_col = _get_col("beta_uncorrected", header_cols, False)
 
                 if beta_col is None and beta_uncorrected_col is None:
                     bail("Require at least beta or beta_uncorrected to read from --gene-set-stats-in")
@@ -7187,7 +7187,7 @@ class GeneSetData(object):
                 #need to subset existing matrices
                 if sum(subset_mask) != len(subset_mask):
                     warn("Excluding %s values from previously loaded files because absent from --stats-in file" % (len(subset_mask) - sum(subset_mask)))
-                    self.subset_gene_sets(subset_mask, keep_missing=True)
+                    _state_subset_gene_sets(self.__dict__, subset_mask, keep_missing=True)
                 log("Done subsetting matrices", DEBUG)
 
             self._set_X(self.X_orig, self.genes, self.gene_sets, skip_N=True)
@@ -7198,7 +7198,7 @@ class GeneSetData(object):
             
         self.phenos = phenos
 
-        self.pheno_to_ind = self._construct_map_to_ind(phenos)
+        self.pheno_to_ind = _construct_map_to_ind(phenos)
 
         #uniquify if needed
         if len(row_chunks) > 0:
@@ -7232,7 +7232,7 @@ class GeneSetData(object):
     def _reread_gene_phewas_bfs(self):
         if self.cached_gene_phewas_call is not None:
             log("Rereading gene phewas bfs...")
-            self.read_gene_phewas_bfs(**self.cached_gene_phewas_call)
+            _state_read_gene_phewas_bfs(self.__dict__, **self.cached_gene_phewas_call)
 
     def read_gene_phewas_bfs(self, *args, **kwargs):
         return _state_read_gene_phewas_bfs(self.__dict__, *args, **kwargs)
@@ -7283,27 +7283,27 @@ class GeneSetData(object):
                 if gene_phewas_bfs_pheno_col is None:
                     gene_phewas_bfs_pheno_col = "Pheno"
 
-                id_col = self._get_col(gene_phewas_bfs_id_col, header_cols)
+                id_col = _get_col(gene_phewas_bfs_id_col, header_cols)
 
-                pheno_col = self._get_col(gene_phewas_bfs_pheno_col, header_cols)
+                pheno_col = _get_col(gene_phewas_bfs_pheno_col, header_cols)
 
                 bf_col = None
                 if gene_phewas_bfs_log_bf_col is not None:
-                    bf_col = self._get_col(gene_phewas_bfs_log_bf_col, header_cols)
+                    bf_col = _get_col(gene_phewas_bfs_log_bf_col, header_cols)
                 else:
-                    bf_col = self._get_col("log_bf", header_cols, False)
+                    bf_col = _get_col("log_bf", header_cols, False)
 
                 combined_col = None
                 if gene_phewas_bfs_combined_col is not None:
-                    combined_col = self._get_col(gene_phewas_bfs_combined_col, header_cols, True)
+                    combined_col = _get_col(gene_phewas_bfs_combined_col, header_cols, True)
                 else:
-                    combined_col = self._get_col("combined", header_cols, False)
+                    combined_col = _get_col("combined", header_cols, False)
 
                 prior_col = None
                 if gene_phewas_bfs_prior_col is not None:
-                    prior_col = self._get_col(gene_phewas_bfs_prior_col, header_cols, True)
+                    prior_col = _get_col(gene_phewas_bfs_prior_col, header_cols, True)
                 else:
-                    prior_col = self._get_col("prior", header_cols, False)
+                    prior_col = _get_col("prior", header_cols, False)
 
                 if bf_col is not None:
                     Ys  = []
@@ -7442,7 +7442,7 @@ class GeneSetData(object):
                 self.X_phewas_beta_uncorrected = sparse.csc_matrix(sparse.vstack((self.X_phewas_beta_uncorrected, sparse.csc_matrix((num_added_phenos, self.X_phewas_beta_uncorrected.shape[1])))))
 
         self.phenos = phenos
-        self.pheno_to_ind = self._construct_map_to_ind(phenos)
+        self.pheno_to_ind = _construct_map_to_ind(phenos)
 
         #uniquify if needed
         if len(row_chunks) > 0:
@@ -7523,7 +7523,17 @@ class GeneSetData(object):
                 bail("Need --gwas-in or --exomes-in or --gene-stats-in or --positive-controls-in or --case-counts_in")
 
             log("Reading Y within calculate_gene_set_statistics; parameters may not be honored")
-            self.read_Y(gwas_in=gwas_in, exomes_in=exomes_in, positive_controls_in=positive_controls_in, positive_controls_list=positive_controls_list, case_counts_in=case_counts_in, ctrl_counts_in=ctrl_counts_in, gene_bfs_in=gene_bfs_in, **kwargs)
+            _state_read_Y(
+                self.__dict__,
+                gwas_in=gwas_in,
+                exomes_in=exomes_in,
+                positive_controls_in=positive_controls_in,
+                positive_controls_list=positive_controls_list,
+                case_counts_in=case_counts_in,
+                ctrl_counts_in=ctrl_counts_in,
+                gene_bfs_in=gene_bfs_in,
+                **kwargs
+            )
             Y = self.Y_for_regression
 
         #FIXME: need to make this so don't always read in correlations, and add priors where needed
@@ -7545,7 +7555,7 @@ class GeneSetData(object):
         #subset gene sets to remove empty ones first
         #number of gene sets in each gene set
         col_sums = self.get_col_sums(self.X_orig, num_nonzero=True)
-        self.subset_gene_sets(col_sums > 0, keep_missing=False, skip_V=True, skip_scale_factors=True)
+        _state_subset_gene_sets(self.__dict__, col_sums > 0, keep_missing=False, skip_V=True, skip_scale_factors=True)
 
         #CAN REMOVE
         #mean of Y is now zero
@@ -7673,7 +7683,7 @@ class GeneSetData(object):
                 if np.sum(gene_set_mask) == 0 and len(self.p_values) > 0:
                     gene_set_mask = self.p_values == np.min(self.p_values)
                 log("Keeping %d gene sets that passed threshold of p<%.3g" % (np.sum(gene_set_mask), max_gene_set_p))
-                self.subset_gene_sets(gene_set_mask, keep_missing=True, skip_V=True)
+                _state_subset_gene_sets(self.__dict__, gene_set_mask, keep_missing=True, skip_V=True)
 
                 if len(self.gene_sets) < 1:
                     log("No gene sets left!")
@@ -7804,7 +7814,7 @@ class GeneSetData(object):
                     warn("Ignored %s values from --betas-in file because absent from previously loaded files" % ignored)
                 if sum(subset_mask) != len(subset_mask):
                     warn("Excluding %s values from previously loaded files because absent from --betas-in file" % (len(subset_mask) - sum(subset_mask)))
-                    self.subset_gene_sets(subset_mask, keep_missing=False)
+                    _state_subset_gene_sets(self.__dict__, subset_mask, keep_missing=False)
             else:
                 self.gene_sets = gene_sets
                 self.gene_set_to_ind = gene_set_to_ind
@@ -8359,7 +8369,7 @@ class GeneSetData(object):
                 #self.set_p(orig_p)
 
             #now restore previous subsets
-            self.subset_gene_sets(revert_subset_mask, keep_missing=True, skip_V=True)
+            _state_subset_gene_sets(self.__dict__, revert_subset_mask, keep_missing=True, skip_V=True)
 
         #now for the genes that were not included in X
         if self.X_orig_missing_genes is not None:
@@ -9673,7 +9683,7 @@ class GeneSetData(object):
                         print_overlapping = None
                         if print_overlapping is not None:
                             gene_sets_run = [self.gene_sets[i] for i in range(len(self.gene_sets)) if cur_gene_set_mask[i]]
-                            gene_set_to_ind = self._construct_map_to_ind(gene_sets_run)
+                            gene_set_to_ind = _construct_map_to_ind(gene_sets_run)
                             for gene_set in print_overlapping:
                                 if gene_set in gene_set_to_ind:
                                     log("For gene set %s" % (gene_set))
@@ -11815,7 +11825,7 @@ class GeneSetData(object):
     def _run_phewas_impl(self, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, run_for_factors=False, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, min_gene_factor_weight=0, **kwargs):
 
         #require X matrix
-        if gene_phewas_bfs_in is None and not self.read_gene_phewas():
+        if gene_phewas_bfs_in is None and not _state_read_gene_phewas(self.__dict__):
             bail("Require --gene-stats-in or --gene-phewas-bfs-in with a column for log_bf/Y in this operation")
 
         if run_for_factors:
@@ -11860,23 +11870,23 @@ class GeneSetData(object):
                 if gene_phewas_bfs_pheno_col is None:
                     gene_phewas_bfs_pheno_col = "Pheno"
 
-                id_col = self._get_col(gene_phewas_bfs_id_col, header_cols)
-                pheno_col = self._get_col(gene_phewas_bfs_pheno_col, header_cols)
+                id_col = _get_col(gene_phewas_bfs_id_col, header_cols)
+                pheno_col = _get_col(gene_phewas_bfs_pheno_col, header_cols)
                 if gene_phewas_bfs_log_bf_col is not None:
-                    bf_col = self._get_col(gene_phewas_bfs_log_bf_col, header_cols)
+                    bf_col = _get_col(gene_phewas_bfs_log_bf_col, header_cols)
                 else:
-                    bf_col = self._get_col("log_bf", header_cols, False)
+                    bf_col = _get_col("log_bf", header_cols, False)
 
                 if gene_phewas_bfs_combined_col is not None:
-                    combined_col = self._get_col(gene_phewas_bfs_combined_col, header_cols, True)
+                    combined_col = _get_col(gene_phewas_bfs_combined_col, header_cols, True)
                 else:
-                    combined_col = self._get_col("combined", header_cols, False)
+                    combined_col = _get_col("combined", header_cols, False)
 
                 prior_col = None
                 if gene_phewas_bfs_prior_col is not None:
-                    prior_col = self._get_col(gene_phewas_bfs_prior_col, header_cols, True)
+                    prior_col = _get_col(gene_phewas_bfs_prior_col, header_cols, True)
                 else:
-                    prior_col = self._get_col("prior", header_cols, False)
+                    prior_col = _get_col("prior", header_cols, False)
 
                 for line in gene_phewas_bfs_fh:
                     cols = line.strip('\n').split()
@@ -11915,7 +11925,7 @@ class GeneSetData(object):
                         self.gene_pheno_priors = sparse.csc_matrix(sparse.hstack((self.gene_pheno_priors, sparse.csc_matrix((self.gene_pheno_priors.shape[0], num_added_phenos)))))
 
                 self.phenos = phenos
-                pheno_to_ind = self._construct_map_to_ind(phenos)
+                pheno_to_ind = _construct_map_to_ind(phenos)
 
         else:
             phenos = self.phenos
@@ -13817,33 +13827,33 @@ class GeneSetData(object):
             if gene_bfs_id_col is None:
                 gene_bfs_id_col = "Gene"
 
-            id_col = self._get_col(gene_bfs_id_col, header_cols)
+            id_col = _get_col(gene_bfs_id_col, header_cols)
 
             prob_col = None
             if gene_bfs_prob_col is not None:
-                prob_col = self._get_col(gene_bfs_prob_col, header_cols, True)
+                prob_col = _get_col(gene_bfs_prob_col, header_cols, True)
 
             bf_col = None
             if gene_bfs_log_bf_col is not None:
-                bf_col = self._get_col(gene_bfs_log_bf_col, header_cols)
+                bf_col = _get_col(gene_bfs_log_bf_col, header_cols)
             else:
                 if prob_col is None:
-                    bf_col = self._get_col("log_bf", header_cols)
+                    bf_col = _get_col("log_bf", header_cols)
 
             if bf_col is None and prob_col is None:
                 bail("--gene-stats-log-bf-col or --gene-stats-prob-col required for this operation")
 
             combined_col = None
             if gene_bfs_combined_col is not None:
-                combined_col = self._get_col(gene_bfs_combined_col, header_cols, True)
+                combined_col = _get_col(gene_bfs_combined_col, header_cols, True)
             else:
-                combined_col = self._get_col("combined", header_cols, False)
+                combined_col = _get_col("combined", header_cols, False)
 
             prior_col = None
             if gene_bfs_prior_col is not None:
-                prior_col = self._get_col(gene_bfs_prior_col, header_cols, True)
+                prior_col = _get_col(gene_bfs_prior_col, header_cols, True)
             else:
-                prior_col = self._get_col("prior", header_cols, False)
+                prior_col = _get_col("prior", header_cols, False)
 
             if combined_col is not None or prob_col is not None:
                 gene_in_combined = {}
@@ -13937,7 +13947,7 @@ class GeneSetData(object):
             if gene_covs_id_col is None:
                 gene_covs_id_col = "Gene"
 
-            id_col = self._get_col(gene_covs_id_col, header_cols)
+            id_col = _get_col(gene_covs_id_col, header_cols)
 
             cov_names = [header_cols[i] for i in range(len(header_cols)) if i != id_col]
 
@@ -14221,7 +14231,7 @@ class GeneSetData(object):
         if total_genes is not None:
             total_genes = self.genes
 
-        #gene_to_ind = self._construct_map_to_ind(gene_prob_genes)
+        #gene_to_ind = _construct_map_to_ind(gene_prob_genes)
 
 
         if rel_prior_log_bf is None:
@@ -16319,9 +16329,9 @@ class GeneSetData(object):
                     res_beta_hat_union_t = curr_betas_t[:,compute_mask_v,:].dot(V[:,compute_mask_union])
 
                 if betas_trace_out is not None and betas_trace_gene_sets is not None:
-                    all_map = self._construct_map_to_ind(betas_trace_gene_sets)
+                    all_map = _construct_map_to_ind(betas_trace_gene_sets)
                     cur_sets = [betas_trace_gene_sets[x] for x in range(len(betas_trace_gene_sets)) if compute_mask_union[x]]
-                    cur_map = self._construct_map_to_ind(cur_sets)
+                    cur_map = _construct_map_to_ind(cur_sets)
 
                 res_beta_hat_t_flat = res_beta_hat_union_t[:,compute_mask_union_filter_m[compute_mask_v,:]]
                 assert(res_beta_hat_t_flat.shape[1] == np.sum(compute_mask_m))
@@ -17153,13 +17163,13 @@ class GeneSetData(object):
                 self._reread_gene_phewas_bfs()
 
         if self.genes is not None:
-            self.gene_to_ind = self._construct_map_to_ind(self.genes)
+            self.gene_to_ind = _construct_map_to_ind(self.genes)
         else:
             self.gene_to_ind = None
 
         self.gene_sets = gene_sets
         if self.gene_sets is not None:
-            self.gene_set_to_ind = self._construct_map_to_ind(self.gene_sets)
+            self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
         else:
             self.gene_set_to_ind = None
 
@@ -17521,7 +17531,7 @@ class GeneSetData(object):
             bail("Sorting genes after setting correlation matrix is not yet implemented")
 
         self.genes = [self.genes[i] for i in sorted_gene_indices]
-        self.gene_to_ind = self._construct_map_to_ind(self.genes)
+        self.gene_to_ind = _construct_map_to_ind(self.genes)
 
         index_map = {sorted_gene_indices[i]: i for i in range(len(sorted_gene_indices))}
 
@@ -17759,10 +17769,10 @@ class GeneSetData(object):
 
         self.genes_missing = (self.genes_missing if self.genes_missing is not None else []) + [self.genes[i] for i in range(len(self.genes)) if not gene_mask[i]]
 
-        self.gene_missing_to_ind = self._construct_map_to_ind(self.genes_missing)
+        self.gene_missing_to_ind = _construct_map_to_ind(self.genes_missing)
         
         self.genes = [self.genes[i] for i in range(len(self.genes)) if gene_mask[i]]
-        self.gene_to_ind = self._construct_map_to_ind(self.genes)
+        self.gene_to_ind = _construct_map_to_ind(self.genes)
 
         remove_mask = np.logical_not(gene_mask)
 
@@ -18119,7 +18129,7 @@ class GeneSetData(object):
             self.sigma2s = self.sigma2s[subset_mask]
 
         self.gene_sets = list(itertools.compress(self.gene_sets, subset_mask))
-        self.gene_set_to_ind = self._construct_map_to_ind(self.gene_sets)
+        self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
 
         if self.X_phewas_beta is not None:
             self.X_phewas_beta = self.X_phewas_beta[:,subset_mask]                
@@ -18157,7 +18167,7 @@ class GeneSetData(object):
 
         self.gene_sets += self.gene_sets_missing
         self.gene_sets_missing = None
-        self.gene_set_to_ind = self._construct_map_to_ind(self.gene_sets)
+        self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
 
         #if self.sigma2 is not None:
         #    old_sigma2 = self.sigma2
@@ -18278,26 +18288,11 @@ class GeneSetData(object):
 
     #utility function to create a mapping from name to index in a list
     def _construct_map_to_ind(self, gene_sets):
-        return dict([(gene_sets[i], i) for i in range(len(gene_sets))])
+        return _construct_map_to_ind(gene_sets)
 
     #utility function to map names or indices to column indicies
     def _get_col(self, col_name_or_index, header_cols, require_match=True):
-        try:
-            if col_name_or_index is None:
-                raise ValueError
-            if int(col_name_or_index) <= 0:
-                bail("All column ids specified as indices are 1-based")
-            return(int(col_name_or_index) - 1)
-        except ValueError:
-            matching_cols = [i for i in range(0,len(header_cols)) if header_cols[i] == col_name_or_index]
-            if len(matching_cols) == 0:
-                if require_match:
-                    bail("Could not find match for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
-                else:
-                    return None
-            if len(matching_cols) > 1:
-                bail("Found two matches for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
-            return matching_cols[0]
+        return _get_col(col_name_or_index, header_cols, require_match=require_match)
 
     # inverse_matrix calculations
     def _invert_matrix(self,matrix_in):
@@ -18321,6 +18316,29 @@ class GeneSetData(object):
 # ==========================================================================
 # State-agnostic parsing helpers used by both legacy objects and runtime-state.
 # ==========================================================================
+def _construct_map_to_ind(values):
+    return dict([(values[i], i) for i in range(len(values))])
+
+
+def _get_col(col_name_or_index, header_cols, require_match=True):
+    try:
+        if col_name_or_index is None:
+            raise ValueError
+        if int(col_name_or_index) <= 0:
+            bail("All column ids specified as indices are 1-based")
+        return(int(col_name_or_index) - 1)
+    except ValueError:
+        matching_cols = [i for i in range(0, len(header_cols)) if header_cols[i] == col_name_or_index]
+        if len(matching_cols) == 0:
+            if require_match:
+                bail("Could not find match for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
+            else:
+                return None
+        if len(matching_cols) > 1:
+            bail("Found two matches for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
+        return matching_cols[0]
+
+
 def _clean_chrom_name(chrom):
     if chrom[:3] == 'chr':
         return chrom[3:]
@@ -18699,6 +18717,14 @@ class _LegacyStateCallTarget(object):
     def __getattr__(self, name):
         if name in self.__dict__:
             return self.__dict__[name]
+        # Prefer extracted implementation bodies when available to avoid
+        # wrapper->bridge->impl round-trips during runtime-state execution.
+        impl_name = "_%s_impl" % name
+        impl_attr = getattr(GeneSetData, impl_name, None)
+        if callable(impl_attr):
+            def _bound_impl(*args, **kwargs):
+                return impl_attr(self, *args, **kwargs)
+            return _bound_impl
         legacy_attr = getattr(GeneSetData, name, None)
         if callable(legacy_attr):
             def _bound(*args, **kwargs):
