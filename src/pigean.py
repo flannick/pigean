@@ -18442,17 +18442,6 @@ def _legacy_view_from_runtime_state(runtime_state):
     return legacy_obj
 
 
-def call_with_runtime_state(runtime_state, method_name, *args, **kwargs):
-    """
-    Call a legacy GeneSetData method against an explicit runtime-state dict.
-    """
-    if not hasattr(GeneSetData, method_name):
-        bail("No legacy method named %s" % method_name)
-    method = getattr(GeneSetData, method_name)
-    legacy_obj = _legacy_view_from_runtime_state(runtime_state)
-    return method(legacy_obj, *args, **kwargs)
-
-
 def _is_huge_statistics_bundle_path(huge_statistics_file):
     lower = huge_statistics_file.lower()
     return lower.endswith(".tar.gz") or lower.endswith(".tgz") or lower.endswith(".tar")
@@ -18791,7 +18780,7 @@ def _read_huge_statistics_prefix_with_state(runtime_state, prefix):
 
     runtime_state["gene_to_gwas_huge_score"] = gene_to_score
     runtime_state["gene_to_gwas_huge_score_uncorrected"] = gene_to_score_uncorrected
-    call_with_runtime_state(runtime_state, "combine_huge_scores")
+    _legacy_view_from_runtime_state(runtime_state).combine_huge_scores()
 
     if runtime_state["huge_signal_bfs"].shape[1] != len(runtime_state["huge_signals"]):
         bail("HuGE cache is inconsistent: huge_signal_bfs has %d columns but found %d signals" % (runtime_state["huge_signal_bfs"].shape[1], len(runtime_state["huge_signals"])))
@@ -18845,34 +18834,6 @@ def _read_huge_statistics_with_state_impl(runtime_state, huge_statistics_in):
     return _read_huge_statistics_prefix_with_state(runtime_state, huge_statistics_in)
 
 
-def read_Y_with_state(runtime_state, *args, **kwargs):
-    return call_with_runtime_state(runtime_state, "read_Y", *args, **kwargs)
-
-
-def _calculate_non_inf_betas_with_state(runtime_state, *args, **kwargs):
-    return call_with_runtime_state(runtime_state, "_calculate_non_inf_betas", *args, **kwargs)
-
-
-def calculate_non_inf_betas_with_state(runtime_state, *args, **kwargs):
-    return call_with_runtime_state(runtime_state, "calculate_non_inf_betas", *args, **kwargs)
-
-
-def calculate_priors_with_state(runtime_state, *args, **kwargs):
-    return call_with_runtime_state(runtime_state, "calculate_priors", *args, **kwargs)
-
-
-def run_gibbs_with_state(runtime_state, *args, **kwargs):
-    return call_with_runtime_state(runtime_state, "run_gibbs", *args, **kwargs)
-
-
-def read_huge_statistics_with_state(runtime_state, *args, **kwargs):
-    return _read_huge_statistics_with_state_impl(runtime_state, *args, **kwargs)
-
-
-def write_huge_statistics_with_state(runtime_state, *args, **kwargs):
-    return _write_huge_statistics_with_state_impl(runtime_state, *args, **kwargs)
-
-
 ##This function is for labelling clusters. Update it with your favorite LLM if desired
 def query_lmm(query, auth_key=None, lmm_model=None):
 
@@ -18921,14 +18882,12 @@ def main():
 
     runtime_state = create_runtime_state(background_prior=options.background_prior, batch_size=options.batch_size)
     state_view = _legacy_view_from_runtime_state(runtime_state)
-    def _call(method_name, *args, **kwargs):
-        return call_with_runtime_state(runtime_state, method_name, *args, **kwargs)
     def _get(name, default=None):
         return runtime_state.get(name, default)
     def _set(name, value):
         runtime_state[name] = value
 
-    #_call("read_X",options.X_in)
+    #state_view.read_X(options.X_in)
     #y = []
     #for line in open("c"):
     #    a = line.strip('\n').split()
@@ -18946,23 +18905,23 @@ def main():
 
         if sigma2_cond is not None:
             #map it with the scale factor
-            _call("set_sigma",options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=False)
-            sigma2_cond = _call("get_sigma2")
-            _call("set_sigma",None, _get("sigma_power"))
+            state_view.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=False)
+            sigma2_cond = state_view.get_sigma2()
+            state_view.set_sigma(None, _get("sigma_power"))
         elif options.sigma2_ext is not None:
-            _call("set_sigma",options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=True)
-            log("Setting sigma=%.4g (given external=%.4g) " % (_call("get_sigma2"), _call("get_sigma2",convert_sigma_to_external_units=True)))
+            state_view.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=True)
+            log("Setting sigma=%.4g (given external=%.4g) " % (state_view.get_sigma2(), state_view.get_sigma2(convert_sigma_to_external_units=True)))
         elif options.sigma2 is not None:
-            _call("set_sigma",options.sigma2, options.sigma_power, convert_sigma_to_internal_units=False)
+            state_view.set_sigma(options.sigma2, options.sigma_power, convert_sigma_to_internal_units=False)
         elif options.top_gene_set_prior:
-            _call("set_sigma",_call("convert_prior_to_var",options.top_gene_set_prior, options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else len(_get("gene_sets")), options.frac_gene_sets_for_prior), options.sigma_power, convert_sigma_to_internal_units=True)
+            state_view.set_sigma(state_view.convert_prior_to_var(options.top_gene_set_prior, options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else len(_get("gene_sets")), options.frac_gene_sets_for_prior), options.sigma_power, convert_sigma_to_internal_units=True)
             if options.frac_gene_sets_for_prior == 1:
                 #in this case sigma2_cond was specified, not sigma2
-                sigma2_cond = _call("get_sigma2")
-                log("Setting sigma_cond=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (_call("get_sigma2"), _call("get_sigma2",convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
-                _call("set_sigma",None, _get("sigma_power"))
+                sigma2_cond = state_view.get_sigma2()
+                log("Setting sigma_cond=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (state_view.get_sigma2(), state_view.get_sigma2(convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
+                state_view.set_sigma(None, _get("sigma_power"))
             else:
-                log("Setting sigma=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (_call("get_sigma2"), _call("get_sigma2",convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
+                log("Setting sigma=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (state_view.get_sigma2(), state_view.get_sigma2(convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
 
         #sigma calculations
         if options.const_sigma:
@@ -19016,15 +18975,15 @@ def main():
         if (not run_factor or not use_phewas_for_factoring or extend_for_gene) and ((run_factor and expand_gene_sets and extend_for_gene) or run_huge or run_beta_tilde or run_beta or run_priors or run_naive_priors or run_gibbs or run_factor):
 
             if not extend_for_gene and options.gene_stats_in:
-                read_Y_with_state(runtime_state, gene_bfs_in=options.gene_stats_in,show_progress=not options.hide_progress, gene_bfs_id_col=options.gene_stats_id_col, gene_bfs_log_bf_col=options.gene_stats_log_bf_col, gene_bfs_combined_col=options.gene_stats_combined_col, gene_bfs_prob_col=options.gene_stats_prob_col, gene_bfs_prior_col=options.gene_stats_prior_col, gene_covs_in=options.gene_covs_in, hold_out_chrom=options.hold_out_chrom)
+                state_view.read_Y(gene_bfs_in=options.gene_stats_in,show_progress=not options.hide_progress, gene_bfs_id_col=options.gene_stats_id_col, gene_bfs_log_bf_col=options.gene_stats_log_bf_col, gene_bfs_combined_col=options.gene_stats_combined_col, gene_bfs_prob_col=options.gene_stats_prob_col, gene_bfs_prior_col=options.gene_stats_prior_col, gene_covs_in=options.gene_covs_in, hold_out_chrom=options.hold_out_chrom)
             elif extend_for_gene or options.gwas_in or options.huge_statistics_in or options.exomes_in or options.positive_controls_in or options.positive_controls_list is not None or options.case_counts_in is not None:
                 if not use_phewas_for_factoring and options.gwas_in is None and options.huge_statistics_in is None and options.exomes_in is None and options.case_counts_in is None:
                     _default_for_gene_list()
-                read_Y_with_state(runtime_state, gwas_in=options.gwas_in, huge_statistics_in=options.huge_statistics_in, huge_statistics_out=options.huge_statistics_out, show_progress=not options.hide_progress, gwas_chrom_col=options.gwas_chrom_col, gwas_pos_col=options.gwas_pos_col, gwas_p_col=options.gwas_p_col, gwas_beta_col=options.gwas_beta_col, gwas_se_col=options.gwas_se_col, gwas_n_col=options.gwas_n_col, gwas_n=options.gwas_n, gwas_units=options.gwas_units, gwas_freq_col=options.gwas_freq_col, gwas_filter_col=options.gwas_filter_col, gwas_filter_value=options.gwas_filter_value, gwas_locus_col=options.gwas_locus_col, gwas_ignore_p_threshold=options.gwas_ignore_p_threshold, gwas_low_p=options.gwas_low_p, gwas_high_p=options.gwas_high_p, gwas_low_p_posterior=options.gwas_low_p_posterior, gwas_high_p_posterior=options.gwas_high_p_posterior, detect_low_power=options.gwas_detect_low_power, detect_high_power=options.gwas_detect_high_power, detect_adjust_huge=options.gwas_detect_adjust_huge, learn_window=options.learn_window, closest_gene_prob=options.closest_gene_prob, max_closest_gene_prob=options.max_closest_gene_prob, scale_raw_closest_gene=options.scale_raw_closest_gene, cap_raw_closest_gene=options.cap_raw_closest_gene, cap_region_posterior=options.cap_region_posterior, scale_region_posterior=options.scale_region_posterior, phantom_region_posterior=options.phantom_region_posterior, allow_evidence_of_absence=options.allow_evidence_of_absence, correct_huge=options.correct_huge, gws_prob_true=options.gene_zs_gws_prob_true, max_closest_gene_dist=options.max_closest_gene_dist, signal_window_size=options.signal_window_size, signal_min_sep=options.signal_min_sep, signal_max_logp_ratio=options.signal_max_logp_ratio, credible_set_span=options.credible_set_span, min_n_ratio=options.min_n_ratio, max_clump_ld=options.max_clump_ld, exomes_in=options.exomes_in, exomes_gene_col=options.exomes_gene_col, exomes_p_col=options.exomes_p_col, exomes_beta_col=options.exomes_beta_col, exomes_se_col=options.exomes_se_col, exomes_n_col=options.exomes_n_col, exomes_n=options.exomes_n, exomes_units=options.exomes_units, exomes_low_p=options.exomes_low_p, exomes_high_p=options.exomes_high_p, exomes_low_p_posterior=options.exomes_low_p_posterior, exomes_high_p_posterior=options.exomes_high_p_posterior, positive_controls_in=options.positive_controls_in, positive_controls_id_col=options.positive_controls_id_col, positive_controls_prob_col=options.positive_controls_prob_col, positive_controls_default_prob=options.positive_controls_default_prob, positive_controls_has_header=options.positive_controls_has_header, positive_controls_list=options.positive_controls_list, positive_controls_all_in=options.positive_controls_all_in, positive_controls_all_id_col=options.positive_controls_all_id_col, positive_controls_all_has_header=options.positive_controls_all_has_header, case_counts_in=options.case_counts_in, case_counts_gene_col=options.case_counts_gene_col, case_counts_revel_col=options.case_counts_revel_col, case_counts_count_col=options.case_counts_count_col, case_counts_tot_col=options.case_counts_tot_col, case_counts_max_freq_col=options.case_counts_max_freq_col, min_revels=options.counts_min_revels, mean_rrs=options.counts_mean_rrs, max_case_freq=options.counts_max_case_freq, ctrl_counts_in=options.ctrl_counts_in, ctrl_counts_gene_col=options.ctrl_counts_gene_col, ctrl_counts_revel_col=options.ctrl_counts_revel_col, ctrl_counts_count_col=options.ctrl_counts_count_col, ctrl_counts_tot_col=options.ctrl_counts_tot_col, ctrl_counts_max_freq_col=options.ctrl_counts_max_freq_col, max_ctrl_freq=options.counts_max_ctrl_freq, syn_revel_threshold=options.counts_syn_revel, syn_fisher_p=options.counts_syn_fisher_p, nu=options.counts_nu, beta=options.counts_beta, gene_loc_file=options.gene_loc_file_huge if options.gene_loc_file_huge is not None else options.gene_loc_file, gene_covs_in=options.gene_covs_in, hold_out_chrom=options.hold_out_chrom, exons_loc_file=options.exons_loc_file_huge, min_var_posterior=options.min_var_posterior, s2g_in=options.s2g_in, s2g_chrom_col=options.s2g_chrom_col, s2g_pos_col=options.s2g_pos_col, s2g_gene_col=options.s2g_gene_col, s2g_prob_col=options.s2g_prob_col, s2g_normalize_values=options.s2g_normalize_values, credible_sets_in=options.credible_sets_in, credible_sets_id_col=options.credible_sets_id_col, credible_sets_chrom_col=options.credible_sets_chrom_col, credible_sets_pos_col=options.credible_sets_pos_col, credible_sets_ppa_col=options.credible_sets_ppa_col)
+                state_view.read_Y(gwas_in=options.gwas_in, huge_statistics_in=options.huge_statistics_in, huge_statistics_out=options.huge_statistics_out, show_progress=not options.hide_progress, gwas_chrom_col=options.gwas_chrom_col, gwas_pos_col=options.gwas_pos_col, gwas_p_col=options.gwas_p_col, gwas_beta_col=options.gwas_beta_col, gwas_se_col=options.gwas_se_col, gwas_n_col=options.gwas_n_col, gwas_n=options.gwas_n, gwas_units=options.gwas_units, gwas_freq_col=options.gwas_freq_col, gwas_filter_col=options.gwas_filter_col, gwas_filter_value=options.gwas_filter_value, gwas_locus_col=options.gwas_locus_col, gwas_ignore_p_threshold=options.gwas_ignore_p_threshold, gwas_low_p=options.gwas_low_p, gwas_high_p=options.gwas_high_p, gwas_low_p_posterior=options.gwas_low_p_posterior, gwas_high_p_posterior=options.gwas_high_p_posterior, detect_low_power=options.gwas_detect_low_power, detect_high_power=options.gwas_detect_high_power, detect_adjust_huge=options.gwas_detect_adjust_huge, learn_window=options.learn_window, closest_gene_prob=options.closest_gene_prob, max_closest_gene_prob=options.max_closest_gene_prob, scale_raw_closest_gene=options.scale_raw_closest_gene, cap_raw_closest_gene=options.cap_raw_closest_gene, cap_region_posterior=options.cap_region_posterior, scale_region_posterior=options.scale_region_posterior, phantom_region_posterior=options.phantom_region_posterior, allow_evidence_of_absence=options.allow_evidence_of_absence, correct_huge=options.correct_huge, gws_prob_true=options.gene_zs_gws_prob_true, max_closest_gene_dist=options.max_closest_gene_dist, signal_window_size=options.signal_window_size, signal_min_sep=options.signal_min_sep, signal_max_logp_ratio=options.signal_max_logp_ratio, credible_set_span=options.credible_set_span, min_n_ratio=options.min_n_ratio, max_clump_ld=options.max_clump_ld, exomes_in=options.exomes_in, exomes_gene_col=options.exomes_gene_col, exomes_p_col=options.exomes_p_col, exomes_beta_col=options.exomes_beta_col, exomes_se_col=options.exomes_se_col, exomes_n_col=options.exomes_n_col, exomes_n=options.exomes_n, exomes_units=options.exomes_units, exomes_low_p=options.exomes_low_p, exomes_high_p=options.exomes_high_p, exomes_low_p_posterior=options.exomes_low_p_posterior, exomes_high_p_posterior=options.exomes_high_p_posterior, positive_controls_in=options.positive_controls_in, positive_controls_id_col=options.positive_controls_id_col, positive_controls_prob_col=options.positive_controls_prob_col, positive_controls_default_prob=options.positive_controls_default_prob, positive_controls_has_header=options.positive_controls_has_header, positive_controls_list=options.positive_controls_list, positive_controls_all_in=options.positive_controls_all_in, positive_controls_all_id_col=options.positive_controls_all_id_col, positive_controls_all_has_header=options.positive_controls_all_has_header, case_counts_in=options.case_counts_in, case_counts_gene_col=options.case_counts_gene_col, case_counts_revel_col=options.case_counts_revel_col, case_counts_count_col=options.case_counts_count_col, case_counts_tot_col=options.case_counts_tot_col, case_counts_max_freq_col=options.case_counts_max_freq_col, min_revels=options.counts_min_revels, mean_rrs=options.counts_mean_rrs, max_case_freq=options.counts_max_case_freq, ctrl_counts_in=options.ctrl_counts_in, ctrl_counts_gene_col=options.ctrl_counts_gene_col, ctrl_counts_revel_col=options.ctrl_counts_revel_col, ctrl_counts_count_col=options.ctrl_counts_count_col, ctrl_counts_tot_col=options.ctrl_counts_tot_col, ctrl_counts_max_freq_col=options.ctrl_counts_max_freq_col, max_ctrl_freq=options.counts_max_ctrl_freq, syn_revel_threshold=options.counts_syn_revel, syn_fisher_p=options.counts_syn_fisher_p, nu=options.counts_nu, beta=options.counts_beta, gene_loc_file=options.gene_loc_file_huge if options.gene_loc_file_huge is not None else options.gene_loc_file, gene_covs_in=options.gene_covs_in, hold_out_chrom=options.hold_out_chrom, exons_loc_file=options.exons_loc_file_huge, min_var_posterior=options.min_var_posterior, s2g_in=options.s2g_in, s2g_chrom_col=options.s2g_chrom_col, s2g_pos_col=options.s2g_pos_col, s2g_gene_col=options.s2g_gene_col, s2g_prob_col=options.s2g_prob_col, s2g_normalize_values=options.s2g_normalize_values, credible_sets_in=options.credible_sets_in, credible_sets_id_col=options.credible_sets_id_col, credible_sets_chrom_col=options.credible_sets_chrom_col, credible_sets_pos_col=options.credible_sets_pos_col, credible_sets_ppa_col=options.credible_sets_ppa_col)
             elif options.betas_uncorrected_from_phewas:
                 if not options.gene_phewas_bfs_in:
                     bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-                _call("read_gene_phewas_bfs",gene_phewas_bfs_in=options.gene_phewas_bfs_in,gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, anchor_genes=options.anchor_genes, anchor_phenos=options.anchor_phenos, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id, min_value=options.min_gene_phewas_read_value, max_num_entries_at_once=options.max_read_entries_at_once)
+                state_view.read_gene_phewas_bfs(gene_phewas_bfs_in=options.gene_phewas_bfs_in,gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col, gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col, anchor_genes=options.anchor_genes, anchor_phenos=options.anchor_phenos, gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col, gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col, gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col, phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id, min_value=options.min_gene_phewas_read_value, max_num_entries_at_once=options.max_read_entries_at_once)
             else:
                 Y_not_loaded = True
 
@@ -19041,11 +19000,11 @@ def main():
             #here we are only getting the IDs we'll keep
             #it will save us time in reading in gene sets below in read_X since we can skip gene sets not in these files
             if options.gene_set_stats_in is not None and not use_phewas_for_factoring:
-                gene_set_ids = _call("read_gene_set_statistics",options.gene_set_stats_in, stats_id_col=options.gene_set_stats_id_col, stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col, stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col, stats_p_col=options.gene_set_stats_p_col, stats_se_col=options.gene_set_stats_se_col, stats_beta_col=options.gene_set_stats_beta_col, stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col, ignore_negative_exp_beta=options.ignore_negative_exp_beta, max_gene_set_p=options.max_gene_set_read_p, min_gene_set_beta=options.min_gene_set_read_beta, min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected, return_only_ids=True)
+                gene_set_ids = state_view.read_gene_set_statistics(options.gene_set_stats_in, stats_id_col=options.gene_set_stats_id_col, stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col, stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col, stats_p_col=options.gene_set_stats_p_col, stats_se_col=options.gene_set_stats_se_col, stats_beta_col=options.gene_set_stats_beta_col, stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col, ignore_negative_exp_beta=options.ignore_negative_exp_beta, max_gene_set_p=options.max_gene_set_read_p, min_gene_set_beta=options.min_gene_set_read_beta, min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected, return_only_ids=True)
             elif use_phewas_for_factoring:
                 if options.gene_set_phewas_stats_in is None:
                     bail("Need --gene-set-phewas-stats-in")
-                gene_set_ids = _call("read_gene_set_phewas_statistics",options.gene_set_phewas_stats_in, stats_id_col=options.gene_set_phewas_stats_id_col, stats_pheno_col=options.gene_set_phewas_stats_pheno_col, stats_beta_col=options.gene_set_phewas_stats_beta_col, stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col, min_gene_set_beta=options.min_gene_set_read_beta, min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected, return_only_ids=True, phenos_to_match=options.anchor_phenos, max_num_entries_at_once=options.max_read_entries_at_once)
+                gene_set_ids = state_view.read_gene_set_phewas_statistics(options.gene_set_phewas_stats_in, stats_id_col=options.gene_set_phewas_stats_id_col, stats_pheno_col=options.gene_set_phewas_stats_pheno_col, stats_beta_col=options.gene_set_phewas_stats_beta_col, stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col, min_gene_set_beta=options.min_gene_set_read_beta, min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected, return_only_ids=True, phenos_to_match=options.anchor_phenos, max_num_entries_at_once=options.max_read_entries_at_once)
 
             if gene_set_ids is not None:
                 log("Will read %d gene sets" % (len(gene_set_ids)), DEBUG)
@@ -19087,7 +19046,7 @@ def main():
                     genes_to_inc = options.anchor_genes
                     options.max_num_gene_sets = None
 
-                _call("read_X",options.X_in, Xd_in=options.Xd_in, X_list=options.X_list, Xd_list=options.Xd_list, V_in=options.V_in, min_gene_set_size=options.min_gene_set_size, max_gene_set_size=options.max_gene_set_size, only_ids=gene_set_ids, only_inc_genes=genes_to_inc, fraction_inc_genes=options.add_gene_sets_by_fraction, add_all_genes=options.add_all_genes, prune_gene_sets=options.prune_gene_sets, weighted_prune_gene_sets=options.weighted_prune_gene_sets, prune_deterministically=options.prune_deterministically, x_sparsify=options.x_sparsify, add_ext=options.add_ext, add_top=options.add_top, add_bottom=options.add_bottom, filter_negative=options.filter_negative, threshold_weights=options.threshold_weights, cap_weights=options.cap_weights, permute_gene_sets=options.permute_gene_sets, max_gene_set_p=options.max_gene_set_read_p, filter_gene_set_p=filter_gene_set_p, filter_using_phewas=options.betas_uncorrected_from_phewas, increase_filter_gene_set_p=options.increase_filter_gene_set_p, max_num_gene_sets_initial=options.max_num_gene_sets_initial, max_num_gene_sets=options.max_num_gene_sets, max_num_gene_sets_hyper=options.max_num_gene_sets_hyper, skip_betas=skip_betas, run_logistic=not options.linear, max_for_linear=options.max_for_linear, filter_gene_set_metric_z=options.filter_gene_set_metric_z, initial_p=options.p_noninf, xin_to_p_noninf_ind=xin_to_p_noninf_ind, initial_sigma2=_get("sigma2"), initial_sigma2_cond=sigma2_cond, sigma_power=options.sigma_power, sigma_soft_threshold_95=options.sigma_soft_threshold_95, sigma_soft_threshold_5=options.sigma_soft_threshold_5, run_gls=False, run_corrected_ols=not options.ols, correct_betas_mean=options.correct_betas_mean, correct_betas_var=options.correct_betas_var, gene_loc_file=options.gene_loc_file, gene_cor_file=options.gene_cor_file, gene_cor_file_gene_col=options.gene_cor_file_gene_col, gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col, update_hyper_p=options.update_hyper_p, update_hyper_sigma=options.update_hyper_sigma, batch_all_for_hyper=options.batch_all_for_hyper, first_for_hyper=options.first_for_hyper, first_max_p_for_hyper=options.first_max_p_for_hyper, first_for_sigma_cond=options.first_for_sigma_cond, sigma_num_devs_to_top=options.sigma_num_devs_to_top, p_noninf_inflate=options.p_noninf_inflate, batch_separator=options.batch_separator, ignore_genes=set(options.ignore_genes), file_separator=options.file_separator, max_num_burn_in=options.max_num_burn_in, max_num_iter_betas=options.max_num_iter_betas, min_num_iter_betas=options.min_num_iter_betas, num_chains_betas=options.num_chains_betas, r_threshold_burn_in_betas=options.r_threshold_burn_in_betas, use_max_r_for_convergence_betas=options.use_max_r_for_convergence_betas, max_frac_sem_betas=options.max_frac_sem_betas, max_allowed_batch_correlation=options.max_allowed_batch_correlation, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, betas_trace_out=options.betas_trace_out, show_progress=not options.hide_progress, skip_V=(options.max_gene_set_read_p is not None), force_reread=force_reread, max_num_entries_at_once=options.max_read_entries_at_once)
+                state_view.read_X(options.X_in, Xd_in=options.Xd_in, X_list=options.X_list, Xd_list=options.Xd_list, V_in=options.V_in, min_gene_set_size=options.min_gene_set_size, max_gene_set_size=options.max_gene_set_size, only_ids=gene_set_ids, only_inc_genes=genes_to_inc, fraction_inc_genes=options.add_gene_sets_by_fraction, add_all_genes=options.add_all_genes, prune_gene_sets=options.prune_gene_sets, weighted_prune_gene_sets=options.weighted_prune_gene_sets, prune_deterministically=options.prune_deterministically, x_sparsify=options.x_sparsify, add_ext=options.add_ext, add_top=options.add_top, add_bottom=options.add_bottom, filter_negative=options.filter_negative, threshold_weights=options.threshold_weights, cap_weights=options.cap_weights, permute_gene_sets=options.permute_gene_sets, max_gene_set_p=options.max_gene_set_read_p, filter_gene_set_p=filter_gene_set_p, filter_using_phewas=options.betas_uncorrected_from_phewas, increase_filter_gene_set_p=options.increase_filter_gene_set_p, max_num_gene_sets_initial=options.max_num_gene_sets_initial, max_num_gene_sets=options.max_num_gene_sets, max_num_gene_sets_hyper=options.max_num_gene_sets_hyper, skip_betas=skip_betas, run_logistic=not options.linear, max_for_linear=options.max_for_linear, filter_gene_set_metric_z=options.filter_gene_set_metric_z, initial_p=options.p_noninf, xin_to_p_noninf_ind=xin_to_p_noninf_ind, initial_sigma2=_get("sigma2"), initial_sigma2_cond=sigma2_cond, sigma_power=options.sigma_power, sigma_soft_threshold_95=options.sigma_soft_threshold_95, sigma_soft_threshold_5=options.sigma_soft_threshold_5, run_gls=False, run_corrected_ols=not options.ols, correct_betas_mean=options.correct_betas_mean, correct_betas_var=options.correct_betas_var, gene_loc_file=options.gene_loc_file, gene_cor_file=options.gene_cor_file, gene_cor_file_gene_col=options.gene_cor_file_gene_col, gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col, update_hyper_p=options.update_hyper_p, update_hyper_sigma=options.update_hyper_sigma, batch_all_for_hyper=options.batch_all_for_hyper, first_for_hyper=options.first_for_hyper, first_max_p_for_hyper=options.first_max_p_for_hyper, first_for_sigma_cond=options.first_for_sigma_cond, sigma_num_devs_to_top=options.sigma_num_devs_to_top, p_noninf_inflate=options.p_noninf_inflate, batch_separator=options.batch_separator, ignore_genes=set(options.ignore_genes), file_separator=options.file_separator, max_num_burn_in=options.max_num_burn_in, max_num_iter_betas=options.max_num_iter_betas, min_num_iter_betas=options.min_num_iter_betas, num_chains_betas=options.num_chains_betas, r_threshold_burn_in_betas=options.r_threshold_burn_in_betas, use_max_r_for_convergence_betas=options.use_max_r_for_convergence_betas, max_frac_sem_betas=options.max_frac_sem_betas, max_allowed_batch_correlation=options.max_allowed_batch_correlation, sparse_solution=options.sparse_solution, sparse_frac_betas=options.sparse_frac_betas, betas_trace_out=options.betas_trace_out, show_progress=not options.hide_progress, skip_V=(options.max_gene_set_read_p is not None), force_reread=force_reread, max_num_entries_at_once=options.max_read_entries_at_once)
 
                 if gene_set_ids is not None:
                     break
@@ -19103,7 +19062,7 @@ def main():
                         log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(_get("gene_sets")), filter_gene_set_p))
                         force_reread = True
                         #reset sigma
-                        _call("set_sigma",orig_sigma2, _get("sigma_power"))
+                        state_view.set_sigma(orig_sigma2, _get("sigma_power"))
                     else:
                         break
                 else:
@@ -19112,11 +19071,11 @@ def main():
             #set p
             if options.p_noninf is not None:
                 if len(options.p_noninf) == 1:
-                    _call("set_p",options.p_noninf[0])
+                    state_view.set_p(options.p_noninf[0])
                 else:
                     bail("Multiple --p-noninf is not supported without --X-in inputs")
 
-        if not _call("has_gene_sets"):
+        if not state_view.has_gene_sets():
             log("No gene sets survived the input filters; stopping")
             sys.exit(0)
 
@@ -19225,7 +19184,7 @@ def main():
                 pre_filter_small_batch_size=options.pre_filter_small_batch_size,
                 betas_trace_out=options.betas_trace_out,
             )
-            calculate_non_inf_betas_with_state(runtime_state, _get("p"), **beta_sampling_kwargs)
+            state_view.calculate_non_inf_betas(_get("p"), **beta_sampling_kwargs)
 
             if options.betas_uncorrected_from_phewas:
                 phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
@@ -19233,7 +19192,7 @@ def main():
                     "run_betas_using_phewas": options.betas_from_phewas,
                     "run_uncorrected_using_phewas": True,
                 })
-                calculate_non_inf_betas_with_state(runtime_state, _get("p"), **phewas_beta_sampling_kwargs)
+                state_view.calculate_non_inf_betas(_get("p"), **phewas_beta_sampling_kwargs)
 
         return run_gibbs_for_factor
 
@@ -19266,7 +19225,7 @@ def main():
 
     def _compute_priors_if_requested():
         if run_priors:
-            calculate_priors_with_state(runtime_state, **_build_priors_kwargs())
+            state_view.calculate_priors(**_build_priors_kwargs())
         elif run_naive_priors or (run_naive_factor and not use_phewas_for_factoring):
             state_view.calculate_naive_priors(adjust_priors=options.adjust_priors)
 
@@ -19341,7 +19300,7 @@ def main():
             _set("Y", np.full(len(_get("genes")), options.const_gene_log_bf))
             _set("combined_prior_Ys", np.full(len(_get("genes")), options.const_gene_log_bf))
         elif run_gibbs or run_gibbs_for_factor:
-            run_gibbs_with_state(runtime_state, **_build_gibbs_kwargs())
+            state_view.run_gibbs(**_build_gibbs_kwargs())
 
     def _run_non_huge_core(Y_not_loaded):
         gene_set_ids = _prepare_factor_gene_set_ids()
