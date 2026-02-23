@@ -19857,7 +19857,7 @@ def _run_phewas_if_requested_for_main(state, options, mode_state):
     if run_phewas:
         bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
 
-        if options.gene_phewas_bfs_in is not None and bfs_to_use == options.gene_phewas_bfs_in and state.num_gene_phewas_filtered == 0 and state.read_gene_phewas():
+        if _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
             #we can skip reading if we are using the same file as previously read and we didn't threshold that file
             bfs_to_use = None
 
@@ -19866,29 +19866,48 @@ def _run_phewas_if_requested_for_main(state, options, mode_state):
             state.write_phewas_statistics(options.phewas_stats_out)
 
 
+def _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
+    return (
+        options.gene_phewas_bfs_in is not None
+        and bfs_to_use == options.gene_phewas_bfs_in
+        and state.num_gene_phewas_filtered == 0
+        and state.read_gene_phewas()
+    )
+
+
 def _run_factor_if_requested_for_main(state, options, mode_state):
     run_factor = mode_state["run_factor"]
     expand_gene_sets = mode_state["expand_gene_sets"]
     factor_gene_set_x_pheno = mode_state["factor_gene_set_x_pheno"]
     if run_factor:
-        if expand_gene_sets:
-            if options.add_gene_sets_by_naive is not None or options.add_gene_sets_by_gibbs is not None:
-                assert(state.betas_uncorrected is not None)
-                #need to use external ones here
-                state.subset_gene_sets(state.betas_uncorrected / state.scale_factors > (options.add_gene_sets_by_gibbs if options.add_gene_sets_by_gibbs is not None else options.add_gene_sets_by_naive))
-                if len(state.gene_sets) == 0:
-                    bail("Subsetting gene sets by %s removed all gene sets; try reducing threshold" % ("gibbs" if options.add_gene_sets_by_gibbs is not None else "naive"))
-                else:
-                    log("Pruning by %s resulted in %d gene sets; try reducing threshold" % ("gibbs" if options.add_gene_sets_by_gibbs is not None else "naive", len(state.gene_sets)), DEBUG)
-
-        if options.anchor_gene_set:
-            gene_or_pheno_filter_value = options.gene_set_pheno_filter_value
-        elif factor_gene_set_x_pheno:
-            gene_or_pheno_filter_value = options.pheno_filter_value
-        else:
-            gene_or_pheno_filter_value = options.gene_filter_value
+        _maybe_prune_gene_sets_for_factor_expand_for_main(state, options, expand_gene_sets)
+        gene_or_pheno_filter_value = _resolve_factor_gene_or_pheno_filter_value_for_main(options, factor_gene_set_x_pheno)
 
         state.run_factor(**_build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value))
+
+
+def _maybe_prune_gene_sets_for_factor_expand_for_main(state, options, expand_gene_sets):
+    if not expand_gene_sets:
+        return
+    if options.add_gene_sets_by_naive is None and options.add_gene_sets_by_gibbs is None:
+        return
+
+    assert(state.betas_uncorrected is not None)
+    prune_label = "gibbs" if options.add_gene_sets_by_gibbs is not None else "naive"
+    prune_threshold = options.add_gene_sets_by_gibbs if options.add_gene_sets_by_gibbs is not None else options.add_gene_sets_by_naive
+    #need to use external ones here
+    state.subset_gene_sets(state.betas_uncorrected / state.scale_factors > prune_threshold)
+    if len(state.gene_sets) == 0:
+        bail("Subsetting gene sets by %s removed all gene sets; try reducing threshold" % prune_label)
+    log("Pruning by %s resulted in %d gene sets; try reducing threshold" % (prune_label, len(state.gene_sets)), DEBUG)
+
+
+def _resolve_factor_gene_or_pheno_filter_value_for_main(options, factor_gene_set_x_pheno):
+    if options.anchor_gene_set:
+        return options.gene_set_pheno_filter_value
+    if factor_gene_set_x_pheno:
+        return options.pheno_filter_value
+    return options.gene_filter_value
 
 
 def _build_run_factor_kwargs_for_main(state, options, gene_or_pheno_filter_value):
@@ -19939,7 +19958,7 @@ def _run_factor_phewas_if_requested_for_main(state, options):
         if state.num_factors() > 0:
             bfs_to_use = options.factor_phewas_from_gene_phewas_stats_in
 
-            if (options.gene_phewas_bfs_in is not None and bfs_to_use == options.gene_phewas_bfs_in) or (options.run_phewas_from_gene_phewas_stats_in is not None and bfs_to_use == options.run_phewas_from_gene_phewas_stats_in) and state.num_gene_phewas_filtered == 0:
+            if _can_reuse_loaded_gene_phewas_bfs_for_factor_phewas_for_main(state, options, bfs_to_use):
                 #we can skip reading if we are using the same file as previously read and we didn't threshold that file
                 bfs_to_use = None
 
@@ -19948,6 +19967,11 @@ def _run_factor_phewas_if_requested_for_main(state, options):
                 state.write_factor_phewas_statistics(options.factor_phewas_stats_out)
         else:
             log("No factors; not performing factor phewas")
+
+
+def _can_reuse_loaded_gene_phewas_bfs_for_factor_phewas_for_main(state, options, bfs_to_use):
+    # Keep operator precedence aligned with legacy behavior.
+    return (options.gene_phewas_bfs_in is not None and bfs_to_use == options.gene_phewas_bfs_in) or (options.run_phewas_from_gene_phewas_stats_in is not None and bfs_to_use == options.run_phewas_from_gene_phewas_stats_in) and state.num_gene_phewas_filtered == 0
 
 
 def _compute_priors_if_requested_for_main(state, options, mode_state):
