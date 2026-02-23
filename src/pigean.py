@@ -19301,22 +19301,49 @@ def _build_read_gene_phewas_bfs_kwargs_for_main(options):
     )
 
 
+def _should_prepare_factor_gene_set_ids_for_main(mode_state):
+    return mode_state["run_factor"]
+
+
+def _read_factor_gene_set_ids_from_gene_set_stats_for_main(state, options):
+    return state.read_gene_set_statistics(
+        options.gene_set_stats_in,
+        **_build_read_gene_set_statistics_kwargs_for_main(options, return_only_ids=True)
+    )
+
+
+def _read_factor_gene_set_ids_from_phewas_for_main(state, options):
+    if options.gene_set_phewas_stats_in is None:
+        bail("Need --gene-set-phewas-stats-in")
+    return state.read_gene_set_phewas_statistics(
+        options.gene_set_phewas_stats_in,
+        **_build_read_gene_set_phewas_statistics_kwargs_for_main(
+            options,
+            return_only_ids=True,
+            phenos_to_match=options.anchor_phenos,
+        )
+    )
+
+
+def _log_factor_gene_set_id_prefilter_for_main(gene_set_ids):
+    if gene_set_ids is not None:
+        log("Will read %d gene sets" % (len(gene_set_ids)), DEBUG)
+
+
 def _prepare_factor_gene_set_ids_for_main(state, options, mode_state):
-    run_factor = mode_state["run_factor"]
+    if not _should_prepare_factor_gene_set_ids_for_main(mode_state):
+        return None
+
     use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
     gene_set_ids = None
-    if run_factor:
-        # here we are only getting the IDs we'll keep.
-        # it saves time in read_X since we can skip gene sets not in these files.
-        if options.gene_set_stats_in is not None and not use_phewas_for_factoring:
-            gene_set_ids = state.read_gene_set_statistics(options.gene_set_stats_in, **_build_read_gene_set_statistics_kwargs_for_main(options, return_only_ids=True))
-        elif use_phewas_for_factoring:
-            if options.gene_set_phewas_stats_in is None:
-                bail("Need --gene-set-phewas-stats-in")
-            gene_set_ids = state.read_gene_set_phewas_statistics(options.gene_set_phewas_stats_in, **_build_read_gene_set_phewas_statistics_kwargs_for_main(options, return_only_ids=True, phenos_to_match=options.anchor_phenos))
+    # here we are only getting the IDs we'll keep.
+    # it saves time in read_X since we can skip gene sets not in these files.
+    if options.gene_set_stats_in is not None and not use_phewas_for_factoring:
+        gene_set_ids = _read_factor_gene_set_ids_from_gene_set_stats_for_main(state, options)
+    elif use_phewas_for_factoring:
+        gene_set_ids = _read_factor_gene_set_ids_from_phewas_for_main(state, options)
 
-        if gene_set_ids is not None:
-            log("Will read %d gene sets" % (len(gene_set_ids)), DEBUG)
+    _log_factor_gene_set_id_prefilter_for_main(gene_set_ids)
     return gene_set_ids
 
 
@@ -20501,6 +20528,29 @@ def _compute_gene_set_stats_and_betas_for_main(
     return run_gibbs_for_factor
 
 
+def _run_simulation_if_requested_for_main(state, options, mode_state):
+    if not mode_state["run_sim"]:
+        return
+    state.run_sim(
+        sigma2=state.sigma2,
+        p=state.p,
+        sigma_power=state.sigma_power,
+        log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult,
+        treat_sigma2_as_sigma2_cond=False,
+        only_positive=options.sim_only_positive,
+    )
+
+
+def _run_priors_and_outer_gibbs_for_main(state, options, mode_state):
+    run_gibbs_for_factor = _compute_gene_set_stats_and_betas_for_main(
+        state,
+        options,
+        mode_state,
+    )
+    _compute_priors_if_requested_for_main(state, options, mode_state)
+    _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state)
+
+
 def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, sigma2_cond):
     if mode_state["run_huge"]:
         return
@@ -20514,17 +20564,8 @@ def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, 
         sigma2_cond,
         mode_state,
     )
-
-    if mode_state["run_sim"]:
-        state.run_sim(sigma2=state.sigma2, p=state.p, sigma_power=state.sigma_power, log_bf_noise_sigma_mult=options.sim_log_bf_noise_sigma_mult, treat_sigma2_as_sigma2_cond=False, only_positive=options.sim_only_positive)
-
-    run_gibbs_for_factor = _compute_gene_set_stats_and_betas_for_main(
-        state,
-        options,
-        mode_state,
-    )
-    _compute_priors_if_requested_for_main(state, options, mode_state)
-    _run_outer_gibbs_if_requested_for_main(state, options, run_gibbs_for_factor, mode_state)
+    _run_simulation_if_requested_for_main(state, options, mode_state)
+    _run_priors_and_outer_gibbs_for_main(state, options, mode_state)
 
 
 def _run_post_model_outputs_for_main(state, options, mode_state):
@@ -20535,30 +20576,41 @@ def _run_post_model_outputs_for_main(state, options, mode_state):
     _run_factor_phewas_if_requested_for_main(state, options)
 
 
+def _log_runtime_environment_for_main(options):
+    if options.hide_opts:
+        return
+    log("Python version: %s" % sys.version)
+    log("Numpy version: %s" % np.__version__)
+    log("Scipy version: %s" % scipy.__version__)
+    log("Options: %s" % options)
+
+
+def _initialize_state_and_sigma_cond_for_main(options):
+    state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
+    sigma2_cond = options.sigma2_cond
+    return state, sigma2_cond
+
+
+def _maybe_load_gene_map_and_locs_for_main(state, options):
+    if options.gene_map_in:
+        state.read_gene_map(options.gene_map_in, options.gene_map_orig_gene_col, options.gene_map_new_gene_col)
+    if options.gene_loc_file:
+        state.init_gene_locs(options.gene_loc_file)
+
+
 def main():
 
     # ==========================================================================
     # Main Phase A: Runtime setup and global option echo.
     # ==========================================================================
-    if not options.hide_opts:
-        log("Python version: %s" % sys.version)
-        log("Numpy version: %s" % np.__version__)
-        log("Scipy version: %s" % scipy.__version__)
-        log("Options: %s" % options)
-
-    state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
-
-    sigma2_cond = options.sigma2_cond
+    _log_runtime_environment_for_main(options)
+    state, sigma2_cond = _initialize_state_and_sigma_cond_for_main(options)
 
     # ==========================================================================
     # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
     # ==========================================================================
     sigma2_cond = _configure_sigma_and_hyper_for_main(state, options, sigma2_cond)
-
-    if options.gene_map_in:
-        state.read_gene_map(options.gene_map_in, options.gene_map_orig_gene_col, options.gene_map_new_gene_col)
-    if options.gene_loc_file:
-        state.init_gene_locs(options.gene_loc_file)
+    _maybe_load_gene_map_and_locs_for_main(state, options)
 
     # ==========================================================================
     # Main Phase C: Input loading helpers (Y, then X/gene sets).
