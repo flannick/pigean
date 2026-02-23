@@ -794,30 +794,41 @@ def _resolve_path_like_config_value(_dest, _coerced_value, _config_dir):
     return _coerced_value
 
 
-def _apply_single_config_option_override(_options, _raw_key, _raw_value, _config_path, _config_dir, _cli_specified_dests, _dest_to_option, _long_key_to_dest):
-    if _raw_key in ("mode", "options", "include"):
-        return
+def _is_reserved_config_top_level_key(_raw_key):
+    return _raw_key in ("mode", "options", "include")
+
+
+def _resolve_config_dest_or_warn(_raw_key, _config_path, _dest_to_option, _long_key_to_dest):
+    if _is_reserved_config_top_level_key(_raw_key):
+        return None
     _validate_config_key_not_removed(_raw_key, _config_path)
     key, key_norm = _normalize_config_lookup_keys(_raw_key)
     dest = _resolve_config_dest_from_lookup_keys(key, key_norm, _dest_to_option, _long_key_to_dest)
-
     if dest is None:
         _early_warn("Ignoring unknown config key '%s' in %s" % (_raw_key, _config_path))
+        return None
+    return dest
+
+
+def _apply_config_dest_override(_options, _raw_value, _dest, _config_dir, _dest_to_option):
+    opt = _dest_to_option[_dest]
+    coerced_value = _coerce_config_value(opt, _raw_value)
+    coerced_value = _resolve_path_like_config_value(_dest, coerced_value, _config_dir)
+    setattr(_options, _dest, coerced_value)
+
+
+def _apply_single_config_option_override(_options, _raw_key, _raw_value, _config_path, _config_dir, _cli_specified_dests, _dest_to_option, _long_key_to_dest):
+    dest = _resolve_config_dest_or_warn(_raw_key, _config_path, _dest_to_option, _long_key_to_dest)
+    if dest is None:
         return
     if dest in _cli_specified_dests:
         return
-
-    opt = _dest_to_option[dest]
-    coerced_value = _coerce_config_value(opt, _raw_value)
-    coerced_value = _resolve_path_like_config_value(dest, coerced_value, _config_dir)
-    setattr(_options, dest, coerced_value)
+    _apply_config_dest_override(_options, _raw_value, dest, _config_dir, _dest_to_option)
 
 
-def _apply_config_overrides(_options, _args, _parser, _argv):
-    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
-
+def _resolve_config_context_for_main(_options):
     if _options.config is None:
-        return _options, _args, None
+        return None
 
     config_path = _resolve_config_path_value(_options.config, os.getcwd())
     _options.config = config_path
@@ -825,21 +836,58 @@ def _apply_config_overrides(_options, _args, _parser, _argv):
 
     config_data = _load_json_config(config_path)
     config_mode, config_options = _extract_config_mode_and_options(_config_data=config_data)
-    dest_to_option, long_key_to_dest = _build_parser_dest_lookup_maps(_parser)
+    return config_path, config_dir, config_mode, config_options
 
-    for raw_key, raw_value in config_options.items():
+
+def _build_config_destination_map_for_main(_parser):
+    return _build_parser_dest_lookup_maps(_parser)
+
+
+def _apply_config_option_overrides_for_main(_options, _config_options, _config_path, _config_dir, _cli_specified_dests, _dest_to_option, _long_key_to_dest):
+    for raw_key, raw_value in _config_options.items():
         _apply_single_config_option_override(
             _options,
             raw_key,
             raw_value,
-            config_path,
-            config_dir,
-            cli_specified_dests,
-            dest_to_option,
-            long_key_to_dest,
+            _config_path,
+            _config_dir,
+            _cli_specified_dests,
+            _dest_to_option,
+            _long_key_to_dest,
         )
 
+
+def _apply_config_overrides(_options, _args, _parser, _argv):
+    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
+
+    config_context = _resolve_config_context_for_main(_options)
+    if config_context is None:
+        return _options, _args, None
+
+    config_path, config_dir, config_mode, config_options = config_context
+    dest_to_option, long_key_to_dest = _build_config_destination_map_for_main(_parser)
+    _apply_config_option_overrides_for_main(
+        _options,
+        config_options,
+        config_path,
+        config_dir,
+        cli_specified_dests,
+        dest_to_option,
+        long_key_to_dest,
+    )
+
     return _options, _args, config_mode
+
+
+def _resolve_mode_args_after_config_for_main(_args, _config_mode):
+    if _config_mode is None:
+        return _args
+    if len(_args) < 1:
+        return [_config_mode]
+    if _args[0] != _config_mode:
+        _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (_config_mode, _args[0]))
+    return _args
+
 
 def _json_safe(_value):
     if isinstance(_value, np.generic):
@@ -903,11 +951,7 @@ def _parse_options_and_args_with_config(_parser, _argv):
     _fail_removed_cli_aliases(_argv)
     (_options, _args) = _parser.parse_args(_argv)
     _options, _args, config_mode = _apply_config_overrides(_options, _args, _parser, _argv)
-
-    if len(_args) < 1 and config_mode is not None:
-        _args = [config_mode]
-    elif len(_args) >= 1 and config_mode is not None and _args[0] != config_mode:
-        _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, _args[0]))
+    _args = _resolve_mode_args_after_config_for_main(_args, config_mode)
     return _options, _args
 
 
