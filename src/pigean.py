@@ -19632,7 +19632,7 @@ def _build_read_y_source_exomes_and_controls_kwargs_for_main(options):
     return kwargs
 
 
-def _build_read_y_source_counts_kwargs_for_main(options):
+def _build_read_y_source_case_counts_kwargs_for_main(options):
     return dict(
         case_counts_in=options.case_counts_in,
         case_counts_gene_col=options.case_counts_gene_col,
@@ -19643,6 +19643,11 @@ def _build_read_y_source_counts_kwargs_for_main(options):
         min_revels=options.counts_min_revels,
         mean_rrs=options.counts_mean_rrs,
         max_case_freq=options.counts_max_case_freq,
+    )
+
+
+def _build_read_y_source_ctrl_counts_kwargs_for_main(options):
+    return dict(
         ctrl_counts_in=options.ctrl_counts_in,
         ctrl_counts_gene_col=options.ctrl_counts_gene_col,
         ctrl_counts_revel_col=options.ctrl_counts_revel_col,
@@ -19650,6 +19655,11 @@ def _build_read_y_source_counts_kwargs_for_main(options):
         ctrl_counts_tot_col=options.ctrl_counts_tot_col,
         ctrl_counts_max_freq_col=options.ctrl_counts_max_freq_col,
         max_ctrl_freq=options.counts_max_ctrl_freq,
+    )
+
+
+def _build_read_y_source_counts_hyper_kwargs_for_main(options):
+    return dict(
         syn_revel_threshold=options.counts_syn_revel,
         syn_fisher_p=options.counts_syn_fisher_p,
         nu=options.counts_nu,
@@ -19657,17 +19667,37 @@ def _build_read_y_source_counts_kwargs_for_main(options):
     )
 
 
-def _build_read_y_source_covariate_and_loc_kwargs_for_main(options):
+def _build_read_y_source_counts_kwargs_for_main(options):
+    kwargs = {}
+    kwargs.update(_build_read_y_source_case_counts_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_ctrl_counts_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_counts_hyper_kwargs_for_main(options))
+    return kwargs
+
+
+def _build_read_y_source_loc_kwargs_for_main(options):
     return dict(
         gene_loc_file=options.gene_loc_file_huge if options.gene_loc_file_huge is not None else options.gene_loc_file,
+        exons_loc_file=options.exons_loc_file_huge,
+    )
+
+
+def _build_read_y_source_covariate_kwargs_for_main(options):
+    return dict(
         gene_covs_in=options.gene_covs_in,
         hold_out_chrom=options.hold_out_chrom,
-        exons_loc_file=options.exons_loc_file_huge,
         min_var_posterior=options.min_var_posterior,
     )
 
 
-def _build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options):
+def _build_read_y_source_covariate_and_loc_kwargs_for_main(options):
+    kwargs = {}
+    kwargs.update(_build_read_y_source_loc_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_covariate_kwargs_for_main(options))
+    return kwargs
+
+
+def _build_read_y_source_s2g_kwargs_for_main(options):
     return dict(
         s2g_in=options.s2g_in,
         s2g_chrom_col=options.s2g_chrom_col,
@@ -19675,12 +19705,24 @@ def _build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options):
         s2g_gene_col=options.s2g_gene_col,
         s2g_prob_col=options.s2g_prob_col,
         s2g_normalize_values=options.s2g_normalize_values,
+    )
+
+
+def _build_read_y_source_credible_sets_kwargs_for_main(options):
+    return dict(
         credible_sets_in=options.credible_sets_in,
         credible_sets_id_col=options.credible_sets_id_col,
         credible_sets_chrom_col=options.credible_sets_chrom_col,
         credible_sets_pos_col=options.credible_sets_pos_col,
         credible_sets_ppa_col=options.credible_sets_ppa_col,
     )
+
+
+def _build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options):
+    kwargs = {}
+    kwargs.update(_build_read_y_source_s2g_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_credible_sets_kwargs_for_main(options))
+    return kwargs
 
 
 def _build_read_y_source_kwargs_for_main(options):
@@ -19720,9 +19762,8 @@ def _compute_extend_for_gene_for_main(options, mode_state):
     )
 
 
-def _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
+def _mode_requires_initial_y_load_for_main(mode_state, extend_for_gene):
     run_factor = mode_state["run_factor"]
-    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
     run_huge = mode_state["run_huge"]
     run_beta_tilde = mode_state["run_beta_tilde"]
     run_beta = mode_state["run_beta"]
@@ -19730,8 +19771,7 @@ def _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
     run_naive_priors = mode_state["run_naive_priors"]
     run_gibbs = mode_state["run_gibbs"]
     expand_gene_sets = mode_state["expand_gene_sets"]
-
-    return (not run_factor or not use_phewas_for_factoring or extend_for_gene) and (
+    return (
         (run_factor and expand_gene_sets and extend_for_gene)
         or run_huge
         or run_beta_tilde
@@ -19741,6 +19781,13 @@ def _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
         or run_gibbs
         or run_factor
     )
+
+
+def _should_attempt_initial_y_load_for_main(mode_state, extend_for_gene):
+    run_factor = mode_state["run_factor"]
+    use_phewas_for_factoring = mode_state["use_phewas_for_factoring"]
+    can_attempt_with_current_inputs = (not run_factor or not use_phewas_for_factoring or extend_for_gene)
+    return can_attempt_with_current_inputs and _mode_requires_initial_y_load_for_main(mode_state, extend_for_gene)
 
 
 def _should_load_y_from_sources_for_main(options, extend_for_gene):
