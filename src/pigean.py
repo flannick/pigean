@@ -737,10 +737,6 @@ def _resolve_config_context_for_main(_options):
     return config_path, config_dir, config_mode, config_options
 
 
-def _build_config_destination_map_for_main(_parser):
-    return _build_parser_dest_lookup_maps(_parser)
-
-
 def _apply_config_option_overrides_for_main(_options, _config_options, _config_path, _config_dir, _cli_specified_dests, _dest_to_option, _long_key_to_dest):
     for raw_key, raw_value in _config_options.items():
         _apply_single_config_option_override(
@@ -763,7 +759,7 @@ def _apply_config_overrides(_options, _args, _parser, _argv):
         return _options, _args, None
 
     config_path, config_dir, config_mode, config_options = config_context
-    dest_to_option, long_key_to_dest = _build_config_destination_map_for_main(_parser)
+    dest_to_option, long_key_to_dest = _build_parser_dest_lookup_maps(_parser)
     _apply_config_option_overrides_for_main(
         _options,
         config_options,
@@ -1845,14 +1841,6 @@ class GeneSetData(object):
             allow_multi=allow_multi,
         )
 
-    def _read_gene_map(self, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
-        return _parse_gene_map(
-            gene_map_in,
-            gene_map_orig_gene_col=gene_map_orig_gene_col,
-            gene_map_new_gene_col=gene_map_new_gene_col,
-            allow_multi=allow_multi,
-        )
-
     def set_const_Y(self, value):
         const_Y = np.full(len(self.genes), value)
         self._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
@@ -1911,7 +1899,7 @@ class GeneSetData(object):
             return (Y, extra_genes, extra_Y)
 
         if self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
 
         extra_Y_mask = np.full(len(extra_Y), True)
         for i in range(len(extra_genes)):
@@ -2657,8 +2645,6 @@ class GeneSetData(object):
                         orig_files.append(X_list)
 
         X_ins, batches, labels, orig_files = expand_Xs(X_ins, orig_files)
-
-        #TODO: read in labels here, batches2, and then when append
 
         is_dense = [False for x in X_ins]
 
@@ -4131,7 +4117,6 @@ class GeneSetData(object):
     def write_Xd(self, X_out):
         if self.X_orig is not None:
             log("Writing X matrix to %s" % X_out, INFO)
-            #FIXME: get_orig_X
             np.savetxt(X_out, self.X_orig.toarray(), delimiter='\t', fmt="%.3g", comments="#", header="%s" % ("%s\n#%s" % ("\t".join(self.gene_sets), "\t".join(self.genes))))
         else:
             warn("X has not been initialized; skipping writing")
@@ -4189,7 +4174,7 @@ class GeneSetData(object):
                 need_columns = True
 
         if need_columns:
-            (possible_gene_id_cols, possible_var_id_cols, possible_chrom_cols, possible_pos_cols, possible_locus_cols, possible_p_cols, possible_beta_cols, possible_se_cols, possible_freq_cols, possible_n_cols, header) = self._determine_columns(gwas_in)
+            (possible_gene_id_cols, possible_var_id_cols, possible_chrom_cols, possible_pos_cols, possible_locus_cols, possible_p_cols, possible_beta_cols, possible_se_cols, possible_freq_cols, possible_n_cols, header) = _determine_columns_from_file(gwas_in)
 
             #now recompute
             if gwas_pos_col is None:
@@ -4324,7 +4309,7 @@ class GeneSetData(object):
 
         #store the gene locations
         log("Reading gene locations")
-        (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = self._read_loc_file(gene_loc_file, hold_out_chrom=hold_out_chrom)
+        (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map, hold_out_chrom=hold_out_chrom)
 
         for chrom in gene_chrom_name_pos:
             serialized_gene_info = []
@@ -4338,7 +4323,7 @@ class GeneSetData(object):
 
             log("Reading exon locations")
 
-            chrom_interval_to_gene = self._read_loc_file(exons_loc_file, return_intervals=True)
+            chrom_interval_to_gene = _read_loc_file_with_gene_map(exons_loc_file, self.gene_label_map, return_intervals=True)
             chrom_to_interval_tree = {}
             for chrom in chrom_interval_to_gene:
                 chrom_to_interval_tree[chrom] = IntervalTree(chrom_interval_to_gene[chrom].keys())
@@ -4428,9 +4413,6 @@ class GeneSetData(object):
 
             not_enough_info = 0
             for line in gwas_fh:
-
-                #TODO: allow a separate snp-loc file to be used
-
                 cols = line.strip('\n').split(split_char)
                 if (chrom_col is not None and chrom_col > len(cols)) or (pos_col is not None and pos_col > len(cols)) or (locus_col is not None and locus_col > len(cols)) or (p_col is not None and p_col > len(cols)) or (se_col is not None and se_col > len(cols)) or (n_col is not None and n_col > len(cols)) or (freq_col is not None and freq_col > len(cols) or (filter_col is not None and filter_col > len(cols))):
                     warn("Skipping line due to too few columns: %s" % line)
@@ -4454,7 +4436,7 @@ class GeneSetData(object):
                     chrom = locus_tokens[0]
                     pos = locus_tokens[1]
 
-                chrom = self._clean_chrom(chrom)
+                chrom = _clean_chrom_name(chrom)
                 if hold_out_chrom is not None and chrom == hold_out_chrom:
                     continue
                 try:
@@ -4590,7 +4572,7 @@ class GeneSetData(object):
 
                 #see if need to determine
                 if s2g_pos_col is None or s2g_chrom_col is None or s2g_gene_col is None:
-                    (possible_s2g_gene_cols, possible_s2g_var_id_cols, possible_s2g_chrom_cols, possible_s2g_pos_cols, possible_s2g_locus_cols, possible_s2g_p_cols, possible_s2g_beta_cols, possible_s2g_se_cols, possible_s2g_freq_cols, possible_s2g_n_cols) = self._determine_columns(s2g_in)
+                    (possible_s2g_gene_cols, possible_s2g_var_id_cols, possible_s2g_chrom_cols, possible_s2g_pos_cols, possible_s2g_locus_cols, possible_s2g_p_cols, possible_s2g_beta_cols, possible_s2g_se_cols, possible_s2g_freq_cols, possible_s2g_n_cols) = _determine_columns_from_file(s2g_in)
 
                     if s2g_pos_col is None:
                         if len(possible_s2g_pos_cols) == 1:
@@ -4627,7 +4609,7 @@ class GeneSetData(object):
                             warn("Skipping due to too few columns in line: %s" % line)
                             continue
 
-                        chrom = self._clean_chrom(cols[chrom_col])
+                        chrom = _clean_chrom_name(cols[chrom_col])
                         if hold_out_chrom is not None and chrom == hold_out_chrom:
                             continue
 
@@ -4677,7 +4659,7 @@ class GeneSetData(object):
 
                 #see if need to determine
                 if credible_sets_pos_col is None or credible_sets_chrom_col is None:
-                    (_, _, possible_credible_sets_chrom_cols, possible_credible_sets_pos_cols, _, _, _, _, _, _, header) = self._determine_columns(credible_sets_in)
+                    (_, _, possible_credible_sets_chrom_cols, possible_credible_sets_pos_cols, _, _, _, _, _, _, header) = _determine_columns_from_file(credible_sets_in)
 
                     if credible_sets_pos_col is None:
                         if len(possible_credible_sets_pos_cols) == 1:
@@ -4710,7 +4692,7 @@ class GeneSetData(object):
                             warn("Skipping due to too few columns in line: %s" % line)
                             continue
 
-                        chrom = self._clean_chrom(cols[chrom_col])
+                        chrom = _clean_chrom_name(cols[chrom_col])
 
                         if hold_out_chrom is not None and chrom == hold_out_chrom:
                             continue
@@ -4868,8 +4850,6 @@ class GeneSetData(object):
                         return gene_indices
 
                     def __get_gene_posterior(region_pos, full_prob, window_fun_slope, window_fun_intercept, exon_interval_tree=None, interval_to_gene=None, pos_to_gene_prob=None, max_offset=20, cap=True, do_print=True):
-
-                        #TODO: read in file of coding variants and set those to 95% for the closest gene, rather than using the gaussian below
                         closest_gene_indices = __get_closest_gene_indices(region_pos)
 
                         var_offset_prob = np.zeros((max_offset * 2 + 1, len(region_pos)))
@@ -4965,37 +4945,6 @@ class GeneSetData(object):
                                 gene_prob_lists.append(list(zip(gene_lists[i], [coding_var_linkage_prob for j in range(len(gene_lists[i]))])))
 
                             var_offset_prob, var_gene_index = __add_var_rows(region_with_overlap_inds, gene_prob_lists, var_offset_prob, var_gene_index)
-#                            else:
-#                                #TODO: DELETE THIS
-#                                #THIS IS OLD CODE IN CASE ABOVE DOESN'T WORK
-#
-#                                #append a column to the var_offset_prob and var_gene_index corresponding to the exon
-#                                #may need to append more than one column if a variant is in exons of more than one gene
-#                                var_to_seen_genes = {}
-#                                num_added = 0
-#                                for i in range(len(region_with_overlap_inds)):
-#                                    cur_var_index = region_with_overlap_inds[i]
-#                                    if cur_var_index not in var_to_seen_genes:
-#                                        var_to_seen_genes[cur_var_index] = set()
-#                                    cur_genes = interval_to_gene[(overlapping_interval_starts[i], overlapping_interval_stops[i])]
-#                                    for cur_gene in cur_genes:
-#                                        if cur_gene in gene_name_to_index:
-#
-#                                            cur_gene_index = gene_name_to_index[cur_gene]
-#                                            if cur_gene_index not in var_to_seen_genes[cur_var_index]:
-#                                                var_to_seen_genes[cur_var_index].add(cur_gene_index)
-#                                                if num_added < len(var_to_seen_genes[cur_var_index]):
-#                                                    var_offset_prob = np.vstack((var_offset_prob, np.zeros((1, var_offset_prob.shape[1]))))
-#                                                    var_gene_index = np.vstack((var_gene_index, np.zeros((1, var_gene_index.shape[1]))))
-#                                                    num_added += 1
-#                                                #first need to set anything else with this index to be 0
-#                                                var_offset_prob[var_gene_index[:,cur_var_index] == cur_gene_index, cur_var_index] = 0
-#                                                #then scale everything non-zero down to account for likelihood that the variant is actually coding
-#                                                var_offset_prob[var_gene_index[:,cur_var_index] == cur_gene_index, cur_var_index] *= (1 - coding_var_linkage_prob)
-#                                                #this is where to write exon probability
-#                                                row_index = var_offset_prob.shape[0] - (num_added - len(var_to_seen_genes[cur_var_index])) - 1
-#                                                var_offset_prob[row_index,cur_var_index] = full_prob[cur_var_index] * coding_var_linkage_prob
-#                                                var_gene_index[row_index,cur_var_index] = cur_gene_index
 
 
                         if pos_to_gene_prob is not None:
@@ -5371,13 +5320,6 @@ class GeneSetData(object):
                                 #get the lowest p-value remaining variant
                                 variants_left_inds = np.where(variants_left)[0]
                                 i = variants_left_inds[np.argmin(var_p[variants_left_inds])]
-
-                                #get all variants in the region
-                                #TODO: here is where we would ideally clump either by
-                                #1. reading in LD (if we have it)
-
-                                #find variants within 100kb, extending as needed if we have some above 
-                                #log("Processing variant %s:%d" % (chrom, var_pos[i]), TRACE)
 
                             #we will do this if there was no credible set, or if the credible set just gave us the top variant
                             #if it just gave us the top variant, then we expand around the lead SNP in the credible set
@@ -5863,12 +5805,6 @@ class GeneSetData(object):
 
             return (gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
 
-    def _write_huge_statistics_prefix(self, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-        return _write_huge_statistics_bundle(self, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
-
-    def _read_huge_statistics_prefix(self, prefix):
-        return _read_huge_statistics_bundle(self, prefix)
-
     def write_huge_statistics(self, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
         if huge_statistics_out is None:
             return
@@ -5880,13 +5816,13 @@ class GeneSetData(object):
                 tar_mode = "w"
             with tempfile.TemporaryDirectory() as tmpdir:
                 prefix = os.path.join(tmpdir, "huge_stats")
-                self._write_huge_statistics_prefix(prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+                _write_huge_statistics_bundle(self, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
                 with tarfile.open(huge_statistics_out, tar_mode) as tar_fh:
                     for name in sorted(os.listdir(tmpdir)):
                         if name.startswith("huge_stats."):
                             tar_fh.add(os.path.join(tmpdir, name), arcname=name)
         else:
-            self._write_huge_statistics_prefix(huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+            _write_huge_statistics_bundle(self, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
 
     def read_huge_statistics(self, huge_statistics_in):
         if huge_statistics_in is None:
@@ -5908,8 +5844,8 @@ class GeneSetData(object):
                 if len(meta_files) > 1:
                     bail("HuGE cache bundle contained multiple metadata files: %s" % ", ".join(meta_files))
                 prefix = os.path.join(tmpdir, meta_files[0][:-len(meta_suffix)])
-                return self._read_huge_statistics_prefix(prefix)
-        return self._read_huge_statistics_prefix(huge_statistics_in)
+                return _read_huge_statistics_bundle(self, prefix)
+        return _read_huge_statistics_bundle(self, huge_statistics_in)
 
     def calculate_huge_scores_exomes(self, exomes_in, exomes_gene_col=None, exomes_p_col=None, exomes_beta_col=None, exomes_se_col=None, exomes_n_col=None, exomes_n=None, exomes_units=None, allelic_var=0.36, exomes_low_p=2.5e-6, exomes_high_p=0.05, exomes_low_p_posterior=0.95, exomes_high_p_posterior=0.10, hold_out_chrom=None, gene_loc_file=None, **kwargs):
 
@@ -5917,7 +5853,7 @@ class GeneSetData(object):
             bail("Require --exomes-in for this operation")
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
 
         self._record_params({"exomes_low_p": exomes_low_p, "exomes_high_p": exomes_high_p, "exomes_low_p_posterior": exomes_low_p_posterior, "exomes_high_p_posterior": exomes_high_p_posterior})
 
@@ -5931,7 +5867,7 @@ class GeneSetData(object):
             need_columns = True
 
         if need_columns:
-            (possible_gene_id_cols, possible_var_id_cols, possible_chrom_cols, possible_pos_cols, possible_locus_cols, possible_p_cols, possible_beta_cols, possible_se_cols, possible_freq_cols, possible_n_cols, header) = self._determine_columns(exomes_in)
+            (possible_gene_id_cols, possible_var_id_cols, possible_chrom_cols, possible_pos_cols, possible_locus_cols, possible_p_cols, possible_beta_cols, possible_se_cols, possible_freq_cols, possible_n_cols, header) = _determine_columns_from_file(exomes_in)
 
             #now recompute
             if exomes_gene_col is None:
@@ -6216,7 +6152,7 @@ class GeneSetData(object):
             bail("Require --positive-controls-in or --positive-controls-list for this operation")
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
 
         if positive_controls_default_prob >= 1:
             positive_controls_default_prob = 0.99
@@ -6324,7 +6260,7 @@ class GeneSetData(object):
             bail("Require --all-genes-in")
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
 
         all_genes = []
         with open_gz(all_genes_in) as all_genes_fh:
@@ -6376,7 +6312,7 @@ class GeneSetData(object):
     def read_count_file(self, case_counts_in, ctrl_counts_in, min_revels=None, mean_rrs=None, case_counts_gene_col=None, ctrl_counts_gene_col=None, case_counts_revel_col=None, ctrl_counts_revel_col=None, case_counts_count_col=None, ctrl_counts_count_col=None, case_counts_tot_col=None, ctrl_counts_tot_col=None, case_counts_max_freq_col=None, ctrl_counts_max_freq_col=None, max_case_freq=0.001, max_ctrl_freq=0.001, syn_revel_threshold=0, syn_fisher_p=1e-4, nu=1, beta=1.0, hold_out_chrom=None, gene_loc_file=None, bound_zero=True, **kwargs):
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = self._read_loc_file(gene_loc_file)
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
 
         if min_revels is None or len(min_revels) == 0:
             min_revels = [0.4, 0.7, 1]
@@ -7333,7 +7269,7 @@ class GeneSetData(object):
 
         phewas_gene_to_X_gene = None
         if phewas_gene_to_X_gene_in is not None:
-            phewas_gene_to_X_gene = self._read_gene_map(phewas_gene_to_X_gene_in, allow_multi=True)
+            phewas_gene_to_X_gene = _parse_gene_map(phewas_gene_to_X_gene_in, allow_multi=True)
 
         for delim in [None, '\t']:
             success = True
@@ -7609,12 +7545,6 @@ class GeneSetData(object):
             )
             Y = self.Y_for_regression
 
-        #FIXME: need to make this so don't always read in correlations, and add priors where needed
-        #can move this inside of the Y is None loop
-        #but -- if compute correlation distance function is true and gene_cor_file is none and gene_loc file is not None, then we need to redo this
-        #and: if gene_cor_file is not none, then we need to update the correlation matrix to account for the priors
-        #To decrease correlation, we first convert cor to covaraince (multiply by np.var(Y)) then divide by np.var(Y) + np.var(prior). For np.sd prior, we can either use a fixed value (the sd of priors across all genes) or we can use the actual y values (and thus do np.sqrt(np.var(Y) + prior1)np.sqrt(np.var(Y) + prior2).
-        #and, finally: we always need to call set Y here
         if run_gls:
             run_corrected_ols = False
 
@@ -7764,7 +7694,6 @@ class GeneSetData(object):
 
         #self.max_gene_set_p = max_gene_set_p
 
-    #FIXME: Update calls to use includes_non_missing and from_osc
     def has_gene_sets(self):
         return self.X_orig is not None and self.X_orig.shape[1] > 0
 
@@ -8221,7 +8150,7 @@ class GeneSetData(object):
                         if gene_name not in self.gene_to_ind:
                             continue
 
-                        chrom = self._clean_chrom(cols[1])
+                        chrom = _clean_chrom_name(cols[1])
                         pos1 = int(cols[2])
                         pos2 = int(cols[3])
 
@@ -9029,9 +8958,6 @@ class GeneSetData(object):
             #avg_full_postp_sample_v = np.zeros(num_full_gene_sets)
 
 
-            #sum of values for each chain
-            #TODO: add in values for everything that has sum
-
             full_betas_m_shape = (num_chains, num_full_gene_sets)
             prev_warm_start_betas_m = None
             prev_warm_start_postp_m = None
@@ -9294,7 +9220,6 @@ class GeneSetData(object):
                 cur_log_bf_raw_m[cur_log_bf_raw_m > max_log] = max_log
                 bf_raw_sample_m = np.exp(cur_log_bf_raw_m).T
 
-                #FIXME: do we really need to add in background_log_bf and then subtract it below? Surely there must be a way to do these calculations independent of background_log_bf? Can check by seeing if results are invariant to background_log_bf
                 max_D = 1-1e-5
                 min_D = 1e-5
 
@@ -9320,11 +9245,6 @@ class GeneSetData(object):
                 #    log("Not centering combined")
 
 
-                #We must normalize Y_sample_m for the compute beta tildes!
-                #FIXME: this led to a bug and should be updated to prevent errors in the future
-                #TESTING removal of this standardization
-                #Y_sample_m = (Y_sample_m.T - np.mean(Y_sample_m, axis=1)).T
-
                 #var(Y) = E[var(Y|S,beta)] + var(E[Y|S,beta])
                 #First term can be estimated from the gibbs samples
                 #Second term is just Y_cond_var (to a first approximation), or more accurately the term in the integral from gauss
@@ -9340,8 +9260,6 @@ class GeneSetData(object):
 
                 #combine X_orig and X_orig missing?
 
-                #TODO: y_corr_sparse needs to be reduced due to y_var (it is larger here than it is above)
-                #TODO: if decide calculations depend on chain, then also need to update compute_beta_tildes to return matrix of se_inflation_factors
                 y_corr_sparse = None
                 if self.y_corr_sparse is not None:
 
@@ -9462,11 +9380,6 @@ class GeneSetData(object):
                             se_inflation_factors_m[begin:end,pre_gene_set_filter_mask] = init_se_inflation_factors_m
                         else:
                             se_inflation_factors_m = None
-
-                    #old unconditional one; shouldn't be necessary
-                    #else:
-                    #    (full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m, full_alpha_tildes_m, diverged_m) = self._compute_logistic_beta_tildes(self.X_orig, p_sample_m, self.scale_factors, self.mean_shifts, resid_correlation_matrix=y_corr_sparse, X_stacked=X_hstacked)
-                    #    pre_gene_set_filter_mask = np.full(full_beta_tildes_m.shape[1], True)
 
                     #calculate whether the sample was an outlier
 
@@ -12439,9 +12352,6 @@ class GeneSetData(object):
         var = frac * np.square(top_bf / (-scipy.stats.norm.ppf(1.0 / (num * frac))))
         return var
 
-    def _determine_columns(self, filename):
-        return _determine_columns_from_file(filename)
-
     def _adjust_bf(self, Y, min_mean_bf, max_mean_bf):
         Y_to_use = np.exp(Y)
         Y_mean = np.mean(Y_to_use)
@@ -12803,19 +12713,6 @@ class GeneSetData(object):
 
         return (huge_results, huge_results_uncorrected, gene_covariate_betas)
 
-
-    def _read_loc_file(self, loc_file, return_intervals=False, hold_out_chrom=None):
-        return _read_loc_file_with_gene_map(
-            loc_file,
-            self.gene_label_map,
-            return_intervals=return_intervals,
-            hold_out_chrom=hold_out_chrom,
-        )
-
-
-    def _clean_chrom(self, chrom):
-        return _clean_chrom_name(chrom)
-
     def _read_correlations(self, gene_cor_file=None, gene_loc_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, compute_correlation_distance_function=True):
         if gene_cor_file is not None:
             log("Reading in correlations from %s" % gene_cor_file)
@@ -13052,11 +12949,9 @@ class GeneSetData(object):
         if len(Y.shape) == 2:
             len_Y = Y.shape[1]
             Y_mean = np.mean(Y, axis=1, keepdims=True)  # Compute row-wise mean
-            #old_Y = (Y.T - np.mean(Y, axis=1)).T
         else:
             len_Y = Y.shape[0]
             Y_mean = np.mean(Y)
-            #old_Y = Y - np.mean(Y)
 
         if mean_shifts is None or scale_factors is None:
             (mean_shifts, scale_factors) = self._calc_X_shift_scale(X)
@@ -13094,12 +12989,6 @@ class GeneSetData(object):
 
         if len_Y > 1:
             ses /= (np.sqrt(variances * (len_Y - 1)))
-
-        #FIXME: implement exact SEs
-        #rather than just using y_var as a constant, calculate X.multiply(beta_tildes)
-        #then, subtract out Y for non-zero entries, sum square, sum total
-        #then, add in square of Y for zero entries, add in total
-        #use these to calculate the variance term
 
         se_inflation_factors = None
         if resid_correlation_matrix is not None:
@@ -13716,9 +13605,6 @@ class GeneSetData(object):
                 X_stacked = X
 
         num_non_zero = np.tile((X != 0).sum(axis=0).A1, num_chains)
-
-        #old, memory more intensive
-        #num_non_zero = (X_stacked != 0).sum(axis=0).A1
 
         num_zero = X_stacked.shape[0] - num_non_zero
 
@@ -14944,30 +14830,6 @@ class GeneSetData(object):
                             log("Desired precision achieved; stopping sampling")
                             will_break=True
 
-                        #TODO: STILL FINALIZING HOW TO DO THIS
-                        #avg_m = avg_betas_m
-                        #avg2_m = avg_betas2_m
-
-                        #sem2_m = ((avg2_m / (num_avg - 1)) - np.power(avg_m / num_avg, 2)) / num_avg
-                        #zero_sem2_m = sem2_m == 0
-                        #sem2_m[zero_sem2_m] = 1
-
-                        #max_avg = np.max(np.abs(avg_m / num_avg))
-                        #min_avg = np.min(np.abs(avg_m / num_avg))
-                        #ref_val = max_avg - min_avg
-                        #if ref_val == 0:
-                        #    ref_val = np.sqrt(np.var(curr_post_means_t))
-                        #    if ref_val == 0:
-                        #        ref_val = 1
-
-                        #max_sem = np.max(np.sqrt(sem2_m))
-                        #max_percentage_error = max_sem / ref_val
-
-                        #log("Iteration %d: ref_val=%.3g; max_sem=%.3g; max_ratio=%.3g" % (iteration_num, ref_val, max_sem, max_percentage_error))
-                        #if max_percentage_error < max_frac_sem:
-                        #    log("Desired precision achieved; stopping sampling")
-                        #    break
-                        
             else:
                 # 3c) Adapt hyperparameters (p, sigma) while still in burn-in.
                 if update_hyper_p or update_hyper_sigma:
@@ -15793,7 +15655,6 @@ class GeneSetData(object):
 
         log("Sorting genes", TRACE)
         if self.y_corr_cholesky is not None:
-            #FIXME: subset the cholesky matrix here
             bail("Sorting genes after setting correlation matrix is not yet implemented")
 
         self.genes = [self.genes[i] for i in sorted_gene_indices]
@@ -16407,15 +16268,6 @@ class GeneSetData(object):
         self.gene_sets_missing = None
         self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
 
-        #if self.sigma2 is not None:
-        #    old_sigma2 = self.sigma2
-        #    self.set_sigma(self.sigma2 * fraction_non_missing, self.sigma_power, sigma2_osc=self.sigma2_osc)
-        #    log("Changing sigma from %.4g to %.4g" % (old_sigma2, self.sigma2))
-        #if self.p is not None:
-        #    old_p = self.p
-        #    self.set_p(self.p * fraction_non_missing)
-        #    log("Changing p from %.4g to %.4g" % (old_p, self.p))
-
         if self.beta_tildes_missing is not None:
             self.beta_tildes = np.append(self.beta_tildes, self.beta_tildes_missing)
             self.beta_tildes_missing = None
@@ -16522,15 +16374,6 @@ class GeneSetData(object):
             self.X_orig_missing_genes_missing_gene_sets = None
 
         return(subset_mask)
-
-
-    #utility function to create a mapping from name to index in a list
-    def _construct_map_to_ind(self, gene_sets):
-        return _construct_map_to_ind(gene_sets)
-
-    #utility function to map names or indices to column indicies
-    def _get_col(self, col_name_or_index, header_cols, require_match=True):
-        return _get_col(col_name_or_index, header_cols, require_match=require_match)
 
     # inverse_matrix calculations
     def _invert_matrix(self,matrix_in):
