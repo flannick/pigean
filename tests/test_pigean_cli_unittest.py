@@ -145,6 +145,24 @@ class PigeanCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("Mode 'factor' is not available in pigean.py after repository split", err)
 
+    def test_factor_output_flag_disabled_in_pigean(self) -> None:
+        proc = self._run("gibbs", "--factors-out", "factors.tsv")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Option --factors-out moved to eaggl.py after repository split", err)
+
+    def test_config_factor_option_disabled_in_pigean(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            cfg_path = Path(td) / "cfg.json"
+            cfg_path.write_text(
+                json.dumps({"mode": "gibbs", "options": {"anchor_genes": ["INS"]}}),
+                encoding="utf-8",
+            )
+            proc = self._run("--config", str(cfg_path))
+            self.assertNotEqual(proc.returncode, 0)
+            err = (proc.stderr or "") + (proc.stdout or "")
+            self.assertIn("Option --anchor-genes/--anchor-gene moved to eaggl.py after repository split", err)
+
 
 if __name__ == "__main__":
     unittest.main()

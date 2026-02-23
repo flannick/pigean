@@ -945,7 +945,44 @@ def _fail_removed_cli_aliases(_argv):
 def _enforce_pigean_mode_ownership(_mode):
     factor_modes = set(["factor", "naive_factor"])
     if _mode in factor_modes:
-        bail("Mode '%s' is not available in pigean.py after repository split" % _mode)
+        bail("Mode '%s' is not available in pigean.py after repository split; run this in the eaggl repository" % _mode)
+
+
+def _fail_if_factor_options_used_in_pigean(_options):
+    # Factoring now lives in eaggl.py. Keep pigean focused on beta/priors/gibbs/phewas.
+    factor_only_option_checks = [
+        ("--gene-set-phewas-stats-in", _options.gene_set_phewas_stats_in is not None),
+        ("--anchor-phenos/--anchor-pheno", _options.anchor_phenos is not None),
+        ("--anchor-any-pheno", _options.anchor_any_pheno),
+        ("--anchor-genes/--anchor-gene", _options.anchor_genes is not None),
+        ("--anchor-any-gene", _options.anchor_any_gene),
+        ("--anchor-gene-set", _options.anchor_gene_set),
+        ("--factor-prune-phenos-num", _options.factor_prune_phenos_num is not None),
+        ("--factor-prune-phenos-val", _options.factor_prune_phenos_val is not None),
+        ("--factor-prune-genes-num", _options.factor_prune_genes_num is not None),
+        ("--factor-prune-genes-val", _options.factor_prune_genes_val is not None),
+        ("--factor-prune-gene-sets-num", _options.factor_prune_gene_sets_num is not None),
+        ("--factor-prune-gene-sets-val", _options.factor_prune_gene_sets_val is not None),
+        ("--add-gene-sets-by-enrichment-p", _options.add_gene_sets_by_enrichment_p is not None),
+        ("--add-gene-sets-by-fraction", _options.add_gene_sets_by_fraction is not None),
+        ("--add-gene-sets-by-naive", _options.add_gene_sets_by_naive is not None),
+        ("--add-gene-sets-by-gibbs", _options.add_gene_sets_by_gibbs is not None),
+        ("--project-phenos-from-gene-sets", _options.project_phenos_from_gene_sets),
+        ("--factors-out", _options.factors_out is not None),
+        ("--factors-anchor-out", _options.factors_anchor_out is not None),
+        ("--gene-set-clusters-out", _options.gene_set_clusters_out is not None),
+        ("--gene-clusters-out", _options.gene_clusters_out is not None),
+        ("--pheno-clusters-out", _options.pheno_clusters_out is not None),
+        ("--gene-set-anchor-clusters-out", _options.gene_set_anchor_clusters_out is not None),
+        ("--gene-anchor-clusters-out", _options.gene_anchor_clusters_out is not None),
+        ("--pheno-anchor-clusters-out", _options.pheno_anchor_clusters_out is not None),
+        ("--gene-pheno-stats-out", _options.gene_pheno_stats_out is not None),
+        ("--factor-phewas-from-gene-phewas-stats-in", _options.factor_phewas_from_gene_phewas_stats_in is not None),
+        ("--factor-phewas-stats-out", _options.factor_phewas_stats_out is not None),
+    ]
+    for flag_name, is_used in factor_only_option_checks:
+        if is_used:
+            bail("Option %s moved to eaggl.py after repository split; run this in the eaggl repository" % flag_name)
 
 def _parse_options_and_args_with_config(_parser, _argv):
     _fail_removed_cli_aliases(_argv)
@@ -1241,8 +1278,6 @@ MODE_DISPATCH = {
     "naive_prior": _run_mode_naive_priors,
     "gibbs": _run_mode_gibbs,
     "em": _run_mode_gibbs,
-    "factor": _run_mode_factor,
-    "naive_factor": _run_mode_factor,
     "sim": _run_mode_sim,
     "simulate": _run_mode_sim,
     "pops": _run_mode_pops,
@@ -1513,6 +1548,7 @@ def _finalize_options_after_parse(_options, _mode, _mode_state, _argv):
 
 
 mode_state = _resolve_mode_state(mode, options)
+_fail_if_factor_options_used_in_pigean(options)
 _finalize_options_after_parse(options, mode, mode_state, sys.argv[1:])
 
 def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
@@ -20968,9 +21004,6 @@ def _run_core_model_pipeline_for_main(state, options, mode_state, Y_not_loaded, 
 def _run_post_model_outputs_for_main(state, options, mode_state):
     _write_primary_outputs_for_main(state, options)
     _run_phewas_if_requested_for_main(state, options, mode_state)
-    _run_factor_if_requested_for_main(state, options, mode_state)
-    _write_factor_outputs_for_main(state, options)
-    _run_factor_phewas_if_requested_for_main(state, options)
 
 
 def _log_runtime_environment_for_main(options):
