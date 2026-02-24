@@ -17757,87 +17757,34 @@ def _build_gibbs_kwargs_for_main(options):
     kwargs.update(_build_gibbs_trace_output_kwargs_for_main(options))
     return kwargs
 
+def _run_phewas_if_requested_for_main(state, options, mode_state):
+    if not mode_state["run_phewas"]:
+        return
+    bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
+    can_reuse_loaded_bfs = (
+        options.gene_phewas_bfs_in is not None
+        and bfs_to_use == options.gene_phewas_bfs_in
+        and state.num_gene_phewas_filtered == 0
+        and state.read_gene_phewas()
+    )
+    if can_reuse_loaded_bfs:
+        #we can skip reading if we are using the same file as previously read and we didn't threshold that file
+        bfs_to_use = None
 
-def _write_primary_gene_set_outputs_for_main(state, options):
-    if options.gene_set_stats_out:
-        state.write_gene_set_statistics(options.gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
-    if options.phewas_gene_set_stats_out:
-        state.write_phewas_gene_set_statistics(options.phewas_gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
-    if options.gene_set_overlap_stats_out:
-        state.write_gene_set_overlap_statistics(options.gene_set_overlap_stats_out)
-
-
-def _write_primary_gene_outputs_for_main(state, options):
-    if options.gene_stats_out:
-        state.write_gene_statistics(options.gene_stats_out)
-    if options.gene_gene_set_stats_out:
-        state.write_gene_gene_set_statistics(options.gene_gene_set_stats_out, max_no_write_gene_gene_set_beta=options.max_no_write_gene_gene_set_beta, write_filter_beta_uncorrected=options.use_beta_uncorrected_for_gene_gene_set_write_filter)
-    if options.gene_covs_out:
-        state.write_gene_covariates(options.gene_covs_out)
-    if options.gene_effectors_out:
-        state.write_gene_effectors(options.gene_effectors_out)
-
-
-def _write_primary_outputs_for_main(state, options):
-    _write_primary_gene_set_outputs_for_main(state, options)
-    _write_primary_gene_outputs_for_main(state, options)
-
-
-def _run_gene_phewas_for_main(state, options, bfs_to_use, batch_size=1500):
-    state.run_phewas(**_build_run_phewas_kwargs_for_main(options, bfs_to_use, batch_size))
-
-
-def _build_run_phewas_input_kwargs_for_main(options, bfs_to_use):
-    return dict(
+    run_kwargs = dict(
         gene_phewas_bfs_in=bfs_to_use,
         gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
         gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
         gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
         gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
         gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+        batch_size=1500,
     )
+    run_kwargs.update(_build_inner_beta_sampler_common_kwargs_for_main(options))
+    state.run_phewas(**run_kwargs)
 
-
-def _build_run_phewas_sampling_kwargs_for_main(options):
-    return _build_inner_beta_sampler_common_kwargs_for_main(options)
-
-
-def _build_run_phewas_kwargs_for_main(options, bfs_to_use, batch_size=1500):
-    kwargs = {}
-    kwargs.update(_build_run_phewas_input_kwargs_for_main(options, bfs_to_use))
-    kwargs.update(_build_run_phewas_sampling_kwargs_for_main(options))
-    kwargs.update(dict(batch_size=batch_size))
-    return kwargs
-
-
-def _resolve_main_phewas_bfs_input_for_main(state, options):
-    bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
-    if _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
-        #we can skip reading if we are using the same file as previously read and we didn't threshold that file
-        return None
-    return bfs_to_use
-
-
-def _write_phewas_outputs_if_requested_for_main(state, options):
     if options.phewas_stats_out:
         state.write_phewas_statistics(options.phewas_stats_out)
-
-
-def _run_phewas_if_requested_for_main(state, options, mode_state):
-    if not mode_state["run_phewas"]:
-        return
-    bfs_to_use = _resolve_main_phewas_bfs_input_for_main(state, options)
-    _run_gene_phewas_for_main(state, options, bfs_to_use)
-    _write_phewas_outputs_if_requested_for_main(state, options)
-
-
-def _can_reuse_loaded_gene_phewas_bfs_for_main(state, options, bfs_to_use):
-    return (
-        options.gene_phewas_bfs_in is not None
-        and bfs_to_use == options.gene_phewas_bfs_in
-        and state.num_gene_phewas_filtered == 0
-        and state.read_gene_phewas()
-    )
 
 
 def _compute_priors_if_requested_for_main(state, options, mode_state):
@@ -18069,7 +18016,22 @@ def main():
     # ==========================================================================
     # Main Phase E: Output writers and optional downstream analyses.
     # ==========================================================================
-    _write_primary_outputs_for_main(state, options)
+    if options.gene_set_stats_out:
+        state.write_gene_set_statistics(options.gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
+    if options.phewas_gene_set_stats_out:
+        state.write_phewas_gene_set_statistics(options.phewas_gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
+    if options.gene_set_overlap_stats_out:
+        state.write_gene_set_overlap_statistics(options.gene_set_overlap_stats_out)
+
+    if options.gene_stats_out:
+        state.write_gene_statistics(options.gene_stats_out)
+    if options.gene_gene_set_stats_out:
+        state.write_gene_gene_set_statistics(options.gene_gene_set_stats_out, max_no_write_gene_gene_set_beta=options.max_no_write_gene_gene_set_beta, write_filter_beta_uncorrected=options.use_beta_uncorrected_for_gene_gene_set_write_filter)
+    if options.gene_covs_out:
+        state.write_gene_covariates(options.gene_covs_out)
+    if options.gene_effectors_out:
+        state.write_gene_effectors(options.gene_effectors_out)
+
     _run_phewas_if_requested_for_main(state, options, mode_state)
 
     if options.params_out:
