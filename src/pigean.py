@@ -9589,132 +9589,66 @@ class GeneSetData(object):
             )
 
             num_chains_effective = sum_betas_m.shape[0]
-
-            ##1. calculate mean values for each chain (divide by number -- make sure it is correct; may not be num_avg_Y)
-            #beta_chain_means_m = sum_betas_m / num_sum_beta_m
-            #Y_chain_means_m = sum_Ys_m / num_sum_Y_m
-
-            ##2. calculate median values across chains (one number per gene set/gene)
-            #beta_medians_v = np.median(beta_chain_means_m, axis=0)
-            #Y_medians_v = np.median(Y_chain_means_m, axis=0)
-
-            ##3. calculate abs(difference) between each chain and median (one value per chain/geneset)
-            #beta_mad_m = np.abs(beta_chain_means_m - beta_medians_v)
-            #Y_mad_m = np.abs(Y_chain_means_m - Y_medians_v)
-
-            ##4. calculate median of abs(difference) across chains (one number per gene set/gene)
-            #beta_mad_median_v = np.median(beta_mad_m, axis=0)
-            #Y_mad_median_v = np.median(Y_mad_m, axis=0)
-
-            ##5. mask any chain that is more than 3 median(abs(difference)) from median
-            #beta_outlier_mask_m = beta_chain_means_m > beta_medians_v + 3 * beta_mad_median_v
-            #Y_outlier_mask_m = Y_chain_means_m > Y_medians_v + 3 * Y_mad_median_v
-
-            ##6. take average only across chains that are not outliers
-            #num_sum_beta_v = np.sum(~beta_outlier_mask_m, axis=0)
-            #num_sum_Y_v = np.sum(~Y_outlier_mask_m, axis=0)
-
-            ##should never happen but just in case
-            #num_sum_beta_v[num_sum_beta_v == 0] = 1
-            #num_sum_Y_v[num_sum_Y_v == 0] = 1
-
-            ##7. to do this, zero out outlier chains, then sum them, then divide by number of outliers
-            #sum_Ys_m[Y_outlier_mask_m] = 0
-            #avg_Ys_v = np.sum(sum_Ys_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-
-            Y_outlier_mask_m, avg_Ys_v = _outlier_resistant_mean(sum_Ys_m, num_sum_Y_m, num_mad, record_param_fn=self._record_param)
-            beta_outlier_mask_m, avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=self._record_param)
-            
-            _, avg_Y_raws_v = _outlier_resistant_mean(sum_Y_raws_m, num_sum_Y_m, num_mad, record_param_fn=self._record_param)
-
-            #sum_log_pos_m[Y_outlier_mask_m] = 0
-            #avg_log_pos_v = np.sum(sum_log_pos_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_log_pos_v = _outlier_resistant_mean(sum_log_pos_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-            _, avg_log_po_raws_v = _outlier_resistant_mean(sum_log_po_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-            #sum_log_pos2_m[Y_outlier_mask_m] = 0
-            #avg_log_pos2_v = np.sum(sum_log_pos2_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_log_pos2_v = _outlier_resistant_mean(sum_log_pos2_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-            #sum_Ds_m[Y_outlier_mask_m] = 0
-            #avg_Ds_v = np.sum(sum_Ds_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_Ds_v = _outlier_resistant_mean(sum_Ds_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-            _, avg_D_raws_v = _outlier_resistant_mean(sum_D_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-            #sum_priors_m[Y_outlier_mask_m] = 0
-            #avg_priors_v = np.sum(sum_priors_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_priors_v = _outlier_resistant_mean(sum_priors_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-            #sum_bf_orig_m[Y_outlier_mask_m] = 0
-            #avg_bf_orig_v = np.sum(sum_bf_orig_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_bf_orig_v = _outlier_resistant_mean(sum_bf_orig_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-            #sum_bf_orig_raw_m[Y_outlier_mask_m] = 0
-            #avg_bf_orig_raw_v = np.sum(sum_bf_orig_raw_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_bf_orig_raw_v = _outlier_resistant_mean(sum_bf_orig_raw_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-            if self.genes_missing is not None:
-                #priors_missing_chain_means_m = sum_priors_missing_m / num_sum_priors_missing_m
-                #priors_missing_medians_v = np.median(priors_missing_chain_means_m, axis=0)
-                #priors_missing_mad_m = np.abs(priors_missing_chain_means_m - priors_missing_medians_v)
-                #priors_missing_mad_median_v = np.median(priors_missing_mad_m, axis=0)
-                #priors_missing_outlier_mask_m = priors_missing_chain_means_m > priors_missing_medians_v + 3 * priors_missing_mad_median_v
-                #num_sum_priors_missing_v = np.sum(~priors_missing_outlier_mask_m, axis=0)
-                #num_sum_priors_missing_v[num_sum_priors_missing_v == 0] = 1
-
-                #assert(np.all(num_sum_priors_missing_m > 0))
-                #sum_priors_missing_m[priors_missing_outlier_mask_m] = 0
-                #avg_priors_missing_v = np.sum(sum_priors_missing_m / num_sum_priors_missing_m, axis=0) / num_sum_priors_missing_v
-
-                priors_missing_outlier_mask_m, avg_priors_missing_v = _outlier_resistant_mean(sum_priors_missing_m, num_sum_priors_missing_m, num_mad, record_param_fn=self._record_param)
-
-                #sum_Ds_missing_m[priors_missing_outlier_mask_m] = 0
-                #avg_Ds_missing_v = np.sum(sum_Ds_missing_m / num_sum_priors_missing_m, axis=0) / num_sum_priors_missing_v
-                _, avg_Ds_missing_v = _outlier_resistant_mean(sum_Ds_missing_m, num_sum_priors_missing_m, num_mad, priors_missing_outlier_mask_m)
-
-            #sum_betas_m[beta_outlier_mask_m] = 0
-            #avg_betas_v = np.sum(sum_betas_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            #we did this above
-
-            #sum_betas_uncorrected_m[beta_outlier_mask_m] = 0
-            #avg_betas_uncorrected_v = np.sum(sum_betas_uncorrected_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            _, avg_betas_uncorrected_v = _outlier_resistant_mean(sum_betas_uncorrected_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
-
-            #sum_postp_m[beta_outlier_mask_m] = 0
-            #avg_postp_v = np.sum(sum_postp_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            _, avg_postp_v = _outlier_resistant_mean(sum_postp_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
-
-            #sum_beta_tildes_m[beta_outlier_mask_m] = 0
-            #avg_beta_tildes_v = np.sum(sum_beta_tildes_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            _, avg_beta_tildes_v = _outlier_resistant_mean(sum_beta_tildes_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
-
-            #sum_z_scores_m[beta_outlier_mask_m] = 0
-            #avg_z_scores_v = np.sum(sum_z_scores_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            _, avg_z_scores_v = _outlier_resistant_mean(sum_z_scores_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
-
-            num_post_burn_in_Y = int(np.min(num_sum_Y_m))
-            num_post_burn_in_beta = int(np.min(num_sum_beta_m))
-
-            _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_post_burn_in_Y)
-            _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_post_burn_in_Y)
-            _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_post_burn_in_Y)
-
-            _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_post_burn_in_beta)
-            _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_post_burn_in_beta)
-
-            prior_chain_means_m = _means_from_sums(sum_priors_m, num_sum_Y_m)
-            combined_chain_means_m = _means_from_sums(sum_log_po_raws_m, num_sum_Y_m)
-            log_bf_chain_means_m = _means_from_sums(sum_bf_orig_raw_m, num_sum_Y_m)
-            beta_chain_means_m = _means_from_sums(sum_betas_m, num_sum_beta_m)
-            beta_uncorrected_chain_means_m = _means_from_sums(sum_betas_uncorrected_m, num_sum_beta_m)
-
-            prior_mcse_v = np.sqrt(np.var(prior_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
-            combined_mcse_v = np.sqrt(np.var(combined_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
-            log_bf_mcse_v = np.sqrt(np.var(log_bf_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
-            beta_mcse_v = np.sqrt(np.var(beta_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
-            beta_uncorrected_mcse_v = np.sqrt(np.var(beta_uncorrected_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
+            final_summary = _summarize_gibbs_chain_aggregates(
+                sum_Ys_m,
+                sum_Ys2_m,
+                sum_Y_raws_m,
+                sum_log_pos_m,
+                sum_log_pos2_m,
+                sum_log_po_raws_m,
+                sum_log_po_raws2_m,
+                sum_priors_m,
+                sum_priors2_m,
+                sum_Ds_m,
+                sum_D_raws_m,
+                sum_bf_orig_m,
+                sum_bf_orig_raw_m,
+                sum_bf_orig_raw2_m,
+                sum_betas_m,
+                sum_betas2_m,
+                sum_betas_uncorrected_m,
+                sum_betas_uncorrected2_m,
+                sum_postp_m,
+                sum_beta_tildes_m,
+                sum_z_scores_m,
+                num_sum_Y_m,
+                num_sum_beta_m,
+                num_chains_effective,
+                num_mad,
+                record_param_fn=self._record_param,
+                sum_priors_missing_m=sum_priors_missing_m if self.genes_missing is not None else None,
+                sum_Ds_missing_m=sum_Ds_missing_m if self.genes_missing is not None else None,
+                num_sum_priors_missing_m=num_sum_priors_missing_m if self.genes_missing is not None else None,
+            )
+            avg_Ys_v = final_summary["avg_Ys_v"]
+            avg_Y_raws_v = final_summary["avg_Y_raws_v"]
+            avg_log_pos_v = final_summary["avg_log_pos_v"]
+            avg_log_po_raws_v = final_summary["avg_log_po_raws_v"]
+            avg_log_pos2_v = final_summary["avg_log_pos2_v"]
+            avg_Ds_v = final_summary["avg_Ds_v"]
+            avg_D_raws_v = final_summary["avg_D_raws_v"]
+            avg_priors_v = final_summary["avg_priors_v"]
+            avg_bf_orig_v = final_summary["avg_bf_orig_v"]
+            avg_bf_orig_raw_v = final_summary["avg_bf_orig_raw_v"]
+            avg_priors_missing_v = final_summary["avg_priors_missing_v"]
+            avg_Ds_missing_v = final_summary["avg_Ds_missing_v"]
+            avg_betas_v = final_summary["avg_betas_v"]
+            avg_betas_uncorrected_v = final_summary["avg_betas_uncorrected_v"]
+            avg_postp_v = final_summary["avg_postp_v"]
+            avg_beta_tildes_v = final_summary["avg_beta_tildes_v"]
+            avg_z_scores_v = final_summary["avg_z_scores_v"]
+            num_post_burn_in_Y = final_summary["num_post_burn_in_Y"]
+            num_post_burn_in_beta = final_summary["num_post_burn_in_beta"]
+            prior_r_hat_v = final_summary["prior_r_hat_v"]
+            combined_r_hat_v = final_summary["combined_r_hat_v"]
+            log_bf_r_hat_v = final_summary["log_bf_r_hat_v"]
+            beta_r_hat_v = final_summary["beta_r_hat_v"]
+            beta_uncorrected_r_hat_v = final_summary["beta_uncorrected_r_hat_v"]
+            prior_mcse_v = final_summary["prior_mcse_v"]
+            combined_mcse_v = final_summary["combined_mcse_v"]
+            log_bf_mcse_v = final_summary["log_bf_mcse_v"]
+            beta_mcse_v = final_summary["beta_mcse_v"]
+            beta_uncorrected_mcse_v = final_summary["beta_uncorrected_mcse_v"]
 
             self.beta_tildes = avg_beta_tildes_v
             self.z_scores = avg_z_scores_v
@@ -17054,6 +16988,115 @@ def _compute_post_burn_gene_diagnostics(
         "num_monitored_genes": num_monitored_genes,
         "num_eligible_genes": num_eligible_genes,
         "D_mcse_q": D_mcse_q,
+    }
+
+
+def _summarize_gibbs_chain_aggregates(
+    sum_Ys_m,
+    sum_Ys2_m,
+    sum_Y_raws_m,
+    sum_log_pos_m,
+    sum_log_pos2_m,
+    sum_log_po_raws_m,
+    sum_log_po_raws2_m,
+    sum_priors_m,
+    sum_priors2_m,
+    sum_Ds_m,
+    sum_D_raws_m,
+    sum_bf_orig_m,
+    sum_bf_orig_raw_m,
+    sum_bf_orig_raw2_m,
+    sum_betas_m,
+    sum_betas2_m,
+    sum_betas_uncorrected_m,
+    sum_betas_uncorrected2_m,
+    sum_postp_m,
+    sum_beta_tildes_m,
+    sum_z_scores_m,
+    num_sum_Y_m,
+    num_sum_beta_m,
+    num_chains_effective,
+    num_mad,
+    record_param_fn=None,
+    sum_priors_missing_m=None,
+    sum_Ds_missing_m=None,
+    num_sum_priors_missing_m=None,
+):
+    Y_outlier_mask_m, avg_Ys_v = _outlier_resistant_mean(sum_Ys_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
+    beta_outlier_mask_m, avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=record_param_fn)
+
+    _, avg_Y_raws_v = _outlier_resistant_mean(sum_Y_raws_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
+    _, avg_log_pos_v = _outlier_resistant_mean(sum_log_pos_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
+    _, avg_log_po_raws_v = _outlier_resistant_mean(sum_log_po_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
+    _, avg_log_pos2_v = _outlier_resistant_mean(sum_log_pos2_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
+    _, avg_Ds_v = _outlier_resistant_mean(sum_Ds_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
+    _, avg_D_raws_v = _outlier_resistant_mean(sum_D_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
+    _, avg_priors_v = _outlier_resistant_mean(sum_priors_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
+    _, avg_bf_orig_v = _outlier_resistant_mean(sum_bf_orig_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
+    _, avg_bf_orig_raw_v = _outlier_resistant_mean(sum_bf_orig_raw_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
+
+    avg_priors_missing_v = np.array([])
+    avg_Ds_missing_v = np.array([])
+    if sum_priors_missing_m is not None and sum_Ds_missing_m is not None and num_sum_priors_missing_m is not None:
+        priors_missing_outlier_mask_m, avg_priors_missing_v = _outlier_resistant_mean(sum_priors_missing_m, num_sum_priors_missing_m, num_mad, record_param_fn=record_param_fn)
+        _, avg_Ds_missing_v = _outlier_resistant_mean(sum_Ds_missing_m, num_sum_priors_missing_m, num_mad, priors_missing_outlier_mask_m)
+
+    _, avg_betas_uncorrected_v = _outlier_resistant_mean(sum_betas_uncorrected_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
+    _, avg_postp_v = _outlier_resistant_mean(sum_postp_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
+    _, avg_beta_tildes_v = _outlier_resistant_mean(sum_beta_tildes_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
+    _, avg_z_scores_v = _outlier_resistant_mean(sum_z_scores_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
+
+    num_post_burn_in_Y = int(np.min(num_sum_Y_m))
+    num_post_burn_in_beta = int(np.min(num_sum_beta_m))
+
+    _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_post_burn_in_Y)
+    _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_post_burn_in_Y)
+    _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_post_burn_in_Y)
+    _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_post_burn_in_beta)
+    _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_post_burn_in_beta)
+
+    prior_chain_means_m = _means_from_sums(sum_priors_m, num_sum_Y_m)
+    combined_chain_means_m = _means_from_sums(sum_log_po_raws_m, num_sum_Y_m)
+    log_bf_chain_means_m = _means_from_sums(sum_bf_orig_raw_m, num_sum_Y_m)
+    beta_chain_means_m = _means_from_sums(sum_betas_m, num_sum_beta_m)
+    beta_uncorrected_chain_means_m = _means_from_sums(sum_betas_uncorrected_m, num_sum_beta_m)
+
+    prior_mcse_v = np.sqrt(np.var(prior_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
+    combined_mcse_v = np.sqrt(np.var(combined_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
+    log_bf_mcse_v = np.sqrt(np.var(log_bf_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
+    beta_mcse_v = np.sqrt(np.var(beta_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
+    beta_uncorrected_mcse_v = np.sqrt(np.var(beta_uncorrected_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
+
+    return {
+        "avg_Ys_v": avg_Ys_v,
+        "avg_Y_raws_v": avg_Y_raws_v,
+        "avg_log_pos_v": avg_log_pos_v,
+        "avg_log_po_raws_v": avg_log_po_raws_v,
+        "avg_log_pos2_v": avg_log_pos2_v,
+        "avg_Ds_v": avg_Ds_v,
+        "avg_D_raws_v": avg_D_raws_v,
+        "avg_priors_v": avg_priors_v,
+        "avg_bf_orig_v": avg_bf_orig_v,
+        "avg_bf_orig_raw_v": avg_bf_orig_raw_v,
+        "avg_priors_missing_v": avg_priors_missing_v,
+        "avg_Ds_missing_v": avg_Ds_missing_v,
+        "avg_betas_v": avg_betas_v,
+        "avg_betas_uncorrected_v": avg_betas_uncorrected_v,
+        "avg_postp_v": avg_postp_v,
+        "avg_beta_tildes_v": avg_beta_tildes_v,
+        "avg_z_scores_v": avg_z_scores_v,
+        "num_post_burn_in_Y": num_post_burn_in_Y,
+        "num_post_burn_in_beta": num_post_burn_in_beta,
+        "prior_r_hat_v": prior_r_hat_v,
+        "combined_r_hat_v": combined_r_hat_v,
+        "log_bf_r_hat_v": log_bf_r_hat_v,
+        "beta_r_hat_v": beta_r_hat_v,
+        "beta_uncorrected_r_hat_v": beta_uncorrected_r_hat_v,
+        "prior_mcse_v": prior_mcse_v,
+        "combined_mcse_v": combined_mcse_v,
+        "log_bf_mcse_v": log_bf_mcse_v,
+        "beta_mcse_v": beta_mcse_v,
+        "beta_uncorrected_mcse_v": beta_uncorrected_mcse_v,
     }
 
 
