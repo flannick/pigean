@@ -8661,25 +8661,9 @@ class GeneSetData(object):
 
                 #combine X_orig and X_orig missing?
 
-                y_corr_sparse = None
                 if self.y_corr_sparse is not None:
-
                     log("Adjusting correlation matrix")
-
-                    y_corr_sparse = copy.copy(self.y_corr_sparse)
-
-                    #lower the correlation to account for the 
-                    y_corr_sparse = y_corr_sparse.multiply(y_var_orig)
-
-                    #new variances
-                    new_y_sd = np.sqrt(np.square(np.mean(priors_for_Y_m, axis=0)) + y_var_orig)[np.newaxis,:]
-                    new_y_sd[new_y_sd == 0] = 1e-10
-
-                    y_corr_sparse = y_corr_sparse.multiply(1/new_y_sd.T)
-                    y_corr_sparse = y_corr_sparse.multiply(1/new_y_sd)
-                    y_corr_sparse.setdiag(1)
-
-                    y_corr_sparse = y_corr_sparse.tocsc()
+                y_corr_sparse = _compute_gibbs_y_corr_sparse(self.y_corr_sparse, priors_for_Y_m, y_var_orig)
 
 
                 #NOW ONTO GENE SETS
@@ -8696,19 +8680,15 @@ class GeneSetData(object):
 
                 #we have to keep local replicas here because unsubset does not restore the original order, which would break full_beta_tildes and full_betas
 
-                p_sample_m = copy.copy(Y_sample_m)
-
                 pre_gene_set_filter_mask = None
                 full_z_cur_beta_tildes_m = np.zeros(full_betas_m_shape)
 
                 #have to do logistic or else doesn't converge
                 if not gauss_seidel:
                     log("Sampling Ds for logistic", TRACE)
-                    p_sample_m = np.zeros(D_sample_m.shape)
-                    p_sample_m[np.random.random(D_sample_m.shape) < D_sample_m] = 1
                 else:
                     log("Setting Ds to mean probabilities", TRACE)
-                    p_sample_m = D_sample_m
+                p_sample_m = _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
 
                 if initial_linear_filter:
                     (linear_beta_tildes_m, linear_ses_m, linear_z_scores_m, linear_p_values_m, _) = self._compute_beta_tildes(self.X_orig, Y_sample_m, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=y_corr_sparse)
@@ -17097,6 +17077,33 @@ def _compute_gibbs_iteration_y_terms(
         "D_raw_sample_m": D_raw_sample_m,
         "log_po_raw_sample_m": log_po_raw_sample_m,
     }
+
+
+def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig):
+    if y_corr_sparse_base is None:
+        return None
+
+    y_corr_sparse = copy.copy(y_corr_sparse_base)
+    y_corr_sparse = y_corr_sparse.multiply(y_var_orig)
+
+    new_y_sd = np.sqrt(np.square(np.mean(priors_for_Y_m, axis=0)) + y_var_orig)[np.newaxis,:]
+    new_y_sd[new_y_sd == 0] = 1e-10
+
+    y_corr_sparse = y_corr_sparse.multiply(1 / new_y_sd.T)
+    y_corr_sparse = y_corr_sparse.multiply(1 / new_y_sd)
+    y_corr_sparse.setdiag(1)
+    return y_corr_sparse.tocsc()
+
+
+def _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel):
+    # Keep the legacy initialization shape/type behavior, then overwrite by mode.
+    p_sample_m = copy.copy(Y_sample_m)
+    if not gauss_seidel:
+        p_sample_m = np.zeros(D_sample_m.shape)
+        p_sample_m[np.random.random(D_sample_m.shape) < D_sample_m] = 1
+    else:
+        p_sample_m = D_sample_m
+    return p_sample_m
 
 
 def _update_post_burn_stall_tracking(
