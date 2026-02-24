@@ -8625,9 +8625,19 @@ class GeneSetData(object):
 
                 log("Setting logistic Ys", TRACE)
 
-                Y_sample_m = priors_for_Y_m + log_bf_m
-                Y_raw_sample_m = priors_for_Y_m + log_bf_raw_m
-                y_var = np.var(Y_sample_m, axis=1)
+                y_terms = _compute_gibbs_iteration_y_terms(
+                    priors_for_Y_m,
+                    log_bf_m,
+                    log_bf_raw_m,
+                    cur_background_log_bf_v,
+                )
+                Y_sample_m = y_terms["Y_sample_m"]
+                Y_raw_sample_m = y_terms["Y_raw_sample_m"]
+                y_var = y_terms["y_var"]
+                D_sample_m = y_terms["D_sample_m"]
+                log_po_sample_m = y_terms["log_po_sample_m"]
+                D_raw_sample_m = y_terms["D_raw_sample_m"]
+                log_po_raw_sample_m = y_terms["log_po_raw_sample_m"]
 
                 #if adjust_background_prior:
                 #    #get the original mean bf
@@ -8635,30 +8645,6 @@ class GeneSetData(object):
                 #    cur_background_log_bf_v = self.background_log_bf + background_log_prior_scale_factor
                 #    cur_background_bf_v = np.exp(cur_background_log_bf_v)
                 #    log("Adjusting background priors to %.4g-%.4g" % (np.min(cur_background_bf_v / (1 + cur_background_bf_v)), np.max(cur_background_bf_v / (1 + cur_background_bf_v))))
-
-                #threshold in case things go off the rails
-                max_log = 15
-
-                cur_log_bf_m = Y_sample_m.T + cur_background_log_bf_v
-                cur_log_bf_m[cur_log_bf_m > max_log] = max_log
-                bf_sample_m = np.exp(cur_log_bf_m).T
-
-                cur_log_bf_raw_m = Y_raw_sample_m.T + cur_background_log_bf_v
-                cur_log_bf_raw_m[cur_log_bf_raw_m > max_log] = max_log
-                bf_raw_sample_m = np.exp(cur_log_bf_raw_m).T
-
-                max_D = 1-1e-5
-                min_D = 1e-5
-
-                D_sample_m = bf_sample_m / (1 + bf_sample_m)
-                D_sample_m[D_sample_m > max_D] = max_D
-                D_sample_m[D_sample_m < min_D] = min_D
-                log_po_sample_m = np.log(D_sample_m/(1-D_sample_m))
-
-                D_raw_sample_m = bf_raw_sample_m / (1 + bf_raw_sample_m)
-                D_raw_sample_m[D_raw_sample_m > max_D] = max_D
-                D_raw_sample_m[D_raw_sample_m < min_D] = min_D
-                log_po_raw_sample_m = np.log(D_raw_sample_m/(1-D_raw_sample_m))
 
                 #var(Y) = E[var(Y|S,beta)] + var(E[Y|S,beta])
                 #First term can be estimated from the gibbs samples
@@ -17069,6 +17055,48 @@ def _apply_gibbs_final_state(state, final_summary, adjust_priors):
 
         log("Adjusting combined with slope %.4g" % combined_slope)
         state.combined_prior_Ys_adj = state.combined_prior_Ys - combined_slope * gene_N - combined_intercept
+
+
+def _compute_gibbs_iteration_y_terms(
+    priors_for_Y_m,
+    log_bf_m,
+    log_bf_raw_m,
+    cur_background_log_bf_v,
+    max_log=15.0,
+    min_D=1e-5,
+    max_D=1 - 1e-5,
+):
+    Y_sample_m = priors_for_Y_m + log_bf_m
+    Y_raw_sample_m = priors_for_Y_m + log_bf_raw_m
+    y_var = np.var(Y_sample_m, axis=1)
+
+    cur_log_bf_m = Y_sample_m.T + cur_background_log_bf_v
+    cur_log_bf_m[cur_log_bf_m > max_log] = max_log
+    bf_sample_m = np.exp(cur_log_bf_m).T
+
+    cur_log_bf_raw_m = Y_raw_sample_m.T + cur_background_log_bf_v
+    cur_log_bf_raw_m[cur_log_bf_raw_m > max_log] = max_log
+    bf_raw_sample_m = np.exp(cur_log_bf_raw_m).T
+
+    D_sample_m = bf_sample_m / (1 + bf_sample_m)
+    D_sample_m[D_sample_m > max_D] = max_D
+    D_sample_m[D_sample_m < min_D] = min_D
+    log_po_sample_m = np.log(D_sample_m / (1 - D_sample_m))
+
+    D_raw_sample_m = bf_raw_sample_m / (1 + bf_raw_sample_m)
+    D_raw_sample_m[D_raw_sample_m > max_D] = max_D
+    D_raw_sample_m[D_raw_sample_m < min_D] = min_D
+    log_po_raw_sample_m = np.log(D_raw_sample_m / (1 - D_raw_sample_m))
+
+    return {
+        "Y_sample_m": Y_sample_m,
+        "Y_raw_sample_m": Y_raw_sample_m,
+        "y_var": y_var,
+        "D_sample_m": D_sample_m,
+        "log_po_sample_m": log_po_sample_m,
+        "D_raw_sample_m": D_raw_sample_m,
+        "log_po_raw_sample_m": log_po_raw_sample_m,
+    }
 
 
 def _update_post_burn_stall_tracking(
