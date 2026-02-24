@@ -8649,6 +8649,125 @@ class GeneSetData(object):
 
                 return (active_mask_v, beta_chain_means_m, beta_mean_v)
 
+            def __compute_post_burn_beta_diagnostics(diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, num_chains_effective_for_diag):
+                active_beta_mask, beta_chain_means_m, beta_mean_v = __get_active_beta_mask(diag_sum_betas_m, diag_num_sum_beta_m)
+                num_active_betas = int(np.sum(active_beta_mask))
+
+                beta_mcse_v = np.sqrt(np.var(beta_chain_means_m, axis=0, ddof=1) / float(num_chains_effective_for_diag))
+                num_post_burn_beta = int(np.min(diag_num_sum_beta_m))
+                _, _, post_R_beta_v, _ = __calculate_R(diag_sum_betas_m, diag_sum_betas2_m, num_post_burn_beta)
+
+                if np.any(active_beta_mask):
+                    post_R_beta_active_v = post_R_beta_v[active_beta_mask]
+                    post_rhat_candidates = post_R_beta_active_v[np.logical_and(np.isfinite(post_R_beta_active_v), post_R_beta_active_v >= 1)]
+                    beta_rhat_q_post = __safe_quantile(post_rhat_candidates, stop_mcse_quantile, 1.0)
+
+                    beta_ratio_v = beta_mcse_v / np.maximum(np.abs(beta_mean_v), beta_rel_mcse_denom_floor)
+                    beta_ratio_q = __safe_quantile(beta_ratio_v[active_beta_mask], stop_mcse_quantile, np.inf)
+                else:
+                    beta_rhat_q_post = 1.0
+                    beta_ratio_q = 0.0
+
+                return {
+                    "active_beta_mask": active_beta_mask,
+                    "beta_mean_v": beta_mean_v,
+                    "num_active_betas": num_active_betas,
+                    "beta_mcse_v": beta_mcse_v,
+                    "num_post_burn_beta": num_post_burn_beta,
+                    "beta_rhat_q_post": beta_rhat_q_post,
+                    "beta_ratio_q": beta_ratio_q,
+                }
+
+            def __compute_post_burn_gene_diagnostics(diag_sum_Ds_m, diag_num_sum_Y_m, num_chains_effective_for_diag):
+                D_chain_means_m = __means_from_sums(diag_sum_Ds_m, diag_num_sum_Y_m)
+                D_mean_v = np.mean(D_chain_means_m, axis=0)
+                D_mcse_v = np.sqrt(np.var(D_chain_means_m, axis=0, ddof=1) / float(num_chains_effective_for_diag))
+
+                top_gene_k = min(stop_top_gene_k, len(D_mean_v))
+                num_eligible_genes = len(D_mean_v)
+                if stop_min_gene_d is not None:
+                    eligible_gene_indices = np.where(D_mean_v >= stop_min_gene_d)[0]
+                    num_eligible_genes = len(eligible_gene_indices)
+                    if num_eligible_genes > 0:
+                        if top_gene_k >= num_eligible_genes:
+                            top_gene_indices = eligible_gene_indices
+                        else:
+                            top_gene_indices = eligible_gene_indices[np.argpartition(-D_mean_v[eligible_gene_indices], top_gene_k - 1)[:top_gene_k]]
+                    else:
+                        if top_gene_k >= len(D_mean_v):
+                            top_gene_indices = np.arange(len(D_mean_v))
+                        else:
+                            top_gene_indices = np.argpartition(-D_mean_v, top_gene_k - 1)[:top_gene_k]
+                else:
+                    if top_gene_k >= len(D_mean_v):
+                        top_gene_indices = np.arange(len(D_mean_v))
+                    else:
+                        top_gene_indices = np.argpartition(-D_mean_v, top_gene_k - 1)[:top_gene_k]
+
+                num_monitored_genes = len(top_gene_indices)
+                D_mcse_q = __safe_quantile(D_mcse_v[top_gene_indices], stop_mcse_quantile, np.inf)
+
+                return {
+                    "D_mean_v": D_mean_v,
+                    "D_mcse_v": D_mcse_v,
+                    "top_gene_k": top_gene_k,
+                    "top_gene_indices": top_gene_indices,
+                    "num_monitored_genes": num_monitored_genes,
+                    "num_eligible_genes": num_eligible_genes,
+                    "D_mcse_q": D_mcse_q,
+                }
+
+            def __trim_post_stall_histories(max_stall_history_len):
+                if len(post_stall_best_beta_rhat_history) > max_stall_history_len:
+                    del post_stall_best_beta_rhat_history[:-max_stall_history_len]
+                    del post_stall_best_D_mcse_history[:-max_stall_history_len]
+                if len(post_stall_snapshots) > max_stall_history_len:
+                    del post_stall_snapshots[:-max_stall_history_len]
+
+            def __evaluate_post_stall_status(num_post_burn_beta, num_post_burn_D, post_stall_beta_sum_m, post_stall_beta_sum2_m, post_stall_D_sum_m, post_stall_beta_indices, post_stall_gene_indices, beta_rhat_q_post, D_mcse_q):
+                post_stall_plateau = False
+                post_stall_recent_worse = False
+                post_stall_recent_beta_rhat_q = np.nan
+                post_stall_recent_D_mcse_q = np.nan
+                min_post_burn_for_stall = max(stall_min_post_burn_in, min_num_post_burn_in_for_epoch)
+
+                if stall_window > 0 and num_post_burn_D >= min_post_burn_for_stall:
+                    if len(post_stall_best_beta_rhat_history) >= stall_window:
+                        post_rhat_improvement = post_stall_best_beta_rhat_history[-stall_window] - post_stall_best_beta_rhat_history[-1]
+                        post_mcse_improvement = post_stall_best_D_mcse_history[-stall_window] - post_stall_best_D_mcse_history[-1]
+                        if post_rhat_improvement < stall_delta_rhat and post_mcse_improvement < stall_delta_mcse:
+                            post_stall_plateau = True
+
+                    if stall_recent_window > 0 and len(post_stall_snapshots) >= stall_recent_window + 1:
+                        old_beta_n, old_beta_sum_m, old_beta_sum2_m, old_D_n, old_D_sum_m = post_stall_snapshots[-(stall_recent_window + 1)]
+                        recent_beta_n = num_post_burn_beta - old_beta_n
+                        recent_D_n = num_post_burn_D - old_D_n
+
+                        if recent_beta_n > 1 and post_stall_beta_indices.size > 0:
+                            recent_beta_sum_m = post_stall_beta_sum_m - old_beta_sum_m
+                            recent_beta_sum2_m = post_stall_beta_sum2_m - old_beta_sum2_m
+                            _, _, recent_R_beta_v, _ = __calculate_R(recent_beta_sum_m, recent_beta_sum2_m, recent_beta_n)
+                            recent_rhat_candidates = recent_R_beta_v[np.logical_and(np.isfinite(recent_R_beta_v), recent_R_beta_v >= 1)]
+                            post_stall_recent_beta_rhat_q = __safe_quantile(recent_rhat_candidates, stop_mcse_quantile, 1.0)
+
+                        if recent_D_n > 1 and post_stall_gene_indices.size > 0:
+                            recent_D_sum_m = post_stall_D_sum_m - old_D_sum_m
+                            recent_D_chain_means_m = recent_D_sum_m / float(recent_D_n)
+                            recent_D_mcse_v = np.sqrt(np.var(recent_D_chain_means_m, axis=0, ddof=1) / float(num_chains))
+                            post_stall_recent_D_mcse_q = __safe_quantile(recent_D_mcse_v, stop_mcse_quantile, np.inf)
+
+                        if np.isfinite(post_stall_recent_beta_rhat_q) and post_stall_recent_beta_rhat_q > beta_rhat_q_post * (1 + stall_recent_eps):
+                            post_stall_recent_worse = True
+                        if np.isfinite(post_stall_recent_D_mcse_q) and post_stall_recent_D_mcse_q > D_mcse_q * (1 + stall_recent_eps):
+                            post_stall_recent_worse = True
+
+                return (
+                    post_stall_plateau,
+                    post_stall_recent_worse,
+                    post_stall_recent_beta_rhat_q,
+                    post_stall_recent_D_mcse_q,
+                )
+
             def __reset_post_burn_in_sums():
                 sum_Ys_m[:] = 0
                 sum_Ys2_m[:] = 0
@@ -9742,53 +9861,34 @@ class GeneSetData(object):
 
                         num_chains_effective_for_diag = diag_sum_betas_m.shape[0]
 
-                        active_beta_mask, beta_chain_means_m, beta_mean_v = __get_active_beta_mask(diag_sum_betas_m, diag_num_sum_beta_m)
-                        num_active_betas = int(np.sum(active_beta_mask))
-                        beta_mcse_v = np.sqrt(np.var(beta_chain_means_m, axis=0, ddof=1) / float(num_chains_effective_for_diag))
+                        beta_diag = __compute_post_burn_beta_diagnostics(
+                            diag_sum_betas_m,
+                            diag_sum_betas2_m,
+                            diag_num_sum_beta_m,
+                            num_chains_effective_for_diag,
+                        )
+                        active_beta_mask = beta_diag["active_beta_mask"]
+                        beta_mean_v = beta_diag["beta_mean_v"]
+                        num_active_betas = beta_diag["num_active_betas"]
+                        beta_mcse_v = beta_diag["beta_mcse_v"]
+                        num_post_burn_beta = beta_diag["num_post_burn_beta"]
+                        beta_rhat_q_post = beta_diag["beta_rhat_q_post"]
+                        beta_ratio_q = beta_diag["beta_ratio_q"]
                         betas_sem2_v = np.square(beta_mcse_v)
 
-                        num_post_burn_beta = int(np.min(diag_num_sum_beta_m))
-                        _, _, post_R_beta_v, _ = __calculate_R(diag_sum_betas_m, diag_sum_betas2_m, num_post_burn_beta)
-                        if np.any(active_beta_mask):
-                            post_R_beta_active_v = post_R_beta_v[active_beta_mask]
-                            post_rhat_candidates = post_R_beta_active_v[np.logical_and(np.isfinite(post_R_beta_active_v), post_R_beta_active_v >= 1)]
-                            beta_rhat_q_post = __safe_quantile(post_rhat_candidates, stop_mcse_quantile, 1.0)
-                        else:
-                            beta_rhat_q_post = 1.0
-
-                        if np.any(active_beta_mask):
-                            beta_ratio_v = beta_mcse_v / np.maximum(np.abs(beta_mean_v), beta_rel_mcse_denom_floor)
-                            beta_ratio_q = __safe_quantile(beta_ratio_v[active_beta_mask], stop_mcse_quantile, np.inf)
-                        else:
-                            beta_ratio_q = 0.0
-
-                        D_chain_means_m = __means_from_sums(diag_sum_Ds_m, diag_num_sum_Y_m)
-                        D_mean_v = np.mean(D_chain_means_m, axis=0)
-                        D_mcse_v = np.sqrt(np.var(D_chain_means_m, axis=0, ddof=1) / float(num_chains_effective_for_diag))
+                        gene_diag = __compute_post_burn_gene_diagnostics(
+                            diag_sum_Ds_m,
+                            diag_num_sum_Y_m,
+                            num_chains_effective_for_diag,
+                        )
+                        D_mean_v = gene_diag["D_mean_v"]
+                        D_mcse_v = gene_diag["D_mcse_v"]
+                        top_gene_k = gene_diag["top_gene_k"]
+                        top_gene_indices = gene_diag["top_gene_indices"]
+                        num_monitored_genes = gene_diag["num_monitored_genes"]
+                        num_eligible_genes = gene_diag["num_eligible_genes"]
+                        D_mcse_q = gene_diag["D_mcse_q"]
                         sem2_v = np.square(D_mcse_v)
-
-                        top_gene_k = min(stop_top_gene_k, len(D_mean_v))
-                        num_eligible_genes = len(D_mean_v)
-                        if stop_min_gene_d is not None:
-                            eligible_gene_indices = np.where(D_mean_v >= stop_min_gene_d)[0]
-                            num_eligible_genes = len(eligible_gene_indices)
-                            if num_eligible_genes > 0:
-                                if top_gene_k >= num_eligible_genes:
-                                    top_gene_indices = eligible_gene_indices
-                                else:
-                                    top_gene_indices = eligible_gene_indices[np.argpartition(-D_mean_v[eligible_gene_indices], top_gene_k - 1)[:top_gene_k]]
-                            else:
-                                if top_gene_k >= len(D_mean_v):
-                                    top_gene_indices = np.arange(len(D_mean_v))
-                                else:
-                                    top_gene_indices = np.argpartition(-D_mean_v, top_gene_k - 1)[:top_gene_k]
-                        else:
-                            if top_gene_k >= len(D_mean_v):
-                                top_gene_indices = np.arange(len(D_mean_v))
-                            else:
-                                top_gene_indices = np.argpartition(-D_mean_v, top_gene_k - 1)[:top_gene_k]
-                        num_monitored_genes = len(top_gene_indices)
-                        D_mcse_q = __safe_quantile(D_mcse_v[top_gene_indices], stop_mcse_quantile, np.inf)
 
                         post_best_beta_rhat_q = beta_rhat_q_post if len(post_stall_best_beta_rhat_history) == 0 else min(post_stall_best_beta_rhat_history[-1], beta_rhat_q_post)
                         post_best_D_mcse_q = D_mcse_q if len(post_stall_best_D_mcse_history) == 0 else min(post_stall_best_D_mcse_history[-1], D_mcse_q)
@@ -9814,46 +9914,24 @@ class GeneSetData(object):
                         post_stall_snapshots.append((num_post_burn_beta, post_stall_beta_sum_m, post_stall_beta_sum2_m, num_post_burn_D, post_stall_D_sum_m))
 
                         max_stall_history_len = max(stall_window + 2, stall_recent_window + 2, 10)
-                        if len(post_stall_best_beta_rhat_history) > max_stall_history_len:
-                            post_stall_best_beta_rhat_history = post_stall_best_beta_rhat_history[-max_stall_history_len:]
-                            post_stall_best_D_mcse_history = post_stall_best_D_mcse_history[-max_stall_history_len:]
-                        if len(post_stall_snapshots) > max_stall_history_len:
-                            post_stall_snapshots = post_stall_snapshots[-max_stall_history_len:]
+                        __trim_post_stall_histories(max_stall_history_len)
 
-                        post_stall_plateau = False
-                        post_stall_recent_worse = False
-                        post_stall_recent_beta_rhat_q = np.nan
-                        post_stall_recent_D_mcse_q = np.nan
-                        min_post_burn_for_stall = max(stall_min_post_burn_in, min_num_post_burn_in_for_epoch)
-                        if stall_window > 0 and num_post_burn_D >= min_post_burn_for_stall:
-                            if len(post_stall_best_beta_rhat_history) >= stall_window:
-                                post_rhat_improvement = post_stall_best_beta_rhat_history[-stall_window] - post_stall_best_beta_rhat_history[-1]
-                                post_mcse_improvement = post_stall_best_D_mcse_history[-stall_window] - post_stall_best_D_mcse_history[-1]
-                                if post_rhat_improvement < stall_delta_rhat and post_mcse_improvement < stall_delta_mcse:
-                                    post_stall_plateau = True
-
-                            if stall_recent_window > 0 and len(post_stall_snapshots) >= stall_recent_window + 1:
-                                old_beta_n, old_beta_sum_m, old_beta_sum2_m, old_D_n, old_D_sum_m = post_stall_snapshots[-(stall_recent_window + 1)]
-                                recent_beta_n = num_post_burn_beta - old_beta_n
-                                recent_D_n = num_post_burn_D - old_D_n
-
-                                if recent_beta_n > 1 and post_stall_beta_indices.size > 0:
-                                    recent_beta_sum_m = post_stall_beta_sum_m - old_beta_sum_m
-                                    recent_beta_sum2_m = post_stall_beta_sum2_m - old_beta_sum2_m
-                                    _, _, recent_R_beta_v, _ = __calculate_R(recent_beta_sum_m, recent_beta_sum2_m, recent_beta_n)
-                                    recent_rhat_candidates = recent_R_beta_v[np.logical_and(np.isfinite(recent_R_beta_v), recent_R_beta_v >= 1)]
-                                    post_stall_recent_beta_rhat_q = __safe_quantile(recent_rhat_candidates, stop_mcse_quantile, 1.0)
-
-                                if recent_D_n > 1 and post_stall_gene_indices.size > 0:
-                                    recent_D_sum_m = post_stall_D_sum_m - old_D_sum_m
-                                    recent_D_chain_means_m = recent_D_sum_m / float(recent_D_n)
-                                    recent_D_mcse_v = np.sqrt(np.var(recent_D_chain_means_m, axis=0, ddof=1) / float(num_chains))
-                                    post_stall_recent_D_mcse_q = __safe_quantile(recent_D_mcse_v, stop_mcse_quantile, np.inf)
-
-                                if np.isfinite(post_stall_recent_beta_rhat_q) and post_stall_recent_beta_rhat_q > beta_rhat_q_post * (1 + stall_recent_eps):
-                                    post_stall_recent_worse = True
-                                if np.isfinite(post_stall_recent_D_mcse_q) and post_stall_recent_D_mcse_q > D_mcse_q * (1 + stall_recent_eps):
-                                    post_stall_recent_worse = True
+                        (
+                            post_stall_plateau,
+                            post_stall_recent_worse,
+                            post_stall_recent_beta_rhat_q,
+                            post_stall_recent_D_mcse_q,
+                        ) = __evaluate_post_stall_status(
+                            num_post_burn_beta,
+                            num_post_burn_D,
+                            post_stall_beta_sum_m,
+                            post_stall_beta_sum2_m,
+                            post_stall_D_sum_m,
+                            post_stall_beta_indices,
+                            post_stall_gene_indices,
+                            beta_rhat_q_post,
+                            D_mcse_q,
+                        )
 
                         post_stall_detected = post_stall_plateau or post_stall_recent_worse
 
