@@ -9517,40 +9517,36 @@ class GeneSetData(object):
             assert(np.all(num_sum_Y_m > 0))
             assert(np.all(num_sum_beta_m > 0))
 
-            epoch_sums = {
-                "sum_betas_m": sum_betas_m,
-                "sum_betas2_m": sum_betas2_m,
-                "sum_betas_uncorrected_m": sum_betas_uncorrected_m,
-                "sum_betas_uncorrected2_m": sum_betas_uncorrected2_m,
-                "sum_postp_m": sum_postp_m,
-                "sum_beta_tildes_m": sum_beta_tildes_m,
-                "sum_z_scores_m": sum_z_scores_m,
-                "num_sum_beta_m": num_sum_beta_m,
-                "sum_Ys_m": sum_Ys_m,
-                "sum_Ys2_m": sum_Ys2_m,
-                "sum_Y_raws_m": sum_Y_raws_m,
-                "sum_log_pos_m": sum_log_pos_m,
-                "sum_log_pos2_m": sum_log_pos2_m,
-                "sum_log_po_raws_m": sum_log_po_raws_m,
-                "sum_log_po_raws2_m": sum_log_po_raws2_m,
-                "sum_priors_m": sum_priors_m,
-                "sum_priors2_m": sum_priors2_m,
-                "sum_Ds_m": sum_Ds_m,
-                "sum_D_raws_m": sum_D_raws_m,
-                "sum_bf_orig_m": sum_bf_orig_m,
-                "sum_bf_uncorrected_m": sum_bf_uncorrected_m,
-                "sum_bf_orig_raw_m": sum_bf_orig_raw_m,
-                "sum_bf_orig_raw2_m": sum_bf_orig_raw2_m,
-                "num_sum_Y_m": num_sum_Y_m,
-            }
-            if self.genes_missing is not None:
-                epoch_sums["sum_priors_missing_m"] = sum_priors_missing_m
-                epoch_sums["sum_Ds_missing_m"] = sum_Ds_missing_m
-                epoch_sums["num_sum_priors_missing_m"] = num_sum_priors_missing_m
-            _append_gibbs_epoch_aggregates(
+            _append_completed_gibbs_epoch(
                 epoch_aggregates,
-                epoch_sums,
                 include_missing=(self.genes_missing is not None),
+                sum_betas_m=sum_betas_m,
+                sum_betas2_m=sum_betas2_m,
+                sum_betas_uncorrected_m=sum_betas_uncorrected_m,
+                sum_betas_uncorrected2_m=sum_betas_uncorrected2_m,
+                sum_postp_m=sum_postp_m,
+                sum_beta_tildes_m=sum_beta_tildes_m,
+                sum_z_scores_m=sum_z_scores_m,
+                num_sum_beta_m=num_sum_beta_m,
+                sum_Ys_m=sum_Ys_m,
+                sum_Ys2_m=sum_Ys2_m,
+                sum_Y_raws_m=sum_Y_raws_m,
+                sum_log_pos_m=sum_log_pos_m,
+                sum_log_pos2_m=sum_log_pos2_m,
+                sum_log_po_raws_m=sum_log_po_raws_m,
+                sum_log_po_raws2_m=sum_log_po_raws2_m,
+                sum_priors_m=sum_priors_m,
+                sum_priors2_m=sum_priors2_m,
+                sum_Ds_m=sum_Ds_m,
+                sum_D_raws_m=sum_D_raws_m,
+                sum_bf_orig_m=sum_bf_orig_m,
+                sum_bf_uncorrected_m=sum_bf_uncorrected_m,
+                sum_bf_orig_raw_m=sum_bf_orig_raw_m,
+                sum_bf_orig_raw2_m=sum_bf_orig_raw2_m,
+                num_sum_Y_m=num_sum_Y_m,
+                sum_priors_missing_m=sum_priors_missing_m if self.genes_missing is not None else None,
+                sum_Ds_missing_m=sum_Ds_missing_m if self.genes_missing is not None else None,
+                num_sum_priors_missing_m=num_sum_priors_missing_m if self.genes_missing is not None else None,
             )
 
             num_completed_epochs += 1
@@ -9559,40 +9555,38 @@ class GeneSetData(object):
             if (not stop_due_to_stall) and (not stop_due_to_precision) and num_completed_epochs < target_num_epochs and remaining_total_iter > 0 and num_attempts < max_num_attempt_restarts:
                 continue
 
-            stacked_epoch_sums = _stack_gibbs_epoch_aggregates(
+            (
+                sum_betas_m,
+                sum_betas2_m,
+                sum_betas_uncorrected_m,
+                sum_betas_uncorrected2_m,
+                sum_postp_m,
+                sum_beta_tildes_m,
+                sum_z_scores_m,
+                num_sum_beta_m,
+                sum_Ys_m,
+                sum_Ys2_m,
+                sum_Y_raws_m,
+                sum_log_pos_m,
+                sum_log_pos2_m,
+                sum_log_po_raws_m,
+                sum_log_po_raws2_m,
+                sum_priors_m,
+                sum_priors2_m,
+                sum_Ds_m,
+                sum_D_raws_m,
+                sum_bf_orig_m,
+                sum_bf_uncorrected_m,
+                sum_bf_orig_raw_m,
+                sum_bf_orig_raw2_m,
+                num_sum_Y_m,
+                sum_priors_missing_m,
+                sum_Ds_missing_m,
+                num_sum_priors_missing_m,
+            ) = _stack_and_unpack_gibbs_epoch_aggregates(
                 epoch_aggregates,
                 include_missing=(self.genes_missing is not None),
             )
-            sum_betas_m = stacked_epoch_sums["sum_betas_m"]
-            sum_betas2_m = stacked_epoch_sums["sum_betas2_m"]
-            sum_betas_uncorrected_m = stacked_epoch_sums["sum_betas_uncorrected_m"]
-            sum_betas_uncorrected2_m = stacked_epoch_sums["sum_betas_uncorrected2_m"]
-            sum_postp_m = stacked_epoch_sums["sum_postp_m"]
-            sum_beta_tildes_m = stacked_epoch_sums["sum_beta_tildes_m"]
-            sum_z_scores_m = stacked_epoch_sums["sum_z_scores_m"]
-            num_sum_beta_m = stacked_epoch_sums["num_sum_beta_m"]
-
-            sum_Ys_m = stacked_epoch_sums["sum_Ys_m"]
-            sum_Ys2_m = stacked_epoch_sums["sum_Ys2_m"]
-            sum_Y_raws_m = stacked_epoch_sums["sum_Y_raws_m"]
-            sum_log_pos_m = stacked_epoch_sums["sum_log_pos_m"]
-            sum_log_pos2_m = stacked_epoch_sums["sum_log_pos2_m"]
-            sum_log_po_raws_m = stacked_epoch_sums["sum_log_po_raws_m"]
-            sum_log_po_raws2_m = stacked_epoch_sums["sum_log_po_raws2_m"]
-            sum_priors_m = stacked_epoch_sums["sum_priors_m"]
-            sum_priors2_m = stacked_epoch_sums["sum_priors2_m"]
-            sum_Ds_m = stacked_epoch_sums["sum_Ds_m"]
-            sum_D_raws_m = stacked_epoch_sums["sum_D_raws_m"]
-            sum_bf_orig_m = stacked_epoch_sums["sum_bf_orig_m"]
-            sum_bf_uncorrected_m = stacked_epoch_sums["sum_bf_uncorrected_m"]
-            sum_bf_orig_raw_m = stacked_epoch_sums["sum_bf_orig_raw_m"]
-            sum_bf_orig_raw2_m = stacked_epoch_sums["sum_bf_orig_raw2_m"]
-            num_sum_Y_m = stacked_epoch_sums["num_sum_Y_m"]
-
-            if self.genes_missing is not None:
-                sum_priors_missing_m = stacked_epoch_sums["sum_priors_missing_m"]
-                sum_Ds_missing_m = stacked_epoch_sums["sum_Ds_missing_m"]
-                num_sum_priors_missing_m = stacked_epoch_sums["num_sum_priors_missing_m"]
 
             num_chains_effective = sum_betas_m.shape[0]
 
@@ -16443,6 +16437,84 @@ def _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=False):
         for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
             stacked[key] = np.vstack(epoch_aggregates[key])
     return stacked
+
+
+def _append_completed_gibbs_epoch(
+    epoch_aggregates,
+    include_missing,
+    sum_betas_m,
+    sum_betas2_m,
+    sum_betas_uncorrected_m,
+    sum_betas_uncorrected2_m,
+    sum_postp_m,
+    sum_beta_tildes_m,
+    sum_z_scores_m,
+    num_sum_beta_m,
+    sum_Ys_m,
+    sum_Ys2_m,
+    sum_Y_raws_m,
+    sum_log_pos_m,
+    sum_log_pos2_m,
+    sum_log_po_raws_m,
+    sum_log_po_raws2_m,
+    sum_priors_m,
+    sum_priors2_m,
+    sum_Ds_m,
+    sum_D_raws_m,
+    sum_bf_orig_m,
+    sum_bf_uncorrected_m,
+    sum_bf_orig_raw_m,
+    sum_bf_orig_raw2_m,
+    num_sum_Y_m,
+    sum_priors_missing_m=None,
+    sum_Ds_missing_m=None,
+    num_sum_priors_missing_m=None,
+):
+    epoch_sums = {
+        "sum_betas_m": sum_betas_m,
+        "sum_betas2_m": sum_betas2_m,
+        "sum_betas_uncorrected_m": sum_betas_uncorrected_m,
+        "sum_betas_uncorrected2_m": sum_betas_uncorrected2_m,
+        "sum_postp_m": sum_postp_m,
+        "sum_beta_tildes_m": sum_beta_tildes_m,
+        "sum_z_scores_m": sum_z_scores_m,
+        "num_sum_beta_m": num_sum_beta_m,
+        "sum_Ys_m": sum_Ys_m,
+        "sum_Ys2_m": sum_Ys2_m,
+        "sum_Y_raws_m": sum_Y_raws_m,
+        "sum_log_pos_m": sum_log_pos_m,
+        "sum_log_pos2_m": sum_log_pos2_m,
+        "sum_log_po_raws_m": sum_log_po_raws_m,
+        "sum_log_po_raws2_m": sum_log_po_raws2_m,
+        "sum_priors_m": sum_priors_m,
+        "sum_priors2_m": sum_priors2_m,
+        "sum_Ds_m": sum_Ds_m,
+        "sum_D_raws_m": sum_D_raws_m,
+        "sum_bf_orig_m": sum_bf_orig_m,
+        "sum_bf_uncorrected_m": sum_bf_uncorrected_m,
+        "sum_bf_orig_raw_m": sum_bf_orig_raw_m,
+        "sum_bf_orig_raw2_m": sum_bf_orig_raw2_m,
+        "num_sum_Y_m": num_sum_Y_m,
+    }
+    if include_missing:
+        epoch_sums["sum_priors_missing_m"] = sum_priors_missing_m
+        epoch_sums["sum_Ds_missing_m"] = sum_Ds_missing_m
+        epoch_sums["num_sum_priors_missing_m"] = num_sum_priors_missing_m
+    _append_gibbs_epoch_aggregates(
+        epoch_aggregates,
+        epoch_sums,
+        include_missing=include_missing,
+    )
+
+
+def _stack_and_unpack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=False):
+    stacked = _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=include_missing)
+    values = tuple(stacked[key] for key in _GIBBS_EPOCH_SUM_KEYS)
+    if include_missing:
+        values = values + tuple(stacked[key] for key in _GIBBS_EPOCH_MISSING_SUM_KEYS)
+    else:
+        values = values + (None, None, None)
+    return values
 
 
 def _resolve_epoch_iteration_budget(
