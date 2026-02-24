@@ -8770,31 +8770,6 @@ class GeneSetData(object):
 
                 #NOW ONTO GENE SETS
 
-                def __get_gene_set_mask(uncorrected_betas_mean_m, uncorrected_betas_sample_m, p_values_m, sparse_frac=0.01, sparse_max=0.001):
-                    #if desired, add back in option to set to sample
-                    #uncorrected_betas_m = uncorrected_betas_sample_m
-
-                    uncorrected_betas_m = uncorrected_betas_mean_m
-
-                    gene_set_mask_m = uncorrected_betas_m != 0
-
-                    if sparse_frac is not None:
-                        #this triggers three things
-                        #1. Only gene sets above this threshold are considered for full analysis
-                        gene_set_mask_m = np.logical_and(gene_set_mask_m, (np.abs(uncorrected_betas_m).T >= sparse_frac * np.max(np.abs(uncorrected_betas_m), axis=1)).T)
-                        #2. Or if below this max cap
-                        gene_set_mask_m = np.logical_and(gene_set_mask_m, (np.abs(uncorrected_betas_m).T >= sparse_max).T)
-
-                        #3. The uncorrected values for sampling next iteration are also zeroed out
-                        uncorrected_betas_sample_m[~gene_set_mask_m] = 0
-                        #4. The mean values (which are added to the estimate) are also zeroed out
-                        uncorrected_betas_mean_m[~gene_set_mask_m] = 0
-
-                    if np.sum(gene_set_mask_m) == 0:
-                        gene_set_mask_m = p_values_m <= np.min(p_values_m)
-                    return gene_set_mask_m
-
-
                 full_scale_factors_m = np.tile(self.scale_factors, num_chains).reshape((num_chains, len(self.scale_factors)))
                 full_mean_shifts_m = np.tile(self.mean_shifts, num_chains).reshape((num_chains, len(self.mean_shifts)))
                 full_is_dense_gene_set_m = np.tile(self.is_dense_gene_set, num_chains).reshape((num_chains, len(self.is_dense_gene_set)))
@@ -8827,7 +8802,7 @@ class GeneSetData(object):
                     if initial_linear_filter:
                         (linear_beta_tildes_m, linear_ses_m, linear_z_scores_m, linear_p_values_m, linear_se_inflation_factors_m) = self._compute_beta_tildes(self.X_orig, Y_sample_m, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=y_corr_sparse)
                         (linear_uncorrected_betas_sample_m, linear_uncorrected_postp_sample_m, linear_uncorrected_betas_mean_m, linear_uncorrected_postp_mean_m) = self._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=linear_beta_tildes_m, ses=linear_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, debug_gene_sets=self.gene_sets)
-                        pre_gene_set_filter_mask_m = __get_gene_set_mask(linear_uncorrected_betas_mean_m, linear_uncorrected_betas_sample_m, linear_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
+                        pre_gene_set_filter_mask_m = _get_gibbs_gene_set_mask(linear_uncorrected_betas_mean_m, linear_uncorrected_betas_sample_m, linear_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
                         pre_gene_set_filter_mask = np.any(pre_gene_set_filter_mask_m, axis=0)
 
                         log("Filtered down to %d gene sets using linear pre-filtering" % np.sum(pre_gene_set_filter_mask))
@@ -8916,7 +8891,7 @@ class GeneSetData(object):
                 #if self.max_gene_set_p is not None and use_orig_gene_set_p:
                 #    gene_set_mask_m = np.tile(self.p_values_orig <= self.max_gene_set_p, num_chains).reshape((num_chains, len(gene_set_mask)))
 
-                gene_set_mask_m = __get_gene_set_mask(uncorrected_betas_mean_m, uncorrected_betas_sample_m, full_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
+                gene_set_mask_m = _get_gibbs_gene_set_mask(uncorrected_betas_mean_m, uncorrected_betas_sample_m, full_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
                 any_gene_set_mask = np.any(gene_set_mask_m, axis=0)
                 if pre_filter_batch_size is not None and np.sum(any_gene_set_mask) > pre_filter_batch_size:
                     num_batches = self._get_num_X_blocks(self.X_orig[:,any_gene_set_mask], batch_size=pre_filter_small_batch_size)
@@ -8945,7 +8920,7 @@ class GeneSetData(object):
                                 log("Running %d blocks to check for zeros..." % len(gene_set_block_masks),DEBUG)
                                 (half_corrected_betas_sample_m, half_corrected_postp_sample_m, half_corrected_betas_mean_m, half_corrected_postp_mean_m) = self._calculate_non_inf_betas(initial_p=None, beta_tildes=full_beta_tildes_m[:,any_gene_set_mask], ses=full_ses_m[:,any_gene_set_mask], V=V_sparse, X_orig=None, scale_factors=full_scale_factors_m[:,any_gene_set_mask], mean_shifts=full_mean_shifts_m[:,any_gene_set_mask], is_dense_gene_set=full_is_dense_gene_set_m[:,any_gene_set_mask], ps=full_ps_m[:,any_gene_set_mask], sigma2s=full_sigma2s_m[:,any_gene_set_mask], return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas)
 
-                                add_zero_mask_m = ~(__get_gene_set_mask(half_corrected_betas_mean_m, half_corrected_betas_sample_m, full_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs))
+                                add_zero_mask_m = ~(_get_gibbs_gene_set_mask(half_corrected_betas_mean_m, half_corrected_betas_sample_m, full_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs))
 
                                 if np.any(add_zero_mask_m):
                                     #need to convert these to the original gene sets
@@ -16838,6 +16813,30 @@ def _write_gene_set_stats_trace_rows(
                     betas_sem2_v[i],
                 )
             )
+
+
+def _get_gibbs_gene_set_mask(uncorrected_betas_mean_m, uncorrected_betas_sample_m, p_values_m, sparse_frac=0.01, sparse_max=0.001):
+    # By design we sparsify using posterior means and apply the same mask to
+    # both sample and mean matrices so the next Gibbs iteration warm-start is
+    # consistent with the retained support.
+    uncorrected_betas_m = uncorrected_betas_mean_m
+    gene_set_mask_m = uncorrected_betas_m != 0
+
+    if sparse_frac is not None:
+        gene_set_mask_m = np.logical_and(
+            gene_set_mask_m,
+            (np.abs(uncorrected_betas_m).T >= sparse_frac * np.max(np.abs(uncorrected_betas_m), axis=1)).T,
+        )
+        gene_set_mask_m = np.logical_and(
+            gene_set_mask_m,
+            (np.abs(uncorrected_betas_m).T >= sparse_max).T,
+        )
+        uncorrected_betas_sample_m[~gene_set_mask_m] = 0
+        uncorrected_betas_mean_m[~gene_set_mask_m] = 0
+
+    if np.sum(gene_set_mask_m) == 0:
+        gene_set_mask_m = p_values_m <= np.min(p_values_m)
+    return gene_set_mask_m
 
 
 def _compute_post_burn_beta_diagnostics(
