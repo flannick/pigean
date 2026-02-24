@@ -6018,23 +6018,6 @@ class GeneSetData(object):
 
             log("Done reading --exomes-in", DEBUG)
 
-            #adjust units of beta if beta column was passed in
-            #if exomes_units is not None:
-            #    allelic_var *= np.square(exomes_units)
-            #    log("Scaling allelic variance %.3g-fold to be %.4g" % (np.square(exomes_units), allelic_var))
-            #else:
-            #    #get the empirical variance of the betas for variants in a range of p=0.05
-            #    p05mask = np.abs(np.abs(gene_betas/gene_ses) - 1.95) <= 0.07
-            #    if np.sum(p05mask) > 100:
-            #        emp_beta_var = np.mean(np.square(gene_betas[p05mask]) - gene_ses2[p05mask])
-            #        #this is roughly what we observe for a dichotomous trait in this range. Larger than for gwas by about 10x
-            #        ref_emp_beta_var = 0.1
-            #        if emp_beta_var > 0 and (emp_beta_var / ref_emp_beta_var > 5 or emp_beta_var / ref_emp_beta_var < 0.2):
-            #            allelic_var *= (emp_beta_var / 0.1)
-            #            log("Scaling allelic variance %.3g-fold to be %.4g" % (emp_beta_var / 0.1, allelic_var))
-
-            #gene_log_bfs = np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(gene_zs) * allelic_var_k / (1 + allelic_var_k)
-
             gene_log_bfs = -np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(gene_zs) * allelic_var_k / (1 + allelic_var_k)
 
             max_log = 15
@@ -12541,10 +12524,8 @@ class GeneSetData(object):
 
         #fix the maximum background prior across all genes
         #max_background_prior = None
-        i#f max_background_prior is not None and mean_prob_causal > max_background_prior:
+        #if max_background_prior is not None and mean_prob_causal > max_background_prior:
         #    norm_constant = max_background_prior / mean_prob_causal
-        #else:
-
         norm_constant = max_prob
 
         if norm_constant != 1:
@@ -14887,16 +14868,6 @@ class GeneSetData(object):
                                     #need better solution for learning; since we are hardcoding from top gene set, just use mouse value
                                     new_sigma2 = new_sigma2 / np.power(self.MEAN_MOUSE_SCALE, self.sigma_power)
 
-                                    #if np.sum([~is_dense_gene_set_m]) > 0:
-                                    #    new_sigma2 = new_sigma2 / np.power(np.mean(scale_factors_m[~is_dense_gene_set_m].ravel()), self.sigma_power)
-                                    #else:
-                                    #    new_sigma2 = new_sigma2 / np.power(np.mean(scale_factors_m.ravel()), self.sigma_power)
-
-                                    #if is_dense_gene_set_m.ravel()[max_e_beta2]:
-                                    #    new_sigma2 = new_sigma2 / np.power(np.mean(scale_factors_m[~is_dense_gene_set_m].ravel()), self.sigma_power)
-                                    #else:
-                                    #    new_sigma2 = new_sigma2 / np.power(scale_factors_m.ravel()[max_e_beta2], self.sigma_power)
-
                                 if not update_hyper_p and adjust_hyper_sigma_p:
                                     #remember, sigma is the *total* variance term. It is equal to p * conditional_sigma.
                                     #if we are only sigma p, and adjusting p, we will leave the conditional_sigma constant, which means scaling the p
@@ -14907,38 +14878,19 @@ class GeneSetData(object):
 
                                 self.set_sigma(new_sigma2, self.sigma_power)
                                 sigma_underflow = True
-
-                                #update_hyper_sigma = False
-                                #restarting sampling with sigma2 fixed to initial value due to underflow
-                                #update_hyper_p = False
-
-                                #reset loop state
-                                #iteration_num = 0
-                                #curr_post_means_t = np.zeros(tensor_shape)
-                                #curr_postp_t = np.ones(tensor_shape)
-                                #curr_betas_t = scipy.stats.norm.rvs(0, np.std(beta_tildes_m), tensor_shape)                            
-                                #avg_betas_m = np.zeros(matrix_shape)
-                                #avg_betas2_m = np.zeros(matrix_shape)
-                                #avg_postp_m = np.zeros(matrix_shape)
-                                #num_avg = 0
-                                #sum_betas_t = np.zeros(tensor_shape)
-                                #sum_betas2_t = np.zeros(tensor_shape)
                             else:
                                 self.set_sigma(new_sigma2, self.sigma_power)
 
                             #update the matrix forms of these variables
                             orig_sigma2_m *= new_sigma2 / np.mean(orig_sigma2_m)
                             if self.sigma_power is not None:
-                                #sigma2_m = orig_sigma2_m * np.power(scale_factors_m, self.sigma_power)
                                 sigma2_m = self.get_scaled_sigma2(scale_factors_m, orig_sigma2_m, self.sigma_power, self.sigma_threshold_k, self.sigma_threshold_xo)
 
                                 #for dense gene sets, scaling by size doesn't make sense. So use mean size across sparse gene sets
                                 if np.sum(is_dense_gene_set_m) > 0:
                                     if np.sum(~is_dense_gene_set_m) > 0:
-                                        #sigma2_m[is_dense_gene_set_m] = self.sigma2 * np.power(np.mean(scale_factors_m[~is_dense_gene_set_m]), self.sigma_power)
                                         sigma2_m[is_dense_gene_set_m] = self.get_scaled_sigma2(np.mean(scale_factors_m[~is_dense_gene_set_m]), orig_sigma2_m, self.sigma_power, self.sigma_threshold_k, self.sigma_threshold_xo)
                                     else:
-                                        #sigma2_m[is_dense_gene_set_m] = self.sigma2 * np.power(np.mean(scale_factors_m), self.sigma_power)
                                         sigma2_m[is_dense_gene_set_m] = self.get_scaled_sigma2(np.mean(scale_factors_m), orig_sigma2_m, self.sigma_power, self.sigma_threshold_k, self.sigma_threshold_xo)
                             else:
                                 sigma2_m = orig_sigma2_m
@@ -17325,17 +17277,6 @@ def _build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options):
     return kwargs
 
 
-def _build_read_y_source_kwargs_for_main(options):
-    kwargs = {}
-    kwargs.update(_build_read_y_source_base_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_gwas_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_exomes_and_controls_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_counts_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_covariate_and_loc_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options))
-    return kwargs
-
-
 def _should_load_y_from_sources_for_main(options):
     return (
         options.gwas_in
@@ -17363,26 +17304,20 @@ def _load_initial_y_from_gene_stats_for_main(state, options):
 def _load_initial_y_from_sources_for_main(state, options):
     if _should_apply_gene_list_defaults_before_source_y_load_for_main(options):
         _default_for_gene_list_options(options)
-    state.read_Y(**_build_read_y_source_kwargs_for_main(options))
+    kwargs = {}
+    kwargs.update(_build_read_y_source_base_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_gwas_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_exomes_and_controls_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_counts_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_covariate_and_loc_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options))
+    state.read_Y(**kwargs)
 
 
 def _load_initial_y_from_gene_phewas_for_main(state, options):
     if not options.gene_phewas_bfs_in:
         bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
     state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
-
-
-def _attempt_initial_y_load_for_main(state, options):
-    if options.gene_stats_in:
-        _load_initial_y_from_gene_stats_for_main(state, options)
-        return False
-    if _should_load_y_from_sources_for_main(options):
-        _load_initial_y_from_sources_for_main(state, options)
-        return False
-    if options.betas_uncorrected_from_phewas:
-        _load_initial_y_from_gene_phewas_for_main(state, options)
-        return False
-    return True
 
 
 def _load_initial_y_inputs_for_main(
@@ -17400,9 +17335,16 @@ def _load_initial_y_inputs_for_main(
     ):
         return False
 
-    #else:
-    #    bail("Need --gwas-in or --exomes-in or --gene-stats-in")
-    return _attempt_initial_y_load_for_main(state, options)
+    if options.gene_stats_in:
+        _load_initial_y_from_gene_stats_for_main(state, options)
+        return False
+    if _should_load_y_from_sources_for_main(options):
+        _load_initial_y_from_sources_for_main(state, options)
+        return False
+    if options.betas_uncorrected_from_phewas:
+        _load_initial_y_from_gene_phewas_for_main(state, options)
+        return False
+    return True
 
 
 def _read_x_and_initialize_p_for_main(
@@ -17458,15 +17400,20 @@ def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_c
     force_reread = False
     while True:
         orig_sigma2 = state.sigma2
-        read_x_kwargs = _build_read_x_kwargs_for_iteration_for_main(
+        skip_betas = (
+            (mode_state["run_huge"] or mode_state["run_beta_tilde"])
+            and not (mode_state["run_beta"] or mode_state["run_priors"] or mode_state["run_naive_priors"] or mode_state["run_gibbs"])
+        )
+        read_x_kwargs = _build_read_x_kwargs_for_main(
             state,
             options,
             gene_set_ids,
-            sigma2_cond,
-            mode_state,
-            xin_to_p_noninf_ind,
+            None,
             filter_gene_set_p,
+            skip_betas,
+            sigma2_cond,
             force_reread,
+            xin_to_p_noninf_ind,
         )
         state.read_X(options.X_in, **read_x_kwargs)
 
@@ -17481,34 +17428,6 @@ def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_c
             break
         filter_gene_set_p = new_filter_gene_set_p
         force_reread = True
-
-
-def _build_read_x_kwargs_for_iteration_for_main(
-    state,
-    options,
-    gene_set_ids,
-    sigma2_cond,
-    mode_state,
-    xin_to_p_noninf_ind,
-    filter_gene_set_p,
-    force_reread,
-):
-    skip_betas = (
-        (mode_state["run_huge"] or mode_state["run_beta_tilde"])
-        and not (mode_state["run_beta"] or mode_state["run_priors"] or mode_state["run_naive_priors"] or mode_state["run_gibbs"])
-    )
-    genes_to_inc = None
-    return _build_read_x_kwargs_for_main(
-        state,
-        options,
-        gene_set_ids,
-        genes_to_inc,
-        filter_gene_set_p,
-        skip_betas,
-        sigma2_cond,
-        force_reread,
-        xin_to_p_noninf_ind,
-    )
 
 
 def _is_relaxed_reread_possible_for_read_x(state, options, gene_set_ids, filter_gene_set_p):
