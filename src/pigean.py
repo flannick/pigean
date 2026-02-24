@@ -9620,96 +9620,7 @@ class GeneSetData(object):
                 sum_Ds_missing_m=sum_Ds_missing_m if self.genes_missing is not None else None,
                 num_sum_priors_missing_m=num_sum_priors_missing_m if self.genes_missing is not None else None,
             )
-            avg_Ys_v = final_summary["avg_Ys_v"]
-            avg_Y_raws_v = final_summary["avg_Y_raws_v"]
-            avg_log_pos_v = final_summary["avg_log_pos_v"]
-            avg_log_po_raws_v = final_summary["avg_log_po_raws_v"]
-            avg_log_pos2_v = final_summary["avg_log_pos2_v"]
-            avg_Ds_v = final_summary["avg_Ds_v"]
-            avg_D_raws_v = final_summary["avg_D_raws_v"]
-            avg_priors_v = final_summary["avg_priors_v"]
-            avg_bf_orig_v = final_summary["avg_bf_orig_v"]
-            avg_bf_orig_raw_v = final_summary["avg_bf_orig_raw_v"]
-            avg_priors_missing_v = final_summary["avg_priors_missing_v"]
-            avg_Ds_missing_v = final_summary["avg_Ds_missing_v"]
-            avg_betas_v = final_summary["avg_betas_v"]
-            avg_betas_uncorrected_v = final_summary["avg_betas_uncorrected_v"]
-            avg_postp_v = final_summary["avg_postp_v"]
-            avg_beta_tildes_v = final_summary["avg_beta_tildes_v"]
-            avg_z_scores_v = final_summary["avg_z_scores_v"]
-            num_post_burn_in_Y = final_summary["num_post_burn_in_Y"]
-            num_post_burn_in_beta = final_summary["num_post_burn_in_beta"]
-            prior_r_hat_v = final_summary["prior_r_hat_v"]
-            combined_r_hat_v = final_summary["combined_r_hat_v"]
-            log_bf_r_hat_v = final_summary["log_bf_r_hat_v"]
-            beta_r_hat_v = final_summary["beta_r_hat_v"]
-            beta_uncorrected_r_hat_v = final_summary["beta_uncorrected_r_hat_v"]
-            prior_mcse_v = final_summary["prior_mcse_v"]
-            combined_mcse_v = final_summary["combined_mcse_v"]
-            log_bf_mcse_v = final_summary["log_bf_mcse_v"]
-            beta_mcse_v = final_summary["beta_mcse_v"]
-            beta_uncorrected_mcse_v = final_summary["beta_uncorrected_mcse_v"]
-
-            self.beta_tildes = avg_beta_tildes_v
-            self.z_scores = avg_z_scores_v
-            self.p_values = 2*scipy.stats.norm.cdf(-np.abs(self.z_scores))
-            self.ses = np.full(self.beta_tildes.shape, 100.0)
-            self.ses[self.z_scores != 0] = np.abs(self.beta_tildes[self.z_scores != 0] / self.z_scores[self.z_scores != 0])
-
-            self.betas = avg_betas_v
-            self.betas_uncorrected = avg_betas_uncorrected_v
-            self.betas_r_hat = beta_r_hat_v
-            self.betas_mcse = beta_mcse_v
-            self.betas_uncorrected_r_hat = beta_uncorrected_r_hat_v
-            self.betas_uncorrected_mcse = beta_uncorrected_mcse_v
-            self.non_inf_avg_cond_betas = None
-            self.non_inf_avg_postps = avg_postp_v
-
-            #priors_missing is at the end
-            self.priors = avg_priors_v
-            self.priors_r_hat = prior_r_hat_v
-            self.priors_mcse = prior_mcse_v
-            self.priors_missing = avg_priors_missing_v
-            self.combined_Ds_missing = avg_Ds_missing_v
-
-            self.Y_for_regression = avg_bf_orig_v
-            self.Y = avg_bf_orig_raw_v
-            self.Y_r_hat = log_bf_r_hat_v
-            self.Y_mcse = log_bf_mcse_v
-
-            self.combined_Ds_for_regression = avg_Ds_v
-            self.combined_Ds = avg_D_raws_v
-
-            self.combined_prior_Ys_for_regression = avg_log_pos_v - self.background_log_bf
-            self.combined_prior_Ys = avg_log_po_raws_v - self.background_log_bf
-            self.combined_prior_Ys_r_hat = combined_r_hat_v
-            self.combined_prior_Ys_mcse = combined_mcse_v
-
-            #self.combined_prior_Y_ses = avg_log_pos_ses
-
-            gene_N = self.get_gene_N()
-            gene_N_missing = self.get_gene_N(get_missing=True)
-
-            all_gene_N = gene_N
-            if self.genes_missing is not None:
-                assert(gene_N_missing is not None)
-                all_gene_N = np.concatenate((all_gene_N, gene_N_missing))
-
-            total_priors = np.concatenate((self.priors, self.priors_missing))
-            priors_slope = np.cov(total_priors, all_gene_N)[0,1] / np.var(all_gene_N)
-            priors_intercept = np.mean(total_priors - all_gene_N * priors_slope)
-
-            if adjust_priors:
-                log("Adjusting priors with slope %.4g" % priors_slope)
-                self.priors_adj = self.priors - priors_slope * gene_N - priors_intercept
-                if self.genes_missing is not None:
-                    self.priors_adj_missing = self.priors_missing - priors_slope * gene_N_missing
-
-                combined_slope = np.cov(self.combined_prior_Ys, gene_N)[0,1] / np.var(gene_N)
-                combined_intercept = np.mean(self.combined_prior_Ys - gene_N * combined_slope)
-
-                log("Adjusting combined with slope %.4g" % combined_slope)
-                self.combined_prior_Ys_adj = self.combined_prior_Ys - combined_slope * gene_N - combined_intercept
+            _apply_gibbs_final_state(self, final_summary, adjust_priors)
 
             if gibbs_good:
                 break
@@ -17098,6 +17009,66 @@ def _summarize_gibbs_chain_aggregates(
         "beta_mcse_v": beta_mcse_v,
         "beta_uncorrected_mcse_v": beta_uncorrected_mcse_v,
     }
+
+
+def _apply_gibbs_final_state(state, final_summary, adjust_priors):
+    state.beta_tildes = final_summary["avg_beta_tildes_v"]
+    state.z_scores = final_summary["avg_z_scores_v"]
+    state.p_values = 2 * scipy.stats.norm.cdf(-np.abs(state.z_scores))
+    state.ses = np.full(state.beta_tildes.shape, 100.0)
+    state.ses[state.z_scores != 0] = np.abs(state.beta_tildes[state.z_scores != 0] / state.z_scores[state.z_scores != 0])
+
+    state.betas = final_summary["avg_betas_v"]
+    state.betas_uncorrected = final_summary["avg_betas_uncorrected_v"]
+    state.betas_r_hat = final_summary["beta_r_hat_v"]
+    state.betas_mcse = final_summary["beta_mcse_v"]
+    state.betas_uncorrected_r_hat = final_summary["beta_uncorrected_r_hat_v"]
+    state.betas_uncorrected_mcse = final_summary["beta_uncorrected_mcse_v"]
+    state.non_inf_avg_cond_betas = None
+    state.non_inf_avg_postps = final_summary["avg_postp_v"]
+
+    state.priors = final_summary["avg_priors_v"]
+    state.priors_r_hat = final_summary["prior_r_hat_v"]
+    state.priors_mcse = final_summary["prior_mcse_v"]
+    state.priors_missing = final_summary["avg_priors_missing_v"]
+    state.combined_Ds_missing = final_summary["avg_Ds_missing_v"]
+
+    state.Y_for_regression = final_summary["avg_bf_orig_v"]
+    state.Y = final_summary["avg_bf_orig_raw_v"]
+    state.Y_r_hat = final_summary["log_bf_r_hat_v"]
+    state.Y_mcse = final_summary["log_bf_mcse_v"]
+
+    state.combined_Ds_for_regression = final_summary["avg_Ds_v"]
+    state.combined_Ds = final_summary["avg_D_raws_v"]
+
+    state.combined_prior_Ys_for_regression = final_summary["avg_log_pos_v"] - state.background_log_bf
+    state.combined_prior_Ys = final_summary["avg_log_po_raws_v"] - state.background_log_bf
+    state.combined_prior_Ys_r_hat = final_summary["combined_r_hat_v"]
+    state.combined_prior_Ys_mcse = final_summary["combined_mcse_v"]
+
+    gene_N = state.get_gene_N()
+    gene_N_missing = state.get_gene_N(get_missing=True)
+
+    all_gene_N = gene_N
+    if state.genes_missing is not None:
+        assert(gene_N_missing is not None)
+        all_gene_N = np.concatenate((all_gene_N, gene_N_missing))
+
+    total_priors = np.concatenate((state.priors, state.priors_missing))
+    priors_slope = np.cov(total_priors, all_gene_N)[0,1] / np.var(all_gene_N)
+    priors_intercept = np.mean(total_priors - all_gene_N * priors_slope)
+
+    if adjust_priors:
+        log("Adjusting priors with slope %.4g" % priors_slope)
+        state.priors_adj = state.priors - priors_slope * gene_N - priors_intercept
+        if state.genes_missing is not None:
+            state.priors_adj_missing = state.priors_missing - priors_slope * gene_N_missing
+
+        combined_slope = np.cov(state.combined_prior_Ys, gene_N)[0,1] / np.var(gene_N)
+        combined_intercept = np.mean(state.combined_prior_Ys - gene_N * combined_slope)
+
+        log("Adjusting combined with slope %.4g" % combined_slope)
+        state.combined_prior_Ys_adj = state.combined_prior_Ys - combined_slope * gene_N - combined_intercept
 
 
 def _update_post_burn_stall_tracking(
