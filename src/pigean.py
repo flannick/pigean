@@ -9253,65 +9253,41 @@ class GeneSetData(object):
                                 log("Gibbs gauss converged after %d iterations" % num_samples, INFO)
                         prev_Ys_m = Y_sample_m
                     elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
-                        (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
-                        active_beta_mask_v, _, _ = _get_active_beta_mask(all_sum_betas_m, all_num_sum_m, active_beta_top_k, active_beta_min_abs)
-                        num_active_betas = int(np.sum(active_beta_mask_v))
-                        if num_active_betas > 0:
-                            R_beta_active_v = R_beta_v[active_beta_mask_v]
-                            rhat_candidates = R_beta_active_v[np.logical_and(np.isfinite(R_beta_active_v), R_beta_active_v >= 1)]
-                            beta_rhat_q = _safe_quantile(rhat_candidates, burn_in_rhat_quantile, 1.0)
-                            beta_rhat_max = _safe_quantile(R_beta_active_v, 1.0, 1.0)
-                        else:
-                            beta_rhat_q = 1.0
-                            beta_rhat_max = 1.0
-                        burn_in_pass = beta_rhat_q <= r_threshold_burn_in
-                        if burn_in_pass:
-                            burn_in_pass_streak += 1
-                        else:
-                            burn_in_pass_streak = 0
-                        burn_in_rhat_history.append(beta_rhat_q)
-                        burn_best_beta_rhat_q = beta_rhat_q if len(burn_stall_best_beta_rhat_history) == 0 else min(burn_stall_best_beta_rhat_history[-1], beta_rhat_q)
-                        burn_stall_best_beta_rhat_history.append(burn_best_beta_rhat_q)
+                        burn_diag = _evaluate_burn_in_diagnostics(
+                            all_sum_betas_m,
+                            all_sum_betas2_m,
+                            all_num_sum_m,
+                            num_samples,
+                            active_beta_top_k,
+                            active_beta_min_abs,
+                            burn_in_rhat_quantile,
+                            r_threshold_burn_in,
+                            burn_in_pass_streak,
+                            burn_in_rhat_history,
+                            burn_stall_best_beta_rhat_history,
+                            burn_stall_snapshots,
+                            burn_stall_beta_indices,
+                            stall_window,
+                            stall_min_burn_in,
+                            min_num_burn_in_for_epoch,
+                            stall_delta_rhat,
+                            stall_recent_window,
+                            stall_recent_eps,
+                            burn_in_stall_window,
+                            burn_in_stall_delta,
+                        )
+                        R_beta_v = burn_diag["R_beta_v"]
+                        burn_in_pass_streak = burn_diag["burn_in_pass_streak"]
+                        burn_stall_beta_indices = burn_diag["burn_stall_beta_indices"]
+                        beta_rhat_q = burn_diag["beta_rhat_q"]
+                        beta_rhat_max = burn_diag["beta_rhat_max"]
+                        num_active_betas = burn_diag["num_active_betas"]
+                        burn_stall_plateau = burn_diag["burn_stall_plateau"]
+                        burn_stall_recent_worse = burn_diag["burn_stall_recent_worse"]
+                        burn_stall_detected = burn_diag["burn_stall_detected"]
+                        burn_window_plateau_detected = burn_diag["burn_window_plateau_detected"]
+                        burn_window_span = burn_diag["burn_window_span"]
 
-                        if burn_stall_beta_indices is None:
-                            burn_stall_beta_indices = _prepare_stall_indices(active_beta_mask_v, np.mean(_means_from_sums(all_sum_betas_m, all_num_sum_m), axis=0), active_beta_top_k)
-                        if burn_stall_beta_indices.size > 0:
-                            burn_stall_sum_m = copy.copy(all_sum_betas_m[:,burn_stall_beta_indices])
-                            burn_stall_sum2_m = copy.copy(all_sum_betas2_m[:,burn_stall_beta_indices])
-                        else:
-                            burn_stall_sum_m = np.zeros((num_chains, 0))
-                            burn_stall_sum2_m = np.zeros((num_chains, 0))
-                        burn_stall_snapshots.append((num_samples, burn_stall_sum_m, burn_stall_sum2_m, beta_rhat_q))
-
-                        max_stall_history_len = max(stall_window + 2, stall_recent_window + 2, 10)
-                        if len(burn_stall_best_beta_rhat_history) > max_stall_history_len:
-                            burn_stall_best_beta_rhat_history = burn_stall_best_beta_rhat_history[-max_stall_history_len:]
-                        if len(burn_stall_snapshots) > max_stall_history_len:
-                            burn_stall_snapshots = burn_stall_snapshots[-max_stall_history_len:]
-
-                        burn_stall_plateau = False
-                        burn_stall_recent_worse = False
-                        burn_stall_recent_beta_rhat_q = np.nan
-                        min_samples_for_burn_stall = max(min_num_burn_in_for_epoch, stall_min_burn_in)
-                        if stall_window > 0 and num_samples >= min_samples_for_burn_stall:
-                            if len(burn_stall_best_beta_rhat_history) >= stall_window:
-                                burn_rhat_improvement = burn_stall_best_beta_rhat_history[-stall_window] - burn_stall_best_beta_rhat_history[-1]
-                                if burn_rhat_improvement < stall_delta_rhat:
-                                    burn_stall_plateau = True
-
-                            if stall_recent_window > 0 and len(burn_stall_snapshots) >= stall_recent_window + 1 and burn_stall_beta_indices.size > 0:
-                                old_num_samples, old_sum_m, old_sum2_m, _ = burn_stall_snapshots[-(stall_recent_window + 1)]
-                                recent_num_samples = num_samples - old_num_samples
-                                if recent_num_samples > 1:
-                                    recent_sum_m = burn_stall_sum_m - old_sum_m
-                                    recent_sum2_m = burn_stall_sum2_m - old_sum2_m
-                                    _, _, burn_recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_sum_m, recent_sum2_m, recent_num_samples)
-                                    burn_recent_candidates = burn_recent_R_beta_v[np.logical_and(np.isfinite(burn_recent_R_beta_v), burn_recent_R_beta_v >= 1)]
-                                    burn_stall_recent_beta_rhat_q = _safe_quantile(burn_recent_candidates, burn_in_rhat_quantile, 1.0)
-                                    if burn_stall_recent_beta_rhat_q > beta_rhat_q * (1 + stall_recent_eps):
-                                        burn_stall_recent_worse = True
-
-                        burn_stall_detected = burn_stall_plateau or burn_stall_recent_worse
                         log("Gibbs burn-in iter %d: beta_Rhat_q(%.2f)=%.4g; beta_Rhat_max=%.4g; active_betas=%d/%d; burn_streak=%d/%d; stop_streak=%d/%d" % (num_samples, burn_in_rhat_quantile, beta_rhat_q, beta_rhat_max, num_active_betas, num_full_gene_sets, burn_in_pass_streak, burn_in_patience, stop_pass_streak, stop_patience), INFO)
                         if burn_in_pass_streak >= burn_in_patience:
                             in_burn_in = False
@@ -9324,16 +9300,12 @@ class GeneSetData(object):
                             stop_pass_streak = 0
                             _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
                             log("Stopping Gibbs burn in at iter %d due to stall detectors (plateau=%s, recent_worse=%s)" % (num_samples, str(burn_stall_plateau), str(burn_stall_recent_worse)), INFO)
-                        elif burn_in_stall_window > 0 and len(burn_in_rhat_history) >= burn_in_stall_window:
-                            burn_window_v = np.array(burn_in_rhat_history[-burn_in_stall_window:], dtype=float)
-                            if np.all(np.isfinite(burn_window_v)):
-                                burn_window_span = np.max(burn_window_v) - np.min(burn_window_v)
-                                if burn_window_span < burn_in_stall_delta:
-                                    in_burn_in = False
-                                    burn_in_pass_streak = 0
-                                    stop_pass_streak = 0
-                                    _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
-                                    log("Stopping Gibbs burn in at iter %d due to R-hat plateau (window=%d, span=%.4g < delta=%.4g)" % (num_samples, burn_in_stall_window, burn_window_span, burn_in_stall_delta), INFO)
+                        elif burn_window_plateau_detected:
+                            in_burn_in = False
+                            burn_in_pass_streak = 0
+                            stop_pass_streak = 0
+                            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+                            log("Stopping Gibbs burn in at iter %d due to R-hat plateau (window=%d, span=%.4g < delta=%.4g)" % (num_samples, burn_in_stall_window, burn_window_span, burn_in_stall_delta), INFO)
 
                 done = False
 
@@ -16617,6 +16589,113 @@ def _zero_arrays(*arrays):
     for arr in arrays:
         if arr is not None:
             arr[:] = 0
+
+
+def _evaluate_burn_in_diagnostics(
+    all_sum_betas_m,
+    all_sum_betas2_m,
+    all_num_sum_m,
+    num_samples,
+    active_beta_top_k,
+    active_beta_min_abs,
+    burn_in_rhat_quantile,
+    r_threshold_burn_in,
+    burn_in_pass_streak,
+    burn_in_rhat_history,
+    burn_stall_best_beta_rhat_history,
+    burn_stall_snapshots,
+    burn_stall_beta_indices,
+    stall_window,
+    stall_min_burn_in,
+    min_num_burn_in_for_epoch,
+    stall_delta_rhat,
+    stall_recent_window,
+    stall_recent_eps,
+    burn_in_stall_window,
+    burn_in_stall_delta,
+):
+    (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
+    active_beta_mask_v, _, _ = _get_active_beta_mask(all_sum_betas_m, all_num_sum_m, active_beta_top_k, active_beta_min_abs)
+    num_active_betas = int(np.sum(active_beta_mask_v))
+    if num_active_betas > 0:
+        R_beta_active_v = R_beta_v[active_beta_mask_v]
+        rhat_candidates = R_beta_active_v[np.logical_and(np.isfinite(R_beta_active_v), R_beta_active_v >= 1)]
+        beta_rhat_q = _safe_quantile(rhat_candidates, burn_in_rhat_quantile, 1.0)
+        beta_rhat_max = _safe_quantile(R_beta_active_v, 1.0, 1.0)
+    else:
+        beta_rhat_q = 1.0
+        beta_rhat_max = 1.0
+
+    if beta_rhat_q <= r_threshold_burn_in:
+        burn_in_pass_streak += 1
+    else:
+        burn_in_pass_streak = 0
+
+    burn_in_rhat_history.append(beta_rhat_q)
+    burn_best_beta_rhat_q = beta_rhat_q if len(burn_stall_best_beta_rhat_history) == 0 else min(burn_stall_best_beta_rhat_history[-1], beta_rhat_q)
+    burn_stall_best_beta_rhat_history.append(burn_best_beta_rhat_q)
+
+    if burn_stall_beta_indices is None:
+        burn_stall_beta_indices = _prepare_stall_indices(active_beta_mask_v, np.mean(_means_from_sums(all_sum_betas_m, all_num_sum_m), axis=0), active_beta_top_k)
+
+    if burn_stall_beta_indices.size > 0:
+        burn_stall_sum_m = copy.copy(all_sum_betas_m[:,burn_stall_beta_indices])
+        burn_stall_sum2_m = copy.copy(all_sum_betas2_m[:,burn_stall_beta_indices])
+    else:
+        burn_stall_sum_m = np.zeros((all_sum_betas_m.shape[0], 0))
+        burn_stall_sum2_m = np.zeros((all_sum_betas2_m.shape[0], 0))
+    burn_stall_snapshots.append((num_samples, burn_stall_sum_m, burn_stall_sum2_m, beta_rhat_q))
+
+    max_stall_history_len = max(stall_window + 2, stall_recent_window + 2, 10)
+    if len(burn_stall_best_beta_rhat_history) > max_stall_history_len:
+        del burn_stall_best_beta_rhat_history[:-max_stall_history_len]
+    if len(burn_stall_snapshots) > max_stall_history_len:
+        del burn_stall_snapshots[:-max_stall_history_len]
+
+    burn_stall_plateau = False
+    burn_stall_recent_worse = False
+    min_samples_for_burn_stall = max(min_num_burn_in_for_epoch, stall_min_burn_in)
+    if stall_window > 0 and num_samples >= min_samples_for_burn_stall:
+        if len(burn_stall_best_beta_rhat_history) >= stall_window:
+            burn_rhat_improvement = burn_stall_best_beta_rhat_history[-stall_window] - burn_stall_best_beta_rhat_history[-1]
+            if burn_rhat_improvement < stall_delta_rhat:
+                burn_stall_plateau = True
+
+        if stall_recent_window > 0 and len(burn_stall_snapshots) >= stall_recent_window + 1 and burn_stall_beta_indices.size > 0:
+            old_num_samples, old_sum_m, old_sum2_m, _ = burn_stall_snapshots[-(stall_recent_window + 1)]
+            recent_num_samples = num_samples - old_num_samples
+            if recent_num_samples > 1:
+                recent_sum_m = burn_stall_sum_m - old_sum_m
+                recent_sum2_m = burn_stall_sum2_m - old_sum2_m
+                _, _, burn_recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_sum_m, recent_sum2_m, recent_num_samples)
+                burn_recent_candidates = burn_recent_R_beta_v[np.logical_and(np.isfinite(burn_recent_R_beta_v), burn_recent_R_beta_v >= 1)]
+                burn_stall_recent_beta_rhat_q = _safe_quantile(burn_recent_candidates, burn_in_rhat_quantile, 1.0)
+                if burn_stall_recent_beta_rhat_q > beta_rhat_q * (1 + stall_recent_eps):
+                    burn_stall_recent_worse = True
+
+    burn_stall_detected = burn_stall_plateau or burn_stall_recent_worse
+    burn_window_plateau_detected = False
+    burn_window_span = np.nan
+    if burn_in_stall_window > 0 and len(burn_in_rhat_history) >= burn_in_stall_window:
+        burn_window_v = np.array(burn_in_rhat_history[-burn_in_stall_window:], dtype=float)
+        if np.all(np.isfinite(burn_window_v)):
+            burn_window_span = np.max(burn_window_v) - np.min(burn_window_v)
+            if burn_window_span < burn_in_stall_delta:
+                burn_window_plateau_detected = True
+
+    return {
+        "R_beta_v": R_beta_v,
+        "burn_in_pass_streak": burn_in_pass_streak,
+        "burn_stall_beta_indices": burn_stall_beta_indices,
+        "beta_rhat_q": beta_rhat_q,
+        "beta_rhat_max": beta_rhat_max,
+        "num_active_betas": num_active_betas,
+        "burn_stall_plateau": burn_stall_plateau,
+        "burn_stall_recent_worse": burn_stall_recent_worse,
+        "burn_stall_detected": burn_stall_detected,
+        "burn_window_plateau_detected": burn_window_plateau_detected,
+        "burn_window_span": burn_window_span,
+    }
 
 
 def _safe_quantile(values, q, fallback):
