@@ -9163,83 +9163,52 @@ class GeneSetData(object):
                         else:
                             gibbs_good = True
 
-                if in_burn_in:
-                    num_samples = iteration_num + 1
-                    if num_samples >= max_num_burn_in_for_epoch:
-                        in_burn_in = False
-                        burn_in_pass_streak = 0
-                        stop_pass_streak = 0
-                        _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
-                        log("Stopping Gibbs burn in after %d iterations (per-epoch max burn-in reached)" % (num_samples), INFO)
-                    elif gauss_seidel:
-                        if prev_Ys_m is not None:
-                            sum_diff = np.sum(np.abs(prev_Ys_m - Y_sample_m))
-                            sum_prev = np.sum(np.abs(prev_Ys_m))
-                            max_diff_frac = np.max(np.abs((prev_Ys_m - Y_sample_m)/prev_Ys_m))
-
-                            tot_diff = sum_diff / sum_prev
-                            log("Gibbs iteration %d (global %d): mean gauss seidel difference = %.4g / %.4g = %.4g; max frac difference = %.4g" % (num_samples, epoch_total_iter_offset + num_samples, sum_diff, sum_prev, tot_diff, max_diff_frac))
-                            if num_samples > min_num_iter_for_epoch and tot_diff < eps:
-                                in_burn_in = False
-                                burn_in_pass_streak = 0
-                                stop_pass_streak = 0
-                                _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
-                                log("Gibbs gauss converged after %d iterations" % num_samples, INFO)
-                        prev_Ys_m = Y_sample_m
-                    elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
-                        burn_diag = _evaluate_burn_in_diagnostics(
-                            all_sum_betas_m,
-                            all_sum_betas2_m,
-                            all_num_sum_m,
-                            num_samples,
-                            active_beta_top_k,
-                            active_beta_min_abs,
-                            burn_in_rhat_quantile,
-                            r_threshold_burn_in,
-                            burn_in_pass_streak,
-                            burn_in_rhat_history,
-                            burn_stall_best_beta_rhat_history,
-                            burn_stall_snapshots,
-                            burn_stall_beta_indices,
-                            stall_window,
-                            stall_min_burn_in,
-                            min_num_burn_in_for_epoch,
-                            stall_delta_rhat,
-                            stall_recent_window,
-                            stall_recent_eps,
-                            burn_in_stall_window,
-                            burn_in_stall_delta,
-                        )
-                        R_beta_v = burn_diag["R_beta_v"]
-                        burn_in_pass_streak = burn_diag["burn_in_pass_streak"]
-                        burn_stall_beta_indices = burn_diag["burn_stall_beta_indices"]
-                        beta_rhat_q = burn_diag["beta_rhat_q"]
-                        beta_rhat_max = burn_diag["beta_rhat_max"]
-                        num_active_betas = burn_diag["num_active_betas"]
-                        burn_stall_plateau = burn_diag["burn_stall_plateau"]
-                        burn_stall_recent_worse = burn_diag["burn_stall_recent_worse"]
-                        burn_stall_detected = burn_diag["burn_stall_detected"]
-                        burn_window_plateau_detected = burn_diag["burn_window_plateau_detected"]
-                        burn_window_span = burn_diag["burn_window_span"]
-
-                        log("Gibbs burn-in iter %d: beta_Rhat_q(%.2f)=%.4g; beta_Rhat_max=%.4g; active_betas=%d/%d; burn_streak=%d/%d; stop_streak=%d/%d" % (num_samples, burn_in_rhat_quantile, beta_rhat_q, beta_rhat_max, num_active_betas, num_full_gene_sets, burn_in_pass_streak, burn_in_patience, stop_pass_streak, stop_patience), INFO)
-                        if burn_in_pass_streak >= burn_in_patience:
-                            in_burn_in = False
-                            stop_pass_streak = 0
-                            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
-                            log("Burn-in complete at iter %d (beta R-hat q=%.2f on active betas, threshold=%.4g, patience=%d)" % (num_samples, burn_in_rhat_quantile, r_threshold_burn_in, burn_in_patience), INFO)
-                        elif burn_stall_detected:
-                            in_burn_in = False
-                            burn_in_pass_streak = 0
-                            stop_pass_streak = 0
-                            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
-                            log("Stopping Gibbs burn in at iter %d due to stall detectors (plateau=%s, recent_worse=%s)" % (num_samples, str(burn_stall_plateau), str(burn_stall_recent_worse)), INFO)
-                        elif burn_window_plateau_detected:
-                            in_burn_in = False
-                            burn_in_pass_streak = 0
-                            stop_pass_streak = 0
-                            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
-                            log("Stopping Gibbs burn in at iter %d due to R-hat plateau (window=%d, span=%.4g < delta=%.4g)" % (num_samples, burn_in_stall_window, burn_window_span, burn_in_stall_delta), INFO)
+                burn_in_update = _update_gibbs_burn_in_state(
+                    in_burn_in,
+                    iteration_num,
+                    epoch_total_iter_offset,
+                    epoch_max_num_iter,
+                    max_num_burn_in_for_epoch,
+                    gauss_seidel,
+                    prev_Ys_m,
+                    Y_sample_m,
+                    min_num_iter_for_epoch,
+                    eps,
+                    min_num_burn_in_for_epoch,
+                    diag_every,
+                    all_sum_betas_m,
+                    all_sum_betas2_m,
+                    all_num_sum_m,
+                    active_beta_top_k,
+                    active_beta_min_abs,
+                    burn_in_rhat_quantile,
+                    r_threshold_burn_in,
+                    burn_in_pass_streak,
+                    burn_in_rhat_history,
+                    burn_stall_best_beta_rhat_history,
+                    burn_stall_snapshots,
+                    burn_stall_beta_indices,
+                    stall_window,
+                    stall_min_burn_in,
+                    stall_delta_rhat,
+                    stall_recent_window,
+                    stall_recent_eps,
+                    burn_in_stall_window,
+                    burn_in_stall_delta,
+                    num_full_gene_sets,
+                    burn_in_patience,
+                    stop_pass_streak,
+                    stop_patience,
+                    post_burn_reset_arrays,
+                    post_burn_reset_missing_arrays,
+                    R_beta_v,
+                )
+                in_burn_in = burn_in_update["in_burn_in"]
+                burn_in_pass_streak = burn_in_update["burn_in_pass_streak"]
+                stop_pass_streak = burn_in_update["stop_pass_streak"]
+                prev_Ys_m = burn_in_update["prev_Ys_m"]
+                burn_stall_beta_indices = burn_in_update["burn_stall_beta_indices"]
+                R_beta_v = burn_in_update["R_beta_v"]
 
                 done = False
 
@@ -16454,6 +16423,173 @@ def _evaluate_burn_in_diagnostics(
         "burn_stall_detected": burn_stall_detected,
         "burn_window_plateau_detected": burn_window_plateau_detected,
         "burn_window_span": burn_window_span,
+    }
+
+
+def _update_gibbs_burn_in_state(
+    in_burn_in,
+    iteration_num,
+    epoch_total_iter_offset,
+    epoch_max_num_iter,
+    max_num_burn_in_for_epoch,
+    gauss_seidel,
+    prev_Ys_m,
+    Y_sample_m,
+    min_num_iter_for_epoch,
+    eps,
+    min_num_burn_in_for_epoch,
+    diag_every,
+    all_sum_betas_m,
+    all_sum_betas2_m,
+    all_num_sum_m,
+    active_beta_top_k,
+    active_beta_min_abs,
+    burn_in_rhat_quantile,
+    r_threshold_burn_in,
+    burn_in_pass_streak,
+    burn_in_rhat_history,
+    burn_stall_best_beta_rhat_history,
+    burn_stall_snapshots,
+    burn_stall_beta_indices,
+    stall_window,
+    stall_min_burn_in,
+    stall_delta_rhat,
+    stall_recent_window,
+    stall_recent_eps,
+    burn_in_stall_window,
+    burn_in_stall_delta,
+    num_full_gene_sets,
+    burn_in_patience,
+    stop_pass_streak,
+    stop_patience,
+    post_burn_reset_arrays,
+    post_burn_reset_missing_arrays,
+    R_beta_v,
+):
+    if not in_burn_in:
+        return {
+            "in_burn_in": in_burn_in,
+            "burn_in_pass_streak": burn_in_pass_streak,
+            "stop_pass_streak": stop_pass_streak,
+            "prev_Ys_m": prev_Ys_m,
+            "burn_stall_beta_indices": burn_stall_beta_indices,
+            "R_beta_v": R_beta_v,
+        }
+
+    num_samples = iteration_num + 1
+    if num_samples >= max_num_burn_in_for_epoch:
+        in_burn_in = False
+        burn_in_pass_streak = 0
+        stop_pass_streak = 0
+        _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+        log("Stopping Gibbs burn in after %d iterations (per-epoch max burn-in reached)" % (num_samples), INFO)
+    elif gauss_seidel:
+        if prev_Ys_m is not None:
+            sum_diff = np.sum(np.abs(prev_Ys_m - Y_sample_m))
+            sum_prev = np.sum(np.abs(prev_Ys_m))
+            max_diff_frac = np.max(np.abs((prev_Ys_m - Y_sample_m) / prev_Ys_m))
+
+            tot_diff = sum_diff / sum_prev
+            log(
+                "Gibbs iteration %d (global %d): mean gauss seidel difference = %.4g / %.4g = %.4g; max frac difference = %.4g"
+                % (num_samples, epoch_total_iter_offset + num_samples, sum_diff, sum_prev, tot_diff, max_diff_frac)
+            )
+            if num_samples > min_num_iter_for_epoch and tot_diff < eps:
+                in_burn_in = False
+                burn_in_pass_streak = 0
+                stop_pass_streak = 0
+                _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+                log("Gibbs gauss converged after %d iterations" % num_samples, INFO)
+        prev_Ys_m = Y_sample_m
+    elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
+        burn_diag = _evaluate_burn_in_diagnostics(
+            all_sum_betas_m,
+            all_sum_betas2_m,
+            all_num_sum_m,
+            num_samples,
+            active_beta_top_k,
+            active_beta_min_abs,
+            burn_in_rhat_quantile,
+            r_threshold_burn_in,
+            burn_in_pass_streak,
+            burn_in_rhat_history,
+            burn_stall_best_beta_rhat_history,
+            burn_stall_snapshots,
+            burn_stall_beta_indices,
+            stall_window,
+            stall_min_burn_in,
+            min_num_burn_in_for_epoch,
+            stall_delta_rhat,
+            stall_recent_window,
+            stall_recent_eps,
+            burn_in_stall_window,
+            burn_in_stall_delta,
+        )
+        R_beta_v = burn_diag["R_beta_v"]
+        burn_in_pass_streak = burn_diag["burn_in_pass_streak"]
+        burn_stall_beta_indices = burn_diag["burn_stall_beta_indices"]
+        beta_rhat_q = burn_diag["beta_rhat_q"]
+        beta_rhat_max = burn_diag["beta_rhat_max"]
+        num_active_betas = burn_diag["num_active_betas"]
+        burn_stall_plateau = burn_diag["burn_stall_plateau"]
+        burn_stall_recent_worse = burn_diag["burn_stall_recent_worse"]
+        burn_stall_detected = burn_diag["burn_stall_detected"]
+        burn_window_plateau_detected = burn_diag["burn_window_plateau_detected"]
+        burn_window_span = burn_diag["burn_window_span"]
+
+        log(
+            "Gibbs burn-in iter %d: beta_Rhat_q(%.2f)=%.4g; beta_Rhat_max=%.4g; active_betas=%d/%d; burn_streak=%d/%d; stop_streak=%d/%d"
+            % (
+                num_samples,
+                burn_in_rhat_quantile,
+                beta_rhat_q,
+                beta_rhat_max,
+                num_active_betas,
+                num_full_gene_sets,
+                burn_in_pass_streak,
+                burn_in_patience,
+                stop_pass_streak,
+                stop_patience,
+            ),
+            INFO,
+        )
+        if burn_in_pass_streak >= burn_in_patience:
+            in_burn_in = False
+            stop_pass_streak = 0
+            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+            log(
+                "Burn-in complete at iter %d (beta R-hat q=%.2f on active betas, threshold=%.4g, patience=%d)"
+                % (num_samples, burn_in_rhat_quantile, r_threshold_burn_in, burn_in_patience),
+                INFO,
+            )
+        elif burn_stall_detected:
+            in_burn_in = False
+            burn_in_pass_streak = 0
+            stop_pass_streak = 0
+            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+            log(
+                "Stopping Gibbs burn in at iter %d due to stall detectors (plateau=%s, recent_worse=%s)"
+                % (num_samples, str(burn_stall_plateau), str(burn_stall_recent_worse)),
+                INFO,
+            )
+        elif burn_window_plateau_detected:
+            in_burn_in = False
+            burn_in_pass_streak = 0
+            stop_pass_streak = 0
+            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+            log(
+                "Stopping Gibbs burn in at iter %d due to R-hat plateau (window=%d, span=%.4g < delta=%.4g)"
+                % (num_samples, burn_in_stall_window, burn_window_span, burn_in_stall_delta),
+                INFO,
+            )
+
+    return {
+        "in_burn_in": in_burn_in,
+        "burn_in_pass_streak": burn_in_pass_streak,
+        "stop_pass_streak": stop_pass_streak,
+        "prev_Ys_m": prev_Ys_m,
+        "burn_stall_beta_indices": burn_stall_beta_indices,
+        "R_beta_v": R_beta_v,
     }
 
 
