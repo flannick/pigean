@@ -8400,16 +8400,10 @@ class GeneSetData(object):
         remaining_total_iter = int(total_num_iter)
         epoch_aggregates = _new_gibbs_epoch_aggregates()
 
-        if gene_set_stats_trace_out is not None:
-            gene_set_stats_trace_fh = open_gz(gene_set_stats_trace_out, 'w')
-            gene_set_stats_trace_fh.write("It\tChain\tGene_Set\tbeta_tilde\tP\tZ\tSE\tbeta_uncorrected\tbeta\tpostp\tbeta_tilde_outlier_z\tR\tSEM\n")
-        else:
-            gene_set_stats_trace_fh = None
-        if gene_stats_trace_out is not None:
-            gene_stats_trace_fh = open_gz(gene_stats_trace_out, 'w')
-            gene_stats_trace_fh.write("It\tChain\tGene\tprior\tcombined\tlog_bf\tD\tpercent_top\tadjust\n")
-        else:
-            gene_stats_trace_fh = None
+        (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
+            gene_set_stats_trace_out,
+            gene_stats_trace_out,
+        )
 
         # ==========================================================================
         # Gibbs Phase 1: Run one or more epochs (optionally restarting on stalls).
@@ -8715,21 +8709,18 @@ class GeneSetData(object):
 
                 #now write the gene stats trace
 
-                if gene_stats_trace_out is not None:
-                    log("Writing gene stats trace", TRACE)
-                    _write_gene_stats_trace_rows(
-                        gene_stats_trace_fh,
-                        iteration_num,
-                        trace_chain_offset,
-                        self.genes,
-                        priors_for_Y_m,
-                        Y_sample_m,
-                        log_bf_m,
-                        p_sample_m,
-                        priors_percentage_max_for_Y_m,
-                        priors_adjustment_for_Y_m,
-                    )
-                    gene_stats_trace_fh.flush()
+                _maybe_write_gibbs_gene_stats_trace(
+                    gene_stats_trace_fh,
+                    iteration_num,
+                    trace_chain_offset,
+                    self.genes,
+                    priors_for_Y_m,
+                    Y_sample_m,
+                    log_bf_m,
+                    p_sample_m,
+                    priors_percentage_max_for_Y_m,
+                    priors_adjustment_for_Y_m,
+                )
 
                 (uncorrected_betas_sample_m, uncorrected_postp_sample_m, uncorrected_betas_mean_m, uncorrected_postp_mean_m) = self._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=full_beta_tildes_m, ses=full_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, debug_gene_sets=self.gene_sets)
 
@@ -9252,30 +9243,27 @@ class GeneSetData(object):
                         done = True
                         log("Ending Gibbs epoch at iter %d (global %d) after %d post-burn samples (per-epoch max post-burn reached)" % (epoch_iter_num, total_iter_num, num_post_burn_samples_now), INFO)
 
-                if gene_set_stats_trace_out is not None:
-                    log("Writing gene set stats trace", TRACE)
-                    _write_gene_set_stats_trace_rows(
-                        gene_set_stats_trace_fh,
-                        iteration_num,
-                        trace_chain_offset,
-                        self.gene_sets,
-                        self.scale_factors,
-                        full_beta_tildes_m,
-                        full_p_values_m,
-                        full_z_scores_m,
-                        full_ses_m,
-                        uncorrected_betas_mean_m,
-                        uncorrected_betas_sample_m,
-                        full_betas_mean_m,
-                        full_betas_sample_m,
-                        full_postp_mean_m,
-                        full_postp_sample_m,
-                        full_z_cur_beta_tildes_m,
-                        R_beta_v,
-                        betas_sem2_v,
-                        use_mean_betas,
-                    )
-                    gene_set_stats_trace_fh.flush()
+                _maybe_write_gibbs_gene_set_stats_trace(
+                    gene_set_stats_trace_fh,
+                    iteration_num,
+                    trace_chain_offset,
+                    self.gene_sets,
+                    self.scale_factors,
+                    full_beta_tildes_m,
+                    full_p_values_m,
+                    full_z_scores_m,
+                    full_ses_m,
+                    uncorrected_betas_mean_m,
+                    uncorrected_betas_sample_m,
+                    full_betas_mean_m,
+                    full_betas_sample_m,
+                    full_postp_mean_m,
+                    full_postp_sample_m,
+                    full_z_cur_beta_tildes_m,
+                    R_beta_v,
+                    betas_sem2_v,
+                    use_mean_betas,
+                )
 
                 if done:
                     break
@@ -9400,10 +9388,7 @@ class GeneSetData(object):
             if gibbs_good:
                 break
 
-        if gene_set_stats_trace_fh is not None:
-            gene_set_stats_trace_fh.close()
-        if gene_stats_trace_fh is not None:
-            gene_stats_trace_fh.close()
+        _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
 
         if num_completed_epochs == 0:
             bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
@@ -16705,6 +16690,106 @@ def _get_active_beta_mask(sum_betas_for_diag_m, num_sum_beta_for_diag_m, active_
             active_mask_v = filtered_mask_v
 
     return (active_mask_v, beta_chain_means_m, beta_mean_v)
+
+
+def _open_gibbs_trace_outputs(gene_set_stats_trace_out, gene_stats_trace_out):
+    gene_set_stats_trace_fh = None
+    gene_stats_trace_fh = None
+
+    if gene_set_stats_trace_out is not None:
+        gene_set_stats_trace_fh = open_gz(gene_set_stats_trace_out, 'w')
+        gene_set_stats_trace_fh.write("It\tChain\tGene_Set\tbeta_tilde\tP\tZ\tSE\tbeta_uncorrected\tbeta\tpostp\tbeta_tilde_outlier_z\tR\tSEM\n")
+
+    if gene_stats_trace_out is not None:
+        gene_stats_trace_fh = open_gz(gene_stats_trace_out, 'w')
+        gene_stats_trace_fh.write("It\tChain\tGene\tprior\tcombined\tlog_bf\tD\tpercent_top\tadjust\n")
+
+    return (gene_set_stats_trace_fh, gene_stats_trace_fh)
+
+
+def _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh):
+    if gene_set_stats_trace_fh is not None:
+        gene_set_stats_trace_fh.close()
+    if gene_stats_trace_fh is not None:
+        gene_stats_trace_fh.close()
+
+
+def _maybe_write_gibbs_gene_stats_trace(
+    gene_stats_trace_fh,
+    iteration_num,
+    trace_chain_offset,
+    genes,
+    priors_for_Y_m,
+    Y_sample_m,
+    log_bf_m,
+    p_sample_m,
+    priors_percentage_max_for_Y_m,
+    priors_adjustment_for_Y_m,
+):
+    if gene_stats_trace_fh is None:
+        return
+    log("Writing gene stats trace", TRACE)
+    _write_gene_stats_trace_rows(
+        gene_stats_trace_fh,
+        iteration_num,
+        trace_chain_offset,
+        genes,
+        priors_for_Y_m,
+        Y_sample_m,
+        log_bf_m,
+        p_sample_m,
+        priors_percentage_max_for_Y_m,
+        priors_adjustment_for_Y_m,
+    )
+    gene_stats_trace_fh.flush()
+
+
+def _maybe_write_gibbs_gene_set_stats_trace(
+    gene_set_stats_trace_fh,
+    iteration_num,
+    trace_chain_offset,
+    gene_sets,
+    scale_factors,
+    full_beta_tildes_m,
+    full_p_values_m,
+    full_z_scores_m,
+    full_ses_m,
+    uncorrected_betas_mean_m,
+    uncorrected_betas_sample_m,
+    full_betas_mean_m,
+    full_betas_sample_m,
+    full_postp_mean_m,
+    full_postp_sample_m,
+    full_z_cur_beta_tildes_m,
+    R_beta_v,
+    betas_sem2_v,
+    use_mean_betas,
+):
+    if gene_set_stats_trace_fh is None:
+        return
+    log("Writing gene set stats trace", TRACE)
+    _write_gene_set_stats_trace_rows(
+        gene_set_stats_trace_fh,
+        iteration_num,
+        trace_chain_offset,
+        gene_sets,
+        scale_factors,
+        full_beta_tildes_m,
+        full_p_values_m,
+        full_z_scores_m,
+        full_ses_m,
+        uncorrected_betas_mean_m,
+        uncorrected_betas_sample_m,
+        full_betas_mean_m,
+        full_betas_sample_m,
+        full_postp_mean_m,
+        full_postp_sample_m,
+        full_z_cur_beta_tildes_m,
+        R_beta_v,
+        betas_sem2_v,
+        use_mean_betas,
+    )
+    gene_set_stats_trace_fh.flush()
 
 
 def _build_gibbs_chain_stack(X_orig, num_chains, max_mb_X_h, X_size_mb, log_fun):
