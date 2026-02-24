@@ -16952,7 +16952,7 @@ def _read_huge_statistics_bundle(runtime_state, prefix):
 
     return (gene_bf, extra_genes, np.array(extra_gene_bf), gene_bf_for_regression, np.array(extra_gene_bf_for_regression))
 
-def _configure_initial_sigma_for_main(state, options, sigma2_cond):
+def _configure_sigma_and_hyper_for_main(state, options, sigma2_cond):
     if sigma2_cond is not None:
         # map it with the scale factor
         state.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=False)
@@ -16980,16 +16980,11 @@ def _configure_initial_sigma_for_main(state, options, sigma2_cond):
             state.set_sigma(None, state.sigma_power)
         else:
             log("Setting sigma=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (state.get_sigma2(), state.get_sigma2(convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
-    return sigma2_cond
 
-
-def _apply_const_sigma_override_for_main(options):
     # Legacy behavior: force sigma-power to 2 when sigma is fixed.
     if options.const_sigma:
         options.sigma_power = 2
 
-
-def _apply_update_hyper_mode_for_main(options):
     update_hyper_mode = options.update_hyper.lower()
     if update_hyper_mode == "both":
         options.update_hyper_p = True
@@ -17006,11 +17001,6 @@ def _apply_update_hyper_mode_for_main(options):
     else:
         bail("Invalid value for --update-hyper (both, p, sigma2, or none)")
 
-
-def _configure_sigma_and_hyper_for_main(state, options, sigma2_cond):
-    sigma2_cond = _configure_initial_sigma_for_main(state, options, sigma2_cond)
-    _apply_const_sigma_override_for_main(options)
-    _apply_update_hyper_mode_for_main(options)
     return sigma2_cond
 
 
@@ -17055,20 +17045,6 @@ def _build_read_gene_phewas_bfs_kwargs_for_main(options):
 # ==========================================================================
 # Main pipeline helper functions (extracted from main()).
 # ==========================================================================
-
-def _build_read_y_gene_bfs_kwargs_for_main(options):
-    return dict(
-        gene_bfs_in=options.gene_stats_in,
-        show_progress=not options.hide_progress,
-        gene_bfs_id_col=options.gene_stats_id_col,
-        gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
-        gene_bfs_combined_col=options.gene_stats_combined_col,
-        gene_bfs_prob_col=options.gene_stats_prob_col,
-        gene_bfs_prior_col=options.gene_stats_prior_col,
-        gene_covs_in=options.gene_covs_in,
-        hold_out_chrom=options.hold_out_chrom,
-    )
-
 
 def _build_read_y_from_sources_kwargs_for_main(options):
     return dict(
@@ -17174,28 +17150,6 @@ def _build_read_y_from_sources_kwargs_for_main(options):
     )
 
 
-def _should_load_y_from_sources_for_main(options):
-    return (
-        options.gwas_in
-        or options.huge_statistics_in
-        or options.exomes_in
-        or options.positive_controls_in
-        or options.positive_controls_list is not None
-        or options.case_counts_in is not None
-    )
-
-
-def _load_initial_y_from_sources_for_main(state, options):
-    if (
-        options.gwas_in is None
-        and options.huge_statistics_in is None
-        and options.exomes_in is None
-        and options.case_counts_in is None
-    ):
-        _default_for_gene_list_options(options)
-    state.read_Y(**_build_read_y_from_sources_kwargs_for_main(options))
-
-
 def _load_initial_y_inputs_for_main(
     state,
     options,
@@ -17212,10 +17166,34 @@ def _load_initial_y_inputs_for_main(
         return False
 
     if options.gene_stats_in:
-        state.read_Y(**_build_read_y_gene_bfs_kwargs_for_main(options))
+        state.read_Y(
+            gene_bfs_in=options.gene_stats_in,
+            show_progress=not options.hide_progress,
+            gene_bfs_id_col=options.gene_stats_id_col,
+            gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
+            gene_bfs_combined_col=options.gene_stats_combined_col,
+            gene_bfs_prob_col=options.gene_stats_prob_col,
+            gene_bfs_prior_col=options.gene_stats_prior_col,
+            gene_covs_in=options.gene_covs_in,
+            hold_out_chrom=options.hold_out_chrom,
+        )
         return False
-    if _should_load_y_from_sources_for_main(options):
-        _load_initial_y_from_sources_for_main(state, options)
+    if (
+        options.gwas_in
+        or options.huge_statistics_in
+        or options.exomes_in
+        or options.positive_controls_in
+        or options.positive_controls_list is not None
+        or options.case_counts_in is not None
+    ):
+        if (
+            options.gwas_in is None
+            and options.huge_statistics_in is None
+            and options.exomes_in is None
+            and options.case_counts_in is None
+        ):
+            _default_for_gene_list_options(options)
+        state.read_Y(**_build_read_y_from_sources_kwargs_for_main(options))
         return False
     if options.betas_uncorrected_from_phewas:
         if not options.gene_phewas_bfs_in:
@@ -17308,59 +17286,30 @@ def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_c
         )
         state.read_X(options.X_in, **read_x_kwargs)
 
-        should_reread, new_filter_gene_set_p = _prepare_reread_with_relaxed_filter_for_main(
-            state,
-            options,
-            gene_set_ids,
-            filter_gene_set_p,
-            orig_sigma2,
-        )
+        should_reread = False
+        new_filter_gene_set_p = filter_gene_set_p
+        if (
+            gene_set_ids is None
+            and options.min_num_gene_sets is not None
+            and filter_gene_set_p is not None
+            and filter_gene_set_p < 1
+            and state.gene_sets is not None
+            and len(state.gene_sets) < options.min_num_gene_sets
+        ):
+            fraction_to_increase = float(options.min_num_gene_sets) / (len(state.gene_sets) + 1)
+            if fraction_to_increase > 1:
+                # add in a fudge factor
+                new_filter_gene_set_p = filter_gene_set_p * fraction_to_increase * 1.2
+                if new_filter_gene_set_p > 1:
+                    new_filter_gene_set_p = 1
+                log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), new_filter_gene_set_p))
+                # Keep sigma stable across adaptive filter retries.
+                state.set_sigma(orig_sigma2, state.sigma_power)
+                should_reread = True
         if not should_reread:
             break
         filter_gene_set_p = new_filter_gene_set_p
         force_reread = True
-
-
-def _is_relaxed_reread_possible_for_read_x(state, options, gene_set_ids, filter_gene_set_p):
-    if gene_set_ids is not None:
-        return False
-    if options.min_num_gene_sets is None:
-        return False
-    if filter_gene_set_p is None or filter_gene_set_p >= 1:
-        return False
-    if state.gene_sets is None or len(state.gene_sets) >= options.min_num_gene_sets:
-        return False
-    return True
-
-
-def _compute_relaxed_filter_p_for_read_x(state, options, filter_gene_set_p):
-    fraction_to_increase = float(options.min_num_gene_sets) / (len(state.gene_sets) + 1)
-    if fraction_to_increase <= 1:
-        return None
-    #add in a fudge factor
-    new_filter_gene_set_p = filter_gene_set_p * fraction_to_increase * 1.2
-    if new_filter_gene_set_p > 1:
-        new_filter_gene_set_p = 1
-    return new_filter_gene_set_p
-
-
-def _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p):
-    if not _is_relaxed_reread_possible_for_read_x(state, options, gene_set_ids, filter_gene_set_p):
-        return False, filter_gene_set_p
-
-    new_filter_gene_set_p = _compute_relaxed_filter_p_for_read_x(state, options, filter_gene_set_p)
-    if new_filter_gene_set_p is None:
-        return False, filter_gene_set_p
-    log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), new_filter_gene_set_p))
-    return True, new_filter_gene_set_p
-
-
-def _prepare_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p, orig_sigma2):
-    should_reread, new_filter_gene_set_p = _should_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, filter_gene_set_p)
-    if should_reread:
-        # Keep sigma stable across adaptive filter retries.
-        state.set_sigma(orig_sigma2, state.sigma_power)
-    return should_reread, new_filter_gene_set_p
 
 
 def _build_read_x_kwargs_for_main(state, options, gene_set_ids, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
@@ -17542,51 +17491,6 @@ def _build_gibbs_kwargs_for_main(options):
         betas_trace_out=options.betas_trace_out,
     )
 
-def _run_phewas_if_requested_for_main(state, options, mode_state):
-    if not mode_state["run_phewas"]:
-        return
-    bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
-    can_reuse_loaded_bfs = (
-        options.gene_phewas_bfs_in is not None
-        and bfs_to_use == options.gene_phewas_bfs_in
-        and state.num_gene_phewas_filtered == 0
-        and state.read_gene_phewas()
-    )
-    if can_reuse_loaded_bfs:
-        #we can skip reading if we are using the same file as previously read and we didn't threshold that file
-        bfs_to_use = None
-
-    run_kwargs = dict(
-        gene_phewas_bfs_in=bfs_to_use,
-        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-        batch_size=1500,
-    )
-    run_kwargs.update(_build_inner_beta_sampler_common_kwargs_for_main(options))
-    state.run_phewas(**run_kwargs)
-
-    if options.phewas_stats_out:
-        state.write_phewas_statistics(options.phewas_stats_out)
-
-
-def _compute_priors_if_requested_for_main(state, options, mode_state):
-    run_priors = mode_state["run_priors"]
-    run_naive_priors = mode_state["run_naive_priors"]
-    if run_priors:
-        state.calculate_priors(**_build_priors_kwargs_for_main(options, state.p))
-    elif run_naive_priors:
-        state.calculate_naive_priors(adjust_priors=options.adjust_priors)
-
-
-def _run_outer_gibbs_if_requested_for_main(state, options, mode_state):
-    run_gibbs = mode_state["run_gibbs"]
-    if run_gibbs:
-        state.run_gibbs(**_build_gibbs_kwargs_for_main(options))
-
-
 # --------------------------------------------------------------------------
 # Phase D helpers: gene-set stats, optional factor-side inputs, and betas.
 # --------------------------------------------------------------------------
@@ -17685,15 +17589,6 @@ def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state):
             state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
 
 
-def _compute_gene_set_stats_and_betas_for_main(
-    state,
-    options,
-    mode_state,
-):
-    _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state)
-    _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state)
-
-
 def main():
 
     # ==========================================================================
@@ -17746,9 +17641,14 @@ def main():
                 treat_sigma2_as_sigma2_cond=False,
                 only_positive=options.sim_only_positive,
             )
-        _compute_gene_set_stats_and_betas_for_main(state, options, mode_state)
-        _compute_priors_if_requested_for_main(state, options, mode_state)
-        _run_outer_gibbs_if_requested_for_main(state, options, mode_state)
+        _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state)
+        _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state)
+        if mode_state["run_priors"]:
+            state.calculate_priors(**_build_priors_kwargs_for_main(options, state.p))
+        elif mode_state["run_naive_priors"]:
+            state.calculate_naive_priors(adjust_priors=options.adjust_priors)
+        if mode_state["run_gibbs"]:
+            state.run_gibbs(**_build_gibbs_kwargs_for_main(options))
 
     # ==========================================================================
     # Main Phase E: Output writers and optional downstream analyses.
@@ -17769,7 +17669,32 @@ def main():
     if options.gene_effectors_out:
         state.write_gene_effectors(options.gene_effectors_out)
 
-    _run_phewas_if_requested_for_main(state, options, mode_state)
+    if mode_state["run_phewas"]:
+        bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
+        can_reuse_loaded_bfs = (
+            options.gene_phewas_bfs_in is not None
+            and bfs_to_use == options.gene_phewas_bfs_in
+            and state.num_gene_phewas_filtered == 0
+            and state.read_gene_phewas()
+        )
+        if can_reuse_loaded_bfs:
+            #we can skip reading if we are using the same file as previously read and we didn't threshold that file
+            bfs_to_use = None
+
+        run_kwargs = dict(
+            gene_phewas_bfs_in=bfs_to_use,
+            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+            batch_size=1500,
+        )
+        run_kwargs.update(_build_inner_beta_sampler_common_kwargs_for_main(options))
+        state.run_phewas(**run_kwargs)
+
+        if options.phewas_stats_out:
+            state.write_phewas_statistics(options.phewas_stats_out)
 
     if options.params_out:
         state.write_params(options.params_out)
