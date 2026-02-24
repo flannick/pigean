@@ -8389,8 +8389,6 @@ class GeneSetData(object):
         Y_cond_sd = np.sqrt(Y_cond_var)
 
 
-        #this is the density of the relative (log) prior odds
-
         bf_orig_m = np.tile(bf_orig, num_chains).reshape(num_chains, len(bf_orig))
         log_bf_m = np.log(bf_orig_m)
         log_bf_uncorrected_m = np.log(bf_orig_m)
@@ -8402,59 +8400,6 @@ class GeneSetData(object):
 
         #we will adjust this to preserve the original probabilities if requested
         cur_background_log_bf_v = np.tile(self.background_log_bf, num_chains)
-
-        def __density_fun(x, loc, scale, bf=bf_orig, background_log_bf=self.background_log_bf, do_expected=False):
-            if type(x) == np.ndarray:
-                prob = np.ones(x.shape)
-                okay_mask = x < 10
-                #we need absolute odds (not relative) for this calculation so add in background_log_bf
-                x_odds = np.exp(x[okay_mask] + background_log_bf)
-                prob[okay_mask] =  x_odds / (1 + x_odds)
-            else:
-                if x < 10:
-                    x_odds = np.exp(x + background_log_bf)
-                    prob = x_odds / (1 + x_odds)
-                else:
-                    prob = 1
-        
-            density = (bf * prob + (1 - prob)) * scipy.stats.norm.pdf(x, loc=loc, scale=scale)
-            if do_expected:
-                return np.dstack((density.T, x * density.T, np.square(x) * density.T)).T
-            else:
-                return density
-
-        def __outlier_resistant_mean(sum_m, num_sum_m, outlier_mask_m=None):
-            if outlier_mask_m is None:
-
-                self._record_param("mad_threshold", num_mad)
-
-                #1. calculate mean values for each chain (divide by number -- make sure it is correct; may not be num_avg_Y)
-                chain_means_m = sum_m / num_sum_m
-
-                #2. calculate median values across chains (one number per gene set/gene)
-                medians_v = np.median(chain_means_m, axis=0)
-
-                #3. calculate abs(difference) between each chain and median (one value per chain/geneset)
-                mad_m = np.abs(chain_means_m - medians_v)
-
-                #4. calculate median of abs(difference) across chains (one number per gene set/gene)
-                mad_median_v = np.median(mad_m, axis=0)
-
-                #5. mask any chain that is more than 3 median(abs(difference)) from median
-                outlier_mask_m = chain_means_m > medians_v + num_mad * mad_median_v
-
-            #6. take average only across chains that are not outliers
-            num_sum_v = np.sum(~outlier_mask_m, axis=0)
-
-            #should never happen but just in case
-            num_sum_v[num_sum_v == 0] = 1
-
-            #7. to do this, zero out outlier chains, then sum them, then divide by number of outliers
-            copy_sum_m = copy.copy(sum_m)
-            copy_sum_m[outlier_mask_m] = 0
-            avg_v = np.sum(copy_sum_m / num_sum_m, axis=0) / num_sum_v
-            
-            return (outlier_mask_m, avg_v)
 
         #initialize Y
 
@@ -9472,7 +9417,7 @@ class GeneSetData(object):
 
                         #check both sum of all iterations (to not wait until convergence to detect failures)
                         #and sum of iterations after convergence
-                        _, all_cur_avg_betas_v = __outlier_resistant_mean(all_sum_betas_m, all_num_sum_m)
+                        _, all_cur_avg_betas_v = _outlier_resistant_mean(all_sum_betas_m, all_num_sum_m, num_mad, record_param_fn=self._record_param)
 
                         fraction_required = 0.001
                         self._record_param("fraction_required_to_not_increase_hyper", fraction_required)
@@ -9482,7 +9427,7 @@ class GeneSetData(object):
                         all_low = False
 
                         if np.all(num_sum_beta_m > 0):
-                            _, cur_avg_betas_v = __outlier_resistant_mean(sum_betas_m, num_sum_beta_m)
+                            _, cur_avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=self._record_param)
                             #all_low = all_low or np.all(cur_avg_betas_v / self.scale_factors < increase_hyper_if_betas_below)
                             #all_low = np.all(cur_avg_betas_v / self.scale_factors < increase_hyper_if_betas_below)
                             all_low = np.mean(cur_avg_betas_v / self.scale_factors > increase_hyper_if_betas_below_for_epoch) < fraction_required
@@ -9971,38 +9916,38 @@ class GeneSetData(object):
             #sum_Ys_m[Y_outlier_mask_m] = 0
             #avg_Ys_v = np.sum(sum_Ys_m / num_sum_Y_m, axis=0) / num_sum_Y_v
 
-            Y_outlier_mask_m, avg_Ys_v = __outlier_resistant_mean(sum_Ys_m, num_sum_Y_m)
-            beta_outlier_mask_m, avg_betas_v = __outlier_resistant_mean(sum_betas_m, num_sum_beta_m)
+            Y_outlier_mask_m, avg_Ys_v = _outlier_resistant_mean(sum_Ys_m, num_sum_Y_m, num_mad, record_param_fn=self._record_param)
+            beta_outlier_mask_m, avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=self._record_param)
             
-            _, avg_Y_raws_v = __outlier_resistant_mean(sum_Y_raws_m, num_sum_Y_m)
+            _, avg_Y_raws_v = _outlier_resistant_mean(sum_Y_raws_m, num_sum_Y_m, num_mad, record_param_fn=self._record_param)
 
             #sum_log_pos_m[Y_outlier_mask_m] = 0
             #avg_log_pos_v = np.sum(sum_log_pos_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_log_pos_v = __outlier_resistant_mean(sum_log_pos_m, num_sum_Y_m, Y_outlier_mask_m)
+            _, avg_log_pos_v = _outlier_resistant_mean(sum_log_pos_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
 
-            _, avg_log_po_raws_v = __outlier_resistant_mean(sum_log_po_raws_m, num_sum_Y_m, Y_outlier_mask_m)
+            _, avg_log_po_raws_v = _outlier_resistant_mean(sum_log_po_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
 
             #sum_log_pos2_m[Y_outlier_mask_m] = 0
             #avg_log_pos2_v = np.sum(sum_log_pos2_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_log_pos2_v = __outlier_resistant_mean(sum_log_pos2_m, num_sum_Y_m, Y_outlier_mask_m)
+            _, avg_log_pos2_v = _outlier_resistant_mean(sum_log_pos2_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
 
             #sum_Ds_m[Y_outlier_mask_m] = 0
             #avg_Ds_v = np.sum(sum_Ds_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_Ds_v = __outlier_resistant_mean(sum_Ds_m, num_sum_Y_m, Y_outlier_mask_m)
+            _, avg_Ds_v = _outlier_resistant_mean(sum_Ds_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
 
-            _, avg_D_raws_v = __outlier_resistant_mean(sum_D_raws_m, num_sum_Y_m, Y_outlier_mask_m)
+            _, avg_D_raws_v = _outlier_resistant_mean(sum_D_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
 
             #sum_priors_m[Y_outlier_mask_m] = 0
             #avg_priors_v = np.sum(sum_priors_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_priors_v = __outlier_resistant_mean(sum_priors_m, num_sum_Y_m, Y_outlier_mask_m)
+            _, avg_priors_v = _outlier_resistant_mean(sum_priors_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
 
             #sum_bf_orig_m[Y_outlier_mask_m] = 0
             #avg_bf_orig_v = np.sum(sum_bf_orig_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_bf_orig_v = __outlier_resistant_mean(sum_bf_orig_m, num_sum_Y_m, Y_outlier_mask_m)
+            _, avg_bf_orig_v = _outlier_resistant_mean(sum_bf_orig_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
 
             #sum_bf_orig_raw_m[Y_outlier_mask_m] = 0
             #avg_bf_orig_raw_v = np.sum(sum_bf_orig_raw_m / num_sum_Y_m, axis=0) / num_sum_Y_v
-            _, avg_bf_orig_raw_v = __outlier_resistant_mean(sum_bf_orig_raw_m, num_sum_Y_m, Y_outlier_mask_m)
+            _, avg_bf_orig_raw_v = _outlier_resistant_mean(sum_bf_orig_raw_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
 
             if self.genes_missing is not None:
                 #priors_missing_chain_means_m = sum_priors_missing_m / num_sum_priors_missing_m
@@ -10017,11 +9962,11 @@ class GeneSetData(object):
                 #sum_priors_missing_m[priors_missing_outlier_mask_m] = 0
                 #avg_priors_missing_v = np.sum(sum_priors_missing_m / num_sum_priors_missing_m, axis=0) / num_sum_priors_missing_v
 
-                priors_missing_outlier_mask_m, avg_priors_missing_v = __outlier_resistant_mean(sum_priors_missing_m, num_sum_priors_missing_m)
+                priors_missing_outlier_mask_m, avg_priors_missing_v = _outlier_resistant_mean(sum_priors_missing_m, num_sum_priors_missing_m, num_mad, record_param_fn=self._record_param)
 
                 #sum_Ds_missing_m[priors_missing_outlier_mask_m] = 0
                 #avg_Ds_missing_v = np.sum(sum_Ds_missing_m / num_sum_priors_missing_m, axis=0) / num_sum_priors_missing_v
-                _, avg_Ds_missing_v = __outlier_resistant_mean(sum_Ds_missing_m, num_sum_priors_missing_m, priors_missing_outlier_mask_m)
+                _, avg_Ds_missing_v = _outlier_resistant_mean(sum_Ds_missing_m, num_sum_priors_missing_m, num_mad, priors_missing_outlier_mask_m)
 
             #sum_betas_m[beta_outlier_mask_m] = 0
             #avg_betas_v = np.sum(sum_betas_m / num_sum_beta_m, axis=0) / num_sum_beta_v
@@ -10029,19 +9974,19 @@ class GeneSetData(object):
 
             #sum_betas_uncorrected_m[beta_outlier_mask_m] = 0
             #avg_betas_uncorrected_v = np.sum(sum_betas_uncorrected_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            _, avg_betas_uncorrected_v = __outlier_resistant_mean(sum_betas_uncorrected_m, num_sum_beta_m, beta_outlier_mask_m)
+            _, avg_betas_uncorrected_v = _outlier_resistant_mean(sum_betas_uncorrected_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
 
             #sum_postp_m[beta_outlier_mask_m] = 0
             #avg_postp_v = np.sum(sum_postp_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            _, avg_postp_v = __outlier_resistant_mean(sum_postp_m, num_sum_beta_m, beta_outlier_mask_m)
+            _, avg_postp_v = _outlier_resistant_mean(sum_postp_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
 
             #sum_beta_tildes_m[beta_outlier_mask_m] = 0
             #avg_beta_tildes_v = np.sum(sum_beta_tildes_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            _, avg_beta_tildes_v = __outlier_resistant_mean(sum_beta_tildes_m, num_sum_beta_m, beta_outlier_mask_m)
+            _, avg_beta_tildes_v = _outlier_resistant_mean(sum_beta_tildes_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
 
             #sum_z_scores_m[beta_outlier_mask_m] = 0
             #avg_z_scores_v = np.sum(sum_z_scores_m / num_sum_beta_m, axis=0) / num_sum_beta_v
-            _, avg_z_scores_v = __outlier_resistant_mean(sum_z_scores_m, num_sum_beta_m, beta_outlier_mask_m)
+            _, avg_z_scores_v = _outlier_resistant_mean(sum_z_scores_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
 
             num_post_burn_in_Y = int(np.min(num_sum_Y_m))
             num_post_burn_in_beta = int(np.min(num_sum_beta_m))
@@ -16870,6 +16815,26 @@ def _build_gibbs_chain_stack(X_orig, num_chains, max_mb_X_h, X_size_mb, log_fun)
 
     num_stack_batches = int(np.ceil(num_chains / float(stack_batch_size)))
     return (X_hstacked, stack_batch_size, num_stack_batches)
+
+
+def _outlier_resistant_mean(sum_m, num_sum_m, num_mad, outlier_mask_m=None, record_param_fn=None):
+    if outlier_mask_m is None:
+        if record_param_fn is not None:
+            record_param_fn("mad_threshold", num_mad)
+
+        chain_means_m = sum_m / num_sum_m
+        medians_v = np.median(chain_means_m, axis=0)
+        mad_m = np.abs(chain_means_m - medians_v)
+        mad_median_v = np.median(mad_m, axis=0)
+        outlier_mask_m = chain_means_m > medians_v + num_mad * mad_median_v
+
+    num_sum_v = np.sum(~outlier_mask_m, axis=0)
+    num_sum_v[num_sum_v == 0] = 1
+
+    copy_sum_m = copy.copy(sum_m)
+    copy_sum_m[outlier_mask_m] = 0
+    avg_v = np.sum(copy_sum_m / num_sum_m, axis=0) / num_sum_v
+    return (outlier_mask_m, avg_v)
 
 
 def _compute_post_burn_beta_diagnostics(
