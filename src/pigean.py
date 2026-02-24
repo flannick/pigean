@@ -9077,91 +9077,25 @@ class GeneSetData(object):
 
                 R_beta_v = np.zeros(all_sum_betas_m.shape[1])
 
-                if increase_hyper_if_betas_below_for_epoch is not None:
-                    #check to make sure that we satisfy
-                    if np.any(all_num_sum_m == 0):
-                        gibbs_good = False
-                    else:
-
-                        #check both sum of all iterations (to not wait until convergence to detect failures)
-                        #and sum of iterations after convergence
-                        _, all_cur_avg_betas_v = _outlier_resistant_mean(all_sum_betas_m, all_num_sum_m, num_mad, record_param_fn=self._record_param)
-
-                        fraction_required = 0.001
-                        self._record_param("fraction_required_to_not_increase_hyper", fraction_required)
-
-                        #all_low = np.all(all_cur_avg_betas_v / self.scale_factors < increase_hyper_if_betas_below)
-                        #all_low = np.mean(all_cur_avg_betas_v / self.scale_factors > increase_hyper_if_betas_below) < fraction_required
-                        all_low = False
-
-                        if np.all(num_sum_beta_m > 0):
-                            _, cur_avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=self._record_param)
-                            #all_low = all_low or np.all(cur_avg_betas_v / self.scale_factors < increase_hyper_if_betas_below)
-                            #all_low = np.all(cur_avg_betas_v / self.scale_factors < increase_hyper_if_betas_below)
-                            all_low = np.mean(cur_avg_betas_v / self.scale_factors > increase_hyper_if_betas_below_for_epoch) < fraction_required
-                            
-                        #if np.all(all_num_sum_m > 0):
-                        #    top_gene_set = np.argmax(np.mean(all_sum_betas_m / all_num_sum_m, axis=0) / self.scale_factors)
-                        #    log("Top gene set %s has all value %.3g" % (self.gene_sets[top_gene_set], (np.mean(all_sum_betas_m / all_num_sum_m, axis=0) / self.scale_factors)[top_gene_set]), TRACE)
-                        #    top_gene_set2 = np.argmax(all_cur_avg_betas_v / self.scale_factors)
-                        #    log("Top gene set %s has all outlier value %.3g" % (self.gene_sets[top_gene_set], (all_cur_avg_betas_v / self.scale_factors)[top_gene_set]), TRACE)
-
-                        if np.all(num_sum_beta_m > 0):
-                            top_gene_set = np.argmax(np.mean(sum_betas_m / num_sum_beta_m, axis=0) / self.scale_factors)
-                            log("Top gene set %s has value %.3g" % (self.gene_sets[top_gene_set], (np.mean(sum_betas_m / num_sum_beta_m, axis=0) / self.scale_factors)[top_gene_set]), TRACE)
-                            top_gene_set2 = np.argmax(cur_avg_betas_v / self.scale_factors)
-                            log("Top gene set %s has outlier value %.3g" % (self.gene_sets[top_gene_set2], (cur_avg_betas_v / self.scale_factors)[top_gene_set]), TRACE)
-
-                            #top_gene_sets = np.argsort(np.mean(sum_betas_m / num_sum_beta_m, axis=0) / self.scale_factors)[::-1][:10]
-                            #for i in top_gene_sets:
-                            #    log("Top %d gene set %s has value %.3g" % (i, self.gene_sets[i], (np.mean(sum_betas_m / num_sum_beta_m, axis=0) / self.scale_factors)[i]), TRACE)
-
-                            #top_gene_sets = np.argsort(cur_avg_betas_v / self.scale_factors)[::-1][:10]
-                            #for i in top_gene_sets:
-                            #    log("Top %d gene set %s has outlier value %.3g" % (i, self.gene_sets[i], (cur_avg_betas_v[i] / self.scale_factors)[i]), TRACE)
-
-
-                        if all_low:
-
-                            log("Only %.3g of %d (%.3g) are above %.3g" % (np.sum(cur_avg_betas_v / self.scale_factors > increase_hyper_if_betas_below_for_epoch), len(cur_avg_betas_v), np.mean(cur_avg_betas_v / self.scale_factors > increase_hyper_if_betas_below_for_epoch), increase_hyper_if_betas_below_for_epoch))
-
-                            #at minimum, guarantee that it will restart unless it gets above this
-                            gibbs_good = False
-                            #only if above num for checking though that we increase and restart
-                            if iteration_num > num_before_checking_p_increase:
-                                new_p = self.p
-                                new_sigma2 = self.sigma2
-
-                                self._record_param("p_scale_factor", p_scale_factor)
-
-                                new_p = self.p * p_scale_factor
-                                num_p_increases += 1
-                                if new_p > 1:
-                                    new_p = 1
-
-                              
-                                break_loop = False
-                                if new_p != self.p and num_attempts < max_num_attempt_restarts:
-                                    #update so that new_sigma2 / new_p = self.sigma2 / self.p
-                                    new_sigma2 = self.sigma2 * new_p / self.p
-
-                                    self.ps *= new_p / self.p
-                                    self.set_p(new_p)
-                                    self._record_param("p_adj", new_p)
-                                    log("Detected all gene set betas below %.3g; increasing p to %.3g and restarting gibbs" % (increase_hyper_if_betas_below_for_epoch, self.p))
-
-                                    #restart
-                                    break_loop = True
-                                if new_sigma2 != self.sigma2 and num_attempts < max_num_attempt_restarts:
-                                    self.sigma2s *= new_sigma2 / self.sigma2
-                                    self._record_param("sigma2_adj", new_sigma2)
-                                    self.set_sigma(new_sigma2, self.sigma_power)
-                                    log("Detected all gene set betas below %.3g; increasing sigma to %.3g and restarting gibbs" % (increase_hyper_if_betas_below_for_epoch, self.sigma2))
-                                    break_loop = True
-                                if break_loop:
-                                    break
-                        else:
-                            gibbs_good = True
+                low_beta_restart_update = _maybe_restart_gibbs_for_low_betas(
+                    self,
+                    increase_hyper_if_betas_below_for_epoch,
+                    all_sum_betas_m,
+                    all_num_sum_m,
+                    num_sum_beta_m,
+                    sum_betas_m,
+                    num_mad,
+                    num_before_checking_p_increase,
+                    iteration_num,
+                    p_scale_factor,
+                    num_attempts,
+                    max_num_attempt_restarts,
+                    num_p_increases,
+                )
+                gibbs_good = low_beta_restart_update["gibbs_good"]
+                num_p_increases = low_beta_restart_update["num_p_increases"]
+                if low_beta_restart_update["should_break"]:
+                    break
 
                 burn_in_update = _update_gibbs_burn_in_state(
                     in_burn_in,
@@ -16590,6 +16524,118 @@ def _update_gibbs_burn_in_state(
         "prev_Ys_m": prev_Ys_m,
         "burn_stall_beta_indices": burn_stall_beta_indices,
         "R_beta_v": R_beta_v,
+    }
+
+
+def _maybe_restart_gibbs_for_low_betas(
+    state,
+    increase_hyper_if_betas_below_for_epoch,
+    all_sum_betas_m,
+    all_num_sum_m,
+    num_sum_beta_m,
+    sum_betas_m,
+    num_mad,
+    num_before_checking_p_increase,
+    iteration_num,
+    p_scale_factor,
+    num_attempts,
+    max_num_attempt_restarts,
+    num_p_increases,
+):
+    gibbs_good = True
+    should_break = False
+
+    if increase_hyper_if_betas_below_for_epoch is None:
+        return {
+            "gibbs_good": gibbs_good,
+            "num_p_increases": num_p_increases,
+            "should_break": should_break,
+        }
+
+    # Check to make sure that we satisfy the hyperparameter growth criteria.
+    if np.any(all_num_sum_m == 0):
+        gibbs_good = False
+        return {
+            "gibbs_good": gibbs_good,
+            "num_p_increases": num_p_increases,
+            "should_break": should_break,
+        }
+
+    # Check both sums over all iterations and post-burn aggregates.
+    _, all_cur_avg_betas_v = _outlier_resistant_mean(all_sum_betas_m, all_num_sum_m, num_mad, record_param_fn=state._record_param)
+
+    fraction_required = 0.001
+    state._record_param("fraction_required_to_not_increase_hyper", fraction_required)
+
+    all_low = False
+    if np.all(num_sum_beta_m > 0):
+        _, cur_avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=state._record_param)
+        all_low = np.mean(cur_avg_betas_v / state.scale_factors > increase_hyper_if_betas_below_for_epoch) < fraction_required
+
+    if np.all(num_sum_beta_m > 0):
+        top_gene_set = np.argmax(np.mean(sum_betas_m / num_sum_beta_m, axis=0) / state.scale_factors)
+        log("Top gene set %s has value %.3g" % (state.gene_sets[top_gene_set], (np.mean(sum_betas_m / num_sum_beta_m, axis=0) / state.scale_factors)[top_gene_set]), TRACE)
+        top_gene_set2 = np.argmax(cur_avg_betas_v / state.scale_factors)
+        log("Top gene set %s has outlier value %.3g" % (state.gene_sets[top_gene_set2], (cur_avg_betas_v / state.scale_factors)[top_gene_set]), TRACE)
+
+    if all_low:
+        log(
+            "Only %.3g of %d (%.3g) are above %.3g"
+            % (
+                np.sum(cur_avg_betas_v / state.scale_factors > increase_hyper_if_betas_below_for_epoch),
+                len(cur_avg_betas_v),
+                np.mean(cur_avg_betas_v / state.scale_factors > increase_hyper_if_betas_below_for_epoch),
+                increase_hyper_if_betas_below_for_epoch,
+            )
+        )
+
+        # At minimum, guarantee that it will restart unless it gets above this.
+        gibbs_good = False
+        # Only if above num for checking though that we increase and restart.
+        if iteration_num > num_before_checking_p_increase:
+            new_p = state.p
+            new_sigma2 = state.sigma2
+
+            state._record_param("p_scale_factor", p_scale_factor)
+
+            new_p = state.p * p_scale_factor
+            num_p_increases += 1
+            if new_p > 1:
+                new_p = 1
+
+            break_loop = False
+            if new_p != state.p and num_attempts < max_num_attempt_restarts:
+                # Update so that new_sigma2 / new_p = self.sigma2 / self.p
+                new_sigma2 = state.sigma2 * new_p / state.p
+
+                state.ps *= new_p / state.p
+                state.set_p(new_p)
+                state._record_param("p_adj", new_p)
+                log(
+                    "Detected all gene set betas below %.3g; increasing p to %.3g and restarting gibbs"
+                    % (increase_hyper_if_betas_below_for_epoch, state.p)
+                )
+
+                # Restart.
+                break_loop = True
+            if new_sigma2 != state.sigma2 and num_attempts < max_num_attempt_restarts:
+                state.sigma2s *= new_sigma2 / state.sigma2
+                state._record_param("sigma2_adj", new_sigma2)
+                state.set_sigma(new_sigma2, state.sigma_power)
+                log(
+                    "Detected all gene set betas below %.3g; increasing sigma to %.3g and restarting gibbs"
+                    % (increase_hyper_if_betas_below_for_epoch, state.sigma2)
+                )
+                break_loop = True
+            if break_loop:
+                should_break = True
+    else:
+        gibbs_good = True
+
+    return {
+        "gibbs_good": gibbs_good,
+        "num_p_increases": num_p_increases,
+        "should_break": should_break,
     }
 
 
