@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -28,6 +29,7 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         cls.repo_root = Path(__file__).resolve().parents[1]
         cls._tmpdir_ctx = tempfile.TemporaryDirectory()
         cls.tmpdir = Path(cls._tmpdir_ctx.name)
+        cls.runtime_ratio_limit = float(os.environ.get("PIGEAN_RUNTIME_RATIO_LIMIT", "1.1"))
 
         cls.gene_loc_file = cls.tmpdir / "tiny.gene.loc"
         cls.gwas_file = cls.tmpdir / "tiny.gwas.tsv"
@@ -36,15 +38,15 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         # Baseline parity check against legacy implementation.
         cls.new_direct_prefix = cls.tmpdir / "new_direct"
         cls.legacy_direct_prefix = cls.tmpdir / "legacy_direct"
-        cls._run_huge(
-            entrypoint="src/pigean.py",
-            extra_args=cls._common_gwas_args(),
-            out_prefix=cls.new_direct_prefix,
-        )
-        cls._run_huge(
+        cls.legacy_direct_runtime_sec = cls._run_huge(
             entrypoint="legacy/priors.py",
             extra_args=cls._common_gwas_args(),
             out_prefix=cls.legacy_direct_prefix,
+        )
+        cls.new_direct_runtime_sec = cls._run_huge(
+            entrypoint="src/pigean.py",
+            extra_args=cls._common_gwas_args(),
+            out_prefix=cls.new_direct_prefix,
         )
 
         # Cache roundtrip through single-file tar.gz bundle.
@@ -137,7 +139,7 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         ]
 
     @classmethod
-    def _run_huge(cls, entrypoint: str, extra_args: list[str], out_prefix: Path) -> None:
+    def _run_huge(cls, entrypoint: str, extra_args: list[str], out_prefix: Path) -> float:
         cmd = [
             sys.executable,
             entrypoint,
@@ -152,11 +154,14 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         ]
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
+        start = time.perf_counter()
         proc = subprocess.run(cmd, cwd=cls.repo_root, env=env, capture_output=True, text=True, check=False)
+        elapsed = time.perf_counter() - start
         if proc.returncode != 0:
             raise RuntimeError(
                 f"Command failed ({entrypoint}): {' '.join(cmd)}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
             )
+        return elapsed
 
     @staticmethod
     def _load_gene_stats(path: Path, value_cols: list[str]) -> dict[str, tuple[float, ...]]:
@@ -242,6 +247,17 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         first_params = self._load_params(self.new_direct_prefix.with_suffix(".params.out"))
         second_params = self._load_params(self.new_direct_repeat_prefix.with_suffix(".params.out"))
         self._assert_param_subset_equal(first_params, second_params, self.PARAM_VALUE_KEYS, atol=0.0)
+
+    def test_runtime_not_slower_than_legacy_direct(self) -> None:
+        max_allowed = self.legacy_direct_runtime_sec * self.runtime_ratio_limit
+        self.assertLessEqual(
+            self.new_direct_runtime_sec,
+            max_allowed,
+            msg=(
+                f"HuGE direct runtime slower than legacy: new={self.new_direct_runtime_sec:.4f}s "
+                f"legacy={self.legacy_direct_runtime_sec:.4f}s limit={self.runtime_ratio_limit:.3f}x"
+            ),
+        )
 
 
 if __name__ == "__main__":

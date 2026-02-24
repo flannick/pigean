@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -35,11 +36,12 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
 
         cls._tmpdir_ctx = tempfile.TemporaryDirectory()
         cls.tmpdir = Path(cls._tmpdir_ctx.name)
+        cls.runtime_ratio_limit = float(os.environ.get("PIGEAN_RUNTIME_RATIO_LIMIT", "1.1"))
 
         cls.new_prefix = cls.tmpdir / "new_real_gwas"
         cls.legacy_prefix = cls.tmpdir / "legacy_real_gwas"
-        cls._run_huge(entrypoint="src/pigean.py", out_prefix=cls.new_prefix)
-        cls._run_huge(entrypoint="legacy/priors.py", out_prefix=cls.legacy_prefix)
+        cls.legacy_runtime_sec = cls._run_huge(entrypoint="legacy/priors.py", out_prefix=cls.legacy_prefix)
+        cls.new_runtime_sec = cls._run_huge(entrypoint="src/pigean.py", out_prefix=cls.new_prefix)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -64,7 +66,7 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
         ]
 
     @classmethod
-    def _run_huge(cls, entrypoint: str, out_prefix: Path) -> None:
+    def _run_huge(cls, entrypoint: str, out_prefix: Path) -> float:
         cmd = [
             sys.executable,
             entrypoint,
@@ -79,11 +81,14 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
         ]
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
+        start = time.perf_counter()
         proc = subprocess.run(cmd, cwd=cls.repo_root, env=env, capture_output=True, text=True, check=False)
+        elapsed = time.perf_counter() - start
         if proc.returncode != 0:
             raise RuntimeError(
                 f"Command failed ({entrypoint}): {' '.join(cmd)}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
             )
+        return elapsed
 
     @staticmethod
     def _load_gene_stats(path: Path, value_cols: list[str]) -> dict[str, tuple[float, ...]]:
@@ -143,7 +148,17 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
         legacy_params = self._load_params(self.legacy_prefix.with_suffix(".params.out"))
         self._assert_param_subset_equal(new_params, legacy_params, self.PARAM_VALUE_KEYS, atol=0.0)
 
+    def test_runtime_not_slower_than_legacy(self) -> None:
+        max_allowed = self.legacy_runtime_sec * self.runtime_ratio_limit
+        self.assertLessEqual(
+            self.new_runtime_sec,
+            max_allowed,
+            msg=(
+                f"Real-GWAS HuGE runtime slower than legacy: new={self.new_runtime_sec:.4f}s "
+                f"legacy={self.legacy_runtime_sec:.4f}s limit={self.runtime_ratio_limit:.3f}x"
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
-

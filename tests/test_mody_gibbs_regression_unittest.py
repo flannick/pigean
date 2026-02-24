@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -27,6 +28,7 @@ class ModyGibbsRegressionTest(unittest.TestCase):
 
         cls._tmpdir_ctx = tempfile.TemporaryDirectory()
         cls.tmpdir = Path(cls._tmpdir_ctx.name)
+        cls.runtime_ratio_limit = float(os.environ.get("PIGEAN_RUNTIME_RATIO_LIMIT", "1.1"))
 
         genes = [line.strip() for line in cls.mody_gene_list.read_text(encoding="utf-8").splitlines() if line.strip()]
         cls.positive_controls_csv = ",".join(genes)
@@ -34,8 +36,8 @@ class ModyGibbsRegressionTest(unittest.TestCase):
         cls.new_prefix = cls.tmpdir / "mody_new"
         cls.legacy_prefix = cls.tmpdir / "mody_legacy"
 
-        cls._run_gibbs("src/pigean.py", cls.new_prefix)
-        cls._run_gibbs("legacy/priors.py", cls.legacy_prefix)
+        cls.legacy_runtime_sec = cls._run_gibbs("legacy/priors.py", cls.legacy_prefix)
+        cls.new_runtime_sec = cls._run_gibbs("src/pigean.py", cls.new_prefix)
 
         cls.new_gene_prior = cls._load_metric(
             cls.new_prefix.with_suffix(".gene_stats.out"), key_col="Gene", value_col="prior"
@@ -82,7 +84,7 @@ class ModyGibbsRegressionTest(unittest.TestCase):
         return None
 
     @classmethod
-    def _run_gibbs(cls, entrypoint: str, out_prefix: Path) -> None:
+    def _run_gibbs(cls, entrypoint: str, out_prefix: Path) -> float:
         cmd = [
             sys.executable,
             entrypoint,
@@ -123,11 +125,14 @@ class ModyGibbsRegressionTest(unittest.TestCase):
         ]
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
+        start = time.perf_counter()
         proc = subprocess.run(cmd, cwd=cls.repo_root, env=env, capture_output=True, text=True, check=False)
+        elapsed = time.perf_counter() - start
         if proc.returncode != 0:
             raise RuntimeError(
                 f"Command failed ({entrypoint}): {' '.join(cmd)}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
             )
+        return elapsed
 
     @staticmethod
     def _load_metric(path: Path, key_col: str, value_col: str) -> dict[str, float]:
@@ -161,6 +166,17 @@ class ModyGibbsRegressionTest(unittest.TestCase):
 
     def test_gene_set_beta_uncorrected_matches_reference(self) -> None:
         self._assert_metric_maps_equal(self.new_gene_set_beta, self.ref_gene_set_beta_map, atol=0.0)
+
+    def test_runtime_not_slower_than_legacy(self) -> None:
+        max_allowed = self.legacy_runtime_sec * self.runtime_ratio_limit
+        self.assertLessEqual(
+            self.new_runtime_sec,
+            max_allowed,
+            msg=(
+                f"New runtime slower than legacy: new={self.new_runtime_sec:.4f}s "
+                f"legacy={self.legacy_runtime_sec:.4f}s limit={self.runtime_ratio_limit:.3f}x"
+            ),
+        )
 
 
 if __name__ == "__main__":

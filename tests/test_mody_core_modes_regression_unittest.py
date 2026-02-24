@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -38,6 +39,8 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
 
         cls._tmpdir_ctx = tempfile.TemporaryDirectory()
         cls.tmpdir = Path(cls._tmpdir_ctx.name)
+        cls.runtime_ratio_limit = float(os.environ.get("PIGEAN_RUNTIME_RATIO_LIMIT", "1.1"))
+        cls.runtime_seconds: dict[str, float] = {}
 
         cls._run_mode_pair("beta_tildes", cls._beta_tildes_args())
         cls._run_mode_pair("betas", cls._betas_args())
@@ -117,21 +120,21 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
 
     @classmethod
     def _run_mode_pair(cls, mode: str, mode_args: list[str]) -> None:
-        cls._run_single(
-            "src/pigean.py",
-            mode,
-            mode_args,
-            cls.tmpdir / f"{mode}_new",
-        )
-        cls._run_single(
+        cls.runtime_seconds[f"{mode}_legacy"] = cls._run_single(
             "legacy/priors.py",
             mode if mode != "priors_fast" else "priors",
             mode_args,
             cls.tmpdir / f"{mode}_legacy",
         )
+        cls.runtime_seconds[f"{mode}_new"] = cls._run_single(
+            "src/pigean.py",
+            mode,
+            mode_args,
+            cls.tmpdir / f"{mode}_new",
+        )
 
     @classmethod
-    def _run_single(cls, entrypoint: str, mode: str, mode_args: list[str], out_prefix: Path) -> None:
+    def _run_single(cls, entrypoint: str, mode: str, mode_args: list[str], out_prefix: Path) -> float:
         effective_mode = mode if mode != "priors_fast" else "priors"
         cmd = [
             sys.executable,
@@ -147,11 +150,14 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
         ]
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
+        start = time.perf_counter()
         proc = subprocess.run(cmd, cwd=cls.repo_root, env=env, capture_output=True, text=True, check=False)
+        elapsed = time.perf_counter() - start
         if proc.returncode != 0:
             raise RuntimeError(
                 f"Command failed ({entrypoint} {effective_mode}): {' '.join(cmd)}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
             )
+        return elapsed
 
     @staticmethod
     def _load_metric(path: Path, key_col: str, value_cols: list[str]) -> dict[str, tuple[float, ...]]:
@@ -236,6 +242,20 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
         )
         self._assert_maps_equal(new_set, legacy_set)
         self._assert_maps_equal(new_set, ref_set)
+
+    def test_runtime_not_slower_than_legacy(self) -> None:
+        for mode in ["beta_tildes", "betas", "priors_fast"]:
+            new_sec = self.runtime_seconds[f"{mode}_new"]
+            legacy_sec = self.runtime_seconds[f"{mode}_legacy"]
+            max_allowed = legacy_sec * self.runtime_ratio_limit
+            self.assertLessEqual(
+                new_sec,
+                max_allowed,
+                msg=(
+                    f"Mode {mode} slower than legacy: new={new_sec:.4f}s "
+                    f"legacy={legacy_sec:.4f}s limit={self.runtime_ratio_limit:.3f}x"
+                ),
+            )
 
 
 if __name__ == "__main__":
