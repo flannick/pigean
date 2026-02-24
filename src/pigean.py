@@ -615,19 +615,6 @@ def _early_warn(_message):
     sys.stderr.write("Warning: %s\n" % _message)
     sys.stderr.flush()
 
-def _extract_config_mode_and_options(_config_data):
-    config_mode = _config_data["mode"] if "mode" in _config_data else None
-    if "options" in _config_data:
-        config_options = _config_data["options"]
-        if not isinstance(config_options, dict):
-            bail("Config key 'options' must be a JSON object")
-        return config_mode, config_options
-    config_options = dict(_config_data)
-    config_options.pop("mode", None)
-    config_options.pop("include", None)
-    return config_mode, config_options
-
-
 def _normalize_config_key_for_removed_option_check(_raw_key):
     if not isinstance(_raw_key, str):
         return _raw_key
@@ -778,7 +765,15 @@ def _parse_options_and_args_with_config(_parser, _argv):
         _options.config = config_path
         config_dir = os.path.dirname(config_path)
         config_data = _load_json_config(config_path)
-        config_mode, config_options = _extract_config_mode_and_options(_config_data=config_data)
+        config_mode = config_data["mode"] if "mode" in config_data else None
+        if "options" in config_data:
+            config_options = config_data["options"]
+            if not isinstance(config_options, dict):
+                bail("Config key 'options' must be a JSON object")
+        else:
+            config_options = dict(config_data)
+            config_options.pop("mode", None)
+            config_options.pop("include", None)
 
         dest_to_option = {}
         long_key_to_dest = {}
@@ -876,18 +871,6 @@ if mode in factor_modes:
 # CLI Phase C: Mode resolution and mode-specific defaults.
 # ==========================================================================
 
-def _make_mode_state():
-    return {
-        "run_huge": False,
-        "run_beta_tilde": False,
-        "run_beta": False,
-        "run_priors": False,
-        "run_naive_priors": False,
-        "run_gibbs": False,
-        "run_phewas": False,
-        "run_sim": False,
-    }
-
 MODE_TO_STATE_KEYS = {
     "huge": ("run_huge",),
     "huge_calc": ("run_huge",),
@@ -908,7 +891,16 @@ MODE_TO_STATE_KEYS = {
 }
 
 def _resolve_mode_state(_mode, _options):
-    _state = _make_mode_state()
+    _state = {
+        "run_huge": False,
+        "run_beta_tilde": False,
+        "run_beta": False,
+        "run_priors": False,
+        "run_naive_priors": False,
+        "run_gibbs": False,
+        "run_phewas": False,
+        "run_sim": False,
+    }
     state_keys = MODE_TO_STATE_KEYS.get(_mode)
     if state_keys is None:
         bail("Unrecognized mode %s" % _mode)
@@ -961,58 +953,6 @@ def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_na
     setattr(_options, opt_name, int(new_value))
 
 
-def _set_memory_control_with_min_floor(_options, _argv, _derived, _clamped, opt_name, implied_min, flag_name):
-    current = getattr(_options, opt_name)
-    explicit = _flag_present_in_argv(_argv, flag_name)
-    if current is None:
-        new_value = implied_min
-        _derived[opt_name] = new_value
-    else:
-        new_value = max(int(current), int(implied_min))
-        if explicit and new_value > int(current):
-            _clamped[opt_name] = (current, new_value, "min")
-        elif not explicit and new_value != int(current):
-            _derived[opt_name] = new_value
-    setattr(_options, opt_name, int(new_value))
-
-
-def _compute_implied_memory_control_limits(_options, total_mb, scale):
-    implied = {}
-    implied["batch_size_max"] = max(500, int(round(5000 * scale)))
-    # Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
-    implied["gibbs_max_mb_X_h_max"] = max(32, int(round(total_mb * 0.20)))
-    # read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
-    implied["max_read_entries_at_once_max"] = max(100000, int(round(total_mb * 500)))
-    implied["gibbs_num_batches_parallel_max"] = max(1, int(round(10 * scale)))
-    if _options.num_chains is not None:
-        implied["gibbs_num_batches_parallel_max"] = min(implied["gibbs_num_batches_parallel_max"], int(_options.num_chains))
-    implied["pre_filter_small_batch_size_max"] = max(100, int(round(500 * scale)))
-    implied["pre_filter_batch_size_max"] = max(implied["pre_filter_small_batch_size_max"], int(round(5000 * scale)))
-    # For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
-    # This is an inverse memory knob: larger values use less memory.
-    implied["priors_num_gene_batches_min"] = max(1, int(np.ceil(20.0 / scale)))
-    return implied
-
-
-def _apply_implied_memory_controls(_options, _argv, implied, _derived, _clamped):
-    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "batch_size", implied["batch_size_max"], "--batch-size")
-    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], "--gibbs-max-mb-X-h")
-    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], "--max-read-entries-at-once")
-    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], "--gibbs-num-batches-parallel")
-    _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], "--pre-filter-small-batch-size")
-    if _options.pre_filter_batch_size is not None:
-        _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], "--pre-filter-batch-size")
-    _set_memory_control_with_min_floor(_options, _argv, _derived, _clamped, "priors_num_gene_batches", implied["priors_num_gene_batches_min"], "--priors-num-gene-batches")
-
-
-def _log_memory_control_derivation(_options, total_mb, _derived, _clamped):
-    log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (_options.max_gb, total_mb, _options.max_read_entries_at_once, _options.priors_num_gene_batches, _options.gibbs_num_batches_parallel, _options.gibbs_max_mb_X_h, _options.batch_size, str(_options.pre_filter_batch_size), _options.pre_filter_small_batch_size), INFO)
-    if len(_derived) > 0:
-        log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, _derived[k]) for k in sorted(_derived.keys())]), DEBUG)
-    if len(_clamped) > 0:
-        log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, _clamped[k][0], _clamped[k][1], _clamped[k][2]) for k in sorted(_clamped.keys())]), INFO)
-
-
 def _derive_memory_controls_from_max_gb(_options, _argv):
     if _options.max_gb is None:
         _options.max_gb = 2.0
@@ -1028,29 +968,46 @@ def _derive_memory_controls_from_max_gb(_options, _argv):
     derived = {}
     clamped = {}
 
-    implied = _compute_implied_memory_control_limits(_options, total_mb, scale)
-    _apply_implied_memory_controls(_options, _argv, implied, derived, clamped)
-    _log_memory_control_derivation(_options, total_mb, derived, clamped)
+    implied = {}
+    implied["batch_size_max"] = max(500, int(round(5000 * scale)))
+    # Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
+    implied["gibbs_max_mb_X_h_max"] = max(32, int(round(total_mb * 0.20)))
+    # read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
+    implied["max_read_entries_at_once_max"] = max(100000, int(round(total_mb * 500)))
+    implied["gibbs_num_batches_parallel_max"] = max(1, int(round(10 * scale)))
+    if _options.num_chains is not None:
+        implied["gibbs_num_batches_parallel_max"] = min(implied["gibbs_num_batches_parallel_max"], int(_options.num_chains))
+    implied["pre_filter_small_batch_size_max"] = max(100, int(round(500 * scale)))
+    implied["pre_filter_batch_size_max"] = max(implied["pre_filter_small_batch_size_max"], int(round(5000 * scale)))
+    # For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
+    # This is an inverse memory knob: larger values use less memory.
+    implied["priors_num_gene_batches_min"] = max(1, int(np.ceil(20.0 / scale)))
 
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "batch_size", implied["batch_size_max"], "--batch-size")
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], "--gibbs-max-mb-X-h")
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], "--max-read-entries-at-once")
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], "--gibbs-num-batches-parallel")
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], "--pre-filter-small-batch-size")
+    if _options.pre_filter_batch_size is not None:
+        _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], "--pre-filter-batch-size")
+    current = getattr(_options, "priors_num_gene_batches")
+    explicit = _flag_present_in_argv(_argv, "--priors-num-gene-batches")
+    if current is None:
+        new_value = implied["priors_num_gene_batches_min"]
+        derived["priors_num_gene_batches"] = new_value
+    else:
+        new_value = max(int(current), int(implied["priors_num_gene_batches_min"]))
+        if explicit and new_value > int(current):
+            clamped["priors_num_gene_batches"] = (current, new_value, "min")
+        elif not explicit and new_value != int(current):
+            derived["priors_num_gene_batches"] = new_value
+    setattr(_options, "priors_num_gene_batches", int(new_value))
 
-def _apply_post_parse_option_normalization(_options):
-    if _options.gene_cor_file is None and _options.gene_loc_file is None and not _options.ols:
-        warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
-        _options.ols = True
-    if _options.betas_from_phewas:
-        _options.betas_uncorrected_from_phewas = True
-
-
-def _emit_effective_config_and_exit_if_requested(_options, _mode):
-    if not _options.print_effective_config:
-        return
-    effective_config = {
-        "mode": _mode,
-        "config": _options.config,
-        "options": _json_safe(vars(_options)),
-    }
-    sys.stdout.write("%s\n" % json.dumps(effective_config, indent=2, sort_keys=True))
-    sys.exit(0)
+    log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (_options.max_gb, total_mb, _options.max_read_entries_at_once, _options.priors_num_gene_batches, _options.gibbs_num_batches_parallel, _options.gibbs_max_mb_X_h, _options.batch_size, str(_options.pre_filter_batch_size), _options.pre_filter_small_batch_size), INFO)
+    if len(derived) > 0:
+        log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, derived[k]) for k in sorted(derived.keys())]), DEBUG)
+    if len(clamped) > 0:
+        log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
 
 
 def _finalize_options_after_parse(_options, _mode, _argv):
@@ -1112,8 +1069,20 @@ def _finalize_options_after_parse(_options, _mode, _argv):
         _options.total_num_iter_gibbs = _options.max_num_iter
 
     _derive_memory_controls_from_max_gb(_options, _argv)
-    _apply_post_parse_option_normalization(_options)
-    _emit_effective_config_and_exit_if_requested(_options, _mode)
+    if _options.gene_cor_file is None and _options.gene_loc_file is None and not _options.ols:
+        warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
+        _options.ols = True
+    if _options.betas_from_phewas:
+        _options.betas_uncorrected_from_phewas = True
+
+    if _options.print_effective_config:
+        effective_config = {
+            "mode": _mode,
+            "config": _options.config,
+            "options": _json_safe(vars(_options)),
+        }
+        sys.stdout.write("%s\n" % json.dumps(effective_config, indent=2, sort_keys=True))
+        sys.exit(0)
 
 
 mode_state = _resolve_mode_state(mode, options)
@@ -16814,13 +16783,6 @@ def _read_huge_statistics_bundle(runtime_state, prefix):
 
     return (gene_bf, extra_genes, np.array(extra_gene_bf), gene_bf_for_regression, np.array(extra_gene_bf_for_regression))
 
-def _default_for_gene_list_options(options):
-    options.ols = True
-    if options.positive_controls_all_in is None:
-        if not options.add_all_genes:
-            bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
-
-
 def _build_inner_beta_sampler_common_kwargs(options):
     return dict(
         max_num_burn_in=options.max_num_burn_in,
@@ -16944,7 +16906,9 @@ def main():
             and options.exomes_in is None
             and options.case_counts_in is None
         ):
-            _default_for_gene_list_options(options)
+            options.ols = True
+            if options.positive_controls_all_in is None and not options.add_all_genes:
+                bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
         # Feed all source-specific Y-loading knobs through one explicit kwargs bundle.
         read_y_source_kwargs = dict(
             gwas_in=options.gwas_in,
