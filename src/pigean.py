@@ -487,30 +487,6 @@ def _iter_parser_options(_parser):
             if _opt is not None and _opt.dest is not None:
                 yield _opt
 
-def _collect_cli_specified_dests(_argv, _parser):
-    option_lookup = {}
-    for _opt in _iter_parser_options(_parser):
-        for _long_opt in _opt._long_opts:
-            option_lookup[_long_opt] = _opt
-
-    specified_dests = set()
-    i = 0
-    while i < len(_argv):
-        arg = _argv[i]
-        if arg == "--":
-            break
-        if arg.startswith("--"):
-            opt_token = arg.split("=", 1)[0]
-            if opt_token in option_lookup:
-                opt_obj = option_lookup[opt_token]
-                if opt_obj.dest is not None:
-                    specified_dests.add(opt_obj.dest)
-                if "=" not in arg and opt_obj.takes_value() and i + 1 < len(_argv):
-                    i += 1
-        i += 1
-
-    return specified_dests
-
 def _merge_dicts(_base, _override):
     if not isinstance(_base, dict):
         _base = {}
@@ -615,17 +591,14 @@ def _early_warn(_message):
     sys.stderr.write("Warning: %s\n" % _message)
     sys.stderr.flush()
 
-def _normalize_config_key_for_removed_option_check(_raw_key):
-    if not isinstance(_raw_key, str):
-        return _raw_key
-    normalized_config_key = _raw_key
-    if normalized_config_key.startswith("--"):
-        normalized_config_key = normalized_config_key[2:]
-    return normalized_config_key.replace("-", "_")
-
-
 def _validate_config_key_not_removed(_raw_key, _config_path):
-    normalized_config_key = _normalize_config_key_for_removed_option_check(_raw_key)
+    if not isinstance(_raw_key, str):
+        normalized_config_key = _raw_key
+    else:
+        normalized_config_key = _raw_key
+        if normalized_config_key.startswith("--"):
+            normalized_config_key = normalized_config_key[2:]
+        normalized_config_key = normalized_config_key.replace("-", "_")
     if normalized_config_key not in REMOVED_OPTION_REPLACEMENTS:
         return
     replacement = REMOVED_OPTION_REPLACEMENTS[normalized_config_key]
@@ -759,7 +732,27 @@ def _parse_options_and_args_with_config(_parser, _argv):
     _fail_removed_cli_aliases(_argv)
     (_options, _args) = _parser.parse_args(_argv)
     config_mode = None
-    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
+    option_lookup = {}
+    for _opt in _iter_parser_options(_parser):
+        for _long_opt in _opt._long_opts:
+            option_lookup[_long_opt] = _opt
+
+    cli_specified_dests = set()
+    i = 0
+    while i < len(_argv):
+        arg = _argv[i]
+        if arg == "--":
+            break
+        if arg.startswith("--"):
+            opt_token = arg.split("=", 1)[0]
+            if opt_token in option_lookup:
+                opt_obj = option_lookup[opt_token]
+                if opt_obj.dest is not None:
+                    cli_specified_dests.add(opt_obj.dest)
+                if "=" not in arg and opt_obj.takes_value() and i + 1 < len(_argv):
+                    i += 1
+        i += 1
+
     if _options.config is not None:
         config_path = _resolve_config_path_value(_options.config, os.getcwd())
         _options.config = config_path
@@ -1100,27 +1093,6 @@ def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
 _DIG_OPEN_DATA_PREFIX = "dig-open-data:"
 _DIG_OPEN_DATA_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
 
-def _is_dig_open_data_uri(filepath):
-    return isinstance(filepath, str) and filepath.startswith(_DIG_OPEN_DATA_PREFIX)
-
-def _is_dig_open_data_ancestry_trait_spec(spec):
-    # Strict two-token shorthand: <ancestry>:<trait>
-    # Anything else is routed through open_text as free-form input.
-    if not isinstance(spec, str):
-        return False
-    if spec.count(":") != 1:
-        return False
-    ancestry, trait = spec.split(":", 1)
-    if len(ancestry) == 0 or len(trait) == 0:
-        return False
-    if "/" in ancestry or "/" in trait:
-        return False
-    if not _DIG_OPEN_DATA_TOKEN_RE.match(ancestry):
-        return False
-    if not _DIG_OPEN_DATA_TOKEN_RE.match(trait):
-        return False
-    return True
-
 def _open_dig_open_data(uri, flag=None):
     if flag is not None and "w" in flag:
         bail("dig-open-data sources are read-only and cannot be opened for writing")
@@ -1134,7 +1106,19 @@ def _open_dig_open_data(uri, flag=None):
     except ImportError:
         bail("dig_open_data is required to read '%s'. Install https://github.com/flannick/dig-open-data/" % uri)
 
-    if _is_dig_open_data_ancestry_trait_spec(spec):
+    # Strict two-token shorthand: <ancestry>:<trait>.
+    is_ancestry_trait = False
+    if isinstance(spec, str) and spec.count(":") == 1:
+        ancestry, trait = spec.split(":", 1)
+        is_ancestry_trait = (
+            len(ancestry) > 0
+            and len(trait) > 0
+            and "/" not in ancestry
+            and "/" not in trait
+            and _DIG_OPEN_DATA_TOKEN_RE.match(ancestry) is not None
+            and _DIG_OPEN_DATA_TOKEN_RE.match(trait) is not None
+        )
+    if is_ancestry_trait:
         ancestry, trait = spec.split(":", 1)
         log("Reading dig-open-data trait ancestry=%s trait=%s" % (ancestry, trait), INFO)
         return open_trait(ancestry, trait)
@@ -1176,7 +1160,7 @@ def is_gz_file(filepath, is_remote, flag=None):
         return filepath[-3:] == ".gz" or filepath[-4:] == ".bgz"
 
 def open_gz(file, flag=None):
-    if _is_dig_open_data_uri(file):
+    if isinstance(file, str) and file.startswith(_DIG_OPEN_DATA_PREFIX):
         return _open_dig_open_data(file, flag=flag)
 
     is_remote = False
