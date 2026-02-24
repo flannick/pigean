@@ -1190,7 +1190,13 @@ class GeneSetData(object):
         self.background_log_bf = np.log(self.background_prior / (1 - self.background_prior))
         self.background_bf = np.exp(self.background_log_bf)
 
+        self._init_matrix_and_gene_index_state(batch_size=batch_size)
+        self._init_phewas_and_label_state()
+        self._init_gene_set_regression_state()
+        self._init_gene_signal_and_huge_state()
+        self._init_model_summary_state()
 
+    def _init_matrix_and_gene_index_state(self, batch_size):
         #genes x gene set indicator matrix (sparse)
         #this is always the original matrix -- it is never rescaled or shifted
         #but, calculations of beta_tildes etc. are done relative to what would be obtained if it were scaled
@@ -1254,6 +1260,7 @@ class GeneSetData(object):
         self.gene_to_exomes_huge_score = None
         self.gene_to_huge_score = None
 
+    def _init_phewas_and_label_state(self):
         self.anchor_pheno_mask = None
         self.anchor_gene_mask = None
 
@@ -1324,6 +1331,7 @@ class GeneSetData(object):
         self.X_phewas_beta_uncorrected = None
         self.X_phewas_beta = None
 
+    def _init_gene_set_regression_state(self):
         #ordered list of gene sets
         self.gene_sets = None
         self.gene_sets_missing = None
@@ -1375,12 +1383,13 @@ class GeneSetData(object):
         self.ses_missing_orig = None
         self.z_scores_missing_orig = None
 
+    def _init_gene_signal_and_huge_state(self):
         #DO WE NEED THIS???
         #self.y_mean = None
         self.Y = None
         self.Y_exomes = None
         self.Y_positive_controls = None
-        self.Y_case_counts = None 
+        self.Y_case_counts = None
 
         #this is to store altered variables if we detect power
         #these are used for fitting the betas (the indirect support)
@@ -1395,7 +1404,6 @@ class GeneSetData(object):
         self.Y_for_regression_orig = None
         self.Y_w_orig = None
         self.Y_fw_orig = None
-
 
         self.gene_locations = None #this stores sort orders for genes, which is populated when fitting correlation matrix from gene loc file
 
@@ -1420,7 +1428,6 @@ class GeneSetData(object):
         self.total_qc_metric2_betas_defaults = None
         self.total_qc_metric2_intercept_defaults = None
 
-
         self.total_qc_metric_betas = None
         self.total_qc_metric_intercept = None
         self.total_qc_metric2_betas = None
@@ -1433,7 +1440,7 @@ class GeneSetData(object):
         self.huge_signal_sum_gene_cond_probabilities = None
         self.huge_signal_sum_gene_cond_probabilities_for_regression = None
         self.huge_signal_mean_gene_pos = None
-        self.huge_signal_mean_gene_pos_for_regression = None        
+        self.huge_signal_mean_gene_pos_for_regression = None
         self.huge_signal_max_closest_gene_prob = None
 
         self.huge_cap_region_posterior = True
@@ -1476,6 +1483,7 @@ class GeneSetData(object):
 
         self.total_qc_metrics_directions = None
 
+    def _init_model_summary_state(self):
         self.p = None
         self.ps = None #this allows gene sets to have different ps
         self.ps_missing = None #this allows gene sets to have different ps
@@ -1503,7 +1511,6 @@ class GeneSetData(object):
 
         self.betas_phewas = None
         self.betas_uncorrected_phewas = None
-
 
         self.betas_missing = None
         self.betas_uncorrected_missing = None
