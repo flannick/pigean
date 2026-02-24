@@ -628,18 +628,6 @@ def _extract_config_mode_and_options(_config_data):
     return config_mode, config_options
 
 
-def _build_parser_dest_lookup_maps(_parser):
-    dest_to_option = {}
-    long_key_to_dest = {}
-    for opt in _iter_parser_options(_parser):
-        dest_to_option[opt.dest] = opt
-        for long_opt in opt._long_opts:
-            key = long_opt.lstrip("-")
-            long_key_to_dest[key] = opt.dest
-            long_key_to_dest[key.replace("-", "_")] = opt.dest
-    return dest_to_option, long_key_to_dest
-
-
 def _normalize_config_key_for_removed_option_check(_raw_key):
     if not isinstance(_raw_key, str):
         return _raw_key
@@ -792,7 +780,14 @@ def _parse_options_and_args_with_config(_parser, _argv):
         config_data = _load_json_config(config_path)
         config_mode, config_options = _extract_config_mode_and_options(_config_data=config_data)
 
-        dest_to_option, long_key_to_dest = _build_parser_dest_lookup_maps(_parser)
+        dest_to_option = {}
+        long_key_to_dest = {}
+        for opt in _iter_parser_options(_parser):
+            dest_to_option[opt.dest] = opt
+            for long_opt in opt._long_opts:
+                key = long_opt.lstrip("-")
+                long_key_to_dest[key] = opt.dest
+                long_key_to_dest[key.replace("-", "_")] = opt.dest
         for raw_key, raw_value in config_options.items():
             if raw_key in ("mode", "options", "include"):
                 continue
@@ -929,73 +924,6 @@ def _set_default_option(_options, _name, _value):
         setattr(_options, _name, _value)
 
 
-def _apply_pops_mode_defaults(_options):
-    _set_default_option(_options, "correct_betas_mean", False)
-    _set_default_option(_options, "adjust_priors", False)
-    _set_default_option(_options, "p_noninf", [1])
-    _set_default_option(_options, "sigma_power", 2)
-    _set_default_option(_options, "update_hyper", "none")
-    _set_default_option(_options, "filter_negative", False)
-    _set_default_option(_options, "prune_gene_sets", 1.1)
-    _set_default_option(_options, "weighted_prune_gene_sets", 1.1)
-    _set_default_option(_options, "top_gene_set_prior", 0.1)
-    _set_default_option(_options, "num_gene_sets_for_prior", 15000)
-    _set_default_option(_options, "filter_gene_set_p", 0.05)
-    _set_default_option(_options, "linear", True)
-    _set_default_option(_options, "max_for_linear", 1)
-    _set_default_option(_options, "min_gene_set_size", 1)
-    _set_default_option(_options, "cross_val", True)
-    _set_default_option(_options, "sparse_frac_betas", 0)
-    _set_default_option(_options, "sparse_solution", False)
-
-
-def _default_prune_gene_sets_value_for_non_pops():
-    return 0.8
-
-
-def _apply_non_pops_core_defaults(_options):
-    _set_default_option(_options, "correct_betas_mean", True)
-    _set_default_option(_options, "adjust_priors", True)
-    _set_default_option(_options, "p_noninf", [0.001])
-    _set_default_option(_options, "sigma_power", -2)
-    _set_default_option(_options, "update_hyper", "p")
-    _set_default_option(_options, "filter_negative", True)
-    _set_default_option(_options, "top_gene_set_prior", 0.8)
-    _set_default_option(_options, "num_gene_sets_for_prior", 50)
-    _set_default_option(_options, "filter_gene_set_p", 0.01)
-    _set_default_option(_options, "linear", False)
-    _set_default_option(_options, "max_for_linear", 0.95)
-    _set_default_option(_options, "min_gene_set_size", 10)
-    _set_default_option(_options, "cross_val", False)
-    _set_default_option(_options, "sparse_frac_betas", 0.001)
-    _set_default_option(_options, "sparse_solution", True)
-
-
-def _apply_non_pops_pruning_defaults(_options):
-    default_prune = _default_prune_gene_sets_value_for_non_pops()
-    if _options.prune_gene_sets is None:
-        _options.prune_gene_sets = default_prune
-
-    if _options.weighted_prune_gene_sets is None:
-        _options.weighted_prune_gene_sets = default_prune
-
-
-def _apply_non_pops_mode_defaults(_options):
-    _apply_non_pops_core_defaults(_options)
-    _apply_non_pops_pruning_defaults(_options)
-
-
-def _is_pops_like_mode(_mode):
-    return _mode == "pops" or _mode == "naive_pops"
-
-
-def _apply_mode_defaults(_options, _mode):
-    if _is_pops_like_mode(_mode):
-        _apply_pops_mode_defaults(_options)
-    else:
-        _apply_non_pops_mode_defaults(_options)
-
-
 _GIBBS_STOPPING_PRESETS = {
     "lenient": {
         "stop_mcse_quantile": 0.90,
@@ -1009,40 +937,6 @@ _GIBBS_STOPPING_PRESETS = {
     },
 }
 
-
-def _apply_gibbs_stopping_preset_defaults(_options):
-    _options.gibbs_stopping_preset = "strict" if _options.strict_stopping else "lenient"
-    for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[_options.gibbs_stopping_preset].items():
-        _set_default_option(_options, opt_name, opt_value)
-
-
-def _apply_gibbs_epoch_backward_compat_defaults(_options):
-    # Backward-compat defaults for simplified epoch controls.
-    if _options.max_num_post_burn_in is None and _options.max_num_iter is not None:
-        _options.max_num_post_burn_in = max(1, _options.max_num_iter - max(_options.min_num_burn_in, 0))
-
-
-def _apply_disable_stall_detection_compat_overrides(_options):
-    # Explicitly disable all stall-based early exits/restarts.
-    if not _options.disable_stall_detection:
-        return
-    _options.burn_in_stall_window = 0
-    _options.stall_window = 0
-    _options.stall_recent_window = 0
-    # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
-    _options.max_num_restarts = 0
-    _options.total_num_iter_gibbs = _options.max_num_iter
-
-
-def _apply_gibbs_stopping_defaults(_options):
-    _apply_gibbs_stopping_preset_defaults(_options)
-    _apply_gibbs_epoch_backward_compat_defaults(_options)
-    _apply_disable_stall_detection_compat_overrides(_options)
-
-
-def _apply_post_parse_mode_and_stopping_defaults(_options, _mode):
-    _apply_mode_defaults(_options, _mode)
-    _apply_gibbs_stopping_defaults(_options)
 
 def _flag_present_in_argv(_argv, *flag_names):
     for arg in _argv:
@@ -1160,7 +1054,63 @@ def _emit_effective_config_and_exit_if_requested(_options, _mode):
 
 
 def _finalize_options_after_parse(_options, _mode, _argv):
-    _apply_post_parse_mode_and_stopping_defaults(_options, _mode)
+    # Mode-dependent defaults.
+    if _mode in ("pops", "naive_pops"):
+        _set_default_option(_options, "correct_betas_mean", False)
+        _set_default_option(_options, "adjust_priors", False)
+        _set_default_option(_options, "p_noninf", [1])
+        _set_default_option(_options, "sigma_power", 2)
+        _set_default_option(_options, "update_hyper", "none")
+        _set_default_option(_options, "filter_negative", False)
+        _set_default_option(_options, "prune_gene_sets", 1.1)
+        _set_default_option(_options, "weighted_prune_gene_sets", 1.1)
+        _set_default_option(_options, "top_gene_set_prior", 0.1)
+        _set_default_option(_options, "num_gene_sets_for_prior", 15000)
+        _set_default_option(_options, "filter_gene_set_p", 0.05)
+        _set_default_option(_options, "linear", True)
+        _set_default_option(_options, "max_for_linear", 1)
+        _set_default_option(_options, "min_gene_set_size", 1)
+        _set_default_option(_options, "cross_val", True)
+        _set_default_option(_options, "sparse_frac_betas", 0)
+        _set_default_option(_options, "sparse_solution", False)
+    else:
+        _set_default_option(_options, "correct_betas_mean", True)
+        _set_default_option(_options, "adjust_priors", True)
+        _set_default_option(_options, "p_noninf", [0.001])
+        _set_default_option(_options, "sigma_power", -2)
+        _set_default_option(_options, "update_hyper", "p")
+        _set_default_option(_options, "filter_negative", True)
+        _set_default_option(_options, "top_gene_set_prior", 0.8)
+        _set_default_option(_options, "num_gene_sets_for_prior", 50)
+        _set_default_option(_options, "filter_gene_set_p", 0.01)
+        _set_default_option(_options, "linear", False)
+        _set_default_option(_options, "max_for_linear", 0.95)
+        _set_default_option(_options, "min_gene_set_size", 10)
+        _set_default_option(_options, "cross_val", False)
+        _set_default_option(_options, "sparse_frac_betas", 0.001)
+        _set_default_option(_options, "sparse_solution", True)
+        default_prune = 0.8
+        if _options.prune_gene_sets is None:
+            _options.prune_gene_sets = default_prune
+        if _options.weighted_prune_gene_sets is None:
+            _options.weighted_prune_gene_sets = default_prune
+
+    # Gibbs stopping defaults.
+    _options.gibbs_stopping_preset = "strict" if _options.strict_stopping else "lenient"
+    for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[_options.gibbs_stopping_preset].items():
+        _set_default_option(_options, opt_name, opt_value)
+    # Backward-compat defaults for simplified epoch controls.
+    if _options.max_num_post_burn_in is None and _options.max_num_iter is not None:
+        _options.max_num_post_burn_in = max(1, _options.max_num_iter - max(_options.min_num_burn_in, 0))
+    # Explicitly disable all stall-based early exits/restarts.
+    if _options.disable_stall_detection:
+        _options.burn_in_stall_window = 0
+        _options.stall_window = 0
+        _options.stall_recent_window = 0
+        # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
+        _options.max_num_restarts = 0
+        _options.total_num_iter_gibbs = _options.max_num_iter
+
     _derive_memory_controls_from_max_gb(_options, _argv)
     _apply_post_parse_option_normalization(_options)
     _emit_effective_config_and_exit_if_requested(_options, _mode)
