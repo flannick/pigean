@@ -9292,119 +9292,54 @@ class GeneSetData(object):
                     #record these for tracing
 
                     if np.all(num_sum_Y_m > 1) and np.all(num_sum_beta_m > 1) and ((iteration_num + 1) % diag_every == 0 or iteration_num + 1 == epoch_max_num_iter):
-                        # For stopping diagnostics, aggregate previous completed epochs with the
-                        # current in-progress epoch so MCSE aligns with final reported MCSE.
-                        (diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, diag_sum_Ds_m, diag_num_sum_Y_m) = _build_gibbs_diag_sums(
+                        post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
                             epoch_aggregates,
                             sum_betas_m,
                             sum_betas2_m,
                             num_sum_beta_m,
                             sum_Ds_m,
                             num_sum_Y_m,
-                        )
-
-                        num_chains_effective_for_diag = diag_sum_betas_m.shape[0]
-
-                        beta_diag = _compute_post_burn_beta_diagnostics(
-                            diag_sum_betas_m,
-                            diag_sum_betas2_m,
-                            diag_num_sum_beta_m,
-                            num_chains_effective_for_diag,
+                            num_chains,
                             active_beta_top_k,
                             active_beta_min_abs,
                             stop_mcse_quantile,
                             beta_rel_mcse_denom_floor,
-                        )
-                        active_beta_mask = beta_diag["active_beta_mask"]
-                        beta_mean_v = beta_diag["beta_mean_v"]
-                        num_active_betas = beta_diag["num_active_betas"]
-                        beta_mcse_v = beta_diag["beta_mcse_v"]
-                        num_post_burn_beta = beta_diag["num_post_burn_beta"]
-                        beta_rhat_q_post = beta_diag["beta_rhat_q_post"]
-                        beta_ratio_q = beta_diag["beta_ratio_q"]
-                        betas_sem2_v = np.square(beta_mcse_v)
-
-                        gene_diag = _compute_post_burn_gene_diagnostics(
-                            diag_sum_Ds_m,
-                            diag_num_sum_Y_m,
-                            num_chains_effective_for_diag,
                             stop_top_gene_k,
                             stop_min_gene_d,
-                            stop_mcse_quantile,
-                        )
-                        D_mcse_v = gene_diag["D_mcse_v"]
-                        top_gene_k = gene_diag["top_gene_k"]
-                        top_gene_indices = gene_diag["top_gene_indices"]
-                        num_monitored_genes = gene_diag["num_monitored_genes"]
-                        num_eligible_genes = gene_diag["num_eligible_genes"]
-                        D_mcse_q = gene_diag["D_mcse_q"]
-                        sem2_v = np.square(D_mcse_v)
-
-                        post_stall_update = _update_post_burn_stall_tracking(
-                            sum_betas_m,
-                            sum_betas2_m,
-                            sum_Ds_m,
-                            num_sum_Y_m,
-                            num_chains,
-                            beta_rhat_q_post,
-                            D_mcse_q,
-                            active_beta_mask,
-                            beta_mean_v,
-                            top_gene_indices,
-                            active_beta_top_k,
-                            num_post_burn_beta,
+                            max_rel_mcse_beta,
+                            max_abs_mcse_d,
+                            min_num_post_burn_in_for_epoch,
+                            stop_pass_streak,
+                            stop_patience,
                             post_stall_best_beta_rhat_history,
                             post_stall_best_D_mcse_history,
                             post_stall_snapshots,
                             post_stall_beta_indices,
                             post_stall_gene_indices,
-                            stop_mcse_quantile,
                             stall_window,
                             stall_min_post_burn_in,
-                            min_num_post_burn_in_for_epoch,
                             stall_delta_rhat,
                             stall_delta_mcse,
                             stall_recent_window,
                             stall_recent_eps,
+                            epoch_iter_num,
+                            total_iter_num,
+                            num_full_gene_sets,
+                            burn_in_pass_streak,
+                            burn_in_patience,
+                            num_attempts,
+                            max_num_attempt_restarts,
                         )
-                        post_stall_beta_indices = post_stall_update["post_stall_beta_indices"]
-                        post_stall_gene_indices = post_stall_update["post_stall_gene_indices"]
-                        num_post_burn_D = post_stall_update["num_post_burn_D"]
-                        post_stall_plateau = post_stall_update["post_stall_plateau"]
-                        post_stall_recent_worse = post_stall_update["post_stall_recent_worse"]
-                        post_stall_recent_beta_rhat_q = post_stall_update["post_stall_recent_beta_rhat_q"]
-                        post_stall_recent_D_mcse_q = post_stall_update["post_stall_recent_D_mcse_q"]
-                        post_stall_detected = post_stall_update["post_stall_detected"]
 
-                        min_post_burn_reached = num_post_burn_D >= min_num_post_burn_in_for_epoch
-                        precision_pass = beta_ratio_q <= max_rel_mcse_beta and D_mcse_q <= max_abs_mcse_d
-                        if precision_pass and min_post_burn_reached:
-                            stop_pass_streak += 1
-                        else:
-                            stop_pass_streak = 0
-
-                        if stop_min_gene_d is None:
-                            log("Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d" % (epoch_iter_num, total_iter_num, stop_mcse_quantile, beta_rhat_q_post, stop_mcse_quantile, beta_ratio_q, max_rel_mcse_beta, beta_rel_mcse_denom_floor, stop_mcse_quantile, top_gene_k, D_mcse_q, max_abs_mcse_d, num_active_betas, num_full_gene_sets, num_chains_effective_for_diag, burn_in_pass_streak, burn_in_patience, stop_pass_streak, stop_patience), INFO)
-                        else:
-                            log("Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d" % (epoch_iter_num, total_iter_num, stop_mcse_quantile, beta_rhat_q_post, stop_mcse_quantile, beta_ratio_q, max_rel_mcse_beta, beta_rel_mcse_denom_floor, stop_mcse_quantile, top_gene_k, stop_min_gene_d, num_monitored_genes, num_eligible_genes, D_mcse_q, max_abs_mcse_d, num_active_betas, num_full_gene_sets, num_chains_effective_for_diag, burn_in_pass_streak, burn_in_patience, stop_pass_streak, stop_patience), INFO)
-
-                        precision_achieved = (min_post_burn_reached and stop_pass_streak >= stop_patience)
-
-                        if precision_achieved:
-                            stop_due_to_precision = True
-                            log("Desired Gibbs precision achieved; stopping sampling", INFO)
-                            done = True
-                        elif post_stall_detected:
-                            if num_attempts < max_num_attempt_restarts:
-                                restart_due_to_stall = True
-                                done = True
-                                # Keep and aggregate this epoch's post-burn samples, then continue
-                                # with a new epoch to add more effective chain means.
-                                log("Restarting Gibbs epoch due to post-burn stall at iter %d (global %d) because precision is not yet met (plateau=%s, recent_worse=%s, beta_Rhat_q=%.4g, D_mcse_q=%.4g, recent_beta_Rhat_q=%s, recent_D_mcse_q=%s); aggregating current epoch samples before restart" % (epoch_iter_num, total_iter_num, str(post_stall_plateau), str(post_stall_recent_worse), beta_rhat_q_post, D_mcse_q, ("%.4g" % post_stall_recent_beta_rhat_q) if np.isfinite(post_stall_recent_beta_rhat_q) else "NA", ("%.4g" % post_stall_recent_D_mcse_q) if np.isfinite(post_stall_recent_D_mcse_q) else "NA"), INFO)
-                            else:
-                                stop_due_to_stall = True
-                                done = True
-                                log("Post-burn stall detected at iter %d (global %d) and precision is not yet met, but no restart attempts remain; stopping this epoch (beta_Rhat_q=%.4g, D_mcse_q=%.4g)" % (epoch_iter_num, total_iter_num, beta_rhat_q_post, D_mcse_q), INFO)
+                        stop_pass_streak = post_burn_diag["stop_pass_streak"]
+                        post_stall_beta_indices = post_burn_diag["post_stall_beta_indices"]
+                        post_stall_gene_indices = post_burn_diag["post_stall_gene_indices"]
+                        betas_sem2_v = post_burn_diag["betas_sem2_v"]
+                        sem2_v = post_burn_diag["sem2_v"]
+                        done = done or post_burn_diag["done"]
+                        stop_due_to_precision = stop_due_to_precision or post_burn_diag["stop_due_to_precision"]
+                        restart_due_to_stall = restart_due_to_stall or post_burn_diag["restart_due_to_stall"]
+                        stop_due_to_stall = stop_due_to_stall or post_burn_diag["stop_due_to_stall"]
 
                     num_post_burn_samples_now = int(np.min(num_sum_Y_m))
                     if (not done) and num_post_burn_samples_now >= max_num_post_burn_in_for_epoch:
@@ -17283,6 +17218,247 @@ def _update_post_burn_stall_tracking(
         "post_stall_recent_beta_rhat_q": post_stall_recent_beta_rhat_q,
         "post_stall_recent_D_mcse_q": post_stall_recent_D_mcse_q,
         "post_stall_detected": post_stall_plateau or post_stall_recent_worse,
+    }
+
+
+def _evaluate_gibbs_post_burn_diagnostics_and_decision(
+    epoch_aggregates,
+    sum_betas_m,
+    sum_betas2_m,
+    num_sum_beta_m,
+    sum_Ds_m,
+    num_sum_Y_m,
+    num_chains,
+    active_beta_top_k,
+    active_beta_min_abs,
+    stop_mcse_quantile,
+    beta_rel_mcse_denom_floor,
+    stop_top_gene_k,
+    stop_min_gene_d,
+    max_rel_mcse_beta,
+    max_abs_mcse_d,
+    min_num_post_burn_in_for_epoch,
+    stop_pass_streak,
+    stop_patience,
+    post_stall_best_beta_rhat_history,
+    post_stall_best_D_mcse_history,
+    post_stall_snapshots,
+    post_stall_beta_indices,
+    post_stall_gene_indices,
+    stall_window,
+    stall_min_post_burn_in,
+    stall_delta_rhat,
+    stall_delta_mcse,
+    stall_recent_window,
+    stall_recent_eps,
+    epoch_iter_num,
+    total_iter_num,
+    num_full_gene_sets,
+    burn_in_pass_streak,
+    burn_in_patience,
+    num_attempts,
+    max_num_attempt_restarts,
+):
+    # For stopping diagnostics, aggregate previous completed epochs with the
+    # current in-progress epoch so MCSE aligns with final reported MCSE.
+    (
+        diag_sum_betas_m,
+        diag_sum_betas2_m,
+        diag_num_sum_beta_m,
+        diag_sum_Ds_m,
+        diag_num_sum_Y_m,
+    ) = _build_gibbs_diag_sums(
+        epoch_aggregates,
+        sum_betas_m,
+        sum_betas2_m,
+        num_sum_beta_m,
+        sum_Ds_m,
+        num_sum_Y_m,
+    )
+
+    num_chains_effective_for_diag = diag_sum_betas_m.shape[0]
+
+    beta_diag = _compute_post_burn_beta_diagnostics(
+        diag_sum_betas_m,
+        diag_sum_betas2_m,
+        diag_num_sum_beta_m,
+        num_chains_effective_for_diag,
+        active_beta_top_k,
+        active_beta_min_abs,
+        stop_mcse_quantile,
+        beta_rel_mcse_denom_floor,
+    )
+    active_beta_mask = beta_diag["active_beta_mask"]
+    beta_mean_v = beta_diag["beta_mean_v"]
+    num_active_betas = beta_diag["num_active_betas"]
+    beta_mcse_v = beta_diag["beta_mcse_v"]
+    num_post_burn_beta = beta_diag["num_post_burn_beta"]
+    beta_rhat_q_post = beta_diag["beta_rhat_q_post"]
+    beta_ratio_q = beta_diag["beta_ratio_q"]
+
+    gene_diag = _compute_post_burn_gene_diagnostics(
+        diag_sum_Ds_m,
+        diag_num_sum_Y_m,
+        num_chains_effective_for_diag,
+        stop_top_gene_k,
+        stop_min_gene_d,
+        stop_mcse_quantile,
+    )
+    D_mcse_v = gene_diag["D_mcse_v"]
+    top_gene_k = gene_diag["top_gene_k"]
+    top_gene_indices = gene_diag["top_gene_indices"]
+    num_monitored_genes = gene_diag["num_monitored_genes"]
+    num_eligible_genes = gene_diag["num_eligible_genes"]
+    D_mcse_q = gene_diag["D_mcse_q"]
+
+    post_stall_update = _update_post_burn_stall_tracking(
+        sum_betas_m,
+        sum_betas2_m,
+        sum_Ds_m,
+        num_sum_Y_m,
+        num_chains,
+        beta_rhat_q_post,
+        D_mcse_q,
+        active_beta_mask,
+        beta_mean_v,
+        top_gene_indices,
+        active_beta_top_k,
+        num_post_burn_beta,
+        post_stall_best_beta_rhat_history,
+        post_stall_best_D_mcse_history,
+        post_stall_snapshots,
+        post_stall_beta_indices,
+        post_stall_gene_indices,
+        stop_mcse_quantile,
+        stall_window,
+        stall_min_post_burn_in,
+        min_num_post_burn_in_for_epoch,
+        stall_delta_rhat,
+        stall_delta_mcse,
+        stall_recent_window,
+        stall_recent_eps,
+    )
+    post_stall_beta_indices = post_stall_update["post_stall_beta_indices"]
+    post_stall_gene_indices = post_stall_update["post_stall_gene_indices"]
+    num_post_burn_D = post_stall_update["num_post_burn_D"]
+    post_stall_plateau = post_stall_update["post_stall_plateau"]
+    post_stall_recent_worse = post_stall_update["post_stall_recent_worse"]
+    post_stall_recent_beta_rhat_q = post_stall_update["post_stall_recent_beta_rhat_q"]
+    post_stall_recent_D_mcse_q = post_stall_update["post_stall_recent_D_mcse_q"]
+    post_stall_detected = post_stall_update["post_stall_detected"]
+
+    min_post_burn_reached = num_post_burn_D >= min_num_post_burn_in_for_epoch
+    precision_pass = beta_ratio_q <= max_rel_mcse_beta and D_mcse_q <= max_abs_mcse_d
+    if precision_pass and min_post_burn_reached:
+        stop_pass_streak += 1
+    else:
+        stop_pass_streak = 0
+
+    if stop_min_gene_d is None:
+        log(
+            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+            % (
+                epoch_iter_num,
+                total_iter_num,
+                stop_mcse_quantile,
+                beta_rhat_q_post,
+                stop_mcse_quantile,
+                beta_ratio_q,
+                max_rel_mcse_beta,
+                beta_rel_mcse_denom_floor,
+                stop_mcse_quantile,
+                top_gene_k,
+                D_mcse_q,
+                max_abs_mcse_d,
+                num_active_betas,
+                num_full_gene_sets,
+                num_chains_effective_for_diag,
+                burn_in_pass_streak,
+                burn_in_patience,
+                stop_pass_streak,
+                stop_patience,
+            ),
+            INFO,
+        )
+    else:
+        log(
+            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+            % (
+                epoch_iter_num,
+                total_iter_num,
+                stop_mcse_quantile,
+                beta_rhat_q_post,
+                stop_mcse_quantile,
+                beta_ratio_q,
+                max_rel_mcse_beta,
+                beta_rel_mcse_denom_floor,
+                stop_mcse_quantile,
+                top_gene_k,
+                stop_min_gene_d,
+                num_monitored_genes,
+                num_eligible_genes,
+                D_mcse_q,
+                max_abs_mcse_d,
+                num_active_betas,
+                num_full_gene_sets,
+                num_chains_effective_for_diag,
+                burn_in_pass_streak,
+                burn_in_patience,
+                stop_pass_streak,
+                stop_patience,
+            ),
+            INFO,
+        )
+
+    done = False
+    stop_due_to_precision = False
+    restart_due_to_stall = False
+    stop_due_to_stall = False
+
+    precision_achieved = min_post_burn_reached and stop_pass_streak >= stop_patience
+    if precision_achieved:
+        stop_due_to_precision = True
+        done = True
+        log("Desired Gibbs precision achieved; stopping sampling", INFO)
+    elif post_stall_detected:
+        if num_attempts < max_num_attempt_restarts:
+            restart_due_to_stall = True
+            done = True
+            # Keep and aggregate this epoch's post-burn samples, then continue
+            # with a new epoch to add more effective chain means.
+            log(
+                "Restarting Gibbs epoch due to post-burn stall at iter %d (global %d) because precision is not yet met (plateau=%s, recent_worse=%s, beta_Rhat_q=%.4g, D_mcse_q=%.4g, recent_beta_Rhat_q=%s, recent_D_mcse_q=%s); aggregating current epoch samples before restart"
+                % (
+                    epoch_iter_num,
+                    total_iter_num,
+                    str(post_stall_plateau),
+                    str(post_stall_recent_worse),
+                    beta_rhat_q_post,
+                    D_mcse_q,
+                    ("%.4g" % post_stall_recent_beta_rhat_q) if np.isfinite(post_stall_recent_beta_rhat_q) else "NA",
+                    ("%.4g" % post_stall_recent_D_mcse_q) if np.isfinite(post_stall_recent_D_mcse_q) else "NA",
+                ),
+                INFO,
+            )
+        else:
+            stop_due_to_stall = True
+            done = True
+            log(
+                "Post-burn stall detected at iter %d (global %d) and precision is not yet met, but no restart attempts remain; stopping this epoch (beta_Rhat_q=%.4g, D_mcse_q=%.4g)"
+                % (epoch_iter_num, total_iter_num, beta_rhat_q_post, D_mcse_q),
+                INFO,
+            )
+
+    return {
+        "stop_pass_streak": stop_pass_streak,
+        "post_stall_beta_indices": post_stall_beta_indices,
+        "post_stall_gene_indices": post_stall_gene_indices,
+        "betas_sem2_v": np.square(beta_mcse_v),
+        "sem2_v": np.square(D_mcse_v),
+        "done": done,
+        "stop_due_to_precision": stop_due_to_precision,
+        "restart_due_to_stall": restart_due_to_stall,
+        "stop_due_to_stall": stop_due_to_stall,
     }
 
 
