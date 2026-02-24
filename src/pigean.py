@@ -17259,10 +17259,6 @@ def _should_apply_gene_list_defaults_before_source_y_load_for_main(options):
     )
 
 
-def _load_initial_y_from_gene_stats_for_main(state, options):
-    state.read_Y(**_build_read_y_gene_bfs_kwargs_for_main(options))
-
-
 def _load_initial_y_from_sources_for_main(state, options):
     if _should_apply_gene_list_defaults_before_source_y_load_for_main(options):
         _default_for_gene_list_options(options)
@@ -17284,12 +17280,6 @@ def _load_initial_y_from_sources_for_main(state, options):
     state.read_Y(**kwargs)
 
 
-def _load_initial_y_from_gene_phewas_for_main(state, options):
-    if not options.gene_phewas_bfs_in:
-        bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-    state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
-
-
 def _load_initial_y_inputs_for_main(
     state,
     options,
@@ -17306,13 +17296,15 @@ def _load_initial_y_inputs_for_main(
         return False
 
     if options.gene_stats_in:
-        _load_initial_y_from_gene_stats_for_main(state, options)
+        state.read_Y(**_build_read_y_gene_bfs_kwargs_for_main(options))
         return False
     if _should_load_y_from_sources_for_main(options):
         _load_initial_y_from_sources_for_main(state, options)
         return False
     if options.betas_uncorrected_from_phewas:
-        _load_initial_y_from_gene_phewas_for_main(state, options)
+        if not options.gene_phewas_bfs_in:
+            bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
+        state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
         return False
     return True
 
@@ -17326,17 +17318,31 @@ def _read_x_and_initialize_p_for_main(
     mode_state,
 ):
     #read in the matrices
-    if _has_x_inputs_for_main(options):
+    if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
         xin_to_p_noninf_ind = _build_xin_to_p_noninf_index_for_main(options, sys.argv)
         _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_cond, mode_state, xin_to_p_noninf_ind)
     else:
-        _set_p_without_x_inputs_for_main(state, options)
+        #set p
+        if options.p_noninf is not None:
+            if len(options.p_noninf) == 1:
+                state.set_p(options.p_noninf[0])
+            else:
+                bail("Multiple --p-noninf is not supported without --X-in inputs")
 
-    _finalize_x_loading_for_main(state, options, Y_not_loaded)
+    if not state.has_gene_sets():
+        log("No gene sets survived the input filters; stopping")
+        sys.exit(0)
+    assert(state.p is not None)
 
+    if Y_not_loaded and options.const_gene_Y:
+        state.set_const_Y(options.const_gene_Y)
 
-def _has_x_inputs_for_main(options):
-    return options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None
+    if options.X_out:
+        state.write_X(options.X_out)
+    if options.Xd_out:
+        state.write_Xd(options.Xd_out)
+    if options.V_out:
+        state.write_V(options.V_out)
 
 
 def _iter_x_input_values_from_argv(_argv):
@@ -17596,42 +17602,6 @@ def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, fi
     kwargs.update(_build_read_x_progress_runtime_kwargs_for_main(options))
     kwargs["force_reread"] = force_reread
     return kwargs
-
-
-def _set_p_without_x_inputs_for_main(state, options):
-    #set p
-    if options.p_noninf is not None:
-        if len(options.p_noninf) == 1:
-            state.set_p(options.p_noninf[0])
-        else:
-            bail("Multiple --p-noninf is not supported without --X-in inputs")
-
-
-def _ensure_gene_sets_loaded_for_main(state):
-    if not state.has_gene_sets():
-        log("No gene sets survived the input filters; stopping")
-        sys.exit(0)
-
-
-def _maybe_apply_const_gene_y_for_main(state, options, Y_not_loaded):
-    if Y_not_loaded and options.const_gene_Y:
-        state.set_const_Y(options.const_gene_Y)
-
-
-def _maybe_write_loaded_matrix_artifacts_for_main(state, options):
-    if options.X_out:
-        state.write_X(options.X_out)
-    if options.Xd_out:
-        state.write_Xd(options.Xd_out)
-    if options.V_out:
-        state.write_V(options.V_out)
-
-
-def _finalize_x_loading_for_main(state, options, Y_not_loaded):
-    _ensure_gene_sets_loaded_for_main(state)
-    assert(state.p is not None)
-    _maybe_apply_const_gene_y_for_main(state, options, Y_not_loaded)
-    _maybe_write_loaded_matrix_artifacts_for_main(state, options)
 
 
 def _build_priors_data_kwargs_for_main(options, p_noninf):
