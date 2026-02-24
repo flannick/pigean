@@ -8386,9 +8386,6 @@ class GeneSetData(object):
                 Y_cond_var = 0.1
             log("Setting Y cond var=%.4g (total var = %.4g) given top gene prior of %.4g" % (Y_cond_var, Y_total_var, top_gene_prior))
 
-        Y_cond_sd = np.sqrt(Y_cond_var)
-
-
         bf_orig_m = np.tile(bf_orig, num_chains).reshape(num_chains, len(bf_orig))
         log_bf_m = np.log(bf_orig_m)
         log_bf_uncorrected_m = np.log(bf_orig_m)
@@ -8411,8 +8408,6 @@ class GeneSetData(object):
         num_full_gene_sets = len(self.gene_sets)
         if self.gene_sets_missing is not None:
             num_full_gene_sets += len(self.gene_sets_missing)
-
-        beta_tilde_outlier_z_threshold = None
 
         #this loop checks if the gibbs loop was successful and optionally
         #aggregates multiple restart epochs as additional chains.
@@ -8674,12 +8669,8 @@ class GeneSetData(object):
             priors_missing_mean_m = np.zeros(sum_priors_missing_m.shape)
             num_sum_priors_missing_m = np.zeros(sum_priors_missing_m.shape)
 
-            #TEMP STUFF
-            only_genes = None
-            only_gene_sets = None
-
             if self.gene_sets_missing is not None:
-                revert_subset_mask = self._unsubset_gene_sets(skip_V=True)
+                self._unsubset_gene_sets(skip_V=True)
 
             prev_Ys_m = None
             X_hstacked, stack_batch_size, num_stack_batches = _build_gibbs_chain_stack(
@@ -8877,87 +8868,8 @@ class GeneSetData(object):
                         else:
                             se_inflation_factors_m = None
 
-                    #calculate whether the sample was an outlier
-
-                    if beta_tilde_outlier_z_threshold is not None:
-                        self._record_param("beta_tilde_outlier_z_threshold", beta_tilde_outlier_z_threshold)
-
-                        mean_for_outlier_m = np.zeros(all_sum_z_scores_m.shape)
-                        mean2_for_outlier_m = np.zeros(all_sum_z_scores_m.shape)
-                        se_for_outlier_m = np.zeros(all_sum_z_scores_m.shape)
-                        z_for_outlier_m = np.zeros(all_sum_z_scores_m.shape)
-                        num_for_outlier_m = np.zeros(all_sum_z_scores_m.shape)
-
-                        #calculate mean_m as mean ignoring the current chain
-                        mean_for_outlier_m = np.sum(all_sum_z_scores_m, axis=0) - all_sum_z_scores_m
-                        mean2_for_outlier_m = np.sum(all_sum_z_scores2_m, axis=0) - all_sum_z_scores2_m
-                        num_for_outlier_m = np.sum(all_num_sum_m, axis=0) - all_num_sum_m
-                        num_for_outlier_non_zero_mask_m = num_for_outlier_m > 0
-                        mean_for_outlier_m[num_for_outlier_non_zero_mask_m] = mean_for_outlier_m[num_for_outlier_non_zero_mask_m] / num_for_outlier_m[num_for_outlier_non_zero_mask_m]
-                        mean2_for_outlier_m[num_for_outlier_non_zero_mask_m] = mean2_for_outlier_m[num_for_outlier_non_zero_mask_m] / num_for_outlier_m[num_for_outlier_non_zero_mask_m]
-
-                        se_for_outlier_m[num_for_outlier_non_zero_mask_m] = np.sqrt(mean2_for_outlier_m[num_for_outlier_non_zero_mask_m] - np.square(mean_for_outlier_m[num_for_outlier_non_zero_mask_m]))
-
-                        se_for_outlier_mask_m = se_for_outlier_m > 0
-                        full_z_cur_beta_tildes_m[se_for_outlier_mask_m] = (full_z_scores_m[se_for_outlier_mask_m] - mean_for_outlier_m[se_for_outlier_mask_m]) / se_for_outlier_m[se_for_outlier_mask_m]
-                        outlier_mask_m = full_z_cur_beta_tildes_m > beta_tilde_outlier_z_threshold
-
-                        if np.sum(outlier_mask_m) > 0:
-                            log("Detected %d outlier gene sets: %s" % (np.sum(outlier_mask_m), ",".join([self.gene_sets[i] for i in np.where(np.any(outlier_mask_m, axis=0))[0]])),DEBUG)
-
-                            outlier_control = False
-                            if outlier_control:
-                                #inflate them
-                                #full_beta_tildes_m[outlier_mask_m] / full_ses_m[outlier_mask_m] - mean_for_outlier_m[outlier_mask_m] = beta_tilde_outlier_z_threshold * se_for_outlier_m[outlier_mask_m]
-                                #full_beta_tildes_m[outlier_mask_m] / full_ses_m[outlier_mask_m] = mean_for_outlier_m[outlier_mask_m] + beta_tilde_outlier_z_threshold * se_for_outlier_m[outlier_mask_m]
-                                #full_beta_tildes_m[outlier_mask_m] = full_ses_m[outlier_mask_m] * (mean_for_outlier_m[outlier_mask_m] + beta_tilde_outlier_z_threshold * se_for_outlier_m[outlier_mask_m])
-
-                                new_ses_m = np.abs(full_beta_tildes_m[outlier_mask_m] / (mean_for_outlier_m[outlier_mask_m] + beta_tilde_outlier_z_threshold * se_for_outlier_m[outlier_mask_m]))
-                                log("Inflated ses from %.3g - %.3g" % (np.min(new_ses_m / full_ses_m[outlier_mask_m]), np.max(new_ses_m / full_ses_m[outlier_mask_m])), TRACE)
-
-                                full_ses_m[outlier_mask_m] = new_ses_m
-                                full_z_scores_m[outlier_mask_m] = full_beta_tildes_m[outlier_mask_m] / new_ses_m
-                                full_p_values_m[outlier_mask_m] = 2*scipy.stats.norm.cdf(-np.abs(full_z_scores_m[outlier_mask_m]))
-
-                            else:
-
-                                #first check if we need to reset entire chains
-                                num_outliers = np.sum(outlier_mask_m, axis=1)
-                                frac_outliers = num_outliers / outlier_mask_m.shape[1]
-                                chain_outlier_frac_threshold = 0.0005
-                                outlier_chains = frac_outliers > chain_outlier_frac_threshold
-                                for outlier_chain in np.where(outlier_chains)[0]:
-                                    log("Detected entire chain %d as an outlier since it had %d (%.4g fraction) outliers" % (outlier_chain+1,num_outliers[outlier_chain], frac_outliers[outlier_chain]), DEBUG)
-                                    if np.sum(~outlier_chains) > 0:
-                                        replacement_chain = np.random.choice(np.where(~outlier_chains)[0], size=1)
-                                        for matrix in [full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m, full_alpha_tildes_m, diverged_m]:
-                                            if matrix is not None:
-                                                matrix[outlier_chain,:] = matrix[replacement_chain,:]
-                                        outlier_mask_m[outlier_chain,:] = False
-
-                                    else:
-                                        log("Everything was an outlier chain so doing nothing", DEBUG)
-
-                                outlier_gene_sets = np.any(outlier_mask_m, axis=0)
-                                for outlier_gene_set in np.where(outlier_gene_sets)[0]:
-                                    non_outliers = ~outlier_mask_m[:,outlier_gene_set]
-                                    if np.sum(non_outliers) > 0:
-                                        log("Resetting %s chain %s; beta_tilde=%s and z=%s" % (self.gene_sets[outlier_gene_set], np.where(outlier_mask_m[:,outlier_gene_set])[0] + 1, full_beta_tildes_m[outlier_mask_m[:,outlier_gene_set],outlier_gene_set], full_z_cur_beta_tildes_m[outlier_mask_m[:,outlier_gene_set],outlier_gene_set]),DEBUG)
-
-                                        replacement_chains = np.random.choice(np.where(non_outliers)[0], size=np.sum(outlier_mask_m[:,outlier_gene_set]))
-                                        for matrix in [full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m, full_alpha_tildes_m, diverged_m]:
-                                            if matrix is not None:
-                                                matrix[outlier_mask_m[:,outlier_gene_set],outlier_gene_set] = matrix[replacement_chains,outlier_gene_set]
-
-                                        #now make the Z threshold more lenient
-                                        #beta_tilde_outlier_z_threshold[outlier_gene_set] = -scipy.stats.norm.ppf(scipy.stats.norm.cdf(-np.abs(beta_tilde_outlier_z_threshold[outlier_gene_set])) / 10)
-                                        #log("New threshold is z=%.4g" % beta_tilde_outlier_z_threshold[outlier_gene_set], TRACE)
-
-                                    else:
-                                        log("Everything was an outlier for gene set %s so doing nothing" % (self.gene_sets[outlier_gene_set]), DEBUG)
-
-                    else:
-                        full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
+                    # Legacy outlier-z filtering was experimental and is disabled in this path.
+                    full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
 
 
                     if np.sum(diverged_m) > 0:
@@ -8973,15 +8885,18 @@ class GeneSetData(object):
 
                 if gene_stats_trace_out is not None:
                     log("Writing gene stats trace", TRACE)
-                    for chain_num in range(num_chains):
-                        for i in range(len(self.genes)):
-                            if only_genes is None or self.genes[i] in only_genes:
-                                gene_stats_trace_fh.write("%d\t%d\t%s\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\n" % (iteration_num+1, trace_chain_offset + chain_num + 1, self.genes[i], priors_for_Y_m[chain_num,i], Y_sample_m[chain_num,i], log_bf_m[chain_num,i], p_sample_m[chain_num,i], priors_percentage_max_for_Y_m[chain_num,i], priors_adjustment_for_Y_m[chain_num,i]))
-                        #if self.genes_missing is not None:
-                        #    for i in range(len(self.genes_missing)):
-                        #        if only_genes is None or self.genes[i] in only_genes:
-                        #            gene_stats_trace_fh.write("%d\t%d\t%s\t%.4g\t%s\t%s\t%s\n" % (iteration_num+1, chain_num+1, self.genes_missing[i], priors_missing_sample_m[chain_num,i], "NA", "NA", "NA"))
-
+                    _write_gene_stats_trace_rows(
+                        gene_stats_trace_fh,
+                        iteration_num,
+                        trace_chain_offset,
+                        self.genes,
+                        priors_for_Y_m,
+                        Y_sample_m,
+                        log_bf_m,
+                        p_sample_m,
+                        priors_percentage_max_for_Y_m,
+                        priors_adjustment_for_Y_m,
+                    )
                     gene_stats_trace_fh.flush()
 
                 (uncorrected_betas_sample_m, uncorrected_postp_sample_m, uncorrected_betas_mean_m, uncorrected_postp_mean_m) = self._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=full_beta_tildes_m, ses=full_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, debug_gene_sets=self.gene_sets)
@@ -9406,7 +9321,6 @@ class GeneSetData(object):
                 all_sum_Ys_m = np.add(all_sum_Ys_m, Y_sample_m)
                 all_sum_Ys2_m = np.add(all_sum_Ys2_m, np.power(Y_sample_m, 2))
 
-                R_Y_v = np.zeros(all_sum_Ys_m.shape[1])
                 R_beta_v = np.zeros(all_sum_betas_m.shape[1])
 
                 if increase_hyper_if_betas_below_for_epoch is not None:
@@ -9783,11 +9697,27 @@ class GeneSetData(object):
 
                 if gene_set_stats_trace_out is not None:
                     log("Writing gene set stats trace", TRACE)
-                    for chain_num in range(num_chains):
-                        for i in range(len(self.gene_sets)):
-                            if only_gene_sets is None or self.gene_sets[i] in only_gene_sets:
-                                gene_set_stats_trace_fh.write("%d\t%d\t%s\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\n" % (iteration_num+1, trace_chain_offset + chain_num + 1, self.gene_sets[i], full_beta_tildes_m[chain_num,i] / self.scale_factors[i], full_p_values_m[chain_num,i], full_z_scores_m[chain_num,i], full_ses_m[chain_num,i] / self.scale_factors[i], (uncorrected_betas_mean_m[chain_num,i] if use_mean_betas else uncorrected_betas_sample_m[chain_num,i])  / self.scale_factors[i], (full_betas_mean_m[chain_num,i] if use_mean_betas else full_betas_sample_m[chain_num,i]) / self.scale_factors[i], (full_postp_mean_m[chain_num,i] if use_mean_betas else full_postp_sample_m[chain_num,i]), full_z_cur_beta_tildes_m[chain_num,i], R_beta_v[i], betas_sem2_v[i]))
-
+                    _write_gene_set_stats_trace_rows(
+                        gene_set_stats_trace_fh,
+                        iteration_num,
+                        trace_chain_offset,
+                        self.gene_sets,
+                        self.scale_factors,
+                        full_beta_tildes_m,
+                        full_p_values_m,
+                        full_z_scores_m,
+                        full_ses_m,
+                        uncorrected_betas_mean_m,
+                        uncorrected_betas_sample_m,
+                        full_betas_mean_m,
+                        full_betas_sample_m,
+                        full_postp_mean_m,
+                        full_postp_sample_m,
+                        full_z_cur_beta_tildes_m,
+                        R_beta_v,
+                        betas_sem2_v,
+                        use_mean_betas,
+                    )
                     gene_set_stats_trace_fh.flush()
 
                 if done:
@@ -16835,6 +16765,79 @@ def _outlier_resistant_mean(sum_m, num_sum_m, num_mad, outlier_mask_m=None, reco
     copy_sum_m[outlier_mask_m] = 0
     avg_v = np.sum(copy_sum_m / num_sum_m, axis=0) / num_sum_v
     return (outlier_mask_m, avg_v)
+
+
+def _write_gene_stats_trace_rows(
+    fh,
+    iteration_num,
+    trace_chain_offset,
+    genes,
+    priors_for_Y_m,
+    Y_sample_m,
+    log_bf_m,
+    p_sample_m,
+    priors_percentage_max_for_Y_m,
+    priors_adjustment_for_Y_m,
+):
+    for chain_num in range(priors_for_Y_m.shape[0]):
+        for i in range(len(genes)):
+            fh.write(
+                "%d\t%d\t%s\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\n"
+                % (
+                    iteration_num + 1,
+                    trace_chain_offset + chain_num + 1,
+                    genes[i],
+                    priors_for_Y_m[chain_num, i],
+                    Y_sample_m[chain_num, i],
+                    log_bf_m[chain_num, i],
+                    p_sample_m[chain_num, i],
+                    priors_percentage_max_for_Y_m[chain_num, i],
+                    priors_adjustment_for_Y_m[chain_num, i],
+                )
+            )
+
+
+def _write_gene_set_stats_trace_rows(
+    fh,
+    iteration_num,
+    trace_chain_offset,
+    gene_sets,
+    scale_factors,
+    full_beta_tildes_m,
+    full_p_values_m,
+    full_z_scores_m,
+    full_ses_m,
+    uncorrected_betas_mean_m,
+    uncorrected_betas_sample_m,
+    full_betas_mean_m,
+    full_betas_sample_m,
+    full_postp_mean_m,
+    full_postp_sample_m,
+    full_z_cur_beta_tildes_m,
+    R_beta_v,
+    betas_sem2_v,
+    use_mean_betas,
+):
+    for chain_num in range(full_beta_tildes_m.shape[0]):
+        for i in range(len(gene_sets)):
+            fh.write(
+                "%d\t%d\t%s\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\n"
+                % (
+                    iteration_num + 1,
+                    trace_chain_offset + chain_num + 1,
+                    gene_sets[i],
+                    full_beta_tildes_m[chain_num, i] / scale_factors[i],
+                    full_p_values_m[chain_num, i],
+                    full_z_scores_m[chain_num, i],
+                    full_ses_m[chain_num, i] / scale_factors[i],
+                    (uncorrected_betas_mean_m[chain_num, i] if use_mean_betas else uncorrected_betas_sample_m[chain_num, i]) / scale_factors[i],
+                    (full_betas_mean_m[chain_num, i] if use_mean_betas else full_betas_sample_m[chain_num, i]) / scale_factors[i],
+                    (full_postp_mean_m[chain_num, i] if use_mean_betas else full_postp_sample_m[chain_num, i]),
+                    full_z_cur_beta_tildes_m[chain_num, i],
+                    R_beta_v[i],
+                    betas_sem2_v[i],
+                )
+            )
 
 
 def _compute_post_burn_beta_diagnostics(
