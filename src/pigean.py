@@ -8518,69 +8518,16 @@ class GeneSetData(object):
             num_stack_batches = epoch_state["num_stack_batches"]
 
             for iteration_num in range(epoch_max_num_iter):
-                epoch_iter_num = iteration_num + 1
-                total_iter_num = epoch_total_iter_offset + epoch_iter_num
-
-                log("Beginning Gibbs iteration %d (global %d)" % (epoch_iter_num, total_iter_num))
-                self._record_param("num_gibbs_iter", iteration_num, overwrite=True)
-                self._record_param("num_gibbs_iter_total", total_iter_num, overwrite=True)
-
-                log("Sampling new Ys")
-
-                log("Setting logistic Ys", TRACE)
-
-                y_terms = _compute_gibbs_iteration_y_terms(
+                iter_setup = _prepare_gibbs_iteration_inputs(
+                    self,
+                    iteration_num,
+                    epoch_total_iter_offset,
                     priors_for_Y_m,
                     log_bf_m,
                     log_bf_raw_m,
                     cur_background_log_bf_v,
-                )
-                Y_sample_m = y_terms["Y_sample_m"]
-                Y_raw_sample_m = y_terms["Y_raw_sample_m"]
-                y_var = y_terms["y_var"]
-                D_sample_m = y_terms["D_sample_m"]
-                log_po_sample_m = y_terms["log_po_sample_m"]
-                D_raw_sample_m = y_terms["D_raw_sample_m"]
-                log_po_raw_sample_m = y_terms["log_po_raw_sample_m"]
-
-                #if adjust_background_prior:
-                #    #get the original mean bf
-                #    background_log_prior_scale_factor = np.mean(Y_sample_m, axis=1) - np.mean(log_bf_orig_m, axis=1)
-                #    cur_background_log_bf_v = self.background_log_bf + background_log_prior_scale_factor
-                #    cur_background_bf_v = np.exp(cur_background_log_bf_v)
-                #    log("Adjusting background priors to %.4g-%.4g" % (np.min(cur_background_bf_v / (1 + cur_background_bf_v)), np.max(cur_background_bf_v / (1 + cur_background_bf_v))))
-
-                #var(Y) = E[var(Y|S,beta)] + var(E[Y|S,beta])
-                #First term can be estimated from the gibbs samples
-                #Second term is just Y_cond_var (to a first approximation), or more accurately the term in the integral from gauss
-                #Third term is the term we estimate from the Gauss seidel regression
-                #So: if we use
-                #y_var = np.var(Y_sample_m, axis=1)
-                #the term we want, var(Y|S,beta) is being overestimated for gibbs, underestimated for gauss seidel
-                #Let's first try Gauss seidel with correction, then try Gibbs with the first approximation (see the difference)
-                #This is what is implemented above in Y_var_m -- gives conditional variance of each Y
-                #Taking mean of this is our other estimate
-
-                #sample from beta
-
-                #combine X_orig and X_orig missing?
-
-                if self.y_corr_sparse is not None:
-                    log("Adjusting correlation matrix")
-                y_corr_sparse = _compute_gibbs_y_corr_sparse(self.y_corr_sparse, priors_for_Y_m, y_var_orig)
-
-
-                #NOW ONTO GENE SETS
-
-                # we have to keep local replicas here because unsubset does not restore the original
-                # order, which would break full_beta_tildes and full_betas
-                logistic_setup = _compute_gibbs_logistic_beta_tildes(
-                    self,
-                    Y_sample_m,
-                    y_var,
-                    D_sample_m,
+                    y_var_orig,
                     gauss_seidel,
-                    y_corr_sparse,
                     num_chains,
                     full_betas_m_shape,
                     num_stack_batches,
@@ -8602,35 +8549,32 @@ class GeneSetData(object):
                     sparse_frac_betas,
                     correct_betas_mean,
                     correct_betas_var,
-                )
-                full_scale_factors_m = logistic_setup["full_scale_factors_m"]
-                full_mean_shifts_m = logistic_setup["full_mean_shifts_m"]
-                full_is_dense_gene_set_m = logistic_setup["full_is_dense_gene_set_m"]
-                full_ps_m = logistic_setup["full_ps_m"]
-                full_sigma2s_m = logistic_setup["full_sigma2s_m"]
-                p_sample_m = logistic_setup["p_sample_m"]
-                pre_gene_set_filter_mask = logistic_setup["pre_gene_set_filter_mask"]
-                full_z_cur_beta_tildes_m = logistic_setup["full_z_cur_beta_tildes_m"]
-                full_beta_tildes_m = logistic_setup["full_beta_tildes_m"]
-                full_ses_m = logistic_setup["full_ses_m"]
-                full_z_scores_m = logistic_setup["full_z_scores_m"]
-                full_p_values_m = logistic_setup["full_p_values_m"]
-
-
-                #now write the gene stats trace
-
-                _maybe_write_gibbs_gene_stats_trace(
                     gene_stats_trace_fh,
-                    iteration_num,
                     trace_chain_offset,
-                    self.genes,
-                    priors_for_Y_m,
-                    Y_sample_m,
-                    log_bf_m,
-                    p_sample_m,
                     priors_percentage_max_for_Y_m,
                     priors_adjustment_for_Y_m,
                 )
+                epoch_iter_num = iter_setup["epoch_iter_num"]
+                total_iter_num = iter_setup["total_iter_num"]
+                Y_sample_m = iter_setup["Y_sample_m"]
+                Y_raw_sample_m = iter_setup["Y_raw_sample_m"]
+                y_var = iter_setup["y_var"]
+                D_sample_m = iter_setup["D_sample_m"]
+                log_po_sample_m = iter_setup["log_po_sample_m"]
+                D_raw_sample_m = iter_setup["D_raw_sample_m"]
+                log_po_raw_sample_m = iter_setup["log_po_raw_sample_m"]
+                full_scale_factors_m = iter_setup["full_scale_factors_m"]
+                full_mean_shifts_m = iter_setup["full_mean_shifts_m"]
+                full_is_dense_gene_set_m = iter_setup["full_is_dense_gene_set_m"]
+                full_ps_m = iter_setup["full_ps_m"]
+                full_sigma2s_m = iter_setup["full_sigma2s_m"]
+                p_sample_m = iter_setup["p_sample_m"]
+                pre_gene_set_filter_mask = iter_setup["pre_gene_set_filter_mask"]
+                full_z_cur_beta_tildes_m = iter_setup["full_z_cur_beta_tildes_m"]
+                full_beta_tildes_m = iter_setup["full_beta_tildes_m"]
+                full_ses_m = iter_setup["full_ses_m"]
+                full_z_scores_m = iter_setup["full_z_scores_m"]
+                full_p_values_m = iter_setup["full_p_values_m"]
 
                 (uncorrected_betas_sample_m, uncorrected_postp_sample_m, uncorrected_betas_mean_m, uncorrected_postp_mean_m) = self._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=full_beta_tildes_m, ses=full_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, debug_gene_sets=self.gene_sets)
 
@@ -17446,6 +17390,138 @@ def _accumulate_gibbs_post_burn_iteration(
         cur_log_priors_missing_m[cur_log_priors_missing_m > max_log] = max_log
         sum_Ds_missing_m += np.exp(cur_log_priors_missing_m) / (1 + np.exp(cur_log_priors_missing_m))
         num_sum_priors_missing_m += 1
+
+
+def _prepare_gibbs_iteration_inputs(
+    state,
+    iteration_num,
+    epoch_total_iter_offset,
+    priors_for_Y_m,
+    log_bf_m,
+    log_bf_raw_m,
+    cur_background_log_bf_v,
+    y_var_orig,
+    gauss_seidel,
+    num_chains,
+    full_betas_m_shape,
+    num_stack_batches,
+    stack_batch_size,
+    X_hstacked,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+    correct_betas_mean,
+    correct_betas_var,
+    gene_stats_trace_fh,
+    trace_chain_offset,
+    priors_percentage_max_for_Y_m,
+    priors_adjustment_for_Y_m,
+):
+    epoch_iter_num = iteration_num + 1
+    total_iter_num = epoch_total_iter_offset + epoch_iter_num
+
+    log("Beginning Gibbs iteration %d (global %d)" % (epoch_iter_num, total_iter_num))
+    state._record_param("num_gibbs_iter", iteration_num, overwrite=True)
+    state._record_param("num_gibbs_iter_total", total_iter_num, overwrite=True)
+
+    log("Sampling new Ys")
+    log("Setting logistic Ys", TRACE)
+    y_terms = _compute_gibbs_iteration_y_terms(
+        priors_for_Y_m,
+        log_bf_m,
+        log_bf_raw_m,
+        cur_background_log_bf_v,
+    )
+    Y_sample_m = y_terms["Y_sample_m"]
+    Y_raw_sample_m = y_terms["Y_raw_sample_m"]
+    y_var = y_terms["y_var"]
+    D_sample_m = y_terms["D_sample_m"]
+    log_po_sample_m = y_terms["log_po_sample_m"]
+    D_raw_sample_m = y_terms["D_raw_sample_m"]
+    log_po_raw_sample_m = y_terms["log_po_raw_sample_m"]
+
+    if state.y_corr_sparse is not None:
+        log("Adjusting correlation matrix")
+    y_corr_sparse = _compute_gibbs_y_corr_sparse(state.y_corr_sparse, priors_for_Y_m, y_var_orig)
+
+    logistic_setup = _compute_gibbs_logistic_beta_tildes(
+        state,
+        Y_sample_m,
+        y_var,
+        D_sample_m,
+        gauss_seidel,
+        y_corr_sparse,
+        num_chains,
+        full_betas_m_shape,
+        num_stack_batches,
+        stack_batch_size,
+        X_hstacked,
+        initial_linear_filter,
+        sparse_frac_gibbs,
+        sparse_max_gibbs,
+        passed_in_max_num_burn_in,
+        max_num_iter_betas,
+        min_num_iter_betas,
+        num_chains_betas,
+        r_threshold_burn_in_betas,
+        use_max_r_for_convergence_betas,
+        max_frac_sem_betas,
+        max_allowed_batch_correlation,
+        gauss_seidel_betas,
+        sparse_solution,
+        sparse_frac_betas,
+        correct_betas_mean,
+        correct_betas_var,
+    )
+
+    p_sample_m = logistic_setup["p_sample_m"]
+    _maybe_write_gibbs_gene_stats_trace(
+        gene_stats_trace_fh,
+        iteration_num,
+        trace_chain_offset,
+        state.genes,
+        priors_for_Y_m,
+        Y_sample_m,
+        log_bf_m,
+        p_sample_m,
+        priors_percentage_max_for_Y_m,
+        priors_adjustment_for_Y_m,
+    )
+
+    return {
+        "epoch_iter_num": epoch_iter_num,
+        "total_iter_num": total_iter_num,
+        "Y_sample_m": Y_sample_m,
+        "Y_raw_sample_m": Y_raw_sample_m,
+        "y_var": y_var,
+        "D_sample_m": D_sample_m,
+        "log_po_sample_m": log_po_sample_m,
+        "D_raw_sample_m": D_raw_sample_m,
+        "log_po_raw_sample_m": log_po_raw_sample_m,
+        "full_scale_factors_m": logistic_setup["full_scale_factors_m"],
+        "full_mean_shifts_m": logistic_setup["full_mean_shifts_m"],
+        "full_is_dense_gene_set_m": logistic_setup["full_is_dense_gene_set_m"],
+        "full_ps_m": logistic_setup["full_ps_m"],
+        "full_sigma2s_m": logistic_setup["full_sigma2s_m"],
+        "p_sample_m": p_sample_m,
+        "pre_gene_set_filter_mask": logistic_setup["pre_gene_set_filter_mask"],
+        "full_z_cur_beta_tildes_m": logistic_setup["full_z_cur_beta_tildes_m"],
+        "full_beta_tildes_m": logistic_setup["full_beta_tildes_m"],
+        "full_ses_m": logistic_setup["full_ses_m"],
+        "full_z_scores_m": logistic_setup["full_z_scores_m"],
+        "full_p_values_m": logistic_setup["full_p_values_m"],
+    }
 
 
 def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig):
