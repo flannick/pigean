@@ -8456,23 +8456,6 @@ class GeneSetData(object):
             
             return (outlier_mask_m, avg_v)
 
-        def __calculate_R(sum_m, sum2_m, num):
-            if num <= 1:
-                default_v = np.ones(sum_m.shape[1])
-                return (default_v, default_v, default_v, default_v)
-            mean_m = sum_m / float(num)
-            mean_v = np.mean(mean_m, axis=0)
-            var_m = (sum2_m - float(num) * np.power(mean_m, 2)) / (float(num) - 1)
-            B_v = (float(num) / (mean_m.shape[0] - 1)) * np.sum(np.power(mean_m - mean_v, 2), axis=0)
-            W_v = (1.0 / float(mean_m.shape[0])) * np.sum(var_m, axis=0)
-            var_given_y_v = np.add((float(num) - 1) / float(num) * W_v, (1.0 / float(num)) * B_v)
-            var_given_y_v[var_given_y_v < 0] = 0
-            R_v = np.ones(len(W_v))
-            R_non_zero_mask = W_v > 0
-            R_v[R_non_zero_mask] = np.sqrt(var_given_y_v[R_non_zero_mask] / W_v[R_non_zero_mask])
-            return (B_v, W_v, R_v, var_given_y_v)
-
-
         #initialize Y
 
         if self.y_corr_cholesky is not None:
@@ -8605,74 +8588,6 @@ class GeneSetData(object):
             post_stall_beta_indices = None
             post_stall_gene_indices = None
 
-            def __compute_post_burn_beta_diagnostics(diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, num_chains_effective_for_diag):
-                active_beta_mask, beta_chain_means_m, beta_mean_v = _get_active_beta_mask(diag_sum_betas_m, diag_num_sum_beta_m, active_beta_top_k, active_beta_min_abs)
-                num_active_betas = int(np.sum(active_beta_mask))
-
-                beta_mcse_v = np.sqrt(np.var(beta_chain_means_m, axis=0, ddof=1) / float(num_chains_effective_for_diag))
-                num_post_burn_beta = int(np.min(diag_num_sum_beta_m))
-                _, _, post_R_beta_v, _ = __calculate_R(diag_sum_betas_m, diag_sum_betas2_m, num_post_burn_beta)
-
-                if np.any(active_beta_mask):
-                    post_R_beta_active_v = post_R_beta_v[active_beta_mask]
-                    post_rhat_candidates = post_R_beta_active_v[np.logical_and(np.isfinite(post_R_beta_active_v), post_R_beta_active_v >= 1)]
-                    beta_rhat_q_post = _safe_quantile(post_rhat_candidates, stop_mcse_quantile, 1.0)
-
-                    beta_ratio_v = beta_mcse_v / np.maximum(np.abs(beta_mean_v), beta_rel_mcse_denom_floor)
-                    beta_ratio_q = _safe_quantile(beta_ratio_v[active_beta_mask], stop_mcse_quantile, np.inf)
-                else:
-                    beta_rhat_q_post = 1.0
-                    beta_ratio_q = 0.0
-
-                return {
-                    "active_beta_mask": active_beta_mask,
-                    "beta_mean_v": beta_mean_v,
-                    "num_active_betas": num_active_betas,
-                    "beta_mcse_v": beta_mcse_v,
-                    "num_post_burn_beta": num_post_burn_beta,
-                    "beta_rhat_q_post": beta_rhat_q_post,
-                    "beta_ratio_q": beta_ratio_q,
-                }
-
-            def __compute_post_burn_gene_diagnostics(diag_sum_Ds_m, diag_num_sum_Y_m, num_chains_effective_for_diag):
-                D_chain_means_m = _means_from_sums(diag_sum_Ds_m, diag_num_sum_Y_m)
-                D_mean_v = np.mean(D_chain_means_m, axis=0)
-                D_mcse_v = np.sqrt(np.var(D_chain_means_m, axis=0, ddof=1) / float(num_chains_effective_for_diag))
-
-                top_gene_k = min(stop_top_gene_k, len(D_mean_v))
-                num_eligible_genes = len(D_mean_v)
-                if stop_min_gene_d is not None:
-                    eligible_gene_indices = np.where(D_mean_v >= stop_min_gene_d)[0]
-                    num_eligible_genes = len(eligible_gene_indices)
-                    if num_eligible_genes > 0:
-                        if top_gene_k >= num_eligible_genes:
-                            top_gene_indices = eligible_gene_indices
-                        else:
-                            top_gene_indices = eligible_gene_indices[np.argpartition(-D_mean_v[eligible_gene_indices], top_gene_k - 1)[:top_gene_k]]
-                    else:
-                        if top_gene_k >= len(D_mean_v):
-                            top_gene_indices = np.arange(len(D_mean_v))
-                        else:
-                            top_gene_indices = np.argpartition(-D_mean_v, top_gene_k - 1)[:top_gene_k]
-                else:
-                    if top_gene_k >= len(D_mean_v):
-                        top_gene_indices = np.arange(len(D_mean_v))
-                    else:
-                        top_gene_indices = np.argpartition(-D_mean_v, top_gene_k - 1)[:top_gene_k]
-
-                num_monitored_genes = len(top_gene_indices)
-                D_mcse_q = _safe_quantile(D_mcse_v[top_gene_indices], stop_mcse_quantile, np.inf)
-
-                return {
-                    "D_mean_v": D_mean_v,
-                    "D_mcse_v": D_mcse_v,
-                    "top_gene_k": top_gene_k,
-                    "top_gene_indices": top_gene_indices,
-                    "num_monitored_genes": num_monitored_genes,
-                    "num_eligible_genes": num_eligible_genes,
-                    "D_mcse_q": D_mcse_q,
-                }
-
             def __trim_post_stall_histories(max_stall_history_len):
                 if len(post_stall_best_beta_rhat_history) > max_stall_history_len:
                     del post_stall_best_beta_rhat_history[:-max_stall_history_len]
@@ -8702,7 +8617,7 @@ class GeneSetData(object):
                         if recent_beta_n > 1 and post_stall_beta_indices.size > 0:
                             recent_beta_sum_m = post_stall_beta_sum_m - old_beta_sum_m
                             recent_beta_sum2_m = post_stall_beta_sum2_m - old_beta_sum2_m
-                            _, _, recent_R_beta_v, _ = __calculate_R(recent_beta_sum_m, recent_beta_sum2_m, recent_beta_n)
+                            _, _, recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_beta_sum_m, recent_beta_sum2_m, recent_beta_n)
                             recent_rhat_candidates = recent_R_beta_v[np.logical_and(np.isfinite(recent_R_beta_v), recent_R_beta_v >= 1)]
                             post_stall_recent_beta_rhat_q = _safe_quantile(recent_rhat_candidates, stop_mcse_quantile, 1.0)
 
@@ -9659,7 +9574,7 @@ class GeneSetData(object):
                                 log("Gibbs gauss converged after %d iterations" % num_samples, INFO)
                         prev_Ys_m = Y_sample_m
                     elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
-                        (_, _, R_beta_v, _) = __calculate_R(all_sum_betas_m, all_sum_betas2_m, num_samples)
+                        (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
                         active_beta_mask_v, _, _ = _get_active_beta_mask(all_sum_betas_m, all_num_sum_m, active_beta_top_k, active_beta_min_abs)
                         num_active_betas = int(np.sum(active_beta_mask_v))
                         if num_active_betas > 0:
@@ -9711,7 +9626,7 @@ class GeneSetData(object):
                                 if recent_num_samples > 1:
                                     recent_sum_m = burn_stall_sum_m - old_sum_m
                                     recent_sum2_m = burn_stall_sum2_m - old_sum2_m
-                                    _, _, burn_recent_R_beta_v, _ = __calculate_R(recent_sum_m, recent_sum2_m, recent_num_samples)
+                                    _, _, burn_recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_sum_m, recent_sum2_m, recent_num_samples)
                                     burn_recent_candidates = burn_recent_R_beta_v[np.logical_and(np.isfinite(burn_recent_R_beta_v), burn_recent_R_beta_v >= 1)]
                                     burn_stall_recent_beta_rhat_q = _safe_quantile(burn_recent_candidates, burn_in_rhat_quantile, 1.0)
                                     if burn_stall_recent_beta_rhat_q > beta_rhat_q * (1 + stall_recent_eps):
@@ -9805,11 +9720,15 @@ class GeneSetData(object):
 
                         num_chains_effective_for_diag = diag_sum_betas_m.shape[0]
 
-                        beta_diag = __compute_post_burn_beta_diagnostics(
+                        beta_diag = _compute_post_burn_beta_diagnostics(
                             diag_sum_betas_m,
                             diag_sum_betas2_m,
                             diag_num_sum_beta_m,
                             num_chains_effective_for_diag,
+                            active_beta_top_k,
+                            active_beta_min_abs,
+                            stop_mcse_quantile,
+                            beta_rel_mcse_denom_floor,
                         )
                         active_beta_mask = beta_diag["active_beta_mask"]
                         beta_mean_v = beta_diag["beta_mean_v"]
@@ -9820,10 +9739,13 @@ class GeneSetData(object):
                         beta_ratio_q = beta_diag["beta_ratio_q"]
                         betas_sem2_v = np.square(beta_mcse_v)
 
-                        gene_diag = __compute_post_burn_gene_diagnostics(
+                        gene_diag = _compute_post_burn_gene_diagnostics(
                             diag_sum_Ds_m,
                             diag_num_sum_Y_m,
                             num_chains_effective_for_diag,
+                            stop_top_gene_k,
+                            stop_min_gene_d,
+                            stop_mcse_quantile,
                         )
                         D_mean_v = gene_diag["D_mean_v"]
                         D_mcse_v = gene_diag["D_mcse_v"]
@@ -10124,12 +10046,12 @@ class GeneSetData(object):
             num_post_burn_in_Y = int(np.min(num_sum_Y_m))
             num_post_burn_in_beta = int(np.min(num_sum_beta_m))
 
-            _, _, prior_r_hat_v, _ = __calculate_R(sum_priors_m, sum_priors2_m, num_post_burn_in_Y)
-            _, _, combined_r_hat_v, _ = __calculate_R(sum_log_po_raws_m, sum_log_po_raws2_m, num_post_burn_in_Y)
-            _, _, log_bf_r_hat_v, _ = __calculate_R(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_post_burn_in_Y)
+            _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_post_burn_in_Y)
+            _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_post_burn_in_Y)
+            _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_post_burn_in_Y)
 
-            _, _, beta_r_hat_v, _ = __calculate_R(sum_betas_m, sum_betas2_m, num_post_burn_in_beta)
-            _, _, beta_uncorrected_r_hat_v, _ = __calculate_R(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_post_burn_in_beta)
+            _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_post_burn_in_beta)
+            _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_post_burn_in_beta)
 
             prior_chain_means_m = _means_from_sums(sum_priors_m, num_sum_Y_m)
             combined_chain_means_m = _means_from_sums(sum_log_po_raws_m, num_sum_Y_m)
@@ -14317,7 +14239,7 @@ class GeneSetData(object):
                 #    s_cur2_v = np.square(s_cur2_v - np.mean(s_cur2_v))
                 #    cum_cur2_v = np.cumsum(s_cur2_v) / np.sum(s_cur2_v)
                 #    top_mask2 = np.array(cum_cur2_v < 0.99)
-                #    (B_v2, W_v2, R_v2) = __calculate_R(sum_betas_m[:,top_mask2], sum_betas2_m[:,top_mask2], iteration_num)
+                #    (B_v2, W_v2, R_v2) = _calculate_rhat_from_sums(sum_betas_m[:,top_mask2], sum_betas2_m[:,top_mask2], iteration_num)
                 #    max_index2 = np.argmax(R_v2)
                 #    log("Iteration %d (betas): max ind=%d; max B=%.3g; max W=%.3g; max R=%.4g; avg R=%.4g; num above=%.4g" % (iteration_num, max_index2, B_v2[max_index2], W_v2[max_index2], R_v2[max_index2], np.mean(R_v2), np.sum(R_v2 > r_threshold_burn_in)), TRACE)
                 #END TEMP TEMP TEMP
@@ -16889,6 +16811,23 @@ def _means_from_sums(sum_m, num_sum_m):
     return np.divide(sum_m, np.maximum(num_sum_m, 1.0))
 
 
+def _calculate_rhat_from_sums(sum_m, sum2_m, num):
+    if num <= 1:
+        default_v = np.ones(sum_m.shape[1])
+        return (default_v, default_v, default_v, default_v)
+    mean_m = sum_m / float(num)
+    mean_v = np.mean(mean_m, axis=0)
+    var_m = (sum2_m - float(num) * np.power(mean_m, 2)) / (float(num) - 1)
+    B_v = (float(num) / (mean_m.shape[0] - 1)) * np.sum(np.power(mean_m - mean_v, 2), axis=0)
+    W_v = (1.0 / float(mean_m.shape[0])) * np.sum(var_m, axis=0)
+    var_given_y_v = np.add((float(num) - 1) / float(num) * W_v, (1.0 / float(num)) * B_v)
+    var_given_y_v[var_given_y_v < 0] = 0
+    R_v = np.ones(len(W_v))
+    R_non_zero_mask = W_v > 0
+    R_v[R_non_zero_mask] = np.sqrt(var_given_y_v[R_non_zero_mask] / W_v[R_non_zero_mask])
+    return (B_v, W_v, R_v, var_given_y_v)
+
+
 def _get_active_beta_mask(sum_betas_for_diag_m, num_sum_beta_for_diag_m, active_beta_top_k, active_beta_min_abs):
     beta_chain_means_m = _means_from_sums(sum_betas_for_diag_m, num_sum_beta_for_diag_m)
     beta_mean_v = np.mean(beta_chain_means_m, axis=0)
@@ -16931,6 +16870,97 @@ def _build_gibbs_chain_stack(X_orig, num_chains, max_mb_X_h, X_size_mb, log_fun)
 
     num_stack_batches = int(np.ceil(num_chains / float(stack_batch_size)))
     return (X_hstacked, stack_batch_size, num_stack_batches)
+
+
+def _compute_post_burn_beta_diagnostics(
+    diag_sum_betas_m,
+    diag_sum_betas2_m,
+    diag_num_sum_beta_m,
+    num_chains_effective_for_diag,
+    active_beta_top_k,
+    active_beta_min_abs,
+    stop_mcse_quantile,
+    beta_rel_mcse_denom_floor,
+):
+    active_beta_mask, beta_chain_means_m, beta_mean_v = _get_active_beta_mask(
+        diag_sum_betas_m,
+        diag_num_sum_beta_m,
+        active_beta_top_k,
+        active_beta_min_abs,
+    )
+    num_active_betas = int(np.sum(active_beta_mask))
+
+    beta_mcse_v = np.sqrt(np.var(beta_chain_means_m, axis=0, ddof=1) / float(num_chains_effective_for_diag))
+    num_post_burn_beta = int(np.min(diag_num_sum_beta_m))
+    _, _, post_R_beta_v, _ = _calculate_rhat_from_sums(diag_sum_betas_m, diag_sum_betas2_m, num_post_burn_beta)
+
+    if np.any(active_beta_mask):
+        post_R_beta_active_v = post_R_beta_v[active_beta_mask]
+        post_rhat_candidates = post_R_beta_active_v[np.logical_and(np.isfinite(post_R_beta_active_v), post_R_beta_active_v >= 1)]
+        beta_rhat_q_post = _safe_quantile(post_rhat_candidates, stop_mcse_quantile, 1.0)
+
+        beta_ratio_v = beta_mcse_v / np.maximum(np.abs(beta_mean_v), beta_rel_mcse_denom_floor)
+        beta_ratio_q = _safe_quantile(beta_ratio_v[active_beta_mask], stop_mcse_quantile, np.inf)
+    else:
+        beta_rhat_q_post = 1.0
+        beta_ratio_q = 0.0
+
+    return {
+        "active_beta_mask": active_beta_mask,
+        "beta_mean_v": beta_mean_v,
+        "num_active_betas": num_active_betas,
+        "beta_mcse_v": beta_mcse_v,
+        "num_post_burn_beta": num_post_burn_beta,
+        "beta_rhat_q_post": beta_rhat_q_post,
+        "beta_ratio_q": beta_ratio_q,
+    }
+
+
+def _compute_post_burn_gene_diagnostics(
+    diag_sum_Ds_m,
+    diag_num_sum_Y_m,
+    num_chains_effective_for_diag,
+    stop_top_gene_k,
+    stop_min_gene_d,
+    stop_mcse_quantile,
+):
+    D_chain_means_m = _means_from_sums(diag_sum_Ds_m, diag_num_sum_Y_m)
+    D_mean_v = np.mean(D_chain_means_m, axis=0)
+    D_mcse_v = np.sqrt(np.var(D_chain_means_m, axis=0, ddof=1) / float(num_chains_effective_for_diag))
+
+    top_gene_k = min(stop_top_gene_k, len(D_mean_v))
+    num_eligible_genes = len(D_mean_v)
+    if stop_min_gene_d is not None:
+        eligible_gene_indices = np.where(D_mean_v >= stop_min_gene_d)[0]
+        num_eligible_genes = len(eligible_gene_indices)
+        if num_eligible_genes > 0:
+            if top_gene_k >= num_eligible_genes:
+                top_gene_indices = eligible_gene_indices
+            else:
+                top_gene_indices = eligible_gene_indices[np.argpartition(-D_mean_v[eligible_gene_indices], top_gene_k - 1)[:top_gene_k]]
+        else:
+            if top_gene_k >= len(D_mean_v):
+                top_gene_indices = np.arange(len(D_mean_v))
+            else:
+                top_gene_indices = np.argpartition(-D_mean_v, top_gene_k - 1)[:top_gene_k]
+    else:
+        if top_gene_k >= len(D_mean_v):
+            top_gene_indices = np.arange(len(D_mean_v))
+        else:
+            top_gene_indices = np.argpartition(-D_mean_v, top_gene_k - 1)[:top_gene_k]
+
+    num_monitored_genes = len(top_gene_indices)
+    D_mcse_q = _safe_quantile(D_mcse_v[top_gene_indices], stop_mcse_quantile, np.inf)
+
+    return {
+        "D_mean_v": D_mean_v,
+        "D_mcse_v": D_mcse_v,
+        "top_gene_k": top_gene_k,
+        "top_gene_indices": top_gene_indices,
+        "num_monitored_genes": num_monitored_genes,
+        "num_eligible_genes": num_eligible_genes,
+        "D_mcse_q": D_mcse_q,
+    }
 
 
 def _build_inner_beta_sampler_common_kwargs(options):
