@@ -9148,49 +9148,52 @@ class GeneSetData(object):
 
                 if not in_burn_in:
 
-                    #sum_Ys_post_m = np.add(sum_Ys_post_m, Y_sample_m)
-                    #sum_Ys2_post_m += np.add(sum_Ys2_post_m, np.square(Y_sample_m))
-                    #num_sum_post += 1
-
-                    sum_Ys_m += Y_sample_m
-                    sum_Ys2_m += np.power(Y_sample_m, 2)
-                    sum_Y_raws_m += Y_raw_sample_m
-                    sum_log_pos_m += log_po_sample_m
-                    sum_log_pos2_m += np.power(log_po_sample_m, 2)
-                    sum_log_po_raws_m += log_po_raw_sample_m
-                    sum_log_po_raws2_m += np.power(log_po_raw_sample_m, 2)
-                    sum_priors_m += priors_for_Y_m
-                    sum_priors2_m += np.power(priors_for_Y_m, 2)
-                    sum_Ds_m += D_sample_m
-                    sum_D_raws_m += D_raw_sample_m
-                    sum_bf_orig_m += log_bf_m
-                    sum_bf_uncorrected_m += log_bf_uncorrected_m
-                    sum_bf_orig_raw_m += log_bf_raw_m
-                    sum_bf_orig_raw2_m += np.power(log_bf_raw_m, 2)
-                    num_sum_Y_m += 1
-
-                    #temp_genes = ["FTO", "IRS1", "ANKH", "INSR"]
-                    #temp_genes = [x for x in temp_genes if x in self.gene_to_ind]
-
-                    sum_betas_m += full_betas_mean_m
-                    sum_betas2_m += np.power(full_betas_mean_m, 2)
-                    sum_betas_uncorrected_m += uncorrected_betas_mean_m
-                    sum_betas_uncorrected2_m += np.power(uncorrected_betas_mean_m, 2)
-                    sum_postp_m += full_postp_sample_m
-                    sum_beta_tildes_m += full_beta_tildes_m
-                    sum_z_scores_m += full_z_scores_m
-                    num_sum_beta_m += 1
-
-                    if self.genes_missing is not None:
-                        sum_priors_missing_m += priors_missing_mean_m
-
-                        max_log = 15
-                        cur_log_priors_missing_m = priors_missing_mean_m + self.background_log_bf
-                        cur_log_priors_missing_m[cur_log_priors_missing_m > max_log] = max_log
-
-                        sum_Ds_missing_m += np.exp(cur_log_priors_missing_m) / (1 + np.exp(cur_log_priors_missing_m))
-
-                        num_sum_priors_missing_m += 1
+                    _accumulate_gibbs_post_burn_iteration(
+                        self,
+                        Y_sample_m,
+                        Y_raw_sample_m,
+                        log_po_sample_m,
+                        log_po_raw_sample_m,
+                        priors_for_Y_m,
+                        D_sample_m,
+                        D_raw_sample_m,
+                        log_bf_m,
+                        log_bf_uncorrected_m,
+                        log_bf_raw_m,
+                        full_betas_mean_m,
+                        uncorrected_betas_mean_m,
+                        full_postp_sample_m,
+                        full_beta_tildes_m,
+                        full_z_scores_m,
+                        priors_missing_mean_m,
+                        sum_Ys_m,
+                        sum_Ys2_m,
+                        sum_Y_raws_m,
+                        sum_log_pos_m,
+                        sum_log_pos2_m,
+                        sum_log_po_raws_m,
+                        sum_log_po_raws2_m,
+                        sum_priors_m,
+                        sum_priors2_m,
+                        sum_Ds_m,
+                        sum_D_raws_m,
+                        sum_bf_orig_m,
+                        sum_bf_uncorrected_m,
+                        sum_bf_orig_raw_m,
+                        sum_bf_orig_raw2_m,
+                        num_sum_Y_m,
+                        sum_betas_m,
+                        sum_betas2_m,
+                        sum_betas_uncorrected_m,
+                        sum_betas_uncorrected2_m,
+                        sum_postp_m,
+                        sum_beta_tildes_m,
+                        sum_z_scores_m,
+                        num_sum_beta_m,
+                        sum_priors_missing_m,
+                        sum_Ds_missing_m,
+                        num_sum_priors_missing_m,
+                    )
 
                     #record these for tracing
 
@@ -17162,6 +17165,89 @@ def _compute_gibbs_iteration_y_terms(
         "D_raw_sample_m": D_raw_sample_m,
         "log_po_raw_sample_m": log_po_raw_sample_m,
     }
+
+
+def _accumulate_gibbs_post_burn_iteration(
+    state,
+    Y_sample_m,
+    Y_raw_sample_m,
+    log_po_sample_m,
+    log_po_raw_sample_m,
+    priors_for_Y_m,
+    D_sample_m,
+    D_raw_sample_m,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+    full_betas_mean_m,
+    uncorrected_betas_mean_m,
+    full_postp_sample_m,
+    full_beta_tildes_m,
+    full_z_scores_m,
+    priors_missing_mean_m,
+    sum_Ys_m,
+    sum_Ys2_m,
+    sum_Y_raws_m,
+    sum_log_pos_m,
+    sum_log_pos2_m,
+    sum_log_po_raws_m,
+    sum_log_po_raws2_m,
+    sum_priors_m,
+    sum_priors2_m,
+    sum_Ds_m,
+    sum_D_raws_m,
+    sum_bf_orig_m,
+    sum_bf_uncorrected_m,
+    sum_bf_orig_raw_m,
+    sum_bf_orig_raw2_m,
+    num_sum_Y_m,
+    sum_betas_m,
+    sum_betas2_m,
+    sum_betas_uncorrected_m,
+    sum_betas_uncorrected2_m,
+    sum_postp_m,
+    sum_beta_tildes_m,
+    sum_z_scores_m,
+    num_sum_beta_m,
+    sum_priors_missing_m,
+    sum_Ds_missing_m,
+    num_sum_priors_missing_m,
+):
+    # Collect one post-burn Gibbs draw into running sums used for MCSE/R-hat and
+    # final epoch aggregation.
+    sum_Ys_m += Y_sample_m
+    sum_Ys2_m += np.power(Y_sample_m, 2)
+    sum_Y_raws_m += Y_raw_sample_m
+    sum_log_pos_m += log_po_sample_m
+    sum_log_pos2_m += np.power(log_po_sample_m, 2)
+    sum_log_po_raws_m += log_po_raw_sample_m
+    sum_log_po_raws2_m += np.power(log_po_raw_sample_m, 2)
+    sum_priors_m += priors_for_Y_m
+    sum_priors2_m += np.power(priors_for_Y_m, 2)
+    sum_Ds_m += D_sample_m
+    sum_D_raws_m += D_raw_sample_m
+    sum_bf_orig_m += log_bf_m
+    sum_bf_uncorrected_m += log_bf_uncorrected_m
+    sum_bf_orig_raw_m += log_bf_raw_m
+    sum_bf_orig_raw2_m += np.power(log_bf_raw_m, 2)
+    num_sum_Y_m += 1
+
+    sum_betas_m += full_betas_mean_m
+    sum_betas2_m += np.power(full_betas_mean_m, 2)
+    sum_betas_uncorrected_m += uncorrected_betas_mean_m
+    sum_betas_uncorrected2_m += np.power(uncorrected_betas_mean_m, 2)
+    sum_postp_m += full_postp_sample_m
+    sum_beta_tildes_m += full_beta_tildes_m
+    sum_z_scores_m += full_z_scores_m
+    num_sum_beta_m += 1
+
+    if state.genes_missing is not None:
+        sum_priors_missing_m += priors_missing_mean_m
+        max_log = 15
+        cur_log_priors_missing_m = priors_missing_mean_m + state.background_log_bf
+        cur_log_priors_missing_m[cur_log_priors_missing_m > max_log] = max_log
+        sum_Ds_missing_m += np.exp(cur_log_priors_missing_m) / (1 + np.exp(cur_log_priors_missing_m))
+        num_sum_priors_missing_m += 1
 
 
 def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig):
