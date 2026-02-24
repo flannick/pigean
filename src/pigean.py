@@ -8668,81 +8668,49 @@ class GeneSetData(object):
 
                 #NOW ONTO GENE SETS
 
-                full_scale_factors_m = np.tile(self.scale_factors, num_chains).reshape((num_chains, len(self.scale_factors)))
-                full_mean_shifts_m = np.tile(self.mean_shifts, num_chains).reshape((num_chains, len(self.mean_shifts)))
-                full_is_dense_gene_set_m = np.tile(self.is_dense_gene_set, num_chains).reshape((num_chains, len(self.is_dense_gene_set)))
-                full_ps_m = None
-                if self.ps is not None:
-                    full_ps_m = np.tile(self.ps, num_chains).reshape((num_chains, len(self.ps)))
-                full_sigma2s_m = None
-                if self.sigma2s is not None:
-                    full_sigma2s_m = np.tile(self.sigma2s, num_chains).reshape((num_chains, len(self.sigma2s)))
-
-                #we have to keep local replicas here because unsubset does not restore the original order, which would break full_beta_tildes and full_betas
-
-                pre_gene_set_filter_mask = None
-                full_z_cur_beta_tildes_m = np.zeros(full_betas_m_shape)
-
-                #have to do logistic or else doesn't converge
-                if not gauss_seidel:
-                    log("Sampling Ds for logistic", TRACE)
-                else:
-                    log("Setting Ds to mean probabilities", TRACE)
-                p_sample_m = _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
-
-                if initial_linear_filter:
-                    (linear_beta_tildes_m, linear_ses_m, linear_z_scores_m, linear_p_values_m, _) = self._compute_beta_tildes(self.X_orig, Y_sample_m, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=y_corr_sparse)
-                    (linear_uncorrected_betas_sample_m, linear_uncorrected_postp_sample_m, linear_uncorrected_betas_mean_m, linear_uncorrected_postp_mean_m) = self._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=linear_beta_tildes_m, ses=linear_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, debug_gene_sets=self.gene_sets)
-                    pre_gene_set_filter_mask_m = _get_gibbs_gene_set_mask(linear_uncorrected_betas_mean_m, linear_uncorrected_betas_sample_m, linear_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
-                    pre_gene_set_filter_mask = np.any(pre_gene_set_filter_mask_m, axis=0)
-
-                    log("Filtered down to %d gene sets using linear pre-filtering" % np.sum(pre_gene_set_filter_mask))
-                else:
-                    pre_gene_set_filter_mask = np.full(full_beta_tildes_m.shape[1], True)
-
-                full_beta_tildes_m = np.zeros(full_betas_m_shape)
-                full_ses_m = np.zeros(full_betas_m_shape)
-                full_z_scores_m = np.zeros(full_betas_m_shape)
-                full_p_values_m = np.zeros(full_betas_m_shape)
-                se_inflation_factors_m = np.zeros(full_betas_m_shape)
-                full_alpha_tildes_m = np.zeros(full_betas_m_shape)
-                diverged_m = np.full(full_betas_m_shape, False)
-
-                for batch in range(num_stack_batches):
-                    begin = batch * stack_batch_size
-                    end = (batch + 1) * stack_batch_size
-                    if end > num_chains:
-                        end = num_chains
-
-                    log("Batch %d: chains %d-%d" % (batch, begin, end), TRACE)
-                    num_cur_stack = (end - begin)
-                    if num_cur_stack == stack_batch_size:
-                        cur_X_hstacked = X_hstacked
-                    else:
-                        cur_X_hstacked = sparse.hstack([self.X_orig] * num_cur_stack)
-
-                    stack_mask = np.tile(pre_gene_set_filter_mask, num_cur_stack)
-
-                    (full_beta_tildes_m[begin:end,pre_gene_set_filter_mask], full_ses_m[begin:end,pre_gene_set_filter_mask], full_z_scores_m[begin:end,pre_gene_set_filter_mask], full_p_values_m[begin:end,pre_gene_set_filter_mask], init_se_inflation_factors_m, full_alpha_tildes_m[begin:end,pre_gene_set_filter_mask], diverged_m[begin:end,pre_gene_set_filter_mask]) = self._compute_logistic_beta_tildes(self.X_orig[:,pre_gene_set_filter_mask], p_sample_m[begin:end,:], self.scale_factors[pre_gene_set_filter_mask], self.mean_shifts[pre_gene_set_filter_mask], resid_correlation_matrix=y_corr_sparse, X_stacked=cur_X_hstacked[:,stack_mask])
-
-                    full_ses_m[begin:end,~pre_gene_set_filter_mask] = 100
-                    full_p_values_m[begin:end,~pre_gene_set_filter_mask] = 1
-
-                    if init_se_inflation_factors_m is not None:
-                        se_inflation_factors_m[begin:end,pre_gene_set_filter_mask] = init_se_inflation_factors_m
-                    else:
-                        se_inflation_factors_m = None
-
-                # Legacy outlier-z filtering was experimental and is disabled in this path.
-                full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
-
-                if np.sum(diverged_m) > 0:
-                    for c in range(diverged_m.shape[0]):
-                        if np.sum(diverged_m[c,:] > 0):
-                            for p in np.nditer(np.where(diverged_m[c,:])):
-                                log("Chain %d: gene set %s diverged" % (c+1, self.gene_sets[p]), DEBUG)
-                if correct_betas_mean or correct_betas_var:
-                    (full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m) = self._correct_beta_tildes(full_beta_tildes_m, full_ses_m, se_inflation_factors_m, self.total_qc_metrics, self.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, fit=False)
+                # we have to keep local replicas here because unsubset does not restore the original
+                # order, which would break full_beta_tildes and full_betas
+                logistic_setup = _compute_gibbs_logistic_beta_tildes(
+                    self,
+                    Y_sample_m,
+                    y_var,
+                    D_sample_m,
+                    gauss_seidel,
+                    y_corr_sparse,
+                    num_chains,
+                    full_betas_m_shape,
+                    num_stack_batches,
+                    stack_batch_size,
+                    X_hstacked,
+                    initial_linear_filter,
+                    sparse_frac_gibbs,
+                    sparse_max_gibbs,
+                    passed_in_max_num_burn_in,
+                    max_num_iter_betas,
+                    min_num_iter_betas,
+                    num_chains_betas,
+                    r_threshold_burn_in_betas,
+                    use_max_r_for_convergence_betas,
+                    max_frac_sem_betas,
+                    max_allowed_batch_correlation,
+                    gauss_seidel_betas,
+                    sparse_solution,
+                    sparse_frac_betas,
+                    correct_betas_mean,
+                    correct_betas_var,
+                )
+                full_scale_factors_m = logistic_setup["full_scale_factors_m"]
+                full_mean_shifts_m = logistic_setup["full_mean_shifts_m"]
+                full_is_dense_gene_set_m = logistic_setup["full_is_dense_gene_set_m"]
+                full_ps_m = logistic_setup["full_ps_m"]
+                full_sigma2s_m = logistic_setup["full_sigma2s_m"]
+                p_sample_m = logistic_setup["p_sample_m"]
+                pre_gene_set_filter_mask = logistic_setup["pre_gene_set_filter_mask"]
+                full_z_cur_beta_tildes_m = logistic_setup["full_z_cur_beta_tildes_m"]
+                full_beta_tildes_m = logistic_setup["full_beta_tildes_m"]
+                full_ses_m = logistic_setup["full_ses_m"]
+                full_z_scores_m = logistic_setup["full_z_scores_m"]
+                full_p_values_m = logistic_setup["full_p_values_m"]
 
 
                 #now write the gene stats trace
@@ -17104,6 +17072,119 @@ def _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel):
     else:
         p_sample_m = D_sample_m
     return p_sample_m
+
+
+def _compute_gibbs_logistic_beta_tildes(
+    state,
+    Y_sample_m,
+    y_var,
+    D_sample_m,
+    gauss_seidel,
+    y_corr_sparse,
+    num_chains,
+    full_betas_m_shape,
+    num_stack_batches,
+    stack_batch_size,
+    X_hstacked,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+    correct_betas_mean,
+    correct_betas_var,
+):
+    full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, len(state.scale_factors)))
+    full_mean_shifts_m = np.tile(state.mean_shifts, num_chains).reshape((num_chains, len(state.mean_shifts)))
+    full_is_dense_gene_set_m = np.tile(state.is_dense_gene_set, num_chains).reshape((num_chains, len(state.is_dense_gene_set)))
+    full_ps_m = None
+    if state.ps is not None:
+        full_ps_m = np.tile(state.ps, num_chains).reshape((num_chains, len(state.ps)))
+    full_sigma2s_m = None
+    if state.sigma2s is not None:
+        full_sigma2s_m = np.tile(state.sigma2s, num_chains).reshape((num_chains, len(state.sigma2s)))
+
+    if not gauss_seidel:
+        log("Sampling Ds for logistic", TRACE)
+    else:
+        log("Setting Ds to mean probabilities", TRACE)
+    p_sample_m = _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
+
+    if initial_linear_filter:
+        (linear_beta_tildes_m, linear_ses_m, linear_z_scores_m, linear_p_values_m, _) = state._compute_beta_tildes(state.X_orig, Y_sample_m, y_var, state.scale_factors, state.mean_shifts, resid_correlation_matrix=y_corr_sparse)
+        (linear_uncorrected_betas_sample_m, linear_uncorrected_postp_sample_m, linear_uncorrected_betas_mean_m, linear_uncorrected_postp_mean_m) = state._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=linear_beta_tildes_m, ses=linear_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, debug_gene_sets=state.gene_sets)
+        pre_gene_set_filter_mask_m = _get_gibbs_gene_set_mask(linear_uncorrected_betas_mean_m, linear_uncorrected_betas_sample_m, linear_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
+        pre_gene_set_filter_mask = np.any(pre_gene_set_filter_mask_m, axis=0)
+        log("Filtered down to %d gene sets using linear pre-filtering" % np.sum(pre_gene_set_filter_mask))
+    else:
+        pre_gene_set_filter_mask = np.full(full_betas_m_shape[1], True)
+
+    full_beta_tildes_m = np.zeros(full_betas_m_shape)
+    full_ses_m = np.zeros(full_betas_m_shape)
+    full_z_scores_m = np.zeros(full_betas_m_shape)
+    full_p_values_m = np.zeros(full_betas_m_shape)
+    se_inflation_factors_m = np.zeros(full_betas_m_shape)
+    full_alpha_tildes_m = np.zeros(full_betas_m_shape)
+    diverged_m = np.full(full_betas_m_shape, False)
+
+    for batch in range(num_stack_batches):
+        begin = batch * stack_batch_size
+        end = (batch + 1) * stack_batch_size
+        if end > num_chains:
+            end = num_chains
+
+        log("Batch %d: chains %d-%d" % (batch, begin, end), TRACE)
+        num_cur_stack = (end - begin)
+        if num_cur_stack == stack_batch_size:
+            cur_X_hstacked = X_hstacked
+        else:
+            cur_X_hstacked = sparse.hstack([state.X_orig] * num_cur_stack)
+
+        stack_mask = np.tile(pre_gene_set_filter_mask, num_cur_stack)
+        (full_beta_tildes_m[begin:end,pre_gene_set_filter_mask], full_ses_m[begin:end,pre_gene_set_filter_mask], full_z_scores_m[begin:end,pre_gene_set_filter_mask], full_p_values_m[begin:end,pre_gene_set_filter_mask], init_se_inflation_factors_m, full_alpha_tildes_m[begin:end,pre_gene_set_filter_mask], diverged_m[begin:end,pre_gene_set_filter_mask]) = state._compute_logistic_beta_tildes(state.X_orig[:,pre_gene_set_filter_mask], p_sample_m[begin:end,:], state.scale_factors[pre_gene_set_filter_mask], state.mean_shifts[pre_gene_set_filter_mask], resid_correlation_matrix=y_corr_sparse, X_stacked=cur_X_hstacked[:,stack_mask])
+
+        full_ses_m[begin:end,~pre_gene_set_filter_mask] = 100
+        full_p_values_m[begin:end,~pre_gene_set_filter_mask] = 1
+
+        if init_se_inflation_factors_m is not None:
+            se_inflation_factors_m[begin:end,pre_gene_set_filter_mask] = init_se_inflation_factors_m
+        else:
+            se_inflation_factors_m = None
+
+    # Legacy outlier-z filtering was experimental and is disabled in this path.
+    full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
+
+    if np.sum(diverged_m) > 0:
+        for c in range(diverged_m.shape[0]):
+            if np.sum(diverged_m[c,:] > 0):
+                for p in np.nditer(np.where(diverged_m[c,:])):
+                    log("Chain %d: gene set %s diverged" % (c+1, state.gene_sets[p]), DEBUG)
+    if correct_betas_mean or correct_betas_var:
+        (full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m) = state._correct_beta_tildes(full_beta_tildes_m, full_ses_m, se_inflation_factors_m, state.total_qc_metrics, state.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, fit=False)
+
+    return {
+        "full_scale_factors_m": full_scale_factors_m,
+        "full_mean_shifts_m": full_mean_shifts_m,
+        "full_is_dense_gene_set_m": full_is_dense_gene_set_m,
+        "full_ps_m": full_ps_m,
+        "full_sigma2s_m": full_sigma2s_m,
+        "p_sample_m": p_sample_m,
+        "pre_gene_set_filter_mask": pre_gene_set_filter_mask,
+        "full_z_cur_beta_tildes_m": full_z_cur_beta_tildes_m,
+        "full_beta_tildes_m": full_beta_tildes_m,
+        "full_ses_m": full_ses_m,
+        "full_z_scores_m": full_z_scores_m,
+        "full_p_values_m": full_p_values_m,
+    }
 
 
 def _update_post_burn_stall_tracking(
