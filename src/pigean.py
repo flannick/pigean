@@ -890,27 +890,6 @@ MODE_TO_STATE_KEYS = {
     "naive_pops": ("run_naive_priors",),
 }
 
-def _resolve_mode_state(_mode, _options):
-    _state = {
-        "run_huge": False,
-        "run_beta_tilde": False,
-        "run_beta": False,
-        "run_priors": False,
-        "run_naive_priors": False,
-        "run_gibbs": False,
-        "run_phewas": False,
-        "run_sim": False,
-    }
-    state_keys = MODE_TO_STATE_KEYS.get(_mode)
-    if state_keys is None:
-        bail("Unrecognized mode %s" % _mode)
-    for state_key in state_keys:
-        _state[state_key] = True
-    if _options.run_phewas_from_gene_phewas_stats_in is not None:
-        _state["run_phewas"] = True
-    return _state
-
-
 def _set_default_option(_options, _name, _value):
     if getattr(_options, _name) is None:
         setattr(_options, _name, _value)
@@ -1010,83 +989,96 @@ def _derive_memory_controls_from_max_gb(_options, _argv):
         log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
 
 
-def _finalize_options_after_parse(_options, _mode, _argv):
-    # Mode-dependent defaults.
-    if _mode in ("pops", "naive_pops"):
-        _set_default_option(_options, "correct_betas_mean", False)
-        _set_default_option(_options, "adjust_priors", False)
-        _set_default_option(_options, "p_noninf", [1])
-        _set_default_option(_options, "sigma_power", 2)
-        _set_default_option(_options, "update_hyper", "none")
-        _set_default_option(_options, "filter_negative", False)
-        _set_default_option(_options, "prune_gene_sets", 1.1)
-        _set_default_option(_options, "weighted_prune_gene_sets", 1.1)
-        _set_default_option(_options, "top_gene_set_prior", 0.1)
-        _set_default_option(_options, "num_gene_sets_for_prior", 15000)
-        _set_default_option(_options, "filter_gene_set_p", 0.05)
-        _set_default_option(_options, "linear", True)
-        _set_default_option(_options, "max_for_linear", 1)
-        _set_default_option(_options, "min_gene_set_size", 1)
-        _set_default_option(_options, "cross_val", True)
-        _set_default_option(_options, "sparse_frac_betas", 0)
-        _set_default_option(_options, "sparse_solution", False)
-    else:
-        _set_default_option(_options, "correct_betas_mean", True)
-        _set_default_option(_options, "adjust_priors", True)
-        _set_default_option(_options, "p_noninf", [0.001])
-        _set_default_option(_options, "sigma_power", -2)
-        _set_default_option(_options, "update_hyper", "p")
-        _set_default_option(_options, "filter_negative", True)
-        _set_default_option(_options, "top_gene_set_prior", 0.8)
-        _set_default_option(_options, "num_gene_sets_for_prior", 50)
-        _set_default_option(_options, "filter_gene_set_p", 0.01)
-        _set_default_option(_options, "linear", False)
-        _set_default_option(_options, "max_for_linear", 0.95)
-        _set_default_option(_options, "min_gene_set_size", 10)
-        _set_default_option(_options, "cross_val", False)
-        _set_default_option(_options, "sparse_frac_betas", 0.001)
-        _set_default_option(_options, "sparse_solution", True)
-        default_prune = 0.8
-        if _options.prune_gene_sets is None:
-            _options.prune_gene_sets = default_prune
-        if _options.weighted_prune_gene_sets is None:
-            _options.weighted_prune_gene_sets = default_prune
+mode_state = {
+    "run_huge": False,
+    "run_beta_tilde": False,
+    "run_beta": False,
+    "run_priors": False,
+    "run_naive_priors": False,
+    "run_gibbs": False,
+    "run_phewas": False,
+    "run_sim": False,
+}
+state_keys = MODE_TO_STATE_KEYS.get(mode)
+if state_keys is None:
+    bail("Unrecognized mode %s" % mode)
+for state_key in state_keys:
+    mode_state[state_key] = True
+if options.run_phewas_from_gene_phewas_stats_in is not None:
+    mode_state["run_phewas"] = True
 
-    # Gibbs stopping defaults.
-    _options.gibbs_stopping_preset = "strict" if _options.strict_stopping else "lenient"
-    for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[_options.gibbs_stopping_preset].items():
-        _set_default_option(_options, opt_name, opt_value)
-    # Backward-compat defaults for simplified epoch controls.
-    if _options.max_num_post_burn_in is None and _options.max_num_iter is not None:
-        _options.max_num_post_burn_in = max(1, _options.max_num_iter - max(_options.min_num_burn_in, 0))
-    # Explicitly disable all stall-based early exits/restarts.
-    if _options.disable_stall_detection:
-        _options.burn_in_stall_window = 0
-        _options.stall_window = 0
-        _options.stall_recent_window = 0
-        # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
-        _options.max_num_restarts = 0
-        _options.total_num_iter_gibbs = _options.max_num_iter
+# Mode-dependent defaults.
+if mode in ("pops", "naive_pops"):
+    _set_default_option(options, "correct_betas_mean", False)
+    _set_default_option(options, "adjust_priors", False)
+    _set_default_option(options, "p_noninf", [1])
+    _set_default_option(options, "sigma_power", 2)
+    _set_default_option(options, "update_hyper", "none")
+    _set_default_option(options, "filter_negative", False)
+    _set_default_option(options, "prune_gene_sets", 1.1)
+    _set_default_option(options, "weighted_prune_gene_sets", 1.1)
+    _set_default_option(options, "top_gene_set_prior", 0.1)
+    _set_default_option(options, "num_gene_sets_for_prior", 15000)
+    _set_default_option(options, "filter_gene_set_p", 0.05)
+    _set_default_option(options, "linear", True)
+    _set_default_option(options, "max_for_linear", 1)
+    _set_default_option(options, "min_gene_set_size", 1)
+    _set_default_option(options, "cross_val", True)
+    _set_default_option(options, "sparse_frac_betas", 0)
+    _set_default_option(options, "sparse_solution", False)
+else:
+    _set_default_option(options, "correct_betas_mean", True)
+    _set_default_option(options, "adjust_priors", True)
+    _set_default_option(options, "p_noninf", [0.001])
+    _set_default_option(options, "sigma_power", -2)
+    _set_default_option(options, "update_hyper", "p")
+    _set_default_option(options, "filter_negative", True)
+    _set_default_option(options, "top_gene_set_prior", 0.8)
+    _set_default_option(options, "num_gene_sets_for_prior", 50)
+    _set_default_option(options, "filter_gene_set_p", 0.01)
+    _set_default_option(options, "linear", False)
+    _set_default_option(options, "max_for_linear", 0.95)
+    _set_default_option(options, "min_gene_set_size", 10)
+    _set_default_option(options, "cross_val", False)
+    _set_default_option(options, "sparse_frac_betas", 0.001)
+    _set_default_option(options, "sparse_solution", True)
+    default_prune = 0.8
+    if options.prune_gene_sets is None:
+        options.prune_gene_sets = default_prune
+    if options.weighted_prune_gene_sets is None:
+        options.weighted_prune_gene_sets = default_prune
 
-    _derive_memory_controls_from_max_gb(_options, _argv)
-    if _options.gene_cor_file is None and _options.gene_loc_file is None and not _options.ols:
-        warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
-        _options.ols = True
-    if _options.betas_from_phewas:
-        _options.betas_uncorrected_from_phewas = True
+# Gibbs stopping defaults.
+options.gibbs_stopping_preset = "strict" if options.strict_stopping else "lenient"
+for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[options.gibbs_stopping_preset].items():
+    _set_default_option(options, opt_name, opt_value)
+# Backward-compat defaults for simplified epoch controls.
+if options.max_num_post_burn_in is None and options.max_num_iter is not None:
+    options.max_num_post_burn_in = max(1, options.max_num_iter - max(options.min_num_burn_in, 0))
+# Explicitly disable all stall-based early exits/restarts.
+if options.disable_stall_detection:
+    options.burn_in_stall_window = 0
+    options.stall_window = 0
+    options.stall_recent_window = 0
+    # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
+    options.max_num_restarts = 0
+    options.total_num_iter_gibbs = options.max_num_iter
 
-    if _options.print_effective_config:
-        effective_config = {
-            "mode": _mode,
-            "config": _options.config,
-            "options": _json_safe(vars(_options)),
-        }
-        sys.stdout.write("%s\n" % json.dumps(effective_config, indent=2, sort_keys=True))
-        sys.exit(0)
+_derive_memory_controls_from_max_gb(options, sys.argv[1:])
+if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
+    warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
+    options.ols = True
+if options.betas_from_phewas:
+    options.betas_uncorrected_from_phewas = True
 
-
-mode_state = _resolve_mode_state(mode, options)
-_finalize_options_after_parse(options, mode, sys.argv[1:])
+if options.print_effective_config:
+    effective_config = {
+        "mode": mode,
+        "config": options.config,
+        "options": _json_safe(vars(options)),
+    }
+    sys.stdout.write("%s\n" % json.dumps(effective_config, indent=2, sort_keys=True))
+    sys.exit(0)
 
 def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
     import urllib.request
