@@ -981,67 +981,32 @@ def _make_mode_state():
         "run_sim": False,
     }
 
-
-def _run_mode_huge(_state, _options, _mode):
-    _state["run_huge"] = True
-
-
-def _run_mode_beta_tildes(_state, _options, _mode):
-    _state["run_beta_tilde"] = True
-
-
-def _run_mode_betas(_state, _options, _mode):
-    _state["run_beta"] = True
-
-
-def _run_mode_priors(_state, _options, _mode):
-    _state["run_priors"] = True
-
-
-def _run_mode_naive_priors(_state, _options, _mode):
-    _state["run_naive_priors"] = True
-
-
-def _run_mode_gibbs(_state, _options, _mode):
-    _state["run_gibbs"] = True
-
-def _run_mode_sim(_state, _options, _mode):
-    _state["run_sim"] = True
-
-
-def _run_mode_pops(_state, _options, _mode):
-    _state["run_priors"] = True
-
-
-def _run_mode_naive_pops(_state, _options, _mode):
-    _state["run_naive_priors"] = True
-
-
-MODE_DISPATCH = {
-    "huge": _run_mode_huge,
-    "huge_calc": _run_mode_huge,
-    "beta_tildes": _run_mode_beta_tildes,
-    "beta_tilde": _run_mode_beta_tildes,
-    "betas": _run_mode_betas,
-    "beta": _run_mode_betas,
-    "priors": _run_mode_priors,
-    "prior": _run_mode_priors,
-    "naive_priors": _run_mode_naive_priors,
-    "naive_prior": _run_mode_naive_priors,
-    "gibbs": _run_mode_gibbs,
-    "em": _run_mode_gibbs,
-    "sim": _run_mode_sim,
-    "simulate": _run_mode_sim,
-    "pops": _run_mode_pops,
-    "naive_pops": _run_mode_naive_pops,
+MODE_TO_STATE_KEYS = {
+    "huge": ("run_huge",),
+    "huge_calc": ("run_huge",),
+    "beta_tildes": ("run_beta_tilde",),
+    "beta_tilde": ("run_beta_tilde",),
+    "betas": ("run_beta",),
+    "beta": ("run_beta",),
+    "priors": ("run_priors",),
+    "prior": ("run_priors",),
+    "naive_priors": ("run_naive_priors",),
+    "naive_prior": ("run_naive_priors",),
+    "gibbs": ("run_gibbs",),
+    "em": ("run_gibbs",),
+    "sim": ("run_sim",),
+    "simulate": ("run_sim",),
+    "pops": ("run_priors",),
+    "naive_pops": ("run_naive_priors",),
 }
 
 def _resolve_mode_state(_mode, _options):
     _state = _make_mode_state()
-    mode_handler = MODE_DISPATCH.get(_mode)
-    if mode_handler is None:
+    state_keys = MODE_TO_STATE_KEYS.get(_mode)
+    if state_keys is None:
         bail("Unrecognized mode %s" % _mode)
-    mode_handler(_state, _options, _mode)
+    for state_key in state_keys:
+        _state[state_key] = True
     if _options.run_phewas_from_gene_phewas_stats_in is not None:
         _state["run_phewas"] = True
     return _state
@@ -1163,7 +1128,7 @@ def _apply_gibbs_stopping_defaults(_options):
     _apply_disable_stall_detection_compat_overrides(_options)
 
 
-def _apply_post_parse_mode_and_stopping_defaults(_options, _mode, _mode_state):
+def _apply_post_parse_mode_and_stopping_defaults(_options, _mode):
     _apply_mode_defaults(_options, _mode)
     _apply_gibbs_stopping_defaults(_options)
 
@@ -1282,15 +1247,15 @@ def _emit_effective_config_and_exit_if_requested(_options, _mode):
     sys.exit(0)
 
 
-def _finalize_options_after_parse(_options, _mode, _mode_state, _argv):
-    _apply_post_parse_mode_and_stopping_defaults(_options, _mode, _mode_state)
+def _finalize_options_after_parse(_options, _mode, _argv):
+    _apply_post_parse_mode_and_stopping_defaults(_options, _mode)
     _derive_memory_controls_from_max_gb(_options, _argv)
     _apply_post_parse_option_normalization(_options)
     _emit_effective_config_and_exit_if_requested(_options, _mode)
 
 
 mode_state = _resolve_mode_state(mode, options)
-_finalize_options_after_parse(options, mode, mode_state, sys.argv[1:])
+_finalize_options_after_parse(options, mode, sys.argv[1:])
 
 def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
     import urllib.request
@@ -4123,7 +4088,6 @@ class GeneSetData(object):
 
     def write_X(self, X_out):
         if self.genes is None or self.X_orig is None or self.gene_sets is None:
-            return
             warn("X has not been initialized; skipping writing")
             return
 
@@ -4937,7 +4901,6 @@ class GeneSetData(object):
                             (region_with_overlap_inds, overlapping_interval_starts, overlapping_interval_stops) = exon_interval_tree.find(region_pos, region_pos)
                             coding_var_linkage_prob = np.maximum(np.exp(window_fun_slope + window_fun_intercept)/(1+np.exp(window_fun_slope + window_fun_intercept)), 0.95)
 
-                            #if True:
                             #this needs to have the gene, prob corresponding to each position
                             gene_lists = [interval_to_gene[(overlapping_interval_starts[i], overlapping_interval_stops[i])] for i in range(len(region_with_overlap_inds))]
                             gene_prob_lists = []
@@ -5499,17 +5462,6 @@ class GeneSetData(object):
                             self.huge_signal_mean_gene_pos.append(mean_cond_po)
                             self.huge_signal_mean_gene_pos_for_regression.append(mean_cond_po_detect)
                             gene_prob_col_num += 1
-
-                            #now record them
-                            #for i in range(len(gene_pos)):
-                            #   gene_index = gene_index_to_name_index[i]
-                            #    gene_name = gene_names[gene_index]
-                            #    if gene_name not in gene_output_data:
-                            #        gene_output_data[gene_name] = gene_prob_causal[gene_index]
-                            #        total_prob_causal += gene_prob_causal[gene_index]
-                            #    else:
-                            #        #sanity check: same gene name should have same probability
-                            #        assert(gene_prob_causal[gene_index] == gene_output_data[gene_name])
 
                             gene_prob_genes += list(gene_names)
 
@@ -7560,9 +7512,6 @@ class GeneSetData(object):
         col_sums = self.get_col_sums(self.X_orig, num_nonzero=True)
         self.subset_gene_sets(col_sums > 0, keep_missing=False, skip_V=True, skip_scale_factors=True)
 
-        #CAN REMOVE
-        #mean of Y is now zero
-        #self.beta_tildes = self.scale_factors * ((self.X_orig.T.dot(Y_clean) / len(Y_clean)) - (self.mean_shifts * np.mean(Y_clean))) / variances
         self._set_scale_factors()
 
         #self.is_logistic = run_logistic
@@ -7617,15 +7566,8 @@ class GeneSetData(object):
         else:
             if run_gls:
                 #Y has already been whitened
-                #dot_product = np.array([])
                 y_var = self.y_fw_var
                 Y = self.Y_fw
-                #OLD CODE
-                #as an optimization, multiply original X by fully whitened Y, rather than half by half
-                #for X_b, begin, end, batch in self._get_X_blocks():
-                #    #calculate mean shifts
-                #    dot_product = np.append(dot_product, X_b.T.dot(self.Y_w) / len(self.Y_w))
-                #dot_product = self.X_orig.T.dot(self.Y_fw) / len(self.Y_fw)
             else:
                 #Technically, we could use the above code for this case, since X_blocks will returned unwhitened matrix
                 #But, probably faster to keep sparse multiplication? Might be worth revisiting later to see if there actually is a performance gain
@@ -7638,16 +7580,6 @@ class GeneSetData(object):
                     y_var = np.var(Y, axis=1)
                 else:
                     y_var = np.var(Y)
-
-                #OLD CODE
-                #dot_product = self.X_orig.T.dot(self.Y) / len(self.Y)
-
-                #variances = np.power(self.scale_factors, 2)
-                #multiply by scale factors because we store beta_tilde in units of scaled X
-                #self.beta_tildes = self.scale_factors * np.array(dot_product) / variances
-                #self.ses = self.scale_factors * np.sqrt(y_var) / (np.sqrt(variances * len(self.Y)))
-                #self.z_scores = self.beta_tildes / self.ses
-                #self.p_values = 2*scipy.stats.norm.cdf(-np.abs(self.z_scores))
 
                 (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._compute_beta_tildes(self.X_orig, Y, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
 
@@ -9233,18 +9165,6 @@ class GeneSetData(object):
                 D_raw_sample_m[D_raw_sample_m < min_D] = min_D
                 log_po_raw_sample_m = np.log(D_raw_sample_m/(1-D_raw_sample_m))
 
-                #if center_combined:
-                #    #recenter the log_pos and Ds as well
-                #    #the "combined missing" is just the priors
-                #    log_po_sample_total_m = np.hstack((log_po_sample_m, priors_missing_sample_m))
-                #    total_po_mean_v = np.mean(log_po_sample_total_m, axis=1)
-                #    log_po_sample_m = (log_po_sample_m.T - total_po_mean_v).T
-                #    bf_sample_m = np.exp(log_po_sample_m.T + cur_background_log_bf_v).T
-                #    D_sample_m = bf_sample_m / (1 + bf_sample_m)
-                #else:
-                #    log("Not centering combined")
-
-
                 #var(Y) = E[var(Y|S,beta)] + var(E[Y|S,beta])
                 #First term can be estimated from the gibbs samples
                 #Second term is just Y_cond_var (to a first approximation), or more accurately the term in the integral from gauss
@@ -9469,9 +9389,6 @@ class GeneSetData(object):
                             if np.sum(diverged_m[c,:] > 0):
                                 for p in np.nditer(np.where(diverged_m[c,:])):
                                     log("Chain %d: gene set %s diverged" % (c+1, self.gene_sets[p]), DEBUG)
-                #else:
-                #    (full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m) = self._compute_beta_tildes(self.X_orig, Y_sample_m, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=y_corr_sparse)
-
                 if correct_betas_mean or correct_betas_var:
                     (full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m) = self._correct_beta_tildes(full_beta_tildes_m, full_ses_m, se_inflation_factors_m, self.total_qc_metrics, self.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, fit=False)
 
@@ -17499,7 +17416,7 @@ def _read_x_and_initialize_p_for_main(
     #read in the matrices
     if _has_x_inputs_for_main(options):
         xin_to_p_noninf_ind = _build_xin_to_p_noninf_index_for_main(options, sys.argv)
-        _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_loaded, sigma2_cond, mode_state, xin_to_p_noninf_ind)
+        _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_cond, mode_state, xin_to_p_noninf_ind)
     else:
         _set_p_without_x_inputs_for_main(state, options)
 
@@ -17536,7 +17453,7 @@ def _build_xin_to_p_noninf_index_for_main(options, argv):
     return xin_to_p_noninf_ind
 
 
-def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_loaded, sigma2_cond, mode_state, xin_to_p_noninf_ind):
+def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_cond, mode_state, xin_to_p_noninf_ind):
     filter_gene_set_p = options.filter_gene_set_p
     force_reread = False
     while True:
@@ -17545,7 +17462,6 @@ def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, Y_not_lo
             state,
             options,
             gene_set_ids,
-            Y_not_loaded,
             sigma2_cond,
             mode_state,
             xin_to_p_noninf_ind,
@@ -17571,7 +17487,6 @@ def _build_read_x_kwargs_for_iteration_for_main(
     state,
     options,
     gene_set_ids,
-    Y_not_loaded,
     sigma2_cond,
     mode_state,
     xin_to_p_noninf_ind,
@@ -18130,7 +18045,7 @@ def _build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p, run_us
     return kwargs
 
 
-def _needs_gene_set_stats_for_main(options, mode_state):
+def _needs_gene_set_stats_for_main(mode_state):
     # Determine whether gene-set statistics are needed for any requested stage.
     run_beta_tilde = mode_state["run_beta_tilde"]
     run_beta = mode_state["run_beta"]
@@ -18165,7 +18080,7 @@ def _calculate_gene_set_stats_for_main(state, options):
 
 def _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state):
     # Resolve beta_tildes either from fixed values, read-in stats, or fresh fitting.
-    needs_gene_set_stats = _needs_gene_set_stats_for_main(options, mode_state)
+    needs_gene_set_stats = _needs_gene_set_stats_for_main(mode_state)
 
     if _should_use_constant_gene_set_beta_tildes_for_main(options):
         state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
@@ -18215,7 +18130,7 @@ def _set_constant_gene_set_betas_for_main(state, options):
     state.betas_uncorrected = np.full(len(state.gene_sets), options.const_gene_set_beta)
 
 
-def _should_read_gene_set_betas_from_file_for_main(mode_state, options):
+def _should_read_gene_set_betas_from_file_for_main(options):
     return options.gene_set_betas_in
 
 
@@ -18244,7 +18159,7 @@ def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state):
     # Gene-set betas: fixed constant, loaded values, or fitted values.
     if options.const_gene_set_beta is not None:
         _set_constant_gene_set_betas_for_main(state, options)
-    elif _should_read_gene_set_betas_from_file_for_main(mode_state, options):
+    elif _should_read_gene_set_betas_from_file_for_main(options):
         state.read_betas(options.gene_set_betas_in)
     elif needs_gene_set_betas:
         # Hyper updates happen during X-read; this branch only samples betas.
