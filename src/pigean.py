@@ -724,63 +724,32 @@ def _apply_single_config_option_override(_options, _raw_key, _raw_value, _config
     _apply_config_dest_override(_options, _raw_value, dest, _config_dir, _dest_to_option)
 
 
-def _resolve_config_context(_options):
+def _apply_config_overrides(_options, _args, _parser, _argv):
+    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
+
     if _options.config is None:
-        return None
+        return _options, _args, None
 
     config_path = _resolve_config_path_value(_options.config, os.getcwd())
     _options.config = config_path
     config_dir = os.path.dirname(config_path)
-
     config_data = _load_json_config(config_path)
     config_mode, config_options = _extract_config_mode_and_options(_config_data=config_data)
-    return config_path, config_dir, config_mode, config_options
 
-
-def _apply_config_option_overrides(_options, _config_options, _config_path, _config_dir, _cli_specified_dests, _dest_to_option, _long_key_to_dest):
-    for raw_key, raw_value in _config_options.items():
+    dest_to_option, long_key_to_dest = _build_parser_dest_lookup_maps(_parser)
+    for raw_key, raw_value in config_options.items():
         _apply_single_config_option_override(
             _options,
             raw_key,
             raw_value,
-            _config_path,
-            _config_dir,
-            _cli_specified_dests,
-            _dest_to_option,
-            _long_key_to_dest,
+            config_path,
+            config_dir,
+            cli_specified_dests,
+            dest_to_option,
+            long_key_to_dest,
         )
 
-
-def _apply_config_overrides(_options, _args, _parser, _argv):
-    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
-
-    config_context = _resolve_config_context(_options)
-    if config_context is None:
-        return _options, _args, None
-
-    config_path, config_dir, config_mode, config_options = config_context
-    dest_to_option, long_key_to_dest = _build_parser_dest_lookup_maps(_parser)
-    _apply_config_option_overrides(
-        _options,
-        config_options,
-        config_path,
-        config_dir,
-        cli_specified_dests,
-        dest_to_option,
-        long_key_to_dest,
-    )
-
     return _options, _args, config_mode
-
-
-def _resolve_mode_args_after_config(_args, _config_mode):
-    if _config_mode is None:
-        return _args
-    if len(_args) < 1:
-        return [_config_mode]
-    if _args[0] != _config_mode:
-        _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (_config_mode, _args[0]))
-    return _args
 
 
 def _json_safe(_value):
@@ -900,7 +869,11 @@ def _parse_options_and_args_with_config(_parser, _argv):
     _fail_removed_cli_aliases(_argv)
     (_options, _args) = _parser.parse_args(_argv)
     _options, _args, config_mode = _apply_config_overrides(_options, _args, _parser, _argv)
-    _args = _resolve_mode_args_after_config(_args, config_mode)
+    if config_mode is not None:
+        if len(_args) < 1:
+            _args = [config_mode]
+        elif _args[0] != config_mode:
+            _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, _args[0]))
     return _options, _args
 
 
@@ -17083,6 +17056,7 @@ def main():
             and options.case_counts_in is None
         ):
             _default_for_gene_list_options(options)
+        # Feed all source-specific Y-loading knobs through one explicit kwargs bundle.
         read_y_source_kwargs = dict(
             gwas_in=options.gwas_in,
             huge_statistics_in=options.huge_statistics_in,
@@ -17209,11 +17183,11 @@ def main():
     # ==========================================================================
     if not mode_state["run_huge"]:
         gene_set_ids = None
-        # read in the matrices
+        # Read X / Xd / V and initialize p (with adaptive filter retries if needed).
         if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
             xin_to_p_noninf_ind = None
             if options.p_noninf is not None:
-                #we need the order of these
+                # Map each X-like input occurrence to its p_noninf index using CLI order.
                 p_noninf_ind = 0
                 xin_to_p_noninf_ind = {}
                 for i in range(len(sys.argv)):
@@ -17316,6 +17290,7 @@ def main():
 
                 should_reread = False
                 new_filter_gene_set_p = filter_gene_set_p
+                # If too few sets survived filtering, relax filter_gene_set_p and retry once per loop.
                 if (
                     gene_set_ids is None
                     and options.min_num_gene_sets is not None
@@ -17370,7 +17345,7 @@ def main():
                 treat_sigma2_as_sigma2_cond=False,
                 only_positive=options.sim_only_positive,
             )
-        # Resolve beta_tildes either from fixed values, read-in stats, or fresh fitting.
+        # Resolve beta_tildes from fixed values, read-in stats, or fresh fitting.
         needs_gene_set_stats = (
             mode_state["run_beta_tilde"]
             or mode_state["run_beta"]
@@ -17469,6 +17444,7 @@ def main():
                 })
                 state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
 
+        # Final sampling stage selection: priors-only, naive priors, and/or outer Gibbs.
         if mode_state["run_priors"]:
             priors_kwargs = _build_inner_beta_sampler_common_kwargs(options)
             priors_kwargs.update(dict(
