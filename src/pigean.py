@@ -8872,35 +8872,26 @@ class GeneSetData(object):
                 #    priors_sample_m = (priors_sample_m.T + np.mean(full_alpha_tildes_m, axis=1) - self.background_log_bf).T
                 #    priors_missing_sample_m = (priors_missing_sample_m.T + np.mean(full_alpha_tildes_m, axis=1) - self.background_log_bf).T
 
-                #do the regression
-                total_priors_m = np.hstack((priors_sample_m, priors_missing_sample_m))
-                gene_N = self.get_gene_N()
-                gene_N_missing = self.get_gene_N(get_missing=True)
-
-                all_gene_N = gene_N
-                if self.genes_missing is not None:
-                    assert(gene_N_missing is not None)
-                    all_gene_N = np.concatenate((all_gene_N, gene_N_missing))
-
-                priors_slope = total_priors_m.dot(all_gene_N) / (total_priors_m.shape[1] * np.var(all_gene_N))
-                #no intercept since we just standardized above
-
-                if adjust_priors:
-                    log("Adjusting priors with slopes ranging from %.4g-%.4g" % (np.min(priors_slope), np.max(priors_slope)), TRACE)
-                    priors_sample_m = priors_sample_m - np.outer(priors_slope, gene_N)
-                    priors_mean_m = priors_mean_m - np.outer(priors_slope, gene_N)
-
-                    if self.genes_missing is not None:
-                        priors_missing_sample_m = priors_missing_sample_m - np.outer(priors_slope, gene_N_missing)
-                        priors_missing_mean_m = priors_missing_mean_m - np.outer(priors_slope, gene_N_missing)
-
-                priors_for_Y_m = priors_sample_m
-                priors_percentage_max_for_Y_m = priors_percentage_max_sample_m
-                priors_adjustment_for_Y_m = priors_adjustment_sample_m
-                if use_mean_betas:
-                    priors_for_Y_m = priors_mean_m                
-                    priors_percentage_max_for_Y_m = priors_percentage_max_mean_m
-                    priors_adjustment_for_Y_m = priors_adjustment_mean_m
+                prior_update = _finalize_gibbs_priors_for_sampling(
+                    self,
+                    priors_sample_m=priors_sample_m,
+                    priors_mean_m=priors_mean_m,
+                    priors_missing_sample_m=priors_missing_sample_m,
+                    priors_missing_mean_m=priors_missing_mean_m,
+                    adjust_priors=adjust_priors,
+                    use_mean_betas=use_mean_betas,
+                    priors_percentage_max_sample_m=priors_percentage_max_sample_m,
+                    priors_percentage_max_mean_m=priors_percentage_max_mean_m,
+                    priors_adjustment_sample_m=priors_adjustment_sample_m,
+                    priors_adjustment_mean_m=priors_adjustment_mean_m,
+                )
+                priors_sample_m = prior_update["priors_sample_m"]
+                priors_mean_m = prior_update["priors_mean_m"]
+                priors_missing_sample_m = prior_update["priors_missing_sample_m"]
+                priors_missing_mean_m = prior_update["priors_missing_mean_m"]
+                priors_for_Y_m = prior_update["priors_for_Y_m"]
+                priors_percentage_max_for_Y_m = prior_update["priors_percentage_max_for_Y_m"]
+                priors_adjustment_for_Y_m = prior_update["priors_adjustment_for_Y_m"]
 
                 #only add non-outliers to mean/sd
                 #non_outlier_mask = np.full(sum_z_scores2_m.shape, True)
@@ -8911,22 +8902,19 @@ class GeneSetData(object):
                 #sum_z_scores_m[non_outlier_mask] = np.add(sum_z_scores_m[non_outlier_mask], full_z_scores_m[non_outlier_mask])
                 #num_sum_outlier_m[non_outlier_mask] += 1
 
-                all_sum_betas_m = np.add(all_sum_betas_m, full_betas_mean_m)
-                all_sum_betas2_m = np.add(all_sum_betas2_m, np.power(full_betas_mean_m, 2))
-                all_sum_z_scores_m = np.add(all_sum_z_scores_m, full_z_scores_m)
-                all_sum_z_scores2_m = np.add(all_sum_z_scores2_m, np.power(full_z_scores_m, 2))
-                all_num_sum_m += 1
-
-                all_sum_Ys_m = np.add(all_sum_Ys_m, Y_sample_m)
-                all_sum_Ys2_m = np.add(all_sum_Ys2_m, np.power(Y_sample_m, 2))
-
-                R_beta_v = np.zeros(all_sum_betas_m.shape[1])
-
-                low_beta_restart_update = _maybe_restart_gibbs_for_low_betas(
+                all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
                     self,
-                    increase_hyper_if_betas_below_for_epoch,
+                    full_betas_mean_m,
+                    full_z_scores_m,
+                    Y_sample_m,
                     all_sum_betas_m,
+                    all_sum_betas2_m,
+                    all_sum_z_scores_m,
+                    all_sum_z_scores2_m,
                     all_num_sum_m,
+                    all_sum_Ys_m,
+                    all_sum_Ys2_m,
+                    increase_hyper_if_betas_below_for_epoch,
                     num_sum_beta_m,
                     sum_betas_m,
                     num_mad,
@@ -8937,9 +8925,17 @@ class GeneSetData(object):
                     max_num_attempt_restarts,
                     num_p_increases,
                 )
-                gibbs_good = low_beta_restart_update["gibbs_good"]
-                num_p_increases = low_beta_restart_update["num_p_increases"]
-                if low_beta_restart_update["should_break"]:
+                all_sum_betas_m = all_iteration_update["all_sum_betas_m"]
+                all_sum_betas2_m = all_iteration_update["all_sum_betas2_m"]
+                all_sum_z_scores_m = all_iteration_update["all_sum_z_scores_m"]
+                all_sum_z_scores2_m = all_iteration_update["all_sum_z_scores2_m"]
+                all_num_sum_m = all_iteration_update["all_num_sum_m"]
+                all_sum_Ys_m = all_iteration_update["all_sum_Ys_m"]
+                all_sum_Ys2_m = all_iteration_update["all_sum_Ys2_m"]
+                R_beta_v = all_iteration_update["R_beta_v"]
+                gibbs_good = all_iteration_update["gibbs_good"]
+                num_p_increases = all_iteration_update["num_p_increases"]
+                if all_iteration_update["should_break"]:
                     break
 
                 burn_in_update = _update_gibbs_burn_in_state(
@@ -18221,6 +18217,125 @@ def _update_gibbs_post_burn_state(
         "stop_due_to_precision": stop_due_to_precision,
         "restart_due_to_stall": restart_due_to_stall,
         "stop_due_to_stall": stop_due_to_stall,
+    }
+
+
+def _finalize_gibbs_priors_for_sampling(
+    state,
+    priors_sample_m,
+    priors_mean_m,
+    priors_missing_sample_m,
+    priors_missing_mean_m,
+    adjust_priors,
+    use_mean_betas,
+    priors_percentage_max_sample_m,
+    priors_percentage_max_mean_m,
+    priors_adjustment_sample_m,
+    priors_adjustment_mean_m,
+):
+    # Regress out gene-length trend from priors (when requested), then choose
+    # mean/sample priors used for the next iteration's Y sampling.
+    total_priors_m = np.hstack((priors_sample_m, priors_missing_sample_m))
+    gene_N = state.get_gene_N()
+    gene_N_missing = state.get_gene_N(get_missing=True)
+
+    all_gene_N = gene_N
+    if state.genes_missing is not None:
+        assert(gene_N_missing is not None)
+        all_gene_N = np.concatenate((all_gene_N, gene_N_missing))
+
+    priors_slope = total_priors_m.dot(all_gene_N) / (total_priors_m.shape[1] * np.var(all_gene_N))
+
+    if adjust_priors:
+        log("Adjusting priors with slopes ranging from %.4g-%.4g" % (np.min(priors_slope), np.max(priors_slope)), TRACE)
+        priors_sample_m = priors_sample_m - np.outer(priors_slope, gene_N)
+        priors_mean_m = priors_mean_m - np.outer(priors_slope, gene_N)
+
+        if state.genes_missing is not None:
+            priors_missing_sample_m = priors_missing_sample_m - np.outer(priors_slope, gene_N_missing)
+            priors_missing_mean_m = priors_missing_mean_m - np.outer(priors_slope, gene_N_missing)
+
+    priors_for_Y_m = priors_sample_m
+    priors_percentage_max_for_Y_m = priors_percentage_max_sample_m
+    priors_adjustment_for_Y_m = priors_adjustment_sample_m
+    if use_mean_betas:
+        priors_for_Y_m = priors_mean_m
+        priors_percentage_max_for_Y_m = priors_percentage_max_mean_m
+        priors_adjustment_for_Y_m = priors_adjustment_mean_m
+
+    return {
+        "priors_sample_m": priors_sample_m,
+        "priors_mean_m": priors_mean_m,
+        "priors_missing_sample_m": priors_missing_sample_m,
+        "priors_missing_mean_m": priors_missing_mean_m,
+        "priors_for_Y_m": priors_for_Y_m,
+        "priors_percentage_max_for_Y_m": priors_percentage_max_for_Y_m,
+        "priors_adjustment_for_Y_m": priors_adjustment_for_Y_m,
+    }
+
+
+def _update_gibbs_all_sums_and_maybe_restart_low_betas(
+    state,
+    full_betas_mean_m,
+    full_z_scores_m,
+    Y_sample_m,
+    all_sum_betas_m,
+    all_sum_betas2_m,
+    all_sum_z_scores_m,
+    all_sum_z_scores2_m,
+    all_num_sum_m,
+    all_sum_Ys_m,
+    all_sum_Ys2_m,
+    increase_hyper_if_betas_below_for_epoch,
+    num_sum_beta_m,
+    sum_betas_m,
+    num_mad,
+    num_before_checking_p_increase,
+    iteration_num,
+    p_scale_factor,
+    num_attempts,
+    max_num_attempt_restarts,
+    num_p_increases,
+):
+    all_sum_betas_m = np.add(all_sum_betas_m, full_betas_mean_m)
+    all_sum_betas2_m = np.add(all_sum_betas2_m, np.power(full_betas_mean_m, 2))
+    all_sum_z_scores_m = np.add(all_sum_z_scores_m, full_z_scores_m)
+    all_sum_z_scores2_m = np.add(all_sum_z_scores2_m, np.power(full_z_scores_m, 2))
+    all_num_sum_m += 1
+
+    all_sum_Ys_m = np.add(all_sum_Ys_m, Y_sample_m)
+    all_sum_Ys2_m = np.add(all_sum_Ys2_m, np.power(Y_sample_m, 2))
+
+    R_beta_v = np.zeros(all_sum_betas_m.shape[1])
+
+    low_beta_restart_update = _maybe_restart_gibbs_for_low_betas(
+        state,
+        increase_hyper_if_betas_below_for_epoch,
+        all_sum_betas_m,
+        all_num_sum_m,
+        num_sum_beta_m,
+        sum_betas_m,
+        num_mad,
+        num_before_checking_p_increase,
+        iteration_num,
+        p_scale_factor,
+        num_attempts,
+        max_num_attempt_restarts,
+        num_p_increases,
+    )
+
+    return {
+        "all_sum_betas_m": all_sum_betas_m,
+        "all_sum_betas2_m": all_sum_betas2_m,
+        "all_sum_z_scores_m": all_sum_z_scores_m,
+        "all_sum_z_scores2_m": all_sum_z_scores2_m,
+        "all_num_sum_m": all_num_sum_m,
+        "all_sum_Ys_m": all_sum_Ys_m,
+        "all_sum_Ys2_m": all_sum_Ys2_m,
+        "R_beta_v": R_beta_v,
+        "gibbs_good": low_beta_restart_update["gibbs_good"],
+        "num_p_increases": low_beta_restart_update["num_p_increases"],
+        "should_break": low_beta_restart_update["should_break"],
     }
 
 
