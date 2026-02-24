@@ -711,114 +711,109 @@ REMOVED_OPTION_REPLACEMENTS = {
     "max_no_write_gene_pheno": "__MOVED_TO_EAGGL__",
 }
 
-def _fail_removed_cli_aliases(_argv):
-    for _arg in _argv:
-        if not _arg.startswith("--"):
-            continue
-        _flag = _arg.split("=", 1)[0]
-        _normalized = _flag[2:].replace("-", "_")
-        if _normalized in REMOVED_OPTION_REPLACEMENTS:
-            replacement = REMOVED_OPTION_REPLACEMENTS[_normalized]
-            if replacement == "__MOVED_TO_EAGGL__":
-                sys.stderr.write("Error: option %s moved to eaggl.py after repository split; run this in the eaggl repository\n" % _flag)
-                sys.exit(2)
-            if replacement is None:
-                sys.stderr.write("Error: option %s has been removed and is no longer supported\n" % _flag)
-                sys.exit(2)
-            sys.stderr.write("Error: option %s has been removed; use %s instead\n" % (_flag, replacement))
-            sys.exit(2)
-
-def _parse_options_and_args_with_config(_parser, _argv):
-    _fail_removed_cli_aliases(_argv)
-    (_options, _args) = _parser.parse_args(_argv)
-    config_mode = None
-    option_lookup = {}
-    for _opt in _iter_parser_options(_parser):
-        for _long_opt in _opt._long_opts:
-            option_lookup[_long_opt] = _opt
-
-    cli_specified_dests = set()
-    i = 0
-    while i < len(_argv):
-        arg = _argv[i]
-        if arg == "--":
-            break
-        if arg.startswith("--"):
-            opt_token = arg.split("=", 1)[0]
-            if opt_token in option_lookup:
-                opt_obj = option_lookup[opt_token]
-                if opt_obj.dest is not None:
-                    cli_specified_dests.add(opt_obj.dest)
-                if "=" not in arg and opt_obj.takes_value() and i + 1 < len(_argv):
-                    i += 1
-        i += 1
-
-    if _options.config is not None:
-        config_path = _resolve_config_path_value(_options.config, os.getcwd())
-        _options.config = config_path
-        config_dir = os.path.dirname(config_path)
-        config_data = _load_json_config(config_path)
-        config_mode = config_data["mode"] if "mode" in config_data else None
-        if "options" in config_data:
-            config_options = config_data["options"]
-            if not isinstance(config_options, dict):
-                bail("Config key 'options' must be a JSON object")
-        else:
-            config_options = dict(config_data)
-            config_options.pop("mode", None)
-            config_options.pop("include", None)
-
-        dest_to_option = {}
-        long_key_to_dest = {}
-        for opt in _iter_parser_options(_parser):
-            dest_to_option[opt.dest] = opt
-            for long_opt in opt._long_opts:
-                key = long_opt.lstrip("-")
-                long_key_to_dest[key] = opt.dest
-                long_key_to_dest[key.replace("-", "_")] = opt.dest
-        for raw_key, raw_value in config_options.items():
-            if raw_key in ("mode", "options", "include"):
-                continue
-
-            _validate_config_key_not_removed(raw_key, config_path)
-
-            key = raw_key[2:] if isinstance(raw_key, str) and raw_key.startswith("--") else raw_key
-            key_norm = key.replace("-", "_") if isinstance(key, str) else key
-            if key in dest_to_option:
-                dest = key
-            elif key_norm in dest_to_option:
-                dest = key_norm
-            elif key in long_key_to_dest:
-                dest = long_key_to_dest[key]
-            elif key_norm in long_key_to_dest:
-                dest = long_key_to_dest[key_norm]
-            else:
-                _early_warn("Ignoring unknown config key '%s' in %s" % (raw_key, config_path))
-                continue
-
-            if dest in cli_specified_dests:
-                continue
-
-            opt = dest_to_option[dest]
-            coerced_value = _coerce_config_value(opt, raw_value)
-            coerced_value = _resolve_path_like_config_value(dest, coerced_value, config_dir)
-            setattr(_options, dest, coerced_value)
-
-    if config_mode is not None:
-        if len(_args) < 1:
-            _args = [config_mode]
-        elif _args[0] != config_mode:
-            _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, _args[0]))
-    return _options, _args
-
-
 def _open_optional_log_handle(_filepath):
     if _filepath is not None:
         return open(_filepath, 'w')
     return sys.stderr
 
 
-options, args = _parse_options_and_args_with_config(parser, sys.argv[1:])
+argv_parse = sys.argv[1:]
+for _arg in argv_parse:
+    if not _arg.startswith("--"):
+        continue
+    _flag = _arg.split("=", 1)[0]
+    _normalized = _flag[2:].replace("-", "_")
+    if _normalized in REMOVED_OPTION_REPLACEMENTS:
+        replacement = REMOVED_OPTION_REPLACEMENTS[_normalized]
+        if replacement == "__MOVED_TO_EAGGL__":
+            sys.stderr.write("Error: option %s moved to eaggl.py after repository split; run this in the eaggl repository\n" % _flag)
+            sys.exit(2)
+        if replacement is None:
+            sys.stderr.write("Error: option %s has been removed and is no longer supported\n" % _flag)
+            sys.exit(2)
+        sys.stderr.write("Error: option %s has been removed; use %s instead\n" % (_flag, replacement))
+        sys.exit(2)
+
+(options, args) = parser.parse_args(argv_parse)
+config_mode = None
+option_lookup = {}
+for _opt in _iter_parser_options(parser):
+    for _long_opt in _opt._long_opts:
+        option_lookup[_long_opt] = _opt
+
+cli_specified_dests = set()
+i = 0
+while i < len(argv_parse):
+    arg = argv_parse[i]
+    if arg == "--":
+        break
+    if arg.startswith("--"):
+        opt_token = arg.split("=", 1)[0]
+        if opt_token in option_lookup:
+            opt_obj = option_lookup[opt_token]
+            if opt_obj.dest is not None:
+                cli_specified_dests.add(opt_obj.dest)
+            if "=" not in arg and opt_obj.takes_value() and i + 1 < len(argv_parse):
+                i += 1
+    i += 1
+
+if options.config is not None:
+    config_path = _resolve_config_path_value(options.config, os.getcwd())
+    options.config = config_path
+    config_dir = os.path.dirname(config_path)
+    config_data = _load_json_config(config_path)
+    config_mode = config_data["mode"] if "mode" in config_data else None
+    if "options" in config_data:
+        config_options = config_data["options"]
+        if not isinstance(config_options, dict):
+            bail("Config key 'options' must be a JSON object")
+    else:
+        config_options = dict(config_data)
+        config_options.pop("mode", None)
+        config_options.pop("include", None)
+
+    dest_to_option = {}
+    long_key_to_dest = {}
+    for opt in _iter_parser_options(parser):
+        dest_to_option[opt.dest] = opt
+        for long_opt in opt._long_opts:
+            key = long_opt.lstrip("-")
+            long_key_to_dest[key] = opt.dest
+            long_key_to_dest[key.replace("-", "_")] = opt.dest
+    for raw_key, raw_value in config_options.items():
+        if raw_key in ("mode", "options", "include"):
+            continue
+
+        _validate_config_key_not_removed(raw_key, config_path)
+
+        key = raw_key[2:] if isinstance(raw_key, str) and raw_key.startswith("--") else raw_key
+        key_norm = key.replace("-", "_") if isinstance(key, str) else key
+        if key in dest_to_option:
+            dest = key
+        elif key_norm in dest_to_option:
+            dest = key_norm
+        elif key in long_key_to_dest:
+            dest = long_key_to_dest[key]
+        elif key_norm in long_key_to_dest:
+            dest = long_key_to_dest[key_norm]
+        else:
+            _early_warn("Ignoring unknown config key '%s' in %s" % (raw_key, config_path))
+            continue
+
+        if dest in cli_specified_dests:
+            continue
+
+        opt = dest_to_option[dest]
+        coerced_value = _coerce_config_value(opt, raw_value)
+        coerced_value = _resolve_path_like_config_value(dest, coerced_value, config_dir)
+        setattr(options, dest, coerced_value)
+
+if config_mode is not None:
+    if len(args) < 1:
+        args = [config_mode]
+    elif args[0] != config_mode:
+        _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, args[0]))
+
 log_fh = _open_optional_log_handle(options.log_file)
 
 NONE=0
