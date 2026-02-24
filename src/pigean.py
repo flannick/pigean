@@ -662,26 +662,6 @@ def _validate_config_key_not_removed(_raw_key, _config_path):
     bail("Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (_raw_key, _config_path, replacement_config_key, replacement))
 
 
-def _normalize_config_lookup_keys(_raw_key):
-    key = _raw_key
-    if isinstance(key, str) and key.startswith("--"):
-        key = key[2:]
-    key_norm = key.replace("-", "_") if isinstance(key, str) else key
-    return key, key_norm
-
-
-def _resolve_config_dest_from_lookup_keys(_key, _key_norm, _dest_to_option, _long_key_to_dest):
-    if _key in _dest_to_option:
-        return _key
-    if _key_norm in _dest_to_option:
-        return _key_norm
-    if _key in _long_key_to_dest:
-        return _long_key_to_dest[_key]
-    if _key_norm in _long_key_to_dest:
-        return _long_key_to_dest[_key_norm]
-    return None
-
-
 def _resolve_path_like_config_value(_dest, _coerced_value, _config_dir):
     if not _is_path_like_dest(_dest):
         return _coerced_value
@@ -690,66 +670,6 @@ def _resolve_path_like_config_value(_dest, _coerced_value, _config_dir):
     if isinstance(_coerced_value, str):
         return _resolve_config_path_value(_coerced_value, _config_dir)
     return _coerced_value
-
-
-def _is_reserved_config_top_level_key(_raw_key):
-    return _raw_key in ("mode", "options", "include")
-
-
-def _resolve_config_dest_or_warn(_raw_key, _config_path, _dest_to_option, _long_key_to_dest):
-    if _is_reserved_config_top_level_key(_raw_key):
-        return None
-    _validate_config_key_not_removed(_raw_key, _config_path)
-    key, key_norm = _normalize_config_lookup_keys(_raw_key)
-    dest = _resolve_config_dest_from_lookup_keys(key, key_norm, _dest_to_option, _long_key_to_dest)
-    if dest is None:
-        _early_warn("Ignoring unknown config key '%s' in %s" % (_raw_key, _config_path))
-        return None
-    return dest
-
-
-def _apply_config_dest_override(_options, _raw_value, _dest, _config_dir, _dest_to_option):
-    opt = _dest_to_option[_dest]
-    coerced_value = _coerce_config_value(opt, _raw_value)
-    coerced_value = _resolve_path_like_config_value(_dest, coerced_value, _config_dir)
-    setattr(_options, _dest, coerced_value)
-
-
-def _apply_single_config_option_override(_options, _raw_key, _raw_value, _config_path, _config_dir, _cli_specified_dests, _dest_to_option, _long_key_to_dest):
-    dest = _resolve_config_dest_or_warn(_raw_key, _config_path, _dest_to_option, _long_key_to_dest)
-    if dest is None:
-        return
-    if dest in _cli_specified_dests:
-        return
-    _apply_config_dest_override(_options, _raw_value, dest, _config_dir, _dest_to_option)
-
-
-def _apply_config_overrides(_options, _args, _parser, _argv):
-    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
-
-    if _options.config is None:
-        return _options, _args, None
-
-    config_path = _resolve_config_path_value(_options.config, os.getcwd())
-    _options.config = config_path
-    config_dir = os.path.dirname(config_path)
-    config_data = _load_json_config(config_path)
-    config_mode, config_options = _extract_config_mode_and_options(_config_data=config_data)
-
-    dest_to_option, long_key_to_dest = _build_parser_dest_lookup_maps(_parser)
-    for raw_key, raw_value in config_options.items():
-        _apply_single_config_option_override(
-            _options,
-            raw_key,
-            raw_value,
-            config_path,
-            config_dir,
-            cli_specified_dests,
-            dest_to_option,
-            long_key_to_dest,
-        )
-
-    return _options, _args, config_mode
 
 
 def _json_safe(_value):
@@ -860,15 +780,47 @@ def _fail_removed_cli_aliases(_argv):
             sys.stderr.write("Error: option %s has been removed; use %s instead\n" % (_flag, replacement))
             sys.exit(2)
 
-def _enforce_pigean_mode_ownership(_mode):
-    factor_modes = set(["factor", "naive_factor"])
-    if _mode in factor_modes:
-        bail("Mode '%s' is not available in pigean.py after repository split; run this in the eaggl repository" % _mode)
-
 def _parse_options_and_args_with_config(_parser, _argv):
     _fail_removed_cli_aliases(_argv)
     (_options, _args) = _parser.parse_args(_argv)
-    _options, _args, config_mode = _apply_config_overrides(_options, _args, _parser, _argv)
+    config_mode = None
+    cli_specified_dests = _collect_cli_specified_dests(_argv, _parser)
+    if _options.config is not None:
+        config_path = _resolve_config_path_value(_options.config, os.getcwd())
+        _options.config = config_path
+        config_dir = os.path.dirname(config_path)
+        config_data = _load_json_config(config_path)
+        config_mode, config_options = _extract_config_mode_and_options(_config_data=config_data)
+
+        dest_to_option, long_key_to_dest = _build_parser_dest_lookup_maps(_parser)
+        for raw_key, raw_value in config_options.items():
+            if raw_key in ("mode", "options", "include"):
+                continue
+
+            _validate_config_key_not_removed(raw_key, config_path)
+
+            key = raw_key[2:] if isinstance(raw_key, str) and raw_key.startswith("--") else raw_key
+            key_norm = key.replace("-", "_") if isinstance(key, str) else key
+            if key in dest_to_option:
+                dest = key
+            elif key_norm in dest_to_option:
+                dest = key_norm
+            elif key in long_key_to_dest:
+                dest = long_key_to_dest[key]
+            elif key_norm in long_key_to_dest:
+                dest = long_key_to_dest[key_norm]
+            else:
+                _early_warn("Ignoring unknown config key '%s' in %s" % (raw_key, config_path))
+                continue
+
+            if dest in cli_specified_dests:
+                continue
+
+            opt = dest_to_option[dest]
+            coerced_value = _coerce_config_value(opt, raw_value)
+            coerced_value = _resolve_path_like_config_value(dest, coerced_value, config_dir)
+            setattr(_options, dest, coerced_value)
+
     if config_mode is not None:
         if len(_args) < 1:
             _args = [config_mode]
@@ -883,34 +835,6 @@ def _open_optional_log_handle(_filepath):
     return sys.stderr
 
 
-def _resolve_debug_level(_configured_level):
-    if _configured_level is None:
-        return INFO
-    return _configured_level
-
-
-def _apply_deterministic_seed_if_requested(_options, _log_fn):
-    if _options.deterministic and _options.seed is None:
-        _options.seed = 0
-    if _options.seed is not None:
-        random.seed(_options.seed)
-        np.random.seed(_options.seed)
-        _log_fn("Using deterministic random seed %d" % _options.seed, INFO)
-
-
-def _parse_x_sparsify_option(_options):
-    try:
-        _options.x_sparsify = [int(x) for x in _options.x_sparsify]
-    except ValueError:
-        bail("option --x-sparsify: invalid integer list %s" % _options.x_sparsify)
-
-
-def _resolve_mode_from_args(_args):
-    if len(_args) < 1:
-        bail(usage)
-    return _args[0]
-
-
 options, args = _parse_options_and_args_with_config(parser, sys.argv[1:])
 log_fh = _open_optional_log_handle(options.log_file)
 
@@ -918,7 +842,7 @@ NONE=0
 INFO=1
 DEBUG=2
 TRACE=3
-debug_level = _resolve_debug_level(options.debug_level)
+debug_level = INFO if options.debug_level is None else options.debug_level
 def log(message, level=INFO, end_char='\n'):
     if level <= debug_level:
         log_fh.write("%s%s" % (message, end_char))
@@ -933,10 +857,25 @@ def warn(message):
         warnings_fh.flush()
     log(message, level=INFO)
 
-_apply_deterministic_seed_if_requested(options, log)
-_parse_x_sparsify_option(options)
-mode = _resolve_mode_from_args(args)
-_enforce_pigean_mode_ownership(mode)
+if options.deterministic and options.seed is None:
+    options.seed = 0
+if options.seed is not None:
+    random.seed(options.seed)
+    np.random.seed(options.seed)
+    log("Using deterministic random seed %d" % options.seed, INFO)
+
+try:
+    options.x_sparsify = [int(x) for x in options.x_sparsify]
+except ValueError:
+    bail("option --x-sparsify: invalid integer list %s" % options.x_sparsify)
+
+if len(args) < 1:
+    bail(usage)
+mode = args[0]
+
+factor_modes = set(["factor", "naive_factor"])
+if mode in factor_modes:
+    bail("Mode '%s' is not available in pigean.py after repository split; run this in the eaggl repository" % mode)
 
 # ==========================================================================
 # CLI Phase C: Mode resolution and mode-specific defaults.
