@@ -17137,15 +17137,6 @@ def _build_read_y_source_signal_window_kwargs_for_main(options):
     )
 
 
-def _build_read_y_source_gwas_kwargs_for_main(options):
-    kwargs = {}
-    kwargs.update(_build_read_y_source_gwas_input_cols_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_gwas_threshold_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_huge_weighting_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_signal_window_kwargs_for_main(options))
-    return kwargs
-
-
 def _build_read_y_source_exomes_kwargs_for_main(options):
     return dict(
         exomes_in=options.exomes_in,
@@ -17175,13 +17166,6 @@ def _build_read_y_source_positive_controls_kwargs_for_main(options):
         positive_controls_all_id_col=options.positive_controls_all_id_col,
         positive_controls_all_has_header=options.positive_controls_all_has_header,
     )
-
-
-def _build_read_y_source_exomes_and_controls_kwargs_for_main(options):
-    kwargs = {}
-    kwargs.update(_build_read_y_source_exomes_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_positive_controls_kwargs_for_main(options))
-    return kwargs
 
 
 def _build_read_y_source_case_counts_kwargs_for_main(options):
@@ -17219,14 +17203,6 @@ def _build_read_y_source_counts_hyper_kwargs_for_main(options):
     )
 
 
-def _build_read_y_source_counts_kwargs_for_main(options):
-    kwargs = {}
-    kwargs.update(_build_read_y_source_case_counts_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_ctrl_counts_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_counts_hyper_kwargs_for_main(options))
-    return kwargs
-
-
 def _build_read_y_source_loc_kwargs_for_main(options):
     return dict(
         gene_loc_file=options.gene_loc_file_huge if options.gene_loc_file_huge is not None else options.gene_loc_file,
@@ -17240,13 +17216,6 @@ def _build_read_y_source_covariate_kwargs_for_main(options):
         hold_out_chrom=options.hold_out_chrom,
         min_var_posterior=options.min_var_posterior,
     )
-
-
-def _build_read_y_source_covariate_and_loc_kwargs_for_main(options):
-    kwargs = {}
-    kwargs.update(_build_read_y_source_loc_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_covariate_kwargs_for_main(options))
-    return kwargs
 
 
 def _build_read_y_source_s2g_kwargs_for_main(options):
@@ -17268,13 +17237,6 @@ def _build_read_y_source_credible_sets_kwargs_for_main(options):
         credible_sets_pos_col=options.credible_sets_pos_col,
         credible_sets_ppa_col=options.credible_sets_ppa_col,
     )
-
-
-def _build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options):
-    kwargs = {}
-    kwargs.update(_build_read_y_source_s2g_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_credible_sets_kwargs_for_main(options))
-    return kwargs
 
 
 def _should_load_y_from_sources_for_main(options):
@@ -17306,11 +17268,19 @@ def _load_initial_y_from_sources_for_main(state, options):
         _default_for_gene_list_options(options)
     kwargs = {}
     kwargs.update(_build_read_y_source_base_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_gwas_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_exomes_and_controls_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_counts_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_covariate_and_loc_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_s2g_and_credible_sets_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_gwas_input_cols_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_gwas_threshold_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_huge_weighting_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_signal_window_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_exomes_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_positive_controls_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_case_counts_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_ctrl_counts_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_counts_hyper_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_loc_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_covariate_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_s2g_kwargs_for_main(options))
+    kwargs.update(_build_read_y_source_credible_sets_kwargs_for_main(options))
     state.read_Y(**kwargs)
 
 
@@ -17568,14 +17538,6 @@ def _build_read_x_covariate_model_kwargs_for_main(options):
     )
 
 
-def _build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond, xin_to_p_noninf_ind):
-    kwargs = {}
-    kwargs.update(_build_read_x_regression_model_kwargs_for_main(options, skip_betas))
-    kwargs.update(_build_read_x_prior_sigma_kwargs_for_main(state, options, sigma2_cond, xin_to_p_noninf_ind))
-    kwargs.update(_build_read_x_covariate_model_kwargs_for_main(options))
-    return kwargs
-
-
 def _build_read_x_hyper_update_kwargs_for_main(options):
     return dict(
         update_hyper_p=options.update_hyper_p,
@@ -17613,14 +17575,6 @@ def _build_read_x_inner_beta_sampler_kwargs_for_main(options):
     )
 
 
-def _build_read_x_hyper_and_sampling_kwargs_for_main(options):
-    kwargs = {}
-    kwargs.update(_build_read_x_hyper_update_kwargs_for_main(options))
-    kwargs.update(_build_read_x_text_parsing_kwargs_for_main(options))
-    kwargs.update(_build_read_x_inner_beta_sampler_kwargs_for_main(options))
-    return kwargs
-
-
 def _build_read_x_progress_runtime_kwargs_for_main(options):
     return dict(
         show_progress=not options.hide_progress,
@@ -17629,26 +17583,18 @@ def _build_read_x_progress_runtime_kwargs_for_main(options):
     )
 
 
-def _build_read_x_reread_runtime_kwargs_for_main(force_reread):
-    return dict(
-        force_reread=force_reread,
-    )
-
-
-def _build_read_x_runtime_kwargs_for_main(options, force_reread):
-    kwargs = {}
-    kwargs.update(_build_read_x_progress_runtime_kwargs_for_main(options))
-    kwargs.update(_build_read_x_reread_runtime_kwargs_for_main(force_reread))
-    return kwargs
-
-
 def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
     kwargs = {}
     kwargs.update(_build_read_x_input_file_kwargs_for_main(options))
     kwargs.update(_build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, filter_gene_set_p))
-    kwargs.update(_build_read_x_model_kwargs_for_main(state, options, skip_betas, sigma2_cond, xin_to_p_noninf_ind))
-    kwargs.update(_build_read_x_hyper_and_sampling_kwargs_for_main(options))
-    kwargs.update(_build_read_x_runtime_kwargs_for_main(options, force_reread))
+    kwargs.update(_build_read_x_regression_model_kwargs_for_main(options, skip_betas))
+    kwargs.update(_build_read_x_prior_sigma_kwargs_for_main(state, options, sigma2_cond, xin_to_p_noninf_ind))
+    kwargs.update(_build_read_x_covariate_model_kwargs_for_main(options))
+    kwargs.update(_build_read_x_hyper_update_kwargs_for_main(options))
+    kwargs.update(_build_read_x_text_parsing_kwargs_for_main(options))
+    kwargs.update(_build_read_x_inner_beta_sampler_kwargs_for_main(options))
+    kwargs.update(_build_read_x_progress_runtime_kwargs_for_main(options))
+    kwargs["force_reread"] = force_reread
     return kwargs
 
 
