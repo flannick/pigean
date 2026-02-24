@@ -17011,37 +17011,6 @@ def _default_for_gene_list_options(options):
             bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
 
 
-def _build_read_gene_set_statistics_kwargs_for_main(options, return_only_ids=False):
-    return dict(
-        stats_id_col=options.gene_set_stats_id_col,
-        stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
-        stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
-        stats_p_col=options.gene_set_stats_p_col,
-        stats_se_col=options.gene_set_stats_se_col,
-        stats_beta_col=options.gene_set_stats_beta_col,
-        stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
-        ignore_negative_exp_beta=options.ignore_negative_exp_beta,
-        max_gene_set_p=options.max_gene_set_read_p,
-        min_gene_set_beta=options.min_gene_set_read_beta,
-        min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
-        return_only_ids=return_only_ids,
-    )
-
-
-def _build_read_gene_phewas_bfs_kwargs_for_main(options):
-    return dict(
-        gene_phewas_bfs_in=options.gene_phewas_bfs_in,
-        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-        phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-        min_value=options.min_gene_phewas_read_value,
-        max_num_entries_at_once=options.max_read_entries_at_once,
-    )
-
-
 # ==========================================================================
 # Main pipeline helper functions (extracted from main()).
 # ==========================================================================
@@ -17198,7 +17167,17 @@ def _load_initial_y_inputs_for_main(
     if options.betas_uncorrected_from_phewas:
         if not options.gene_phewas_bfs_in:
             bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-        state.read_gene_phewas_bfs(**_build_read_gene_phewas_bfs_kwargs_for_main(options))
+        state.read_gene_phewas_bfs(
+            gene_phewas_bfs_in=options.gene_phewas_bfs_in,
+            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+            phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
+            min_value=options.min_gene_phewas_read_value,
+            max_num_entries_at_once=options.max_read_entries_at_once,
+        )
         return False
     return True
 
@@ -17213,7 +17192,24 @@ def _read_x_and_initialize_p_for_main(
 ):
     #read in the matrices
     if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
-        xin_to_p_noninf_ind = _build_xin_to_p_noninf_index_for_main(options, sys.argv)
+        xin_to_p_noninf_ind = None
+        if options.p_noninf is not None:
+            #we need the order of these
+            p_noninf_ind = 0
+            xin_to_p_noninf_ind = {}
+            for i in range(len(sys.argv)):
+                arg = sys.argv[i]
+                if arg in ("--X-in", "--X-list", "--Xd-in", "--Xd-list"):
+                    if i + 1 >= len(sys.argv):
+                        raise ValueError(f"Missing value after {arg}")
+                    val = sys.argv[i + 1]
+                    if val in xin_to_p_noninf_ind:
+                        warn("You are passing the same file (%s) for two --X-in files; are you sure this is what you want to do?" % (val))
+                    xin_to_p_noninf_ind[val] = p_noninf_ind
+                    if len(options.p_noninf) > 1:
+                        p_noninf_ind += 1
+            if len(options.p_noninf) > 1 and len(options.p_noninf) != p_noninf_ind:
+                bail("Error: if you pass in more than one --p-noninf, you need to have the same number of values as --X-* inputs")
         _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_cond, mode_state, xin_to_p_noninf_ind)
     else:
         #set p
@@ -17237,32 +17233,6 @@ def _read_x_and_initialize_p_for_main(
         state.write_Xd(options.Xd_out)
     if options.V_out:
         state.write_V(options.V_out)
-
-
-def _iter_x_input_values_from_argv(_argv):
-    for i in range(len(_argv)):
-        arg = _argv[i]
-        if arg in ("--X-in", "--X-list", "--Xd-in", "--Xd-list"):
-            if i + 1 >= len(_argv):
-                raise ValueError(f"Missing value after {arg}")
-            yield _argv[i + 1]
-
-
-def _build_xin_to_p_noninf_index_for_main(options, argv):
-    if options.p_noninf is None:
-        return None
-    #we need the order of these
-    p_noninf_ind = 0
-    xin_to_p_noninf_ind = {}
-    for val in _iter_x_input_values_from_argv(argv):
-        if val in xin_to_p_noninf_ind:
-            warn("You are passing the same file (%s) for two --X-in files; are you sure this is what you want to do?" % (val))
-        xin_to_p_noninf_ind[val] = p_noninf_ind
-        if len(options.p_noninf) > 1:
-            p_noninf_ind += 1
-    if len(options.p_noninf) > 1 and len(options.p_noninf) != p_noninf_ind:
-        bail("Error: if you pass in more than one --p-noninf, you need to have the same number of values as --X-* inputs")
-    return xin_to_p_noninf_ind
 
 
 def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_cond, mode_state, xin_to_p_noninf_ind):
@@ -17495,27 +17465,6 @@ def _build_gibbs_kwargs_for_main(options):
 # Phase D helpers: gene-set stats, optional factor-side inputs, and betas.
 # --------------------------------------------------------------------------
 
-def _build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p, run_using_phewas=False):
-    kwargs = dict(
-        max_gene_set_p=max_gene_set_p,
-        run_gls=False,
-        run_logistic=not options.linear,
-        max_for_linear=options.max_for_linear,
-        run_corrected_ols=not options.ols,
-        use_sampling_for_betas=options.use_sampling_for_betas,
-        correct_betas_mean=options.correct_betas_mean,
-        correct_betas_var=options.correct_betas_var,
-        gene_loc_file=options.gene_loc_file,
-        gene_cor_file=options.gene_cor_file,
-        gene_cor_file_gene_col=options.gene_cor_file_gene_col,
-        gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
-    )
-    if run_using_phewas:
-        kwargs["Y"] = state.gene_pheno_Y
-        kwargs["run_using_phewas"] = True
-    return kwargs
-
-
 def _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state):
     # Resolve beta_tildes either from fixed values, read-in stats, or fresh fitting.
     needs_gene_set_stats = (
@@ -17530,12 +17479,44 @@ def _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state):
     if options.const_gene_set_beta is not None:
         state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
     elif options.gene_set_stats_in is not None:
-        state.read_gene_set_statistics(options.gene_set_stats_in, **_build_read_gene_set_statistics_kwargs_for_main(options))
+        state.read_gene_set_statistics(
+            options.gene_set_stats_in,
+            stats_id_col=options.gene_set_stats_id_col,
+            stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
+            stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
+            stats_p_col=options.gene_set_stats_p_col,
+            stats_se_col=options.gene_set_stats_se_col,
+            stats_beta_col=options.gene_set_stats_beta_col,
+            stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
+            ignore_negative_exp_beta=options.ignore_negative_exp_beta,
+            max_gene_set_p=options.max_gene_set_read_p,
+            min_gene_set_beta=options.min_gene_set_read_beta,
+            min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
+            return_only_ids=False,
+        )
     elif needs_gene_set_stats:
         max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
-        state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=max_gene_set_p))
+        base_kwargs = dict(
+            run_gls=False,
+            run_logistic=not options.linear,
+            max_for_linear=options.max_for_linear,
+            run_corrected_ols=not options.ols,
+            use_sampling_for_betas=options.use_sampling_for_betas,
+            correct_betas_mean=options.correct_betas_mean,
+            correct_betas_var=options.correct_betas_var,
+            gene_loc_file=options.gene_loc_file,
+            gene_cor_file=options.gene_cor_file,
+            gene_cor_file_gene_col=options.gene_cor_file_gene_col,
+            gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
+        )
+        state.calculate_gene_set_statistics(max_gene_set_p=max_gene_set_p, **base_kwargs)
         if options.betas_uncorrected_from_phewas:
-            state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=1, run_using_phewas=True))
+            state.calculate_gene_set_statistics(
+                max_gene_set_p=1,
+                Y=state.gene_pheno_Y,
+                run_using_phewas=True,
+                **base_kwargs,
+            )
 
 
 def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state):
