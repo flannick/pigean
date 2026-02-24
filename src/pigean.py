@@ -8235,25 +8235,6 @@ class GeneSetData(object):
         if total_num_iter < 1:
             total_num_iter = 1
 
-        def __resolve_epoch_iteration_budget(remaining_iter):
-            local_epoch_max_num_iter = min(epoch_max_num_iter_config, remaining_iter)
-            if local_epoch_max_num_iter < 1:
-                local_epoch_max_num_iter = 1
-
-            local_max_num_burn_in = min(max_num_burn_in, max(1, local_epoch_max_num_iter - 1))
-            local_min_num_burn_in = min(min_num_burn_in, local_max_num_burn_in)
-
-            local_max_num_post_burn_in = min(max_num_post_burn_in, max(1, local_epoch_max_num_iter - local_min_num_burn_in))
-            local_min_num_post_burn_in = min(min_num_post_burn_in, local_max_num_post_burn_in)
-
-            # Ensure burn-in max still leaves room for at least the local post-burn minimum.
-            local_max_num_burn_in = min(local_max_num_burn_in, max(1, local_epoch_max_num_iter - local_min_num_post_burn_in))
-            local_min_num_burn_in = min(local_min_num_burn_in, local_max_num_burn_in)
-            local_max_num_post_burn_in = min(local_max_num_post_burn_in, max(1, local_epoch_max_num_iter - local_min_num_burn_in))
-            local_min_num_post_burn_in = min(local_min_num_post_burn_in, local_max_num_post_burn_in)
-
-            return (local_epoch_max_num_iter, local_min_num_burn_in, local_max_num_burn_in, local_min_num_post_burn_in, local_max_num_post_burn_in)
-
         if num_chains < 2:
             num_chains = 2
 
@@ -8304,7 +8285,7 @@ class GeneSetData(object):
         elif burn_in_rhat_quantile > 1:
             burn_in_rhat_quantile = 1
 
-        first_epoch_max_num_iter, first_min_num_burn_in, first_max_num_burn_in, first_min_num_post_burn_in, first_max_num_post_burn_in = __resolve_epoch_iteration_budget(total_num_iter)
+        first_epoch_max_num_iter, first_min_num_burn_in, first_max_num_burn_in, first_min_num_post_burn_in, first_max_num_post_burn_in = _resolve_epoch_iteration_budget(total_num_iter, epoch_max_num_iter_config, min_num_burn_in, max_num_burn_in, min_num_post_burn_in, max_num_post_burn_in)
 
         self._record_params({"num_chains": num_chains, "num_chains_betas": num_chains_betas, "max_num_restarts": max_num_restarts, "target_num_epochs": target_num_epochs, "max_num_attempt_restarts": target_num_epochs + max_num_restarts, "max_num_iter": max_num_iter, "total_num_iter": total_num_iter, "epoch_max_num_iter": epoch_max_num_iter_config, "use_mean_betas": use_mean_betas, "warm_start": warm_start, "stopping_preset_name": stopping_preset_name, "r_threshold_burn_in": r_threshold_burn_in, "burn_in_rhat_quantile": burn_in_rhat_quantile, "burn_in_rhat_quantile_effective": burn_in_rhat_quantile, "burn_in_patience": burn_in_patience, "min_num_burn_in": first_min_num_burn_in, "max_num_burn_in": first_max_num_burn_in, "min_num_post_burn_in": first_min_num_post_burn_in, "max_num_post_burn_in": first_max_num_post_burn_in, "burn_in_stall_window": burn_in_stall_window, "burn_in_stall_delta": burn_in_stall_delta, "active_beta_top_k": active_beta_top_k, "active_beta_min_abs": active_beta_min_abs, "stop_mcse_quantile": stop_mcse_quantile, "stop_patience": stop_patience, "stop_top_gene_k": stop_top_gene_k, "stop_min_gene_d": stop_min_gene_d, "max_abs_mcse_d": max_abs_mcse_d, "max_rel_mcse_beta": max_rel_mcse_beta, "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor, "stall_window": stall_window, "stall_min_burn_in": stall_min_burn_in, "stall_min_post_burn_in": stall_min_post_burn_in, "stall_delta_rhat": stall_delta_rhat, "stall_delta_mcse": stall_delta_mcse, "stall_recent_window": stall_recent_window, "stall_recent_eps": stall_recent_eps, "diag_every": diag_every, "sparse_solution": sparse_solution, "sparse_frac": sparse_frac_gibbs, "sparse_max": sparse_max_gibbs, "sparse_frac_betas": sparse_frac_betas, "pre_filter_batch_size": pre_filter_batch_size, "max_allowed_batch_correlation": max_allowed_batch_correlation, "initial_linear_filter": initial_linear_filter, "correct_betas_mean": correct_betas_mean, "correct_betas_var": correct_betas_var, "adjust_priors": adjust_priors})
         # Clearer aliases for downstream inspection; legacy key kept for compatibility.
@@ -8440,7 +8421,7 @@ class GeneSetData(object):
             #by default it succeeded
             gibbs_good = True
 
-            epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch = __resolve_epoch_iteration_budget(remaining_total_iter)
+            epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch = _resolve_epoch_iteration_budget(remaining_total_iter, epoch_max_num_iter_config, min_num_burn_in, max_num_burn_in, min_num_post_burn_in, max_num_post_burn_in)
             if epoch_max_num_iter < 1:
                 break
             trace_chain_offset = num_completed_epochs * num_chains
@@ -8528,89 +8509,6 @@ class GeneSetData(object):
             post_stall_beta_indices = None
             post_stall_gene_indices = None
 
-            def __trim_post_stall_histories(max_stall_history_len):
-                if len(post_stall_best_beta_rhat_history) > max_stall_history_len:
-                    del post_stall_best_beta_rhat_history[:-max_stall_history_len]
-                    del post_stall_best_D_mcse_history[:-max_stall_history_len]
-                if len(post_stall_snapshots) > max_stall_history_len:
-                    del post_stall_snapshots[:-max_stall_history_len]
-
-            def __evaluate_post_stall_status(num_post_burn_beta, num_post_burn_D, post_stall_beta_sum_m, post_stall_beta_sum2_m, post_stall_D_sum_m, post_stall_beta_indices, post_stall_gene_indices, beta_rhat_q_post, D_mcse_q):
-                post_stall_plateau = False
-                post_stall_recent_worse = False
-                post_stall_recent_beta_rhat_q = np.nan
-                post_stall_recent_D_mcse_q = np.nan
-                min_post_burn_for_stall = max(stall_min_post_burn_in, min_num_post_burn_in_for_epoch)
-
-                if stall_window > 0 and num_post_burn_D >= min_post_burn_for_stall:
-                    if len(post_stall_best_beta_rhat_history) >= stall_window:
-                        post_rhat_improvement = post_stall_best_beta_rhat_history[-stall_window] - post_stall_best_beta_rhat_history[-1]
-                        post_mcse_improvement = post_stall_best_D_mcse_history[-stall_window] - post_stall_best_D_mcse_history[-1]
-                        if post_rhat_improvement < stall_delta_rhat and post_mcse_improvement < stall_delta_mcse:
-                            post_stall_plateau = True
-
-                    if stall_recent_window > 0 and len(post_stall_snapshots) >= stall_recent_window + 1:
-                        old_beta_n, old_beta_sum_m, old_beta_sum2_m, old_D_n, old_D_sum_m = post_stall_snapshots[-(stall_recent_window + 1)]
-                        recent_beta_n = num_post_burn_beta - old_beta_n
-                        recent_D_n = num_post_burn_D - old_D_n
-
-                        if recent_beta_n > 1 and post_stall_beta_indices.size > 0:
-                            recent_beta_sum_m = post_stall_beta_sum_m - old_beta_sum_m
-                            recent_beta_sum2_m = post_stall_beta_sum2_m - old_beta_sum2_m
-                            _, _, recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_beta_sum_m, recent_beta_sum2_m, recent_beta_n)
-                            recent_rhat_candidates = recent_R_beta_v[np.logical_and(np.isfinite(recent_R_beta_v), recent_R_beta_v >= 1)]
-                            post_stall_recent_beta_rhat_q = _safe_quantile(recent_rhat_candidates, stop_mcse_quantile, 1.0)
-
-                        if recent_D_n > 1 and post_stall_gene_indices.size > 0:
-                            recent_D_sum_m = post_stall_D_sum_m - old_D_sum_m
-                            recent_D_chain_means_m = recent_D_sum_m / float(recent_D_n)
-                            recent_D_mcse_v = np.sqrt(np.var(recent_D_chain_means_m, axis=0, ddof=1) / float(num_chains))
-                            post_stall_recent_D_mcse_q = _safe_quantile(recent_D_mcse_v, stop_mcse_quantile, np.inf)
-
-                        if np.isfinite(post_stall_recent_beta_rhat_q) and post_stall_recent_beta_rhat_q > beta_rhat_q_post * (1 + stall_recent_eps):
-                            post_stall_recent_worse = True
-                        if np.isfinite(post_stall_recent_D_mcse_q) and post_stall_recent_D_mcse_q > D_mcse_q * (1 + stall_recent_eps):
-                            post_stall_recent_worse = True
-
-                return (
-                    post_stall_plateau,
-                    post_stall_recent_worse,
-                    post_stall_recent_beta_rhat_q,
-                    post_stall_recent_D_mcse_q,
-                )
-
-            def __reset_post_burn_in_sums():
-                sum_Ys_m[:] = 0
-                sum_Ys2_m[:] = 0
-                sum_Y_raws_m[:] = 0
-                sum_log_pos_m[:] = 0
-                sum_log_pos2_m[:] = 0
-                sum_log_po_raws_m[:] = 0
-                sum_log_po_raws2_m[:] = 0
-                sum_priors_m[:] = 0
-                sum_priors2_m[:] = 0
-                sum_Ds_m[:] = 0
-                sum_D_raws_m[:] = 0
-                sum_bf_orig_m[:] = 0
-                sum_bf_uncorrected_m[:] = 0
-                sum_bf_orig_raw_m[:] = 0
-                sum_bf_orig_raw2_m[:] = 0
-                num_sum_Y_m[:] = 0
-
-                sum_betas_m[:] = 0
-                sum_betas2_m[:] = 0
-                sum_betas_uncorrected_m[:] = 0
-                sum_betas_uncorrected2_m[:] = 0
-                sum_postp_m[:] = 0
-                sum_beta_tildes_m[:] = 0
-                sum_z_scores_m[:] = 0
-                num_sum_beta_m[:] = 0
-
-                if self.genes_missing is not None:
-                    sum_priors_missing_m[:] = 0
-                    sum_Ds_missing_m[:] = 0
-                    num_sum_priors_missing_m[:] = 0
-
             #num_sum = 0
 
             #sum_Ys_post_m = np.zeros(Y_m_shape)
@@ -8668,6 +8566,40 @@ class GeneSetData(object):
             priors_missing_sample_m = np.zeros(sum_priors_missing_m.shape)
             priors_missing_mean_m = np.zeros(sum_priors_missing_m.shape)
             num_sum_priors_missing_m = np.zeros(sum_priors_missing_m.shape)
+
+            post_burn_reset_arrays = (
+                sum_Ys_m,
+                sum_Ys2_m,
+                sum_Y_raws_m,
+                sum_log_pos_m,
+                sum_log_pos2_m,
+                sum_log_po_raws_m,
+                sum_log_po_raws2_m,
+                sum_priors_m,
+                sum_priors2_m,
+                sum_Ds_m,
+                sum_D_raws_m,
+                sum_bf_orig_m,
+                sum_bf_uncorrected_m,
+                sum_bf_orig_raw_m,
+                sum_bf_orig_raw2_m,
+                num_sum_Y_m,
+                sum_betas_m,
+                sum_betas2_m,
+                sum_betas_uncorrected_m,
+                sum_betas_uncorrected2_m,
+                sum_postp_m,
+                sum_beta_tildes_m,
+                sum_z_scores_m,
+                num_sum_beta_m,
+            )
+            post_burn_reset_missing_arrays = ()
+            if self.genes_missing is not None:
+                post_burn_reset_missing_arrays = (
+                    sum_priors_missing_m,
+                    sum_Ds_missing_m,
+                    num_sum_priors_missing_m,
+                )
 
             if self.gene_sets_missing is not None:
                 self._unsubset_gene_sets(skip_V=True)
@@ -8793,7 +8725,7 @@ class GeneSetData(object):
                     p_sample_m = D_sample_m
 
                 if initial_linear_filter:
-                    (linear_beta_tildes_m, linear_ses_m, linear_z_scores_m, linear_p_values_m, linear_se_inflation_factors_m) = self._compute_beta_tildes(self.X_orig, Y_sample_m, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=y_corr_sparse)
+                    (linear_beta_tildes_m, linear_ses_m, linear_z_scores_m, linear_p_values_m, _) = self._compute_beta_tildes(self.X_orig, Y_sample_m, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=y_corr_sparse)
                     (linear_uncorrected_betas_sample_m, linear_uncorrected_postp_sample_m, linear_uncorrected_betas_mean_m, linear_uncorrected_postp_mean_m) = self._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=linear_beta_tildes_m, ses=linear_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, debug_gene_sets=self.gene_sets)
                     pre_gene_set_filter_mask_m = _get_gibbs_gene_set_mask(linear_uncorrected_betas_mean_m, linear_uncorrected_betas_sample_m, linear_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
                     pre_gene_set_filter_mask = np.any(pre_gene_set_filter_mask_m, axis=0)
@@ -9125,42 +9057,29 @@ class GeneSetData(object):
                 if self.huge_signal_bfs is not None and update_huge_scores:
                     #Now update the BFs is we have huge scores
                     log("Updating HuGE scores")
-                    if self.huge_signal_bfs is not None:
-                        rel_prior_log_bf = priors_for_Y_m
+                    combined_optional_bf_terms = _combine_optional_gene_bf_terms(self.Y_exomes, self.Y_positive_controls, self.Y_case_counts)
+                    rel_prior_log_bf = priors_for_Y_m + combined_optional_bf_terms
 
-                        (log_bf_m, log_bf_uncorrected_m, absent_genes, absent_log_bf) = self._distill_huge_signal_bfs(self.huge_signal_bfs_for_regression, self.huge_signal_posteriors_for_regression, self.huge_signal_sum_gene_cond_probabilities_for_regression, self.huge_signal_mean_gene_pos_for_regression, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, self.gene_covariates, self.gene_covariates_mask, self.gene_covariates_mat_inv, self.gene_covariate_names, self.gene_covariate_intercept_index, self.genes, rel_prior_log_bf=rel_prior_log_bf + (self.Y_exomes if self.Y_exomes is not None else 0) + (self.Y_positive_controls if self.Y_positive_controls is not None else 0) + (self.Y_case_counts if self.Y_case_counts is not None else 0))
+                    (log_bf_m, log_bf_uncorrected_m, absent_genes, absent_log_bf) = self._distill_huge_signal_bfs(self.huge_signal_bfs_for_regression, self.huge_signal_posteriors_for_regression, self.huge_signal_sum_gene_cond_probabilities_for_regression, self.huge_signal_mean_gene_pos_for_regression, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, self.gene_covariates, self.gene_covariates_mask, self.gene_covariates_mat_inv, self.gene_covariate_names, self.gene_covariate_intercept_index, self.genes, rel_prior_log_bf=rel_prior_log_bf)
 
-                        if compute_Y_raw:
-                            (log_bf_raw_m, log_bf_uncorrected_raw_m, absent_genes_raw, absent_log_bf_raw) = self._distill_huge_signal_bfs(self.huge_signal_bfs, self.huge_signal_posteriors, self.huge_signal_sum_gene_cond_probabilities, self.huge_signal_mean_gene_pos, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, self.gene_covariates, self.gene_covariates_mask, self.gene_covariates_mat_inv, self.gene_covariate_names, self.gene_covariate_intercept_index, self.genes, rel_prior_log_bf=rel_prior_log_bf + (self.Y_exomes if self.Y_exomes is not None else 0) + (self.Y_positive_controls if self.Y_positive_controls is not None else 0) + (self.Y_case_counts if self.Y_case_counts is not None else 0))
-                        else:
-                            log_bf_raw_m = copy.copy(log_bf_m)
+                    if compute_Y_raw:
+                        (log_bf_raw_m, _, _, _) = self._distill_huge_signal_bfs(self.huge_signal_bfs, self.huge_signal_posteriors, self.huge_signal_sum_gene_cond_probabilities, self.huge_signal_mean_gene_pos, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, self.gene_covariates, self.gene_covariates_mask, self.gene_covariates_mat_inv, self.gene_covariate_names, self.gene_covariate_intercept_index, self.genes, rel_prior_log_bf=rel_prior_log_bf)
+                    else:
+                        log_bf_raw_m = copy.copy(log_bf_m)
 
-                        if self.Y_exomes is not None:
-                            #add in the Y_exomes
-                            #it was used in distill just to fine map the GWAS associations; it was then subtracted out
-                            #the other component of the rel_prior_log_bf (priors) will be added back in next iteration
-                            log_bf_m += self.Y_exomes
-                            log_bf_uncorrected_m += self.Y_exomes
-                            log_bf_raw_m += self.Y_exomes
+                    # These terms are used during distillation to fine-map HuGE loci, then
+                    # added back on the total gene-level BF scale after distillation.
+                    _add_optional_gene_bf_terms(
+                        log_bf_m,
+                        log_bf_uncorrected_m,
+                        log_bf_raw_m,
+                        self.Y_exomes,
+                        self.Y_positive_controls,
+                        self.Y_case_counts,
+                    )
 
-                        if self.Y_positive_controls is not None:
-                            #add in the Y_positive_controls
-                            #it was used in distill just to fine map the GWAS associations; it was then subtracted out
-                            #the other component of the rel_prior_log_bf (priors) will be added back in next iteration
-                            log_bf_m += self.Y_positive_controls
-                            log_bf_uncorrected_m += self.Y_positive_controls
-                            log_bf_raw_m += self.Y_positive_controls
-
-                        if self.Y_case_counts is not None:
-                            #add in the Y_case_counts
-                            #it was used in distill just to fine map the GWAS associations; it was then subtracted out
-                            #the other component of the rel_prior_log_bf (priors) will be added back in next iteration
-                            log_bf_m += self.Y_case_counts
-                            log_bf_uncorrected_m += self.Y_case_counts
-                            log_bf_raw_m += self.Y_case_counts
-
-                        if len(absent_genes) > 0:
-                            bail("Error: huge_signal_bfs was incorrectly set and contains extra genes")
+                    if len(absent_genes) > 0:
+                        bail("Error: huge_signal_bfs was incorrectly set and contains extra genes")
 
                 #if center_combined:
                 #    priors_sample_total_m = np.hstack((priors_sample_m, priors_missing_sample_m))
@@ -9316,7 +9235,7 @@ class GeneSetData(object):
                         in_burn_in = False
                         burn_in_pass_streak = 0
                         stop_pass_streak = 0
-                        __reset_post_burn_in_sums()
+                        _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
                         log("Stopping Gibbs burn in after %d iterations (per-epoch max burn-in reached)" % (num_samples), INFO)
                     elif gauss_seidel:
                         if prev_Ys_m is not None:
@@ -9330,7 +9249,7 @@ class GeneSetData(object):
                                 in_burn_in = False
                                 burn_in_pass_streak = 0
                                 stop_pass_streak = 0
-                                __reset_post_burn_in_sums()
+                                _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
                                 log("Gibbs gauss converged after %d iterations" % num_samples, INFO)
                         prev_Ys_m = Y_sample_m
                     elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
@@ -9397,13 +9316,13 @@ class GeneSetData(object):
                         if burn_in_pass_streak >= burn_in_patience:
                             in_burn_in = False
                             stop_pass_streak = 0
-                            __reset_post_burn_in_sums()
+                            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
                             log("Burn-in complete at iter %d (beta R-hat q=%.2f on active betas, threshold=%.4g, patience=%d)" % (num_samples, burn_in_rhat_quantile, r_threshold_burn_in, burn_in_patience), INFO)
                         elif burn_stall_detected:
                             in_burn_in = False
                             burn_in_pass_streak = 0
                             stop_pass_streak = 0
-                            __reset_post_burn_in_sums()
+                            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
                             log("Stopping Gibbs burn in at iter %d due to stall detectors (plateau=%s, recent_worse=%s)" % (num_samples, str(burn_stall_plateau), str(burn_stall_recent_worse)), INFO)
                         elif burn_in_stall_window > 0 and len(burn_in_rhat_history) >= burn_in_stall_window:
                             burn_window_v = np.array(burn_in_rhat_history[-burn_in_stall_window:], dtype=float)
@@ -9413,7 +9332,7 @@ class GeneSetData(object):
                                     in_burn_in = False
                                     burn_in_pass_streak = 0
                                     stop_pass_streak = 0
-                                    __reset_post_burn_in_sums()
+                                    _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
                                     log("Stopping Gibbs burn in at iter %d due to R-hat plateau (window=%d, span=%.4g < delta=%.4g)" % (num_samples, burn_in_stall_window, burn_window_span, burn_in_stall_delta), INFO)
 
                 done = False
@@ -9540,14 +9459,19 @@ class GeneSetData(object):
                         post_stall_snapshots.append((num_post_burn_beta, post_stall_beta_sum_m, post_stall_beta_sum2_m, num_post_burn_D, post_stall_D_sum_m))
 
                         max_stall_history_len = max(stall_window + 2, stall_recent_window + 2, 10)
-                        __trim_post_stall_histories(max_stall_history_len)
+                        _trim_stall_histories(
+                            post_stall_best_beta_rhat_history,
+                            post_stall_best_D_mcse_history,
+                            post_stall_snapshots,
+                            max_stall_history_len,
+                        )
 
                         (
                             post_stall_plateau,
                             post_stall_recent_worse,
                             post_stall_recent_beta_rhat_q,
                             post_stall_recent_D_mcse_q,
-                        ) = __evaluate_post_stall_status(
+                        ) = _evaluate_post_stall_status(
                             num_post_burn_beta,
                             num_post_burn_D,
                             post_stall_beta_sum_m,
@@ -9557,6 +9481,18 @@ class GeneSetData(object):
                             post_stall_gene_indices,
                             beta_rhat_q_post,
                             D_mcse_q,
+                            stop_mcse_quantile,
+                            stall_window,
+                            stall_min_post_burn_in,
+                            min_num_post_burn_in_for_epoch,
+                            stall_delta_rhat,
+                            stall_delta_mcse,
+                            stall_recent_window,
+                            stall_recent_eps,
+                            post_stall_best_beta_rhat_history,
+                            post_stall_best_D_mcse_history,
+                            post_stall_snapshots,
+                            num_chains,
                         )
 
                         post_stall_detected = post_stall_plateau or post_stall_recent_worse
@@ -16564,6 +16500,125 @@ def _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=False):
     return stacked
 
 
+def _resolve_epoch_iteration_budget(
+    remaining_iter,
+    epoch_max_num_iter_config,
+    min_num_burn_in,
+    max_num_burn_in,
+    min_num_post_burn_in,
+    max_num_post_burn_in,
+):
+    local_epoch_max_num_iter = min(epoch_max_num_iter_config, remaining_iter)
+    if local_epoch_max_num_iter < 1:
+        local_epoch_max_num_iter = 1
+
+    local_max_num_burn_in = min(max_num_burn_in, max(1, local_epoch_max_num_iter - 1))
+    local_min_num_burn_in = min(min_num_burn_in, local_max_num_burn_in)
+
+    local_max_num_post_burn_in = min(max_num_post_burn_in, max(1, local_epoch_max_num_iter - local_min_num_burn_in))
+    local_min_num_post_burn_in = min(min_num_post_burn_in, local_max_num_post_burn_in)
+
+    # Ensure burn-in max still leaves room for at least the local post-burn minimum.
+    local_max_num_burn_in = min(local_max_num_burn_in, max(1, local_epoch_max_num_iter - local_min_num_post_burn_in))
+    local_min_num_burn_in = min(local_min_num_burn_in, local_max_num_burn_in)
+    local_max_num_post_burn_in = min(local_max_num_post_burn_in, max(1, local_epoch_max_num_iter - local_min_num_burn_in))
+    local_min_num_post_burn_in = min(local_min_num_post_burn_in, local_max_num_post_burn_in)
+
+    return (
+        local_epoch_max_num_iter,
+        local_min_num_burn_in,
+        local_max_num_burn_in,
+        local_min_num_post_burn_in,
+        local_max_num_post_burn_in,
+    )
+
+
+def _trim_stall_histories(
+    post_stall_best_beta_rhat_history,
+    post_stall_best_D_mcse_history,
+    post_stall_snapshots,
+    max_stall_history_len,
+):
+    if len(post_stall_best_beta_rhat_history) > max_stall_history_len:
+        del post_stall_best_beta_rhat_history[:-max_stall_history_len]
+        del post_stall_best_D_mcse_history[:-max_stall_history_len]
+    if len(post_stall_snapshots) > max_stall_history_len:
+        del post_stall_snapshots[:-max_stall_history_len]
+
+
+def _evaluate_post_stall_status(
+    num_post_burn_beta,
+    num_post_burn_D,
+    post_stall_beta_sum_m,
+    post_stall_beta_sum2_m,
+    post_stall_D_sum_m,
+    post_stall_beta_indices,
+    post_stall_gene_indices,
+    beta_rhat_q_post,
+    D_mcse_q,
+    stop_mcse_quantile,
+    stall_window,
+    stall_min_post_burn_in,
+    min_num_post_burn_in_for_epoch,
+    stall_delta_rhat,
+    stall_delta_mcse,
+    stall_recent_window,
+    stall_recent_eps,
+    post_stall_best_beta_rhat_history,
+    post_stall_best_D_mcse_history,
+    post_stall_snapshots,
+    num_chains,
+):
+    post_stall_plateau = False
+    post_stall_recent_worse = False
+    post_stall_recent_beta_rhat_q = np.nan
+    post_stall_recent_D_mcse_q = np.nan
+    min_post_burn_for_stall = max(stall_min_post_burn_in, min_num_post_burn_in_for_epoch)
+
+    if stall_window > 0 and num_post_burn_D >= min_post_burn_for_stall:
+        if len(post_stall_best_beta_rhat_history) >= stall_window:
+            post_rhat_improvement = post_stall_best_beta_rhat_history[-stall_window] - post_stall_best_beta_rhat_history[-1]
+            post_mcse_improvement = post_stall_best_D_mcse_history[-stall_window] - post_stall_best_D_mcse_history[-1]
+            if post_rhat_improvement < stall_delta_rhat and post_mcse_improvement < stall_delta_mcse:
+                post_stall_plateau = True
+
+        if stall_recent_window > 0 and len(post_stall_snapshots) >= stall_recent_window + 1:
+            old_beta_n, old_beta_sum_m, old_beta_sum2_m, old_D_n, old_D_sum_m = post_stall_snapshots[-(stall_recent_window + 1)]
+            recent_beta_n = num_post_burn_beta - old_beta_n
+            recent_D_n = num_post_burn_D - old_D_n
+
+            if recent_beta_n > 1 and post_stall_beta_indices.size > 0:
+                recent_beta_sum_m = post_stall_beta_sum_m - old_beta_sum_m
+                recent_beta_sum2_m = post_stall_beta_sum2_m - old_beta_sum2_m
+                _, _, recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_beta_sum_m, recent_beta_sum2_m, recent_beta_n)
+                recent_rhat_candidates = recent_R_beta_v[np.logical_and(np.isfinite(recent_R_beta_v), recent_R_beta_v >= 1)]
+                post_stall_recent_beta_rhat_q = _safe_quantile(recent_rhat_candidates, stop_mcse_quantile, 1.0)
+
+            if recent_D_n > 1 and post_stall_gene_indices.size > 0:
+                recent_D_sum_m = post_stall_D_sum_m - old_D_sum_m
+                recent_D_chain_means_m = recent_D_sum_m / float(recent_D_n)
+                recent_D_mcse_v = np.sqrt(np.var(recent_D_chain_means_m, axis=0, ddof=1) / float(num_chains))
+                post_stall_recent_D_mcse_q = _safe_quantile(recent_D_mcse_v, stop_mcse_quantile, np.inf)
+
+            if np.isfinite(post_stall_recent_beta_rhat_q) and post_stall_recent_beta_rhat_q > beta_rhat_q_post * (1 + stall_recent_eps):
+                post_stall_recent_worse = True
+            if np.isfinite(post_stall_recent_D_mcse_q) and post_stall_recent_D_mcse_q > D_mcse_q * (1 + stall_recent_eps):
+                post_stall_recent_worse = True
+
+    return (
+        post_stall_plateau,
+        post_stall_recent_worse,
+        post_stall_recent_beta_rhat_q,
+        post_stall_recent_D_mcse_q,
+    )
+
+
+def _zero_arrays(*arrays):
+    for arr in arrays:
+        if arr is not None:
+            arr[:] = 0
+
+
 def _safe_quantile(values, q, fallback):
     finite_values = values[np.isfinite(values)]
     if finite_values.size == 0:
@@ -16744,6 +16799,23 @@ def _write_gene_set_stats_trace_rows(
 def _calc_priors_from_betas(X, betas_m, mean_shifts, scale_factors):
     # Compute per-chain log-prior odds (relative to background) from betas.
     return np.array(X.dot((betas_m / scale_factors).T) - np.sum(mean_shifts * betas_m / scale_factors, axis=1).T).T
+
+
+def _combine_optional_gene_bf_terms(Y_exomes, Y_positive_controls, Y_case_counts):
+    combined = 0
+    for term in (Y_exomes, Y_positive_controls, Y_case_counts):
+        if term is not None:
+            combined = combined + term
+    return combined
+
+
+def _add_optional_gene_bf_terms(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m, Y_exomes, Y_positive_controls, Y_case_counts):
+    # Add external evidence terms back after HuGE distillation.
+    for term in (Y_exomes, Y_positive_controls, Y_case_counts):
+        if term is not None:
+            log_bf_m += term
+            log_bf_uncorrected_m += term
+            log_bf_raw_m += term
 
 
 def _get_gibbs_gene_set_mask(uncorrected_betas_mean_m, uncorrected_betas_sample_m, p_values_m, sparse_frac=0.01, sparse_max=0.001):
