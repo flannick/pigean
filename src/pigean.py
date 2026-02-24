@@ -8681,10 +8681,6 @@ class GeneSetData(object):
                 log,
             )
 
-            X_all = self.X_orig
-            if self.genes_missing is not None:
-                X_all = sparse.vstack((self.X_orig, self.X_orig_missing_genes))
-
             for iteration_num in range(epoch_max_num_iter):
                 epoch_iter_num = iteration_num + 1
                 total_iter_num = epoch_total_iter_offset + epoch_iter_num
@@ -9119,77 +9115,12 @@ class GeneSetData(object):
                         prev_warm_start_betas_m = copy.copy(full_betas_sample_m)
                         prev_warm_start_postp_m = copy.copy(full_postp_sample_m)
 
-                #since the betas are a sample (rather than mean), we can sample from priors by just multiplying this sample
-
-                #this is the (log) prior odds relative to the background_log_bf
-
-                def __calc_priors(_X, _betas, mean_shifts, scale_factors):
-                    return np.array(_X.dot((_betas / scale_factors).T) - np.sum(mean_shifts * _betas / scale_factors, axis=1).T).T
-
-
-                priors_sample_m = __calc_priors(self.X_orig, full_betas_sample_m, self.mean_shifts, self.scale_factors)
-                priors_mean_m = __calc_priors(self.X_orig, full_betas_mean_m, self.mean_shifts, self.scale_factors)
+                # Since betas are sampled each iteration, update per-chain priors directly from current betas.
+                priors_sample_m = _calc_priors_from_betas(self.X_orig, full_betas_sample_m, self.mean_shifts, self.scale_factors)
+                priors_mean_m = _calc_priors_from_betas(self.X_orig, full_betas_mean_m, self.mean_shifts, self.scale_factors)
                 if self.genes_missing is not None:
-                    priors_missing_sample_m = __calc_priors(self.X_orig_missing_genes, full_betas_sample_m, self.mean_shifts, self.scale_factors)
-                    priors_missing_mean_m = __calc_priors(self.X_orig_missing_genes, full_betas_mean_m, self.mean_shifts, self.scale_factors)
-
-                def __adjust_max_prior_contribution(_X, _betas, _priors_m):
-                    priors_max_contribution_m = np.zeros(_priors_m.shape)
-                    #don't think it is possible to vectorize this due to sparse matrices maxxing out at two dimensions
-                    for chain in range(priors_max_contribution_m.shape[0]):
-                        priors_max_contribution_m[chain,:] = _X.multiply(np.abs(_betas[chain,:]) / self.scale_factors).max(axis=1).todense().A1
-                    priors_naive_m = np.array(_X.dot((np.abs(_betas) / self.scale_factors).T)).T
-
-                    priors_percentage_max_m = np.ones(_priors_m.shape)
-                    non_zero_priors_mask = priors_naive_m != 0
-                    priors_percentage_max_m[non_zero_priors_mask] = priors_max_contribution_m[non_zero_priors_mask] / priors_naive_m[non_zero_priors_mask]
-
-                    priors_percentage_max_m[priors_percentage_max_m < 0] = 0
-                    priors_percentage_max_m[priors_percentage_max_m > 1] = 1
-
-                    #for each prior, sample one percentage
-                    new_priors_percentage_max_m = copy.copy(priors_percentage_max_m)
-                    max_allowed_percentage = 0.95
-                    for chain in range(priors_max_contribution_m.shape[0]):
-                        sample_mask = priors_percentage_max_m[chain,:] < max_allowed_percentage
-                        num_allowed = np.sum(sample_mask)
-                        if num_allowed > 0:
-                            new_columns = np.random.randint(num_allowed, size=_priors_m.shape[1])
-                            new_priors_percentage_max_m[chain,:] = priors_percentage_max_m[chain,sample_mask][new_columns]
-
-                    #don't update those that were below the threshold or would increase
-                    no_update_priors_mask = np.logical_or(priors_percentage_max_m < new_priors_percentage_max_m, priors_percentage_max_m < max_allowed_percentage)
-                    new_priors_percentage_max_m[no_update_priors_mask] = priors_percentage_max_m[no_update_priors_mask]
-
-                    #return (np.zeros(_priors_m.shape), priors_percentage_max_m)
-
-                    priors_adjustment_m = -priors_max_contribution_m + new_priors_percentage_max_m * priors_naive_m
-                    return (priors_adjustment_m, priors_percentage_max_m)
-
-                #option not used right now
-                #if see one gene set dominating top, consider adding back
-                penalize_priors = False
-                if penalize_priors:
-                    self._record_param("penalize_priors", True)
-
-                    #first calculate
-                    priors_to_adjust_sample_m = priors_sample_m
-                    priors_to_adjust_mean_m = priors_mean_m
-                    if self.genes_missing is not None:
-                        priors_to_adjust_sample_m = np.hstack((priors_sample_m, priors_missing_sample_m))
-                        priors_to_adjust_mean_m = np.hstack((priors_mean_m, priors_missing_mean_m))
-
-                    (priors_adjustment_sample_m, priors_percentage_max_sample_m) = __adjust_max_prior_contribution(X_all, full_betas_sample_m, priors_to_adjust_sample_m)
-                    (priors_adjustment_mean_m, priors_percentage_max_mean_m) = __adjust_max_prior_contribution(X_all, full_betas_mean_m, priors_to_adjust_mean_m)
-
-                    if self.genes_missing is not None:
-                        priors_missing_sample_m += priors_adjustment_sample_m[:,-priors_missing_sample_m.shape[1]:]
-                        priors_missing_mean_m += priors_adjustment_mean_m[:,-priors_missing_mean_m.shape[1]:]
-                        priors_sample_m += priors_adjustment_sample_m[:,:priors_adjustment_sample_m.shape[1]-priors_missing_sample_m.shape[1]]
-                        priors_mean_m += priors_adjustment_mean_m[:,:priors_adjustment_mean_m.shape[1]-priors_missing_mean_m.shape[1]]
-                    else:
-                        priors_sample_m += priors_adjustment_sample_m
-                        priors_mean_m += priors_adjustment_mean_m
+                    priors_missing_sample_m = _calc_priors_from_betas(self.X_orig_missing_genes, full_betas_sample_m, self.mean_shifts, self.scale_factors)
+                    priors_missing_mean_m = _calc_priors_from_betas(self.X_orig_missing_genes, full_betas_mean_m, self.mean_shifts, self.scale_factors)
 
                 if self.huge_signal_bfs is not None and update_huge_scores:
                     #Now update the BFs is we have huge scores
@@ -16808,6 +16739,11 @@ def _write_gene_set_stats_trace_rows(
                     betas_sem2_v[i],
                 )
             )
+
+
+def _calc_priors_from_betas(X, betas_m, mean_shifts, scale_factors):
+    # Compute per-chain log-prior odds (relative to background) from betas.
+    return np.array(X.dot((betas_m / scale_factors).T) - np.sum(mean_shifts * betas_m / scale_factors, axis=1).T).T
 
 
 def _get_gibbs_gene_set_mask(uncorrected_betas_mean_m, uncorrected_betas_sample_m, p_values_m, sparse_frac=0.01, sparse_max=0.001):
