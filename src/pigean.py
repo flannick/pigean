@@ -533,92 +533,22 @@ def _load_json_config(_config_path, _seen=None):
     del cfg["include"]
     return _merge_dicts(merged, cfg)
 
-def _is_remote_path(_value):
-    if not isinstance(_value, str):
-        return False
-    lower = _value.lower()
-    return lower.startswith("http:") or lower.startswith("https:") or lower.startswith("ftp:")
-
-def _is_path_like_dest(_dest):
-    if _dest is None:
-        return False
-    _dest_lower = _dest.lower()
-    return _dest_lower.endswith("_in") or _dest_lower.endswith("_out") or _dest_lower.endswith("_file") or "_file_" in _dest_lower or _dest_lower in ("log_file", "warnings_file", "config")
-
 def _resolve_config_path_value(_value, _config_dir):
     if not isinstance(_value, str):
         return _value
     if _value == "":
         return _value
-    if _is_remote_path(_value):
+    lower = _value.lower()
+    if lower.startswith("http:") or lower.startswith("https:") or lower.startswith("ftp:"):
         return _value
     expanded = os.path.expanduser(_value)
     if os.path.isabs(expanded):
         return os.path.normpath(expanded)
     return os.path.normpath(os.path.join(_config_dir, expanded))
 
-def _coerce_config_value(_opt, _value):
-    def _cast_scalar(_scalar):
-        if _scalar is None:
-            return None
-        if _opt.type == "int":
-            return int(_scalar)
-        if _opt.type == "float":
-            return float(_scalar)
-        return _scalar
-
-    if _opt.action == "append":
-        values = _value if isinstance(_value, list) else [_value]
-        return [_cast_scalar(v) for v in values]
-
-    if _opt.action in ("store_true", "store_false"):
-        if isinstance(_value, bool):
-            return _value
-        if isinstance(_value, str):
-            lower = _value.strip().lower()
-            if lower in ("1", "true", "yes", "y", "on"):
-                return True
-            if lower in ("0", "false", "no", "n", "off"):
-                return False
-        bail("Config value for %s must be boolean" % (_opt.dest))
-
-    if _opt.action == "callback":
-        return _value
-
-    return _cast_scalar(_value)
-
 def _early_warn(_message):
     sys.stderr.write("Warning: %s\n" % _message)
     sys.stderr.flush()
-
-def _validate_config_key_not_removed(_raw_key, _config_path):
-    if not isinstance(_raw_key, str):
-        normalized_config_key = _raw_key
-    else:
-        normalized_config_key = _raw_key
-        if normalized_config_key.startswith("--"):
-            normalized_config_key = normalized_config_key[2:]
-        normalized_config_key = normalized_config_key.replace("-", "_")
-    if normalized_config_key not in REMOVED_OPTION_REPLACEMENTS:
-        return
-    replacement = REMOVED_OPTION_REPLACEMENTS[normalized_config_key]
-    if replacement == "__MOVED_TO_EAGGL__":
-        bail("Config key '%s' moved to eaggl.py after repository split; run this in the eaggl repository" % _raw_key)
-    if replacement is None:
-        bail("Config key '%s' has been removed in %s and is no longer supported" % (_raw_key, _config_path))
-    replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
-    bail("Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (_raw_key, _config_path, replacement_config_key, replacement))
-
-
-def _resolve_path_like_config_value(_dest, _coerced_value, _config_dir):
-    if not _is_path_like_dest(_dest):
-        return _coerced_value
-    if isinstance(_coerced_value, list):
-        return [_resolve_config_path_value(v, _config_dir) if isinstance(v, str) else v for v in _coerced_value]
-    if isinstance(_coerced_value, str):
-        return _resolve_config_path_value(_coerced_value, _config_dir)
-    return _coerced_value
-
 
 def _json_safe(_value):
     if isinstance(_value, np.generic):
@@ -784,7 +714,19 @@ if options.config is not None:
         if raw_key in ("mode", "options", "include"):
             continue
 
-        _validate_config_key_not_removed(raw_key, config_path)
+        normalized_config_key = raw_key
+        if isinstance(normalized_config_key, str):
+            if normalized_config_key.startswith("--"):
+                normalized_config_key = normalized_config_key[2:]
+            normalized_config_key = normalized_config_key.replace("-", "_")
+        if normalized_config_key in REMOVED_OPTION_REPLACEMENTS:
+            replacement = REMOVED_OPTION_REPLACEMENTS[normalized_config_key]
+            if replacement == "__MOVED_TO_EAGGL__":
+                bail("Config key '%s' moved to eaggl.py after repository split; run this in the eaggl repository" % raw_key)
+            if replacement is None:
+                bail("Config key '%s' has been removed in %s and is no longer supported" % (raw_key, config_path))
+            replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
+            bail("Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (raw_key, config_path, replacement_config_key, replacement))
 
         key = raw_key[2:] if isinstance(raw_key, str) and raw_key.startswith("--") else raw_key
         key_norm = key.replace("-", "_") if isinstance(key, str) else key
@@ -804,8 +746,48 @@ if options.config is not None:
             continue
 
         opt = dest_to_option[dest]
-        coerced_value = _coerce_config_value(opt, raw_value)
-        coerced_value = _resolve_path_like_config_value(dest, coerced_value, config_dir)
+        if opt.action == "append":
+            values = raw_value if isinstance(raw_value, list) else [raw_value]
+            coerced_value = []
+            for scalar in values:
+                if scalar is None:
+                    coerced_value.append(None)
+                elif opt.type == "int":
+                    coerced_value.append(int(scalar))
+                elif opt.type == "float":
+                    coerced_value.append(float(scalar))
+                else:
+                    coerced_value.append(scalar)
+        elif opt.action in ("store_true", "store_false"):
+            if isinstance(raw_value, bool):
+                coerced_value = raw_value
+            elif isinstance(raw_value, str):
+                lower = raw_value.strip().lower()
+                if lower in ("1", "true", "yes", "y", "on"):
+                    coerced_value = True
+                elif lower in ("0", "false", "no", "n", "off"):
+                    coerced_value = False
+                else:
+                    bail("Config value for %s must be boolean" % (opt.dest))
+            else:
+                bail("Config value for %s must be boolean" % (opt.dest))
+        elif opt.action == "callback":
+            coerced_value = raw_value
+        elif raw_value is None:
+            coerced_value = None
+        elif opt.type == "int":
+            coerced_value = int(raw_value)
+        elif opt.type == "float":
+            coerced_value = float(raw_value)
+        else:
+            coerced_value = raw_value
+        dest_lower = dest.lower() if dest is not None else ""
+        is_path_like_dest = dest_lower.endswith("_in") or dest_lower.endswith("_out") or dest_lower.endswith("_file") or "_file_" in dest_lower or dest_lower in ("log_file", "warnings_file", "config")
+        if is_path_like_dest:
+            if isinstance(coerced_value, list):
+                coerced_value = [_resolve_config_path_value(v, config_dir) if isinstance(v, str) else v for v in coerced_value]
+            elif isinstance(coerced_value, str):
+                coerced_value = _resolve_config_path_value(coerced_value, config_dir)
         setattr(options, dest, coerced_value)
 
 if config_mode is not None:
@@ -920,63 +902,6 @@ def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_na
     setattr(_options, opt_name, int(new_value))
 
 
-def _derive_memory_controls_from_max_gb(_options, _argv):
-    if _options.max_gb is None:
-        _options.max_gb = 2.0
-    if _options.max_gb <= 0:
-        bail("Option --max-gb must be > 0")
-
-    total_mb = int(round(_options.max_gb * 1024.0))
-    baseline_gb = 2.0
-    scale = _options.max_gb / baseline_gb
-    if scale <= 0:
-        scale = 1.0
-
-    derived = {}
-    clamped = {}
-
-    implied = {}
-    implied["batch_size_max"] = max(500, int(round(5000 * scale)))
-    # Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
-    implied["gibbs_max_mb_X_h_max"] = max(32, int(round(total_mb * 0.20)))
-    # read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
-    implied["max_read_entries_at_once_max"] = max(100000, int(round(total_mb * 500)))
-    implied["gibbs_num_batches_parallel_max"] = max(1, int(round(10 * scale)))
-    if _options.num_chains is not None:
-        implied["gibbs_num_batches_parallel_max"] = min(implied["gibbs_num_batches_parallel_max"], int(_options.num_chains))
-    implied["pre_filter_small_batch_size_max"] = max(100, int(round(500 * scale)))
-    implied["pre_filter_batch_size_max"] = max(implied["pre_filter_small_batch_size_max"], int(round(5000 * scale)))
-    # For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
-    # This is an inverse memory knob: larger values use less memory.
-    implied["priors_num_gene_batches_min"] = max(1, int(np.ceil(20.0 / scale)))
-
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "batch_size", implied["batch_size_max"], "--batch-size")
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], "--gibbs-max-mb-X-h")
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], "--max-read-entries-at-once")
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], "--gibbs-num-batches-parallel")
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], "--pre-filter-small-batch-size")
-    if _options.pre_filter_batch_size is not None:
-        _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], "--pre-filter-batch-size")
-    current = getattr(_options, "priors_num_gene_batches")
-    explicit = _flag_present_in_argv(_argv, "--priors-num-gene-batches")
-    if current is None:
-        new_value = implied["priors_num_gene_batches_min"]
-        derived["priors_num_gene_batches"] = new_value
-    else:
-        new_value = max(int(current), int(implied["priors_num_gene_batches_min"]))
-        if explicit and new_value > int(current):
-            clamped["priors_num_gene_batches"] = (current, new_value, "min")
-        elif not explicit and new_value != int(current):
-            derived["priors_num_gene_batches"] = new_value
-    setattr(_options, "priors_num_gene_batches", int(new_value))
-
-    log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (_options.max_gb, total_mb, _options.max_read_entries_at_once, _options.priors_num_gene_batches, _options.gibbs_num_batches_parallel, _options.gibbs_max_mb_X_h, _options.batch_size, str(_options.pre_filter_batch_size), _options.pre_filter_small_batch_size), INFO)
-    if len(derived) > 0:
-        log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, derived[k]) for k in sorted(derived.keys())]), DEBUG)
-    if len(clamped) > 0:
-        log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
-
-
 mode_state = {
     "run_huge": False,
     "run_beta_tilde": False,
@@ -1052,7 +977,61 @@ if options.disable_stall_detection:
     options.max_num_restarts = 0
     options.total_num_iter_gibbs = options.max_num_iter
 
-_derive_memory_controls_from_max_gb(options, sys.argv[1:])
+if options.max_gb is None:
+    options.max_gb = 2.0
+if options.max_gb <= 0:
+    bail("Option --max-gb must be > 0")
+
+total_mb = int(round(options.max_gb * 1024.0))
+baseline_gb = 2.0
+scale = options.max_gb / baseline_gb
+if scale <= 0:
+    scale = 1.0
+
+derived = {}
+clamped = {}
+implied = {}
+implied["batch_size_max"] = max(500, int(round(5000 * scale)))
+# Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
+implied["gibbs_max_mb_X_h_max"] = max(32, int(round(total_mb * 0.20)))
+# read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
+implied["max_read_entries_at_once_max"] = max(100000, int(round(total_mb * 500)))
+implied["gibbs_num_batches_parallel_max"] = max(1, int(round(10 * scale)))
+if options.num_chains is not None:
+    implied["gibbs_num_batches_parallel_max"] = min(implied["gibbs_num_batches_parallel_max"], int(options.num_chains))
+implied["pre_filter_small_batch_size_max"] = max(100, int(round(500 * scale)))
+implied["pre_filter_batch_size_max"] = max(implied["pre_filter_small_batch_size_max"], int(round(5000 * scale)))
+# For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
+# This is an inverse memory knob: larger values use less memory.
+implied["priors_num_gene_batches_min"] = max(1, int(np.ceil(20.0 / scale)))
+
+_argv = sys.argv[1:]
+_set_memory_control_with_max_cap(options, _argv, derived, clamped, "batch_size", implied["batch_size_max"], "--batch-size")
+_set_memory_control_with_max_cap(options, _argv, derived, clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], "--gibbs-max-mb-X-h")
+_set_memory_control_with_max_cap(options, _argv, derived, clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], "--max-read-entries-at-once")
+_set_memory_control_with_max_cap(options, _argv, derived, clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], "--gibbs-num-batches-parallel")
+_set_memory_control_with_max_cap(options, _argv, derived, clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], "--pre-filter-small-batch-size")
+if options.pre_filter_batch_size is not None:
+    _set_memory_control_with_max_cap(options, _argv, derived, clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], "--pre-filter-batch-size")
+current = getattr(options, "priors_num_gene_batches")
+explicit = _flag_present_in_argv(_argv, "--priors-num-gene-batches")
+if current is None:
+    new_value = implied["priors_num_gene_batches_min"]
+    derived["priors_num_gene_batches"] = new_value
+else:
+    new_value = max(int(current), int(implied["priors_num_gene_batches_min"]))
+    if explicit and new_value > int(current):
+        clamped["priors_num_gene_batches"] = (current, new_value, "min")
+    elif not explicit and new_value != int(current):
+        derived["priors_num_gene_batches"] = new_value
+setattr(options, "priors_num_gene_batches", int(new_value))
+
+log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (options.max_gb, total_mb, options.max_read_entries_at_once, options.priors_num_gene_batches, options.gibbs_num_batches_parallel, options.gibbs_max_mb_X_h, options.batch_size, str(options.pre_filter_batch_size), options.pre_filter_small_batch_size), INFO)
+if len(derived) > 0:
+    log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, derived[k]) for k in sorted(derived.keys())]), DEBUG)
+if len(clamped) > 0:
+    log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
+
 if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
     warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
     options.ols = True
@@ -1088,40 +1067,6 @@ def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
 _DIG_OPEN_DATA_PREFIX = "dig-open-data:"
 _DIG_OPEN_DATA_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
 
-def _open_dig_open_data(uri, flag=None):
-    if flag is not None and "w" in flag:
-        bail("dig-open-data sources are read-only and cannot be opened for writing")
-
-    spec = uri[len(_DIG_OPEN_DATA_PREFIX):]
-    if len(spec.strip()) == 0:
-        bail("Invalid dig-open-data source '%s'; expected dig-open-data:<ancestry>:<trait>" % uri)
-
-    try:
-        from dig_open_data import open_text, open_trait
-    except ImportError:
-        bail("dig_open_data is required to read '%s'. Install https://github.com/flannick/dig-open-data/" % uri)
-
-    # Strict two-token shorthand: <ancestry>:<trait>.
-    is_ancestry_trait = False
-    if isinstance(spec, str) and spec.count(":") == 1:
-        ancestry, trait = spec.split(":", 1)
-        is_ancestry_trait = (
-            len(ancestry) > 0
-            and len(trait) > 0
-            and "/" not in ancestry
-            and "/" not in trait
-            and _DIG_OPEN_DATA_TOKEN_RE.match(ancestry) is not None
-            and _DIG_OPEN_DATA_TOKEN_RE.match(trait) is not None
-        )
-    if is_ancestry_trait:
-        ancestry, trait = spec.split(":", 1)
-        log("Reading dig-open-data trait ancestry=%s trait=%s" % (ancestry, trait), INFO)
-        return open_trait(ancestry, trait)
-
-    # Fallback: allow direct URIs/keys understood by dig_open_data.open_text.
-    log("Reading dig-open-data source %s" % spec, INFO)
-    return open_text(spec)
-
 def is_gz_file(filepath, is_remote, flag=None):
 
     if len(filepath) >= 3 and (filepath[-3:] == ".gz" or filepath[-4:] == ".bgz") and (flag is None or 'w' not in flag):
@@ -1156,7 +1101,37 @@ def is_gz_file(filepath, is_remote, flag=None):
 
 def open_gz(file, flag=None):
     if isinstance(file, str) and file.startswith(_DIG_OPEN_DATA_PREFIX):
-        return _open_dig_open_data(file, flag=flag)
+        if flag is not None and "w" in flag:
+            bail("dig-open-data sources are read-only and cannot be opened for writing")
+
+        spec = file[len(_DIG_OPEN_DATA_PREFIX):]
+        if len(spec.strip()) == 0:
+            bail("Invalid dig-open-data source '%s'; expected dig-open-data:<ancestry>:<trait>" % file)
+
+        try:
+            from dig_open_data import open_text, open_trait
+        except ImportError:
+            bail("dig_open_data is required to read '%s'. Install https://github.com/flannick/dig-open-data/" % file)
+
+        is_ancestry_trait = False
+        if spec.count(":") == 1:
+            ancestry, trait = spec.split(":", 1)
+            is_ancestry_trait = (
+                len(ancestry) > 0
+                and len(trait) > 0
+                and "/" not in ancestry
+                and "/" not in trait
+                and _DIG_OPEN_DATA_TOKEN_RE.match(ancestry) is not None
+                and _DIG_OPEN_DATA_TOKEN_RE.match(trait) is not None
+            )
+        if is_ancestry_trait:
+            ancestry, trait = spec.split(":", 1)
+            log("Reading dig-open-data trait ancestry=%s trait=%s" % (ancestry, trait), INFO)
+            return open_trait(ancestry, trait)
+
+        # Fallback: allow direct URIs/keys understood by dig_open_data.open_text.
+        log("Reading dig-open-data source %s" % spec, INFO)
+        return open_text(spec)
 
     is_remote = False
     remote_prefixes = ["http:", "https:", "ftp:"]
