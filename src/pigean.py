@@ -17070,17 +17070,12 @@ def _build_read_y_gene_bfs_kwargs_for_main(options):
     )
 
 
-def _build_read_y_source_base_kwargs_for_main(options):
+def _build_read_y_from_sources_kwargs_for_main(options):
     return dict(
         gwas_in=options.gwas_in,
         huge_statistics_in=options.huge_statistics_in,
         huge_statistics_out=options.huge_statistics_out,
         show_progress=not options.hide_progress,
-    )
-
-
-def _build_read_y_source_gwas_input_cols_kwargs_for_main(options):
-    return dict(
         gwas_chrom_col=options.gwas_chrom_col,
         gwas_pos_col=options.gwas_pos_col,
         gwas_p_col=options.gwas_p_col,
@@ -17093,11 +17088,6 @@ def _build_read_y_source_gwas_input_cols_kwargs_for_main(options):
         gwas_filter_col=options.gwas_filter_col,
         gwas_filter_value=options.gwas_filter_value,
         gwas_locus_col=options.gwas_locus_col,
-    )
-
-
-def _build_read_y_source_gwas_threshold_kwargs_for_main(options):
-    return dict(
         gwas_ignore_p_threshold=options.gwas_ignore_p_threshold,
         gwas_low_p=options.gwas_low_p,
         gwas_high_p=options.gwas_high_p,
@@ -17107,11 +17097,6 @@ def _build_read_y_source_gwas_threshold_kwargs_for_main(options):
         detect_high_power=options.gwas_detect_high_power,
         detect_adjust_huge=options.gwas_detect_adjust_huge,
         learn_window=options.learn_window,
-    )
-
-
-def _build_read_y_source_huge_weighting_kwargs_for_main(options):
-    return dict(
         closest_gene_prob=options.closest_gene_prob,
         max_closest_gene_prob=options.max_closest_gene_prob,
         scale_raw_closest_gene=options.scale_raw_closest_gene,
@@ -17122,11 +17107,6 @@ def _build_read_y_source_huge_weighting_kwargs_for_main(options):
         allow_evidence_of_absence=options.allow_evidence_of_absence,
         correct_huge=options.correct_huge,
         gws_prob_true=options.gene_zs_gws_prob_true,
-    )
-
-
-def _build_read_y_source_signal_window_kwargs_for_main(options):
-    return dict(
         max_closest_gene_dist=options.max_closest_gene_dist,
         signal_window_size=options.signal_window_size,
         signal_min_sep=options.signal_min_sep,
@@ -17134,11 +17114,6 @@ def _build_read_y_source_signal_window_kwargs_for_main(options):
         credible_set_span=options.credible_set_span,
         min_n_ratio=options.min_n_ratio,
         max_clump_ld=options.max_clump_ld,
-    )
-
-
-def _build_read_y_source_exomes_kwargs_for_main(options):
-    return dict(
         exomes_in=options.exomes_in,
         exomes_gene_col=options.exomes_gene_col,
         exomes_p_col=options.exomes_p_col,
@@ -17151,11 +17126,6 @@ def _build_read_y_source_exomes_kwargs_for_main(options):
         exomes_high_p=options.exomes_high_p,
         exomes_low_p_posterior=options.exomes_low_p_posterior,
         exomes_high_p_posterior=options.exomes_high_p_posterior,
-    )
-
-
-def _build_read_y_source_positive_controls_kwargs_for_main(options):
-    return dict(
         positive_controls_in=options.positive_controls_in,
         positive_controls_id_col=options.positive_controls_id_col,
         positive_controls_prob_col=options.positive_controls_prob_col,
@@ -17165,11 +17135,6 @@ def _build_read_y_source_positive_controls_kwargs_for_main(options):
         positive_controls_all_in=options.positive_controls_all_in,
         positive_controls_all_id_col=options.positive_controls_all_id_col,
         positive_controls_all_has_header=options.positive_controls_all_has_header,
-    )
-
-
-def _build_read_y_source_case_counts_kwargs_for_main(options):
-    return dict(
         case_counts_in=options.case_counts_in,
         case_counts_gene_col=options.case_counts_gene_col,
         case_counts_revel_col=options.case_counts_revel_col,
@@ -17179,11 +17144,6 @@ def _build_read_y_source_case_counts_kwargs_for_main(options):
         min_revels=options.counts_min_revels,
         mean_rrs=options.counts_mean_rrs,
         max_case_freq=options.counts_max_case_freq,
-    )
-
-
-def _build_read_y_source_ctrl_counts_kwargs_for_main(options):
-    return dict(
         ctrl_counts_in=options.ctrl_counts_in,
         ctrl_counts_gene_col=options.ctrl_counts_gene_col,
         ctrl_counts_revel_col=options.ctrl_counts_revel_col,
@@ -17191,46 +17151,21 @@ def _build_read_y_source_ctrl_counts_kwargs_for_main(options):
         ctrl_counts_tot_col=options.ctrl_counts_tot_col,
         ctrl_counts_max_freq_col=options.ctrl_counts_max_freq_col,
         max_ctrl_freq=options.counts_max_ctrl_freq,
-    )
-
-
-def _build_read_y_source_counts_hyper_kwargs_for_main(options):
-    return dict(
         syn_revel_threshold=options.counts_syn_revel,
         syn_fisher_p=options.counts_syn_fisher_p,
         nu=options.counts_nu,
         beta=options.counts_beta,
-    )
-
-
-def _build_read_y_source_loc_kwargs_for_main(options):
-    return dict(
         gene_loc_file=options.gene_loc_file_huge if options.gene_loc_file_huge is not None else options.gene_loc_file,
         exons_loc_file=options.exons_loc_file_huge,
-    )
-
-
-def _build_read_y_source_covariate_kwargs_for_main(options):
-    return dict(
         gene_covs_in=options.gene_covs_in,
         hold_out_chrom=options.hold_out_chrom,
         min_var_posterior=options.min_var_posterior,
-    )
-
-
-def _build_read_y_source_s2g_kwargs_for_main(options):
-    return dict(
         s2g_in=options.s2g_in,
         s2g_chrom_col=options.s2g_chrom_col,
         s2g_pos_col=options.s2g_pos_col,
         s2g_gene_col=options.s2g_gene_col,
         s2g_prob_col=options.s2g_prob_col,
         s2g_normalize_values=options.s2g_normalize_values,
-    )
-
-
-def _build_read_y_source_credible_sets_kwargs_for_main(options):
-    return dict(
         credible_sets_in=options.credible_sets_in,
         credible_sets_id_col=options.credible_sets_id_col,
         credible_sets_chrom_col=options.credible_sets_chrom_col,
@@ -17250,34 +17185,15 @@ def _should_load_y_from_sources_for_main(options):
     )
 
 
-def _should_apply_gene_list_defaults_before_source_y_load_for_main(options):
-    return (
+def _load_initial_y_from_sources_for_main(state, options):
+    if (
         options.gwas_in is None
         and options.huge_statistics_in is None
         and options.exomes_in is None
         and options.case_counts_in is None
-    )
-
-
-def _load_initial_y_from_sources_for_main(state, options):
-    if _should_apply_gene_list_defaults_before_source_y_load_for_main(options):
+    ):
         _default_for_gene_list_options(options)
-    kwargs = {}
-    kwargs.update(_build_read_y_source_base_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_gwas_input_cols_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_gwas_threshold_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_huge_weighting_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_signal_window_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_exomes_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_positive_controls_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_case_counts_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_ctrl_counts_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_counts_hyper_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_loc_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_covariate_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_s2g_kwargs_for_main(options))
-    kwargs.update(_build_read_y_source_credible_sets_kwargs_for_main(options))
-    state.read_Y(**kwargs)
+    state.read_Y(**_build_read_y_from_sources_kwargs_for_main(options))
 
 
 def _load_initial_y_inputs_for_main(
@@ -17384,7 +17300,6 @@ def _read_x_with_adaptive_filter_for_main(state, options, gene_set_ids, sigma2_c
             state,
             options,
             gene_set_ids,
-            None,
             filter_gene_set_p,
             skip_betas,
             sigma2_cond,
@@ -17448,28 +17363,18 @@ def _prepare_reread_with_relaxed_filter_for_main(state, options, gene_set_ids, f
     return should_reread, new_filter_gene_set_p
 
 
-def _build_read_x_input_file_kwargs_for_main(options):
+def _build_read_x_kwargs_for_main(state, options, gene_set_ids, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
     return dict(
         Xd_in=options.Xd_in,
         X_list=options.X_list,
         Xd_list=options.Xd_list,
         V_in=options.V_in,
-    )
-
-
-def _build_read_x_gene_set_selection_kwargs_for_main(options, gene_set_ids, genes_to_inc):
-    return dict(
         min_gene_set_size=options.min_gene_set_size,
         max_gene_set_size=options.max_gene_set_size,
         only_ids=gene_set_ids,
-        only_inc_genes=genes_to_inc,
+        only_inc_genes=None,
         fraction_inc_genes=None,
         add_all_genes=options.add_all_genes,
-    )
-
-
-def _build_read_x_gene_set_weighting_kwargs_for_main(options):
-    return dict(
         prune_gene_sets=options.prune_gene_sets,
         weighted_prune_gene_sets=options.weighted_prune_gene_sets,
         prune_deterministically=options.prune_deterministically,
@@ -17481,46 +17386,17 @@ def _build_read_x_gene_set_weighting_kwargs_for_main(options):
         threshold_weights=options.threshold_weights,
         cap_weights=options.cap_weights,
         permute_gene_sets=options.permute_gene_sets,
-    )
-
-
-def _build_read_x_gene_set_filtering_kwargs_for_main(options, filter_gene_set_p):
-    return dict(
         max_gene_set_p=options.max_gene_set_read_p,
         filter_gene_set_p=filter_gene_set_p,
         filter_using_phewas=options.betas_uncorrected_from_phewas,
         increase_filter_gene_set_p=options.increase_filter_gene_set_p,
-    )
-
-
-def _build_read_x_gene_set_count_limits_kwargs_for_main(options):
-    return dict(
         max_num_gene_sets_initial=options.max_num_gene_sets_initial,
         max_num_gene_sets=options.max_num_gene_sets,
         max_num_gene_sets_hyper=options.max_num_gene_sets_hyper,
-    )
-
-
-def _build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, filter_gene_set_p):
-    kwargs = {}
-    kwargs.update(_build_read_x_gene_set_selection_kwargs_for_main(options, gene_set_ids, genes_to_inc))
-    kwargs.update(_build_read_x_gene_set_weighting_kwargs_for_main(options))
-    kwargs.update(_build_read_x_gene_set_filtering_kwargs_for_main(options, filter_gene_set_p))
-    kwargs.update(_build_read_x_gene_set_count_limits_kwargs_for_main(options))
-    return kwargs
-
-
-def _build_read_x_regression_model_kwargs_for_main(options, skip_betas):
-    return dict(
         skip_betas=skip_betas,
         run_logistic=not options.linear,
         max_for_linear=options.max_for_linear,
         filter_gene_set_metric_z=options.filter_gene_set_metric_z,
-    )
-
-
-def _build_read_x_prior_sigma_kwargs_for_main(state, options, sigma2_cond, xin_to_p_noninf_ind):
-    return dict(
         initial_p=options.p_noninf,
         xin_to_p_noninf_ind=xin_to_p_noninf_ind,
         initial_sigma2=state.sigma2,
@@ -17530,22 +17406,12 @@ def _build_read_x_prior_sigma_kwargs_for_main(state, options, sigma2_cond, xin_t
         sigma_soft_threshold_5=options.sigma_soft_threshold_5,
         run_gls=False,
         run_corrected_ols=not options.ols,
-    )
-
-
-def _build_read_x_covariate_model_kwargs_for_main(options):
-    return dict(
         correct_betas_mean=options.correct_betas_mean,
         correct_betas_var=options.correct_betas_var,
         gene_loc_file=options.gene_loc_file,
         gene_cor_file=options.gene_cor_file,
         gene_cor_file_gene_col=options.gene_cor_file_gene_col,
         gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
-    )
-
-
-def _build_read_x_hyper_update_kwargs_for_main(options):
-    return dict(
         update_hyper_p=options.update_hyper_p,
         update_hyper_sigma=options.update_hyper_sigma,
         batch_all_for_hyper=options.batch_all_for_hyper,
@@ -17554,19 +17420,9 @@ def _build_read_x_hyper_update_kwargs_for_main(options):
         first_for_sigma_cond=options.first_for_sigma_cond,
         sigma_num_devs_to_top=options.sigma_num_devs_to_top,
         p_noninf_inflate=options.p_noninf_inflate,
-    )
-
-
-def _build_read_x_text_parsing_kwargs_for_main(options):
-    return dict(
         batch_separator=options.batch_separator,
         ignore_genes=set(options.ignore_genes),
         file_separator=options.file_separator,
-    )
-
-
-def _build_read_x_inner_beta_sampler_kwargs_for_main(options):
-    return dict(
         max_num_burn_in=options.max_num_burn_in,
         max_num_iter_betas=options.max_num_iter_betas,
         min_num_iter_betas=options.min_num_iter_betas,
@@ -17578,51 +17434,10 @@ def _build_read_x_inner_beta_sampler_kwargs_for_main(options):
         sparse_solution=options.sparse_solution,
         sparse_frac_betas=options.sparse_frac_betas,
         betas_trace_out=options.betas_trace_out,
-    )
-
-
-def _build_read_x_progress_runtime_kwargs_for_main(options):
-    return dict(
         show_progress=not options.hide_progress,
         skip_V=(options.max_gene_set_read_p is not None),
         max_num_entries_at_once=options.max_read_entries_at_once,
-    )
-
-
-def _build_read_x_kwargs_for_main(state, options, gene_set_ids, genes_to_inc, filter_gene_set_p, skip_betas, sigma2_cond, force_reread, xin_to_p_noninf_ind):
-    kwargs = {}
-    kwargs.update(_build_read_x_input_file_kwargs_for_main(options))
-    kwargs.update(_build_read_x_filter_kwargs_for_main(options, gene_set_ids, genes_to_inc, filter_gene_set_p))
-    kwargs.update(_build_read_x_regression_model_kwargs_for_main(options, skip_betas))
-    kwargs.update(_build_read_x_prior_sigma_kwargs_for_main(state, options, sigma2_cond, xin_to_p_noninf_ind))
-    kwargs.update(_build_read_x_covariate_model_kwargs_for_main(options))
-    kwargs.update(_build_read_x_hyper_update_kwargs_for_main(options))
-    kwargs.update(_build_read_x_text_parsing_kwargs_for_main(options))
-    kwargs.update(_build_read_x_inner_beta_sampler_kwargs_for_main(options))
-    kwargs.update(_build_read_x_progress_runtime_kwargs_for_main(options))
-    kwargs["force_reread"] = force_reread
-    return kwargs
-
-
-def _build_priors_data_kwargs_for_main(options, p_noninf):
-    return dict(
-        max_gene_set_p=options.filter_gene_set_p,
-        num_gene_batches=options.priors_num_gene_batches,
-        correct_betas_mean=options.correct_betas_mean,
-        correct_betas_var=options.correct_betas_var,
-        gene_loc_file=options.gene_loc_file,
-        gene_cor_file=options.gene_cor_file,
-        gene_cor_file_gene_col=options.gene_cor_file_gene_col,
-        gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
-        p_noninf=p_noninf,
-    )
-
-
-def _build_priors_model_kwargs_for_main(options):
-    return dict(
-        run_logistic=not options.linear,
-        max_for_linear=options.max_for_linear,
-        adjust_priors=options.adjust_priors,
+        force_reread=force_reread,
     )
 
 
@@ -17641,21 +17456,27 @@ def _build_inner_beta_sampler_common_kwargs_for_main(options):
     )
 
 
-def _build_priors_sampling_kwargs_for_main(options):
-    kwargs = _build_inner_beta_sampler_common_kwargs_for_main(options)
-    kwargs["max_allowed_batch_correlation"] = options.max_allowed_batch_correlation
-    return kwargs
-
-
 def _build_priors_kwargs_for_main(options, p_noninf):
-    kwargs = {}
-    kwargs.update(_build_priors_data_kwargs_for_main(options, p_noninf))
-    kwargs.update(_build_priors_model_kwargs_for_main(options))
-    kwargs.update(_build_priors_sampling_kwargs_for_main(options))
+    kwargs = _build_inner_beta_sampler_common_kwargs_for_main(options)
+    kwargs.update(dict(
+        max_gene_set_p=options.filter_gene_set_p,
+        num_gene_batches=options.priors_num_gene_batches,
+        correct_betas_mean=options.correct_betas_mean,
+        correct_betas_var=options.correct_betas_var,
+        gene_loc_file=options.gene_loc_file,
+        gene_cor_file=options.gene_cor_file,
+        gene_cor_file_gene_col=options.gene_cor_file_gene_col,
+        gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
+        p_noninf=p_noninf,
+        run_logistic=not options.linear,
+        max_for_linear=options.max_for_linear,
+        adjust_priors=options.adjust_priors,
+        max_allowed_batch_correlation=options.max_allowed_batch_correlation,
+    ))
     return kwargs
 
 
-def _build_gibbs_epoch_and_chain_kwargs_for_main(options):
+def _build_gibbs_kwargs_for_main(options):
     return dict(
         max_num_iter=options.max_num_iter,
         total_num_iter=options.total_num_iter_gibbs,
@@ -17671,11 +17492,6 @@ def _build_gibbs_epoch_and_chain_kwargs_for_main(options):
         max_num_burn_in=options.max_num_burn_in,
         min_num_post_burn_in=options.min_num_post_burn_in,
         max_num_post_burn_in=options.max_num_post_burn_in,
-    )
-
-
-def _build_gibbs_inner_beta_kwargs_for_main(options):
-    return dict(
         max_num_iter_betas=options.max_num_iter_betas,
         min_num_iter_betas=options.min_num_iter_betas,
         num_chains_betas=options.num_chains_betas,
@@ -17684,11 +17500,6 @@ def _build_gibbs_inner_beta_kwargs_for_main(options):
         max_frac_sem_betas=options.max_frac_sem_betas,
         use_mean_betas=not options.use_sampled_betas_in_gibbs,
         warm_start=options.warm_start,
-    )
-
-
-def _build_gibbs_precision_kwargs_for_main(options):
-    return dict(
         burn_in_rhat_quantile=options.burn_in_rhat_quantile,
         burn_in_patience=options.burn_in_patience,
         burn_in_stall_window=options.burn_in_stall_window,
@@ -17702,11 +17513,6 @@ def _build_gibbs_precision_kwargs_for_main(options):
         active_beta_top_k=options.active_beta_top_k,
         active_beta_min_abs=options.active_beta_min_abs,
         beta_rel_mcse_denom_floor=options.beta_rel_mcse_denom_floor,
-    )
-
-
-def _build_gibbs_stall_kwargs_for_main(options):
-    return dict(
         stall_window=options.stall_window,
         stall_min_burn_in=options.stall_min_burn_in,
         stall_min_post_burn_in=options.stall_min_post_burn_in,
@@ -17716,11 +17522,6 @@ def _build_gibbs_stall_kwargs_for_main(options):
         stall_recent_eps=options.stall_recent_eps,
         stopping_preset_name=options.gibbs_stopping_preset,
         diag_every=options.diag_every,
-    )
-
-
-def _build_gibbs_sparse_and_batch_kwargs_for_main(options):
-    return dict(
         sparse_frac_gibbs=options.sparse_frac_gibbs,
         sparse_max_gibbs=options.sparse_max_gibbs,
         sparse_solution=options.sparse_solution,
@@ -17736,26 +17537,10 @@ def _build_gibbs_sparse_and_batch_kwargs_for_main(options):
         adjust_priors=options.adjust_priors,
         correct_betas_mean=options.correct_betas_mean,
         correct_betas_var=options.correct_betas_var,
-    )
-
-
-def _build_gibbs_trace_output_kwargs_for_main(options):
-    return dict(
         gene_set_stats_trace_out=options.gene_set_stats_trace_out,
         gene_stats_trace_out=options.gene_stats_trace_out,
         betas_trace_out=options.betas_trace_out,
     )
-
-
-def _build_gibbs_kwargs_for_main(options):
-    kwargs = {}
-    kwargs.update(_build_gibbs_epoch_and_chain_kwargs_for_main(options))
-    kwargs.update(_build_gibbs_inner_beta_kwargs_for_main(options))
-    kwargs.update(_build_gibbs_precision_kwargs_for_main(options))
-    kwargs.update(_build_gibbs_stall_kwargs_for_main(options))
-    kwargs.update(_build_gibbs_sparse_and_batch_kwargs_for_main(options))
-    kwargs.update(_build_gibbs_trace_output_kwargs_for_main(options))
-    return kwargs
 
 def _run_phewas_if_requested_for_main(state, options, mode_state):
     if not mode_state["run_phewas"]:
@@ -17827,125 +17612,77 @@ def _build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p, run_us
     return kwargs
 
 
-def _needs_gene_set_stats_for_main(mode_state):
-    # Determine whether gene-set statistics are needed for any requested stage.
-    run_beta_tilde = mode_state["run_beta_tilde"]
-    run_beta = mode_state["run_beta"]
-    run_priors = mode_state["run_priors"]
-    run_naive_priors = mode_state["run_naive_priors"]
-    run_gibbs = mode_state["run_gibbs"]
-    run_sim = mode_state["run_sim"]
-    return (
-        run_beta_tilde
-        or run_beta
-        or run_priors
-        or run_naive_priors
-        or run_gibbs
-        or run_sim
-    )
-
-
-def _should_use_constant_gene_set_beta_tildes_for_main(options):
-    return options.const_gene_set_beta is not None
-
-
-def _should_read_gene_set_stats_from_file_for_main(options):
-    return options.gene_set_stats_in is not None
-
-
-def _calculate_gene_set_stats_for_main(state, options):
-    max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
-    state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=max_gene_set_p))
-    if options.betas_uncorrected_from_phewas:
-        state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=1, run_using_phewas=True))
-
-
 def _maybe_prepare_gene_set_statistics_for_main(state, options, mode_state):
     # Resolve beta_tildes either from fixed values, read-in stats, or fresh fitting.
-    needs_gene_set_stats = _needs_gene_set_stats_for_main(mode_state)
+    needs_gene_set_stats = (
+        mode_state["run_beta_tilde"]
+        or mode_state["run_beta"]
+        or mode_state["run_priors"]
+        or mode_state["run_naive_priors"]
+        or mode_state["run_gibbs"]
+        or mode_state["run_sim"]
+    )
 
-    if _should_use_constant_gene_set_beta_tildes_for_main(options):
+    if options.const_gene_set_beta is not None:
         state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
-    elif _should_read_gene_set_stats_from_file_for_main(options):
+    elif options.gene_set_stats_in is not None:
         state.read_gene_set_statistics(options.gene_set_stats_in, **_build_read_gene_set_statistics_kwargs_for_main(options))
     elif needs_gene_set_stats:
-        _calculate_gene_set_stats_for_main(state, options)
-
-
-def _build_beta_sampling_kwargs_for_main(options):
-    # Shared beta-sampling knobs used in both standard and phewas-derived updates.
-    kwargs = _build_inner_beta_sampler_common_kwargs_for_main(options)
-    kwargs.update({
-        "max_allowed_batch_correlation": options.max_allowed_batch_correlation,
-        "update_hyper_sigma": False,
-        "update_hyper_p": False,
-        "pre_filter_batch_size": options.pre_filter_batch_size,
-        "pre_filter_small_batch_size": options.pre_filter_small_batch_size,
-        "betas_trace_out": options.betas_trace_out,
-    })
-    return kwargs
-
-
-def _build_run_cross_val_kwargs_for_main(state, options):
-    kwargs = dict(
-        folds=options.cross_val_folds,
-        cross_val_max_num_tries=options.cross_val_max_num_tries,
-        p=state.p,
-        run_logistic=not options.linear,
-        max_for_linear=options.max_for_linear,
-        run_corrected_ols=not options.ols,
-    )
-    kwargs.update(_build_inner_beta_sampler_common_kwargs_for_main(options))
-    return kwargs
-
-
-def _needs_gene_set_betas_for_main(mode_state):
-    run_beta = mode_state["run_beta"]
-    run_priors = mode_state["run_priors"]
-    run_naive_priors = mode_state["run_naive_priors"]
-    run_gibbs = mode_state["run_gibbs"]
-    return run_beta or run_priors or run_naive_priors or run_gibbs
-
-
-def _set_constant_gene_set_betas_for_main(state, options):
-    state.betas = np.full(len(state.gene_sets), options.const_gene_set_beta)
-    state.betas_uncorrected = np.full(len(state.gene_sets), options.const_gene_set_beta)
-
-
-def _should_read_gene_set_betas_from_file_for_main(options):
-    return options.gene_set_betas_in
-
-
-def _fit_gene_set_betas_for_main(state, options):
-    beta_sampling_kwargs = _build_beta_sampling_kwargs_for_main(options)
-    state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
-
-    if options.betas_uncorrected_from_phewas:
-        phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
-        phewas_beta_sampling_kwargs.update({
-            "run_betas_using_phewas": options.betas_from_phewas,
-            "run_uncorrected_using_phewas": True,
-        })
-        state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
+        max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
+        state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=max_gene_set_p))
+        if options.betas_uncorrected_from_phewas:
+            state.calculate_gene_set_statistics(**_build_gene_set_stats_kwargs_for_main(state, options, max_gene_set_p=1, run_using_phewas=True))
 
 
 def _maybe_load_or_fit_gene_set_betas_for_main(state, options, mode_state):
     # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
-    needs_gene_set_betas = _needs_gene_set_betas_for_main(mode_state)
+    needs_gene_set_betas = (
+        mode_state["run_beta"]
+        or mode_state["run_priors"]
+        or mode_state["run_naive_priors"]
+        or mode_state["run_gibbs"]
+    )
     if needs_gene_set_betas and state.sigma2 is None:
         bail("Sigma2 was not initialized; provide --sigma2 explicitly")
 
     if options.cross_val:
-        state.run_cross_val(options.cross_val_num_explore_each_direction, **_build_run_cross_val_kwargs_for_main(state, options))
+        cross_val_kwargs = dict(
+            folds=options.cross_val_folds,
+            cross_val_max_num_tries=options.cross_val_max_num_tries,
+            p=state.p,
+            run_logistic=not options.linear,
+            max_for_linear=options.max_for_linear,
+            run_corrected_ols=not options.ols,
+        )
+        cross_val_kwargs.update(_build_inner_beta_sampler_common_kwargs_for_main(options))
+        state.run_cross_val(options.cross_val_num_explore_each_direction, **cross_val_kwargs)
 
     # Gene-set betas: fixed constant, loaded values, or fitted values.
     if options.const_gene_set_beta is not None:
-        _set_constant_gene_set_betas_for_main(state, options)
-    elif _should_read_gene_set_betas_from_file_for_main(options):
+        state.betas = np.full(len(state.gene_sets), options.const_gene_set_beta)
+        state.betas_uncorrected = np.full(len(state.gene_sets), options.const_gene_set_beta)
+    elif options.gene_set_betas_in:
         state.read_betas(options.gene_set_betas_in)
     elif needs_gene_set_betas:
         # Hyper updates happen during X-read; this branch only samples betas.
-        _fit_gene_set_betas_for_main(state, options)
+        beta_sampling_kwargs = _build_inner_beta_sampler_common_kwargs_for_main(options)
+        beta_sampling_kwargs.update({
+            "max_allowed_batch_correlation": options.max_allowed_batch_correlation,
+            "update_hyper_sigma": False,
+            "update_hyper_p": False,
+            "pre_filter_batch_size": options.pre_filter_batch_size,
+            "pre_filter_small_batch_size": options.pre_filter_small_batch_size,
+            "betas_trace_out": options.betas_trace_out,
+        })
+        state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
+
+        if options.betas_uncorrected_from_phewas:
+            phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
+            phewas_beta_sampling_kwargs.update({
+                "run_betas_using_phewas": options.betas_from_phewas,
+                "run_uncorrected_using_phewas": True,
+            })
+            state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
 
 
 def _compute_gene_set_stats_and_betas_for_main(
