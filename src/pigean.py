@@ -8586,80 +8586,44 @@ class GeneSetData(object):
                 default_betas_mean_m = copy.copy(uncorrected_betas_mean_m)
                 default_postp_mean_m = copy.copy(uncorrected_postp_mean_m)
 
-                #filter back down based on max p?
-                gene_set_mask_m = np.full(full_p_values_m.shape, True)
-
-                #no longer an option
-                #if self.max_gene_set_p is not None and use_orig_gene_set_p:
-                #    gene_set_mask_m = np.tile(self.p_values_orig <= self.max_gene_set_p, num_chains).reshape((num_chains, len(gene_set_mask)))
-
-                gene_set_mask_m = _get_gibbs_gene_set_mask(uncorrected_betas_mean_m, uncorrected_betas_sample_m, full_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
-                any_gene_set_mask = np.any(gene_set_mask_m, axis=0)
-                if pre_filter_batch_size is not None and np.sum(any_gene_set_mask) > pre_filter_batch_size:
-                    num_batches = self._get_num_X_blocks(self.X_orig[:,any_gene_set_mask], batch_size=pre_filter_small_batch_size)
-                    if num_batches > 1:
-                        #try to run with small batches to see if we can zero out more
-                        gene_set_block_masks = self._compute_gene_set_batches(V=None, X_orig=self.X_orig[:,any_gene_set_mask], mean_shifts=self.mean_shifts[any_gene_set_mask], scale_factors=self.scale_factors[any_gene_set_mask], find_correlated_instead=pre_filter_small_batch_size)
-
-                        if len(gene_set_block_masks) > 0:
-                            if np.sum(gene_set_block_masks[-1]) == 1 and len(gene_set_block_masks) > 1:
-                                #merge singletons at the end into the one before
-                                gene_set_block_masks[-2][gene_set_block_masks[-1]] = True
-                                gene_set_block_masks = gene_set_block_masks[:-1]
-                            if len(gene_set_block_masks) > 1 and np.sum(gene_set_block_masks[0]) > 1:
-                                #find map of indices to original indices
-                                V_data = []
-                                V_rows = []
-                                V_cols = []
-                                for gene_set_block_mask in gene_set_block_masks:
-                                    V_block = self._calculate_V_internal(self.X_orig[:,any_gene_set_mask][:,gene_set_block_mask], self.y_corr_cholesky, self.mean_shifts[any_gene_set_mask][gene_set_block_mask], self.scale_factors[any_gene_set_mask][gene_set_block_mask])
-                                    orig_indices = np.where(gene_set_block_mask)[0]
-                                    V_rows += list(np.repeat(orig_indices, V_block.shape[0]))
-                                    V_cols += list(np.tile(orig_indices, V_block.shape[0]))
-                                    V_data += list(V_block.ravel())
-
-                                V_sparse = sparse.csc_matrix((V_data, (V_rows, V_cols)), shape=(np.sum(any_gene_set_mask), np.sum(any_gene_set_mask)))
-                                log("Running %d blocks to check for zeros..." % len(gene_set_block_masks),DEBUG)
-                                (half_corrected_betas_sample_m, half_corrected_postp_sample_m, half_corrected_betas_mean_m, half_corrected_postp_mean_m) = self._calculate_non_inf_betas(initial_p=None, beta_tildes=full_beta_tildes_m[:,any_gene_set_mask], ses=full_ses_m[:,any_gene_set_mask], V=V_sparse, X_orig=None, scale_factors=full_scale_factors_m[:,any_gene_set_mask], mean_shifts=full_mean_shifts_m[:,any_gene_set_mask], is_dense_gene_set=full_is_dense_gene_set_m[:,any_gene_set_mask], ps=full_ps_m[:,any_gene_set_mask], sigma2s=full_sigma2s_m[:,any_gene_set_mask], return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas)
-
-                                add_zero_mask_m = ~(_get_gibbs_gene_set_mask(half_corrected_betas_mean_m, half_corrected_betas_sample_m, full_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs))
-
-                                if np.any(add_zero_mask_m):
-                                    #need to convert these to the original gene sets
-                                    map_to_full = np.where(any_gene_set_mask)[0]
-                                    #get rows and then columns in subsetted
-                                    set_to_zero_full = np.where(add_zero_mask_m)
-                                    #map columns in subsetted to original
-                                    set_to_zero_full = (set_to_zero_full[0], map_to_full[set_to_zero_full[1]])
-                                    orig_zero = np.sum(np.any(gene_set_mask_m, axis=0))
-                                    gene_set_mask_m[set_to_zero_full] = False
-                                    new_zero = np.sum(np.any(gene_set_mask_m, axis=0))
-                                    log("Found %d additional zero gene sets" % (orig_zero - new_zero),DEBUG)
-
-                                    #need to update uncorrected ones too
-                                    default_betas_sample_m[set_to_zero_full] = half_corrected_betas_sample_m[add_zero_mask_m]
-                                    default_postp_sample_m[set_to_zero_full] = half_corrected_postp_sample_m[add_zero_mask_m]
-                                    default_betas_mean_m[set_to_zero_full] = half_corrected_betas_mean_m[add_zero_mask_m]
-                                    default_postp_mean_m[set_to_zero_full] = half_corrected_postp_mean_m[add_zero_mask_m]
-
-                if sum(np.any(gene_set_mask_m, axis=0)) == 0:
-                    gene_set_mask_m[:,0] = 1
-
-                num_non_missing_v = np.sum(gene_set_mask_m, axis=1)
-                max_num_non_missing = np.max(num_non_missing_v)
-                max_num_non_missing_idx = np.argmax(num_non_missing_v)
-                log("Max number of gene sets to keep across all chains is %d" % (max_num_non_missing))
-                log("Keeping %d gene sets that had non-zero uncorected betas" % (sum(np.any(gene_set_mask_m, axis=0))))
-                for chain_num in range(gene_set_mask_m.shape[0]):
-                    if num_non_missing_v[chain_num] < max_num_non_missing:
-                        cur_num = 0
-                        #add in gene sets that are in the max one to ensure things are square
-                        for index in np.nonzero(gene_set_mask_m[max_num_non_missing_idx,:] & ~gene_set_mask_m[chain_num,:])[0]:
-                            assert(gene_set_mask_m[chain_num,index] == False)
-                            gene_set_mask_m[chain_num,index] = True
-                            cur_num += 1
-                            if cur_num >= max_num_non_missing - num_non_missing_v[chain_num]:
-                                break
+                (
+                    gene_set_mask_m,
+                    default_betas_sample_m,
+                    default_postp_sample_m,
+                    default_betas_mean_m,
+                    default_postp_mean_m,
+                ) = _prepare_gibbs_gene_set_mask_with_prefilter(
+                    self,
+                    uncorrected_betas_mean_m=uncorrected_betas_mean_m,
+                    uncorrected_betas_sample_m=uncorrected_betas_sample_m,
+                    full_p_values_m=full_p_values_m,
+                    sparse_frac_gibbs=sparse_frac_gibbs,
+                    sparse_max_gibbs=sparse_max_gibbs,
+                    pre_filter_batch_size=pre_filter_batch_size,
+                    pre_filter_small_batch_size=pre_filter_small_batch_size,
+                    full_beta_tildes_m=full_beta_tildes_m,
+                    full_ses_m=full_ses_m,
+                    full_scale_factors_m=full_scale_factors_m,
+                    full_mean_shifts_m=full_mean_shifts_m,
+                    full_is_dense_gene_set_m=full_is_dense_gene_set_m,
+                    full_ps_m=full_ps_m,
+                    full_sigma2s_m=full_sigma2s_m,
+                    passed_in_max_num_burn_in=passed_in_max_num_burn_in,
+                    max_num_iter_betas=max_num_iter_betas,
+                    min_num_iter_betas=min_num_iter_betas,
+                    num_chains_betas=num_chains_betas,
+                    r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+                    use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+                    max_frac_sem_betas=max_frac_sem_betas,
+                    max_allowed_batch_correlation=max_allowed_batch_correlation,
+                    gauss_seidel_betas=gauss_seidel_betas,
+                    sparse_solution=sparse_solution,
+                    sparse_frac_betas=sparse_frac_betas,
+                    default_betas_sample_m=default_betas_sample_m,
+                    default_postp_sample_m=default_postp_sample_m,
+                    default_betas_mean_m=default_betas_mean_m,
+                    default_postp_mean_m=default_postp_mean_m,
+                )
 
                 #log("Keeping %d gene sets that passed threshold of p<%.3g" % (sum(gene_set_mask), self.max_gene_set_p))
 
@@ -18156,6 +18120,173 @@ def _finalize_gibbs_priors_for_sampling(
         "priors_percentage_max_for_Y_m": priors_percentage_max_for_Y_m,
         "priors_adjustment_for_Y_m": priors_adjustment_for_Y_m,
     }
+
+
+def _prepare_gibbs_gene_set_mask_with_prefilter(
+    state,
+    uncorrected_betas_mean_m,
+    uncorrected_betas_sample_m,
+    full_p_values_m,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    pre_filter_batch_size,
+    pre_filter_small_batch_size,
+    full_beta_tildes_m,
+    full_ses_m,
+    full_scale_factors_m,
+    full_mean_shifts_m,
+    full_is_dense_gene_set_m,
+    full_ps_m,
+    full_sigma2s_m,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+    default_betas_sample_m,
+    default_postp_sample_m,
+    default_betas_mean_m,
+    default_postp_mean_m,
+):
+    # Start from sparsity mask on uncorrected betas, then optionally run a
+    # cheaper prefilter pass to mark additional near-zero sets before the
+    # corrected beta batching stage.
+    gene_set_mask_m = np.full(full_p_values_m.shape, True)
+    gene_set_mask_m = _get_gibbs_gene_set_mask(
+        uncorrected_betas_mean_m,
+        uncorrected_betas_sample_m,
+        full_p_values_m,
+        sparse_frac=sparse_frac_gibbs,
+        sparse_max=sparse_max_gibbs,
+    )
+
+    any_gene_set_mask = np.any(gene_set_mask_m, axis=0)
+    if pre_filter_batch_size is not None and np.sum(any_gene_set_mask) > pre_filter_batch_size:
+        num_batches = state._get_num_X_blocks(state.X_orig[:,any_gene_set_mask], batch_size=pre_filter_small_batch_size)
+        if num_batches > 1:
+            gene_set_block_masks = state._compute_gene_set_batches(
+                V=None,
+                X_orig=state.X_orig[:,any_gene_set_mask],
+                mean_shifts=state.mean_shifts[any_gene_set_mask],
+                scale_factors=state.scale_factors[any_gene_set_mask],
+                find_correlated_instead=pre_filter_small_batch_size,
+            )
+
+            if len(gene_set_block_masks) > 0:
+                if np.sum(gene_set_block_masks[-1]) == 1 and len(gene_set_block_masks) > 1:
+                    # Merge singleton tail block into previous block.
+                    gene_set_block_masks[-2][gene_set_block_masks[-1]] = True
+                    gene_set_block_masks = gene_set_block_masks[:-1]
+                if len(gene_set_block_masks) > 1 and np.sum(gene_set_block_masks[0]) > 1:
+                    V_data = []
+                    V_rows = []
+                    V_cols = []
+                    for gene_set_block_mask in gene_set_block_masks:
+                        V_block = state._calculate_V_internal(
+                            state.X_orig[:,any_gene_set_mask][:,gene_set_block_mask],
+                            state.y_corr_cholesky,
+                            state.mean_shifts[any_gene_set_mask][gene_set_block_mask],
+                            state.scale_factors[any_gene_set_mask][gene_set_block_mask],
+                        )
+                        orig_indices = np.where(gene_set_block_mask)[0]
+                        V_rows += list(np.repeat(orig_indices, V_block.shape[0]))
+                        V_cols += list(np.tile(orig_indices, V_block.shape[0]))
+                        V_data += list(V_block.ravel())
+
+                    V_sparse = sparse.csc_matrix(
+                        (V_data, (V_rows, V_cols)),
+                        shape=(np.sum(any_gene_set_mask), np.sum(any_gene_set_mask)),
+                    )
+                    log("Running %d blocks to check for zeros..." % len(gene_set_block_masks), DEBUG)
+                    (
+                        half_corrected_betas_sample_m,
+                        half_corrected_postp_sample_m,
+                        half_corrected_betas_mean_m,
+                        half_corrected_postp_mean_m,
+                    ) = state._calculate_non_inf_betas(
+                        initial_p=None,
+                        beta_tildes=full_beta_tildes_m[:,any_gene_set_mask],
+                        ses=full_ses_m[:,any_gene_set_mask],
+                        V=V_sparse,
+                        X_orig=None,
+                        scale_factors=full_scale_factors_m[:,any_gene_set_mask],
+                        mean_shifts=full_mean_shifts_m[:,any_gene_set_mask],
+                        is_dense_gene_set=full_is_dense_gene_set_m[:,any_gene_set_mask],
+                        ps=full_ps_m[:,any_gene_set_mask],
+                        sigma2s=full_sigma2s_m[:,any_gene_set_mask],
+                        return_sample=True,
+                        max_num_burn_in=passed_in_max_num_burn_in,
+                        max_num_iter=max_num_iter_betas,
+                        min_num_iter=min_num_iter_betas,
+                        num_chains=num_chains_betas,
+                        r_threshold_burn_in=r_threshold_burn_in_betas,
+                        use_max_r_for_convergence=use_max_r_for_convergence_betas,
+                        max_frac_sem=max_frac_sem_betas,
+                        max_allowed_batch_correlation=max_allowed_batch_correlation,
+                        gauss_seidel=gauss_seidel_betas,
+                        update_hyper_sigma=False,
+                        update_hyper_p=False,
+                        sparse_solution=sparse_solution,
+                        sparse_frac_betas=sparse_frac_betas,
+                    )
+
+                    add_zero_mask_m = ~(
+                        _get_gibbs_gene_set_mask(
+                            half_corrected_betas_mean_m,
+                            half_corrected_betas_sample_m,
+                            full_p_values_m,
+                            sparse_frac=sparse_frac_gibbs,
+                            sparse_max=sparse_max_gibbs,
+                        )
+                    )
+
+                    if np.any(add_zero_mask_m):
+                        map_to_full = np.where(any_gene_set_mask)[0]
+                        set_to_zero_full = np.where(add_zero_mask_m)
+                        set_to_zero_full = (set_to_zero_full[0], map_to_full[set_to_zero_full[1]])
+                        orig_zero = np.sum(np.any(gene_set_mask_m, axis=0))
+                        gene_set_mask_m[set_to_zero_full] = False
+                        new_zero = np.sum(np.any(gene_set_mask_m, axis=0))
+                        log("Found %d additional zero gene sets" % (orig_zero - new_zero), DEBUG)
+
+                        default_betas_sample_m[set_to_zero_full] = half_corrected_betas_sample_m[add_zero_mask_m]
+                        default_postp_sample_m[set_to_zero_full] = half_corrected_postp_sample_m[add_zero_mask_m]
+                        default_betas_mean_m[set_to_zero_full] = half_corrected_betas_mean_m[add_zero_mask_m]
+                        default_postp_mean_m[set_to_zero_full] = half_corrected_postp_mean_m[add_zero_mask_m]
+
+    if sum(np.any(gene_set_mask_m, axis=0)) == 0:
+        gene_set_mask_m[:,0] = 1
+
+    num_non_missing_v = np.sum(gene_set_mask_m, axis=1)
+    max_num_non_missing = np.max(num_non_missing_v)
+    max_num_non_missing_idx = np.argmax(num_non_missing_v)
+    log("Max number of gene sets to keep across all chains is %d" % (max_num_non_missing))
+    log("Keeping %d gene sets that had non-zero uncorected betas" % (sum(np.any(gene_set_mask_m, axis=0))))
+    for chain_num in range(gene_set_mask_m.shape[0]):
+        if num_non_missing_v[chain_num] < max_num_non_missing:
+            cur_num = 0
+            for index in np.nonzero(
+                gene_set_mask_m[max_num_non_missing_idx,:] & ~gene_set_mask_m[chain_num,:]
+            )[0]:
+                assert(gene_set_mask_m[chain_num,index] == False)
+                gene_set_mask_m[chain_num,index] = True
+                cur_num += 1
+                if cur_num >= max_num_non_missing - num_non_missing_v[chain_num]:
+                    break
+
+    return (
+        gene_set_mask_m,
+        default_betas_sample_m,
+        default_postp_sample_m,
+        default_betas_mean_m,
+        default_postp_mean_m,
+    )
 
 
 def _compute_gibbs_corrected_betas_for_gene_set_mask(
