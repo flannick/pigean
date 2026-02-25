@@ -8941,21 +8941,19 @@ class GeneSetData(object):
                 if iteration_progress_update["done"]:
                     break
 
-            iterations_run_this_epoch = iteration_num + 1
-            remaining_total_iter -= iterations_run_this_epoch
-            if remaining_total_iter < 0:
-                remaining_total_iter = 0
-
-            #restart if this attempt failed
-            if not gibbs_good:
-                continue
-
-            assert(np.all(num_sum_Y_m > 0))
-            assert(np.all(num_sum_beta_m > 0))
-
-            _append_completed_gibbs_epoch(
-                epoch_aggregates,
+            epoch_finalize_update = _finalize_gibbs_epoch_attempt(
+                self,
+                epoch_aggregates=epoch_aggregates,
                 include_missing=(self.genes_missing is not None),
+                gibbs_good=gibbs_good,
+                iterations_run_this_epoch=(iteration_num + 1),
+                remaining_total_iter=remaining_total_iter,
+                num_completed_epochs=num_completed_epochs,
+                target_num_epochs=target_num_epochs,
+                num_attempts=num_attempts,
+                max_num_attempt_restarts=max_num_attempt_restarts,
+                stop_due_to_stall=stop_due_to_stall,
+                stop_due_to_precision=stop_due_to_precision,
                 sum_betas_m=sum_betas_m,
                 sum_betas2_m=sum_betas2_m,
                 sum_betas_uncorrected_m=sum_betas_uncorrected_m,
@@ -8980,85 +8978,17 @@ class GeneSetData(object):
                 sum_bf_orig_raw_m=sum_bf_orig_raw_m,
                 sum_bf_orig_raw2_m=sum_bf_orig_raw2_m,
                 num_sum_Y_m=num_sum_Y_m,
-                sum_priors_missing_m=sum_priors_missing_m if self.genes_missing is not None else None,
-                sum_Ds_missing_m=sum_Ds_missing_m if self.genes_missing is not None else None,
-                num_sum_priors_missing_m=num_sum_priors_missing_m if self.genes_missing is not None else None,
+                sum_priors_missing_m=sum_priors_missing_m,
+                sum_Ds_missing_m=sum_Ds_missing_m,
+                num_sum_priors_missing_m=num_sum_priors_missing_m,
+                num_mad=num_mad,
+                adjust_priors=adjust_priors,
             )
-
-            num_completed_epochs += 1
-            log("Completed Gibbs epoch %d/%d (iter=%d, remaining_total_iter=%d)" % (num_completed_epochs, target_num_epochs, iterations_run_this_epoch, remaining_total_iter), INFO)
-
-            if (not stop_due_to_stall) and (not stop_due_to_precision) and num_completed_epochs < target_num_epochs and remaining_total_iter > 0 and num_attempts < max_num_attempt_restarts:
+            remaining_total_iter = epoch_finalize_update["remaining_total_iter"]
+            num_completed_epochs = epoch_finalize_update["num_completed_epochs"]
+            if epoch_finalize_update["should_continue"]:
                 continue
-
-            (
-                sum_betas_m,
-                sum_betas2_m,
-                sum_betas_uncorrected_m,
-                sum_betas_uncorrected2_m,
-                sum_postp_m,
-                sum_beta_tildes_m,
-                sum_z_scores_m,
-                num_sum_beta_m,
-                sum_Ys_m,
-                sum_Ys2_m,
-                sum_Y_raws_m,
-                sum_log_pos_m,
-                sum_log_pos2_m,
-                sum_log_po_raws_m,
-                sum_log_po_raws2_m,
-                sum_priors_m,
-                sum_priors2_m,
-                sum_Ds_m,
-                sum_D_raws_m,
-                sum_bf_orig_m,
-                sum_bf_uncorrected_m,
-                sum_bf_orig_raw_m,
-                sum_bf_orig_raw2_m,
-                num_sum_Y_m,
-                sum_priors_missing_m,
-                sum_Ds_missing_m,
-                num_sum_priors_missing_m,
-            ) = _stack_and_unpack_gibbs_epoch_aggregates(
-                epoch_aggregates,
-                include_missing=(self.genes_missing is not None),
-            )
-
-            num_chains_effective = sum_betas_m.shape[0]
-            final_summary = _summarize_gibbs_chain_aggregates(
-                sum_Ys_m,
-                sum_Ys2_m,
-                sum_Y_raws_m,
-                sum_log_pos_m,
-                sum_log_pos2_m,
-                sum_log_po_raws_m,
-                sum_log_po_raws2_m,
-                sum_priors_m,
-                sum_priors2_m,
-                sum_Ds_m,
-                sum_D_raws_m,
-                sum_bf_orig_m,
-                sum_bf_orig_raw_m,
-                sum_bf_orig_raw2_m,
-                sum_betas_m,
-                sum_betas2_m,
-                sum_betas_uncorrected_m,
-                sum_betas_uncorrected2_m,
-                sum_postp_m,
-                sum_beta_tildes_m,
-                sum_z_scores_m,
-                num_sum_Y_m,
-                num_sum_beta_m,
-                num_chains_effective,
-                num_mad,
-                record_param_fn=self._record_param,
-                sum_priors_missing_m=sum_priors_missing_m if self.genes_missing is not None else None,
-                sum_Ds_missing_m=sum_Ds_missing_m if self.genes_missing is not None else None,
-                num_sum_priors_missing_m=num_sum_priors_missing_m if self.genes_missing is not None else None,
-            )
-            _apply_gibbs_final_state(self, final_summary, adjust_priors)
-
-            if gibbs_good:
+            if epoch_finalize_update["should_break"]:
                 break
 
         _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
@@ -17092,6 +17022,193 @@ def _apply_gibbs_final_state(state, final_summary, adjust_priors):
 
         log("Adjusting combined with slope %.4g" % combined_slope)
         state.combined_prior_Ys_adj = state.combined_prior_Ys - combined_slope * gene_N - combined_intercept
+
+
+def _finalize_gibbs_epoch_attempt(
+    state,
+    epoch_aggregates,
+    include_missing,
+    gibbs_good,
+    iterations_run_this_epoch,
+    remaining_total_iter,
+    num_completed_epochs,
+    target_num_epochs,
+    num_attempts,
+    max_num_attempt_restarts,
+    stop_due_to_stall,
+    stop_due_to_precision,
+    sum_betas_m,
+    sum_betas2_m,
+    sum_betas_uncorrected_m,
+    sum_betas_uncorrected2_m,
+    sum_postp_m,
+    sum_beta_tildes_m,
+    sum_z_scores_m,
+    num_sum_beta_m,
+    sum_Ys_m,
+    sum_Ys2_m,
+    sum_Y_raws_m,
+    sum_log_pos_m,
+    sum_log_pos2_m,
+    sum_log_po_raws_m,
+    sum_log_po_raws2_m,
+    sum_priors_m,
+    sum_priors2_m,
+    sum_Ds_m,
+    sum_D_raws_m,
+    sum_bf_orig_m,
+    sum_bf_uncorrected_m,
+    sum_bf_orig_raw_m,
+    sum_bf_orig_raw2_m,
+    num_sum_Y_m,
+    sum_priors_missing_m,
+    sum_Ds_missing_m,
+    num_sum_priors_missing_m,
+    num_mad,
+    adjust_priors,
+):
+    remaining_total_iter -= iterations_run_this_epoch
+    if remaining_total_iter < 0:
+        remaining_total_iter = 0
+
+    if not gibbs_good:
+        return {
+            "remaining_total_iter": remaining_total_iter,
+            "num_completed_epochs": num_completed_epochs,
+            "should_continue": True,
+            "should_break": False,
+        }
+
+    assert(np.all(num_sum_Y_m > 0))
+    assert(np.all(num_sum_beta_m > 0))
+
+    _append_completed_gibbs_epoch(
+        epoch_aggregates,
+        include_missing=include_missing,
+        sum_betas_m=sum_betas_m,
+        sum_betas2_m=sum_betas2_m,
+        sum_betas_uncorrected_m=sum_betas_uncorrected_m,
+        sum_betas_uncorrected2_m=sum_betas_uncorrected2_m,
+        sum_postp_m=sum_postp_m,
+        sum_beta_tildes_m=sum_beta_tildes_m,
+        sum_z_scores_m=sum_z_scores_m,
+        num_sum_beta_m=num_sum_beta_m,
+        sum_Ys_m=sum_Ys_m,
+        sum_Ys2_m=sum_Ys2_m,
+        sum_Y_raws_m=sum_Y_raws_m,
+        sum_log_pos_m=sum_log_pos_m,
+        sum_log_pos2_m=sum_log_pos2_m,
+        sum_log_po_raws_m=sum_log_po_raws_m,
+        sum_log_po_raws2_m=sum_log_po_raws2_m,
+        sum_priors_m=sum_priors_m,
+        sum_priors2_m=sum_priors2_m,
+        sum_Ds_m=sum_Ds_m,
+        sum_D_raws_m=sum_D_raws_m,
+        sum_bf_orig_m=sum_bf_orig_m,
+        sum_bf_uncorrected_m=sum_bf_uncorrected_m,
+        sum_bf_orig_raw_m=sum_bf_orig_raw_m,
+        sum_bf_orig_raw2_m=sum_bf_orig_raw2_m,
+        num_sum_Y_m=num_sum_Y_m,
+        sum_priors_missing_m=sum_priors_missing_m if include_missing else None,
+        sum_Ds_missing_m=sum_Ds_missing_m if include_missing else None,
+        num_sum_priors_missing_m=num_sum_priors_missing_m if include_missing else None,
+    )
+
+    num_completed_epochs += 1
+    log(
+        "Completed Gibbs epoch %d/%d (iter=%d, remaining_total_iter=%d)"
+        % (num_completed_epochs, target_num_epochs, iterations_run_this_epoch, remaining_total_iter),
+        INFO,
+    )
+
+    should_continue = (
+        (not stop_due_to_stall)
+        and (not stop_due_to_precision)
+        and (num_completed_epochs < target_num_epochs)
+        and (remaining_total_iter > 0)
+        and (num_attempts < max_num_attempt_restarts)
+    )
+    if should_continue:
+        return {
+            "remaining_total_iter": remaining_total_iter,
+            "num_completed_epochs": num_completed_epochs,
+            "should_continue": True,
+            "should_break": False,
+        }
+
+    (
+        sum_betas_m,
+        sum_betas2_m,
+        sum_betas_uncorrected_m,
+        sum_betas_uncorrected2_m,
+        sum_postp_m,
+        sum_beta_tildes_m,
+        sum_z_scores_m,
+        num_sum_beta_m,
+        sum_Ys_m,
+        sum_Ys2_m,
+        sum_Y_raws_m,
+        sum_log_pos_m,
+        sum_log_pos2_m,
+        sum_log_po_raws_m,
+        sum_log_po_raws2_m,
+        sum_priors_m,
+        sum_priors2_m,
+        sum_Ds_m,
+        sum_D_raws_m,
+        sum_bf_orig_m,
+        sum_bf_uncorrected_m,
+        sum_bf_orig_raw_m,
+        sum_bf_orig_raw2_m,
+        num_sum_Y_m,
+        sum_priors_missing_m,
+        sum_Ds_missing_m,
+        num_sum_priors_missing_m,
+    ) = _stack_and_unpack_gibbs_epoch_aggregates(
+        epoch_aggregates,
+        include_missing=include_missing,
+    )
+
+    num_chains_effective = sum_betas_m.shape[0]
+    final_summary = _summarize_gibbs_chain_aggregates(
+        sum_Ys_m,
+        sum_Ys2_m,
+        sum_Y_raws_m,
+        sum_log_pos_m,
+        sum_log_pos2_m,
+        sum_log_po_raws_m,
+        sum_log_po_raws2_m,
+        sum_priors_m,
+        sum_priors2_m,
+        sum_Ds_m,
+        sum_D_raws_m,
+        sum_bf_orig_m,
+        sum_bf_orig_raw_m,
+        sum_bf_orig_raw2_m,
+        sum_betas_m,
+        sum_betas2_m,
+        sum_betas_uncorrected_m,
+        sum_betas_uncorrected2_m,
+        sum_postp_m,
+        sum_beta_tildes_m,
+        sum_z_scores_m,
+        num_sum_Y_m,
+        num_sum_beta_m,
+        num_chains_effective,
+        num_mad,
+        record_param_fn=state._record_param,
+        sum_priors_missing_m=sum_priors_missing_m if include_missing else None,
+        sum_Ds_missing_m=sum_Ds_missing_m if include_missing else None,
+        num_sum_priors_missing_m=num_sum_priors_missing_m if include_missing else None,
+    )
+    _apply_gibbs_final_state(state, final_summary, adjust_priors)
+
+    return {
+        "remaining_total_iter": remaining_total_iter,
+        "num_completed_epochs": num_completed_epochs,
+        "should_continue": False,
+        "should_break": True,
+    }
 
 
 def _compute_gibbs_iteration_y_terms(
