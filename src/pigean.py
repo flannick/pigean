@@ -8498,37 +8498,17 @@ class GeneSetData(object):
                     epoch_priors["priors_percentage_max_for_Y_m"],
                     epoch_priors["priors_adjustment_for_Y_m"],
                 )
-                epoch_iter_num = iter_setup["epoch_iter_num"]
-                total_iter_num = iter_setup["total_iter_num"]
-                Y_sample_m = iter_setup["Y_sample_m"]
-                Y_raw_sample_m = iter_setup["Y_raw_sample_m"]
-                y_var = iter_setup["y_var"]
-                D_sample_m = iter_setup["D_sample_m"]
-                log_po_sample_m = iter_setup["log_po_sample_m"]
-                D_raw_sample_m = iter_setup["D_raw_sample_m"]
-                log_po_raw_sample_m = iter_setup["log_po_raw_sample_m"]
-                full_scale_factors_m = iter_setup["full_scale_factors_m"]
-                full_mean_shifts_m = iter_setup["full_mean_shifts_m"]
-                full_is_dense_gene_set_m = iter_setup["full_is_dense_gene_set_m"]
-                full_ps_m = iter_setup["full_ps_m"]
-                full_sigma2s_m = iter_setup["full_sigma2s_m"]
-                p_sample_m = iter_setup["p_sample_m"]
-                pre_gene_set_filter_mask = iter_setup["pre_gene_set_filter_mask"]
-                full_z_cur_beta_tildes_m = iter_setup["full_z_cur_beta_tildes_m"]
-                full_beta_tildes_m = iter_setup["full_beta_tildes_m"]
-                full_ses_m = iter_setup["full_ses_m"]
-                full_z_scores_m = iter_setup["full_z_scores_m"]
-                full_p_values_m = iter_setup["full_p_values_m"]
+                iter_state = dict(iter_setup)
 
                 uncorrected_setup = _compute_gibbs_uncorrected_betas_and_defaults(
                     self,
-                    full_beta_tildes_m=full_beta_tildes_m,
-                    full_ses_m=full_ses_m,
-                    full_scale_factors_m=full_scale_factors_m,
-                    full_mean_shifts_m=full_mean_shifts_m,
-                    full_is_dense_gene_set_m=full_is_dense_gene_set_m,
-                    full_ps_m=full_ps_m,
-                    full_sigma2s_m=full_sigma2s_m,
+                    full_beta_tildes_m=iter_state["full_beta_tildes_m"],
+                    full_ses_m=iter_state["full_ses_m"],
+                    full_scale_factors_m=iter_state["full_scale_factors_m"],
+                    full_mean_shifts_m=iter_state["full_mean_shifts_m"],
+                    full_is_dense_gene_set_m=iter_state["full_is_dense_gene_set_m"],
+                    full_ps_m=iter_state["full_ps_m"],
+                    full_sigma2s_m=iter_state["full_sigma2s_m"],
                     passed_in_max_num_burn_in=passed_in_max_num_burn_in,
                     max_num_iter_betas=max_num_iter_betas,
                     min_num_iter_betas=min_num_iter_betas,
@@ -8541,37 +8521,30 @@ class GeneSetData(object):
                     sparse_solution=sparse_solution,
                     sparse_frac_betas=sparse_frac_betas,
                 )
-                uncorrected_betas_sample_m = uncorrected_setup["uncorrected_betas_sample_m"]
-                uncorrected_postp_sample_m = uncorrected_setup["uncorrected_postp_sample_m"]
-                uncorrected_betas_mean_m = uncorrected_setup["uncorrected_betas_mean_m"]
-                uncorrected_postp_mean_m = uncorrected_setup["uncorrected_postp_mean_m"]
-                default_betas_sample_m = uncorrected_setup["default_betas_sample_m"]
-                default_postp_sample_m = uncorrected_setup["default_postp_sample_m"]
-                default_betas_mean_m = uncorrected_setup["default_betas_mean_m"]
-                default_postp_mean_m = uncorrected_setup["default_postp_mean_m"]
+                iter_state.update(uncorrected_setup)
 
                 (
                     gene_set_mask_m,
-                    default_betas_sample_m,
-                    default_postp_sample_m,
-                    default_betas_mean_m,
-                    default_postp_mean_m,
+                    iter_state["default_betas_sample_m"],
+                    iter_state["default_postp_sample_m"],
+                    iter_state["default_betas_mean_m"],
+                    iter_state["default_postp_mean_m"],
                 ) = _prepare_gibbs_gene_set_mask_with_prefilter(
                     self,
-                    uncorrected_betas_mean_m=uncorrected_betas_mean_m,
-                    uncorrected_betas_sample_m=uncorrected_betas_sample_m,
-                    full_p_values_m=full_p_values_m,
+                    uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
+                    uncorrected_betas_sample_m=iter_state["uncorrected_betas_sample_m"],
+                    full_p_values_m=iter_state["full_p_values_m"],
                     sparse_frac_gibbs=sparse_frac_gibbs,
                     sparse_max_gibbs=sparse_max_gibbs,
                     pre_filter_batch_size=pre_filter_batch_size,
                     pre_filter_small_batch_size=pre_filter_small_batch_size,
-                    full_beta_tildes_m=full_beta_tildes_m,
-                    full_ses_m=full_ses_m,
-                    full_scale_factors_m=full_scale_factors_m,
-                    full_mean_shifts_m=full_mean_shifts_m,
-                    full_is_dense_gene_set_m=full_is_dense_gene_set_m,
-                    full_ps_m=full_ps_m,
-                    full_sigma2s_m=full_sigma2s_m,
+                    full_beta_tildes_m=iter_state["full_beta_tildes_m"],
+                    full_ses_m=iter_state["full_ses_m"],
+                    full_scale_factors_m=iter_state["full_scale_factors_m"],
+                    full_mean_shifts_m=iter_state["full_mean_shifts_m"],
+                    full_is_dense_gene_set_m=iter_state["full_is_dense_gene_set_m"],
+                    full_ps_m=iter_state["full_ps_m"],
+                    full_sigma2s_m=iter_state["full_sigma2s_m"],
                     passed_in_max_num_burn_in=passed_in_max_num_burn_in,
                     max_num_iter_betas=max_num_iter_betas,
                     min_num_iter_betas=min_num_iter_betas,
@@ -8583,10 +8556,10 @@ class GeneSetData(object):
                     gauss_seidel_betas=gauss_seidel_betas,
                     sparse_solution=sparse_solution,
                     sparse_frac_betas=sparse_frac_betas,
-                    default_betas_sample_m=default_betas_sample_m,
-                    default_postp_sample_m=default_postp_sample_m,
-                    default_betas_mean_m=default_betas_mean_m,
-                    default_postp_mean_m=default_postp_mean_m,
+                    default_betas_sample_m=iter_state["default_betas_sample_m"],
+                    default_postp_sample_m=iter_state["default_postp_sample_m"],
+                    default_betas_mean_m=iter_state["default_betas_mean_m"],
+                    default_postp_mean_m=iter_state["default_postp_mean_m"],
                 )
 
                 #log("Keeping %d gene sets that passed threshold of p<%.3g" % (sum(gene_set_mask), self.max_gene_set_p))
@@ -8606,18 +8579,18 @@ class GeneSetData(object):
                 ) = _compute_gibbs_corrected_betas_for_gene_set_mask(
                     self,
                     gene_set_mask_m=gene_set_mask_m,
-                    default_betas_sample_m=default_betas_sample_m,
-                    default_postp_sample_m=default_postp_sample_m,
-                    default_betas_mean_m=default_betas_mean_m,
-                    default_postp_mean_m=default_postp_mean_m,
-                    full_beta_tildes_m=full_beta_tildes_m,
-                    full_ses_m=full_ses_m,
-                    full_scale_factors_m=full_scale_factors_m,
-                    full_mean_shifts_m=full_mean_shifts_m,
-                    full_is_dense_gene_set_m=full_is_dense_gene_set_m,
-                    full_ps_m=full_ps_m,
-                    full_sigma2s_m=full_sigma2s_m,
-                    uncorrected_betas_mean_m=uncorrected_betas_mean_m,
+                    default_betas_sample_m=iter_state["default_betas_sample_m"],
+                    default_postp_sample_m=iter_state["default_postp_sample_m"],
+                    default_betas_mean_m=iter_state["default_betas_mean_m"],
+                    default_postp_mean_m=iter_state["default_postp_mean_m"],
+                    full_beta_tildes_m=iter_state["full_beta_tildes_m"],
+                    full_ses_m=iter_state["full_ses_m"],
+                    full_scale_factors_m=iter_state["full_scale_factors_m"],
+                    full_mean_shifts_m=iter_state["full_mean_shifts_m"],
+                    full_is_dense_gene_set_m=iter_state["full_is_dense_gene_set_m"],
+                    full_ps_m=iter_state["full_ps_m"],
+                    full_sigma2s_m=iter_state["full_sigma2s_m"],
+                    uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
                     use_mean_betas=use_mean_betas,
                     warm_start=warm_start,
                     prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
@@ -8717,8 +8690,8 @@ class GeneSetData(object):
                 all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
                     self,
                     full_betas_mean_m,
-                    full_z_scores_m,
-                    Y_sample_m,
+                    iter_state["full_z_scores_m"],
+                    iter_state["Y_sample_m"],
                     all_sum_betas_m,
                     all_sum_betas2_m,
                     all_sum_z_scores_m,
@@ -8755,8 +8728,8 @@ class GeneSetData(object):
                     epoch_control=epoch_control,
                     iteration_num=iteration_num,
                     epoch_total_iter_offset=epoch_total_iter_offset,
-                    epoch_iter_num=epoch_iter_num,
-                    total_iter_num=total_iter_num,
+                    epoch_iter_num=iter_state["epoch_iter_num"],
+                    total_iter_num=iter_state["total_iter_num"],
                     epoch_max_num_iter=epoch_max_num_iter,
                     max_num_burn_in_for_epoch=max_num_burn_in_for_epoch,
                     min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
@@ -8783,21 +8756,21 @@ class GeneSetData(object):
                     stop_patience=stop_patience,
                     post_burn_reset_arrays=post_burn_reset_arrays,
                     post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
-                    Y_sample_m=Y_sample_m,
-                    Y_raw_sample_m=Y_raw_sample_m,
-                    log_po_sample_m=log_po_sample_m,
-                    log_po_raw_sample_m=log_po_raw_sample_m,
+                    Y_sample_m=iter_state["Y_sample_m"],
+                    Y_raw_sample_m=iter_state["Y_raw_sample_m"],
+                    log_po_sample_m=iter_state["log_po_sample_m"],
+                    log_po_raw_sample_m=iter_state["log_po_raw_sample_m"],
                     priors_for_Y_m=epoch_priors["priors_for_Y_m"],
-                    D_sample_m=D_sample_m,
-                    D_raw_sample_m=D_raw_sample_m,
+                    D_sample_m=iter_state["D_sample_m"],
+                    D_raw_sample_m=iter_state["D_raw_sample_m"],
                     log_bf_m=log_bf_m,
                     log_bf_uncorrected_m=log_bf_uncorrected_m,
                     log_bf_raw_m=log_bf_raw_m,
                     full_betas_mean_m=full_betas_mean_m,
-                    uncorrected_betas_mean_m=uncorrected_betas_mean_m,
+                    uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
                     full_postp_sample_m=full_postp_sample_m,
-                    full_beta_tildes_m=full_beta_tildes_m,
-                    full_z_scores_m=full_z_scores_m,
+                    full_beta_tildes_m=iter_state["full_beta_tildes_m"],
+                    full_z_scores_m=iter_state["full_z_scores_m"],
                     priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
                     epoch_sums=epoch_sums,
                     num_chains=num_chains,
@@ -8815,12 +8788,12 @@ class GeneSetData(object):
                     max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
                     gene_set_stats_trace_fh=gene_set_stats_trace_fh,
                     trace_chain_offset=trace_chain_offset,
-                    full_p_values_m=full_p_values_m,
-                    full_ses_m=full_ses_m,
-                    uncorrected_betas_sample_m=uncorrected_betas_sample_m,
+                    full_p_values_m=iter_state["full_p_values_m"],
+                    full_ses_m=iter_state["full_ses_m"],
+                    uncorrected_betas_sample_m=iter_state["uncorrected_betas_sample_m"],
                     full_betas_sample_m=full_betas_sample_m,
                     full_postp_mean_m=full_postp_mean_m,
-                    full_z_cur_beta_tildes_m=full_z_cur_beta_tildes_m,
+                    full_z_cur_beta_tildes_m=iter_state["full_z_cur_beta_tildes_m"],
                     use_mean_betas=use_mean_betas,
                 )
                 if iteration_progress_update["done"]:
