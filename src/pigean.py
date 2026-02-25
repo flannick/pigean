@@ -8445,8 +8445,6 @@ class GeneSetData(object):
                 log,
             )
             full_betas_m_shape = epoch_state["full_betas_m_shape"]
-            prev_warm_start_betas_m = epoch_state["prev_warm_start_betas_m"]
-            prev_warm_start_postp_m = epoch_state["prev_warm_start_postp_m"]
             all_sum_betas_m = epoch_state["all_sum_betas_m"]
             all_sum_betas2_m = epoch_state["all_sum_betas2_m"]
             all_sum_z_scores_m = epoch_state["all_sum_z_scores_m"]
@@ -8456,17 +8454,7 @@ class GeneSetData(object):
             all_sum_Ys2_m = epoch_state["all_sum_Ys2_m"]
             epoch_control = _initialize_gibbs_epoch_control_state(epoch_state)
             epoch_sums = _initialize_gibbs_epoch_sums_state(epoch_state, epoch_aggregates)
-            priors_sample_m = epoch_state["priors_sample_m"]
-            priors_mean_m = epoch_state["priors_mean_m"]
-            priors_percentage_max_sample_m = epoch_state["priors_percentage_max_sample_m"]
-            priors_percentage_max_mean_m = epoch_state["priors_percentage_max_mean_m"]
-            priors_adjustment_sample_m = epoch_state["priors_adjustment_sample_m"]
-            priors_adjustment_mean_m = epoch_state["priors_adjustment_mean_m"]
-            priors_for_Y_m = epoch_state["priors_for_Y_m"]
-            priors_percentage_max_for_Y_m = epoch_state["priors_percentage_max_for_Y_m"]
-            priors_adjustment_for_Y_m = epoch_state["priors_adjustment_for_Y_m"]
-            priors_missing_sample_m = epoch_state["priors_missing_sample_m"]
-            priors_missing_mean_m = epoch_state["priors_missing_mean_m"]
+            epoch_priors = _initialize_gibbs_epoch_priors_state(epoch_state)
             post_burn_reset_arrays = epoch_state["post_burn_reset_arrays"]
             post_burn_reset_missing_arrays = epoch_state["post_burn_reset_missing_arrays"]
             X_hstacked = epoch_state["X_hstacked"]
@@ -8478,7 +8466,7 @@ class GeneSetData(object):
                     self,
                     iteration_num,
                     epoch_total_iter_offset,
-                    priors_for_Y_m,
+                    epoch_priors["priors_for_Y_m"],
                     log_bf_m,
                     log_bf_raw_m,
                     cur_background_log_bf_v,
@@ -8507,8 +8495,8 @@ class GeneSetData(object):
                     correct_betas_var,
                     gene_stats_trace_fh,
                     trace_chain_offset,
-                    priors_percentage_max_for_Y_m,
-                    priors_adjustment_for_Y_m,
+                    epoch_priors["priors_percentage_max_for_Y_m"],
+                    epoch_priors["priors_adjustment_for_Y_m"],
                 )
                 epoch_iter_num = iter_setup["epoch_iter_num"]
                 total_iter_num = iter_setup["total_iter_num"]
@@ -8632,8 +8620,8 @@ class GeneSetData(object):
                     uncorrected_betas_mean_m=uncorrected_betas_mean_m,
                     use_mean_betas=use_mean_betas,
                     warm_start=warm_start,
-                    prev_warm_start_betas_m=prev_warm_start_betas_m,
-                    prev_warm_start_postp_m=prev_warm_start_postp_m,
+                    prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
+                    prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
                     debug_zero_sparse=options.debug_zero_sparse,
                     num_chains=num_chains,
                     num_batches_parallel=num_batches_parallel,
@@ -8659,27 +8647,27 @@ class GeneSetData(object):
                     self,
                     warm_start=warm_start,
                     use_mean_betas=use_mean_betas,
-                    prev_warm_start_betas_m=prev_warm_start_betas_m,
-                    prev_warm_start_postp_m=prev_warm_start_postp_m,
+                    prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
+                    prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
                     full_betas_sample_m=full_betas_sample_m,
                     full_betas_mean_m=full_betas_mean_m,
                     full_postp_sample_m=full_postp_sample_m,
                     full_postp_mean_m=full_postp_mean_m,
-                    priors_missing_sample_m=priors_missing_sample_m,
-                    priors_missing_mean_m=priors_missing_mean_m,
-                    priors_for_Y_m=priors_for_Y_m,
+                    priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
+                    priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
+                    priors_for_Y_m=epoch_priors["priors_for_Y_m"],
                     update_huge_scores=update_huge_scores,
                     compute_Y_raw=compute_Y_raw,
                     log_bf_m=log_bf_m,
                     log_bf_uncorrected_m=log_bf_uncorrected_m,
                     log_bf_raw_m=log_bf_raw_m,
                 )
-                prev_warm_start_betas_m = refresh_update["prev_warm_start_betas_m"]
-                prev_warm_start_postp_m = refresh_update["prev_warm_start_postp_m"]
-                priors_sample_m = refresh_update["priors_sample_m"]
-                priors_mean_m = refresh_update["priors_mean_m"]
-                priors_missing_sample_m = refresh_update["priors_missing_sample_m"]
-                priors_missing_mean_m = refresh_update["priors_missing_mean_m"]
+                epoch_priors["prev_warm_start_betas_m"] = refresh_update["prev_warm_start_betas_m"]
+                epoch_priors["prev_warm_start_postp_m"] = refresh_update["prev_warm_start_postp_m"]
+                epoch_priors["priors_sample_m"] = refresh_update["priors_sample_m"]
+                epoch_priors["priors_mean_m"] = refresh_update["priors_mean_m"]
+                epoch_priors["priors_missing_sample_m"] = refresh_update["priors_missing_sample_m"]
+                epoch_priors["priors_missing_mean_m"] = refresh_update["priors_missing_mean_m"]
                 log_bf_m = refresh_update["log_bf_m"]
                 log_bf_uncorrected_m = refresh_update["log_bf_uncorrected_m"]
                 log_bf_raw_m = refresh_update["log_bf_raw_m"]
@@ -8698,24 +8686,24 @@ class GeneSetData(object):
 
                 prior_update = _finalize_gibbs_priors_for_sampling(
                     self,
-                    priors_sample_m=priors_sample_m,
-                    priors_mean_m=priors_mean_m,
-                    priors_missing_sample_m=priors_missing_sample_m,
-                    priors_missing_mean_m=priors_missing_mean_m,
+                    priors_sample_m=epoch_priors["priors_sample_m"],
+                    priors_mean_m=epoch_priors["priors_mean_m"],
+                    priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
+                    priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
                     adjust_priors=adjust_priors,
                     use_mean_betas=use_mean_betas,
-                    priors_percentage_max_sample_m=priors_percentage_max_sample_m,
-                    priors_percentage_max_mean_m=priors_percentage_max_mean_m,
-                    priors_adjustment_sample_m=priors_adjustment_sample_m,
-                    priors_adjustment_mean_m=priors_adjustment_mean_m,
+                    priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
+                    priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
+                    priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
+                    priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
                 )
-                priors_sample_m = prior_update["priors_sample_m"]
-                priors_mean_m = prior_update["priors_mean_m"]
-                priors_missing_sample_m = prior_update["priors_missing_sample_m"]
-                priors_missing_mean_m = prior_update["priors_missing_mean_m"]
-                priors_for_Y_m = prior_update["priors_for_Y_m"]
-                priors_percentage_max_for_Y_m = prior_update["priors_percentage_max_for_Y_m"]
-                priors_adjustment_for_Y_m = prior_update["priors_adjustment_for_Y_m"]
+                epoch_priors["priors_sample_m"] = prior_update["priors_sample_m"]
+                epoch_priors["priors_mean_m"] = prior_update["priors_mean_m"]
+                epoch_priors["priors_missing_sample_m"] = prior_update["priors_missing_sample_m"]
+                epoch_priors["priors_missing_mean_m"] = prior_update["priors_missing_mean_m"]
+                epoch_priors["priors_for_Y_m"] = prior_update["priors_for_Y_m"]
+                epoch_priors["priors_percentage_max_for_Y_m"] = prior_update["priors_percentage_max_for_Y_m"]
+                epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
 
                 #only add non-outliers to mean/sd
                 #non_outlier_mask = np.full(sum_z_scores2_m.shape, True)
@@ -8799,7 +8787,7 @@ class GeneSetData(object):
                     Y_raw_sample_m=Y_raw_sample_m,
                     log_po_sample_m=log_po_sample_m,
                     log_po_raw_sample_m=log_po_raw_sample_m,
-                    priors_for_Y_m=priors_for_Y_m,
+                    priors_for_Y_m=epoch_priors["priors_for_Y_m"],
                     D_sample_m=D_sample_m,
                     D_raw_sample_m=D_raw_sample_m,
                     log_bf_m=log_bf_m,
@@ -8810,7 +8798,7 @@ class GeneSetData(object):
                     full_postp_sample_m=full_postp_sample_m,
                     full_beta_tildes_m=full_beta_tildes_m,
                     full_z_scores_m=full_z_scores_m,
-                    priors_missing_mean_m=priors_missing_mean_m,
+                    priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
                     epoch_sums=epoch_sums,
                     num_chains=num_chains,
                     stop_mcse_quantile=stop_mcse_quantile,
@@ -16315,6 +16303,25 @@ def _initialize_gibbs_epoch_sums_state(epoch_state, epoch_aggregates):
     return epoch_sums
 
 
+def _initialize_gibbs_epoch_priors_state(epoch_state):
+    # Mutable per-epoch priors/warm-start state updated each iteration.
+    return {
+        "prev_warm_start_betas_m": epoch_state["prev_warm_start_betas_m"],
+        "prev_warm_start_postp_m": epoch_state["prev_warm_start_postp_m"],
+        "priors_sample_m": epoch_state["priors_sample_m"],
+        "priors_mean_m": epoch_state["priors_mean_m"],
+        "priors_percentage_max_sample_m": epoch_state["priors_percentage_max_sample_m"],
+        "priors_percentage_max_mean_m": epoch_state["priors_percentage_max_mean_m"],
+        "priors_adjustment_sample_m": epoch_state["priors_adjustment_sample_m"],
+        "priors_adjustment_mean_m": epoch_state["priors_adjustment_mean_m"],
+        "priors_for_Y_m": epoch_state["priors_for_Y_m"],
+        "priors_percentage_max_for_Y_m": epoch_state["priors_percentage_max_for_Y_m"],
+        "priors_adjustment_for_Y_m": epoch_state["priors_adjustment_for_Y_m"],
+        "priors_missing_sample_m": epoch_state["priors_missing_sample_m"],
+        "priors_missing_mean_m": epoch_state["priors_missing_mean_m"],
+    }
+
+
 def _open_gibbs_trace_outputs(gene_set_stats_trace_out, gene_stats_trace_out):
     gene_set_stats_trace_fh = None
     gene_stats_trace_fh = None
@@ -17028,69 +17035,43 @@ def _accumulate_gibbs_post_burn_iteration(
     full_beta_tildes_m,
     full_z_scores_m,
     priors_missing_mean_m,
-    sum_Ys_m,
-    sum_Ys2_m,
-    sum_Y_raws_m,
-    sum_log_pos_m,
-    sum_log_pos2_m,
-    sum_log_po_raws_m,
-    sum_log_po_raws2_m,
-    sum_priors_m,
-    sum_priors2_m,
-    sum_Ds_m,
-    sum_D_raws_m,
-    sum_bf_orig_m,
-    sum_bf_uncorrected_m,
-    sum_bf_orig_raw_m,
-    sum_bf_orig_raw2_m,
-    num_sum_Y_m,
-    sum_betas_m,
-    sum_betas2_m,
-    sum_betas_uncorrected_m,
-    sum_betas_uncorrected2_m,
-    sum_postp_m,
-    sum_beta_tildes_m,
-    sum_z_scores_m,
-    num_sum_beta_m,
-    sum_priors_missing_m,
-    sum_Ds_missing_m,
-    num_sum_priors_missing_m,
+    epoch_sums,
 ):
     # Collect one post-burn Gibbs draw into running sums used for MCSE/R-hat and
     # final epoch aggregation.
-    sum_Ys_m += Y_sample_m
-    sum_Ys2_m += np.power(Y_sample_m, 2)
-    sum_Y_raws_m += Y_raw_sample_m
-    sum_log_pos_m += log_po_sample_m
-    sum_log_pos2_m += np.power(log_po_sample_m, 2)
-    sum_log_po_raws_m += log_po_raw_sample_m
-    sum_log_po_raws2_m += np.power(log_po_raw_sample_m, 2)
-    sum_priors_m += priors_for_Y_m
-    sum_priors2_m += np.power(priors_for_Y_m, 2)
-    sum_Ds_m += D_sample_m
-    sum_D_raws_m += D_raw_sample_m
-    sum_bf_orig_m += log_bf_m
-    sum_bf_uncorrected_m += log_bf_uncorrected_m
-    sum_bf_orig_raw_m += log_bf_raw_m
-    sum_bf_orig_raw2_m += np.power(log_bf_raw_m, 2)
-    num_sum_Y_m += 1
+    epoch_sums["sum_Ys_m"] += Y_sample_m
+    epoch_sums["sum_Ys2_m"] += np.power(Y_sample_m, 2)
+    epoch_sums["sum_Y_raws_m"] += Y_raw_sample_m
+    epoch_sums["sum_log_pos_m"] += log_po_sample_m
+    epoch_sums["sum_log_pos2_m"] += np.power(log_po_sample_m, 2)
+    epoch_sums["sum_log_po_raws_m"] += log_po_raw_sample_m
+    epoch_sums["sum_log_po_raws2_m"] += np.power(log_po_raw_sample_m, 2)
+    epoch_sums["sum_priors_m"] += priors_for_Y_m
+    epoch_sums["sum_priors2_m"] += np.power(priors_for_Y_m, 2)
+    epoch_sums["sum_Ds_m"] += D_sample_m
+    epoch_sums["sum_D_raws_m"] += D_raw_sample_m
+    epoch_sums["sum_bf_orig_m"] += log_bf_m
+    epoch_sums["sum_bf_uncorrected_m"] += log_bf_uncorrected_m
+    epoch_sums["sum_bf_orig_raw_m"] += log_bf_raw_m
+    epoch_sums["sum_bf_orig_raw2_m"] += np.power(log_bf_raw_m, 2)
+    epoch_sums["num_sum_Y_m"] += 1
 
-    sum_betas_m += full_betas_mean_m
-    sum_betas2_m += np.power(full_betas_mean_m, 2)
-    sum_betas_uncorrected_m += uncorrected_betas_mean_m
-    sum_betas_uncorrected2_m += np.power(uncorrected_betas_mean_m, 2)
-    sum_postp_m += full_postp_sample_m
-    sum_beta_tildes_m += full_beta_tildes_m
-    sum_z_scores_m += full_z_scores_m
-    num_sum_beta_m += 1
+    epoch_sums["sum_betas_m"] += full_betas_mean_m
+    epoch_sums["sum_betas2_m"] += np.power(full_betas_mean_m, 2)
+    epoch_sums["sum_betas_uncorrected_m"] += uncorrected_betas_mean_m
+    epoch_sums["sum_betas_uncorrected2_m"] += np.power(uncorrected_betas_mean_m, 2)
+    epoch_sums["sum_postp_m"] += full_postp_sample_m
+    epoch_sums["sum_beta_tildes_m"] += full_beta_tildes_m
+    epoch_sums["sum_z_scores_m"] += full_z_scores_m
+    epoch_sums["num_sum_beta_m"] += 1
 
     if state.genes_missing is not None:
-        sum_priors_missing_m += priors_missing_mean_m
+        epoch_sums["sum_priors_missing_m"] += priors_missing_mean_m
         max_log = 15
         cur_log_priors_missing_m = priors_missing_mean_m + state.background_log_bf
         cur_log_priors_missing_m[cur_log_priors_missing_m > max_log] = max_log
-        sum_Ds_missing_m += np.exp(cur_log_priors_missing_m) / (1 + np.exp(cur_log_priors_missing_m))
-        num_sum_priors_missing_m += 1
+        epoch_sums["sum_Ds_missing_m"] += np.exp(cur_log_priors_missing_m) / (1 + np.exp(cur_log_priors_missing_m))
+        epoch_sums["num_sum_priors_missing_m"] += 1
 
 
 def _prepare_gibbs_iteration_inputs(
@@ -17797,33 +17778,7 @@ def _update_gibbs_post_burn_state(
         full_beta_tildes_m,
         full_z_scores_m,
         priors_missing_mean_m,
-        epoch_sums["sum_Ys_m"],
-        epoch_sums["sum_Ys2_m"],
-        epoch_sums["sum_Y_raws_m"],
-        epoch_sums["sum_log_pos_m"],
-        epoch_sums["sum_log_pos2_m"],
-        epoch_sums["sum_log_po_raws_m"],
-        epoch_sums["sum_log_po_raws2_m"],
-        epoch_sums["sum_priors_m"],
-        epoch_sums["sum_priors2_m"],
-        epoch_sums["sum_Ds_m"],
-        epoch_sums["sum_D_raws_m"],
-        epoch_sums["sum_bf_orig_m"],
-        epoch_sums["sum_bf_uncorrected_m"],
-        epoch_sums["sum_bf_orig_raw_m"],
-        epoch_sums["sum_bf_orig_raw2_m"],
-        epoch_sums["num_sum_Y_m"],
-        epoch_sums["sum_betas_m"],
-        epoch_sums["sum_betas2_m"],
-        epoch_sums["sum_betas_uncorrected_m"],
-        epoch_sums["sum_betas_uncorrected2_m"],
-        epoch_sums["sum_postp_m"],
-        epoch_sums["sum_beta_tildes_m"],
-        epoch_sums["sum_z_scores_m"],
-        epoch_sums["num_sum_beta_m"],
-        epoch_sums["sum_priors_missing_m"],
-        epoch_sums["sum_Ds_missing_m"],
-        epoch_sums["num_sum_priors_missing_m"],
+        epoch_sums,
     )
 
     if np.all(epoch_sums["num_sum_Y_m"] > 1) and np.all(epoch_sums["num_sum_beta_m"] > 1) and ((iteration_num + 1) % diag_every == 0 or iteration_num + 1 == epoch_max_num_iter):
