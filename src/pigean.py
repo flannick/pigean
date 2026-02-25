@@ -8576,15 +8576,35 @@ class GeneSetData(object):
                 full_z_scores_m = iter_setup["full_z_scores_m"]
                 full_p_values_m = iter_setup["full_p_values_m"]
 
-                (uncorrected_betas_sample_m, uncorrected_postp_sample_m, uncorrected_betas_mean_m, uncorrected_postp_mean_m) = self._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=full_beta_tildes_m, ses=full_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, debug_gene_sets=self.gene_sets)
-
-                #initial values to use
-                #we will overwrite these with the corrected betas
-                #but, if we decide to filter them out due to sparsity, we'll persist with the (small) uncorrected values
-                default_betas_sample_m = copy.copy(uncorrected_betas_sample_m)
-                default_postp_sample_m = copy.copy(uncorrected_postp_sample_m)
-                default_betas_mean_m = copy.copy(uncorrected_betas_mean_m)
-                default_postp_mean_m = copy.copy(uncorrected_postp_mean_m)
+                uncorrected_setup = _compute_gibbs_uncorrected_betas_and_defaults(
+                    self,
+                    full_beta_tildes_m=full_beta_tildes_m,
+                    full_ses_m=full_ses_m,
+                    full_scale_factors_m=full_scale_factors_m,
+                    full_mean_shifts_m=full_mean_shifts_m,
+                    full_is_dense_gene_set_m=full_is_dense_gene_set_m,
+                    full_ps_m=full_ps_m,
+                    full_sigma2s_m=full_sigma2s_m,
+                    passed_in_max_num_burn_in=passed_in_max_num_burn_in,
+                    max_num_iter_betas=max_num_iter_betas,
+                    min_num_iter_betas=min_num_iter_betas,
+                    num_chains_betas=num_chains_betas,
+                    r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+                    use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+                    max_frac_sem_betas=max_frac_sem_betas,
+                    max_allowed_batch_correlation=max_allowed_batch_correlation,
+                    gauss_seidel_betas=gauss_seidel_betas,
+                    sparse_solution=sparse_solution,
+                    sparse_frac_betas=sparse_frac_betas,
+                )
+                uncorrected_betas_sample_m = uncorrected_setup["uncorrected_betas_sample_m"]
+                uncorrected_postp_sample_m = uncorrected_setup["uncorrected_postp_sample_m"]
+                uncorrected_betas_mean_m = uncorrected_setup["uncorrected_betas_mean_m"]
+                uncorrected_postp_mean_m = uncorrected_setup["uncorrected_postp_mean_m"]
+                default_betas_sample_m = uncorrected_setup["default_betas_sample_m"]
+                default_postp_sample_m = uncorrected_setup["default_postp_sample_m"]
+                default_betas_mean_m = uncorrected_setup["default_betas_mean_m"]
+                default_postp_mean_m = uncorrected_setup["default_postp_mean_m"]
 
                 (
                     gene_set_mask_m,
@@ -18119,6 +18139,80 @@ def _finalize_gibbs_priors_for_sampling(
         "priors_for_Y_m": priors_for_Y_m,
         "priors_percentage_max_for_Y_m": priors_percentage_max_for_Y_m,
         "priors_adjustment_for_Y_m": priors_adjustment_for_Y_m,
+    }
+
+
+def _compute_gibbs_uncorrected_betas_and_defaults(
+    state,
+    full_beta_tildes_m,
+    full_ses_m,
+    full_scale_factors_m,
+    full_mean_shifts_m,
+    full_is_dense_gene_set_m,
+    full_ps_m,
+    full_sigma2s_m,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+):
+    # Independent run provides sparse screening inputs and fallback values for
+    # gene sets later filtered out from corrected-beta updates.
+    (
+        uncorrected_betas_sample_m,
+        uncorrected_postp_sample_m,
+        uncorrected_betas_mean_m,
+        uncorrected_postp_mean_m,
+    ) = state._calculate_non_inf_betas(
+        assume_independent=True,
+        initial_p=None,
+        beta_tildes=full_beta_tildes_m,
+        ses=full_ses_m,
+        V=None,
+        X_orig=None,
+        scale_factors=full_scale_factors_m,
+        mean_shifts=full_mean_shifts_m,
+        is_dense_gene_set=full_is_dense_gene_set_m,
+        ps=full_ps_m,
+        sigma2s=full_sigma2s_m,
+        return_sample=True,
+        max_num_burn_in=passed_in_max_num_burn_in,
+        max_num_iter=max_num_iter_betas,
+        min_num_iter=min_num_iter_betas,
+        num_chains=num_chains_betas,
+        r_threshold_burn_in=r_threshold_burn_in_betas,
+        use_max_r_for_convergence=use_max_r_for_convergence_betas,
+        max_frac_sem=max_frac_sem_betas,
+        max_allowed_batch_correlation=max_allowed_batch_correlation,
+        gauss_seidel=gauss_seidel_betas,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        sparse_solution=sparse_solution,
+        sparse_frac_betas=sparse_frac_betas,
+        debug_gene_sets=state.gene_sets,
+    )
+
+    default_betas_sample_m = copy.copy(uncorrected_betas_sample_m)
+    default_postp_sample_m = copy.copy(uncorrected_postp_sample_m)
+    default_betas_mean_m = copy.copy(uncorrected_betas_mean_m)
+    default_postp_mean_m = copy.copy(uncorrected_postp_mean_m)
+
+    return {
+        "uncorrected_betas_sample_m": uncorrected_betas_sample_m,
+        "uncorrected_postp_sample_m": uncorrected_postp_sample_m,
+        "uncorrected_betas_mean_m": uncorrected_betas_mean_m,
+        "uncorrected_postp_mean_m": uncorrected_postp_mean_m,
+        "default_betas_sample_m": default_betas_sample_m,
+        "default_postp_sample_m": default_postp_sample_m,
+        "default_betas_mean_m": default_betas_mean_m,
+        "default_postp_mean_m": default_postp_mean_m,
     }
 
 
