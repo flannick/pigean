@@ -8670,195 +8670,79 @@ class GeneSetData(object):
                 #further increases memory
                 #so, the strategy is to batch the chains, for each batch calculate a V for the superset of all gene sets, and then subset it
 
-                #betas
-                if options.debug_zero_sparse:
-                    full_betas_mean_m = copy.copy(default_betas_mean_m)
-                    full_betas_sample_m = copy.copy(default_betas_sample_m)
-                    full_postp_mean_m = copy.copy(default_postp_mean_m)
-                    full_postp_sample_m = copy.copy(default_postp_sample_m)
-                else:
-                    full_betas_mean_m = np.zeros(default_betas_mean_m.shape)
-                    full_betas_sample_m = np.zeros(default_betas_sample_m.shape)
-                    full_postp_mean_m = np.zeros(default_postp_mean_m.shape)
-                    full_postp_sample_m = np.zeros(default_postp_sample_m.shape)
-
-                num_calculations = int(np.ceil(num_chains / num_batches_parallel))
-                #we will default all to the uncorrected sample, and then replace those below that are non-zero
-                for calc in range(num_calculations):
-                    begin = calc * num_batches_parallel
-                    end = (calc + 1) * num_batches_parallel
-                    if end > num_chains:
-                        end = num_chains
-
-                    #get the include mask; any batch has p <= threshold
-                    cur_gene_set_mask = np.any(gene_set_mask_m[begin:end,:], axis=0)
-                    num_gene_set_mask = np.sum(cur_gene_set_mask)
-                    max_num_gene_set_mask = np.max(np.sum(gene_set_mask_m, axis=1))
-
-                    #construct the V matrix
-                    V_superset = self._calculate_V_internal(self.X_orig[:,cur_gene_set_mask], self.y_corr_cholesky, self.mean_shifts[cur_gene_set_mask], self.scale_factors[cur_gene_set_mask])
-
-
-                    #empirically it is faster to do one V if the total is less than 5x the max
-                    run_one_V = num_gene_set_mask < 5 * max_num_gene_set_mask
-
-                    if run_one_V:
-                        num_non_missing = np.sum(cur_gene_set_mask)
-                    else:
-                        num_non_missing = np.max(np.sum(gene_set_mask_m, axis=1))
-
-                    num_missing = gene_set_mask_m.shape[1] - num_non_missing
-
-                    #fraction_non_missing = float(num_non_missing) / gene_set_mask_m.shape[1]
-                    #missing_scale_factor = self._get_fraction_non_missing() / fraction_non_missing
-
-                    #if missing_scale_factor > 1 / self.p:
-                    #    #threshold this here. otherwise set_p will cap p but set_sigma won't cap sigma
-                    #    missing_scale_factor = 1 / self.p
-
-                    if run_one_V:
-                        beta_tildes_m = full_beta_tildes_m[begin:end,cur_gene_set_mask]
-                        ses_m = full_ses_m[begin:end,cur_gene_set_mask]
-                        V_m=V_superset
-                        scale_factors_m = self.scale_factors[cur_gene_set_mask]
-                        mean_shifts_m = self.mean_shifts[cur_gene_set_mask]
-                        is_dense_gene_set_m = self.is_dense_gene_set[cur_gene_set_mask]
-                        ps_m = None
-                        if self.ps is not None:
-                            ps_m = self.ps[cur_gene_set_mask]
-                        sigma2s_m = None
-                        if self.sigma2s is not None:
-                            sigma2s_m = self.sigma2s[cur_gene_set_mask]
-
-                        init_betas_m = None
-                        init_postp_m = None
-                        if warm_start and prev_warm_start_betas_m is not None:
-                            init_betas_m = prev_warm_start_betas_m[begin:end,cur_gene_set_mask]
-                            init_postp_m = prev_warm_start_postp_m[begin:end,cur_gene_set_mask]
-
-
-                        #beta_tildes_missing_m = full_beta_tildes_m[begin:end,~cur_gene_set_mask]
-                        #ses_missing_m = full_ses_m[begin:end,~cur_gene_set_mask]
-                        #scale_factors_missing_m = self.scale_factors[~cur_gene_set_mask]
-
-                    else:
-                        non_missing_matrix_shape = (num_chains, num_non_missing)
-                        beta_tildes_m = full_beta_tildes_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-                        ses_m = full_ses_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-                        scale_factors_m = full_scale_factors_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-                        mean_shifts_m = full_mean_shifts_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-                        is_dense_gene_set_m = full_is_dense_gene_set_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-                        ps_m = None
-                        if full_ps_m is not None:
-                            ps_m = full_ps_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-                        sigma2s_m = None
-                        if full_sigma2s_m is not None:
-                            sigma2s_m = full_sigma2s_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-
-                        init_betas_m = None
-                        init_postp_m = None
-                        if warm_start and prev_warm_start_betas_m is not None:
-                            init_betas_m = prev_warm_start_betas_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-                            init_postp_m = prev_warm_start_postp_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-
-                        V_m = np.zeros((end-begin, beta_tildes_m.shape[1], beta_tildes_m.shape[1]))
-                        for i,j in zip(range(begin, end),range(end-begin)):
-                            #gene_set_mask_m[i,:] is the current batch mask, with dimensions num_gene_sets
-                            #to index into V_superset, we need to subset it down to cur_gene_set_mask
-                            gene_set_mask_subset = gene_set_mask_m[i,cur_gene_set_mask]
-                            V_m[j,:,:] = V_superset[gene_set_mask_subset,:][:,gene_set_mask_subset]
-
-                        #missing_matrix_shape = (num_chains, num_missing)
-                        #beta_tildes_missing_m = full_beta_tildes_m[~gene_set_mask_m].reshape(missing_matrix_shape)[begin:end,:]
-                        #ses_missing_m = full_ses_m[~gene_set_mask_m].reshape(missing_matrix_shape)[begin:end,:]
-                        #scale_factors_missing_m = full_scale_factors_m[~gene_set_mask_m].reshape(missing_matrix_shape)[begin:end,:]
-
-                    (cur_betas_sample_m, cur_postp_sample_m, cur_betas_mean_m, cur_postp_mean_m) = self._calculate_non_inf_betas(initial_p=None, beta_tildes=beta_tildes_m, ses=ses_m, V=V_m, scale_factors=scale_factors_m, mean_shifts=mean_shifts_m, is_dense_gene_set=is_dense_gene_set_m, ps=ps_m, sigma2s=sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, num_missing_gene_sets=num_missing, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, betas_trace_out=betas_trace_out, debug_gene_sets=[self.gene_sets[i] for i in range(len(self.gene_sets)) if gene_set_mask_m[0,i]], init_betas=init_betas_m, init_postp=init_postp_m)
-
-                    #store the values with zeros appended in order to add to sum_betas_m below
-                    if run_one_V:
-                        full_betas_sample_m[begin:end,cur_gene_set_mask] = cur_betas_sample_m
-                        full_postp_sample_m[begin:end,cur_gene_set_mask] = cur_postp_sample_m
-                        full_betas_mean_m[begin:end,cur_gene_set_mask] = cur_betas_mean_m
-                        full_postp_mean_m[begin:end,cur_gene_set_mask] = cur_postp_mean_m
-
-                        #handy option for debugging
-                        print_overlapping = None
-                        if print_overlapping is not None:
-                            gene_sets_run = [self.gene_sets[i] for i in range(len(self.gene_sets)) if cur_gene_set_mask[i]]
-                            gene_set_to_ind = _construct_map_to_ind(gene_sets_run)
-                            for gene_set in print_overlapping:
-                                if gene_set in gene_set_to_ind:
-                                    log("For gene set %s" % (gene_set))
-                                    ind = gene_set_to_ind[gene_set]
-                                    values = V_m[ind,:] * (cur_betas_mean_m if use_mean_betas else cur_betas_sample_m)
-                                    indices = np.argsort(values, axis=1)
-                                    for chain in range(values.shape[0]):
-                                        log("Chain %d (uncorrected beta=%.4g, corrected beta=%.4g)" % (chain, uncorrected_betas_mean_m[chain,self.gene_set_to_ind[gene_set]], (cur_betas_mean_m[chain,ind] if use_mean_betas else cur_betas_sample_m[chain,ind])))
-                                        for i in indices[chain,::-1]:
-                                            if values[chain,i] == 0:
-                                                break
-                                            log("%s, V=%.4g, beta=%.4g, prod=%.4g" % (gene_sets_run[i], V_m[ind,i], (cur_betas_mean_m[chain,i] if use_mean_betas else cur_betas_sample_m[chain,i]), values[chain,i]))
-
-                    else:
-                        #store the values with zeros appended in order to add to sum_betas_m below
-                        full_betas_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_sample_m.ravel()
-                        full_postp_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_sample_m.ravel()
-                        full_betas_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_mean_m.ravel()
-                        full_postp_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_mean_m.ravel()
-
-                    #see how many are set to zero
-                    #set_to_zero_v += np.mean(np.logical_and(full_betas_sample_m == 0, uncorrected_betas_sample_m == 0).reshape(full_betas_sample_m.shape), axis=0)
-                    #avg_full_betas_sample_v += np.mean(full_betas_sample_m, axis=0)
-                    #avg_full_postp_sample_v += np.mean(full_postp_sample_m, axis=0)
+                (
+                    full_betas_sample_m,
+                    full_postp_sample_m,
+                    full_betas_mean_m,
+                    full_postp_mean_m,
+                ) = _compute_gibbs_corrected_betas_for_gene_set_mask(
+                    self,
+                    gene_set_mask_m=gene_set_mask_m,
+                    default_betas_sample_m=default_betas_sample_m,
+                    default_postp_sample_m=default_postp_sample_m,
+                    default_betas_mean_m=default_betas_mean_m,
+                    default_postp_mean_m=default_postp_mean_m,
+                    full_beta_tildes_m=full_beta_tildes_m,
+                    full_ses_m=full_ses_m,
+                    full_scale_factors_m=full_scale_factors_m,
+                    full_mean_shifts_m=full_mean_shifts_m,
+                    full_is_dense_gene_set_m=full_is_dense_gene_set_m,
+                    full_ps_m=full_ps_m,
+                    full_sigma2s_m=full_sigma2s_m,
+                    uncorrected_betas_mean_m=uncorrected_betas_mean_m,
+                    use_mean_betas=use_mean_betas,
+                    warm_start=warm_start,
+                    prev_warm_start_betas_m=prev_warm_start_betas_m,
+                    prev_warm_start_postp_m=prev_warm_start_postp_m,
+                    debug_zero_sparse=options.debug_zero_sparse,
+                    num_chains=num_chains,
+                    num_batches_parallel=num_batches_parallel,
+                    passed_in_max_num_burn_in=passed_in_max_num_burn_in,
+                    max_num_iter_betas=max_num_iter_betas,
+                    min_num_iter_betas=min_num_iter_betas,
+                    num_chains_betas=num_chains_betas,
+                    r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+                    use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+                    max_frac_sem_betas=max_frac_sem_betas,
+                    max_allowed_batch_correlation=max_allowed_batch_correlation,
+                    gauss_seidel_betas=gauss_seidel_betas,
+                    sparse_solution=sparse_solution,
+                    sparse_frac_betas=sparse_frac_betas,
+                    betas_trace_out=betas_trace_out,
+                )
 
                 #now restore the p and sigma
                 #self.set_sigma(orig_sigma2, self.sigma_power, sigma2_osc=self.sigma2_osc)
                 #self.set_p(orig_p)
 
-                if warm_start:
-                    #Warm-start next iteration using the current full corrected estimates.
-                    #Filtered out gene sets remain 0 because full_* matrices were initialized to zero.
-                    if use_mean_betas:
-                        prev_warm_start_betas_m = copy.copy(full_betas_mean_m)
-                        prev_warm_start_postp_m = copy.copy(full_postp_mean_m)
-                    else:
-                        prev_warm_start_betas_m = copy.copy(full_betas_sample_m)
-                        prev_warm_start_postp_m = copy.copy(full_postp_sample_m)
-
-                # Since betas are sampled each iteration, update per-chain priors directly from current betas.
-                priors_sample_m = _calc_priors_from_betas(self.X_orig, full_betas_sample_m, self.mean_shifts, self.scale_factors)
-                priors_mean_m = _calc_priors_from_betas(self.X_orig, full_betas_mean_m, self.mean_shifts, self.scale_factors)
-                if self.genes_missing is not None:
-                    priors_missing_sample_m = _calc_priors_from_betas(self.X_orig_missing_genes, full_betas_sample_m, self.mean_shifts, self.scale_factors)
-                    priors_missing_mean_m = _calc_priors_from_betas(self.X_orig_missing_genes, full_betas_mean_m, self.mean_shifts, self.scale_factors)
-
-                if self.huge_signal_bfs is not None and update_huge_scores:
-                    #Now update the BFs is we have huge scores
-                    log("Updating HuGE scores")
-                    combined_optional_bf_terms = _combine_optional_gene_bf_terms(self.Y_exomes, self.Y_positive_controls, self.Y_case_counts)
-                    rel_prior_log_bf = priors_for_Y_m + combined_optional_bf_terms
-
-                    (log_bf_m, log_bf_uncorrected_m, absent_genes, absent_log_bf) = self._distill_huge_signal_bfs(self.huge_signal_bfs_for_regression, self.huge_signal_posteriors_for_regression, self.huge_signal_sum_gene_cond_probabilities_for_regression, self.huge_signal_mean_gene_pos_for_regression, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, self.gene_covariates, self.gene_covariates_mask, self.gene_covariates_mat_inv, self.gene_covariate_names, self.gene_covariate_intercept_index, self.genes, rel_prior_log_bf=rel_prior_log_bf)
-
-                    if compute_Y_raw:
-                        (log_bf_raw_m, _, _, _) = self._distill_huge_signal_bfs(self.huge_signal_bfs, self.huge_signal_posteriors, self.huge_signal_sum_gene_cond_probabilities, self.huge_signal_mean_gene_pos, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, self.gene_covariates, self.gene_covariates_mask, self.gene_covariates_mat_inv, self.gene_covariate_names, self.gene_covariate_intercept_index, self.genes, rel_prior_log_bf=rel_prior_log_bf)
-                    else:
-                        log_bf_raw_m = copy.copy(log_bf_m)
-
-                    # These terms are used during distillation to fine-map HuGE loci, then
-                    # added back on the total gene-level BF scale after distillation.
-                    _add_optional_gene_bf_terms(
-                        log_bf_m,
-                        log_bf_uncorrected_m,
-                        log_bf_raw_m,
-                        self.Y_exomes,
-                        self.Y_positive_controls,
-                        self.Y_case_counts,
-                    )
-
-                    if len(absent_genes) > 0:
-                        bail("Error: huge_signal_bfs was incorrectly set and contains extra genes")
+                refresh_update = _refresh_gibbs_iteration_priors_and_huge(
+                    self,
+                    warm_start=warm_start,
+                    use_mean_betas=use_mean_betas,
+                    prev_warm_start_betas_m=prev_warm_start_betas_m,
+                    prev_warm_start_postp_m=prev_warm_start_postp_m,
+                    full_betas_sample_m=full_betas_sample_m,
+                    full_betas_mean_m=full_betas_mean_m,
+                    full_postp_sample_m=full_postp_sample_m,
+                    full_postp_mean_m=full_postp_mean_m,
+                    priors_missing_sample_m=priors_missing_sample_m,
+                    priors_missing_mean_m=priors_missing_mean_m,
+                    priors_for_Y_m=priors_for_Y_m,
+                    update_huge_scores=update_huge_scores,
+                    compute_Y_raw=compute_Y_raw,
+                    log_bf_m=log_bf_m,
+                    log_bf_uncorrected_m=log_bf_uncorrected_m,
+                    log_bf_raw_m=log_bf_raw_m,
+                )
+                prev_warm_start_betas_m = refresh_update["prev_warm_start_betas_m"]
+                prev_warm_start_postp_m = refresh_update["prev_warm_start_postp_m"]
+                priors_sample_m = refresh_update["priors_sample_m"]
+                priors_mean_m = refresh_update["priors_mean_m"]
+                priors_missing_sample_m = refresh_update["priors_missing_sample_m"]
+                priors_missing_mean_m = refresh_update["priors_missing_mean_m"]
+                log_bf_m = refresh_update["log_bf_m"]
+                log_bf_uncorrected_m = refresh_update["log_bf_uncorrected_m"]
+                log_bf_raw_m = refresh_update["log_bf_raw_m"]
 
                 #if center_combined:
                 #    priors_sample_total_m = np.hstack((priors_sample_m, priors_missing_sample_m))
@@ -18271,6 +18155,235 @@ def _finalize_gibbs_priors_for_sampling(
         "priors_for_Y_m": priors_for_Y_m,
         "priors_percentage_max_for_Y_m": priors_percentage_max_for_Y_m,
         "priors_adjustment_for_Y_m": priors_adjustment_for_Y_m,
+    }
+
+
+def _compute_gibbs_corrected_betas_for_gene_set_mask(
+    state,
+    gene_set_mask_m,
+    default_betas_sample_m,
+    default_postp_sample_m,
+    default_betas_mean_m,
+    default_postp_mean_m,
+    full_beta_tildes_m,
+    full_ses_m,
+    full_scale_factors_m,
+    full_mean_shifts_m,
+    full_is_dense_gene_set_m,
+    full_ps_m,
+    full_sigma2s_m,
+    uncorrected_betas_mean_m,
+    use_mean_betas,
+    warm_start,
+    prev_warm_start_betas_m,
+    prev_warm_start_postp_m,
+    debug_zero_sparse,
+    num_chains,
+    num_batches_parallel,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+    betas_trace_out,
+):
+    # Estimate corrected non-inf betas in chain batches to keep V construction
+    # memory bounded while preserving legacy batching behavior.
+    if debug_zero_sparse:
+        full_betas_mean_m = copy.copy(default_betas_mean_m)
+        full_betas_sample_m = copy.copy(default_betas_sample_m)
+        full_postp_mean_m = copy.copy(default_postp_mean_m)
+        full_postp_sample_m = copy.copy(default_postp_sample_m)
+    else:
+        full_betas_mean_m = np.zeros(default_betas_mean_m.shape)
+        full_betas_sample_m = np.zeros(default_betas_sample_m.shape)
+        full_postp_mean_m = np.zeros(default_postp_mean_m.shape)
+        full_postp_sample_m = np.zeros(default_postp_sample_m.shape)
+
+    num_calculations = int(np.ceil(num_chains / num_batches_parallel))
+    for calc in range(num_calculations):
+        begin = calc * num_batches_parallel
+        end = (calc + 1) * num_batches_parallel
+        if end > num_chains:
+            end = num_chains
+
+        # Build the superset V matrix once for this chain batch.
+        cur_gene_set_mask = np.any(gene_set_mask_m[begin:end,:], axis=0)
+        num_gene_set_mask = np.sum(cur_gene_set_mask)
+        max_num_gene_set_mask = np.max(np.sum(gene_set_mask_m, axis=1))
+        V_superset = state._calculate_V_internal(state.X_orig[:,cur_gene_set_mask], state.y_corr_cholesky, state.mean_shifts[cur_gene_set_mask], state.scale_factors[cur_gene_set_mask])
+
+        # If the superset is not too much larger than max-per-chain, reuse one V;
+        # otherwise subset V per chain.
+        run_one_V = num_gene_set_mask < 5 * max_num_gene_set_mask
+        if run_one_V:
+            num_non_missing = np.sum(cur_gene_set_mask)
+        else:
+            num_non_missing = np.max(np.sum(gene_set_mask_m, axis=1))
+        num_missing = gene_set_mask_m.shape[1] - num_non_missing
+
+        if run_one_V:
+            beta_tildes_m = full_beta_tildes_m[begin:end,cur_gene_set_mask]
+            ses_m = full_ses_m[begin:end,cur_gene_set_mask]
+            V_m = V_superset
+            scale_factors_m = state.scale_factors[cur_gene_set_mask]
+            mean_shifts_m = state.mean_shifts[cur_gene_set_mask]
+            is_dense_gene_set_m = state.is_dense_gene_set[cur_gene_set_mask]
+            ps_m = None
+            if state.ps is not None:
+                ps_m = state.ps[cur_gene_set_mask]
+            sigma2s_m = None
+            if state.sigma2s is not None:
+                sigma2s_m = state.sigma2s[cur_gene_set_mask]
+
+            init_betas_m = None
+            init_postp_m = None
+            if warm_start and prev_warm_start_betas_m is not None:
+                init_betas_m = prev_warm_start_betas_m[begin:end,cur_gene_set_mask]
+                init_postp_m = prev_warm_start_postp_m[begin:end,cur_gene_set_mask]
+
+        else:
+            non_missing_matrix_shape = (num_chains, num_non_missing)
+            beta_tildes_m = full_beta_tildes_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+            ses_m = full_ses_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+            scale_factors_m = full_scale_factors_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+            mean_shifts_m = full_mean_shifts_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+            is_dense_gene_set_m = full_is_dense_gene_set_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+            ps_m = None
+            if full_ps_m is not None:
+                ps_m = full_ps_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+            sigma2s_m = None
+            if full_sigma2s_m is not None:
+                sigma2s_m = full_sigma2s_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+
+            init_betas_m = None
+            init_postp_m = None
+            if warm_start and prev_warm_start_betas_m is not None:
+                init_betas_m = prev_warm_start_betas_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+                init_postp_m = prev_warm_start_postp_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+
+            V_m = np.zeros((end-begin, beta_tildes_m.shape[1], beta_tildes_m.shape[1]))
+            for i,j in zip(range(begin, end),range(end-begin)):
+                gene_set_mask_subset = gene_set_mask_m[i,cur_gene_set_mask]
+                V_m[j,:,:] = V_superset[gene_set_mask_subset,:][:,gene_set_mask_subset]
+
+        (cur_betas_sample_m, cur_postp_sample_m, cur_betas_mean_m, cur_postp_mean_m) = state._calculate_non_inf_betas(initial_p=None, beta_tildes=beta_tildes_m, ses=ses_m, V=V_m, scale_factors=scale_factors_m, mean_shifts=mean_shifts_m, is_dense_gene_set=is_dense_gene_set_m, ps=ps_m, sigma2s=sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, num_missing_gene_sets=num_missing, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, betas_trace_out=betas_trace_out, debug_gene_sets=[state.gene_sets[i] for i in range(len(state.gene_sets)) if gene_set_mask_m[0,i]], init_betas=init_betas_m, init_postp=init_postp_m)
+
+        if run_one_V:
+            full_betas_sample_m[begin:end,cur_gene_set_mask] = cur_betas_sample_m
+            full_postp_sample_m[begin:end,cur_gene_set_mask] = cur_postp_sample_m
+            full_betas_mean_m[begin:end,cur_gene_set_mask] = cur_betas_mean_m
+            full_postp_mean_m[begin:end,cur_gene_set_mask] = cur_postp_mean_m
+
+            print_overlapping = None
+            if print_overlapping is not None:
+                gene_sets_run = [state.gene_sets[i] for i in range(len(state.gene_sets)) if cur_gene_set_mask[i]]
+                gene_set_to_ind = _construct_map_to_ind(gene_sets_run)
+                for gene_set in print_overlapping:
+                    if gene_set in gene_set_to_ind:
+                        log("For gene set %s" % (gene_set))
+                        ind = gene_set_to_ind[gene_set]
+                        values = V_m[ind,:] * (cur_betas_mean_m if use_mean_betas else cur_betas_sample_m)
+                        indices = np.argsort(values, axis=1)
+                        for chain in range(values.shape[0]):
+                            log("Chain %d (uncorrected beta=%.4g, corrected beta=%.4g)" % (chain, uncorrected_betas_mean_m[chain,state.gene_set_to_ind[gene_set]], (cur_betas_mean_m[chain,ind] if use_mean_betas else cur_betas_sample_m[chain,ind])))
+                            for i in indices[chain,::-1]:
+                                if values[chain,i] == 0:
+                                    break
+                                log("%s, V=%.4g, beta=%.4g, prod=%.4g" % (gene_sets_run[i], V_m[ind,i], (cur_betas_mean_m[chain,i] if use_mean_betas else cur_betas_sample_m[chain,i]), values[chain,i]))
+        else:
+            full_betas_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_sample_m.ravel()
+            full_postp_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_sample_m.ravel()
+            full_betas_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_mean_m.ravel()
+            full_postp_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_mean_m.ravel()
+
+    return (
+        full_betas_sample_m,
+        full_postp_sample_m,
+        full_betas_mean_m,
+        full_postp_mean_m,
+    )
+
+
+def _refresh_gibbs_iteration_priors_and_huge(
+    state,
+    warm_start,
+    use_mean_betas,
+    prev_warm_start_betas_m,
+    prev_warm_start_postp_m,
+    full_betas_sample_m,
+    full_betas_mean_m,
+    full_postp_sample_m,
+    full_postp_mean_m,
+    priors_missing_sample_m,
+    priors_missing_mean_m,
+    priors_for_Y_m,
+    update_huge_scores,
+    compute_Y_raw,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    # Prepare warm-start state for the next iteration.
+    if warm_start:
+        # Filtered-out gene sets remain zero because the full_* matrices are
+        # initialized to zero each iteration.
+        if use_mean_betas:
+            prev_warm_start_betas_m = copy.copy(full_betas_mean_m)
+            prev_warm_start_postp_m = copy.copy(full_postp_mean_m)
+        else:
+            prev_warm_start_betas_m = copy.copy(full_betas_sample_m)
+            prev_warm_start_postp_m = copy.copy(full_postp_sample_m)
+
+    # Update per-chain priors directly from current corrected betas.
+    priors_sample_m = _calc_priors_from_betas(state.X_orig, full_betas_sample_m, state.mean_shifts, state.scale_factors)
+    priors_mean_m = _calc_priors_from_betas(state.X_orig, full_betas_mean_m, state.mean_shifts, state.scale_factors)
+    if state.genes_missing is not None:
+        priors_missing_sample_m = _calc_priors_from_betas(state.X_orig_missing_genes, full_betas_sample_m, state.mean_shifts, state.scale_factors)
+        priors_missing_mean_m = _calc_priors_from_betas(state.X_orig_missing_genes, full_betas_mean_m, state.mean_shifts, state.scale_factors)
+
+    if state.huge_signal_bfs is not None and update_huge_scores:
+        log("Updating HuGE scores")
+        combined_optional_bf_terms = _combine_optional_gene_bf_terms(state.Y_exomes, state.Y_positive_controls, state.Y_case_counts)
+        rel_prior_log_bf = priors_for_Y_m + combined_optional_bf_terms
+
+        (log_bf_m, log_bf_uncorrected_m, absent_genes, _) = state._distill_huge_signal_bfs(state.huge_signal_bfs_for_regression, state.huge_signal_posteriors_for_regression, state.huge_signal_sum_gene_cond_probabilities_for_regression, state.huge_signal_mean_gene_pos_for_regression, state.huge_signal_max_closest_gene_prob, state.huge_cap_region_posterior, state.huge_scale_region_posterior, state.huge_phantom_region_posterior, state.huge_allow_evidence_of_absence, state.gene_covariates, state.gene_covariates_mask, state.gene_covariates_mat_inv, state.gene_covariate_names, state.gene_covariate_intercept_index, state.genes, rel_prior_log_bf=rel_prior_log_bf)
+
+        if compute_Y_raw:
+            (log_bf_raw_m, _, _, _) = state._distill_huge_signal_bfs(state.huge_signal_bfs, state.huge_signal_posteriors, state.huge_signal_sum_gene_cond_probabilities, state.huge_signal_mean_gene_pos, state.huge_signal_max_closest_gene_prob, state.huge_cap_region_posterior, state.huge_scale_region_posterior, state.huge_phantom_region_posterior, state.huge_allow_evidence_of_absence, state.gene_covariates, state.gene_covariates_mask, state.gene_covariates_mat_inv, state.gene_covariate_names, state.gene_covariate_intercept_index, state.genes, rel_prior_log_bf=rel_prior_log_bf)
+        else:
+            log_bf_raw_m = copy.copy(log_bf_m)
+
+        # Distillation uses optional terms internally for locus resolution;
+        # add them back on the total gene-level BF scale.
+        _add_optional_gene_bf_terms(
+            log_bf_m,
+            log_bf_uncorrected_m,
+            log_bf_raw_m,
+            state.Y_exomes,
+            state.Y_positive_controls,
+            state.Y_case_counts,
+        )
+
+        if len(absent_genes) > 0:
+            bail("Error: huge_signal_bfs was incorrectly set and contains extra genes")
+
+    return {
+        "prev_warm_start_betas_m": prev_warm_start_betas_m,
+        "prev_warm_start_postp_m": prev_warm_start_postp_m,
+        "priors_sample_m": priors_sample_m,
+        "priors_mean_m": priors_mean_m,
+        "priors_missing_sample_m": priors_missing_sample_m,
+        "priors_missing_mean_m": priors_missing_mean_m,
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
     }
 
 
