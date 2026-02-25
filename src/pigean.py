@@ -8478,24 +8478,7 @@ class GeneSetData(object):
             all_num_sum_m = epoch_state["all_num_sum_m"]
             all_sum_Ys_m = epoch_state["all_sum_Ys_m"]
             all_sum_Ys2_m = epoch_state["all_sum_Ys2_m"]
-            in_burn_in = epoch_state["in_burn_in"]
-            burn_in_pass_streak = epoch_state["burn_in_pass_streak"]
-            burn_in_rhat_history = epoch_state["burn_in_rhat_history"]
-            stop_pass_streak = epoch_state["stop_pass_streak"]
-            R_beta_v = epoch_state["R_beta_v"]
-            betas_sem2_v = epoch_state["betas_sem2_v"]
-            sem2_v = epoch_state["sem2_v"]
-            stop_due_to_stall = epoch_state["stop_due_to_stall"]
-            stop_due_to_precision = epoch_state["stop_due_to_precision"]
-            restart_due_to_stall = epoch_state["restart_due_to_stall"]
-            burn_stall_best_beta_rhat_history = epoch_state["burn_stall_best_beta_rhat_history"]
-            burn_stall_snapshots = epoch_state["burn_stall_snapshots"]
-            burn_stall_beta_indices = epoch_state["burn_stall_beta_indices"]
-            post_stall_best_beta_rhat_history = epoch_state["post_stall_best_beta_rhat_history"]
-            post_stall_best_D_mcse_history = epoch_state["post_stall_best_D_mcse_history"]
-            post_stall_snapshots = epoch_state["post_stall_snapshots"]
-            post_stall_beta_indices = epoch_state["post_stall_beta_indices"]
-            post_stall_gene_indices = epoch_state["post_stall_gene_indices"]
+            epoch_control = _initialize_gibbs_epoch_control_state(epoch_state)
             priors_sample_m = epoch_state["priors_sample_m"]
             priors_mean_m = epoch_state["priors_mean_m"]
             priors_percentage_max_sample_m = epoch_state["priors_percentage_max_sample_m"]
@@ -8512,7 +8495,6 @@ class GeneSetData(object):
             num_sum_priors_missing_m = epoch_state["num_sum_priors_missing_m"]
             post_burn_reset_arrays = epoch_state["post_burn_reset_arrays"]
             post_burn_reset_missing_arrays = epoch_state["post_burn_reset_missing_arrays"]
-            prev_Ys_m = epoch_state["prev_Ys_m"]
             X_hstacked = epoch_state["X_hstacked"]
             stack_batch_size = epoch_state["stack_batch_size"]
             num_stack_batches = epoch_state["num_stack_batches"]
@@ -8800,7 +8782,7 @@ class GeneSetData(object):
                 all_num_sum_m = all_iteration_update["all_num_sum_m"]
                 all_sum_Ys_m = all_iteration_update["all_sum_Ys_m"]
                 all_sum_Ys2_m = all_iteration_update["all_sum_Ys2_m"]
-                R_beta_v = all_iteration_update["R_beta_v"]
+                epoch_control["R_beta_v"] = all_iteration_update["R_beta_v"]
                 gibbs_good = all_iteration_update["gibbs_good"]
                 num_p_increases = all_iteration_update["num_p_increases"]
                 if all_iteration_update["should_break"]:
@@ -8808,7 +8790,7 @@ class GeneSetData(object):
 
                 iteration_progress_update = _advance_gibbs_iteration_progress(
                     self,
-                    in_burn_in=in_burn_in,
+                    epoch_control=epoch_control,
                     iteration_num=iteration_num,
                     epoch_total_iter_offset=epoch_total_iter_offset,
                     epoch_iter_num=epoch_iter_num,
@@ -8827,11 +8809,6 @@ class GeneSetData(object):
                     active_beta_min_abs=active_beta_min_abs,
                     burn_in_rhat_quantile=burn_in_rhat_quantile,
                     r_threshold_burn_in=r_threshold_burn_in,
-                    burn_in_pass_streak=burn_in_pass_streak,
-                    burn_in_rhat_history=burn_in_rhat_history,
-                    burn_stall_best_beta_rhat_history=burn_stall_best_beta_rhat_history,
-                    burn_stall_snapshots=burn_stall_snapshots,
-                    burn_stall_beta_indices=burn_stall_beta_indices,
                     stall_window=stall_window,
                     stall_min_burn_in=stall_min_burn_in,
                     stall_delta_rhat=stall_delta_rhat,
@@ -8841,12 +8818,9 @@ class GeneSetData(object):
                     burn_in_stall_delta=burn_in_stall_delta,
                     num_full_gene_sets=num_full_gene_sets,
                     burn_in_patience=burn_in_patience,
-                    stop_pass_streak=stop_pass_streak,
                     stop_patience=stop_patience,
                     post_burn_reset_arrays=post_burn_reset_arrays,
                     post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
-                    R_beta_v=R_beta_v,
-                    prev_Ys_m=prev_Ys_m,
                     Y_sample_m=Y_sample_m,
                     Y_raw_sample_m=Y_raw_sample_m,
                     log_po_sample_m=log_po_sample_m,
@@ -8899,21 +8873,11 @@ class GeneSetData(object):
                     max_rel_mcse_beta=max_rel_mcse_beta,
                     max_abs_mcse_d=max_abs_mcse_d,
                     min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
-                    post_stall_best_beta_rhat_history=post_stall_best_beta_rhat_history,
-                    post_stall_best_D_mcse_history=post_stall_best_D_mcse_history,
-                    post_stall_snapshots=post_stall_snapshots,
-                    post_stall_beta_indices=post_stall_beta_indices,
-                    post_stall_gene_indices=post_stall_gene_indices,
                     stall_min_post_burn_in=stall_min_post_burn_in,
                     stall_delta_mcse=stall_delta_mcse,
                     num_attempts=num_attempts,
                     max_num_attempt_restarts=max_num_attempt_restarts,
                     max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
-                    betas_sem2_v=betas_sem2_v,
-                    sem2_v=sem2_v,
-                    stop_due_to_precision=stop_due_to_precision,
-                    restart_due_to_stall=restart_due_to_stall,
-                    stop_due_to_stall=stop_due_to_stall,
                     gene_set_stats_trace_fh=gene_set_stats_trace_fh,
                     trace_chain_offset=trace_chain_offset,
                     full_p_values_m=full_p_values_m,
@@ -8924,20 +8888,6 @@ class GeneSetData(object):
                     full_z_cur_beta_tildes_m=full_z_cur_beta_tildes_m,
                     use_mean_betas=use_mean_betas,
                 )
-                in_burn_in = iteration_progress_update["in_burn_in"]
-                burn_in_pass_streak = iteration_progress_update["burn_in_pass_streak"]
-                stop_pass_streak = iteration_progress_update["stop_pass_streak"]
-                prev_Ys_m = iteration_progress_update["prev_Ys_m"]
-                burn_stall_beta_indices = iteration_progress_update["burn_stall_beta_indices"]
-                R_beta_v = iteration_progress_update["R_beta_v"]
-                post_stall_beta_indices = iteration_progress_update["post_stall_beta_indices"]
-                post_stall_gene_indices = iteration_progress_update["post_stall_gene_indices"]
-                betas_sem2_v = iteration_progress_update["betas_sem2_v"]
-                sem2_v = iteration_progress_update["sem2_v"]
-                stop_due_to_precision = iteration_progress_update["stop_due_to_precision"]
-                restart_due_to_stall = iteration_progress_update["restart_due_to_stall"]
-                stop_due_to_stall = iteration_progress_update["stop_due_to_stall"]
-
                 if iteration_progress_update["done"]:
                     break
 
@@ -8952,8 +8902,8 @@ class GeneSetData(object):
                 target_num_epochs=target_num_epochs,
                 num_attempts=num_attempts,
                 max_num_attempt_restarts=max_num_attempt_restarts,
-                stop_due_to_stall=stop_due_to_stall,
-                stop_due_to_precision=stop_due_to_precision,
+                stop_due_to_stall=epoch_control["stop_due_to_stall"],
+                stop_due_to_precision=epoch_control["stop_due_to_precision"],
                 sum_betas_m=sum_betas_m,
                 sum_betas2_m=sum_betas2_m,
                 sum_betas_uncorrected_m=sum_betas_uncorrected_m,
@@ -16336,28 +16286,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
     all_sum_Ys_m = np.zeros(Y_m_shape)
     all_sum_Ys2_m = np.zeros(Y_m_shape)
 
-    # Outer-loop diagnostics state.
-    in_burn_in = True
-    burn_in_pass_streak = 0
-    burn_in_rhat_history = []
-    stop_pass_streak = 0
-    R_beta_v = np.ones(full_betas_m_shape[1])
-    betas_sem2_v = np.zeros(full_betas_m_shape[1])
-    sem2_v = np.zeros(Y_m_shape[1])
-    stop_due_to_stall = False
-    stop_due_to_precision = False
-    restart_due_to_stall = False
-
-    burn_stall_best_beta_rhat_history = []
-    burn_stall_snapshots = []
-    burn_stall_beta_indices = None
-
-    post_stall_best_beta_rhat_history = []
-    post_stall_best_D_mcse_history = []
-    post_stall_snapshots = []
-    post_stall_beta_indices = None
-    post_stall_gene_indices = None
-
     # Initialize per-chain priors.
     priors_sample_m = np.zeros(Y_m_shape)
     priors_mean_m = np.zeros(Y_m_shape)
@@ -16421,7 +16349,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
     if state.gene_sets_missing is not None:
         state._unsubset_gene_sets(skip_V=True)
 
-    prev_Ys_m = None
     X_hstacked, stack_batch_size, num_stack_batches = _build_gibbs_chain_stack(
         state.X_orig,
         num_chains,
@@ -16465,24 +16392,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         "all_num_sum_m": all_num_sum_m,
         "all_sum_Ys_m": all_sum_Ys_m,
         "all_sum_Ys2_m": all_sum_Ys2_m,
-        "in_burn_in": in_burn_in,
-        "burn_in_pass_streak": burn_in_pass_streak,
-        "burn_in_rhat_history": burn_in_rhat_history,
-        "stop_pass_streak": stop_pass_streak,
-        "R_beta_v": R_beta_v,
-        "betas_sem2_v": betas_sem2_v,
-        "sem2_v": sem2_v,
-        "stop_due_to_stall": stop_due_to_stall,
-        "stop_due_to_precision": stop_due_to_precision,
-        "restart_due_to_stall": restart_due_to_stall,
-        "burn_stall_best_beta_rhat_history": burn_stall_best_beta_rhat_history,
-        "burn_stall_snapshots": burn_stall_snapshots,
-        "burn_stall_beta_indices": burn_stall_beta_indices,
-        "post_stall_best_beta_rhat_history": post_stall_best_beta_rhat_history,
-        "post_stall_best_D_mcse_history": post_stall_best_D_mcse_history,
-        "post_stall_snapshots": post_stall_snapshots,
-        "post_stall_beta_indices": post_stall_beta_indices,
-        "post_stall_gene_indices": post_stall_gene_indices,
         "priors_sample_m": priors_sample_m,
         "priors_mean_m": priors_mean_m,
         "priors_percentage_max_sample_m": priors_percentage_max_sample_m,
@@ -16499,10 +16408,36 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         "num_sum_priors_missing_m": num_sum_priors_missing_m,
         "post_burn_reset_arrays": post_burn_reset_arrays,
         "post_burn_reset_missing_arrays": post_burn_reset_missing_arrays,
-        "prev_Ys_m": prev_Ys_m,
         "X_hstacked": X_hstacked,
         "stack_batch_size": stack_batch_size,
         "num_stack_batches": num_stack_batches,
+    }
+
+
+def _initialize_gibbs_epoch_control_state(epoch_state):
+    # Mutable per-epoch control/diagnostic state that evolves each iteration.
+    num_gene_sets = epoch_state["sum_betas_m"].shape[1]
+    num_genes = epoch_state["sum_Ys_m"].shape[1]
+    return {
+        "in_burn_in": True,
+        "burn_in_pass_streak": 0,
+        "burn_in_rhat_history": [],
+        "stop_pass_streak": 0,
+        "R_beta_v": np.ones(num_gene_sets),
+        "betas_sem2_v": np.zeros(num_gene_sets),
+        "sem2_v": np.zeros(num_genes),
+        "stop_due_to_stall": False,
+        "stop_due_to_precision": False,
+        "restart_due_to_stall": False,
+        "burn_stall_best_beta_rhat_history": [],
+        "burn_stall_snapshots": [],
+        "burn_stall_beta_indices": None,
+        "post_stall_best_beta_rhat_history": [],
+        "post_stall_best_D_mcse_history": [],
+        "post_stall_snapshots": [],
+        "post_stall_beta_indices": None,
+        "post_stall_gene_indices": None,
+        "prev_Ys_m": None,
     }
 
 
@@ -18493,7 +18428,7 @@ def _advance_gibbs_post_burn_and_trace_step(
 
 def _advance_gibbs_iteration_progress(
     state,
-    in_burn_in,
+    epoch_control,
     iteration_num,
     epoch_total_iter_offset,
     epoch_iter_num,
@@ -18512,11 +18447,6 @@ def _advance_gibbs_iteration_progress(
     active_beta_min_abs,
     burn_in_rhat_quantile,
     r_threshold_burn_in,
-    burn_in_pass_streak,
-    burn_in_rhat_history,
-    burn_stall_best_beta_rhat_history,
-    burn_stall_snapshots,
-    burn_stall_beta_indices,
     stall_window,
     stall_min_burn_in,
     stall_delta_rhat,
@@ -18526,12 +18456,9 @@ def _advance_gibbs_iteration_progress(
     burn_in_stall_delta,
     num_full_gene_sets,
     burn_in_patience,
-    stop_pass_streak,
     stop_patience,
     post_burn_reset_arrays,
     post_burn_reset_missing_arrays,
-    R_beta_v,
-    prev_Ys_m,
     Y_sample_m,
     Y_raw_sample_m,
     log_po_sample_m,
@@ -18584,21 +18511,11 @@ def _advance_gibbs_iteration_progress(
     max_rel_mcse_beta,
     max_abs_mcse_d,
     min_num_post_burn_in_for_epoch,
-    post_stall_best_beta_rhat_history,
-    post_stall_best_D_mcse_history,
-    post_stall_snapshots,
-    post_stall_beta_indices,
-    post_stall_gene_indices,
     stall_min_post_burn_in,
     stall_delta_mcse,
     num_attempts,
     max_num_attempt_restarts,
     max_num_post_burn_in_for_epoch,
-    betas_sem2_v,
-    sem2_v,
-    stop_due_to_precision,
-    restart_due_to_stall,
-    stop_due_to_stall,
     gene_set_stats_trace_fh,
     trace_chain_offset,
     full_p_values_m,
@@ -18609,6 +18526,26 @@ def _advance_gibbs_iteration_progress(
     full_z_cur_beta_tildes_m,
     use_mean_betas,
 ):
+    in_burn_in = epoch_control["in_burn_in"]
+    burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
+    burn_in_rhat_history = epoch_control["burn_in_rhat_history"]
+    burn_stall_best_beta_rhat_history = epoch_control["burn_stall_best_beta_rhat_history"]
+    burn_stall_snapshots = epoch_control["burn_stall_snapshots"]
+    burn_stall_beta_indices = epoch_control["burn_stall_beta_indices"]
+    stop_pass_streak = epoch_control["stop_pass_streak"]
+    R_beta_v = epoch_control["R_beta_v"]
+    prev_Ys_m = epoch_control["prev_Ys_m"]
+    post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
+    post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
+    post_stall_snapshots = epoch_control["post_stall_snapshots"]
+    post_stall_beta_indices = epoch_control["post_stall_beta_indices"]
+    post_stall_gene_indices = epoch_control["post_stall_gene_indices"]
+    betas_sem2_v = epoch_control["betas_sem2_v"]
+    sem2_v = epoch_control["sem2_v"]
+    stop_due_to_precision = epoch_control["stop_due_to_precision"]
+    restart_due_to_stall = epoch_control["restart_due_to_stall"]
+    stop_due_to_stall = epoch_control["stop_due_to_stall"]
+
     burn_step = _advance_gibbs_burn_in_step(
         in_burn_in,
         iteration_num,
@@ -18754,22 +18691,20 @@ def _advance_gibbs_iteration_progress(
         use_mean_betas=use_mean_betas,
     )
 
-    return {
-        "in_burn_in": in_burn_in,
-        "burn_in_pass_streak": burn_in_pass_streak,
-        "stop_pass_streak": post_burn_step["stop_pass_streak"],
-        "prev_Ys_m": prev_Ys_m,
-        "burn_stall_beta_indices": burn_stall_beta_indices,
-        "R_beta_v": post_burn_step["R_beta_v"],
-        "post_stall_beta_indices": post_burn_step["post_stall_beta_indices"],
-        "post_stall_gene_indices": post_burn_step["post_stall_gene_indices"],
-        "betas_sem2_v": post_burn_step["betas_sem2_v"],
-        "sem2_v": post_burn_step["sem2_v"],
-        "stop_due_to_precision": post_burn_step["stop_due_to_precision"],
-        "restart_due_to_stall": post_burn_step["restart_due_to_stall"],
-        "stop_due_to_stall": post_burn_step["stop_due_to_stall"],
-        "done": post_burn_step["done"],
-    }
+    epoch_control["in_burn_in"] = in_burn_in
+    epoch_control["burn_in_pass_streak"] = burn_in_pass_streak
+    epoch_control["stop_pass_streak"] = post_burn_step["stop_pass_streak"]
+    epoch_control["prev_Ys_m"] = prev_Ys_m
+    epoch_control["burn_stall_beta_indices"] = burn_stall_beta_indices
+    epoch_control["R_beta_v"] = post_burn_step["R_beta_v"]
+    epoch_control["post_stall_beta_indices"] = post_burn_step["post_stall_beta_indices"]
+    epoch_control["post_stall_gene_indices"] = post_burn_step["post_stall_gene_indices"]
+    epoch_control["betas_sem2_v"] = post_burn_step["betas_sem2_v"]
+    epoch_control["sem2_v"] = post_burn_step["sem2_v"]
+    epoch_control["stop_due_to_precision"] = post_burn_step["stop_due_to_precision"]
+    epoch_control["restart_due_to_stall"] = post_burn_step["restart_due_to_stall"]
+    epoch_control["stop_due_to_stall"] = post_burn_step["stop_due_to_stall"]
+    return {"done": post_burn_step["done"]}
 
 
 def _finalize_gibbs_priors_for_sampling(
