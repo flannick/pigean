@@ -17952,6 +17952,86 @@ def _build_gibbs_post_burn_update(
     }
 
 
+def _log_gibbs_post_burn_diagnostics(
+    epoch_iter_num,
+    total_iter_num,
+    stop_mcse_quantile,
+    beta_rhat_q_post,
+    beta_ratio_q,
+    max_rel_mcse_beta,
+    beta_rel_mcse_denom_floor,
+    top_gene_k,
+    stop_min_gene_d,
+    num_monitored_genes,
+    num_eligible_genes,
+    D_mcse_q,
+    max_abs_mcse_d,
+    num_active_betas,
+    num_full_gene_sets,
+    num_chains_effective_for_diag,
+    burn_in_pass_streak,
+    burn_in_patience,
+    stop_pass_streak,
+    stop_patience,
+):
+    if stop_min_gene_d is None:
+        log(
+            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+            % (
+                epoch_iter_num,
+                total_iter_num,
+                stop_mcse_quantile,
+                beta_rhat_q_post,
+                stop_mcse_quantile,
+                beta_ratio_q,
+                max_rel_mcse_beta,
+                beta_rel_mcse_denom_floor,
+                stop_mcse_quantile,
+                top_gene_k,
+                D_mcse_q,
+                max_abs_mcse_d,
+                num_active_betas,
+                num_full_gene_sets,
+                num_chains_effective_for_diag,
+                burn_in_pass_streak,
+                burn_in_patience,
+                stop_pass_streak,
+                stop_patience,
+            ),
+            INFO,
+        )
+        return
+
+    log(
+        "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+        % (
+            epoch_iter_num,
+            total_iter_num,
+            stop_mcse_quantile,
+            beta_rhat_q_post,
+            stop_mcse_quantile,
+            beta_ratio_q,
+            max_rel_mcse_beta,
+            beta_rel_mcse_denom_floor,
+            stop_mcse_quantile,
+            top_gene_k,
+            stop_min_gene_d,
+            num_monitored_genes,
+            num_eligible_genes,
+            D_mcse_q,
+            max_abs_mcse_d,
+            num_active_betas,
+            num_full_gene_sets,
+            num_chains_effective_for_diag,
+            burn_in_pass_streak,
+            burn_in_patience,
+            stop_pass_streak,
+            stop_patience,
+        ),
+        INFO,
+    )
+
+
 def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_context,
     phase_kwargs,
@@ -18096,61 +18176,28 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     else:
         stop_pass_streak = 0
 
-    if stop_min_gene_d is None:
-        log(
-            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
-            % (
-                epoch_iter_num,
-                total_iter_num,
-                stop_mcse_quantile,
-                beta_rhat_q_post,
-                stop_mcse_quantile,
-                beta_ratio_q,
-                max_rel_mcse_beta,
-                beta_rel_mcse_denom_floor,
-                stop_mcse_quantile,
-                top_gene_k,
-                D_mcse_q,
-                max_abs_mcse_d,
-                num_active_betas,
-                num_full_gene_sets,
-                num_chains_effective_for_diag,
-                burn_in_pass_streak,
-                burn_in_patience,
-                stop_pass_streak,
-                stop_patience,
-            ),
-            INFO,
-        )
-    else:
-        log(
-            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
-            % (
-                epoch_iter_num,
-                total_iter_num,
-                stop_mcse_quantile,
-                beta_rhat_q_post,
-                stop_mcse_quantile,
-                beta_ratio_q,
-                max_rel_mcse_beta,
-                beta_rel_mcse_denom_floor,
-                stop_mcse_quantile,
-                top_gene_k,
-                stop_min_gene_d,
-                num_monitored_genes,
-                num_eligible_genes,
-                D_mcse_q,
-                max_abs_mcse_d,
-                num_active_betas,
-                num_full_gene_sets,
-                num_chains_effective_for_diag,
-                burn_in_pass_streak,
-                burn_in_patience,
-                stop_pass_streak,
-                stop_patience,
-            ),
-            INFO,
-        )
+    _log_gibbs_post_burn_diagnostics(
+        epoch_iter_num=epoch_iter_num,
+        total_iter_num=total_iter_num,
+        stop_mcse_quantile=stop_mcse_quantile,
+        beta_rhat_q_post=beta_rhat_q_post,
+        beta_ratio_q=beta_ratio_q,
+        max_rel_mcse_beta=max_rel_mcse_beta,
+        beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
+        top_gene_k=top_gene_k,
+        stop_min_gene_d=stop_min_gene_d,
+        num_monitored_genes=num_monitored_genes,
+        num_eligible_genes=num_eligible_genes,
+        D_mcse_q=D_mcse_q,
+        max_abs_mcse_d=max_abs_mcse_d,
+        num_active_betas=num_active_betas,
+        num_full_gene_sets=num_full_gene_sets,
+        num_chains_effective_for_diag=num_chains_effective_for_diag,
+        burn_in_pass_streak=burn_in_pass_streak,
+        burn_in_patience=burn_in_patience,
+        stop_pass_streak=stop_pass_streak,
+        stop_patience=stop_patience,
+    )
 
     precision_achieved = min_post_burn_reached and stop_pass_streak >= stop_patience
     decision = _decide_gibbs_post_burn_action(
