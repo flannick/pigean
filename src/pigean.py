@@ -15678,15 +15678,8 @@ def _update_gibbs_burn_in_state(
     gauss_seidel = phase_kwargs["gauss_seidel"]
     eps = phase_kwargs["eps"]
     diag_every = phase_kwargs["diag_every"]
-    active_beta_top_k = phase_kwargs["active_beta_top_k"]
-    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
     burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
     r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
-    stall_window = phase_kwargs["stall_window"]
-    stall_min_burn_in = phase_kwargs["stall_min_burn_in"]
-    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
-    stall_recent_window = phase_kwargs["stall_recent_window"]
-    stall_recent_eps = phase_kwargs["stall_recent_eps"]
     burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
     burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
     num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
@@ -15694,9 +15687,6 @@ def _update_gibbs_burn_in_state(
     stop_patience = phase_kwargs["stop_patience"]
 
     Y_sample_m = iter_state["Y_sample_m"]
-    all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
-    all_sum_betas2_m = epoch_runtime["all_sum_betas2_m"]
-    all_num_sum_m = epoch_runtime["all_num_sum_m"]
 
     if not in_burn_in:
         return {
@@ -18724,27 +18714,8 @@ def _update_gibbs_post_burn_state(
     restart_due_to_stall = current_restart_due_to_stall
     stop_due_to_stall = current_stop_due_to_stall
 
-    num_chains = phase_kwargs["num_chains"]
-    active_beta_top_k = phase_kwargs["active_beta_top_k"]
-    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
-    stop_mcse_quantile = phase_kwargs["stop_mcse_quantile"]
-    beta_rel_mcse_denom_floor = phase_kwargs["beta_rel_mcse_denom_floor"]
-    stop_top_gene_k = phase_kwargs["stop_top_gene_k"]
-    stop_min_gene_d = phase_kwargs["stop_min_gene_d"]
-    max_rel_mcse_beta = phase_kwargs["max_rel_mcse_beta"]
-    max_abs_mcse_d = phase_kwargs["max_abs_mcse_d"]
-    stop_patience = phase_kwargs["stop_patience"]
-    stall_window = phase_kwargs["stall_window"]
-    stall_min_post_burn_in = phase_kwargs["stall_min_post_burn_in"]
-    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
-    stall_delta_mcse = phase_kwargs["stall_delta_mcse"]
-    stall_recent_window = phase_kwargs["stall_recent_window"]
-    stall_recent_eps = phase_kwargs["stall_recent_eps"]
-    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
-    burn_in_patience = phase_kwargs["burn_in_patience"]
     diag_every = phase_kwargs["diag_every"]
 
-    min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
     max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
 
@@ -18762,9 +18733,6 @@ def _update_gibbs_post_burn_state(
 
     priors_for_Y_m = epoch_priors["priors_for_Y_m"]
     priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
-
-    num_attempts = run_state["num_attempts"]
-    max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
 
     if in_burn_in:
         return {
