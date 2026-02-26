@@ -17444,7 +17444,7 @@ def _run_gibbs_epoch_iterations(
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
-        (iter_state, gene_set_mask_m) = _prepare_gibbs_iteration_state(
+        iter_state, gene_set_mask_m = _prepare_gibbs_iteration_state(
             state=state,
             iteration_num=iteration_num,
             epoch_context=epoch_context,
