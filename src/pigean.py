@@ -17116,14 +17116,13 @@ def _prepare_gibbs_iteration_state(
     iteration_num,
     epoch_context,
     phase_kwargs,
+    inner_beta_kwargs,
     epoch_priors,
     log_bf_m,
     log_bf_raw_m,
     gene_stats_trace_fh,
 ):
     # Prepare all iteration-local sampling and masking state before corrected betas.
-    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
-
     iter_setup = _prepare_gibbs_iteration_inputs(
         state=state,
         iteration_num=iteration_num,
@@ -17472,6 +17471,7 @@ def _run_gibbs_epoch_iterations(
             iteration_num=iteration_num,
             epoch_context=epoch_context,
             phase_kwargs=phase_kwargs,
+            inner_beta_kwargs=inner_beta_kwargs,
             epoch_priors=epoch_priors,
             log_bf_m=log_bf_m,
             log_bf_raw_m=log_bf_raw_m,
