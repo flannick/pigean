@@ -18215,17 +18215,17 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         post_stall_recent_D_mcse_q=post_stall_recent_D_mcse_q,
     )
 
-    return {
-        "stop_pass_streak": stop_pass_streak,
-        "post_stall_beta_indices": post_stall_beta_indices,
-        "post_stall_gene_indices": post_stall_gene_indices,
-        "betas_sem2_v": np.square(beta_mcse_v),
-        "sem2_v": np.square(D_mcse_v),
-        "done": decision["done"],
-        "stop_due_to_precision": decision["stop_due_to_precision"],
-        "restart_due_to_stall": decision["restart_due_to_stall"],
-        "stop_due_to_stall": decision["stop_due_to_stall"],
-    }
+    return _build_gibbs_post_burn_update(
+        stop_pass_streak=stop_pass_streak,
+        post_stall_beta_indices=post_stall_beta_indices,
+        post_stall_gene_indices=post_stall_gene_indices,
+        betas_sem2_v=np.square(beta_mcse_v),
+        sem2_v=np.square(D_mcse_v),
+        done=decision["done"],
+        stop_due_to_precision=decision["stop_due_to_precision"],
+        restart_due_to_stall=decision["restart_due_to_stall"],
+        stop_due_to_stall=decision["stop_due_to_stall"],
+    )
 
 
 def _update_gibbs_post_burn_state(
