@@ -18921,52 +18921,15 @@ def _advance_gibbs_post_burn_and_trace_step(
     in_burn_in = current_in_burn_in
     burn_in_pass_streak = current_burn_in_pass_streak
     stop_pass_streak = current_stop_pass_streak
-    post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
-    post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
-    post_stall_snapshots = epoch_control["post_stall_snapshots"]
-    post_stall_beta_indices = epoch_control["post_stall_beta_indices"]
-    post_stall_gene_indices = epoch_control["post_stall_gene_indices"]
-    betas_sem2_v = epoch_control["betas_sem2_v"]
-    sem2_v = epoch_control["sem2_v"]
     stop_due_to_precision = epoch_control["stop_due_to_precision"]
     restart_due_to_stall = epoch_control["restart_due_to_stall"]
     stop_due_to_stall = epoch_control["stop_due_to_stall"]
     R_beta_v = current_R_beta_v
 
-    diag_every = phase_kwargs["diag_every"]
-    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
-    burn_in_patience = phase_kwargs["burn_in_patience"]
-    stop_patience = phase_kwargs["stop_patience"]
-    num_chains = phase_kwargs["num_chains"]
-    active_beta_top_k = phase_kwargs["active_beta_top_k"]
-    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
-    stop_mcse_quantile = phase_kwargs["stop_mcse_quantile"]
-    beta_rel_mcse_denom_floor = phase_kwargs["beta_rel_mcse_denom_floor"]
-    stop_top_gene_k = phase_kwargs["stop_top_gene_k"]
-    stop_min_gene_d = phase_kwargs["stop_min_gene_d"]
-    max_rel_mcse_beta = phase_kwargs["max_rel_mcse_beta"]
-    max_abs_mcse_d = phase_kwargs["max_abs_mcse_d"]
-    stall_window = phase_kwargs["stall_window"]
-    stall_min_post_burn_in = phase_kwargs["stall_min_post_burn_in"]
-    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
-    stall_delta_mcse = phase_kwargs["stall_delta_mcse"]
-    stall_recent_window = phase_kwargs["stall_recent_window"]
-    stall_recent_eps = phase_kwargs["stall_recent_eps"]
     use_mean_betas = phase_kwargs["use_mean_betas"]
 
-    epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
-    max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
-    min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
     trace_chain_offset = epoch_context["trace_chain_offset"]
 
-    epoch_iter_num = iter_state["epoch_iter_num"]
-    total_iter_num = iter_state["total_iter_num"]
-    Y_sample_m = iter_state["Y_sample_m"]
-    Y_raw_sample_m = iter_state["Y_raw_sample_m"]
-    log_po_sample_m = iter_state["log_po_sample_m"]
-    log_po_raw_sample_m = iter_state["log_po_raw_sample_m"]
-    D_sample_m = iter_state["D_sample_m"]
-    D_raw_sample_m = iter_state["D_raw_sample_m"]
     uncorrected_betas_mean_m = iter_state["uncorrected_betas_mean_m"]
     full_beta_tildes_m = iter_state["full_beta_tildes_m"]
     full_z_scores_m = iter_state["full_z_scores_m"]
@@ -18974,12 +18937,6 @@ def _advance_gibbs_post_burn_and_trace_step(
     full_ses_m = iter_state["full_ses_m"]
     uncorrected_betas_sample_m = iter_state["uncorrected_betas_sample_m"]
     full_z_cur_beta_tildes_m = iter_state["full_z_cur_beta_tildes_m"]
-
-    priors_for_Y_m = epoch_priors["priors_for_Y_m"]
-    priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
-
-    num_attempts = run_state["num_attempts"]
-    max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
 
     done = False
     post_burn_update = _update_gibbs_post_burn_state(
