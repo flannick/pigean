@@ -17304,16 +17304,11 @@ def _prepare_and_start_gibbs_epoch(
     phase_kwargs,
     epoch_aggregates,
 ):
-    num_chains = phase_kwargs["num_chains"]
-    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
-    use_mean_betas = phase_kwargs["use_mean_betas"]
-    max_mb_X_h = phase_kwargs["max_mb_X_h"]
-
     epoch_attempt = _prepare_gibbs_epoch_attempt(
         state=state,
         run_state=run_state,
         total_num_iter=total_num_iter,
-        num_chains=num_chains,
+        num_chains=phase_kwargs["num_chains"],
         phase_kwargs=phase_kwargs,
     )
     if epoch_attempt is None:
@@ -17321,10 +17316,10 @@ def _prepare_and_start_gibbs_epoch(
 
     epoch_context = _start_gibbs_epoch(
         state=state,
-        num_chains=num_chains,
-        num_full_gene_sets=num_full_gene_sets,
-        use_mean_betas=use_mean_betas,
-        max_mb_X_h=max_mb_X_h,
+        num_chains=phase_kwargs["num_chains"],
+        num_full_gene_sets=phase_kwargs["num_full_gene_sets"],
+        use_mean_betas=phase_kwargs["use_mean_betas"],
+        max_mb_X_h=phase_kwargs["max_mb_X_h"],
         log_fun=log,
         epoch_aggregates=epoch_aggregates,
         num_p_increases=run_state["num_p_increases"],
