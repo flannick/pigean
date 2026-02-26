@@ -18189,11 +18189,9 @@ def _update_gibbs_post_burn_state(
     log_bf_raw_m,
     full_betas_mean_m,
     full_postp_sample_m,
-    iteration_num,
 ):
     in_burn_in = epoch_control["in_burn_in"]
     stop_pass_streak = epoch_control["stop_pass_streak"]
-    burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
 
     post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
     post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
@@ -18262,7 +18260,7 @@ def _update_gibbs_post_burn_state(
         epoch_sums,
     )
 
-    if np.all(epoch_sums["num_sum_Y_m"] > 1) and np.all(epoch_sums["num_sum_beta_m"] > 1) and ((iteration_num + 1) % diag_every == 0 or iteration_num + 1 == epoch_max_num_iter):
+    if np.all(epoch_sums["num_sum_Y_m"] > 1) and np.all(epoch_sums["num_sum_beta_m"] > 1) and (epoch_iter_num % diag_every == 0 or epoch_iter_num == epoch_max_num_iter):
         post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
             epoch_context=epoch_context,
             phase_kwargs=phase_kwargs,
@@ -18356,7 +18354,6 @@ def _advance_gibbs_iteration_progress(
         epoch_priors=epoch_priors,
         epoch_control=epoch_control,
         run_state=run_state,
-        iteration_num=iteration_num,
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
