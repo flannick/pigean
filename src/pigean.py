@@ -17952,6 +17952,19 @@ def _build_gibbs_post_burn_update(
     }
 
 
+def _should_run_gibbs_post_burn_diagnostics(
+    epoch_sums,
+    diag_every,
+    epoch_iter_num,
+    epoch_max_num_iter,
+):
+    return (
+        np.all(epoch_sums["num_sum_Y_m"] > 1)
+        and np.all(epoch_sums["num_sum_beta_m"] > 1)
+        and (epoch_iter_num % diag_every == 0 or epoch_iter_num == epoch_max_num_iter)
+    )
+
+
 def _log_gibbs_post_burn_diagnostics(
     epoch_iter_num,
     total_iter_num,
@@ -18313,7 +18326,12 @@ def _update_gibbs_post_burn_state(
         epoch_sums,
     )
 
-    if np.all(epoch_sums["num_sum_Y_m"] > 1) and np.all(epoch_sums["num_sum_beta_m"] > 1) and (epoch_iter_num % diag_every == 0 or epoch_iter_num == epoch_max_num_iter):
+    if _should_run_gibbs_post_burn_diagnostics(
+        epoch_sums=epoch_sums,
+        diag_every=diag_every,
+        epoch_iter_num=epoch_iter_num,
+        epoch_max_num_iter=epoch_max_num_iter,
+    ):
         post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
             epoch_context=epoch_context,
             phase_kwargs=phase_kwargs,
