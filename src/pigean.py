@@ -17017,39 +17017,45 @@ def _accumulate_gibbs_post_burn_iteration(
 def _prepare_gibbs_iteration_inputs(
     state,
     iteration_num,
-    epoch_total_iter_offset,
-    priors_for_Y_m,
+    epoch_context,
+    phase_kwargs,
+    epoch_priors,
     log_bf_m,
     log_bf_raw_m,
-    cur_background_log_bf_v,
-    y_var_orig,
-    gauss_seidel,
-    num_chains,
-    full_betas_m_shape,
-    num_stack_batches,
-    stack_batch_size,
-    X_hstacked,
-    initial_linear_filter,
-    sparse_frac_gibbs,
-    sparse_max_gibbs,
-    passed_in_max_num_burn_in,
-    max_num_iter_betas,
-    min_num_iter_betas,
-    num_chains_betas,
-    r_threshold_burn_in_betas,
-    use_max_r_for_convergence_betas,
-    max_frac_sem_betas,
-    max_allowed_batch_correlation,
-    gauss_seidel_betas,
-    sparse_solution,
-    sparse_frac_betas,
-    correct_betas_mean,
-    correct_betas_var,
     gene_stats_trace_fh,
-    trace_chain_offset,
-    priors_percentage_max_for_Y_m,
-    priors_adjustment_for_Y_m,
 ):
+    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
+    full_betas_m_shape = epoch_context["full_betas_m_shape"]
+    num_stack_batches = epoch_context["num_stack_batches"]
+    stack_batch_size = epoch_context["stack_batch_size"]
+    X_hstacked = epoch_context["X_hstacked"]
+    trace_chain_offset = epoch_context["trace_chain_offset"]
+
+    priors_for_Y_m = epoch_priors["priors_for_Y_m"]
+    priors_percentage_max_for_Y_m = epoch_priors["priors_percentage_max_for_Y_m"]
+    priors_adjustment_for_Y_m = epoch_priors["priors_adjustment_for_Y_m"]
+
+    cur_background_log_bf_v = phase_kwargs["cur_background_log_bf_v"]
+    y_var_orig = phase_kwargs["y_var_orig"]
+    gauss_seidel = phase_kwargs["gauss_seidel"]
+    num_chains = phase_kwargs["num_chains"]
+    initial_linear_filter = phase_kwargs["initial_linear_filter"]
+    sparse_frac_gibbs = phase_kwargs["sparse_frac_gibbs"]
+    sparse_max_gibbs = phase_kwargs["sparse_max_gibbs"]
+    passed_in_max_num_burn_in = phase_kwargs["passed_in_max_num_burn_in"]
+    max_num_iter_betas = phase_kwargs["max_num_iter_betas"]
+    min_num_iter_betas = phase_kwargs["min_num_iter_betas"]
+    num_chains_betas = phase_kwargs["num_chains_betas"]
+    r_threshold_burn_in_betas = phase_kwargs["r_threshold_burn_in_betas"]
+    use_max_r_for_convergence_betas = phase_kwargs["use_max_r_for_convergence_betas"]
+    max_frac_sem_betas = phase_kwargs["max_frac_sem_betas"]
+    max_allowed_batch_correlation = phase_kwargs["max_allowed_batch_correlation"]
+    gauss_seidel_betas = phase_kwargs["gauss_seidel_betas"]
+    sparse_solution = phase_kwargs["sparse_solution"]
+    sparse_frac_betas = phase_kwargs["sparse_frac_betas"]
+    correct_betas_mean = phase_kwargs["correct_betas_mean"]
+    correct_betas_var = phase_kwargs["correct_betas_var"]
+
     epoch_iter_num = iteration_num + 1
     total_iter_num = epoch_total_iter_offset + epoch_iter_num
 
@@ -17157,18 +17163,6 @@ def _prepare_gibbs_iteration_state(
     gene_stats_trace_fh,
 ):
     # Prepare all iteration-local sampling and masking state before corrected betas.
-    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
-    full_betas_m_shape = epoch_context["full_betas_m_shape"]
-    num_stack_batches = epoch_context["num_stack_batches"]
-    stack_batch_size = epoch_context["stack_batch_size"]
-    X_hstacked = epoch_context["X_hstacked"]
-    trace_chain_offset = epoch_context["trace_chain_offset"]
-
-    cur_background_log_bf_v = phase_kwargs["cur_background_log_bf_v"]
-    y_var_orig = phase_kwargs["y_var_orig"]
-    gauss_seidel = phase_kwargs["gauss_seidel"]
-    num_chains = phase_kwargs["num_chains"]
-    initial_linear_filter = phase_kwargs["initial_linear_filter"]
     sparse_frac_gibbs = phase_kwargs["sparse_frac_gibbs"]
     sparse_max_gibbs = phase_kwargs["sparse_max_gibbs"]
     pre_filter_batch_size = phase_kwargs["pre_filter_batch_size"]
@@ -17188,40 +17182,14 @@ def _prepare_gibbs_iteration_state(
     correct_betas_var = phase_kwargs["correct_betas_var"]
 
     iter_setup = _prepare_gibbs_iteration_inputs(
-        state,
-        iteration_num,
-        epoch_total_iter_offset,
-        epoch_priors["priors_for_Y_m"],
-        log_bf_m,
-        log_bf_raw_m,
-        cur_background_log_bf_v,
-        y_var_orig,
-        gauss_seidel,
-        num_chains,
-        full_betas_m_shape,
-        num_stack_batches,
-        stack_batch_size,
-        X_hstacked,
-        initial_linear_filter,
-        sparse_frac_gibbs,
-        sparse_max_gibbs,
-        passed_in_max_num_burn_in,
-        max_num_iter_betas,
-        min_num_iter_betas,
-        num_chains_betas,
-        r_threshold_burn_in_betas,
-        use_max_r_for_convergence_betas,
-        max_frac_sem_betas,
-        max_allowed_batch_correlation,
-        gauss_seidel_betas,
-        sparse_solution,
-        sparse_frac_betas,
-        correct_betas_mean,
-        correct_betas_var,
-        gene_stats_trace_fh,
-        trace_chain_offset,
-        epoch_priors["priors_percentage_max_for_Y_m"],
-        epoch_priors["priors_adjustment_for_Y_m"],
+        state=state,
+        iteration_num=iteration_num,
+        epoch_context=epoch_context,
+        phase_kwargs=phase_kwargs,
+        epoch_priors=epoch_priors,
+        log_bf_m=log_bf_m,
+        log_bf_raw_m=log_bf_raw_m,
+        gene_stats_trace_fh=gene_stats_trace_fh,
     )
     iter_state = dict(iter_setup)
 
