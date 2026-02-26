@@ -18066,27 +18066,15 @@ def _run_gibbs_iteration_correction_and_updates(
     epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
 
     all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
-        state,
-        full_betas_mean_m,
-        iter_state["full_z_scores_m"],
-        iter_state["Y_sample_m"],
-        epoch_runtime["all_sum_betas_m"],
-        epoch_runtime["all_sum_betas2_m"],
-        epoch_runtime["all_sum_z_scores_m"],
-        epoch_runtime["all_sum_z_scores2_m"],
-        epoch_runtime["all_num_sum_m"],
-        epoch_runtime["all_sum_Ys_m"],
-        epoch_runtime["all_sum_Ys2_m"],
-        increase_hyper_if_betas_below_for_epoch,
-        epoch_sums["num_sum_beta_m"],
-        epoch_sums["sum_betas_m"],
-        num_mad,
-        num_before_checking_p_increase,
-        iteration_num,
-        p_scale_factor,
-        run_state["num_attempts"],
-        run_state["max_num_attempt_restarts"],
-        epoch_runtime["num_p_increases"],
+        state=state,
+        epoch_runtime=epoch_runtime,
+        epoch_sums=epoch_sums,
+        run_state=run_state,
+        epoch_context=epoch_context,
+        phase_kwargs=phase_kwargs,
+        iter_state=iter_state,
+        iteration_num=iteration_num,
+        full_betas_mean_m=full_betas_mean_m,
     )
     should_break = _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update)
 
@@ -19619,27 +19607,39 @@ def _refresh_gibbs_iteration_priors_and_huge(
 
 def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     state,
-    full_betas_mean_m,
-    full_z_scores_m,
-    Y_sample_m,
-    all_sum_betas_m,
-    all_sum_betas2_m,
-    all_sum_z_scores_m,
-    all_sum_z_scores2_m,
-    all_num_sum_m,
-    all_sum_Ys_m,
-    all_sum_Ys2_m,
-    increase_hyper_if_betas_below_for_epoch,
-    num_sum_beta_m,
-    sum_betas_m,
-    num_mad,
-    num_before_checking_p_increase,
+    epoch_runtime,
+    epoch_sums,
+    run_state,
+    epoch_context,
+    phase_kwargs,
+    iter_state,
     iteration_num,
-    p_scale_factor,
-    num_attempts,
-    max_num_attempt_restarts,
-    num_p_increases,
+    full_betas_mean_m,
 ):
+    full_z_scores_m = iter_state["full_z_scores_m"]
+    Y_sample_m = iter_state["Y_sample_m"]
+
+    all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
+    all_sum_betas2_m = epoch_runtime["all_sum_betas2_m"]
+    all_sum_z_scores_m = epoch_runtime["all_sum_z_scores_m"]
+    all_sum_z_scores2_m = epoch_runtime["all_sum_z_scores2_m"]
+    all_num_sum_m = epoch_runtime["all_num_sum_m"]
+    all_sum_Ys_m = epoch_runtime["all_sum_Ys_m"]
+    all_sum_Ys2_m = epoch_runtime["all_sum_Ys2_m"]
+    num_p_increases = epoch_runtime["num_p_increases"]
+
+    increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
+    num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
+    p_scale_factor = epoch_context["p_scale_factor"]
+
+    num_sum_beta_m = epoch_sums["num_sum_beta_m"]
+    sum_betas_m = epoch_sums["sum_betas_m"]
+
+    num_mad = phase_kwargs["num_mad"]
+
+    num_attempts = run_state["num_attempts"]
+    max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
+
     all_sum_betas_m = np.add(all_sum_betas_m, full_betas_mean_m)
     all_sum_betas2_m = np.add(all_sum_betas2_m, np.power(full_betas_mean_m, 2))
     all_sum_z_scores_m = np.add(all_sum_z_scores_m, full_z_scores_m)
