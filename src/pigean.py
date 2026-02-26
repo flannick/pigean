@@ -17650,6 +17650,11 @@ def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig)
     return y_corr_sparse.tocsc()
 
 
+def _update_gibbs_epoch_control(epoch_control, update_values, keys):
+    for key in keys:
+        epoch_control[key] = update_values[key]
+
+
 def _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel):
     # Keep the legacy initialization shape/type behavior, then overwrite by mode.
     p_sample_m = copy.copy(Y_sample_m)
@@ -18316,12 +18321,18 @@ def _advance_gibbs_iteration_progress(
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
     )
-    epoch_control["in_burn_in"] = burn_in_update["in_burn_in"]
-    epoch_control["burn_in_pass_streak"] = burn_in_update["burn_in_pass_streak"]
-    epoch_control["stop_pass_streak"] = burn_in_update["stop_pass_streak"]
-    epoch_control["prev_Ys_m"] = burn_in_update["prev_Ys_m"]
-    epoch_control["burn_stall_beta_indices"] = burn_in_update["burn_stall_beta_indices"]
-    epoch_control["R_beta_v"] = burn_in_update["R_beta_v"]
+    _update_gibbs_epoch_control(
+        epoch_control,
+        burn_in_update,
+        (
+            "in_burn_in",
+            "burn_in_pass_streak",
+            "stop_pass_streak",
+            "prev_Ys_m",
+            "burn_stall_beta_indices",
+            "R_beta_v",
+        ),
+    )
 
     post_burn_update = _update_gibbs_post_burn_state(
         state=state,
@@ -18362,14 +18373,20 @@ def _advance_gibbs_iteration_progress(
         phase_kwargs["use_mean_betas"],
     )
 
-    epoch_control["stop_pass_streak"] = post_burn_update["stop_pass_streak"]
-    epoch_control["post_stall_beta_indices"] = post_burn_update["post_stall_beta_indices"]
-    epoch_control["post_stall_gene_indices"] = post_burn_update["post_stall_gene_indices"]
-    epoch_control["betas_sem2_v"] = post_burn_update["betas_sem2_v"]
-    epoch_control["sem2_v"] = post_burn_update["sem2_v"]
-    epoch_control["stop_due_to_precision"] = post_burn_update["stop_due_to_precision"]
-    epoch_control["restart_due_to_stall"] = post_burn_update["restart_due_to_stall"]
-    epoch_control["stop_due_to_stall"] = post_burn_update["stop_due_to_stall"]
+    _update_gibbs_epoch_control(
+        epoch_control,
+        post_burn_update,
+        (
+            "stop_pass_streak",
+            "post_stall_beta_indices",
+            "post_stall_gene_indices",
+            "betas_sem2_v",
+            "sem2_v",
+            "stop_due_to_precision",
+            "restart_due_to_stall",
+            "stop_due_to_stall",
+        ),
+    )
     return {"done": post_burn_update["done"]}
 
 
