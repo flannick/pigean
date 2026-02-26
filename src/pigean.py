@@ -17168,7 +17168,7 @@ def _prepare_gibbs_iteration_state(
         default_postp_mean_m=iter_state["default_postp_mean_m"],
     )
 
-    return {"iter_state": iter_state, "gene_set_mask_m": gene_set_mask_m}
+    return (iter_state, gene_set_mask_m)
 
 
 def _build_gibbs_inner_beta_kwargs(phase_kwargs):
@@ -17445,7 +17445,7 @@ def _run_gibbs_epoch_iterations(
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
-        iteration_prepare = _prepare_gibbs_iteration_state(
+        (iter_state, gene_set_mask_m) = _prepare_gibbs_iteration_state(
             state=state,
             iteration_num=iteration_num,
             epoch_context=epoch_context,
@@ -17455,8 +17455,6 @@ def _run_gibbs_epoch_iterations(
             log_bf_raw_m=log_bf_raw_m,
             gene_stats_trace_fh=gene_stats_trace_fh,
         )
-        iter_state = iteration_prepare["iter_state"]
-        gene_set_mask_m = iteration_prepare["gene_set_mask_m"]
 
         iteration_update = _run_gibbs_iteration_correction_and_updates(
             state=state,
