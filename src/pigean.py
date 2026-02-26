@@ -17988,6 +17988,22 @@ def _extract_gibbs_post_burn_diag_config(phase_kwargs):
     }
 
 
+def _extract_gibbs_post_burn_iteration_inputs(iter_state):
+    return {
+        "epoch_iter_num": iter_state["epoch_iter_num"],
+        "total_iter_num": iter_state["total_iter_num"],
+        "Y_sample_m": iter_state["Y_sample_m"],
+        "Y_raw_sample_m": iter_state["Y_raw_sample_m"],
+        "log_po_sample_m": iter_state["log_po_sample_m"],
+        "log_po_raw_sample_m": iter_state["log_po_raw_sample_m"],
+        "D_sample_m": iter_state["D_sample_m"],
+        "D_raw_sample_m": iter_state["D_raw_sample_m"],
+        "uncorrected_betas_mean_m": iter_state["uncorrected_betas_mean_m"],
+        "full_beta_tildes_m": iter_state["full_beta_tildes_m"],
+        "full_z_scores_m": iter_state["full_z_scores_m"],
+    }
+
+
 def _log_gibbs_post_burn_diagnostics(
     epoch_iter_num,
     total_iter_num,
@@ -18301,17 +18317,18 @@ def _update_gibbs_post_burn_state(
     max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
 
-    epoch_iter_num = iter_state["epoch_iter_num"]
-    total_iter_num = iter_state["total_iter_num"]
-    Y_sample_m = iter_state["Y_sample_m"]
-    Y_raw_sample_m = iter_state["Y_raw_sample_m"]
-    log_po_sample_m = iter_state["log_po_sample_m"]
-    log_po_raw_sample_m = iter_state["log_po_raw_sample_m"]
-    D_sample_m = iter_state["D_sample_m"]
-    D_raw_sample_m = iter_state["D_raw_sample_m"]
-    uncorrected_betas_mean_m = iter_state["uncorrected_betas_mean_m"]
-    full_beta_tildes_m = iter_state["full_beta_tildes_m"]
-    full_z_scores_m = iter_state["full_z_scores_m"]
+    iter_inputs = _extract_gibbs_post_burn_iteration_inputs(iter_state)
+    epoch_iter_num = iter_inputs["epoch_iter_num"]
+    total_iter_num = iter_inputs["total_iter_num"]
+    Y_sample_m = iter_inputs["Y_sample_m"]
+    Y_raw_sample_m = iter_inputs["Y_raw_sample_m"]
+    log_po_sample_m = iter_inputs["log_po_sample_m"]
+    log_po_raw_sample_m = iter_inputs["log_po_raw_sample_m"]
+    D_sample_m = iter_inputs["D_sample_m"]
+    D_raw_sample_m = iter_inputs["D_raw_sample_m"]
+    uncorrected_betas_mean_m = iter_inputs["uncorrected_betas_mean_m"]
+    full_beta_tildes_m = iter_inputs["full_beta_tildes_m"]
+    full_z_scores_m = iter_inputs["full_z_scores_m"]
 
     priors_for_Y_m = epoch_priors["priors_for_Y_m"]
     priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
