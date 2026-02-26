@@ -18318,8 +18318,6 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_sums,
     epoch_control,
     run_state,
-    current_stop_pass_streak,
-    current_burn_in_pass_streak,
 ):
     epoch_aggregates = epoch_sums["epoch_aggregates"]
     sum_betas_m = epoch_sums["sum_betas_m"]
@@ -18351,8 +18349,8 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_iter_num = iter_state["epoch_iter_num"]
     total_iter_num = iter_state["total_iter_num"]
 
-    stop_pass_streak = current_stop_pass_streak
-    burn_in_pass_streak = current_burn_in_pass_streak
+    stop_pass_streak = epoch_control["stop_pass_streak"]
+    burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
     post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
     post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
     post_stall_snapshots = epoch_control["post_stall_snapshots"]
@@ -18574,9 +18572,6 @@ def _update_gibbs_post_burn_state(
     epoch_priors,
     epoch_control,
     run_state,
-    current_in_burn_in,
-    current_stop_pass_streak,
-    current_burn_in_pass_streak,
     log_bf_m,
     log_bf_uncorrected_m,
     log_bf_raw_m,
@@ -18663,8 +18658,6 @@ def _update_gibbs_post_burn_state(
             epoch_sums=epoch_sums,
             epoch_control=epoch_control,
             run_state=run_state,
-            current_stop_pass_streak=stop_pass_streak,
-            current_burn_in_pass_streak=burn_in_pass_streak,
         )
 
         stop_pass_streak = post_burn_diag["stop_pass_streak"]
@@ -18774,9 +18767,6 @@ def _advance_gibbs_post_burn_and_trace_step(
         epoch_priors=epoch_priors,
         epoch_control=epoch_control,
         run_state=run_state,
-        current_in_burn_in=in_burn_in,
-        current_stop_pass_streak=stop_pass_streak,
-        current_burn_in_pass_streak=burn_in_pass_streak,
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
