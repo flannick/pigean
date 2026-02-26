@@ -17305,14 +17305,13 @@ def _reset_gibbs_diagnostics(state):
 def _prepare_and_start_gibbs_epoch(
     state,
     run_state,
-    total_num_iter,
     phase_kwargs,
     epoch_aggregates,
 ):
     epoch_attempt = _prepare_gibbs_epoch_attempt(
         state=state,
         run_state=run_state,
-        total_num_iter=total_num_iter,
+        total_num_iter=phase_kwargs["total_num_iter"],
         num_chains=phase_kwargs["num_chains"],
         phase_kwargs=phase_kwargs,
     )
@@ -17368,7 +17367,6 @@ def _run_gibbs_epoch_phase(
         epoch_context = _prepare_and_start_gibbs_epoch(
             state=state,
             run_state=run_state,
-            total_num_iter=phase_kwargs["total_num_iter"],
             phase_kwargs=phase_kwargs,
             epoch_aggregates=epoch_aggregates,
         )
