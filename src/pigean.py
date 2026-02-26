@@ -18021,6 +18021,17 @@ def _extract_gibbs_post_burn_control_state(epoch_control):
     }
 
 
+def _extract_gibbs_post_burn_sum_state(epoch_sums):
+    return {
+        "epoch_aggregates": epoch_sums["epoch_aggregates"],
+        "sum_betas_m": epoch_sums["sum_betas_m"],
+        "sum_betas2_m": epoch_sums["sum_betas2_m"],
+        "num_sum_beta_m": epoch_sums["num_sum_beta_m"],
+        "sum_Ds_m": epoch_sums["sum_Ds_m"],
+        "num_sum_Y_m": epoch_sums["num_sum_Y_m"],
+    }
+
+
 def _log_gibbs_post_burn_diagnostics(
     epoch_iter_num,
     total_iter_num,
@@ -18109,12 +18120,13 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_control,
     run_state,
 ):
-    epoch_aggregates = epoch_sums["epoch_aggregates"]
-    sum_betas_m = epoch_sums["sum_betas_m"]
-    sum_betas2_m = epoch_sums["sum_betas2_m"]
-    num_sum_beta_m = epoch_sums["num_sum_beta_m"]
-    sum_Ds_m = epoch_sums["sum_Ds_m"]
-    num_sum_Y_m = epoch_sums["num_sum_Y_m"]
+    post_burn_sums = _extract_gibbs_post_burn_sum_state(epoch_sums)
+    epoch_aggregates = post_burn_sums["epoch_aggregates"]
+    sum_betas_m = post_burn_sums["sum_betas_m"]
+    sum_betas2_m = post_burn_sums["sum_betas2_m"]
+    num_sum_beta_m = post_burn_sums["num_sum_beta_m"]
+    sum_Ds_m = post_burn_sums["sum_Ds_m"]
+    num_sum_Y_m = post_burn_sums["num_sum_Y_m"]
 
     diag_config = _extract_gibbs_post_burn_diag_config(phase_kwargs)
     num_chains = diag_config["num_chains"]
