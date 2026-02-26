@@ -15801,19 +15801,28 @@ def _update_gibbs_burn_in_state(
 
 def _maybe_restart_gibbs_for_low_betas(
     state,
-    increase_hyper_if_betas_below_for_epoch,
-    all_sum_betas_m,
-    all_num_sum_m,
-    num_sum_beta_m,
-    sum_betas_m,
-    num_mad,
-    num_before_checking_p_increase,
+    epoch_context,
+    run_state,
+    epoch_runtime,
+    epoch_sums,
+    phase_kwargs,
     iteration_num,
-    p_scale_factor,
-    num_attempts,
-    max_num_attempt_restarts,
-    num_p_increases,
 ):
+    increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
+    num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
+    p_scale_factor = epoch_context["p_scale_factor"]
+
+    all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
+    all_num_sum_m = epoch_runtime["all_num_sum_m"]
+    num_p_increases = epoch_runtime["num_p_increases"]
+
+    num_sum_beta_m = epoch_sums["num_sum_beta_m"]
+    sum_betas_m = epoch_sums["sum_betas_m"]
+
+    num_mad = phase_kwargs["num_mad"]
+    num_attempts = run_state["num_attempts"]
+    max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
+
     gibbs_good = True
     should_break = False
 
@@ -19648,19 +19657,13 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     R_beta_v = np.zeros(all_sum_betas_m.shape[1])
 
     low_beta_restart_update = _maybe_restart_gibbs_for_low_betas(
-        state,
-        increase_hyper_if_betas_below_for_epoch,
-        all_sum_betas_m,
-        all_num_sum_m,
-        num_sum_beta_m,
-        sum_betas_m,
-        num_mad,
-        num_before_checking_p_increase,
-        iteration_num,
-        p_scale_factor,
-        num_attempts,
-        max_num_attempt_restarts,
-        num_p_increases,
+        state=state,
+        epoch_context=epoch_context,
+        run_state=run_state,
+        epoch_runtime=epoch_runtime,
+        epoch_sums=epoch_sums,
+        phase_kwargs=phase_kwargs,
+        iteration_num=iteration_num,
     )
 
     return {
