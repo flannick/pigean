@@ -17122,6 +17122,7 @@ def _prepare_gibbs_iteration_state(
     inner_beta_kwargs,
     iteration_input_config,
     logistic_config,
+    prefilter_config,
     epoch_priors,
     log_bf_m,
     log_bf_raw_m,
@@ -17164,7 +17165,8 @@ def _prepare_gibbs_iteration_state(
     ) = _prepare_gibbs_gene_set_mask_with_prefilter(
         state,
         iter_state=iter_state,
-        phase_kwargs=phase_kwargs,
+        prefilter_config=prefilter_config,
+        inner_beta_kwargs=inner_beta_kwargs,
         default_betas_sample_m=iter_state["default_betas_sample_m"],
         default_postp_sample_m=iter_state["default_postp_sample_m"],
         default_betas_mean_m=iter_state["default_betas_mean_m"],
@@ -17244,6 +17246,15 @@ def _extract_gibbs_logistic_config(phase_kwargs):
         "sparse_max_gibbs": phase_kwargs["sparse_max_gibbs"],
         "correct_betas_mean": phase_kwargs["correct_betas_mean"],
         "correct_betas_var": phase_kwargs["correct_betas_var"],
+    }
+
+
+def _extract_gibbs_prefilter_config(phase_kwargs):
+    return {
+        "sparse_frac_gibbs": phase_kwargs["sparse_frac_gibbs"],
+        "sparse_max_gibbs": phase_kwargs["sparse_max_gibbs"],
+        "pre_filter_batch_size": phase_kwargs["pre_filter_batch_size"],
+        "pre_filter_small_batch_size": phase_kwargs["pre_filter_small_batch_size"],
     }
 
 
@@ -17491,6 +17502,7 @@ def _run_gibbs_epoch_iterations(
     low_beta_restart_config = _extract_gibbs_low_beta_restart_config(phase_kwargs, run_state)
     iteration_input_config = _extract_gibbs_iteration_input_config(phase_kwargs)
     logistic_config = _extract_gibbs_logistic_config(phase_kwargs)
+    prefilter_config = _extract_gibbs_prefilter_config(phase_kwargs)
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17502,6 +17514,7 @@ def _run_gibbs_epoch_iterations(
             inner_beta_kwargs=inner_beta_kwargs,
             iteration_input_config=iteration_input_config,
             logistic_config=logistic_config,
+            prefilter_config=prefilter_config,
             epoch_priors=epoch_priors,
             log_bf_m=log_bf_m,
             log_bf_raw_m=log_bf_raw_m,
@@ -18728,7 +18741,8 @@ def _compute_gibbs_uncorrected_betas_and_defaults(
 def _prepare_gibbs_gene_set_mask_with_prefilter(
     state,
     iter_state,
-    phase_kwargs,
+    prefilter_config,
+    inner_beta_kwargs,
     default_betas_sample_m,
     default_postp_sample_m,
     default_betas_mean_m,
@@ -18745,11 +18759,10 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
     full_ps_m = iter_state["full_ps_m"]
     full_sigma2s_m = iter_state["full_sigma2s_m"]
 
-    sparse_frac_gibbs = phase_kwargs["sparse_frac_gibbs"]
-    sparse_max_gibbs = phase_kwargs["sparse_max_gibbs"]
-    pre_filter_batch_size = phase_kwargs["pre_filter_batch_size"]
-    pre_filter_small_batch_size = phase_kwargs["pre_filter_small_batch_size"]
-    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
+    sparse_frac_gibbs = prefilter_config["sparse_frac_gibbs"]
+    sparse_max_gibbs = prefilter_config["sparse_max_gibbs"]
+    pre_filter_batch_size = prefilter_config["pre_filter_batch_size"]
+    pre_filter_small_batch_size = prefilter_config["pre_filter_small_batch_size"]
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
     # Start from sparsity mask on uncorrected betas, then optionally run a
