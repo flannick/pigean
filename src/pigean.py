@@ -8431,24 +8431,26 @@ class GeneSetData(object):
             num_before_checking_p_increase = epoch_attempt["num_before_checking_p_increase"]
             epoch_total_iter_offset = epoch_attempt["epoch_total_iter_offset"]
 
-            epoch_state = _initialize_gibbs_epoch_state(
-                self,
-                num_chains,
-                num_full_gene_sets,
-                use_mean_betas,
-                max_mb_X_h,
-                log,
+            epoch_context = _start_gibbs_epoch(
+                state=self,
+                num_chains=num_chains,
+                num_full_gene_sets=num_full_gene_sets,
+                use_mean_betas=use_mean_betas,
+                max_mb_X_h=max_mb_X_h,
+                log_fun=log,
+                epoch_aggregates=epoch_aggregates,
+                num_p_increases=run_state["num_p_increases"],
             )
-            full_betas_m_shape = epoch_state["full_betas_m_shape"]
-            epoch_control = _initialize_gibbs_epoch_control_state(epoch_state)
-            epoch_sums = _initialize_gibbs_epoch_sums_state(epoch_state, epoch_aggregates)
-            epoch_priors = _initialize_gibbs_epoch_priors_state(epoch_state)
-            epoch_runtime = _initialize_gibbs_epoch_runtime_state(epoch_state, run_state["num_p_increases"])
-            post_burn_reset_arrays = epoch_state["post_burn_reset_arrays"]
-            post_burn_reset_missing_arrays = epoch_state["post_burn_reset_missing_arrays"]
-            X_hstacked = epoch_state["X_hstacked"]
-            stack_batch_size = epoch_state["stack_batch_size"]
-            num_stack_batches = epoch_state["num_stack_batches"]
+            full_betas_m_shape = epoch_context["full_betas_m_shape"]
+            epoch_control = epoch_context["epoch_control"]
+            epoch_sums = epoch_context["epoch_sums"]
+            epoch_priors = epoch_context["epoch_priors"]
+            epoch_runtime = epoch_context["epoch_runtime"]
+            post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
+            post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
+            X_hstacked = epoch_context["X_hstacked"]
+            stack_batch_size = epoch_context["stack_batch_size"]
+            num_stack_batches = epoch_context["num_stack_batches"]
 
             for iteration_num in range(epoch_max_num_iter):
                 iter_setup = _prepare_gibbs_iteration_inputs(
@@ -16389,6 +16391,39 @@ def _initialize_gibbs_epoch_runtime_state(epoch_state, num_p_increases):
     epoch_runtime["gibbs_good"] = True
     epoch_runtime["num_p_increases"] = num_p_increases
     return epoch_runtime
+
+
+def _start_gibbs_epoch(
+    state,
+    num_chains,
+    num_full_gene_sets,
+    use_mean_betas,
+    max_mb_X_h,
+    log_fun,
+    epoch_aggregates,
+    num_p_increases,
+):
+    # Build all mutable epoch containers and stacked-X batching artifacts.
+    epoch_state = _initialize_gibbs_epoch_state(
+        state,
+        num_chains,
+        num_full_gene_sets,
+        use_mean_betas,
+        max_mb_X_h,
+        log_fun,
+    )
+    return {
+        "full_betas_m_shape": epoch_state["full_betas_m_shape"],
+        "epoch_control": _initialize_gibbs_epoch_control_state(epoch_state),
+        "epoch_sums": _initialize_gibbs_epoch_sums_state(epoch_state, epoch_aggregates),
+        "epoch_priors": _initialize_gibbs_epoch_priors_state(epoch_state),
+        "epoch_runtime": _initialize_gibbs_epoch_runtime_state(epoch_state, num_p_increases),
+        "post_burn_reset_arrays": epoch_state["post_burn_reset_arrays"],
+        "post_burn_reset_missing_arrays": epoch_state["post_burn_reset_missing_arrays"],
+        "X_hstacked": epoch_state["X_hstacked"],
+        "stack_batch_size": epoch_state["stack_batch_size"],
+        "num_stack_batches": epoch_state["num_stack_batches"],
+    }
 
 
 def _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update):
