@@ -15537,28 +15537,34 @@ def _zero_arrays(*arrays):
 
 
 def _evaluate_burn_in_diagnostics(
-    all_sum_betas_m,
-    all_sum_betas2_m,
-    all_num_sum_m,
+    epoch_control,
+    phase_kwargs,
+    epoch_context,
+    epoch_runtime,
     num_samples,
-    active_beta_top_k,
-    active_beta_min_abs,
-    burn_in_rhat_quantile,
-    r_threshold_burn_in,
-    burn_in_pass_streak,
-    burn_in_rhat_history,
-    burn_stall_best_beta_rhat_history,
-    burn_stall_snapshots,
-    burn_stall_beta_indices,
-    stall_window,
-    stall_min_burn_in,
-    min_num_burn_in_for_epoch,
-    stall_delta_rhat,
-    stall_recent_window,
-    stall_recent_eps,
-    burn_in_stall_window,
-    burn_in_stall_delta,
 ):
+    all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
+    all_sum_betas2_m = epoch_runtime["all_sum_betas2_m"]
+    all_num_sum_m = epoch_runtime["all_num_sum_m"]
+    burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
+    burn_in_rhat_history = epoch_control["burn_in_rhat_history"]
+    burn_stall_best_beta_rhat_history = epoch_control["burn_stall_best_beta_rhat_history"]
+    burn_stall_snapshots = epoch_control["burn_stall_snapshots"]
+    burn_stall_beta_indices = epoch_control["burn_stall_beta_indices"]
+
+    active_beta_top_k = phase_kwargs["active_beta_top_k"]
+    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
+    burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
+    r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
+    stall_window = phase_kwargs["stall_window"]
+    stall_min_burn_in = phase_kwargs["stall_min_burn_in"]
+    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
+    stall_recent_window = phase_kwargs["stall_recent_window"]
+    stall_recent_eps = phase_kwargs["stall_recent_eps"]
+    burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
+    burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
+    min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
+
     (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
     active_beta_mask_v, _, _ = _get_active_beta_mask(all_sum_betas_m, all_num_sum_m, active_beta_top_k, active_beta_min_abs)
     num_active_betas = int(np.sum(active_beta_mask_v))
@@ -15729,27 +15735,11 @@ def _update_gibbs_burn_in_state(
         prev_Ys_m = Y_sample_m
     elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
         burn_diag = _evaluate_burn_in_diagnostics(
-            all_sum_betas_m,
-            all_sum_betas2_m,
-            all_num_sum_m,
-            num_samples,
-            active_beta_top_k,
-            active_beta_min_abs,
-            burn_in_rhat_quantile,
-            r_threshold_burn_in,
-            burn_in_pass_streak,
-            burn_in_rhat_history,
-            burn_stall_best_beta_rhat_history,
-            burn_stall_snapshots,
-            burn_stall_beta_indices,
-            stall_window,
-            stall_min_burn_in,
-            min_num_burn_in_for_epoch,
-            stall_delta_rhat,
-            stall_recent_window,
-            stall_recent_eps,
-            burn_in_stall_window,
-            burn_in_stall_delta,
+            epoch_control=epoch_control,
+            phase_kwargs=phase_kwargs,
+            epoch_context=epoch_context,
+            epoch_runtime=epoch_runtime,
+            num_samples=num_samples,
         )
         R_beta_v = burn_diag["R_beta_v"]
         burn_in_pass_streak = burn_diag["burn_in_pass_streak"]
