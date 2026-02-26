@@ -17946,9 +17946,6 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_raw_m,
 ):
     epoch_control = epoch_context["epoch_control"]
-    increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
-    num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
-    p_scale_factor = epoch_context["p_scale_factor"]
 
     warm_start = phase_kwargs["warm_start"]
     use_mean_betas = phase_kwargs["use_mean_betas"]
@@ -17970,7 +17967,6 @@ def _run_gibbs_iteration_correction_and_updates(
     betas_trace_out = phase_kwargs["betas_trace_out"]
     debug_zero_sparse = phase_kwargs["debug_zero_sparse"]
     adjust_priors = phase_kwargs["adjust_priors"]
-    num_mad = phase_kwargs["num_mad"]
 
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
     # sums and restart diagnostics.
