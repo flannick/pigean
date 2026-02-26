@@ -17206,6 +17206,14 @@ def _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
     }
 
 
+def _extract_gibbs_log_bf_state(update):
+    return (
+        update["log_bf_m"],
+        update["log_bf_uncorrected_m"],
+        update["log_bf_raw_m"],
+    )
+
+
 def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
     # Preserve pre-Gibbs values so downstream reporting can compare original vs
     # Gibbs-adjusted statistics.
@@ -17388,9 +17396,7 @@ def _run_gibbs_epoch_phase(
             log_bf_raw_m=log_bf_raw_m,
         )
         iteration_num = epoch_loop_update["iteration_num"]
-        log_bf_m = epoch_loop_update["log_bf_m"]
-        log_bf_uncorrected_m = epoch_loop_update["log_bf_uncorrected_m"]
-        log_bf_raw_m = epoch_loop_update["log_bf_raw_m"]
+        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _extract_gibbs_log_bf_state(epoch_loop_update)
 
         epoch_finalize_update = _finalize_gibbs_epoch_attempt(
             state,
@@ -17474,9 +17480,7 @@ def _run_gibbs_epoch_iterations(
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
         )
-        log_bf_m = iteration_update["log_bf_m"]
-        log_bf_uncorrected_m = iteration_update["log_bf_uncorrected_m"]
-        log_bf_raw_m = iteration_update["log_bf_raw_m"]
+        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _extract_gibbs_log_bf_state(iteration_update)
         if iteration_update["should_break"]:
             break
 
@@ -17584,9 +17588,7 @@ def _run_gibbs_iteration_correction_and_updates(
     epoch_priors["priors_mean_m"] = refresh_update["priors_mean_m"]
     epoch_priors["priors_missing_sample_m"] = refresh_update["priors_missing_sample_m"]
     epoch_priors["priors_missing_mean_m"] = refresh_update["priors_missing_mean_m"]
-    log_bf_m = refresh_update["log_bf_m"]
-    log_bf_uncorrected_m = refresh_update["log_bf_uncorrected_m"]
-    log_bf_raw_m = refresh_update["log_bf_raw_m"]
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _extract_gibbs_log_bf_state(refresh_update)
 
     prior_update = _finalize_gibbs_priors_for_sampling(
         state,
