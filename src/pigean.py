@@ -17201,6 +17201,20 @@ def _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
     }
 
 
+def _extract_gibbs_iteration_update_config(phase_kwargs):
+    return {
+        "use_mean_betas": phase_kwargs["use_mean_betas"],
+        "warm_start": phase_kwargs["warm_start"],
+        "debug_zero_sparse": phase_kwargs["debug_zero_sparse"],
+        "num_chains": phase_kwargs["num_chains"],
+        "num_batches_parallel": phase_kwargs["num_batches_parallel"],
+        "betas_trace_out": phase_kwargs["betas_trace_out"],
+        "update_huge_scores": phase_kwargs["update_huge_scores"],
+        "compute_Y_raw": phase_kwargs["compute_Y_raw"],
+        "adjust_priors": phase_kwargs["adjust_priors"],
+    }
+
+
 def _extract_gibbs_log_bf_state(update):
     return (
         update["log_bf_m"],
@@ -17441,6 +17455,7 @@ def _run_gibbs_epoch_iterations(
     epoch_runtime = epoch_context["epoch_runtime"]
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
     inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
+    iteration_update_config = _extract_gibbs_iteration_update_config(phase_kwargs)
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17460,6 +17475,7 @@ def _run_gibbs_epoch_iterations(
             iter_state=iter_state,
             gene_set_mask_m=gene_set_mask_m,
             inner_beta_kwargs=inner_beta_kwargs,
+            iteration_update_config=iteration_update_config,
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             epoch_sums=epoch_sums,
@@ -17508,6 +17524,7 @@ def _run_gibbs_iteration_correction_and_updates(
     iter_state,
     gene_set_mask_m,
     inner_beta_kwargs,
+    iteration_update_config,
     epoch_priors,
     epoch_runtime,
     epoch_sums,
@@ -17543,21 +17560,21 @@ def _run_gibbs_iteration_correction_and_updates(
         full_ps_m=iter_state["full_ps_m"],
         full_sigma2s_m=iter_state["full_sigma2s_m"],
         uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
-        use_mean_betas=phase_kwargs["use_mean_betas"],
-        warm_start=phase_kwargs["warm_start"],
+        use_mean_betas=iteration_update_config["use_mean_betas"],
+        warm_start=iteration_update_config["warm_start"],
         prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
         prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
-        debug_zero_sparse=phase_kwargs["debug_zero_sparse"],
-        num_chains=phase_kwargs["num_chains"],
-        num_batches_parallel=phase_kwargs["num_batches_parallel"],
+        debug_zero_sparse=iteration_update_config["debug_zero_sparse"],
+        num_chains=iteration_update_config["num_chains"],
+        num_batches_parallel=iteration_update_config["num_batches_parallel"],
         **inner_beta_kwargs,
-        betas_trace_out=phase_kwargs["betas_trace_out"],
+        betas_trace_out=iteration_update_config["betas_trace_out"],
     )
 
     refresh_update = _refresh_gibbs_iteration_priors_and_huge(
         state,
-        warm_start=phase_kwargs["warm_start"],
-        use_mean_betas=phase_kwargs["use_mean_betas"],
+        warm_start=iteration_update_config["warm_start"],
+        use_mean_betas=iteration_update_config["use_mean_betas"],
         prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
         prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
         full_betas_sample_m=full_betas_sample_m,
@@ -17567,8 +17584,8 @@ def _run_gibbs_iteration_correction_and_updates(
         priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
         priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
         priors_for_Y_m=epoch_priors["priors_for_Y_m"],
-        update_huge_scores=phase_kwargs["update_huge_scores"],
-        compute_Y_raw=phase_kwargs["compute_Y_raw"],
+        update_huge_scores=iteration_update_config["update_huge_scores"],
+        compute_Y_raw=iteration_update_config["compute_Y_raw"],
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
@@ -17587,8 +17604,8 @@ def _run_gibbs_iteration_correction_and_updates(
         priors_mean_m=epoch_priors["priors_mean_m"],
         priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
         priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-        adjust_priors=phase_kwargs["adjust_priors"],
-        use_mean_betas=phase_kwargs["use_mean_betas"],
+        adjust_priors=iteration_update_config["adjust_priors"],
+        use_mean_betas=iteration_update_config["use_mean_betas"],
         priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
         priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
         priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
