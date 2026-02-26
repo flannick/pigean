@@ -17442,6 +17442,7 @@ def _run_gibbs_epoch_iterations(
     epoch_priors = epoch_context["epoch_priors"]
     epoch_runtime = epoch_context["epoch_runtime"]
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
+    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17460,6 +17461,7 @@ def _run_gibbs_epoch_iterations(
             state=state,
             iter_state=iter_state,
             gene_set_mask_m=gene_set_mask_m,
+            inner_beta_kwargs=inner_beta_kwargs,
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             epoch_sums=epoch_sums,
@@ -17507,6 +17509,7 @@ def _run_gibbs_iteration_correction_and_updates(
     state,
     iter_state,
     gene_set_mask_m,
+    inner_beta_kwargs,
     epoch_priors,
     epoch_runtime,
     epoch_sums,
@@ -17519,7 +17522,6 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_raw_m,
 ):
     epoch_control = epoch_context["epoch_control"]
-    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
 
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
     # sums and restart diagnostics.
