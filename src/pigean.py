@@ -8315,7 +8315,7 @@ class GeneSetData(object):
         num_full_gene_sets = gibbs_inputs["num_full_gene_sets"]
 
         epoch_aggregates = _new_gibbs_epoch_aggregates()
-        phase_kwargs = _build_gibbs_epoch_phase_kwargs(
+        phase_kwargs = dict(
             total_num_iter=total_num_iter,
             num_chains=num_chains,
             target_num_epochs=target_num_epochs,
@@ -17407,12 +17407,6 @@ def _run_gibbs_epoch_phase(
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
         "log_bf_raw_m": log_bf_raw_m,
     }
-
-
-def _build_gibbs_epoch_phase_kwargs(**phase_kwargs):
-    # Keep the exhaustive key list explicit in run_gibbs at the callsite, but
-    # avoid repeating the same names in this thin packing helper.
-    return phase_kwargs
 
 
 def _finalize_gibbs_run_after_epochs(run_state, num_chains):
