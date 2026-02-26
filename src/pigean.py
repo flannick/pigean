@@ -17892,34 +17892,11 @@ def _run_gibbs_epoch_iterations(
             gene_set_mask_m=gene_set_mask_m,
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
-            epoch_control=epoch_control,
-            run_state=run_state,
-            warm_start=warm_start,
-            use_mean_betas=use_mean_betas,
-            update_huge_scores=update_huge_scores,
-            compute_Y_raw=compute_Y_raw,
-            num_chains=num_chains,
-            num_batches_parallel=num_batches_parallel,
-            passed_in_max_num_burn_in=passed_in_max_num_burn_in,
-            max_num_iter_betas=max_num_iter_betas,
-            min_num_iter_betas=min_num_iter_betas,
-            num_chains_betas=num_chains_betas,
-            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
-            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
-            max_frac_sem_betas=max_frac_sem_betas,
-            max_allowed_batch_correlation=max_allowed_batch_correlation,
-            gauss_seidel_betas=gauss_seidel_betas,
-            sparse_solution=sparse_solution,
-            sparse_frac_betas=sparse_frac_betas,
-            betas_trace_out=betas_trace_out,
-            debug_zero_sparse=debug_zero_sparse,
-            adjust_priors=adjust_priors,
-            increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
             epoch_sums=epoch_sums,
-            num_mad=num_mad,
-            num_before_checking_p_increase=num_before_checking_p_increase,
+            run_state=run_state,
+            epoch_context=epoch_context,
+            phase_kwargs=phase_kwargs,
             iteration_num=iteration_num,
-            p_scale_factor=p_scale_factor,
             log_bf_m=log_bf_m,
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
@@ -17970,38 +17947,42 @@ def _run_gibbs_iteration_correction_and_updates(
     gene_set_mask_m,
     epoch_priors,
     epoch_runtime,
-    epoch_control,
-    run_state,
-    warm_start,
-    use_mean_betas,
-    update_huge_scores,
-    compute_Y_raw,
-    num_chains,
-    num_batches_parallel,
-    passed_in_max_num_burn_in,
-    max_num_iter_betas,
-    min_num_iter_betas,
-    num_chains_betas,
-    r_threshold_burn_in_betas,
-    use_max_r_for_convergence_betas,
-    max_frac_sem_betas,
-    max_allowed_batch_correlation,
-    gauss_seidel_betas,
-    sparse_solution,
-    sparse_frac_betas,
-    betas_trace_out,
-    debug_zero_sparse,
-    adjust_priors,
-    increase_hyper_if_betas_below_for_epoch,
     epoch_sums,
-    num_mad,
-    num_before_checking_p_increase,
+    run_state,
+    epoch_context,
+    phase_kwargs,
     iteration_num,
-    p_scale_factor,
     log_bf_m,
     log_bf_uncorrected_m,
     log_bf_raw_m,
 ):
+    epoch_control = epoch_context["epoch_control"]
+    increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
+    num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
+    p_scale_factor = epoch_context["p_scale_factor"]
+
+    warm_start = phase_kwargs["warm_start"]
+    use_mean_betas = phase_kwargs["use_mean_betas"]
+    update_huge_scores = phase_kwargs["update_huge_scores"]
+    compute_Y_raw = phase_kwargs["compute_Y_raw"]
+    num_chains = phase_kwargs["num_chains"]
+    num_batches_parallel = phase_kwargs["num_batches_parallel"]
+    passed_in_max_num_burn_in = phase_kwargs["passed_in_max_num_burn_in"]
+    max_num_iter_betas = phase_kwargs["max_num_iter_betas"]
+    min_num_iter_betas = phase_kwargs["min_num_iter_betas"]
+    num_chains_betas = phase_kwargs["num_chains_betas"]
+    r_threshold_burn_in_betas = phase_kwargs["r_threshold_burn_in_betas"]
+    use_max_r_for_convergence_betas = phase_kwargs["use_max_r_for_convergence_betas"]
+    max_frac_sem_betas = phase_kwargs["max_frac_sem_betas"]
+    max_allowed_batch_correlation = phase_kwargs["max_allowed_batch_correlation"]
+    gauss_seidel_betas = phase_kwargs["gauss_seidel_betas"]
+    sparse_solution = phase_kwargs["sparse_solution"]
+    sparse_frac_betas = phase_kwargs["sparse_frac_betas"]
+    betas_trace_out = phase_kwargs["betas_trace_out"]
+    debug_zero_sparse = phase_kwargs["debug_zero_sparse"]
+    adjust_priors = phase_kwargs["adjust_priors"]
+    num_mad = phase_kwargs["num_mad"]
+
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
     # sums and restart diagnostics.
     (
