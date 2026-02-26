@@ -8234,6 +8234,7 @@ class GeneSetData(object):
             total_num_iter = epoch_max_num_iter_config
         if total_num_iter < 1:
             total_num_iter = 1
+        run_state = _initialize_gibbs_run_state(total_num_iter, target_num_epochs, max_num_restarts)
 
         if num_chains < 2:
             num_chains = 2
@@ -8287,14 +8288,14 @@ class GeneSetData(object):
 
         first_epoch_max_num_iter, first_min_num_burn_in, first_max_num_burn_in, first_min_num_post_burn_in, first_max_num_post_burn_in = _resolve_epoch_iteration_budget(total_num_iter, epoch_max_num_iter_config, min_num_burn_in, max_num_burn_in, min_num_post_burn_in, max_num_post_burn_in)
 
-        self._record_params({"num_chains": num_chains, "num_chains_betas": num_chains_betas, "max_num_restarts": max_num_restarts, "target_num_epochs": target_num_epochs, "max_num_attempt_restarts": target_num_epochs + max_num_restarts, "max_num_iter": max_num_iter, "total_num_iter": total_num_iter, "epoch_max_num_iter": epoch_max_num_iter_config, "use_mean_betas": use_mean_betas, "warm_start": warm_start, "stopping_preset_name": stopping_preset_name, "r_threshold_burn_in": r_threshold_burn_in, "burn_in_rhat_quantile": burn_in_rhat_quantile, "burn_in_rhat_quantile_effective": burn_in_rhat_quantile, "burn_in_patience": burn_in_patience, "min_num_burn_in": first_min_num_burn_in, "max_num_burn_in": first_max_num_burn_in, "min_num_post_burn_in": first_min_num_post_burn_in, "max_num_post_burn_in": first_max_num_post_burn_in, "burn_in_stall_window": burn_in_stall_window, "burn_in_stall_delta": burn_in_stall_delta, "active_beta_top_k": active_beta_top_k, "active_beta_min_abs": active_beta_min_abs, "stop_mcse_quantile": stop_mcse_quantile, "stop_patience": stop_patience, "stop_top_gene_k": stop_top_gene_k, "stop_min_gene_d": stop_min_gene_d, "max_abs_mcse_d": max_abs_mcse_d, "max_rel_mcse_beta": max_rel_mcse_beta, "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor, "stall_window": stall_window, "stall_min_burn_in": stall_min_burn_in, "stall_min_post_burn_in": stall_min_post_burn_in, "stall_delta_rhat": stall_delta_rhat, "stall_delta_mcse": stall_delta_mcse, "stall_recent_window": stall_recent_window, "stall_recent_eps": stall_recent_eps, "diag_every": diag_every, "sparse_solution": sparse_solution, "sparse_frac": sparse_frac_gibbs, "sparse_max": sparse_max_gibbs, "sparse_frac_betas": sparse_frac_betas, "pre_filter_batch_size": pre_filter_batch_size, "max_allowed_batch_correlation": max_allowed_batch_correlation, "initial_linear_filter": initial_linear_filter, "correct_betas_mean": correct_betas_mean, "correct_betas_var": correct_betas_var, "adjust_priors": adjust_priors})
+        self._record_params({"num_chains": num_chains, "num_chains_betas": num_chains_betas, "max_num_restarts": max_num_restarts, "target_num_epochs": target_num_epochs, "max_num_attempt_restarts": run_state["max_num_attempt_restarts"], "max_num_iter": max_num_iter, "total_num_iter": total_num_iter, "epoch_max_num_iter": epoch_max_num_iter_config, "use_mean_betas": use_mean_betas, "warm_start": warm_start, "stopping_preset_name": stopping_preset_name, "r_threshold_burn_in": r_threshold_burn_in, "burn_in_rhat_quantile": burn_in_rhat_quantile, "burn_in_rhat_quantile_effective": burn_in_rhat_quantile, "burn_in_patience": burn_in_patience, "min_num_burn_in": first_min_num_burn_in, "max_num_burn_in": first_max_num_burn_in, "min_num_post_burn_in": first_min_num_post_burn_in, "max_num_post_burn_in": first_max_num_post_burn_in, "burn_in_stall_window": burn_in_stall_window, "burn_in_stall_delta": burn_in_stall_delta, "active_beta_top_k": active_beta_top_k, "active_beta_min_abs": active_beta_min_abs, "stop_mcse_quantile": stop_mcse_quantile, "stop_patience": stop_patience, "stop_top_gene_k": stop_top_gene_k, "stop_min_gene_d": stop_min_gene_d, "max_abs_mcse_d": max_abs_mcse_d, "max_rel_mcse_beta": max_rel_mcse_beta, "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor, "stall_window": stall_window, "stall_min_burn_in": stall_min_burn_in, "stall_min_post_burn_in": stall_min_post_burn_in, "stall_delta_rhat": stall_delta_rhat, "stall_delta_mcse": stall_delta_mcse, "stall_recent_window": stall_recent_window, "stall_recent_eps": stall_recent_eps, "diag_every": diag_every, "sparse_solution": sparse_solution, "sparse_frac": sparse_frac_gibbs, "sparse_max": sparse_max_gibbs, "sparse_frac_betas": sparse_frac_betas, "pre_filter_batch_size": pre_filter_batch_size, "max_allowed_batch_correlation": max_allowed_batch_correlation, "initial_linear_filter": initial_linear_filter, "correct_betas_mean": correct_betas_mean, "correct_betas_var": correct_betas_var, "adjust_priors": adjust_priors})
         # Clearer aliases for downstream inspection; legacy key kept for compatibility.
         self._record_param("min_num_post_burn_in_effective", first_min_num_post_burn_in)
         self._record_param("stall_min_post_burn_samples", stall_min_post_burn_in)
 
         log("Running Gibbs")
         log("Gibbs stopping preset=%s; burn-in: r_threshold=%.4g, rhat_q=%.3g, patience=%d; active betas: topK=%d, min_abs=%.4g" % (stopping_preset_name, r_threshold_burn_in, burn_in_rhat_quantile, burn_in_patience, active_beta_top_k, active_beta_min_abs), INFO)
-        log("Gibbs restart schedule: target_epochs=%d (max_num_restarts=%d), max_attempts=%d, per-epoch max_num_iter=%d, total_num_iter=%d" % (target_num_epochs, max_num_restarts, target_num_epochs + max_num_restarts, epoch_max_num_iter_config, total_num_iter), INFO)
+        log("Gibbs restart schedule: target_epochs=%d (max_num_restarts=%d), max_attempts=%d, per-epoch max_num_iter=%d, total_num_iter=%d" % (target_num_epochs, max_num_restarts, run_state["max_num_attempt_restarts"], epoch_max_num_iter_config, total_num_iter), INFO)
         log("Gibbs epoch bounds (epoch 1): burn=[%d,%d], post=[%d,%d], stall_window=%d, stall_delta=%.4g" % (first_min_num_burn_in, first_max_num_burn_in, first_min_num_post_burn_in, first_max_num_post_burn_in, burn_in_stall_window, burn_in_stall_delta), INFO)
         log("Gibbs stopping thresholds: stop_q=%.3g, stop_patience=%d, max_rel_mcse_beta=%.4g, beta_rel_mcse_denom_floor=%.4g, stop_top_gene_k=%d, stop_min_gene_d=%s, max_abs_mcse_d=%.4g, diag_every=%d" % (stop_mcse_quantile, stop_patience, max_rel_mcse_beta, beta_rel_mcse_denom_floor, stop_top_gene_k, ("%.4g" % stop_min_gene_d) if stop_min_gene_d is not None else "None", max_abs_mcse_d, diag_every), INFO)
         log("Gibbs stall controls: window=%d, min_burn=%d, min_post_for_stall=%d, delta_rhat=%.4g, delta_mcse=%.4g, recent_window=%d, recent_eps=%.4g" % (stall_window, stall_min_burn_in, stall_min_post_burn_in, stall_delta_rhat, stall_delta_mcse, stall_recent_window, stall_recent_eps), INFO)
@@ -8390,14 +8391,8 @@ class GeneSetData(object):
         if self.gene_sets_missing is not None:
             num_full_gene_sets += len(self.gene_sets_missing)
 
-        #this loop checks if the gibbs loop was successful and optionally
-        #aggregates multiple restart epochs as additional chains.
-        #allow bounded retry attempts beyond the target successful epochs
-        max_num_attempt_restarts = target_num_epochs + max_num_restarts
-        num_p_increases = 0
-        num_attempts = 0
-        num_completed_epochs = 0
-        remaining_total_iter = int(total_num_iter)
+        # This loop checks if Gibbs sampling was successful and optionally
+        # aggregates restart epochs as additional effective chains.
         epoch_aggregates = _new_gibbs_epoch_aggregates()
 
         (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
@@ -8408,30 +8403,30 @@ class GeneSetData(object):
         # ==========================================================================
         # Gibbs Phase 1: Run one or more epochs (optionally restarting on stalls).
         # ==========================================================================
-        while num_attempts < max_num_attempt_restarts and num_completed_epochs < target_num_epochs and remaining_total_iter > 0:
+        while _can_run_gibbs_epoch(run_state):
 
-            num_attempts += 1
+            run_state["num_attempts"] += 1
 
-            epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch = _resolve_epoch_iteration_budget(remaining_total_iter, epoch_max_num_iter_config, min_num_burn_in, max_num_burn_in, min_num_post_burn_in, max_num_post_burn_in)
+            epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch = _resolve_epoch_iteration_budget(run_state["remaining_total_iter"], epoch_max_num_iter_config, min_num_burn_in, max_num_burn_in, min_num_post_burn_in, max_num_post_burn_in)
             if epoch_max_num_iter < 1:
                 break
-            trace_chain_offset = num_completed_epochs * num_chains
+            trace_chain_offset = run_state["num_completed_epochs"] * num_chains
 
             #for increasing p option
             p_scale_factor = 1 - np.log(self.p)/(2 * np.log(10))
             min_num_iter_for_epoch = min_num_burn_in_for_epoch
-            increase_hyper_if_betas_below_for_epoch = increase_hyper_if_betas_below if num_completed_epochs == 0 else None
+            increase_hyper_if_betas_below_for_epoch = increase_hyper_if_betas_below if run_state["num_completed_epochs"] == 0 else None
             num_before_checking_p_increase = max(min_num_iter_for_epoch, min_num_burn_in_for_epoch)
             if increase_hyper_if_betas_below_for_epoch is not None and num_before_checking_p_increase > min_num_iter_for_epoch:
                 #make sure that we always trigger this check before breaking
                 min_num_iter_for_epoch = num_before_checking_p_increase
 
-            self._record_param("num_gibbs_restarts", num_attempts - 1, overwrite=True)
-            self._record_param("num_gibbs_epochs_completed", num_completed_epochs, overwrite=True)
-            if num_attempts > 1:
-                log("Gibbs restart attempt %d" % (num_attempts - 1))
-            log("Gibbs epoch %d/%d: max_num_iter=%d, burn=[%d,%d], post=[%d,%d], remaining_total_iter=%d" % (num_completed_epochs + 1, target_num_epochs, epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch, remaining_total_iter), INFO)
-            epoch_total_iter_offset = total_num_iter - remaining_total_iter
+            self._record_param("num_gibbs_restarts", run_state["num_attempts"] - 1, overwrite=True)
+            self._record_param("num_gibbs_epochs_completed", run_state["num_completed_epochs"], overwrite=True)
+            if run_state["num_attempts"] > 1:
+                log("Gibbs restart attempt %d" % (run_state["num_attempts"] - 1))
+            log("Gibbs epoch %d/%d: max_num_iter=%d, burn=[%d,%d], post=[%d,%d], remaining_total_iter=%d" % (run_state["num_completed_epochs"] + 1, target_num_epochs, epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch, run_state["remaining_total_iter"]), INFO)
+            epoch_total_iter_offset = total_num_iter - run_state["remaining_total_iter"]
 
             epoch_state = _initialize_gibbs_epoch_state(
                 self,
@@ -8445,7 +8440,7 @@ class GeneSetData(object):
             epoch_control = _initialize_gibbs_epoch_control_state(epoch_state)
             epoch_sums = _initialize_gibbs_epoch_sums_state(epoch_state, epoch_aggregates)
             epoch_priors = _initialize_gibbs_epoch_priors_state(epoch_state)
-            epoch_runtime = _initialize_gibbs_epoch_runtime_state(epoch_state, num_p_increases)
+            epoch_runtime = _initialize_gibbs_epoch_runtime_state(epoch_state, run_state["num_p_increases"])
             post_burn_reset_arrays = epoch_state["post_burn_reset_arrays"]
             post_burn_reset_missing_arrays = epoch_state["post_burn_reset_missing_arrays"]
             X_hstacked = epoch_state["X_hstacked"]
@@ -8697,8 +8692,8 @@ class GeneSetData(object):
                     num_before_checking_p_increase,
                     iteration_num,
                     p_scale_factor,
-                    num_attempts,
-                    max_num_attempt_restarts,
+                    run_state["num_attempts"],
+                    run_state["max_num_attempt_restarts"],
                     epoch_runtime["num_p_increases"],
                 )
                 if _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update):
@@ -8764,8 +8759,8 @@ class GeneSetData(object):
                     min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
                     stall_min_post_burn_in=stall_min_post_burn_in,
                     stall_delta_mcse=stall_delta_mcse,
-                    num_attempts=num_attempts,
-                    max_num_attempt_restarts=max_num_attempt_restarts,
+                    num_attempts=run_state["num_attempts"],
+                    max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
                     max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
                     gene_set_stats_trace_fh=gene_set_stats_trace_fh,
                     trace_chain_offset=trace_chain_offset,
@@ -8780,26 +8775,26 @@ class GeneSetData(object):
                 if iteration_progress_update["done"]:
                     break
 
-            num_p_increases = epoch_runtime["num_p_increases"]
+            run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
             epoch_finalize_update = _finalize_gibbs_epoch_attempt(
                 self,
                 epoch_aggregates=epoch_aggregates,
                 include_missing=(self.genes_missing is not None),
                 gibbs_good=epoch_runtime["gibbs_good"],
                 iterations_run_this_epoch=(iteration_num + 1),
-                remaining_total_iter=remaining_total_iter,
-                num_completed_epochs=num_completed_epochs,
+                remaining_total_iter=run_state["remaining_total_iter"],
+                num_completed_epochs=run_state["num_completed_epochs"],
                 target_num_epochs=target_num_epochs,
-                num_attempts=num_attempts,
-                max_num_attempt_restarts=max_num_attempt_restarts,
+                num_attempts=run_state["num_attempts"],
+                max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
                 stop_due_to_stall=epoch_control["stop_due_to_stall"],
                 stop_due_to_precision=epoch_control["stop_due_to_precision"],
                 epoch_sums=epoch_sums,
                 num_mad=num_mad,
                 adjust_priors=adjust_priors,
             )
-            remaining_total_iter = epoch_finalize_update["remaining_total_iter"]
-            num_completed_epochs = epoch_finalize_update["num_completed_epochs"]
+            run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
+            run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
             if epoch_finalize_update["should_continue"]:
                 continue
             if epoch_finalize_update["should_break"]:
@@ -8807,10 +8802,10 @@ class GeneSetData(object):
 
         _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
 
-        if num_completed_epochs == 0:
+        if run_state["num_completed_epochs"] == 0:
             bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
 
-        log("Aggregated %d Gibbs epoch(s) into %d effective chains" % (num_completed_epochs, num_completed_epochs * num_chains), INFO)
+        log("Aggregated %d Gibbs epoch(s) into %d effective chains" % (run_state["num_completed_epochs"], run_state["num_completed_epochs"] * num_chains), INFO)
 
     def _sparse_correlation_with_dot_product_threshold(self, X_sparse, beta, dot_product_threshold=0.01, Y=None):
         """
@@ -15523,6 +15518,26 @@ def _resolve_epoch_iteration_budget(
         local_max_num_burn_in,
         local_min_num_post_burn_in,
         local_max_num_post_burn_in,
+    )
+
+
+def _initialize_gibbs_run_state(total_num_iter, target_num_epochs, max_num_restarts):
+    # Mutable run-level counters shared across epoch attempts.
+    return {
+        "target_num_epochs": target_num_epochs,
+        "max_num_attempt_restarts": target_num_epochs + max_num_restarts,
+        "num_p_increases": 0,
+        "num_attempts": 0,
+        "num_completed_epochs": 0,
+        "remaining_total_iter": int(total_num_iter),
+    }
+
+
+def _can_run_gibbs_epoch(run_state):
+    return (
+        run_state["num_attempts"] < run_state["max_num_attempt_restarts"]
+        and run_state["num_completed_epochs"] < run_state["target_num_epochs"]
+        and run_state["remaining_total_iter"] > 0
     )
 
 
