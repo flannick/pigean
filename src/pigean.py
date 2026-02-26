@@ -17167,19 +17167,7 @@ def _prepare_gibbs_iteration_state(
     sparse_max_gibbs = phase_kwargs["sparse_max_gibbs"]
     pre_filter_batch_size = phase_kwargs["pre_filter_batch_size"]
     pre_filter_small_batch_size = phase_kwargs["pre_filter_small_batch_size"]
-    inner_beta_kwargs = {
-        "passed_in_max_num_burn_in": phase_kwargs["passed_in_max_num_burn_in"],
-        "max_num_iter_betas": phase_kwargs["max_num_iter_betas"],
-        "min_num_iter_betas": phase_kwargs["min_num_iter_betas"],
-        "num_chains_betas": phase_kwargs["num_chains_betas"],
-        "r_threshold_burn_in_betas": phase_kwargs["r_threshold_burn_in_betas"],
-        "use_max_r_for_convergence_betas": phase_kwargs["use_max_r_for_convergence_betas"],
-        "max_frac_sem_betas": phase_kwargs["max_frac_sem_betas"],
-        "max_allowed_batch_correlation": phase_kwargs["max_allowed_batch_correlation"],
-        "gauss_seidel_betas": phase_kwargs["gauss_seidel_betas"],
-        "sparse_solution": phase_kwargs["sparse_solution"],
-        "sparse_frac_betas": phase_kwargs["sparse_frac_betas"],
-    }
+    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
 
     iter_setup = _prepare_gibbs_iteration_inputs(
         state=state,
@@ -17236,6 +17224,22 @@ def _prepare_gibbs_iteration_state(
     )
 
     return {"iter_state": iter_state, "gene_set_mask_m": gene_set_mask_m}
+
+
+def _build_gibbs_inner_beta_kwargs(phase_kwargs):
+    return {
+        "passed_in_max_num_burn_in": phase_kwargs["passed_in_max_num_burn_in"],
+        "max_num_iter_betas": phase_kwargs["max_num_iter_betas"],
+        "min_num_iter_betas": phase_kwargs["min_num_iter_betas"],
+        "num_chains_betas": phase_kwargs["num_chains_betas"],
+        "r_threshold_burn_in_betas": phase_kwargs["r_threshold_burn_in_betas"],
+        "use_max_r_for_convergence_betas": phase_kwargs["use_max_r_for_convergence_betas"],
+        "max_frac_sem_betas": phase_kwargs["max_frac_sem_betas"],
+        "max_allowed_batch_correlation": phase_kwargs["max_allowed_batch_correlation"],
+        "gauss_seidel_betas": phase_kwargs["gauss_seidel_betas"],
+        "sparse_solution": phase_kwargs["sparse_solution"],
+        "sparse_frac_betas": phase_kwargs["sparse_frac_betas"],
+    }
 
 
 def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
@@ -17708,6 +17712,7 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_raw_m,
 ):
     epoch_control = epoch_context["epoch_control"]
+    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
 
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
     # sums and restart diagnostics.
@@ -17738,17 +17743,7 @@ def _run_gibbs_iteration_correction_and_updates(
         debug_zero_sparse=phase_kwargs["debug_zero_sparse"],
         num_chains=phase_kwargs["num_chains"],
         num_batches_parallel=phase_kwargs["num_batches_parallel"],
-        passed_in_max_num_burn_in=phase_kwargs["passed_in_max_num_burn_in"],
-        max_num_iter_betas=phase_kwargs["max_num_iter_betas"],
-        min_num_iter_betas=phase_kwargs["min_num_iter_betas"],
-        num_chains_betas=phase_kwargs["num_chains_betas"],
-        r_threshold_burn_in_betas=phase_kwargs["r_threshold_burn_in_betas"],
-        use_max_r_for_convergence_betas=phase_kwargs["use_max_r_for_convergence_betas"],
-        max_frac_sem_betas=phase_kwargs["max_frac_sem_betas"],
-        max_allowed_batch_correlation=phase_kwargs["max_allowed_batch_correlation"],
-        gauss_seidel_betas=phase_kwargs["gauss_seidel_betas"],
-        sparse_solution=phase_kwargs["sparse_solution"],
-        sparse_frac_betas=phase_kwargs["sparse_frac_betas"],
+        **inner_beta_kwargs,
         betas_trace_out=phase_kwargs["betas_trace_out"],
     )
 
