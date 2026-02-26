@@ -8312,84 +8312,18 @@ class GeneSetData(object):
         self.Y_r_hat = None
         self.Y_mcse = None
 
-        #save all of the old values
-        self.beta_tildes_orig = copy.copy(self.beta_tildes)
-        self.p_values_orig = copy.copy(self.p_values)
-        self.ses_orig = copy.copy(self.ses)
-        self.z_scores_orig = copy.copy(self.z_scores)
-        self.beta_tildes_missing_orig = copy.copy(self.beta_tildes_missing)
-        self.p_values_missing_orig = copy.copy(self.p_values_missing)
-        self.ses_missing_orig = copy.copy(self.ses_missing)
-        self.z_scores_missing_orig = copy.copy(self.z_scores_missing)
-
-        self.betas_orig = copy.copy(self.betas)
-        self.betas_uncorrected_orig = copy.copy(self.betas_uncorrected)
-        self.non_inf_avg_cond_betas_orig = copy.copy(self.non_inf_avg_cond_betas)
-        self.non_inf_avg_postps_orig = copy.copy(self.non_inf_avg_postps)
-        self.betas_missing_orig = copy.copy(self.betas_missing)
-        self.betas_uncorrected_missing_orig = copy.copy(self.betas_uncorrected_missing)
-        self.non_inf_avg_cond_betas_missing_orig = copy.copy(self.non_inf_avg_cond_betas_missing)
-        self.non_inf_avg_postps_missing_orig = copy.copy(self.non_inf_avg_postps_missing)
-
-        self.Y_orig = copy.copy(self.Y)
-        self.Y_for_regression_orig = copy.copy(self.Y_for_regression)
-        self.Y_w_orig = copy.copy(self.Y_w)
-        self.Y_fw_orig = copy.copy(self.Y_fw)
-        self.priors_orig = copy.copy(self.priors)
-        self.priors_adj_orig = copy.copy(self.priors_adj)
-        self.priors_missing_orig = copy.copy(self.priors_missing)
-
-        self.priors_adj_missing_orig = copy.copy(self.priors_adj_missing)
-
-
-        #we always update correlation relative to the original one
-        y_var_orig = np.var(self.Y_for_regression)
-
-        #set up constants throughout the loop
-
-        Y_to_use = self.Y_for_regression_orig
-        bf_orig = np.exp(Y_to_use)
-
-        bf_orig_raw = np.exp(self.Y_orig)
-
-        #conditional variance of Y given beta: calculate residuals given priors
-        priors_guess = np.array(self.X_orig.dot(self.betas / self.scale_factors) - np.sum(self.mean_shifts * self.betas / self.scale_factors))
-
-        Y_resid = np.var(self.Y_for_regression_orig - priors_guess)
-        Y_cond_var = Y_resid
-
-        if top_gene_prior is not None:
-            if top_gene_prior <= 0 or top_gene_prior >= 1:
-                bail("--top-gene-prior needs to be in (0,1)")
-            Y_total_var = self.convert_prior_to_var(top_gene_prior, len(self.genes))
-            Y_cond_var = Y_total_var - self.get_sigma2(convert_sigma_to_external_units=True) * np.mean(self.get_gene_N())
-            if Y_cond_var < 0:
-                #minimum value
-                Y_cond_var = 0.1
-            log("Setting Y cond var=%.4g (total var = %.4g) given top gene prior of %.4g" % (Y_cond_var, Y_total_var, top_gene_prior))
-
-        bf_orig_m = np.tile(bf_orig, num_chains).reshape(num_chains, len(bf_orig))
-        log_bf_m = np.log(bf_orig_m)
-        log_bf_uncorrected_m = np.log(bf_orig_m)
-
-        bf_orig_raw_m = np.tile(bf_orig_raw, num_chains).reshape(num_chains, len(bf_orig_raw))
-        log_bf_raw_m = np.log(bf_orig_raw_m)
-
-        compute_Y_raw = np.any(~np.isclose(log_bf_m, log_bf_raw_m))
-
-        #we will adjust this to preserve the original probabilities if requested
-        cur_background_log_bf_v = np.tile(self.background_log_bf, num_chains)
-
-        #initialize Y
-
-        if self.y_corr_cholesky is not None:
-            bail("GLS not implemented yet for Gibbs sampling!")
-
-        #dimensions of matrices are (num_chains, num_gene_sets)
-
-        num_full_gene_sets = len(self.gene_sets)
-        if self.gene_sets_missing is not None:
-            num_full_gene_sets += len(self.gene_sets_missing)
+        gibbs_inputs = _prepare_gibbs_run_inputs(
+            state=self,
+            num_chains=num_chains,
+            top_gene_prior=top_gene_prior,
+        )
+        y_var_orig = gibbs_inputs["y_var_orig"]
+        log_bf_m = gibbs_inputs["log_bf_m"]
+        log_bf_uncorrected_m = gibbs_inputs["log_bf_uncorrected_m"]
+        log_bf_raw_m = gibbs_inputs["log_bf_raw_m"]
+        compute_Y_raw = gibbs_inputs["compute_Y_raw"]
+        cur_background_log_bf_v = gibbs_inputs["cur_background_log_bf_v"]
+        num_full_gene_sets = gibbs_inputs["num_full_gene_sets"]
 
         # This loop checks if Gibbs sampling was successful and optionally
         # aggregates restart epochs as additional effective chains.
@@ -17205,6 +17139,83 @@ def _prepare_gibbs_iteration_state(
     )
 
     return {"iter_state": iter_state, "gene_set_mask_m": gene_set_mask_m}
+
+
+def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
+    # Preserve pre-Gibbs values so downstream reporting can compare original vs
+    # Gibbs-adjusted statistics.
+    state.beta_tildes_orig = copy.copy(state.beta_tildes)
+    state.p_values_orig = copy.copy(state.p_values)
+    state.ses_orig = copy.copy(state.ses)
+    state.z_scores_orig = copy.copy(state.z_scores)
+    state.beta_tildes_missing_orig = copy.copy(state.beta_tildes_missing)
+    state.p_values_missing_orig = copy.copy(state.p_values_missing)
+    state.ses_missing_orig = copy.copy(state.ses_missing)
+    state.z_scores_missing_orig = copy.copy(state.z_scores_missing)
+
+    state.betas_orig = copy.copy(state.betas)
+    state.betas_uncorrected_orig = copy.copy(state.betas_uncorrected)
+    state.non_inf_avg_cond_betas_orig = copy.copy(state.non_inf_avg_cond_betas)
+    state.non_inf_avg_postps_orig = copy.copy(state.non_inf_avg_postps)
+    state.betas_missing_orig = copy.copy(state.betas_missing)
+    state.betas_uncorrected_missing_orig = copy.copy(state.betas_uncorrected_missing)
+    state.non_inf_avg_cond_betas_missing_orig = copy.copy(state.non_inf_avg_cond_betas_missing)
+    state.non_inf_avg_postps_missing_orig = copy.copy(state.non_inf_avg_postps_missing)
+
+    state.Y_orig = copy.copy(state.Y)
+    state.Y_for_regression_orig = copy.copy(state.Y_for_regression)
+    state.Y_w_orig = copy.copy(state.Y_w)
+    state.Y_fw_orig = copy.copy(state.Y_fw)
+    state.priors_orig = copy.copy(state.priors)
+    state.priors_adj_orig = copy.copy(state.priors_adj)
+    state.priors_missing_orig = copy.copy(state.priors_missing)
+    state.priors_adj_missing_orig = copy.copy(state.priors_adj_missing)
+
+    # We always update correlation relative to the original Y variance.
+    y_var_orig = np.var(state.Y_for_regression)
+
+    Y_to_use = state.Y_for_regression_orig
+    bf_orig = np.exp(Y_to_use)
+    bf_orig_raw = np.exp(state.Y_orig)
+
+    # Legacy logging of implied conditional Y variance from prior settings.
+    priors_guess = np.array(state.X_orig.dot(state.betas / state.scale_factors) - np.sum(state.mean_shifts * state.betas / state.scale_factors))
+    Y_resid = np.var(state.Y_for_regression_orig - priors_guess)
+    Y_cond_var = Y_resid
+    if top_gene_prior is not None:
+        if top_gene_prior <= 0 or top_gene_prior >= 1:
+            bail("--top-gene-prior needs to be in (0,1)")
+        Y_total_var = state.convert_prior_to_var(top_gene_prior, len(state.genes))
+        Y_cond_var = Y_total_var - state.get_sigma2(convert_sigma_to_external_units=True) * np.mean(state.get_gene_N())
+        if Y_cond_var < 0:
+            Y_cond_var = 0.1
+        log("Setting Y cond var=%.4g (total var = %.4g) given top gene prior of %.4g" % (Y_cond_var, Y_total_var, top_gene_prior))
+
+    bf_orig_m = np.tile(bf_orig, num_chains).reshape(num_chains, len(bf_orig))
+    log_bf_m = np.log(bf_orig_m)
+    log_bf_uncorrected_m = np.log(bf_orig_m)
+
+    bf_orig_raw_m = np.tile(bf_orig_raw, num_chains).reshape(num_chains, len(bf_orig_raw))
+    log_bf_raw_m = np.log(bf_orig_raw_m)
+    compute_Y_raw = np.any(~np.isclose(log_bf_m, log_bf_raw_m))
+    cur_background_log_bf_v = np.tile(state.background_log_bf, num_chains)
+
+    if state.y_corr_cholesky is not None:
+        bail("GLS not implemented yet for Gibbs sampling!")
+
+    num_full_gene_sets = len(state.gene_sets)
+    if state.gene_sets_missing is not None:
+        num_full_gene_sets += len(state.gene_sets_missing)
+
+    return {
+        "y_var_orig": y_var_orig,
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+        "compute_Y_raw": compute_Y_raw,
+        "cur_background_log_bf_v": cur_background_log_bf_v,
+        "num_full_gene_sets": num_full_gene_sets,
+    }
 
 
 def _prepare_and_start_gibbs_epoch(
