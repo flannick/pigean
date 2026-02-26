@@ -8300,17 +8300,7 @@ class GeneSetData(object):
         log("Gibbs stopping thresholds: stop_q=%.3g, stop_patience=%d, max_rel_mcse_beta=%.4g, beta_rel_mcse_denom_floor=%.4g, stop_top_gene_k=%d, stop_min_gene_d=%s, max_abs_mcse_d=%.4g, diag_every=%d" % (stop_mcse_quantile, stop_patience, max_rel_mcse_beta, beta_rel_mcse_denom_floor, stop_top_gene_k, ("%.4g" % stop_min_gene_d) if stop_min_gene_d is not None else "None", max_abs_mcse_d, diag_every), INFO)
         log("Gibbs stall controls: window=%d, min_burn=%d, min_post_for_stall=%d, delta_rhat=%.4g, delta_mcse=%.4g, recent_window=%d, recent_eps=%.4g" % (stall_window, stall_min_burn_in, stall_min_post_burn_in, stall_delta_rhat, stall_delta_mcse, stall_recent_window, stall_recent_eps), INFO)
 
-        # Reset diagnostics that are specific to this Gibbs run.
-        self.betas_r_hat = None
-        self.betas_mcse = None
-        self.betas_uncorrected_r_hat = None
-        self.betas_uncorrected_mcse = None
-        self.priors_r_hat = None
-        self.priors_mcse = None
-        self.combined_prior_Ys_r_hat = None
-        self.combined_prior_Ys_mcse = None
-        self.Y_r_hat = None
-        self.Y_mcse = None
+        _reset_gibbs_diagnostics(self)
 
         gibbs_inputs = _prepare_gibbs_run_inputs(
             state=self,
@@ -17216,6 +17206,20 @@ def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
         "cur_background_log_bf_v": cur_background_log_bf_v,
         "num_full_gene_sets": num_full_gene_sets,
     }
+
+
+def _reset_gibbs_diagnostics(state):
+    # Reset diagnostics that are specific to this Gibbs run.
+    state.betas_r_hat = None
+    state.betas_mcse = None
+    state.betas_uncorrected_r_hat = None
+    state.betas_uncorrected_mcse = None
+    state.priors_r_hat = None
+    state.priors_mcse = None
+    state.combined_prior_Ys_r_hat = None
+    state.combined_prior_Ys_mcse = None
+    state.Y_r_hat = None
+    state.Y_mcse = None
 
 
 def _prepare_and_start_gibbs_epoch(
