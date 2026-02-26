@@ -16809,12 +16809,12 @@ def _finalize_gibbs_epoch_attempt(
         remaining_total_iter = 0
 
     if not gibbs_good:
-        return {
-            "remaining_total_iter": remaining_total_iter,
-            "num_completed_epochs": num_completed_epochs,
-            "should_continue": True,
-            "should_break": False,
-        }
+        return _build_gibbs_epoch_finalize_update(
+            remaining_total_iter=remaining_total_iter,
+            num_completed_epochs=num_completed_epochs,
+            should_continue=True,
+            should_break=False,
+        )
 
     assert(np.all(epoch_sums["num_sum_Y_m"] > 0))
     assert(np.all(epoch_sums["num_sum_beta_m"] > 0))
@@ -16840,12 +16840,12 @@ def _finalize_gibbs_epoch_attempt(
         and (num_attempts < max_num_attempt_restarts)
     )
     if should_continue:
-        return {
-            "remaining_total_iter": remaining_total_iter,
-            "num_completed_epochs": num_completed_epochs,
-            "should_continue": True,
-            "should_break": False,
-        }
+        return _build_gibbs_epoch_finalize_update(
+            remaining_total_iter=remaining_total_iter,
+            num_completed_epochs=num_completed_epochs,
+            should_continue=True,
+            should_break=False,
+        )
 
     (
         sum_betas_m,
@@ -16914,12 +16914,12 @@ def _finalize_gibbs_epoch_attempt(
     )
     _apply_gibbs_final_state(state, final_summary, adjust_priors)
 
-    return {
-        "remaining_total_iter": remaining_total_iter,
-        "num_completed_epochs": num_completed_epochs,
-        "should_continue": False,
-        "should_break": True,
-    }
+    return _build_gibbs_epoch_finalize_update(
+        remaining_total_iter=remaining_total_iter,
+        num_completed_epochs=num_completed_epochs,
+        should_continue=False,
+        should_break=True,
+    )
 
 
 def _compute_gibbs_iteration_y_terms(
@@ -17334,6 +17334,26 @@ def _prepare_and_start_gibbs_epoch(
     return epoch_context
 
 
+def _build_gibbs_epoch_finalize_update(
+    remaining_total_iter,
+    num_completed_epochs,
+    should_continue,
+    should_break,
+):
+    return {
+        "remaining_total_iter": remaining_total_iter,
+        "num_completed_epochs": num_completed_epochs,
+        "should_continue": should_continue,
+        "should_break": should_break,
+    }
+
+
+def _apply_gibbs_epoch_finalize_update(run_state, epoch_runtime, epoch_finalize_update):
+    run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
+    run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
+    run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
+
+
 def _run_gibbs_epoch_phase(
     state,
     run_state,
@@ -17377,7 +17397,6 @@ def _run_gibbs_epoch_phase(
         log_bf_uncorrected_m = epoch_loop_update["log_bf_uncorrected_m"]
         log_bf_raw_m = epoch_loop_update["log_bf_raw_m"]
 
-        run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
         epoch_finalize_update = _finalize_gibbs_epoch_attempt(
             state,
             epoch_aggregates=epoch_aggregates,
@@ -17395,8 +17414,7 @@ def _run_gibbs_epoch_phase(
             num_mad=phase_kwargs["num_mad"],
             adjust_priors=phase_kwargs["adjust_priors"],
         )
-        run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
-        run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
+        _apply_gibbs_epoch_finalize_update(run_state, epoch_runtime, epoch_finalize_update)
         if epoch_finalize_update["should_continue"]:
             continue
         if epoch_finalize_update["should_break"]:
