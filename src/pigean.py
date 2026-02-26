@@ -8400,9 +8400,7 @@ class GeneSetData(object):
             )
         finally:
             _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
-        log_bf_m = phase1_update["log_bf_m"]
-        log_bf_uncorrected_m = phase1_update["log_bf_uncorrected_m"]
-        log_bf_raw_m = phase1_update["log_bf_raw_m"]
+        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _extract_gibbs_log_bf_state(phase1_update)
 
         _finalize_gibbs_run_after_epochs(run_state, num_chains)
 
