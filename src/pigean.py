@@ -17965,6 +17965,29 @@ def _should_run_gibbs_post_burn_diagnostics(
     )
 
 
+def _extract_gibbs_post_burn_diag_config(phase_kwargs):
+    return {
+        "num_chains": phase_kwargs["num_chains"],
+        "active_beta_top_k": phase_kwargs["active_beta_top_k"],
+        "active_beta_min_abs": phase_kwargs["active_beta_min_abs"],
+        "stop_mcse_quantile": phase_kwargs["stop_mcse_quantile"],
+        "beta_rel_mcse_denom_floor": phase_kwargs["beta_rel_mcse_denom_floor"],
+        "stop_top_gene_k": phase_kwargs["stop_top_gene_k"],
+        "stop_min_gene_d": phase_kwargs["stop_min_gene_d"],
+        "max_rel_mcse_beta": phase_kwargs["max_rel_mcse_beta"],
+        "max_abs_mcse_d": phase_kwargs["max_abs_mcse_d"],
+        "stop_patience": phase_kwargs["stop_patience"],
+        "stall_window": phase_kwargs["stall_window"],
+        "stall_min_post_burn_in": phase_kwargs["stall_min_post_burn_in"],
+        "stall_delta_rhat": phase_kwargs["stall_delta_rhat"],
+        "stall_delta_mcse": phase_kwargs["stall_delta_mcse"],
+        "stall_recent_window": phase_kwargs["stall_recent_window"],
+        "stall_recent_eps": phase_kwargs["stall_recent_eps"],
+        "num_full_gene_sets": phase_kwargs["num_full_gene_sets"],
+        "burn_in_patience": phase_kwargs["burn_in_patience"],
+    }
+
+
 def _log_gibbs_post_burn_diagnostics(
     epoch_iter_num,
     total_iter_num,
@@ -18060,24 +18083,25 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     sum_Ds_m = epoch_sums["sum_Ds_m"]
     num_sum_Y_m = epoch_sums["num_sum_Y_m"]
 
-    num_chains = phase_kwargs["num_chains"]
-    active_beta_top_k = phase_kwargs["active_beta_top_k"]
-    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
-    stop_mcse_quantile = phase_kwargs["stop_mcse_quantile"]
-    beta_rel_mcse_denom_floor = phase_kwargs["beta_rel_mcse_denom_floor"]
-    stop_top_gene_k = phase_kwargs["stop_top_gene_k"]
-    stop_min_gene_d = phase_kwargs["stop_min_gene_d"]
-    max_rel_mcse_beta = phase_kwargs["max_rel_mcse_beta"]
-    max_abs_mcse_d = phase_kwargs["max_abs_mcse_d"]
-    stop_patience = phase_kwargs["stop_patience"]
-    stall_window = phase_kwargs["stall_window"]
-    stall_min_post_burn_in = phase_kwargs["stall_min_post_burn_in"]
-    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
-    stall_delta_mcse = phase_kwargs["stall_delta_mcse"]
-    stall_recent_window = phase_kwargs["stall_recent_window"]
-    stall_recent_eps = phase_kwargs["stall_recent_eps"]
-    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
-    burn_in_patience = phase_kwargs["burn_in_patience"]
+    diag_config = _extract_gibbs_post_burn_diag_config(phase_kwargs)
+    num_chains = diag_config["num_chains"]
+    active_beta_top_k = diag_config["active_beta_top_k"]
+    active_beta_min_abs = diag_config["active_beta_min_abs"]
+    stop_mcse_quantile = diag_config["stop_mcse_quantile"]
+    beta_rel_mcse_denom_floor = diag_config["beta_rel_mcse_denom_floor"]
+    stop_top_gene_k = diag_config["stop_top_gene_k"]
+    stop_min_gene_d = diag_config["stop_min_gene_d"]
+    max_rel_mcse_beta = diag_config["max_rel_mcse_beta"]
+    max_abs_mcse_d = diag_config["max_abs_mcse_d"]
+    stop_patience = diag_config["stop_patience"]
+    stall_window = diag_config["stall_window"]
+    stall_min_post_burn_in = diag_config["stall_min_post_burn_in"]
+    stall_delta_rhat = diag_config["stall_delta_rhat"]
+    stall_delta_mcse = diag_config["stall_delta_mcse"]
+    stall_recent_window = diag_config["stall_recent_window"]
+    stall_recent_eps = diag_config["stall_recent_eps"]
+    num_full_gene_sets = diag_config["num_full_gene_sets"]
+    burn_in_patience = diag_config["burn_in_patience"]
 
     min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
     epoch_iter_num = iter_state["epoch_iter_num"]
