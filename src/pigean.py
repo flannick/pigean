@@ -18431,43 +18431,56 @@ def _update_post_burn_stall_tracking(
 
 
 def _evaluate_gibbs_post_burn_diagnostics_and_decision(
-    epoch_aggregates,
-    sum_betas_m,
-    sum_betas2_m,
-    num_sum_beta_m,
-    sum_Ds_m,
-    num_sum_Y_m,
-    num_chains,
-    active_beta_top_k,
-    active_beta_min_abs,
-    stop_mcse_quantile,
-    beta_rel_mcse_denom_floor,
-    stop_top_gene_k,
-    stop_min_gene_d,
-    max_rel_mcse_beta,
-    max_abs_mcse_d,
-    min_num_post_burn_in_for_epoch,
-    stop_pass_streak,
-    stop_patience,
-    post_stall_best_beta_rhat_history,
-    post_stall_best_D_mcse_history,
-    post_stall_snapshots,
-    post_stall_beta_indices,
-    post_stall_gene_indices,
-    stall_window,
-    stall_min_post_burn_in,
-    stall_delta_rhat,
-    stall_delta_mcse,
-    stall_recent_window,
-    stall_recent_eps,
-    epoch_iter_num,
-    total_iter_num,
-    num_full_gene_sets,
-    burn_in_pass_streak,
-    burn_in_patience,
-    num_attempts,
-    max_num_attempt_restarts,
+    epoch_context,
+    phase_kwargs,
+    iter_state,
+    epoch_sums,
+    epoch_control,
+    run_state,
+    current_stop_pass_streak,
+    current_burn_in_pass_streak,
 ):
+    epoch_aggregates = epoch_sums["epoch_aggregates"]
+    sum_betas_m = epoch_sums["sum_betas_m"]
+    sum_betas2_m = epoch_sums["sum_betas2_m"]
+    num_sum_beta_m = epoch_sums["num_sum_beta_m"]
+    sum_Ds_m = epoch_sums["sum_Ds_m"]
+    num_sum_Y_m = epoch_sums["num_sum_Y_m"]
+
+    num_chains = phase_kwargs["num_chains"]
+    active_beta_top_k = phase_kwargs["active_beta_top_k"]
+    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
+    stop_mcse_quantile = phase_kwargs["stop_mcse_quantile"]
+    beta_rel_mcse_denom_floor = phase_kwargs["beta_rel_mcse_denom_floor"]
+    stop_top_gene_k = phase_kwargs["stop_top_gene_k"]
+    stop_min_gene_d = phase_kwargs["stop_min_gene_d"]
+    max_rel_mcse_beta = phase_kwargs["max_rel_mcse_beta"]
+    max_abs_mcse_d = phase_kwargs["max_abs_mcse_d"]
+    stop_patience = phase_kwargs["stop_patience"]
+    stall_window = phase_kwargs["stall_window"]
+    stall_min_post_burn_in = phase_kwargs["stall_min_post_burn_in"]
+    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
+    stall_delta_mcse = phase_kwargs["stall_delta_mcse"]
+    stall_recent_window = phase_kwargs["stall_recent_window"]
+    stall_recent_eps = phase_kwargs["stall_recent_eps"]
+    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
+    burn_in_patience = phase_kwargs["burn_in_patience"]
+
+    min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
+    epoch_iter_num = iter_state["epoch_iter_num"]
+    total_iter_num = iter_state["total_iter_num"]
+
+    stop_pass_streak = current_stop_pass_streak
+    burn_in_pass_streak = current_burn_in_pass_streak
+    post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
+    post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
+    post_stall_snapshots = epoch_control["post_stall_snapshots"]
+    post_stall_beta_indices = epoch_control["post_stall_beta_indices"]
+    post_stall_gene_indices = epoch_control["post_stall_gene_indices"]
+
+    num_attempts = run_state["num_attempts"]
+    max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
+
     # For stopping diagnostics, aggregate previous completed epochs with the
     # current in-progress epoch so MCSE aligns with final reported MCSE.
     (
@@ -18789,42 +18802,14 @@ def _update_gibbs_post_burn_state(
 
     if np.all(epoch_sums["num_sum_Y_m"] > 1) and np.all(epoch_sums["num_sum_beta_m"] > 1) and ((iteration_num + 1) % diag_every == 0 or iteration_num + 1 == epoch_max_num_iter):
         post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
-            epoch_sums["epoch_aggregates"],
-            epoch_sums["sum_betas_m"],
-            epoch_sums["sum_betas2_m"],
-            epoch_sums["num_sum_beta_m"],
-            epoch_sums["sum_Ds_m"],
-            epoch_sums["num_sum_Y_m"],
-            num_chains,
-            active_beta_top_k,
-            active_beta_min_abs,
-            stop_mcse_quantile,
-            beta_rel_mcse_denom_floor,
-            stop_top_gene_k,
-            stop_min_gene_d,
-            max_rel_mcse_beta,
-            max_abs_mcse_d,
-            min_num_post_burn_in_for_epoch,
-            stop_pass_streak,
-            stop_patience,
-            post_stall_best_beta_rhat_history,
-            post_stall_best_D_mcse_history,
-            post_stall_snapshots,
-            post_stall_beta_indices,
-            post_stall_gene_indices,
-            stall_window,
-            stall_min_post_burn_in,
-            stall_delta_rhat,
-            stall_delta_mcse,
-            stall_recent_window,
-            stall_recent_eps,
-            epoch_iter_num,
-            total_iter_num,
-            num_full_gene_sets,
-            burn_in_pass_streak,
-            burn_in_patience,
-            num_attempts,
-            max_num_attempt_restarts,
+            epoch_context=epoch_context,
+            phase_kwargs=phase_kwargs,
+            iter_state=iter_state,
+            epoch_sums=epoch_sums,
+            epoch_control=epoch_control,
+            run_state=run_state,
+            current_stop_pass_streak=stop_pass_streak,
+            current_burn_in_pass_streak=burn_in_pass_streak,
         )
 
         stop_pass_streak = post_burn_diag["stop_pass_streak"]
