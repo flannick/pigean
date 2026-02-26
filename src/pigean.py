@@ -8382,17 +8382,24 @@ class GeneSetData(object):
             num_mad=num_mad,
         )
 
-        phase1_update = _run_gibbs_epoch_phase_with_traces(
-            state=self,
-            run_state=run_state,
-            epoch_aggregates=epoch_aggregates,
-            gene_set_stats_trace_out=gene_set_stats_trace_out,
-            gene_stats_trace_out=gene_stats_trace_out,
-            phase_kwargs=phase_kwargs,
-            log_bf_m=log_bf_m,
-            log_bf_uncorrected_m=log_bf_uncorrected_m,
-            log_bf_raw_m=log_bf_raw_m,
+        (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
+            gene_set_stats_trace_out,
+            gene_stats_trace_out,
         )
+        try:
+            phase1_update = _run_gibbs_epoch_phase(
+                state=self,
+                run_state=run_state,
+                epoch_aggregates=epoch_aggregates,
+                phase_kwargs=phase_kwargs,
+                gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+                gene_stats_trace_fh=gene_stats_trace_fh,
+                log_bf_m=log_bf_m,
+                log_bf_uncorrected_m=log_bf_uncorrected_m,
+                log_bf_raw_m=log_bf_raw_m,
+            )
+        finally:
+            _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
         log_bf_m = phase1_update["log_bf_m"]
         log_bf_uncorrected_m = phase1_update["log_bf_uncorrected_m"]
         log_bf_raw_m = phase1_update["log_bf_raw_m"]
@@ -17406,38 +17413,6 @@ def _build_gibbs_epoch_phase_kwargs(**phase_kwargs):
     # Keep the exhaustive key list explicit in run_gibbs at the callsite, but
     # avoid repeating the same names in this thin packing helper.
     return phase_kwargs
-
-
-def _run_gibbs_epoch_phase_with_traces(
-    state,
-    run_state,
-    epoch_aggregates,
-    gene_set_stats_trace_out,
-    gene_stats_trace_out,
-    phase_kwargs,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    # Keep trace file lifecycle in one place so files are always closed.
-    (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
-        gene_set_stats_trace_out,
-        gene_stats_trace_out,
-    )
-    try:
-        return _run_gibbs_epoch_phase(
-            state=state,
-            run_state=run_state,
-            epoch_aggregates=epoch_aggregates,
-            phase_kwargs=phase_kwargs,
-            gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-            gene_stats_trace_fh=gene_stats_trace_fh,
-            log_bf_m=log_bf_m,
-            log_bf_uncorrected_m=log_bf_uncorrected_m,
-            log_bf_raw_m=log_bf_raw_m,
-        )
-    finally:
-        _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
 
 
 def _finalize_gibbs_run_after_epochs(run_state, num_chains):
