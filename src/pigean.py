@@ -17935,6 +17935,30 @@ def _decide_gibbs_post_burn_action(
     return decision
 
 
+def _build_gibbs_post_burn_update(
+    stop_pass_streak,
+    post_stall_beta_indices,
+    post_stall_gene_indices,
+    betas_sem2_v,
+    sem2_v,
+    done,
+    stop_due_to_precision,
+    restart_due_to_stall,
+    stop_due_to_stall,
+):
+    return {
+        "stop_pass_streak": stop_pass_streak,
+        "post_stall_beta_indices": post_stall_beta_indices,
+        "post_stall_gene_indices": post_stall_gene_indices,
+        "betas_sem2_v": betas_sem2_v,
+        "sem2_v": sem2_v,
+        "done": done,
+        "stop_due_to_precision": stop_due_to_precision,
+        "restart_due_to_stall": restart_due_to_stall,
+        "stop_due_to_stall": stop_due_to_stall,
+    }
+
+
 def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_context,
     phase_kwargs,
@@ -18218,17 +18242,17 @@ def _update_gibbs_post_burn_state(
     priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
 
     if in_burn_in:
-        return {
-            "stop_pass_streak": stop_pass_streak,
-            "post_stall_beta_indices": post_stall_beta_indices,
-            "post_stall_gene_indices": post_stall_gene_indices,
-            "betas_sem2_v": betas_sem2_v,
-            "sem2_v": sem2_v,
-            "done": done,
-            "stop_due_to_precision": stop_due_to_precision,
-            "restart_due_to_stall": restart_due_to_stall,
-            "stop_due_to_stall": stop_due_to_stall,
-        }
+        return _build_gibbs_post_burn_update(
+            stop_pass_streak=stop_pass_streak,
+            post_stall_beta_indices=post_stall_beta_indices,
+            post_stall_gene_indices=post_stall_gene_indices,
+            betas_sem2_v=betas_sem2_v,
+            sem2_v=sem2_v,
+            done=done,
+            stop_due_to_precision=stop_due_to_precision,
+            restart_due_to_stall=restart_due_to_stall,
+            stop_due_to_stall=stop_due_to_stall,
+        )
 
     _accumulate_gibbs_post_burn_iteration(
         state,
@@ -18280,17 +18304,17 @@ def _update_gibbs_post_burn_state(
             INFO,
         )
 
-    return {
-        "stop_pass_streak": stop_pass_streak,
-        "post_stall_beta_indices": post_stall_beta_indices,
-        "post_stall_gene_indices": post_stall_gene_indices,
-        "betas_sem2_v": betas_sem2_v,
-        "sem2_v": sem2_v,
-        "done": done,
-        "stop_due_to_precision": stop_due_to_precision,
-        "restart_due_to_stall": restart_due_to_stall,
-        "stop_due_to_stall": stop_due_to_stall,
-    }
+    return _build_gibbs_post_burn_update(
+        stop_pass_streak=stop_pass_streak,
+        post_stall_beta_indices=post_stall_beta_indices,
+        post_stall_gene_indices=post_stall_gene_indices,
+        betas_sem2_v=betas_sem2_v,
+        sem2_v=sem2_v,
+        done=done,
+        stop_due_to_precision=stop_due_to_precision,
+        restart_due_to_stall=restart_due_to_stall,
+        stop_due_to_stall=stop_due_to_stall,
+    )
 
 
 def _advance_gibbs_iteration_progress(
