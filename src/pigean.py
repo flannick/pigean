@@ -16813,7 +16813,6 @@ def _finalize_gibbs_epoch_attempt(
             remaining_total_iter=remaining_total_iter,
             num_completed_epochs=num_completed_epochs,
             should_continue=True,
-            should_break=False,
         )
 
     assert(np.all(epoch_sums["num_sum_Y_m"] > 0))
@@ -16844,7 +16843,6 @@ def _finalize_gibbs_epoch_attempt(
             remaining_total_iter=remaining_total_iter,
             num_completed_epochs=num_completed_epochs,
             should_continue=True,
-            should_break=False,
         )
 
     (
@@ -16918,7 +16916,6 @@ def _finalize_gibbs_epoch_attempt(
         remaining_total_iter=remaining_total_iter,
         num_completed_epochs=num_completed_epochs,
         should_continue=False,
-        should_break=True,
     )
 
 
@@ -17341,13 +17338,11 @@ def _build_gibbs_epoch_finalize_update(
     remaining_total_iter,
     num_completed_epochs,
     should_continue,
-    should_break,
 ):
     return {
         "remaining_total_iter": remaining_total_iter,
         "num_completed_epochs": num_completed_epochs,
         "should_continue": should_continue,
-        "should_break": should_break,
     }
 
 
@@ -17418,8 +17413,7 @@ def _run_gibbs_epoch_phase(
         _apply_gibbs_epoch_finalize_update(run_state, epoch_runtime, epoch_finalize_update)
         if epoch_finalize_update["should_continue"]:
             continue
-        if epoch_finalize_update["should_break"]:
-            break
+        break
 
     return {
         "log_bf_m": log_bf_m,
