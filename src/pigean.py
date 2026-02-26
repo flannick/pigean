@@ -18004,6 +18004,23 @@ def _extract_gibbs_post_burn_iteration_inputs(iter_state):
     }
 
 
+def _extract_gibbs_post_burn_control_state(epoch_control):
+    return {
+        "stop_pass_streak": epoch_control["stop_pass_streak"],
+        "burn_in_pass_streak": epoch_control["burn_in_pass_streak"],
+        "post_stall_best_beta_rhat_history": epoch_control["post_stall_best_beta_rhat_history"],
+        "post_stall_best_D_mcse_history": epoch_control["post_stall_best_D_mcse_history"],
+        "post_stall_snapshots": epoch_control["post_stall_snapshots"],
+        "post_stall_beta_indices": epoch_control["post_stall_beta_indices"],
+        "post_stall_gene_indices": epoch_control["post_stall_gene_indices"],
+        "betas_sem2_v": epoch_control["betas_sem2_v"],
+        "sem2_v": epoch_control["sem2_v"],
+        "stop_due_to_precision": epoch_control["stop_due_to_precision"],
+        "restart_due_to_stall": epoch_control["restart_due_to_stall"],
+        "stop_due_to_stall": epoch_control["stop_due_to_stall"],
+    }
+
+
 def _log_gibbs_post_burn_diagnostics(
     epoch_iter_num,
     total_iter_num,
@@ -18123,13 +18140,14 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_iter_num = iter_state["epoch_iter_num"]
     total_iter_num = iter_state["total_iter_num"]
 
-    stop_pass_streak = epoch_control["stop_pass_streak"]
-    burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
-    post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
-    post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
-    post_stall_snapshots = epoch_control["post_stall_snapshots"]
-    post_stall_beta_indices = epoch_control["post_stall_beta_indices"]
-    post_stall_gene_indices = epoch_control["post_stall_gene_indices"]
+    post_burn_control = _extract_gibbs_post_burn_control_state(epoch_control)
+    stop_pass_streak = post_burn_control["stop_pass_streak"]
+    burn_in_pass_streak = post_burn_control["burn_in_pass_streak"]
+    post_stall_best_beta_rhat_history = post_burn_control["post_stall_best_beta_rhat_history"]
+    post_stall_best_D_mcse_history = post_burn_control["post_stall_best_D_mcse_history"]
+    post_stall_snapshots = post_burn_control["post_stall_snapshots"]
+    post_stall_beta_indices = post_burn_control["post_stall_beta_indices"]
+    post_stall_gene_indices = post_burn_control["post_stall_gene_indices"]
 
     num_attempts = run_state["num_attempts"]
     max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
@@ -18297,20 +18315,20 @@ def _update_gibbs_post_burn_state(
     full_postp_sample_m,
 ):
     in_burn_in = epoch_control["in_burn_in"]
-    stop_pass_streak = epoch_control["stop_pass_streak"]
-
-    post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
-    post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
-    post_stall_snapshots = epoch_control["post_stall_snapshots"]
-    post_stall_beta_indices = epoch_control["post_stall_beta_indices"]
-    post_stall_gene_indices = epoch_control["post_stall_gene_indices"]
-    betas_sem2_v = epoch_control["betas_sem2_v"]
-    sem2_v = epoch_control["sem2_v"]
+    post_burn_control = _extract_gibbs_post_burn_control_state(epoch_control)
+    stop_pass_streak = post_burn_control["stop_pass_streak"]
+    post_stall_best_beta_rhat_history = post_burn_control["post_stall_best_beta_rhat_history"]
+    post_stall_best_D_mcse_history = post_burn_control["post_stall_best_D_mcse_history"]
+    post_stall_snapshots = post_burn_control["post_stall_snapshots"]
+    post_stall_beta_indices = post_burn_control["post_stall_beta_indices"]
+    post_stall_gene_indices = post_burn_control["post_stall_gene_indices"]
+    betas_sem2_v = post_burn_control["betas_sem2_v"]
+    sem2_v = post_burn_control["sem2_v"]
 
     done = False
-    stop_due_to_precision = epoch_control["stop_due_to_precision"]
-    restart_due_to_stall = epoch_control["restart_due_to_stall"]
-    stop_due_to_stall = epoch_control["stop_due_to_stall"]
+    stop_due_to_precision = post_burn_control["stop_due_to_precision"]
+    restart_due_to_stall = post_burn_control["restart_due_to_stall"]
+    stop_due_to_stall = post_burn_control["stop_due_to_stall"]
 
     diag_every = phase_kwargs["diag_every"]
 
