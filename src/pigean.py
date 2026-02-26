@@ -8412,9 +8412,6 @@ class GeneSetData(object):
 
             num_attempts += 1
 
-            #by default it succeeded
-            gibbs_good = True
-
             epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch = _resolve_epoch_iteration_budget(remaining_total_iter, epoch_max_num_iter_config, min_num_burn_in, max_num_burn_in, min_num_post_burn_in, max_num_post_burn_in)
             if epoch_max_num_iter < 1:
                 break
@@ -8445,16 +8442,10 @@ class GeneSetData(object):
                 log,
             )
             full_betas_m_shape = epoch_state["full_betas_m_shape"]
-            all_sum_betas_m = epoch_state["all_sum_betas_m"]
-            all_sum_betas2_m = epoch_state["all_sum_betas2_m"]
-            all_sum_z_scores_m = epoch_state["all_sum_z_scores_m"]
-            all_sum_z_scores2_m = epoch_state["all_sum_z_scores2_m"]
-            all_num_sum_m = epoch_state["all_num_sum_m"]
-            all_sum_Ys_m = epoch_state["all_sum_Ys_m"]
-            all_sum_Ys2_m = epoch_state["all_sum_Ys2_m"]
             epoch_control = _initialize_gibbs_epoch_control_state(epoch_state)
             epoch_sums = _initialize_gibbs_epoch_sums_state(epoch_state, epoch_aggregates)
             epoch_priors = _initialize_gibbs_epoch_priors_state(epoch_state)
+            epoch_runtime = _initialize_gibbs_epoch_runtime_state(epoch_state, num_p_increases)
             post_burn_reset_arrays = epoch_state["post_burn_reset_arrays"]
             post_burn_reset_missing_arrays = epoch_state["post_burn_reset_missing_arrays"]
             X_hstacked = epoch_state["X_hstacked"]
@@ -8692,13 +8683,13 @@ class GeneSetData(object):
                     full_betas_mean_m,
                     iter_state["full_z_scores_m"],
                     iter_state["Y_sample_m"],
-                    all_sum_betas_m,
-                    all_sum_betas2_m,
-                    all_sum_z_scores_m,
-                    all_sum_z_scores2_m,
-                    all_num_sum_m,
-                    all_sum_Ys_m,
-                    all_sum_Ys2_m,
+                    epoch_runtime["all_sum_betas_m"],
+                    epoch_runtime["all_sum_betas2_m"],
+                    epoch_runtime["all_sum_z_scores_m"],
+                    epoch_runtime["all_sum_z_scores2_m"],
+                    epoch_runtime["all_num_sum_m"],
+                    epoch_runtime["all_sum_Ys_m"],
+                    epoch_runtime["all_sum_Ys2_m"],
                     increase_hyper_if_betas_below_for_epoch,
                     epoch_sums["num_sum_beta_m"],
                     epoch_sums["sum_betas_m"],
@@ -8708,19 +8699,9 @@ class GeneSetData(object):
                     p_scale_factor,
                     num_attempts,
                     max_num_attempt_restarts,
-                    num_p_increases,
+                    epoch_runtime["num_p_increases"],
                 )
-                all_sum_betas_m = all_iteration_update["all_sum_betas_m"]
-                all_sum_betas2_m = all_iteration_update["all_sum_betas2_m"]
-                all_sum_z_scores_m = all_iteration_update["all_sum_z_scores_m"]
-                all_sum_z_scores2_m = all_iteration_update["all_sum_z_scores2_m"]
-                all_num_sum_m = all_iteration_update["all_num_sum_m"]
-                all_sum_Ys_m = all_iteration_update["all_sum_Ys_m"]
-                all_sum_Ys2_m = all_iteration_update["all_sum_Ys2_m"]
-                epoch_control["R_beta_v"] = all_iteration_update["R_beta_v"]
-                gibbs_good = all_iteration_update["gibbs_good"]
-                num_p_increases = all_iteration_update["num_p_increases"]
-                if all_iteration_update["should_break"]:
+                if _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update):
                     break
 
                 iteration_progress_update = _advance_gibbs_iteration_progress(
@@ -8737,9 +8718,9 @@ class GeneSetData(object):
                     gauss_seidel=gauss_seidel,
                     eps=eps,
                     diag_every=diag_every,
-                    all_sum_betas_m=all_sum_betas_m,
-                    all_sum_betas2_m=all_sum_betas2_m,
-                    all_num_sum_m=all_num_sum_m,
+                    all_sum_betas_m=epoch_runtime["all_sum_betas_m"],
+                    all_sum_betas2_m=epoch_runtime["all_sum_betas2_m"],
+                    all_num_sum_m=epoch_runtime["all_num_sum_m"],
                     active_beta_top_k=active_beta_top_k,
                     active_beta_min_abs=active_beta_min_abs,
                     burn_in_rhat_quantile=burn_in_rhat_quantile,
@@ -8799,11 +8780,12 @@ class GeneSetData(object):
                 if iteration_progress_update["done"]:
                     break
 
+            num_p_increases = epoch_runtime["num_p_increases"]
             epoch_finalize_update = _finalize_gibbs_epoch_attempt(
                 self,
                 epoch_aggregates=epoch_aggregates,
                 include_missing=(self.genes_missing is not None),
-                gibbs_good=gibbs_good,
+                gibbs_good=epoch_runtime["gibbs_good"],
                 iterations_run_this_epoch=(iteration_num + 1),
                 remaining_total_iter=remaining_total_iter,
                 num_completed_epochs=num_completed_epochs,
@@ -15438,6 +15420,16 @@ _GIBBS_EPOCH_MISSING_SUM_KEYS = (
     "num_sum_priors_missing_m",
 )
 
+_GIBBS_EPOCH_RUNTIME_SUM_KEYS = (
+    "all_sum_betas_m",
+    "all_sum_betas2_m",
+    "all_sum_z_scores_m",
+    "all_sum_z_scores2_m",
+    "all_num_sum_m",
+    "all_sum_Ys_m",
+    "all_sum_Ys2_m",
+)
+
 
 def _new_gibbs_epoch_aggregates():
     epoch_aggregates = {}
@@ -16293,6 +16285,24 @@ def _initialize_gibbs_epoch_priors_state(epoch_state):
         "priors_missing_sample_m": epoch_state["priors_missing_sample_m"],
         "priors_missing_mean_m": epoch_state["priors_missing_mean_m"],
     }
+
+
+def _initialize_gibbs_epoch_runtime_state(epoch_state, num_p_increases):
+    # Mutable per-epoch running totals and restart-related flags.
+    epoch_runtime = {key: epoch_state[key] for key in _GIBBS_EPOCH_RUNTIME_SUM_KEYS}
+    epoch_runtime["gibbs_good"] = True
+    epoch_runtime["num_p_increases"] = num_p_increases
+    return epoch_runtime
+
+
+def _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update):
+    # Apply one iteration's all-sample accumulation and restart diagnostics.
+    for key in _GIBBS_EPOCH_RUNTIME_SUM_KEYS:
+        epoch_runtime[key] = all_iteration_update[key]
+    epoch_control["R_beta_v"] = all_iteration_update["R_beta_v"]
+    epoch_runtime["gibbs_good"] = all_iteration_update["gibbs_good"]
+    epoch_runtime["num_p_increases"] = all_iteration_update["num_p_increases"]
+    return all_iteration_update["should_break"]
 
 
 def _open_gibbs_trace_outputs(gene_set_stats_trace_out, gene_stats_trace_out):
