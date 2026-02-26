@@ -17869,6 +17869,67 @@ def _update_post_burn_stall_tracking(
     }
 
 
+def _decide_gibbs_post_burn_action(
+    precision_achieved,
+    post_stall_detected,
+    num_attempts,
+    max_num_attempt_restarts,
+    epoch_iter_num,
+    total_iter_num,
+    post_stall_plateau,
+    post_stall_recent_worse,
+    beta_rhat_q_post,
+    D_mcse_q,
+    post_stall_recent_beta_rhat_q,
+    post_stall_recent_D_mcse_q,
+):
+    decision = {
+        "done": False,
+        "stop_due_to_precision": False,
+        "restart_due_to_stall": False,
+        "stop_due_to_stall": False,
+    }
+
+    if precision_achieved:
+        decision["done"] = True
+        decision["stop_due_to_precision"] = True
+        log("Desired Gibbs precision achieved; stopping sampling", INFO)
+        return decision
+
+    if not post_stall_detected:
+        return decision
+
+    if num_attempts < max_num_attempt_restarts:
+        decision["done"] = True
+        decision["restart_due_to_stall"] = True
+        # Keep and aggregate this epoch's post-burn samples, then continue
+        # with a new epoch to add more effective chain means.
+        log(
+            "Restarting Gibbs epoch due to post-burn stall at iter %d (global %d) because precision is not yet met (plateau=%s, recent_worse=%s, beta_Rhat_q=%.4g, D_mcse_q=%.4g, recent_beta_Rhat_q=%s, recent_D_mcse_q=%s); aggregating current epoch samples before restart"
+            % (
+                epoch_iter_num,
+                total_iter_num,
+                str(post_stall_plateau),
+                str(post_stall_recent_worse),
+                beta_rhat_q_post,
+                D_mcse_q,
+                ("%.4g" % post_stall_recent_beta_rhat_q) if np.isfinite(post_stall_recent_beta_rhat_q) else "NA",
+                ("%.4g" % post_stall_recent_D_mcse_q) if np.isfinite(post_stall_recent_D_mcse_q) else "NA",
+            ),
+            INFO,
+        )
+        return decision
+
+    decision["done"] = True
+    decision["stop_due_to_stall"] = True
+    log(
+        "Post-burn stall detected at iter %d (global %d) and precision is not yet met, but no restart attempts remain; stopping this epoch (beta_Rhat_q=%.4g, D_mcse_q=%.4g)"
+        % (epoch_iter_num, total_iter_num, beta_rhat_q_post, D_mcse_q),
+        INFO,
+    )
+    return decision
+
+
 def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_context,
     phase_kwargs,
@@ -18069,44 +18130,21 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
             INFO,
         )
 
-    done = False
-    stop_due_to_precision = False
-    restart_due_to_stall = False
-    stop_due_to_stall = False
-
     precision_achieved = min_post_burn_reached and stop_pass_streak >= stop_patience
-    if precision_achieved:
-        stop_due_to_precision = True
-        done = True
-        log("Desired Gibbs precision achieved; stopping sampling", INFO)
-    elif post_stall_detected:
-        if num_attempts < max_num_attempt_restarts:
-            restart_due_to_stall = True
-            done = True
-            # Keep and aggregate this epoch's post-burn samples, then continue
-            # with a new epoch to add more effective chain means.
-            log(
-                "Restarting Gibbs epoch due to post-burn stall at iter %d (global %d) because precision is not yet met (plateau=%s, recent_worse=%s, beta_Rhat_q=%.4g, D_mcse_q=%.4g, recent_beta_Rhat_q=%s, recent_D_mcse_q=%s); aggregating current epoch samples before restart"
-                % (
-                    epoch_iter_num,
-                    total_iter_num,
-                    str(post_stall_plateau),
-                    str(post_stall_recent_worse),
-                    beta_rhat_q_post,
-                    D_mcse_q,
-                    ("%.4g" % post_stall_recent_beta_rhat_q) if np.isfinite(post_stall_recent_beta_rhat_q) else "NA",
-                    ("%.4g" % post_stall_recent_D_mcse_q) if np.isfinite(post_stall_recent_D_mcse_q) else "NA",
-                ),
-                INFO,
-            )
-        else:
-            stop_due_to_stall = True
-            done = True
-            log(
-                "Post-burn stall detected at iter %d (global %d) and precision is not yet met, but no restart attempts remain; stopping this epoch (beta_Rhat_q=%.4g, D_mcse_q=%.4g)"
-                % (epoch_iter_num, total_iter_num, beta_rhat_q_post, D_mcse_q),
-                INFO,
-            )
+    decision = _decide_gibbs_post_burn_action(
+        precision_achieved=precision_achieved,
+        post_stall_detected=post_stall_detected,
+        num_attempts=num_attempts,
+        max_num_attempt_restarts=max_num_attempt_restarts,
+        epoch_iter_num=epoch_iter_num,
+        total_iter_num=total_iter_num,
+        post_stall_plateau=post_stall_plateau,
+        post_stall_recent_worse=post_stall_recent_worse,
+        beta_rhat_q_post=beta_rhat_q_post,
+        D_mcse_q=D_mcse_q,
+        post_stall_recent_beta_rhat_q=post_stall_recent_beta_rhat_q,
+        post_stall_recent_D_mcse_q=post_stall_recent_D_mcse_q,
+    )
 
     return {
         "stop_pass_streak": stop_pass_streak,
@@ -18114,10 +18152,10 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         "post_stall_gene_indices": post_stall_gene_indices,
         "betas_sem2_v": np.square(beta_mcse_v),
         "sem2_v": np.square(D_mcse_v),
-        "done": done,
-        "stop_due_to_precision": stop_due_to_precision,
-        "restart_due_to_stall": restart_due_to_stall,
-        "stop_due_to_stall": stop_due_to_stall,
+        "done": decision["done"],
+        "stop_due_to_precision": decision["stop_due_to_precision"],
+        "restart_due_to_stall": decision["restart_due_to_stall"],
+        "stop_due_to_stall": decision["stop_due_to_stall"],
     }
 
 
