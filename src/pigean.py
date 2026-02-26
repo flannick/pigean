@@ -17121,10 +17121,6 @@ def _prepare_gibbs_iteration_state(
     gene_stats_trace_fh,
 ):
     # Prepare all iteration-local sampling and masking state before corrected betas.
-    sparse_frac_gibbs = phase_kwargs["sparse_frac_gibbs"]
-    sparse_max_gibbs = phase_kwargs["sparse_max_gibbs"]
-    pre_filter_batch_size = phase_kwargs["pre_filter_batch_size"]
-    pre_filter_small_batch_size = phase_kwargs["pre_filter_small_batch_size"]
     inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
 
     iter_setup = _prepare_gibbs_iteration_inputs(
@@ -17160,21 +17156,8 @@ def _prepare_gibbs_iteration_state(
         iter_state["default_postp_mean_m"],
     ) = _prepare_gibbs_gene_set_mask_with_prefilter(
         state,
-        uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
-        uncorrected_betas_sample_m=iter_state["uncorrected_betas_sample_m"],
-        full_p_values_m=iter_state["full_p_values_m"],
-        sparse_frac_gibbs=sparse_frac_gibbs,
-        sparse_max_gibbs=sparse_max_gibbs,
-        pre_filter_batch_size=pre_filter_batch_size,
-        pre_filter_small_batch_size=pre_filter_small_batch_size,
-        full_beta_tildes_m=iter_state["full_beta_tildes_m"],
-        full_ses_m=iter_state["full_ses_m"],
-        full_scale_factors_m=iter_state["full_scale_factors_m"],
-        full_mean_shifts_m=iter_state["full_mean_shifts_m"],
-        full_is_dense_gene_set_m=iter_state["full_is_dense_gene_set_m"],
-        full_ps_m=iter_state["full_ps_m"],
-        full_sigma2s_m=iter_state["full_sigma2s_m"],
-        **inner_beta_kwargs,
+        iter_state=iter_state,
+        phase_kwargs=phase_kwargs,
         default_betas_sample_m=iter_state["default_betas_sample_m"],
         default_postp_sample_m=iter_state["default_postp_sample_m"],
         default_betas_mean_m=iter_state["default_betas_mean_m"],
@@ -18783,36 +18766,43 @@ def _compute_gibbs_uncorrected_betas_and_defaults(
 
 def _prepare_gibbs_gene_set_mask_with_prefilter(
     state,
-    uncorrected_betas_mean_m,
-    uncorrected_betas_sample_m,
-    full_p_values_m,
-    sparse_frac_gibbs,
-    sparse_max_gibbs,
-    pre_filter_batch_size,
-    pre_filter_small_batch_size,
-    full_beta_tildes_m,
-    full_ses_m,
-    full_scale_factors_m,
-    full_mean_shifts_m,
-    full_is_dense_gene_set_m,
-    full_ps_m,
-    full_sigma2s_m,
-    passed_in_max_num_burn_in,
-    max_num_iter_betas,
-    min_num_iter_betas,
-    num_chains_betas,
-    r_threshold_burn_in_betas,
-    use_max_r_for_convergence_betas,
-    max_frac_sem_betas,
-    max_allowed_batch_correlation,
-    gauss_seidel_betas,
-    sparse_solution,
-    sparse_frac_betas,
+    iter_state,
+    phase_kwargs,
     default_betas_sample_m,
     default_postp_sample_m,
     default_betas_mean_m,
     default_postp_mean_m,
 ):
+    uncorrected_betas_mean_m = iter_state["uncorrected_betas_mean_m"]
+    uncorrected_betas_sample_m = iter_state["uncorrected_betas_sample_m"]
+    full_p_values_m = iter_state["full_p_values_m"]
+    full_beta_tildes_m = iter_state["full_beta_tildes_m"]
+    full_ses_m = iter_state["full_ses_m"]
+    full_scale_factors_m = iter_state["full_scale_factors_m"]
+    full_mean_shifts_m = iter_state["full_mean_shifts_m"]
+    full_is_dense_gene_set_m = iter_state["full_is_dense_gene_set_m"]
+    full_ps_m = iter_state["full_ps_m"]
+    full_sigma2s_m = iter_state["full_sigma2s_m"]
+
+    sparse_frac_gibbs = phase_kwargs["sparse_frac_gibbs"]
+    sparse_max_gibbs = phase_kwargs["sparse_max_gibbs"]
+    pre_filter_batch_size = phase_kwargs["pre_filter_batch_size"]
+    pre_filter_small_batch_size = phase_kwargs["pre_filter_small_batch_size"]
+    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
+    inner_beta_kwargs_linear = {
+        "max_num_burn_in": inner_beta_kwargs["passed_in_max_num_burn_in"],
+        "max_num_iter": inner_beta_kwargs["max_num_iter_betas"],
+        "min_num_iter": inner_beta_kwargs["min_num_iter_betas"],
+        "num_chains": inner_beta_kwargs["num_chains_betas"],
+        "r_threshold_burn_in": inner_beta_kwargs["r_threshold_burn_in_betas"],
+        "use_max_r_for_convergence": inner_beta_kwargs["use_max_r_for_convergence_betas"],
+        "max_frac_sem": inner_beta_kwargs["max_frac_sem_betas"],
+        "max_allowed_batch_correlation": inner_beta_kwargs["max_allowed_batch_correlation"],
+        "gauss_seidel": inner_beta_kwargs["gauss_seidel_betas"],
+        "sparse_solution": inner_beta_kwargs["sparse_solution"],
+        "sparse_frac_betas": inner_beta_kwargs["sparse_frac_betas"],
+    }
+
     # Start from sparsity mask on uncorrected betas, then optionally run a
     # cheaper prefilter pass to mark additional near-zero sets before the
     # corrected beta batching stage.
@@ -18880,19 +18870,9 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
                         ps=full_ps_m[:,any_gene_set_mask],
                         sigma2s=full_sigma2s_m[:,any_gene_set_mask],
                         return_sample=True,
-                        max_num_burn_in=passed_in_max_num_burn_in,
-                        max_num_iter=max_num_iter_betas,
-                        min_num_iter=min_num_iter_betas,
-                        num_chains=num_chains_betas,
-                        r_threshold_burn_in=r_threshold_burn_in_betas,
-                        use_max_r_for_convergence=use_max_r_for_convergence_betas,
-                        max_frac_sem=max_frac_sem_betas,
-                        max_allowed_batch_correlation=max_allowed_batch_correlation,
-                        gauss_seidel=gauss_seidel_betas,
                         update_hyper_sigma=False,
                         update_hyper_p=False,
-                        sparse_solution=sparse_solution,
-                        sparse_frac_betas=sparse_frac_betas,
+                        **inner_beta_kwargs_linear,
                     )
 
                     add_zero_mask_m = ~(
