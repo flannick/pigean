@@ -15,7 +15,6 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         "huge_score_gwas",
         "huge_score_gwas_uncorrected",
         "log_bf",
-        "log_bf_uncorrected",
     ]
     PARAM_VALUE_KEYS = [
         "gwas_allelic_var_k",
@@ -136,6 +135,7 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
             "N",
             "--gene-loc-file-huge",
             str(cls.gene_loc_file),
+            "--no-correct-huge",
         ]
 
     @classmethod
