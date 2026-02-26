@@ -8404,29 +8404,32 @@ class GeneSetData(object):
         # Gibbs Phase 1: Run one or more epochs (optionally restarting on stalls).
         # ==========================================================================
         while _can_run_gibbs_epoch(run_state):
-
-            run_state["num_attempts"] += 1
-
-            epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch = _resolve_epoch_iteration_budget(run_state["remaining_total_iter"], epoch_max_num_iter_config, min_num_burn_in, max_num_burn_in, min_num_post_burn_in, max_num_post_burn_in)
-            if epoch_max_num_iter < 1:
+            epoch_attempt = _prepare_gibbs_epoch_attempt(
+                state=self,
+                run_state=run_state,
+                total_num_iter=total_num_iter,
+                num_chains=num_chains,
+                target_num_epochs=target_num_epochs,
+                epoch_max_num_iter_config=epoch_max_num_iter_config,
+                min_num_burn_in=min_num_burn_in,
+                max_num_burn_in=max_num_burn_in,
+                min_num_post_burn_in=min_num_post_burn_in,
+                max_num_post_burn_in=max_num_post_burn_in,
+                increase_hyper_if_betas_below=increase_hyper_if_betas_below,
+            )
+            if epoch_attempt is None:
                 break
-            trace_chain_offset = run_state["num_completed_epochs"] * num_chains
-
-            #for increasing p option
-            p_scale_factor = 1 - np.log(self.p)/(2 * np.log(10))
-            min_num_iter_for_epoch = min_num_burn_in_for_epoch
-            increase_hyper_if_betas_below_for_epoch = increase_hyper_if_betas_below if run_state["num_completed_epochs"] == 0 else None
-            num_before_checking_p_increase = max(min_num_iter_for_epoch, min_num_burn_in_for_epoch)
-            if increase_hyper_if_betas_below_for_epoch is not None and num_before_checking_p_increase > min_num_iter_for_epoch:
-                #make sure that we always trigger this check before breaking
-                min_num_iter_for_epoch = num_before_checking_p_increase
-
-            self._record_param("num_gibbs_restarts", run_state["num_attempts"] - 1, overwrite=True)
-            self._record_param("num_gibbs_epochs_completed", run_state["num_completed_epochs"], overwrite=True)
-            if run_state["num_attempts"] > 1:
-                log("Gibbs restart attempt %d" % (run_state["num_attempts"] - 1))
-            log("Gibbs epoch %d/%d: max_num_iter=%d, burn=[%d,%d], post=[%d,%d], remaining_total_iter=%d" % (run_state["num_completed_epochs"] + 1, target_num_epochs, epoch_max_num_iter, min_num_burn_in_for_epoch, max_num_burn_in_for_epoch, min_num_post_burn_in_for_epoch, max_num_post_burn_in_for_epoch, run_state["remaining_total_iter"]), INFO)
-            epoch_total_iter_offset = total_num_iter - run_state["remaining_total_iter"]
+            epoch_max_num_iter = epoch_attempt["epoch_max_num_iter"]
+            min_num_burn_in_for_epoch = epoch_attempt["min_num_burn_in_for_epoch"]
+            max_num_burn_in_for_epoch = epoch_attempt["max_num_burn_in_for_epoch"]
+            min_num_post_burn_in_for_epoch = epoch_attempt["min_num_post_burn_in_for_epoch"]
+            max_num_post_burn_in_for_epoch = epoch_attempt["max_num_post_burn_in_for_epoch"]
+            trace_chain_offset = epoch_attempt["trace_chain_offset"]
+            p_scale_factor = epoch_attempt["p_scale_factor"]
+            min_num_iter_for_epoch = epoch_attempt["min_num_iter_for_epoch"]
+            increase_hyper_if_betas_below_for_epoch = epoch_attempt["increase_hyper_if_betas_below_for_epoch"]
+            num_before_checking_p_increase = epoch_attempt["num_before_checking_p_increase"]
+            epoch_total_iter_offset = epoch_attempt["epoch_total_iter_offset"]
 
             epoch_state = _initialize_gibbs_epoch_state(
                 self,
@@ -15539,6 +15542,84 @@ def _can_run_gibbs_epoch(run_state):
         and run_state["num_completed_epochs"] < run_state["target_num_epochs"]
         and run_state["remaining_total_iter"] > 0
     )
+
+
+def _prepare_gibbs_epoch_attempt(
+    state,
+    run_state,
+    total_num_iter,
+    num_chains,
+    target_num_epochs,
+    epoch_max_num_iter_config,
+    min_num_burn_in,
+    max_num_burn_in,
+    min_num_post_burn_in,
+    max_num_post_burn_in,
+    increase_hyper_if_betas_below,
+):
+    # Resolve one epoch attempt's bounds and bookkeeping from run-level state.
+    run_state["num_attempts"] += 1
+
+    (
+        epoch_max_num_iter,
+        min_num_burn_in_for_epoch,
+        max_num_burn_in_for_epoch,
+        min_num_post_burn_in_for_epoch,
+        max_num_post_burn_in_for_epoch,
+    ) = _resolve_epoch_iteration_budget(
+        run_state["remaining_total_iter"],
+        epoch_max_num_iter_config,
+        min_num_burn_in,
+        max_num_burn_in,
+        min_num_post_burn_in,
+        max_num_post_burn_in,
+    )
+    if epoch_max_num_iter < 1:
+        return None
+
+    trace_chain_offset = run_state["num_completed_epochs"] * num_chains
+    p_scale_factor = 1 - np.log(state.p) / (2 * np.log(10))
+
+    min_num_iter_for_epoch = min_num_burn_in_for_epoch
+    increase_hyper_if_betas_below_for_epoch = increase_hyper_if_betas_below if run_state["num_completed_epochs"] == 0 else None
+    num_before_checking_p_increase = max(min_num_iter_for_epoch, min_num_burn_in_for_epoch)
+    if increase_hyper_if_betas_below_for_epoch is not None and num_before_checking_p_increase > min_num_iter_for_epoch:
+        # Ensure this check runs before any early break.
+        min_num_iter_for_epoch = num_before_checking_p_increase
+
+    state._record_param("num_gibbs_restarts", run_state["num_attempts"] - 1, overwrite=True)
+    state._record_param("num_gibbs_epochs_completed", run_state["num_completed_epochs"], overwrite=True)
+    if run_state["num_attempts"] > 1:
+        log("Gibbs restart attempt %d" % (run_state["num_attempts"] - 1))
+    log(
+        "Gibbs epoch %d/%d: max_num_iter=%d, burn=[%d,%d], post=[%d,%d], remaining_total_iter=%d"
+        % (
+            run_state["num_completed_epochs"] + 1,
+            target_num_epochs,
+            epoch_max_num_iter,
+            min_num_burn_in_for_epoch,
+            max_num_burn_in_for_epoch,
+            min_num_post_burn_in_for_epoch,
+            max_num_post_burn_in_for_epoch,
+            run_state["remaining_total_iter"],
+        ),
+        INFO,
+    )
+
+    epoch_total_iter_offset = total_num_iter - run_state["remaining_total_iter"]
+    return {
+        "epoch_max_num_iter": epoch_max_num_iter,
+        "min_num_burn_in_for_epoch": min_num_burn_in_for_epoch,
+        "max_num_burn_in_for_epoch": max_num_burn_in_for_epoch,
+        "min_num_post_burn_in_for_epoch": min_num_post_burn_in_for_epoch,
+        "max_num_post_burn_in_for_epoch": max_num_post_burn_in_for_epoch,
+        "trace_chain_offset": trace_chain_offset,
+        "p_scale_factor": p_scale_factor,
+        "min_num_iter_for_epoch": min_num_iter_for_epoch,
+        "increase_hyper_if_betas_below_for_epoch": increase_hyper_if_betas_below_for_epoch,
+        "num_before_checking_p_increase": num_before_checking_p_increase,
+        "epoch_total_iter_offset": epoch_total_iter_offset,
+    }
 
 
 def _trim_stall_histories(
