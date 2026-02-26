@@ -8404,7 +8404,7 @@ class GeneSetData(object):
         # Gibbs Phase 1: Run one or more epochs (optionally restarting on stalls).
         # ==========================================================================
         while _can_run_gibbs_epoch(run_state):
-            epoch_attempt = _prepare_gibbs_epoch_attempt(
+            epoch_context = _prepare_and_start_gibbs_epoch(
                 state=self,
                 run_state=run_state,
                 total_num_iter=total_num_iter,
@@ -8416,31 +8416,24 @@ class GeneSetData(object):
                 min_num_post_burn_in=min_num_post_burn_in,
                 max_num_post_burn_in=max_num_post_burn_in,
                 increase_hyper_if_betas_below=increase_hyper_if_betas_below,
-            )
-            if epoch_attempt is None:
-                break
-            epoch_max_num_iter = epoch_attempt["epoch_max_num_iter"]
-            min_num_burn_in_for_epoch = epoch_attempt["min_num_burn_in_for_epoch"]
-            max_num_burn_in_for_epoch = epoch_attempt["max_num_burn_in_for_epoch"]
-            min_num_post_burn_in_for_epoch = epoch_attempt["min_num_post_burn_in_for_epoch"]
-            max_num_post_burn_in_for_epoch = epoch_attempt["max_num_post_burn_in_for_epoch"]
-            trace_chain_offset = epoch_attempt["trace_chain_offset"]
-            p_scale_factor = epoch_attempt["p_scale_factor"]
-            min_num_iter_for_epoch = epoch_attempt["min_num_iter_for_epoch"]
-            increase_hyper_if_betas_below_for_epoch = epoch_attempt["increase_hyper_if_betas_below_for_epoch"]
-            num_before_checking_p_increase = epoch_attempt["num_before_checking_p_increase"]
-            epoch_total_iter_offset = epoch_attempt["epoch_total_iter_offset"]
-
-            epoch_context = _start_gibbs_epoch(
-                state=self,
-                num_chains=num_chains,
                 num_full_gene_sets=num_full_gene_sets,
                 use_mean_betas=use_mean_betas,
                 max_mb_X_h=max_mb_X_h,
-                log_fun=log,
                 epoch_aggregates=epoch_aggregates,
-                num_p_increases=run_state["num_p_increases"],
             )
+            if epoch_context is None:
+                break
+            epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
+            min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
+            max_num_burn_in_for_epoch = epoch_context["max_num_burn_in_for_epoch"]
+            min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
+            max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
+            trace_chain_offset = epoch_context["trace_chain_offset"]
+            p_scale_factor = epoch_context["p_scale_factor"]
+            min_num_iter_for_epoch = epoch_context["min_num_iter_for_epoch"]
+            increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
+            num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
+            epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
             full_betas_m_shape = epoch_context["full_betas_m_shape"]
             epoch_control = epoch_context["epoch_control"]
             epoch_sums = epoch_context["epoch_sums"]
@@ -17212,6 +17205,54 @@ def _prepare_gibbs_iteration_state(
     )
 
     return {"iter_state": iter_state, "gene_set_mask_m": gene_set_mask_m}
+
+
+def _prepare_and_start_gibbs_epoch(
+    state,
+    run_state,
+    total_num_iter,
+    num_chains,
+    target_num_epochs,
+    epoch_max_num_iter_config,
+    min_num_burn_in,
+    max_num_burn_in,
+    min_num_post_burn_in,
+    max_num_post_burn_in,
+    increase_hyper_if_betas_below,
+    num_full_gene_sets,
+    use_mean_betas,
+    max_mb_X_h,
+    epoch_aggregates,
+):
+    epoch_attempt = _prepare_gibbs_epoch_attempt(
+        state=state,
+        run_state=run_state,
+        total_num_iter=total_num_iter,
+        num_chains=num_chains,
+        target_num_epochs=target_num_epochs,
+        epoch_max_num_iter_config=epoch_max_num_iter_config,
+        min_num_burn_in=min_num_burn_in,
+        max_num_burn_in=max_num_burn_in,
+        min_num_post_burn_in=min_num_post_burn_in,
+        max_num_post_burn_in=max_num_post_burn_in,
+        increase_hyper_if_betas_below=increase_hyper_if_betas_below,
+    )
+    if epoch_attempt is None:
+        return None
+
+    epoch_context = _start_gibbs_epoch(
+        state=state,
+        num_chains=num_chains,
+        num_full_gene_sets=num_full_gene_sets,
+        use_mean_betas=use_mean_betas,
+        max_mb_X_h=max_mb_X_h,
+        log_fun=log,
+        epoch_aggregates=epoch_aggregates,
+        num_p_increases=run_state["num_p_increases"],
+    )
+
+    epoch_context.update(epoch_attempt)
+    return epoch_context
 
 
 def _run_gibbs_epoch_iterations(
