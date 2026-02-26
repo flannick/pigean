@@ -18021,6 +18021,18 @@ def _extract_gibbs_post_burn_control_state(epoch_control):
     }
 
 
+GIBBS_POST_BURN_CONTROL_KEYS = (
+    "stop_pass_streak",
+    "post_stall_beta_indices",
+    "post_stall_gene_indices",
+    "betas_sem2_v",
+    "sem2_v",
+    "stop_due_to_precision",
+    "restart_due_to_stall",
+    "stop_due_to_stall",
+)
+
+
 def _extract_gibbs_post_burn_sum_state(epoch_sums):
     return {
         "epoch_aggregates": epoch_sums["epoch_aggregates"],
@@ -18528,16 +18540,7 @@ def _advance_gibbs_iteration_progress(
     _update_gibbs_epoch_control(
         epoch_control,
         post_burn_update,
-        (
-            "stop_pass_streak",
-            "post_stall_beta_indices",
-            "post_stall_gene_indices",
-            "betas_sem2_v",
-            "sem2_v",
-            "stop_due_to_precision",
-            "restart_due_to_stall",
-            "stop_due_to_stall",
-        ),
+        GIBBS_POST_BURN_CONTROL_KEYS,
     )
     return {"done": post_burn_update["done"]}
 
