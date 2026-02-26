@@ -8323,157 +8323,83 @@ class GeneSetData(object):
             gene_stats_trace_out,
         )
 
-        # ==========================================================================
-        # Gibbs Phase 1: Run one or more epochs (optionally restarting on stalls).
-        # ==========================================================================
-        while _can_run_gibbs_epoch(run_state):
-            epoch_context = _prepare_and_start_gibbs_epoch(
-                state=self,
-                run_state=run_state,
-                total_num_iter=total_num_iter,
-                num_chains=num_chains,
-                target_num_epochs=target_num_epochs,
-                epoch_max_num_iter_config=epoch_max_num_iter_config,
-                min_num_burn_in=min_num_burn_in,
-                max_num_burn_in=max_num_burn_in,
-                min_num_post_burn_in=min_num_post_burn_in,
-                max_num_post_burn_in=max_num_post_burn_in,
-                increase_hyper_if_betas_below=increase_hyper_if_betas_below,
-                num_full_gene_sets=num_full_gene_sets,
-                use_mean_betas=use_mean_betas,
-                max_mb_X_h=max_mb_X_h,
-                epoch_aggregates=epoch_aggregates,
-            )
-            if epoch_context is None:
-                break
-            epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
-            min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
-            max_num_burn_in_for_epoch = epoch_context["max_num_burn_in_for_epoch"]
-            min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
-            max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
-            trace_chain_offset = epoch_context["trace_chain_offset"]
-            p_scale_factor = epoch_context["p_scale_factor"]
-            min_num_iter_for_epoch = epoch_context["min_num_iter_for_epoch"]
-            increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
-            num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
-            epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
-            full_betas_m_shape = epoch_context["full_betas_m_shape"]
-            epoch_control = epoch_context["epoch_control"]
-            epoch_sums = epoch_context["epoch_sums"]
-            epoch_priors = epoch_context["epoch_priors"]
-            epoch_runtime = epoch_context["epoch_runtime"]
-            post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
-            post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
-            X_hstacked = epoch_context["X_hstacked"]
-            stack_batch_size = epoch_context["stack_batch_size"]
-            num_stack_batches = epoch_context["num_stack_batches"]
-
-            epoch_loop_update = _run_gibbs_epoch_iterations(
-                state=self,
-                run_state=run_state,
-                epoch_control=epoch_control,
-                epoch_sums=epoch_sums,
-                epoch_priors=epoch_priors,
-                epoch_runtime=epoch_runtime,
-                epoch_total_iter_offset=epoch_total_iter_offset,
-                epoch_max_num_iter=epoch_max_num_iter,
-                min_num_iter_for_epoch=min_num_iter_for_epoch,
-                min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
-                max_num_burn_in_for_epoch=max_num_burn_in_for_epoch,
-                min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
-                max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
-                num_full_gene_sets=num_full_gene_sets,
-                num_chains=num_chains,
-                full_betas_m_shape=full_betas_m_shape,
-                num_stack_batches=num_stack_batches,
-                stack_batch_size=stack_batch_size,
-                X_hstacked=X_hstacked,
-                gauss_seidel=gauss_seidel,
-                eps=eps,
-                diag_every=diag_every,
-                active_beta_top_k=active_beta_top_k,
-                active_beta_min_abs=active_beta_min_abs,
-                burn_in_rhat_quantile=burn_in_rhat_quantile,
-                r_threshold_burn_in=r_threshold_burn_in,
-                burn_in_patience=burn_in_patience,
-                stop_patience=stop_patience,
-                stop_mcse_quantile=stop_mcse_quantile,
-                beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
-                stop_top_gene_k=stop_top_gene_k,
-                stop_min_gene_d=stop_min_gene_d,
-                max_rel_mcse_beta=max_rel_mcse_beta,
-                max_abs_mcse_d=max_abs_mcse_d,
-                stall_window=stall_window,
-                stall_min_burn_in=stall_min_burn_in,
-                stall_min_post_burn_in=stall_min_post_burn_in,
-                stall_delta_rhat=stall_delta_rhat,
-                stall_delta_mcse=stall_delta_mcse,
-                stall_recent_window=stall_recent_window,
-                stall_recent_eps=stall_recent_eps,
-                burn_in_stall_window=burn_in_stall_window,
-                burn_in_stall_delta=burn_in_stall_delta,
-                post_burn_reset_arrays=post_burn_reset_arrays,
-                post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
-                cur_background_log_bf_v=cur_background_log_bf_v,
-                y_var_orig=y_var_orig,
-                initial_linear_filter=initial_linear_filter,
-                sparse_frac_gibbs=sparse_frac_gibbs,
-                sparse_max_gibbs=sparse_max_gibbs,
-                pre_filter_batch_size=pre_filter_batch_size,
-                pre_filter_small_batch_size=pre_filter_small_batch_size,
-                passed_in_max_num_burn_in=passed_in_max_num_burn_in,
-                max_num_iter_betas=max_num_iter_betas,
-                min_num_iter_betas=min_num_iter_betas,
-                num_chains_betas=num_chains_betas,
-                r_threshold_burn_in_betas=r_threshold_burn_in_betas,
-                use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
-                max_frac_sem_betas=max_frac_sem_betas,
-                max_allowed_batch_correlation=max_allowed_batch_correlation,
-                gauss_seidel_betas=gauss_seidel_betas,
-                sparse_solution=sparse_solution,
-                sparse_frac_betas=sparse_frac_betas,
-                correct_betas_mean=correct_betas_mean,
-                correct_betas_var=correct_betas_var,
-                num_batches_parallel=num_batches_parallel,
-                warm_start=warm_start,
-                use_mean_betas=use_mean_betas,
-                update_huge_scores=update_huge_scores,
-                compute_Y_raw=compute_Y_raw,
-                betas_trace_out=betas_trace_out,
-                debug_zero_sparse=options.debug_zero_sparse,
-                adjust_priors=adjust_priors,
-                increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
-                num_mad=num_mad,
-                num_before_checking_p_increase=num_before_checking_p_increase,
-                p_scale_factor=p_scale_factor,
-                gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-                gene_stats_trace_fh=gene_stats_trace_fh,
-                trace_chain_offset=trace_chain_offset,
-                log_bf_m=log_bf_m,
-                log_bf_uncorrected_m=log_bf_uncorrected_m,
-                log_bf_raw_m=log_bf_raw_m,
-            )
-            iteration_num = epoch_loop_update["iteration_num"]
-            log_bf_m = epoch_loop_update["log_bf_m"]
-            log_bf_uncorrected_m = epoch_loop_update["log_bf_uncorrected_m"]
-            log_bf_raw_m = epoch_loop_update["log_bf_raw_m"]
-
-            epoch_finalize_decision = _run_gibbs_finalize_epoch_and_update_state(
-                state=self,
-                run_state=run_state,
-                epoch_runtime=epoch_runtime,
-                epoch_control=epoch_control,
-                epoch_sums=epoch_sums,
-                epoch_aggregates=epoch_aggregates,
-                target_num_epochs=target_num_epochs,
-                iteration_num=iteration_num,
-                num_mad=num_mad,
-                adjust_priors=adjust_priors,
-            )
-            if epoch_finalize_decision["should_continue"]:
-                continue
-            if epoch_finalize_decision["should_break"]:
-                break
+        phase1_update = _run_gibbs_epoch_phase(
+            state=self,
+            run_state=run_state,
+            epoch_aggregates=epoch_aggregates,
+            total_num_iter=total_num_iter,
+            num_chains=num_chains,
+            target_num_epochs=target_num_epochs,
+            epoch_max_num_iter_config=epoch_max_num_iter_config,
+            min_num_burn_in=min_num_burn_in,
+            max_num_burn_in=max_num_burn_in,
+            min_num_post_burn_in=min_num_post_burn_in,
+            max_num_post_burn_in=max_num_post_burn_in,
+            increase_hyper_if_betas_below=increase_hyper_if_betas_below,
+            num_full_gene_sets=num_full_gene_sets,
+            use_mean_betas=use_mean_betas,
+            max_mb_X_h=max_mb_X_h,
+            gauss_seidel=gauss_seidel,
+            eps=eps,
+            diag_every=diag_every,
+            active_beta_top_k=active_beta_top_k,
+            active_beta_min_abs=active_beta_min_abs,
+            burn_in_rhat_quantile=burn_in_rhat_quantile,
+            r_threshold_burn_in=r_threshold_burn_in,
+            burn_in_patience=burn_in_patience,
+            stop_patience=stop_patience,
+            stop_mcse_quantile=stop_mcse_quantile,
+            beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
+            stop_top_gene_k=stop_top_gene_k,
+            stop_min_gene_d=stop_min_gene_d,
+            max_rel_mcse_beta=max_rel_mcse_beta,
+            max_abs_mcse_d=max_abs_mcse_d,
+            stall_window=stall_window,
+            stall_min_burn_in=stall_min_burn_in,
+            stall_min_post_burn_in=stall_min_post_burn_in,
+            stall_delta_rhat=stall_delta_rhat,
+            stall_delta_mcse=stall_delta_mcse,
+            stall_recent_window=stall_recent_window,
+            stall_recent_eps=stall_recent_eps,
+            burn_in_stall_window=burn_in_stall_window,
+            burn_in_stall_delta=burn_in_stall_delta,
+            y_var_orig=y_var_orig,
+            cur_background_log_bf_v=cur_background_log_bf_v,
+            initial_linear_filter=initial_linear_filter,
+            sparse_frac_gibbs=sparse_frac_gibbs,
+            sparse_max_gibbs=sparse_max_gibbs,
+            pre_filter_batch_size=pre_filter_batch_size,
+            pre_filter_small_batch_size=pre_filter_small_batch_size,
+            passed_in_max_num_burn_in=passed_in_max_num_burn_in,
+            max_num_iter_betas=max_num_iter_betas,
+            min_num_iter_betas=min_num_iter_betas,
+            num_chains_betas=num_chains_betas,
+            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+            max_frac_sem_betas=max_frac_sem_betas,
+            max_allowed_batch_correlation=max_allowed_batch_correlation,
+            gauss_seidel_betas=gauss_seidel_betas,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            correct_betas_mean=correct_betas_mean,
+            correct_betas_var=correct_betas_var,
+            num_batches_parallel=num_batches_parallel,
+            warm_start=warm_start,
+            update_huge_scores=update_huge_scores,
+            compute_Y_raw=compute_Y_raw,
+            betas_trace_out=betas_trace_out,
+            debug_zero_sparse=options.debug_zero_sparse,
+            adjust_priors=adjust_priors,
+            num_mad=num_mad,
+            gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_stats_trace_fh=gene_stats_trace_fh,
+            log_bf_m=log_bf_m,
+            log_bf_uncorrected_m=log_bf_uncorrected_m,
+            log_bf_raw_m=log_bf_raw_m,
+        )
+        log_bf_m = phase1_update["log_bf_m"]
+        log_bf_uncorrected_m = phase1_update["log_bf_uncorrected_m"]
+        log_bf_raw_m = phase1_update["log_bf_raw_m"]
 
         _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
 
@@ -17506,6 +17432,238 @@ def _prepare_and_start_gibbs_epoch(
 
     epoch_context.update(epoch_attempt)
     return epoch_context
+
+
+def _run_gibbs_epoch_phase(
+    state,
+    run_state,
+    epoch_aggregates,
+    total_num_iter,
+    num_chains,
+    target_num_epochs,
+    epoch_max_num_iter_config,
+    min_num_burn_in,
+    max_num_burn_in,
+    min_num_post_burn_in,
+    max_num_post_burn_in,
+    increase_hyper_if_betas_below,
+    num_full_gene_sets,
+    use_mean_betas,
+    max_mb_X_h,
+    gauss_seidel,
+    eps,
+    diag_every,
+    active_beta_top_k,
+    active_beta_min_abs,
+    burn_in_rhat_quantile,
+    r_threshold_burn_in,
+    burn_in_patience,
+    stop_patience,
+    stop_mcse_quantile,
+    beta_rel_mcse_denom_floor,
+    stop_top_gene_k,
+    stop_min_gene_d,
+    max_rel_mcse_beta,
+    max_abs_mcse_d,
+    stall_window,
+    stall_min_burn_in,
+    stall_min_post_burn_in,
+    stall_delta_rhat,
+    stall_delta_mcse,
+    stall_recent_window,
+    stall_recent_eps,
+    burn_in_stall_window,
+    burn_in_stall_delta,
+    y_var_orig,
+    cur_background_log_bf_v,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    pre_filter_batch_size,
+    pre_filter_small_batch_size,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+    correct_betas_mean,
+    correct_betas_var,
+    num_batches_parallel,
+    warm_start,
+    update_huge_scores,
+    compute_Y_raw,
+    betas_trace_out,
+    debug_zero_sparse,
+    adjust_priors,
+    num_mad,
+    gene_set_stats_trace_fh,
+    gene_stats_trace_fh,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
+    while _can_run_gibbs_epoch(run_state):
+        epoch_context = _prepare_and_start_gibbs_epoch(
+            state=state,
+            run_state=run_state,
+            total_num_iter=total_num_iter,
+            num_chains=num_chains,
+            target_num_epochs=target_num_epochs,
+            epoch_max_num_iter_config=epoch_max_num_iter_config,
+            min_num_burn_in=min_num_burn_in,
+            max_num_burn_in=max_num_burn_in,
+            min_num_post_burn_in=min_num_post_burn_in,
+            max_num_post_burn_in=max_num_post_burn_in,
+            increase_hyper_if_betas_below=increase_hyper_if_betas_below,
+            num_full_gene_sets=num_full_gene_sets,
+            use_mean_betas=use_mean_betas,
+            max_mb_X_h=max_mb_X_h,
+            epoch_aggregates=epoch_aggregates,
+        )
+        if epoch_context is None:
+            break
+
+        epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
+        min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
+        max_num_burn_in_for_epoch = epoch_context["max_num_burn_in_for_epoch"]
+        min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
+        max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
+        trace_chain_offset = epoch_context["trace_chain_offset"]
+        p_scale_factor = epoch_context["p_scale_factor"]
+        min_num_iter_for_epoch = epoch_context["min_num_iter_for_epoch"]
+        increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
+        num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
+        epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
+        full_betas_m_shape = epoch_context["full_betas_m_shape"]
+        epoch_control = epoch_context["epoch_control"]
+        epoch_sums = epoch_context["epoch_sums"]
+        epoch_priors = epoch_context["epoch_priors"]
+        epoch_runtime = epoch_context["epoch_runtime"]
+        post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
+        post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
+        X_hstacked = epoch_context["X_hstacked"]
+        stack_batch_size = epoch_context["stack_batch_size"]
+        num_stack_batches = epoch_context["num_stack_batches"]
+
+        epoch_loop_update = _run_gibbs_epoch_iterations(
+            state=state,
+            run_state=run_state,
+            epoch_control=epoch_control,
+            epoch_sums=epoch_sums,
+            epoch_priors=epoch_priors,
+            epoch_runtime=epoch_runtime,
+            epoch_total_iter_offset=epoch_total_iter_offset,
+            epoch_max_num_iter=epoch_max_num_iter,
+            min_num_iter_for_epoch=min_num_iter_for_epoch,
+            min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
+            max_num_burn_in_for_epoch=max_num_burn_in_for_epoch,
+            min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
+            max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
+            num_full_gene_sets=num_full_gene_sets,
+            num_chains=num_chains,
+            full_betas_m_shape=full_betas_m_shape,
+            num_stack_batches=num_stack_batches,
+            stack_batch_size=stack_batch_size,
+            X_hstacked=X_hstacked,
+            gauss_seidel=gauss_seidel,
+            eps=eps,
+            diag_every=diag_every,
+            active_beta_top_k=active_beta_top_k,
+            active_beta_min_abs=active_beta_min_abs,
+            burn_in_rhat_quantile=burn_in_rhat_quantile,
+            r_threshold_burn_in=r_threshold_burn_in,
+            burn_in_patience=burn_in_patience,
+            stop_patience=stop_patience,
+            stop_mcse_quantile=stop_mcse_quantile,
+            beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
+            stop_top_gene_k=stop_top_gene_k,
+            stop_min_gene_d=stop_min_gene_d,
+            max_rel_mcse_beta=max_rel_mcse_beta,
+            max_abs_mcse_d=max_abs_mcse_d,
+            stall_window=stall_window,
+            stall_min_burn_in=stall_min_burn_in,
+            stall_min_post_burn_in=stall_min_post_burn_in,
+            stall_delta_rhat=stall_delta_rhat,
+            stall_delta_mcse=stall_delta_mcse,
+            stall_recent_window=stall_recent_window,
+            stall_recent_eps=stall_recent_eps,
+            burn_in_stall_window=burn_in_stall_window,
+            burn_in_stall_delta=burn_in_stall_delta,
+            post_burn_reset_arrays=post_burn_reset_arrays,
+            post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
+            cur_background_log_bf_v=cur_background_log_bf_v,
+            y_var_orig=y_var_orig,
+            initial_linear_filter=initial_linear_filter,
+            sparse_frac_gibbs=sparse_frac_gibbs,
+            sparse_max_gibbs=sparse_max_gibbs,
+            pre_filter_batch_size=pre_filter_batch_size,
+            pre_filter_small_batch_size=pre_filter_small_batch_size,
+            passed_in_max_num_burn_in=passed_in_max_num_burn_in,
+            max_num_iter_betas=max_num_iter_betas,
+            min_num_iter_betas=min_num_iter_betas,
+            num_chains_betas=num_chains_betas,
+            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+            max_frac_sem_betas=max_frac_sem_betas,
+            max_allowed_batch_correlation=max_allowed_batch_correlation,
+            gauss_seidel_betas=gauss_seidel_betas,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            correct_betas_mean=correct_betas_mean,
+            correct_betas_var=correct_betas_var,
+            num_batches_parallel=num_batches_parallel,
+            warm_start=warm_start,
+            use_mean_betas=use_mean_betas,
+            update_huge_scores=update_huge_scores,
+            compute_Y_raw=compute_Y_raw,
+            betas_trace_out=betas_trace_out,
+            debug_zero_sparse=debug_zero_sparse,
+            adjust_priors=adjust_priors,
+            increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+            num_mad=num_mad,
+            num_before_checking_p_increase=num_before_checking_p_increase,
+            p_scale_factor=p_scale_factor,
+            gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_stats_trace_fh=gene_stats_trace_fh,
+            trace_chain_offset=trace_chain_offset,
+            log_bf_m=log_bf_m,
+            log_bf_uncorrected_m=log_bf_uncorrected_m,
+            log_bf_raw_m=log_bf_raw_m,
+        )
+        iteration_num = epoch_loop_update["iteration_num"]
+        log_bf_m = epoch_loop_update["log_bf_m"]
+        log_bf_uncorrected_m = epoch_loop_update["log_bf_uncorrected_m"]
+        log_bf_raw_m = epoch_loop_update["log_bf_raw_m"]
+
+        epoch_finalize_decision = _run_gibbs_finalize_epoch_and_update_state(
+            state=state,
+            run_state=run_state,
+            epoch_runtime=epoch_runtime,
+            epoch_control=epoch_control,
+            epoch_sums=epoch_sums,
+            epoch_aggregates=epoch_aggregates,
+            target_num_epochs=target_num_epochs,
+            iteration_num=iteration_num,
+            num_mad=num_mad,
+            adjust_priors=adjust_priors,
+        )
+        if epoch_finalize_decision["should_continue"]:
+            continue
+        if epoch_finalize_decision["should_break"]:
+            break
+
+    return {
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+    }
 
 
 def _run_gibbs_epoch_iterations(
