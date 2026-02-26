@@ -17681,8 +17681,9 @@ def _run_gibbs_epoch_iterations(
         if iteration_update["should_break"]:
             break
 
-        iteration_progress_update = _run_gibbs_iteration_progress_update(
+        iteration_progress_update = _advance_gibbs_iteration_progress(
             state=state,
+            epoch_control=epoch_control,
             run_state=run_state,
             iter_state=iter_state,
             iteration_num=iteration_num,
@@ -17865,47 +17866,6 @@ def _run_gibbs_iteration_correction_and_updates(
         "log_bf_raw_m": log_bf_raw_m,
         "should_break": should_break,
     }
-
-
-def _run_gibbs_iteration_progress_update(
-    state,
-    run_state,
-    iter_state,
-    iteration_num,
-    epoch_sums,
-    epoch_priors,
-    epoch_runtime,
-    epoch_context,
-    phase_kwargs,
-    gene_set_stats_trace_fh,
-    full_betas_sample_m,
-    full_postp_sample_m,
-    full_betas_mean_m,
-    full_postp_mean_m,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    return _advance_gibbs_iteration_progress(
-        state=state,
-        epoch_control=epoch_context["epoch_control"],
-        run_state=run_state,
-        epoch_context=epoch_context,
-        phase_kwargs=phase_kwargs,
-        iter_state=iter_state,
-        epoch_sums=epoch_sums,
-        epoch_priors=epoch_priors,
-        epoch_runtime=epoch_runtime,
-        iteration_num=iteration_num,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-        full_betas_sample_m=full_betas_sample_m,
-        full_postp_sample_m=full_postp_sample_m,
-        full_betas_mean_m=full_betas_mean_m,
-        full_postp_mean_m=full_postp_mean_m,
-        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-    )
 
 
 def _run_gibbs_finalize_epoch_and_update_state(
