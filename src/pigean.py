@@ -15644,45 +15644,54 @@ def _evaluate_burn_in_diagnostics(
 
 
 def _update_gibbs_burn_in_state(
-    in_burn_in,
+    epoch_control,
     iteration_num,
-    epoch_total_iter_offset,
-    epoch_max_num_iter,
-    max_num_burn_in_for_epoch,
-    gauss_seidel,
-    prev_Ys_m,
-    Y_sample_m,
-    min_num_iter_for_epoch,
-    eps,
-    min_num_burn_in_for_epoch,
-    diag_every,
-    all_sum_betas_m,
-    all_sum_betas2_m,
-    all_num_sum_m,
-    active_beta_top_k,
-    active_beta_min_abs,
-    burn_in_rhat_quantile,
-    r_threshold_burn_in,
-    burn_in_pass_streak,
-    burn_in_rhat_history,
-    burn_stall_best_beta_rhat_history,
-    burn_stall_snapshots,
-    burn_stall_beta_indices,
-    stall_window,
-    stall_min_burn_in,
-    stall_delta_rhat,
-    stall_recent_window,
-    stall_recent_eps,
-    burn_in_stall_window,
-    burn_in_stall_delta,
-    num_full_gene_sets,
-    burn_in_patience,
-    stop_pass_streak,
-    stop_patience,
-    post_burn_reset_arrays,
-    post_burn_reset_missing_arrays,
-    R_beta_v,
+    epoch_context,
+    phase_kwargs,
+    iter_state,
+    epoch_runtime,
 ):
+    in_burn_in = epoch_control["in_burn_in"]
+    prev_Ys_m = epoch_control["prev_Ys_m"]
+    burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
+    burn_in_rhat_history = epoch_control["burn_in_rhat_history"]
+    burn_stall_best_beta_rhat_history = epoch_control["burn_stall_best_beta_rhat_history"]
+    burn_stall_snapshots = epoch_control["burn_stall_snapshots"]
+    burn_stall_beta_indices = epoch_control["burn_stall_beta_indices"]
+    stop_pass_streak = epoch_control["stop_pass_streak"]
+    R_beta_v = epoch_control["R_beta_v"]
+
+    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
+    epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
+    max_num_burn_in_for_epoch = epoch_context["max_num_burn_in_for_epoch"]
+    min_num_iter_for_epoch = epoch_context["min_num_iter_for_epoch"]
+    min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
+    post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
+    post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
+
+    gauss_seidel = phase_kwargs["gauss_seidel"]
+    eps = phase_kwargs["eps"]
+    diag_every = phase_kwargs["diag_every"]
+    active_beta_top_k = phase_kwargs["active_beta_top_k"]
+    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
+    burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
+    r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
+    stall_window = phase_kwargs["stall_window"]
+    stall_min_burn_in = phase_kwargs["stall_min_burn_in"]
+    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
+    stall_recent_window = phase_kwargs["stall_recent_window"]
+    stall_recent_eps = phase_kwargs["stall_recent_eps"]
+    burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
+    burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
+    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
+    burn_in_patience = phase_kwargs["burn_in_patience"]
+    stop_patience = phase_kwargs["stop_patience"]
+
+    Y_sample_m = iter_state["Y_sample_m"]
+    all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
+    all_sum_betas2_m = epoch_runtime["all_sum_betas2_m"]
+    all_num_sum_m = epoch_runtime["all_num_sum_m"]
+
     if not in_burn_in:
         return {
             "in_burn_in": in_burn_in,
@@ -18847,86 +18856,13 @@ def _advance_gibbs_burn_in_step(
     iter_state,
     epoch_runtime,
 ):
-    in_burn_in = epoch_control["in_burn_in"]
-    prev_Ys_m = epoch_control["prev_Ys_m"]
-    burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
-    burn_in_rhat_history = epoch_control["burn_in_rhat_history"]
-    burn_stall_best_beta_rhat_history = epoch_control["burn_stall_best_beta_rhat_history"]
-    burn_stall_snapshots = epoch_control["burn_stall_snapshots"]
-    burn_stall_beta_indices = epoch_control["burn_stall_beta_indices"]
-    stop_pass_streak = epoch_control["stop_pass_streak"]
-    R_beta_v = epoch_control["R_beta_v"]
-
-    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
-    epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
-    max_num_burn_in_for_epoch = epoch_context["max_num_burn_in_for_epoch"]
-    min_num_iter_for_epoch = epoch_context["min_num_iter_for_epoch"]
-    min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
-    post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
-    post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
-
-    gauss_seidel = phase_kwargs["gauss_seidel"]
-    eps = phase_kwargs["eps"]
-    diag_every = phase_kwargs["diag_every"]
-    active_beta_top_k = phase_kwargs["active_beta_top_k"]
-    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
-    burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
-    r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
-    stall_window = phase_kwargs["stall_window"]
-    stall_min_burn_in = phase_kwargs["stall_min_burn_in"]
-    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
-    stall_recent_window = phase_kwargs["stall_recent_window"]
-    stall_recent_eps = phase_kwargs["stall_recent_eps"]
-    burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
-    burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
-    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
-    burn_in_patience = phase_kwargs["burn_in_patience"]
-    stop_patience = phase_kwargs["stop_patience"]
-
-    Y_sample_m = iter_state["Y_sample_m"]
-    all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
-    all_sum_betas2_m = epoch_runtime["all_sum_betas2_m"]
-    all_num_sum_m = epoch_runtime["all_num_sum_m"]
-
     burn_in_update = _update_gibbs_burn_in_state(
-        in_burn_in,
-        iteration_num,
-        epoch_total_iter_offset,
-        epoch_max_num_iter,
-        max_num_burn_in_for_epoch,
-        gauss_seidel,
-        prev_Ys_m,
-        Y_sample_m,
-        min_num_iter_for_epoch,
-        eps,
-        min_num_burn_in_for_epoch,
-        diag_every,
-        all_sum_betas_m,
-        all_sum_betas2_m,
-        all_num_sum_m,
-        active_beta_top_k,
-        active_beta_min_abs,
-        burn_in_rhat_quantile,
-        r_threshold_burn_in,
-        burn_in_pass_streak,
-        burn_in_rhat_history,
-        burn_stall_best_beta_rhat_history,
-        burn_stall_snapshots,
-        burn_stall_beta_indices,
-        stall_window,
-        stall_min_burn_in,
-        stall_delta_rhat,
-        stall_recent_window,
-        stall_recent_eps,
-        burn_in_stall_window,
-        burn_in_stall_delta,
-        num_full_gene_sets,
-        burn_in_patience,
-        stop_pass_streak,
-        stop_patience,
-        post_burn_reset_arrays,
-        post_burn_reset_missing_arrays,
-        R_beta_v,
+        epoch_control=epoch_control,
+        iteration_num=iteration_num,
+        epoch_context=epoch_context,
+        phase_kwargs=phase_kwargs,
+        iter_state=iter_state,
+        epoch_runtime=epoch_runtime,
     )
     return {
         "in_burn_in": burn_in_update["in_burn_in"],
