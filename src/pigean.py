@@ -19467,19 +19467,6 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     all_num_sum_m = epoch_runtime["all_num_sum_m"]
     all_sum_Ys_m = epoch_runtime["all_sum_Ys_m"]
     all_sum_Ys2_m = epoch_runtime["all_sum_Ys2_m"]
-    num_p_increases = epoch_runtime["num_p_increases"]
-
-    increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
-    num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
-    p_scale_factor = epoch_context["p_scale_factor"]
-
-    num_sum_beta_m = epoch_sums["num_sum_beta_m"]
-    sum_betas_m = epoch_sums["sum_betas_m"]
-
-    num_mad = phase_kwargs["num_mad"]
-
-    num_attempts = run_state["num_attempts"]
-    max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
 
     all_sum_betas_m = np.add(all_sum_betas_m, full_betas_mean_m)
     all_sum_betas2_m = np.add(all_sum_betas2_m, np.power(full_betas_mean_m, 2))
