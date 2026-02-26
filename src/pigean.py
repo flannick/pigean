@@ -8314,19 +8314,13 @@ class GeneSetData(object):
         cur_background_log_bf_v = gibbs_inputs["cur_background_log_bf_v"]
         num_full_gene_sets = gibbs_inputs["num_full_gene_sets"]
 
-        # This loop checks if Gibbs sampling was successful and optionally
-        # aggregates restart epochs as additional effective chains.
         epoch_aggregates = _new_gibbs_epoch_aggregates()
-
-        (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
-            gene_set_stats_trace_out,
-            gene_stats_trace_out,
-        )
-
-        phase1_update = _run_gibbs_epoch_phase(
+        phase1_update = _run_gibbs_epoch_phase_with_traces(
             state=self,
             run_state=run_state,
             epoch_aggregates=epoch_aggregates,
+            gene_set_stats_trace_out=gene_set_stats_trace_out,
+            gene_stats_trace_out=gene_stats_trace_out,
             total_num_iter=total_num_iter,
             num_chains=num_chains,
             target_num_epochs=target_num_epochs,
@@ -8391,8 +8385,6 @@ class GeneSetData(object):
             debug_zero_sparse=options.debug_zero_sparse,
             adjust_priors=adjust_priors,
             num_mad=num_mad,
-            gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-            gene_stats_trace_fh=gene_stats_trace_fh,
             log_bf_m=log_bf_m,
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
@@ -8401,12 +8393,7 @@ class GeneSetData(object):
         log_bf_uncorrected_m = phase1_update["log_bf_uncorrected_m"]
         log_bf_raw_m = phase1_update["log_bf_raw_m"]
 
-        _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
-
-        if run_state["num_completed_epochs"] == 0:
-            bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
-
-        log("Aggregated %d Gibbs epoch(s) into %d effective chains" % (run_state["num_completed_epochs"], run_state["num_completed_epochs"] * num_chains), INFO)
+        _finalize_gibbs_run_after_epochs(run_state, num_chains)
 
     def _sparse_correlation_with_dot_product_threshold(self, X_sparse, beta, dot_product_threshold=0.01, Y=None):
         """
@@ -17664,6 +17651,170 @@ def _run_gibbs_epoch_phase(
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
         "log_bf_raw_m": log_bf_raw_m,
     }
+
+
+def _run_gibbs_epoch_phase_with_traces(
+    state,
+    run_state,
+    epoch_aggregates,
+    gene_set_stats_trace_out,
+    gene_stats_trace_out,
+    total_num_iter,
+    num_chains,
+    target_num_epochs,
+    epoch_max_num_iter_config,
+    min_num_burn_in,
+    max_num_burn_in,
+    min_num_post_burn_in,
+    max_num_post_burn_in,
+    increase_hyper_if_betas_below,
+    num_full_gene_sets,
+    use_mean_betas,
+    max_mb_X_h,
+    gauss_seidel,
+    eps,
+    diag_every,
+    active_beta_top_k,
+    active_beta_min_abs,
+    burn_in_rhat_quantile,
+    r_threshold_burn_in,
+    burn_in_patience,
+    stop_patience,
+    stop_mcse_quantile,
+    beta_rel_mcse_denom_floor,
+    stop_top_gene_k,
+    stop_min_gene_d,
+    max_rel_mcse_beta,
+    max_abs_mcse_d,
+    stall_window,
+    stall_min_burn_in,
+    stall_min_post_burn_in,
+    stall_delta_rhat,
+    stall_delta_mcse,
+    stall_recent_window,
+    stall_recent_eps,
+    burn_in_stall_window,
+    burn_in_stall_delta,
+    y_var_orig,
+    cur_background_log_bf_v,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    pre_filter_batch_size,
+    pre_filter_small_batch_size,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+    correct_betas_mean,
+    correct_betas_var,
+    num_batches_parallel,
+    warm_start,
+    update_huge_scores,
+    compute_Y_raw,
+    betas_trace_out,
+    debug_zero_sparse,
+    adjust_priors,
+    num_mad,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    # Keep trace file lifecycle in one place so files are always closed.
+    (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
+        gene_set_stats_trace_out,
+        gene_stats_trace_out,
+    )
+    try:
+        return _run_gibbs_epoch_phase(
+            state=state,
+            run_state=run_state,
+            epoch_aggregates=epoch_aggregates,
+            total_num_iter=total_num_iter,
+            num_chains=num_chains,
+            target_num_epochs=target_num_epochs,
+            epoch_max_num_iter_config=epoch_max_num_iter_config,
+            min_num_burn_in=min_num_burn_in,
+            max_num_burn_in=max_num_burn_in,
+            min_num_post_burn_in=min_num_post_burn_in,
+            max_num_post_burn_in=max_num_post_burn_in,
+            increase_hyper_if_betas_below=increase_hyper_if_betas_below,
+            num_full_gene_sets=num_full_gene_sets,
+            use_mean_betas=use_mean_betas,
+            max_mb_X_h=max_mb_X_h,
+            gauss_seidel=gauss_seidel,
+            eps=eps,
+            diag_every=diag_every,
+            active_beta_top_k=active_beta_top_k,
+            active_beta_min_abs=active_beta_min_abs,
+            burn_in_rhat_quantile=burn_in_rhat_quantile,
+            r_threshold_burn_in=r_threshold_burn_in,
+            burn_in_patience=burn_in_patience,
+            stop_patience=stop_patience,
+            stop_mcse_quantile=stop_mcse_quantile,
+            beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
+            stop_top_gene_k=stop_top_gene_k,
+            stop_min_gene_d=stop_min_gene_d,
+            max_rel_mcse_beta=max_rel_mcse_beta,
+            max_abs_mcse_d=max_abs_mcse_d,
+            stall_window=stall_window,
+            stall_min_burn_in=stall_min_burn_in,
+            stall_min_post_burn_in=stall_min_post_burn_in,
+            stall_delta_rhat=stall_delta_rhat,
+            stall_delta_mcse=stall_delta_mcse,
+            stall_recent_window=stall_recent_window,
+            stall_recent_eps=stall_recent_eps,
+            burn_in_stall_window=burn_in_stall_window,
+            burn_in_stall_delta=burn_in_stall_delta,
+            y_var_orig=y_var_orig,
+            cur_background_log_bf_v=cur_background_log_bf_v,
+            initial_linear_filter=initial_linear_filter,
+            sparse_frac_gibbs=sparse_frac_gibbs,
+            sparse_max_gibbs=sparse_max_gibbs,
+            pre_filter_batch_size=pre_filter_batch_size,
+            pre_filter_small_batch_size=pre_filter_small_batch_size,
+            passed_in_max_num_burn_in=passed_in_max_num_burn_in,
+            max_num_iter_betas=max_num_iter_betas,
+            min_num_iter_betas=min_num_iter_betas,
+            num_chains_betas=num_chains_betas,
+            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+            max_frac_sem_betas=max_frac_sem_betas,
+            max_allowed_batch_correlation=max_allowed_batch_correlation,
+            gauss_seidel_betas=gauss_seidel_betas,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            correct_betas_mean=correct_betas_mean,
+            correct_betas_var=correct_betas_var,
+            num_batches_parallel=num_batches_parallel,
+            warm_start=warm_start,
+            update_huge_scores=update_huge_scores,
+            compute_Y_raw=compute_Y_raw,
+            betas_trace_out=betas_trace_out,
+            debug_zero_sparse=debug_zero_sparse,
+            adjust_priors=adjust_priors,
+            num_mad=num_mad,
+            gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_stats_trace_fh=gene_stats_trace_fh,
+            log_bf_m=log_bf_m,
+            log_bf_uncorrected_m=log_bf_uncorrected_m,
+            log_bf_raw_m=log_bf_raw_m,
+        )
+    finally:
+        _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
+
+
+def _finalize_gibbs_run_after_epochs(run_state, num_chains):
+    if run_state["num_completed_epochs"] == 0:
+        bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
+    log("Aggregated %d Gibbs epoch(s) into %d effective chains" % (run_state["num_completed_epochs"], run_state["num_completed_epochs"] * num_chains), INFO)
 
 
 def _run_gibbs_epoch_iterations(
