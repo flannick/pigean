@@ -8601,29 +8601,21 @@ class GeneSetData(object):
                 if iteration_progress_update["done"]:
                     break
 
-            run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
-            epoch_finalize_update = _finalize_gibbs_epoch_attempt(
-                self,
-                epoch_aggregates=epoch_aggregates,
-                include_missing=(self.genes_missing is not None),
-                gibbs_good=epoch_runtime["gibbs_good"],
-                iterations_run_this_epoch=(iteration_num + 1),
-                remaining_total_iter=run_state["remaining_total_iter"],
-                num_completed_epochs=run_state["num_completed_epochs"],
-                target_num_epochs=target_num_epochs,
-                num_attempts=run_state["num_attempts"],
-                max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
-                stop_due_to_stall=epoch_control["stop_due_to_stall"],
-                stop_due_to_precision=epoch_control["stop_due_to_precision"],
+            epoch_finalize_decision = _run_gibbs_finalize_epoch_and_update_state(
+                state=self,
+                run_state=run_state,
+                epoch_runtime=epoch_runtime,
+                epoch_control=epoch_control,
                 epoch_sums=epoch_sums,
+                epoch_aggregates=epoch_aggregates,
+                target_num_epochs=target_num_epochs,
+                iteration_num=iteration_num,
                 num_mad=num_mad,
                 adjust_priors=adjust_priors,
             )
-            run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
-            run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
-            if epoch_finalize_update["should_continue"]:
+            if epoch_finalize_decision["should_continue"]:
                 continue
-            if epoch_finalize_update["should_break"]:
+            if epoch_finalize_decision["should_break"]:
                 break
 
         _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
@@ -17577,6 +17569,44 @@ def _run_gibbs_iteration_progress_update(
         full_z_cur_beta_tildes_m=iter_state["full_z_cur_beta_tildes_m"],
         use_mean_betas=use_mean_betas,
     )
+
+
+def _run_gibbs_finalize_epoch_and_update_state(
+    state,
+    run_state,
+    epoch_runtime,
+    epoch_control,
+    epoch_sums,
+    epoch_aggregates,
+    target_num_epochs,
+    iteration_num,
+    num_mad,
+    adjust_priors,
+):
+    run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
+    epoch_finalize_update = _finalize_gibbs_epoch_attempt(
+        state,
+        epoch_aggregates=epoch_aggregates,
+        include_missing=(state.genes_missing is not None),
+        gibbs_good=epoch_runtime["gibbs_good"],
+        iterations_run_this_epoch=(iteration_num + 1),
+        remaining_total_iter=run_state["remaining_total_iter"],
+        num_completed_epochs=run_state["num_completed_epochs"],
+        target_num_epochs=target_num_epochs,
+        num_attempts=run_state["num_attempts"],
+        max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
+        stop_due_to_stall=epoch_control["stop_due_to_stall"],
+        stop_due_to_precision=epoch_control["stop_due_to_precision"],
+        epoch_sums=epoch_sums,
+        num_mad=num_mad,
+        adjust_priors=adjust_priors,
+    )
+    run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
+    run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
+    return {
+        "should_continue": epoch_finalize_update["should_continue"],
+        "should_break": epoch_finalize_update["should_break"],
+    }
 
 
 def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig):
