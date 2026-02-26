@@ -17429,70 +17429,7 @@ def _run_gibbs_epoch_phase(
     state,
     run_state,
     epoch_aggregates,
-    total_num_iter,
-    num_chains,
-    target_num_epochs,
-    epoch_max_num_iter_config,
-    min_num_burn_in,
-    max_num_burn_in,
-    min_num_post_burn_in,
-    max_num_post_burn_in,
-    increase_hyper_if_betas_below,
-    num_full_gene_sets,
-    use_mean_betas,
-    max_mb_X_h,
-    gauss_seidel,
-    eps,
-    diag_every,
-    active_beta_top_k,
-    active_beta_min_abs,
-    burn_in_rhat_quantile,
-    r_threshold_burn_in,
-    burn_in_patience,
-    stop_patience,
-    stop_mcse_quantile,
-    beta_rel_mcse_denom_floor,
-    stop_top_gene_k,
-    stop_min_gene_d,
-    max_rel_mcse_beta,
-    max_abs_mcse_d,
-    stall_window,
-    stall_min_burn_in,
-    stall_min_post_burn_in,
-    stall_delta_rhat,
-    stall_delta_mcse,
-    stall_recent_window,
-    stall_recent_eps,
-    burn_in_stall_window,
-    burn_in_stall_delta,
-    y_var_orig,
-    cur_background_log_bf_v,
-    initial_linear_filter,
-    sparse_frac_gibbs,
-    sparse_max_gibbs,
-    pre_filter_batch_size,
-    pre_filter_small_batch_size,
-    passed_in_max_num_burn_in,
-    max_num_iter_betas,
-    min_num_iter_betas,
-    num_chains_betas,
-    r_threshold_burn_in_betas,
-    use_max_r_for_convergence_betas,
-    max_frac_sem_betas,
-    max_allowed_batch_correlation,
-    gauss_seidel_betas,
-    sparse_solution,
-    sparse_frac_betas,
-    correct_betas_mean,
-    correct_betas_var,
-    num_batches_parallel,
-    warm_start,
-    update_huge_scores,
-    compute_Y_raw,
-    betas_trace_out,
-    debug_zero_sparse,
-    adjust_priors,
-    num_mad,
+    phase_kwargs,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
     log_bf_m,
@@ -17500,6 +17437,71 @@ def _run_gibbs_epoch_phase(
     log_bf_raw_m,
 ):
     # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
+    total_num_iter = phase_kwargs["total_num_iter"]
+    num_chains = phase_kwargs["num_chains"]
+    target_num_epochs = phase_kwargs["target_num_epochs"]
+    epoch_max_num_iter_config = phase_kwargs["epoch_max_num_iter_config"]
+    min_num_burn_in = phase_kwargs["min_num_burn_in"]
+    max_num_burn_in = phase_kwargs["max_num_burn_in"]
+    min_num_post_burn_in = phase_kwargs["min_num_post_burn_in"]
+    max_num_post_burn_in = phase_kwargs["max_num_post_burn_in"]
+    increase_hyper_if_betas_below = phase_kwargs["increase_hyper_if_betas_below"]
+    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
+    use_mean_betas = phase_kwargs["use_mean_betas"]
+    max_mb_X_h = phase_kwargs["max_mb_X_h"]
+    gauss_seidel = phase_kwargs["gauss_seidel"]
+    eps = phase_kwargs["eps"]
+    diag_every = phase_kwargs["diag_every"]
+    active_beta_top_k = phase_kwargs["active_beta_top_k"]
+    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
+    burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
+    r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
+    burn_in_patience = phase_kwargs["burn_in_patience"]
+    stop_patience = phase_kwargs["stop_patience"]
+    stop_mcse_quantile = phase_kwargs["stop_mcse_quantile"]
+    beta_rel_mcse_denom_floor = phase_kwargs["beta_rel_mcse_denom_floor"]
+    stop_top_gene_k = phase_kwargs["stop_top_gene_k"]
+    stop_min_gene_d = phase_kwargs["stop_min_gene_d"]
+    max_rel_mcse_beta = phase_kwargs["max_rel_mcse_beta"]
+    max_abs_mcse_d = phase_kwargs["max_abs_mcse_d"]
+    stall_window = phase_kwargs["stall_window"]
+    stall_min_burn_in = phase_kwargs["stall_min_burn_in"]
+    stall_min_post_burn_in = phase_kwargs["stall_min_post_burn_in"]
+    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
+    stall_delta_mcse = phase_kwargs["stall_delta_mcse"]
+    stall_recent_window = phase_kwargs["stall_recent_window"]
+    stall_recent_eps = phase_kwargs["stall_recent_eps"]
+    burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
+    burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
+    y_var_orig = phase_kwargs["y_var_orig"]
+    cur_background_log_bf_v = phase_kwargs["cur_background_log_bf_v"]
+    initial_linear_filter = phase_kwargs["initial_linear_filter"]
+    sparse_frac_gibbs = phase_kwargs["sparse_frac_gibbs"]
+    sparse_max_gibbs = phase_kwargs["sparse_max_gibbs"]
+    pre_filter_batch_size = phase_kwargs["pre_filter_batch_size"]
+    pre_filter_small_batch_size = phase_kwargs["pre_filter_small_batch_size"]
+    passed_in_max_num_burn_in = phase_kwargs["passed_in_max_num_burn_in"]
+    max_num_iter_betas = phase_kwargs["max_num_iter_betas"]
+    min_num_iter_betas = phase_kwargs["min_num_iter_betas"]
+    num_chains_betas = phase_kwargs["num_chains_betas"]
+    r_threshold_burn_in_betas = phase_kwargs["r_threshold_burn_in_betas"]
+    use_max_r_for_convergence_betas = phase_kwargs["use_max_r_for_convergence_betas"]
+    max_frac_sem_betas = phase_kwargs["max_frac_sem_betas"]
+    max_allowed_batch_correlation = phase_kwargs["max_allowed_batch_correlation"]
+    gauss_seidel_betas = phase_kwargs["gauss_seidel_betas"]
+    sparse_solution = phase_kwargs["sparse_solution"]
+    sparse_frac_betas = phase_kwargs["sparse_frac_betas"]
+    correct_betas_mean = phase_kwargs["correct_betas_mean"]
+    correct_betas_var = phase_kwargs["correct_betas_var"]
+    num_batches_parallel = phase_kwargs["num_batches_parallel"]
+    warm_start = phase_kwargs["warm_start"]
+    update_huge_scores = phase_kwargs["update_huge_scores"]
+    compute_Y_raw = phase_kwargs["compute_Y_raw"]
+    betas_trace_out = phase_kwargs["betas_trace_out"]
+    debug_zero_sparse = phase_kwargs["debug_zero_sparse"]
+    adjust_priors = phase_kwargs["adjust_priors"]
+    num_mad = phase_kwargs["num_mad"]
+
     while _can_run_gibbs_epoch(run_state):
         epoch_context = _prepare_and_start_gibbs_epoch(
             state=state,
@@ -17812,7 +17814,7 @@ def _run_gibbs_epoch_phase_with_traces(
             state=state,
             run_state=run_state,
             epoch_aggregates=epoch_aggregates,
-            **phase_kwargs,
+            phase_kwargs=phase_kwargs,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             gene_stats_trace_fh=gene_stats_trace_fh,
             log_bf_m=log_bf_m,
