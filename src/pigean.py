@@ -17461,10 +17461,6 @@ def _run_gibbs_epoch_iterations(
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
         )
-        full_betas_sample_m = iteration_update["full_betas_sample_m"]
-        full_postp_sample_m = iteration_update["full_postp_sample_m"]
-        full_betas_mean_m = iteration_update["full_betas_mean_m"]
-        full_postp_mean_m = iteration_update["full_postp_mean_m"]
         log_bf_m = iteration_update["log_bf_m"]
         log_bf_uncorrected_m = iteration_update["log_bf_uncorrected_m"]
         log_bf_raw_m = iteration_update["log_bf_raw_m"]
@@ -17483,10 +17479,7 @@ def _run_gibbs_epoch_iterations(
             epoch_context=epoch_context,
             phase_kwargs=phase_kwargs,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-            full_betas_sample_m=full_betas_sample_m,
-            full_postp_sample_m=full_postp_sample_m,
-            full_betas_mean_m=full_betas_mean_m,
-            full_postp_mean_m=full_postp_mean_m,
+            iteration_update=iteration_update,
             log_bf_m=log_bf_m,
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
@@ -18325,12 +18318,14 @@ def _advance_gibbs_iteration_progress(
     log_bf_m,
     log_bf_uncorrected_m,
     log_bf_raw_m,
-    full_betas_sample_m,
-    full_postp_sample_m,
-    full_betas_mean_m,
-    full_postp_mean_m,
+    iteration_update,
     gene_set_stats_trace_fh,
 ):
+    full_betas_sample_m = iteration_update["full_betas_sample_m"]
+    full_postp_sample_m = iteration_update["full_postp_sample_m"]
+    full_betas_mean_m = iteration_update["full_betas_mean_m"]
+    full_postp_mean_m = iteration_update["full_postp_mean_m"]
+
     burn_in_update = _update_gibbs_burn_in_state(
         epoch_control=epoch_control,
         iteration_num=iteration_num,
