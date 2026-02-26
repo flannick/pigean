@@ -17019,7 +17019,9 @@ def _prepare_gibbs_iteration_inputs(
     state,
     iteration_num,
     epoch_context,
-    phase_kwargs,
+    inner_beta_kwargs,
+    iteration_input_config,
+    logistic_config,
     epoch_priors,
     log_bf_m,
     log_bf_raw_m,
@@ -17032,8 +17034,8 @@ def _prepare_gibbs_iteration_inputs(
     priors_percentage_max_for_Y_m = epoch_priors["priors_percentage_max_for_Y_m"]
     priors_adjustment_for_Y_m = epoch_priors["priors_adjustment_for_Y_m"]
 
-    cur_background_log_bf_v = phase_kwargs["cur_background_log_bf_v"]
-    y_var_orig = phase_kwargs["y_var_orig"]
+    cur_background_log_bf_v = iteration_input_config["cur_background_log_bf_v"]
+    y_var_orig = iteration_input_config["y_var_orig"]
 
     epoch_iter_num = iteration_num + 1
     total_iter_num = epoch_total_iter_offset + epoch_iter_num
@@ -17069,7 +17071,8 @@ def _prepare_gibbs_iteration_inputs(
         D_sample_m=D_sample_m,
         y_corr_sparse=y_corr_sparse,
         epoch_context=epoch_context,
-        phase_kwargs=phase_kwargs,
+        inner_beta_kwargs=inner_beta_kwargs,
+        logistic_config=logistic_config,
     )
 
     p_sample_m = logistic_setup["p_sample_m"]
@@ -17117,6 +17120,8 @@ def _prepare_gibbs_iteration_state(
     epoch_context,
     phase_kwargs,
     inner_beta_kwargs,
+    iteration_input_config,
+    logistic_config,
     epoch_priors,
     log_bf_m,
     log_bf_raw_m,
@@ -17127,7 +17132,9 @@ def _prepare_gibbs_iteration_state(
         state=state,
         iteration_num=iteration_num,
         epoch_context=epoch_context,
-        phase_kwargs=phase_kwargs,
+        inner_beta_kwargs=inner_beta_kwargs,
+        iteration_input_config=iteration_input_config,
+        logistic_config=logistic_config,
         epoch_priors=epoch_priors,
         log_bf_m=log_bf_m,
         log_bf_raw_m=log_bf_raw_m,
@@ -17218,6 +17225,25 @@ def _extract_gibbs_low_beta_restart_config(phase_kwargs, run_state):
         "num_mad": phase_kwargs["num_mad"],
         "num_attempts": run_state["num_attempts"],
         "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+    }
+
+
+def _extract_gibbs_iteration_input_config(phase_kwargs):
+    return {
+        "cur_background_log_bf_v": phase_kwargs["cur_background_log_bf_v"],
+        "y_var_orig": phase_kwargs["y_var_orig"],
+    }
+
+
+def _extract_gibbs_logistic_config(phase_kwargs):
+    return {
+        "num_chains": phase_kwargs["num_chains"],
+        "gauss_seidel": phase_kwargs["gauss_seidel"],
+        "initial_linear_filter": phase_kwargs["initial_linear_filter"],
+        "sparse_frac_gibbs": phase_kwargs["sparse_frac_gibbs"],
+        "sparse_max_gibbs": phase_kwargs["sparse_max_gibbs"],
+        "correct_betas_mean": phase_kwargs["correct_betas_mean"],
+        "correct_betas_var": phase_kwargs["correct_betas_var"],
     }
 
 
@@ -17463,6 +17489,8 @@ def _run_gibbs_epoch_iterations(
     inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
     iteration_update_config = _extract_gibbs_iteration_update_config(phase_kwargs)
     low_beta_restart_config = _extract_gibbs_low_beta_restart_config(phase_kwargs, run_state)
+    iteration_input_config = _extract_gibbs_iteration_input_config(phase_kwargs)
+    logistic_config = _extract_gibbs_logistic_config(phase_kwargs)
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17472,6 +17500,8 @@ def _run_gibbs_epoch_iterations(
             epoch_context=epoch_context,
             phase_kwargs=phase_kwargs,
             inner_beta_kwargs=inner_beta_kwargs,
+            iteration_input_config=iteration_input_config,
+            logistic_config=logistic_config,
             epoch_priors=epoch_priors,
             log_bf_m=log_bf_m,
             log_bf_raw_m=log_bf_raw_m,
@@ -17688,22 +17718,22 @@ def _compute_gibbs_logistic_beta_tildes(
     D_sample_m,
     y_corr_sparse,
     epoch_context,
-    phase_kwargs,
+    inner_beta_kwargs,
+    logistic_config,
 ):
-    num_chains = phase_kwargs["num_chains"]
-    gauss_seidel = phase_kwargs["gauss_seidel"]
-    initial_linear_filter = phase_kwargs["initial_linear_filter"]
-    sparse_frac_gibbs = phase_kwargs["sparse_frac_gibbs"]
-    sparse_max_gibbs = phase_kwargs["sparse_max_gibbs"]
-    correct_betas_mean = phase_kwargs["correct_betas_mean"]
-    correct_betas_var = phase_kwargs["correct_betas_var"]
+    num_chains = logistic_config["num_chains"]
+    gauss_seidel = logistic_config["gauss_seidel"]
+    initial_linear_filter = logistic_config["initial_linear_filter"]
+    sparse_frac_gibbs = logistic_config["sparse_frac_gibbs"]
+    sparse_max_gibbs = logistic_config["sparse_max_gibbs"]
+    correct_betas_mean = logistic_config["correct_betas_mean"]
+    correct_betas_var = logistic_config["correct_betas_var"]
 
     full_betas_m_shape = epoch_context["full_betas_m_shape"]
     num_stack_batches = epoch_context["num_stack_batches"]
     stack_batch_size = epoch_context["stack_batch_size"]
     X_hstacked = epoch_context["X_hstacked"]
 
-    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
     full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, len(state.scale_factors)))
