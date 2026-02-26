@@ -18132,118 +18132,25 @@ def _run_gibbs_iteration_progress_update(
     log_bf_uncorrected_m,
     log_bf_raw_m,
 ):
-    epoch_control = epoch_context["epoch_control"]
-    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
-    epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
-    min_num_iter_for_epoch = epoch_context["min_num_iter_for_epoch"]
-    min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
-    max_num_burn_in_for_epoch = epoch_context["max_num_burn_in_for_epoch"]
-    min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
-    max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
-    post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
-    post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
-    trace_chain_offset = epoch_context["trace_chain_offset"]
-
-    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
-    num_chains = phase_kwargs["num_chains"]
-    gauss_seidel = phase_kwargs["gauss_seidel"]
-    eps = phase_kwargs["eps"]
-    diag_every = phase_kwargs["diag_every"]
-    active_beta_top_k = phase_kwargs["active_beta_top_k"]
-    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
-    burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
-    r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
-    burn_in_patience = phase_kwargs["burn_in_patience"]
-    stop_patience = phase_kwargs["stop_patience"]
-    stop_mcse_quantile = phase_kwargs["stop_mcse_quantile"]
-    beta_rel_mcse_denom_floor = phase_kwargs["beta_rel_mcse_denom_floor"]
-    stop_top_gene_k = phase_kwargs["stop_top_gene_k"]
-    stop_min_gene_d = phase_kwargs["stop_min_gene_d"]
-    max_rel_mcse_beta = phase_kwargs["max_rel_mcse_beta"]
-    max_abs_mcse_d = phase_kwargs["max_abs_mcse_d"]
-    stall_window = phase_kwargs["stall_window"]
-    stall_min_burn_in = phase_kwargs["stall_min_burn_in"]
-    stall_min_post_burn_in = phase_kwargs["stall_min_post_burn_in"]
-    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
-    stall_delta_mcse = phase_kwargs["stall_delta_mcse"]
-    stall_recent_window = phase_kwargs["stall_recent_window"]
-    stall_recent_eps = phase_kwargs["stall_recent_eps"]
-    burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
-    burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
-    use_mean_betas = phase_kwargs["use_mean_betas"]
-
     return _advance_gibbs_iteration_progress(
-        state,
-        epoch_control=epoch_control,
+        state=state,
+        epoch_control=epoch_context["epoch_control"],
+        run_state=run_state,
+        epoch_context=epoch_context,
+        phase_kwargs=phase_kwargs,
+        iter_state=iter_state,
+        epoch_sums=epoch_sums,
+        epoch_priors=epoch_priors,
+        epoch_runtime=epoch_runtime,
         iteration_num=iteration_num,
-        epoch_total_iter_offset=epoch_total_iter_offset,
-        epoch_iter_num=iter_state["epoch_iter_num"],
-        total_iter_num=iter_state["total_iter_num"],
-        epoch_max_num_iter=epoch_max_num_iter,
-        max_num_burn_in_for_epoch=max_num_burn_in_for_epoch,
-        min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
-        min_num_iter_for_epoch=min_num_iter_for_epoch,
-        gauss_seidel=gauss_seidel,
-        eps=eps,
-        diag_every=diag_every,
-        all_sum_betas_m=epoch_runtime["all_sum_betas_m"],
-        all_sum_betas2_m=epoch_runtime["all_sum_betas2_m"],
-        all_num_sum_m=epoch_runtime["all_num_sum_m"],
-        active_beta_top_k=active_beta_top_k,
-        active_beta_min_abs=active_beta_min_abs,
-        burn_in_rhat_quantile=burn_in_rhat_quantile,
-        r_threshold_burn_in=r_threshold_burn_in,
-        stall_window=stall_window,
-        stall_min_burn_in=stall_min_burn_in,
-        stall_delta_rhat=stall_delta_rhat,
-        stall_recent_window=stall_recent_window,
-        stall_recent_eps=stall_recent_eps,
-        burn_in_stall_window=burn_in_stall_window,
-        burn_in_stall_delta=burn_in_stall_delta,
-        num_full_gene_sets=num_full_gene_sets,
-        burn_in_patience=burn_in_patience,
-        stop_patience=stop_patience,
-        post_burn_reset_arrays=post_burn_reset_arrays,
-        post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
-        Y_sample_m=iter_state["Y_sample_m"],
-        Y_raw_sample_m=iter_state["Y_raw_sample_m"],
-        log_po_sample_m=iter_state["log_po_sample_m"],
-        log_po_raw_sample_m=iter_state["log_po_raw_sample_m"],
-        priors_for_Y_m=epoch_priors["priors_for_Y_m"],
-        D_sample_m=iter_state["D_sample_m"],
-        D_raw_sample_m=iter_state["D_raw_sample_m"],
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
-        full_betas_mean_m=full_betas_mean_m,
-        uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
-        full_postp_sample_m=full_postp_sample_m,
-        full_beta_tildes_m=iter_state["full_beta_tildes_m"],
-        full_z_scores_m=iter_state["full_z_scores_m"],
-        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-        epoch_sums=epoch_sums,
-        num_chains=num_chains,
-        stop_mcse_quantile=stop_mcse_quantile,
-        beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
-        stop_top_gene_k=stop_top_gene_k,
-        stop_min_gene_d=stop_min_gene_d,
-        max_rel_mcse_beta=max_rel_mcse_beta,
-        max_abs_mcse_d=max_abs_mcse_d,
-        min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
-        stall_min_post_burn_in=stall_min_post_burn_in,
-        stall_delta_mcse=stall_delta_mcse,
-        num_attempts=run_state["num_attempts"],
-        max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
-        max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
-        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-        trace_chain_offset=trace_chain_offset,
-        full_p_values_m=iter_state["full_p_values_m"],
-        full_ses_m=iter_state["full_ses_m"],
-        uncorrected_betas_sample_m=iter_state["uncorrected_betas_sample_m"],
         full_betas_sample_m=full_betas_sample_m,
+        full_postp_sample_m=full_postp_sample_m,
+        full_betas_mean_m=full_betas_mean_m,
         full_postp_mean_m=full_postp_mean_m,
-        full_z_cur_beta_tildes_m=iter_state["full_z_cur_beta_tildes_m"],
-        use_mean_betas=use_mean_betas,
+        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
     )
 
 
@@ -19213,76 +19120,88 @@ def _advance_gibbs_post_burn_and_trace_step(
 def _advance_gibbs_iteration_progress(
     state,
     epoch_control,
+    run_state,
+    epoch_context,
+    phase_kwargs,
+    iter_state,
+    epoch_sums,
+    epoch_priors,
+    epoch_runtime,
     iteration_num,
-    epoch_total_iter_offset,
-    epoch_iter_num,
-    total_iter_num,
-    epoch_max_num_iter,
-    max_num_burn_in_for_epoch,
-    min_num_burn_in_for_epoch,
-    min_num_iter_for_epoch,
-    gauss_seidel,
-    eps,
-    diag_every,
-    all_sum_betas_m,
-    all_sum_betas2_m,
-    all_num_sum_m,
-    active_beta_top_k,
-    active_beta_min_abs,
-    burn_in_rhat_quantile,
-    r_threshold_burn_in,
-    stall_window,
-    stall_min_burn_in,
-    stall_delta_rhat,
-    stall_recent_window,
-    stall_recent_eps,
-    burn_in_stall_window,
-    burn_in_stall_delta,
-    num_full_gene_sets,
-    burn_in_patience,
-    stop_patience,
-    post_burn_reset_arrays,
-    post_burn_reset_missing_arrays,
-    Y_sample_m,
-    Y_raw_sample_m,
-    log_po_sample_m,
-    log_po_raw_sample_m,
-    priors_for_Y_m,
-    D_sample_m,
-    D_raw_sample_m,
     log_bf_m,
     log_bf_uncorrected_m,
     log_bf_raw_m,
-    full_betas_mean_m,
-    uncorrected_betas_mean_m,
-    full_postp_sample_m,
-    full_beta_tildes_m,
-    full_z_scores_m,
-    priors_missing_mean_m,
-    epoch_sums,
-    num_chains,
-    stop_mcse_quantile,
-    beta_rel_mcse_denom_floor,
-    stop_top_gene_k,
-    stop_min_gene_d,
-    max_rel_mcse_beta,
-    max_abs_mcse_d,
-    min_num_post_burn_in_for_epoch,
-    stall_min_post_burn_in,
-    stall_delta_mcse,
-    num_attempts,
-    max_num_attempt_restarts,
-    max_num_post_burn_in_for_epoch,
-    gene_set_stats_trace_fh,
-    trace_chain_offset,
-    full_p_values_m,
-    full_ses_m,
-    uncorrected_betas_sample_m,
     full_betas_sample_m,
+    full_postp_sample_m,
+    full_betas_mean_m,
     full_postp_mean_m,
-    full_z_cur_beta_tildes_m,
-    use_mean_betas,
+    gene_set_stats_trace_fh,
 ):
+    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
+    epoch_iter_num = iter_state["epoch_iter_num"]
+    total_iter_num = iter_state["total_iter_num"]
+    epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
+    max_num_burn_in_for_epoch = epoch_context["max_num_burn_in_for_epoch"]
+    min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
+    min_num_iter_for_epoch = epoch_context["min_num_iter_for_epoch"]
+    min_num_post_burn_in_for_epoch = epoch_context["min_num_post_burn_in_for_epoch"]
+    max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
+    post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
+    post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
+    trace_chain_offset = epoch_context["trace_chain_offset"]
+
+    gauss_seidel = phase_kwargs["gauss_seidel"]
+    eps = phase_kwargs["eps"]
+    diag_every = phase_kwargs["diag_every"]
+    active_beta_top_k = phase_kwargs["active_beta_top_k"]
+    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
+    burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
+    r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
+    stall_window = phase_kwargs["stall_window"]
+    stall_min_burn_in = phase_kwargs["stall_min_burn_in"]
+    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
+    stall_recent_window = phase_kwargs["stall_recent_window"]
+    stall_recent_eps = phase_kwargs["stall_recent_eps"]
+    burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
+    burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
+    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
+    burn_in_patience = phase_kwargs["burn_in_patience"]
+    stop_patience = phase_kwargs["stop_patience"]
+    num_chains = phase_kwargs["num_chains"]
+    stop_mcse_quantile = phase_kwargs["stop_mcse_quantile"]
+    beta_rel_mcse_denom_floor = phase_kwargs["beta_rel_mcse_denom_floor"]
+    stop_top_gene_k = phase_kwargs["stop_top_gene_k"]
+    stop_min_gene_d = phase_kwargs["stop_min_gene_d"]
+    max_rel_mcse_beta = phase_kwargs["max_rel_mcse_beta"]
+    max_abs_mcse_d = phase_kwargs["max_abs_mcse_d"]
+    stall_min_post_burn_in = phase_kwargs["stall_min_post_burn_in"]
+    stall_delta_mcse = phase_kwargs["stall_delta_mcse"]
+    use_mean_betas = phase_kwargs["use_mean_betas"]
+
+    Y_sample_m = iter_state["Y_sample_m"]
+    Y_raw_sample_m = iter_state["Y_raw_sample_m"]
+    log_po_sample_m = iter_state["log_po_sample_m"]
+    log_po_raw_sample_m = iter_state["log_po_raw_sample_m"]
+    D_sample_m = iter_state["D_sample_m"]
+    D_raw_sample_m = iter_state["D_raw_sample_m"]
+    uncorrected_betas_mean_m = iter_state["uncorrected_betas_mean_m"]
+    full_beta_tildes_m = iter_state["full_beta_tildes_m"]
+    full_z_scores_m = iter_state["full_z_scores_m"]
+    full_p_values_m = iter_state["full_p_values_m"]
+    full_ses_m = iter_state["full_ses_m"]
+    uncorrected_betas_sample_m = iter_state["uncorrected_betas_sample_m"]
+    full_z_cur_beta_tildes_m = iter_state["full_z_cur_beta_tildes_m"]
+
+    priors_for_Y_m = epoch_priors["priors_for_Y_m"]
+    priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
+
+    all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
+    all_sum_betas2_m = epoch_runtime["all_sum_betas2_m"]
+    all_num_sum_m = epoch_runtime["all_num_sum_m"]
+
+    num_attempts = run_state["num_attempts"]
+    max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
+
     in_burn_in = epoch_control["in_burn_in"]
     burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
     stop_pass_streak = epoch_control["stop_pass_streak"]
