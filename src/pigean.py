@@ -17183,6 +17183,22 @@ def _build_gibbs_inner_beta_kwargs(phase_kwargs):
     }
 
 
+def _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
+    return {
+        "max_num_burn_in": inner_beta_kwargs["passed_in_max_num_burn_in"],
+        "max_num_iter": inner_beta_kwargs["max_num_iter_betas"],
+        "min_num_iter": inner_beta_kwargs["min_num_iter_betas"],
+        "num_chains": inner_beta_kwargs["num_chains_betas"],
+        "r_threshold_burn_in": inner_beta_kwargs["r_threshold_burn_in_betas"],
+        "use_max_r_for_convergence": inner_beta_kwargs["use_max_r_for_convergence_betas"],
+        "max_frac_sem": inner_beta_kwargs["max_frac_sem_betas"],
+        "max_allowed_batch_correlation": inner_beta_kwargs["max_allowed_batch_correlation"],
+        "gauss_seidel": inner_beta_kwargs["gauss_seidel_betas"],
+        "sparse_solution": inner_beta_kwargs["sparse_solution"],
+        "sparse_frac_betas": inner_beta_kwargs["sparse_frac_betas"],
+    }
+
+
 def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
     # Preserve pre-Gibbs values so downstream reporting can compare original vs
     # Gibbs-adjusted statistics.
@@ -17821,19 +17837,7 @@ def _compute_gibbs_logistic_beta_tildes(
     X_hstacked = epoch_context["X_hstacked"]
 
     inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
-    inner_beta_kwargs_linear = {
-        "max_num_burn_in": inner_beta_kwargs["passed_in_max_num_burn_in"],
-        "max_num_iter": inner_beta_kwargs["max_num_iter_betas"],
-        "min_num_iter": inner_beta_kwargs["min_num_iter_betas"],
-        "num_chains": inner_beta_kwargs["num_chains_betas"],
-        "r_threshold_burn_in": inner_beta_kwargs["r_threshold_burn_in_betas"],
-        "use_max_r_for_convergence": inner_beta_kwargs["use_max_r_for_convergence_betas"],
-        "max_frac_sem": inner_beta_kwargs["max_frac_sem_betas"],
-        "max_allowed_batch_correlation": inner_beta_kwargs["max_allowed_batch_correlation"],
-        "gauss_seidel": inner_beta_kwargs["gauss_seidel_betas"],
-        "sparse_solution": inner_beta_kwargs["sparse_solution"],
-        "sparse_frac_betas": inner_beta_kwargs["sparse_frac_betas"],
-    }
+    inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
     full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, len(state.scale_factors)))
     full_mean_shifts_m = np.tile(state.mean_shifts, num_chains).reshape((num_chains, len(state.mean_shifts)))
@@ -18759,19 +18763,7 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
     pre_filter_batch_size = phase_kwargs["pre_filter_batch_size"]
     pre_filter_small_batch_size = phase_kwargs["pre_filter_small_batch_size"]
     inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
-    inner_beta_kwargs_linear = {
-        "max_num_burn_in": inner_beta_kwargs["passed_in_max_num_burn_in"],
-        "max_num_iter": inner_beta_kwargs["max_num_iter_betas"],
-        "min_num_iter": inner_beta_kwargs["min_num_iter_betas"],
-        "num_chains": inner_beta_kwargs["num_chains_betas"],
-        "r_threshold_burn_in": inner_beta_kwargs["r_threshold_burn_in_betas"],
-        "use_max_r_for_convergence": inner_beta_kwargs["use_max_r_for_convergence_betas"],
-        "max_frac_sem": inner_beta_kwargs["max_frac_sem_betas"],
-        "max_allowed_batch_correlation": inner_beta_kwargs["max_allowed_batch_correlation"],
-        "gauss_seidel": inner_beta_kwargs["gauss_seidel_betas"],
-        "sparse_solution": inner_beta_kwargs["sparse_solution"],
-        "sparse_frac_betas": inner_beta_kwargs["sparse_frac_betas"],
-    }
+    inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
     # Start from sparsity mask on uncorrected betas, then optionally run a
     # cheaper prefilter pass to mark additional near-zero sets before the
