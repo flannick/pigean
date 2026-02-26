@@ -15377,15 +15377,17 @@ def _prepare_gibbs_epoch_attempt(
     run_state,
     total_num_iter,
     num_chains,
-    target_num_epochs,
-    epoch_max_num_iter_config,
-    min_num_burn_in,
-    max_num_burn_in,
-    min_num_post_burn_in,
-    max_num_post_burn_in,
-    increase_hyper_if_betas_below,
+    phase_kwargs,
 ):
     # Resolve one epoch attempt's bounds and bookkeeping from run-level state.
+    target_num_epochs = phase_kwargs["target_num_epochs"]
+    epoch_max_num_iter_config = phase_kwargs["epoch_max_num_iter_config"]
+    min_num_burn_in = phase_kwargs["min_num_burn_in"]
+    max_num_burn_in = phase_kwargs["max_num_burn_in"]
+    min_num_post_burn_in = phase_kwargs["min_num_post_burn_in"]
+    max_num_post_burn_in = phase_kwargs["max_num_post_burn_in"]
+    increase_hyper_if_betas_below = phase_kwargs["increase_hyper_if_betas_below"]
+
     run_state["num_attempts"] += 1
 
     (
@@ -17383,13 +17385,6 @@ def _prepare_and_start_gibbs_epoch(
     epoch_aggregates,
 ):
     num_chains = phase_kwargs["num_chains"]
-    target_num_epochs = phase_kwargs["target_num_epochs"]
-    epoch_max_num_iter_config = phase_kwargs["epoch_max_num_iter_config"]
-    min_num_burn_in = phase_kwargs["min_num_burn_in"]
-    max_num_burn_in = phase_kwargs["max_num_burn_in"]
-    min_num_post_burn_in = phase_kwargs["min_num_post_burn_in"]
-    max_num_post_burn_in = phase_kwargs["max_num_post_burn_in"]
-    increase_hyper_if_betas_below = phase_kwargs["increase_hyper_if_betas_below"]
     num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
     use_mean_betas = phase_kwargs["use_mean_betas"]
     max_mb_X_h = phase_kwargs["max_mb_X_h"]
@@ -17399,13 +17394,7 @@ def _prepare_and_start_gibbs_epoch(
         run_state=run_state,
         total_num_iter=total_num_iter,
         num_chains=num_chains,
-        target_num_epochs=target_num_epochs,
-        epoch_max_num_iter_config=epoch_max_num_iter_config,
-        min_num_burn_in=min_num_burn_in,
-        max_num_burn_in=max_num_burn_in,
-        min_num_post_burn_in=min_num_post_burn_in,
-        max_num_post_burn_in=max_num_post_burn_in,
-        increase_hyper_if_betas_below=increase_hyper_if_betas_below,
+        phase_kwargs=phase_kwargs,
     )
     if epoch_attempt is None:
         return None
