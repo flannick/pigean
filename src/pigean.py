@@ -8495,37 +8495,18 @@ class GeneSetData(object):
                 #log("Keeping %d gene sets that passed threshold of p<%.3g" % (sum(gene_set_mask), self.max_gene_set_p))
 
 
-                #Now call betas in batches
-                #we are doing this only for memory reasons -- we have to create a V matrix for each chain
-                #it is furthermore faster to create a V once for all gene sets across all chains, and then subset it for each chain, which
-                #further increases memory
-                #so, the strategy is to batch the chains, for each batch calculate a V for the superset of all gene sets, and then subset it
-
-                (
-                    full_betas_sample_m,
-                    full_postp_sample_m,
-                    full_betas_mean_m,
-                    full_postp_mean_m,
-                ) = _compute_gibbs_corrected_betas_for_gene_set_mask(
-                    self,
+                iteration_update = _run_gibbs_iteration_correction_and_updates(
+                    state=self,
+                    iter_state=iter_state,
                     gene_set_mask_m=gene_set_mask_m,
-                    default_betas_sample_m=iter_state["default_betas_sample_m"],
-                    default_postp_sample_m=iter_state["default_postp_sample_m"],
-                    default_betas_mean_m=iter_state["default_betas_mean_m"],
-                    default_postp_mean_m=iter_state["default_postp_mean_m"],
-                    full_beta_tildes_m=iter_state["full_beta_tildes_m"],
-                    full_ses_m=iter_state["full_ses_m"],
-                    full_scale_factors_m=iter_state["full_scale_factors_m"],
-                    full_mean_shifts_m=iter_state["full_mean_shifts_m"],
-                    full_is_dense_gene_set_m=iter_state["full_is_dense_gene_set_m"],
-                    full_ps_m=iter_state["full_ps_m"],
-                    full_sigma2s_m=iter_state["full_sigma2s_m"],
-                    uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
-                    use_mean_betas=use_mean_betas,
+                    epoch_priors=epoch_priors,
+                    epoch_runtime=epoch_runtime,
+                    epoch_control=epoch_control,
+                    run_state=run_state,
                     warm_start=warm_start,
-                    prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
-                    prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
-                    debug_zero_sparse=options.debug_zero_sparse,
+                    use_mean_betas=use_mean_betas,
+                    update_huge_scores=update_huge_scores,
+                    compute_Y_raw=compute_Y_raw,
                     num_chains=num_chains,
                     num_batches_parallel=num_batches_parallel,
                     passed_in_max_num_burn_in=passed_in_max_num_burn_in,
@@ -8540,107 +8521,26 @@ class GeneSetData(object):
                     sparse_solution=sparse_solution,
                     sparse_frac_betas=sparse_frac_betas,
                     betas_trace_out=betas_trace_out,
-                )
-
-                #now restore the p and sigma
-                #self.set_sigma(orig_sigma2, self.sigma_power, sigma2_osc=self.sigma2_osc)
-                #self.set_p(orig_p)
-
-                refresh_update = _refresh_gibbs_iteration_priors_and_huge(
-                    self,
-                    warm_start=warm_start,
-                    use_mean_betas=use_mean_betas,
-                    prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
-                    prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
-                    full_betas_sample_m=full_betas_sample_m,
-                    full_betas_mean_m=full_betas_mean_m,
-                    full_postp_sample_m=full_postp_sample_m,
-                    full_postp_mean_m=full_postp_mean_m,
-                    priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
-                    priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-                    priors_for_Y_m=epoch_priors["priors_for_Y_m"],
-                    update_huge_scores=update_huge_scores,
-                    compute_Y_raw=compute_Y_raw,
+                    debug_zero_sparse=options.debug_zero_sparse,
+                    adjust_priors=adjust_priors,
+                    increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+                    epoch_sums=epoch_sums,
+                    num_mad=num_mad,
+                    num_before_checking_p_increase=num_before_checking_p_increase,
+                    iteration_num=iteration_num,
+                    p_scale_factor=p_scale_factor,
                     log_bf_m=log_bf_m,
                     log_bf_uncorrected_m=log_bf_uncorrected_m,
                     log_bf_raw_m=log_bf_raw_m,
                 )
-                epoch_priors["prev_warm_start_betas_m"] = refresh_update["prev_warm_start_betas_m"]
-                epoch_priors["prev_warm_start_postp_m"] = refresh_update["prev_warm_start_postp_m"]
-                epoch_priors["priors_sample_m"] = refresh_update["priors_sample_m"]
-                epoch_priors["priors_mean_m"] = refresh_update["priors_mean_m"]
-                epoch_priors["priors_missing_sample_m"] = refresh_update["priors_missing_sample_m"]
-                epoch_priors["priors_missing_mean_m"] = refresh_update["priors_missing_mean_m"]
-                log_bf_m = refresh_update["log_bf_m"]
-                log_bf_uncorrected_m = refresh_update["log_bf_uncorrected_m"]
-                log_bf_raw_m = refresh_update["log_bf_raw_m"]
-
-                #if center_combined:
-                #    priors_sample_total_m = np.hstack((priors_sample_m, priors_missing_sample_m))
-                #    total_mean_v = np.mean(priors_sample_total_m, axis=1)
-                #    priors_sample_m = (priors_sample_m.T - total_mean_v).T
-                #    priors_missing_sample_m = (priors_missing_sample_m.T - total_mean_v).T
-                #    priors_mean_m = (priors_mean_m.T - total_mean_v).T
-                #    priors_missing_mean_m = (priors_missing_mean_m.T - total_mean_v).T
-
-
-                #    priors_sample_m = (priors_sample_m.T + np.mean(full_alpha_tildes_m, axis=1) - self.background_log_bf).T
-                #    priors_missing_sample_m = (priors_missing_sample_m.T + np.mean(full_alpha_tildes_m, axis=1) - self.background_log_bf).T
-
-                prior_update = _finalize_gibbs_priors_for_sampling(
-                    self,
-                    priors_sample_m=epoch_priors["priors_sample_m"],
-                    priors_mean_m=epoch_priors["priors_mean_m"],
-                    priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
-                    priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-                    adjust_priors=adjust_priors,
-                    use_mean_betas=use_mean_betas,
-                    priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
-                    priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
-                    priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
-                    priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
-                )
-                epoch_priors["priors_sample_m"] = prior_update["priors_sample_m"]
-                epoch_priors["priors_mean_m"] = prior_update["priors_mean_m"]
-                epoch_priors["priors_missing_sample_m"] = prior_update["priors_missing_sample_m"]
-                epoch_priors["priors_missing_mean_m"] = prior_update["priors_missing_mean_m"]
-                epoch_priors["priors_for_Y_m"] = prior_update["priors_for_Y_m"]
-                epoch_priors["priors_percentage_max_for_Y_m"] = prior_update["priors_percentage_max_for_Y_m"]
-                epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
-
-                #only add non-outliers to mean/sd
-                #non_outlier_mask = np.full(sum_z_scores2_m.shape, True)
-                #non_outlier_mask[num_sum_outlier_m > 10] = np.abs(full_z_scores_m[num_sum_outlier_m > 10]) < -scipy.stats.norm.ppf(0.5 * 0.05 / (num_sum_outlier_m[num_sum_outlier_m > 10] * num_chains_betas))
-                #if pre_gene_set_filter_mask is not None:
-                #    non_outlier_mask[:,~pre_gene_set_filter_mask] = False
-                #sum_z_scores2_m[non_outlier_mask] = np.add(sum_z_scores2_m[non_outlier_mask], np.power(full_z_scores_m[non_outlier_mask], 2))
-                #sum_z_scores_m[non_outlier_mask] = np.add(sum_z_scores_m[non_outlier_mask], full_z_scores_m[non_outlier_mask])
-                #num_sum_outlier_m[non_outlier_mask] += 1
-
-                all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
-                    self,
-                    full_betas_mean_m,
-                    iter_state["full_z_scores_m"],
-                    iter_state["Y_sample_m"],
-                    epoch_runtime["all_sum_betas_m"],
-                    epoch_runtime["all_sum_betas2_m"],
-                    epoch_runtime["all_sum_z_scores_m"],
-                    epoch_runtime["all_sum_z_scores2_m"],
-                    epoch_runtime["all_num_sum_m"],
-                    epoch_runtime["all_sum_Ys_m"],
-                    epoch_runtime["all_sum_Ys2_m"],
-                    increase_hyper_if_betas_below_for_epoch,
-                    epoch_sums["num_sum_beta_m"],
-                    epoch_sums["sum_betas_m"],
-                    num_mad,
-                    num_before_checking_p_increase,
-                    iteration_num,
-                    p_scale_factor,
-                    run_state["num_attempts"],
-                    run_state["max_num_attempt_restarts"],
-                    epoch_runtime["num_p_increases"],
-                )
-                if _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update):
+                full_betas_sample_m = iteration_update["full_betas_sample_m"]
+                full_postp_sample_m = iteration_update["full_postp_sample_m"]
+                full_betas_mean_m = iteration_update["full_betas_mean_m"]
+                full_postp_mean_m = iteration_update["full_postp_mean_m"]
+                log_bf_m = iteration_update["log_bf_m"]
+                log_bf_uncorrected_m = iteration_update["log_bf_uncorrected_m"]
+                log_bf_raw_m = iteration_update["log_bf_raw_m"]
+                if iteration_update["should_break"]:
                     break
 
                 iteration_progress_update = _advance_gibbs_iteration_progress(
@@ -17397,6 +17297,174 @@ def _prepare_gibbs_iteration_state(
     )
 
     return {"iter_state": iter_state, "gene_set_mask_m": gene_set_mask_m}
+
+
+def _run_gibbs_iteration_correction_and_updates(
+    state,
+    iter_state,
+    gene_set_mask_m,
+    epoch_priors,
+    epoch_runtime,
+    epoch_control,
+    run_state,
+    warm_start,
+    use_mean_betas,
+    update_huge_scores,
+    compute_Y_raw,
+    num_chains,
+    num_batches_parallel,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+    betas_trace_out,
+    debug_zero_sparse,
+    adjust_priors,
+    increase_hyper_if_betas_below_for_epoch,
+    epoch_sums,
+    num_mad,
+    num_before_checking_p_increase,
+    iteration_num,
+    p_scale_factor,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
+    # sums and restart diagnostics.
+    (
+        full_betas_sample_m,
+        full_postp_sample_m,
+        full_betas_mean_m,
+        full_postp_mean_m,
+    ) = _compute_gibbs_corrected_betas_for_gene_set_mask(
+        state,
+        gene_set_mask_m=gene_set_mask_m,
+        default_betas_sample_m=iter_state["default_betas_sample_m"],
+        default_postp_sample_m=iter_state["default_postp_sample_m"],
+        default_betas_mean_m=iter_state["default_betas_mean_m"],
+        default_postp_mean_m=iter_state["default_postp_mean_m"],
+        full_beta_tildes_m=iter_state["full_beta_tildes_m"],
+        full_ses_m=iter_state["full_ses_m"],
+        full_scale_factors_m=iter_state["full_scale_factors_m"],
+        full_mean_shifts_m=iter_state["full_mean_shifts_m"],
+        full_is_dense_gene_set_m=iter_state["full_is_dense_gene_set_m"],
+        full_ps_m=iter_state["full_ps_m"],
+        full_sigma2s_m=iter_state["full_sigma2s_m"],
+        uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
+        use_mean_betas=use_mean_betas,
+        warm_start=warm_start,
+        prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
+        prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
+        debug_zero_sparse=debug_zero_sparse,
+        num_chains=num_chains,
+        num_batches_parallel=num_batches_parallel,
+        passed_in_max_num_burn_in=passed_in_max_num_burn_in,
+        max_num_iter_betas=max_num_iter_betas,
+        min_num_iter_betas=min_num_iter_betas,
+        num_chains_betas=num_chains_betas,
+        r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+        use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+        max_frac_sem_betas=max_frac_sem_betas,
+        max_allowed_batch_correlation=max_allowed_batch_correlation,
+        gauss_seidel_betas=gauss_seidel_betas,
+        sparse_solution=sparse_solution,
+        sparse_frac_betas=sparse_frac_betas,
+        betas_trace_out=betas_trace_out,
+    )
+
+    refresh_update = _refresh_gibbs_iteration_priors_and_huge(
+        state,
+        warm_start=warm_start,
+        use_mean_betas=use_mean_betas,
+        prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
+        prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
+        full_betas_sample_m=full_betas_sample_m,
+        full_betas_mean_m=full_betas_mean_m,
+        full_postp_sample_m=full_postp_sample_m,
+        full_postp_mean_m=full_postp_mean_m,
+        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
+        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
+        priors_for_Y_m=epoch_priors["priors_for_Y_m"],
+        update_huge_scores=update_huge_scores,
+        compute_Y_raw=compute_Y_raw,
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
+    epoch_priors["prev_warm_start_betas_m"] = refresh_update["prev_warm_start_betas_m"]
+    epoch_priors["prev_warm_start_postp_m"] = refresh_update["prev_warm_start_postp_m"]
+    epoch_priors["priors_sample_m"] = refresh_update["priors_sample_m"]
+    epoch_priors["priors_mean_m"] = refresh_update["priors_mean_m"]
+    epoch_priors["priors_missing_sample_m"] = refresh_update["priors_missing_sample_m"]
+    epoch_priors["priors_missing_mean_m"] = refresh_update["priors_missing_mean_m"]
+    log_bf_m = refresh_update["log_bf_m"]
+    log_bf_uncorrected_m = refresh_update["log_bf_uncorrected_m"]
+    log_bf_raw_m = refresh_update["log_bf_raw_m"]
+
+    prior_update = _finalize_gibbs_priors_for_sampling(
+        state,
+        priors_sample_m=epoch_priors["priors_sample_m"],
+        priors_mean_m=epoch_priors["priors_mean_m"],
+        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
+        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
+        adjust_priors=adjust_priors,
+        use_mean_betas=use_mean_betas,
+        priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
+        priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
+        priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
+        priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
+    )
+    epoch_priors["priors_sample_m"] = prior_update["priors_sample_m"]
+    epoch_priors["priors_mean_m"] = prior_update["priors_mean_m"]
+    epoch_priors["priors_missing_sample_m"] = prior_update["priors_missing_sample_m"]
+    epoch_priors["priors_missing_mean_m"] = prior_update["priors_missing_mean_m"]
+    epoch_priors["priors_for_Y_m"] = prior_update["priors_for_Y_m"]
+    epoch_priors["priors_percentage_max_for_Y_m"] = prior_update["priors_percentage_max_for_Y_m"]
+    epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
+
+    all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
+        state,
+        full_betas_mean_m,
+        iter_state["full_z_scores_m"],
+        iter_state["Y_sample_m"],
+        epoch_runtime["all_sum_betas_m"],
+        epoch_runtime["all_sum_betas2_m"],
+        epoch_runtime["all_sum_z_scores_m"],
+        epoch_runtime["all_sum_z_scores2_m"],
+        epoch_runtime["all_num_sum_m"],
+        epoch_runtime["all_sum_Ys_m"],
+        epoch_runtime["all_sum_Ys2_m"],
+        increase_hyper_if_betas_below_for_epoch,
+        epoch_sums["num_sum_beta_m"],
+        epoch_sums["sum_betas_m"],
+        num_mad,
+        num_before_checking_p_increase,
+        iteration_num,
+        p_scale_factor,
+        run_state["num_attempts"],
+        run_state["max_num_attempt_restarts"],
+        epoch_runtime["num_p_increases"],
+    )
+    should_break = _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update)
+
+    return {
+        "full_betas_sample_m": full_betas_sample_m,
+        "full_postp_sample_m": full_postp_sample_m,
+        "full_betas_mean_m": full_betas_mean_m,
+        "full_postp_mean_m": full_postp_mean_m,
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+        "should_break": should_break,
+    }
 
 
 def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig):
