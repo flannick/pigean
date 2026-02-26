@@ -17443,6 +17443,7 @@ def _run_gibbs_epoch_iterations(
     epoch_runtime = epoch_context["epoch_runtime"]
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
 
+    iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
         iteration_prepare = _prepare_gibbs_iteration_state(
             state=state,
