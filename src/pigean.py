@@ -17468,6 +17468,19 @@ def _build_gibbs_epoch_iteration_loop_config(
     }
 
 
+def _build_gibbs_iteration_correction_config(loop_config):
+    return {
+        "inner_beta_kwargs": loop_config["inner_beta_kwargs"],
+        "iteration_update_config": loop_config["iteration_update_config"],
+        "num_mad": loop_config["num_mad"],
+        "num_attempts": loop_config["num_attempts"],
+        "max_num_attempt_restarts": loop_config["max_num_attempt_restarts"],
+        "increase_hyper_if_betas_below_for_epoch": loop_config["increase_hyper_if_betas_below_for_epoch"],
+        "num_before_checking_p_increase": loop_config["num_before_checking_p_increase"],
+        "p_scale_factor": loop_config["p_scale_factor"],
+    }
+
+
 def _run_gibbs_epoch_phase(
     state,
     run_state,
@@ -17626,13 +17639,6 @@ def _run_gibbs_epoch_iterations(
     post_burn_reset_arrays = loop_config["post_burn_reset_arrays"]
     post_burn_reset_missing_arrays = loop_config["post_burn_reset_missing_arrays"]
     inner_beta_kwargs = loop_config["inner_beta_kwargs"]
-    iteration_update_config = loop_config["iteration_update_config"]
-    num_mad = loop_config["num_mad"]
-    num_attempts = loop_config["num_attempts"]
-    max_num_attempt_restarts = loop_config["max_num_attempt_restarts"]
-    increase_hyper_if_betas_below_for_epoch = loop_config["increase_hyper_if_betas_below_for_epoch"]
-    num_before_checking_p_increase = loop_config["num_before_checking_p_increase"]
-    p_scale_factor = loop_config["p_scale_factor"]
     cur_background_log_bf_v = loop_config["cur_background_log_bf_v"]
     y_var_orig = loop_config["y_var_orig"]
     gauss_seidel = loop_config["gauss_seidel"]
@@ -17643,6 +17649,7 @@ def _run_gibbs_epoch_iterations(
     correct_betas_var = loop_config["correct_betas_var"]
     prefilter_config = loop_config["prefilter_config"]
     iteration_progress_config = loop_config["iteration_progress_config"]
+    correction_config = _build_gibbs_iteration_correction_config(loop_config)
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17676,14 +17683,7 @@ def _run_gibbs_epoch_iterations(
             iter_state=iter_state,
             gene_set_mask_m=gene_set_mask_m,
             epoch_control=epoch_control,
-            inner_beta_kwargs=inner_beta_kwargs,
-            iteration_update_config=iteration_update_config,
-            num_mad=num_mad,
-            num_attempts=num_attempts,
-            max_num_attempt_restarts=max_num_attempt_restarts,
-            increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
-            num_before_checking_p_increase=num_before_checking_p_increase,
-            p_scale_factor=p_scale_factor,
+            correction_config=correction_config,
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             epoch_sums=epoch_sums,
@@ -17739,14 +17739,7 @@ def _run_gibbs_iteration_correction_and_updates(
     iter_state,
     gene_set_mask_m,
     epoch_control,
-    inner_beta_kwargs,
-    iteration_update_config,
-    num_mad,
-    num_attempts,
-    max_num_attempt_restarts,
-    increase_hyper_if_betas_below_for_epoch,
-    num_before_checking_p_increase,
-    p_scale_factor,
+    correction_config,
     epoch_priors,
     epoch_runtime,
     epoch_sums,
@@ -17755,6 +17748,15 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_uncorrected_m,
     log_bf_raw_m,
 ):
+    inner_beta_kwargs = correction_config["inner_beta_kwargs"]
+    iteration_update_config = correction_config["iteration_update_config"]
+    num_mad = correction_config["num_mad"]
+    num_attempts = correction_config["num_attempts"]
+    max_num_attempt_restarts = correction_config["max_num_attempt_restarts"]
+    increase_hyper_if_betas_below_for_epoch = correction_config["increase_hyper_if_betas_below_for_epoch"]
+    num_before_checking_p_increase = correction_config["num_before_checking_p_increase"]
+    p_scale_factor = correction_config["p_scale_factor"]
+
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
     # sums and restart diagnostics.
     (
