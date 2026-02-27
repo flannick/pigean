@@ -18089,17 +18089,19 @@ def _update_post_burn_stall_tracking(
 def _decide_gibbs_post_burn_action(
     precision_achieved,
     post_stall_detected,
-    num_attempts,
-    max_num_attempt_restarts,
-    epoch_iter_num,
-    total_iter_num,
-    post_stall_plateau,
-    post_stall_recent_worse,
-    beta_rhat_q_post,
-    D_mcse_q,
-    post_stall_recent_beta_rhat_q,
-    post_stall_recent_D_mcse_q,
+    post_burn_action_config,
 ):
+    num_attempts = post_burn_action_config["num_attempts"]
+    max_num_attempt_restarts = post_burn_action_config["max_num_attempt_restarts"]
+    epoch_iter_num = post_burn_action_config["epoch_iter_num"]
+    total_iter_num = post_burn_action_config["total_iter_num"]
+    post_stall_plateau = post_burn_action_config["post_stall_plateau"]
+    post_stall_recent_worse = post_burn_action_config["post_stall_recent_worse"]
+    beta_rhat_q_post = post_burn_action_config["beta_rhat_q_post"]
+    D_mcse_q = post_burn_action_config["D_mcse_q"]
+    post_stall_recent_beta_rhat_q = post_burn_action_config["post_stall_recent_beta_rhat_q"]
+    post_stall_recent_D_mcse_q = post_burn_action_config["post_stall_recent_D_mcse_q"]
+
     decision = {
         "done": False,
         "stop_due_to_precision": False,
@@ -18424,16 +18426,18 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     decision = _decide_gibbs_post_burn_action(
         precision_achieved=precision_achieved,
         post_stall_detected=post_stall_detected,
-        num_attempts=num_attempts,
-        max_num_attempt_restarts=max_num_attempt_restarts,
-        epoch_iter_num=epoch_iter_num,
-        total_iter_num=total_iter_num,
-        post_stall_plateau=post_stall_plateau,
-        post_stall_recent_worse=post_stall_recent_worse,
-        beta_rhat_q_post=beta_rhat_q_post,
-        D_mcse_q=D_mcse_q,
-        post_stall_recent_beta_rhat_q=post_stall_recent_beta_rhat_q,
-        post_stall_recent_D_mcse_q=post_stall_recent_D_mcse_q,
+        post_burn_action_config={
+            "num_attempts": num_attempts,
+            "max_num_attempt_restarts": max_num_attempt_restarts,
+            "epoch_iter_num": epoch_iter_num,
+            "total_iter_num": total_iter_num,
+            "post_stall_plateau": post_stall_plateau,
+            "post_stall_recent_worse": post_stall_recent_worse,
+            "beta_rhat_q_post": beta_rhat_q_post,
+            "D_mcse_q": D_mcse_q,
+            "post_stall_recent_beta_rhat_q": post_stall_recent_beta_rhat_q,
+            "post_stall_recent_D_mcse_q": post_stall_recent_D_mcse_q,
+        },
     )
 
     return {
