@@ -15008,6 +15008,7 @@ def _stack_and_unpack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=F
     return values
 
 
+# ========================= Outer Gibbs Control Normalization =========================
 def _normalize_gibbs_run_controls(
     max_num_iter,
     total_num_iter,
@@ -15184,6 +15185,7 @@ def _normalize_gibbs_run_controls(
     }
 
 
+# ========================= Outer Gibbs Configuration Logging =========================
 def _record_and_log_gibbs_configuration(state, run_state, config):
     num_chains = config["num_chains"]
     num_chains_betas = config["num_chains_betas"]
@@ -15244,6 +15246,7 @@ def _record_and_log_gibbs_configuration(state, run_state, config):
     log("Gibbs stall controls: window=%d, min_burn=%d, min_post_for_stall=%d, delta_rhat=%.4g, delta_mcse=%.4g, recent_window=%d, recent_eps=%.4g" % (stall_window, stall_min_burn_in, stall_min_post_burn_in, stall_delta_rhat, stall_delta_mcse, stall_recent_window, stall_recent_eps), INFO)
 
 
+# ========================= Outer Gibbs Epoch Execution =========================
 def _build_gibbs_record_config(gibbs_controls, dynamic_inputs):
     return {
         "num_chains": gibbs_controls["num_chains"],
@@ -17878,6 +17881,7 @@ def _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel):
     return p_sample_m
 
 
+# ========================= Outer Gibbs Logistic Updates =========================
 def _compute_gibbs_logistic_beta_tildes_batch(
     state,
     pre_gene_set_filter_mask,
@@ -18365,6 +18369,7 @@ def _build_post_burn_action_config(
     }
 
 
+# ========================= Outer Gibbs Post-burn Diagnostics =========================
 def _compute_gibbs_post_burn_diag_metrics(
     min_num_post_burn_in_for_epoch,
     diag_config,
