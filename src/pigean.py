@@ -8331,36 +8331,36 @@ class GeneSetData(object):
             max_num_post_burn_in=max_num_post_burn_in,
             increase_hyper_if_betas_below=increase_hyper_if_betas_below,
         )
-        inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(
-            passed_in_max_num_burn_in=passed_in_max_num_burn_in,
-            max_num_iter_betas=max_num_iter_betas,
-            min_num_iter_betas=min_num_iter_betas,
-            num_chains_betas=num_chains_betas,
-            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
-            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
-            max_frac_sem_betas=max_frac_sem_betas,
-            max_allowed_batch_correlation=max_allowed_batch_correlation,
-            gauss_seidel_betas=gauss_seidel_betas,
-            sparse_solution=sparse_solution,
-            sparse_frac_betas=sparse_frac_betas,
-        )
-        iteration_update_config = _build_gibbs_iteration_update_config(
-            use_mean_betas=use_mean_betas,
-            warm_start=warm_start,
-            debug_zero_sparse=options.debug_zero_sparse,
-            num_chains=num_chains,
-            num_batches_parallel=num_batches_parallel,
-            betas_trace_out=betas_trace_out,
-            update_huge_scores=update_huge_scores,
-            compute_Y_raw=compute_Y_raw,
-            adjust_priors=adjust_priors,
-        )
-        prefilter_config = _build_gibbs_prefilter_config(
-            sparse_frac_gibbs=sparse_frac_gibbs,
-            sparse_max_gibbs=sparse_max_gibbs,
-            pre_filter_batch_size=pre_filter_batch_size,
-            pre_filter_small_batch_size=pre_filter_small_batch_size,
-        )
+        inner_beta_kwargs = {
+            "passed_in_max_num_burn_in": passed_in_max_num_burn_in,
+            "max_num_iter_betas": max_num_iter_betas,
+            "min_num_iter_betas": min_num_iter_betas,
+            "num_chains_betas": num_chains_betas,
+            "r_threshold_burn_in_betas": r_threshold_burn_in_betas,
+            "use_max_r_for_convergence_betas": use_max_r_for_convergence_betas,
+            "max_frac_sem_betas": max_frac_sem_betas,
+            "max_allowed_batch_correlation": max_allowed_batch_correlation,
+            "gauss_seidel_betas": gauss_seidel_betas,
+            "sparse_solution": sparse_solution,
+            "sparse_frac_betas": sparse_frac_betas,
+        }
+        iteration_update_config = {
+            "use_mean_betas": use_mean_betas,
+            "warm_start": warm_start,
+            "debug_zero_sparse": options.debug_zero_sparse,
+            "num_chains": num_chains,
+            "num_batches_parallel": num_batches_parallel,
+            "betas_trace_out": betas_trace_out,
+            "update_huge_scores": update_huge_scores,
+            "compute_Y_raw": compute_Y_raw,
+            "adjust_priors": adjust_priors,
+        }
+        prefilter_config = {
+            "sparse_frac_gibbs": sparse_frac_gibbs,
+            "sparse_max_gibbs": sparse_max_gibbs,
+            "pre_filter_batch_size": pre_filter_batch_size,
+            "pre_filter_small_batch_size": pre_filter_small_batch_size,
+        }
         burn_in_config = _build_gibbs_burn_in_config(
             active_beta_top_k=active_beta_top_k,
             active_beta_min_abs=active_beta_min_abs,
@@ -8400,12 +8400,12 @@ class GeneSetData(object):
             num_full_gene_sets=num_full_gene_sets,
             burn_in_patience=burn_in_patience,
         )
-        iteration_progress_config = _build_gibbs_iteration_progress_config(
-            diag_every=diag_every,
-            use_mean_betas=use_mean_betas,
-            post_burn_diag_config=post_burn_diag_config,
-            burn_in_config=burn_in_config,
-        )
+        iteration_progress_config = {
+            "diag_every": diag_every,
+            "use_mean_betas": use_mean_betas,
+            "post_burn_diag_config": post_burn_diag_config,
+            "burn_in_config": burn_in_config,
+        }
         epoch_iteration_static_config = _build_gibbs_epoch_iteration_static_config(
             inner_beta_kwargs=inner_beta_kwargs,
             iteration_update_config=iteration_update_config,
@@ -17200,34 +17200,6 @@ def _prepare_gibbs_iteration_state(
     return (iter_state, gene_set_mask_m)
 
 
-def _build_gibbs_inner_beta_kwargs(
-    passed_in_max_num_burn_in,
-    max_num_iter_betas,
-    min_num_iter_betas,
-    num_chains_betas,
-    r_threshold_burn_in_betas,
-    use_max_r_for_convergence_betas,
-    max_frac_sem_betas,
-    max_allowed_batch_correlation,
-    gauss_seidel_betas,
-    sparse_solution,
-    sparse_frac_betas,
-):
-    return {
-        "passed_in_max_num_burn_in": passed_in_max_num_burn_in,
-        "max_num_iter_betas": max_num_iter_betas,
-        "min_num_iter_betas": min_num_iter_betas,
-        "num_chains_betas": num_chains_betas,
-        "r_threshold_burn_in_betas": r_threshold_burn_in_betas,
-        "use_max_r_for_convergence_betas": use_max_r_for_convergence_betas,
-        "max_frac_sem_betas": max_frac_sem_betas,
-        "max_allowed_batch_correlation": max_allowed_batch_correlation,
-        "gauss_seidel_betas": gauss_seidel_betas,
-        "sparse_solution": sparse_solution,
-        "sparse_frac_betas": sparse_frac_betas,
-    }
-
-
 def _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
     return {
         "max_num_burn_in": inner_beta_kwargs["passed_in_max_num_burn_in"],
@@ -17241,53 +17213,6 @@ def _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
         "gauss_seidel": inner_beta_kwargs["gauss_seidel_betas"],
         "sparse_solution": inner_beta_kwargs["sparse_solution"],
         "sparse_frac_betas": inner_beta_kwargs["sparse_frac_betas"],
-    }
-
-
-def _build_gibbs_iteration_update_config(
-    use_mean_betas,
-    warm_start,
-    debug_zero_sparse,
-    num_chains,
-    num_batches_parallel,
-    betas_trace_out,
-    update_huge_scores,
-    compute_Y_raw,
-    adjust_priors,
-):
-    return {
-        "use_mean_betas": use_mean_betas,
-        "warm_start": warm_start,
-        "debug_zero_sparse": debug_zero_sparse,
-        "num_chains": num_chains,
-        "num_batches_parallel": num_batches_parallel,
-        "betas_trace_out": betas_trace_out,
-        "update_huge_scores": update_huge_scores,
-        "compute_Y_raw": compute_Y_raw,
-        "adjust_priors": adjust_priors,
-    }
-
-
-def _build_gibbs_prefilter_config(
-    sparse_frac_gibbs,
-    sparse_max_gibbs,
-    pre_filter_batch_size,
-    pre_filter_small_batch_size,
-):
-    return {
-        "sparse_frac_gibbs": sparse_frac_gibbs,
-        "sparse_max_gibbs": sparse_max_gibbs,
-        "pre_filter_batch_size": pre_filter_batch_size,
-        "pre_filter_small_batch_size": pre_filter_small_batch_size,
-    }
-
-
-def _build_gibbs_iteration_progress_config(diag_every, use_mean_betas, post_burn_diag_config, burn_in_config):
-    return {
-        "diag_every": diag_every,
-        "use_mean_betas": use_mean_betas,
-        "post_burn_diag_config": post_burn_diag_config,
-        "burn_in_config": burn_in_config,
     }
 
 
