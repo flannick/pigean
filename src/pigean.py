@@ -17080,7 +17080,12 @@ def _prepare_gibbs_iteration_inputs(
 def _prepare_gibbs_iteration_state(
     state,
     iteration_num,
-    epoch_context,
+    epoch_total_iter_offset,
+    trace_chain_offset,
+    full_betas_m_shape,
+    num_stack_batches,
+    stack_batch_size,
+    X_hstacked,
     inner_beta_kwargs,
     iteration_input_config,
     logistic_config,
@@ -17090,13 +17095,6 @@ def _prepare_gibbs_iteration_state(
     log_bf_raw_m,
     gene_stats_trace_fh,
 ):
-    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
-    trace_chain_offset = epoch_context["trace_chain_offset"]
-    full_betas_m_shape = epoch_context["full_betas_m_shape"]
-    num_stack_batches = epoch_context["num_stack_batches"]
-    stack_batch_size = epoch_context["stack_batch_size"]
-    X_hstacked = epoch_context["X_hstacked"]
-
     # Prepare all iteration-local sampling and masking state before corrected betas.
     iter_setup = _prepare_gibbs_iteration_inputs(
         state=state,
@@ -17790,6 +17788,10 @@ def _run_gibbs_epoch_iterations(
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
     epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
     trace_chain_offset = epoch_context["trace_chain_offset"]
+    full_betas_m_shape = epoch_context["full_betas_m_shape"]
+    num_stack_batches = epoch_context["num_stack_batches"]
+    stack_batch_size = epoch_context["stack_batch_size"]
+    X_hstacked = epoch_context["X_hstacked"]
     min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
     max_num_burn_in_for_epoch = epoch_context["max_num_burn_in_for_epoch"]
     min_num_iter_for_epoch = epoch_context["min_num_iter_for_epoch"]
@@ -17811,7 +17813,12 @@ def _run_gibbs_epoch_iterations(
         iter_state, gene_set_mask_m = _prepare_gibbs_iteration_state(
             state=state,
             iteration_num=iteration_num,
-            epoch_context=epoch_context,
+            epoch_total_iter_offset=epoch_total_iter_offset,
+            trace_chain_offset=trace_chain_offset,
+            full_betas_m_shape=full_betas_m_shape,
+            num_stack_batches=num_stack_batches,
+            stack_batch_size=stack_batch_size,
+            X_hstacked=X_hstacked,
             inner_beta_kwargs=inner_beta_kwargs,
             iteration_input_config=iteration_input_config,
             logistic_config=logistic_config,
