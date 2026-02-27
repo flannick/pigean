@@ -4803,6 +4803,167 @@ class GeneSetData(object):
 
         return (closest_dist_X, closest_dist_Y, var_all_p)
 
+    def _accumulate_huge_gene_covariates(
+        self,
+        gene_names,
+        gene_names_non_unique,
+        gene_pos,
+        gene_index_to_name_index,
+        gene_name_to_index,
+        window_fun_slope,
+        window_fun_intercept,
+        scale_raw_closest_gene,
+        cap_raw_closest_gene,
+        closest_gene_prob,
+        gene_covariate_genes,
+    ):
+        max_gene_offset = 500
+        gene_offsets = np.arange(max_gene_offset + 1)
+
+        gene_start_indices = np.zeros(len(gene_names), dtype=int)
+        gene_end_indices = np.zeros(len(gene_names), dtype=int)
+        gene_num_indices = np.zeros(len(gene_names), dtype=int)
+
+        gene_name_to_ind = _construct_map_to_ind(gene_names)
+        for i in range(len(gene_names_non_unique)):
+            gene_name_ind = gene_name_to_ind[gene_names_non_unique[i]]
+            if gene_start_indices[gene_name_ind] == 0:
+                gene_start_indices[gene_name_ind] = i
+            gene_end_indices[gene_name_ind] = i
+            gene_num_indices[gene_name_ind] += 1
+
+        genes_higher_indices = np.add.outer(gene_offsets, gene_end_indices).astype(int)
+        genes_ignore_indices = np.full(genes_higher_indices.shape, False)
+        genes_ignore_indices[genes_higher_indices >= len(gene_pos)] = True
+        genes_higher_indices[genes_higher_indices >= len(gene_pos)] = len(gene_pos) - 1
+        genes_lower_indices = np.add.outer(-gene_offsets, gene_start_indices).astype(int)
+        genes_ignore_indices[genes_lower_indices <= 0] = True
+        genes_lower_indices[genes_lower_indices <= 0] = 0
+
+        higher_ignore_mask = np.logical_or(
+            genes_ignore_indices,
+            (gene_names[gene_index_to_name_index[genes_higher_indices]] == gene_names[gene_index_to_name_index[gene_end_indices]]),
+        )
+        lower_ignore_mask = np.logical_or(
+            genes_ignore_indices,
+            (gene_names[gene_index_to_name_index[genes_lower_indices]] == gene_names[gene_index_to_name_index[gene_start_indices]]),
+        )
+
+        right_dists = (gene_pos[genes_higher_indices] - gene_pos[gene_end_indices]).astype(float)
+        right_dists[higher_ignore_mask] = np.inf
+        right_dists[right_dists == 0] = 1
+
+        left_dists = (gene_pos[gene_start_indices] - gene_pos[genes_lower_indices]).astype(float)
+        left_dists[lower_ignore_mask] = np.inf
+        left_dists[left_dists == 0] = 1
+
+        right_dist = np.min(right_dists, axis=0)
+        left_dist = np.min(left_dists, axis=0)
+
+        right_sum = np.sum(1.0 / right_dists, axis=0)
+        left_sum = np.sum(1.0 / left_dists, axis=0)
+        right_left_sum = right_sum + left_sum
+
+        large_dist = 250000
+        small_dist = 50000
+        num_right_small = np.sum(right_dists < small_dist, axis=0)
+        num_left_small = np.sum(left_dists < small_dist, axis=0)
+        num_right_large = np.sum(right_dists < large_dist, axis=0)
+        num_left_large = np.sum(left_dists < large_dist, axis=0)
+
+        num_small = num_right_small + num_left_small
+        num_large = num_right_large + num_left_large
+        gene_size = gene_pos[gene_end_indices] - gene_pos[gene_start_indices]
+
+        chrom_start = np.max((np.min(gene_pos) - 1e6, 0))
+        chrom_end = np.max(gene_pos) + 1e6
+        sim_variant_positions = np.linspace(
+            chrom_start,
+            chrom_end,
+            int((chrom_end - chrom_start) / (3e9 / 2e5)),
+            dtype=int,
+        )
+
+        (
+            sim_gene_prob_causal_orig,
+            sim_gene_indices,
+            sim_gene_po,
+            sim_gene_prob_causal_norm_orig,
+            sim_gene_indices_norm,
+        ) = self._compute_huge_gene_posterior(
+            region_pos=sim_variant_positions,
+            full_prob=np.ones(len(sim_variant_positions)),
+            window_fun_slope=window_fun_slope,
+            window_fun_intercept=window_fun_intercept,
+            gene_pos=gene_pos,
+            gene_index_to_name_index=gene_index_to_name_index,
+            gene_name_to_index=gene_name_to_index,
+            scale_raw_closest_gene=scale_raw_closest_gene,
+            cap_raw_closest_gene=cap_raw_closest_gene,
+            closest_gene_prob=closest_gene_prob,
+            max_offset=20,
+            cap=False,
+            do_print=False,
+        )
+
+        sim_gene_prob_causal = np.zeros(len(gene_names))
+        for i in range(len(sim_gene_indices)):
+            sim_gene_prob_causal[sim_gene_indices[i]] = sim_gene_prob_causal_orig[i]
+        sim_gene_prob_causal_norm = np.zeros(len(gene_names))
+        for i in range(len(sim_gene_indices_norm)):
+            sim_gene_prob_causal_norm[sim_gene_indices_norm[i]] = sim_gene_prob_causal_norm_orig[i]
+
+        cur_gene_covariates = np.vstack(
+            (
+                right_left_sum,
+                num_right_large,
+                num_left_large,
+                gene_num_indices,
+                sim_gene_prob_causal,
+                np.ones(len(gene_names)),
+            )
+        ).T
+
+        if self.gene_covariates is None:
+            self.gene_covariates = cur_gene_covariates
+            self.gene_covariate_names = [
+                "right_left_sum_inv",
+                "num_right_%s" % large_dist,
+                "num_left_%s" % large_dist,
+                "gene_num_indices",
+                "sim_prob_causal",
+                "intercept",
+            ]
+            self.gene_covariate_directions = np.array([-1, -1, -1, 1, 1, 0])
+
+            self.gene_covariate_slope_defaults = np.array(
+                [-0.02321564, -0.00182764, -0.00315613, 0.00824289, 0.00316042, 0.08495138]
+            )
+            self.total_qc_metric_betas_defaults = [
+                -0.01659398,
+                -0.03525455,
+                -0.04813412,
+                0.00553828,
+                -0.39453483,
+                -0.53903559,
+            ]
+            self.total_qc_metric_intercept_defaults = 0.98859127
+            self.total_qc_metric2_betas_defaults = [
+                -0.00092923,
+                -0.25170301,
+                -0.25994094,
+                0.13700834,
+                -0.10948609,
+                -0.510157,
+            ]
+            self.total_qc_metric2_intercept_defaults = 1.70380708
+            self.gene_covariate_intercept_index = len(self.gene_covariate_names) - 1
+        else:
+            self.gene_covariates = np.vstack((self.gene_covariates, cur_gene_covariates))
+
+        gene_covariate_genes += list(gene_names)
+        return gene_covariate_genes
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5213,146 +5374,19 @@ class GeneSetData(object):
                     else:
 
                         if correct_huge:
-
-                            #first 
-                            max_gene_offset = 500
-
-                            gene_offsets = np.arange(max_gene_offset+1)
-
-                            gene_start_indices = np.zeros(len(gene_names), dtype=int)
-                            gene_end_indices = np.zeros(len(gene_names), dtype=int)
-                            gene_num_indices = np.zeros(len(gene_names), dtype=int)
-
-                            gene_name_to_ind = _construct_map_to_ind(gene_names)
-                            for i in range(len(gene_names_non_unique)):
-                                gene_name_ind = gene_name_to_ind[gene_names_non_unique[i]]
-                                if gene_start_indices[gene_name_ind] == 0:
-                                    gene_start_indices[gene_name_ind] = i
-                                gene_end_indices[gene_name_ind] = i
-                                gene_num_indices[gene_name_ind] += 1
-
-                            #these store the indices of genes to the left and right
-                            genes_higher_indices = np.add.outer(gene_offsets, gene_end_indices).astype(int)
-                            genes_ignore_indices = np.full(genes_higher_indices.shape, False)
-                            genes_ignore_indices[genes_higher_indices >= len(gene_pos)] = True
-                            genes_higher_indices[genes_higher_indices >= len(gene_pos)] = len(gene_pos) - 1
-                            genes_lower_indices = np.add.outer(-gene_offsets, gene_start_indices).astype(int)
-                            genes_ignore_indices[genes_lower_indices <= 0] = True
-                            genes_lower_indices[genes_lower_indices <= 0] = 0
-
-                            #ignore any that are actually the gene itself
-
-                            higher_ignore_mask = np.logical_or(genes_ignore_indices, (gene_names[gene_index_to_name_index[genes_higher_indices]] == gene_names[gene_index_to_name_index[gene_end_indices]]))
-                            lower_ignore_mask = np.logical_or(genes_ignore_indices, (gene_names[gene_index_to_name_index[genes_lower_indices]] == gene_names[gene_index_to_name_index[gene_start_indices]]))
-
-                            right_dists = (gene_pos[genes_higher_indices] - gene_pos[gene_end_indices]).astype(float)
-
-                            right_dists[higher_ignore_mask] = np.inf
-                            right_dists[right_dists == 0] = 1
-
-                            left_dists = (gene_pos[gene_start_indices] - gene_pos[genes_lower_indices]).astype(float)
-                            left_dists[lower_ignore_mask] = np.inf
-                            left_dists[left_dists == 0] = 1
-
-                            # distance to next closest gene (left and right)
-
-                            right_dist = np.min(right_dists, axis=0)
-                            left_dist = np.min(left_dists, axis=0)
-
-                            # sum of 1/distance (or logit distance) to 5 or 10 nearest genes (left and right)
-
-                            right_sum = np.sum(1.0 / right_dists, axis=0)
-                            left_sum = np.sum(1.0 / left_dists, axis=0)
-                            right_left_sum = right_sum + left_sum
-
-                            # number of genes within 1 Mb or 10 Mb (left and right)
-                            large_dist = 250000
-                            small_dist = 50000
-
-                            num_right_small = np.sum(right_dists < small_dist, axis=0)
-                            num_left_small = np.sum(left_dists < small_dist, axis=0)
-
-                            num_right_large = np.sum(right_dists < large_dist, axis=0)
-                            num_left_large = np.sum(left_dists < large_dist, axis=0)
-
-                            num_small = num_right_small + num_left_small
-                            num_large = num_right_large + num_left_large
-
-                            # expanse of the gene
-                            gene_size = gene_pos[gene_end_indices] - gene_pos[gene_start_indices]
-
-                            # number of locations
-                            #gene_num_indices
-
-                            #sum of linkqge probabilities
-                            chrom_start = np.max((np.min(gene_pos) - 1e6, 0))
-                            chrom_end = np.max(gene_pos) + 1e6
-                            #space them evenly, with spacing equal to average distance between SNPs in a 10e6 SNP GWAS
-                            sim_variant_positions = np.linspace(chrom_start, chrom_end, int((chrom_end - chrom_start) / (3e9/2e5)), dtype=int)
-
-                            (sim_gene_prob_causal_orig, sim_gene_indices, sim_gene_po, sim_gene_prob_causal_norm_orig, sim_gene_indices_norm) = self._compute_huge_gene_posterior(
-                                region_pos=sim_variant_positions,
-                                full_prob=np.ones(len(sim_variant_positions)),
-                                window_fun_slope=window_fun_slope,
-                                window_fun_intercept=window_fun_intercept,
+                            gene_covariate_genes = self._accumulate_huge_gene_covariates(
+                                gene_names=gene_names,
+                                gene_names_non_unique=gene_names_non_unique,
                                 gene_pos=gene_pos,
                                 gene_index_to_name_index=gene_index_to_name_index,
                                 gene_name_to_index=gene_name_to_index,
+                                window_fun_slope=window_fun_slope,
+                                window_fun_intercept=window_fun_intercept,
                                 scale_raw_closest_gene=scale_raw_closest_gene,
                                 cap_raw_closest_gene=cap_raw_closest_gene,
                                 closest_gene_prob=closest_gene_prob,
-                                max_offset=20,
-                                cap=False,
-                                do_print=False,
+                                gene_covariate_genes=gene_covariate_genes,
                             )
-
-                            #have to map these over to the original indices in case the sim_gene_prob_causal_orig was missing some genes
-                            sim_gene_prob_causal = np.zeros(len(gene_names))
-                            for i in range(len(sim_gene_indices)):
-                                sim_gene_prob_causal[sim_gene_indices[i]] = sim_gene_prob_causal_orig[i]
-                            sim_gene_prob_causal_norm = np.zeros(len(gene_names))
-                            for i in range(len(sim_gene_indices_norm)):
-                                sim_gene_prob_causal_norm[sim_gene_indices_norm[i]] = sim_gene_prob_causal_norm_orig[i]
-
-                            cur_gene_covariates = np.vstack((right_left_sum, num_right_large, num_left_large, gene_num_indices, sim_gene_prob_causal, np.ones(len(gene_names)))).T
-
-                            #OLD ONES
-                            #cur_gene_covariates = np.vstack((sim_gene_prob_causal, np.ones(len(gene_names)))).T
-                            #cur_gene_covariates = np.vstack((right_left_sum, num_right_large, num_left_large, num_right_small, num_left_small, gene_num_indices, sim_gene_prob_causal, np.ones(len(gene_names)))).T
-                            #cur_gene_covariates = np.vstack((right_dist, left_dist, right_left_sum, num_right_large, num_left_large, gene_num_indices, sim_gene_prob_causal, sim_gene_prob_causal_norm, np.ones(len(gene_names)))).T
-                            #cur_gene_covariates = np.vstack((right_dist, left_dist, right_left_sum, num_right_large, num_left_large, sim_gene_prob_causal, sim_gene_prob_causal_norm, np.ones(len(gene_names)))).T
-                            #cur_gene_covariates = np.vstack((right_dist, left_dist, right_left_sum, num_right_large, num_left_large, gene_size, gene_num_indices, sim_gene_prob_causal, sim_gene_prob_causal_norm, np.ones(len(gene_names)))).T
-                            #cur_gene_covariates = np.vstack((sim_gene_prob_causal, np.ones(len(gene_names)))).T
-                            #cur_gene_covariates = np.vstack((right_dist, left_dist, right_left_sum, num_small, num_large, gene_size, gene_num_indices, np.ones(len(gene_names)))).T
-                            #cur_gene_covariates = np.vstack((np.maximum(right_dist, left_dist), right_left_sum, np.minimum(num_right_small, num_left_small), np.minimum(num_right_large, num_left_large), gene_size, gene_num_indices, np.ones(len(gene_names)))).T
-
-                            if self.gene_covariates is None:
-
-                                self.gene_covariates = cur_gene_covariates
-
-                                self.gene_covariate_names = ["right_left_sum_inv", "num_right_%s" % large_dist, "num_left_%s" % large_dist, "gene_num_indices", "sim_prob_causal", "intercept"]
-                                self.gene_covariate_directions = np.array([-1, -1, -1, 1, 1, 0])
-
-                                self.gene_covariate_slope_defaults = np.array([-0.02321564, -0.00182764, -0.00315613,  0.00824289,  0.00316042, 0.08495138])
-                                self.total_qc_metric_betas_defaults = [-0.01659398, -0.03525455, -0.04813412,  0.00553828, -0.39453483, -0.53903559]
-                                self.total_qc_metric_intercept_defaults = 0.98859127
-                                self.total_qc_metric2_betas_defaults = [-0.00092923, -0.25170301, -0.25994094,  0.13700834, -0.10948609, -0.510157  ]
-                                self.total_qc_metric2_intercept_defaults = 1.70380708
-
-                                #OLD ONES
-                                #self.gene_covariate_names = ["sim_prob_causal", "intercept"]
-                                #self.gene_covariate_names = ["right_left_sum_inv", "num_right_%s" % large_dist, "num_left_%s" % large_dist, "num_right_%s" % small_dist, "num_left_%s" % small_dist, "gene_num_indices", "sim_prob_causal", "intercept"]
-                                #self.gene_covariate_names = ["right_dist", "left_dist", "right_left_sum_inv", "num_right_%s" % large_dist, "num_left_%s" % large_dist, "sim_prob_causal", "sim_prob_causal_norm", "intercept"]
-                                #self.gene_covariate_names = ["right_dist", "left_dist", "right_left_sum_inv", "num_right_%s" % large_dist, "num_left_%s" % large_dist, "gene_size", "gene_num_indices", "sim_prob_causal", "sim_prob_causal_norm", "intercept"]
-                                #self.gene_covariate_names = ["sim_prob_causal", "intercept"]
-                                #self.gene_covariate_names = ["max_dist", "right_left_sum_inv", "min_num_%s" % small_dist, "min_num_%s" % large_dist, "gene_size", "gene_num_indices", "intercept"]
-
-                                self.gene_covariate_intercept_index = len(self.gene_covariate_names) - 1
-
-                            else:
-                                self.gene_covariates = np.vstack((self.gene_covariates, cur_gene_covariates))
-
-                            gene_covariate_genes += list(gene_names)
 
                     #now onto variants
 
