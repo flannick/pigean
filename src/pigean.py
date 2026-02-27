@@ -17878,6 +17878,33 @@ def _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel):
     return p_sample_m
 
 
+def _compute_gibbs_logistic_beta_tildes_batch(
+    state,
+    pre_gene_set_filter_mask,
+    p_sample_m,
+    begin,
+    end,
+    y_corr_sparse,
+    stack_batch_size,
+    X_hstacked,
+):
+    num_cur_stack = (end - begin)
+    if num_cur_stack == stack_batch_size:
+        cur_X_hstacked = X_hstacked
+    else:
+        cur_X_hstacked = sparse.hstack([state.X_orig] * num_cur_stack)
+
+    stack_mask = np.tile(pre_gene_set_filter_mask, num_cur_stack)
+    return state._compute_logistic_beta_tildes(
+        state.X_orig[:,pre_gene_set_filter_mask],
+        p_sample_m[begin:end,:],
+        state.scale_factors[pre_gene_set_filter_mask],
+        state.mean_shifts[pre_gene_set_filter_mask],
+        resid_correlation_matrix=y_corr_sparse,
+        X_stacked=cur_X_hstacked[:,stack_mask],
+    )
+
+
 def _compute_gibbs_logistic_beta_tildes(
     state,
     Y_sample_m,
@@ -17941,14 +17968,30 @@ def _compute_gibbs_logistic_beta_tildes(
             end = num_chains
 
         log("Batch %d: chains %d-%d" % (batch, begin, end), TRACE)
-        num_cur_stack = (end - begin)
-        if num_cur_stack == stack_batch_size:
-            cur_X_hstacked = X_hstacked
-        else:
-            cur_X_hstacked = sparse.hstack([state.X_orig] * num_cur_stack)
-
-        stack_mask = np.tile(pre_gene_set_filter_mask, num_cur_stack)
-        (full_beta_tildes_m[begin:end,pre_gene_set_filter_mask], full_ses_m[begin:end,pre_gene_set_filter_mask], full_z_scores_m[begin:end,pre_gene_set_filter_mask], full_p_values_m[begin:end,pre_gene_set_filter_mask], init_se_inflation_factors_m, full_alpha_tildes_m[begin:end,pre_gene_set_filter_mask], diverged_m[begin:end,pre_gene_set_filter_mask]) = state._compute_logistic_beta_tildes(state.X_orig[:,pre_gene_set_filter_mask], p_sample_m[begin:end,:], state.scale_factors[pre_gene_set_filter_mask], state.mean_shifts[pre_gene_set_filter_mask], resid_correlation_matrix=y_corr_sparse, X_stacked=cur_X_hstacked[:,stack_mask])
+        (
+            batch_beta_tildes_m,
+            batch_ses_m,
+            batch_z_scores_m,
+            batch_p_values_m,
+            init_se_inflation_factors_m,
+            batch_alpha_tildes_m,
+            batch_diverged_m,
+        ) = _compute_gibbs_logistic_beta_tildes_batch(
+            state=state,
+            pre_gene_set_filter_mask=pre_gene_set_filter_mask,
+            p_sample_m=p_sample_m,
+            begin=begin,
+            end=end,
+            y_corr_sparse=y_corr_sparse,
+            stack_batch_size=stack_batch_size,
+            X_hstacked=X_hstacked,
+        )
+        full_beta_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_beta_tildes_m
+        full_ses_m[begin:end,pre_gene_set_filter_mask] = batch_ses_m
+        full_z_scores_m[begin:end,pre_gene_set_filter_mask] = batch_z_scores_m
+        full_p_values_m[begin:end,pre_gene_set_filter_mask] = batch_p_values_m
+        full_alpha_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_alpha_tildes_m
+        diverged_m[begin:end,pre_gene_set_filter_mask] = batch_diverged_m
 
         full_ses_m[begin:end,~pre_gene_set_filter_mask] = 100
         full_p_values_m[begin:end,~pre_gene_set_filter_mask] = 1
