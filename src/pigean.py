@@ -16625,10 +16625,10 @@ def _summarize_gibbs_chain_aggregates(
     sum_Ds_missing_m=None,
     num_sum_priors_missing_m=None,
 ):
-    Y_outlier_mask_m, avg_Ys_v = _outlier_resistant_mean(sum_Ys_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
+    Y_outlier_mask_m, _ = _outlier_resistant_mean(sum_Ys_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
     beta_outlier_mask_m, avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=record_param_fn)
 
-    _, avg_Y_raws_v = _outlier_resistant_mean(sum_Y_raws_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
+    _, _ = _outlier_resistant_mean(sum_Y_raws_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
     _, avg_log_pos_v = _outlier_resistant_mean(sum_log_pos_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
     _, avg_log_po_raws_v = _outlier_resistant_mean(sum_log_po_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
     _, avg_Ds_v = _outlier_resistant_mean(sum_Ds_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
@@ -16670,8 +16670,6 @@ def _summarize_gibbs_chain_aggregates(
     beta_uncorrected_mcse_v = np.sqrt(np.var(beta_uncorrected_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
 
     return {
-        "avg_Ys_v": avg_Ys_v,
-        "avg_Y_raws_v": avg_Y_raws_v,
         "avg_log_pos_v": avg_log_pos_v,
         "avg_log_po_raws_v": avg_log_po_raws_v,
         "avg_Ds_v": avg_Ds_v,
@@ -16686,8 +16684,6 @@ def _summarize_gibbs_chain_aggregates(
         "avg_postp_v": avg_postp_v,
         "avg_beta_tildes_v": avg_beta_tildes_v,
         "avg_z_scores_v": avg_z_scores_v,
-        "num_post_burn_in_Y": num_post_burn_in_Y,
-        "num_post_burn_in_beta": num_post_burn_in_beta,
         "prior_r_hat_v": prior_r_hat_v,
         "combined_r_hat_v": combined_r_hat_v,
         "log_bf_r_hat_v": log_bf_r_hat_v,
