@@ -17304,6 +17304,18 @@ def _extract_gibbs_epoch_phase_config(phase_kwargs):
     }
 
 
+def _build_gibbs_iteration_correction_config(
+    inner_beta_kwargs,
+    iteration_update_config,
+    low_beta_restart_config,
+):
+    return {
+        "inner_beta_kwargs": inner_beta_kwargs,
+        "iteration_update_config": iteration_update_config,
+        "low_beta_restart_config": low_beta_restart_config,
+    }
+
+
 def _extract_gibbs_log_bf_state(update):
     return (
         update["log_bf_m"],
@@ -17552,6 +17564,11 @@ def _run_gibbs_epoch_iterations(
     prefilter_config = _extract_gibbs_prefilter_config(phase_kwargs)
     iteration_progress_config = _extract_gibbs_iteration_progress_config(phase_kwargs)
     burn_in_config = _extract_gibbs_burn_in_config(phase_kwargs)
+    correction_config = _build_gibbs_iteration_correction_config(
+        inner_beta_kwargs=inner_beta_kwargs,
+        iteration_update_config=iteration_update_config,
+        low_beta_restart_config=low_beta_restart_config,
+    )
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17573,9 +17590,7 @@ def _run_gibbs_epoch_iterations(
             state=state,
             iter_state=iter_state,
             gene_set_mask_m=gene_set_mask_m,
-            inner_beta_kwargs=inner_beta_kwargs,
-            iteration_update_config=iteration_update_config,
-            low_beta_restart_config=low_beta_restart_config,
+            correction_config=correction_config,
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             epoch_sums=epoch_sums,
@@ -17622,9 +17637,7 @@ def _run_gibbs_iteration_correction_and_updates(
     state,
     iter_state,
     gene_set_mask_m,
-    inner_beta_kwargs,
-    iteration_update_config,
-    low_beta_restart_config,
+    correction_config,
     epoch_priors,
     epoch_runtime,
     epoch_sums,
@@ -17635,6 +17648,9 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_raw_m,
 ):
     epoch_control = epoch_context["epoch_control"]
+    inner_beta_kwargs = correction_config["inner_beta_kwargs"]
+    iteration_update_config = correction_config["iteration_update_config"]
+    low_beta_restart_config = correction_config["low_beta_restart_config"]
 
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
     # sums and restart diagnostics.
