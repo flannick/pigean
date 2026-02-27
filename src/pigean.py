@@ -15801,16 +15801,14 @@ def _update_gibbs_burn_in_state(
 
 def _maybe_restart_gibbs_for_low_betas(
     state,
-    low_beta_epoch_config,
+    increase_hyper_if_betas_below_for_epoch,
+    num_before_checking_p_increase,
+    p_scale_factor,
     epoch_runtime,
     epoch_sums,
     low_beta_restart_config,
     iteration_num,
 ):
-    increase_hyper_if_betas_below_for_epoch = low_beta_epoch_config["increase_hyper_if_betas_below_for_epoch"]
-    num_before_checking_p_increase = low_beta_epoch_config["num_before_checking_p_increase"]
-    p_scale_factor = low_beta_epoch_config["p_scale_factor"]
-
     all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
     all_num_sum_m = epoch_runtime["all_num_sum_m"]
     num_p_increases = epoch_runtime["num_p_increases"]
@@ -17703,12 +17701,10 @@ def _run_gibbs_epoch_phase(
         max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
         post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
         post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
+        increase_hyper_if_betas_below_for_epoch = epoch_context["increase_hyper_if_betas_below_for_epoch"]
+        num_before_checking_p_increase = epoch_context["num_before_checking_p_increase"]
+        p_scale_factor = epoch_context["p_scale_factor"]
         low_beta_restart_config = _build_gibbs_low_beta_restart_config(low_beta_restart_base_config, run_state)
-        low_beta_epoch_config = {
-            "increase_hyper_if_betas_below_for_epoch": epoch_context["increase_hyper_if_betas_below_for_epoch"],
-            "num_before_checking_p_increase": epoch_context["num_before_checking_p_increase"],
-            "p_scale_factor": epoch_context["p_scale_factor"],
-        }
         epoch_loop_update = _run_gibbs_epoch_iterations(
             state=state,
             run_state=run_state,
@@ -17733,7 +17729,9 @@ def _run_gibbs_epoch_phase(
             inner_beta_kwargs=epoch_iteration_static_config["inner_beta_kwargs"],
             iteration_update_config=epoch_iteration_static_config["iteration_update_config"],
             low_beta_restart_config=low_beta_restart_config,
-            low_beta_epoch_config=low_beta_epoch_config,
+            increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+            num_before_checking_p_increase=num_before_checking_p_increase,
+            p_scale_factor=p_scale_factor,
             iteration_input_config=epoch_iteration_static_config["iteration_input_config"],
             logistic_config=epoch_iteration_static_config["logistic_config"],
             prefilter_config=epoch_iteration_static_config["prefilter_config"],
@@ -17810,7 +17808,9 @@ def _run_gibbs_epoch_iterations(
     inner_beta_kwargs,
     iteration_update_config,
     low_beta_restart_config,
-    low_beta_epoch_config,
+    increase_hyper_if_betas_below_for_epoch,
+    num_before_checking_p_increase,
+    p_scale_factor,
     iteration_input_config,
     logistic_config,
     prefilter_config,
@@ -17850,7 +17850,9 @@ def _run_gibbs_epoch_iterations(
             inner_beta_kwargs=inner_beta_kwargs,
             iteration_update_config=iteration_update_config,
             low_beta_restart_config=low_beta_restart_config,
-            low_beta_epoch_config=low_beta_epoch_config,
+            increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+            num_before_checking_p_increase=num_before_checking_p_increase,
+            p_scale_factor=p_scale_factor,
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             epoch_sums=epoch_sums,
@@ -17909,7 +17911,9 @@ def _run_gibbs_iteration_correction_and_updates(
     inner_beta_kwargs,
     iteration_update_config,
     low_beta_restart_config,
-    low_beta_epoch_config,
+    increase_hyper_if_betas_below_for_epoch,
+    num_before_checking_p_increase,
+    p_scale_factor,
     epoch_priors,
     epoch_runtime,
     epoch_sums,
@@ -18006,7 +18010,9 @@ def _run_gibbs_iteration_correction_and_updates(
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
         low_beta_restart_config=low_beta_restart_config,
-        low_beta_epoch_config=low_beta_epoch_config,
+        increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+        num_before_checking_p_increase=num_before_checking_p_increase,
+        p_scale_factor=p_scale_factor,
         iteration_num=iteration_num,
         full_betas_mean_m=full_betas_mean_m,
     )
@@ -19397,7 +19403,9 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     epoch_runtime,
     epoch_sums,
     low_beta_restart_config,
-    low_beta_epoch_config,
+    increase_hyper_if_betas_below_for_epoch,
+    num_before_checking_p_increase,
+    p_scale_factor,
     iteration_num,
     full_betas_mean_m,
 ):
@@ -19413,7 +19421,9 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
 
     low_beta_restart_update = _maybe_restart_gibbs_for_low_betas(
         state=state,
-        low_beta_epoch_config=low_beta_epoch_config,
+        increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+        num_before_checking_p_increase=num_before_checking_p_increase,
+        p_scale_factor=p_scale_factor,
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
         low_beta_restart_config=low_beta_restart_config,
