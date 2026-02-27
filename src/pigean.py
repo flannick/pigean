@@ -15842,7 +15842,7 @@ def _maybe_restart_gibbs_for_low_betas(
         }
 
     # Check both sums over all iterations and post-burn aggregates.
-    _, all_cur_avg_betas_v = _outlier_resistant_mean(all_sum_betas_m, all_num_sum_m, num_mad, record_param_fn=state._record_param)
+    _outlier_resistant_mean(all_sum_betas_m, all_num_sum_m, num_mad, record_param_fn=state._record_param)
 
     fraction_required = 0.001
     state._record_param("fraction_required_to_not_increase_hyper", fraction_required)
@@ -15856,7 +15856,7 @@ def _maybe_restart_gibbs_for_low_betas(
         top_gene_set = np.argmax(np.mean(sum_betas_m / num_sum_beta_m, axis=0) / state.scale_factors)
         log("Top gene set %s has value %.3g" % (state.gene_sets[top_gene_set], (np.mean(sum_betas_m / num_sum_beta_m, axis=0) / state.scale_factors)[top_gene_set]), TRACE)
         top_gene_set2 = np.argmax(cur_avg_betas_v / state.scale_factors)
-        log("Top gene set %s has outlier value %.3g" % (state.gene_sets[top_gene_set2], (cur_avg_betas_v / state.scale_factors)[top_gene_set]), TRACE)
+        log("Top gene set %s has outlier value %.3g" % (state.gene_sets[top_gene_set2], (cur_avg_betas_v / state.scale_factors)[top_gene_set2]), TRACE)
 
     if all_low:
         log(
