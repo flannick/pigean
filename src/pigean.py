@@ -18008,11 +18008,6 @@ def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig)
     return y_corr_sparse.tocsc()
 
 
-def _update_gibbs_epoch_control(epoch_control, update_values, keys):
-    for key in keys:
-        epoch_control[key] = update_values[key]
-
-
 def _apply_refresh_update_to_epoch_priors(epoch_priors, refresh_update):
     epoch_priors["prev_warm_start_betas_m"] = refresh_update["prev_warm_start_betas_m"]
     epoch_priors["prev_warm_start_postp_m"] = refresh_update["prev_warm_start_postp_m"]
@@ -18833,18 +18828,15 @@ def _advance_gibbs_iteration_progress(
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
     )
-    _update_gibbs_epoch_control(
-        epoch_control,
-        burn_in_update,
-        (
-            "in_burn_in",
-            "burn_in_pass_streak",
-            "stop_pass_streak",
-            "prev_Ys_m",
-            "burn_stall_beta_indices",
-            "R_beta_v",
-        ),
-    )
+    for key in (
+        "in_burn_in",
+        "burn_in_pass_streak",
+        "stop_pass_streak",
+        "prev_Ys_m",
+        "burn_stall_beta_indices",
+        "R_beta_v",
+    ):
+        epoch_control[key] = burn_in_update[key]
 
     post_burn_update = _update_gibbs_post_burn_state(
         state=state,
@@ -18884,11 +18876,8 @@ def _advance_gibbs_iteration_progress(
         iteration_progress_config["use_mean_betas"],
     )
 
-    _update_gibbs_epoch_control(
-        epoch_control,
-        post_burn_update,
-        GIBBS_POST_BURN_CONTROL_KEYS,
-    )
+    for key in GIBBS_POST_BURN_CONTROL_KEYS:
+        epoch_control[key] = post_burn_update[key]
     return {"done": post_burn_update["done"]}
 
 
