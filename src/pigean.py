@@ -17255,6 +17255,14 @@ def _extract_gibbs_prefilter_config(phase_kwargs):
     }
 
 
+def _extract_gibbs_iteration_progress_config(phase_kwargs):
+    return {
+        "diag_every": phase_kwargs["diag_every"],
+        "use_mean_betas": phase_kwargs["use_mean_betas"],
+        "post_burn_diag_config": _extract_gibbs_post_burn_diag_config(phase_kwargs),
+    }
+
+
 def _extract_gibbs_log_bf_state(update):
     return (
         update["log_bf_m"],
@@ -17500,6 +17508,7 @@ def _run_gibbs_epoch_iterations(
     iteration_input_config = _extract_gibbs_iteration_input_config(phase_kwargs)
     logistic_config = _extract_gibbs_logistic_config(phase_kwargs)
     prefilter_config = _extract_gibbs_prefilter_config(phase_kwargs)
+    iteration_progress_config = _extract_gibbs_iteration_progress_config(phase_kwargs)
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17548,6 +17557,7 @@ def _run_gibbs_epoch_iterations(
             epoch_runtime=epoch_runtime,
             epoch_context=epoch_context,
             phase_kwargs=phase_kwargs,
+            iteration_progress_config=iteration_progress_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             iteration_update=iteration_update,
             log_bf_m=log_bf_m,
@@ -18187,7 +18197,7 @@ def _log_gibbs_post_burn_diagnostics(
 
 def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_context,
-    phase_kwargs,
+    diag_config,
     iter_state,
     epoch_sums,
     epoch_control,
@@ -18201,7 +18211,6 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     sum_Ds_m = post_burn_sums["sum_Ds_m"]
     num_sum_Y_m = post_burn_sums["num_sum_Y_m"]
 
-    diag_config = _extract_gibbs_post_burn_diag_config(phase_kwargs)
     num_chains = diag_config["num_chains"]
     active_beta_top_k = diag_config["active_beta_top_k"]
     active_beta_min_abs = diag_config["active_beta_min_abs"]
@@ -18387,7 +18396,8 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
 def _update_gibbs_post_burn_state(
     state,
     epoch_context,
-    phase_kwargs,
+    diag_every,
+    post_burn_diag_config,
     iter_state,
     epoch_sums,
     epoch_priors,
@@ -18414,8 +18424,6 @@ def _update_gibbs_post_burn_state(
     stop_due_to_precision = post_burn_control["stop_due_to_precision"]
     restart_due_to_stall = post_burn_control["restart_due_to_stall"]
     stop_due_to_stall = post_burn_control["stop_due_to_stall"]
-
-    diag_every = phase_kwargs["diag_every"]
 
     max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
@@ -18478,7 +18486,7 @@ def _update_gibbs_post_burn_state(
     ):
         post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
             epoch_context=epoch_context,
-            phase_kwargs=phase_kwargs,
+            diag_config=post_burn_diag_config,
             iter_state=iter_state,
             epoch_sums=epoch_sums,
             epoch_control=epoch_control,
@@ -18523,6 +18531,7 @@ def _advance_gibbs_iteration_progress(
     run_state,
     epoch_context,
     phase_kwargs,
+    iteration_progress_config,
     iter_state,
     epoch_sums,
     epoch_priors,
@@ -18563,7 +18572,8 @@ def _advance_gibbs_iteration_progress(
     post_burn_update = _update_gibbs_post_burn_state(
         state=state,
         epoch_context=epoch_context,
-        phase_kwargs=phase_kwargs,
+        diag_every=iteration_progress_config["diag_every"],
+        post_burn_diag_config=iteration_progress_config["post_burn_diag_config"],
         iter_state=iter_state,
         epoch_sums=epoch_sums,
         epoch_priors=epoch_priors,
@@ -18595,7 +18605,7 @@ def _advance_gibbs_iteration_progress(
         iter_state["full_z_cur_beta_tildes_m"],
         epoch_control["R_beta_v"],
         post_burn_update["betas_sem2_v"],
-        phase_kwargs["use_mean_betas"],
+        iteration_progress_config["use_mean_betas"],
     )
 
     _update_gibbs_epoch_control(
