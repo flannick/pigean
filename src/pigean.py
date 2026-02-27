@@ -14989,7 +14989,6 @@ _GIBBS_EPOCH_SUM_KEYS = (
     "sum_z_scores_m",
     "num_sum_beta_m",
     "sum_Ys_m",
-    "sum_Ys2_m",
     "sum_Y_raws_m",
     "sum_log_pos_m",
     "sum_log_pos2_m",
@@ -15018,8 +15017,6 @@ _GIBBS_EPOCH_RUNTIME_SUM_KEYS = (
     "all_sum_z_scores_m",
     "all_sum_z_scores2_m",
     "all_num_sum_m",
-    "all_sum_Ys_m",
-    "all_sum_Ys2_m",
 )
 
 
@@ -16006,7 +16003,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
 
     Y_m_shape = (num_chains, len(state.Y_for_regression))
     sum_Ys_m = np.zeros(Y_m_shape)
-    sum_Ys2_m = np.zeros(Y_m_shape)
     sum_Y_raws_m = np.zeros(Y_m_shape)
     sum_log_pos_m = np.zeros(Y_m_shape)
     sum_log_pos2_m = np.zeros(Y_m_shape)
@@ -16028,9 +16024,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
     all_sum_z_scores_m = np.zeros(full_betas_m_shape)
     all_sum_z_scores2_m = np.zeros(full_betas_m_shape)
     all_num_sum_m = np.zeros(full_betas_m_shape)
-
-    all_sum_Ys_m = np.zeros(Y_m_shape)
-    all_sum_Ys2_m = np.zeros(Y_m_shape)
 
     # Initialize per-chain priors.
     priors_sample_m = np.zeros(Y_m_shape)
@@ -16060,7 +16053,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
 
     post_burn_reset_arrays = (
         sum_Ys_m,
-        sum_Ys2_m,
         sum_Y_raws_m,
         sum_log_pos_m,
         sum_log_pos2_m,
@@ -16116,7 +16108,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         "sum_z_scores_m": sum_z_scores_m,
         "num_sum_beta_m": num_sum_beta_m,
         "sum_Ys_m": sum_Ys_m,
-        "sum_Ys2_m": sum_Ys2_m,
         "sum_Y_raws_m": sum_Y_raws_m,
         "sum_log_pos_m": sum_log_pos_m,
         "sum_log_pos2_m": sum_log_pos2_m,
@@ -16136,8 +16127,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         "all_sum_z_scores_m": all_sum_z_scores_m,
         "all_sum_z_scores2_m": all_sum_z_scores2_m,
         "all_num_sum_m": all_num_sum_m,
-        "all_sum_Ys_m": all_sum_Ys_m,
-        "all_sum_Ys2_m": all_sum_Ys2_m,
         "priors_sample_m": priors_sample_m,
         "priors_mean_m": priors_mean_m,
         "priors_percentage_max_sample_m": priors_percentage_max_sample_m,
@@ -16851,7 +16840,6 @@ def _finalize_gibbs_epoch_attempt(
         sum_z_scores_m,
         num_sum_beta_m,
         sum_Ys_m,
-        sum_Ys2_m,
         sum_Y_raws_m,
         sum_log_pos_m,
         sum_log_pos2_m,
@@ -16979,7 +16967,6 @@ def _accumulate_gibbs_post_burn_iteration(
     # Collect one post-burn Gibbs draw into running sums used for MCSE/R-hat and
     # final epoch aggregation.
     epoch_sums["sum_Ys_m"] += Y_sample_m
-    epoch_sums["sum_Ys2_m"] += np.power(Y_sample_m, 2)
     epoch_sums["sum_Y_raws_m"] += Y_raw_sample_m
     epoch_sums["sum_log_pos_m"] += log_po_sample_m
     epoch_sums["sum_log_pos2_m"] += np.power(log_po_sample_m, 2)
@@ -19203,24 +19190,18 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     full_betas_mean_m,
 ):
     full_z_scores_m = iter_state["full_z_scores_m"]
-    Y_sample_m = iter_state["Y_sample_m"]
 
     all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
     all_sum_betas2_m = epoch_runtime["all_sum_betas2_m"]
     all_sum_z_scores_m = epoch_runtime["all_sum_z_scores_m"]
     all_sum_z_scores2_m = epoch_runtime["all_sum_z_scores2_m"]
     all_num_sum_m = epoch_runtime["all_num_sum_m"]
-    all_sum_Ys_m = epoch_runtime["all_sum_Ys_m"]
-    all_sum_Ys2_m = epoch_runtime["all_sum_Ys2_m"]
 
     all_sum_betas_m = np.add(all_sum_betas_m, full_betas_mean_m)
     all_sum_betas2_m = np.add(all_sum_betas2_m, np.power(full_betas_mean_m, 2))
     all_sum_z_scores_m = np.add(all_sum_z_scores_m, full_z_scores_m)
     all_sum_z_scores2_m = np.add(all_sum_z_scores2_m, np.power(full_z_scores_m, 2))
     all_num_sum_m += 1
-
-    all_sum_Ys_m = np.add(all_sum_Ys_m, Y_sample_m)
-    all_sum_Ys2_m = np.add(all_sum_Ys2_m, np.power(Y_sample_m, 2))
 
     R_beta_v = np.zeros(all_sum_betas_m.shape[1])
 
@@ -19239,8 +19220,6 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
         "all_sum_z_scores_m": all_sum_z_scores_m,
         "all_sum_z_scores2_m": all_sum_z_scores2_m,
         "all_num_sum_m": all_num_sum_m,
-        "all_sum_Ys_m": all_sum_Ys_m,
-        "all_sum_Ys2_m": all_sum_Ys2_m,
         "R_beta_v": R_beta_v,
         "gibbs_good": low_beta_restart_update["gibbs_good"],
         "num_p_increases": low_beta_restart_update["num_p_increases"],
