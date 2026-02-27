@@ -1195,6 +1195,7 @@ class GeneSetData(object):
         self.background_prior = background_prior
         self.background_log_bf = np.log(self.background_prior / (1 - self.background_prior))
         self.background_bf = np.exp(self.background_log_bf)
+        self.debug_old_batch = False
 
         self._init_matrix_and_gene_index_state(batch_size=batch_size)
         self._init_phewas_and_label_state()
@@ -13297,7 +13298,7 @@ class GeneSetData(object):
                             V_to_generate_mask[sort_values > sort_values[sorted_remaining_indices[max_to_add]]] = False
 
                         V_to_generate_mask[first_gene_set] = True
-                        if cur_V is None or options.debug_old_batch:
+                        if cur_V is None or self.debug_old_batch:
                             cur_V = self._compute_V(X_orig[:,V_to_generate_mask], mean_shifts[V_to_generate_mask], scale_factors[V_to_generate_mask])
                             working_idx = np.where(V_to_generate_mask)[0]
                         else:
@@ -13475,7 +13476,7 @@ class GeneSetData(object):
         batch2_inds = []
 
         
-        if options.debug_old_batch:
+        if self.debug_old_batch:
             batch_size = int(max_size ** 2 / X_orig.shape[1])
             num_batches = int(X_orig.shape[1] / batch_size) + 1
 
@@ -19551,6 +19552,7 @@ def main():
         log("Scipy version: %s" % scipy.__version__)
         log("Options: %s" % options)
     state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
+    state.debug_old_batch = options.debug_old_batch
     mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 
     # ==========================================================================
