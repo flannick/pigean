@@ -15382,16 +15382,16 @@ def _prepare_gibbs_epoch_attempt(
     run_state,
     total_num_iter,
     num_chains,
-    phase_kwargs,
+    epoch_phase_config,
 ):
     # Resolve one epoch attempt's bounds and bookkeeping from run-level state.
-    target_num_epochs = phase_kwargs["target_num_epochs"]
-    epoch_max_num_iter_config = phase_kwargs["epoch_max_num_iter_config"]
-    min_num_burn_in = phase_kwargs["min_num_burn_in"]
-    max_num_burn_in = phase_kwargs["max_num_burn_in"]
-    min_num_post_burn_in = phase_kwargs["min_num_post_burn_in"]
-    max_num_post_burn_in = phase_kwargs["max_num_post_burn_in"]
-    increase_hyper_if_betas_below = phase_kwargs["increase_hyper_if_betas_below"]
+    target_num_epochs = epoch_phase_config["target_num_epochs"]
+    epoch_max_num_iter_config = epoch_phase_config["epoch_max_num_iter_config"]
+    min_num_burn_in = epoch_phase_config["min_num_burn_in"]
+    max_num_burn_in = epoch_phase_config["max_num_burn_in"]
+    min_num_post_burn_in = epoch_phase_config["min_num_post_burn_in"]
+    max_num_post_burn_in = epoch_phase_config["max_num_post_burn_in"]
+    increase_hyper_if_betas_below = epoch_phase_config["increase_hyper_if_betas_below"]
 
     run_state["num_attempts"] += 1
 
@@ -17285,6 +17285,25 @@ def _extract_gibbs_burn_in_config(phase_kwargs):
     }
 
 
+def _extract_gibbs_epoch_phase_config(phase_kwargs):
+    return {
+        "total_num_iter": phase_kwargs["total_num_iter"],
+        "num_chains": phase_kwargs["num_chains"],
+        "num_full_gene_sets": phase_kwargs["num_full_gene_sets"],
+        "use_mean_betas": phase_kwargs["use_mean_betas"],
+        "max_mb_X_h": phase_kwargs["max_mb_X_h"],
+        "target_num_epochs": phase_kwargs["target_num_epochs"],
+        "num_mad": phase_kwargs["num_mad"],
+        "adjust_priors": phase_kwargs["adjust_priors"],
+        "epoch_max_num_iter_config": phase_kwargs["epoch_max_num_iter_config"],
+        "min_num_burn_in": phase_kwargs["min_num_burn_in"],
+        "max_num_burn_in": phase_kwargs["max_num_burn_in"],
+        "min_num_post_burn_in": phase_kwargs["min_num_post_burn_in"],
+        "max_num_post_burn_in": phase_kwargs["max_num_post_burn_in"],
+        "increase_hyper_if_betas_below": phase_kwargs["increase_hyper_if_betas_below"],
+    }
+
+
 def _extract_gibbs_log_bf_state(update):
     return (
         update["log_bf_m"],
@@ -17387,25 +17406,25 @@ def _reset_gibbs_diagnostics(state):
 def _prepare_and_start_gibbs_epoch(
     state,
     run_state,
-    phase_kwargs,
+    epoch_phase_config,
     epoch_aggregates,
 ):
     epoch_attempt = _prepare_gibbs_epoch_attempt(
         state=state,
         run_state=run_state,
-        total_num_iter=phase_kwargs["total_num_iter"],
-        num_chains=phase_kwargs["num_chains"],
-        phase_kwargs=phase_kwargs,
+        total_num_iter=epoch_phase_config["total_num_iter"],
+        num_chains=epoch_phase_config["num_chains"],
+        epoch_phase_config=epoch_phase_config,
     )
     if epoch_attempt is None:
         return None
 
     epoch_context = _start_gibbs_epoch(
         state=state,
-        num_chains=phase_kwargs["num_chains"],
-        num_full_gene_sets=phase_kwargs["num_full_gene_sets"],
-        use_mean_betas=phase_kwargs["use_mean_betas"],
-        max_mb_X_h=phase_kwargs["max_mb_X_h"],
+        num_chains=epoch_phase_config["num_chains"],
+        num_full_gene_sets=epoch_phase_config["num_full_gene_sets"],
+        use_mean_betas=epoch_phase_config["use_mean_betas"],
+        max_mb_X_h=epoch_phase_config["max_mb_X_h"],
         log_fun=log,
         epoch_aggregates=epoch_aggregates,
         num_p_increases=run_state["num_p_increases"],
@@ -17445,11 +17464,12 @@ def _run_gibbs_epoch_phase(
     log_bf_raw_m,
 ):
     # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
+    epoch_phase_config = _extract_gibbs_epoch_phase_config(phase_kwargs)
     while _can_run_gibbs_epoch(run_state):
         epoch_context = _prepare_and_start_gibbs_epoch(
             state=state,
             run_state=run_state,
-            phase_kwargs=phase_kwargs,
+            epoch_phase_config=epoch_phase_config,
             epoch_aggregates=epoch_aggregates,
         )
         if epoch_context is None:
@@ -17481,14 +17501,14 @@ def _run_gibbs_epoch_phase(
             iterations_run_this_epoch=(iteration_num + 1),
             remaining_total_iter=run_state["remaining_total_iter"],
             num_completed_epochs=run_state["num_completed_epochs"],
-            target_num_epochs=phase_kwargs["target_num_epochs"],
+            target_num_epochs=epoch_phase_config["target_num_epochs"],
             num_attempts=run_state["num_attempts"],
             max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
             stop_due_to_stall=epoch_control["stop_due_to_stall"],
             stop_due_to_precision=epoch_control["stop_due_to_precision"],
             epoch_sums=epoch_sums,
-            num_mad=phase_kwargs["num_mad"],
-            adjust_priors=phase_kwargs["adjust_priors"],
+            num_mad=epoch_phase_config["num_mad"],
+            adjust_priors=epoch_phase_config["adjust_priors"],
         )
         _apply_gibbs_epoch_finalize_update(run_state, epoch_runtime, epoch_finalize_update)
         if epoch_finalize_update["should_continue"]:
