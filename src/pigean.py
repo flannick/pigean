@@ -18297,6 +18297,50 @@ def _log_gibbs_post_burn_diagnostics(
     )
 
 
+def _build_post_burn_stall_tracking_config(
+    diag_config,
+    epoch_control,
+    min_num_post_burn_in_for_epoch,
+):
+    return {
+        "active_beta_top_k": diag_config["active_beta_top_k"],
+        "post_stall_best_beta_rhat_history": epoch_control["post_stall_best_beta_rhat_history"],
+        "post_stall_best_D_mcse_history": epoch_control["post_stall_best_D_mcse_history"],
+        "post_stall_snapshots": epoch_control["post_stall_snapshots"],
+        "post_stall_beta_indices": epoch_control["post_stall_beta_indices"],
+        "post_stall_gene_indices": epoch_control["post_stall_gene_indices"],
+        "stop_mcse_quantile": diag_config["stop_mcse_quantile"],
+        "stall_window": diag_config["stall_window"],
+        "stall_min_post_burn_in": diag_config["stall_min_post_burn_in"],
+        "min_num_post_burn_in_for_epoch": min_num_post_burn_in_for_epoch,
+        "stall_delta_rhat": diag_config["stall_delta_rhat"],
+        "stall_delta_mcse": diag_config["stall_delta_mcse"],
+        "stall_recent_window": diag_config["stall_recent_window"],
+        "stall_recent_eps": diag_config["stall_recent_eps"],
+    }
+
+
+def _build_post_burn_action_config(
+    run_state,
+    iter_state,
+    post_stall_update,
+    beta_rhat_q_post,
+    D_mcse_q,
+):
+    return {
+        "num_attempts": run_state["num_attempts"],
+        "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+        "epoch_iter_num": iter_state["epoch_iter_num"],
+        "total_iter_num": iter_state["total_iter_num"],
+        "post_stall_plateau": post_stall_update["post_stall_plateau"],
+        "post_stall_recent_worse": post_stall_update["post_stall_recent_worse"],
+        "beta_rhat_q_post": beta_rhat_q_post,
+        "D_mcse_q": D_mcse_q,
+        "post_stall_recent_beta_rhat_q": post_stall_update["post_stall_recent_beta_rhat_q"],
+        "post_stall_recent_D_mcse_q": post_stall_update["post_stall_recent_D_mcse_q"],
+    }
+
+
 def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     min_num_post_burn_in_for_epoch,
     diag_config,
@@ -18322,12 +18366,6 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     max_rel_mcse_beta = diag_config["max_rel_mcse_beta"]
     max_abs_mcse_d = diag_config["max_abs_mcse_d"]
     stop_patience = diag_config["stop_patience"]
-    stall_window = diag_config["stall_window"]
-    stall_min_post_burn_in = diag_config["stall_min_post_burn_in"]
-    stall_delta_rhat = diag_config["stall_delta_rhat"]
-    stall_delta_mcse = diag_config["stall_delta_mcse"]
-    stall_recent_window = diag_config["stall_recent_window"]
-    stall_recent_eps = diag_config["stall_recent_eps"]
     num_full_gene_sets = diag_config["num_full_gene_sets"]
     burn_in_patience = diag_config["burn_in_patience"]
 
@@ -18336,14 +18374,8 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
 
     stop_pass_streak = epoch_control["stop_pass_streak"]
     burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
-    post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
-    post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
-    post_stall_snapshots = epoch_control["post_stall_snapshots"]
     post_stall_beta_indices = epoch_control["post_stall_beta_indices"]
     post_stall_gene_indices = epoch_control["post_stall_gene_indices"]
-
-    num_attempts = run_state["num_attempts"]
-    max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
 
     # For stopping diagnostics, aggregate previous completed epochs with the
     # current in-progress epoch so MCSE aligns with final reported MCSE.
@@ -18409,22 +18441,11 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         beta_mean_v,
         top_gene_indices,
         num_post_burn_beta,
-        stall_tracking_config={
-            "active_beta_top_k": active_beta_top_k,
-            "post_stall_best_beta_rhat_history": post_stall_best_beta_rhat_history,
-            "post_stall_best_D_mcse_history": post_stall_best_D_mcse_history,
-            "post_stall_snapshots": post_stall_snapshots,
-            "post_stall_beta_indices": post_stall_beta_indices,
-            "post_stall_gene_indices": post_stall_gene_indices,
-            "stop_mcse_quantile": stop_mcse_quantile,
-            "stall_window": stall_window,
-            "stall_min_post_burn_in": stall_min_post_burn_in,
-            "min_num_post_burn_in_for_epoch": min_num_post_burn_in_for_epoch,
-            "stall_delta_rhat": stall_delta_rhat,
-            "stall_delta_mcse": stall_delta_mcse,
-            "stall_recent_window": stall_recent_window,
-            "stall_recent_eps": stall_recent_eps,
-        },
+        stall_tracking_config=_build_post_burn_stall_tracking_config(
+            diag_config=diag_config,
+            epoch_control=epoch_control,
+            min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
+        ),
     )
     post_stall_beta_indices = post_stall_update["post_stall_beta_indices"]
     post_stall_gene_indices = post_stall_update["post_stall_gene_indices"]
@@ -18469,18 +18490,13 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     decision = _decide_gibbs_post_burn_action(
         precision_achieved=precision_achieved,
         post_stall_detected=post_stall_detected,
-        post_burn_action_config={
-            "num_attempts": num_attempts,
-            "max_num_attempt_restarts": max_num_attempt_restarts,
-            "epoch_iter_num": epoch_iter_num,
-            "total_iter_num": total_iter_num,
-            "post_stall_plateau": post_stall_plateau,
-            "post_stall_recent_worse": post_stall_recent_worse,
-            "beta_rhat_q_post": beta_rhat_q_post,
-            "D_mcse_q": D_mcse_q,
-            "post_stall_recent_beta_rhat_q": post_stall_recent_beta_rhat_q,
-            "post_stall_recent_D_mcse_q": post_stall_recent_D_mcse_q,
-        },
+        post_burn_action_config=_build_post_burn_action_config(
+            run_state=run_state,
+            iter_state=iter_state,
+            post_stall_update=post_stall_update,
+            beta_rhat_q_post=beta_rhat_q_post,
+            D_mcse_q=D_mcse_q,
+        ),
     )
 
     return {
