@@ -2412,8 +2412,6 @@ class GeneSetData(object):
         (X_ins, orig_files) = normalize_input_specs(X_in)
         append_initial_p_indices(X_ins)
             
-        is_dense = []
-
         append_inputs_from_list_files(
             list_specs=X_list,
             dest_inputs=X_ins,
@@ -2443,12 +2441,16 @@ class GeneSetData(object):
 
         Xd_ins, batches2, labels2, orig_dfiles = expand_Xs(Xd_ins, orig_dfiles)
 
-        #now map from inds to ps
-        if initial_ps is not None:
+        def map_initial_p_indices_to_values(initial_ps, initial_p):
+            if initial_ps is None:
+                return
             assert(type(initial_p) is list)
             for i in range(len(initial_ps)):
                 assert(initial_ps[i]) >= 0 and initial_ps[i] < len(initial_p)
                 initial_ps[i] = initial_p[initial_ps[i]]
+
+        #now map from inds to ps
+        map_initial_p_indices_to_values(initial_ps, initial_p)
 
 
         X_ins += Xd_ins
