@@ -8336,25 +8336,18 @@ class GeneSetData(object):
         epoch_phase_config = epoch_runtime_configs["epoch_phase_config"]
         epoch_iteration_static_config = epoch_runtime_configs["epoch_iteration_static_config"]
 
-        (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
-            gene_set_stats_trace_out,
-            gene_stats_trace_out,
+        _execute_gibbs_epoch_phase_with_traces(
+            state=self,
+            run_state=run_state,
+            epoch_aggregates=epoch_aggregates,
+            epoch_phase_config=epoch_phase_config,
+            epoch_iteration_static_config=epoch_iteration_static_config,
+            gene_set_stats_trace_out=gene_set_stats_trace_out,
+            gene_stats_trace_out=gene_stats_trace_out,
+            log_bf_m=log_bf_m,
+            log_bf_uncorrected_m=log_bf_uncorrected_m,
+            log_bf_raw_m=log_bf_raw_m,
         )
-        try:
-            _run_gibbs_epoch_phase(
-                state=self,
-                run_state=run_state,
-                epoch_aggregates=epoch_aggregates,
-                epoch_phase_config=epoch_phase_config,
-                epoch_iteration_static_config=epoch_iteration_static_config,
-                gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-                gene_stats_trace_fh=gene_stats_trace_fh,
-                log_bf_m=log_bf_m,
-                log_bf_uncorrected_m=log_bf_uncorrected_m,
-                log_bf_raw_m=log_bf_raw_m,
-            )
-        finally:
-            _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
 
         _finalize_gibbs_run_after_epochs(run_state, num_chains)
 
@@ -17511,6 +17504,39 @@ def _run_gibbs_epoch_phase(
         break
 
     return None
+
+
+def _execute_gibbs_epoch_phase_with_traces(
+    state,
+    run_state,
+    epoch_aggregates,
+    epoch_phase_config,
+    epoch_iteration_static_config,
+    gene_set_stats_trace_out,
+    gene_stats_trace_out,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
+        gene_set_stats_trace_out,
+        gene_stats_trace_out,
+    )
+    try:
+        _run_gibbs_epoch_phase(
+            state=state,
+            run_state=run_state,
+            epoch_aggregates=epoch_aggregates,
+            epoch_phase_config=epoch_phase_config,
+            epoch_iteration_static_config=epoch_iteration_static_config,
+            gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_stats_trace_fh=gene_stats_trace_fh,
+            log_bf_m=log_bf_m,
+            log_bf_uncorrected_m=log_bf_uncorrected_m,
+            log_bf_raw_m=log_bf_raw_m,
+        )
+    finally:
+        _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
 
 
 def _finalize_gibbs_run_after_epochs(run_state, num_chains):
