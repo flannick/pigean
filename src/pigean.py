@@ -17668,35 +17668,6 @@ def _reset_gibbs_diagnostics(state):
     state.Y_mcse = None
 
 
-def _prepare_and_start_gibbs_epoch(
-    state,
-    run_state,
-    epoch_phase_config,
-    epoch_aggregates,
-):
-    epoch_attempt = _prepare_gibbs_epoch_attempt(
-        state=state,
-        run_state=run_state,
-        epoch_phase_config=epoch_phase_config,
-    )
-    if epoch_attempt is None:
-        return None
-
-    epoch_context = _start_gibbs_epoch(
-        state=state,
-        num_chains=epoch_phase_config["num_chains"],
-        num_full_gene_sets=epoch_phase_config["num_full_gene_sets"],
-        use_mean_betas=epoch_phase_config["use_mean_betas"],
-        max_mb_X_h=epoch_phase_config["max_mb_X_h"],
-        log_fun=log,
-        epoch_aggregates=epoch_aggregates,
-        num_p_increases=run_state["num_p_increases"],
-    )
-
-    epoch_context.update(epoch_attempt)
-    return epoch_context
-
-
 def _run_gibbs_epoch_phase(
     state,
     run_state,
@@ -17712,14 +17683,25 @@ def _run_gibbs_epoch_phase(
 ):
     # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
     while _can_run_gibbs_epoch(run_state):
-        epoch_context = _prepare_and_start_gibbs_epoch(
+        epoch_attempt = _prepare_gibbs_epoch_attempt(
             state=state,
             run_state=run_state,
             epoch_phase_config=epoch_phase_config,
-            epoch_aggregates=epoch_aggregates,
         )
-        if epoch_context is None:
+        if epoch_attempt is None:
             break
+
+        epoch_context = _start_gibbs_epoch(
+            state=state,
+            num_chains=epoch_phase_config["num_chains"],
+            num_full_gene_sets=epoch_phase_config["num_full_gene_sets"],
+            use_mean_betas=epoch_phase_config["use_mean_betas"],
+            max_mb_X_h=epoch_phase_config["max_mb_X_h"],
+            log_fun=log,
+            epoch_aggregates=epoch_aggregates,
+            num_p_increases=run_state["num_p_increases"],
+        )
+        epoch_context.update(epoch_attempt)
 
         epoch_control = epoch_context["epoch_control"]
         epoch_sums = epoch_context["epoch_sums"]
