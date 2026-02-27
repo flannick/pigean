@@ -3996,6 +3996,214 @@ class GeneSetData(object):
 
         self.gene_covariates = sorted_gene_covariates
 
+    def _read_huge_s2g_probabilities(
+        self,
+        s2g_in,
+        seen_chrom_pos,
+        hold_out_chrom=None,
+        s2g_chrom_col=None,
+        s2g_pos_col=None,
+        s2g_gene_col=None,
+        s2g_prob_col=None,
+        s2g_normalize_values=None,
+    ):
+        if s2g_in is None:
+            return None
+
+        chrom_pos_to_gene_prob = {}
+        log("Reading --s2g-in file %s" % s2g_in, INFO)
+
+        # See if need to determine.
+        if s2g_pos_col is None or s2g_chrom_col is None or s2g_gene_col is None:
+            (
+                possible_s2g_gene_cols,
+                possible_s2g_var_id_cols,
+                possible_s2g_chrom_cols,
+                possible_s2g_pos_cols,
+                possible_s2g_locus_cols,
+                possible_s2g_p_cols,
+                possible_s2g_beta_cols,
+                possible_s2g_se_cols,
+                possible_s2g_freq_cols,
+                possible_s2g_n_cols,
+            ) = _determine_columns_from_file(s2g_in)
+
+            if s2g_pos_col is None:
+                if len(possible_s2g_pos_cols) == 1:
+                    s2g_pos_col = possible_s2g_pos_cols[0]
+                    log("Using %s for position column; change with --s2g-pos-col if incorrect" % s2g_pos_col)
+                else:
+                    bail("Could not determine position column; specify with --s2g-pos-col")
+            if s2g_chrom_col is None:
+                if len(possible_s2g_chrom_cols) == 1:
+                    s2g_chrom_col = possible_s2g_chrom_cols[0]
+                    log("Using %s for chromition column; change with --s2g-chrom-col if incorrect" % s2g_chrom_col)
+                else:
+                    bail("Could not determine chrom column; specify with --s2g-chrom-col")
+            if s2g_gene_col is None:
+                if len(possible_s2g_gene_cols) == 1:
+                    s2g_gene_col = possible_s2g_gene_cols[0]
+                    log("Using %s for geneition column; change with --s2g-gene-col if incorrect" % s2g_gene_col)
+                else:
+                    bail("Could not determine gene column; specify with --s2g-gene-col")
+
+        with open_gz(s2g_in) as s2g_fh:
+            header_cols = s2g_fh.readline().strip('\n').split()
+            chrom_col = _get_col(s2g_chrom_col, header_cols)
+            pos_col = _get_col(s2g_pos_col, header_cols)
+            gene_col = _get_col(s2g_gene_col, header_cols)
+            prob_col = None
+            if s2g_prob_col is not None:
+                prob_col = _get_col(s2g_prob_col, header_cols)
+
+            for line in s2g_fh:
+                cols = line.strip('\n').split()
+                if chrom_col > len(cols) or pos_col > len(cols) or gene_col > len(cols) or (prob_col is not None and prob_col > len(cols)):
+                    warn("Skipping due to too few columns in line: %s" % line)
+                    continue
+
+                chrom = _clean_chrom_name(cols[chrom_col])
+                if hold_out_chrom is not None and chrom == hold_out_chrom:
+                    continue
+
+                try:
+                    pos = int(cols[pos_col])
+                except ValueError:
+                    warn("Skipping unconvertible pos value %s" % (cols[pos_col]))
+                    continue
+                gene = cols[gene_col]
+
+                if self.gene_label_map is not None and gene in self.gene_label_map:
+                    gene = self.gene_label_map[gene]
+
+                max_s2g_prob = 0.95
+                prob = max_s2g_prob
+                if prob_col is not None:
+                    try:
+                        prob = float(cols[prob_col])
+                    except ValueError:
+                        warn("Skipping unconvertible prob value %s" % (cols[prob_col]))
+                        continue
+                if prob > max_s2g_prob:
+                    prob = max_s2g_prob
+
+                if chrom in seen_chrom_pos and pos in seen_chrom_pos[chrom]:
+                    if chrom not in chrom_pos_to_gene_prob:
+                        chrom_pos_to_gene_prob[chrom] = {}
+                    if pos not in chrom_pos_to_gene_prob[chrom]:
+                        chrom_pos_to_gene_prob[chrom][pos] = []
+                    chrom_pos_to_gene_prob[chrom][pos].append((gene, prob))
+
+            if s2g_normalize_values is not None:
+                for chrom in chrom_pos_to_gene_prob:
+                    for pos in chrom_pos_to_gene_prob[chrom]:
+                        prob_sum = sum([x[1] for x in chrom_pos_to_gene_prob[chrom][pos]])
+                        if prob_sum > 0:
+                            norm_factor = s2g_normalize_values / prob_sum
+                            chrom_pos_to_gene_prob[chrom][pos] = [(x[0], x[1] * norm_factor) for x in chrom_pos_to_gene_prob[chrom][pos]]
+
+        return chrom_pos_to_gene_prob
+
+    def _read_huge_input_credible_sets(
+        self,
+        credible_sets_in,
+        seen_chrom_pos,
+        chrom_pos_p_beta_se_freq,
+        var_p_threshold,
+        hold_out_chrom=None,
+        credible_sets_id_col=None,
+        credible_sets_chrom_col=None,
+        credible_sets_pos_col=None,
+        credible_sets_ppa_col=None,
+    ):
+        added_chrom_pos = {}
+        input_credible_set_info = {}
+        if credible_sets_in is None:
+            return (added_chrom_pos, input_credible_set_info)
+
+        log("Reading --credible-sets-in file %s" % credible_sets_in, INFO)
+
+        # See if need to determine.
+        if credible_sets_pos_col is None or credible_sets_chrom_col is None:
+            (_, _, possible_credible_sets_chrom_cols, possible_credible_sets_pos_cols, _, _, _, _, _, _, header) = _determine_columns_from_file(credible_sets_in)
+
+            if credible_sets_pos_col is None:
+                if len(possible_credible_sets_pos_cols) == 1:
+                    credible_sets_pos_col = possible_credible_sets_pos_cols[0]
+                    log("Using %s for position column; change with --credible-sets-pos-col if incorrect" % credible_sets_pos_col)
+                else:
+                    bail("Could not determine position column; specify with --credible-sets-pos-col")
+            if credible_sets_chrom_col is None:
+                if len(possible_credible_sets_chrom_cols) == 1:
+                    credible_sets_chrom_col = possible_credible_sets_chrom_cols[0]
+                    log("Using %s for chromition column; change with --credible-sets-chrom-col if incorrect" % credible_sets_chrom_col)
+                else:
+                    bail("Could not determine chrom column; specify with --credible-sets-chrom-col")
+
+        with open_gz(credible_sets_in) as credible_sets_fh:
+            header_cols = credible_sets_fh.readline().strip('\n').split()
+            chrom_col = _get_col(credible_sets_chrom_col, header_cols)
+            pos_col = _get_col(credible_sets_pos_col, header_cols)
+            id_col = None
+            if credible_sets_id_col is not None:
+                id_col = _get_col(credible_sets_id_col, header_cols)
+            ppa_col = None
+            if credible_sets_ppa_col is not None:
+                ppa_col = _get_col(credible_sets_ppa_col, header_cols)
+
+            for line in credible_sets_fh:
+                cols = line.strip('\n').split()
+                if (id_col is not None and id_col > len(cols)) or (chrom_col is not None and chrom_col > len(cols)) or (pos_col is not None and pos_col > len(cols)) or (ppa_col is not None and ppa_col > len(cols)):
+                    warn("Skipping due to too few columns in line: %s" % line)
+                    continue
+
+                chrom = _clean_chrom_name(cols[chrom_col])
+
+                if hold_out_chrom is not None and chrom == hold_out_chrom:
+                    continue
+
+                try:
+                    pos = int(cols[pos_col])
+                except ValueError:
+                    warn("Skipping unconvertible pos value %s" % (cols[pos_col]))
+                    continue
+
+                if id_col is not None:
+                    cs_id = cols[id_col]
+                else:
+                    cs_id = "%s:%s" % (chrom, pos)
+
+                ppa = None
+                if ppa_col is not None:
+                    try:
+                        ppa = float(cols[ppa_col])
+                        if ppa > 1:
+                            ppa = 0.99
+                        elif ppa < 0:
+                            ppa = 0
+                    except ValueError:
+                        warn("Skipping unconvertible ppa value %s" % (cols[ppa_col]))
+                        continue
+
+                if chrom in seen_chrom_pos:
+                    if pos not in seen_chrom_pos[chrom]:
+                        # Make up a beta.
+                        assert(var_p_threshold is not None)
+                        (p, beta, se, freq) = (var_p_threshold, 1, None, None)
+                        chrom_pos_p_beta_se_freq[chrom].append((pos, p, beta, se, freq))
+                        seen_chrom_pos[chrom].add(pos)
+                        if chrom not in added_chrom_pos:
+                            added_chrom_pos[chrom] = set()
+                        added_chrom_pos[chrom].add(pos)
+
+                    if chrom not in input_credible_set_info:
+                        input_credible_set_info[chrom] = {}
+                    if cs_id not in input_credible_set_info[chrom]:
+                        input_credible_set_info[chrom][cs_id] = []
+                    input_credible_set_info[chrom][cs_id].append((pos, ppa))
+
+        return (added_chrom_pos, input_credible_set_info)
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -4278,178 +4486,28 @@ class GeneSetData(object):
                 warn("Skipped %d variants due to not enough information" % (not_enough_info))
 
             log("Read in %d variants" % total_num_vars)
-            chrom_pos_to_gene_prob = None
-            if s2g_in is not None:
-                chrom_pos_to_gene_prob = {}
+            chrom_pos_to_gene_prob = self._read_huge_s2g_probabilities(
+                s2g_in=s2g_in,
+                seen_chrom_pos=seen_chrom_pos,
+                hold_out_chrom=hold_out_chrom,
+                s2g_chrom_col=s2g_chrom_col,
+                s2g_pos_col=s2g_pos_col,
+                s2g_gene_col=s2g_gene_col,
+                s2g_prob_col=s2g_prob_col,
+                s2g_normalize_values=s2g_normalize_values,
+            )
 
-                log("Reading --s2g-in file %s" % s2g_in, INFO)
-
-                #see if need to determine
-                if s2g_pos_col is None or s2g_chrom_col is None or s2g_gene_col is None:
-                    (possible_s2g_gene_cols, possible_s2g_var_id_cols, possible_s2g_chrom_cols, possible_s2g_pos_cols, possible_s2g_locus_cols, possible_s2g_p_cols, possible_s2g_beta_cols, possible_s2g_se_cols, possible_s2g_freq_cols, possible_s2g_n_cols) = _determine_columns_from_file(s2g_in)
-
-                    if s2g_pos_col is None:
-                        if len(possible_s2g_pos_cols) == 1:
-                            s2g_pos_col = possible_s2g_pos_cols[0]
-                            log("Using %s for position column; change with --s2g-pos-col if incorrect" % s2g_pos_col)
-                        else:
-                            bail("Could not determine position column; specify with --s2g-pos-col")
-                    if s2g_chrom_col is None:
-                        if len(possible_s2g_chrom_cols) == 1:
-                            s2g_chrom_col = possible_s2g_chrom_cols[0]
-                            log("Using %s for chromition column; change with --s2g-chrom-col if incorrect" % s2g_chrom_col)
-                        else:
-                            bail("Could not determine chrom column; specify with --s2g-chrom-col")
-                    if s2g_gene_col is None:
-                        if len(possible_s2g_gene_cols) == 1:
-                            s2g_gene_col = possible_s2g_gene_cols[0]
-                            log("Using %s for geneition column; change with --s2g-gene-col if incorrect" % s2g_gene_col)
-                        else:
-                            bail("Could not determine gene column; specify with --s2g-gene-col")
-
-                with open_gz(s2g_in) as s2g_fh:
-                    header_cols = s2g_fh.readline().strip('\n').split()
-                    chrom_col = _get_col(s2g_chrom_col, header_cols)
-                    pos_col = _get_col(s2g_pos_col, header_cols)
-                    gene_col = _get_col(s2g_gene_col, header_cols)
-                    prob_col = None
-                    if s2g_prob_col is not None:
-                        prob_col = _get_col(s2g_prob_col, header_cols)
-
-                    for line in s2g_fh:
-
-                        cols = line.strip('\n').split()
-                        if chrom_col > len(cols) or pos_col > len(cols) or gene_col > len(cols) or (prob_col is not None and prob_col > len(cols)):
-                            warn("Skipping due to too few columns in line: %s" % line)
-                            continue
-
-                        chrom = _clean_chrom_name(cols[chrom_col])
-                        if hold_out_chrom is not None and chrom == hold_out_chrom:
-                            continue
-
-                        try:
-                            pos = int(cols[pos_col])
-                        except ValueError:
-                            warn("Skipping unconvertible pos value %s" % (cols[pos_col]))
-                            continue
-                        gene = cols[gene_col]
-
-                        if self.gene_label_map is not None and gene in self.gene_label_map:
-                            gene = self.gene_label_map[gene]
-
-                        max_s2g_prob=0.95
-                        prob = max_s2g_prob
-                        if prob_col is not None:
-                            try:
-                                prob = float(cols[prob_col])
-
-                            except ValueError:
-                                warn("Skipping unconvertible prob value %s" % (cols[prob_col]))
-                                continue
-                        if prob > max_s2g_prob:
-                            prob = max_s2g_prob
-
-                        if chrom in seen_chrom_pos and pos in seen_chrom_pos[chrom]:
-                            if chrom not in chrom_pos_to_gene_prob:
-                                chrom_pos_to_gene_prob[chrom] = {}
-                            if pos not in chrom_pos_to_gene_prob[chrom]:
-                                chrom_pos_to_gene_prob[chrom][pos] = []
-                            chrom_pos_to_gene_prob[chrom][pos].append((gene, prob))
-
-                    if s2g_normalize_values is not None:
-
-                        for chrom in chrom_pos_to_gene_prob:
-                            for pos in chrom_pos_to_gene_prob[chrom]:
-                                prob_sum = sum([x[1] for x in chrom_pos_to_gene_prob[chrom][pos]])
-                                if prob_sum > 0:
-                                    norm_factor = s2g_normalize_values / prob_sum
-                                    chrom_pos_to_gene_prob[chrom][pos] = [(x[0], x[1] * norm_factor) for x in chrom_pos_to_gene_prob[chrom][pos]]
-
-            added_chrom_pos = {}
-            input_credible_set_info = {}
-            if credible_sets_in is not None:
-
-                log("Reading --credible-sets-in file %s" % credible_sets_in, INFO)
-
-                #see if need to determine
-                if credible_sets_pos_col is None or credible_sets_chrom_col is None:
-                    (_, _, possible_credible_sets_chrom_cols, possible_credible_sets_pos_cols, _, _, _, _, _, _, header) = _determine_columns_from_file(credible_sets_in)
-
-                    if credible_sets_pos_col is None:
-                        if len(possible_credible_sets_pos_cols) == 1:
-                            credible_sets_pos_col = possible_credible_sets_pos_cols[0]
-                            log("Using %s for position column; change with --credible-sets-pos-col if incorrect" % credible_sets_pos_col)
-                        else:
-                            bail("Could not determine position column; specify with --credible-sets-pos-col")
-                    if credible_sets_chrom_col is None:
-                        if len(possible_credible_sets_chrom_cols) == 1:
-                            credible_sets_chrom_col = possible_credible_sets_chrom_cols[0]
-                            log("Using %s for chromition column; change with --credible-sets-chrom-col if incorrect" % credible_sets_chrom_col)
-                        else:
-                            bail("Could not determine chrom column; specify with --credible-sets-chrom-col")
-
-                with open_gz(credible_sets_in) as credible_sets_fh:
-                    header_cols = credible_sets_fh.readline().strip('\n').split()
-                    chrom_col = _get_col(credible_sets_chrom_col, header_cols)
-                    pos_col = _get_col(credible_sets_pos_col, header_cols)
-                    id_col = None
-                    if credible_sets_id_col is not None:
-                        id_col = _get_col(credible_sets_id_col, header_cols)
-                    ppa_col = None
-                    if credible_sets_ppa_col is not None:
-                        ppa_col = _get_col(credible_sets_ppa_col, header_cols)
-
-                    for line in credible_sets_fh:
-
-                        cols = line.strip('\n').split()
-                        if (id_col is not None and id_col > len(cols)) or (chrom_col is not None and chrom_col > len(cols)) or (pos_col is not None and pos_col > len(cols)) or (ppa_col is not None and ppa_col > len(cols)):
-                            warn("Skipping due to too few columns in line: %s" % line)
-                            continue
-
-                        chrom = _clean_chrom_name(cols[chrom_col])
-
-                        if hold_out_chrom is not None and chrom == hold_out_chrom:
-                            continue
-
-                        try:
-                            pos = int(cols[pos_col])
-                        except ValueError:
-                            warn("Skipping unconvertible pos value %s" % (cols[pos_col]))
-                            continue
-
-                        if id_col is not None:
-                            cs_id = cols[id_col]
-                        else:
-                            cs_id = "%s:%s" % (chrom, pos)
-
-                        ppa = None
-                        if ppa_col is not None:
-                            try:
-                                ppa = float(cols[ppa_col])
-                                if ppa > 1:
-                                    ppa = 0.99
-                                elif ppa < 0:
-                                    ppa = 0
-                            except ValueError:
-                                warn("Skipping unconvertible ppa value %s" % (cols[ppa_col]))
-                                continue
-
-                        if chrom in seen_chrom_pos:
-                            if pos not in seen_chrom_pos[chrom]:
-                                #make up a beta
-                                assert(var_p_threshold is not None)
-                                (p, beta, se, freq) = (var_p_threshold, 1, None, None)
-                                chrom_pos_p_beta_se_freq[chrom].append((pos, p, beta, se, freq))
-                                seen_chrom_pos[chrom].add(pos)
-                                if chrom not in added_chrom_pos:
-                                    added_chrom_pos[chrom] = set()
-                                added_chrom_pos[chrom].add(pos)
-
-                            if chrom not in input_credible_set_info:
-                                input_credible_set_info[chrom] = {}
-                            if cs_id not in input_credible_set_info[chrom]:
-                                input_credible_set_info[chrom][cs_id] = []
-                            input_credible_set_info[chrom][cs_id].append((pos, ppa))
+            (added_chrom_pos, input_credible_set_info) = self._read_huge_input_credible_sets(
+                credible_sets_in=credible_sets_in,
+                seen_chrom_pos=seen_chrom_pos,
+                chrom_pos_p_beta_se_freq=chrom_pos_p_beta_se_freq,
+                var_p_threshold=var_p_threshold,
+                hold_out_chrom=hold_out_chrom,
+                credible_sets_id_col=credible_sets_id_col,
+                credible_sets_chrom_col=credible_sets_chrom_col,
+                credible_sets_pos_col=credible_sets_pos_col,
+                credible_sets_ppa_col=credible_sets_ppa_col,
+            )
 
             if total_num_vars == 0:
                 bail("Didn't read in any variants!")
