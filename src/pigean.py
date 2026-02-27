@@ -8381,6 +8381,9 @@ class GeneSetData(object):
             adjust_priors=adjust_priors,
             num_mad=num_mad,
         )
+        epoch_phase_config = _extract_gibbs_epoch_phase_config(phase_kwargs)
+        epoch_iteration_static_config = _build_gibbs_epoch_iteration_static_config(phase_kwargs)
+        low_beta_restart_base_config = _extract_gibbs_low_beta_restart_base_config(phase_kwargs)
 
         (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
             gene_set_stats_trace_out,
@@ -8391,7 +8394,9 @@ class GeneSetData(object):
                 state=self,
                 run_state=run_state,
                 epoch_aggregates=epoch_aggregates,
-                phase_kwargs=phase_kwargs,
+                epoch_phase_config=epoch_phase_config,
+                epoch_iteration_static_config=epoch_iteration_static_config,
+                low_beta_restart_base_config=low_beta_restart_base_config,
                 gene_set_stats_trace_fh=gene_set_stats_trace_fh,
                 gene_stats_trace_fh=gene_stats_trace_fh,
                 log_bf_m=log_bf_m,
@@ -17176,9 +17181,15 @@ def _extract_gibbs_iteration_update_config(phase_kwargs):
     }
 
 
-def _extract_gibbs_low_beta_restart_config(phase_kwargs, run_state):
+def _extract_gibbs_low_beta_restart_base_config(phase_kwargs):
     return {
         "num_mad": phase_kwargs["num_mad"],
+    }
+
+
+def _build_gibbs_low_beta_restart_config(low_beta_restart_base_config, run_state):
+    return {
+        "num_mad": low_beta_restart_base_config["num_mad"],
         "num_attempts": run_state["num_attempts"],
         "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
     }
@@ -17451,7 +17462,9 @@ def _run_gibbs_epoch_phase(
     state,
     run_state,
     epoch_aggregates,
-    phase_kwargs,
+    epoch_phase_config,
+    epoch_iteration_static_config,
+    low_beta_restart_base_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
     log_bf_m,
@@ -17459,8 +17472,6 @@ def _run_gibbs_epoch_phase(
     log_bf_raw_m,
 ):
     # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
-    epoch_phase_config = _extract_gibbs_epoch_phase_config(phase_kwargs)
-    epoch_iteration_static_config = _build_gibbs_epoch_iteration_static_config(phase_kwargs)
     while _can_run_gibbs_epoch(run_state):
         epoch_context = _prepare_and_start_gibbs_epoch(
             state=state,
@@ -17474,7 +17485,7 @@ def _run_gibbs_epoch_phase(
         epoch_control = epoch_context["epoch_control"]
         epoch_sums = epoch_context["epoch_sums"]
         epoch_runtime = epoch_context["epoch_runtime"]
-        low_beta_restart_config = _extract_gibbs_low_beta_restart_config(phase_kwargs, run_state)
+        low_beta_restart_config = _build_gibbs_low_beta_restart_config(low_beta_restart_base_config, run_state)
         epoch_iteration_config = _build_gibbs_epoch_iteration_config(
             iteration_static_config=epoch_iteration_static_config,
             low_beta_restart_config=low_beta_restart_config,
