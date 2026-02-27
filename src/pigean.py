@@ -5069,6 +5069,79 @@ class GeneSetData(object):
             separate_detect,
         )
 
+    def _compute_huge_window_function_parameters(
+        self,
+        learn_window,
+        closest_dist_X,
+        closest_dist_Y,
+        closest_gene_prob,
+        max_closest_gene_dist,
+    ):
+        if learn_window:
+            use_logistic_window_function = False
+            if use_logistic_window_function:
+                num_samples = 5
+                window_fun_slope = 0
+                window_fun_intercept = 0
+
+                for i in range(num_samples):
+                    sample = np.random.random(len(closest_dist_Y)) < closest_dist_Y
+                    closest_dist_Y_sample = copy.copy(closest_dist_Y)
+                    closest_dist_Y_sample[sample > closest_dist_Y] = 1
+                    closest_dist_Y_sample[sample <= closest_dist_Y] = 0
+
+                    (
+                        cur_window_fun_slope,
+                        se,
+                        z,
+                        p,
+                        se_inflation_factor,
+                        cur_window_fun_intercept,
+                        diverged,
+                    ) = self._compute_logistic_beta_tildes(
+                        closest_dist_X[:, np.newaxis],
+                        closest_dist_Y_sample,
+                        1,
+                        0,
+                        resid_correlation_matrix=None,
+                        convert_to_dichotomous=False,
+                        log_fun=lambda x, y=0: 1,
+                    )
+                    window_fun_slope += cur_window_fun_slope
+                    window_fun_intercept += cur_window_fun_intercept
+
+                window_fun_slope /= num_samples
+                window_fun_intercept /= num_samples
+            else:
+                mean_closest_dist_X = np.mean(closest_dist_X[closest_dist_Y == closest_gene_prob])
+                mean_non_closest_dist_X = np.mean(closest_dist_X[closest_dist_Y != closest_gene_prob])
+                mean_non_closest_dist_Y = np.mean(closest_dist_Y[closest_dist_Y != closest_gene_prob])
+                window_fun_slope = (
+                    np.log(closest_gene_prob / (1 - closest_gene_prob))
+                    - np.log(mean_non_closest_dist_Y / (1 - mean_non_closest_dist_Y))
+                ) / (mean_closest_dist_X - mean_non_closest_dist_X)
+                window_fun_intercept = np.log(closest_gene_prob / (1 - closest_gene_prob)) - window_fun_slope * mean_closest_dist_X
+
+            if window_fun_slope >= 0:
+                warn(
+                    "Could not fit decaying linear window function slope for max-closest-gene-dist=%.4g and closest-gene_prob=%.4g; using default"
+                    % (max_closest_gene_dist, closest_gene_prob)
+                )
+                window_fun_slope = -6.983e-06
+                window_fun_intercept = -1.934
+
+            log("Fit function %.4g * x + %.4g for closest gene probability" % (window_fun_slope, window_fun_intercept))
+        else:
+            if max_closest_gene_dist < 3e5:
+                window_fun_slope = -5.086e-05
+                window_fun_intercept = 2.988
+            else:
+                window_fun_slope = -5.152e-05
+                window_fun_intercept = 4.854
+            log("Using %.4g * x + %.4g for closest gene probability" % (window_fun_slope, window_fun_intercept))
+
+        return (window_fun_slope, window_fun_intercept)
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5746,51 +5819,13 @@ class GeneSetData(object):
                     log("Using k=%.3g, po=%.3g" % (allelic_var_k, gwas_prior_odds))
                     self._record_params({"gwas_allelic_var_k": allelic_var_k, "gwas_prior_odds": gwas_prior_odds})
 
-                    if learn_window:
-
-                        use_logistic_window_function = False
-                        if use_logistic_window_function:
-
-                            #run this a few times
-                            num_samples = 5
-                            window_fun_slope = 0
-                            window_fun_intercept = 0
-
-                            for i in range(num_samples):
-                                sample = np.random.random(len(closest_dist_Y)) < closest_dist_Y
-                                closest_dist_Y_sample = copy.copy(closest_dist_Y)
-                                closest_dist_Y_sample[sample > closest_dist_Y] = 1
-                                closest_dist_Y_sample[sample <= closest_dist_Y] = 0
-
-                                (cur_window_fun_slope, se, z, p, se_inflation_factor, cur_window_fun_intercept, diverged) = self._compute_logistic_beta_tildes(closest_dist_X[:,np.newaxis], closest_dist_Y_sample, 1, 0, resid_correlation_matrix=None, convert_to_dichotomous=False, log_fun=lambda x, y=0: 1)
-                                window_fun_slope += cur_window_fun_slope
-                                window_fun_intercept += cur_window_fun_intercept
-
-                            window_fun_slope /= num_samples
-                            window_fun_intercept /= num_samples
-                        else:
-
-                            mean_closest_dist_X = np.mean(closest_dist_X[closest_dist_Y == closest_gene_prob])
-                            mean_non_closest_dist_X = np.mean(closest_dist_X[closest_dist_Y != closest_gene_prob])
-                            mean_non_closest_dist_Y = np.mean(closest_dist_Y[closest_dist_Y != closest_gene_prob])
-                            window_fun_slope  = (np.log(closest_gene_prob / (1 - closest_gene_prob)) - np.log(mean_non_closest_dist_Y / (1 - mean_non_closest_dist_Y))) / (mean_closest_dist_X - mean_non_closest_dist_X)
-                            window_fun_intercept = np.log(closest_gene_prob / (1 - closest_gene_prob)) - window_fun_slope * mean_closest_dist_X
-
-                        if window_fun_slope >= 0:
-                            warn("Could not fit decaying linear window function slope for max-closest-gene-dist=%.4g and closest-gene_prob=%.4g; using default" % (max_closest_gene_dist, closest_gene_prob))
-                            window_fun_slope = -6.983e-06
-                            window_fun_intercept = -1.934
-
-                        log("Fit function %.4g * x + %.4g for closest gene probability" % (window_fun_slope, window_fun_intercept))
-
-                    else:
-                        if max_closest_gene_dist < 3e5:
-                            window_fun_slope = -5.086e-05
-                            window_fun_intercept = 2.988
-                        else:
-                            window_fun_slope = -5.152e-05
-                            window_fun_intercept = 4.854
-                        log("Using %.4g * x + %.4g for closest gene probability" % (window_fun_slope, window_fun_intercept))
+                    (window_fun_slope, window_fun_intercept) = self._compute_huge_window_function_parameters(
+                        learn_window=learn_window,
+                        closest_dist_X=closest_dist_X,
+                        closest_dist_Y=closest_dist_Y,
+                        closest_gene_prob=closest_gene_prob,
+                        max_closest_gene_dist=max_closest_gene_dist,
+                    )
 
                     self._record_params({"window_fun_slope": window_fun_slope, "window_fun_intercept": window_fun_intercept})
 
