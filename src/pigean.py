@@ -19270,6 +19270,7 @@ def _build_main_read_y_source_kwargs(options):
 
 
 def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
+    # 1) Build the CLI-order mapping from each X input to its p_noninf index.
     xin_to_p_noninf_ind = None
     if options.p_noninf is not None:
         # Map each X-like input occurrence to its p_noninf index using CLI order.
@@ -19295,6 +19296,8 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
     )
     filter_gene_set_p = options.filter_gene_set_p
     force_reread = False
+    # 2) Read X and, if needed, adaptively relax filter_gene_set_p until enough
+    #    gene sets survive or no further retry is required.
     while True:
         orig_sigma2 = state.sigma2
         read_x_kwargs = dict(
@@ -19404,6 +19407,7 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
     if mode_state["run_huge"]:
         return
 
+    # D1) Prepare X / V / p and optional X exports.
     # Read X / Xd / V and initialize p (with adaptive filter retries if needed).
     if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
         _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond)
@@ -19427,6 +19431,7 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
     if options.V_out:
         state.write_V(options.V_out)
 
+    # D2) Optional simulation mode.
     if mode_state["run_sim"]:
         state.run_sim(
             sigma2=state.sigma2,
@@ -19437,6 +19442,7 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
             only_positive=options.sim_only_positive,
         )
 
+    # D3) Resolve gene-set beta_tildes.
     # Resolve beta_tildes from fixed values, read-in stats, or fresh fitting.
     needs_gene_set_stats = (
         mode_state["run_beta_tilde"]
@@ -19488,6 +19494,7 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
                 **gene_set_stats_kwargs,
             )
 
+    # D4) Resolve gene-set betas.
     # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
     needs_gene_set_betas = (
         mode_state["run_beta"]
@@ -19536,6 +19543,7 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
             })
             state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
 
+    # D5) Final inference stage: priors and/or outer Gibbs.
     # Final sampling stage selection: priors-only, naive priors, and/or outer Gibbs.
     if mode_state["run_priors"]:
         priors_kwargs = _build_inner_beta_sampler_common_kwargs(options)
