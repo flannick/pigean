@@ -8405,7 +8405,9 @@ class GeneSetData(object):
             )
         finally:
             _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
-        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _extract_gibbs_log_bf_state(phase1_update)
+        log_bf_m = phase1_update["log_bf_m"]
+        log_bf_uncorrected_m = phase1_update["log_bf_uncorrected_m"]
+        log_bf_raw_m = phase1_update["log_bf_raw_m"]
 
         _finalize_gibbs_run_after_epochs(run_state, num_chains)
 
@@ -17575,14 +17577,6 @@ def _build_gibbs_phase_runtime_configs(
     }
 
 
-def _extract_gibbs_log_bf_state(update):
-    return (
-        update["log_bf_m"],
-        update["log_bf_uncorrected_m"],
-        update["log_bf_raw_m"],
-    )
-
-
 def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
     # Preserve pre-Gibbs values so downstream reporting can compare original vs
     # Gibbs-adjusted statistics.
@@ -17754,7 +17748,9 @@ def _run_gibbs_epoch_phase(
             log_bf_raw_m=log_bf_raw_m,
         )
         iteration_num = epoch_loop_update["iteration_num"]
-        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _extract_gibbs_log_bf_state(epoch_loop_update)
+        log_bf_m = epoch_loop_update["log_bf_m"]
+        log_bf_uncorrected_m = epoch_loop_update["log_bf_uncorrected_m"]
+        log_bf_raw_m = epoch_loop_update["log_bf_raw_m"]
 
         epoch_finalize_update = _finalize_gibbs_epoch_attempt(
             state,
@@ -17851,7 +17847,9 @@ def _run_gibbs_epoch_iterations(
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
         )
-        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _extract_gibbs_log_bf_state(iteration_update)
+        log_bf_m = iteration_update["log_bf_m"]
+        log_bf_uncorrected_m = iteration_update["log_bf_uncorrected_m"]
+        log_bf_raw_m = iteration_update["log_bf_raw_m"]
         if iteration_update["should_break"]:
             break
 
@@ -17952,7 +17950,9 @@ def _run_gibbs_iteration_correction_and_updates(
         log_bf_raw_m=log_bf_raw_m,
     )
     _apply_refresh_update_to_epoch_priors(epoch_priors, refresh_update)
-    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _extract_gibbs_log_bf_state(refresh_update)
+    log_bf_m = refresh_update["log_bf_m"]
+    log_bf_uncorrected_m = refresh_update["log_bf_uncorrected_m"]
+    log_bf_raw_m = refresh_update["log_bf_raw_m"]
 
     prior_update = _finalize_gibbs_priors_for_sampling(
         state,
