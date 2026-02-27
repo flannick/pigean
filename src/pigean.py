@@ -4993,6 +4993,82 @@ class GeneSetData(object):
         index_var_ps.sort()
         return np.array(index_var_ps)
 
+    def _adjust_huge_detect_power(
+        self,
+        index_var_ps,
+        num_below_low_p,
+        gwas_low_p,
+        detect_high_power,
+        detect_low_power,
+        gwas_high_p,
+        gwas_high_p_posterior,
+        gwas_low_p_posterior,
+        detect_adjust_huge,
+        allelic_var_k,
+        gwas_prior_odds,
+        allelic_var_k_detect,
+        gwas_prior_odds_detect,
+        separate_detect,
+    ):
+        if detect_high_power is None and detect_low_power is None:
+            return (
+                gwas_low_p,
+                allelic_var_k,
+                gwas_prior_odds,
+                allelic_var_k_detect,
+                gwas_prior_odds_detect,
+                separate_detect,
+            )
+
+        target_max_num_variants = detect_high_power
+        target_min_num_variants = detect_low_power
+
+        old_low_p = gwas_low_p
+        high_or_low = None
+        if target_max_num_variants is not None and num_below_low_p > target_max_num_variants:
+            gwas_low_p = index_var_ps[target_max_num_variants]
+            high_or_low = "high"
+        if target_min_num_variants is not None and num_below_low_p < target_min_num_variants:
+            if len(index_var_ps) > target_min_num_variants:
+                gwas_low_p = index_var_ps[target_min_num_variants]
+            elif len(index_var_ps) > 0:
+                gwas_low_p = np.min(index_var_ps)
+            else:
+                gwas_low_p = 0.05
+            high_or_low = "low"
+
+        if high_or_low is not None:
+            self._record_param("gwas_low_p", gwas_low_p)
+
+            log(
+                "Detected %s power (%d variants below p=%.4g); adjusting --gwas-low-p to %.4g"
+                % (high_or_low, num_below_low_p, old_low_p, gwas_low_p)
+            )
+            (allelic_var_k_detect, gwas_prior_odds_detect) = self.compute_allelic_var_and_prior(
+                gwas_high_p,
+                gwas_high_p_posterior,
+                gwas_low_p,
+                gwas_low_p_posterior,
+            )
+            separate_detect = True
+
+            if detect_adjust_huge:
+                (allelic_var_k, gwas_prior_odds) = (allelic_var_k_detect, gwas_prior_odds_detect)
+                log("Using k=%.3g, po=%.3g for regression and huge scores" % (allelic_var_k_detect, gwas_prior_odds_detect))
+                self._record_params({"gwas_allelic_var_k": allelic_var_k, "gwas_prior_odds": gwas_prior_odds})
+            else:
+                log("Using k=%.3g, po=%.3g for regression only" % (allelic_var_k_detect, gwas_prior_odds_detect))
+                self._record_params({"gwas_allelic_var_k_detect": allelic_var_k_detect, "gwas_prior_odds_detect": gwas_prior_odds_detect})
+
+        return (
+            gwas_low_p,
+            allelic_var_k,
+            gwas_prior_odds,
+            allelic_var_k_detect,
+            gwas_prior_odds_detect,
+            separate_detect,
+        )
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5643,39 +5719,29 @@ class GeneSetData(object):
 
                     log(" (%d variants below p=%.4g)" % (num_below_low_p, gwas_low_p))
 
-                    if detect_high_power is not None or detect_low_power is not None:
-                        target_max_num_variants = detect_high_power
-                        target_min_num_variants = detect_low_power
-
-                        old_low_p = gwas_low_p
-                        high_or_low = None
-                        if target_max_num_variants is not None and num_below_low_p > target_max_num_variants:
-                            gwas_low_p = index_var_ps[target_max_num_variants]
-                            high_or_low = "high"
-                        if target_min_num_variants is not None and num_below_low_p < target_min_num_variants:
-                            if len(index_var_ps) > target_min_num_variants:
-                                gwas_low_p = index_var_ps[target_min_num_variants]
-                            elif len(index_var_ps) > 0:
-                                gwas_low_p = np.min(index_var_ps)
-                            else:
-                                gwas_low_p = 0.05
-                            high_or_low = "low"
-
-                        if high_or_low is not None:
-                            self._record_param("gwas_low_p", gwas_low_p)
-
-                            log("Detected %s power (%d variants below p=%.4g); adjusting --gwas-low-p to %.4g" % (high_or_low, num_below_low_p, old_low_p, gwas_low_p))
-                            (allelic_var_k_detect, gwas_prior_odds_detect) = self.compute_allelic_var_and_prior(gwas_high_p, gwas_high_p_posterior, gwas_low_p, gwas_low_p_posterior)
-                            separate_detect = True
-
-                            if detect_adjust_huge:
-                                #we have to adjust both for regression and the values used for huge scores
-                                (allelic_var_k, gwas_prior_odds) = (allelic_var_k_detect, gwas_prior_odds_detect)
-                                log("Using k=%.3g, po=%.3g for regression and huge scores" % (allelic_var_k_detect, gwas_prior_odds_detect))
-                                self._record_params({"gwas_allelic_var_k": allelic_var_k, "gwas_prior_odds": gwas_prior_odds})
-                            else:
-                                log("Using k=%.3g, po=%.3g for regression only" % (allelic_var_k_detect, gwas_prior_odds_detect))
-                                self._record_params({"gwas_allelic_var_k_detect": allelic_var_k_detect, "gwas_prior_odds_detect": gwas_prior_odds_detect})
+                    (
+                        gwas_low_p,
+                        allelic_var_k,
+                        gwas_prior_odds,
+                        allelic_var_k_detect,
+                        gwas_prior_odds_detect,
+                        separate_detect,
+                    ) = self._adjust_huge_detect_power(
+                        index_var_ps=index_var_ps,
+                        num_below_low_p=num_below_low_p,
+                        gwas_low_p=gwas_low_p,
+                        detect_high_power=detect_high_power,
+                        detect_low_power=detect_low_power,
+                        gwas_high_p=gwas_high_p,
+                        gwas_high_p_posterior=gwas_high_p_posterior,
+                        gwas_low_p_posterior=gwas_low_p_posterior,
+                        detect_adjust_huge=detect_adjust_huge,
+                        allelic_var_k=allelic_var_k,
+                        gwas_prior_odds=gwas_prior_odds,
+                        allelic_var_k_detect=allelic_var_k_detect,
+                        gwas_prior_odds_detect=gwas_prior_odds_detect,
+                        separate_detect=separate_detect,
+                    )
 
                     log("Using k=%.3g, po=%.3g" % (allelic_var_k, gwas_prior_odds))
                     self._record_params({"gwas_allelic_var_k": allelic_var_k, "gwas_prior_odds": gwas_prior_odds})
