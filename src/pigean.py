@@ -2342,6 +2342,49 @@ class GeneSetData(object):
                 new_orig_files += [orig_file] * len(x_to_add)
             return (new_Xs, batches, labels, new_orig_files)
 
+        def append_inputs_from_list_files(
+            list_specs,
+            dest_inputs,
+            dest_orig_files,
+            list_open_fn,
+            strip_fn,
+            resolve_relative_paths=False,
+            skip_empty_lines=True,
+        ):
+            if list_specs is None:
+                return
+
+            if type(list_specs) == str:
+                list_specs = [list_specs]
+
+            for list_spec in list_specs:
+                batch = None
+                if batch_separator in list_spec:
+                    batch = list_spec.split(batch_separator)[-1]
+                    list_spec = batch_separator.join(list_spec.split(batch_separator)[:-1])
+
+                list_dir = os.path.dirname(os.path.abspath(list_spec))
+                with list_open_fn(list_spec) as list_fh:
+                    for raw_line in list_fh:
+                        line = strip_fn(raw_line)
+                        if skip_empty_lines and len(line) == 0:
+                            continue
+
+                        if resolve_relative_paths:
+                            (path, label) = remove_tag(line)
+                            if path and not os.path.isabs(path):
+                                path = os.path.normpath(os.path.join(list_dir, path))
+                            line = add_tag(path, label)
+
+                        if batch is not None and batch_separator not in line:
+                            line = "%s%s%s" % (line, batch_separator, batch)
+
+                        dest_inputs.append(line)
+                        if initial_ps is not None:
+                            assert(list_spec in xin_to_p_noninf_ind)
+                            initial_ps.append(xin_to_p_noninf_ind[list_spec])
+                        dest_orig_files.append(list_spec)
+
         initial_ps = None
         if initial_p is not None:
             if type(initial_p) is not list:
@@ -2368,41 +2411,15 @@ class GeneSetData(object):
             
         is_dense = []
 
-        if X_list is not None:
-            X_lists = []
-            if type(X_list) == str:
-                X_lists = [X_list]
-            elif type(X_list) == list:
-                X_lists = X_list
-
-            for X_list in X_lists:
-
-                batch = None
-                if batch_separator in X_list:
-                    batch = X_list.split(batch_separator)[-1]
-                    X_list = batch_separator.join(X_list.split(batch_separator)[:-1])
-
-                xlist_dir = os.path.dirname(os.path.abspath(X_list))
-
-                with open_gz(X_list) as X_list_fh:
-                    for line in X_list_fh:
-                        line = line.strip()
-                        if len(line) == 0:
-                            continue
-
-                        (path, label) = remove_tag(line)
-                        if path and not os.path.isabs(path):
-                            path = os.path.normpath(os.path.join(xlist_dir, path))
-                        line = add_tag(path, label)
-
-                        if batch is not None and batch_separator not in line:
-                            line = "%s%s%s" % (line, batch_separator, batch)
-
-                        X_ins.append(line)
-                        if initial_ps is not None:
-                            assert(X_list in xin_to_p_noninf_ind)
-                            initial_ps.append(xin_to_p_noninf_ind[X_list])
-                        orig_files.append(X_list)
+        append_inputs_from_list_files(
+            list_specs=X_list,
+            dest_inputs=X_ins,
+            dest_orig_files=orig_files,
+            list_open_fn=open_gz,
+            strip_fn=lambda line: line.strip(),
+            resolve_relative_paths=True,
+            skip_empty_lines=True,
+        )
 
         X_ins, batches, labels, orig_files = expand_Xs(X_ins, orig_files)
 
@@ -2423,29 +2440,15 @@ class GeneSetData(object):
                 assert(Xd_in in xin_to_p_noninf_ind)
                 initial_ps.append(xin_to_p_noninf_ind[Xd_in])
 
-        if Xd_list is not None:
-            if type(Xd_list) == str:
-                Xd_lists = [Xd_list]
-            elif type(Xd_list) == list:
-                Xd_lists = Xd_list
-
-            for Xd_list in Xd_lists:
-
-                batch = None
-                if batch_separator in Xd_list:
-                    batch = Xd_list.split(batch_separator)[-1]
-                    Xd_list = batch_separator.join(Xd_list.split(batch_separator)[:-1])
-
-                with open(Xd_list) as Xd_list_fh:
-                    for line in Xd_list_fh:
-                        line = line.strip('\n')
-                        if batch is not None and batch_separator not in line:
-                            line = "%s%s%s" % (line, batch_separator, batch)
-                        Xd_ins.append(line)
-                        if initial_ps is not None:
-                            assert(Xd_list in xin_to_p_noninf_ind)
-                            initial_ps.append(xin_to_p_noninf_ind[Xd_list])
-                        orig_dfiles.append(Xd_list)
+        append_inputs_from_list_files(
+            list_specs=Xd_list,
+            dest_inputs=Xd_ins,
+            dest_orig_files=orig_dfiles,
+            list_open_fn=open,
+            strip_fn=lambda line: line.strip('\n'),
+            resolve_relative_paths=False,
+            skip_empty_lines=False,
+        )
 
         Xd_ins, batches2, labels2, orig_dfiles = expand_Xs(Xd_ins, orig_dfiles)
 
