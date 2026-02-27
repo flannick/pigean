@@ -5142,6 +5142,66 @@ class GeneSetData(object):
 
         return (window_fun_slope, window_fun_intercept)
 
+    def _build_huge_gwas_gene_outputs(
+        self,
+        gene_prob_gene_list,
+        huge_results,
+        huge_results_uncorrected,
+        huge_results_for_regression,
+        absent_genes,
+        absent_log_bf,
+        absent_log_bf_for_regression,
+    ):
+        if self.genes is not None:
+            gene_bf = np.array([np.nan] * len(self.genes))
+            gene_bf_for_regression = np.array([np.nan] * len(self.genes))
+        else:
+            gene_bf = np.array([])
+            gene_bf_for_regression = np.array([])
+
+        extra_gene_bf = []
+        extra_gene_bf_for_regression = []
+        extra_genes = []
+        self.gene_to_gwas_huge_score = {}
+        self.gene_to_gwas_huge_score_uncorrected = {}
+
+        for i in range(len(gene_prob_gene_list)):
+            gene = gene_prob_gene_list[i]
+            bf = huge_results[i]
+            bf_for_regression = huge_results_for_regression[i]
+            bf_uncorrected = huge_results_uncorrected[i]
+            self.gene_to_gwas_huge_score[gene] = bf
+            self.gene_to_gwas_huge_score_uncorrected[gene] = bf_uncorrected
+            if self.genes is not None and gene in self.gene_to_ind:
+                assert(self.gene_to_ind[gene] == i)
+                gene_bf[self.gene_to_ind[gene]] = bf
+                gene_bf_for_regression[self.gene_to_ind[gene]] = bf_for_regression
+            else:
+                extra_gene_bf.append(bf)
+                extra_gene_bf_for_regression.append(bf_for_regression)
+                extra_genes.append(gene)
+
+        for gene in absent_genes:
+            bf = absent_log_bf
+            bf_for_regression = absent_log_bf_for_regression
+            self.gene_to_gwas_huge_score[gene] = bf
+            self.gene_to_gwas_huge_score_uncorrected[gene] = bf
+            if self.genes is not None and gene in self.gene_to_ind:
+                gene_bf[self.gene_to_ind[gene]] = bf
+                gene_bf_for_regression[self.gene_to_ind[gene]] = bf_for_regression
+            else:
+                extra_gene_bf.append(bf)
+                extra_gene_bf_for_regression.append(bf_for_regression)
+                extra_genes.append(gene)
+
+        return (
+            gene_bf,
+            extra_genes,
+            np.array(extra_gene_bf),
+            gene_bf_for_regression,
+            np.array(extra_gene_bf_for_regression),
+        )
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5901,47 +5961,21 @@ class GeneSetData(object):
 
             (huge_results_for_regression, huge_results_uncorrected_for_regression, absent_genes_for_regression, absent_log_bf_for_regression) = self._distill_huge_signal_bfs(self.huge_signal_bfs_for_regression, self.huge_signal_posteriors_for_regression, self.huge_signal_sum_gene_cond_probabilities_for_regression, self.huge_signal_mean_gene_pos_for_regression, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, None, None, None, None, None, gene_prob_gene_list, total_genes=self.genes, rel_prior_log_bf=exomes_positive_controls_case_counts_prior_log_bf)
 
-            if self.genes is not None:
-                gene_bf = np.array([np.nan] * len(self.genes))
-                gene_bf_for_regression = np.array([np.nan] * len(self.genes))
-            else:
-                gene_bf = np.array([])
-                gene_bf_for_regression = np.array([])
-
-            extra_gene_bf = []
-            extra_gene_bf_for_regression = []
-            extra_genes = []
-            self.gene_to_gwas_huge_score = {}
-            self.gene_to_gwas_huge_score_uncorrected = {}
-
-            for i in range(len(gene_prob_gene_list)):
-                gene = gene_prob_gene_list[i]
-                bf = huge_results[i]
-                bf_for_regression = huge_results_for_regression[i]
-                bf_uncorrected = huge_results_uncorrected[i]
-                self.gene_to_gwas_huge_score[gene] = bf
-                self.gene_to_gwas_huge_score_uncorrected[gene] = bf_uncorrected
-                if self.genes is not None and gene in self.gene_to_ind:
-                    assert(self.gene_to_ind[gene] == i)
-                    gene_bf[self.gene_to_ind[gene]] = bf
-                    gene_bf_for_regression[self.gene_to_ind[gene]] = bf_for_regression
-                else:
-                    extra_gene_bf.append(bf)
-                    extra_gene_bf_for_regression.append(bf_for_regression)
-                    extra_genes.append(gene)
-            for gene in absent_genes:
-                bf = absent_log_bf
-                bf_for_regression = absent_log_bf_for_regression
-                self.gene_to_gwas_huge_score[gene] = bf
-                self.gene_to_gwas_huge_score_uncorrected[gene] = bf
-                if self.genes is not None and gene in self.gene_to_ind:
-                    gene_bf[self.gene_to_ind[gene]] = bf
-                    gene_bf_for_regression[self.gene_to_ind[gene]] = bf_for_regression
-                else:
-                    extra_gene_bf.append(bf)
-                    extra_gene_bf_for_regression.append(bf_for_regression)
-                    extra_genes.append(gene)
-            extra_gene_bf = np.array(extra_gene_bf)
+            (
+                gene_bf,
+                extra_genes,
+                extra_gene_bf,
+                gene_bf_for_regression,
+                extra_gene_bf_for_regression,
+            ) = self._build_huge_gwas_gene_outputs(
+                gene_prob_gene_list=gene_prob_gene_list,
+                huge_results=huge_results,
+                huge_results_uncorrected=huge_results_uncorrected,
+                huge_results_for_regression=huge_results_for_regression,
+                absent_genes=absent_genes,
+                absent_log_bf=absent_log_bf,
+                absent_log_bf_for_regression=absent_log_bf_for_regression,
+            )
 
             self.combine_huge_scores()
 
