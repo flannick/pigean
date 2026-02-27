@@ -15012,8 +15012,6 @@ _GIBBS_EPOCH_MISSING_SUM_KEYS = (
 _GIBBS_EPOCH_RUNTIME_SUM_KEYS = (
     "all_sum_betas_m",
     "all_sum_betas2_m",
-    "all_sum_z_scores_m",
-    "all_sum_z_scores2_m",
     "all_num_sum_m",
 )
 
@@ -16017,8 +16015,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
     # Sums across all iterations, not just converged.
     all_sum_betas_m = np.zeros(full_betas_m_shape)
     all_sum_betas2_m = np.zeros(full_betas_m_shape)
-    all_sum_z_scores_m = np.zeros(full_betas_m_shape)
-    all_sum_z_scores2_m = np.zeros(full_betas_m_shape)
     all_num_sum_m = np.zeros(full_betas_m_shape)
 
     # Initialize per-chain priors.
@@ -16116,8 +16112,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         "num_sum_Y_m": num_sum_Y_m,
         "all_sum_betas_m": all_sum_betas_m,
         "all_sum_betas2_m": all_sum_betas2_m,
-        "all_sum_z_scores_m": all_sum_z_scores_m,
-        "all_sum_z_scores2_m": all_sum_z_scores2_m,
         "all_num_sum_m": all_num_sum_m,
         "priors_sample_m": priors_sample_m,
         "priors_mean_m": priors_mean_m,
@@ -19172,18 +19166,12 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     iteration_num,
     full_betas_mean_m,
 ):
-    full_z_scores_m = iter_state["full_z_scores_m"]
-
     all_sum_betas_m = epoch_runtime["all_sum_betas_m"]
     all_sum_betas2_m = epoch_runtime["all_sum_betas2_m"]
-    all_sum_z_scores_m = epoch_runtime["all_sum_z_scores_m"]
-    all_sum_z_scores2_m = epoch_runtime["all_sum_z_scores2_m"]
     all_num_sum_m = epoch_runtime["all_num_sum_m"]
 
     all_sum_betas_m = np.add(all_sum_betas_m, full_betas_mean_m)
     all_sum_betas2_m = np.add(all_sum_betas2_m, np.power(full_betas_mean_m, 2))
-    all_sum_z_scores_m = np.add(all_sum_z_scores_m, full_z_scores_m)
-    all_sum_z_scores2_m = np.add(all_sum_z_scores2_m, np.power(full_z_scores_m, 2))
     all_num_sum_m += 1
 
     R_beta_v = np.zeros(all_sum_betas_m.shape[1])
@@ -19200,8 +19188,6 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     return {
         "all_sum_betas_m": all_sum_betas_m,
         "all_sum_betas2_m": all_sum_betas2_m,
-        "all_sum_z_scores_m": all_sum_z_scores_m,
-        "all_sum_z_scores2_m": all_sum_z_scores2_m,
         "all_num_sum_m": all_num_sum_m,
         "R_beta_v": R_beta_v,
         "gibbs_good": low_beta_restart_update["gibbs_good"],
