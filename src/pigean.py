@@ -4488,6 +4488,89 @@ class GeneSetData(object):
         gene_prob_genes += list(gene_names)
         return gene_prob_col_num
 
+    def _try_use_huge_input_credible_set(
+        self,
+        learn_params,
+        chrom,
+        input_credible_set_info,
+        variants_left,
+        cs_ignore,
+        var_pos,
+        var_p,
+        credible_set_span,
+    ):
+        result = {
+            "handled": False,
+            "skip_iteration": False,
+            "cond_prob": None,
+            "cond_prob_detect": None,
+            "is_input_cs": False,
+            "region_vars": None,
+            "lead_index": None,
+            "cs_ignore": cs_ignore,
+        }
+        if learn_params or chrom not in input_credible_set_info or len(input_credible_set_info[chrom].keys()) == 0:
+            return result
+
+        result["handled"] = True
+        result["is_input_cs"] = True
+
+        cur_cs_id = list(input_credible_set_info[chrom].keys())[0]
+        cur_cs_vars = input_credible_set_info[chrom][cur_cs_id]
+        region_vars = np.full(len(var_pos), False)
+
+        cond_prob = np.zeros(len(var_pos))
+        mask = None
+        for pos_ppa in cur_cs_vars:
+            pos = pos_ppa[0]
+            ppa = pos_ppa[1]
+            mask = np.logical_and(variants_left, var_pos == pos)
+
+            if np.sum(mask) > 0:
+                region_vars[mask] = True
+                if ppa is not None:
+                    cond_prob[mask] = ppa
+
+        # All credible set variants have been used.
+        if np.sum(region_vars) == 0:
+            del input_credible_set_info[chrom][cur_cs_id]
+            result["skip_iteration"] = True
+            return result
+
+        cur_cs_ignore = np.logical_and(
+            var_pos > np.min(var_pos[region_vars]) - credible_set_span,
+            var_pos < np.max(var_pos[region_vars]) + credible_set_span,
+        )
+
+        lead_index = None
+        cond_prob_region = None
+        cond_prob_detect_region = None
+        if np.sum(cond_prob) > 0:
+            cond_prob /= np.sum(cond_prob)
+            lead_index = np.argmax(cond_prob)
+            cond_prob_region = cond_prob[region_vars]
+            cond_prob_detect_region = copy.copy(cond_prob_region)
+        else:
+            if mask is not None and np.sum(mask) > 0:
+                lead_index = np.where(mask)[0][0]
+            else:
+                cs_variant_window = np.logical_and(np.logical_and(variants_left, ~cs_ignore), cur_cs_ignore)
+                if np.sum(cs_variant_window) > 0:
+                    cs_variant_inds = np.where(cs_variant_window)[0]
+                    lead_index = cs_variant_inds[np.argmin(var_p[cs_variant_inds])]
+                else:
+                    result["is_input_cs"] = False
+
+        if result["is_input_cs"]:
+            result["cs_ignore"] = np.logical_or(cs_ignore, cur_cs_ignore)
+            del input_credible_set_info[chrom][cur_cs_id]
+
+        result["cond_prob"] = cond_prob_region
+        result["cond_prob_detect"] = cond_prob_detect_region
+        result["region_vars"] = region_vars
+        result["lead_index"] = lead_index
+        return result
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5267,58 +5350,25 @@ class GeneSetData(object):
                         cond_prob = None
                         cond_prob_detect = None
                         is_input_cs = False
-                        if not learn_params and chrom in input_credible_set_info and len(input_credible_set_info[chrom].keys()) > 0:
-
-                            cur_cs_id = list(input_credible_set_info[chrom].keys())[0]
-                            cur_cs_vars = input_credible_set_info[chrom][cur_cs_id]
-                            is_input_cs = True
-
-                            region_vars = np.full(len(var_pos), False)
-
-                            cond_prob = np.zeros(len(var_pos))
-                            for pos_ppa in cur_cs_vars:
-                                pos = pos_ppa[0]
-                                ppa = pos_ppa[1]
-                                mask = np.logical_and(variants_left, var_pos == pos)
-
-                                if np.sum(mask) > 0:
-                                    region_vars[mask] = True
-                                    if ppa is not None:
-                                        cond_prob[mask] = ppa
-
-                            #all of the credible set variants have been used
-                            if np.sum(region_vars) == 0:
-                                del input_credible_set_info[chrom][cur_cs_id]
-                                continue
-
-                            cur_cs_ignore = np.logical_and(var_pos > np.min(var_pos[region_vars]) - credible_set_span, var_pos < np.max(var_pos[region_vars]) + credible_set_span)
-
-                            if np.sum(cond_prob) > 0:
-                                cond_prob /= np.sum(cond_prob)
-
-                                i = np.argmax(cond_prob)
-                                cond_prob = cond_prob[region_vars]
-                                cond_prob_detect = copy.copy(cond_prob)
-                            else:
-                                cond_prob = None
-                                if np.sum(mask) > 0:
-                                    i = np.where(mask)[0][0]
-                                else:
-                                    #find the highest variant within cur_cs_ignore
-                                    cs_variant_window = np.logical_and(np.logical_and(variants_left, ~cs_ignore), cur_cs_ignore)
-                                    if np.sum(cs_variant_window) > 0:
-                                        #if there is at least one, then we use the minimum p-value
-
-                                        #get the lowest p-value remaining variant
-                                        cs_variant_inds = np.where(cs_variant_window)[0]
-                                        i = cs_variant_inds[np.argmin(var_p[cs_variant_inds])]
-                                    else:
-                                        #otherwise reset
-                                        is_input_cs = False
-
-                            if is_input_cs:
-                                cs_ignore = np.logical_or(cs_ignore, cur_cs_ignore)
-                                del input_credible_set_info[chrom][cur_cs_id]
+                        cs_selection = self._try_use_huge_input_credible_set(
+                            learn_params=learn_params,
+                            chrom=chrom,
+                            input_credible_set_info=input_credible_set_info,
+                            variants_left=variants_left,
+                            cs_ignore=cs_ignore,
+                            var_pos=var_pos,
+                            var_p=var_p,
+                            credible_set_span=credible_set_span,
+                        )
+                        if cs_selection["skip_iteration"]:
+                            continue
+                        if cs_selection["handled"]:
+                            cond_prob = cs_selection["cond_prob"]
+                            cond_prob_detect = cs_selection["cond_prob_detect"]
+                            is_input_cs = cs_selection["is_input_cs"]
+                            region_vars = cs_selection["region_vars"]
+                            i = cs_selection["lead_index"]
+                            cs_ignore = cs_selection["cs_ignore"]
 
                         #if we didn't have credible set, or it didn't have PPA, then we go through here
                         if cond_prob is None:
