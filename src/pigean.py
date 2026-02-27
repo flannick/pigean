@@ -8321,7 +8321,7 @@ class GeneSetData(object):
         num_full_gene_sets = gibbs_inputs["num_full_gene_sets"]
 
         epoch_aggregates = _new_gibbs_epoch_aggregates()
-        epoch_phase_config = {
+        epoch_runtime_configs = _build_gibbs_epoch_runtime_configs({
             "total_num_iter": total_num_iter,
             "num_chains": num_chains,
             "num_full_gene_sets": num_full_gene_sets,
@@ -8336,8 +8336,6 @@ class GeneSetData(object):
             "min_num_post_burn_in": min_num_post_burn_in,
             "max_num_post_burn_in": max_num_post_burn_in,
             "increase_hyper_if_betas_below": increase_hyper_if_betas_below,
-        }
-        inner_beta_kwargs = {
             "passed_in_max_num_burn_in": passed_in_max_num_burn_in,
             "max_num_iter_betas": max_num_iter_betas,
             "min_num_iter_betas": min_num_iter_betas,
@@ -8349,25 +8347,16 @@ class GeneSetData(object):
             "gauss_seidel_betas": gauss_seidel_betas,
             "sparse_solution": sparse_solution,
             "sparse_frac_betas": sparse_frac_betas,
-        }
-        iteration_update_config = {
-            "use_mean_betas": use_mean_betas,
             "warm_start": warm_start,
             "debug_zero_sparse": debug_zero_sparse,
-            "num_chains": num_chains,
             "num_batches_parallel": num_batches_parallel,
             "betas_trace_out": betas_trace_out,
             "update_huge_scores": update_huge_scores,
             "compute_Y_raw": compute_Y_raw,
-            "adjust_priors": adjust_priors,
-        }
-        prefilter_config = {
             "sparse_frac_gibbs": sparse_frac_gibbs,
             "sparse_max_gibbs": sparse_max_gibbs,
             "pre_filter_batch_size": pre_filter_batch_size,
             "pre_filter_small_batch_size": pre_filter_small_batch_size,
-        }
-        burn_in_config = {
             "active_beta_top_k": active_beta_top_k,
             "active_beta_min_abs": active_beta_min_abs,
             "burn_in_rhat_quantile": burn_in_rhat_quantile,
@@ -8382,50 +8371,24 @@ class GeneSetData(object):
             "gauss_seidel": gauss_seidel,
             "eps": eps,
             "diag_every": diag_every,
-            "num_full_gene_sets": num_full_gene_sets,
             "burn_in_patience": burn_in_patience,
             "stop_patience": stop_patience,
-        }
-        post_burn_diag_config = {
-            "num_chains": num_chains,
-            "active_beta_top_k": active_beta_top_k,
-            "active_beta_min_abs": active_beta_min_abs,
             "stop_mcse_quantile": stop_mcse_quantile,
             "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor,
             "stop_top_gene_k": stop_top_gene_k,
             "stop_min_gene_d": stop_min_gene_d,
             "max_rel_mcse_beta": max_rel_mcse_beta,
             "max_abs_mcse_d": max_abs_mcse_d,
-            "stop_patience": stop_patience,
-            "stall_window": stall_window,
             "stall_min_post_burn_in": stall_min_post_burn_in,
-            "stall_delta_rhat": stall_delta_rhat,
             "stall_delta_mcse": stall_delta_mcse,
-            "stall_recent_window": stall_recent_window,
-            "stall_recent_eps": stall_recent_eps,
-            "num_full_gene_sets": num_full_gene_sets,
-            "burn_in_patience": burn_in_patience,
-        }
-        iteration_progress_config = {
-            "diag_every": diag_every,
-            "use_mean_betas": use_mean_betas,
-            "post_burn_diag_config": post_burn_diag_config,
-            "burn_in_config": burn_in_config,
-        }
-        epoch_iteration_static_config = {
-            "inner_beta_kwargs": inner_beta_kwargs,
-            "iteration_update_config": iteration_update_config,
-            "cur_background_log_bf_v": cur_background_log_bf_v,
-            "y_var_orig": y_var_orig,
-            "gauss_seidel": gauss_seidel,
             "initial_linear_filter": initial_linear_filter,
-            "sparse_frac_gibbs": sparse_frac_gibbs,
-            "sparse_max_gibbs": sparse_max_gibbs,
             "correct_betas_mean": correct_betas_mean,
             "correct_betas_var": correct_betas_var,
-            "prefilter_config": prefilter_config,
-            "iteration_progress_config": iteration_progress_config,
-        }
+            "cur_background_log_bf_v": cur_background_log_bf_v,
+            "y_var_orig": y_var_orig,
+        })
+        epoch_phase_config = epoch_runtime_configs["epoch_phase_config"]
+        epoch_iteration_static_config = epoch_runtime_configs["epoch_iteration_static_config"]
 
         (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
             gene_set_stats_trace_out,
@@ -17311,6 +17274,120 @@ def _reset_gibbs_diagnostics(state):
     state.combined_prior_Ys_mcse = None
     state.Y_r_hat = None
     state.Y_mcse = None
+
+
+def _build_gibbs_epoch_runtime_configs(config_inputs):
+    # Group per-epoch and per-iteration static knobs so run_gibbs can focus on
+    # control flow.
+    epoch_phase_config = {
+        "total_num_iter": config_inputs["total_num_iter"],
+        "num_chains": config_inputs["num_chains"],
+        "num_full_gene_sets": config_inputs["num_full_gene_sets"],
+        "use_mean_betas": config_inputs["use_mean_betas"],
+        "max_mb_X_h": config_inputs["max_mb_X_h"],
+        "target_num_epochs": config_inputs["target_num_epochs"],
+        "num_mad": config_inputs["num_mad"],
+        "adjust_priors": config_inputs["adjust_priors"],
+        "epoch_max_num_iter_config": config_inputs["epoch_max_num_iter_config"],
+        "min_num_burn_in": config_inputs["min_num_burn_in"],
+        "max_num_burn_in": config_inputs["max_num_burn_in"],
+        "min_num_post_burn_in": config_inputs["min_num_post_burn_in"],
+        "max_num_post_burn_in": config_inputs["max_num_post_burn_in"],
+        "increase_hyper_if_betas_below": config_inputs["increase_hyper_if_betas_below"],
+    }
+    inner_beta_kwargs = {
+        "passed_in_max_num_burn_in": config_inputs["passed_in_max_num_burn_in"],
+        "max_num_iter_betas": config_inputs["max_num_iter_betas"],
+        "min_num_iter_betas": config_inputs["min_num_iter_betas"],
+        "num_chains_betas": config_inputs["num_chains_betas"],
+        "r_threshold_burn_in_betas": config_inputs["r_threshold_burn_in_betas"],
+        "use_max_r_for_convergence_betas": config_inputs["use_max_r_for_convergence_betas"],
+        "max_frac_sem_betas": config_inputs["max_frac_sem_betas"],
+        "max_allowed_batch_correlation": config_inputs["max_allowed_batch_correlation"],
+        "gauss_seidel_betas": config_inputs["gauss_seidel_betas"],
+        "sparse_solution": config_inputs["sparse_solution"],
+        "sparse_frac_betas": config_inputs["sparse_frac_betas"],
+    }
+    iteration_update_config = {
+        "use_mean_betas": config_inputs["use_mean_betas"],
+        "warm_start": config_inputs["warm_start"],
+        "debug_zero_sparse": config_inputs["debug_zero_sparse"],
+        "num_chains": config_inputs["num_chains"],
+        "num_batches_parallel": config_inputs["num_batches_parallel"],
+        "betas_trace_out": config_inputs["betas_trace_out"],
+        "update_huge_scores": config_inputs["update_huge_scores"],
+        "compute_Y_raw": config_inputs["compute_Y_raw"],
+        "adjust_priors": config_inputs["adjust_priors"],
+    }
+    prefilter_config = {
+        "sparse_frac_gibbs": config_inputs["sparse_frac_gibbs"],
+        "sparse_max_gibbs": config_inputs["sparse_max_gibbs"],
+        "pre_filter_batch_size": config_inputs["pre_filter_batch_size"],
+        "pre_filter_small_batch_size": config_inputs["pre_filter_small_batch_size"],
+    }
+    burn_in_config = {
+        "active_beta_top_k": config_inputs["active_beta_top_k"],
+        "active_beta_min_abs": config_inputs["active_beta_min_abs"],
+        "burn_in_rhat_quantile": config_inputs["burn_in_rhat_quantile"],
+        "r_threshold_burn_in": config_inputs["r_threshold_burn_in"],
+        "stall_window": config_inputs["stall_window"],
+        "stall_min_burn_in": config_inputs["stall_min_burn_in"],
+        "stall_delta_rhat": config_inputs["stall_delta_rhat"],
+        "stall_recent_window": config_inputs["stall_recent_window"],
+        "stall_recent_eps": config_inputs["stall_recent_eps"],
+        "burn_in_stall_window": config_inputs["burn_in_stall_window"],
+        "burn_in_stall_delta": config_inputs["burn_in_stall_delta"],
+        "gauss_seidel": config_inputs["gauss_seidel"],
+        "eps": config_inputs["eps"],
+        "diag_every": config_inputs["diag_every"],
+        "num_full_gene_sets": config_inputs["num_full_gene_sets"],
+        "burn_in_patience": config_inputs["burn_in_patience"],
+        "stop_patience": config_inputs["stop_patience"],
+    }
+    post_burn_diag_config = {
+        "num_chains": config_inputs["num_chains"],
+        "active_beta_top_k": config_inputs["active_beta_top_k"],
+        "active_beta_min_abs": config_inputs["active_beta_min_abs"],
+        "stop_mcse_quantile": config_inputs["stop_mcse_quantile"],
+        "beta_rel_mcse_denom_floor": config_inputs["beta_rel_mcse_denom_floor"],
+        "stop_top_gene_k": config_inputs["stop_top_gene_k"],
+        "stop_min_gene_d": config_inputs["stop_min_gene_d"],
+        "max_rel_mcse_beta": config_inputs["max_rel_mcse_beta"],
+        "max_abs_mcse_d": config_inputs["max_abs_mcse_d"],
+        "stop_patience": config_inputs["stop_patience"],
+        "stall_window": config_inputs["stall_window"],
+        "stall_min_post_burn_in": config_inputs["stall_min_post_burn_in"],
+        "stall_delta_rhat": config_inputs["stall_delta_rhat"],
+        "stall_delta_mcse": config_inputs["stall_delta_mcse"],
+        "stall_recent_window": config_inputs["stall_recent_window"],
+        "stall_recent_eps": config_inputs["stall_recent_eps"],
+        "num_full_gene_sets": config_inputs["num_full_gene_sets"],
+        "burn_in_patience": config_inputs["burn_in_patience"],
+    }
+    iteration_progress_config = {
+        "diag_every": config_inputs["diag_every"],
+        "use_mean_betas": config_inputs["use_mean_betas"],
+        "post_burn_diag_config": post_burn_diag_config,
+        "burn_in_config": burn_in_config,
+    }
+    epoch_iteration_static_config = {
+        "inner_beta_kwargs": inner_beta_kwargs,
+        "iteration_update_config": iteration_update_config,
+        "cur_background_log_bf_v": config_inputs["cur_background_log_bf_v"],
+        "y_var_orig": config_inputs["y_var_orig"],
+        "gauss_seidel": config_inputs["gauss_seidel"],
+        "initial_linear_filter": config_inputs["initial_linear_filter"],
+        "sparse_frac_gibbs": config_inputs["sparse_frac_gibbs"],
+        "sparse_max_gibbs": config_inputs["sparse_max_gibbs"],
+        "correct_betas_mean": config_inputs["correct_betas_mean"],
+        "correct_betas_var": config_inputs["correct_betas_var"],
+        "prefilter_config": prefilter_config,
+        "iteration_progress_config": iteration_progress_config,
+    }
+    return {
+        "epoch_phase_config": epoch_phase_config,
+        "epoch_iteration_static_config": epoch_iteration_static_config,
+    }
 
 
 def _run_gibbs_epoch_phase(
