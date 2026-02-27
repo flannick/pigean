@@ -2481,38 +2481,43 @@ class GeneSetData(object):
         #semantics are that things with a batch have value learned from all files with that batch,
         #things with None have it learned from first batch that appears in arg list
 
-        used_batches = set([str(b) for b in batches if b is not None])
-        next_batch_num = 1
-        def __generate_new_batch(new_batch_num):
-            new_batch = "BATCH%d" % new_batch_num
-            while new_batch in used_batches:
-                new_batch_num += 1
+        def assign_default_batches(batches, orig_files):
+            used_batches = set([str(b) for b in batches if b is not None])
+            next_batch_num = 1
+
+            def generate_new_batch(new_batch_num):
                 new_batch = "BATCH%d" % new_batch_num
-            used_batches.add(new_batch)
-            return new_batch, new_batch_num
+                while new_batch in used_batches:
+                    new_batch_num += 1
+                    new_batch = "BATCH%d" % new_batch_num
+                used_batches.add(new_batch)
+                return new_batch, new_batch_num
 
-        for i in range(len(batches)):
-            if batches[i] is None:
-                batches[i], next_batch_num = __generate_new_batch(next_batch_num)
+            for i in range(len(batches)):
+                if batches[i] is None:
+                    batches[i], next_batch_num = generate_new_batch(next_batch_num)
 
-                if batch_all_for_hyper:
-                    for j in range(i+1,len(batches)):
-                        batches[j] = batches[i]
-                    break
-                else:
-                    #now find all other none batches with the same file and update them too
-                    for j in range(i+1,len(batches)):
-                        if batches[j] is None and orig_files[i] == orig_files[j]:
+                    if batch_all_for_hyper:
+                        for j in range(i+1,len(batches)):
                             batches[j] = batches[i]
+                        break
+                    else:
+                        #now find all other none batches with the same file and update them too
+                        for j in range(i+1,len(batches)):
+                            if batches[j] is None and orig_files[i] == orig_files[j]:
+                                batches[j] = batches[i]
 
-            if first_for_hyper:
-                #make sure though that at least one batch is not None (this is what we will use to learn everything)
-                #but then break; keep None batches to learn from the first batch
-                #also set all other batches to None (we won't be learning for those)
-                for j in range(i+1, len(batches)):
-                    if batches[j] != batches[i]:
-                        batches[j] = None
-                break
+                if first_for_hyper:
+                    #make sure though that at least one batch is not None (this is what we will use to learn everything)
+                    #but then break; keep None batches to learn from the first batch
+                    #also set all other batches to None (we won't be learning for those)
+                    for j in range(i+1, len(batches)):
+                        if batches[j] != batches[i]:
+                            batches[j] = None
+                    break
+            return batches
+
+        batches = assign_default_batches(batches, orig_files)
 
 
         self._record_params({"num_X_batches": len(batches)})
