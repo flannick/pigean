@@ -19160,31 +19160,6 @@ def _configure_hyperparameters_for_main(state, options):
     return sigma2_cond
 
 
-def _mode_requires_gene_level_inputs(mode_state):
-    return (
-        mode_state["run_huge"]
-        or mode_state["run_beta_tilde"]
-        or mode_state["run_beta"]
-        or mode_state["run_priors"]
-        or mode_state["run_naive_priors"]
-        or mode_state["run_gibbs"]
-    )
-
-
-def _read_main_y_from_gene_stats(state, options):
-    state.read_Y(
-        gene_bfs_in=options.gene_stats_in,
-        show_progress=not options.hide_progress,
-        gene_bfs_id_col=options.gene_stats_id_col,
-        gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
-        gene_bfs_combined_col=options.gene_stats_combined_col,
-        gene_bfs_prob_col=options.gene_stats_prob_col,
-        gene_bfs_prior_col=options.gene_stats_prior_col,
-        gene_covs_in=options.gene_covs_in,
-        hold_out_chrom=options.hold_out_chrom,
-    )
-
-
 def _build_main_read_y_source_kwargs(options):
     return dict(
         gwas_in=options.gwas_in,
@@ -19289,41 +19264,29 @@ def _build_main_read_y_source_kwargs(options):
     )
 
 
-def _read_main_y_from_source_bundle(state, options):
-    if (
-        options.gwas_in is None
-        and options.huge_statistics_in is None
-        and options.exomes_in is None
-        and options.case_counts_in is None
-    ):
-        options.ols = True
-        if options.positive_controls_all_in is None and not options.add_all_genes:
-            bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
-    state.read_Y(**_build_main_read_y_source_kwargs(options))
-
-
-def _read_main_y_from_phewas(state, options):
-    if not options.gene_phewas_bfs_in:
-        bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-    state.read_gene_phewas_bfs(
-        gene_phewas_bfs_in=options.gene_phewas_bfs_in,
-        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-        phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-        min_value=options.min_gene_phewas_read_value,
-        max_num_entries_at_once=options.max_read_entries_at_once,
-    )
-
-
 def _load_main_inputs(state, options, mode_state):
-    if not _mode_requires_gene_level_inputs(mode_state):
+    if not (
+        mode_state["run_huge"]
+        or mode_state["run_beta_tilde"]
+        or mode_state["run_beta"]
+        or mode_state["run_priors"]
+        or mode_state["run_naive_priors"]
+        or mode_state["run_gibbs"]
+    ):
         return False
 
     if options.gene_stats_in:
-        _read_main_y_from_gene_stats(state, options)
+        state.read_Y(
+            gene_bfs_in=options.gene_stats_in,
+            show_progress=not options.hide_progress,
+            gene_bfs_id_col=options.gene_stats_id_col,
+            gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
+            gene_bfs_combined_col=options.gene_stats_combined_col,
+            gene_bfs_prob_col=options.gene_stats_prob_col,
+            gene_bfs_prior_col=options.gene_stats_prior_col,
+            gene_covs_in=options.gene_covs_in,
+            hold_out_chrom=options.hold_out_chrom,
+        )
         return False
 
     if (
@@ -19334,11 +19297,32 @@ def _load_main_inputs(state, options, mode_state):
         or options.positive_controls_list is not None
         or options.case_counts_in is not None
     ):
-        _read_main_y_from_source_bundle(state, options)
+        if (
+            options.gwas_in is None
+            and options.huge_statistics_in is None
+            and options.exomes_in is None
+            and options.case_counts_in is None
+        ):
+            options.ols = True
+            if options.positive_controls_all_in is None and not options.add_all_genes:
+                bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
+        state.read_Y(**_build_main_read_y_source_kwargs(options))
         return False
 
     if options.betas_uncorrected_from_phewas:
-        _read_main_y_from_phewas(state, options)
+        if not options.gene_phewas_bfs_in:
+            bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
+        state.read_gene_phewas_bfs(
+            gene_phewas_bfs_in=options.gene_phewas_bfs_in,
+            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+            phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
+            min_value=options.min_gene_phewas_read_value,
+            max_num_entries_at_once=options.max_read_entries_at_once,
+        )
         return False
 
     return True
