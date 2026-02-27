@@ -1199,6 +1199,7 @@ class GeneSetData(object):
         self.debug_skip_correlation = False
         self.debug_skip_phewas_covs = False
         self.debug_only_avg_huge = False
+        self.debug_just_check_header = False
 
         self._init_matrix_and_gene_index_state(batch_size=batch_size)
         self._init_phewas_and_label_state()
@@ -3992,7 +3993,7 @@ class GeneSetData(object):
             else:
                 bail("Require information about p-value and se or N or beta, or beta and se; specify with --gwas-p-col, --gwas-beta-col, --gwas-se-col, and --gwas-n-col")
 
-            if options.debug_just_check_header:
+            if self.debug_just_check_header:
                 bail("Done checking headers")
 
 
@@ -19559,6 +19560,7 @@ def main():
     state.debug_skip_correlation = options.debug_skip_correlation
     state.debug_skip_phewas_covs = options.debug_skip_phewas_covs
     state.debug_only_avg_huge = options.debug_only_avg_huge
+    state.debug_just_check_header = options.debug_just_check_header
     mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 
     # ==========================================================================
