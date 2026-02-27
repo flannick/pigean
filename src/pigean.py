@@ -4354,6 +4354,85 @@ class GeneSetData(object):
         max_pos = np.max(var_pos[region_vars])
         return (variants_left, region_vars, sig_posterior, sig_posterior_detect, min_pos, max_pos)
 
+    def _build_huge_signal_region_mask(
+        self,
+        var_pos,
+        var_p,
+        var_logp,
+        var_freq,
+        lead_index,
+        signal_window_size,
+        signal_min_sep,
+        max_signal_p,
+        max_clump_ld,
+        signal_max_logp_ratio,
+    ):
+        # Start with a fixed window around lead SNP and expand until support drops.
+        region_vars = np.logical_and(
+            var_pos >= var_pos[lead_index] - signal_window_size,
+            var_pos <= var_pos[lead_index] + signal_window_size,
+        )
+
+        region_inds = np.where(region_vars)[0]
+        assert(len(region_inds) > 0)
+
+        increase_ratio = 1.3
+        self._record_param("p_value_increase_ratio_for_sep_signal", increase_ratio)
+
+        region_ind = region_inds[0] - 1
+        last_significant_snp = region_inds[0]
+        while region_ind > 0 and np.abs(var_pos[region_ind] - var_pos[last_significant_snp]) < signal_min_sep:
+            if var_p[region_ind] < max_signal_p:
+                if var_p[region_ind] < var_p[last_significant_snp]:
+                    # Check if it starts to increase after it.
+                    cur_block = np.logical_and(
+                        np.logical_and(var_pos >= var_pos[region_ind], var_pos < var_pos[region_ind] + signal_min_sep),
+                        var_p < max_signal_p,
+                    )
+                    prev_block = np.logical_and(
+                        np.logical_and(var_pos >= var_pos[region_ind] + signal_min_sep, var_pos < var_pos[region_ind] + 2 * signal_min_sep),
+                        var_p < max_signal_p,
+                    )
+
+                    if np.sum(prev_block) == 0 or np.sum(cur_block) == 0 or np.mean(var_logp[cur_block]) > increase_ratio * np.mean(var_logp[prev_block]):
+                        break
+
+                last_significant_snp = region_ind
+                region_vars[region_ind:region_inds[0]] = True
+            region_ind -= 1
+
+        region_ind = region_inds[-1] + 1
+        last_significant_snp = region_inds[0]
+        while region_ind < len(var_pos) and np.abs(var_pos[region_ind] - var_pos[last_significant_snp]) < signal_min_sep:
+            if var_p[region_ind] < max_signal_p:
+                if var_p[region_ind] < var_p[last_significant_snp]:
+                    cur_block = np.logical_and(
+                        np.logical_and(var_pos <= var_pos[region_ind], var_pos > var_pos[region_ind] - signal_min_sep),
+                        var_p < max_signal_p,
+                    )
+                    prev_block = np.logical_and(
+                        np.logical_and(var_pos <= var_pos[region_ind] - signal_min_sep, var_pos > var_pos[region_ind] - 2 * signal_min_sep),
+                        var_p < max_signal_p,
+                    )
+                    if np.sum(prev_block) == 0 or np.sum(cur_block) == 0 or np.mean(var_logp[cur_block]) > increase_ratio * np.mean(var_logp[prev_block]):
+                        break
+
+                last_significant_snp = region_ind
+                region_vars[region_inds[-1]:region_ind] = True
+            region_ind += 1
+
+        # If we have MAF, approximate LD by MAF and clump incompatible variants.
+        if var_freq is not None:
+            max_ld = np.sqrt((var_freq[lead_index] * (1 - var_freq)) / (var_freq * (1 - var_freq[lead_index])))
+            max_ld[var_freq[lead_index] > var_freq] = 1.0 / max_ld[var_freq[lead_index] > var_freq]
+
+            region_vars[max_ld < max_clump_ld] = False
+
+        if signal_max_logp_ratio is not None:
+            region_vars[var_logp / var_logp[lead_index] < signal_max_logp_ratio] = False
+
+        return region_vars
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5202,77 +5281,18 @@ class GeneSetData(object):
                             #we will do this if there was no credible set, or if the credible set just gave us the top variant
                             #if it just gave us the top variant, then we expand around the lead SNP in the credible set
 
-                            region_vars = np.logical_and(var_pos >= var_pos[i] - signal_window_size, var_pos <= var_pos[i] + signal_window_size)
-
-                            region_inds = np.where(region_vars)[0]
-                            assert(len(region_inds) > 0)
-
-                            #extend the region until the distance to the last significant snp is greater than the signal_min_sep
-
-                            increase_ratio = 1.3
-                            self._record_param("p_value_increase_ratio_for_sep_signal", increase_ratio)
-
-                            region_ind = region_inds[0] - 1
-                            last_significant_snp = region_inds[0]
-                            while region_ind > 0 and np.abs(var_pos[region_ind] - var_pos[last_significant_snp]) < signal_min_sep:
-                                if var_p[region_ind] < max_signal_p:
-
-                                    if var_p[region_ind] < var_p[last_significant_snp]:
-                                        #check if it starts to increase after it
-                                        cur_block = np.logical_and(np.logical_and(var_pos >= var_pos[region_ind], var_pos < var_pos[region_ind] + signal_min_sep), var_p < max_signal_p)
-
-                                        prev_block = np.logical_and(np.logical_and(var_pos >= var_pos[region_ind] + signal_min_sep, var_pos < var_pos[region_ind] + 2 * signal_min_sep), var_p < max_signal_p)
-
-                                        #if the mean p-value of significant SNPs decreases relative to the previous one, stop extending
-                                        if np.sum(prev_block) == 0 or np.sum(cur_block) == 0 or np.mean(var_logp[cur_block]) > increase_ratio * np.mean(var_logp[prev_block]):
-                                            break
-
-                                    last_significant_snp = region_ind
-
-                                    region_vars[region_ind:region_inds[0]] = True
-
-                                region_ind -= 1
-
-                            region_ind = region_inds[-1] + 1
-                            last_significant_snp = region_inds[0]
-                            while region_ind < len(var_pos) and np.abs(var_pos[region_ind] - var_pos[last_significant_snp]) < signal_min_sep:
-                                if var_p[region_ind] < max_signal_p:
-                                    #if this is increasing, check to see if we can break
-                                    if var_p[region_ind] < var_p[last_significant_snp]:
-                                        cur_block = np.logical_and(np.logical_and(var_pos <= var_pos[region_ind], var_pos > var_pos[region_ind] - signal_min_sep), var_p < max_signal_p)
-                                        prev_block = np.logical_and(np.logical_and(var_pos <= var_pos[region_ind] - signal_min_sep, var_pos > var_pos[region_ind] - 2 * signal_min_sep), var_p < max_signal_p)
-
-                                        #if the mean p-value of significant SNPs decreases relative to the previous one, stop extending
-                                        if np.sum(prev_block) == 0 or np.sum(cur_block) == 0 or np.mean(var_logp[cur_block]) > increase_ratio * np.mean(var_logp[prev_block]):
-                                            break
-
-                                    last_significant_snp = region_ind
-
-                                    region_vars[region_inds[-1]:region_ind] = True
-                                region_ind += 1
-
-                            #if we have MAF, approximate LD by MAF
-                            if var_freq is not None:
-
-                                #maximum LD occurs when genotype carriers completely overlap (one is subset of another)
-                                #(E[XY] - E[X]E[Y]) / sqrt((E[X^2] - E[X]^2)(E[Y^2] - E[Y]^2))
-                                #(MAF_MIN - MAF_MAX * MAF_MIN) / sqrt(MAF_MAX * (1 - MAF_MAX) * MAF_MIN * (1 - MAF_MIN)
-                                #MAF_MIN * (1 - MAF_MAX) / sqrt(MAF_MAX * (1 - MAF_MAX) * MAF_MIN * (1 - MAF_MIN)
-                                #sqrt(MAF_MIN * (1 - MAF_MAX)) / sqrt((1 - MAF_MAX) * MAF_MIN)
-
-                                max_ld = np.sqrt((var_freq[i] * (1 - var_freq)) / (var_freq * (1 - var_freq[i])))
-                                max_ld[var_freq[i] > var_freq] = 1.0 / max_ld[var_freq[i] > var_freq]
-
-                                int_mask = np.logical_and(region_vars, max_ld < max_clump_ld)
-                                if np.sum(int_mask) > 0:
-                                    argminp = np.argmin(var_p[int_mask])
-
-                                #for variants with frequencies that imply they cannot have LD above max_clump_ld with index var,
-                                #remove them from this clump
-                                region_vars[max_ld < max_clump_ld] = False
-
-                            if signal_max_logp_ratio is not None:
-                                region_vars[var_logp/var_logp[i] < signal_max_logp_ratio] = False
+                            region_vars = self._build_huge_signal_region_mask(
+                                var_pos=var_pos,
+                                var_p=var_p,
+                                var_logp=var_logp,
+                                var_freq=var_freq,
+                                lead_index=i,
+                                signal_window_size=signal_window_size,
+                                signal_min_sep=signal_min_sep,
+                                max_signal_p=max_signal_p,
+                                max_clump_ld=max_clump_ld,
+                                signal_max_logp_ratio=signal_max_logp_ratio,
+                            )
 
                         (variants_left, region_vars, sig_posterior, sig_posterior_detect, min_pos, max_pos) = self._finalize_huge_selected_region(
                             var_pos=var_pos,
