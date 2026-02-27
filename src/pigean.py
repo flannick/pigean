@@ -19464,56 +19464,6 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
         force_reread = True
 
 
-def _resolve_main_gene_set_betas(state, options, mode_state):
-    # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
-    needs_gene_set_betas = (
-        mode_state["run_beta"]
-        or mode_state["run_priors"]
-        or mode_state["run_naive_priors"]
-        or mode_state["run_gibbs"]
-    )
-    if needs_gene_set_betas and state.sigma2 is None:
-        bail("Sigma2 was not initialized; provide --sigma2 explicitly")
-
-    if options.cross_val:
-        cross_val_kwargs = dict(
-            folds=options.cross_val_folds,
-            cross_val_max_num_tries=options.cross_val_max_num_tries,
-            p=state.p,
-            run_logistic=not options.linear,
-            max_for_linear=options.max_for_linear,
-            run_corrected_ols=not options.ols,
-        )
-        cross_val_kwargs.update(_build_inner_beta_sampler_common_kwargs(options))
-        state.run_cross_val(options.cross_val_num_explore_each_direction, **cross_val_kwargs)
-
-    if options.const_gene_set_beta is not None:
-        state.betas = np.full(len(state.gene_sets), options.const_gene_set_beta)
-        state.betas_uncorrected = np.full(len(state.gene_sets), options.const_gene_set_beta)
-    elif options.gene_set_betas_in:
-        state.read_betas(options.gene_set_betas_in)
-    elif needs_gene_set_betas:
-        # Hyper updates happen during X-read; this branch only samples betas.
-        beta_sampling_kwargs = _build_inner_beta_sampler_common_kwargs(options)
-        beta_sampling_kwargs.update({
-            "max_allowed_batch_correlation": options.max_allowed_batch_correlation,
-            "update_hyper_sigma": False,
-            "update_hyper_p": False,
-            "pre_filter_batch_size": options.pre_filter_batch_size,
-            "pre_filter_small_batch_size": options.pre_filter_small_batch_size,
-            "betas_trace_out": options.betas_trace_out,
-        })
-        state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
-
-        if options.betas_uncorrected_from_phewas:
-            phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
-            phewas_beta_sampling_kwargs.update({
-                "run_betas_using_phewas": options.betas_from_phewas,
-                "run_uncorrected_using_phewas": True,
-            })
-            state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
-
-
 def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
     if mode_state["run_huge"]:
         return
@@ -19602,7 +19552,54 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
                 **gene_set_stats_kwargs,
             )
 
-    _resolve_main_gene_set_betas(state, options, mode_state)
+    # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
+    needs_gene_set_betas = (
+        mode_state["run_beta"]
+        or mode_state["run_priors"]
+        or mode_state["run_naive_priors"]
+        or mode_state["run_gibbs"]
+    )
+    if needs_gene_set_betas and state.sigma2 is None:
+        bail("Sigma2 was not initialized; provide --sigma2 explicitly")
+
+    if options.cross_val:
+        cross_val_kwargs = dict(
+            folds=options.cross_val_folds,
+            cross_val_max_num_tries=options.cross_val_max_num_tries,
+            p=state.p,
+            run_logistic=not options.linear,
+            max_for_linear=options.max_for_linear,
+            run_corrected_ols=not options.ols,
+        )
+        cross_val_kwargs.update(_build_inner_beta_sampler_common_kwargs(options))
+        state.run_cross_val(options.cross_val_num_explore_each_direction, **cross_val_kwargs)
+
+    if options.const_gene_set_beta is not None:
+        state.betas = np.full(len(state.gene_sets), options.const_gene_set_beta)
+        state.betas_uncorrected = np.full(len(state.gene_sets), options.const_gene_set_beta)
+    elif options.gene_set_betas_in:
+        state.read_betas(options.gene_set_betas_in)
+    elif needs_gene_set_betas:
+        # Hyper updates happen during X-read; this branch only samples betas.
+        beta_sampling_kwargs = _build_inner_beta_sampler_common_kwargs(options)
+        beta_sampling_kwargs.update({
+            "max_allowed_batch_correlation": options.max_allowed_batch_correlation,
+            "update_hyper_sigma": False,
+            "update_hyper_p": False,
+            "pre_filter_batch_size": options.pre_filter_batch_size,
+            "pre_filter_small_batch_size": options.pre_filter_small_batch_size,
+            "betas_trace_out": options.betas_trace_out,
+        })
+        state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
+
+        if options.betas_uncorrected_from_phewas:
+            phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
+            phewas_beta_sampling_kwargs.update({
+                "run_betas_using_phewas": options.betas_from_phewas,
+                "run_uncorrected_using_phewas": True,
+            })
+            state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
+
     # Final sampling stage selection: priors-only, naive priors, and/or outer Gibbs.
     if mode_state["run_priors"]:
         priors_kwargs = _build_inner_beta_sampler_common_kwargs(options)
