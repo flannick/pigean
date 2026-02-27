@@ -8219,39 +8219,8 @@ class GeneSetData(object):
             burn_in_rhat_quantile=burn_in_rhat_quantile,
             use_max_r_for_convergence=use_max_r_for_convergence,
         )
-        max_num_restarts = gibbs_controls["max_num_restarts"]
-        target_num_epochs = gibbs_controls["target_num_epochs"]
-        min_num_burn_in = gibbs_controls["min_num_burn_in"]
-        max_num_burn_in = gibbs_controls["max_num_burn_in"]
-        min_num_post_burn_in = gibbs_controls["min_num_post_burn_in"]
-        max_num_post_burn_in = gibbs_controls["max_num_post_burn_in"]
-        passed_in_max_num_burn_in = gibbs_controls["passed_in_max_num_burn_in"]
-        epoch_max_num_iter_config = gibbs_controls["epoch_max_num_iter_config"]
-        total_num_iter = gibbs_controls["total_num_iter"]
         run_state = gibbs_controls["run_state"]
         num_chains = gibbs_controls["num_chains"]
-        diag_every = gibbs_controls["diag_every"]
-        burn_in_patience = gibbs_controls["burn_in_patience"]
-        burn_in_stall_window = gibbs_controls["burn_in_stall_window"]
-        burn_in_stall_delta = gibbs_controls["burn_in_stall_delta"]
-        stop_patience = gibbs_controls["stop_patience"]
-        stop_top_gene_k = gibbs_controls["stop_top_gene_k"]
-        stop_min_gene_d = gibbs_controls["stop_min_gene_d"]
-        active_beta_top_k = gibbs_controls["active_beta_top_k"]
-        active_beta_min_abs = gibbs_controls["active_beta_min_abs"]
-        beta_rel_mcse_denom_floor = gibbs_controls["beta_rel_mcse_denom_floor"]
-        stall_window = gibbs_controls["stall_window"]
-        stall_min_burn_in = gibbs_controls["stall_min_burn_in"]
-        stall_min_post_burn_in = gibbs_controls["stall_min_post_burn_in"]
-        stall_delta_rhat = gibbs_controls["stall_delta_rhat"]
-        stall_delta_mcse = gibbs_controls["stall_delta_mcse"]
-        stall_recent_window = gibbs_controls["stall_recent_window"]
-        stall_recent_eps = gibbs_controls["stall_recent_eps"]
-        burn_in_rhat_quantile = gibbs_controls["burn_in_rhat_quantile"]
-        first_min_num_burn_in = gibbs_controls["first_min_num_burn_in"]
-        first_max_num_burn_in = gibbs_controls["first_max_num_burn_in"]
-        first_min_num_post_burn_in = gibbs_controls["first_min_num_post_burn_in"]
-        first_max_num_post_burn_in = gibbs_controls["first_max_num_post_burn_in"]
 
         _record_and_log_gibbs_configuration(
             state=self,
@@ -8259,40 +8228,40 @@ class GeneSetData(object):
             config={
                 "num_chains": num_chains,
                 "num_chains_betas": num_chains_betas,
-                "max_num_restarts": max_num_restarts,
-                "target_num_epochs": target_num_epochs,
+                "max_num_restarts": gibbs_controls["max_num_restarts"],
+                "target_num_epochs": gibbs_controls["target_num_epochs"],
                 "max_num_iter": max_num_iter,
-                "total_num_iter": total_num_iter,
-                "epoch_max_num_iter_config": epoch_max_num_iter_config,
+                "total_num_iter": gibbs_controls["total_num_iter"],
+                "epoch_max_num_iter_config": gibbs_controls["epoch_max_num_iter_config"],
                 "use_mean_betas": use_mean_betas,
                 "warm_start": warm_start,
                 "stopping_preset_name": stopping_preset_name,
                 "r_threshold_burn_in": r_threshold_burn_in,
-                "burn_in_rhat_quantile": burn_in_rhat_quantile,
-                "burn_in_patience": burn_in_patience,
-                "first_min_num_burn_in": first_min_num_burn_in,
-                "first_max_num_burn_in": first_max_num_burn_in,
-                "first_min_num_post_burn_in": first_min_num_post_burn_in,
-                "first_max_num_post_burn_in": first_max_num_post_burn_in,
-                "burn_in_stall_window": burn_in_stall_window,
-                "burn_in_stall_delta": burn_in_stall_delta,
-                "active_beta_top_k": active_beta_top_k,
-                "active_beta_min_abs": active_beta_min_abs,
+                "burn_in_rhat_quantile": gibbs_controls["burn_in_rhat_quantile"],
+                "burn_in_patience": gibbs_controls["burn_in_patience"],
+                "first_min_num_burn_in": gibbs_controls["first_min_num_burn_in"],
+                "first_max_num_burn_in": gibbs_controls["first_max_num_burn_in"],
+                "first_min_num_post_burn_in": gibbs_controls["first_min_num_post_burn_in"],
+                "first_max_num_post_burn_in": gibbs_controls["first_max_num_post_burn_in"],
+                "burn_in_stall_window": gibbs_controls["burn_in_stall_window"],
+                "burn_in_stall_delta": gibbs_controls["burn_in_stall_delta"],
+                "active_beta_top_k": gibbs_controls["active_beta_top_k"],
+                "active_beta_min_abs": gibbs_controls["active_beta_min_abs"],
                 "stop_mcse_quantile": stop_mcse_quantile,
-                "stop_patience": stop_patience,
-                "stop_top_gene_k": stop_top_gene_k,
-                "stop_min_gene_d": stop_min_gene_d,
+                "stop_patience": gibbs_controls["stop_patience"],
+                "stop_top_gene_k": gibbs_controls["stop_top_gene_k"],
+                "stop_min_gene_d": gibbs_controls["stop_min_gene_d"],
                 "max_abs_mcse_d": max_abs_mcse_d,
                 "max_rel_mcse_beta": max_rel_mcse_beta,
-                "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor,
-                "stall_window": stall_window,
-                "stall_min_burn_in": stall_min_burn_in,
-                "stall_min_post_burn_in": stall_min_post_burn_in,
-                "stall_delta_rhat": stall_delta_rhat,
-                "stall_delta_mcse": stall_delta_mcse,
-                "stall_recent_window": stall_recent_window,
-                "stall_recent_eps": stall_recent_eps,
-                "diag_every": diag_every,
+                "beta_rel_mcse_denom_floor": gibbs_controls["beta_rel_mcse_denom_floor"],
+                "stall_window": gibbs_controls["stall_window"],
+                "stall_min_burn_in": gibbs_controls["stall_min_burn_in"],
+                "stall_min_post_burn_in": gibbs_controls["stall_min_post_burn_in"],
+                "stall_delta_rhat": gibbs_controls["stall_delta_rhat"],
+                "stall_delta_mcse": gibbs_controls["stall_delta_mcse"],
+                "stall_recent_window": gibbs_controls["stall_recent_window"],
+                "stall_recent_eps": gibbs_controls["stall_recent_eps"],
+                "diag_every": gibbs_controls["diag_every"],
                 "sparse_solution": sparse_solution,
                 "sparse_frac_gibbs": sparse_frac_gibbs,
                 "sparse_max_gibbs": sparse_max_gibbs,
@@ -8323,21 +8292,21 @@ class GeneSetData(object):
 
         epoch_aggregates = _new_gibbs_epoch_aggregates()
         epoch_runtime_configs = _build_gibbs_epoch_runtime_configs({
-            "total_num_iter": total_num_iter,
+            "total_num_iter": gibbs_controls["total_num_iter"],
             "num_chains": num_chains,
             "num_full_gene_sets": num_full_gene_sets,
             "use_mean_betas": use_mean_betas,
             "max_mb_X_h": max_mb_X_h,
-            "target_num_epochs": target_num_epochs,
+            "target_num_epochs": gibbs_controls["target_num_epochs"],
             "num_mad": num_mad,
             "adjust_priors": adjust_priors,
-            "epoch_max_num_iter_config": epoch_max_num_iter_config,
-            "min_num_burn_in": min_num_burn_in,
-            "max_num_burn_in": max_num_burn_in,
-            "min_num_post_burn_in": min_num_post_burn_in,
-            "max_num_post_burn_in": max_num_post_burn_in,
+            "epoch_max_num_iter_config": gibbs_controls["epoch_max_num_iter_config"],
+            "min_num_burn_in": gibbs_controls["min_num_burn_in"],
+            "max_num_burn_in": gibbs_controls["max_num_burn_in"],
+            "min_num_post_burn_in": gibbs_controls["min_num_post_burn_in"],
+            "max_num_post_burn_in": gibbs_controls["max_num_post_burn_in"],
             "increase_hyper_if_betas_below": increase_hyper_if_betas_below,
-            "passed_in_max_num_burn_in": passed_in_max_num_burn_in,
+            "passed_in_max_num_burn_in": gibbs_controls["passed_in_max_num_burn_in"],
             "max_num_iter_betas": max_num_iter_betas,
             "min_num_iter_betas": min_num_iter_betas,
             "num_chains_betas": num_chains_betas,
@@ -8358,30 +8327,30 @@ class GeneSetData(object):
             "sparse_max_gibbs": sparse_max_gibbs,
             "pre_filter_batch_size": pre_filter_batch_size,
             "pre_filter_small_batch_size": pre_filter_small_batch_size,
-            "active_beta_top_k": active_beta_top_k,
-            "active_beta_min_abs": active_beta_min_abs,
-            "burn_in_rhat_quantile": burn_in_rhat_quantile,
+            "active_beta_top_k": gibbs_controls["active_beta_top_k"],
+            "active_beta_min_abs": gibbs_controls["active_beta_min_abs"],
+            "burn_in_rhat_quantile": gibbs_controls["burn_in_rhat_quantile"],
             "r_threshold_burn_in": r_threshold_burn_in,
-            "stall_window": stall_window,
-            "stall_min_burn_in": stall_min_burn_in,
-            "stall_delta_rhat": stall_delta_rhat,
-            "stall_recent_window": stall_recent_window,
-            "stall_recent_eps": stall_recent_eps,
-            "burn_in_stall_window": burn_in_stall_window,
-            "burn_in_stall_delta": burn_in_stall_delta,
+            "stall_window": gibbs_controls["stall_window"],
+            "stall_min_burn_in": gibbs_controls["stall_min_burn_in"],
+            "stall_delta_rhat": gibbs_controls["stall_delta_rhat"],
+            "stall_recent_window": gibbs_controls["stall_recent_window"],
+            "stall_recent_eps": gibbs_controls["stall_recent_eps"],
+            "burn_in_stall_window": gibbs_controls["burn_in_stall_window"],
+            "burn_in_stall_delta": gibbs_controls["burn_in_stall_delta"],
             "gauss_seidel": gauss_seidel,
             "eps": eps,
-            "diag_every": diag_every,
-            "burn_in_patience": burn_in_patience,
-            "stop_patience": stop_patience,
+            "diag_every": gibbs_controls["diag_every"],
+            "burn_in_patience": gibbs_controls["burn_in_patience"],
+            "stop_patience": gibbs_controls["stop_patience"],
             "stop_mcse_quantile": stop_mcse_quantile,
-            "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor,
-            "stop_top_gene_k": stop_top_gene_k,
-            "stop_min_gene_d": stop_min_gene_d,
+            "beta_rel_mcse_denom_floor": gibbs_controls["beta_rel_mcse_denom_floor"],
+            "stop_top_gene_k": gibbs_controls["stop_top_gene_k"],
+            "stop_min_gene_d": gibbs_controls["stop_min_gene_d"],
             "max_rel_mcse_beta": max_rel_mcse_beta,
             "max_abs_mcse_d": max_abs_mcse_d,
-            "stall_min_post_burn_in": stall_min_post_burn_in,
-            "stall_delta_mcse": stall_delta_mcse,
+            "stall_min_post_burn_in": gibbs_controls["stall_min_post_burn_in"],
+            "stall_delta_mcse": gibbs_controls["stall_delta_mcse"],
             "initial_linear_filter": initial_linear_filter,
             "correct_betas_mean": correct_betas_mean,
             "correct_betas_var": correct_betas_var,
