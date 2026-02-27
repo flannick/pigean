@@ -16976,7 +16976,12 @@ def _accumulate_gibbs_post_burn_iteration(
 def _prepare_gibbs_iteration_inputs(
     state,
     iteration_num,
-    epoch_context,
+    epoch_total_iter_offset,
+    trace_chain_offset,
+    full_betas_m_shape,
+    num_stack_batches,
+    stack_batch_size,
+    X_hstacked,
     inner_beta_kwargs,
     iteration_input_config,
     logistic_config,
@@ -16985,9 +16990,6 @@ def _prepare_gibbs_iteration_inputs(
     log_bf_raw_m,
     gene_stats_trace_fh,
 ):
-    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
-    trace_chain_offset = epoch_context["trace_chain_offset"]
-
     priors_for_Y_m = epoch_priors["priors_for_Y_m"]
     priors_percentage_max_for_Y_m = epoch_priors["priors_percentage_max_for_Y_m"]
     priors_adjustment_for_Y_m = epoch_priors["priors_adjustment_for_Y_m"]
@@ -17028,7 +17030,10 @@ def _prepare_gibbs_iteration_inputs(
         y_var=y_var,
         D_sample_m=D_sample_m,
         y_corr_sparse=y_corr_sparse,
-        epoch_context=epoch_context,
+        full_betas_m_shape=full_betas_m_shape,
+        num_stack_batches=num_stack_batches,
+        stack_batch_size=stack_batch_size,
+        X_hstacked=X_hstacked,
         inner_beta_kwargs=inner_beta_kwargs,
         logistic_config=logistic_config,
     )
@@ -17085,11 +17090,23 @@ def _prepare_gibbs_iteration_state(
     log_bf_raw_m,
     gene_stats_trace_fh,
 ):
+    epoch_total_iter_offset = epoch_context["epoch_total_iter_offset"]
+    trace_chain_offset = epoch_context["trace_chain_offset"]
+    full_betas_m_shape = epoch_context["full_betas_m_shape"]
+    num_stack_batches = epoch_context["num_stack_batches"]
+    stack_batch_size = epoch_context["stack_batch_size"]
+    X_hstacked = epoch_context["X_hstacked"]
+
     # Prepare all iteration-local sampling and masking state before corrected betas.
     iter_setup = _prepare_gibbs_iteration_inputs(
         state=state,
         iteration_num=iteration_num,
-        epoch_context=epoch_context,
+        epoch_total_iter_offset=epoch_total_iter_offset,
+        trace_chain_offset=trace_chain_offset,
+        full_betas_m_shape=full_betas_m_shape,
+        num_stack_batches=num_stack_batches,
+        stack_batch_size=stack_batch_size,
+        X_hstacked=X_hstacked,
         inner_beta_kwargs=inner_beta_kwargs,
         iteration_input_config=iteration_input_config,
         logistic_config=logistic_config,
@@ -18028,7 +18045,10 @@ def _compute_gibbs_logistic_beta_tildes(
     y_var,
     D_sample_m,
     y_corr_sparse,
-    epoch_context,
+    full_betas_m_shape,
+    num_stack_batches,
+    stack_batch_size,
+    X_hstacked,
     inner_beta_kwargs,
     logistic_config,
 ):
@@ -18039,11 +18059,6 @@ def _compute_gibbs_logistic_beta_tildes(
     sparse_max_gibbs = logistic_config["sparse_max_gibbs"]
     correct_betas_mean = logistic_config["correct_betas_mean"]
     correct_betas_var = logistic_config["correct_betas_var"]
-
-    full_betas_m_shape = epoch_context["full_betas_m_shape"]
-    num_stack_batches = epoch_context["num_stack_batches"]
-    stack_batch_size = epoch_context["stack_batch_size"]
-    X_hstacked = epoch_context["X_hstacked"]
 
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
