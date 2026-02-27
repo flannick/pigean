@@ -3907,6 +3907,95 @@ class GeneSetData(object):
 
                 output_fh.write("%s\n" % line)
 
+    def _initialize_huge_gwas_state(self):
+        # Track per-signal HuGE matrices and per-gene covariates for this GWAS run.
+        self.huge_signals = []
+        self.huge_signal_posteriors = []
+        self.huge_signal_posteriors_for_regression = []
+        self.huge_signal_sum_gene_cond_probabilities = []
+        self.huge_signal_sum_gene_cond_probabilities_for_regression = []
+        self.huge_signal_mean_gene_pos = []
+        self.huge_signal_mean_gene_pos_for_regression = []
+        self.gene_covariates = None
+        self.gene_covariates_mask = None
+        self.gene_covariate_names = None
+        self.gene_covariate_directions = None
+        self.gene_covariate_intercept_index = None
+        self.gene_covariate_adjustments = None
+
+        return {
+            "closest_dist_X": np.array([]),
+            "closest_dist_Y": np.array([]),
+            "var_all_p": np.array([]),
+            "gene_bf_data": [],
+            "gene_bf_data_detect": [],
+            "gene_prob_rows": [],
+            "gene_prob_rows_detect": [],
+            "gene_prob_cols": [],
+            "gene_prob_cols_detect": [],
+            "gene_prob_genes": [],
+            "gene_prob_col_num": 0,
+            "gene_covariate_genes": [],
+        }
+
+    def _remap_huge_gene_probability_rows(self, gene_to_chrom, gene_prob_genes, gene_prob_rows, gene_prob_rows_detect):
+        if self.genes is not None:
+            genes = self.genes
+            gene_to_ind = self.gene_to_ind
+        else:
+            genes = list(gene_to_chrom.keys())
+            gene_to_ind = _construct_map_to_ind(genes)
+
+        # Remap sparse matrix row indices into the final gene ordering.
+        extra_genes = []
+        extra_gene_to_ind = {}
+        for gene_prob_rows_to_process in [gene_prob_rows, gene_prob_rows_detect]:
+            for i in range(len(gene_prob_rows_to_process)):
+                cur_gene = gene_prob_genes[gene_prob_rows_to_process[i]]
+
+                if cur_gene in gene_to_ind:
+                    new_ind = gene_to_ind[cur_gene]
+                elif cur_gene in extra_gene_to_ind:
+                    new_ind = extra_gene_to_ind[cur_gene]
+                else:
+                    new_ind = len(extra_genes) + len(genes)
+                    extra_genes.append(cur_gene)
+                    extra_gene_to_ind[cur_gene] = new_ind
+                gene_prob_rows_to_process[i] = new_ind
+
+        # Ensure genes with no retained signal rows still exist in final output vectors.
+        for cur_gene in list(gene_to_chrom.keys()) + gene_prob_genes:
+            if cur_gene not in gene_to_ind and cur_gene not in extra_gene_to_ind:
+                new_ind = len(extra_genes) + len(genes)
+                extra_genes.append(cur_gene)
+                extra_gene_to_ind[cur_gene] = new_ind
+
+        gene_prob_gene_list = genes + extra_genes
+        return (genes, gene_to_ind, extra_genes, extra_gene_to_ind, gene_prob_gene_list)
+
+    def _align_huge_gene_covariates_to_gene_list(self, gene_prob_gene_list, gene_covariate_genes, gene_to_ind, extra_gene_to_ind):
+        if self.gene_covariates is None:
+            return
+
+        # Sort covariates into the final gene order, filling missing genes with column means.
+        sorted_gene_covariates = np.tile(
+            np.nanmean(self.gene_covariates, axis=0),
+            len(gene_prob_gene_list),
+        ).reshape((len(gene_prob_gene_list), self.gene_covariates.shape[1]))
+
+        for i in range(len(gene_covariate_genes)):
+            cur_gene = gene_covariate_genes[i]
+            assert(cur_gene in gene_to_ind or cur_gene in extra_gene_to_ind)
+
+            if cur_gene in gene_to_ind:
+                new_ind = gene_to_ind[cur_gene]
+            else:
+                new_ind = extra_gene_to_ind[cur_gene]
+            noninf_mask = ~np.isnan(self.gene_covariates[i,:])
+            sorted_gene_covariates[new_ind,noninf_mask] = self.gene_covariates[i,noninf_mask]
+
+        self.gene_covariates = sorted_gene_covariates
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -4368,38 +4457,22 @@ class GeneSetData(object):
             gene_output_data = {}
             total_prob_causal = 0
 
-            #run through twice
-            #first, learn the window function
-            closest_dist_Y = np.array([])
-            closest_dist_X = np.array([])
+            # Run through twice: first pass learns the window function, second computes scores.
+            huge_buffers = self._initialize_huge_gwas_state()
+            closest_dist_Y = huge_buffers["closest_dist_Y"]
+            closest_dist_X = huge_buffers["closest_dist_X"]
+            var_all_p = huge_buffers["var_all_p"]
+            gene_bf_data = huge_buffers["gene_bf_data"]
+            gene_bf_data_detect = huge_buffers["gene_bf_data_detect"]
+            gene_prob_rows = huge_buffers["gene_prob_rows"]
+            gene_prob_rows_detect = huge_buffers["gene_prob_rows_detect"]
+            gene_prob_cols = huge_buffers["gene_prob_cols"]
+            gene_prob_cols_detect = huge_buffers["gene_prob_cols_detect"]
+            gene_prob_genes = huge_buffers["gene_prob_genes"]
+            gene_prob_col_num = huge_buffers["gene_prob_col_num"]
+            gene_covariate_genes = huge_buffers["gene_covariate_genes"]
             window_fun_intercept = None
             window_fun_slope = None
-
-            var_all_p = np.array([])
-
-            #store the gene probabilities for each signal
-            gene_bf_data = []
-            gene_bf_data_detect = []
-            gene_prob_rows = []
-            gene_prob_rows_detect = []
-            gene_prob_cols = []
-            gene_prob_cols_detect = []
-            gene_prob_genes = []
-            gene_prob_col_num = 0
-            gene_covariate_genes = []
-            self.huge_signals = []
-            self.huge_signal_posteriors = []
-            self.huge_signal_posteriors_for_regression = []
-            self.huge_signal_sum_gene_cond_probabilities = []
-            self.huge_signal_sum_gene_cond_probabilities_for_regression = []
-            self.huge_signal_mean_gene_pos = []
-            self.huge_signal_mean_gene_pos_for_regression = []
-            self.gene_covariates = None
-            self.gene_covariates_mask = None
-            self.gene_covariate_names = None
-            self.gene_covariate_directions = None
-            self.gene_covariate_intercept_index = None
-            self.gene_covariate_adjustments = None
 
             #second, compute the huge scores
             for learn_params in [True, False]:
@@ -5264,57 +5337,18 @@ class GeneSetData(object):
 
             exomes_positive_controls_case_counts_prior_log_bf = None
 
-            if self.genes is not None:
-                genes = self.genes
-                gene_to_ind = self.gene_to_ind
-            else:
-                genes = list(gene_to_chrom.keys())
-                gene_to_ind = _construct_map_to_ind(genes)
-
-            #need to remap the indices
-            extra_genes = []
-            extra_gene_to_ind = {}
-            for gene_prob_rows_to_process in [gene_prob_rows, gene_prob_rows_detect]:
-                for i in range(len(gene_prob_rows_to_process)):
-                    cur_gene = gene_prob_genes[gene_prob_rows_to_process[i]]
-
-                    if cur_gene in gene_to_ind:
-                        new_ind = gene_to_ind[cur_gene]
-                    elif cur_gene in extra_gene_to_ind:
-                        new_ind = extra_gene_to_ind[cur_gene]
-                    else:
-                        new_ind = len(extra_genes) + len(genes)
-                        extra_genes.append(cur_gene)
-                        extra_gene_to_ind[cur_gene] = new_ind
-                    gene_prob_rows_to_process[i] = new_ind
-
-            #add in any genes that were missed
-            for cur_gene in list(gene_to_chrom.keys()) + gene_prob_genes:
-                if cur_gene not in gene_to_ind and cur_gene not in extra_gene_to_ind:
-                    new_ind = len(extra_genes) + len(genes)
-                    extra_genes.append(cur_gene)
-                    extra_gene_to_ind[cur_gene] = new_ind
-
-            gene_prob_gene_list = genes + extra_genes
-
-            if self.gene_covariates is not None:
-
-                #sort the covariate file; initially populate it with mean value in case some genes are missing from it
-
-                sorted_gene_covariates = np.tile(np.nanmean(self.gene_covariates, axis=0), len(gene_prob_gene_list)).reshape((len(gene_prob_gene_list), self.gene_covariates.shape[1]))
-
-                for i in range(len(gene_covariate_genes)):
-                    cur_gene = gene_covariate_genes[i]
-                    assert(cur_gene in gene_to_ind or cur_gene in extra_gene_to_ind)
-
-                    if cur_gene in gene_to_ind:
-                        new_ind = gene_to_ind[cur_gene]
-                    elif cur_gene in extra_gene_to_ind:
-                        new_ind = extra_gene_to_ind[cur_gene]
-                    noninf_mask = ~np.isnan(self.gene_covariates[i,:])
-                    sorted_gene_covariates[new_ind,noninf_mask] = self.gene_covariates[i,noninf_mask]
-
-                self.gene_covariates = sorted_gene_covariates
+            (genes, gene_to_ind, extra_genes, extra_gene_to_ind, gene_prob_gene_list) = self._remap_huge_gene_probability_rows(
+                gene_to_chrom=gene_to_chrom,
+                gene_prob_genes=gene_prob_genes,
+                gene_prob_rows=gene_prob_rows,
+                gene_prob_rows_detect=gene_prob_rows_detect,
+            )
+            self._align_huge_gene_covariates_to_gene_list(
+                gene_prob_gene_list=gene_prob_gene_list,
+                gene_covariate_genes=gene_covariate_genes,
+                gene_to_ind=gene_to_ind,
+                extra_gene_to_ind=extra_gene_to_ind,
+            )
 
 
             if self.Y_exomes is not None:
