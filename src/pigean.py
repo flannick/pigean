@@ -8315,50 +8315,23 @@ class GeneSetData(object):
         num_full_gene_sets = gibbs_inputs["num_full_gene_sets"]
 
         epoch_aggregates = _new_gibbs_epoch_aggregates()
-        phase_kwargs = dict(
+        epoch_phase_config = _build_gibbs_epoch_phase_config(
             total_num_iter=total_num_iter,
             num_chains=num_chains,
+            num_full_gene_sets=num_full_gene_sets,
+            use_mean_betas=use_mean_betas,
+            max_mb_X_h=max_mb_X_h,
             target_num_epochs=target_num_epochs,
+            num_mad=num_mad,
+            adjust_priors=adjust_priors,
             epoch_max_num_iter_config=epoch_max_num_iter_config,
             min_num_burn_in=min_num_burn_in,
             max_num_burn_in=max_num_burn_in,
             min_num_post_burn_in=min_num_post_burn_in,
             max_num_post_burn_in=max_num_post_burn_in,
             increase_hyper_if_betas_below=increase_hyper_if_betas_below,
-            num_full_gene_sets=num_full_gene_sets,
-            use_mean_betas=use_mean_betas,
-            max_mb_X_h=max_mb_X_h,
-            gauss_seidel=gauss_seidel,
-            eps=eps,
-            diag_every=diag_every,
-            active_beta_top_k=active_beta_top_k,
-            active_beta_min_abs=active_beta_min_abs,
-            burn_in_rhat_quantile=burn_in_rhat_quantile,
-            r_threshold_burn_in=r_threshold_burn_in,
-            burn_in_patience=burn_in_patience,
-            stop_patience=stop_patience,
-            stop_mcse_quantile=stop_mcse_quantile,
-            beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
-            stop_top_gene_k=stop_top_gene_k,
-            stop_min_gene_d=stop_min_gene_d,
-            max_rel_mcse_beta=max_rel_mcse_beta,
-            max_abs_mcse_d=max_abs_mcse_d,
-            stall_window=stall_window,
-            stall_min_burn_in=stall_min_burn_in,
-            stall_min_post_burn_in=stall_min_post_burn_in,
-            stall_delta_rhat=stall_delta_rhat,
-            stall_delta_mcse=stall_delta_mcse,
-            stall_recent_window=stall_recent_window,
-            stall_recent_eps=stall_recent_eps,
-            burn_in_stall_window=burn_in_stall_window,
-            burn_in_stall_delta=burn_in_stall_delta,
-            y_var_orig=y_var_orig,
-            cur_background_log_bf_v=cur_background_log_bf_v,
-            initial_linear_filter=initial_linear_filter,
-            sparse_frac_gibbs=sparse_frac_gibbs,
-            sparse_max_gibbs=sparse_max_gibbs,
-            pre_filter_batch_size=pre_filter_batch_size,
-            pre_filter_small_batch_size=pre_filter_small_batch_size,
+        )
+        inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(
             passed_in_max_num_burn_in=passed_in_max_num_burn_in,
             max_num_iter_betas=max_num_iter_betas,
             min_num_iter_betas=min_num_iter_betas,
@@ -8370,20 +8343,91 @@ class GeneSetData(object):
             gauss_seidel_betas=gauss_seidel_betas,
             sparse_solution=sparse_solution,
             sparse_frac_betas=sparse_frac_betas,
-            correct_betas_mean=correct_betas_mean,
-            correct_betas_var=correct_betas_var,
-            num_batches_parallel=num_batches_parallel,
+        )
+        iteration_update_config = _build_gibbs_iteration_update_config(
+            use_mean_betas=use_mean_betas,
             warm_start=warm_start,
+            debug_zero_sparse=options.debug_zero_sparse,
+            num_chains=num_chains,
+            num_batches_parallel=num_batches_parallel,
+            betas_trace_out=betas_trace_out,
             update_huge_scores=update_huge_scores,
             compute_Y_raw=compute_Y_raw,
-            betas_trace_out=betas_trace_out,
-            debug_zero_sparse=options.debug_zero_sparse,
             adjust_priors=adjust_priors,
-            num_mad=num_mad,
         )
-        epoch_phase_config = _extract_gibbs_epoch_phase_config(phase_kwargs)
-        epoch_iteration_static_config = _build_gibbs_epoch_iteration_static_config(phase_kwargs)
-        low_beta_restart_base_config = _extract_gibbs_low_beta_restart_base_config(phase_kwargs)
+        iteration_input_config = _build_gibbs_iteration_input_config(
+            cur_background_log_bf_v=cur_background_log_bf_v,
+            y_var_orig=y_var_orig,
+        )
+        logistic_config = _build_gibbs_logistic_config(
+            num_chains=num_chains,
+            gauss_seidel=gauss_seidel,
+            initial_linear_filter=initial_linear_filter,
+            sparse_frac_gibbs=sparse_frac_gibbs,
+            sparse_max_gibbs=sparse_max_gibbs,
+            correct_betas_mean=correct_betas_mean,
+            correct_betas_var=correct_betas_var,
+        )
+        prefilter_config = _build_gibbs_prefilter_config(
+            sparse_frac_gibbs=sparse_frac_gibbs,
+            sparse_max_gibbs=sparse_max_gibbs,
+            pre_filter_batch_size=pre_filter_batch_size,
+            pre_filter_small_batch_size=pre_filter_small_batch_size,
+        )
+        burn_in_config = _build_gibbs_burn_in_config(
+            active_beta_top_k=active_beta_top_k,
+            active_beta_min_abs=active_beta_min_abs,
+            burn_in_rhat_quantile=burn_in_rhat_quantile,
+            r_threshold_burn_in=r_threshold_burn_in,
+            stall_window=stall_window,
+            stall_min_burn_in=stall_min_burn_in,
+            stall_delta_rhat=stall_delta_rhat,
+            stall_recent_window=stall_recent_window,
+            stall_recent_eps=stall_recent_eps,
+            burn_in_stall_window=burn_in_stall_window,
+            burn_in_stall_delta=burn_in_stall_delta,
+            gauss_seidel=gauss_seidel,
+            eps=eps,
+            diag_every=diag_every,
+            num_full_gene_sets=num_full_gene_sets,
+            burn_in_patience=burn_in_patience,
+            stop_patience=stop_patience,
+        )
+        post_burn_diag_config = _build_gibbs_post_burn_diag_config(
+            num_chains=num_chains,
+            active_beta_top_k=active_beta_top_k,
+            active_beta_min_abs=active_beta_min_abs,
+            stop_mcse_quantile=stop_mcse_quantile,
+            beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
+            stop_top_gene_k=stop_top_gene_k,
+            stop_min_gene_d=stop_min_gene_d,
+            max_rel_mcse_beta=max_rel_mcse_beta,
+            max_abs_mcse_d=max_abs_mcse_d,
+            stop_patience=stop_patience,
+            stall_window=stall_window,
+            stall_min_post_burn_in=stall_min_post_burn_in,
+            stall_delta_rhat=stall_delta_rhat,
+            stall_delta_mcse=stall_delta_mcse,
+            stall_recent_window=stall_recent_window,
+            stall_recent_eps=stall_recent_eps,
+            num_full_gene_sets=num_full_gene_sets,
+            burn_in_patience=burn_in_patience,
+        )
+        iteration_progress_config = _build_gibbs_iteration_progress_config(
+            diag_every=diag_every,
+            use_mean_betas=use_mean_betas,
+            post_burn_diag_config=post_burn_diag_config,
+            burn_in_config=burn_in_config,
+        )
+        epoch_iteration_static_config = _build_gibbs_epoch_iteration_static_config(
+            inner_beta_kwargs=inner_beta_kwargs,
+            iteration_update_config=iteration_update_config,
+            iteration_input_config=iteration_input_config,
+            logistic_config=logistic_config,
+            prefilter_config=prefilter_config,
+            iteration_progress_config=iteration_progress_config,
+        )
+        low_beta_restart_base_config = _build_gibbs_low_beta_restart_base_config(num_mad=num_mad)
 
         (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
             gene_set_stats_trace_out,
@@ -17135,19 +17179,31 @@ def _prepare_gibbs_iteration_state(
     return (iter_state, gene_set_mask_m)
 
 
-def _build_gibbs_inner_beta_kwargs(phase_kwargs):
+def _build_gibbs_inner_beta_kwargs(
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+):
     return {
-        "passed_in_max_num_burn_in": phase_kwargs["passed_in_max_num_burn_in"],
-        "max_num_iter_betas": phase_kwargs["max_num_iter_betas"],
-        "min_num_iter_betas": phase_kwargs["min_num_iter_betas"],
-        "num_chains_betas": phase_kwargs["num_chains_betas"],
-        "r_threshold_burn_in_betas": phase_kwargs["r_threshold_burn_in_betas"],
-        "use_max_r_for_convergence_betas": phase_kwargs["use_max_r_for_convergence_betas"],
-        "max_frac_sem_betas": phase_kwargs["max_frac_sem_betas"],
-        "max_allowed_batch_correlation": phase_kwargs["max_allowed_batch_correlation"],
-        "gauss_seidel_betas": phase_kwargs["gauss_seidel_betas"],
-        "sparse_solution": phase_kwargs["sparse_solution"],
-        "sparse_frac_betas": phase_kwargs["sparse_frac_betas"],
+        "passed_in_max_num_burn_in": passed_in_max_num_burn_in,
+        "max_num_iter_betas": max_num_iter_betas,
+        "min_num_iter_betas": min_num_iter_betas,
+        "num_chains_betas": num_chains_betas,
+        "r_threshold_burn_in_betas": r_threshold_burn_in_betas,
+        "use_max_r_for_convergence_betas": use_max_r_for_convergence_betas,
+        "max_frac_sem_betas": max_frac_sem_betas,
+        "max_allowed_batch_correlation": max_allowed_batch_correlation,
+        "gauss_seidel_betas": gauss_seidel_betas,
+        "sparse_solution": sparse_solution,
+        "sparse_frac_betas": sparse_frac_betas,
     }
 
 
@@ -17167,23 +17223,33 @@ def _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
     }
 
 
-def _extract_gibbs_iteration_update_config(phase_kwargs):
+def _build_gibbs_iteration_update_config(
+    use_mean_betas,
+    warm_start,
+    debug_zero_sparse,
+    num_chains,
+    num_batches_parallel,
+    betas_trace_out,
+    update_huge_scores,
+    compute_Y_raw,
+    adjust_priors,
+):
     return {
-        "use_mean_betas": phase_kwargs["use_mean_betas"],
-        "warm_start": phase_kwargs["warm_start"],
-        "debug_zero_sparse": phase_kwargs["debug_zero_sparse"],
-        "num_chains": phase_kwargs["num_chains"],
-        "num_batches_parallel": phase_kwargs["num_batches_parallel"],
-        "betas_trace_out": phase_kwargs["betas_trace_out"],
-        "update_huge_scores": phase_kwargs["update_huge_scores"],
-        "compute_Y_raw": phase_kwargs["compute_Y_raw"],
-        "adjust_priors": phase_kwargs["adjust_priors"],
+        "use_mean_betas": use_mean_betas,
+        "warm_start": warm_start,
+        "debug_zero_sparse": debug_zero_sparse,
+        "num_chains": num_chains,
+        "num_batches_parallel": num_batches_parallel,
+        "betas_trace_out": betas_trace_out,
+        "update_huge_scores": update_huge_scores,
+        "compute_Y_raw": compute_Y_raw,
+        "adjust_priors": adjust_priors,
     }
 
 
-def _extract_gibbs_low_beta_restart_base_config(phase_kwargs):
+def _build_gibbs_low_beta_restart_base_config(num_mad):
     return {
-        "num_mad": phase_kwargs["num_mad"],
+        "num_mad": num_mad,
     }
 
 
@@ -17195,81 +17261,127 @@ def _build_gibbs_low_beta_restart_config(low_beta_restart_base_config, run_state
     }
 
 
-def _extract_gibbs_iteration_input_config(phase_kwargs):
+def _build_gibbs_iteration_input_config(cur_background_log_bf_v, y_var_orig):
     return {
-        "cur_background_log_bf_v": phase_kwargs["cur_background_log_bf_v"],
-        "y_var_orig": phase_kwargs["y_var_orig"],
+        "cur_background_log_bf_v": cur_background_log_bf_v,
+        "y_var_orig": y_var_orig,
     }
 
 
-def _extract_gibbs_logistic_config(phase_kwargs):
+def _build_gibbs_logistic_config(
+    num_chains,
+    gauss_seidel,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    correct_betas_mean,
+    correct_betas_var,
+):
     return {
-        "num_chains": phase_kwargs["num_chains"],
-        "gauss_seidel": phase_kwargs["gauss_seidel"],
-        "initial_linear_filter": phase_kwargs["initial_linear_filter"],
-        "sparse_frac_gibbs": phase_kwargs["sparse_frac_gibbs"],
-        "sparse_max_gibbs": phase_kwargs["sparse_max_gibbs"],
-        "correct_betas_mean": phase_kwargs["correct_betas_mean"],
-        "correct_betas_var": phase_kwargs["correct_betas_var"],
+        "num_chains": num_chains,
+        "gauss_seidel": gauss_seidel,
+        "initial_linear_filter": initial_linear_filter,
+        "sparse_frac_gibbs": sparse_frac_gibbs,
+        "sparse_max_gibbs": sparse_max_gibbs,
+        "correct_betas_mean": correct_betas_mean,
+        "correct_betas_var": correct_betas_var,
     }
 
 
-def _extract_gibbs_prefilter_config(phase_kwargs):
+def _build_gibbs_prefilter_config(
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    pre_filter_batch_size,
+    pre_filter_small_batch_size,
+):
     return {
-        "sparse_frac_gibbs": phase_kwargs["sparse_frac_gibbs"],
-        "sparse_max_gibbs": phase_kwargs["sparse_max_gibbs"],
-        "pre_filter_batch_size": phase_kwargs["pre_filter_batch_size"],
-        "pre_filter_small_batch_size": phase_kwargs["pre_filter_small_batch_size"],
+        "sparse_frac_gibbs": sparse_frac_gibbs,
+        "sparse_max_gibbs": sparse_max_gibbs,
+        "pre_filter_batch_size": pre_filter_batch_size,
+        "pre_filter_small_batch_size": pre_filter_small_batch_size,
     }
 
 
-def _extract_gibbs_iteration_progress_config(phase_kwargs):
+def _build_gibbs_iteration_progress_config(diag_every, use_mean_betas, post_burn_diag_config, burn_in_config):
     return {
-        "diag_every": phase_kwargs["diag_every"],
-        "use_mean_betas": phase_kwargs["use_mean_betas"],
-        "post_burn_diag_config": _extract_gibbs_post_burn_diag_config(phase_kwargs),
-        "burn_in_config": _extract_gibbs_burn_in_config(phase_kwargs),
+        "diag_every": diag_every,
+        "use_mean_betas": use_mean_betas,
+        "post_burn_diag_config": post_burn_diag_config,
+        "burn_in_config": burn_in_config,
     }
 
 
-def _extract_gibbs_burn_in_config(phase_kwargs):
+def _build_gibbs_burn_in_config(
+    active_beta_top_k,
+    active_beta_min_abs,
+    burn_in_rhat_quantile,
+    r_threshold_burn_in,
+    stall_window,
+    stall_min_burn_in,
+    stall_delta_rhat,
+    stall_recent_window,
+    stall_recent_eps,
+    burn_in_stall_window,
+    burn_in_stall_delta,
+    gauss_seidel,
+    eps,
+    diag_every,
+    num_full_gene_sets,
+    burn_in_patience,
+    stop_patience,
+):
     return {
-        "active_beta_top_k": phase_kwargs["active_beta_top_k"],
-        "active_beta_min_abs": phase_kwargs["active_beta_min_abs"],
-        "burn_in_rhat_quantile": phase_kwargs["burn_in_rhat_quantile"],
-        "r_threshold_burn_in": phase_kwargs["r_threshold_burn_in"],
-        "stall_window": phase_kwargs["stall_window"],
-        "stall_min_burn_in": phase_kwargs["stall_min_burn_in"],
-        "stall_delta_rhat": phase_kwargs["stall_delta_rhat"],
-        "stall_recent_window": phase_kwargs["stall_recent_window"],
-        "stall_recent_eps": phase_kwargs["stall_recent_eps"],
-        "burn_in_stall_window": phase_kwargs["burn_in_stall_window"],
-        "burn_in_stall_delta": phase_kwargs["burn_in_stall_delta"],
-        "gauss_seidel": phase_kwargs["gauss_seidel"],
-        "eps": phase_kwargs["eps"],
-        "diag_every": phase_kwargs["diag_every"],
-        "num_full_gene_sets": phase_kwargs["num_full_gene_sets"],
-        "burn_in_patience": phase_kwargs["burn_in_patience"],
-        "stop_patience": phase_kwargs["stop_patience"],
+        "active_beta_top_k": active_beta_top_k,
+        "active_beta_min_abs": active_beta_min_abs,
+        "burn_in_rhat_quantile": burn_in_rhat_quantile,
+        "r_threshold_burn_in": r_threshold_burn_in,
+        "stall_window": stall_window,
+        "stall_min_burn_in": stall_min_burn_in,
+        "stall_delta_rhat": stall_delta_rhat,
+        "stall_recent_window": stall_recent_window,
+        "stall_recent_eps": stall_recent_eps,
+        "burn_in_stall_window": burn_in_stall_window,
+        "burn_in_stall_delta": burn_in_stall_delta,
+        "gauss_seidel": gauss_seidel,
+        "eps": eps,
+        "diag_every": diag_every,
+        "num_full_gene_sets": num_full_gene_sets,
+        "burn_in_patience": burn_in_patience,
+        "stop_patience": stop_patience,
     }
 
 
-def _extract_gibbs_epoch_phase_config(phase_kwargs):
+def _build_gibbs_epoch_phase_config(
+    total_num_iter,
+    num_chains,
+    num_full_gene_sets,
+    use_mean_betas,
+    max_mb_X_h,
+    target_num_epochs,
+    num_mad,
+    adjust_priors,
+    epoch_max_num_iter_config,
+    min_num_burn_in,
+    max_num_burn_in,
+    min_num_post_burn_in,
+    max_num_post_burn_in,
+    increase_hyper_if_betas_below,
+):
     return {
-        "total_num_iter": phase_kwargs["total_num_iter"],
-        "num_chains": phase_kwargs["num_chains"],
-        "num_full_gene_sets": phase_kwargs["num_full_gene_sets"],
-        "use_mean_betas": phase_kwargs["use_mean_betas"],
-        "max_mb_X_h": phase_kwargs["max_mb_X_h"],
-        "target_num_epochs": phase_kwargs["target_num_epochs"],
-        "num_mad": phase_kwargs["num_mad"],
-        "adjust_priors": phase_kwargs["adjust_priors"],
-        "epoch_max_num_iter_config": phase_kwargs["epoch_max_num_iter_config"],
-        "min_num_burn_in": phase_kwargs["min_num_burn_in"],
-        "max_num_burn_in": phase_kwargs["max_num_burn_in"],
-        "min_num_post_burn_in": phase_kwargs["min_num_post_burn_in"],
-        "max_num_post_burn_in": phase_kwargs["max_num_post_burn_in"],
-        "increase_hyper_if_betas_below": phase_kwargs["increase_hyper_if_betas_below"],
+        "total_num_iter": total_num_iter,
+        "num_chains": num_chains,
+        "num_full_gene_sets": num_full_gene_sets,
+        "use_mean_betas": use_mean_betas,
+        "max_mb_X_h": max_mb_X_h,
+        "target_num_epochs": target_num_epochs,
+        "num_mad": num_mad,
+        "adjust_priors": adjust_priors,
+        "epoch_max_num_iter_config": epoch_max_num_iter_config,
+        "min_num_burn_in": min_num_burn_in,
+        "max_num_burn_in": max_num_burn_in,
+        "min_num_post_burn_in": min_num_post_burn_in,
+        "max_num_post_burn_in": max_num_post_burn_in,
+        "increase_hyper_if_betas_below": increase_hyper_if_betas_below,
     }
 
 
@@ -17285,15 +17397,21 @@ def _build_gibbs_iteration_correction_config(
     }
 
 
-def _build_gibbs_epoch_iteration_static_config(phase_kwargs):
-    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
+def _build_gibbs_epoch_iteration_static_config(
+    inner_beta_kwargs,
+    iteration_update_config,
+    iteration_input_config,
+    logistic_config,
+    prefilter_config,
+    iteration_progress_config,
+):
     return {
         "inner_beta_kwargs": inner_beta_kwargs,
-        "iteration_update_config": _extract_gibbs_iteration_update_config(phase_kwargs),
-        "iteration_input_config": _extract_gibbs_iteration_input_config(phase_kwargs),
-        "logistic_config": _extract_gibbs_logistic_config(phase_kwargs),
-        "prefilter_config": _extract_gibbs_prefilter_config(phase_kwargs),
-        "iteration_progress_config": _extract_gibbs_iteration_progress_config(phase_kwargs),
+        "iteration_update_config": iteration_update_config,
+        "iteration_input_config": iteration_input_config,
+        "logistic_config": logistic_config,
+        "prefilter_config": prefilter_config,
+        "iteration_progress_config": iteration_progress_config,
     }
 
 
@@ -18093,26 +18211,45 @@ def _should_run_gibbs_post_burn_diagnostics(
     )
 
 
-def _extract_gibbs_post_burn_diag_config(phase_kwargs):
+def _build_gibbs_post_burn_diag_config(
+    num_chains,
+    active_beta_top_k,
+    active_beta_min_abs,
+    stop_mcse_quantile,
+    beta_rel_mcse_denom_floor,
+    stop_top_gene_k,
+    stop_min_gene_d,
+    max_rel_mcse_beta,
+    max_abs_mcse_d,
+    stop_patience,
+    stall_window,
+    stall_min_post_burn_in,
+    stall_delta_rhat,
+    stall_delta_mcse,
+    stall_recent_window,
+    stall_recent_eps,
+    num_full_gene_sets,
+    burn_in_patience,
+):
     return {
-        "num_chains": phase_kwargs["num_chains"],
-        "active_beta_top_k": phase_kwargs["active_beta_top_k"],
-        "active_beta_min_abs": phase_kwargs["active_beta_min_abs"],
-        "stop_mcse_quantile": phase_kwargs["stop_mcse_quantile"],
-        "beta_rel_mcse_denom_floor": phase_kwargs["beta_rel_mcse_denom_floor"],
-        "stop_top_gene_k": phase_kwargs["stop_top_gene_k"],
-        "stop_min_gene_d": phase_kwargs["stop_min_gene_d"],
-        "max_rel_mcse_beta": phase_kwargs["max_rel_mcse_beta"],
-        "max_abs_mcse_d": phase_kwargs["max_abs_mcse_d"],
-        "stop_patience": phase_kwargs["stop_patience"],
-        "stall_window": phase_kwargs["stall_window"],
-        "stall_min_post_burn_in": phase_kwargs["stall_min_post_burn_in"],
-        "stall_delta_rhat": phase_kwargs["stall_delta_rhat"],
-        "stall_delta_mcse": phase_kwargs["stall_delta_mcse"],
-        "stall_recent_window": phase_kwargs["stall_recent_window"],
-        "stall_recent_eps": phase_kwargs["stall_recent_eps"],
-        "num_full_gene_sets": phase_kwargs["num_full_gene_sets"],
-        "burn_in_patience": phase_kwargs["burn_in_patience"],
+        "num_chains": num_chains,
+        "active_beta_top_k": active_beta_top_k,
+        "active_beta_min_abs": active_beta_min_abs,
+        "stop_mcse_quantile": stop_mcse_quantile,
+        "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor,
+        "stop_top_gene_k": stop_top_gene_k,
+        "stop_min_gene_d": stop_min_gene_d,
+        "max_rel_mcse_beta": max_rel_mcse_beta,
+        "max_abs_mcse_d": max_abs_mcse_d,
+        "stop_patience": stop_patience,
+        "stall_window": stall_window,
+        "stall_min_post_burn_in": stall_min_post_burn_in,
+        "stall_delta_rhat": stall_delta_rhat,
+        "stall_delta_mcse": stall_delta_mcse,
+        "stall_recent_window": stall_recent_window,
+        "stall_recent_eps": stall_recent_eps,
+        "num_full_gene_sets": num_full_gene_sets,
+        "burn_in_patience": burn_in_patience,
     }
 
 
