@@ -3961,26 +3961,16 @@ class GeneSetData(object):
                 debug_just_check_header=self.debug_just_check_header,
             )
 
-        #store the gene locations
-        log("Reading gene locations")
-        (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map, hold_out_chrom=hold_out_chrom)
-
-        for chrom in gene_chrom_name_pos:
-            serialized_gene_info = []
-            for gene in gene_chrom_name_pos[chrom]:
-                for pos in gene_chrom_name_pos[chrom][gene]:
-                    serialized_gene_info.append((gene,pos))
-            gene_chrom_name_pos[chrom] = serialized_gene_info 
-
-        chrom_to_interval_tree = None
-        if exons_loc_file is not None:
-
-            log("Reading exon locations")
-
-            chrom_interval_to_gene = _read_loc_file_with_gene_map(exons_loc_file, self.gene_label_map, return_intervals=True)
-            chrom_to_interval_tree = {}
-            for chrom in chrom_interval_to_gene:
-                chrom_to_interval_tree[chrom] = _IntervalTree(chrom_interval_to_gene[chrom].keys())
+        location_data = _load_huge_gene_and_exon_locations(
+            gene_loc_file=gene_loc_file,
+            gene_label_map=self.gene_label_map,
+            hold_out_chrom=hold_out_chrom,
+            exons_loc_file=exons_loc_file,
+        )
+        gene_chrom_name_pos = location_data["gene_chrom_name_pos"]
+        gene_to_chrom = location_data["gene_to_chrom"]
+        gene_to_pos = location_data["gene_to_pos"]
+        chrom_to_interval_tree = location_data["chrom_to_interval_tree"]
 
         (allelic_var_k, gwas_prior_odds) = self.compute_allelic_var_and_prior(gwas_high_p, gwas_high_p_posterior, gwas_low_p, gwas_low_p_posterior)
         #this stores the original values, in case we detect low or high power
@@ -14518,6 +14508,35 @@ def _read_loc_file_with_gene_map(loc_file, gene_label_map, return_intervals=Fals
         return chrom_interval_to_gene
     else:
         return (gene_chrom_name_pos, gene_to_chrom, gene_to_pos)
+
+
+def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_chrom=None, exons_loc_file=None):
+    # Store per-chromosome gene endpoints used by nearby-gene and window lookups.
+    log("Reading gene locations")
+    (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, gene_label_map, hold_out_chrom=hold_out_chrom)
+
+    for chrom in gene_chrom_name_pos:
+        serialized_gene_info = []
+        for gene in gene_chrom_name_pos[chrom]:
+            for pos in gene_chrom_name_pos[chrom][gene]:
+                serialized_gene_info.append((gene,pos))
+        gene_chrom_name_pos[chrom] = serialized_gene_info
+
+    chrom_to_interval_tree = None
+    if exons_loc_file is not None:
+        log("Reading exon locations")
+
+        chrom_interval_to_gene = _read_loc_file_with_gene_map(exons_loc_file, gene_label_map, return_intervals=True)
+        chrom_to_interval_tree = {}
+        for chrom in chrom_interval_to_gene:
+            chrom_to_interval_tree[chrom] = _IntervalTree(chrom_interval_to_gene[chrom].keys())
+
+    return {
+        "gene_chrom_name_pos": gene_chrom_name_pos,
+        "gene_to_chrom": gene_to_chrom,
+        "gene_to_pos": gene_to_pos,
+        "chrom_to_interval_tree": chrom_to_interval_tree,
+    }
 
 
 def _is_huge_statistics_bundle_path(huge_statistics_file):
