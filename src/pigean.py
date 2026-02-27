@@ -17282,7 +17282,6 @@ def _build_gibbs_epoch_iteration_config(phase_kwargs, run_state):
     iteration_update_config = _extract_gibbs_iteration_update_config(phase_kwargs)
     low_beta_restart_config = _extract_gibbs_low_beta_restart_config(phase_kwargs, run_state)
     return {
-        "inner_beta_kwargs": inner_beta_kwargs,
         "iteration_input_config": _extract_gibbs_iteration_input_config(phase_kwargs),
         "logistic_config": _extract_gibbs_logistic_config(phase_kwargs),
         "prefilter_config": _extract_gibbs_prefilter_config(phase_kwargs),
@@ -17534,12 +17533,12 @@ def _run_gibbs_epoch_iterations(
     epoch_priors = epoch_context["epoch_priors"]
     epoch_runtime = epoch_context["epoch_runtime"]
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
-    inner_beta_kwargs = epoch_iteration_config["inner_beta_kwargs"]
+    correction_config = epoch_iteration_config["correction_config"]
+    inner_beta_kwargs = correction_config["inner_beta_kwargs"]
     iteration_input_config = epoch_iteration_config["iteration_input_config"]
     logistic_config = epoch_iteration_config["logistic_config"]
     prefilter_config = epoch_iteration_config["prefilter_config"]
     iteration_progress_config = epoch_iteration_config["iteration_progress_config"]
-    correction_config = epoch_iteration_config["correction_config"]
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
