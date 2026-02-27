@@ -2579,15 +2579,17 @@ class GeneSetData(object):
                 self.ps = None
             self.ps_missing = None
 
-        if (filter_gene_set_p < 1 or filter_gene_set_metric_z) and self.Y is not None:
-            initialize_filtered_gene_set_state()
-
+        def maybe_prepare_filtered_gls_correlation():
             if (run_gls or run_corrected_ols) and self.y_corr is None:
                 correlation_m = self._read_correlations(gene_cor_file, gene_loc_file, gene_cor_file_gene_col=gene_cor_file_gene_col, gene_cor_file_cor_start_col=gene_cor_file_cor_start_col)
 
                 #convert X and Y to their new values
                 min_correlation = 0.05
                 self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, store_cholesky=run_gls, store_corr_sparse=run_corrected_ols, skip_V=True, skip_scale_factors=True, min_correlation=min_correlation)
+
+        if (filter_gene_set_p < 1 or filter_gene_set_metric_z) and self.Y is not None:
+            initialize_filtered_gene_set_state()
+            maybe_prepare_filtered_gls_correlation()
 
         if not run_logistic and self.Y_for_regression is not None and np.max(np.exp(self.Y_for_regression + self.background_log_bf) / (1 + np.exp(self.Y_for_regression + self.background_log_bf))) > max_for_linear:
             log("Switching to logistic sampling due to high Y values", DEBUG)
