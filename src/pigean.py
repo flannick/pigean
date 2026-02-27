@@ -4204,6 +4204,43 @@ class GeneSetData(object):
 
         return (added_chrom_pos, input_credible_set_info)
 
+    def _compute_huge_variant_logbf_and_posteriors(
+        self,
+        var_z,
+        allelic_var_k,
+        gwas_prior_odds,
+        separate_detect=False,
+        allelic_var_k_detect=None,
+        gwas_prior_odds_detect=None,
+    ):
+        var_log_bf = -np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k)
+
+        if separate_detect:
+            var_log_bf_detect = -np.log(np.sqrt(1 + allelic_var_k_detect)) + 0.5 * np.square(var_z) * allelic_var_k_detect / (1 + allelic_var_k_detect)
+        else:
+            var_log_bf_detect = copy.copy(var_log_bf)
+
+        # Convert log-odds to probabilities with a numerical cap for very large values.
+        var_posterior = var_log_bf + np.log(gwas_prior_odds)
+        if separate_detect:
+            var_posterior_detect = var_log_bf_detect + np.log(gwas_prior_odds_detect)
+            update_posterior = [var_posterior, var_posterior_detect]
+        else:
+            var_posterior_detect = copy.copy(var_posterior)
+            update_posterior = [var_posterior]
+
+        max_log = 15
+        for cur_var_posterior in update_posterior:
+            max_mask = cur_var_posterior < max_log
+            cur_var_posterior[~max_mask] = 1
+            cur_var_posterior[max_mask] = np.exp(cur_var_posterior[max_mask])
+            cur_var_posterior[max_mask] = cur_var_posterior[max_mask] / (1 + cur_var_posterior[max_mask])
+
+        if not separate_detect:
+            var_posterior_detect = copy.copy(var_posterior)
+
+        return (var_log_bf, var_log_bf_detect, var_posterior, var_posterior_detect)
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -4943,38 +4980,16 @@ class GeneSetData(object):
                     #K=-0.439 / np.mean(var_n)
                     #np.sqrt(1 + var_n * K) * np.exp(-np.square(var_z) / 2 * (var_n * K) / (1 + var_n * K))
 
-                    #var_log_bf = np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k)
-                    var_log_bf = -np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k)
-
-                    if separate_detect:
-                        var_log_bf_detect = -np.log(np.sqrt(1 + allelic_var_k_detect)) + 0.5 * np.square(var_z) * allelic_var_k_detect / (1 + allelic_var_k_detect)
-                    else:
-                        var_log_bf_detect = copy.copy(var_log_bf)
-
-                    #now calculate the posteriors
-                    var_posterior = var_log_bf + np.log(gwas_prior_odds)
-                    if separate_detect:
-                        var_posterior_detect = var_log_bf_detect + np.log(gwas_prior_odds_detect)
-                    else:
-                        var_posterior_detect = copy.copy(var_posterior)
-
+                    # var_log_bf = np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k)
+                    (var_log_bf, var_log_bf_detect, var_posterior, var_posterior_detect) = self._compute_huge_variant_logbf_and_posteriors(
+                        var_z=var_z,
+                        allelic_var_k=allelic_var_k,
+                        gwas_prior_odds=gwas_prior_odds,
+                        separate_detect=separate_detect,
+                        allelic_var_k_detect=allelic_var_k_detect,
+                        gwas_prior_odds_detect=gwas_prior_odds_detect,
+                    )
                     max_log = 15
-
-
-
-                    if separate_detect:
-                        update_posterior = [var_posterior, var_posterior_detect]
-                    else:
-                        update_posterior = [var_posterior]
-
-                    for cur_var_posterior in update_posterior:
-                        max_mask = cur_var_posterior < max_log
-                        cur_var_posterior[~max_mask] = 1
-                        cur_var_posterior[max_mask] = np.exp(cur_var_posterior[max_mask])
-                        cur_var_posterior[max_mask] = cur_var_posterior[max_mask] / (1 + cur_var_posterior[max_mask])
-
-                    if not separate_detect:
-                        var_posterior_detect = copy.copy(var_posterior)
 
                     variants_keep = np.full(len(var_pos), True)
                     qc_fail = 1 / var_se2 < min_n_ratio * mean_n
