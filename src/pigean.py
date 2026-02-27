@@ -865,6 +865,27 @@ def _set_default_option(_options, _name, _value):
         setattr(_options, _name, _value)
 
 
+def _build_mode_state(_mode, _run_phewas_from_gene_phewas_stats_in):
+    mode_state = {
+        "run_huge": False,
+        "run_beta_tilde": False,
+        "run_beta": False,
+        "run_priors": False,
+        "run_naive_priors": False,
+        "run_gibbs": False,
+        "run_phewas": False,
+        "run_sim": False,
+    }
+    state_keys = MODE_TO_STATE_KEYS.get(_mode)
+    if state_keys is None:
+        bail("Unrecognized mode %s" % _mode)
+    for state_key in state_keys:
+        mode_state[state_key] = True
+    if _run_phewas_from_gene_phewas_stats_in is not None:
+        mode_state["run_phewas"] = True
+    return mode_state
+
+
 _GIBBS_STOPPING_PRESETS = {
     "lenient": {
         "stop_mcse_quantile": 0.90,
@@ -902,23 +923,7 @@ def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_na
     setattr(_options, opt_name, int(new_value))
 
 
-mode_state = {
-    "run_huge": False,
-    "run_beta_tilde": False,
-    "run_beta": False,
-    "run_priors": False,
-    "run_naive_priors": False,
-    "run_gibbs": False,
-    "run_phewas": False,
-    "run_sim": False,
-}
-state_keys = MODE_TO_STATE_KEYS.get(mode)
-if state_keys is None:
-    bail("Unrecognized mode %s" % mode)
-for state_key in state_keys:
-    mode_state[state_key] = True
-if options.run_phewas_from_gene_phewas_stats_in is not None:
-    mode_state["run_phewas"] = True
+mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 
 # Mode-dependent defaults.
 if mode in ("pops", "naive_pops"):
