@@ -14991,7 +14991,6 @@ _GIBBS_EPOCH_SUM_KEYS = (
     "sum_Ys_m",
     "sum_Y_raws_m",
     "sum_log_pos_m",
-    "sum_log_pos2_m",
     "sum_log_po_raws_m",
     "sum_log_po_raws2_m",
     "sum_priors_m",
@@ -14999,7 +14998,6 @@ _GIBBS_EPOCH_SUM_KEYS = (
     "sum_Ds_m",
     "sum_D_raws_m",
     "sum_bf_orig_m",
-    "sum_bf_uncorrected_m",
     "sum_bf_orig_raw_m",
     "sum_bf_orig_raw2_m",
     "num_sum_Y_m",
@@ -16005,7 +16003,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
     sum_Ys_m = np.zeros(Y_m_shape)
     sum_Y_raws_m = np.zeros(Y_m_shape)
     sum_log_pos_m = np.zeros(Y_m_shape)
-    sum_log_pos2_m = np.zeros(Y_m_shape)
     sum_log_po_raws_m = np.zeros(Y_m_shape)
     sum_log_po_raws2_m = np.zeros(Y_m_shape)
     sum_priors_m = np.zeros(Y_m_shape)
@@ -16013,7 +16010,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
     sum_Ds_m = np.zeros(Y_m_shape)
     sum_D_raws_m = np.zeros(Y_m_shape)
     sum_bf_orig_m = np.zeros(Y_m_shape)
-    sum_bf_uncorrected_m = np.zeros(Y_m_shape)
     sum_bf_orig_raw_m = np.zeros(Y_m_shape)
     sum_bf_orig_raw2_m = np.zeros(Y_m_shape)
     num_sum_Y_m = np.zeros(Y_m_shape)
@@ -16055,7 +16051,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         sum_Ys_m,
         sum_Y_raws_m,
         sum_log_pos_m,
-        sum_log_pos2_m,
         sum_log_po_raws_m,
         sum_log_po_raws2_m,
         sum_priors_m,
@@ -16063,7 +16058,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         sum_Ds_m,
         sum_D_raws_m,
         sum_bf_orig_m,
-        sum_bf_uncorrected_m,
         sum_bf_orig_raw_m,
         sum_bf_orig_raw2_m,
         num_sum_Y_m,
@@ -16110,7 +16104,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         "sum_Ys_m": sum_Ys_m,
         "sum_Y_raws_m": sum_Y_raws_m,
         "sum_log_pos_m": sum_log_pos_m,
-        "sum_log_pos2_m": sum_log_pos2_m,
         "sum_log_po_raws_m": sum_log_po_raws_m,
         "sum_log_po_raws2_m": sum_log_po_raws2_m,
         "sum_priors_m": sum_priors_m,
@@ -16118,7 +16111,6 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         "sum_Ds_m": sum_Ds_m,
         "sum_D_raws_m": sum_D_raws_m,
         "sum_bf_orig_m": sum_bf_orig_m,
-        "sum_bf_uncorrected_m": sum_bf_uncorrected_m,
         "sum_bf_orig_raw_m": sum_bf_orig_raw_m,
         "sum_bf_orig_raw2_m": sum_bf_orig_raw2_m,
         "num_sum_Y_m": num_sum_Y_m,
@@ -16608,7 +16600,6 @@ def _summarize_gibbs_chain_aggregates(
     sum_Ys_m,
     sum_Y_raws_m,
     sum_log_pos_m,
-    sum_log_pos2_m,
     sum_log_po_raws_m,
     sum_log_po_raws2_m,
     sum_priors_m,
@@ -16640,7 +16631,6 @@ def _summarize_gibbs_chain_aggregates(
     _, avg_Y_raws_v = _outlier_resistant_mean(sum_Y_raws_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
     _, avg_log_pos_v = _outlier_resistant_mean(sum_log_pos_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
     _, avg_log_po_raws_v = _outlier_resistant_mean(sum_log_po_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-    _, avg_log_pos2_v = _outlier_resistant_mean(sum_log_pos2_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
     _, avg_Ds_v = _outlier_resistant_mean(sum_Ds_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
     _, avg_D_raws_v = _outlier_resistant_mean(sum_D_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
     _, avg_priors_v = _outlier_resistant_mean(sum_priors_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
@@ -16684,7 +16674,6 @@ def _summarize_gibbs_chain_aggregates(
         "avg_Y_raws_v": avg_Y_raws_v,
         "avg_log_pos_v": avg_log_pos_v,
         "avg_log_po_raws_v": avg_log_po_raws_v,
-        "avg_log_pos2_v": avg_log_pos2_v,
         "avg_Ds_v": avg_Ds_v,
         "avg_D_raws_v": avg_D_raws_v,
         "avg_priors_v": avg_priors_v,
@@ -16842,7 +16831,6 @@ def _finalize_gibbs_epoch_attempt(
         sum_Ys_m,
         sum_Y_raws_m,
         sum_log_pos_m,
-        sum_log_pos2_m,
         sum_log_po_raws_m,
         sum_log_po_raws2_m,
         sum_priors_m,
@@ -16850,7 +16838,6 @@ def _finalize_gibbs_epoch_attempt(
         sum_Ds_m,
         sum_D_raws_m,
         sum_bf_orig_m,
-        sum_bf_uncorrected_m,
         sum_bf_orig_raw_m,
         sum_bf_orig_raw2_m,
         num_sum_Y_m,
@@ -16867,7 +16854,6 @@ def _finalize_gibbs_epoch_attempt(
         sum_Ys_m,
         sum_Y_raws_m,
         sum_log_pos_m,
-        sum_log_pos2_m,
         sum_log_po_raws_m,
         sum_log_po_raws2_m,
         sum_priors_m,
@@ -16969,7 +16955,6 @@ def _accumulate_gibbs_post_burn_iteration(
     epoch_sums["sum_Ys_m"] += Y_sample_m
     epoch_sums["sum_Y_raws_m"] += Y_raw_sample_m
     epoch_sums["sum_log_pos_m"] += log_po_sample_m
-    epoch_sums["sum_log_pos2_m"] += np.power(log_po_sample_m, 2)
     epoch_sums["sum_log_po_raws_m"] += log_po_raw_sample_m
     epoch_sums["sum_log_po_raws2_m"] += np.power(log_po_raw_sample_m, 2)
     epoch_sums["sum_priors_m"] += priors_for_Y_m
@@ -16977,7 +16962,6 @@ def _accumulate_gibbs_post_burn_iteration(
     epoch_sums["sum_Ds_m"] += D_sample_m
     epoch_sums["sum_D_raws_m"] += D_raw_sample_m
     epoch_sums["sum_bf_orig_m"] += log_bf_m
-    epoch_sums["sum_bf_uncorrected_m"] += log_bf_uncorrected_m
     epoch_sums["sum_bf_orig_raw_m"] += log_bf_raw_m
     epoch_sums["sum_bf_orig_raw2_m"] += np.power(log_bf_raw_m, 2)
     epoch_sums["num_sum_Y_m"] += 1
