@@ -2539,7 +2539,7 @@ class GeneSetData(object):
         self.gene_sets = []
         self.is_dense_gene_set = np.array([], dtype=bool)
 
-        if (filter_gene_set_p < 1 or filter_gene_set_metric_z) and self.Y is not None:
+        def initialize_filtered_gene_set_state():
             self.gene_sets_ignored = []
             if self.gene_set_labels is not None:
                 self.gene_set_labels_ignored = np.array([])
@@ -2552,7 +2552,6 @@ class GeneSetData(object):
             self.ses_ignored = np.array([])
             self.z_scores_ignored = np.array([])
             self.se_inflation_factors_ignored = np.array([])
-
 
             self.beta_tildes = np.array([])
             self.p_values = np.array([])
@@ -2579,6 +2578,9 @@ class GeneSetData(object):
             else:
                 self.ps = None
             self.ps_missing = None
+
+        if (filter_gene_set_p < 1 or filter_gene_set_metric_z) and self.Y is not None:
+            initialize_filtered_gene_set_state()
 
             if (run_gls or run_corrected_ols) and self.y_corr is None:
                 correlation_m = self._read_correlations(gene_cor_file, gene_loc_file, gene_cor_file_gene_col=gene_cor_file_gene_col, gene_cor_file_cor_start_col=gene_cor_file_cor_start_col)
