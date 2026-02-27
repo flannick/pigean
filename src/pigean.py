@@ -19464,59 +19464,6 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
         force_reread = True
 
 
-def _resolve_main_beta_tildes(state, options, mode_state):
-    # Resolve beta_tildes from fixed values, read-in stats, or fresh fitting.
-    needs_gene_set_stats = (
-        mode_state["run_beta_tilde"]
-        or mode_state["run_beta"]
-        or mode_state["run_priors"]
-        or mode_state["run_naive_priors"]
-        or mode_state["run_gibbs"]
-        or mode_state["run_sim"]
-    )
-    if options.const_gene_set_beta is not None:
-        state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
-    elif options.gene_set_stats_in is not None:
-        state.read_gene_set_statistics(
-            options.gene_set_stats_in,
-            stats_id_col=options.gene_set_stats_id_col,
-            stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
-            stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
-            stats_p_col=options.gene_set_stats_p_col,
-            stats_se_col=options.gene_set_stats_se_col,
-            stats_beta_col=options.gene_set_stats_beta_col,
-            stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
-            ignore_negative_exp_beta=options.ignore_negative_exp_beta,
-            max_gene_set_p=options.max_gene_set_read_p,
-            min_gene_set_beta=options.min_gene_set_read_beta,
-            min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
-            return_only_ids=False,
-        )
-    elif needs_gene_set_stats:
-        max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
-        gene_set_stats_kwargs = dict(
-            run_gls=False,
-            run_logistic=not options.linear,
-            max_for_linear=options.max_for_linear,
-            run_corrected_ols=not options.ols,
-            use_sampling_for_betas=options.use_sampling_for_betas,
-            correct_betas_mean=options.correct_betas_mean,
-            correct_betas_var=options.correct_betas_var,
-            gene_loc_file=options.gene_loc_file,
-            gene_cor_file=options.gene_cor_file,
-            gene_cor_file_gene_col=options.gene_cor_file_gene_col,
-            gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
-        )
-        state.calculate_gene_set_statistics(max_gene_set_p=max_gene_set_p, **gene_set_stats_kwargs)
-        if options.betas_uncorrected_from_phewas:
-            state.calculate_gene_set_statistics(
-                max_gene_set_p=1,
-                Y=state.gene_pheno_Y,
-                run_using_phewas=True,
-                **gene_set_stats_kwargs,
-            )
-
-
 def _resolve_main_gene_set_betas(state, options, mode_state):
     # Resolve gene-set betas from fixed values, read-in betas, or Gibbs updates.
     needs_gene_set_betas = (
@@ -19604,7 +19551,57 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
             only_positive=options.sim_only_positive,
         )
 
-    _resolve_main_beta_tildes(state, options, mode_state)
+    # Resolve beta_tildes from fixed values, read-in stats, or fresh fitting.
+    needs_gene_set_stats = (
+        mode_state["run_beta_tilde"]
+        or mode_state["run_beta"]
+        or mode_state["run_priors"]
+        or mode_state["run_naive_priors"]
+        or mode_state["run_gibbs"]
+        or mode_state["run_sim"]
+    )
+    if options.const_gene_set_beta is not None:
+        state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
+    elif options.gene_set_stats_in is not None:
+        state.read_gene_set_statistics(
+            options.gene_set_stats_in,
+            stats_id_col=options.gene_set_stats_id_col,
+            stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
+            stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
+            stats_p_col=options.gene_set_stats_p_col,
+            stats_se_col=options.gene_set_stats_se_col,
+            stats_beta_col=options.gene_set_stats_beta_col,
+            stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
+            ignore_negative_exp_beta=options.ignore_negative_exp_beta,
+            max_gene_set_p=options.max_gene_set_read_p,
+            min_gene_set_beta=options.min_gene_set_read_beta,
+            min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
+            return_only_ids=False,
+        )
+    elif needs_gene_set_stats:
+        max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
+        gene_set_stats_kwargs = dict(
+            run_gls=False,
+            run_logistic=not options.linear,
+            max_for_linear=options.max_for_linear,
+            run_corrected_ols=not options.ols,
+            use_sampling_for_betas=options.use_sampling_for_betas,
+            correct_betas_mean=options.correct_betas_mean,
+            correct_betas_var=options.correct_betas_var,
+            gene_loc_file=options.gene_loc_file,
+            gene_cor_file=options.gene_cor_file,
+            gene_cor_file_gene_col=options.gene_cor_file_gene_col,
+            gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
+        )
+        state.calculate_gene_set_statistics(max_gene_set_p=max_gene_set_p, **gene_set_stats_kwargs)
+        if options.betas_uncorrected_from_phewas:
+            state.calculate_gene_set_statistics(
+                max_gene_set_p=1,
+                Y=state.gene_pheno_Y,
+                run_using_phewas=True,
+                **gene_set_stats_kwargs,
+            )
+
     _resolve_main_gene_set_betas(state, options, mode_state)
     # Final sampling stage selection: priors-only, naive priors, and/or outer Gibbs.
     if mode_state["run_priors"]:
