@@ -3977,25 +3977,12 @@ class GeneSetData(object):
         (allelic_var_k_detect, gwas_prior_odds_detect) = (allelic_var_k, gwas_prior_odds)
         separate_detect = False
 
-        var_z_threshold = None
-        var_p_threshold = None
-
-        if min_var_posterior is not None and min_var_posterior > gwas_high_p_posterior:
-            #var_log_bf + np.log(gwas_prior_odds) > np.log(min_var_posterior / (1 - min_var_posterior))
-            #var_log_bf > np.log(min_var_posterior / (1 - min_var_posterior)) - np.log(gwas_prior_odds) = threshold
-            #-np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > threshold
-            #0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > threshold + np.log(np.sqrt(1 + allelic_var_k))
-            #np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > 2 * (threshold + np.log(np.sqrt(1 + allelic_var_k)))
-            #np.square(var_z) * allelic_var_k > 2 * (1 + allelic_var_k) * (threshold + np.log(np.sqrt(1 + allelic_var_k)))
-            log_bf_threshold = np.log(min_var_posterior / (1 - min_var_posterior)) - np.log(gwas_prior_odds) + np.log(np.sqrt(1 + allelic_var_k))
-
-            if log_bf_threshold > 0:
-                var_z_threshold = np.sqrt(2 * (1 + allelic_var_k) * (log_bf_threshold) / allelic_var_k)
-                var_p_threshold = 2*scipy.stats.norm.cdf(-np.abs(var_z_threshold))
-                log("Keeping only variants with p < %.4g" % var_p_threshold)
-        else:
-            var_p_threshold = gwas_high_p_posterior
-            var_z_threshold = np.abs(scipy.stats.norm.ppf(var_p_threshold / 2))
+        (var_z_threshold, var_p_threshold) = _compute_huge_variant_thresholds(
+            min_var_posterior=min_var_posterior,
+            gwas_high_p_posterior=gwas_high_p_posterior,
+            allelic_var_k=allelic_var_k,
+            gwas_prior_odds=gwas_prior_odds,
+        )
 
 
         log("Reading --gwas-in file %s" % gwas_in, INFO)
@@ -14537,6 +14524,30 @@ def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_c
         "gene_to_pos": gene_to_pos,
         "chrom_to_interval_tree": chrom_to_interval_tree,
     }
+
+
+def _compute_huge_variant_thresholds(min_var_posterior, gwas_high_p_posterior, allelic_var_k, gwas_prior_odds):
+    var_z_threshold = None
+    var_p_threshold = None
+
+    if min_var_posterior is not None and min_var_posterior > gwas_high_p_posterior:
+        #var_log_bf + np.log(gwas_prior_odds) > np.log(min_var_posterior / (1 - min_var_posterior))
+        #var_log_bf > np.log(min_var_posterior / (1 - min_var_posterior)) - np.log(gwas_prior_odds) = threshold
+        #-np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > threshold
+        #0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > threshold + np.log(np.sqrt(1 + allelic_var_k))
+        #np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > 2 * (threshold + np.log(np.sqrt(1 + allelic_var_k)))
+        #np.square(var_z) * allelic_var_k > 2 * (1 + allelic_var_k) * (threshold + np.log(np.sqrt(1 + allelic_var_k)))
+        log_bf_threshold = np.log(min_var_posterior / (1 - min_var_posterior)) - np.log(gwas_prior_odds) + np.log(np.sqrt(1 + allelic_var_k))
+
+        if log_bf_threshold > 0:
+            var_z_threshold = np.sqrt(2 * (1 + allelic_var_k) * (log_bf_threshold) / allelic_var_k)
+            var_p_threshold = 2*scipy.stats.norm.cdf(-np.abs(var_z_threshold))
+            log("Keeping only variants with p < %.4g" % var_p_threshold)
+    else:
+        var_p_threshold = gwas_high_p_posterior
+        var_z_threshold = np.abs(scipy.stats.norm.ppf(var_p_threshold / 2))
+
+    return (var_z_threshold, var_p_threshold)
 
 
 def _is_huge_statistics_bundle_path(huge_statistics_file):
