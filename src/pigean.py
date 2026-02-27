@@ -17385,18 +17385,6 @@ def _build_gibbs_epoch_phase_config(
     }
 
 
-def _build_gibbs_iteration_correction_config(
-    inner_beta_kwargs,
-    iteration_update_config,
-    low_beta_restart_config,
-):
-    return {
-        "inner_beta_kwargs": inner_beta_kwargs,
-        "iteration_update_config": iteration_update_config,
-        "low_beta_restart_config": low_beta_restart_config,
-    }
-
-
 def _build_gibbs_epoch_iteration_static_config(
     inner_beta_kwargs,
     iteration_update_config,
@@ -17422,11 +17410,11 @@ def _build_gibbs_epoch_iteration_config(iteration_static_config, low_beta_restar
         "logistic_config": iteration_static_config["logistic_config"],
         "prefilter_config": iteration_static_config["prefilter_config"],
         "iteration_progress_config": iteration_static_config["iteration_progress_config"],
-        "correction_config": _build_gibbs_iteration_correction_config(
-            inner_beta_kwargs=iteration_static_config["inner_beta_kwargs"],
-            iteration_update_config=iteration_static_config["iteration_update_config"],
-            low_beta_restart_config=low_beta_restart_config,
-        ),
+        "correction_config": {
+            "inner_beta_kwargs": iteration_static_config["inner_beta_kwargs"],
+            "iteration_update_config": iteration_static_config["iteration_update_config"],
+            "low_beta_restart_config": low_beta_restart_config,
+        },
     }
 
 
