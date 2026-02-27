@@ -4331,6 +4331,29 @@ class GeneSetData(object):
         cond_prob_detect = self._convert_huge_log_rel_bf_to_cond_prob(log_rel_bf_detect, max_log)
         return (cond_prob, cond_prob_detect)
 
+    def _finalize_huge_selected_region(
+        self,
+        var_pos,
+        var_p,
+        var_posterior,
+        var_posterior_detect,
+        variants_left,
+        region_vars,
+        index_var_chrom_pos_ps,
+        chrom,
+        lead_index,
+    ):
+        # Mark selected region as consumed, then summarize the lead signal for downstream gene assignment.
+        region_vars = np.logical_and(region_vars, variants_left)
+        variants_left[region_vars] = False
+        index_var_chrom_pos_ps[chrom].append((var_pos[lead_index], var_p[lead_index]))
+
+        sig_posterior = np.max(var_posterior[region_vars])
+        sig_posterior_detect = np.max(var_posterior_detect[region_vars])
+        min_pos = np.min(var_pos[region_vars])
+        max_pos = np.max(var_pos[region_vars])
+        return (variants_left, region_vars, sig_posterior, sig_posterior_detect, min_pos, max_pos)
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5251,23 +5274,17 @@ class GeneSetData(object):
                             if signal_max_logp_ratio is not None:
                                 region_vars[var_logp/var_logp[i] < signal_max_logp_ratio] = False
 
-                        #now remove all of the variants that have been seen
-                        left_mask = variants_left[region_vars]
-                        region_vars = np.logical_and(region_vars, variants_left)
-                        #set these to not be seen again
-                        variants_left[region_vars] = False
-
-                        index_var_chrom_pos_ps[chrom].append((var_pos[i], var_p[i]))
-
-
-                        #let's always treat the top posterior as the signal
-                        #this will always hold unless we chose a credible set with a variant that doesn't have a p-value
-
-                        sig_posterior = np.max(var_posterior[region_vars])
-                        sig_posterior_detect = np.max(var_posterior_detect[region_vars])
-
-                        min_pos = np.min(var_pos[region_vars])
-                        max_pos = np.max(var_pos[region_vars])
+                        (variants_left, region_vars, sig_posterior, sig_posterior_detect, min_pos, max_pos) = self._finalize_huge_selected_region(
+                            var_pos=var_pos,
+                            var_p=var_p,
+                            var_posterior=var_posterior,
+                            var_posterior_detect=var_posterior_detect,
+                            variants_left=variants_left,
+                            region_vars=region_vars,
+                            index_var_chrom_pos_ps=index_var_chrom_pos_ps,
+                            chrom=chrom,
+                            lead_index=i,
+                        )
                         #log("%d-%d (%d)" % (min_pos, max_pos, max_pos - min_pos))
                         #if not learn_params:
                             #log("Index SNP %d=%d; region=%d-%d; logp=%.3g-%.3g" % (i,var_pos[i], np.min(var_pos[region_vars]), np.max(var_pos[region_vars]), np.min(var_logp[region_vars]), np.max(var_logp[region_vars])), TRACE)
