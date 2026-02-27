@@ -19689,7 +19689,35 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
         )
 
 
-def _run_main_outputs(state, options, mode_state):
+def main():
+    # ==========================================================================
+    # Main Phase A: Runtime setup and global option echo.
+    # ==========================================================================
+    if not options.hide_opts:
+        log("Python version: %s" % sys.version)
+        log("Numpy version: %s" % np.__version__)
+        log("Scipy version: %s" % scipy.__version__)
+        log("Options: %s" % options)
+    state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
+
+    # ==========================================================================
+    # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
+    # ==========================================================================
+    sigma2_cond = _configure_hyperparameters_for_main(state, options)
+
+    # ==========================================================================
+    # Main Phase C: Input loading helpers (Y, then X/gene sets).
+    # ==========================================================================
+    Y_not_loaded = _load_main_inputs(state, options, mode_state)
+
+    # ==========================================================================
+    # Main Phase D: Core model computation (betas, priors, outer Gibbs).
+    # ==========================================================================
+    _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded)
+
+    # ==========================================================================
+    # Main Phase E: Output writers and optional downstream analyses.
+    # ==========================================================================
     if options.gene_set_stats_out:
         state.write_gene_set_statistics(
             options.gene_set_stats_out,
@@ -19747,38 +19775,6 @@ def _run_main_outputs(state, options, mode_state):
 
     if options.params_out:
         state.write_params(options.params_out)
-
-
-def main():
-    # ==========================================================================
-    # Main Phase A: Runtime setup and global option echo.
-    # ==========================================================================
-    if not options.hide_opts:
-        log("Python version: %s" % sys.version)
-        log("Numpy version: %s" % np.__version__)
-        log("Scipy version: %s" % scipy.__version__)
-        log("Options: %s" % options)
-    state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
-
-    # ==========================================================================
-    # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
-    # ==========================================================================
-    sigma2_cond = _configure_hyperparameters_for_main(state, options)
-
-    # ==========================================================================
-    # Main Phase C: Input loading helpers (Y, then X/gene sets).
-    # ==========================================================================
-    Y_not_loaded = _load_main_inputs(state, options, mode_state)
-
-    # ==========================================================================
-    # Main Phase D: Core model computation (betas, priors, outer Gibbs).
-    # ==========================================================================
-    _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded)
-
-    # ==========================================================================
-    # Main Phase E: Output writers and optional downstream analyses.
-    # ==========================================================================
-    _run_main_outputs(state, options, mode_state)
 
 if __name__ == '__main__':
     main()
