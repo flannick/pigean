@@ -3961,76 +3961,6 @@ class GeneSetData(object):
                 debug_just_check_header=self.debug_just_check_header,
             )
 
-
-        #use this to store the exons 
-        class IntervalTree(object):
-            __slots__ = ('interval_starts', 'interval_stops', 'left', 'right', 'center')
-            def __init__(self, intervals, depth=16, minbucket=96, _extent=None, maxbucket=4096):
-                depth -= 1
-                if (depth == 0 or len(intervals) < minbucket) and len(intervals) > maxbucket:
-                    self.interval_starts, self.interval_stops = zip(*intervals)
-                    self.left = self.right = None
-                    return
-
-                left, right = _extent or (min(i[0] for i in intervals), max(i[1] for i in intervals))
-                center = (left + right) / 2.0
-
-                self.interval_starts = []
-                self.interval_stops = []
-                lefts, rights  = [], []
-
-                for interval in intervals:
-                    if interval[1] < center:
-                        lefts.append(interval)
-                    elif interval[0] > center:
-                        rights.append(interval)
-                    else: # overlapping.
-                        self.interval_starts.append(interval[0])
-                        self.interval_stops.append(interval[1])
-
-                self.interval_starts = np.array(self.interval_starts)
-                self.interval_stops = np.array(self.interval_stops)
-                self.left   = lefts  and IntervalTree(lefts,  depth, minbucket, (left,  center)) or None
-                self.right  = rights and IntervalTree(rights, depth, minbucket, (center, right)) or None
-                self.center = center
-
-            def find(self, start, stop, index_map=None):
-
-                #find overlapping intervals for set of (start, stop) pairs
-                #start is array of starting points
-                #stop is array of corresponding stopping points
-                #return list of two np arrays. First of passed in indices for which there is an overlap (indices can be repeated)
-                #second a list of intervals that overlap
-                """find all elements between (or overlapping) start and stop"""
-                #array with rows equal to intervals length, columns equal to stop, true if intervals less than or equal to stop
-                less_mask = np.less(self.interval_starts, stop[:,np.newaxis] + 1)
-                #array with rows equal to intervals length, columns equal to stop, true if intervals greater than or equal to stop
-                greater_mask = np.greater(self.interval_stops, start[:,np.newaxis] - 1)
-                #interval x variant pos array with the intervals that overlap each variant pos
-                overlapping_mask = np.logical_and(less_mask, greater_mask)
-
-                #tuple of (overlapping interval indices, passed in start/stop index with the overlap)
-                overlapping_where = np.where(overlapping_mask)
-
-                overlapping_indices = (overlapping_where[0], self.interval_starts[overlapping_where[1]], self.interval_stops[overlapping_where[1]])
-                #overlapping = [i for i in self.intervals if i[1] >= start and i[0] <= stop]
-
-                start_less_mask = start <= self.center
-                if self.left and np.any(start_less_mask):
-                    left_overlapping_indices = self.left.find(start[start_less_mask], stop[start_less_mask], index_map=np.where(start_less_mask)[0])
-                    overlapping_indices = (np.append(overlapping_indices[0], left_overlapping_indices[0]), np.append(overlapping_indices[1], left_overlapping_indices[1]), np.append(overlapping_indices[2], left_overlapping_indices[2]))
-
-                stop_greater_mask = stop >= self.center
-                if self.right and np.any(stop_greater_mask):
-                    right_overlapping_indices = self.right.find(start[stop_greater_mask], stop[stop_greater_mask], index_map=np.where(stop_greater_mask)[0])
-                    overlapping_indices = (np.append(overlapping_indices[0], right_overlapping_indices[0]), np.append(overlapping_indices[1], right_overlapping_indices[1]), np.append(overlapping_indices[2], right_overlapping_indices[2]))
-
-                if index_map is not None and len(overlapping_indices[0]) > 0:
-                    overlapping_indices = (index_map[overlapping_indices[0]], overlapping_indices[1], overlapping_indices[2])
-
-                return overlapping_indices
-
-
         #store the gene locations
         log("Reading gene locations")
         (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map, hold_out_chrom=hold_out_chrom)
@@ -4050,7 +3980,7 @@ class GeneSetData(object):
             chrom_interval_to_gene = _read_loc_file_with_gene_map(exons_loc_file, self.gene_label_map, return_intervals=True)
             chrom_to_interval_tree = {}
             for chrom in chrom_interval_to_gene:
-                chrom_to_interval_tree[chrom] = IntervalTree(chrom_interval_to_gene[chrom].keys())
+                chrom_to_interval_tree[chrom] = _IntervalTree(chrom_interval_to_gene[chrom].keys())
 
         (allelic_var_k, gwas_prior_odds) = self.compute_allelic_var_and_prior(gwas_high_p, gwas_high_p_posterior, gwas_low_p, gwas_low_p_posterior)
         #this stores the original values, in case we detect low or high power
@@ -5238,7 +5168,7 @@ class GeneSetData(object):
                         cur_ps = np.array(list(zip(*index_var_chrom_pos_ps[chrom]))[1])
                         #now filter the variants
                         indep_window = 1e6
-                        tree = IntervalTree([(x - indep_window, x + indep_window) for x in cur_pos])
+                        tree = _IntervalTree([(x - indep_window, x + indep_window) for x in cur_pos])
                         start_to_index = dict([(cur_pos[i] - indep_window, i) for i in range(len(cur_pos))])
                         (ind_with_overlap_inds, overlapping_interval_starts, overlapping_interval_stops) = tree.find(cur_pos, cur_pos)
                         #ind_with_overlap_inds is the indices that had an overlap
@@ -14419,6 +14349,74 @@ def _autodetect_gwas_columns(
         gwas_freq_col,
         gwas_n_col,
     )
+
+
+class _IntervalTree(object):
+    __slots__ = ('interval_starts', 'interval_stops', 'left', 'right', 'center')
+
+    def __init__(self, intervals, depth=16, minbucket=96, _extent=None, maxbucket=4096):
+        depth -= 1
+        if (depth == 0 or len(intervals) < minbucket) and len(intervals) > maxbucket:
+            self.interval_starts, self.interval_stops = zip(*intervals)
+            self.left = self.right = None
+            return
+
+        left, right = _extent or (min(i[0] for i in intervals), max(i[1] for i in intervals))
+        center = (left + right) / 2.0
+
+        self.interval_starts = []
+        self.interval_stops = []
+        lefts, rights  = [], []
+
+        for interval in intervals:
+            if interval[1] < center:
+                lefts.append(interval)
+            elif interval[0] > center:
+                rights.append(interval)
+            else: # overlapping.
+                self.interval_starts.append(interval[0])
+                self.interval_stops.append(interval[1])
+
+        self.interval_starts = np.array(self.interval_starts)
+        self.interval_stops = np.array(self.interval_stops)
+        self.left = lefts and _IntervalTree(lefts, depth, minbucket, (left, center)) or None
+        self.right = rights and _IntervalTree(rights, depth, minbucket, (center, right)) or None
+        self.center = center
+
+    def find(self, start, stop, index_map=None):
+        #find overlapping intervals for set of (start, stop) pairs
+        #start is array of starting points
+        #stop is array of corresponding stopping points
+        #return list of two np arrays. First of passed in indices for which there is an overlap (indices can be repeated)
+        #second a list of intervals that overlap
+        """find all elements between (or overlapping) start and stop"""
+        #array with rows equal to intervals length, columns equal to stop, true if intervals less than or equal to stop
+        less_mask = np.less(self.interval_starts, stop[:,np.newaxis] + 1)
+        #array with rows equal to intervals length, columns equal to stop, true if intervals greater than or equal to stop
+        greater_mask = np.greater(self.interval_stops, start[:,np.newaxis] - 1)
+        #interval x variant pos array with the intervals that overlap each variant pos
+        overlapping_mask = np.logical_and(less_mask, greater_mask)
+
+        #tuple of (overlapping interval indices, passed in start/stop index with the overlap)
+        overlapping_where = np.where(overlapping_mask)
+
+        overlapping_indices = (overlapping_where[0], self.interval_starts[overlapping_where[1]], self.interval_stops[overlapping_where[1]])
+        #overlapping = [i for i in self.intervals if i[1] >= start and i[0] <= stop]
+
+        start_less_mask = start <= self.center
+        if self.left and np.any(start_less_mask):
+            left_overlapping_indices = self.left.find(start[start_less_mask], stop[start_less_mask], index_map=np.where(start_less_mask)[0])
+            overlapping_indices = (np.append(overlapping_indices[0], left_overlapping_indices[0]), np.append(overlapping_indices[1], left_overlapping_indices[1]), np.append(overlapping_indices[2], left_overlapping_indices[2]))
+
+        stop_greater_mask = stop >= self.center
+        if self.right and np.any(stop_greater_mask):
+            right_overlapping_indices = self.right.find(start[stop_greater_mask], stop[stop_greater_mask], index_map=np.where(stop_greater_mask)[0])
+            overlapping_indices = (np.append(overlapping_indices[0], right_overlapping_indices[0]), np.append(overlapping_indices[1], right_overlapping_indices[1]), np.append(overlapping_indices[2], right_overlapping_indices[2]))
+
+        if index_map is not None and len(overlapping_indices[0]) > 0:
+            overlapping_indices = (index_map[overlapping_indices[0]], overlapping_indices[1], overlapping_indices[2])
+
+        return overlapping_indices
 
 
 def _clean_chrom_name(chrom):
