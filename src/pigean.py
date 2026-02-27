@@ -17481,6 +17481,22 @@ def _build_gibbs_iteration_correction_config(loop_config):
     }
 
 
+def _build_gibbs_iteration_progress_runtime_config(loop_config):
+    return {
+        "trace_chain_offset": loop_config["trace_chain_offset"],
+        "epoch_total_iter_offset": loop_config["epoch_total_iter_offset"],
+        "epoch_max_num_iter": loop_config["epoch_max_num_iter"],
+        "max_num_burn_in_for_epoch": loop_config["max_num_burn_in_for_epoch"],
+        "min_num_iter_for_epoch": loop_config["min_num_iter_for_epoch"],
+        "min_num_burn_in_for_epoch": loop_config["min_num_burn_in_for_epoch"],
+        "max_num_post_burn_in_for_epoch": loop_config["max_num_post_burn_in_for_epoch"],
+        "min_num_post_burn_in_for_epoch": loop_config["min_num_post_burn_in_for_epoch"],
+        "post_burn_reset_arrays": loop_config["post_burn_reset_arrays"],
+        "post_burn_reset_missing_arrays": loop_config["post_burn_reset_missing_arrays"],
+        "iteration_progress_config": loop_config["iteration_progress_config"],
+    }
+
+
 def _run_gibbs_epoch_phase(
     state,
     run_state,
@@ -17631,13 +17647,6 @@ def _run_gibbs_epoch_iterations(
     num_stack_batches = loop_config["num_stack_batches"]
     stack_batch_size = loop_config["stack_batch_size"]
     X_hstacked = loop_config["X_hstacked"]
-    min_num_burn_in_for_epoch = loop_config["min_num_burn_in_for_epoch"]
-    max_num_burn_in_for_epoch = loop_config["max_num_burn_in_for_epoch"]
-    min_num_iter_for_epoch = loop_config["min_num_iter_for_epoch"]
-    min_num_post_burn_in_for_epoch = loop_config["min_num_post_burn_in_for_epoch"]
-    max_num_post_burn_in_for_epoch = loop_config["max_num_post_burn_in_for_epoch"]
-    post_burn_reset_arrays = loop_config["post_burn_reset_arrays"]
-    post_burn_reset_missing_arrays = loop_config["post_burn_reset_missing_arrays"]
     inner_beta_kwargs = loop_config["inner_beta_kwargs"]
     cur_background_log_bf_v = loop_config["cur_background_log_bf_v"]
     y_var_orig = loop_config["y_var_orig"]
@@ -17648,8 +17657,8 @@ def _run_gibbs_epoch_iterations(
     correct_betas_mean = loop_config["correct_betas_mean"]
     correct_betas_var = loop_config["correct_betas_var"]
     prefilter_config = loop_config["prefilter_config"]
-    iteration_progress_config = loop_config["iteration_progress_config"]
     correction_config = _build_gibbs_iteration_correction_config(loop_config)
+    progress_runtime_config = _build_gibbs_iteration_progress_runtime_config(loop_config)
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17702,22 +17711,12 @@ def _run_gibbs_epoch_iterations(
             state=state,
             epoch_control=epoch_control,
             run_state=run_state,
-            trace_chain_offset=trace_chain_offset,
-            epoch_total_iter_offset=epoch_total_iter_offset,
-            epoch_max_num_iter=epoch_max_num_iter,
-            max_num_burn_in_for_epoch=max_num_burn_in_for_epoch,
-            min_num_iter_for_epoch=min_num_iter_for_epoch,
-            min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
-            max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
-            min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
-            post_burn_reset_arrays=post_burn_reset_arrays,
-            post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
+            progress_runtime_config=progress_runtime_config,
             iter_state=iter_state,
             iteration_num=iteration_num,
             epoch_sums=epoch_sums,
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
-            iteration_progress_config=iteration_progress_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             iteration_update=iteration_update,
             log_bf_m=log_bf_m,
@@ -18587,17 +18586,7 @@ def _advance_gibbs_iteration_progress(
     state,
     epoch_control,
     run_state,
-    trace_chain_offset,
-    epoch_total_iter_offset,
-    epoch_max_num_iter,
-    max_num_burn_in_for_epoch,
-    min_num_iter_for_epoch,
-    min_num_burn_in_for_epoch,
-    max_num_post_burn_in_for_epoch,
-    min_num_post_burn_in_for_epoch,
-    post_burn_reset_arrays,
-    post_burn_reset_missing_arrays,
-    iteration_progress_config,
+    progress_runtime_config,
     iter_state,
     epoch_sums,
     epoch_priors,
@@ -18608,6 +18597,18 @@ def _advance_gibbs_iteration_progress(
     iteration_update,
     gene_set_stats_trace_fh,
 ):
+    trace_chain_offset = progress_runtime_config["trace_chain_offset"]
+    epoch_total_iter_offset = progress_runtime_config["epoch_total_iter_offset"]
+    epoch_max_num_iter = progress_runtime_config["epoch_max_num_iter"]
+    max_num_burn_in_for_epoch = progress_runtime_config["max_num_burn_in_for_epoch"]
+    min_num_iter_for_epoch = progress_runtime_config["min_num_iter_for_epoch"]
+    min_num_burn_in_for_epoch = progress_runtime_config["min_num_burn_in_for_epoch"]
+    max_num_post_burn_in_for_epoch = progress_runtime_config["max_num_post_burn_in_for_epoch"]
+    min_num_post_burn_in_for_epoch = progress_runtime_config["min_num_post_burn_in_for_epoch"]
+    post_burn_reset_arrays = progress_runtime_config["post_burn_reset_arrays"]
+    post_burn_reset_missing_arrays = progress_runtime_config["post_burn_reset_missing_arrays"]
+    iteration_progress_config = progress_runtime_config["iteration_progress_config"]
+
     full_betas_sample_m = iteration_update["full_betas_sample_m"]
     full_postp_sample_m = iteration_update["full_postp_sample_m"]
     full_betas_mean_m = iteration_update["full_betas_mean_m"]
