@@ -3927,79 +3927,39 @@ class GeneSetData(object):
 
         self._record_params({"gwas_low_p": gwas_low_p, "gwas_high_p": gwas_high_p, "gwas_low_p_posterior": gwas_low_p_posterior, "gwas_high_p_posterior": gwas_high_p_posterior, "detect_low_power": detect_low_power, "detect_high_power": detect_high_power, "detect_adjust_huge": detect_adjust_huge, "closest_gene_prob": closest_gene_prob, "max_closest_gene_prob": max_closest_gene_prob, "scale_raw_closest_gene": scale_raw_closest_gene, "cap_raw_closest_gene": cap_raw_closest_gene, "cap_region_posterior": cap_region_posterior, "scale_region_posterior": scale_region_posterior, "max_signal_p": max_signal_p, "signal_window_size": signal_window_size, "signal_min_sep": signal_min_sep, "max_closest_gene_dist": max_closest_gene_dist, "min_n_ratio": min_n_ratio})
 
-        #see if need to determine
-        if (gwas_pos_col is None or gwas_chrom_col is None) and gwas_locus_col is None:
-            need_columns = True
-        else:
-            has_se = gwas_se_col is not None or gwas_n_col is not None or gwas_n is not None
-            if (gwas_p_col is not None and gwas_beta_col is not None) or (gwas_p_col is not None and has_se) or (gwas_beta_col is not None and has_se):
-                need_columns = False
-            else:
-                need_columns = True
-
+        need_columns = _needs_gwas_column_detection(
+            gwas_pos_col=gwas_pos_col,
+            gwas_chrom_col=gwas_chrom_col,
+            gwas_locus_col=gwas_locus_col,
+            gwas_p_col=gwas_p_col,
+            gwas_beta_col=gwas_beta_col,
+            gwas_se_col=gwas_se_col,
+            gwas_n_col=gwas_n_col,
+            gwas_n=gwas_n,
+        )
         if need_columns:
-            (possible_gene_id_cols, possible_var_id_cols, possible_chrom_cols, possible_pos_cols, possible_locus_cols, possible_p_cols, possible_beta_cols, possible_se_cols, possible_freq_cols, possible_n_cols, header) = _determine_columns_from_file(gwas_in)
-
-            #now recompute
-            if gwas_pos_col is None:
-                if len(possible_pos_cols) == 1:
-                    gwas_pos_col = possible_pos_cols[0]
-                    log("Using %s for position column; change with --gwas-pos-col if incorrect" % gwas_pos_col)
-                else:
-                    log("Could not determine position column from header %s; specify with --gwas-pos-col" % header)
-            if gwas_chrom_col is None:
-                if len(possible_chrom_cols) == 1:
-                    gwas_chrom_col = possible_chrom_cols[0]
-                    log("Using %s for chrom column; change with --gwas-chrom-col if incorrect" % gwas_chrom_col)
-                else:
-                    log("Could not determine chrom column from header %s; specify with --gwas-chrom-col" % header)
-            if (gwas_pos_col is None or gwas_chrom_col is None) and gwas_locus_col is None:
-                if len(possible_locus_cols) == 1:
-                    gwas_locus_col = possible_locus_cols[0]
-                    log("Using %s for locus column; change with --gwas-locus-col if incorrect" % gwas_locus_col)
-                else:
-                    bail("Could not determine chrom and pos columns from header %s; specify with --gwas-chrom-col and --gwas-pos-col or with --gwas-locus-col" % header)
-
-            if gwas_p_col is None:
-                if len(possible_p_cols) == 1:
-                    gwas_p_col = possible_p_cols[0]
-                    log("Using %s for p column; change with --gwas-p-col if incorrect" % gwas_p_col)
-                else:
-                    log("Could not determine p column from header %s; if desired specify with --gwas-p-col" % header)
-            if gwas_se_col is None:
-                if len(possible_se_cols) == 1:
-                    gwas_se_col = possible_se_cols[0]
-                    log("Using %s for se column; change with --gwas-se-col if incorrect" % gwas_se_col)
-                else:
-                    log("Could not determine se column from header %s; if desired specify with --gwas-se-col" % header)
-            if gwas_beta_col is None:
-                if len(possible_beta_cols) == 1:
-                    gwas_beta_col = possible_beta_cols[0]
-                    log("Using %s for beta column; change with --gwas-beta-col if incorrect" % gwas_beta_col)
-                else:
-                    log("Could not determine beta column from header %s; if desired specify with --gwas-beta-col" % header)
-
-            if gwas_n_col is None:
-                if len(possible_n_cols) == 1:
-                    gwas_n_col = possible_n_cols[0]
-                    log("Using %s for N column; change with --gwas-n-col if incorrect" % gwas_n_col)
-                else:
-                    log("Could not determine N column from header %s; if desired specify with --gwas-n-col" % header)
-
-            if gwas_freq_col is None:
-                if len(possible_freq_cols) == 1:
-                    gwas_freq_col = possible_freq_cols[0]
-                    log("Using %s for freq column; change with --gwas-freq-col if incorrect" % gwas_freq_col)
-
-            has_se = gwas_se_col is not None
-            has_n = gwas_n_col is not None or gwas_n is not None
-            if (gwas_p_col is not None and gwas_beta_col is not None) or (gwas_p_col is not None and (has_se or has_n)) or (gwas_beta_col is not None and has_se):
-                pass
-            else:
-                bail("Require information about p-value and se or N or beta, or beta and se; specify with --gwas-p-col, --gwas-beta-col, --gwas-se-col, and --gwas-n-col")
-
-            if self.debug_just_check_header:
-                bail("Done checking headers")
+            (
+                gwas_pos_col,
+                gwas_chrom_col,
+                gwas_locus_col,
+                gwas_p_col,
+                gwas_beta_col,
+                gwas_se_col,
+                gwas_freq_col,
+                gwas_n_col,
+            ) = _autodetect_gwas_columns(
+                gwas_in=gwas_in,
+                gwas_pos_col=gwas_pos_col,
+                gwas_chrom_col=gwas_chrom_col,
+                gwas_locus_col=gwas_locus_col,
+                gwas_p_col=gwas_p_col,
+                gwas_beta_col=gwas_beta_col,
+                gwas_se_col=gwas_se_col,
+                gwas_freq_col=gwas_freq_col,
+                gwas_n_col=gwas_n_col,
+                gwas_n=gwas_n,
+                debug_just_check_header=self.debug_just_check_header,
+            )
 
 
         #use this to store the exons 
@@ -14340,6 +14300,124 @@ def _determine_columns_from_file(filename):
         orig_header_cols[possible_freq_cols],
         orig_header_cols[possible_n_cols],
         header,
+    )
+
+
+def _needs_gwas_column_detection(
+    gwas_pos_col,
+    gwas_chrom_col,
+    gwas_locus_col,
+    gwas_p_col,
+    gwas_beta_col,
+    gwas_se_col,
+    gwas_n_col,
+    gwas_n,
+):
+    if (gwas_pos_col is None or gwas_chrom_col is None) and gwas_locus_col is None:
+        return True
+
+    has_se = gwas_se_col is not None or gwas_n_col is not None or gwas_n is not None
+    if (gwas_p_col is not None and gwas_beta_col is not None) or (gwas_p_col is not None and has_se) or (gwas_beta_col is not None and has_se):
+        return False
+    return True
+
+
+def _autodetect_gwas_columns(
+    gwas_in,
+    gwas_pos_col,
+    gwas_chrom_col,
+    gwas_locus_col,
+    gwas_p_col,
+    gwas_beta_col,
+    gwas_se_col,
+    gwas_freq_col,
+    gwas_n_col,
+    gwas_n,
+    debug_just_check_header=False,
+):
+    (
+        _possible_gene_id_cols,
+        _possible_var_id_cols,
+        possible_chrom_cols,
+        possible_pos_cols,
+        possible_locus_cols,
+        possible_p_cols,
+        possible_beta_cols,
+        possible_se_cols,
+        possible_freq_cols,
+        possible_n_cols,
+        header,
+    ) = _determine_columns_from_file(gwas_in)
+
+    if gwas_pos_col is None:
+        if len(possible_pos_cols) == 1:
+            gwas_pos_col = possible_pos_cols[0]
+            log("Using %s for position column; change with --gwas-pos-col if incorrect" % gwas_pos_col)
+        else:
+            log("Could not determine position column from header %s; specify with --gwas-pos-col" % header)
+    if gwas_chrom_col is None:
+        if len(possible_chrom_cols) == 1:
+            gwas_chrom_col = possible_chrom_cols[0]
+            log("Using %s for chrom column; change with --gwas-chrom-col if incorrect" % gwas_chrom_col)
+        else:
+            log("Could not determine chrom column from header %s; specify with --gwas-chrom-col" % header)
+    if (gwas_pos_col is None or gwas_chrom_col is None) and gwas_locus_col is None:
+        if len(possible_locus_cols) == 1:
+            gwas_locus_col = possible_locus_cols[0]
+            log("Using %s for locus column; change with --gwas-locus-col if incorrect" % gwas_locus_col)
+        else:
+            bail("Could not determine chrom and pos columns from header %s; specify with --gwas-chrom-col and --gwas-pos-col or with --gwas-locus-col" % header)
+
+    if gwas_p_col is None:
+        if len(possible_p_cols) == 1:
+            gwas_p_col = possible_p_cols[0]
+            log("Using %s for p column; change with --gwas-p-col if incorrect" % gwas_p_col)
+        else:
+            log("Could not determine p column from header %s; if desired specify with --gwas-p-col" % header)
+    if gwas_se_col is None:
+        if len(possible_se_cols) == 1:
+            gwas_se_col = possible_se_cols[0]
+            log("Using %s for se column; change with --gwas-se-col if incorrect" % gwas_se_col)
+        else:
+            log("Could not determine se column from header %s; if desired specify with --gwas-se-col" % header)
+    if gwas_beta_col is None:
+        if len(possible_beta_cols) == 1:
+            gwas_beta_col = possible_beta_cols[0]
+            log("Using %s for beta column; change with --gwas-beta-col if incorrect" % gwas_beta_col)
+        else:
+            log("Could not determine beta column from header %s; if desired specify with --gwas-beta-col" % header)
+
+    if gwas_n_col is None:
+        if len(possible_n_cols) == 1:
+            gwas_n_col = possible_n_cols[0]
+            log("Using %s for N column; change with --gwas-n-col if incorrect" % gwas_n_col)
+        else:
+            log("Could not determine N column from header %s; if desired specify with --gwas-n-col" % header)
+
+    if gwas_freq_col is None:
+        if len(possible_freq_cols) == 1:
+            gwas_freq_col = possible_freq_cols[0]
+            log("Using %s for freq column; change with --gwas-freq-col if incorrect" % gwas_freq_col)
+
+    has_se = gwas_se_col is not None
+    has_n = gwas_n_col is not None or gwas_n is not None
+    if (gwas_p_col is not None and gwas_beta_col is not None) or (gwas_p_col is not None and (has_se or has_n)) or (gwas_beta_col is not None and has_se):
+        pass
+    else:
+        bail("Require information about p-value and se or N or beta, or beta and se; specify with --gwas-p-col, --gwas-beta-col, --gwas-se-col, and --gwas-n-col")
+
+    if debug_just_check_header:
+        bail("Done checking headers")
+
+    return (
+        gwas_pos_col,
+        gwas_chrom_col,
+        gwas_locus_col,
+        gwas_p_col,
+        gwas_beta_col,
+        gwas_se_col,
+        gwas_freq_col,
+        gwas_n_col,
     )
 
 
