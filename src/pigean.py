@@ -1196,6 +1196,9 @@ class GeneSetData(object):
         self.background_log_bf = np.log(self.background_prior / (1 - self.background_prior))
         self.background_bf = np.exp(self.background_log_bf)
         self.debug_old_batch = False
+        self.debug_skip_correlation = False
+        self.debug_skip_phewas_covs = False
+        self.debug_only_avg_huge = False
 
         self._init_matrix_and_gene_index_state(batch_size=batch_size)
         self._init_phewas_and_label_state()
@@ -2964,7 +2967,7 @@ class GeneSetData(object):
                     total_qc_metrics = np.hstack((total_qc_metrics, total_huge_adjustments))
                     total_qc_metrics_directions = np.append(total_qc_metrics_directions, -1)
 
-                    if options.debug_only_avg_huge:
+                    if self.debug_only_avg_huge:
                         total_qc_metrics = total_huge_adjustments
                         total_qc_metrics_directions = np.array(-1)
 
@@ -8553,7 +8556,7 @@ class GeneSetData(object):
                     end = beta_tildes.shape[0]
                 cur_batch_size = end - begin
 
-                if X_phewas_beta is not None and X_orig is not None and not options.debug_skip_correlation:
+                if X_phewas_beta is not None and X_orig is not None and not self.debug_skip_correlation:
                     if X_phewas_beta.shape[0] != Y_mat.shape[0]:
                         bail("When calling this, the phewas_betas must have same number of phenos as Y_mat: shapes are X_phewas=(%d,%d) vs. Y_mat=(%d,%d)" % (X_phewas_beta.shape[0], X_phewas_beta.shape[1], Y_mat.shape[0], Y_mat.shape[1]))
                     #require them to share at least one gene set with beta above 0.01
@@ -8570,11 +8573,11 @@ class GeneSetData(object):
 
                 if multivariate:
                     if huber:
-                        #(beta_tildes[begin:end,:], ses[begin:end,:], z_scores[begin:end,:], p_values[begin:end,:], se_inflation_factors[begin:end,:]) = self._compute_multivariate_beta_tildes_huber_correlated(X_mat, Y_mat[begin:end,:], resid_correlation_matrix=cor_matrices, covs=covs if not options.debug_skip_phewas_covs else None)
+                        #(beta_tildes[begin:end,:], ses[begin:end,:], z_scores[begin:end,:], p_values[begin:end,:], se_inflation_factors[begin:end,:]) = self._compute_multivariate_beta_tildes_huber_correlated(X_mat, Y_mat[begin:end,:], resid_correlation_matrix=cor_matrices, covs=covs if not self.debug_skip_phewas_covs else None)
 
-                        (beta_tildes[begin:end,:], ses[begin:end,:], z_scores[begin:end,:], p_values[begin:end,:], se_inflation_factors[begin:end,:]) = self._compute_robust_betas(X_mat, Y_mat[begin:end,:], resid_correlation_matrix=cor_matrices, covs=covs if not options.debug_skip_phewas_covs else None)                    
+                        (beta_tildes[begin:end,:], ses[begin:end,:], z_scores[begin:end,:], p_values[begin:end,:], se_inflation_factors[begin:end,:]) = self._compute_robust_betas(X_mat, Y_mat[begin:end,:], resid_correlation_matrix=cor_matrices, covs=covs if not self.debug_skip_phewas_covs else None)                    
                     else:
-                        (beta_tildes[begin:end,:], ses[begin:end,:], z_scores[begin:end,:], p_values[begin:end,:], se_inflation_factors[begin:end,:]) = self._compute_multivariate_beta_tildes(X_mat, Y_mat[begin:end,:], resid_correlation_matrix=cor_matrices, covs=covs if not options.debug_skip_phewas_covs else None)
+                        (beta_tildes[begin:end,:], ses[begin:end,:], z_scores[begin:end,:], p_values[begin:end,:], se_inflation_factors[begin:end,:]) = self._compute_multivariate_beta_tildes(X_mat, Y_mat[begin:end,:], resid_correlation_matrix=cor_matrices, covs=covs if not self.debug_skip_phewas_covs else None)
                 else:
                     (beta_tildes[begin:end,:], ses[begin:end,:], z_scores[begin:end,:], p_values[begin:end,:], se_inflation_factors[begin:end,:]) = self._compute_beta_tildes(X_mat, Y_mat[begin:end,:], scale_factors=scale_factors, mean_shifts=mean_shifts, resid_correlation_matrix=cor_matrices)
 
@@ -8717,7 +8720,7 @@ class GeneSetData(object):
                 if self.priors is not None:
                     self.pheno_Y_vs_input_priors_beta, self.pheno_Y_vs_input_priors_beta_tilde, self.pheno_Y_vs_input_priors_se, self.pheno_Y_vs_input_priors_Z, self.pheno_Y_vs_input_priors_p_value, _ = __update_pheno_vec(self.pheno_Y_vs_input_priors_beta, self.pheno_Y_vs_input_priors_beta_tilde, self.pheno_Y_vs_input_priors_se, self.pheno_Y_vs_input_priors_Z, self.pheno_Y_vs_input_priors_p_value, None, beta[2,:], beta_tilde[2,:], se[2,:], Z[2,:], p_value[2,:], None)
 
-            if gene_pheno_combined_prior_Ys is not None and not options.debug_skip_correlation:
+            if gene_pheno_combined_prior_Ys is not None and not self.debug_skip_correlation:
                 #we have to use the correlations here
                 beta, _, beta_tilde, se, Z, p_value, _ = _calculate_phewas(input_values, gene_pheno_combined_prior_Ys.T, X_orig=self.X_orig, X_phewas_beta=self.X_phewas_beta[begin:end,:] if self.X_phewas_beta is not None else None, Y_resid=gene_pheno_Y.T)
                 assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
@@ -8838,7 +8841,7 @@ class GeneSetData(object):
                 if self.X_osc is not None:
                     header = "%s\t%s\t%s\t%s" % (header, "O", "X_O", "weight")
                 if self.total_qc_metrics is not None:
-                    if options.debug_only_avg_huge:
+                    if self.debug_only_avg_huge:
                         header = "%s\t%s" % (header, "avg_huge_adjustment")
                     else:
                         header = "%s\t%s\t%s" % (header, "\t".join(map(lambda x: "avg_%s" % x, [self.gene_covariate_names[i] for i in range(len(self.gene_covariate_names)) if i != self.gene_covariate_intercept_index])), "avg_huge_adjustment")
@@ -19553,6 +19556,9 @@ def main():
         log("Options: %s" % options)
     state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
     state.debug_old_batch = options.debug_old_batch
+    state.debug_skip_correlation = options.debug_skip_correlation
+    state.debug_skip_phewas_covs = options.debug_skip_phewas_covs
+    state.debug_only_avg_huge = options.debug_only_avg_huge
     mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 
     # ==========================================================================
