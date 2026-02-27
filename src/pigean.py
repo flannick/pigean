@@ -923,8 +923,6 @@ def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_na
     setattr(_options, opt_name, int(new_value))
 
 
-mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
-
 # Mode-dependent defaults.
 if mode in ("pops", "naive_pops"):
     _set_default_option(options, "correct_betas_mean", False)
@@ -19643,6 +19641,7 @@ def main():
         log("Scipy version: %s" % scipy.__version__)
         log("Options: %s" % options)
     state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
+    mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 
     # ==========================================================================
     # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
