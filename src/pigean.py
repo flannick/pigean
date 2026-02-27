@@ -16617,7 +16617,6 @@ def _compute_post_burn_gene_diagnostics(
 
 def _summarize_gibbs_chain_aggregates(
     sum_Ys_m,
-    sum_Ys2_m,
     sum_Y_raws_m,
     sum_log_pos_m,
     sum_log_pos2_m,
@@ -16878,7 +16877,6 @@ def _finalize_gibbs_epoch_attempt(
     num_chains_effective = sum_betas_m.shape[0]
     final_summary = _summarize_gibbs_chain_aggregates(
         sum_Ys_m,
-        sum_Ys2_m,
         sum_Y_raws_m,
         sum_log_pos_m,
         sum_log_pos2_m,
