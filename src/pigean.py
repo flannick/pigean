@@ -19738,60 +19738,61 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
         )
 
 
-def _write_main_gene_set_outputs(state, options):
+def _run_main_outputs(state, options, mode_state):
     if options.gene_set_stats_out:
-        state.write_gene_set_statistics(options.gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
+        state.write_gene_set_statistics(
+            options.gene_set_stats_out,
+            max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
+            max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
+        )
     if options.phewas_gene_set_stats_out:
-        state.write_phewas_gene_set_statistics(options.phewas_gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
+        state.write_phewas_gene_set_statistics(
+            options.phewas_gene_set_stats_out,
+            max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
+            max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
+        )
     if options.gene_set_overlap_stats_out:
         state.write_gene_set_overlap_statistics(options.gene_set_overlap_stats_out)
 
-
-def _write_main_gene_outputs(state, options):
     if options.gene_stats_out:
         state.write_gene_statistics(options.gene_stats_out)
     if options.gene_gene_set_stats_out:
-        state.write_gene_gene_set_statistics(options.gene_gene_set_stats_out, max_no_write_gene_gene_set_beta=options.max_no_write_gene_gene_set_beta, write_filter_beta_uncorrected=options.use_beta_uncorrected_for_gene_gene_set_write_filter)
+        state.write_gene_gene_set_statistics(
+            options.gene_gene_set_stats_out,
+            max_no_write_gene_gene_set_beta=options.max_no_write_gene_gene_set_beta,
+            write_filter_beta_uncorrected=options.use_beta_uncorrected_for_gene_gene_set_write_filter,
+        )
     if options.gene_covs_out:
         state.write_gene_covariates(options.gene_covs_out)
     if options.gene_effectors_out:
         state.write_gene_effectors(options.gene_effectors_out)
 
-
-def _run_main_phewas_outputs(state, options):
-    bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
-    can_reuse_loaded_bfs = (
-        options.gene_phewas_bfs_in is not None
-        and bfs_to_use == options.gene_phewas_bfs_in
-        and state.num_gene_phewas_filtered == 0
-        and state.read_gene_phewas()
-    )
-    if can_reuse_loaded_bfs:
-        #we can skip reading if we are using the same file as previously read and we didn't threshold that file
-        bfs_to_use = None
-
-    run_kwargs = dict(
-        gene_phewas_bfs_in=bfs_to_use,
-        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-        batch_size=1500,
-    )
-    run_kwargs.update(_build_inner_beta_sampler_common_kwargs(options))
-    state.run_phewas(**run_kwargs)
-
-    if options.phewas_stats_out:
-        state.write_phewas_statistics(options.phewas_stats_out)
-
-
-def _run_main_outputs(state, options, mode_state):
-    _write_main_gene_set_outputs(state, options)
-    _write_main_gene_outputs(state, options)
-
     if mode_state["run_phewas"]:
-        _run_main_phewas_outputs(state, options)
+        bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
+        can_reuse_loaded_bfs = (
+            options.gene_phewas_bfs_in is not None
+            and bfs_to_use == options.gene_phewas_bfs_in
+            and state.num_gene_phewas_filtered == 0
+            and state.read_gene_phewas()
+        )
+        if can_reuse_loaded_bfs:
+            # Skip re-reading if this is the same unfiltered PheWAS BFS file.
+            bfs_to_use = None
+
+        run_kwargs = dict(
+            gene_phewas_bfs_in=bfs_to_use,
+            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+            batch_size=1500,
+        )
+        run_kwargs.update(_build_inner_beta_sampler_common_kwargs(options))
+        state.run_phewas(**run_kwargs)
+
+        if options.phewas_stats_out:
+            state.write_phewas_statistics(options.phewas_stats_out)
 
     if options.params_out:
         state.write_params(options.params_out)
