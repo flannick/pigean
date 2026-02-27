@@ -17277,18 +17277,28 @@ def _build_gibbs_iteration_correction_config(
     }
 
 
-def _build_gibbs_epoch_iteration_config(phase_kwargs, run_state):
+def _build_gibbs_epoch_iteration_static_config(phase_kwargs):
     inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(phase_kwargs)
-    iteration_update_config = _extract_gibbs_iteration_update_config(phase_kwargs)
-    low_beta_restart_config = _extract_gibbs_low_beta_restart_config(phase_kwargs, run_state)
     return {
+        "inner_beta_kwargs": inner_beta_kwargs,
+        "iteration_update_config": _extract_gibbs_iteration_update_config(phase_kwargs),
         "iteration_input_config": _extract_gibbs_iteration_input_config(phase_kwargs),
         "logistic_config": _extract_gibbs_logistic_config(phase_kwargs),
         "prefilter_config": _extract_gibbs_prefilter_config(phase_kwargs),
         "iteration_progress_config": _extract_gibbs_iteration_progress_config(phase_kwargs),
+    }
+
+
+def _build_gibbs_epoch_iteration_config(iteration_static_config, low_beta_restart_config):
+    return {
+        "inner_beta_kwargs": iteration_static_config["inner_beta_kwargs"],
+        "iteration_input_config": iteration_static_config["iteration_input_config"],
+        "logistic_config": iteration_static_config["logistic_config"],
+        "prefilter_config": iteration_static_config["prefilter_config"],
+        "iteration_progress_config": iteration_static_config["iteration_progress_config"],
         "correction_config": _build_gibbs_iteration_correction_config(
-            inner_beta_kwargs=inner_beta_kwargs,
-            iteration_update_config=iteration_update_config,
+            inner_beta_kwargs=iteration_static_config["inner_beta_kwargs"],
+            iteration_update_config=iteration_static_config["iteration_update_config"],
             low_beta_restart_config=low_beta_restart_config,
         ),
     }
@@ -17453,6 +17463,7 @@ def _run_gibbs_epoch_phase(
 ):
     # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
     epoch_phase_config = _extract_gibbs_epoch_phase_config(phase_kwargs)
+    epoch_iteration_static_config = _build_gibbs_epoch_iteration_static_config(phase_kwargs)
     while _can_run_gibbs_epoch(run_state):
         epoch_context = _prepare_and_start_gibbs_epoch(
             state=state,
@@ -17466,7 +17477,11 @@ def _run_gibbs_epoch_phase(
         epoch_control = epoch_context["epoch_control"]
         epoch_sums = epoch_context["epoch_sums"]
         epoch_runtime = epoch_context["epoch_runtime"]
-        epoch_iteration_config = _build_gibbs_epoch_iteration_config(phase_kwargs, run_state)
+        low_beta_restart_config = _extract_gibbs_low_beta_restart_config(phase_kwargs, run_state)
+        epoch_iteration_config = _build_gibbs_epoch_iteration_config(
+            iteration_static_config=epoch_iteration_static_config,
+            low_beta_restart_config=low_beta_restart_config,
+        )
 
         epoch_loop_update = _run_gibbs_epoch_iterations(
             state=state,
