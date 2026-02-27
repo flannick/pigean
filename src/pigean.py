@@ -19492,42 +19492,6 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
         force_reread = True
 
 
-def _set_main_p_without_x_inputs(state, options):
-    if options.p_noninf is None:
-        return
-    if len(options.p_noninf) == 1:
-        state.set_p(options.p_noninf[0])
-    else:
-        bail("Multiple --p-noninf is not supported without --X-in inputs")
-
-
-def _finalize_main_x_and_gene_set_setup(state, options, Y_not_loaded):
-    if not state.has_gene_sets():
-        log("No gene sets survived the input filters; stopping")
-        sys.exit(0)
-    assert(state.p is not None)
-
-    if Y_not_loaded and options.const_gene_Y:
-        state.set_const_Y(options.const_gene_Y)
-
-    if options.X_out:
-        state.write_X(options.X_out)
-    if options.Xd_out:
-        state.write_Xd(options.Xd_out)
-    if options.V_out:
-        state.write_V(options.V_out)
-
-
-def _prepare_x_and_gene_sets_for_main(state, options, mode_state, sigma2_cond, Y_not_loaded):
-    # Read X / Xd / V and initialize p (with adaptive filter retries if needed).
-    if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
-        _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond)
-    else:
-        _set_main_p_without_x_inputs(state, options)
-
-    _finalize_main_x_and_gene_set_setup(state, options, Y_not_loaded)
-
-
 def _resolve_main_beta_tildes(state, options, mode_state):
     # Resolve beta_tildes from fixed values, read-in stats, or fresh fitting.
     needs_gene_set_stats = (
@@ -19635,7 +19599,28 @@ def _run_main_core(state, options, mode_state, sigma2_cond, Y_not_loaded):
     if mode_state["run_huge"]:
         return
 
-    _prepare_x_and_gene_sets_for_main(state, options, mode_state, sigma2_cond, Y_not_loaded)
+    # Read X / Xd / V and initialize p (with adaptive filter retries if needed).
+    if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
+        _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond)
+    elif options.p_noninf is not None:
+        if len(options.p_noninf) == 1:
+            state.set_p(options.p_noninf[0])
+        else:
+            bail("Multiple --p-noninf is not supported without --X-in inputs")
+
+    if not state.has_gene_sets():
+        log("No gene sets survived the input filters; stopping")
+        sys.exit(0)
+    assert(state.p is not None)
+
+    if Y_not_loaded and options.const_gene_Y:
+        state.set_const_Y(options.const_gene_Y)
+    if options.X_out:
+        state.write_X(options.X_out)
+    if options.Xd_out:
+        state.write_Xd(options.Xd_out)
+    if options.V_out:
+        state.write_V(options.V_out)
 
     if mode_state["run_sim"]:
         state.run_sim(
