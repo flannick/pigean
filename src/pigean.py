@@ -4433,6 +4433,61 @@ class GeneSetData(object):
 
         return region_vars
 
+    def _append_huge_signal_gene_results(
+        self,
+        chrom,
+        var_pos,
+        var_p,
+        lead_index,
+        is_input_cs,
+        sig_posterior,
+        sig_posterior_detect,
+        cur_gene_prob_causal,
+        cur_gene_indices,
+        cur_gene_po,
+        cur_gene_prob_causal_detect,
+        cur_gene_indices_detect,
+        cur_gene_po_detect,
+        gene_names,
+        gene_prob_rows,
+        gene_prob_rows_detect,
+        gene_prob_cols,
+        gene_prob_cols_detect,
+        gene_bf_data,
+        gene_bf_data_detect,
+        gene_prob_genes,
+        gene_prob_col_num,
+    ):
+        gene_prob_rows += list(len(gene_prob_genes) + cur_gene_indices)
+        gene_prob_rows_detect += list(len(gene_prob_genes) + cur_gene_indices_detect)
+
+        gene_prob_cols += ([gene_prob_col_num] * len(cur_gene_indices))
+        gene_prob_cols_detect += ([gene_prob_col_num] * len(cur_gene_indices_detect))
+
+        gene_bf_data += list(cur_gene_po / self.background_bf)
+        gene_bf_data_detect += list(cur_gene_po_detect / self.background_bf)
+
+        self.huge_signals.append((chrom, var_pos[lead_index], var_p[lead_index], is_input_cs))
+        self.huge_signal_posteriors.append(sig_posterior)
+        self.huge_signal_posteriors_for_regression.append(sig_posterior_detect)
+
+        cur_gene_cond_prob_causal = cur_gene_prob_causal / sig_posterior
+        cur_gene_cond_prob_causal_detect = cur_gene_prob_causal_detect / sig_posterior_detect
+
+        sum_cond_prob = np.sum(cur_gene_cond_prob_causal)
+        sum_cond_prob_detect = np.sum(cur_gene_cond_prob_causal_detect)
+        self.huge_signal_sum_gene_cond_probabilities.append(sum_cond_prob if sum_cond_prob < 1 else 1)
+        self.huge_signal_sum_gene_cond_probabilities_for_regression.append(sum_cond_prob_detect if sum_cond_prob_detect < 1 else 1)
+
+        mean_cond_po = np.sum(cur_gene_cond_prob_causal / (1 - cur_gene_cond_prob_causal))
+        mean_cond_po_detect = np.sum(cur_gene_cond_prob_causal_detect / (1 - cur_gene_cond_prob_causal_detect))
+        self.huge_signal_mean_gene_pos.append(mean_cond_po)
+        self.huge_signal_mean_gene_pos_for_regression.append(mean_cond_po_detect)
+
+        gene_prob_col_num += 1
+        gene_prob_genes += list(gene_names)
+        return gene_prob_col_num
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5343,43 +5398,30 @@ class GeneSetData(object):
                             else:
                                 (cur_gene_prob_causal_detect, cur_gene_indices_detect, cur_gene_po_detect, cur_gene_prob_causal_norm_detect, cur_gene_indices_norm_detect) = (copy.copy(cur_gene_prob_causal), copy.copy(cur_gene_indices), copy.copy(cur_gene_po), copy.copy(cur_gene_prob_causal_norm), copy.copy(cur_gene_indices_norm))
 
-                            gene_prob_rows += list(len(gene_prob_genes) + cur_gene_indices)
-                            gene_prob_rows_detect += list(len(gene_prob_genes) + cur_gene_indices_detect)
-
-                            gene_prob_cols += ([gene_prob_col_num] * len(cur_gene_indices))
-                            gene_prob_cols_detect += ([gene_prob_col_num] * len(cur_gene_indices_detect))
-
-                            gene_bf_data += list(cur_gene_po  / self.background_bf)
-                            gene_bf_data_detect += list(cur_gene_po_detect  / self.background_bf)
-
-
-                            #the total posterior (for use in scale)
-
-
-                            self.huge_signals.append((chrom, var_pos[i], var_p[i], is_input_cs))
-
-                            self.huge_signal_posteriors.append(sig_posterior)
-                            self.huge_signal_posteriors_for_regression.append(sig_posterior_detect)
-
-                            #store the marginal bayes factor
-                            cur_gene_cond_prob_causal = cur_gene_prob_causal / sig_posterior
-                            cur_gene_cond_prob_causal_detect = cur_gene_prob_causal_detect / sig_posterior_detect
-
-                            #the sum of the conditional probabilities (after taking out sig posterior)
-                            sum_cond_prob = np.sum(cur_gene_cond_prob_causal)
-                            sum_cond_prob_detect = np.sum(cur_gene_cond_prob_causal_detect)
-
-                            self.huge_signal_sum_gene_cond_probabilities.append(sum_cond_prob if sum_cond_prob < 1 else 1)
-                            self.huge_signal_sum_gene_cond_probabilities_for_regression.append(sum_cond_prob_detect if sum_cond_prob_detect < 1 else 1)
-
-                            #the mean of the conditional BFs
-                            mean_cond_po = np.sum(cur_gene_cond_prob_causal / (1 - cur_gene_cond_prob_causal))
-                            mean_cond_po_detect = np.sum(cur_gene_cond_prob_causal_detect / (1 - cur_gene_cond_prob_causal_detect))
-                            self.huge_signal_mean_gene_pos.append(mean_cond_po)
-                            self.huge_signal_mean_gene_pos_for_regression.append(mean_cond_po_detect)
-                            gene_prob_col_num += 1
-
-                            gene_prob_genes += list(gene_names)
+                            gene_prob_col_num = self._append_huge_signal_gene_results(
+                                chrom=chrom,
+                                var_pos=var_pos,
+                                var_p=var_p,
+                                lead_index=i,
+                                is_input_cs=is_input_cs,
+                                sig_posterior=sig_posterior,
+                                sig_posterior_detect=sig_posterior_detect,
+                                cur_gene_prob_causal=cur_gene_prob_causal,
+                                cur_gene_indices=cur_gene_indices,
+                                cur_gene_po=cur_gene_po,
+                                cur_gene_prob_causal_detect=cur_gene_prob_causal_detect,
+                                cur_gene_indices_detect=cur_gene_indices_detect,
+                                cur_gene_po_detect=cur_gene_po_detect,
+                                gene_names=gene_names,
+                                gene_prob_rows=gene_prob_rows,
+                                gene_prob_rows_detect=gene_prob_rows_detect,
+                                gene_prob_cols=gene_prob_cols,
+                                gene_prob_cols_detect=gene_prob_cols_detect,
+                                gene_bf_data=gene_bf_data,
+                                gene_bf_data_detect=gene_bf_data_detect,
+                                gene_prob_genes=gene_prob_genes,
+                                gene_prob_col_num=gene_prob_col_num,
+                            )
 
                 if learn_params:
 
