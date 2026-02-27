@@ -17227,6 +17227,7 @@ def _extract_gibbs_iteration_progress_config(phase_kwargs):
         "diag_every": phase_kwargs["diag_every"],
         "use_mean_betas": phase_kwargs["use_mean_betas"],
         "post_burn_diag_config": _extract_gibbs_post_burn_diag_config(phase_kwargs),
+        "burn_in_config": _extract_gibbs_burn_in_config(phase_kwargs),
     }
 
 
@@ -17293,7 +17294,6 @@ def _build_gibbs_epoch_iteration_config(phase_kwargs, run_state):
         "logistic_config": _extract_gibbs_logistic_config(phase_kwargs),
         "prefilter_config": _extract_gibbs_prefilter_config(phase_kwargs),
         "iteration_progress_config": _extract_gibbs_iteration_progress_config(phase_kwargs),
-        "burn_in_config": _extract_gibbs_burn_in_config(phase_kwargs),
         "correction_config": _build_gibbs_iteration_correction_config(
             inner_beta_kwargs=inner_beta_kwargs,
             iteration_update_config=iteration_update_config,
@@ -17546,7 +17546,6 @@ def _run_gibbs_epoch_iterations(
     logistic_config = epoch_iteration_config["logistic_config"]
     prefilter_config = epoch_iteration_config["prefilter_config"]
     iteration_progress_config = epoch_iteration_config["iteration_progress_config"]
-    burn_in_config = epoch_iteration_config["burn_in_config"]
     correction_config = epoch_iteration_config["correction_config"]
 
     iteration_num = -1
@@ -17593,7 +17592,6 @@ def _run_gibbs_epoch_iterations(
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             epoch_context=epoch_context,
-            burn_in_config=burn_in_config,
             iteration_progress_config=iteration_progress_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             iteration_update=iteration_update,
@@ -18576,7 +18574,6 @@ def _advance_gibbs_iteration_progress(
     epoch_control,
     run_state,
     epoch_context,
-    burn_in_config,
     iteration_progress_config,
     iter_state,
     epoch_sums,
@@ -18598,7 +18595,7 @@ def _advance_gibbs_iteration_progress(
         epoch_control=epoch_control,
         iteration_num=iteration_num,
         epoch_context=epoch_context,
-        burn_in_config=burn_in_config,
+        burn_in_config=iteration_progress_config["burn_in_config"],
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
     )
