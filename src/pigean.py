@@ -15375,11 +15375,11 @@ def _can_run_gibbs_epoch(run_state):
 def _prepare_gibbs_epoch_attempt(
     state,
     run_state,
-    total_num_iter,
-    num_chains,
     epoch_phase_config,
 ):
     # Resolve one epoch attempt's bounds and bookkeeping from run-level state.
+    total_num_iter = epoch_phase_config["total_num_iter"]
+    num_chains = epoch_phase_config["num_chains"]
     target_num_epochs = epoch_phase_config["target_num_epochs"]
     epoch_max_num_iter_config = epoch_phase_config["epoch_max_num_iter_config"]
     min_num_burn_in = epoch_phase_config["min_num_burn_in"]
@@ -17414,8 +17414,6 @@ def _prepare_and_start_gibbs_epoch(
     epoch_attempt = _prepare_gibbs_epoch_attempt(
         state=state,
         run_state=run_state,
-        total_num_iter=epoch_phase_config["total_num_iter"],
-        num_chains=epoch_phase_config["num_chains"],
         epoch_phase_config=epoch_phase_config,
     )
     if epoch_attempt is None:
