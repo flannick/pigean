@@ -18241,39 +18241,6 @@ def _build_gibbs_post_burn_diag_config(
     }
 
 
-def _extract_gibbs_post_burn_iteration_inputs(iter_state):
-    return {
-        "epoch_iter_num": iter_state["epoch_iter_num"],
-        "total_iter_num": iter_state["total_iter_num"],
-        "Y_sample_m": iter_state["Y_sample_m"],
-        "Y_raw_sample_m": iter_state["Y_raw_sample_m"],
-        "log_po_sample_m": iter_state["log_po_sample_m"],
-        "log_po_raw_sample_m": iter_state["log_po_raw_sample_m"],
-        "D_sample_m": iter_state["D_sample_m"],
-        "D_raw_sample_m": iter_state["D_raw_sample_m"],
-        "uncorrected_betas_mean_m": iter_state["uncorrected_betas_mean_m"],
-        "full_beta_tildes_m": iter_state["full_beta_tildes_m"],
-        "full_z_scores_m": iter_state["full_z_scores_m"],
-    }
-
-
-def _extract_gibbs_post_burn_control_state(epoch_control):
-    return {
-        "stop_pass_streak": epoch_control["stop_pass_streak"],
-        "burn_in_pass_streak": epoch_control["burn_in_pass_streak"],
-        "post_stall_best_beta_rhat_history": epoch_control["post_stall_best_beta_rhat_history"],
-        "post_stall_best_D_mcse_history": epoch_control["post_stall_best_D_mcse_history"],
-        "post_stall_snapshots": epoch_control["post_stall_snapshots"],
-        "post_stall_beta_indices": epoch_control["post_stall_beta_indices"],
-        "post_stall_gene_indices": epoch_control["post_stall_gene_indices"],
-        "betas_sem2_v": epoch_control["betas_sem2_v"],
-        "sem2_v": epoch_control["sem2_v"],
-        "stop_due_to_precision": epoch_control["stop_due_to_precision"],
-        "restart_due_to_stall": epoch_control["restart_due_to_stall"],
-        "stop_due_to_stall": epoch_control["stop_due_to_stall"],
-    }
-
-
 GIBBS_POST_BURN_CONTROL_KEYS = (
     "stop_pass_streak",
     "post_stall_beta_indices",
@@ -18284,17 +18251,6 @@ GIBBS_POST_BURN_CONTROL_KEYS = (
     "restart_due_to_stall",
     "stop_due_to_stall",
 )
-
-
-def _extract_gibbs_post_burn_sum_state(epoch_sums):
-    return {
-        "epoch_aggregates": epoch_sums["epoch_aggregates"],
-        "sum_betas_m": epoch_sums["sum_betas_m"],
-        "sum_betas2_m": epoch_sums["sum_betas2_m"],
-        "num_sum_beta_m": epoch_sums["num_sum_beta_m"],
-        "sum_Ds_m": epoch_sums["sum_Ds_m"],
-        "num_sum_Y_m": epoch_sums["num_sum_Y_m"],
-    }
 
 
 def _log_gibbs_post_burn_diagnostics(
@@ -18385,13 +18341,12 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_control,
     run_state,
 ):
-    post_burn_sums = _extract_gibbs_post_burn_sum_state(epoch_sums)
-    epoch_aggregates = post_burn_sums["epoch_aggregates"]
-    sum_betas_m = post_burn_sums["sum_betas_m"]
-    sum_betas2_m = post_burn_sums["sum_betas2_m"]
-    num_sum_beta_m = post_burn_sums["num_sum_beta_m"]
-    sum_Ds_m = post_burn_sums["sum_Ds_m"]
-    num_sum_Y_m = post_burn_sums["num_sum_Y_m"]
+    epoch_aggregates = epoch_sums["epoch_aggregates"]
+    sum_betas_m = epoch_sums["sum_betas_m"]
+    sum_betas2_m = epoch_sums["sum_betas2_m"]
+    num_sum_beta_m = epoch_sums["num_sum_beta_m"]
+    sum_Ds_m = epoch_sums["sum_Ds_m"]
+    num_sum_Y_m = epoch_sums["num_sum_Y_m"]
 
     num_chains = diag_config["num_chains"]
     active_beta_top_k = diag_config["active_beta_top_k"]
@@ -18416,14 +18371,13 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     epoch_iter_num = iter_state["epoch_iter_num"]
     total_iter_num = iter_state["total_iter_num"]
 
-    post_burn_control = _extract_gibbs_post_burn_control_state(epoch_control)
-    stop_pass_streak = post_burn_control["stop_pass_streak"]
-    burn_in_pass_streak = post_burn_control["burn_in_pass_streak"]
-    post_stall_best_beta_rhat_history = post_burn_control["post_stall_best_beta_rhat_history"]
-    post_stall_best_D_mcse_history = post_burn_control["post_stall_best_D_mcse_history"]
-    post_stall_snapshots = post_burn_control["post_stall_snapshots"]
-    post_stall_beta_indices = post_burn_control["post_stall_beta_indices"]
-    post_stall_gene_indices = post_burn_control["post_stall_gene_indices"]
+    stop_pass_streak = epoch_control["stop_pass_streak"]
+    burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
+    post_stall_best_beta_rhat_history = epoch_control["post_stall_best_beta_rhat_history"]
+    post_stall_best_D_mcse_history = epoch_control["post_stall_best_D_mcse_history"]
+    post_stall_snapshots = epoch_control["post_stall_snapshots"]
+    post_stall_beta_indices = epoch_control["post_stall_beta_indices"]
+    post_stall_gene_indices = epoch_control["post_stall_gene_indices"]
 
     num_attempts = run_state["num_attempts"]
     max_num_attempt_restarts = run_state["max_num_attempt_restarts"]
@@ -18591,33 +18545,31 @@ def _update_gibbs_post_burn_state(
     full_postp_sample_m,
 ):
     in_burn_in = epoch_control["in_burn_in"]
-    post_burn_control = _extract_gibbs_post_burn_control_state(epoch_control)
-    stop_pass_streak = post_burn_control["stop_pass_streak"]
-    post_stall_beta_indices = post_burn_control["post_stall_beta_indices"]
-    post_stall_gene_indices = post_burn_control["post_stall_gene_indices"]
-    betas_sem2_v = post_burn_control["betas_sem2_v"]
-    sem2_v = post_burn_control["sem2_v"]
+    stop_pass_streak = epoch_control["stop_pass_streak"]
+    post_stall_beta_indices = epoch_control["post_stall_beta_indices"]
+    post_stall_gene_indices = epoch_control["post_stall_gene_indices"]
+    betas_sem2_v = epoch_control["betas_sem2_v"]
+    sem2_v = epoch_control["sem2_v"]
 
     done = False
-    stop_due_to_precision = post_burn_control["stop_due_to_precision"]
-    restart_due_to_stall = post_burn_control["restart_due_to_stall"]
-    stop_due_to_stall = post_burn_control["stop_due_to_stall"]
+    stop_due_to_precision = epoch_control["stop_due_to_precision"]
+    restart_due_to_stall = epoch_control["restart_due_to_stall"]
+    stop_due_to_stall = epoch_control["stop_due_to_stall"]
 
     max_num_post_burn_in_for_epoch = epoch_context["max_num_post_burn_in_for_epoch"]
     epoch_max_num_iter = epoch_context["epoch_max_num_iter"]
 
-    iter_inputs = _extract_gibbs_post_burn_iteration_inputs(iter_state)
-    epoch_iter_num = iter_inputs["epoch_iter_num"]
-    total_iter_num = iter_inputs["total_iter_num"]
-    Y_sample_m = iter_inputs["Y_sample_m"]
-    Y_raw_sample_m = iter_inputs["Y_raw_sample_m"]
-    log_po_sample_m = iter_inputs["log_po_sample_m"]
-    log_po_raw_sample_m = iter_inputs["log_po_raw_sample_m"]
-    D_sample_m = iter_inputs["D_sample_m"]
-    D_raw_sample_m = iter_inputs["D_raw_sample_m"]
-    uncorrected_betas_mean_m = iter_inputs["uncorrected_betas_mean_m"]
-    full_beta_tildes_m = iter_inputs["full_beta_tildes_m"]
-    full_z_scores_m = iter_inputs["full_z_scores_m"]
+    epoch_iter_num = iter_state["epoch_iter_num"]
+    total_iter_num = iter_state["total_iter_num"]
+    Y_sample_m = iter_state["Y_sample_m"]
+    Y_raw_sample_m = iter_state["Y_raw_sample_m"]
+    log_po_sample_m = iter_state["log_po_sample_m"]
+    log_po_raw_sample_m = iter_state["log_po_raw_sample_m"]
+    D_sample_m = iter_state["D_sample_m"]
+    D_raw_sample_m = iter_state["D_raw_sample_m"]
+    uncorrected_betas_mean_m = iter_state["uncorrected_betas_mean_m"]
+    full_beta_tildes_m = iter_state["full_beta_tildes_m"]
+    full_z_scores_m = iter_state["full_z_scores_m"]
 
     priors_for_Y_m = epoch_priors["priors_for_Y_m"]
     priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
