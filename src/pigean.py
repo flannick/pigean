@@ -16981,8 +16981,14 @@ def _prepare_gibbs_iteration_inputs(
     stack_batch_size,
     X_hstacked,
     inner_beta_kwargs,
-    iteration_input_config,
-    logistic_config,
+    cur_background_log_bf_v,
+    y_var_orig,
+    gauss_seidel,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    correct_betas_mean,
+    correct_betas_var,
     epoch_priors,
     log_bf_m,
     log_bf_raw_m,
@@ -16991,9 +16997,6 @@ def _prepare_gibbs_iteration_inputs(
     priors_for_Y_m = epoch_priors["priors_for_Y_m"]
     priors_percentage_max_for_Y_m = epoch_priors["priors_percentage_max_for_Y_m"]
     priors_adjustment_for_Y_m = epoch_priors["priors_adjustment_for_Y_m"]
-
-    cur_background_log_bf_v = iteration_input_config["cur_background_log_bf_v"]
-    y_var_orig = iteration_input_config["y_var_orig"]
 
     epoch_iter_num = iteration_num + 1
     total_iter_num = epoch_total_iter_offset + epoch_iter_num
@@ -17033,7 +17036,13 @@ def _prepare_gibbs_iteration_inputs(
         stack_batch_size=stack_batch_size,
         X_hstacked=X_hstacked,
         inner_beta_kwargs=inner_beta_kwargs,
-        logistic_config=logistic_config,
+        num_chains=len(Y_sample_m),
+        gauss_seidel=gauss_seidel,
+        initial_linear_filter=initial_linear_filter,
+        sparse_frac_gibbs=sparse_frac_gibbs,
+        sparse_max_gibbs=sparse_max_gibbs,
+        correct_betas_mean=correct_betas_mean,
+        correct_betas_var=correct_betas_var,
     )
 
     p_sample_m = logistic_setup["p_sample_m"]
@@ -17085,8 +17094,14 @@ def _prepare_gibbs_iteration_state(
     stack_batch_size,
     X_hstacked,
     inner_beta_kwargs,
-    iteration_input_config,
-    logistic_config,
+    cur_background_log_bf_v,
+    y_var_orig,
+    gauss_seidel,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    correct_betas_mean,
+    correct_betas_var,
     prefilter_config,
     epoch_priors,
     log_bf_m,
@@ -17104,8 +17119,14 @@ def _prepare_gibbs_iteration_state(
         stack_batch_size=stack_batch_size,
         X_hstacked=X_hstacked,
         inner_beta_kwargs=inner_beta_kwargs,
-        iteration_input_config=iteration_input_config,
-        logistic_config=logistic_config,
+        cur_background_log_bf_v=cur_background_log_bf_v,
+        y_var_orig=y_var_orig,
+        gauss_seidel=gauss_seidel,
+        initial_linear_filter=initial_linear_filter,
+        sparse_frac_gibbs=sparse_frac_gibbs,
+        sparse_max_gibbs=sparse_max_gibbs,
+        correct_betas_mean=correct_betas_mean,
+        correct_betas_var=correct_betas_var,
         epoch_priors=epoch_priors,
         log_bf_m=log_bf_m,
         log_bf_raw_m=log_bf_raw_m,
@@ -17228,33 +17249,6 @@ def _build_gibbs_low_beta_restart_config(low_beta_restart_base_config, run_state
     }
 
 
-def _build_gibbs_iteration_input_config(cur_background_log_bf_v, y_var_orig):
-    return {
-        "cur_background_log_bf_v": cur_background_log_bf_v,
-        "y_var_orig": y_var_orig,
-    }
-
-
-def _build_gibbs_logistic_config(
-    num_chains,
-    gauss_seidel,
-    initial_linear_filter,
-    sparse_frac_gibbs,
-    sparse_max_gibbs,
-    correct_betas_mean,
-    correct_betas_var,
-):
-    return {
-        "num_chains": num_chains,
-        "gauss_seidel": gauss_seidel,
-        "initial_linear_filter": initial_linear_filter,
-        "sparse_frac_gibbs": sparse_frac_gibbs,
-        "sparse_max_gibbs": sparse_max_gibbs,
-        "correct_betas_mean": correct_betas_mean,
-        "correct_betas_var": correct_betas_var,
-    }
-
-
 def _build_gibbs_prefilter_config(
     sparse_frac_gibbs,
     sparse_max_gibbs,
@@ -17355,16 +17349,28 @@ def _build_gibbs_epoch_phase_config(
 def _build_gibbs_epoch_iteration_static_config(
     inner_beta_kwargs,
     iteration_update_config,
-    iteration_input_config,
-    logistic_config,
+    cur_background_log_bf_v,
+    y_var_orig,
+    gauss_seidel,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    correct_betas_mean,
+    correct_betas_var,
     prefilter_config,
     iteration_progress_config,
 ):
     return {
         "inner_beta_kwargs": inner_beta_kwargs,
         "iteration_update_config": iteration_update_config,
-        "iteration_input_config": iteration_input_config,
-        "logistic_config": logistic_config,
+        "cur_background_log_bf_v": cur_background_log_bf_v,
+        "y_var_orig": y_var_orig,
+        "gauss_seidel": gauss_seidel,
+        "initial_linear_filter": initial_linear_filter,
+        "sparse_frac_gibbs": sparse_frac_gibbs,
+        "sparse_max_gibbs": sparse_max_gibbs,
+        "correct_betas_mean": correct_betas_mean,
+        "correct_betas_var": correct_betas_var,
         "prefilter_config": prefilter_config,
         "iteration_progress_config": iteration_progress_config,
     }
@@ -17477,19 +17483,6 @@ def _build_gibbs_phase_runtime_configs(
         compute_Y_raw=compute_Y_raw,
         adjust_priors=adjust_priors,
     )
-    iteration_input_config = _build_gibbs_iteration_input_config(
-        cur_background_log_bf_v=cur_background_log_bf_v,
-        y_var_orig=y_var_orig,
-    )
-    logistic_config = _build_gibbs_logistic_config(
-        num_chains=num_chains,
-        gauss_seidel=gauss_seidel,
-        initial_linear_filter=initial_linear_filter,
-        sparse_frac_gibbs=sparse_frac_gibbs,
-        sparse_max_gibbs=sparse_max_gibbs,
-        correct_betas_mean=correct_betas_mean,
-        correct_betas_var=correct_betas_var,
-    )
     prefilter_config = _build_gibbs_prefilter_config(
         sparse_frac_gibbs=sparse_frac_gibbs,
         sparse_max_gibbs=sparse_max_gibbs,
@@ -17544,8 +17537,14 @@ def _build_gibbs_phase_runtime_configs(
     epoch_iteration_static_config = _build_gibbs_epoch_iteration_static_config(
         inner_beta_kwargs=inner_beta_kwargs,
         iteration_update_config=iteration_update_config,
-        iteration_input_config=iteration_input_config,
-        logistic_config=logistic_config,
+        cur_background_log_bf_v=cur_background_log_bf_v,
+        y_var_orig=y_var_orig,
+        gauss_seidel=gauss_seidel,
+        initial_linear_filter=initial_linear_filter,
+        sparse_frac_gibbs=sparse_frac_gibbs,
+        sparse_max_gibbs=sparse_max_gibbs,
+        correct_betas_mean=correct_betas_mean,
+        correct_betas_var=correct_betas_var,
         prefilter_config=prefilter_config,
         iteration_progress_config=iteration_progress_config,
     )
@@ -17732,8 +17731,14 @@ def _run_gibbs_epoch_phase(
             increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
             num_before_checking_p_increase=num_before_checking_p_increase,
             p_scale_factor=p_scale_factor,
-            iteration_input_config=epoch_iteration_static_config["iteration_input_config"],
-            logistic_config=epoch_iteration_static_config["logistic_config"],
+            cur_background_log_bf_v=epoch_iteration_static_config["cur_background_log_bf_v"],
+            y_var_orig=epoch_iteration_static_config["y_var_orig"],
+            gauss_seidel=epoch_iteration_static_config["gauss_seidel"],
+            initial_linear_filter=epoch_iteration_static_config["initial_linear_filter"],
+            sparse_frac_gibbs=epoch_iteration_static_config["sparse_frac_gibbs"],
+            sparse_max_gibbs=epoch_iteration_static_config["sparse_max_gibbs"],
+            correct_betas_mean=epoch_iteration_static_config["correct_betas_mean"],
+            correct_betas_var=epoch_iteration_static_config["correct_betas_var"],
             prefilter_config=epoch_iteration_static_config["prefilter_config"],
             iteration_progress_config=epoch_iteration_static_config["iteration_progress_config"],
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
@@ -17811,8 +17816,14 @@ def _run_gibbs_epoch_iterations(
     increase_hyper_if_betas_below_for_epoch,
     num_before_checking_p_increase,
     p_scale_factor,
-    iteration_input_config,
-    logistic_config,
+    cur_background_log_bf_v,
+    y_var_orig,
+    gauss_seidel,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    correct_betas_mean,
+    correct_betas_var,
     prefilter_config,
     iteration_progress_config,
     gene_set_stats_trace_fh,
@@ -17833,8 +17844,14 @@ def _run_gibbs_epoch_iterations(
             stack_batch_size=stack_batch_size,
             X_hstacked=X_hstacked,
             inner_beta_kwargs=inner_beta_kwargs,
-            iteration_input_config=iteration_input_config,
-            logistic_config=logistic_config,
+            cur_background_log_bf_v=cur_background_log_bf_v,
+            y_var_orig=y_var_orig,
+            gauss_seidel=gauss_seidel,
+            initial_linear_filter=initial_linear_filter,
+            sparse_frac_gibbs=sparse_frac_gibbs,
+            sparse_max_gibbs=sparse_max_gibbs,
+            correct_betas_mean=correct_betas_mean,
+            correct_betas_var=correct_betas_var,
             prefilter_config=prefilter_config,
             epoch_priors=epoch_priors,
             log_bf_m=log_bf_m,
@@ -18068,16 +18085,14 @@ def _compute_gibbs_logistic_beta_tildes(
     stack_batch_size,
     X_hstacked,
     inner_beta_kwargs,
-    logistic_config,
+    num_chains,
+    gauss_seidel,
+    initial_linear_filter,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    correct_betas_mean,
+    correct_betas_var,
 ):
-    num_chains = logistic_config["num_chains"]
-    gauss_seidel = logistic_config["gauss_seidel"]
-    initial_linear_filter = logistic_config["initial_linear_filter"]
-    sparse_frac_gibbs = logistic_config["sparse_frac_gibbs"]
-    sparse_max_gibbs = logistic_config["sparse_max_gibbs"]
-    correct_betas_mean = logistic_config["correct_betas_mean"]
-    correct_betas_var = logistic_config["correct_betas_var"]
-
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
     full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, len(state.scale_factors)))
