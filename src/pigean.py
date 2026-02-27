@@ -2391,23 +2391,26 @@ class GeneSetData(object):
                 initial_p = [initial_p]
             initial_ps = []
             assert(xin_to_p_noninf_ind is not None)
-            
+
+        def normalize_input_specs(input_specs):
+            if input_specs is None:
+                return ([], [])
+            if type(input_specs) == str:
+                return ([input_specs], [input_specs])
+            if type(input_specs) == list:
+                return (input_specs, copy.copy(input_specs))
+            return ([], [])
+
+        def append_initial_p_indices(input_specs):
+            if initial_ps is None:
+                return
+            for input_spec in input_specs:
+                assert(input_spec in xin_to_p_noninf_ind)
+                initial_ps.append(xin_to_p_noninf_ind[input_spec])
 
         #list of the X files specified on the command line
-        X_ins = []
-        orig_files = []
-        if X_in is not None:
-            if type(X_in) == str:
-                X_ins = [X_in]
-                orig_files = [X_in]
-            elif type(X_in) == list:
-                X_ins = X_in
-                orig_files = copy.copy(X_in)
-
-        if initial_ps is not None:
-            for X_in in X_ins:
-                assert(X_in in xin_to_p_noninf_ind)
-                initial_ps.append(xin_to_p_noninf_ind[X_in])
+        (X_ins, orig_files) = normalize_input_specs(X_in)
+        append_initial_p_indices(X_ins)
             
         is_dense = []
 
@@ -2425,20 +2428,8 @@ class GeneSetData(object):
 
         is_dense = [False for x in X_ins]
 
-        Xd_ins = []
-        orig_dfiles = []
-        if Xd_in is not None:
-            if type(Xd_in) == str:
-                Xd_ins = [Xd_in]
-                orig_dfiles = [Xd_in]
-            elif type(Xd_in) == list:
-                Xd_ins = Xd_in
-                orig_dfiles = Xd_in
-
-        if initial_ps is not None:
-            for Xd_in in Xd_ins:
-                assert(Xd_in in xin_to_p_noninf_ind)
-                initial_ps.append(xin_to_p_noninf_ind[Xd_in])
+        (Xd_ins, orig_dfiles) = normalize_input_specs(Xd_in)
+        append_initial_p_indices(Xd_ins)
 
         append_inputs_from_list_files(
             list_specs=Xd_list,
