@@ -17002,18 +17002,20 @@ def _prepare_gibbs_iteration_inputs(
         y_var=y_var,
         D_sample_m=D_sample_m,
         y_corr_sparse=y_corr_sparse,
-        full_betas_m_shape=full_betas_m_shape,
-        num_stack_batches=num_stack_batches,
-        stack_batch_size=stack_batch_size,
-        X_hstacked=X_hstacked,
-        inner_beta_kwargs=inner_beta_kwargs,
-        num_chains=len(Y_sample_m),
-        gauss_seidel=gauss_seidel,
-        initial_linear_filter=initial_linear_filter,
-        sparse_frac_gibbs=sparse_frac_gibbs,
-        sparse_max_gibbs=sparse_max_gibbs,
-        correct_betas_mean=correct_betas_mean,
-        correct_betas_var=correct_betas_var,
+        logistic_config={
+            "full_betas_m_shape": full_betas_m_shape,
+            "num_stack_batches": num_stack_batches,
+            "stack_batch_size": stack_batch_size,
+            "X_hstacked": X_hstacked,
+            "inner_beta_kwargs": inner_beta_kwargs,
+            "num_chains": len(Y_sample_m),
+            "gauss_seidel": gauss_seidel,
+            "initial_linear_filter": initial_linear_filter,
+            "sparse_frac_gibbs": sparse_frac_gibbs,
+            "sparse_max_gibbs": sparse_max_gibbs,
+            "correct_betas_mean": correct_betas_mean,
+            "correct_betas_var": correct_betas_var,
+        },
     )
 
     p_sample_m = logistic_setup["p_sample_m"]
@@ -17882,19 +17884,21 @@ def _compute_gibbs_logistic_beta_tildes(
     y_var,
     D_sample_m,
     y_corr_sparse,
-    full_betas_m_shape,
-    num_stack_batches,
-    stack_batch_size,
-    X_hstacked,
-    inner_beta_kwargs,
-    num_chains,
-    gauss_seidel,
-    initial_linear_filter,
-    sparse_frac_gibbs,
-    sparse_max_gibbs,
-    correct_betas_mean,
-    correct_betas_var,
+    logistic_config,
 ):
+    full_betas_m_shape = logistic_config["full_betas_m_shape"]
+    num_stack_batches = logistic_config["num_stack_batches"]
+    stack_batch_size = logistic_config["stack_batch_size"]
+    X_hstacked = logistic_config["X_hstacked"]
+    inner_beta_kwargs = logistic_config["inner_beta_kwargs"]
+    num_chains = logistic_config["num_chains"]
+    gauss_seidel = logistic_config["gauss_seidel"]
+    initial_linear_filter = logistic_config["initial_linear_filter"]
+    sparse_frac_gibbs = logistic_config["sparse_frac_gibbs"]
+    sparse_max_gibbs = logistic_config["sparse_max_gibbs"]
+    correct_betas_mean = logistic_config["correct_betas_mean"]
+    correct_betas_var = logistic_config["correct_betas_var"]
+
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
     full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, len(state.scale_factors)))
