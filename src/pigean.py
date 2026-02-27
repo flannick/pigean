@@ -17996,22 +17996,24 @@ def _update_post_burn_stall_tracking(
     active_beta_mask,
     beta_mean_v,
     top_gene_indices,
-    active_beta_top_k,
     num_post_burn_beta,
-    post_stall_best_beta_rhat_history,
-    post_stall_best_D_mcse_history,
-    post_stall_snapshots,
-    post_stall_beta_indices,
-    post_stall_gene_indices,
-    stop_mcse_quantile,
-    stall_window,
-    stall_min_post_burn_in,
-    min_num_post_burn_in_for_epoch,
-    stall_delta_rhat,
-    stall_delta_mcse,
-    stall_recent_window,
-    stall_recent_eps,
+    stall_tracking_config,
 ):
+    active_beta_top_k = stall_tracking_config["active_beta_top_k"]
+    post_stall_best_beta_rhat_history = stall_tracking_config["post_stall_best_beta_rhat_history"]
+    post_stall_best_D_mcse_history = stall_tracking_config["post_stall_best_D_mcse_history"]
+    post_stall_snapshots = stall_tracking_config["post_stall_snapshots"]
+    post_stall_beta_indices = stall_tracking_config["post_stall_beta_indices"]
+    post_stall_gene_indices = stall_tracking_config["post_stall_gene_indices"]
+    stop_mcse_quantile = stall_tracking_config["stop_mcse_quantile"]
+    stall_window = stall_tracking_config["stall_window"]
+    stall_min_post_burn_in = stall_tracking_config["stall_min_post_burn_in"]
+    min_num_post_burn_in_for_epoch = stall_tracking_config["min_num_post_burn_in_for_epoch"]
+    stall_delta_rhat = stall_tracking_config["stall_delta_rhat"]
+    stall_delta_mcse = stall_tracking_config["stall_delta_mcse"]
+    stall_recent_window = stall_tracking_config["stall_recent_window"]
+    stall_recent_eps = stall_tracking_config["stall_recent_eps"]
+
     post_best_beta_rhat_q = beta_rhat_q_post if len(post_stall_best_beta_rhat_history) == 0 else min(post_stall_best_beta_rhat_history[-1], beta_rhat_q_post)
     post_best_D_mcse_q = D_mcse_q if len(post_stall_best_D_mcse_history) == 0 else min(post_stall_best_D_mcse_history[-1], D_mcse_q)
     post_stall_best_beta_rhat_history.append(post_best_beta_rhat_q)
@@ -18361,21 +18363,23 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         active_beta_mask,
         beta_mean_v,
         top_gene_indices,
-        active_beta_top_k,
         num_post_burn_beta,
-        post_stall_best_beta_rhat_history,
-        post_stall_best_D_mcse_history,
-        post_stall_snapshots,
-        post_stall_beta_indices,
-        post_stall_gene_indices,
-        stop_mcse_quantile,
-        stall_window,
-        stall_min_post_burn_in,
-        min_num_post_burn_in_for_epoch,
-        stall_delta_rhat,
-        stall_delta_mcse,
-        stall_recent_window,
-        stall_recent_eps,
+        stall_tracking_config={
+            "active_beta_top_k": active_beta_top_k,
+            "post_stall_best_beta_rhat_history": post_stall_best_beta_rhat_history,
+            "post_stall_best_D_mcse_history": post_stall_best_D_mcse_history,
+            "post_stall_snapshots": post_stall_snapshots,
+            "post_stall_beta_indices": post_stall_beta_indices,
+            "post_stall_gene_indices": post_stall_gene_indices,
+            "stop_mcse_quantile": stop_mcse_quantile,
+            "stall_window": stall_window,
+            "stall_min_post_burn_in": stall_min_post_burn_in,
+            "min_num_post_burn_in_for_epoch": min_num_post_burn_in_for_epoch,
+            "stall_delta_rhat": stall_delta_rhat,
+            "stall_delta_mcse": stall_delta_mcse,
+            "stall_recent_window": stall_recent_window,
+            "stall_recent_eps": stall_recent_eps,
+        },
     )
     post_stall_beta_indices = post_stall_update["post_stall_beta_indices"]
     post_stall_gene_indices = post_stall_update["post_stall_gene_indices"]
