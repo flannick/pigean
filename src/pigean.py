@@ -4753,6 +4753,56 @@ class GeneSetData(object):
             cur_gene_indices_norm,
         )
 
+    def _accumulate_huge_window_learning_samples(
+        self,
+        var_pos,
+        var_p,
+        gene_pos,
+        gene_names,
+        gene_index_to_name_index,
+        total_num_vars,
+        max_closest_gene_dist,
+        closest_gene_prob,
+        closest_dist_X,
+        closest_dist_Y,
+        var_all_p,
+    ):
+        # Randomly subsample variants to estimate distance-to-gene window behavior.
+        region_vars = np.full(len(var_pos), False)
+        number_needed = 100000
+        region_vars[np.random.random(len(region_vars)) < (float(number_needed) / total_num_vars)] = True
+
+        closest_gene_indices = self._get_huge_closest_gene_indices(gene_pos, var_pos[region_vars])
+        closest_dists = np.abs(gene_pos[closest_gene_indices] - var_pos[region_vars])
+        closest_dists = closest_dists[closest_dists <= max_closest_gene_dist]
+        closest_dist_X = np.append(closest_dist_X, closest_dists)
+        closest_dist_Y = np.append(closest_dist_Y, np.full(len(closest_dists), closest_gene_prob))
+        var_all_p = np.append(var_all_p, var_p)
+
+        max_offset = 200
+        offsets = np.arange(-max_offset, max_offset + 1)
+        cur_gene_indices = np.add.outer(offsets, closest_gene_indices)
+        cur_gene_indices[cur_gene_indices >= len(gene_pos)] = len(gene_pos) - 1
+        cur_gene_indices[cur_gene_indices <= 0] = 0
+
+        # Ignore entries whose candidate is the same named gene as closest hit.
+        cur_mask = (
+            gene_names[gene_index_to_name_index[cur_gene_indices]]
+            != gene_names[gene_index_to_name_index[closest_gene_indices]]
+        )
+        non_closest_dists = np.abs(gene_pos[cur_gene_indices] - var_pos[region_vars])
+        cur_mask = np.logical_and(cur_mask, non_closest_dists <= max_closest_gene_dist)
+
+        # Maximum in denominator avoids divide-by-zero when no candidates survive filtering.
+        non_closest_probs = (
+            np.full(non_closest_dists.shape, (1 - closest_gene_prob) / np.maximum(np.sum(cur_mask, axis=0), 1))
+        )[cur_mask]
+        non_closest_dists = non_closest_dists[cur_mask]
+        closest_dist_X = np.append(closest_dist_X, non_closest_dists)
+        closest_dist_Y = np.append(closest_dist_Y, np.full(len(non_closest_dists), non_closest_probs))
+
+        return (closest_dist_X, closest_dist_Y, var_all_p)
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5146,46 +5196,19 @@ class GeneSetData(object):
                         interval_to_gene = chrom_interval_to_gene[chrom]
 
                     if learn_params:
-
-                        #randomly sample 100K variants
-                        region_vars = np.full(len(var_pos), False)
-                        number_needed = 100000
-
-                        region_vars[np.random.random(len(region_vars)) < (float(number_needed) / total_num_vars)] = True
-
-                        closest_gene_indices = self._get_huge_closest_gene_indices(gene_pos, var_pos[region_vars])
-
-                        closest_dists = np.abs(gene_pos[closest_gene_indices] - var_pos[region_vars])
-                        closest_dists = closest_dists[closest_dists <= max_closest_gene_dist]
-
-                        closest_dist_X = np.append(closest_dist_X, closest_dists)
-                        closest_dist_Y = np.append(closest_dist_Y, np.full(len(closest_dists), closest_gene_prob))
-
-                        var_all_p = np.append(var_all_p, var_p)
-
-                        max_offset = 200
-
-                        #new, vectorized
-                        offsets = np.arange(-max_offset,max_offset+1)
-                        cur_gene_indices = np.add.outer(offsets, closest_gene_indices)
-                        cur_gene_indices[cur_gene_indices >= len(gene_pos)] = len(gene_pos) - 1
-                        cur_gene_indices[cur_gene_indices <= 0] = 0
-
-                        #ignore any that are actually the closest gene
-                        cur_mask = (gene_names[gene_index_to_name_index[cur_gene_indices]] != gene_names[gene_index_to_name_index[closest_gene_indices]])
-                        #remove everything above the maximum
-                        non_closest_dists = np.abs(gene_pos[cur_gene_indices] - var_pos[region_vars])
-
-                        cur_mask = np.logical_and(cur_mask, non_closest_dists <= max_closest_gene_dist)
-
-                        #maximum is used here to avoid divide by 0
-                        #any zeros will get subsetted out by cur_mask anyway
-                        non_closest_probs = (np.full(non_closest_dists.shape, (1 - closest_gene_prob) / np.maximum(np.sum(cur_mask, axis=0), 1)))[cur_mask]
-                        non_closest_dists = non_closest_dists[cur_mask]
-
-                        closest_dist_X = np.append(closest_dist_X, non_closest_dists)
-
-                        closest_dist_Y = np.append(closest_dist_Y, np.full(len(non_closest_dists), non_closest_probs))
+                        (closest_dist_X, closest_dist_Y, var_all_p) = self._accumulate_huge_window_learning_samples(
+                            var_pos=var_pos,
+                            var_p=var_p,
+                            gene_pos=gene_pos,
+                            gene_names=gene_names,
+                            gene_index_to_name_index=gene_index_to_name_index,
+                            total_num_vars=total_num_vars,
+                            max_closest_gene_dist=max_closest_gene_dist,
+                            closest_gene_prob=closest_gene_prob,
+                            closest_dist_X=closest_dist_X,
+                            closest_dist_Y=closest_dist_Y,
+                            var_all_p=var_all_p,
+                        )
 
                     else:
 
