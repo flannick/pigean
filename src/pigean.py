@@ -17373,23 +17373,6 @@ def _build_gibbs_epoch_iteration_static_config(
     }
 
 
-def _build_gibbs_epoch_iteration_config(
-    iteration_static_config,
-    low_beta_restart_config,
-    low_beta_epoch_config,
-):
-    return {
-        "inner_beta_kwargs": iteration_static_config["inner_beta_kwargs"],
-        "iteration_update_config": iteration_static_config["iteration_update_config"],
-        "low_beta_restart_config": low_beta_restart_config,
-        "low_beta_epoch_config": low_beta_epoch_config,
-        "iteration_input_config": iteration_static_config["iteration_input_config"],
-        "logistic_config": iteration_static_config["logistic_config"],
-        "prefilter_config": iteration_static_config["prefilter_config"],
-        "iteration_progress_config": iteration_static_config["iteration_progress_config"],
-    }
-
-
 def _build_gibbs_phase_runtime_configs(
     total_num_iter,
     num_chains,
@@ -17712,11 +17695,16 @@ def _run_gibbs_epoch_phase(
             num_before_checking_p_increase=epoch_context["num_before_checking_p_increase"],
             p_scale_factor=epoch_context["p_scale_factor"],
         )
-        epoch_iteration_config = _build_gibbs_epoch_iteration_config(
-            iteration_static_config=epoch_iteration_static_config,
-            low_beta_restart_config=low_beta_restart_config,
-            low_beta_epoch_config=low_beta_epoch_config,
-        )
+        epoch_iteration_config = {
+            "inner_beta_kwargs": epoch_iteration_static_config["inner_beta_kwargs"],
+            "iteration_update_config": epoch_iteration_static_config["iteration_update_config"],
+            "low_beta_restart_config": low_beta_restart_config,
+            "low_beta_epoch_config": low_beta_epoch_config,
+            "iteration_input_config": epoch_iteration_static_config["iteration_input_config"],
+            "logistic_config": epoch_iteration_static_config["logistic_config"],
+            "prefilter_config": epoch_iteration_static_config["prefilter_config"],
+            "iteration_progress_config": epoch_iteration_static_config["iteration_progress_config"],
+        }
 
         epoch_loop_update = _run_gibbs_epoch_iterations(
             state=state,
