@@ -17697,7 +17697,6 @@ def _run_gibbs_iteration_correction_and_updates(
         epoch_sums=epoch_sums,
         epoch_context=epoch_context,
         low_beta_restart_config=low_beta_restart_config,
-        iter_state=iter_state,
         iteration_num=iteration_num,
         full_betas_mean_m=full_betas_mean_m,
     )
@@ -19162,7 +19161,6 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     epoch_sums,
     epoch_context,
     low_beta_restart_config,
-    iter_state,
     iteration_num,
     full_betas_mean_m,
 ):
