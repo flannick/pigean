@@ -4301,6 +4301,15 @@ class GeneSetData(object):
             var_freq,
         )
 
+    def _get_huge_closest_gene_indices(self, gene_pos, region_pos):
+        gene_indices = np.searchsorted(gene_pos, region_pos)
+        gene_indices[gene_indices == len(gene_pos)] -= 1
+
+        # Look to the left and the right to see which gene is closer.
+        lower_mask = np.abs(region_pos - gene_pos[gene_indices - 1]) < np.abs(region_pos - gene_pos[gene_indices])
+        gene_indices[lower_mask] = gene_indices[lower_mask] - 1
+        return gene_indices
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -4693,17 +4702,8 @@ class GeneSetData(object):
                         exon_interval_tree = chrom_to_interval_tree[chrom]
                         interval_to_gene = chrom_interval_to_gene[chrom]
 
-                    def __get_closest_gene_indices(region_pos):
-                        gene_indices = np.searchsorted(gene_pos, region_pos)
-                        gene_indices[gene_indices == len(gene_pos)] -= 1
-
-                        #look to the left and the right to see which gene closer
-                        lower_mask = np.abs(region_pos - gene_pos[gene_indices - 1]) < np.abs(region_pos - gene_pos[gene_indices])
-                        gene_indices[lower_mask] = gene_indices[lower_mask] - 1
-                        return gene_indices
-
                     def __get_gene_posterior(region_pos, full_prob, window_fun_slope, window_fun_intercept, exon_interval_tree=None, interval_to_gene=None, pos_to_gene_prob=None, max_offset=20, cap=True, do_print=True):
-                        closest_gene_indices = __get_closest_gene_indices(region_pos)
+                        closest_gene_indices = self._get_huge_closest_gene_indices(gene_pos, region_pos)
 
                         var_offset_prob = np.zeros((max_offset * 2 + 1, len(region_pos)))
                         var_gene_index = np.full((max_offset * 2 + 1, len(region_pos)), -1)
@@ -4866,7 +4866,7 @@ class GeneSetData(object):
 
                         region_vars[np.random.random(len(region_vars)) < (float(number_needed) / total_num_vars)] = True
 
-                        closest_gene_indices = __get_closest_gene_indices(var_pos[region_vars])
+                        closest_gene_indices = self._get_huge_closest_gene_indices(gene_pos, var_pos[region_vars])
 
                         closest_dists = np.abs(gene_pos[closest_gene_indices] - var_pos[region_vars])
                         closest_dists = closest_dists[closest_dists <= max_closest_gene_dist]
@@ -5287,7 +5287,7 @@ class GeneSetData(object):
                             #find out how many indices to look to the left and right of the nearest one before assigning 0 linkage probability
 
                             #first get all of the gene indices within the max window of each variant on each size
-                            gene_index_ranges = __get_closest_gene_indices(np.vstack((var_pos[region_vars], var_pos[region_vars] - max_closest_gene_dist, var_pos[region_vars] + max_closest_gene_dist)))
+                            gene_index_ranges = self._get_huge_closest_gene_indices(gene_pos, np.vstack((var_pos[region_vars], var_pos[region_vars] - max_closest_gene_dist, var_pos[region_vars] + max_closest_gene_dist)))
 
                             max_num_indices = np.maximum(np.max(gene_index_ranges[0,:] - gene_index_ranges[1,:]), np.max(gene_index_ranges[2,:] - gene_index_ranges[0,:]))
 
