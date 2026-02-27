@@ -15660,9 +15660,6 @@ def _update_gibbs_burn_in_state(
     in_burn_in = epoch_control["in_burn_in"]
     prev_Ys_m = epoch_control["prev_Ys_m"]
     burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
-    burn_in_rhat_history = epoch_control["burn_in_rhat_history"]
-    burn_stall_best_beta_rhat_history = epoch_control["burn_stall_best_beta_rhat_history"]
-    burn_stall_snapshots = epoch_control["burn_stall_snapshots"]
     burn_stall_beta_indices = epoch_control["burn_stall_beta_indices"]
     stop_pass_streak = epoch_control["stop_pass_streak"]
     R_beta_v = epoch_control["R_beta_v"]
@@ -17821,8 +17818,8 @@ def _compute_gibbs_logistic_beta_tildes(
     p_sample_m = _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
 
     if initial_linear_filter:
-        (linear_beta_tildes_m, linear_ses_m, linear_z_scores_m, linear_p_values_m, _) = state._compute_beta_tildes(state.X_orig, Y_sample_m, y_var, state.scale_factors, state.mean_shifts, resid_correlation_matrix=y_corr_sparse)
-        (linear_uncorrected_betas_sample_m, linear_uncorrected_postp_sample_m, linear_uncorrected_betas_mean_m, linear_uncorrected_postp_mean_m) = state._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=linear_beta_tildes_m, ses=linear_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, update_hyper_sigma=False, update_hyper_p=False, debug_gene_sets=state.gene_sets, **inner_beta_kwargs_linear)
+        (linear_beta_tildes_m, linear_ses_m, _, linear_p_values_m, _) = state._compute_beta_tildes(state.X_orig, Y_sample_m, y_var, state.scale_factors, state.mean_shifts, resid_correlation_matrix=y_corr_sparse)
+        (linear_uncorrected_betas_sample_m, _, linear_uncorrected_betas_mean_m, _) = state._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=linear_beta_tildes_m, ses=linear_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, update_hyper_sigma=False, update_hyper_p=False, debug_gene_sets=state.gene_sets, **inner_beta_kwargs_linear)
         pre_gene_set_filter_mask_m = _get_gibbs_gene_set_mask(linear_uncorrected_betas_mean_m, linear_uncorrected_betas_sample_m, linear_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
         pre_gene_set_filter_mask = np.any(pre_gene_set_filter_mask_m, axis=0)
         log("Filtered down to %d gene sets using linear pre-filtering" % np.sum(pre_gene_set_filter_mask))
@@ -18460,9 +18457,6 @@ def _update_gibbs_post_burn_state(
     in_burn_in = epoch_control["in_burn_in"]
     post_burn_control = _extract_gibbs_post_burn_control_state(epoch_control)
     stop_pass_streak = post_burn_control["stop_pass_streak"]
-    post_stall_best_beta_rhat_history = post_burn_control["post_stall_best_beta_rhat_history"]
-    post_stall_best_D_mcse_history = post_burn_control["post_stall_best_D_mcse_history"]
-    post_stall_snapshots = post_burn_control["post_stall_snapshots"]
     post_stall_beta_indices = post_burn_control["post_stall_beta_indices"]
     post_stall_gene_indices = post_burn_control["post_stall_gene_indices"]
     betas_sem2_v = post_burn_control["betas_sem2_v"]
