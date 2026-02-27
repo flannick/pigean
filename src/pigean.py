@@ -8248,7 +8248,6 @@ class GeneSetData(object):
         stall_recent_window = gibbs_controls["stall_recent_window"]
         stall_recent_eps = gibbs_controls["stall_recent_eps"]
         burn_in_rhat_quantile = gibbs_controls["burn_in_rhat_quantile"]
-        first_epoch_max_num_iter = gibbs_controls["first_epoch_max_num_iter"]
         first_min_num_burn_in = gibbs_controls["first_min_num_burn_in"]
         first_max_num_burn_in = gibbs_controls["first_max_num_burn_in"]
         first_min_num_post_burn_in = gibbs_controls["first_min_num_post_burn_in"]
@@ -15216,7 +15215,7 @@ def _normalize_gibbs_run_controls(
         burn_in_rhat_quantile = 1
 
     (
-        first_epoch_max_num_iter,
+        _,
         first_min_num_burn_in,
         first_max_num_burn_in,
         first_min_num_post_burn_in,
@@ -15260,7 +15259,6 @@ def _normalize_gibbs_run_controls(
         "stall_recent_window": stall_recent_window,
         "stall_recent_eps": stall_recent_eps,
         "burn_in_rhat_quantile": burn_in_rhat_quantile,
-        "first_epoch_max_num_iter": first_epoch_max_num_iter,
         "first_min_num_burn_in": first_min_num_burn_in,
         "first_max_num_burn_in": first_max_num_burn_in,
         "first_min_num_post_burn_in": first_min_num_post_burn_in,
