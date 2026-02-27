@@ -16943,26 +16943,28 @@ def _accumulate_gibbs_post_burn_iteration(
 def _prepare_gibbs_iteration_inputs(
     state,
     iteration_num,
-    epoch_total_iter_offset,
-    trace_chain_offset,
-    full_betas_m_shape,
-    num_stack_batches,
-    stack_batch_size,
-    X_hstacked,
-    inner_beta_kwargs,
-    cur_background_log_bf_v,
-    y_var_orig,
-    gauss_seidel,
-    initial_linear_filter,
-    sparse_frac_gibbs,
-    sparse_max_gibbs,
-    correct_betas_mean,
-    correct_betas_var,
-    epoch_priors,
     log_bf_m,
     log_bf_raw_m,
-    gene_stats_trace_fh,
+    iteration_input_config,
 ):
+    epoch_total_iter_offset = iteration_input_config["epoch_total_iter_offset"]
+    trace_chain_offset = iteration_input_config["trace_chain_offset"]
+    full_betas_m_shape = iteration_input_config["full_betas_m_shape"]
+    num_stack_batches = iteration_input_config["num_stack_batches"]
+    stack_batch_size = iteration_input_config["stack_batch_size"]
+    X_hstacked = iteration_input_config["X_hstacked"]
+    inner_beta_kwargs = iteration_input_config["inner_beta_kwargs"]
+    cur_background_log_bf_v = iteration_input_config["cur_background_log_bf_v"]
+    y_var_orig = iteration_input_config["y_var_orig"]
+    gauss_seidel = iteration_input_config["gauss_seidel"]
+    initial_linear_filter = iteration_input_config["initial_linear_filter"]
+    sparse_frac_gibbs = iteration_input_config["sparse_frac_gibbs"]
+    sparse_max_gibbs = iteration_input_config["sparse_max_gibbs"]
+    correct_betas_mean = iteration_input_config["correct_betas_mean"]
+    correct_betas_var = iteration_input_config["correct_betas_var"]
+    epoch_priors = iteration_input_config["epoch_priors"]
+    gene_stats_trace_fh = iteration_input_config["gene_stats_trace_fh"]
+
     priors_for_Y_m = epoch_priors["priors_for_Y_m"]
     priors_percentage_max_for_Y_m = epoch_priors["priors_percentage_max_for_Y_m"]
     priors_adjustment_for_Y_m = epoch_priors["priors_adjustment_for_Y_m"]
@@ -17060,48 +17062,16 @@ def _prepare_gibbs_iteration_state(
     log_bf_m,
     log_bf_raw_m,
 ):
-    epoch_total_iter_offset = iteration_state_config["epoch_total_iter_offset"]
-    trace_chain_offset = iteration_state_config["trace_chain_offset"]
-    full_betas_m_shape = iteration_state_config["full_betas_m_shape"]
-    num_stack_batches = iteration_state_config["num_stack_batches"]
-    stack_batch_size = iteration_state_config["stack_batch_size"]
-    X_hstacked = iteration_state_config["X_hstacked"]
     inner_beta_kwargs = iteration_state_config["inner_beta_kwargs"]
-    cur_background_log_bf_v = iteration_state_config["cur_background_log_bf_v"]
-    y_var_orig = iteration_state_config["y_var_orig"]
-    gauss_seidel = iteration_state_config["gauss_seidel"]
-    initial_linear_filter = iteration_state_config["initial_linear_filter"]
-    sparse_frac_gibbs = iteration_state_config["sparse_frac_gibbs"]
-    sparse_max_gibbs = iteration_state_config["sparse_max_gibbs"]
-    correct_betas_mean = iteration_state_config["correct_betas_mean"]
-    correct_betas_var = iteration_state_config["correct_betas_var"]
     prefilter_config = iteration_state_config["prefilter_config"]
-    epoch_priors = iteration_state_config["epoch_priors"]
-    gene_stats_trace_fh = iteration_state_config["gene_stats_trace_fh"]
 
     # Prepare all iteration-local sampling and masking state before corrected betas.
     iter_setup = _prepare_gibbs_iteration_inputs(
         state=state,
         iteration_num=iteration_num,
-        epoch_total_iter_offset=epoch_total_iter_offset,
-        trace_chain_offset=trace_chain_offset,
-        full_betas_m_shape=full_betas_m_shape,
-        num_stack_batches=num_stack_batches,
-        stack_batch_size=stack_batch_size,
-        X_hstacked=X_hstacked,
-        inner_beta_kwargs=inner_beta_kwargs,
-        cur_background_log_bf_v=cur_background_log_bf_v,
-        y_var_orig=y_var_orig,
-        gauss_seidel=gauss_seidel,
-        initial_linear_filter=initial_linear_filter,
-        sparse_frac_gibbs=sparse_frac_gibbs,
-        sparse_max_gibbs=sparse_max_gibbs,
-        correct_betas_mean=correct_betas_mean,
-        correct_betas_var=correct_betas_var,
-        epoch_priors=epoch_priors,
         log_bf_m=log_bf_m,
         log_bf_raw_m=log_bf_raw_m,
-        gene_stats_trace_fh=gene_stats_trace_fh,
+        iteration_input_config=iteration_state_config,
     )
     iter_state = dict(iter_setup)
 
