@@ -923,117 +923,120 @@ def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_na
     setattr(_options, opt_name, int(new_value))
 
 
-# Mode-dependent defaults.
-if mode in ("pops", "naive_pops"):
-    _set_default_option(options, "correct_betas_mean", False)
-    _set_default_option(options, "adjust_priors", False)
-    _set_default_option(options, "p_noninf", [1])
-    _set_default_option(options, "sigma_power", 2)
-    _set_default_option(options, "update_hyper", "none")
-    _set_default_option(options, "filter_negative", False)
-    _set_default_option(options, "prune_gene_sets", 1.1)
-    _set_default_option(options, "weighted_prune_gene_sets", 1.1)
-    _set_default_option(options, "top_gene_set_prior", 0.1)
-    _set_default_option(options, "num_gene_sets_for_prior", 15000)
-    _set_default_option(options, "filter_gene_set_p", 0.05)
-    _set_default_option(options, "linear", True)
-    _set_default_option(options, "max_for_linear", 1)
-    _set_default_option(options, "min_gene_set_size", 1)
-    _set_default_option(options, "cross_val", True)
-    _set_default_option(options, "sparse_frac_betas", 0)
-    _set_default_option(options, "sparse_solution", False)
-else:
-    _set_default_option(options, "correct_betas_mean", True)
-    _set_default_option(options, "adjust_priors", True)
-    _set_default_option(options, "p_noninf", [0.001])
-    _set_default_option(options, "sigma_power", -2)
-    _set_default_option(options, "update_hyper", "p")
-    _set_default_option(options, "filter_negative", True)
-    _set_default_option(options, "top_gene_set_prior", 0.8)
-    _set_default_option(options, "num_gene_sets_for_prior", 50)
-    _set_default_option(options, "filter_gene_set_p", 0.01)
-    _set_default_option(options, "linear", False)
-    _set_default_option(options, "max_for_linear", 0.95)
-    _set_default_option(options, "min_gene_set_size", 10)
-    _set_default_option(options, "cross_val", False)
-    _set_default_option(options, "sparse_frac_betas", 0.001)
-    _set_default_option(options, "sparse_solution", True)
-    default_prune = 0.8
-    if options.prune_gene_sets is None:
-        options.prune_gene_sets = default_prune
-    if options.weighted_prune_gene_sets is None:
-        options.weighted_prune_gene_sets = default_prune
+def _apply_mode_and_runtime_defaults(_options, _mode, _argv):
+    # Mode-dependent defaults.
+    if _mode in ("pops", "naive_pops"):
+        _set_default_option(_options, "correct_betas_mean", False)
+        _set_default_option(_options, "adjust_priors", False)
+        _set_default_option(_options, "p_noninf", [1])
+        _set_default_option(_options, "sigma_power", 2)
+        _set_default_option(_options, "update_hyper", "none")
+        _set_default_option(_options, "filter_negative", False)
+        _set_default_option(_options, "prune_gene_sets", 1.1)
+        _set_default_option(_options, "weighted_prune_gene_sets", 1.1)
+        _set_default_option(_options, "top_gene_set_prior", 0.1)
+        _set_default_option(_options, "num_gene_sets_for_prior", 15000)
+        _set_default_option(_options, "filter_gene_set_p", 0.05)
+        _set_default_option(_options, "linear", True)
+        _set_default_option(_options, "max_for_linear", 1)
+        _set_default_option(_options, "min_gene_set_size", 1)
+        _set_default_option(_options, "cross_val", True)
+        _set_default_option(_options, "sparse_frac_betas", 0)
+        _set_default_option(_options, "sparse_solution", False)
+    else:
+        _set_default_option(_options, "correct_betas_mean", True)
+        _set_default_option(_options, "adjust_priors", True)
+        _set_default_option(_options, "p_noninf", [0.001])
+        _set_default_option(_options, "sigma_power", -2)
+        _set_default_option(_options, "update_hyper", "p")
+        _set_default_option(_options, "filter_negative", True)
+        _set_default_option(_options, "top_gene_set_prior", 0.8)
+        _set_default_option(_options, "num_gene_sets_for_prior", 50)
+        _set_default_option(_options, "filter_gene_set_p", 0.01)
+        _set_default_option(_options, "linear", False)
+        _set_default_option(_options, "max_for_linear", 0.95)
+        _set_default_option(_options, "min_gene_set_size", 10)
+        _set_default_option(_options, "cross_val", False)
+        _set_default_option(_options, "sparse_frac_betas", 0.001)
+        _set_default_option(_options, "sparse_solution", True)
+        default_prune = 0.8
+        if _options.prune_gene_sets is None:
+            _options.prune_gene_sets = default_prune
+        if _options.weighted_prune_gene_sets is None:
+            _options.weighted_prune_gene_sets = default_prune
 
-# Gibbs stopping defaults.
-options.gibbs_stopping_preset = "strict" if options.strict_stopping else "lenient"
-for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[options.gibbs_stopping_preset].items():
-    _set_default_option(options, opt_name, opt_value)
-# Backward-compat defaults for simplified epoch controls.
-if options.max_num_post_burn_in is None and options.max_num_iter is not None:
-    options.max_num_post_burn_in = max(1, options.max_num_iter - max(options.min_num_burn_in, 0))
-# Explicitly disable all stall-based early exits/restarts.
-if options.disable_stall_detection:
-    options.burn_in_stall_window = 0
-    options.stall_window = 0
-    options.stall_recent_window = 0
-    # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
-    options.max_num_restarts = 0
-    options.total_num_iter_gibbs = options.max_num_iter
+    # Gibbs stopping defaults.
+    _options.gibbs_stopping_preset = "strict" if _options.strict_stopping else "lenient"
+    for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[_options.gibbs_stopping_preset].items():
+        _set_default_option(_options, opt_name, opt_value)
+    # Backward-compat defaults for simplified epoch controls.
+    if _options.max_num_post_burn_in is None and _options.max_num_iter is not None:
+        _options.max_num_post_burn_in = max(1, _options.max_num_iter - max(_options.min_num_burn_in, 0))
+    # Explicitly disable all stall-based early exits/restarts.
+    if _options.disable_stall_detection:
+        _options.burn_in_stall_window = 0
+        _options.stall_window = 0
+        _options.stall_recent_window = 0
+        # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
+        _options.max_num_restarts = 0
+        _options.total_num_iter_gibbs = _options.max_num_iter
 
-if options.max_gb is None:
-    options.max_gb = 2.0
-if options.max_gb <= 0:
-    bail("Option --max-gb must be > 0")
+    if _options.max_gb is None:
+        _options.max_gb = 2.0
+    if _options.max_gb <= 0:
+        bail("Option --max-gb must be > 0")
 
-total_mb = int(round(options.max_gb * 1024.0))
-baseline_gb = 2.0
-scale = options.max_gb / baseline_gb
-if scale <= 0:
-    scale = 1.0
+    total_mb = int(round(_options.max_gb * 1024.0))
+    baseline_gb = 2.0
+    scale = _options.max_gb / baseline_gb
+    if scale <= 0:
+        scale = 1.0
 
-derived = {}
-clamped = {}
-implied = {}
-implied["batch_size_max"] = max(500, int(round(5000 * scale)))
-# Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
-implied["gibbs_max_mb_X_h_max"] = max(32, int(round(total_mb * 0.20)))
-# read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
-implied["max_read_entries_at_once_max"] = max(100000, int(round(total_mb * 500)))
-implied["gibbs_num_batches_parallel_max"] = max(1, int(round(10 * scale)))
-if options.num_chains is not None:
-    implied["gibbs_num_batches_parallel_max"] = min(implied["gibbs_num_batches_parallel_max"], int(options.num_chains))
-implied["pre_filter_small_batch_size_max"] = max(100, int(round(500 * scale)))
-implied["pre_filter_batch_size_max"] = max(implied["pre_filter_small_batch_size_max"], int(round(5000 * scale)))
-# For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
-# This is an inverse memory knob: larger values use less memory.
-implied["priors_num_gene_batches_min"] = max(1, int(np.ceil(20.0 / scale)))
+    derived = {}
+    clamped = {}
+    implied = {}
+    implied["batch_size_max"] = max(500, int(round(5000 * scale)))
+    # Outer-Gibbs stacked-X is only one large buffer among many; keep it conservative.
+    implied["gibbs_max_mb_X_h_max"] = max(32, int(round(total_mb * 0.20)))
+    # read_X buffers Python object triplets (data,row,col); keep conservative for low-memory runs.
+    implied["max_read_entries_at_once_max"] = max(100000, int(round(total_mb * 500)))
+    implied["gibbs_num_batches_parallel_max"] = max(1, int(round(10 * scale)))
+    if _options.num_chains is not None:
+        implied["gibbs_num_batches_parallel_max"] = min(implied["gibbs_num_batches_parallel_max"], int(_options.num_chains))
+    implied["pre_filter_small_batch_size_max"] = max(100, int(round(500 * scale)))
+    implied["pre_filter_batch_size_max"] = max(implied["pre_filter_small_batch_size_max"], int(round(5000 * scale)))
+    # For tighter memory budgets, increase gene batches; for looser budgets, reduce batches.
+    # This is an inverse memory knob: larger values use less memory.
+    implied["priors_num_gene_batches_min"] = max(1, int(np.ceil(20.0 / scale)))
 
-_argv = sys.argv[1:]
-_set_memory_control_with_max_cap(options, _argv, derived, clamped, "batch_size", implied["batch_size_max"], "--batch-size")
-_set_memory_control_with_max_cap(options, _argv, derived, clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], "--gibbs-max-mb-X-h")
-_set_memory_control_with_max_cap(options, _argv, derived, clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], "--max-read-entries-at-once")
-_set_memory_control_with_max_cap(options, _argv, derived, clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], "--gibbs-num-batches-parallel")
-_set_memory_control_with_max_cap(options, _argv, derived, clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], "--pre-filter-small-batch-size")
-if options.pre_filter_batch_size is not None:
-    _set_memory_control_with_max_cap(options, _argv, derived, clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], "--pre-filter-batch-size")
-current = getattr(options, "priors_num_gene_batches")
-explicit = _flag_present_in_argv(_argv, "--priors-num-gene-batches")
-if current is None:
-    new_value = implied["priors_num_gene_batches_min"]
-    derived["priors_num_gene_batches"] = new_value
-else:
-    new_value = max(int(current), int(implied["priors_num_gene_batches_min"]))
-    if explicit and new_value > int(current):
-        clamped["priors_num_gene_batches"] = (current, new_value, "min")
-    elif not explicit and new_value != int(current):
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "batch_size", implied["batch_size_max"], "--batch-size")
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], "--gibbs-max-mb-X-h")
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], "--max-read-entries-at-once")
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], "--gibbs-num-batches-parallel")
+    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], "--pre-filter-small-batch-size")
+    if _options.pre_filter_batch_size is not None:
+        _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], "--pre-filter-batch-size")
+    current = getattr(_options, "priors_num_gene_batches")
+    explicit = _flag_present_in_argv(_argv, "--priors-num-gene-batches")
+    if current is None:
+        new_value = implied["priors_num_gene_batches_min"]
         derived["priors_num_gene_batches"] = new_value
-setattr(options, "priors_num_gene_batches", int(new_value))
+    else:
+        new_value = max(int(current), int(implied["priors_num_gene_batches_min"]))
+        if explicit and new_value > int(current):
+            clamped["priors_num_gene_batches"] = (current, new_value, "min")
+        elif not explicit and new_value != int(current):
+            derived["priors_num_gene_batches"] = new_value
+    setattr(_options, "priors_num_gene_batches", int(new_value))
 
-log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (options.max_gb, total_mb, options.max_read_entries_at_once, options.priors_num_gene_batches, options.gibbs_num_batches_parallel, options.gibbs_max_mb_X_h, options.batch_size, str(options.pre_filter_batch_size), options.pre_filter_small_batch_size), INFO)
-if len(derived) > 0:
-    log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, derived[k]) for k in sorted(derived.keys())]), DEBUG)
-if len(clamped) > 0:
-    log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
+    log("Memory controls: --max-gb=%.3g (%.0f MB total), effective batch controls: max_read_entries_at_once=%d, priors_num_gene_batches=%d, gibbs_num_batches_parallel=%d, gibbs_max_mb_X_h=%d, batch_size=%d, pre_filter_batch_size=%s, pre_filter_small_batch_size=%d" % (_options.max_gb, total_mb, _options.max_read_entries_at_once, _options.priors_num_gene_batches, _options.gibbs_num_batches_parallel, _options.gibbs_max_mb_X_h, _options.batch_size, str(_options.pre_filter_batch_size), _options.pre_filter_small_batch_size), INFO)
+    if len(derived) > 0:
+        log("Derived from --max-gb (implicit/default adjustments): %s" % ", ".join(["%s=%s" % (k, derived[k]) for k in sorted(derived.keys())]), DEBUG)
+    if len(clamped) > 0:
+        log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
+
+
+_apply_mode_and_runtime_defaults(options, mode, sys.argv[1:])
 
 if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
     warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
