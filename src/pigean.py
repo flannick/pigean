@@ -15545,7 +15545,7 @@ def _zero_arrays(*arrays):
 
 def _evaluate_burn_in_diagnostics(
     epoch_control,
-    phase_kwargs,
+    burn_in_config,
     epoch_context,
     epoch_runtime,
     num_samples,
@@ -15559,17 +15559,17 @@ def _evaluate_burn_in_diagnostics(
     burn_stall_snapshots = epoch_control["burn_stall_snapshots"]
     burn_stall_beta_indices = epoch_control["burn_stall_beta_indices"]
 
-    active_beta_top_k = phase_kwargs["active_beta_top_k"]
-    active_beta_min_abs = phase_kwargs["active_beta_min_abs"]
-    burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
-    r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
-    stall_window = phase_kwargs["stall_window"]
-    stall_min_burn_in = phase_kwargs["stall_min_burn_in"]
-    stall_delta_rhat = phase_kwargs["stall_delta_rhat"]
-    stall_recent_window = phase_kwargs["stall_recent_window"]
-    stall_recent_eps = phase_kwargs["stall_recent_eps"]
-    burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
-    burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
+    active_beta_top_k = burn_in_config["active_beta_top_k"]
+    active_beta_min_abs = burn_in_config["active_beta_min_abs"]
+    burn_in_rhat_quantile = burn_in_config["burn_in_rhat_quantile"]
+    r_threshold_burn_in = burn_in_config["r_threshold_burn_in"]
+    stall_window = burn_in_config["stall_window"]
+    stall_min_burn_in = burn_in_config["stall_min_burn_in"]
+    stall_delta_rhat = burn_in_config["stall_delta_rhat"]
+    stall_recent_window = burn_in_config["stall_recent_window"]
+    stall_recent_eps = burn_in_config["stall_recent_eps"]
+    burn_in_stall_window = burn_in_config["burn_in_stall_window"]
+    burn_in_stall_delta = burn_in_config["burn_in_stall_delta"]
     min_num_burn_in_for_epoch = epoch_context["min_num_burn_in_for_epoch"]
 
     (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
@@ -15660,7 +15660,7 @@ def _update_gibbs_burn_in_state(
     epoch_control,
     iteration_num,
     epoch_context,
-    phase_kwargs,
+    burn_in_config,
     iter_state,
     epoch_runtime,
 ):
@@ -15682,16 +15682,16 @@ def _update_gibbs_burn_in_state(
     post_burn_reset_arrays = epoch_context["post_burn_reset_arrays"]
     post_burn_reset_missing_arrays = epoch_context["post_burn_reset_missing_arrays"]
 
-    gauss_seidel = phase_kwargs["gauss_seidel"]
-    eps = phase_kwargs["eps"]
-    diag_every = phase_kwargs["diag_every"]
-    burn_in_rhat_quantile = phase_kwargs["burn_in_rhat_quantile"]
-    r_threshold_burn_in = phase_kwargs["r_threshold_burn_in"]
-    burn_in_stall_window = phase_kwargs["burn_in_stall_window"]
-    burn_in_stall_delta = phase_kwargs["burn_in_stall_delta"]
-    num_full_gene_sets = phase_kwargs["num_full_gene_sets"]
-    burn_in_patience = phase_kwargs["burn_in_patience"]
-    stop_patience = phase_kwargs["stop_patience"]
+    gauss_seidel = burn_in_config["gauss_seidel"]
+    eps = burn_in_config["eps"]
+    diag_every = burn_in_config["diag_every"]
+    burn_in_rhat_quantile = burn_in_config["burn_in_rhat_quantile"]
+    r_threshold_burn_in = burn_in_config["r_threshold_burn_in"]
+    burn_in_stall_window = burn_in_config["burn_in_stall_window"]
+    burn_in_stall_delta = burn_in_config["burn_in_stall_delta"]
+    num_full_gene_sets = burn_in_config["num_full_gene_sets"]
+    burn_in_patience = burn_in_config["burn_in_patience"]
+    stop_patience = burn_in_config["stop_patience"]
 
     Y_sample_m = iter_state["Y_sample_m"]
 
@@ -15733,7 +15733,7 @@ def _update_gibbs_burn_in_state(
     elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
         burn_diag = _evaluate_burn_in_diagnostics(
             epoch_control=epoch_control,
-            phase_kwargs=phase_kwargs,
+            burn_in_config=burn_in_config,
             epoch_context=epoch_context,
             epoch_runtime=epoch_runtime,
             num_samples=num_samples,
@@ -17263,6 +17263,28 @@ def _extract_gibbs_iteration_progress_config(phase_kwargs):
     }
 
 
+def _extract_gibbs_burn_in_config(phase_kwargs):
+    return {
+        "active_beta_top_k": phase_kwargs["active_beta_top_k"],
+        "active_beta_min_abs": phase_kwargs["active_beta_min_abs"],
+        "burn_in_rhat_quantile": phase_kwargs["burn_in_rhat_quantile"],
+        "r_threshold_burn_in": phase_kwargs["r_threshold_burn_in"],
+        "stall_window": phase_kwargs["stall_window"],
+        "stall_min_burn_in": phase_kwargs["stall_min_burn_in"],
+        "stall_delta_rhat": phase_kwargs["stall_delta_rhat"],
+        "stall_recent_window": phase_kwargs["stall_recent_window"],
+        "stall_recent_eps": phase_kwargs["stall_recent_eps"],
+        "burn_in_stall_window": phase_kwargs["burn_in_stall_window"],
+        "burn_in_stall_delta": phase_kwargs["burn_in_stall_delta"],
+        "gauss_seidel": phase_kwargs["gauss_seidel"],
+        "eps": phase_kwargs["eps"],
+        "diag_every": phase_kwargs["diag_every"],
+        "num_full_gene_sets": phase_kwargs["num_full_gene_sets"],
+        "burn_in_patience": phase_kwargs["burn_in_patience"],
+        "stop_patience": phase_kwargs["stop_patience"],
+    }
+
+
 def _extract_gibbs_log_bf_state(update):
     return (
         update["log_bf_m"],
@@ -17509,6 +17531,7 @@ def _run_gibbs_epoch_iterations(
     logistic_config = _extract_gibbs_logistic_config(phase_kwargs)
     prefilter_config = _extract_gibbs_prefilter_config(phase_kwargs)
     iteration_progress_config = _extract_gibbs_iteration_progress_config(phase_kwargs)
+    burn_in_config = _extract_gibbs_burn_in_config(phase_kwargs)
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
@@ -17556,7 +17579,7 @@ def _run_gibbs_epoch_iterations(
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             epoch_context=epoch_context,
-            phase_kwargs=phase_kwargs,
+            burn_in_config=burn_in_config,
             iteration_progress_config=iteration_progress_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             iteration_update=iteration_update,
@@ -18530,7 +18553,7 @@ def _advance_gibbs_iteration_progress(
     epoch_control,
     run_state,
     epoch_context,
-    phase_kwargs,
+    burn_in_config,
     iteration_progress_config,
     iter_state,
     epoch_sums,
@@ -18552,7 +18575,7 @@ def _advance_gibbs_iteration_progress(
         epoch_control=epoch_control,
         iteration_num=iteration_num,
         epoch_context=epoch_context,
-        phase_kwargs=phase_kwargs,
+        burn_in_config=burn_in_config,
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
     )
