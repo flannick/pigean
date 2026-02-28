@@ -16795,17 +16795,17 @@ def _evaluate_burn_in_diagnostics(
             if burn_rhat_improvement < stall_delta_rhat:
                 burn_stall_plateau = True
 
-        if stall_recent_window > 0 and len(burn_stall_snapshots) >= stall_recent_window + 1 and burn_stall_beta_indices.size > 0:
-            old_num_samples, old_sum_m, old_sum2_m, _ = burn_stall_snapshots[-(stall_recent_window + 1)]
-            recent_num_samples = num_samples - old_num_samples
-            if recent_num_samples > 1:
-                recent_sum_m = burn_stall_sum_m - old_sum_m
-                recent_sum2_m = burn_stall_sum2_m - old_sum2_m
-                _, _, burn_recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_sum_m, recent_sum2_m, recent_num_samples)
-                burn_recent_candidates = burn_recent_R_beta_v[np.logical_and(np.isfinite(burn_recent_R_beta_v), burn_recent_R_beta_v >= 1)]
-                burn_stall_recent_beta_rhat_q = _safe_quantile(burn_recent_candidates, burn_in_rhat_quantile, 1.0)
-                if burn_stall_recent_beta_rhat_q > beta_rhat_q * (1 + stall_recent_eps):
-                    burn_stall_recent_worse = True
+        burn_stall_recent_beta_rhat_q = _compute_recent_burn_in_stall_beta_rhat(
+            num_samples=num_samples,
+            burn_stall_sum_m=burn_stall_sum_m,
+            burn_stall_sum2_m=burn_stall_sum2_m,
+            burn_stall_beta_indices=burn_stall_beta_indices,
+            burn_stall_snapshots=burn_stall_snapshots,
+            stall_recent_window=stall_recent_window,
+            burn_in_rhat_quantile=burn_in_rhat_quantile,
+        )
+        if np.isfinite(burn_stall_recent_beta_rhat_q) and burn_stall_recent_beta_rhat_q > beta_rhat_q * (1 + stall_recent_eps):
+            burn_stall_recent_worse = True
 
     burn_stall_detected = burn_stall_plateau or burn_stall_recent_worse
     burn_window_plateau_detected = False
@@ -16830,6 +16830,28 @@ def _evaluate_burn_in_diagnostics(
         "burn_window_plateau_detected": burn_window_plateau_detected,
         "burn_window_span": burn_window_span,
     }
+
+
+def _compute_recent_burn_in_stall_beta_rhat(
+    num_samples,
+    burn_stall_sum_m,
+    burn_stall_sum2_m,
+    burn_stall_beta_indices,
+    burn_stall_snapshots,
+    stall_recent_window,
+    burn_in_rhat_quantile,
+):
+    if not (stall_recent_window > 0 and len(burn_stall_snapshots) >= stall_recent_window + 1 and burn_stall_beta_indices.size > 0):
+        return np.nan
+    old_num_samples, old_sum_m, old_sum2_m, _ = burn_stall_snapshots[-(stall_recent_window + 1)]
+    recent_num_samples = num_samples - old_num_samples
+    if recent_num_samples <= 1:
+        return np.nan
+    recent_sum_m = burn_stall_sum_m - old_sum_m
+    recent_sum2_m = burn_stall_sum2_m - old_sum2_m
+    _, _, burn_recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_sum_m, recent_sum2_m, recent_num_samples)
+    burn_recent_candidates = burn_recent_R_beta_v[np.logical_and(np.isfinite(burn_recent_R_beta_v), burn_recent_R_beta_v >= 1)]
+    return _safe_quantile(burn_recent_candidates, burn_in_rhat_quantile, 1.0)
 
 
 def _compute_burn_in_active_beta_rhat_stats(
