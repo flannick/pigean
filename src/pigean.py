@@ -19258,6 +19258,10 @@ def _run_gibbs_iteration_correction_phase(
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
     )
+    return _unpack_gibbs_iteration_correction_phase_update(iteration_update)
+
+
+def _unpack_gibbs_iteration_correction_phase_update(iteration_update):
     return (
         iteration_update,
         iteration_update["log_bf_m"],
