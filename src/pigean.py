@@ -19753,6 +19753,27 @@ def _compute_gibbs_logistic_beta_tildes(
     }
 
 
+def _build_post_stall_snapshot_arrays(
+    sum_betas_m,
+    sum_betas2_m,
+    sum_Ds_m,
+    post_stall_beta_indices,
+    post_stall_gene_indices,
+    num_chains,
+):
+    if post_stall_beta_indices.size > 0:
+        post_stall_beta_sum_m = copy.copy(sum_betas_m[:,post_stall_beta_indices])
+        post_stall_beta_sum2_m = copy.copy(sum_betas2_m[:,post_stall_beta_indices])
+    else:
+        post_stall_beta_sum_m = np.zeros((num_chains, 0))
+        post_stall_beta_sum2_m = np.zeros((num_chains, 0))
+    if post_stall_gene_indices.size > 0:
+        post_stall_D_sum_m = copy.copy(sum_Ds_m[:,post_stall_gene_indices])
+    else:
+        post_stall_D_sum_m = np.zeros((num_chains, 0))
+    return (post_stall_beta_sum_m, post_stall_beta_sum2_m, post_stall_D_sum_m)
+
+
 def _update_post_burn_stall_tracking(
     sum_betas_m,
     sum_betas2_m,
@@ -19792,16 +19813,14 @@ def _update_post_burn_stall_tracking(
     if post_stall_gene_indices is None:
         post_stall_gene_indices = copy.copy(top_gene_indices)
 
-    if post_stall_beta_indices.size > 0:
-        post_stall_beta_sum_m = copy.copy(sum_betas_m[:,post_stall_beta_indices])
-        post_stall_beta_sum2_m = copy.copy(sum_betas2_m[:,post_stall_beta_indices])
-    else:
-        post_stall_beta_sum_m = np.zeros((num_chains, 0))
-        post_stall_beta_sum2_m = np.zeros((num_chains, 0))
-    if post_stall_gene_indices.size > 0:
-        post_stall_D_sum_m = copy.copy(sum_Ds_m[:,post_stall_gene_indices])
-    else:
-        post_stall_D_sum_m = np.zeros((num_chains, 0))
+    (post_stall_beta_sum_m, post_stall_beta_sum2_m, post_stall_D_sum_m) = _build_post_stall_snapshot_arrays(
+        sum_betas_m=sum_betas_m,
+        sum_betas2_m=sum_betas2_m,
+        sum_Ds_m=sum_Ds_m,
+        post_stall_beta_indices=post_stall_beta_indices,
+        post_stall_gene_indices=post_stall_gene_indices,
+        num_chains=num_chains,
+    )
     num_post_burn_D = int(np.min(num_sum_Y_m))
     post_stall_snapshots.append((num_post_burn_beta, post_stall_beta_sum_m, post_stall_beta_sum2_m, num_post_burn_D, post_stall_D_sum_m))
 
