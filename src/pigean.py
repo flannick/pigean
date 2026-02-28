@@ -22020,6 +22020,45 @@ def _compute_gibbs_iteration_priors_from_betas(
     )
 
 
+def _maybe_refresh_gibbs_huge_scores(
+    state,
+    update_huge_scores,
+    compute_Y_raw,
+    priors_for_Y_m,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    if not (state.huge_signal_bfs is not None and update_huge_scores):
+        return (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m)
+
+    log("Updating HuGE scores")
+    combined_optional_bf_terms = _combine_optional_gene_bf_terms(state.Y_exomes, state.Y_positive_controls, state.Y_case_counts)
+    rel_prior_log_bf = priors_for_Y_m + combined_optional_bf_terms
+
+    (log_bf_m, log_bf_uncorrected_m, absent_genes, _) = state._distill_huge_signal_bfs(state.huge_signal_bfs_for_regression, state.huge_signal_posteriors_for_regression, state.huge_signal_sum_gene_cond_probabilities_for_regression, state.huge_signal_mean_gene_pos_for_regression, state.huge_signal_max_closest_gene_prob, state.huge_cap_region_posterior, state.huge_scale_region_posterior, state.huge_phantom_region_posterior, state.huge_allow_evidence_of_absence, state.gene_covariates, state.gene_covariates_mask, state.gene_covariates_mat_inv, state.gene_covariate_names, state.gene_covariate_intercept_index, state.genes, rel_prior_log_bf=rel_prior_log_bf)
+
+    if compute_Y_raw:
+        (log_bf_raw_m, _, _, _) = state._distill_huge_signal_bfs(state.huge_signal_bfs, state.huge_signal_posteriors, state.huge_signal_sum_gene_cond_probabilities, state.huge_signal_mean_gene_pos, state.huge_signal_max_closest_gene_prob, state.huge_cap_region_posterior, state.huge_scale_region_posterior, state.huge_phantom_region_posterior, state.huge_allow_evidence_of_absence, state.gene_covariates, state.gene_covariates_mask, state.gene_covariates_mat_inv, state.gene_covariate_names, state.gene_covariate_intercept_index, state.genes, rel_prior_log_bf=rel_prior_log_bf)
+    else:
+        log_bf_raw_m = copy.copy(log_bf_m)
+
+    # Distillation uses optional terms internally for locus resolution;
+    # add them back on the total gene-level BF scale.
+    _add_optional_gene_bf_terms(
+        log_bf_m,
+        log_bf_uncorrected_m,
+        log_bf_raw_m,
+        state.Y_exomes,
+        state.Y_positive_controls,
+        state.Y_case_counts,
+    )
+
+    if len(absent_genes) > 0:
+        bail("Error: huge_signal_bfs was incorrectly set and contains extra genes")
+    return (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m)
+
+
 def _refresh_gibbs_iteration_priors_and_huge(
     state,
     warm_start,
@@ -22061,32 +22100,15 @@ def _refresh_gibbs_iteration_priors_and_huge(
         priors_missing_sample_m=priors_missing_sample_m,
         priors_missing_mean_m=priors_missing_mean_m,
     )
-
-    if state.huge_signal_bfs is not None and update_huge_scores:
-        log("Updating HuGE scores")
-        combined_optional_bf_terms = _combine_optional_gene_bf_terms(state.Y_exomes, state.Y_positive_controls, state.Y_case_counts)
-        rel_prior_log_bf = priors_for_Y_m + combined_optional_bf_terms
-
-        (log_bf_m, log_bf_uncorrected_m, absent_genes, _) = state._distill_huge_signal_bfs(state.huge_signal_bfs_for_regression, state.huge_signal_posteriors_for_regression, state.huge_signal_sum_gene_cond_probabilities_for_regression, state.huge_signal_mean_gene_pos_for_regression, state.huge_signal_max_closest_gene_prob, state.huge_cap_region_posterior, state.huge_scale_region_posterior, state.huge_phantom_region_posterior, state.huge_allow_evidence_of_absence, state.gene_covariates, state.gene_covariates_mask, state.gene_covariates_mat_inv, state.gene_covariate_names, state.gene_covariate_intercept_index, state.genes, rel_prior_log_bf=rel_prior_log_bf)
-
-        if compute_Y_raw:
-            (log_bf_raw_m, _, _, _) = state._distill_huge_signal_bfs(state.huge_signal_bfs, state.huge_signal_posteriors, state.huge_signal_sum_gene_cond_probabilities, state.huge_signal_mean_gene_pos, state.huge_signal_max_closest_gene_prob, state.huge_cap_region_posterior, state.huge_scale_region_posterior, state.huge_phantom_region_posterior, state.huge_allow_evidence_of_absence, state.gene_covariates, state.gene_covariates_mask, state.gene_covariates_mat_inv, state.gene_covariate_names, state.gene_covariate_intercept_index, state.genes, rel_prior_log_bf=rel_prior_log_bf)
-        else:
-            log_bf_raw_m = copy.copy(log_bf_m)
-
-        # Distillation uses optional terms internally for locus resolution;
-        # add them back on the total gene-level BF scale.
-        _add_optional_gene_bf_terms(
-            log_bf_m,
-            log_bf_uncorrected_m,
-            log_bf_raw_m,
-            state.Y_exomes,
-            state.Y_positive_controls,
-            state.Y_case_counts,
-        )
-
-        if len(absent_genes) > 0:
-            bail("Error: huge_signal_bfs was incorrectly set and contains extra genes")
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _maybe_refresh_gibbs_huge_scores(
+        state=state,
+        update_huge_scores=update_huge_scores,
+        compute_Y_raw=compute_Y_raw,
+        priors_for_Y_m=priors_for_Y_m,
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
 
     return {
         "prev_warm_start_betas_m": prev_warm_start_betas_m,
