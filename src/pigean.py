@@ -19834,27 +19834,6 @@ def _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel):
 
 
 # ========================= Outer Gibbs Logistic Updates =========================
-def _build_gibbs_chain_expanded_gene_set_state(state, num_chains):
-    num_gene_sets = len(state.scale_factors)
-    full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, num_gene_sets))
-    full_mean_shifts_m = np.tile(state.mean_shifts, num_chains).reshape((num_chains, num_gene_sets))
-    full_is_dense_gene_set_m = np.tile(state.is_dense_gene_set, num_chains).reshape((num_chains, num_gene_sets))
-
-    full_ps_m = None
-    if state.ps is not None:
-        full_ps_m = np.tile(state.ps, num_chains).reshape((num_chains, num_gene_sets))
-
-    full_sigma2s_m = None
-    if state.sigma2s is not None:
-        full_sigma2s_m = np.tile(state.sigma2s, num_chains).reshape((num_chains, num_gene_sets))
-
-    return {
-        "full_scale_factors_m": full_scale_factors_m,
-        "full_mean_shifts_m": full_mean_shifts_m,
-        "full_is_dense_gene_set_m": full_is_dense_gene_set_m,
-        "full_ps_m": full_ps_m,
-        "full_sigma2s_m": full_sigma2s_m,
-    }
 
 
 def _compute_gibbs_pre_gene_set_filter_mask(
@@ -20162,63 +20141,12 @@ def _maybe_correct_gibbs_logistic_beta_tildes(
     )
 
 
-def _unpack_gibbs_chain_expanded_gene_set_state(expanded_state):
-    return (
-        expanded_state["full_scale_factors_m"],
-        expanded_state["full_mean_shifts_m"],
-        expanded_state["full_is_dense_gene_set_m"],
-        expanded_state["full_ps_m"],
-        expanded_state["full_sigma2s_m"],
-    )
-
-
-def _unpack_gibbs_logistic_outputs(logistic_outputs):
-    return (
-        logistic_outputs["full_beta_tildes_m"],
-        logistic_outputs["full_ses_m"],
-        logistic_outputs["full_z_scores_m"],
-        logistic_outputs["full_p_values_m"],
-        logistic_outputs["se_inflation_factors_m"],
-        logistic_outputs["diverged_m"],
-    )
-
-
 def _build_gibbs_logistic_p_sample(Y_sample_m, D_sample_m, gauss_seidel):
     if not gauss_seidel:
         log("Sampling Ds for logistic", TRACE)
     else:
         log("Setting Ds to mean probabilities", TRACE)
     return _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
-
-
-def _build_gibbs_logistic_beta_tilde_outputs(
-    full_scale_factors_m,
-    full_mean_shifts_m,
-    full_is_dense_gene_set_m,
-    full_ps_m,
-    full_sigma2s_m,
-    p_sample_m,
-    pre_gene_set_filter_mask,
-    full_z_cur_beta_tildes_m,
-    full_beta_tildes_m,
-    full_ses_m,
-    full_z_scores_m,
-    full_p_values_m,
-):
-    return {
-        "full_scale_factors_m": full_scale_factors_m,
-        "full_mean_shifts_m": full_mean_shifts_m,
-        "full_is_dense_gene_set_m": full_is_dense_gene_set_m,
-        "full_ps_m": full_ps_m,
-        "full_sigma2s_m": full_sigma2s_m,
-        "p_sample_m": p_sample_m,
-        "pre_gene_set_filter_mask": pre_gene_set_filter_mask,
-        "full_z_cur_beta_tildes_m": full_z_cur_beta_tildes_m,
-        "full_beta_tildes_m": full_beta_tildes_m,
-        "full_ses_m": full_ses_m,
-        "full_z_scores_m": full_z_scores_m,
-        "full_p_values_m": full_p_values_m,
-    }
 
 
 def _unpack_gibbs_logistic_config(logistic_config):
@@ -20262,14 +20190,18 @@ def _compute_gibbs_logistic_beta_tildes(
     ) = _unpack_gibbs_logistic_config(logistic_config)
 
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
-    expanded_state = _build_gibbs_chain_expanded_gene_set_state(state, num_chains)
-    (
-        full_scale_factors_m,
-        full_mean_shifts_m,
-        full_is_dense_gene_set_m,
-        full_ps_m,
-        full_sigma2s_m,
-    ) = _unpack_gibbs_chain_expanded_gene_set_state(expanded_state)
+    num_gene_sets = len(state.scale_factors)
+    full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, num_gene_sets))
+    full_mean_shifts_m = np.tile(state.mean_shifts, num_chains).reshape((num_chains, num_gene_sets))
+    full_is_dense_gene_set_m = np.tile(state.is_dense_gene_set, num_chains).reshape((num_chains, num_gene_sets))
+
+    full_ps_m = None
+    if state.ps is not None:
+        full_ps_m = np.tile(state.ps, num_chains).reshape((num_chains, num_gene_sets))
+
+    full_sigma2s_m = None
+    if state.sigma2s is not None:
+        full_sigma2s_m = np.tile(state.sigma2s, num_chains).reshape((num_chains, num_gene_sets))
 
     p_sample_m = _build_gibbs_logistic_p_sample(
         Y_sample_m=Y_sample_m,
@@ -20304,14 +20236,12 @@ def _compute_gibbs_logistic_beta_tildes(
         num_chains=num_chains,
         full_betas_m_shape=full_betas_m_shape,
     )
-    (
-        full_beta_tildes_m,
-        full_ses_m,
-        full_z_scores_m,
-        full_p_values_m,
-        se_inflation_factors_m,
-        diverged_m,
-    ) = _unpack_gibbs_logistic_outputs(logistic_outputs)
+    full_beta_tildes_m = logistic_outputs["full_beta_tildes_m"]
+    full_ses_m = logistic_outputs["full_ses_m"]
+    full_z_scores_m = logistic_outputs["full_z_scores_m"]
+    full_p_values_m = logistic_outputs["full_p_values_m"]
+    se_inflation_factors_m = logistic_outputs["se_inflation_factors_m"]
+    diverged_m = logistic_outputs["diverged_m"]
 
     # Legacy outlier-z filtering was experimental and is disabled in this path.
     full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
@@ -20334,20 +20264,20 @@ def _compute_gibbs_logistic_beta_tildes(
         correct_betas_var=correct_betas_var,
     )
 
-    return _build_gibbs_logistic_beta_tilde_outputs(
-        full_scale_factors_m=full_scale_factors_m,
-        full_mean_shifts_m=full_mean_shifts_m,
-        full_is_dense_gene_set_m=full_is_dense_gene_set_m,
-        full_ps_m=full_ps_m,
-        full_sigma2s_m=full_sigma2s_m,
-        p_sample_m=p_sample_m,
-        pre_gene_set_filter_mask=pre_gene_set_filter_mask,
-        full_z_cur_beta_tildes_m=full_z_cur_beta_tildes_m,
-        full_beta_tildes_m=full_beta_tildes_m,
-        full_ses_m=full_ses_m,
-        full_z_scores_m=full_z_scores_m,
-        full_p_values_m=full_p_values_m,
-    )
+    return {
+        "full_scale_factors_m": full_scale_factors_m,
+        "full_mean_shifts_m": full_mean_shifts_m,
+        "full_is_dense_gene_set_m": full_is_dense_gene_set_m,
+        "full_ps_m": full_ps_m,
+        "full_sigma2s_m": full_sigma2s_m,
+        "p_sample_m": p_sample_m,
+        "pre_gene_set_filter_mask": pre_gene_set_filter_mask,
+        "full_z_cur_beta_tildes_m": full_z_cur_beta_tildes_m,
+        "full_beta_tildes_m": full_beta_tildes_m,
+        "full_ses_m": full_ses_m,
+        "full_z_scores_m": full_z_scores_m,
+        "full_p_values_m": full_p_values_m,
+    }
 
 
 def _build_post_stall_snapshot_arrays(
