@@ -21075,6 +21075,24 @@ def _unpack_gibbs_post_burn_diag_metrics(diag_metrics):
     )
 
 
+def _update_gibbs_post_burn_precision_streak(
+    stop_pass_streak,
+    beta_ratio_q,
+    D_mcse_q,
+    max_rel_mcse_beta,
+    max_abs_mcse_d,
+    num_post_burn_D,
+    min_num_post_burn_in_for_epoch,
+):
+    min_post_burn_reached = num_post_burn_D >= min_num_post_burn_in_for_epoch
+    precision_pass = beta_ratio_q <= max_rel_mcse_beta and D_mcse_q <= max_abs_mcse_d
+    if precision_pass and min_post_burn_reached:
+        stop_pass_streak += 1
+    else:
+        stop_pass_streak = 0
+    return (stop_pass_streak, min_post_burn_reached)
+
+
 def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     min_num_post_burn_in_for_epoch,
     diag_config,
@@ -21127,12 +21145,15 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     num_post_burn_D = post_stall_update["num_post_burn_D"]
     post_stall_detected = post_stall_update["post_stall_detected"]
 
-    min_post_burn_reached = num_post_burn_D >= min_num_post_burn_in_for_epoch
-    precision_pass = beta_ratio_q <= max_rel_mcse_beta and D_mcse_q <= max_abs_mcse_d
-    if precision_pass and min_post_burn_reached:
-        stop_pass_streak += 1
-    else:
-        stop_pass_streak = 0
+    stop_pass_streak, min_post_burn_reached = _update_gibbs_post_burn_precision_streak(
+        stop_pass_streak=stop_pass_streak,
+        beta_ratio_q=beta_ratio_q,
+        D_mcse_q=D_mcse_q,
+        max_rel_mcse_beta=max_rel_mcse_beta,
+        max_abs_mcse_d=max_abs_mcse_d,
+        num_post_burn_D=num_post_burn_D,
+        min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
+    )
 
     _log_gibbs_post_burn_diagnostics(
         epoch_iter_num=epoch_iter_num,
