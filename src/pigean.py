@@ -19933,6 +19933,33 @@ def _build_post_stall_snapshot_arrays(
     return (post_stall_beta_sum_m, post_stall_beta_sum2_m, post_stall_D_sum_m)
 
 
+def _update_post_stall_best_histories(
+    post_stall_best_beta_rhat_history,
+    post_stall_best_D_mcse_history,
+    beta_rhat_q_post,
+    D_mcse_q,
+):
+    post_best_beta_rhat_q = beta_rhat_q_post if len(post_stall_best_beta_rhat_history) == 0 else min(post_stall_best_beta_rhat_history[-1], beta_rhat_q_post)
+    post_best_D_mcse_q = D_mcse_q if len(post_stall_best_D_mcse_history) == 0 else min(post_stall_best_D_mcse_history[-1], D_mcse_q)
+    post_stall_best_beta_rhat_history.append(post_best_beta_rhat_q)
+    post_stall_best_D_mcse_history.append(post_best_D_mcse_q)
+
+
+def _resolve_post_stall_indices(
+    post_stall_beta_indices,
+    post_stall_gene_indices,
+    active_beta_mask,
+    beta_mean_v,
+    active_beta_top_k,
+    top_gene_indices,
+):
+    if post_stall_beta_indices is None:
+        post_stall_beta_indices = _prepare_stall_indices(active_beta_mask, beta_mean_v, active_beta_top_k)
+    if post_stall_gene_indices is None:
+        post_stall_gene_indices = copy.copy(top_gene_indices)
+    return (post_stall_beta_indices, post_stall_gene_indices)
+
+
 def _update_post_burn_stall_tracking(
     sum_betas_m,
     sum_betas2_m,
@@ -19962,15 +19989,20 @@ def _update_post_burn_stall_tracking(
     stall_recent_window = stall_tracking_config["stall_recent_window"]
     stall_recent_eps = stall_tracking_config["stall_recent_eps"]
 
-    post_best_beta_rhat_q = beta_rhat_q_post if len(post_stall_best_beta_rhat_history) == 0 else min(post_stall_best_beta_rhat_history[-1], beta_rhat_q_post)
-    post_best_D_mcse_q = D_mcse_q if len(post_stall_best_D_mcse_history) == 0 else min(post_stall_best_D_mcse_history[-1], D_mcse_q)
-    post_stall_best_beta_rhat_history.append(post_best_beta_rhat_q)
-    post_stall_best_D_mcse_history.append(post_best_D_mcse_q)
-
-    if post_stall_beta_indices is None:
-        post_stall_beta_indices = _prepare_stall_indices(active_beta_mask, beta_mean_v, active_beta_top_k)
-    if post_stall_gene_indices is None:
-        post_stall_gene_indices = copy.copy(top_gene_indices)
+    _update_post_stall_best_histories(
+        post_stall_best_beta_rhat_history=post_stall_best_beta_rhat_history,
+        post_stall_best_D_mcse_history=post_stall_best_D_mcse_history,
+        beta_rhat_q_post=beta_rhat_q_post,
+        D_mcse_q=D_mcse_q,
+    )
+    (post_stall_beta_indices, post_stall_gene_indices) = _resolve_post_stall_indices(
+        post_stall_beta_indices=post_stall_beta_indices,
+        post_stall_gene_indices=post_stall_gene_indices,
+        active_beta_mask=active_beta_mask,
+        beta_mean_v=beta_mean_v,
+        active_beta_top_k=active_beta_top_k,
+        top_gene_indices=top_gene_indices,
+    )
 
     (post_stall_beta_sum_m, post_stall_beta_sum2_m, post_stall_D_sum_m) = _build_post_stall_snapshot_arrays(
         sum_betas_m=sum_betas_m,
