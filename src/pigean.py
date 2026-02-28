@@ -18710,31 +18710,19 @@ def _apply_gibbs_prior_update(epoch_priors, prior_update):
     epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
 
 
-def _run_gibbs_iteration_correction_and_updates(
+def _compute_gibbs_iteration_betas_and_priors(
     state,
     iter_state,
     gene_set_mask_m,
-    epoch_control,
     correction_config,
     epoch_priors,
-    epoch_runtime,
-    epoch_sums,
-    iteration_num,
     log_bf_m,
     log_bf_uncorrected_m,
     log_bf_raw_m,
 ):
     inner_beta_kwargs = correction_config["inner_beta_kwargs"]
     iteration_update_config = correction_config["iteration_update_config"]
-    num_mad = correction_config["num_mad"]
-    num_attempts = correction_config["num_attempts"]
-    max_num_attempt_restarts = correction_config["max_num_attempt_restarts"]
-    increase_hyper_if_betas_below_for_epoch = correction_config["increase_hyper_if_betas_below_for_epoch"]
-    num_before_checking_p_increase = correction_config["num_before_checking_p_increase"]
-    p_scale_factor = correction_config["p_scale_factor"]
 
-    # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
-    # sums and restart diagnostics.
     (
         full_betas_sample_m,
         full_postp_sample_m,
@@ -18804,6 +18792,60 @@ def _run_gibbs_iteration_correction_and_updates(
         priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
     )
     _apply_gibbs_prior_update(epoch_priors, prior_update)
+
+    return {
+        "full_betas_sample_m": full_betas_sample_m,
+        "full_postp_sample_m": full_postp_sample_m,
+        "full_betas_mean_m": full_betas_mean_m,
+        "full_postp_mean_m": full_postp_mean_m,
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+    }
+
+
+def _run_gibbs_iteration_correction_and_updates(
+    state,
+    iter_state,
+    gene_set_mask_m,
+    epoch_control,
+    correction_config,
+    epoch_priors,
+    epoch_runtime,
+    epoch_sums,
+    iteration_num,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    inner_beta_kwargs = correction_config["inner_beta_kwargs"]
+    iteration_update_config = correction_config["iteration_update_config"]
+    num_mad = correction_config["num_mad"]
+    num_attempts = correction_config["num_attempts"]
+    max_num_attempt_restarts = correction_config["max_num_attempt_restarts"]
+    increase_hyper_if_betas_below_for_epoch = correction_config["increase_hyper_if_betas_below_for_epoch"]
+    num_before_checking_p_increase = correction_config["num_before_checking_p_increase"]
+    p_scale_factor = correction_config["p_scale_factor"]
+
+    # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
+    # sums and restart diagnostics.
+    iteration_betas_priors = _compute_gibbs_iteration_betas_and_priors(
+        state,
+        iter_state=iter_state,
+        gene_set_mask_m=gene_set_mask_m,
+        correction_config=correction_config,
+        epoch_priors=epoch_priors,
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
+    full_betas_sample_m = iteration_betas_priors["full_betas_sample_m"]
+    full_postp_sample_m = iteration_betas_priors["full_postp_sample_m"]
+    full_betas_mean_m = iteration_betas_priors["full_betas_mean_m"]
+    full_postp_mean_m = iteration_betas_priors["full_postp_mean_m"]
+    log_bf_m = iteration_betas_priors["log_bf_m"]
+    log_bf_uncorrected_m = iteration_betas_priors["log_bf_uncorrected_m"]
+    log_bf_raw_m = iteration_betas_priors["log_bf_raw_m"]
 
     all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
         state=state,
