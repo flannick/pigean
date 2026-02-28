@@ -17047,43 +17047,16 @@ def _maybe_restart_gibbs_for_low_betas(
         # At minimum, guarantee that it will restart unless it gets above this.
         gibbs_good = False
         # Only if above num for checking though that we increase and restart.
-        if iteration_num > num_before_checking_p_increase:
-            new_p = state.p
-            new_sigma2 = state.sigma2
-
-            state._record_param("p_scale_factor", p_scale_factor)
-
-            new_p = state.p * p_scale_factor
-            num_p_increases += 1
-            if new_p > 1:
-                new_p = 1
-
-            break_loop = False
-            if new_p != state.p and num_attempts < max_num_attempt_restarts:
-                # Update so that new_sigma2 / new_p = self.sigma2 / self.p
-                new_sigma2 = state.sigma2 * new_p / state.p
-
-                state.ps *= new_p / state.p
-                state.set_p(new_p)
-                state._record_param("p_adj", new_p)
-                log(
-                    "Detected all gene set betas below %.3g; increasing p to %.3g and restarting gibbs"
-                    % (increase_hyper_if_betas_below_for_epoch, state.p)
-                )
-
-                # Restart.
-                break_loop = True
-            if new_sigma2 != state.sigma2 and num_attempts < max_num_attempt_restarts:
-                state.sigma2s *= new_sigma2 / state.sigma2
-                state._record_param("sigma2_adj", new_sigma2)
-                state.set_sigma(new_sigma2, state.sigma_power)
-                log(
-                    "Detected all gene set betas below %.3g; increasing sigma to %.3g and restarting gibbs"
-                    % (increase_hyper_if_betas_below_for_epoch, state.sigma2)
-                )
-                break_loop = True
-            if break_loop:
-                should_break = True
+        num_p_increases, should_break = _maybe_increase_gibbs_hyper_and_restart(
+            state=state,
+            increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+            num_before_checking_p_increase=num_before_checking_p_increase,
+            p_scale_factor=p_scale_factor,
+            num_p_increases=num_p_increases,
+            num_attempts=num_attempts,
+            max_num_attempt_restarts=max_num_attempt_restarts,
+            iteration_num=iteration_num,
+        )
     else:
         gibbs_good = True
 
@@ -17092,6 +17065,59 @@ def _maybe_restart_gibbs_for_low_betas(
         "num_p_increases": num_p_increases,
         "should_break": should_break,
     }
+
+
+def _maybe_increase_gibbs_hyper_and_restart(
+    state,
+    increase_hyper_if_betas_below_for_epoch,
+    num_before_checking_p_increase,
+    p_scale_factor,
+    num_p_increases,
+    num_attempts,
+    max_num_attempt_restarts,
+    iteration_num,
+):
+    should_break = False
+    if iteration_num <= num_before_checking_p_increase:
+        return (num_p_increases, should_break)
+
+    new_p = state.p
+    new_sigma2 = state.sigma2
+
+    state._record_param("p_scale_factor", p_scale_factor)
+
+    new_p = state.p * p_scale_factor
+    num_p_increases += 1
+    if new_p > 1:
+        new_p = 1
+
+    break_loop = False
+    if new_p != state.p and num_attempts < max_num_attempt_restarts:
+        # Update so that new_sigma2 / new_p = self.sigma2 / self.p
+        new_sigma2 = state.sigma2 * new_p / state.p
+
+        state.ps *= new_p / state.p
+        state.set_p(new_p)
+        state._record_param("p_adj", new_p)
+        log(
+            "Detected all gene set betas below %.3g; increasing p to %.3g and restarting gibbs"
+            % (increase_hyper_if_betas_below_for_epoch, state.p)
+        )
+
+        # Restart.
+        break_loop = True
+    if new_sigma2 != state.sigma2 and num_attempts < max_num_attempt_restarts:
+        state.sigma2s *= new_sigma2 / state.sigma2
+        state._record_param("sigma2_adj", new_sigma2)
+        state.set_sigma(new_sigma2, state.sigma_power)
+        log(
+            "Detected all gene set betas below %.3g; increasing sigma to %.3g and restarting gibbs"
+            % (increase_hyper_if_betas_below_for_epoch, state.sigma2)
+        )
+        break_loop = True
+    if break_loop:
+        should_break = True
+    return (num_p_increases, should_break)
 
 
 def _safe_quantile(values, q, fallback):
