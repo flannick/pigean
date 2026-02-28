@@ -21707,87 +21707,33 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
 
     any_gene_set_mask = np.any(gene_set_mask_m, axis=0)
     if pre_filter_batch_size is not None and np.sum(any_gene_set_mask) > pre_filter_batch_size:
-        num_batches = state._get_num_X_blocks(state.X_orig[:,any_gene_set_mask], batch_size=pre_filter_small_batch_size)
-        if num_batches > 1:
-            gene_set_block_masks = state._compute_gene_set_batches(
-                V=None,
-                X_orig=state.X_orig[:,any_gene_set_mask],
-                mean_shifts=state.mean_shifts[any_gene_set_mask],
-                scale_factors=state.scale_factors[any_gene_set_mask],
-                find_correlated_instead=pre_filter_small_batch_size,
-            )
-
-            if len(gene_set_block_masks) > 0:
-                if np.sum(gene_set_block_masks[-1]) == 1 and len(gene_set_block_masks) > 1:
-                    # Merge singleton tail block into previous block.
-                    gene_set_block_masks[-2][gene_set_block_masks[-1]] = True
-                    gene_set_block_masks = gene_set_block_masks[:-1]
-                if len(gene_set_block_masks) > 1 and np.sum(gene_set_block_masks[0]) > 1:
-                    V_data = []
-                    V_rows = []
-                    V_cols = []
-                    for gene_set_block_mask in gene_set_block_masks:
-                        V_block = state._calculate_V_internal(
-                            state.X_orig[:,any_gene_set_mask][:,gene_set_block_mask],
-                            state.y_corr_cholesky,
-                            state.mean_shifts[any_gene_set_mask][gene_set_block_mask],
-                            state.scale_factors[any_gene_set_mask][gene_set_block_mask],
-                        )
-                        orig_indices = np.where(gene_set_block_mask)[0]
-                        V_rows += list(np.repeat(orig_indices, V_block.shape[0]))
-                        V_cols += list(np.tile(orig_indices, V_block.shape[0]))
-                        V_data += list(V_block.ravel())
-
-                    V_sparse = sparse.csc_matrix(
-                        (V_data, (V_rows, V_cols)),
-                        shape=(np.sum(any_gene_set_mask), np.sum(any_gene_set_mask)),
-                    )
-                    log("Running %d blocks to check for zeros..." % len(gene_set_block_masks), DEBUG)
-                    (
-                        half_corrected_betas_sample_m,
-                        half_corrected_postp_sample_m,
-                        half_corrected_betas_mean_m,
-                        half_corrected_postp_mean_m,
-                    ) = state._calculate_non_inf_betas(
-                        initial_p=None,
-                        beta_tildes=full_beta_tildes_m[:,any_gene_set_mask],
-                        ses=full_ses_m[:,any_gene_set_mask],
-                        V=V_sparse,
-                        X_orig=None,
-                        scale_factors=full_scale_factors_m[:,any_gene_set_mask],
-                        mean_shifts=full_mean_shifts_m[:,any_gene_set_mask],
-                        is_dense_gene_set=full_is_dense_gene_set_m[:,any_gene_set_mask],
-                        ps=full_ps_m[:,any_gene_set_mask],
-                        sigma2s=full_sigma2s_m[:,any_gene_set_mask],
-                        return_sample=True,
-                        update_hyper_sigma=False,
-                        update_hyper_p=False,
-                        **inner_beta_kwargs_linear,
-                    )
-
-                    add_zero_mask_m = ~(
-                        _get_gibbs_gene_set_mask(
-                            half_corrected_betas_mean_m,
-                            half_corrected_betas_sample_m,
-                            full_p_values_m,
-                            sparse_frac=sparse_frac_gibbs,
-                            sparse_max=sparse_max_gibbs,
-                        )
-                    )
-
-                    if np.any(add_zero_mask_m):
-                        map_to_full = np.where(any_gene_set_mask)[0]
-                        set_to_zero_full = np.where(add_zero_mask_m)
-                        set_to_zero_full = (set_to_zero_full[0], map_to_full[set_to_zero_full[1]])
-                        orig_zero = np.sum(np.any(gene_set_mask_m, axis=0))
-                        gene_set_mask_m[set_to_zero_full] = False
-                        new_zero = np.sum(np.any(gene_set_mask_m, axis=0))
-                        log("Found %d additional zero gene sets" % (orig_zero - new_zero), DEBUG)
-
-                        default_betas_sample_m[set_to_zero_full] = half_corrected_betas_sample_m[add_zero_mask_m]
-                        default_postp_sample_m[set_to_zero_full] = half_corrected_postp_sample_m[add_zero_mask_m]
-                        default_betas_mean_m[set_to_zero_full] = half_corrected_betas_mean_m[add_zero_mask_m]
-                        default_postp_mean_m[set_to_zero_full] = half_corrected_postp_mean_m[add_zero_mask_m]
+        (
+            gene_set_mask_m,
+            default_betas_sample_m,
+            default_postp_sample_m,
+            default_betas_mean_m,
+            default_postp_mean_m,
+        ) = _apply_gibbs_block_prefilter_pruning(
+            state=state,
+            any_gene_set_mask=any_gene_set_mask,
+            pre_filter_small_batch_size=pre_filter_small_batch_size,
+            full_beta_tildes_m=full_beta_tildes_m,
+            full_ses_m=full_ses_m,
+            full_scale_factors_m=full_scale_factors_m,
+            full_mean_shifts_m=full_mean_shifts_m,
+            full_is_dense_gene_set_m=full_is_dense_gene_set_m,
+            full_ps_m=full_ps_m,
+            full_sigma2s_m=full_sigma2s_m,
+            inner_beta_kwargs_linear=inner_beta_kwargs_linear,
+            full_p_values_m=full_p_values_m,
+            sparse_frac_gibbs=sparse_frac_gibbs,
+            sparse_max_gibbs=sparse_max_gibbs,
+            gene_set_mask_m=gene_set_mask_m,
+            default_betas_sample_m=default_betas_sample_m,
+            default_postp_sample_m=default_postp_sample_m,
+            default_betas_mean_m=default_betas_mean_m,
+            default_postp_mean_m=default_postp_mean_m,
+        )
 
     gene_set_mask_m = _normalize_gibbs_gene_set_mask_across_chains(gene_set_mask_m)
 
@@ -21797,6 +21743,153 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
         default_postp_sample_m,
         default_betas_mean_m,
         default_postp_mean_m,
+    )
+
+
+def _apply_gibbs_block_prefilter_pruning(
+    state,
+    any_gene_set_mask,
+    pre_filter_small_batch_size,
+    full_beta_tildes_m,
+    full_ses_m,
+    full_scale_factors_m,
+    full_mean_shifts_m,
+    full_is_dense_gene_set_m,
+    full_ps_m,
+    full_sigma2s_m,
+    inner_beta_kwargs_linear,
+    full_p_values_m,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    gene_set_mask_m,
+    default_betas_sample_m,
+    default_postp_sample_m,
+    default_betas_mean_m,
+    default_postp_mean_m,
+):
+    num_batches = state._get_num_X_blocks(
+        state.X_orig[:,any_gene_set_mask],
+        batch_size=pre_filter_small_batch_size,
+    )
+    if num_batches <= 1:
+        return (
+            gene_set_mask_m,
+            default_betas_sample_m,
+            default_postp_sample_m,
+            default_betas_mean_m,
+            default_postp_mean_m,
+        )
+
+    gene_set_block_masks = state._compute_gene_set_batches(
+        V=None,
+        X_orig=state.X_orig[:,any_gene_set_mask],
+        mean_shifts=state.mean_shifts[any_gene_set_mask],
+        scale_factors=state.scale_factors[any_gene_set_mask],
+        find_correlated_instead=pre_filter_small_batch_size,
+    )
+
+    if len(gene_set_block_masks) == 0:
+        return (
+            gene_set_mask_m,
+            default_betas_sample_m,
+            default_postp_sample_m,
+            default_betas_mean_m,
+            default_postp_mean_m,
+        )
+
+    if np.sum(gene_set_block_masks[-1]) == 1 and len(gene_set_block_masks) > 1:
+        # Merge singleton tail block into previous block.
+        gene_set_block_masks[-2][gene_set_block_masks[-1]] = True
+        gene_set_block_masks = gene_set_block_masks[:-1]
+    if len(gene_set_block_masks) <= 1 or np.sum(gene_set_block_masks[0]) <= 1:
+        return (
+            gene_set_mask_m,
+            default_betas_sample_m,
+            default_postp_sample_m,
+            default_betas_mean_m,
+            default_postp_mean_m,
+        )
+
+    V_sparse = _build_gibbs_prefilter_sparse_V(
+        state=state,
+        any_gene_set_mask=any_gene_set_mask,
+        gene_set_block_masks=gene_set_block_masks,
+    )
+    log("Running %d blocks to check for zeros..." % len(gene_set_block_masks), DEBUG)
+    (
+        half_corrected_betas_sample_m,
+        half_corrected_postp_sample_m,
+        half_corrected_betas_mean_m,
+        half_corrected_postp_mean_m,
+    ) = state._calculate_non_inf_betas(
+        initial_p=None,
+        beta_tildes=full_beta_tildes_m[:,any_gene_set_mask],
+        ses=full_ses_m[:,any_gene_set_mask],
+        V=V_sparse,
+        X_orig=None,
+        scale_factors=full_scale_factors_m[:,any_gene_set_mask],
+        mean_shifts=full_mean_shifts_m[:,any_gene_set_mask],
+        is_dense_gene_set=full_is_dense_gene_set_m[:,any_gene_set_mask],
+        ps=full_ps_m[:,any_gene_set_mask],
+        sigma2s=full_sigma2s_m[:,any_gene_set_mask],
+        return_sample=True,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        **inner_beta_kwargs_linear,
+    )
+
+    add_zero_mask_m = ~(
+        _get_gibbs_gene_set_mask(
+            half_corrected_betas_mean_m,
+            half_corrected_betas_sample_m,
+            full_p_values_m,
+            sparse_frac=sparse_frac_gibbs,
+            sparse_max=sparse_max_gibbs,
+        )
+    )
+
+    if np.any(add_zero_mask_m):
+        map_to_full = np.where(any_gene_set_mask)[0]
+        set_to_zero_full = np.where(add_zero_mask_m)
+        set_to_zero_full = (set_to_zero_full[0], map_to_full[set_to_zero_full[1]])
+        orig_zero = np.sum(np.any(gene_set_mask_m, axis=0))
+        gene_set_mask_m[set_to_zero_full] = False
+        new_zero = np.sum(np.any(gene_set_mask_m, axis=0))
+        log("Found %d additional zero gene sets" % (orig_zero - new_zero), DEBUG)
+
+        default_betas_sample_m[set_to_zero_full] = half_corrected_betas_sample_m[add_zero_mask_m]
+        default_postp_sample_m[set_to_zero_full] = half_corrected_postp_sample_m[add_zero_mask_m]
+        default_betas_mean_m[set_to_zero_full] = half_corrected_betas_mean_m[add_zero_mask_m]
+        default_postp_mean_m[set_to_zero_full] = half_corrected_postp_mean_m[add_zero_mask_m]
+
+    return (
+        gene_set_mask_m,
+        default_betas_sample_m,
+        default_postp_sample_m,
+        default_betas_mean_m,
+        default_postp_mean_m,
+    )
+
+
+def _build_gibbs_prefilter_sparse_V(state, any_gene_set_mask, gene_set_block_masks):
+    V_data = []
+    V_rows = []
+    V_cols = []
+    for gene_set_block_mask in gene_set_block_masks:
+        V_block = state._calculate_V_internal(
+            state.X_orig[:,any_gene_set_mask][:,gene_set_block_mask],
+            state.y_corr_cholesky,
+            state.mean_shifts[any_gene_set_mask][gene_set_block_mask],
+            state.scale_factors[any_gene_set_mask][gene_set_block_mask],
+        )
+        orig_indices = np.where(gene_set_block_mask)[0]
+        V_rows += list(np.repeat(orig_indices, V_block.shape[0]))
+        V_cols += list(np.tile(orig_indices, V_block.shape[0]))
+        V_data += list(V_block.ravel())
+
+    return sparse.csc_matrix(
+        (V_data, (V_rows, V_cols)),
+        shape=(np.sum(any_gene_set_mask), np.sum(any_gene_set_mask)),
     )
 
 
