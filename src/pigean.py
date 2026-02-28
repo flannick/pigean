@@ -19585,6 +19585,42 @@ def _run_single_gibbs_iteration(
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
     )
+    return _finalize_gibbs_iteration_after_correction(
+        state=state,
+        epoch_control=epoch_control,
+        run_state=run_state,
+        progress_runtime_config=progress_runtime_config,
+        iter_state=iter_state,
+        iteration_num=iteration_num,
+        epoch_sums=epoch_sums,
+        epoch_priors=epoch_priors,
+        epoch_runtime=epoch_runtime,
+        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+        iteration_update=iteration_update,
+        should_break=should_break,
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
+
+
+def _finalize_gibbs_iteration_after_correction(
+    state,
+    epoch_control,
+    run_state,
+    progress_runtime_config,
+    iter_state,
+    iteration_num,
+    epoch_sums,
+    epoch_priors,
+    epoch_runtime,
+    gene_set_stats_trace_fh,
+    iteration_update,
+    should_break,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
     if should_break:
         return _build_gibbs_iteration_result(
             log_bf_m=log_bf_m,
