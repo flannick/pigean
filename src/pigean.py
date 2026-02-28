@@ -19545,18 +19545,6 @@ def _apply_gibbs_prior_update(epoch_priors, prior_update):
     epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
 
 
-def _apply_gibbs_refresh_log_bf_state(
-    refresh_log_bf,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    log_bf_m = refresh_log_bf["log_bf_m"]
-    log_bf_uncorrected_m = refresh_log_bf["log_bf_uncorrected_m"]
-    log_bf_raw_m = refresh_log_bf["log_bf_raw_m"]
-    return (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m)
-
-
 def _run_gibbs_corrected_betas_step(
     state,
     iter_state,
@@ -19645,26 +19633,6 @@ def _run_gibbs_finalize_priors_step(
     )
 
 
-def _build_gibbs_iteration_betas_priors_result(
-    full_betas_sample_m,
-    full_postp_sample_m,
-    full_betas_mean_m,
-    full_postp_mean_m,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    return {
-        "full_betas_sample_m": full_betas_sample_m,
-        "full_postp_sample_m": full_postp_sample_m,
-        "full_betas_mean_m": full_betas_mean_m,
-        "full_postp_mean_m": full_postp_mean_m,
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-    }
-
-
 def _compute_gibbs_iteration_betas_and_priors(
     state,
     iter_state,
@@ -19705,12 +19673,9 @@ def _compute_gibbs_iteration_betas_and_priors(
         log_bf_raw_m=log_bf_raw_m,
     )
     refresh_log_bf = _apply_gibbs_refresh_update(epoch_priors, refresh_update)
-    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _apply_gibbs_refresh_log_bf_state(
-        refresh_log_bf=refresh_log_bf,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-    )
+    log_bf_m = refresh_log_bf["log_bf_m"]
+    log_bf_uncorrected_m = refresh_log_bf["log_bf_uncorrected_m"]
+    log_bf_raw_m = refresh_log_bf["log_bf_raw_m"]
 
     prior_update = _run_gibbs_finalize_priors_step(
         state=state,
@@ -19719,39 +19684,6 @@ def _compute_gibbs_iteration_betas_and_priors(
     )
     _apply_gibbs_prior_update(epoch_priors, prior_update)
 
-    return _build_gibbs_iteration_betas_priors_result(
-        full_betas_sample_m=full_betas_sample_m,
-        full_postp_sample_m=full_postp_sample_m,
-        full_betas_mean_m=full_betas_mean_m,
-        full_postp_mean_m=full_postp_mean_m,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-    )
-
-
-def _apply_gibbs_iteration_betas_priors_state(iteration_betas_priors):
-    return (
-        iteration_betas_priors["full_betas_sample_m"],
-        iteration_betas_priors["full_postp_sample_m"],
-        iteration_betas_priors["full_betas_mean_m"],
-        iteration_betas_priors["full_postp_mean_m"],
-        iteration_betas_priors["log_bf_m"],
-        iteration_betas_priors["log_bf_uncorrected_m"],
-        iteration_betas_priors["log_bf_raw_m"],
-    )
-
-
-def _build_gibbs_iteration_correction_update(
-    full_betas_sample_m,
-    full_postp_sample_m,
-    full_betas_mean_m,
-    full_postp_mean_m,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-    should_break,
-):
     return {
         "full_betas_sample_m": full_betas_sample_m,
         "full_postp_sample_m": full_postp_sample_m,
@@ -19760,7 +19692,6 @@ def _build_gibbs_iteration_correction_update(
         "log_bf_m": log_bf_m,
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
         "log_bf_raw_m": log_bf_raw_m,
-        "should_break": should_break,
     }
 
 
@@ -19840,15 +19771,13 @@ def _run_gibbs_iteration_correction_and_updates(
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
     )
-    (
-        full_betas_sample_m,
-        full_postp_sample_m,
-        full_betas_mean_m,
-        full_postp_mean_m,
-        log_bf_m,
-        log_bf_uncorrected_m,
-        log_bf_raw_m,
-    ) = _apply_gibbs_iteration_betas_priors_state(iteration_betas_priors)
+    full_betas_sample_m = iteration_betas_priors["full_betas_sample_m"]
+    full_postp_sample_m = iteration_betas_priors["full_postp_sample_m"]
+    full_betas_mean_m = iteration_betas_priors["full_betas_mean_m"]
+    full_postp_mean_m = iteration_betas_priors["full_postp_mean_m"]
+    log_bf_m = iteration_betas_priors["log_bf_m"]
+    log_bf_uncorrected_m = iteration_betas_priors["log_bf_uncorrected_m"]
+    log_bf_raw_m = iteration_betas_priors["log_bf_raw_m"]
 
     should_break = _run_gibbs_all_iteration_update_step(
         state=state,
@@ -19865,16 +19794,16 @@ def _run_gibbs_iteration_correction_and_updates(
         full_betas_mean_m=full_betas_mean_m,
     )
 
-    return _build_gibbs_iteration_correction_update(
-        full_betas_sample_m=full_betas_sample_m,
-        full_postp_sample_m=full_postp_sample_m,
-        full_betas_mean_m=full_betas_mean_m,
-        full_postp_mean_m=full_postp_mean_m,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-        should_break=should_break,
-    )
+    return {
+        "full_betas_sample_m": full_betas_sample_m,
+        "full_postp_sample_m": full_postp_sample_m,
+        "full_betas_mean_m": full_betas_mean_m,
+        "full_postp_mean_m": full_postp_mean_m,
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+        "should_break": should_break,
+    }
 
 
 def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig):
