@@ -18487,7 +18487,7 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
     }
 
 
-def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
+def _build_gibbs_epoch_runtime_base_inputs(gibbs_controls, dynamic_inputs):
     return {
         "total_num_iter": gibbs_controls["total_num_iter"],
         "num_chains": gibbs_controls["num_chains"],
@@ -18503,6 +18503,32 @@ def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
         "min_num_post_burn_in": gibbs_controls["min_num_post_burn_in"],
         "max_num_post_burn_in": gibbs_controls["max_num_post_burn_in"],
         "increase_hyper_if_betas_below": dynamic_inputs["increase_hyper_if_betas_below"],
+        "warm_start": dynamic_inputs["warm_start"],
+        "debug_zero_sparse": dynamic_inputs["debug_zero_sparse"],
+        "num_batches_parallel": dynamic_inputs["num_batches_parallel"],
+        "betas_trace_out": dynamic_inputs["betas_trace_out"],
+        "update_huge_scores": dynamic_inputs["update_huge_scores"],
+        "compute_Y_raw": dynamic_inputs["compute_Y_raw"],
+        "sparse_frac_gibbs": dynamic_inputs["sparse_frac_gibbs"],
+        "sparse_max_gibbs": dynamic_inputs["sparse_max_gibbs"],
+        "pre_filter_batch_size": dynamic_inputs["pre_filter_batch_size"],
+        "pre_filter_small_batch_size": dynamic_inputs["pre_filter_small_batch_size"],
+        "initial_linear_filter": dynamic_inputs["initial_linear_filter"],
+        "correct_betas_mean": dynamic_inputs["correct_betas_mean"],
+        "correct_betas_var": dynamic_inputs["correct_betas_var"],
+        "cur_background_log_bf_v": dynamic_inputs["cur_background_log_bf_v"],
+        "y_var_orig": dynamic_inputs["y_var_orig"],
+        "stop_mcse_quantile": dynamic_inputs["stop_mcse_quantile"],
+        "max_rel_mcse_beta": dynamic_inputs["max_rel_mcse_beta"],
+        "max_abs_mcse_d": dynamic_inputs["max_abs_mcse_d"],
+        "r_threshold_burn_in": dynamic_inputs["r_threshold_burn_in"],
+        "gauss_seidel": dynamic_inputs["gauss_seidel"],
+        "eps": dynamic_inputs["eps"],
+    }
+
+
+def _build_gibbs_epoch_runtime_inner_beta_inputs(gibbs_controls, dynamic_inputs):
+    return {
         "passed_in_max_num_burn_in": gibbs_controls["passed_in_max_num_burn_in"],
         "max_num_iter_betas": dynamic_inputs["max_num_iter_betas"],
         "min_num_iter_betas": dynamic_inputs["min_num_iter_betas"],
@@ -18514,20 +18540,14 @@ def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
         "gauss_seidel_betas": dynamic_inputs["gauss_seidel_betas"],
         "sparse_solution": dynamic_inputs["sparse_solution"],
         "sparse_frac_betas": dynamic_inputs["sparse_frac_betas"],
-        "warm_start": dynamic_inputs["warm_start"],
-        "debug_zero_sparse": dynamic_inputs["debug_zero_sparse"],
-        "num_batches_parallel": dynamic_inputs["num_batches_parallel"],
-        "betas_trace_out": dynamic_inputs["betas_trace_out"],
-        "update_huge_scores": dynamic_inputs["update_huge_scores"],
-        "compute_Y_raw": dynamic_inputs["compute_Y_raw"],
-        "sparse_frac_gibbs": dynamic_inputs["sparse_frac_gibbs"],
-        "sparse_max_gibbs": dynamic_inputs["sparse_max_gibbs"],
-        "pre_filter_batch_size": dynamic_inputs["pre_filter_batch_size"],
-        "pre_filter_small_batch_size": dynamic_inputs["pre_filter_small_batch_size"],
+    }
+
+
+def _build_gibbs_epoch_runtime_diag_inputs(gibbs_controls):
+    return {
         "active_beta_top_k": gibbs_controls["active_beta_top_k"],
         "active_beta_min_abs": gibbs_controls["active_beta_min_abs"],
         "burn_in_rhat_quantile": gibbs_controls["burn_in_rhat_quantile"],
-        "r_threshold_burn_in": dynamic_inputs["r_threshold_burn_in"],
         "stall_window": gibbs_controls["stall_window"],
         "stall_min_burn_in": gibbs_controls["stall_min_burn_in"],
         "stall_delta_rhat": gibbs_controls["stall_delta_rhat"],
@@ -18535,25 +18555,23 @@ def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
         "stall_recent_eps": gibbs_controls["stall_recent_eps"],
         "burn_in_stall_window": gibbs_controls["burn_in_stall_window"],
         "burn_in_stall_delta": gibbs_controls["burn_in_stall_delta"],
-        "gauss_seidel": dynamic_inputs["gauss_seidel"],
-        "eps": dynamic_inputs["eps"],
         "diag_every": gibbs_controls["diag_every"],
         "burn_in_patience": gibbs_controls["burn_in_patience"],
         "stop_patience": gibbs_controls["stop_patience"],
-        "stop_mcse_quantile": dynamic_inputs["stop_mcse_quantile"],
         "beta_rel_mcse_denom_floor": gibbs_controls["beta_rel_mcse_denom_floor"],
         "stop_top_gene_k": gibbs_controls["stop_top_gene_k"],
         "stop_min_gene_d": gibbs_controls["stop_min_gene_d"],
-        "max_rel_mcse_beta": dynamic_inputs["max_rel_mcse_beta"],
-        "max_abs_mcse_d": dynamic_inputs["max_abs_mcse_d"],
         "stall_min_post_burn_in": gibbs_controls["stall_min_post_burn_in"],
         "stall_delta_mcse": gibbs_controls["stall_delta_mcse"],
-        "initial_linear_filter": dynamic_inputs["initial_linear_filter"],
-        "correct_betas_mean": dynamic_inputs["correct_betas_mean"],
-        "correct_betas_var": dynamic_inputs["correct_betas_var"],
-        "cur_background_log_bf_v": dynamic_inputs["cur_background_log_bf_v"],
-        "y_var_orig": dynamic_inputs["y_var_orig"],
     }
+
+
+def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
+    config_inputs = {}
+    config_inputs.update(_build_gibbs_epoch_runtime_base_inputs(gibbs_controls, dynamic_inputs))
+    config_inputs.update(_build_gibbs_epoch_runtime_inner_beta_inputs(gibbs_controls, dynamic_inputs))
+    config_inputs.update(_build_gibbs_epoch_runtime_diag_inputs(gibbs_controls))
+    return config_inputs
 
 
 def _build_gibbs_epoch_iteration_loop_config(
