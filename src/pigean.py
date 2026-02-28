@@ -18061,7 +18061,7 @@ def _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
     }
 
 
-def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
+def _snapshot_pre_gibbs_state(state):
     # Preserve pre-Gibbs values so downstream reporting can compare original vs
     # Gibbs-adjusted statistics.
     state.beta_tildes_orig = copy.copy(state.beta_tildes)
@@ -18090,6 +18090,10 @@ def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
     state.priors_adj_orig = copy.copy(state.priors_adj)
     state.priors_missing_orig = copy.copy(state.priors_missing)
     state.priors_adj_missing_orig = copy.copy(state.priors_adj_missing)
+
+
+def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
+    _snapshot_pre_gibbs_state(state)
 
     # We always update correlation relative to the original Y variance.
     y_var_orig = np.var(state.Y_for_regression)
