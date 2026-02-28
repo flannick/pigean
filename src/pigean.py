@@ -15941,16 +15941,6 @@ def _build_gibbs_diag_sums(epoch_aggregates, sum_betas_m, sum_betas2_m, num_sum_
     return (diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, diag_sum_Ds_m, diag_num_sum_Y_m)
 
 
-def _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=False):
-    stacked = {}
-    for key in _GIBBS_EPOCH_SUM_KEYS:
-        stacked[key] = np.vstack(epoch_aggregates[key])
-    if include_missing:
-        for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
-            stacked[key] = np.vstack(epoch_aggregates[key])
-    return stacked
-
-
 # ========================= Outer Gibbs Control Normalization =========================
 def _normalize_gibbs_epoch_iteration_controls(
     max_num_iter,
@@ -18079,7 +18069,12 @@ def _finalize_gibbs_epoch_attempt(
             "should_continue": True,
         }
 
-    stacked = _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=include_missing)
+    stacked = {}
+    for key in _GIBBS_EPOCH_SUM_KEYS:
+        stacked[key] = np.vstack(epoch_aggregates[key])
+    if include_missing:
+        for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
+            stacked[key] = np.vstack(epoch_aggregates[key])
     sum_betas_m = stacked["sum_betas_m"]
     sum_betas2_m = stacked["sum_betas2_m"]
     sum_betas_uncorrected_m = stacked["sum_betas_uncorrected_m"]
