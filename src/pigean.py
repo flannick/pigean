@@ -19868,6 +19868,35 @@ def _get_gibbs_chain_batch_bounds(batch, stack_batch_size, num_chains):
     return (begin, end)
 
 
+def _initialize_gibbs_logistic_batch_outputs(full_betas_m_shape):
+    return (
+        np.zeros(full_betas_m_shape),
+        np.zeros(full_betas_m_shape),
+        np.zeros(full_betas_m_shape),
+        np.zeros(full_betas_m_shape),
+        np.zeros(full_betas_m_shape),
+        np.full(full_betas_m_shape, False),
+    )
+
+
+def _build_gibbs_logistic_batch_outputs_result(
+    full_beta_tildes_m,
+    full_ses_m,
+    full_z_scores_m,
+    full_p_values_m,
+    se_inflation_factors_m,
+    diverged_m,
+):
+    return {
+        "full_beta_tildes_m": full_beta_tildes_m,
+        "full_ses_m": full_ses_m,
+        "full_z_scores_m": full_z_scores_m,
+        "full_p_values_m": full_p_values_m,
+        "se_inflation_factors_m": se_inflation_factors_m,
+        "diverged_m": diverged_m,
+    }
+
+
 def _compute_gibbs_logistic_outputs_for_batches(
     state,
     pre_gene_set_filter_mask,
@@ -19879,12 +19908,14 @@ def _compute_gibbs_logistic_outputs_for_batches(
     num_chains,
     full_betas_m_shape,
 ):
-    full_beta_tildes_m = np.zeros(full_betas_m_shape)
-    full_ses_m = np.zeros(full_betas_m_shape)
-    full_z_scores_m = np.zeros(full_betas_m_shape)
-    full_p_values_m = np.zeros(full_betas_m_shape)
-    se_inflation_factors_m = np.zeros(full_betas_m_shape)
-    diverged_m = np.full(full_betas_m_shape, False)
+    (
+        full_beta_tildes_m,
+        full_ses_m,
+        full_z_scores_m,
+        full_p_values_m,
+        se_inflation_factors_m,
+        diverged_m,
+    ) = _initialize_gibbs_logistic_batch_outputs(full_betas_m_shape)
 
     for batch in range(num_stack_batches):
         (begin, end) = _get_gibbs_chain_batch_bounds(
@@ -19930,14 +19961,14 @@ def _compute_gibbs_logistic_outputs_for_batches(
             init_se_inflation_factors_m=init_se_inflation_factors_m,
         )
 
-    return {
-        "full_beta_tildes_m": full_beta_tildes_m,
-        "full_ses_m": full_ses_m,
-        "full_z_scores_m": full_z_scores_m,
-        "full_p_values_m": full_p_values_m,
-        "se_inflation_factors_m": se_inflation_factors_m,
-        "diverged_m": diverged_m,
-    }
+    return _build_gibbs_logistic_batch_outputs_result(
+        full_beta_tildes_m=full_beta_tildes_m,
+        full_ses_m=full_ses_m,
+        full_z_scores_m=full_z_scores_m,
+        full_p_values_m=full_p_values_m,
+        se_inflation_factors_m=se_inflation_factors_m,
+        diverged_m=diverged_m,
+    )
 
 
 def _apply_gibbs_logistic_batch_outputs(
