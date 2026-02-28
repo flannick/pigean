@@ -18843,6 +18843,68 @@ def _build_gibbs_chain_expanded_gene_set_state(state, num_chains):
     }
 
 
+def _compute_gibbs_pre_gene_set_filter_mask(
+    state,
+    initial_linear_filter,
+    Y_sample_m,
+    y_var,
+    y_corr_sparse,
+    inner_beta_kwargs_linear,
+    full_scale_factors_m,
+    full_mean_shifts_m,
+    full_is_dense_gene_set_m,
+    full_ps_m,
+    full_sigma2s_m,
+    sparse_frac_gibbs,
+    sparse_max_gibbs,
+    num_gene_sets,
+):
+    if not initial_linear_filter:
+        return np.full(num_gene_sets, True)
+
+    (linear_beta_tildes_m, linear_ses_m, _, linear_p_values_m, _) = state._compute_beta_tildes(
+        state.X_orig,
+        Y_sample_m,
+        y_var,
+        state.scale_factors,
+        state.mean_shifts,
+        resid_correlation_matrix=y_corr_sparse,
+    )
+    (
+        linear_uncorrected_betas_sample_m,
+        _,
+        linear_uncorrected_betas_mean_m,
+        _,
+    ) = state._calculate_non_inf_betas(
+        assume_independent=True,
+        initial_p=None,
+        beta_tildes=linear_beta_tildes_m,
+        ses=linear_ses_m,
+        V=None,
+        X_orig=None,
+        scale_factors=full_scale_factors_m,
+        mean_shifts=full_mean_shifts_m,
+        is_dense_gene_set=full_is_dense_gene_set_m,
+        ps=full_ps_m,
+        sigma2s=full_sigma2s_m,
+        return_sample=True,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        debug_gene_sets=state.gene_sets,
+        **inner_beta_kwargs_linear
+    )
+    pre_gene_set_filter_mask_m = _get_gibbs_gene_set_mask(
+        linear_uncorrected_betas_mean_m,
+        linear_uncorrected_betas_sample_m,
+        linear_p_values_m,
+        sparse_frac=sparse_frac_gibbs,
+        sparse_max=sparse_max_gibbs,
+    )
+    pre_gene_set_filter_mask = np.any(pre_gene_set_filter_mask_m, axis=0)
+    log("Filtered down to %d gene sets using linear pre-filtering" % np.sum(pre_gene_set_filter_mask))
+    return pre_gene_set_filter_mask
+
+
 def _compute_gibbs_logistic_beta_tildes_batch(
     state,
     pre_gene_set_filter_mask,
@@ -18905,14 +18967,22 @@ def _compute_gibbs_logistic_beta_tildes(
         log("Setting Ds to mean probabilities", TRACE)
     p_sample_m = _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
 
-    if initial_linear_filter:
-        (linear_beta_tildes_m, linear_ses_m, _, linear_p_values_m, _) = state._compute_beta_tildes(state.X_orig, Y_sample_m, y_var, state.scale_factors, state.mean_shifts, resid_correlation_matrix=y_corr_sparse)
-        (linear_uncorrected_betas_sample_m, _, linear_uncorrected_betas_mean_m, _) = state._calculate_non_inf_betas(assume_independent=True, initial_p=None, beta_tildes=linear_beta_tildes_m, ses=linear_ses_m, V=None, X_orig=None, scale_factors=full_scale_factors_m, mean_shifts=full_mean_shifts_m, is_dense_gene_set=full_is_dense_gene_set_m, ps=full_ps_m, sigma2s=full_sigma2s_m, return_sample=True, update_hyper_sigma=False, update_hyper_p=False, debug_gene_sets=state.gene_sets, **inner_beta_kwargs_linear)
-        pre_gene_set_filter_mask_m = _get_gibbs_gene_set_mask(linear_uncorrected_betas_mean_m, linear_uncorrected_betas_sample_m, linear_p_values_m, sparse_frac=sparse_frac_gibbs, sparse_max=sparse_max_gibbs)
-        pre_gene_set_filter_mask = np.any(pre_gene_set_filter_mask_m, axis=0)
-        log("Filtered down to %d gene sets using linear pre-filtering" % np.sum(pre_gene_set_filter_mask))
-    else:
-        pre_gene_set_filter_mask = np.full(full_betas_m_shape[1], True)
+    pre_gene_set_filter_mask = _compute_gibbs_pre_gene_set_filter_mask(
+        state=state,
+        initial_linear_filter=initial_linear_filter,
+        Y_sample_m=Y_sample_m,
+        y_var=y_var,
+        y_corr_sparse=y_corr_sparse,
+        inner_beta_kwargs_linear=inner_beta_kwargs_linear,
+        full_scale_factors_m=full_scale_factors_m,
+        full_mean_shifts_m=full_mean_shifts_m,
+        full_is_dense_gene_set_m=full_is_dense_gene_set_m,
+        full_ps_m=full_ps_m,
+        full_sigma2s_m=full_sigma2s_m,
+        sparse_frac_gibbs=sparse_frac_gibbs,
+        sparse_max_gibbs=sparse_max_gibbs,
+        num_gene_sets=full_betas_m_shape[1],
+    )
 
     full_beta_tildes_m = np.zeros(full_betas_m_shape)
     full_ses_m = np.zeros(full_betas_m_shape)
