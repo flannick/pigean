@@ -18865,22 +18865,6 @@ def _build_gibbs_epoch_iteration_loop_config(
     epoch_iteration_static_config,
     run_state,
 ):
-    loop_config = {}
-    loop_config.update(_build_gibbs_epoch_context_loop_fields(epoch_context))
-    loop_config.update(_build_gibbs_iteration_static_loop_fields(epoch_iteration_static_config))
-    loop_config.update(_build_gibbs_run_state_loop_fields(run_state))
-    loop_config.update(
-        {
-            "num_mad": epoch_phase_config["num_mad"],
-            "increase_hyper_if_betas_below_for_epoch": epoch_context["increase_hyper_if_betas_below_for_epoch"],
-            "num_before_checking_p_increase": epoch_context["num_before_checking_p_increase"],
-            "p_scale_factor": epoch_context["p_scale_factor"],
-        }
-    )
-    return loop_config
-
-
-def _build_gibbs_epoch_context_loop_fields(epoch_context):
     return {
         "epoch_max_num_iter": epoch_context["epoch_max_num_iter"],
         "epoch_total_iter_offset": epoch_context["epoch_total_iter_offset"],
@@ -18896,11 +18880,6 @@ def _build_gibbs_epoch_context_loop_fields(epoch_context):
         "max_num_post_burn_in_for_epoch": epoch_context["max_num_post_burn_in_for_epoch"],
         "post_burn_reset_arrays": epoch_context["post_burn_reset_arrays"],
         "post_burn_reset_missing_arrays": epoch_context["post_burn_reset_missing_arrays"],
-    }
-
-
-def _build_gibbs_iteration_static_loop_fields(epoch_iteration_static_config):
-    return {
         "inner_beta_kwargs": epoch_iteration_static_config["inner_beta_kwargs"],
         "iteration_update_config": epoch_iteration_static_config["iteration_update_config"],
         "cur_background_log_bf_v": epoch_iteration_static_config["cur_background_log_bf_v"],
@@ -18913,13 +18892,12 @@ def _build_gibbs_iteration_static_loop_fields(epoch_iteration_static_config):
         "correct_betas_var": epoch_iteration_static_config["correct_betas_var"],
         "prefilter_config": epoch_iteration_static_config["prefilter_config"],
         "iteration_progress_config": epoch_iteration_static_config["iteration_progress_config"],
-    }
-
-
-def _build_gibbs_run_state_loop_fields(run_state):
-    return {
         "num_attempts": run_state["num_attempts"],
         "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+        "num_mad": epoch_phase_config["num_mad"],
+        "increase_hyper_if_betas_below_for_epoch": epoch_context["increase_hyper_if_betas_below_for_epoch"],
+        "num_before_checking_p_increase": epoch_context["num_before_checking_p_increase"],
+        "p_scale_factor": epoch_context["p_scale_factor"],
     }
 
 
