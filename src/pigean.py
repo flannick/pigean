@@ -9031,7 +9031,13 @@ class GeneSetData(object):
         finally:
             _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
 
-        _finalize_gibbs_run_after_epochs(run_state, num_chains)
+        if run_state["num_completed_epochs"] == 0:
+            bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
+        log(
+            "Aggregated %d Gibbs epoch(s) into %d effective chains"
+            % (run_state["num_completed_epochs"], run_state["num_completed_epochs"] * num_chains),
+            INFO,
+        )
 
     def _sparse_correlation_with_dot_product_threshold(self, X_sparse, beta, dot_product_threshold=0.01, Y=None):
         """
@@ -18977,12 +18983,6 @@ def _run_gibbs_epoch_phase(
             break
 
     return None
-
-
-def _finalize_gibbs_run_after_epochs(run_state, num_chains):
-    if run_state["num_completed_epochs"] == 0:
-        bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
-    log("Aggregated %d Gibbs epoch(s) into %d effective chains" % (run_state["num_completed_epochs"], run_state["num_completed_epochs"] * num_chains), INFO)
 
 
 def _run_gibbs_epoch_iterations(
