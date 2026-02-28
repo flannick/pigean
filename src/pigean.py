@@ -18857,58 +18857,6 @@ def _build_gibbs_epoch_iteration_loop_config(
     }
 
 
-def _build_gibbs_iteration_correction_config(loop_config):
-    return {
-        "inner_beta_kwargs": loop_config["inner_beta_kwargs"],
-        "iteration_update_config": loop_config["iteration_update_config"],
-        "num_mad": loop_config["num_mad"],
-        "num_attempts": loop_config["num_attempts"],
-        "max_num_attempt_restarts": loop_config["max_num_attempt_restarts"],
-        "increase_hyper_if_betas_below_for_epoch": loop_config["increase_hyper_if_betas_below_for_epoch"],
-        "num_before_checking_p_increase": loop_config["num_before_checking_p_increase"],
-        "p_scale_factor": loop_config["p_scale_factor"],
-    }
-
-
-def _build_gibbs_iteration_progress_runtime_config(loop_config):
-    return {
-        "trace_chain_offset": loop_config["trace_chain_offset"],
-        "epoch_total_iter_offset": loop_config["epoch_total_iter_offset"],
-        "epoch_max_num_iter": loop_config["epoch_max_num_iter"],
-        "max_num_burn_in_for_epoch": loop_config["max_num_burn_in_for_epoch"],
-        "min_num_iter_for_epoch": loop_config["min_num_iter_for_epoch"],
-        "min_num_burn_in_for_epoch": loop_config["min_num_burn_in_for_epoch"],
-        "max_num_post_burn_in_for_epoch": loop_config["max_num_post_burn_in_for_epoch"],
-        "min_num_post_burn_in_for_epoch": loop_config["min_num_post_burn_in_for_epoch"],
-        "post_burn_reset_arrays": loop_config["post_burn_reset_arrays"],
-        "post_burn_reset_missing_arrays": loop_config["post_burn_reset_missing_arrays"],
-        "iteration_progress_config": loop_config["iteration_progress_config"],
-    }
-
-
-def _build_gibbs_iteration_state_config(loop_config, epoch_priors, gene_stats_trace_fh):
-    return {
-        "epoch_total_iter_offset": loop_config["epoch_total_iter_offset"],
-        "trace_chain_offset": loop_config["trace_chain_offset"],
-        "full_betas_m_shape": loop_config["full_betas_m_shape"],
-        "num_stack_batches": loop_config["num_stack_batches"],
-        "stack_batch_size": loop_config["stack_batch_size"],
-        "X_hstacked": loop_config["X_hstacked"],
-        "inner_beta_kwargs": loop_config["inner_beta_kwargs"],
-        "cur_background_log_bf_v": loop_config["cur_background_log_bf_v"],
-        "y_var_orig": loop_config["y_var_orig"],
-        "gauss_seidel": loop_config["gauss_seidel"],
-        "initial_linear_filter": loop_config["initial_linear_filter"],
-        "sparse_frac_gibbs": loop_config["sparse_frac_gibbs"],
-        "sparse_max_gibbs": loop_config["sparse_max_gibbs"],
-        "correct_betas_mean": loop_config["correct_betas_mean"],
-        "correct_betas_var": loop_config["correct_betas_var"],
-        "prefilter_config": loop_config["prefilter_config"],
-        "epoch_priors": epoch_priors,
-        "gene_stats_trace_fh": gene_stats_trace_fh,
-    }
-
-
 def _run_single_gibbs_epoch_attempt(
     state,
     run_state,
@@ -19190,13 +19138,49 @@ def _run_gibbs_epoch_iterations(
     log_bf_raw_m,
 ):
     epoch_max_num_iter = loop_config["epoch_max_num_iter"]
-    correction_config = _build_gibbs_iteration_correction_config(loop_config)
-    progress_runtime_config = _build_gibbs_iteration_progress_runtime_config(loop_config)
-    iteration_state_config = _build_gibbs_iteration_state_config(
-        loop_config=loop_config,
-        epoch_priors=epoch_priors,
-        gene_stats_trace_fh=gene_stats_trace_fh,
-    )
+    correction_config = {
+        "inner_beta_kwargs": loop_config["inner_beta_kwargs"],
+        "iteration_update_config": loop_config["iteration_update_config"],
+        "num_mad": loop_config["num_mad"],
+        "num_attempts": loop_config["num_attempts"],
+        "max_num_attempt_restarts": loop_config["max_num_attempt_restarts"],
+        "increase_hyper_if_betas_below_for_epoch": loop_config["increase_hyper_if_betas_below_for_epoch"],
+        "num_before_checking_p_increase": loop_config["num_before_checking_p_increase"],
+        "p_scale_factor": loop_config["p_scale_factor"],
+    }
+    progress_runtime_config = {
+        "trace_chain_offset": loop_config["trace_chain_offset"],
+        "epoch_total_iter_offset": loop_config["epoch_total_iter_offset"],
+        "epoch_max_num_iter": loop_config["epoch_max_num_iter"],
+        "max_num_burn_in_for_epoch": loop_config["max_num_burn_in_for_epoch"],
+        "min_num_iter_for_epoch": loop_config["min_num_iter_for_epoch"],
+        "min_num_burn_in_for_epoch": loop_config["min_num_burn_in_for_epoch"],
+        "max_num_post_burn_in_for_epoch": loop_config["max_num_post_burn_in_for_epoch"],
+        "min_num_post_burn_in_for_epoch": loop_config["min_num_post_burn_in_for_epoch"],
+        "post_burn_reset_arrays": loop_config["post_burn_reset_arrays"],
+        "post_burn_reset_missing_arrays": loop_config["post_burn_reset_missing_arrays"],
+        "iteration_progress_config": loop_config["iteration_progress_config"],
+    }
+    iteration_state_config = {
+        "epoch_total_iter_offset": loop_config["epoch_total_iter_offset"],
+        "trace_chain_offset": loop_config["trace_chain_offset"],
+        "full_betas_m_shape": loop_config["full_betas_m_shape"],
+        "num_stack_batches": loop_config["num_stack_batches"],
+        "stack_batch_size": loop_config["stack_batch_size"],
+        "X_hstacked": loop_config["X_hstacked"],
+        "inner_beta_kwargs": loop_config["inner_beta_kwargs"],
+        "cur_background_log_bf_v": loop_config["cur_background_log_bf_v"],
+        "y_var_orig": loop_config["y_var_orig"],
+        "gauss_seidel": loop_config["gauss_seidel"],
+        "initial_linear_filter": loop_config["initial_linear_filter"],
+        "sparse_frac_gibbs": loop_config["sparse_frac_gibbs"],
+        "sparse_max_gibbs": loop_config["sparse_max_gibbs"],
+        "correct_betas_mean": loop_config["correct_betas_mean"],
+        "correct_betas_var": loop_config["correct_betas_var"],
+        "prefilter_config": loop_config["prefilter_config"],
+        "epoch_priors": epoch_priors,
+        "gene_stats_trace_fh": gene_stats_trace_fh,
+    }
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
