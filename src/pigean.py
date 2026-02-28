@@ -17022,11 +17022,18 @@ def _maybe_restart_gibbs_for_low_betas(
     fraction_required = 0.001
     state._record_param("fraction_required_to_not_increase_hyper", fraction_required)
 
-    has_post_burn_beta_samples = np.all(num_sum_beta_m > 0)
-    all_low = False
-    if has_post_burn_beta_samples:
-        _, cur_avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=state._record_param)
-        all_low = np.mean(cur_avg_betas_v / state.scale_factors > increase_hyper_if_betas_below_for_epoch) < fraction_required
+    (
+        has_post_burn_beta_samples,
+        cur_avg_betas_v,
+        all_low,
+    ) = _evaluate_gibbs_low_beta_condition(
+        state=state,
+        sum_betas_m=sum_betas_m,
+        num_sum_beta_m=num_sum_beta_m,
+        num_mad=num_mad,
+        increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+        fraction_required=fraction_required,
+    )
 
     if has_post_burn_beta_samples:
         top_gene_set = np.argmax(np.mean(sum_betas_m / num_sum_beta_m, axis=0) / state.scale_factors)
@@ -17066,6 +17073,31 @@ def _maybe_restart_gibbs_for_low_betas(
         "num_p_increases": num_p_increases,
         "should_break": should_break,
     }
+
+
+def _evaluate_gibbs_low_beta_condition(
+    state,
+    sum_betas_m,
+    num_sum_beta_m,
+    num_mad,
+    increase_hyper_if_betas_below_for_epoch,
+    fraction_required,
+):
+    has_post_burn_beta_samples = np.all(num_sum_beta_m > 0)
+    cur_avg_betas_v = None
+    all_low = False
+    if has_post_burn_beta_samples:
+        _, cur_avg_betas_v = _outlier_resistant_mean(
+            sum_betas_m,
+            num_sum_beta_m,
+            num_mad,
+            record_param_fn=state._record_param,
+        )
+        all_low = (
+            np.mean(cur_avg_betas_v / state.scale_factors > increase_hyper_if_betas_below_for_epoch)
+            < fraction_required
+        )
+    return (has_post_burn_beta_samples, cur_avg_betas_v, all_low)
 
 
 def _maybe_increase_gibbs_hyper_and_restart(
