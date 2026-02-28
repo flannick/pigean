@@ -22101,53 +22101,167 @@ def _prepare_gibbs_corrected_batch_inputs(
     num_missing = gene_set_mask_m.shape[1] - num_non_missing
 
     if run_one_V:
-        beta_tildes_m = full_beta_tildes_m[begin:end,cur_gene_set_mask]
-        ses_m = full_ses_m[begin:end,cur_gene_set_mask]
-        V_m = V_superset
-        scale_factors_m = state.scale_factors[cur_gene_set_mask]
-        mean_shifts_m = state.mean_shifts[cur_gene_set_mask]
-        is_dense_gene_set_m = state.is_dense_gene_set[cur_gene_set_mask]
-        ps_m = None
-        if state.ps is not None:
-            ps_m = state.ps[cur_gene_set_mask]
-        sigma2s_m = None
-        if state.sigma2s is not None:
-            sigma2s_m = state.sigma2s[cur_gene_set_mask]
-
-        init_betas_m = None
-        init_postp_m = None
-        if warm_start and prev_warm_start_betas_m is not None:
-            init_betas_m = prev_warm_start_betas_m[begin:end,cur_gene_set_mask]
-            init_postp_m = prev_warm_start_postp_m[begin:end,cur_gene_set_mask]
+        (
+            beta_tildes_m,
+            ses_m,
+            V_m,
+            scale_factors_m,
+            mean_shifts_m,
+            is_dense_gene_set_m,
+            ps_m,
+            sigma2s_m,
+            init_betas_m,
+            init_postp_m,
+        ) = _prepare_gibbs_corrected_run_one_v_inputs(
+            state=state,
+            full_beta_tildes_m=full_beta_tildes_m,
+            full_ses_m=full_ses_m,
+            cur_gene_set_mask=cur_gene_set_mask,
+            begin=begin,
+            end=end,
+            V_superset=V_superset,
+            warm_start=warm_start,
+            prev_warm_start_betas_m=prev_warm_start_betas_m,
+            prev_warm_start_postp_m=prev_warm_start_postp_m,
+        )
     else:
-        non_missing_matrix_shape = (num_chains, num_non_missing)
-        beta_tildes_m = full_beta_tildes_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-        ses_m = full_ses_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-        scale_factors_m = full_scale_factors_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-        mean_shifts_m = full_mean_shifts_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-        is_dense_gene_set_m = full_is_dense_gene_set_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-        ps_m = None
-        if full_ps_m is not None:
-            ps_m = full_ps_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-        sigma2s_m = None
-        if full_sigma2s_m is not None:
-            sigma2s_m = full_sigma2s_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-
-        init_betas_m = None
-        init_postp_m = None
-        if warm_start and prev_warm_start_betas_m is not None:
-            init_betas_m = prev_warm_start_betas_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-            init_postp_m = prev_warm_start_postp_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
-
-        V_m = np.zeros((end-begin, beta_tildes_m.shape[1], beta_tildes_m.shape[1]))
-        for i,j in zip(range(begin, end),range(end-begin)):
-            gene_set_mask_subset = gene_set_mask_m[i,cur_gene_set_mask]
-            V_m[j,:,:] = V_superset[gene_set_mask_subset,:][:,gene_set_mask_subset]
+        (
+            beta_tildes_m,
+            ses_m,
+            V_m,
+            scale_factors_m,
+            mean_shifts_m,
+            is_dense_gene_set_m,
+            ps_m,
+            sigma2s_m,
+            init_betas_m,
+            init_postp_m,
+        ) = _prepare_gibbs_corrected_per_chain_v_inputs(
+            gene_set_mask_m=gene_set_mask_m,
+            full_beta_tildes_m=full_beta_tildes_m,
+            full_ses_m=full_ses_m,
+            full_scale_factors_m=full_scale_factors_m,
+            full_mean_shifts_m=full_mean_shifts_m,
+            full_is_dense_gene_set_m=full_is_dense_gene_set_m,
+            full_ps_m=full_ps_m,
+            full_sigma2s_m=full_sigma2s_m,
+            cur_gene_set_mask=cur_gene_set_mask,
+            V_superset=V_superset,
+            begin=begin,
+            end=end,
+            num_chains=num_chains,
+            num_non_missing=num_non_missing,
+            warm_start=warm_start,
+            prev_warm_start_betas_m=prev_warm_start_betas_m,
+            prev_warm_start_postp_m=prev_warm_start_postp_m,
+        )
 
     return (
         cur_gene_set_mask,
         num_missing,
         run_one_V,
+        beta_tildes_m,
+        ses_m,
+        V_m,
+        scale_factors_m,
+        mean_shifts_m,
+        is_dense_gene_set_m,
+        ps_m,
+        sigma2s_m,
+        init_betas_m,
+        init_postp_m,
+    )
+
+
+def _prepare_gibbs_corrected_run_one_v_inputs(
+    state,
+    full_beta_tildes_m,
+    full_ses_m,
+    cur_gene_set_mask,
+    begin,
+    end,
+    V_superset,
+    warm_start,
+    prev_warm_start_betas_m,
+    prev_warm_start_postp_m,
+):
+    beta_tildes_m = full_beta_tildes_m[begin:end,cur_gene_set_mask]
+    ses_m = full_ses_m[begin:end,cur_gene_set_mask]
+    V_m = V_superset
+    scale_factors_m = state.scale_factors[cur_gene_set_mask]
+    mean_shifts_m = state.mean_shifts[cur_gene_set_mask]
+    is_dense_gene_set_m = state.is_dense_gene_set[cur_gene_set_mask]
+    ps_m = None
+    if state.ps is not None:
+        ps_m = state.ps[cur_gene_set_mask]
+    sigma2s_m = None
+    if state.sigma2s is not None:
+        sigma2s_m = state.sigma2s[cur_gene_set_mask]
+
+    init_betas_m = None
+    init_postp_m = None
+    if warm_start and prev_warm_start_betas_m is not None:
+        init_betas_m = prev_warm_start_betas_m[begin:end,cur_gene_set_mask]
+        init_postp_m = prev_warm_start_postp_m[begin:end,cur_gene_set_mask]
+
+    return (
+        beta_tildes_m,
+        ses_m,
+        V_m,
+        scale_factors_m,
+        mean_shifts_m,
+        is_dense_gene_set_m,
+        ps_m,
+        sigma2s_m,
+        init_betas_m,
+        init_postp_m,
+    )
+
+
+def _prepare_gibbs_corrected_per_chain_v_inputs(
+    gene_set_mask_m,
+    full_beta_tildes_m,
+    full_ses_m,
+    full_scale_factors_m,
+    full_mean_shifts_m,
+    full_is_dense_gene_set_m,
+    full_ps_m,
+    full_sigma2s_m,
+    cur_gene_set_mask,
+    V_superset,
+    begin,
+    end,
+    num_chains,
+    num_non_missing,
+    warm_start,
+    prev_warm_start_betas_m,
+    prev_warm_start_postp_m,
+):
+    non_missing_matrix_shape = (num_chains, num_non_missing)
+    beta_tildes_m = full_beta_tildes_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+    ses_m = full_ses_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+    scale_factors_m = full_scale_factors_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+    mean_shifts_m = full_mean_shifts_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+    is_dense_gene_set_m = full_is_dense_gene_set_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+    ps_m = None
+    if full_ps_m is not None:
+        ps_m = full_ps_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+    sigma2s_m = None
+    if full_sigma2s_m is not None:
+        sigma2s_m = full_sigma2s_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+
+    init_betas_m = None
+    init_postp_m = None
+    if warm_start and prev_warm_start_betas_m is not None:
+        init_betas_m = prev_warm_start_betas_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+        init_postp_m = prev_warm_start_postp_m[gene_set_mask_m].reshape(non_missing_matrix_shape)[begin:end,:]
+
+    V_m = np.zeros((end-begin, beta_tildes_m.shape[1], beta_tildes_m.shape[1]))
+    for i,j in zip(range(begin, end),range(end-begin)):
+        gene_set_mask_subset = gene_set_mask_m[i,cur_gene_set_mask]
+        V_m[j,:,:] = V_superset[gene_set_mask_subset,:][:,gene_set_mask_subset]
+
+    return (
         beta_tildes_m,
         ses_m,
         V_m,
