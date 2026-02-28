@@ -19216,6 +19216,76 @@ def _build_gibbs_iteration_result(
     }
 
 
+def _run_gibbs_iteration_correction_phase(
+    state,
+    epoch_control,
+    correction_config,
+    epoch_priors,
+    epoch_runtime,
+    epoch_sums,
+    iteration_num,
+    iter_state,
+    gene_set_mask_m,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    iteration_update = _run_gibbs_iteration_correction_and_updates(
+        state=state,
+        iter_state=iter_state,
+        gene_set_mask_m=gene_set_mask_m,
+        epoch_control=epoch_control,
+        correction_config=correction_config,
+        epoch_priors=epoch_priors,
+        epoch_runtime=epoch_runtime,
+        epoch_sums=epoch_sums,
+        iteration_num=iteration_num,
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
+    return (
+        iteration_update,
+        iteration_update["log_bf_m"],
+        iteration_update["log_bf_uncorrected_m"],
+        iteration_update["log_bf_raw_m"],
+        iteration_update["should_break"],
+    )
+
+
+def _run_gibbs_iteration_progress_phase(
+    state,
+    epoch_control,
+    run_state,
+    progress_runtime_config,
+    iter_state,
+    iteration_num,
+    epoch_sums,
+    epoch_priors,
+    epoch_runtime,
+    gene_set_stats_trace_fh,
+    iteration_update,
+    log_bf_m,
+    log_bf_raw_m,
+):
+    iteration_progress_update = _advance_gibbs_iteration_progress(
+        state=state,
+        epoch_control=epoch_control,
+        run_state=run_state,
+        progress_runtime_config=progress_runtime_config,
+        iter_state=iter_state,
+        iteration_num=iteration_num,
+        epoch_sums=epoch_sums,
+        epoch_priors=epoch_priors,
+        epoch_runtime=epoch_runtime,
+        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+        iteration_update=iteration_update,
+        log_bf_m=log_bf_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
+    return iteration_progress_update["done"]
+
+
 def _run_single_gibbs_iteration(
     state,
     run_state,
@@ -19240,24 +19310,27 @@ def _run_single_gibbs_iteration(
         log_bf_raw_m=log_bf_raw_m,
     )
 
-    iteration_update = _run_gibbs_iteration_correction_and_updates(
+    (
+        iteration_update,
+        log_bf_m,
+        log_bf_uncorrected_m,
+        log_bf_raw_m,
+        should_break,
+    ) = _run_gibbs_iteration_correction_phase(
         state=state,
-        iter_state=iter_state,
-        gene_set_mask_m=gene_set_mask_m,
         epoch_control=epoch_control,
         correction_config=correction_config,
         epoch_priors=epoch_priors,
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
         iteration_num=iteration_num,
+        iter_state=iter_state,
+        gene_set_mask_m=gene_set_mask_m,
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
     )
-    log_bf_m = iteration_update["log_bf_m"]
-    log_bf_uncorrected_m = iteration_update["log_bf_uncorrected_m"]
-    log_bf_raw_m = iteration_update["log_bf_raw_m"]
-    if iteration_update["should_break"]:
+    if should_break:
         return _build_gibbs_iteration_result(
             log_bf_m=log_bf_m,
             log_bf_uncorrected_m=log_bf_uncorrected_m,
@@ -19265,7 +19338,7 @@ def _run_single_gibbs_iteration(
             stop_epoch=True,
         )
 
-    iteration_progress_update = _advance_gibbs_iteration_progress(
+    stop_epoch = _run_gibbs_iteration_progress_phase(
         state=state,
         epoch_control=epoch_control,
         run_state=run_state,
@@ -19284,7 +19357,7 @@ def _run_single_gibbs_iteration(
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
-        stop_epoch=iteration_progress_update["done"],
+        stop_epoch=stop_epoch,
     )
 
 
