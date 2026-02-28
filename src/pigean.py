@@ -19393,6 +19393,26 @@ def _run_gibbs_refresh_priors_huge_step(
     )
 
 
+def _run_gibbs_finalize_priors_step(
+    state,
+    epoch_priors,
+    iteration_update_config,
+):
+    return _finalize_gibbs_priors_for_sampling(
+        state,
+        priors_sample_m=epoch_priors["priors_sample_m"],
+        priors_mean_m=epoch_priors["priors_mean_m"],
+        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
+        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
+        adjust_priors=iteration_update_config["adjust_priors"],
+        use_mean_betas=iteration_update_config["use_mean_betas"],
+        priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
+        priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
+        priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
+        priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
+    )
+
+
 def _compute_gibbs_iteration_betas_and_priors(
     state,
     iter_state,
@@ -19440,18 +19460,10 @@ def _compute_gibbs_iteration_betas_and_priors(
         log_bf_raw_m=log_bf_raw_m,
     )
 
-    prior_update = _finalize_gibbs_priors_for_sampling(
-        state,
-        priors_sample_m=epoch_priors["priors_sample_m"],
-        priors_mean_m=epoch_priors["priors_mean_m"],
-        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
-        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-        adjust_priors=iteration_update_config["adjust_priors"],
-        use_mean_betas=iteration_update_config["use_mean_betas"],
-        priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
-        priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
-        priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
-        priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
+    prior_update = _run_gibbs_finalize_priors_step(
+        state=state,
+        epoch_priors=epoch_priors,
+        iteration_update_config=iteration_update_config,
     )
     _apply_gibbs_prior_update(epoch_priors, prior_update)
 
