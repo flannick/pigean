@@ -9011,10 +9011,14 @@ class GeneSetData(object):
         epoch_phase_config = epoch_runtime_configs["epoch_phase_config"]
         epoch_iteration_static_config = epoch_runtime_configs["epoch_iteration_static_config"]
 
-        (gene_set_stats_trace_fh, gene_stats_trace_fh) = _open_gibbs_trace_outputs(
-            gene_set_stats_trace_out,
-            gene_stats_trace_out,
-        )
+        gene_set_stats_trace_fh = None
+        gene_stats_trace_fh = None
+        if gene_set_stats_trace_out is not None:
+            gene_set_stats_trace_fh = open_gz(gene_set_stats_trace_out, 'w')
+            gene_set_stats_trace_fh.write("It\tChain\tGene_Set\tbeta_tilde\tP\tZ\tSE\tbeta_uncorrected\tbeta\tpostp\tbeta_tilde_outlier_z\tR\tSEM\n")
+        if gene_stats_trace_out is not None:
+            gene_stats_trace_fh = open_gz(gene_stats_trace_out, 'w')
+            gene_stats_trace_fh.write("It\tChain\tGene\tprior\tcombined\tlog_bf\tD\tpercent_top\tadjust\n")
         try:
             _run_gibbs_epoch_phase(
                 state=self,
@@ -9029,7 +9033,10 @@ class GeneSetData(object):
                 log_bf_raw_m=log_bf_raw_m,
             )
         finally:
-            _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh)
+            if gene_set_stats_trace_fh is not None:
+                gene_set_stats_trace_fh.close()
+            if gene_stats_trace_fh is not None:
+                gene_stats_trace_fh.close()
 
         if run_state["num_completed_epochs"] == 0:
             bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
@@ -17508,28 +17515,6 @@ def _start_gibbs_epoch(
         "stack_batch_size": epoch_state["stack_batch_size"],
         "num_stack_batches": epoch_state["num_stack_batches"],
     }
-
-
-def _open_gibbs_trace_outputs(gene_set_stats_trace_out, gene_stats_trace_out):
-    gene_set_stats_trace_fh = None
-    gene_stats_trace_fh = None
-
-    if gene_set_stats_trace_out is not None:
-        gene_set_stats_trace_fh = open_gz(gene_set_stats_trace_out, 'w')
-        gene_set_stats_trace_fh.write("It\tChain\tGene_Set\tbeta_tilde\tP\tZ\tSE\tbeta_uncorrected\tbeta\tpostp\tbeta_tilde_outlier_z\tR\tSEM\n")
-
-    if gene_stats_trace_out is not None:
-        gene_stats_trace_fh = open_gz(gene_stats_trace_out, 'w')
-        gene_stats_trace_fh.write("It\tChain\tGene\tprior\tcombined\tlog_bf\tD\tpercent_top\tadjust\n")
-
-    return (gene_set_stats_trace_fh, gene_stats_trace_fh)
-
-
-def _close_gibbs_trace_outputs(gene_set_stats_trace_fh, gene_stats_trace_fh):
-    if gene_set_stats_trace_fh is not None:
-        gene_set_stats_trace_fh.close()
-    if gene_stats_trace_fh is not None:
-        gene_stats_trace_fh.close()
 
 
 def _maybe_write_gibbs_gene_stats_trace(
