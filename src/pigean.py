@@ -15941,14 +15941,6 @@ def _build_gibbs_diag_sums(epoch_aggregates, sum_betas_m, sum_betas2_m, num_sum_
     return (diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, diag_sum_Ds_m, diag_num_sum_Y_m)
 
 
-def _append_gibbs_epoch_aggregates(epoch_aggregates, epoch_sums, include_missing=False):
-    for key in _GIBBS_EPOCH_SUM_KEYS:
-        epoch_aggregates[key].append(copy.copy(epoch_sums[key]))
-    if include_missing:
-        for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
-            epoch_aggregates[key].append(copy.copy(epoch_sums[key]))
-
-
 def _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=False):
     stacked = {}
     for key in _GIBBS_EPOCH_SUM_KEYS:
@@ -15957,18 +15949,6 @@ def _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=False):
         for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
             stacked[key] = np.vstack(epoch_aggregates[key])
     return stacked
-
-
-def _append_completed_gibbs_epoch(epoch_aggregates, epoch_sums, include_missing):
-    epoch_sums_for_append = {key: epoch_sums[key] for key in _GIBBS_EPOCH_SUM_KEYS}
-    if include_missing:
-        for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
-            epoch_sums_for_append[key] = epoch_sums[key]
-    _append_gibbs_epoch_aggregates(
-        epoch_aggregates,
-        epoch_sums_for_append,
-        include_missing=include_missing,
-    )
 
 
 # ========================= Outer Gibbs Control Normalization =========================
@@ -18072,11 +18052,11 @@ def _finalize_gibbs_epoch_attempt(
     assert(np.all(epoch_sums["num_sum_Y_m"] > 0))
     assert(np.all(epoch_sums["num_sum_beta_m"] > 0))
 
-    _append_completed_gibbs_epoch(
-        epoch_aggregates,
-        epoch_sums=epoch_sums,
-        include_missing=include_missing,
-    )
+    for key in _GIBBS_EPOCH_SUM_KEYS:
+        epoch_aggregates[key].append(copy.copy(epoch_sums[key]))
+    if include_missing:
+        for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
+            epoch_aggregates[key].append(copy.copy(epoch_sums[key]))
 
     num_completed_epochs += 1
     log(
