@@ -5430,6 +5430,79 @@ class GeneSetData(object):
             cur_gene_indices_norm_detect,
         )
 
+    def _update_huge_learning_phase_parameters(
+        self,
+        index_var_chrom_pos_ps,
+        gwas_low_p,
+        detect_high_power,
+        detect_low_power,
+        gwas_high_p,
+        gwas_high_p_posterior,
+        gwas_low_p_posterior,
+        detect_adjust_huge,
+        allelic_var_k,
+        gwas_prior_odds,
+        allelic_var_k_detect,
+        gwas_prior_odds_detect,
+        separate_detect,
+        learn_window,
+        closest_dist_X,
+        closest_dist_Y,
+        closest_gene_prob,
+        max_closest_gene_dist,
+    ):
+        index_var_ps = self._collect_huge_independent_signal_pvalues(index_var_chrom_pos_ps)
+        num_below_low_p = np.sum(index_var_ps < gwas_low_p)
+        self._record_param("num_below_initial_low_p", num_below_low_p)
+        log(" (%d variants below p=%.4g)" % (num_below_low_p, gwas_low_p))
+
+        (
+            gwas_low_p,
+            allelic_var_k,
+            gwas_prior_odds,
+            allelic_var_k_detect,
+            gwas_prior_odds_detect,
+            separate_detect,
+        ) = self._adjust_huge_detect_power(
+            index_var_ps=index_var_ps,
+            num_below_low_p=num_below_low_p,
+            gwas_low_p=gwas_low_p,
+            detect_high_power=detect_high_power,
+            detect_low_power=detect_low_power,
+            gwas_high_p=gwas_high_p,
+            gwas_high_p_posterior=gwas_high_p_posterior,
+            gwas_low_p_posterior=gwas_low_p_posterior,
+            detect_adjust_huge=detect_adjust_huge,
+            allelic_var_k=allelic_var_k,
+            gwas_prior_odds=gwas_prior_odds,
+            allelic_var_k_detect=allelic_var_k_detect,
+            gwas_prior_odds_detect=gwas_prior_odds_detect,
+            separate_detect=separate_detect,
+        )
+
+        log("Using k=%.3g, po=%.3g" % (allelic_var_k, gwas_prior_odds))
+        self._record_params({"gwas_allelic_var_k": allelic_var_k, "gwas_prior_odds": gwas_prior_odds})
+
+        (window_fun_slope, window_fun_intercept) = self._compute_huge_window_function_parameters(
+            learn_window=learn_window,
+            closest_dist_X=closest_dist_X,
+            closest_dist_Y=closest_dist_Y,
+            closest_gene_prob=closest_gene_prob,
+            max_closest_gene_dist=max_closest_gene_dist,
+        )
+        self._record_params({"window_fun_slope": window_fun_slope, "window_fun_intercept": window_fun_intercept})
+
+        return (
+            gwas_low_p,
+            allelic_var_k,
+            gwas_prior_odds,
+            allelic_var_k_detect,
+            gwas_prior_odds_detect,
+            separate_detect,
+            window_fun_slope,
+            window_fun_intercept,
+        )
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -6050,14 +6123,6 @@ class GeneSetData(object):
                             )
 
                 if learn_params:
-                    index_var_ps = self._collect_huge_independent_signal_pvalues(index_var_chrom_pos_ps)
-                    num_below_low_p = np.sum(index_var_ps < gwas_low_p)
-
-
-                    self._record_param("num_below_initial_low_p", num_below_low_p)
-
-                    log(" (%d variants below p=%.4g)" % (num_below_low_p, gwas_low_p))
-
                     (
                         gwas_low_p,
                         allelic_var_k,
@@ -6065,9 +6130,10 @@ class GeneSetData(object):
                         allelic_var_k_detect,
                         gwas_prior_odds_detect,
                         separate_detect,
-                    ) = self._adjust_huge_detect_power(
-                        index_var_ps=index_var_ps,
-                        num_below_low_p=num_below_low_p,
+                        window_fun_slope,
+                        window_fun_intercept,
+                    ) = self._update_huge_learning_phase_parameters(
+                        index_var_chrom_pos_ps=index_var_chrom_pos_ps,
                         gwas_low_p=gwas_low_p,
                         detect_high_power=detect_high_power,
                         detect_low_power=detect_low_power,
@@ -6080,20 +6146,12 @@ class GeneSetData(object):
                         allelic_var_k_detect=allelic_var_k_detect,
                         gwas_prior_odds_detect=gwas_prior_odds_detect,
                         separate_detect=separate_detect,
-                    )
-
-                    log("Using k=%.3g, po=%.3g" % (allelic_var_k, gwas_prior_odds))
-                    self._record_params({"gwas_allelic_var_k": allelic_var_k, "gwas_prior_odds": gwas_prior_odds})
-
-                    (window_fun_slope, window_fun_intercept) = self._compute_huge_window_function_parameters(
                         learn_window=learn_window,
                         closest_dist_X=closest_dist_X,
                         closest_dist_Y=closest_dist_Y,
                         closest_gene_prob=closest_gene_prob,
                         max_closest_gene_dist=max_closest_gene_dist,
                     )
-
-                    self._record_params({"window_fun_slope": window_fun_slope, "window_fun_intercept": window_fun_intercept})
 
             #now iterate through all significant variants
 
