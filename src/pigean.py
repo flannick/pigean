@@ -21242,6 +21242,32 @@ def _run_optional_gibbs_post_burn_diagnostics(
             stop_due_to_stall=stop_due_to_stall,
         )
 
+    return _run_due_gibbs_post_burn_diagnostics(
+        min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
+        post_burn_diag_config=post_burn_diag_config,
+        iter_state=iter_state,
+        epoch_sums=epoch_sums,
+        epoch_control=epoch_control,
+        run_state=run_state,
+        done=done,
+        stop_due_to_precision=stop_due_to_precision,
+        restart_due_to_stall=restart_due_to_stall,
+        stop_due_to_stall=stop_due_to_stall,
+    )
+
+
+def _run_due_gibbs_post_burn_diagnostics(
+    min_num_post_burn_in_for_epoch,
+    post_burn_diag_config,
+    iter_state,
+    epoch_sums,
+    epoch_control,
+    run_state,
+    done,
+    stop_due_to_precision,
+    restart_due_to_stall,
+    stop_due_to_stall,
+):
     post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
         min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
         diag_config=post_burn_diag_config,
