@@ -21631,21 +21631,24 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
     default_betas_mean_m,
     default_postp_mean_m,
 ):
-    uncorrected_betas_mean_m = iter_state["uncorrected_betas_mean_m"]
-    uncorrected_betas_sample_m = iter_state["uncorrected_betas_sample_m"]
-    full_p_values_m = iter_state["full_p_values_m"]
-    full_beta_tildes_m = iter_state["full_beta_tildes_m"]
-    full_ses_m = iter_state["full_ses_m"]
-    full_scale_factors_m = iter_state["full_scale_factors_m"]
-    full_mean_shifts_m = iter_state["full_mean_shifts_m"]
-    full_is_dense_gene_set_m = iter_state["full_is_dense_gene_set_m"]
-    full_ps_m = iter_state["full_ps_m"]
-    full_sigma2s_m = iter_state["full_sigma2s_m"]
-
-    sparse_frac_gibbs = prefilter_config["sparse_frac_gibbs"]
-    sparse_max_gibbs = prefilter_config["sparse_max_gibbs"]
-    pre_filter_batch_size = prefilter_config["pre_filter_batch_size"]
-    pre_filter_small_batch_size = prefilter_config["pre_filter_small_batch_size"]
+    (
+        uncorrected_betas_mean_m,
+        uncorrected_betas_sample_m,
+        full_p_values_m,
+        full_beta_tildes_m,
+        full_ses_m,
+        full_scale_factors_m,
+        full_mean_shifts_m,
+        full_is_dense_gene_set_m,
+        full_ps_m,
+        full_sigma2s_m,
+    ) = _unpack_gibbs_prefilter_iter_state(iter_state)
+    (
+        sparse_frac_gibbs,
+        sparse_max_gibbs,
+        pre_filter_batch_size,
+        pre_filter_small_batch_size,
+    ) = _unpack_gibbs_prefilter_config(prefilter_config)
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
     # Start from sparsity mask on uncorrected betas, then optionally run a
@@ -21770,6 +21773,30 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
         default_postp_sample_m,
         default_betas_mean_m,
         default_postp_mean_m,
+    )
+
+
+def _unpack_gibbs_prefilter_iter_state(iter_state):
+    return (
+        iter_state["uncorrected_betas_mean_m"],
+        iter_state["uncorrected_betas_sample_m"],
+        iter_state["full_p_values_m"],
+        iter_state["full_beta_tildes_m"],
+        iter_state["full_ses_m"],
+        iter_state["full_scale_factors_m"],
+        iter_state["full_mean_shifts_m"],
+        iter_state["full_is_dense_gene_set_m"],
+        iter_state["full_ps_m"],
+        iter_state["full_sigma2s_m"],
+    )
+
+
+def _unpack_gibbs_prefilter_config(prefilter_config):
+    return (
+        prefilter_config["sparse_frac_gibbs"],
+        prefilter_config["sparse_max_gibbs"],
+        prefilter_config["pre_filter_batch_size"],
+        prefilter_config["pre_filter_small_batch_size"],
     )
 
 
