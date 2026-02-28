@@ -18870,28 +18870,16 @@ def _run_single_gibbs_epoch_attempt(
         num_mad=epoch_phase_config["num_mad"],
         adjust_priors=epoch_phase_config["adjust_priors"],
     )
-    epoch_attempt_result = _apply_gibbs_epoch_finalize_run_state(
-        run_state=run_state,
-        epoch_runtime=epoch_runtime,
-        epoch_finalize_update=epoch_finalize_update,
-    )
-    return {
-        "attempt_started": epoch_attempt_result["attempt_started"],
-        "should_continue": epoch_attempt_result["should_continue"],
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-    }
-def _apply_gibbs_epoch_finalize_run_state(run_state, epoch_runtime, epoch_finalize_update):
     run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
     run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
     run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
     return {
         "attempt_started": True,
         "should_continue": epoch_finalize_update["should_continue"],
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
     }
-
-
 def _run_gibbs_epoch_phase(
     state,
     run_state,
