@@ -16962,7 +16962,6 @@ def _handle_gibbs_burn_in_gauss_seidel_path(
 
 def _handle_gibbs_burn_in_diag_path(
     num_samples,
-    epoch_total_iter_offset,
     epoch_control,
     burn_in_config,
     min_num_burn_in_for_epoch,
@@ -17081,7 +17080,6 @@ def _update_gibbs_burn_in_state(
     gauss_seidel = burn_in_config["gauss_seidel"]
     eps = burn_in_config["eps"]
     diag_every = burn_in_config["diag_every"]
-    burn_in_rhat_quantile = burn_in_config["burn_in_rhat_quantile"]
 
     Y_sample_m = iter_state["Y_sample_m"]
 
@@ -17120,7 +17118,6 @@ def _update_gibbs_burn_in_state(
     elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
         in_burn_in, burn_in_pass_streak, stop_pass_streak, burn_stall_beta_indices, R_beta_v = _handle_gibbs_burn_in_diag_path(
             num_samples=num_samples,
-            epoch_total_iter_offset=epoch_total_iter_offset,
             epoch_control=epoch_control,
             burn_in_config=burn_in_config,
             min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
