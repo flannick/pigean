@@ -19738,19 +19738,23 @@ def _compute_gibbs_logistic_outputs_for_batches(
             stack_batch_size=stack_batch_size,
             X_hstacked=X_hstacked,
         )
-        full_beta_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_beta_tildes_m
-        full_ses_m[begin:end,pre_gene_set_filter_mask] = batch_ses_m
-        full_z_scores_m[begin:end,pre_gene_set_filter_mask] = batch_z_scores_m
-        full_p_values_m[begin:end,pre_gene_set_filter_mask] = batch_p_values_m
-        diverged_m[begin:end,pre_gene_set_filter_mask] = batch_diverged_m
-
-        full_ses_m[begin:end,~pre_gene_set_filter_mask] = 100
-        full_p_values_m[begin:end,~pre_gene_set_filter_mask] = 1
-
-        if init_se_inflation_factors_m is not None:
-            se_inflation_factors_m[begin:end,pre_gene_set_filter_mask] = init_se_inflation_factors_m
-        else:
-            se_inflation_factors_m = None
+        se_inflation_factors_m = _apply_gibbs_logistic_batch_outputs(
+            full_beta_tildes_m=full_beta_tildes_m,
+            full_ses_m=full_ses_m,
+            full_z_scores_m=full_z_scores_m,
+            full_p_values_m=full_p_values_m,
+            se_inflation_factors_m=se_inflation_factors_m,
+            diverged_m=diverged_m,
+            begin=begin,
+            end=end,
+            pre_gene_set_filter_mask=pre_gene_set_filter_mask,
+            batch_beta_tildes_m=batch_beta_tildes_m,
+            batch_ses_m=batch_ses_m,
+            batch_z_scores_m=batch_z_scores_m,
+            batch_p_values_m=batch_p_values_m,
+            batch_diverged_m=batch_diverged_m,
+            init_se_inflation_factors_m=init_se_inflation_factors_m,
+        )
 
     return {
         "full_beta_tildes_m": full_beta_tildes_m,
@@ -19760,6 +19764,37 @@ def _compute_gibbs_logistic_outputs_for_batches(
         "se_inflation_factors_m": se_inflation_factors_m,
         "diverged_m": diverged_m,
     }
+
+
+def _apply_gibbs_logistic_batch_outputs(
+    full_beta_tildes_m,
+    full_ses_m,
+    full_z_scores_m,
+    full_p_values_m,
+    se_inflation_factors_m,
+    diverged_m,
+    begin,
+    end,
+    pre_gene_set_filter_mask,
+    batch_beta_tildes_m,
+    batch_ses_m,
+    batch_z_scores_m,
+    batch_p_values_m,
+    batch_diverged_m,
+    init_se_inflation_factors_m,
+):
+    full_beta_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_beta_tildes_m
+    full_ses_m[begin:end,pre_gene_set_filter_mask] = batch_ses_m
+    full_z_scores_m[begin:end,pre_gene_set_filter_mask] = batch_z_scores_m
+    full_p_values_m[begin:end,pre_gene_set_filter_mask] = batch_p_values_m
+    diverged_m[begin:end,pre_gene_set_filter_mask] = batch_diverged_m
+    full_ses_m[begin:end,~pre_gene_set_filter_mask] = 100
+    full_p_values_m[begin:end,~pre_gene_set_filter_mask] = 1
+    if init_se_inflation_factors_m is not None:
+        se_inflation_factors_m[begin:end,pre_gene_set_filter_mask] = init_se_inflation_factors_m
+    else:
+        se_inflation_factors_m = None
+    return se_inflation_factors_m
 
 
 def _log_gibbs_logistic_divergence(diverged_m, gene_sets):
