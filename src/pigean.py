@@ -19258,31 +19258,6 @@ def _finalize_gibbs_iteration_after_correction(
     }
 
 
-def _apply_gibbs_refresh_update(epoch_priors, refresh_update):
-    epoch_priors["prev_warm_start_betas_m"] = refresh_update["prev_warm_start_betas_m"]
-    epoch_priors["prev_warm_start_postp_m"] = refresh_update["prev_warm_start_postp_m"]
-    epoch_priors["priors_sample_m"] = refresh_update["priors_sample_m"]
-    epoch_priors["priors_mean_m"] = refresh_update["priors_mean_m"]
-    epoch_priors["priors_missing_sample_m"] = refresh_update["priors_missing_sample_m"]
-    epoch_priors["priors_missing_mean_m"] = refresh_update["priors_missing_mean_m"]
-
-    return {
-        "log_bf_m": refresh_update["log_bf_m"],
-        "log_bf_uncorrected_m": refresh_update["log_bf_uncorrected_m"],
-        "log_bf_raw_m": refresh_update["log_bf_raw_m"],
-    }
-
-
-def _apply_gibbs_prior_update(epoch_priors, prior_update):
-    epoch_priors["priors_sample_m"] = prior_update["priors_sample_m"]
-    epoch_priors["priors_mean_m"] = prior_update["priors_mean_m"]
-    epoch_priors["priors_missing_sample_m"] = prior_update["priors_missing_sample_m"]
-    epoch_priors["priors_missing_mean_m"] = prior_update["priors_missing_mean_m"]
-    epoch_priors["priors_for_Y_m"] = prior_update["priors_for_Y_m"]
-    epoch_priors["priors_percentage_max_for_Y_m"] = prior_update["priors_percentage_max_for_Y_m"]
-    epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
-
-
 def _run_gibbs_corrected_betas_step(
     state,
     iter_state,
@@ -19318,59 +19293,6 @@ def _run_gibbs_corrected_betas_step(
     )
 
 
-def _run_gibbs_refresh_priors_huge_step(
-    state,
-    iteration_update_config,
-    epoch_priors,
-    full_betas_sample_m,
-    full_betas_mean_m,
-    full_postp_sample_m,
-    full_postp_mean_m,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    return _refresh_gibbs_iteration_priors_and_huge(
-        state,
-        warm_start=iteration_update_config["warm_start"],
-        use_mean_betas=iteration_update_config["use_mean_betas"],
-        prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
-        prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
-        full_betas_sample_m=full_betas_sample_m,
-        full_betas_mean_m=full_betas_mean_m,
-        full_postp_sample_m=full_postp_sample_m,
-        full_postp_mean_m=full_postp_mean_m,
-        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
-        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-        priors_for_Y_m=epoch_priors["priors_for_Y_m"],
-        update_huge_scores=iteration_update_config["update_huge_scores"],
-        compute_Y_raw=iteration_update_config["compute_Y_raw"],
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-    )
-
-
-def _run_gibbs_finalize_priors_step(
-    state,
-    epoch_priors,
-    iteration_update_config,
-):
-    return _finalize_gibbs_priors_for_sampling(
-        state,
-        priors_sample_m=epoch_priors["priors_sample_m"],
-        priors_mean_m=epoch_priors["priors_mean_m"],
-        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
-        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-        adjust_priors=iteration_update_config["adjust_priors"],
-        use_mean_betas=iteration_update_config["use_mean_betas"],
-        priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
-        priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
-        priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
-        priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
-    )
-
-
 def _compute_gibbs_iteration_betas_and_priors(
     state,
     iter_state,
@@ -19398,29 +19320,55 @@ def _compute_gibbs_iteration_betas_and_priors(
         inner_beta_kwargs=inner_beta_kwargs,
     )
 
-    refresh_update = _run_gibbs_refresh_priors_huge_step(
-        state=state,
-        iteration_update_config=iteration_update_config,
-        epoch_priors=epoch_priors,
+    refresh_update = _refresh_gibbs_iteration_priors_and_huge(
+        state,
+        warm_start=iteration_update_config["warm_start"],
+        use_mean_betas=iteration_update_config["use_mean_betas"],
+        prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
+        prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
         full_betas_sample_m=full_betas_sample_m,
         full_betas_mean_m=full_betas_mean_m,
         full_postp_sample_m=full_postp_sample_m,
         full_postp_mean_m=full_postp_mean_m,
+        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
+        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
+        priors_for_Y_m=epoch_priors["priors_for_Y_m"],
+        update_huge_scores=iteration_update_config["update_huge_scores"],
+        compute_Y_raw=iteration_update_config["compute_Y_raw"],
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
     )
-    refresh_log_bf = _apply_gibbs_refresh_update(epoch_priors, refresh_update)
-    log_bf_m = refresh_log_bf["log_bf_m"]
-    log_bf_uncorrected_m = refresh_log_bf["log_bf_uncorrected_m"]
-    log_bf_raw_m = refresh_log_bf["log_bf_raw_m"]
+    epoch_priors["prev_warm_start_betas_m"] = refresh_update["prev_warm_start_betas_m"]
+    epoch_priors["prev_warm_start_postp_m"] = refresh_update["prev_warm_start_postp_m"]
+    epoch_priors["priors_sample_m"] = refresh_update["priors_sample_m"]
+    epoch_priors["priors_mean_m"] = refresh_update["priors_mean_m"]
+    epoch_priors["priors_missing_sample_m"] = refresh_update["priors_missing_sample_m"]
+    epoch_priors["priors_missing_mean_m"] = refresh_update["priors_missing_mean_m"]
+    log_bf_m = refresh_update["log_bf_m"]
+    log_bf_uncorrected_m = refresh_update["log_bf_uncorrected_m"]
+    log_bf_raw_m = refresh_update["log_bf_raw_m"]
 
-    prior_update = _run_gibbs_finalize_priors_step(
-        state=state,
-        epoch_priors=epoch_priors,
-        iteration_update_config=iteration_update_config,
+    prior_update = _finalize_gibbs_priors_for_sampling(
+        state,
+        priors_sample_m=epoch_priors["priors_sample_m"],
+        priors_mean_m=epoch_priors["priors_mean_m"],
+        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
+        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
+        adjust_priors=iteration_update_config["adjust_priors"],
+        use_mean_betas=iteration_update_config["use_mean_betas"],
+        priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
+        priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
+        priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
+        priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
     )
-    _apply_gibbs_prior_update(epoch_priors, prior_update)
+    epoch_priors["priors_sample_m"] = prior_update["priors_sample_m"]
+    epoch_priors["priors_mean_m"] = prior_update["priors_mean_m"]
+    epoch_priors["priors_missing_sample_m"] = prior_update["priors_missing_sample_m"]
+    epoch_priors["priors_missing_mean_m"] = prior_update["priors_missing_mean_m"]
+    epoch_priors["priors_for_Y_m"] = prior_update["priors_for_Y_m"]
+    epoch_priors["priors_percentage_max_for_Y_m"] = prior_update["priors_percentage_max_for_Y_m"]
+    epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
 
     return {
         "full_betas_sample_m": full_betas_sample_m,
