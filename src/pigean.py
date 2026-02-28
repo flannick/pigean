@@ -21002,6 +21002,44 @@ def _unpack_gibbs_post_burn_iter_state(iter_state):
     )
 
 
+def _build_gibbs_post_burn_state_update(
+    stop_pass_streak,
+    post_stall_beta_indices,
+    post_stall_gene_indices,
+    betas_sem2_v,
+    sem2_v,
+    done,
+    stop_due_to_precision,
+    restart_due_to_stall,
+    stop_due_to_stall,
+):
+    return _build_gibbs_post_burn_control_update(
+        stop_pass_streak=stop_pass_streak,
+        post_stall_beta_indices=post_stall_beta_indices,
+        post_stall_gene_indices=post_stall_gene_indices,
+        betas_sem2_v=betas_sem2_v,
+        sem2_v=sem2_v,
+        done=done,
+        stop_due_to_precision=stop_due_to_precision,
+        restart_due_to_stall=restart_due_to_stall,
+        stop_due_to_stall=stop_due_to_stall,
+    )
+
+
+def _unpack_gibbs_post_burn_diag_update(post_burn_diag_update):
+    return (
+        post_burn_diag_update["stop_pass_streak"],
+        post_burn_diag_update["post_stall_beta_indices"],
+        post_burn_diag_update["post_stall_gene_indices"],
+        post_burn_diag_update["betas_sem2_v"],
+        post_burn_diag_update["sem2_v"],
+        post_burn_diag_update["done"],
+        post_burn_diag_update["stop_due_to_precision"],
+        post_burn_diag_update["restart_due_to_stall"],
+        post_burn_diag_update["stop_due_to_stall"],
+    )
+
+
 def _update_gibbs_post_burn_state(
     state,
     max_num_post_burn_in_for_epoch,
@@ -21049,7 +21087,7 @@ def _update_gibbs_post_burn_state(
     priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
 
     if in_burn_in:
-        return _build_gibbs_post_burn_control_update(
+        return _build_gibbs_post_burn_state_update(
             stop_pass_streak=stop_pass_streak,
             post_stall_beta_indices=post_stall_beta_indices,
             post_stall_gene_indices=post_stall_gene_indices,
@@ -21101,15 +21139,17 @@ def _update_gibbs_post_burn_state(
         restart_due_to_stall=restart_due_to_stall,
         stop_due_to_stall=stop_due_to_stall,
     )
-    stop_pass_streak = post_burn_diag_update["stop_pass_streak"]
-    post_stall_beta_indices = post_burn_diag_update["post_stall_beta_indices"]
-    post_stall_gene_indices = post_burn_diag_update["post_stall_gene_indices"]
-    betas_sem2_v = post_burn_diag_update["betas_sem2_v"]
-    sem2_v = post_burn_diag_update["sem2_v"]
-    done = post_burn_diag_update["done"]
-    stop_due_to_precision = post_burn_diag_update["stop_due_to_precision"]
-    restart_due_to_stall = post_burn_diag_update["restart_due_to_stall"]
-    stop_due_to_stall = post_burn_diag_update["stop_due_to_stall"]
+    (
+        stop_pass_streak,
+        post_stall_beta_indices,
+        post_stall_gene_indices,
+        betas_sem2_v,
+        sem2_v,
+        done,
+        stop_due_to_precision,
+        restart_due_to_stall,
+        stop_due_to_stall,
+    ) = _unpack_gibbs_post_burn_diag_update(post_burn_diag_update)
 
     done = _maybe_end_gibbs_epoch_for_post_burn_cap(
         done=done,
@@ -21119,7 +21159,7 @@ def _update_gibbs_post_burn_state(
         total_iter_num=total_iter_num,
     )
 
-    return _build_gibbs_post_burn_control_update(
+    return _build_gibbs_post_burn_state_update(
         stop_pass_streak=stop_pass_streak,
         post_stall_beta_indices=post_stall_beta_indices,
         post_stall_gene_indices=post_stall_gene_indices,
