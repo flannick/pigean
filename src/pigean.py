@@ -16295,64 +16295,81 @@ def _build_gibbs_recorded_params_payload(config, run_state):
     }
 
 
-def _record_and_log_gibbs_configuration(state, run_state, config):
-    num_chains = config["num_chains"]
-    num_chains_betas = config["num_chains_betas"]
-    max_num_restarts = config["max_num_restarts"]
-    target_num_epochs = config["target_num_epochs"]
-    max_num_iter = config["max_num_iter"]
-    total_num_iter = config["total_num_iter"]
-    epoch_max_num_iter_config = config["epoch_max_num_iter_config"]
-    use_mean_betas = config["use_mean_betas"]
-    warm_start = config["warm_start"]
-    stopping_preset_name = config["stopping_preset_name"]
-    r_threshold_burn_in = config["r_threshold_burn_in"]
-    burn_in_rhat_quantile = config["burn_in_rhat_quantile"]
-    burn_in_patience = config["burn_in_patience"]
-    first_min_num_burn_in = config["first_min_num_burn_in"]
-    first_max_num_burn_in = config["first_max_num_burn_in"]
-    first_min_num_post_burn_in = config["first_min_num_post_burn_in"]
-    first_max_num_post_burn_in = config["first_max_num_post_burn_in"]
-    burn_in_stall_window = config["burn_in_stall_window"]
-    burn_in_stall_delta = config["burn_in_stall_delta"]
-    active_beta_top_k = config["active_beta_top_k"]
-    active_beta_min_abs = config["active_beta_min_abs"]
-    stop_mcse_quantile = config["stop_mcse_quantile"]
-    stop_patience = config["stop_patience"]
-    stop_top_gene_k = config["stop_top_gene_k"]
-    stop_min_gene_d = config["stop_min_gene_d"]
-    max_abs_mcse_d = config["max_abs_mcse_d"]
-    max_rel_mcse_beta = config["max_rel_mcse_beta"]
-    beta_rel_mcse_denom_floor = config["beta_rel_mcse_denom_floor"]
-    stall_window = config["stall_window"]
-    stall_min_burn_in = config["stall_min_burn_in"]
-    stall_min_post_burn_in = config["stall_min_post_burn_in"]
-    stall_delta_rhat = config["stall_delta_rhat"]
-    stall_delta_mcse = config["stall_delta_mcse"]
-    stall_recent_window = config["stall_recent_window"]
-    stall_recent_eps = config["stall_recent_eps"]
-    diag_every = config["diag_every"]
-    sparse_solution = config["sparse_solution"]
-    sparse_frac_gibbs = config["sparse_frac_gibbs"]
-    sparse_max_gibbs = config["sparse_max_gibbs"]
-    sparse_frac_betas = config["sparse_frac_betas"]
-    pre_filter_batch_size = config["pre_filter_batch_size"]
-    max_allowed_batch_correlation = config["max_allowed_batch_correlation"]
-    initial_linear_filter = config["initial_linear_filter"]
-    correct_betas_mean = config["correct_betas_mean"]
-    correct_betas_var = config["correct_betas_var"]
-    adjust_priors = config["adjust_priors"]
-
+def _record_gibbs_configuration_params(state, run_state, config):
     state._record_params(_build_gibbs_recorded_params_payload(config, run_state))
-    state._record_param("min_num_post_burn_in_effective", first_min_num_post_burn_in)
-    state._record_param("stall_min_post_burn_samples", stall_min_post_burn_in)
+    state._record_param("min_num_post_burn_in_effective", config["first_min_num_post_burn_in"])
+    state._record_param("stall_min_post_burn_samples", config["stall_min_post_burn_in"])
 
+
+def _log_gibbs_configuration_summary(config, run_state):
     log("Running Gibbs")
-    log("Gibbs stopping preset=%s; burn-in: r_threshold=%.4g, rhat_q=%.3g, patience=%d; active betas: topK=%d, min_abs=%.4g" % (stopping_preset_name, r_threshold_burn_in, burn_in_rhat_quantile, burn_in_patience, active_beta_top_k, active_beta_min_abs), INFO)
-    log("Gibbs restart schedule: target_epochs=%d (max_num_restarts=%d), max_attempts=%d, per-epoch max_num_iter=%d, total_num_iter=%d" % (target_num_epochs, max_num_restarts, run_state["max_num_attempt_restarts"], epoch_max_num_iter_config, total_num_iter), INFO)
-    log("Gibbs epoch bounds (epoch 1): burn=[%d,%d], post=[%d,%d], stall_window=%d, stall_delta=%.4g" % (first_min_num_burn_in, first_max_num_burn_in, first_min_num_post_burn_in, first_max_num_post_burn_in, burn_in_stall_window, burn_in_stall_delta), INFO)
-    log("Gibbs stopping thresholds: stop_q=%.3g, stop_patience=%d, max_rel_mcse_beta=%.4g, beta_rel_mcse_denom_floor=%.4g, stop_top_gene_k=%d, stop_min_gene_d=%s, max_abs_mcse_d=%.4g, diag_every=%d" % (stop_mcse_quantile, stop_patience, max_rel_mcse_beta, beta_rel_mcse_denom_floor, stop_top_gene_k, ("%.4g" % stop_min_gene_d) if stop_min_gene_d is not None else "None", max_abs_mcse_d, diag_every), INFO)
-    log("Gibbs stall controls: window=%d, min_burn=%d, min_post_for_stall=%d, delta_rhat=%.4g, delta_mcse=%.4g, recent_window=%d, recent_eps=%.4g" % (stall_window, stall_min_burn_in, stall_min_post_burn_in, stall_delta_rhat, stall_delta_mcse, stall_recent_window, stall_recent_eps), INFO)
+    log(
+        "Gibbs stopping preset=%s; burn-in: r_threshold=%.4g, rhat_q=%.3g, patience=%d; active betas: topK=%d, min_abs=%.4g"
+        % (
+            config["stopping_preset_name"],
+            config["r_threshold_burn_in"],
+            config["burn_in_rhat_quantile"],
+            config["burn_in_patience"],
+            config["active_beta_top_k"],
+            config["active_beta_min_abs"],
+        ),
+        INFO,
+    )
+    log(
+        "Gibbs restart schedule: target_epochs=%d (max_num_restarts=%d), max_attempts=%d, per-epoch max_num_iter=%d, total_num_iter=%d"
+        % (
+            config["target_num_epochs"],
+            config["max_num_restarts"],
+            run_state["max_num_attempt_restarts"],
+            config["epoch_max_num_iter_config"],
+            config["total_num_iter"],
+        ),
+        INFO,
+    )
+    log(
+        "Gibbs epoch bounds (epoch 1): burn=[%d,%d], post=[%d,%d], stall_window=%d, stall_delta=%.4g"
+        % (
+            config["first_min_num_burn_in"],
+            config["first_max_num_burn_in"],
+            config["first_min_num_post_burn_in"],
+            config["first_max_num_post_burn_in"],
+            config["burn_in_stall_window"],
+            config["burn_in_stall_delta"],
+        ),
+        INFO,
+    )
+    log(
+        "Gibbs stopping thresholds: stop_q=%.3g, stop_patience=%d, max_rel_mcse_beta=%.4g, beta_rel_mcse_denom_floor=%.4g, stop_top_gene_k=%d, stop_min_gene_d=%s, max_abs_mcse_d=%.4g, diag_every=%d"
+        % (
+            config["stop_mcse_quantile"],
+            config["stop_patience"],
+            config["max_rel_mcse_beta"],
+            config["beta_rel_mcse_denom_floor"],
+            config["stop_top_gene_k"],
+            ("%.4g" % config["stop_min_gene_d"]) if config["stop_min_gene_d"] is not None else "None",
+            config["max_abs_mcse_d"],
+            config["diag_every"],
+        ),
+        INFO,
+    )
+    log(
+        "Gibbs stall controls: window=%d, min_burn=%d, min_post_for_stall=%d, delta_rhat=%.4g, delta_mcse=%.4g, recent_window=%d, recent_eps=%.4g"
+        % (
+            config["stall_window"],
+            config["stall_min_burn_in"],
+            config["stall_min_post_burn_in"],
+            config["stall_delta_rhat"],
+            config["stall_delta_mcse"],
+            config["stall_recent_window"],
+            config["stall_recent_eps"],
+        ),
+        INFO,
+    )
+
+
+def _record_and_log_gibbs_configuration(state, run_state, config):
+    _record_gibbs_configuration_params(state, run_state, config)
+    _log_gibbs_configuration_summary(config, run_state)
 
 
 # ========================= Outer Gibbs Epoch Execution =========================
