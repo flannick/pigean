@@ -5202,6 +5202,125 @@ class GeneSetData(object):
             np.array(extra_gene_bf_for_regression),
         )
 
+    def _build_huge_rel_prior_log_bf(self, genes, extra_genes):
+        rel_prior_log_bf = None
+        if self.Y_exomes is not None:
+            assert(len(genes) == len(self.Y_exomes))
+            rel_prior_log_bf = np.append(self.Y_exomes, np.zeros(len(extra_genes)))
+        if self.Y_positive_controls is not None:
+            assert(len(genes) == len(self.Y_positive_controls))
+            positive_controls_prior_log_bf = np.append(self.Y_positive_controls, np.zeros(len(extra_genes)))
+            if rel_prior_log_bf is None:
+                rel_prior_log_bf = positive_controls_prior_log_bf
+            else:
+                rel_prior_log_bf += positive_controls_prior_log_bf
+        if self.Y_case_counts is not None:
+            assert(len(genes) == len(self.Y_case_counts))
+            case_counts_prior_log_bf = np.append(self.Y_case_counts, np.zeros(len(extra_genes)))
+            if rel_prior_log_bf is None:
+                rel_prior_log_bf = case_counts_prior_log_bf
+            else:
+                rel_prior_log_bf += case_counts_prior_log_bf
+        return rel_prior_log_bf
+
+    def _finalize_and_distill_huge_signal_state(
+        self,
+        gene_prob_gene_list,
+        gene_prob_col_num,
+        gene_bf_data,
+        gene_prob_rows,
+        gene_prob_cols,
+        gene_bf_data_detect,
+        gene_prob_rows_detect,
+        gene_prob_cols_detect,
+        max_closest_gene_prob,
+        cap_region_posterior,
+        scale_region_posterior,
+        phantom_region_posterior,
+        allow_evidence_of_absence,
+        rel_prior_log_bf,
+    ):
+        # Normalize collected lists and build sparse signal-by-gene BF matrices.
+        self.huge_signal_posteriors = np.array(self.huge_signal_posteriors)
+        self.huge_signal_posteriors_for_regression = np.array(self.huge_signal_posteriors_for_regression)
+        self.huge_signal_max_closest_gene_prob = max_closest_gene_prob
+        self.huge_cap_region_posterior = cap_region_posterior
+        self.huge_scale_region_posterior = scale_region_posterior
+        self.huge_phantom_region_posterior = phantom_region_posterior
+        self.huge_allow_evidence_of_absence = allow_evidence_of_absence
+
+        self.huge_signal_bfs = sparse.csc_matrix(
+            (gene_bf_data, (gene_prob_rows, gene_prob_cols)),
+            shape=(len(gene_prob_gene_list), gene_prob_col_num),
+        )
+        self.huge_signal_bfs_for_regression = sparse.csc_matrix(
+            (gene_bf_data_detect, (gene_prob_rows_detect, gene_prob_cols_detect)),
+            shape=(len(gene_prob_gene_list), gene_prob_col_num),
+        )
+
+        self.huge_signal_sum_gene_cond_probabilities = np.array(self.huge_signal_sum_gene_cond_probabilities)
+        self.huge_signal_sum_gene_cond_probabilities_for_regression = np.array(
+            self.huge_signal_sum_gene_cond_probabilities_for_regression
+        )
+        self.huge_signal_mean_gene_pos = np.array(self.huge_signal_mean_gene_pos)
+        self.huge_signal_mean_gene_pos_for_regression = np.array(self.huge_signal_mean_gene_pos_for_regression)
+
+        (huge_results, huge_results_uncorrected, absent_genes, absent_log_bf) = self._distill_huge_signal_bfs(
+            self.huge_signal_bfs,
+            self.huge_signal_posteriors,
+            self.huge_signal_sum_gene_cond_probabilities,
+            self.huge_signal_mean_gene_pos,
+            self.huge_signal_max_closest_gene_prob,
+            self.huge_cap_region_posterior,
+            self.huge_scale_region_posterior,
+            self.huge_phantom_region_posterior,
+            self.huge_allow_evidence_of_absence,
+            None,
+            None,
+            None,
+            None,
+            None,
+            gene_prob_gene_list,
+            total_genes=self.genes,
+            rel_prior_log_bf=rel_prior_log_bf,
+        )
+
+        (
+            huge_results_for_regression,
+            huge_results_uncorrected_for_regression,
+            absent_genes_for_regression,
+            absent_log_bf_for_regression,
+        ) = self._distill_huge_signal_bfs(
+            self.huge_signal_bfs_for_regression,
+            self.huge_signal_posteriors_for_regression,
+            self.huge_signal_sum_gene_cond_probabilities_for_regression,
+            self.huge_signal_mean_gene_pos_for_regression,
+            self.huge_signal_max_closest_gene_prob,
+            self.huge_cap_region_posterior,
+            self.huge_scale_region_posterior,
+            self.huge_phantom_region_posterior,
+            self.huge_allow_evidence_of_absence,
+            None,
+            None,
+            None,
+            None,
+            None,
+            gene_prob_gene_list,
+            total_genes=self.genes,
+            rel_prior_log_bf=rel_prior_log_bf,
+        )
+
+        return (
+            huge_results,
+            huge_results_uncorrected,
+            absent_genes,
+            absent_log_bf,
+            huge_results_for_regression,
+            huge_results_uncorrected_for_regression,
+            absent_genes_for_regression,
+            absent_log_bf_for_regression,
+        )
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5897,8 +6016,6 @@ class GeneSetData(object):
                  bail("Didn't read in any SNPs for HuGE scores")
 
 
-            exomes_positive_controls_case_counts_prior_log_bf = None
-
             (genes, gene_to_ind, extra_genes, extra_gene_to_ind, gene_prob_gene_list) = self._remap_huge_gene_probability_rows(
                 gene_to_chrom=gene_to_chrom,
                 gene_prob_genes=gene_prob_genes,
@@ -5912,54 +6029,36 @@ class GeneSetData(object):
                 extra_gene_to_ind=extra_gene_to_ind,
             )
 
+            exomes_positive_controls_case_counts_prior_log_bf = self._build_huge_rel_prior_log_bf(
+                genes=genes,
+                extra_genes=extra_genes,
+            )
 
-            if self.Y_exomes is not None:
-                assert(len(genes) == len(self.Y_exomes))
-                exomes_positive_controls_case_counts_prior_log_bf = np.append(self.Y_exomes, np.zeros(len(extra_genes)))
-            if self.Y_positive_controls is not None:
-                assert(len(genes) == len(self.Y_positive_controls))
-                positive_controls_prior_log_bf = np.append(self.Y_positive_controls, np.zeros(len(extra_genes)))
-                if exomes_positive_controls_case_counts_prior_log_bf is None:
-                    exomes_positive_controls_case_counts_prior_log_bf = positive_controls_prior_log_bf
-                else:
-                    exomes_positive_controls_case_counts_prior_log_bf += positive_controls_prior_log_bf
-            if self.Y_case_counts is not None:
-                assert(len(genes) == len(self.Y_case_counts))
-                case_counts_prior_log_bf = np.append(self.Y_case_counts, np.zeros(len(extra_genes)))
-                if exomes_positive_controls_case_counts_prior_log_bf is None:
-                    exomes_positive_controls_case_counts_prior_log_bf = case_counts_prior_log_bf
-                else:
-                    exomes_positive_controls_case_counts_prior_log_bf += case_counts_prior_log_bf
-
-
-            #add in the extra genes
-
-            #this is the normalizing constant between huge_signal_bfs and the BFs
-            #PO = BF * huge_signal_posteriors
-            self.huge_signal_posteriors = np.array(self.huge_signal_posteriors)
-            self.huge_signal_posteriors_for_regression = np.array(self.huge_signal_posteriors_for_regression)
-            self.huge_signal_max_closest_gene_prob = max_closest_gene_prob
-            self.huge_cap_region_posterior = cap_region_posterior
-            self.huge_scale_region_posterior = scale_region_posterior
-            self.huge_phantom_region_posterior = phantom_region_posterior
-            self.huge_allow_evidence_of_absence = allow_evidence_of_absence
-
-            #from Maller et al, these are proportional to BFs (but not necessarily equal)
-            self.huge_signal_bfs = sparse.csc_matrix((gene_bf_data, (gene_prob_rows, gene_prob_cols)), shape=(len(gene_prob_gene_list), gene_prob_col_num))
-            self.huge_signal_bfs_for_regression = sparse.csc_matrix((gene_bf_data_detect, (gene_prob_rows_detect, gene_prob_cols_detect)), shape=(len(gene_prob_gene_list), gene_prob_col_num))
-
-            self.huge_signal_sum_gene_cond_probabilities = np.array(self.huge_signal_sum_gene_cond_probabilities)
-            self.huge_signal_sum_gene_cond_probabilities_for_regression = np.array(self.huge_signal_sum_gene_cond_probabilities_for_regression)
-            self.huge_signal_mean_gene_pos = np.array(self.huge_signal_mean_gene_pos)
-            self.huge_signal_mean_gene_pos_for_regression = np.array(self.huge_signal_mean_gene_pos_for_regression)
-
-
-            #construct the matrix
-
-            #don't do the correction here (will do it outside)
-            (huge_results, huge_results_uncorrected, absent_genes, absent_log_bf) = self._distill_huge_signal_bfs(self.huge_signal_bfs, self.huge_signal_posteriors, self.huge_signal_sum_gene_cond_probabilities, self.huge_signal_mean_gene_pos, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, None, None, None, None, None, gene_prob_gene_list, total_genes=self.genes, rel_prior_log_bf=exomes_positive_controls_case_counts_prior_log_bf)
-
-            (huge_results_for_regression, huge_results_uncorrected_for_regression, absent_genes_for_regression, absent_log_bf_for_regression) = self._distill_huge_signal_bfs(self.huge_signal_bfs_for_regression, self.huge_signal_posteriors_for_regression, self.huge_signal_sum_gene_cond_probabilities_for_regression, self.huge_signal_mean_gene_pos_for_regression, self.huge_signal_max_closest_gene_prob, self.huge_cap_region_posterior, self.huge_scale_region_posterior, self.huge_phantom_region_posterior, self.huge_allow_evidence_of_absence, None, None, None, None, None, gene_prob_gene_list, total_genes=self.genes, rel_prior_log_bf=exomes_positive_controls_case_counts_prior_log_bf)
+            (
+                huge_results,
+                huge_results_uncorrected,
+                absent_genes,
+                absent_log_bf,
+                huge_results_for_regression,
+                huge_results_uncorrected_for_regression,
+                absent_genes_for_regression,
+                absent_log_bf_for_regression,
+            ) = self._finalize_and_distill_huge_signal_state(
+                gene_prob_gene_list=gene_prob_gene_list,
+                gene_prob_col_num=gene_prob_col_num,
+                gene_bf_data=gene_bf_data,
+                gene_prob_rows=gene_prob_rows,
+                gene_prob_cols=gene_prob_cols,
+                gene_bf_data_detect=gene_bf_data_detect,
+                gene_prob_rows_detect=gene_prob_rows_detect,
+                gene_prob_cols_detect=gene_prob_cols_detect,
+                max_closest_gene_prob=max_closest_gene_prob,
+                cap_region_posterior=cap_region_posterior,
+                scale_region_posterior=scale_region_posterior,
+                phantom_region_posterior=phantom_region_posterior,
+                allow_evidence_of_absence=allow_evidence_of_absence,
+                rel_prior_log_bf=exomes_positive_controls_case_counts_prior_log_bf,
+            )
 
             (
                 gene_bf,
