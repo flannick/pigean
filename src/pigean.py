@@ -15947,39 +15947,13 @@ def _stack_and_unpack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=F
 
 
 # ========================= Outer Gibbs Control Normalization =========================
-def _normalize_gibbs_run_controls(
+def _normalize_gibbs_epoch_iteration_controls(
     max_num_iter,
-    total_num_iter,
-    max_num_restarts,
-    num_chains,
     min_num_burn_in,
     max_num_burn_in,
     min_num_post_burn_in,
     max_num_post_burn_in,
-    diag_every,
-    burn_in_patience,
-    burn_in_stall_window,
-    burn_in_stall_delta,
-    stop_patience,
-    stop_top_gene_k,
-    stop_min_gene_d,
-    active_beta_top_k,
-    active_beta_min_abs,
-    beta_rel_mcse_denom_floor,
-    stall_window,
-    stall_min_burn_in,
-    stall_min_post_burn_in,
-    stall_delta_rhat,
-    stall_delta_mcse,
-    stall_recent_window,
-    stall_recent_eps,
-    burn_in_rhat_quantile,
-    use_max_r_for_convergence,
 ):
-    if max_num_restarts is None or max_num_restarts < 0:
-        max_num_restarts = 0
-    target_num_epochs = max_num_restarts + 1
-
     if min_num_burn_in is None:
         min_num_burn_in = 0
     if min_num_burn_in < 0:
@@ -16016,6 +15990,63 @@ def _normalize_gibbs_run_controls(
     epoch_max_num_iter_config = max_num_burn_in + max_num_post_burn_in
     if epoch_max_num_iter_config < 2:
         epoch_max_num_iter_config = 2
+
+    return {
+        "min_num_burn_in": min_num_burn_in,
+        "max_num_burn_in": max_num_burn_in,
+        "min_num_post_burn_in": min_num_post_burn_in,
+        "max_num_post_burn_in": max_num_post_burn_in,
+        "passed_in_max_num_burn_in": passed_in_max_num_burn_in,
+        "epoch_max_num_iter_config": epoch_max_num_iter_config,
+    }
+
+
+def _normalize_gibbs_run_controls(
+    max_num_iter,
+    total_num_iter,
+    max_num_restarts,
+    num_chains,
+    min_num_burn_in,
+    max_num_burn_in,
+    min_num_post_burn_in,
+    max_num_post_burn_in,
+    diag_every,
+    burn_in_patience,
+    burn_in_stall_window,
+    burn_in_stall_delta,
+    stop_patience,
+    stop_top_gene_k,
+    stop_min_gene_d,
+    active_beta_top_k,
+    active_beta_min_abs,
+    beta_rel_mcse_denom_floor,
+    stall_window,
+    stall_min_burn_in,
+    stall_min_post_burn_in,
+    stall_delta_rhat,
+    stall_delta_mcse,
+    stall_recent_window,
+    stall_recent_eps,
+    burn_in_rhat_quantile,
+    use_max_r_for_convergence,
+):
+    if max_num_restarts is None or max_num_restarts < 0:
+        max_num_restarts = 0
+    target_num_epochs = max_num_restarts + 1
+
+    normalized_epoch_controls = _normalize_gibbs_epoch_iteration_controls(
+        max_num_iter=max_num_iter,
+        min_num_burn_in=min_num_burn_in,
+        max_num_burn_in=max_num_burn_in,
+        min_num_post_burn_in=min_num_post_burn_in,
+        max_num_post_burn_in=max_num_post_burn_in,
+    )
+    min_num_burn_in = normalized_epoch_controls["min_num_burn_in"]
+    max_num_burn_in = normalized_epoch_controls["max_num_burn_in"]
+    min_num_post_burn_in = normalized_epoch_controls["min_num_post_burn_in"]
+    max_num_post_burn_in = normalized_epoch_controls["max_num_post_burn_in"]
+    passed_in_max_num_burn_in = normalized_epoch_controls["passed_in_max_num_burn_in"]
+    epoch_max_num_iter_config = normalized_epoch_controls["epoch_max_num_iter_config"]
 
     if total_num_iter is None:
         total_num_iter = epoch_max_num_iter_config
