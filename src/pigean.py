@@ -16808,14 +16808,11 @@ def _evaluate_burn_in_diagnostics(
             burn_stall_recent_worse = True
 
     burn_stall_detected = burn_stall_plateau or burn_stall_recent_worse
-    burn_window_plateau_detected = False
-    burn_window_span = np.nan
-    if burn_in_stall_window > 0 and len(burn_in_rhat_history) >= burn_in_stall_window:
-        burn_window_v = np.array(burn_in_rhat_history[-burn_in_stall_window:], dtype=float)
-        if np.all(np.isfinite(burn_window_v)):
-            burn_window_span = np.max(burn_window_v) - np.min(burn_window_v)
-            if burn_window_span < burn_in_stall_delta:
-                burn_window_plateau_detected = True
+    burn_window_plateau_detected, burn_window_span = _compute_burn_in_window_plateau_status(
+        burn_in_rhat_history=burn_in_rhat_history,
+        burn_in_stall_window=burn_in_stall_window,
+        burn_in_stall_delta=burn_in_stall_delta,
+    )
 
     return {
         "R_beta_v": R_beta_v,
@@ -16852,6 +16849,20 @@ def _compute_recent_burn_in_stall_beta_rhat(
     _, _, burn_recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_sum_m, recent_sum2_m, recent_num_samples)
     burn_recent_candidates = burn_recent_R_beta_v[np.logical_and(np.isfinite(burn_recent_R_beta_v), burn_recent_R_beta_v >= 1)]
     return _safe_quantile(burn_recent_candidates, burn_in_rhat_quantile, 1.0)
+
+
+def _compute_burn_in_window_plateau_status(
+    burn_in_rhat_history,
+    burn_in_stall_window,
+    burn_in_stall_delta,
+):
+    if not (burn_in_stall_window > 0 and len(burn_in_rhat_history) >= burn_in_stall_window):
+        return (False, np.nan)
+    burn_window_v = np.array(burn_in_rhat_history[-burn_in_stall_window:], dtype=float)
+    if not np.all(np.isfinite(burn_window_v)):
+        return (False, np.nan)
+    burn_window_span = np.max(burn_window_v) - np.min(burn_window_v)
+    return (burn_window_span < burn_in_stall_delta, burn_window_span)
 
 
 def _compute_burn_in_active_beta_rhat_stats(
