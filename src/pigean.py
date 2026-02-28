@@ -16242,6 +16242,59 @@ def _normalize_gibbs_run_controls(
 
 
 # ========================= Outer Gibbs Configuration Logging =========================
+def _build_gibbs_recorded_params_payload(config, run_state):
+    return {
+        "num_chains": config["num_chains"],
+        "num_chains_betas": config["num_chains_betas"],
+        "max_num_restarts": config["max_num_restarts"],
+        "target_num_epochs": config["target_num_epochs"],
+        "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+        "max_num_iter": config["max_num_iter"],
+        "total_num_iter": config["total_num_iter"],
+        "epoch_max_num_iter": config["epoch_max_num_iter_config"],
+        "use_mean_betas": config["use_mean_betas"],
+        "warm_start": config["warm_start"],
+        "stopping_preset_name": config["stopping_preset_name"],
+        "r_threshold_burn_in": config["r_threshold_burn_in"],
+        "burn_in_rhat_quantile": config["burn_in_rhat_quantile"],
+        "burn_in_rhat_quantile_effective": config["burn_in_rhat_quantile"],
+        "burn_in_patience": config["burn_in_patience"],
+        "min_num_burn_in": config["first_min_num_burn_in"],
+        "max_num_burn_in": config["first_max_num_burn_in"],
+        "min_num_post_burn_in": config["first_min_num_post_burn_in"],
+        "max_num_post_burn_in": config["first_max_num_post_burn_in"],
+        "burn_in_stall_window": config["burn_in_stall_window"],
+        "burn_in_stall_delta": config["burn_in_stall_delta"],
+        "active_beta_top_k": config["active_beta_top_k"],
+        "active_beta_min_abs": config["active_beta_min_abs"],
+        "stop_mcse_quantile": config["stop_mcse_quantile"],
+        "stop_patience": config["stop_patience"],
+        "stop_top_gene_k": config["stop_top_gene_k"],
+        "stop_min_gene_d": config["stop_min_gene_d"],
+        "max_abs_mcse_d": config["max_abs_mcse_d"],
+        "max_rel_mcse_beta": config["max_rel_mcse_beta"],
+        "beta_rel_mcse_denom_floor": config["beta_rel_mcse_denom_floor"],
+        "stall_window": config["stall_window"],
+        "stall_min_burn_in": config["stall_min_burn_in"],
+        "stall_min_post_burn_in": config["stall_min_post_burn_in"],
+        "stall_delta_rhat": config["stall_delta_rhat"],
+        "stall_delta_mcse": config["stall_delta_mcse"],
+        "stall_recent_window": config["stall_recent_window"],
+        "stall_recent_eps": config["stall_recent_eps"],
+        "diag_every": config["diag_every"],
+        "sparse_solution": config["sparse_solution"],
+        "sparse_frac": config["sparse_frac_gibbs"],
+        "sparse_max": config["sparse_max_gibbs"],
+        "sparse_frac_betas": config["sparse_frac_betas"],
+        "pre_filter_batch_size": config["pre_filter_batch_size"],
+        "max_allowed_batch_correlation": config["max_allowed_batch_correlation"],
+        "initial_linear_filter": config["initial_linear_filter"],
+        "correct_betas_mean": config["correct_betas_mean"],
+        "correct_betas_var": config["correct_betas_var"],
+        "adjust_priors": config["adjust_priors"],
+    }
+
+
 def _record_and_log_gibbs_configuration(state, run_state, config):
     num_chains = config["num_chains"]
     num_chains_betas = config["num_chains_betas"]
@@ -16290,7 +16343,7 @@ def _record_and_log_gibbs_configuration(state, run_state, config):
     correct_betas_var = config["correct_betas_var"]
     adjust_priors = config["adjust_priors"]
 
-    state._record_params({"num_chains": num_chains, "num_chains_betas": num_chains_betas, "max_num_restarts": max_num_restarts, "target_num_epochs": target_num_epochs, "max_num_attempt_restarts": run_state["max_num_attempt_restarts"], "max_num_iter": max_num_iter, "total_num_iter": total_num_iter, "epoch_max_num_iter": epoch_max_num_iter_config, "use_mean_betas": use_mean_betas, "warm_start": warm_start, "stopping_preset_name": stopping_preset_name, "r_threshold_burn_in": r_threshold_burn_in, "burn_in_rhat_quantile": burn_in_rhat_quantile, "burn_in_rhat_quantile_effective": burn_in_rhat_quantile, "burn_in_patience": burn_in_patience, "min_num_burn_in": first_min_num_burn_in, "max_num_burn_in": first_max_num_burn_in, "min_num_post_burn_in": first_min_num_post_burn_in, "max_num_post_burn_in": first_max_num_post_burn_in, "burn_in_stall_window": burn_in_stall_window, "burn_in_stall_delta": burn_in_stall_delta, "active_beta_top_k": active_beta_top_k, "active_beta_min_abs": active_beta_min_abs, "stop_mcse_quantile": stop_mcse_quantile, "stop_patience": stop_patience, "stop_top_gene_k": stop_top_gene_k, "stop_min_gene_d": stop_min_gene_d, "max_abs_mcse_d": max_abs_mcse_d, "max_rel_mcse_beta": max_rel_mcse_beta, "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor, "stall_window": stall_window, "stall_min_burn_in": stall_min_burn_in, "stall_min_post_burn_in": stall_min_post_burn_in, "stall_delta_rhat": stall_delta_rhat, "stall_delta_mcse": stall_delta_mcse, "stall_recent_window": stall_recent_window, "stall_recent_eps": stall_recent_eps, "diag_every": diag_every, "sparse_solution": sparse_solution, "sparse_frac": sparse_frac_gibbs, "sparse_max": sparse_max_gibbs, "sparse_frac_betas": sparse_frac_betas, "pre_filter_batch_size": pre_filter_batch_size, "max_allowed_batch_correlation": max_allowed_batch_correlation, "initial_linear_filter": initial_linear_filter, "correct_betas_mean": correct_betas_mean, "correct_betas_var": correct_betas_var, "adjust_priors": adjust_priors})
+    state._record_params(_build_gibbs_recorded_params_payload(config, run_state))
     state._record_param("min_num_post_burn_in_effective", first_min_num_post_burn_in)
     state._record_param("stall_min_post_burn_samples", stall_min_post_burn_in)
 
