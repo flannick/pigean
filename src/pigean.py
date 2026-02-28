@@ -8900,30 +8900,54 @@ class GeneSetData(object):
         _record_and_log_gibbs_configuration(
             state=self,
             run_state=run_state,
-            config=_build_gibbs_record_config(
-                gibbs_controls,
-                {
-                    "num_chains_betas": num_chains_betas,
-                    "max_num_iter": max_num_iter,
-                    "use_mean_betas": use_mean_betas,
-                    "warm_start": warm_start,
-                    "stopping_preset_name": stopping_preset_name,
-                    "r_threshold_burn_in": r_threshold_burn_in,
-                    "stop_mcse_quantile": stop_mcse_quantile,
-                    "max_abs_mcse_d": max_abs_mcse_d,
-                    "max_rel_mcse_beta": max_rel_mcse_beta,
-                    "sparse_solution": sparse_solution,
-                    "sparse_frac_gibbs": sparse_frac_gibbs,
-                    "sparse_max_gibbs": sparse_max_gibbs,
-                    "sparse_frac_betas": sparse_frac_betas,
-                    "pre_filter_batch_size": pre_filter_batch_size,
-                    "max_allowed_batch_correlation": max_allowed_batch_correlation,
-                    "initial_linear_filter": initial_linear_filter,
-                    "correct_betas_mean": correct_betas_mean,
-                    "correct_betas_var": correct_betas_var,
-                    "adjust_priors": adjust_priors,
-                },
-            ),
+            config={
+                "num_chains": gibbs_controls["num_chains"],
+                "max_num_restarts": gibbs_controls["max_num_restarts"],
+                "target_num_epochs": gibbs_controls["target_num_epochs"],
+                "total_num_iter": gibbs_controls["total_num_iter"],
+                "epoch_max_num_iter_config": gibbs_controls["epoch_max_num_iter_config"],
+                "burn_in_rhat_quantile": gibbs_controls["burn_in_rhat_quantile"],
+                "burn_in_patience": gibbs_controls["burn_in_patience"],
+                "first_min_num_burn_in": gibbs_controls["first_min_num_burn_in"],
+                "first_max_num_burn_in": gibbs_controls["first_max_num_burn_in"],
+                "first_min_num_post_burn_in": gibbs_controls["first_min_num_post_burn_in"],
+                "first_max_num_post_burn_in": gibbs_controls["first_max_num_post_burn_in"],
+                "burn_in_stall_window": gibbs_controls["burn_in_stall_window"],
+                "burn_in_stall_delta": gibbs_controls["burn_in_stall_delta"],
+                "active_beta_top_k": gibbs_controls["active_beta_top_k"],
+                "active_beta_min_abs": gibbs_controls["active_beta_min_abs"],
+                "stop_patience": gibbs_controls["stop_patience"],
+                "stop_top_gene_k": gibbs_controls["stop_top_gene_k"],
+                "stop_min_gene_d": gibbs_controls["stop_min_gene_d"],
+                "beta_rel_mcse_denom_floor": gibbs_controls["beta_rel_mcse_denom_floor"],
+                "stall_window": gibbs_controls["stall_window"],
+                "stall_min_burn_in": gibbs_controls["stall_min_burn_in"],
+                "stall_min_post_burn_in": gibbs_controls["stall_min_post_burn_in"],
+                "stall_delta_rhat": gibbs_controls["stall_delta_rhat"],
+                "stall_delta_mcse": gibbs_controls["stall_delta_mcse"],
+                "stall_recent_window": gibbs_controls["stall_recent_window"],
+                "stall_recent_eps": gibbs_controls["stall_recent_eps"],
+                "diag_every": gibbs_controls["diag_every"],
+                "num_chains_betas": num_chains_betas,
+                "max_num_iter": max_num_iter,
+                "use_mean_betas": use_mean_betas,
+                "warm_start": warm_start,
+                "stopping_preset_name": stopping_preset_name,
+                "r_threshold_burn_in": r_threshold_burn_in,
+                "stop_mcse_quantile": stop_mcse_quantile,
+                "max_abs_mcse_d": max_abs_mcse_d,
+                "max_rel_mcse_beta": max_rel_mcse_beta,
+                "sparse_solution": sparse_solution,
+                "sparse_frac_gibbs": sparse_frac_gibbs,
+                "sparse_max_gibbs": sparse_max_gibbs,
+                "sparse_frac_betas": sparse_frac_betas,
+                "pre_filter_batch_size": pre_filter_batch_size,
+                "max_allowed_batch_correlation": max_allowed_batch_correlation,
+                "initial_linear_filter": initial_linear_filter,
+                "correct_betas_mean": correct_betas_mean,
+                "correct_betas_var": correct_betas_var,
+                "adjust_priors": adjust_priors,
+            },
         )
 
         _reset_gibbs_diagnostics(self)
@@ -16379,69 +16403,6 @@ def _record_and_log_gibbs_configuration(state, run_state, config):
 
 
 # ========================= Outer Gibbs Epoch Execution =========================
-def _build_gibbs_record_control_payload(gibbs_controls):
-    return {
-        "num_chains": gibbs_controls["num_chains"],
-        "max_num_restarts": gibbs_controls["max_num_restarts"],
-        "target_num_epochs": gibbs_controls["target_num_epochs"],
-        "total_num_iter": gibbs_controls["total_num_iter"],
-        "epoch_max_num_iter_config": gibbs_controls["epoch_max_num_iter_config"],
-        "burn_in_rhat_quantile": gibbs_controls["burn_in_rhat_quantile"],
-        "burn_in_patience": gibbs_controls["burn_in_patience"],
-        "first_min_num_burn_in": gibbs_controls["first_min_num_burn_in"],
-        "first_max_num_burn_in": gibbs_controls["first_max_num_burn_in"],
-        "first_min_num_post_burn_in": gibbs_controls["first_min_num_post_burn_in"],
-        "first_max_num_post_burn_in": gibbs_controls["first_max_num_post_burn_in"],
-        "burn_in_stall_window": gibbs_controls["burn_in_stall_window"],
-        "burn_in_stall_delta": gibbs_controls["burn_in_stall_delta"],
-        "active_beta_top_k": gibbs_controls["active_beta_top_k"],
-        "active_beta_min_abs": gibbs_controls["active_beta_min_abs"],
-        "stop_patience": gibbs_controls["stop_patience"],
-        "stop_top_gene_k": gibbs_controls["stop_top_gene_k"],
-        "stop_min_gene_d": gibbs_controls["stop_min_gene_d"],
-        "beta_rel_mcse_denom_floor": gibbs_controls["beta_rel_mcse_denom_floor"],
-        "stall_window": gibbs_controls["stall_window"],
-        "stall_min_burn_in": gibbs_controls["stall_min_burn_in"],
-        "stall_min_post_burn_in": gibbs_controls["stall_min_post_burn_in"],
-        "stall_delta_rhat": gibbs_controls["stall_delta_rhat"],
-        "stall_delta_mcse": gibbs_controls["stall_delta_mcse"],
-        "stall_recent_window": gibbs_controls["stall_recent_window"],
-        "stall_recent_eps": gibbs_controls["stall_recent_eps"],
-        "diag_every": gibbs_controls["diag_every"],
-    }
-
-
-def _build_gibbs_record_dynamic_payload(dynamic_inputs):
-    return {
-        "num_chains_betas": dynamic_inputs["num_chains_betas"],
-        "max_num_iter": dynamic_inputs["max_num_iter"],
-        "use_mean_betas": dynamic_inputs["use_mean_betas"],
-        "warm_start": dynamic_inputs["warm_start"],
-        "stopping_preset_name": dynamic_inputs["stopping_preset_name"],
-        "r_threshold_burn_in": dynamic_inputs["r_threshold_burn_in"],
-        "stop_mcse_quantile": dynamic_inputs["stop_mcse_quantile"],
-        "max_abs_mcse_d": dynamic_inputs["max_abs_mcse_d"],
-        "max_rel_mcse_beta": dynamic_inputs["max_rel_mcse_beta"],
-        "sparse_solution": dynamic_inputs["sparse_solution"],
-        "sparse_frac_gibbs": dynamic_inputs["sparse_frac_gibbs"],
-        "sparse_max_gibbs": dynamic_inputs["sparse_max_gibbs"],
-        "sparse_frac_betas": dynamic_inputs["sparse_frac_betas"],
-        "pre_filter_batch_size": dynamic_inputs["pre_filter_batch_size"],
-        "max_allowed_batch_correlation": dynamic_inputs["max_allowed_batch_correlation"],
-        "initial_linear_filter": dynamic_inputs["initial_linear_filter"],
-        "correct_betas_mean": dynamic_inputs["correct_betas_mean"],
-        "correct_betas_var": dynamic_inputs["correct_betas_var"],
-        "adjust_priors": dynamic_inputs["adjust_priors"],
-    }
-
-
-def _build_gibbs_record_config(gibbs_controls, dynamic_inputs):
-    config = {}
-    config.update(_build_gibbs_record_control_payload(gibbs_controls))
-    config.update(_build_gibbs_record_dynamic_payload(dynamic_inputs))
-    return config
-
-
 def _resolve_epoch_iteration_budget(
     remaining_iter,
     epoch_max_num_iter_config,
