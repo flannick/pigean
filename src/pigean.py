@@ -19172,6 +19172,20 @@ def _run_gibbs_epoch_iterations(
     }
 
 
+def _build_gibbs_iteration_result(
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+    stop_epoch,
+):
+    return {
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+        "stop_epoch": stop_epoch,
+    }
+
+
 def _run_single_gibbs_iteration(
     state,
     run_state,
@@ -19214,12 +19228,12 @@ def _run_single_gibbs_iteration(
     log_bf_uncorrected_m = iteration_update["log_bf_uncorrected_m"]
     log_bf_raw_m = iteration_update["log_bf_raw_m"]
     if iteration_update["should_break"]:
-        return {
-            "log_bf_m": log_bf_m,
-            "log_bf_uncorrected_m": log_bf_uncorrected_m,
-            "log_bf_raw_m": log_bf_raw_m,
-            "stop_epoch": True,
-        }
+        return _build_gibbs_iteration_result(
+            log_bf_m=log_bf_m,
+            log_bf_uncorrected_m=log_bf_uncorrected_m,
+            log_bf_raw_m=log_bf_raw_m,
+            stop_epoch=True,
+        )
 
     iteration_progress_update = _advance_gibbs_iteration_progress(
         state=state,
@@ -19236,12 +19250,12 @@ def _run_single_gibbs_iteration(
         log_bf_m=log_bf_m,
         log_bf_raw_m=log_bf_raw_m,
     )
-    return {
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-        "stop_epoch": iteration_progress_update["done"],
-    }
+    return _build_gibbs_iteration_result(
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+        stop_epoch=iteration_progress_update["done"],
+    )
 
 
 def _apply_gibbs_refresh_update(epoch_priors, refresh_update):
