@@ -16661,6 +16661,10 @@ def _zero_arrays(*arrays):
             arr[:] = 0
 
 
+def _reset_gibbs_post_burn_accumulators(post_burn_reset_arrays, post_burn_reset_missing_arrays):
+    _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+
+
 def _evaluate_burn_in_diagnostics(
     epoch_control,
     burn_in_config,
@@ -16848,7 +16852,7 @@ def _update_gibbs_burn_in_state(
         in_burn_in = False
         burn_in_pass_streak = 0
         stop_pass_streak = 0
-        _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+        _reset_gibbs_post_burn_accumulators(post_burn_reset_arrays, post_burn_reset_missing_arrays)
         log("Stopping Gibbs burn in after %d iterations (per-epoch max burn-in reached)" % (num_samples), INFO)
     elif gauss_seidel:
         if prev_Ys_m is not None:
@@ -16865,7 +16869,7 @@ def _update_gibbs_burn_in_state(
                 in_burn_in = False
                 burn_in_pass_streak = 0
                 stop_pass_streak = 0
-                _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+                _reset_gibbs_post_burn_accumulators(post_burn_reset_arrays, post_burn_reset_missing_arrays)
                 log("Gibbs gauss converged after %d iterations" % num_samples, INFO)
         prev_Ys_m = Y_sample_m
     elif num_samples >= min_num_burn_in_for_epoch and (num_samples % diag_every == 0 or num_samples == epoch_max_num_iter):
@@ -16907,7 +16911,7 @@ def _update_gibbs_burn_in_state(
         if burn_in_pass_streak >= burn_in_patience:
             in_burn_in = False
             stop_pass_streak = 0
-            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+            _reset_gibbs_post_burn_accumulators(post_burn_reset_arrays, post_burn_reset_missing_arrays)
             log(
                 "Burn-in complete at iter %d (beta R-hat q=%.2f on active betas, threshold=%.4g, patience=%d)"
                 % (num_samples, burn_in_rhat_quantile, r_threshold_burn_in, burn_in_patience),
@@ -16917,7 +16921,7 @@ def _update_gibbs_burn_in_state(
             in_burn_in = False
             burn_in_pass_streak = 0
             stop_pass_streak = 0
-            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+            _reset_gibbs_post_burn_accumulators(post_burn_reset_arrays, post_burn_reset_missing_arrays)
             log(
                 "Stopping Gibbs burn in at iter %d due to stall detectors (plateau=%s, recent_worse=%s)"
                 % (num_samples, str(burn_stall_plateau), str(burn_stall_recent_worse)),
@@ -16927,7 +16931,7 @@ def _update_gibbs_burn_in_state(
             in_burn_in = False
             burn_in_pass_streak = 0
             stop_pass_streak = 0
-            _zero_arrays(*(post_burn_reset_arrays + post_burn_reset_missing_arrays))
+            _reset_gibbs_post_burn_accumulators(post_burn_reset_arrays, post_burn_reset_missing_arrays)
             log(
                 "Stopping Gibbs burn in at iter %d due to R-hat plateau (window=%d, span=%.4g < delta=%.4g)"
                 % (num_samples, burn_in_stall_window, burn_window_span, burn_in_stall_delta),
