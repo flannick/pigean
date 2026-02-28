@@ -20693,7 +20693,14 @@ def _compute_gibbs_post_burn_diag_metrics(
         num_sum_beta_m,
         sum_Ds_m,
         num_sum_Y_m,
-    ) = _unpack_gibbs_post_burn_epoch_sums(epoch_sums)
+    ) = (
+        epoch_sums["epoch_aggregates"],
+        epoch_sums["sum_betas_m"],
+        epoch_sums["sum_betas2_m"],
+        epoch_sums["num_sum_beta_m"],
+        epoch_sums["sum_Ds_m"],
+        epoch_sums["num_sum_Y_m"],
+    )
     num_chains = diag_config["num_chains"]
     stop_mcse_quantile = diag_config["stop_mcse_quantile"]
 
@@ -20769,46 +20776,6 @@ def _compute_gibbs_post_burn_diag_metrics(
     }
 
 
-def _unpack_gibbs_post_burn_epoch_sums(epoch_sums):
-    return (
-        epoch_sums["epoch_aggregates"],
-        epoch_sums["sum_betas_m"],
-        epoch_sums["sum_betas2_m"],
-        epoch_sums["num_sum_beta_m"],
-        epoch_sums["sum_Ds_m"],
-        epoch_sums["num_sum_Y_m"],
-    )
-
-
-def _unpack_gibbs_post_burn_diag_config(diag_config):
-    return (
-        diag_config["stop_mcse_quantile"],
-        diag_config["beta_rel_mcse_denom_floor"],
-        diag_config["stop_min_gene_d"],
-        diag_config["max_rel_mcse_beta"],
-        diag_config["max_abs_mcse_d"],
-        diag_config["stop_patience"],
-        diag_config["num_full_gene_sets"],
-        diag_config["burn_in_patience"],
-    )
-
-
-def _unpack_gibbs_post_burn_diag_metrics(diag_metrics):
-    return (
-        diag_metrics["num_chains_effective_for_diag"],
-        diag_metrics["num_active_betas"],
-        diag_metrics["beta_mcse_v"],
-        diag_metrics["beta_rhat_q_post"],
-        diag_metrics["beta_ratio_q"],
-        diag_metrics["D_mcse_v"],
-        diag_metrics["top_gene_k"],
-        diag_metrics["num_monitored_genes"],
-        diag_metrics["num_eligible_genes"],
-        diag_metrics["D_mcse_q"],
-        diag_metrics["post_stall_update"],
-    )
-
-
 def _update_gibbs_post_burn_precision_streak(
     stop_pass_streak,
     beta_ratio_q,
@@ -20844,7 +20811,16 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         stop_patience,
         num_full_gene_sets,
         burn_in_patience,
-    ) = _unpack_gibbs_post_burn_diag_config(diag_config)
+    ) = (
+        diag_config["stop_mcse_quantile"],
+        diag_config["beta_rel_mcse_denom_floor"],
+        diag_config["stop_min_gene_d"],
+        diag_config["max_rel_mcse_beta"],
+        diag_config["max_abs_mcse_d"],
+        diag_config["stop_patience"],
+        diag_config["num_full_gene_sets"],
+        diag_config["burn_in_patience"],
+    )
 
     epoch_iter_num = iter_state["epoch_iter_num"]
     total_iter_num = iter_state["total_iter_num"]
@@ -20872,7 +20848,19 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         num_eligible_genes,
         D_mcse_q,
         post_stall_update,
-    ) = _unpack_gibbs_post_burn_diag_metrics(diag_metrics)
+    ) = (
+        diag_metrics["num_chains_effective_for_diag"],
+        diag_metrics["num_active_betas"],
+        diag_metrics["beta_mcse_v"],
+        diag_metrics["beta_rhat_q_post"],
+        diag_metrics["beta_ratio_q"],
+        diag_metrics["D_mcse_v"],
+        diag_metrics["top_gene_k"],
+        diag_metrics["num_monitored_genes"],
+        diag_metrics["num_eligible_genes"],
+        diag_metrics["D_mcse_q"],
+        diag_metrics["post_stall_update"],
+    )
 
     post_stall_beta_indices = post_stall_update["post_stall_beta_indices"]
     post_stall_gene_indices = post_stall_update["post_stall_gene_indices"]
