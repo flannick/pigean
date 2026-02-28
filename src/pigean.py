@@ -4857,9 +4857,6 @@ class GeneSetData(object):
         left_dists[lower_ignore_mask] = np.inf
         left_dists[left_dists == 0] = 1
 
-        right_dist = np.min(right_dists, axis=0)
-        left_dist = np.min(left_dists, axis=0)
-
         right_sum = np.sum(1.0 / right_dists, axis=0)
         left_sum = np.sum(1.0 / left_dists, axis=0)
         right_left_sum = right_sum + left_sum
@@ -4870,10 +4867,6 @@ class GeneSetData(object):
         num_left_small = np.sum(left_dists < small_dist, axis=0)
         num_right_large = np.sum(right_dists < large_dist, axis=0)
         num_left_large = np.sum(left_dists < large_dist, axis=0)
-
-        num_small = num_right_small + num_left_small
-        num_large = num_right_large + num_left_large
-        gene_size = gene_pos[gene_end_indices] - gene_pos[gene_start_indices]
 
         chrom_start = np.max((np.min(gene_pos) - 1e6, 0))
         chrom_end = np.max(gene_pos) + 1e6
@@ -4888,8 +4881,8 @@ class GeneSetData(object):
             sim_gene_prob_causal_orig,
             sim_gene_indices,
             sim_gene_po,
-            sim_gene_prob_causal_norm_orig,
-            sim_gene_indices_norm,
+            _sim_gene_prob_causal_norm_orig,
+            _sim_gene_indices_norm,
         ) = self._compute_huge_gene_posterior(
             region_pos=sim_variant_positions,
             full_prob=np.ones(len(sim_variant_positions)),
@@ -4909,9 +4902,6 @@ class GeneSetData(object):
         sim_gene_prob_causal = np.zeros(len(gene_names))
         for i in range(len(sim_gene_indices)):
             sim_gene_prob_causal[sim_gene_indices[i]] = sim_gene_prob_causal_orig[i]
-        sim_gene_prob_causal_norm = np.zeros(len(gene_names))
-        for i in range(len(sim_gene_indices_norm)):
-            sim_gene_prob_causal_norm[sim_gene_indices_norm[i]] = sim_gene_prob_causal_norm_orig[i]
 
         cur_gene_covariates = np.vstack(
             (
