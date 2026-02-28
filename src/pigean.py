@@ -17881,6 +17881,23 @@ def _accumulate_gibbs_post_burn_iteration(
         epoch_sums["num_sum_priors_missing_m"] += 1
 
 
+def _build_gibbs_logistic_config(iteration_input_config, num_chains):
+    return {
+        "full_betas_m_shape": iteration_input_config["full_betas_m_shape"],
+        "num_stack_batches": iteration_input_config["num_stack_batches"],
+        "stack_batch_size": iteration_input_config["stack_batch_size"],
+        "X_hstacked": iteration_input_config["X_hstacked"],
+        "inner_beta_kwargs": iteration_input_config["inner_beta_kwargs"],
+        "num_chains": num_chains,
+        "gauss_seidel": iteration_input_config["gauss_seidel"],
+        "initial_linear_filter": iteration_input_config["initial_linear_filter"],
+        "sparse_frac_gibbs": iteration_input_config["sparse_frac_gibbs"],
+        "sparse_max_gibbs": iteration_input_config["sparse_max_gibbs"],
+        "correct_betas_mean": iteration_input_config["correct_betas_mean"],
+        "correct_betas_var": iteration_input_config["correct_betas_var"],
+    }
+
+
 def _prepare_gibbs_iteration_inputs(
     state,
     iteration_num,
@@ -17890,19 +17907,8 @@ def _prepare_gibbs_iteration_inputs(
 ):
     epoch_total_iter_offset = iteration_input_config["epoch_total_iter_offset"]
     trace_chain_offset = iteration_input_config["trace_chain_offset"]
-    full_betas_m_shape = iteration_input_config["full_betas_m_shape"]
-    num_stack_batches = iteration_input_config["num_stack_batches"]
-    stack_batch_size = iteration_input_config["stack_batch_size"]
-    X_hstacked = iteration_input_config["X_hstacked"]
-    inner_beta_kwargs = iteration_input_config["inner_beta_kwargs"]
     cur_background_log_bf_v = iteration_input_config["cur_background_log_bf_v"]
     y_var_orig = iteration_input_config["y_var_orig"]
-    gauss_seidel = iteration_input_config["gauss_seidel"]
-    initial_linear_filter = iteration_input_config["initial_linear_filter"]
-    sparse_frac_gibbs = iteration_input_config["sparse_frac_gibbs"]
-    sparse_max_gibbs = iteration_input_config["sparse_max_gibbs"]
-    correct_betas_mean = iteration_input_config["correct_betas_mean"]
-    correct_betas_var = iteration_input_config["correct_betas_var"]
     epoch_priors = iteration_input_config["epoch_priors"]
     gene_stats_trace_fh = iteration_input_config["gene_stats_trace_fh"]
 
@@ -17937,26 +17943,14 @@ def _prepare_gibbs_iteration_inputs(
         log("Adjusting correlation matrix")
     y_corr_sparse = _compute_gibbs_y_corr_sparse(state.y_corr_sparse, priors_for_Y_m, y_var_orig)
 
+    logistic_config = _build_gibbs_logistic_config(iteration_input_config, len(Y_sample_m))
     logistic_setup = _compute_gibbs_logistic_beta_tildes(
         state=state,
         Y_sample_m=Y_sample_m,
         y_var=y_var,
         D_sample_m=D_sample_m,
         y_corr_sparse=y_corr_sparse,
-        logistic_config={
-            "full_betas_m_shape": full_betas_m_shape,
-            "num_stack_batches": num_stack_batches,
-            "stack_batch_size": stack_batch_size,
-            "X_hstacked": X_hstacked,
-            "inner_beta_kwargs": inner_beta_kwargs,
-            "num_chains": len(Y_sample_m),
-            "gauss_seidel": gauss_seidel,
-            "initial_linear_filter": initial_linear_filter,
-            "sparse_frac_gibbs": sparse_frac_gibbs,
-            "sparse_max_gibbs": sparse_max_gibbs,
-            "correct_betas_mean": correct_betas_mean,
-            "correct_betas_var": correct_betas_var,
-        },
+        logistic_config=logistic_config,
     )
 
     p_sample_m = logistic_setup["p_sample_m"]
