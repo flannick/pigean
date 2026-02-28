@@ -21138,50 +21138,6 @@ def _maybe_end_gibbs_epoch_for_post_burn_cap(
     return done
 
 
-def _unpack_gibbs_post_burn_epoch_control(epoch_control):
-    return (
-        epoch_control["in_burn_in"],
-        epoch_control["stop_pass_streak"],
-        epoch_control["post_stall_beta_indices"],
-        epoch_control["post_stall_gene_indices"],
-        epoch_control["betas_sem2_v"],
-        epoch_control["sem2_v"],
-        epoch_control["stop_due_to_precision"],
-        epoch_control["restart_due_to_stall"],
-        epoch_control["stop_due_to_stall"],
-    )
-
-
-def _unpack_gibbs_post_burn_iter_state(iter_state):
-    return (
-        iter_state["epoch_iter_num"],
-        iter_state["total_iter_num"],
-        iter_state["Y_sample_m"],
-        iter_state["Y_raw_sample_m"],
-        iter_state["log_po_sample_m"],
-        iter_state["log_po_raw_sample_m"],
-        iter_state["D_sample_m"],
-        iter_state["D_raw_sample_m"],
-        iter_state["uncorrected_betas_mean_m"],
-        iter_state["full_beta_tildes_m"],
-        iter_state["full_z_scores_m"],
-    )
-
-
-def _unpack_gibbs_post_burn_diag_update(post_burn_diag_update):
-    return (
-        post_burn_diag_update["stop_pass_streak"],
-        post_burn_diag_update["post_stall_beta_indices"],
-        post_burn_diag_update["post_stall_gene_indices"],
-        post_burn_diag_update["betas_sem2_v"],
-        post_burn_diag_update["sem2_v"],
-        post_burn_diag_update["done"],
-        post_burn_diag_update["stop_due_to_precision"],
-        post_burn_diag_update["restart_due_to_stall"],
-        post_burn_diag_update["stop_due_to_stall"],
-    )
-
-
 def _update_gibbs_post_burn_state(
     state,
     max_num_post_burn_in_for_epoch,
@@ -21209,7 +21165,17 @@ def _update_gibbs_post_burn_state(
         stop_due_to_precision,
         restart_due_to_stall,
         stop_due_to_stall,
-    ) = _unpack_gibbs_post_burn_epoch_control(epoch_control)
+    ) = (
+        epoch_control["in_burn_in"],
+        epoch_control["stop_pass_streak"],
+        epoch_control["post_stall_beta_indices"],
+        epoch_control["post_stall_gene_indices"],
+        epoch_control["betas_sem2_v"],
+        epoch_control["sem2_v"],
+        epoch_control["stop_due_to_precision"],
+        epoch_control["restart_due_to_stall"],
+        epoch_control["stop_due_to_stall"],
+    )
     done = False
     (
         epoch_iter_num,
@@ -21223,7 +21189,19 @@ def _update_gibbs_post_burn_state(
         uncorrected_betas_mean_m,
         full_beta_tildes_m,
         full_z_scores_m,
-    ) = _unpack_gibbs_post_burn_iter_state(iter_state)
+    ) = (
+        iter_state["epoch_iter_num"],
+        iter_state["total_iter_num"],
+        iter_state["Y_sample_m"],
+        iter_state["Y_raw_sample_m"],
+        iter_state["log_po_sample_m"],
+        iter_state["log_po_raw_sample_m"],
+        iter_state["D_sample_m"],
+        iter_state["D_raw_sample_m"],
+        iter_state["uncorrected_betas_mean_m"],
+        iter_state["full_beta_tildes_m"],
+        iter_state["full_z_scores_m"],
+    )
 
     priors_for_Y_m = epoch_priors["priors_for_Y_m"]
     priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
@@ -21369,7 +21347,17 @@ def _advance_gibbs_post_burn_state(
         stop_due_to_precision,
         restart_due_to_stall,
         stop_due_to_stall,
-    ) = _unpack_gibbs_post_burn_diag_update(post_burn_diag_update)
+    ) = (
+        post_burn_diag_update["stop_pass_streak"],
+        post_burn_diag_update["post_stall_beta_indices"],
+        post_burn_diag_update["post_stall_gene_indices"],
+        post_burn_diag_update["betas_sem2_v"],
+        post_burn_diag_update["sem2_v"],
+        post_burn_diag_update["done"],
+        post_burn_diag_update["stop_due_to_precision"],
+        post_burn_diag_update["restart_due_to_stall"],
+        post_burn_diag_update["stop_due_to_stall"],
+    )
 
     done = _maybe_end_gibbs_epoch_for_post_burn_cap(
         done=done,
