@@ -20491,6 +20491,43 @@ def _apply_gibbs_post_burn_update_to_epoch_control(epoch_control, post_burn_upda
         epoch_control[key] = post_burn_update[key]
 
 
+def _write_gibbs_iteration_gene_set_stats_trace(
+    gene_set_stats_trace_fh,
+    iteration_num,
+    trace_chain_offset,
+    state,
+    iter_state,
+    full_betas_mean_m,
+    full_betas_sample_m,
+    full_postp_mean_m,
+    full_postp_sample_m,
+    R_beta_v,
+    betas_sem2_v,
+    use_mean_betas,
+):
+    _maybe_write_gibbs_gene_set_stats_trace(
+        gene_set_stats_trace_fh,
+        iteration_num,
+        trace_chain_offset,
+        state.gene_sets,
+        state.scale_factors,
+        iter_state["full_beta_tildes_m"],
+        iter_state["full_p_values_m"],
+        iter_state["full_z_scores_m"],
+        iter_state["full_ses_m"],
+        iter_state["uncorrected_betas_mean_m"],
+        iter_state["uncorrected_betas_sample_m"],
+        full_betas_mean_m,
+        full_betas_sample_m,
+        full_postp_mean_m,
+        full_postp_sample_m,
+        iter_state["full_z_cur_beta_tildes_m"],
+        R_beta_v,
+        betas_sem2_v,
+        use_mean_betas,
+    )
+
+
 def _advance_gibbs_iteration_progress(
     state,
     epoch_control,
@@ -20557,23 +20594,16 @@ def _advance_gibbs_iteration_progress(
         full_postp_sample_m=full_postp_sample_m,
     )
 
-    _maybe_write_gibbs_gene_set_stats_trace(
+    _write_gibbs_iteration_gene_set_stats_trace(
         gene_set_stats_trace_fh,
         iteration_num,
         trace_chain_offset,
-        state.gene_sets,
-        state.scale_factors,
-        iter_state["full_beta_tildes_m"],
-        iter_state["full_p_values_m"],
-        iter_state["full_z_scores_m"],
-        iter_state["full_ses_m"],
-        iter_state["uncorrected_betas_mean_m"],
-        iter_state["uncorrected_betas_sample_m"],
+        state,
+        iter_state,
         full_betas_mean_m,
         full_betas_sample_m,
         full_postp_mean_m,
         full_postp_sample_m,
-        iter_state["full_z_cur_beta_tildes_m"],
         epoch_control["R_beta_v"],
         post_burn_update["betas_sem2_v"],
         iteration_progress_config["use_mean_betas"],
