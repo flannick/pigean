@@ -19500,6 +19500,26 @@ def _run_gibbs_finalize_priors_step(
     )
 
 
+def _build_gibbs_iteration_betas_priors_result(
+    full_betas_sample_m,
+    full_postp_sample_m,
+    full_betas_mean_m,
+    full_postp_mean_m,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    return {
+        "full_betas_sample_m": full_betas_sample_m,
+        "full_postp_sample_m": full_postp_sample_m,
+        "full_betas_mean_m": full_betas_mean_m,
+        "full_postp_mean_m": full_postp_mean_m,
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+    }
+
+
 def _compute_gibbs_iteration_betas_and_priors(
     state,
     iter_state,
@@ -19554,15 +19574,15 @@ def _compute_gibbs_iteration_betas_and_priors(
     )
     _apply_gibbs_prior_update(epoch_priors, prior_update)
 
-    return {
-        "full_betas_sample_m": full_betas_sample_m,
-        "full_postp_sample_m": full_postp_sample_m,
-        "full_betas_mean_m": full_betas_mean_m,
-        "full_postp_mean_m": full_postp_mean_m,
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-    }
+    return _build_gibbs_iteration_betas_priors_result(
+        full_betas_sample_m=full_betas_sample_m,
+        full_postp_sample_m=full_postp_sample_m,
+        full_betas_mean_m=full_betas_mean_m,
+        full_postp_mean_m=full_postp_mean_m,
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
 
 
 def _apply_gibbs_iteration_betas_priors_state(iteration_betas_priors):
