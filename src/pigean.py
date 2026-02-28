@@ -18975,6 +18975,15 @@ def _compute_gibbs_logistic_outputs_for_batches(
     }
 
 
+def _log_gibbs_logistic_divergence(diverged_m, gene_sets):
+    if np.sum(diverged_m) == 0:
+        return
+    for c in range(diverged_m.shape[0]):
+        if np.sum(diverged_m[c,:] > 0):
+            for p in np.nditer(np.where(diverged_m[c,:])):
+                log("Chain %d: gene set %s diverged" % (c + 1, gene_sets[p]), DEBUG)
+
+
 def _compute_gibbs_logistic_beta_tildes_batch(
     state,
     pre_gene_set_filter_mask,
@@ -19075,11 +19084,7 @@ def _compute_gibbs_logistic_beta_tildes(
     # Legacy outlier-z filtering was experimental and is disabled in this path.
     full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
 
-    if np.sum(diverged_m) > 0:
-        for c in range(diverged_m.shape[0]):
-            if np.sum(diverged_m[c,:] > 0):
-                for p in np.nditer(np.where(diverged_m[c,:])):
-                    log("Chain %d: gene set %s diverged" % (c+1, state.gene_sets[p]), DEBUG)
+    _log_gibbs_logistic_divergence(diverged_m, state.gene_sets)
     if correct_betas_mean or correct_betas_var:
         (full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m) = state._correct_beta_tildes(full_beta_tildes_m, full_ses_m, se_inflation_factors_m, state.total_qc_metrics, state.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, fit=False)
 
