@@ -19074,11 +19074,13 @@ def _run_single_gibbs_epoch_attempt(
         epoch_phase_config=epoch_phase_config,
     )
     if epoch_attempt is None:
-        return _build_gibbs_epoch_attempt_not_started_result(
-            log_bf_m=log_bf_m,
-            log_bf_uncorrected_m=log_bf_uncorrected_m,
-            log_bf_raw_m=log_bf_raw_m,
-        )
+        return {
+            "attempt_started": False,
+            "should_continue": False,
+            "log_bf_m": log_bf_m,
+            "log_bf_uncorrected_m": log_bf_uncorrected_m,
+            "log_bf_raw_m": log_bf_raw_m,
+        }
 
     epoch_context = _start_gibbs_epoch(
         state=state,
@@ -19150,22 +19152,6 @@ def _run_single_gibbs_epoch_attempt(
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
         "log_bf_raw_m": log_bf_raw_m,
     }
-
-
-def _build_gibbs_epoch_attempt_not_started_result(
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    return {
-        "attempt_started": False,
-        "should_continue": False,
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-    }
-
-
 def _apply_gibbs_epoch_finalize_run_state(run_state, epoch_runtime, epoch_finalize_update):
     run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
     run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
