@@ -17423,13 +17423,25 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
     if state.gene_sets_missing is not None:
         state._unsubset_gene_sets(skip_V=True)
 
-    X_hstacked, stack_batch_size, num_stack_batches = _build_gibbs_chain_stack(
-        state.X_orig,
-        num_chains,
-        max_mb_X_h,
-        state._get_X_size_mb(),
-        log_fun,
-    )
+    stack_batch_size = num_chains + 1
+    if num_chains > 1:
+        X_size_mb = state._get_X_size_mb()
+        X_h_size_mb = num_chains * X_size_mb
+        if X_h_size_mb <= max_mb_X_h:
+            X_hstacked = sparse.hstack([state.X_orig] * num_chains)
+        else:
+            stack_batch_size = int(max_mb_X_h / X_size_mb)
+            if stack_batch_size == 0:
+                stack_batch_size = 1
+            log_fun(
+                "Not building X_hstacked, size would be %d > %d; will instead run %d chains at a time"
+                % (X_h_size_mb, max_mb_X_h, stack_batch_size)
+            )
+            X_hstacked = sparse.hstack([state.X_orig] * stack_batch_size)
+    else:
+        X_hstacked = state.X_orig
+
+    num_stack_batches = int(np.ceil(num_chains / float(stack_batch_size)))
 
     return {
         "full_betas_m_shape": full_betas_m_shape,
@@ -17685,25 +17697,6 @@ def _maybe_write_gibbs_gene_set_stats_trace(
         use_mean_betas,
     )
     gene_set_stats_trace_fh.flush()
-
-
-def _build_gibbs_chain_stack(X_orig, num_chains, max_mb_X_h, X_size_mb, log_fun):
-    stack_batch_size = num_chains + 1
-    if num_chains > 1:
-        X_h_size_mb = num_chains * X_size_mb
-        if X_h_size_mb <= max_mb_X_h:
-            X_hstacked = sparse.hstack([X_orig] * num_chains)
-        else:
-            stack_batch_size = int(max_mb_X_h / X_size_mb)
-            if stack_batch_size == 0:
-                stack_batch_size = 1
-            log_fun("Not building X_hstacked, size would be %d > %d; will instead run %d chains at a time" % (X_h_size_mb, max_mb_X_h, stack_batch_size))
-            X_hstacked = sparse.hstack([X_orig] * stack_batch_size)
-    else:
-        X_hstacked = X_orig
-
-    num_stack_batches = int(np.ceil(num_chains / float(stack_batch_size)))
-    return (X_hstacked, stack_batch_size, num_stack_batches)
 
 
 def _outlier_resistant_mean(sum_m, num_sum_m, num_mad, outlier_mask_m=None, record_param_fn=None):
