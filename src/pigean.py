@@ -19849,6 +19849,14 @@ def _unpack_gibbs_logistic_outputs(logistic_outputs):
     )
 
 
+def _build_gibbs_logistic_p_sample(Y_sample_m, D_sample_m, gauss_seidel):
+    if not gauss_seidel:
+        log("Sampling Ds for logistic", TRACE)
+    else:
+        log("Setting Ds to mean probabilities", TRACE)
+    return _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
+
+
 def _compute_gibbs_logistic_beta_tildes(
     state,
     Y_sample_m,
@@ -19880,11 +19888,11 @@ def _compute_gibbs_logistic_beta_tildes(
         full_sigma2s_m,
     ) = _unpack_gibbs_chain_expanded_gene_set_state(expanded_state)
 
-    if not gauss_seidel:
-        log("Sampling Ds for logistic", TRACE)
-    else:
-        log("Setting Ds to mean probabilities", TRACE)
-    p_sample_m = _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
+    p_sample_m = _build_gibbs_logistic_p_sample(
+        Y_sample_m=Y_sample_m,
+        D_sample_m=D_sample_m,
+        gauss_seidel=gauss_seidel,
+    )
 
     pre_gene_set_filter_mask = _compute_gibbs_pre_gene_set_filter_mask(
         state=state,
