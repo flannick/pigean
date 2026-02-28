@@ -19401,39 +19401,11 @@ def _run_gibbs_epoch_iterations(
         if iteration_step["stop_epoch"]:
             break
 
-    return _build_gibbs_epoch_iteration_loop_result(
-        iteration_num=iteration_num,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-    )
-
-
-def _build_gibbs_epoch_iteration_loop_result(
-    iteration_num,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
     return {
         "iteration_num": iteration_num,
         "log_bf_m": log_bf_m,
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
         "log_bf_raw_m": log_bf_raw_m,
-    }
-
-
-def _build_gibbs_iteration_result(
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-    stop_epoch,
-):
-    return {
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-        "stop_epoch": stop_epoch,
     }
 
 
@@ -19517,12 +19489,12 @@ def _finalize_gibbs_iteration_after_correction(
     log_bf_raw_m,
 ):
     if should_break:
-        return _build_gibbs_iteration_result(
-            log_bf_m=log_bf_m,
-            log_bf_uncorrected_m=log_bf_uncorrected_m,
-            log_bf_raw_m=log_bf_raw_m,
-            stop_epoch=True,
-        )
+        return {
+            "log_bf_m": log_bf_m,
+            "log_bf_uncorrected_m": log_bf_uncorrected_m,
+            "log_bf_raw_m": log_bf_raw_m,
+            "stop_epoch": True,
+        }
 
     iteration_progress_update = _advance_gibbs_iteration_progress(
         state=state,
@@ -19540,12 +19512,12 @@ def _finalize_gibbs_iteration_after_correction(
         log_bf_raw_m=log_bf_raw_m,
     )
     stop_epoch = iteration_progress_update["done"]
-    return _build_gibbs_iteration_result(
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-        stop_epoch=stop_epoch,
-    )
+    return {
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+        "stop_epoch": stop_epoch,
+    }
 
 
 def _apply_gibbs_refresh_update(epoch_priors, refresh_update):
