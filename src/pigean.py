@@ -886,6 +886,16 @@ def _build_mode_state(_mode, _run_phewas_from_gene_phewas_stats_in):
     return mode_state
 
 
+def _build_runtime_state(_options):
+    state = PigeanState(background_prior=_options.background_prior, batch_size=_options.batch_size)
+    state.debug_old_batch = _options.debug_old_batch
+    state.debug_skip_correlation = _options.debug_skip_correlation
+    state.debug_skip_phewas_covs = _options.debug_skip_phewas_covs
+    state.debug_only_avg_huge = _options.debug_only_avg_huge
+    state.debug_just_check_header = _options.debug_just_check_header
+    return state
+
+
 _GIBBS_STOPPING_PRESETS = {
     "lenient": {
         "stop_mcse_quantile": 0.90,
@@ -22374,12 +22384,7 @@ def main():
         log("Numpy version: %s" % np.__version__)
         log("Scipy version: %s" % scipy.__version__)
         log("Options: %s" % options)
-    state = PigeanState(background_prior=options.background_prior, batch_size=options.batch_size)
-    state.debug_old_batch = options.debug_old_batch
-    state.debug_skip_correlation = options.debug_skip_correlation
-    state.debug_skip_phewas_covs = options.debug_skip_phewas_covs
-    state.debug_only_avg_huge = options.debug_only_avg_huge
-    state.debug_just_check_header = options.debug_just_check_header
+    state = _build_runtime_state(options)
     mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 
     # ==========================================================================
