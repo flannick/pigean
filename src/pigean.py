@@ -21497,6 +21497,40 @@ def _advance_gibbs_iteration_progress(
         full_postp_sample_m=full_postp_sample_m,
     )
 
+    return _finalize_gibbs_iteration_progress(
+        state=state,
+        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+        iteration_num=iteration_num,
+        trace_chain_offset=trace_chain_offset,
+        iter_state=iter_state,
+        full_betas_mean_m=full_betas_mean_m,
+        full_betas_sample_m=full_betas_sample_m,
+        full_postp_mean_m=full_postp_mean_m,
+        full_postp_sample_m=full_postp_sample_m,
+        R_beta_v=epoch_control["R_beta_v"],
+        betas_sem2_v=post_burn_update["betas_sem2_v"],
+        use_mean_betas=iteration_progress_config["use_mean_betas"],
+        epoch_control=epoch_control,
+        post_burn_update=post_burn_update,
+    )
+
+
+def _finalize_gibbs_iteration_progress(
+    state,
+    gene_set_stats_trace_fh,
+    iteration_num,
+    trace_chain_offset,
+    iter_state,
+    full_betas_mean_m,
+    full_betas_sample_m,
+    full_postp_mean_m,
+    full_postp_sample_m,
+    R_beta_v,
+    betas_sem2_v,
+    use_mean_betas,
+    epoch_control,
+    post_burn_update,
+):
     _write_gibbs_iteration_gene_set_stats_trace(
         gene_set_stats_trace_fh,
         iteration_num,
@@ -21507,9 +21541,9 @@ def _advance_gibbs_iteration_progress(
         full_betas_sample_m,
         full_postp_mean_m,
         full_postp_sample_m,
-        epoch_control["R_beta_v"],
-        post_burn_update["betas_sem2_v"],
-        iteration_progress_config["use_mean_betas"],
+        R_beta_v,
+        betas_sem2_v,
+        use_mean_betas,
     )
 
     _apply_gibbs_post_burn_update_to_epoch_control(epoch_control, post_burn_update)
