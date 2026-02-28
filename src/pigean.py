@@ -21789,6 +21789,18 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
                         default_betas_mean_m[set_to_zero_full] = half_corrected_betas_mean_m[add_zero_mask_m]
                         default_postp_mean_m[set_to_zero_full] = half_corrected_postp_mean_m[add_zero_mask_m]
 
+    gene_set_mask_m = _normalize_gibbs_gene_set_mask_across_chains(gene_set_mask_m)
+
+    return (
+        gene_set_mask_m,
+        default_betas_sample_m,
+        default_postp_sample_m,
+        default_betas_mean_m,
+        default_postp_mean_m,
+    )
+
+
+def _normalize_gibbs_gene_set_mask_across_chains(gene_set_mask_m):
     if sum(np.any(gene_set_mask_m, axis=0)) == 0:
         gene_set_mask_m[:,0] = 1
 
@@ -21808,14 +21820,7 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
                 cur_num += 1
                 if cur_num >= max_num_non_missing - num_non_missing_v[chain_num]:
                     break
-
-    return (
-        gene_set_mask_m,
-        default_betas_sample_m,
-        default_postp_sample_m,
-        default_betas_mean_m,
-        default_postp_mean_m,
-    )
+    return gene_set_mask_m
 
 
 def _unpack_gibbs_prefilter_iter_state(iter_state):
