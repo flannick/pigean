@@ -21965,7 +21965,38 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
                 gene_set_mask_subset = gene_set_mask_m[i,cur_gene_set_mask]
                 V_m[j,:,:] = V_superset[gene_set_mask_subset,:][:,gene_set_mask_subset]
 
-        (cur_betas_sample_m, cur_postp_sample_m, cur_betas_mean_m, cur_postp_mean_m) = state._calculate_non_inf_betas(initial_p=None, beta_tildes=beta_tildes_m, ses=ses_m, V=V_m, scale_factors=scale_factors_m, mean_shifts=mean_shifts_m, is_dense_gene_set=is_dense_gene_set_m, ps=ps_m, sigma2s=sigma2s_m, return_sample=True, max_num_burn_in=passed_in_max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=gauss_seidel_betas, update_hyper_sigma=False, update_hyper_p=False, num_missing_gene_sets=num_missing, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, betas_trace_out=betas_trace_out, debug_gene_sets=[state.gene_sets[i] for i in range(len(state.gene_sets)) if gene_set_mask_m[0,i]], init_betas=init_betas_m, init_postp=init_postp_m)
+        (
+            cur_betas_sample_m,
+            cur_postp_sample_m,
+            cur_betas_mean_m,
+            cur_postp_mean_m,
+        ) = _run_gibbs_corrected_beta_sampler(
+            state=state,
+            beta_tildes_m=beta_tildes_m,
+            ses_m=ses_m,
+            V_m=V_m,
+            scale_factors_m=scale_factors_m,
+            mean_shifts_m=mean_shifts_m,
+            is_dense_gene_set_m=is_dense_gene_set_m,
+            ps_m=ps_m,
+            sigma2s_m=sigma2s_m,
+            passed_in_max_num_burn_in=passed_in_max_num_burn_in,
+            max_num_iter_betas=max_num_iter_betas,
+            min_num_iter_betas=min_num_iter_betas,
+            num_chains_betas=num_chains_betas,
+            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+            max_frac_sem_betas=max_frac_sem_betas,
+            max_allowed_batch_correlation=max_allowed_batch_correlation,
+            gauss_seidel_betas=gauss_seidel_betas,
+            num_missing=num_missing,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            betas_trace_out=betas_trace_out,
+            gene_set_mask_m=gene_set_mask_m,
+            init_betas_m=init_betas_m,
+            init_postp_m=init_postp_m,
+        )
 
         if run_one_V:
             full_betas_sample_m[begin:end,cur_gene_set_mask] = cur_betas_sample_m
@@ -22000,6 +22031,65 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
         full_postp_sample_m,
         full_betas_mean_m,
         full_postp_mean_m,
+    )
+
+
+def _run_gibbs_corrected_beta_sampler(
+    state,
+    beta_tildes_m,
+    ses_m,
+    V_m,
+    scale_factors_m,
+    mean_shifts_m,
+    is_dense_gene_set_m,
+    ps_m,
+    sigma2s_m,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    num_missing,
+    sparse_solution,
+    sparse_frac_betas,
+    betas_trace_out,
+    gene_set_mask_m,
+    init_betas_m,
+    init_postp_m,
+):
+    return state._calculate_non_inf_betas(
+        initial_p=None,
+        beta_tildes=beta_tildes_m,
+        ses=ses_m,
+        V=V_m,
+        scale_factors=scale_factors_m,
+        mean_shifts=mean_shifts_m,
+        is_dense_gene_set=is_dense_gene_set_m,
+        ps=ps_m,
+        sigma2s=sigma2s_m,
+        return_sample=True,
+        max_num_burn_in=passed_in_max_num_burn_in,
+        max_num_iter=max_num_iter_betas,
+        min_num_iter=min_num_iter_betas,
+        num_chains=num_chains_betas,
+        r_threshold_burn_in=r_threshold_burn_in_betas,
+        use_max_r_for_convergence=use_max_r_for_convergence_betas,
+        max_frac_sem=max_frac_sem_betas,
+        max_allowed_batch_correlation=max_allowed_batch_correlation,
+        gauss_seidel=gauss_seidel_betas,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        num_missing_gene_sets=num_missing,
+        sparse_solution=sparse_solution,
+        sparse_frac_betas=sparse_frac_betas,
+        betas_trace_out=betas_trace_out,
+        debug_gene_sets=[state.gene_sets[i] for i in range(len(state.gene_sets)) if gene_set_mask_m[0,i]],
+        init_betas=init_betas_m,
+        init_postp=init_postp_m,
     )
 
 
