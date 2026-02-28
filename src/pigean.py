@@ -20328,6 +20328,24 @@ def _run_optional_gibbs_post_burn_diagnostics(
     }
 
 
+def _maybe_end_gibbs_epoch_for_post_burn_cap(
+    done,
+    num_sum_Y_m,
+    max_num_post_burn_in_for_epoch,
+    epoch_iter_num,
+    total_iter_num,
+):
+    num_post_burn_samples_now = int(np.min(num_sum_Y_m))
+    if (not done) and num_post_burn_samples_now >= max_num_post_burn_in_for_epoch:
+        done = True
+        log(
+            "Ending Gibbs epoch at iter %d (global %d) after %d post-burn samples (per-epoch max post-burn reached)"
+            % (epoch_iter_num, total_iter_num, num_post_burn_samples_now),
+            INFO,
+        )
+    return done
+
+
 def _update_gibbs_post_burn_state(
     state,
     max_num_post_burn_in_for_epoch,
@@ -20435,14 +20453,13 @@ def _update_gibbs_post_burn_state(
     restart_due_to_stall = post_burn_diag_update["restart_due_to_stall"]
     stop_due_to_stall = post_burn_diag_update["stop_due_to_stall"]
 
-    num_post_burn_samples_now = int(np.min(epoch_sums["num_sum_Y_m"]))
-    if (not done) and num_post_burn_samples_now >= max_num_post_burn_in_for_epoch:
-        done = True
-        log(
-            "Ending Gibbs epoch at iter %d (global %d) after %d post-burn samples (per-epoch max post-burn reached)"
-            % (epoch_iter_num, total_iter_num, num_post_burn_samples_now),
-            INFO,
-        )
+    done = _maybe_end_gibbs_epoch_for_post_burn_cap(
+        done=done,
+        num_sum_Y_m=epoch_sums["num_sum_Y_m"],
+        max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
+        epoch_iter_num=epoch_iter_num,
+        total_iter_num=total_iter_num,
+    )
 
     return _build_gibbs_post_burn_control_update(
         stop_pass_streak=stop_pass_streak,
