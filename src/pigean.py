@@ -19857,6 +19857,36 @@ def _build_gibbs_logistic_p_sample(Y_sample_m, D_sample_m, gauss_seidel):
     return _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
 
 
+def _build_gibbs_logistic_beta_tilde_outputs(
+    full_scale_factors_m,
+    full_mean_shifts_m,
+    full_is_dense_gene_set_m,
+    full_ps_m,
+    full_sigma2s_m,
+    p_sample_m,
+    pre_gene_set_filter_mask,
+    full_z_cur_beta_tildes_m,
+    full_beta_tildes_m,
+    full_ses_m,
+    full_z_scores_m,
+    full_p_values_m,
+):
+    return {
+        "full_scale_factors_m": full_scale_factors_m,
+        "full_mean_shifts_m": full_mean_shifts_m,
+        "full_is_dense_gene_set_m": full_is_dense_gene_set_m,
+        "full_ps_m": full_ps_m,
+        "full_sigma2s_m": full_sigma2s_m,
+        "p_sample_m": p_sample_m,
+        "pre_gene_set_filter_mask": pre_gene_set_filter_mask,
+        "full_z_cur_beta_tildes_m": full_z_cur_beta_tildes_m,
+        "full_beta_tildes_m": full_beta_tildes_m,
+        "full_ses_m": full_ses_m,
+        "full_z_scores_m": full_z_scores_m,
+        "full_p_values_m": full_p_values_m,
+    }
+
+
 def _compute_gibbs_logistic_beta_tildes(
     state,
     Y_sample_m,
@@ -19951,20 +19981,20 @@ def _compute_gibbs_logistic_beta_tildes(
         correct_betas_var=correct_betas_var,
     )
 
-    return {
-        "full_scale_factors_m": full_scale_factors_m,
-        "full_mean_shifts_m": full_mean_shifts_m,
-        "full_is_dense_gene_set_m": full_is_dense_gene_set_m,
-        "full_ps_m": full_ps_m,
-        "full_sigma2s_m": full_sigma2s_m,
-        "p_sample_m": p_sample_m,
-        "pre_gene_set_filter_mask": pre_gene_set_filter_mask,
-        "full_z_cur_beta_tildes_m": full_z_cur_beta_tildes_m,
-        "full_beta_tildes_m": full_beta_tildes_m,
-        "full_ses_m": full_ses_m,
-        "full_z_scores_m": full_z_scores_m,
-        "full_p_values_m": full_p_values_m,
-    }
+    return _build_gibbs_logistic_beta_tilde_outputs(
+        full_scale_factors_m=full_scale_factors_m,
+        full_mean_shifts_m=full_mean_shifts_m,
+        full_is_dense_gene_set_m=full_is_dense_gene_set_m,
+        full_ps_m=full_ps_m,
+        full_sigma2s_m=full_sigma2s_m,
+        p_sample_m=p_sample_m,
+        pre_gene_set_filter_mask=pre_gene_set_filter_mask,
+        full_z_cur_beta_tildes_m=full_z_cur_beta_tildes_m,
+        full_beta_tildes_m=full_beta_tildes_m,
+        full_ses_m=full_ses_m,
+        full_z_scores_m=full_z_scores_m,
+        full_p_values_m=full_p_values_m,
+    )
 
 
 def _build_post_stall_snapshot_arrays(
