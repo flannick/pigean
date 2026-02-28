@@ -18905,6 +18905,76 @@ def _compute_gibbs_pre_gene_set_filter_mask(
     return pre_gene_set_filter_mask
 
 
+def _compute_gibbs_logistic_outputs_for_batches(
+    state,
+    pre_gene_set_filter_mask,
+    p_sample_m,
+    y_corr_sparse,
+    stack_batch_size,
+    num_stack_batches,
+    X_hstacked,
+    num_chains,
+    full_betas_m_shape,
+):
+    full_beta_tildes_m = np.zeros(full_betas_m_shape)
+    full_ses_m = np.zeros(full_betas_m_shape)
+    full_z_scores_m = np.zeros(full_betas_m_shape)
+    full_p_values_m = np.zeros(full_betas_m_shape)
+    se_inflation_factors_m = np.zeros(full_betas_m_shape)
+    full_alpha_tildes_m = np.zeros(full_betas_m_shape)
+    diverged_m = np.full(full_betas_m_shape, False)
+
+    for batch in range(num_stack_batches):
+        begin = batch * stack_batch_size
+        end = (batch + 1) * stack_batch_size
+        if end > num_chains:
+            end = num_chains
+
+        log("Batch %d: chains %d-%d" % (batch, begin, end), TRACE)
+        (
+            batch_beta_tildes_m,
+            batch_ses_m,
+            batch_z_scores_m,
+            batch_p_values_m,
+            init_se_inflation_factors_m,
+            batch_alpha_tildes_m,
+            batch_diverged_m,
+        ) = _compute_gibbs_logistic_beta_tildes_batch(
+            state=state,
+            pre_gene_set_filter_mask=pre_gene_set_filter_mask,
+            p_sample_m=p_sample_m,
+            begin=begin,
+            end=end,
+            y_corr_sparse=y_corr_sparse,
+            stack_batch_size=stack_batch_size,
+            X_hstacked=X_hstacked,
+        )
+        full_beta_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_beta_tildes_m
+        full_ses_m[begin:end,pre_gene_set_filter_mask] = batch_ses_m
+        full_z_scores_m[begin:end,pre_gene_set_filter_mask] = batch_z_scores_m
+        full_p_values_m[begin:end,pre_gene_set_filter_mask] = batch_p_values_m
+        full_alpha_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_alpha_tildes_m
+        diverged_m[begin:end,pre_gene_set_filter_mask] = batch_diverged_m
+
+        full_ses_m[begin:end,~pre_gene_set_filter_mask] = 100
+        full_p_values_m[begin:end,~pre_gene_set_filter_mask] = 1
+
+        if init_se_inflation_factors_m is not None:
+            se_inflation_factors_m[begin:end,pre_gene_set_filter_mask] = init_se_inflation_factors_m
+        else:
+            se_inflation_factors_m = None
+
+    return {
+        "full_beta_tildes_m": full_beta_tildes_m,
+        "full_ses_m": full_ses_m,
+        "full_z_scores_m": full_z_scores_m,
+        "full_p_values_m": full_p_values_m,
+        "se_inflation_factors_m": se_inflation_factors_m,
+        "full_alpha_tildes_m": full_alpha_tildes_m,
+        "diverged_m": diverged_m,
+    }
+
+
 def _compute_gibbs_logistic_beta_tildes_batch(
     state,
     pre_gene_set_filter_mask,
@@ -18983,54 +19053,24 @@ def _compute_gibbs_logistic_beta_tildes(
         sparse_max_gibbs=sparse_max_gibbs,
         num_gene_sets=full_betas_m_shape[1],
     )
-
-    full_beta_tildes_m = np.zeros(full_betas_m_shape)
-    full_ses_m = np.zeros(full_betas_m_shape)
-    full_z_scores_m = np.zeros(full_betas_m_shape)
-    full_p_values_m = np.zeros(full_betas_m_shape)
-    se_inflation_factors_m = np.zeros(full_betas_m_shape)
-    full_alpha_tildes_m = np.zeros(full_betas_m_shape)
-    diverged_m = np.full(full_betas_m_shape, False)
-
-    for batch in range(num_stack_batches):
-        begin = batch * stack_batch_size
-        end = (batch + 1) * stack_batch_size
-        if end > num_chains:
-            end = num_chains
-
-        log("Batch %d: chains %d-%d" % (batch, begin, end), TRACE)
-        (
-            batch_beta_tildes_m,
-            batch_ses_m,
-            batch_z_scores_m,
-            batch_p_values_m,
-            init_se_inflation_factors_m,
-            batch_alpha_tildes_m,
-            batch_diverged_m,
-        ) = _compute_gibbs_logistic_beta_tildes_batch(
-            state=state,
-            pre_gene_set_filter_mask=pre_gene_set_filter_mask,
-            p_sample_m=p_sample_m,
-            begin=begin,
-            end=end,
-            y_corr_sparse=y_corr_sparse,
-            stack_batch_size=stack_batch_size,
-            X_hstacked=X_hstacked,
-        )
-        full_beta_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_beta_tildes_m
-        full_ses_m[begin:end,pre_gene_set_filter_mask] = batch_ses_m
-        full_z_scores_m[begin:end,pre_gene_set_filter_mask] = batch_z_scores_m
-        full_p_values_m[begin:end,pre_gene_set_filter_mask] = batch_p_values_m
-        full_alpha_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_alpha_tildes_m
-        diverged_m[begin:end,pre_gene_set_filter_mask] = batch_diverged_m
-
-        full_ses_m[begin:end,~pre_gene_set_filter_mask] = 100
-        full_p_values_m[begin:end,~pre_gene_set_filter_mask] = 1
-
-        if init_se_inflation_factors_m is not None:
-            se_inflation_factors_m[begin:end,pre_gene_set_filter_mask] = init_se_inflation_factors_m
-        else:
-            se_inflation_factors_m = None
+    logistic_outputs = _compute_gibbs_logistic_outputs_for_batches(
+        state=state,
+        pre_gene_set_filter_mask=pre_gene_set_filter_mask,
+        p_sample_m=p_sample_m,
+        y_corr_sparse=y_corr_sparse,
+        stack_batch_size=stack_batch_size,
+        num_stack_batches=num_stack_batches,
+        X_hstacked=X_hstacked,
+        num_chains=num_chains,
+        full_betas_m_shape=full_betas_m_shape,
+    )
+    full_beta_tildes_m = logistic_outputs["full_beta_tildes_m"]
+    full_ses_m = logistic_outputs["full_ses_m"]
+    full_z_scores_m = logistic_outputs["full_z_scores_m"]
+    full_p_values_m = logistic_outputs["full_p_values_m"]
+    se_inflation_factors_m = logistic_outputs["se_inflation_factors_m"]
+    full_alpha_tildes_m = logistic_outputs["full_alpha_tildes_m"]
+    diverged_m = logistic_outputs["diverged_m"]
 
     # Legacy outlier-z filtering was experimental and is disabled in this path.
     full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
