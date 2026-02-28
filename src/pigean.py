@@ -16624,28 +16624,27 @@ def _evaluate_post_stall_status(
             if post_rhat_improvement < stall_delta_rhat and post_mcse_improvement < stall_delta_mcse:
                 post_stall_plateau = True
 
-        if stall_recent_window > 0 and len(post_stall_snapshots) >= stall_recent_window + 1:
-            old_beta_n, old_beta_sum_m, old_beta_sum2_m, old_D_n, old_D_sum_m = post_stall_snapshots[-(stall_recent_window + 1)]
-            recent_beta_n = num_post_burn_beta - old_beta_n
-            recent_D_n = num_post_burn_D - old_D_n
+        (
+            post_stall_recent_beta_rhat_q,
+            post_stall_recent_D_mcse_q,
+        ) = _compute_recent_post_stall_metrics(
+            num_post_burn_beta=num_post_burn_beta,
+            num_post_burn_D=num_post_burn_D,
+            post_stall_beta_sum_m=post_stall_beta_sum_m,
+            post_stall_beta_sum2_m=post_stall_beta_sum2_m,
+            post_stall_D_sum_m=post_stall_D_sum_m,
+            post_stall_beta_indices=post_stall_beta_indices,
+            post_stall_gene_indices=post_stall_gene_indices,
+            post_stall_snapshots=post_stall_snapshots,
+            stall_recent_window=stall_recent_window,
+            stop_mcse_quantile=stop_mcse_quantile,
+            num_chains=num_chains,
+        )
 
-            if recent_beta_n > 1 and post_stall_beta_indices.size > 0:
-                recent_beta_sum_m = post_stall_beta_sum_m - old_beta_sum_m
-                recent_beta_sum2_m = post_stall_beta_sum2_m - old_beta_sum2_m
-                _, _, recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_beta_sum_m, recent_beta_sum2_m, recent_beta_n)
-                recent_rhat_candidates = recent_R_beta_v[np.logical_and(np.isfinite(recent_R_beta_v), recent_R_beta_v >= 1)]
-                post_stall_recent_beta_rhat_q = _safe_quantile(recent_rhat_candidates, stop_mcse_quantile, 1.0)
-
-            if recent_D_n > 1 and post_stall_gene_indices.size > 0:
-                recent_D_sum_m = post_stall_D_sum_m - old_D_sum_m
-                recent_D_chain_means_m = recent_D_sum_m / float(recent_D_n)
-                recent_D_mcse_v = np.sqrt(np.var(recent_D_chain_means_m, axis=0, ddof=1) / float(num_chains))
-                post_stall_recent_D_mcse_q = _safe_quantile(recent_D_mcse_v, stop_mcse_quantile, np.inf)
-
-            if np.isfinite(post_stall_recent_beta_rhat_q) and post_stall_recent_beta_rhat_q > beta_rhat_q_post * (1 + stall_recent_eps):
-                post_stall_recent_worse = True
-            if np.isfinite(post_stall_recent_D_mcse_q) and post_stall_recent_D_mcse_q > D_mcse_q * (1 + stall_recent_eps):
-                post_stall_recent_worse = True
+        if np.isfinite(post_stall_recent_beta_rhat_q) and post_stall_recent_beta_rhat_q > beta_rhat_q_post * (1 + stall_recent_eps):
+            post_stall_recent_worse = True
+        if np.isfinite(post_stall_recent_D_mcse_q) and post_stall_recent_D_mcse_q > D_mcse_q * (1 + stall_recent_eps):
+            post_stall_recent_worse = True
 
     return (
         post_stall_plateau,
@@ -16653,6 +16652,44 @@ def _evaluate_post_stall_status(
         post_stall_recent_beta_rhat_q,
         post_stall_recent_D_mcse_q,
     )
+
+
+def _compute_recent_post_stall_metrics(
+    num_post_burn_beta,
+    num_post_burn_D,
+    post_stall_beta_sum_m,
+    post_stall_beta_sum2_m,
+    post_stall_D_sum_m,
+    post_stall_beta_indices,
+    post_stall_gene_indices,
+    post_stall_snapshots,
+    stall_recent_window,
+    stop_mcse_quantile,
+    num_chains,
+):
+    recent_beta_rhat_q = np.nan
+    recent_D_mcse_q = np.nan
+    if not (stall_recent_window > 0 and len(post_stall_snapshots) >= stall_recent_window + 1):
+        return (recent_beta_rhat_q, recent_D_mcse_q)
+
+    old_beta_n, old_beta_sum_m, old_beta_sum2_m, old_D_n, old_D_sum_m = post_stall_snapshots[-(stall_recent_window + 1)]
+    recent_beta_n = num_post_burn_beta - old_beta_n
+    recent_D_n = num_post_burn_D - old_D_n
+
+    if recent_beta_n > 1 and post_stall_beta_indices.size > 0:
+        recent_beta_sum_m = post_stall_beta_sum_m - old_beta_sum_m
+        recent_beta_sum2_m = post_stall_beta_sum2_m - old_beta_sum2_m
+        _, _, recent_R_beta_v, _ = _calculate_rhat_from_sums(recent_beta_sum_m, recent_beta_sum2_m, recent_beta_n)
+        recent_rhat_candidates = recent_R_beta_v[np.logical_and(np.isfinite(recent_R_beta_v), recent_R_beta_v >= 1)]
+        recent_beta_rhat_q = _safe_quantile(recent_rhat_candidates, stop_mcse_quantile, 1.0)
+
+    if recent_D_n > 1 and post_stall_gene_indices.size > 0:
+        recent_D_sum_m = post_stall_D_sum_m - old_D_sum_m
+        recent_D_chain_means_m = recent_D_sum_m / float(recent_D_n)
+        recent_D_mcse_v = np.sqrt(np.var(recent_D_chain_means_m, axis=0, ddof=1) / float(num_chains))
+        recent_D_mcse_q = _safe_quantile(recent_D_mcse_v, stop_mcse_quantile, np.inf)
+
+    return (recent_beta_rhat_q, recent_D_mcse_q)
 
 
 def _zero_arrays(*arrays):
