@@ -16373,19 +16373,13 @@ def _record_and_log_gibbs_configuration(state, run_state, config):
 
 
 # ========================= Outer Gibbs Epoch Execution =========================
-def _build_gibbs_record_config(gibbs_controls, dynamic_inputs):
+def _build_gibbs_record_control_payload(gibbs_controls):
     return {
         "num_chains": gibbs_controls["num_chains"],
-        "num_chains_betas": dynamic_inputs["num_chains_betas"],
         "max_num_restarts": gibbs_controls["max_num_restarts"],
         "target_num_epochs": gibbs_controls["target_num_epochs"],
-        "max_num_iter": dynamic_inputs["max_num_iter"],
         "total_num_iter": gibbs_controls["total_num_iter"],
         "epoch_max_num_iter_config": gibbs_controls["epoch_max_num_iter_config"],
-        "use_mean_betas": dynamic_inputs["use_mean_betas"],
-        "warm_start": dynamic_inputs["warm_start"],
-        "stopping_preset_name": dynamic_inputs["stopping_preset_name"],
-        "r_threshold_burn_in": dynamic_inputs["r_threshold_burn_in"],
         "burn_in_rhat_quantile": gibbs_controls["burn_in_rhat_quantile"],
         "burn_in_patience": gibbs_controls["burn_in_patience"],
         "first_min_num_burn_in": gibbs_controls["first_min_num_burn_in"],
@@ -16396,12 +16390,9 @@ def _build_gibbs_record_config(gibbs_controls, dynamic_inputs):
         "burn_in_stall_delta": gibbs_controls["burn_in_stall_delta"],
         "active_beta_top_k": gibbs_controls["active_beta_top_k"],
         "active_beta_min_abs": gibbs_controls["active_beta_min_abs"],
-        "stop_mcse_quantile": dynamic_inputs["stop_mcse_quantile"],
         "stop_patience": gibbs_controls["stop_patience"],
         "stop_top_gene_k": gibbs_controls["stop_top_gene_k"],
         "stop_min_gene_d": gibbs_controls["stop_min_gene_d"],
-        "max_abs_mcse_d": dynamic_inputs["max_abs_mcse_d"],
-        "max_rel_mcse_beta": dynamic_inputs["max_rel_mcse_beta"],
         "beta_rel_mcse_denom_floor": gibbs_controls["beta_rel_mcse_denom_floor"],
         "stall_window": gibbs_controls["stall_window"],
         "stall_min_burn_in": gibbs_controls["stall_min_burn_in"],
@@ -16411,6 +16402,20 @@ def _build_gibbs_record_config(gibbs_controls, dynamic_inputs):
         "stall_recent_window": gibbs_controls["stall_recent_window"],
         "stall_recent_eps": gibbs_controls["stall_recent_eps"],
         "diag_every": gibbs_controls["diag_every"],
+    }
+
+
+def _build_gibbs_record_dynamic_payload(dynamic_inputs):
+    return {
+        "num_chains_betas": dynamic_inputs["num_chains_betas"],
+        "max_num_iter": dynamic_inputs["max_num_iter"],
+        "use_mean_betas": dynamic_inputs["use_mean_betas"],
+        "warm_start": dynamic_inputs["warm_start"],
+        "stopping_preset_name": dynamic_inputs["stopping_preset_name"],
+        "r_threshold_burn_in": dynamic_inputs["r_threshold_burn_in"],
+        "stop_mcse_quantile": dynamic_inputs["stop_mcse_quantile"],
+        "max_abs_mcse_d": dynamic_inputs["max_abs_mcse_d"],
+        "max_rel_mcse_beta": dynamic_inputs["max_rel_mcse_beta"],
         "sparse_solution": dynamic_inputs["sparse_solution"],
         "sparse_frac_gibbs": dynamic_inputs["sparse_frac_gibbs"],
         "sparse_max_gibbs": dynamic_inputs["sparse_max_gibbs"],
@@ -16422,6 +16427,13 @@ def _build_gibbs_record_config(gibbs_controls, dynamic_inputs):
         "correct_betas_var": dynamic_inputs["correct_betas_var"],
         "adjust_priors": dynamic_inputs["adjust_priors"],
     }
+
+
+def _build_gibbs_record_config(gibbs_controls, dynamic_inputs):
+    config = {}
+    config.update(_build_gibbs_record_control_payload(gibbs_controls))
+    config.update(_build_gibbs_record_dynamic_payload(dynamic_inputs))
+    return config
 
 
 def _resolve_epoch_iteration_budget(
