@@ -20209,12 +20209,12 @@ def _update_post_burn_stall_tracking(
     num_post_burn_D = int(np.min(num_sum_Y_m))
     post_stall_snapshots.append((num_post_burn_beta, post_stall_beta_sum_m, post_stall_beta_sum2_m, num_post_burn_D, post_stall_D_sum_m))
 
-    max_stall_history_len = max(stall_window + 2, stall_recent_window + 2, 10)
-    _trim_stall_histories(
-        post_stall_best_beta_rhat_history,
-        post_stall_best_D_mcse_history,
-        post_stall_snapshots,
-        max_stall_history_len,
+    _trim_post_stall_history_windows(
+        post_stall_best_beta_rhat_history=post_stall_best_beta_rhat_history,
+        post_stall_best_D_mcse_history=post_stall_best_D_mcse_history,
+        post_stall_snapshots=post_stall_snapshots,
+        stall_window=stall_window,
+        stall_recent_window=stall_recent_window,
     )
 
     (
@@ -20256,6 +20256,22 @@ def _update_post_burn_stall_tracking(
         "post_stall_recent_D_mcse_q": post_stall_recent_D_mcse_q,
         "post_stall_detected": post_stall_plateau or post_stall_recent_worse,
     }
+
+
+def _trim_post_stall_history_windows(
+    post_stall_best_beta_rhat_history,
+    post_stall_best_D_mcse_history,
+    post_stall_snapshots,
+    stall_window,
+    stall_recent_window,
+):
+    max_stall_history_len = max(stall_window + 2, stall_recent_window + 2, 10)
+    _trim_stall_histories(
+        post_stall_best_beta_rhat_history,
+        post_stall_best_D_mcse_history,
+        post_stall_snapshots,
+        max_stall_history_len,
+    )
 
 
 def _decide_gibbs_post_burn_action(
