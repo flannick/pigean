@@ -18435,6 +18435,103 @@ def _build_gibbs_iteration_state_config(loop_config, epoch_priors, gene_stats_tr
     }
 
 
+def _run_single_gibbs_epoch_attempt(
+    state,
+    run_state,
+    epoch_aggregates,
+    epoch_phase_config,
+    epoch_iteration_static_config,
+    gene_set_stats_trace_fh,
+    gene_stats_trace_fh,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    epoch_attempt = _prepare_gibbs_epoch_attempt(
+        state=state,
+        run_state=run_state,
+        epoch_phase_config=epoch_phase_config,
+    )
+    if epoch_attempt is None:
+        return {
+            "attempt_started": False,
+            "should_continue": False,
+            "log_bf_m": log_bf_m,
+            "log_bf_uncorrected_m": log_bf_uncorrected_m,
+            "log_bf_raw_m": log_bf_raw_m,
+        }
+
+    epoch_context = _start_gibbs_epoch(
+        state=state,
+        num_chains=epoch_phase_config["num_chains"],
+        num_full_gene_sets=epoch_phase_config["num_full_gene_sets"],
+        use_mean_betas=epoch_phase_config["use_mean_betas"],
+        max_mb_X_h=epoch_phase_config["max_mb_X_h"],
+        log_fun=log,
+        epoch_aggregates=epoch_aggregates,
+        num_p_increases=run_state["num_p_increases"],
+    )
+    epoch_context.update(epoch_attempt)
+
+    epoch_control = epoch_context["epoch_control"]
+    epoch_sums = epoch_context["epoch_sums"]
+    epoch_priors = epoch_context["epoch_priors"]
+    epoch_runtime = epoch_context["epoch_runtime"]
+    loop_config = _build_gibbs_epoch_iteration_loop_config(
+        epoch_context=epoch_context,
+        epoch_phase_config=epoch_phase_config,
+        epoch_iteration_static_config=epoch_iteration_static_config,
+        run_state=run_state,
+    )
+    epoch_loop_update = _run_gibbs_epoch_iterations(
+        state=state,
+        run_state=run_state,
+        epoch_control=epoch_control,
+        epoch_sums=epoch_sums,
+        epoch_priors=epoch_priors,
+        epoch_runtime=epoch_runtime,
+        loop_config=loop_config,
+        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+        gene_stats_trace_fh=gene_stats_trace_fh,
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
+    iteration_num = epoch_loop_update["iteration_num"]
+    log_bf_m = epoch_loop_update["log_bf_m"]
+    log_bf_uncorrected_m = epoch_loop_update["log_bf_uncorrected_m"]
+    log_bf_raw_m = epoch_loop_update["log_bf_raw_m"]
+
+    epoch_finalize_update = _finalize_gibbs_epoch_attempt(
+        state,
+        epoch_aggregates=epoch_aggregates,
+        include_missing=(state.genes_missing is not None),
+        gibbs_good=epoch_runtime["gibbs_good"],
+        iterations_run_this_epoch=(iteration_num + 1),
+        remaining_total_iter=run_state["remaining_total_iter"],
+        num_completed_epochs=run_state["num_completed_epochs"],
+        target_num_epochs=epoch_phase_config["target_num_epochs"],
+        num_attempts=run_state["num_attempts"],
+        max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
+        stop_due_to_stall=epoch_control["stop_due_to_stall"],
+        stop_due_to_precision=epoch_control["stop_due_to_precision"],
+        epoch_sums=epoch_sums,
+        num_mad=epoch_phase_config["num_mad"],
+        adjust_priors=epoch_phase_config["adjust_priors"],
+    )
+    run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
+    run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
+    run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
+
+    return {
+        "attempt_started": True,
+        "should_continue": epoch_finalize_update["should_continue"],
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+    }
+
+
 def _run_gibbs_epoch_phase(
     state,
     run_state,
@@ -18449,76 +18546,25 @@ def _run_gibbs_epoch_phase(
 ):
     # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
     while _can_run_gibbs_epoch(run_state):
-        epoch_attempt = _prepare_gibbs_epoch_attempt(
+        epoch_update = _run_single_gibbs_epoch_attempt(
             state=state,
             run_state=run_state,
-            epoch_phase_config=epoch_phase_config,
-        )
-        if epoch_attempt is None:
-            break
-
-        epoch_context = _start_gibbs_epoch(
-            state=state,
-            num_chains=epoch_phase_config["num_chains"],
-            num_full_gene_sets=epoch_phase_config["num_full_gene_sets"],
-            use_mean_betas=epoch_phase_config["use_mean_betas"],
-            max_mb_X_h=epoch_phase_config["max_mb_X_h"],
-            log_fun=log,
             epoch_aggregates=epoch_aggregates,
-            num_p_increases=run_state["num_p_increases"],
-        )
-        epoch_context.update(epoch_attempt)
-
-        epoch_control = epoch_context["epoch_control"]
-        epoch_sums = epoch_context["epoch_sums"]
-        epoch_priors = epoch_context["epoch_priors"]
-        epoch_runtime = epoch_context["epoch_runtime"]
-        loop_config = _build_gibbs_epoch_iteration_loop_config(
-            epoch_context=epoch_context,
             epoch_phase_config=epoch_phase_config,
             epoch_iteration_static_config=epoch_iteration_static_config,
-            run_state=run_state,
-        )
-        epoch_loop_update = _run_gibbs_epoch_iterations(
-            state=state,
-            run_state=run_state,
-            epoch_control=epoch_control,
-            epoch_sums=epoch_sums,
-            epoch_priors=epoch_priors,
-            epoch_runtime=epoch_runtime,
-            loop_config=loop_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             gene_stats_trace_fh=gene_stats_trace_fh,
             log_bf_m=log_bf_m,
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
         )
-        iteration_num = epoch_loop_update["iteration_num"]
-        log_bf_m = epoch_loop_update["log_bf_m"]
-        log_bf_uncorrected_m = epoch_loop_update["log_bf_uncorrected_m"]
-        log_bf_raw_m = epoch_loop_update["log_bf_raw_m"]
+        if not epoch_update["attempt_started"]:
+            break
 
-        epoch_finalize_update = _finalize_gibbs_epoch_attempt(
-            state,
-            epoch_aggregates=epoch_aggregates,
-            include_missing=(state.genes_missing is not None),
-            gibbs_good=epoch_runtime["gibbs_good"],
-            iterations_run_this_epoch=(iteration_num + 1),
-            remaining_total_iter=run_state["remaining_total_iter"],
-            num_completed_epochs=run_state["num_completed_epochs"],
-            target_num_epochs=epoch_phase_config["target_num_epochs"],
-            num_attempts=run_state["num_attempts"],
-            max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
-            stop_due_to_stall=epoch_control["stop_due_to_stall"],
-            stop_due_to_precision=epoch_control["stop_due_to_precision"],
-            epoch_sums=epoch_sums,
-            num_mad=epoch_phase_config["num_mad"],
-            adjust_priors=epoch_phase_config["adjust_priors"],
-        )
-        run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
-        run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
-        run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
-        if epoch_finalize_update["should_continue"]:
+        log_bf_m = epoch_update["log_bf_m"]
+        log_bf_uncorrected_m = epoch_update["log_bf_uncorrected_m"]
+        log_bf_raw_m = epoch_update["log_bf_raw_m"]
+        if epoch_update["should_continue"]:
             continue
         break
 
