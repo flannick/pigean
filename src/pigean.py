@@ -1180,7 +1180,7 @@ def open_gz(file, flag=None):
 
     return fh
 
-class GeneSetData(object):
+class PigeanState(object):
     '''
     Stores gene and gene set annotations and derived matrices
     It allows reading X or V files and using these to determine the allowed gene sets and genes
@@ -14818,6 +14818,9 @@ class GeneSetData(object):
         cho_factor = scipy.linalg.cho_factor(matrix_in)
         return scipy.linalg.cho_solve(cho_factor, np.eye(matrix_in.shape[0]))
 
+# Backward-compatible alias during state refactor.
+GeneSetData = PigeanState
+
 # ==========================================================================
 # State-agnostic parsing helpers used by both legacy objects and runtime-state.
 # ==========================================================================
@@ -15749,7 +15752,7 @@ def _read_huge_statistics_covariates_if_present(runtime_state, paths):
 
 
 def _combine_runtime_huge_scores(runtime_state):
-    # Mirror GeneSetData.combine_huge_scores without constructing a temporary object.
+    # Mirror PigeanState.combine_huge_scores without constructing a temporary object.
     if runtime_state.get("gene_to_gwas_huge_score") is not None and runtime_state.get("gene_to_exomes_huge_score") is not None:
         runtime_state["gene_to_huge_score"] = {}
         genes = list(set().union(runtime_state["gene_to_gwas_huge_score"], runtime_state["gene_to_exomes_huge_score"]))
@@ -22371,7 +22374,7 @@ def main():
         log("Numpy version: %s" % np.__version__)
         log("Scipy version: %s" % scipy.__version__)
         log("Options: %s" % options)
-    state = GeneSetData(background_prior=options.background_prior, batch_size=options.batch_size)
+    state = PigeanState(background_prior=options.background_prior, batch_size=options.batch_size)
     state.debug_old_batch = options.debug_old_batch
     state.debug_skip_correlation = options.debug_skip_correlation
     state.debug_skip_phewas_covs = options.debug_skip_phewas_covs
