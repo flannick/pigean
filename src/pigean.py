@@ -19194,6 +19194,20 @@ def _run_gibbs_epoch_iterations(
         if iteration_run["stop_epoch"]:
             break
 
+    return _build_gibbs_epoch_iteration_loop_result(
+        iteration_num=iteration_num,
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
+
+
+def _build_gibbs_epoch_iteration_loop_result(
+    iteration_num,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
     return {
         "iteration_num": iteration_num,
         "log_bf_m": log_bf_m,
