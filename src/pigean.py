@@ -17510,16 +17510,6 @@ def _start_gibbs_epoch(
     }
 
 
-def _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update):
-    # Apply one iteration's all-sample accumulation and restart diagnostics.
-    for key in _GIBBS_EPOCH_RUNTIME_SUM_KEYS:
-        epoch_runtime[key] = all_iteration_update[key]
-    epoch_control["R_beta_v"] = all_iteration_update["R_beta_v"]
-    epoch_runtime["gibbs_good"] = all_iteration_update["gibbs_good"]
-    epoch_runtime["num_p_increases"] = all_iteration_update["num_p_increases"]
-    return all_iteration_update["should_break"]
-
-
 def _open_gibbs_trace_outputs(gene_set_stats_trace_out, gene_stats_trace_out):
     gene_set_stats_trace_fh = None
     gene_stats_trace_fh = None
@@ -19246,36 +19236,6 @@ def _compute_gibbs_iteration_betas_and_priors(
     }
 
 
-def _run_gibbs_all_iteration_update_step(
-    state,
-    epoch_runtime,
-    epoch_sums,
-    epoch_control,
-    num_mad,
-    num_attempts,
-    max_num_attempt_restarts,
-    increase_hyper_if_betas_below_for_epoch,
-    num_before_checking_p_increase,
-    p_scale_factor,
-    iteration_num,
-    full_betas_mean_m,
-):
-    all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
-        state=state,
-        epoch_runtime=epoch_runtime,
-        epoch_sums=epoch_sums,
-        num_mad=num_mad,
-        num_attempts=num_attempts,
-        max_num_attempt_restarts=max_num_attempt_restarts,
-        increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
-        num_before_checking_p_increase=num_before_checking_p_increase,
-        p_scale_factor=p_scale_factor,
-        iteration_num=iteration_num,
-        full_betas_mean_m=full_betas_mean_m,
-    )
-    return _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update)
-
-
 def _run_gibbs_iteration_correction_and_updates(
     state,
     iter_state,
@@ -19326,11 +19286,10 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_uncorrected_m = iteration_betas_priors["log_bf_uncorrected_m"]
     log_bf_raw_m = iteration_betas_priors["log_bf_raw_m"]
 
-    should_break = _run_gibbs_all_iteration_update_step(
+    all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
         state=state,
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
-        epoch_control=epoch_control,
         num_mad=num_mad,
         num_attempts=num_attempts,
         max_num_attempt_restarts=max_num_attempt_restarts,
@@ -19340,6 +19299,12 @@ def _run_gibbs_iteration_correction_and_updates(
         iteration_num=iteration_num,
         full_betas_mean_m=full_betas_mean_m,
     )
+    for key in _GIBBS_EPOCH_RUNTIME_SUM_KEYS:
+        epoch_runtime[key] = all_iteration_update[key]
+    epoch_control["R_beta_v"] = all_iteration_update["R_beta_v"]
+    epoch_runtime["gibbs_good"] = all_iteration_update["gibbs_good"]
+    epoch_runtime["num_p_increases"] = all_iteration_update["num_p_increases"]
+    should_break = all_iteration_update["should_break"]
 
     return {
         "full_betas_sample_m": full_betas_sample_m,
