@@ -16001,6 +16001,99 @@ def _normalize_gibbs_epoch_iteration_controls(
     }
 
 
+def _sanitize_gibbs_diagnostic_controls(
+    num_chains,
+    diag_every,
+    burn_in_patience,
+    burn_in_stall_window,
+    burn_in_stall_delta,
+    stop_patience,
+    stop_top_gene_k,
+    stop_min_gene_d,
+    active_beta_top_k,
+    active_beta_min_abs,
+    beta_rel_mcse_denom_floor,
+    stall_window,
+    stall_min_burn_in,
+    stall_min_post_burn_in,
+    stall_delta_rhat,
+    stall_delta_mcse,
+    stall_recent_window,
+    stall_recent_eps,
+    burn_in_rhat_quantile,
+    use_max_r_for_convergence,
+):
+    if num_chains < 2:
+        num_chains = 2
+    if diag_every < 1:
+        diag_every = 1
+    if burn_in_patience < 1:
+        burn_in_patience = 1
+    if burn_in_stall_window is None or burn_in_stall_window < 2:
+        burn_in_stall_window = 0
+    if burn_in_stall_delta is None or burn_in_stall_delta < 0:
+        burn_in_stall_delta = 0
+    if stop_patience < 1:
+        stop_patience = 1
+    if stop_top_gene_k < 1:
+        stop_top_gene_k = 1
+    if stop_min_gene_d is not None:
+        if stop_min_gene_d < 0:
+            stop_min_gene_d = 0
+        if stop_min_gene_d > 1:
+            stop_min_gene_d = 1
+    if active_beta_top_k < 1:
+        active_beta_top_k = 1
+    if active_beta_min_abs < 0:
+        active_beta_min_abs = 0
+    if beta_rel_mcse_denom_floor <= 0:
+        beta_rel_mcse_denom_floor = 1e-12
+    if stall_window is None or stall_window < 2:
+        stall_window = 0
+    if stall_min_burn_in is None or stall_min_burn_in < 0:
+        stall_min_burn_in = 0
+    if stall_min_post_burn_in is None or stall_min_post_burn_in < 0:
+        stall_min_post_burn_in = 0
+    if stall_delta_rhat is None or stall_delta_rhat < 0:
+        stall_delta_rhat = 0
+    if stall_delta_mcse is None or stall_delta_mcse < 0:
+        stall_delta_mcse = 0
+    if stall_recent_window is None or stall_recent_window < 2:
+        stall_recent_window = 0
+    if stall_recent_eps is None or stall_recent_eps < 0:
+        stall_recent_eps = 0
+    if burn_in_rhat_quantile is None:
+        burn_in_rhat_quantile = 1.0
+    if use_max_r_for_convergence:
+        burn_in_rhat_quantile = 1.0
+    if burn_in_rhat_quantile < 0:
+        burn_in_rhat_quantile = 0
+    elif burn_in_rhat_quantile > 1:
+        burn_in_rhat_quantile = 1
+
+    return {
+        "num_chains": num_chains,
+        "diag_every": diag_every,
+        "burn_in_patience": burn_in_patience,
+        "burn_in_stall_window": burn_in_stall_window,
+        "burn_in_stall_delta": burn_in_stall_delta,
+        "stop_patience": stop_patience,
+        "stop_top_gene_k": stop_top_gene_k,
+        "stop_min_gene_d": stop_min_gene_d,
+        "active_beta_top_k": active_beta_top_k,
+        "active_beta_min_abs": active_beta_min_abs,
+        "beta_rel_mcse_denom_floor": beta_rel_mcse_denom_floor,
+        "stall_window": stall_window,
+        "stall_min_burn_in": stall_min_burn_in,
+        "stall_min_post_burn_in": stall_min_post_burn_in,
+        "stall_delta_rhat": stall_delta_rhat,
+        "stall_delta_mcse": stall_delta_mcse,
+        "stall_recent_window": stall_recent_window,
+        "stall_recent_eps": stall_recent_eps,
+        "burn_in_rhat_quantile": burn_in_rhat_quantile,
+    }
+
+
 def _normalize_gibbs_run_controls(
     max_num_iter,
     total_num_iter,
@@ -16054,53 +16147,47 @@ def _normalize_gibbs_run_controls(
         total_num_iter = 1
     run_state = _initialize_gibbs_run_state(total_num_iter, target_num_epochs, max_num_restarts)
 
-    if num_chains < 2:
-        num_chains = 2
-    if diag_every < 1:
-        diag_every = 1
-    if burn_in_patience < 1:
-        burn_in_patience = 1
-    if burn_in_stall_window is None or burn_in_stall_window < 2:
-        burn_in_stall_window = 0
-    if burn_in_stall_delta is None or burn_in_stall_delta < 0:
-        burn_in_stall_delta = 0
-    if stop_patience < 1:
-        stop_patience = 1
-    if stop_top_gene_k < 1:
-        stop_top_gene_k = 1
-    if stop_min_gene_d is not None:
-        if stop_min_gene_d < 0:
-            stop_min_gene_d = 0
-        if stop_min_gene_d > 1:
-            stop_min_gene_d = 1
-    if active_beta_top_k < 1:
-        active_beta_top_k = 1
-    if active_beta_min_abs < 0:
-        active_beta_min_abs = 0
-    if beta_rel_mcse_denom_floor <= 0:
-        beta_rel_mcse_denom_floor = 1e-12
-    if stall_window is None or stall_window < 2:
-        stall_window = 0
-    if stall_min_burn_in is None or stall_min_burn_in < 0:
-        stall_min_burn_in = 0
-    if stall_min_post_burn_in is None or stall_min_post_burn_in < 0:
-        stall_min_post_burn_in = 0
-    if stall_delta_rhat is None or stall_delta_rhat < 0:
-        stall_delta_rhat = 0
-    if stall_delta_mcse is None or stall_delta_mcse < 0:
-        stall_delta_mcse = 0
-    if stall_recent_window is None or stall_recent_window < 2:
-        stall_recent_window = 0
-    if stall_recent_eps is None or stall_recent_eps < 0:
-        stall_recent_eps = 0
-    if burn_in_rhat_quantile is None:
-        burn_in_rhat_quantile = 1.0
-    if use_max_r_for_convergence:
-        burn_in_rhat_quantile = 1.0
-    if burn_in_rhat_quantile < 0:
-        burn_in_rhat_quantile = 0
-    elif burn_in_rhat_quantile > 1:
-        burn_in_rhat_quantile = 1
+    sanitized_diag_controls = _sanitize_gibbs_diagnostic_controls(
+        num_chains=num_chains,
+        diag_every=diag_every,
+        burn_in_patience=burn_in_patience,
+        burn_in_stall_window=burn_in_stall_window,
+        burn_in_stall_delta=burn_in_stall_delta,
+        stop_patience=stop_patience,
+        stop_top_gene_k=stop_top_gene_k,
+        stop_min_gene_d=stop_min_gene_d,
+        active_beta_top_k=active_beta_top_k,
+        active_beta_min_abs=active_beta_min_abs,
+        beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
+        stall_window=stall_window,
+        stall_min_burn_in=stall_min_burn_in,
+        stall_min_post_burn_in=stall_min_post_burn_in,
+        stall_delta_rhat=stall_delta_rhat,
+        stall_delta_mcse=stall_delta_mcse,
+        stall_recent_window=stall_recent_window,
+        stall_recent_eps=stall_recent_eps,
+        burn_in_rhat_quantile=burn_in_rhat_quantile,
+        use_max_r_for_convergence=use_max_r_for_convergence,
+    )
+    num_chains = sanitized_diag_controls["num_chains"]
+    diag_every = sanitized_diag_controls["diag_every"]
+    burn_in_patience = sanitized_diag_controls["burn_in_patience"]
+    burn_in_stall_window = sanitized_diag_controls["burn_in_stall_window"]
+    burn_in_stall_delta = sanitized_diag_controls["burn_in_stall_delta"]
+    stop_patience = sanitized_diag_controls["stop_patience"]
+    stop_top_gene_k = sanitized_diag_controls["stop_top_gene_k"]
+    stop_min_gene_d = sanitized_diag_controls["stop_min_gene_d"]
+    active_beta_top_k = sanitized_diag_controls["active_beta_top_k"]
+    active_beta_min_abs = sanitized_diag_controls["active_beta_min_abs"]
+    beta_rel_mcse_denom_floor = sanitized_diag_controls["beta_rel_mcse_denom_floor"]
+    stall_window = sanitized_diag_controls["stall_window"]
+    stall_min_burn_in = sanitized_diag_controls["stall_min_burn_in"]
+    stall_min_post_burn_in = sanitized_diag_controls["stall_min_post_burn_in"]
+    stall_delta_rhat = sanitized_diag_controls["stall_delta_rhat"]
+    stall_delta_mcse = sanitized_diag_controls["stall_delta_mcse"]
+    stall_recent_window = sanitized_diag_controls["stall_recent_window"]
+    stall_recent_eps = sanitized_diag_controls["stall_recent_eps"]
+    burn_in_rhat_quantile = sanitized_diag_controls["burn_in_rhat_quantile"]
 
     (
         _,
