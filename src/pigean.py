@@ -19080,49 +19080,6 @@ def _finalize_gibbs_run_after_epochs(run_state, num_chains):
     log("Aggregated %d Gibbs epoch(s) into %d effective chains" % (run_state["num_completed_epochs"], run_state["num_completed_epochs"] * num_chains), INFO)
 
 
-def _run_single_gibbs_epoch_iteration_step(
-    state,
-    run_state,
-    epoch_control,
-    epoch_sums,
-    epoch_priors,
-    epoch_runtime,
-    correction_config,
-    progress_runtime_config,
-    iteration_state_config,
-    gene_set_stats_trace_fh,
-    iteration_num,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    iteration_run = _run_single_gibbs_iteration(
-        state=state,
-        run_state=run_state,
-        epoch_control=epoch_control,
-        epoch_sums=epoch_sums,
-        epoch_priors=epoch_priors,
-        epoch_runtime=epoch_runtime,
-        correction_config=correction_config,
-        progress_runtime_config=progress_runtime_config,
-        iteration_state_config=iteration_state_config,
-        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-        iteration_num=iteration_num,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-    )
-    log_bf_m = iteration_run["log_bf_m"]
-    log_bf_uncorrected_m = iteration_run["log_bf_uncorrected_m"]
-    log_bf_raw_m = iteration_run["log_bf_raw_m"]
-    return {
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-        "stop_epoch": iteration_run["stop_epoch"],
-    }
-
-
 def _run_gibbs_epoch_iterations(
     state,
     run_state,
@@ -19184,7 +19141,7 @@ def _run_gibbs_epoch_iterations(
 
     iteration_num = -1
     for iteration_num in range(epoch_max_num_iter):
-        iteration_step = _run_single_gibbs_epoch_iteration_step(
+        iteration_run = _run_single_gibbs_iteration(
             state=state,
             run_state=run_state,
             epoch_control=epoch_control,
@@ -19200,10 +19157,10 @@ def _run_gibbs_epoch_iterations(
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
         )
-        log_bf_m = iteration_step["log_bf_m"]
-        log_bf_uncorrected_m = iteration_step["log_bf_uncorrected_m"]
-        log_bf_raw_m = iteration_step["log_bf_raw_m"]
-        if iteration_step["stop_epoch"]:
+        log_bf_m = iteration_run["log_bf_m"]
+        log_bf_uncorrected_m = iteration_run["log_bf_uncorrected_m"]
+        log_bf_raw_m = iteration_run["log_bf_raw_m"]
+        if iteration_run["stop_epoch"]:
             break
 
     return {
