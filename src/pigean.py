@@ -19615,6 +19615,17 @@ def _run_gibbs_all_iteration_update_step(
     return _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update)
 
 
+def _unpack_gibbs_iteration_correction_config(correction_config):
+    return (
+        correction_config["num_mad"],
+        correction_config["num_attempts"],
+        correction_config["max_num_attempt_restarts"],
+        correction_config["increase_hyper_if_betas_below_for_epoch"],
+        correction_config["num_before_checking_p_increase"],
+        correction_config["p_scale_factor"],
+    )
+
+
 def _run_gibbs_iteration_correction_and_updates(
     state,
     iter_state,
@@ -19629,12 +19640,14 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_uncorrected_m,
     log_bf_raw_m,
 ):
-    num_mad = correction_config["num_mad"]
-    num_attempts = correction_config["num_attempts"]
-    max_num_attempt_restarts = correction_config["max_num_attempt_restarts"]
-    increase_hyper_if_betas_below_for_epoch = correction_config["increase_hyper_if_betas_below_for_epoch"]
-    num_before_checking_p_increase = correction_config["num_before_checking_p_increase"]
-    p_scale_factor = correction_config["p_scale_factor"]
+    (
+        num_mad,
+        num_attempts,
+        max_num_attempt_restarts,
+        increase_hyper_if_betas_below_for_epoch,
+        num_before_checking_p_increase,
+        p_scale_factor,
+    ) = _unpack_gibbs_iteration_correction_config(correction_config)
 
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
     # sums and restart diagnostics.
