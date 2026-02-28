@@ -21850,10 +21850,11 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
 
     num_calculations = int(np.ceil(num_chains / num_batches_parallel))
     for calc in range(num_calculations):
-        begin = calc * num_batches_parallel
-        end = (calc + 1) * num_batches_parallel
-        if end > num_chains:
-            end = num_chains
+        (begin, end) = _get_gibbs_chain_batch_bounds(
+            batch=calc,
+            stack_batch_size=num_batches_parallel,
+            num_chains=num_chains,
+        )
 
         # Build the superset V matrix once for this chain batch.
         cur_gene_set_mask = np.any(gene_set_mask_m[begin:end,:], axis=0)
