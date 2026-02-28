@@ -21814,48 +21814,12 @@ def _compute_gibbs_uncorrected_betas_and_defaults(
         default_postp_sample_m,
         default_betas_mean_m,
         default_postp_mean_m,
-    ) = _copy_gibbs_default_beta_arrays(
-        uncorrected_betas_sample_m=uncorrected_betas_sample_m,
-        uncorrected_postp_sample_m=uncorrected_postp_sample_m,
-        uncorrected_betas_mean_m=uncorrected_betas_mean_m,
-        uncorrected_postp_mean_m=uncorrected_postp_mean_m,
-    )
-    return _build_gibbs_uncorrected_default_result(
-        uncorrected_betas_sample_m=uncorrected_betas_sample_m,
-        uncorrected_postp_sample_m=uncorrected_postp_sample_m,
-        uncorrected_betas_mean_m=uncorrected_betas_mean_m,
-        uncorrected_postp_mean_m=uncorrected_postp_mean_m,
-        default_betas_sample_m=default_betas_sample_m,
-        default_postp_sample_m=default_postp_sample_m,
-        default_betas_mean_m=default_betas_mean_m,
-        default_postp_mean_m=default_postp_mean_m,
-    )
-
-
-def _copy_gibbs_default_beta_arrays(
-    uncorrected_betas_sample_m,
-    uncorrected_postp_sample_m,
-    uncorrected_betas_mean_m,
-    uncorrected_postp_mean_m,
-):
-    return (
+    ) = (
         copy.copy(uncorrected_betas_sample_m),
         copy.copy(uncorrected_postp_sample_m),
         copy.copy(uncorrected_betas_mean_m),
         copy.copy(uncorrected_postp_mean_m),
     )
-
-
-def _build_gibbs_uncorrected_default_result(
-    uncorrected_betas_sample_m,
-    uncorrected_postp_sample_m,
-    uncorrected_betas_mean_m,
-    uncorrected_postp_mean_m,
-    default_betas_sample_m,
-    default_postp_sample_m,
-    default_betas_mean_m,
-    default_postp_mean_m,
-):
     return {
         "uncorrected_betas_sample_m": uncorrected_betas_sample_m,
         "uncorrected_postp_sample_m": uncorrected_postp_sample_m,
