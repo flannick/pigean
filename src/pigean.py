@@ -21837,16 +21837,18 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
 ):
     # Estimate corrected non-inf betas in chain batches to keep V construction
     # memory bounded while preserving legacy batching behavior.
-    if debug_zero_sparse:
-        full_betas_mean_m = copy.copy(default_betas_mean_m)
-        full_betas_sample_m = copy.copy(default_betas_sample_m)
-        full_postp_mean_m = copy.copy(default_postp_mean_m)
-        full_postp_sample_m = copy.copy(default_postp_sample_m)
-    else:
-        full_betas_mean_m = np.zeros(default_betas_mean_m.shape)
-        full_betas_sample_m = np.zeros(default_betas_sample_m.shape)
-        full_postp_mean_m = np.zeros(default_postp_mean_m.shape)
-        full_postp_sample_m = np.zeros(default_postp_sample_m.shape)
+    (
+        full_betas_mean_m,
+        full_betas_sample_m,
+        full_postp_mean_m,
+        full_postp_sample_m,
+    ) = _initialize_gibbs_corrected_beta_output_matrices(
+        default_betas_mean_m=default_betas_mean_m,
+        default_betas_sample_m=default_betas_sample_m,
+        default_postp_mean_m=default_postp_mean_m,
+        default_postp_sample_m=default_postp_sample_m,
+        debug_zero_sparse=debug_zero_sparse,
+    )
 
     num_calculations = int(np.ceil(num_chains / num_batches_parallel))
     for calc in range(num_calculations):
@@ -21951,6 +21953,28 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
         full_postp_sample_m,
         full_betas_mean_m,
         full_postp_mean_m,
+    )
+
+
+def _initialize_gibbs_corrected_beta_output_matrices(
+    default_betas_mean_m,
+    default_betas_sample_m,
+    default_postp_mean_m,
+    default_postp_sample_m,
+    debug_zero_sparse,
+):
+    if debug_zero_sparse:
+        return (
+            copy.copy(default_betas_mean_m),
+            copy.copy(default_betas_sample_m),
+            copy.copy(default_postp_mean_m),
+            copy.copy(default_postp_sample_m),
+        )
+    return (
+        np.zeros(default_betas_mean_m.shape),
+        np.zeros(default_betas_sample_m.shape),
+        np.zeros(default_postp_mean_m.shape),
+        np.zeros(default_postp_sample_m.shape),
     )
 
 
