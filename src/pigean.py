@@ -19512,6 +19512,36 @@ def _build_gibbs_iteration_correction_update(
     }
 
 
+def _run_gibbs_all_iteration_update_step(
+    state,
+    epoch_runtime,
+    epoch_sums,
+    epoch_control,
+    num_mad,
+    num_attempts,
+    max_num_attempt_restarts,
+    increase_hyper_if_betas_below_for_epoch,
+    num_before_checking_p_increase,
+    p_scale_factor,
+    iteration_num,
+    full_betas_mean_m,
+):
+    all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
+        state=state,
+        epoch_runtime=epoch_runtime,
+        epoch_sums=epoch_sums,
+        num_mad=num_mad,
+        num_attempts=num_attempts,
+        max_num_attempt_restarts=max_num_attempt_restarts,
+        increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+        num_before_checking_p_increase=num_before_checking_p_increase,
+        p_scale_factor=p_scale_factor,
+        iteration_num=iteration_num,
+        full_betas_mean_m=full_betas_mean_m,
+    )
+    return _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update)
+
+
 def _run_gibbs_iteration_correction_and_updates(
     state,
     iter_state,
@@ -19555,10 +19585,11 @@ def _run_gibbs_iteration_correction_and_updates(
         log_bf_raw_m,
     ) = _apply_gibbs_iteration_betas_priors_state(iteration_betas_priors)
 
-    all_iteration_update = _update_gibbs_all_sums_and_maybe_restart_low_betas(
+    should_break = _run_gibbs_all_iteration_update_step(
         state=state,
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
+        epoch_control=epoch_control,
         num_mad=num_mad,
         num_attempts=num_attempts,
         max_num_attempt_restarts=max_num_attempt_restarts,
@@ -19568,7 +19599,6 @@ def _run_gibbs_iteration_correction_and_updates(
         iteration_num=iteration_num,
         full_betas_mean_m=full_betas_mean_m,
     )
-    should_break = _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update)
 
     return _build_gibbs_iteration_correction_update(
         full_betas_sample_m=full_betas_sample_m,
