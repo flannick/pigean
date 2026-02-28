@@ -21970,12 +21970,23 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
             init_postp_m=init_postp_m,
         )
 
-        if run_one_V:
-            full_betas_sample_m[begin:end,cur_gene_set_mask] = cur_betas_sample_m
-            full_postp_sample_m[begin:end,cur_gene_set_mask] = cur_postp_sample_m
-            full_betas_mean_m[begin:end,cur_gene_set_mask] = cur_betas_mean_m
-            full_postp_mean_m[begin:end,cur_gene_set_mask] = cur_postp_mean_m
+        _store_gibbs_corrected_batch_results(
+            run_one_V=run_one_V,
+            full_betas_sample_m=full_betas_sample_m,
+            full_postp_sample_m=full_postp_sample_m,
+            full_betas_mean_m=full_betas_mean_m,
+            full_postp_mean_m=full_postp_mean_m,
+            cur_betas_sample_m=cur_betas_sample_m,
+            cur_postp_sample_m=cur_postp_sample_m,
+            cur_betas_mean_m=cur_betas_mean_m,
+            cur_postp_mean_m=cur_postp_mean_m,
+            begin=begin,
+            end=end,
+            cur_gene_set_mask=cur_gene_set_mask,
+            gene_set_mask_m=gene_set_mask_m,
+        )
 
+        if run_one_V:
             print_overlapping = None
             if print_overlapping is not None:
                 gene_sets_run = [state.gene_sets[i] for i in range(len(state.gene_sets)) if cur_gene_set_mask[i]]
@@ -21992,11 +22003,6 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
                                 if values[chain,i] == 0:
                                     break
                                 log("%s, V=%.4g, beta=%.4g, prod=%.4g" % (gene_sets_run[i], V_m[ind,i], (cur_betas_mean_m[chain,i] if use_mean_betas else cur_betas_sample_m[chain,i]), values[chain,i]))
-        else:
-            full_betas_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_sample_m.ravel()
-            full_postp_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_sample_m.ravel()
-            full_betas_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_mean_m.ravel()
-            full_postp_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_mean_m.ravel()
 
     return (
         full_betas_sample_m,
@@ -22004,6 +22010,34 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
         full_betas_mean_m,
         full_postp_mean_m,
     )
+
+
+def _store_gibbs_corrected_batch_results(
+    run_one_V,
+    full_betas_sample_m,
+    full_postp_sample_m,
+    full_betas_mean_m,
+    full_postp_mean_m,
+    cur_betas_sample_m,
+    cur_postp_sample_m,
+    cur_betas_mean_m,
+    cur_postp_mean_m,
+    begin,
+    end,
+    cur_gene_set_mask,
+    gene_set_mask_m,
+):
+    if run_one_V:
+        full_betas_sample_m[begin:end,cur_gene_set_mask] = cur_betas_sample_m
+        full_postp_sample_m[begin:end,cur_gene_set_mask] = cur_postp_sample_m
+        full_betas_mean_m[begin:end,cur_gene_set_mask] = cur_betas_mean_m
+        full_postp_mean_m[begin:end,cur_gene_set_mask] = cur_postp_mean_m
+        return
+
+    full_betas_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_sample_m.ravel()
+    full_postp_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_sample_m.ravel()
+    full_betas_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_mean_m.ravel()
+    full_postp_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_mean_m.ravel()
 
 
 def _prepare_gibbs_corrected_batch_inputs(
