@@ -21978,6 +21978,48 @@ def _initialize_gibbs_corrected_beta_output_matrices(
     )
 
 
+def _prepare_gibbs_next_warm_start(
+    warm_start,
+    use_mean_betas,
+    prev_warm_start_betas_m,
+    prev_warm_start_postp_m,
+    full_betas_sample_m,
+    full_betas_mean_m,
+    full_postp_sample_m,
+    full_postp_mean_m,
+):
+    if warm_start:
+        # Filtered-out gene sets remain zero because the full_* matrices are
+        # initialized to zero each iteration.
+        if use_mean_betas:
+            prev_warm_start_betas_m = copy.copy(full_betas_mean_m)
+            prev_warm_start_postp_m = copy.copy(full_postp_mean_m)
+        else:
+            prev_warm_start_betas_m = copy.copy(full_betas_sample_m)
+            prev_warm_start_postp_m = copy.copy(full_postp_sample_m)
+    return (prev_warm_start_betas_m, prev_warm_start_postp_m)
+
+
+def _compute_gibbs_iteration_priors_from_betas(
+    state,
+    full_betas_sample_m,
+    full_betas_mean_m,
+    priors_missing_sample_m,
+    priors_missing_mean_m,
+):
+    priors_sample_m = _calc_priors_from_betas(state.X_orig, full_betas_sample_m, state.mean_shifts, state.scale_factors)
+    priors_mean_m = _calc_priors_from_betas(state.X_orig, full_betas_mean_m, state.mean_shifts, state.scale_factors)
+    if state.genes_missing is not None:
+        priors_missing_sample_m = _calc_priors_from_betas(state.X_orig_missing_genes, full_betas_sample_m, state.mean_shifts, state.scale_factors)
+        priors_missing_mean_m = _calc_priors_from_betas(state.X_orig_missing_genes, full_betas_mean_m, state.mean_shifts, state.scale_factors)
+    return (
+        priors_sample_m,
+        priors_mean_m,
+        priors_missing_sample_m,
+        priors_missing_mean_m,
+    )
+
+
 def _refresh_gibbs_iteration_priors_and_huge(
     state,
     warm_start,
@@ -21997,23 +22039,28 @@ def _refresh_gibbs_iteration_priors_and_huge(
     log_bf_uncorrected_m,
     log_bf_raw_m,
 ):
-    # Prepare warm-start state for the next iteration.
-    if warm_start:
-        # Filtered-out gene sets remain zero because the full_* matrices are
-        # initialized to zero each iteration.
-        if use_mean_betas:
-            prev_warm_start_betas_m = copy.copy(full_betas_mean_m)
-            prev_warm_start_postp_m = copy.copy(full_postp_mean_m)
-        else:
-            prev_warm_start_betas_m = copy.copy(full_betas_sample_m)
-            prev_warm_start_postp_m = copy.copy(full_postp_sample_m)
-
-    # Update per-chain priors directly from current corrected betas.
-    priors_sample_m = _calc_priors_from_betas(state.X_orig, full_betas_sample_m, state.mean_shifts, state.scale_factors)
-    priors_mean_m = _calc_priors_from_betas(state.X_orig, full_betas_mean_m, state.mean_shifts, state.scale_factors)
-    if state.genes_missing is not None:
-        priors_missing_sample_m = _calc_priors_from_betas(state.X_orig_missing_genes, full_betas_sample_m, state.mean_shifts, state.scale_factors)
-        priors_missing_mean_m = _calc_priors_from_betas(state.X_orig_missing_genes, full_betas_mean_m, state.mean_shifts, state.scale_factors)
+    (prev_warm_start_betas_m, prev_warm_start_postp_m) = _prepare_gibbs_next_warm_start(
+        warm_start=warm_start,
+        use_mean_betas=use_mean_betas,
+        prev_warm_start_betas_m=prev_warm_start_betas_m,
+        prev_warm_start_postp_m=prev_warm_start_postp_m,
+        full_betas_sample_m=full_betas_sample_m,
+        full_betas_mean_m=full_betas_mean_m,
+        full_postp_sample_m=full_postp_sample_m,
+        full_postp_mean_m=full_postp_mean_m,
+    )
+    (
+        priors_sample_m,
+        priors_mean_m,
+        priors_missing_sample_m,
+        priors_missing_mean_m,
+    ) = _compute_gibbs_iteration_priors_from_betas(
+        state=state,
+        full_betas_sample_m=full_betas_sample_m,
+        full_betas_mean_m=full_betas_mean_m,
+        priors_missing_sample_m=priors_missing_sample_m,
+        priors_missing_mean_m=priors_missing_mean_m,
+    )
 
     if state.huge_signal_bfs is not None and update_huge_scores:
         log("Updating HuGE scores")
