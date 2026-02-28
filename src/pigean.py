@@ -18608,8 +18608,10 @@ def _reset_gibbs_diagnostics(state):
     state.Y_mcse = None
 
 
-def _build_gibbs_epoch_phase_config(config_inputs):
-    return {
+def _build_gibbs_epoch_runtime_configs(config_inputs):
+    # Group per-epoch and per-iteration static knobs so run_gibbs can focus on
+    # control flow.
+    epoch_phase_config = {
         "total_num_iter": config_inputs["total_num_iter"],
         "num_chains": config_inputs["num_chains"],
         "num_full_gene_sets": config_inputs["num_full_gene_sets"],
@@ -18625,10 +18627,7 @@ def _build_gibbs_epoch_phase_config(config_inputs):
         "max_num_post_burn_in": config_inputs["max_num_post_burn_in"],
         "increase_hyper_if_betas_below": config_inputs["increase_hyper_if_betas_below"],
     }
-
-
-def _build_gibbs_inner_beta_kwargs(config_inputs):
-    return {
+    inner_beta_kwargs = {
         "passed_in_max_num_burn_in": config_inputs["passed_in_max_num_burn_in"],
         "max_num_iter_betas": config_inputs["max_num_iter_betas"],
         "min_num_iter_betas": config_inputs["min_num_iter_betas"],
@@ -18641,10 +18640,7 @@ def _build_gibbs_inner_beta_kwargs(config_inputs):
         "sparse_solution": config_inputs["sparse_solution"],
         "sparse_frac_betas": config_inputs["sparse_frac_betas"],
     }
-
-
-def _build_gibbs_iteration_update_config(config_inputs):
-    return {
+    iteration_update_config = {
         "use_mean_betas": config_inputs["use_mean_betas"],
         "warm_start": config_inputs["warm_start"],
         "debug_zero_sparse": config_inputs["debug_zero_sparse"],
@@ -18655,19 +18651,13 @@ def _build_gibbs_iteration_update_config(config_inputs):
         "compute_Y_raw": config_inputs["compute_Y_raw"],
         "adjust_priors": config_inputs["adjust_priors"],
     }
-
-
-def _build_gibbs_prefilter_config(config_inputs):
-    return {
+    prefilter_config = {
         "sparse_frac_gibbs": config_inputs["sparse_frac_gibbs"],
         "sparse_max_gibbs": config_inputs["sparse_max_gibbs"],
         "pre_filter_batch_size": config_inputs["pre_filter_batch_size"],
         "pre_filter_small_batch_size": config_inputs["pre_filter_small_batch_size"],
     }
-
-
-def _build_gibbs_burn_in_config(config_inputs):
-    return {
+    burn_in_config = {
         "active_beta_top_k": config_inputs["active_beta_top_k"],
         "active_beta_min_abs": config_inputs["active_beta_min_abs"],
         "burn_in_rhat_quantile": config_inputs["burn_in_rhat_quantile"],
@@ -18686,10 +18676,7 @@ def _build_gibbs_burn_in_config(config_inputs):
         "burn_in_patience": config_inputs["burn_in_patience"],
         "stop_patience": config_inputs["stop_patience"],
     }
-
-
-def _build_gibbs_post_burn_diag_config(config_inputs):
-    return {
+    post_burn_diag_config = {
         "num_chains": config_inputs["num_chains"],
         "active_beta_top_k": config_inputs["active_beta_top_k"],
         "active_beta_min_abs": config_inputs["active_beta_min_abs"],
@@ -18709,17 +18696,6 @@ def _build_gibbs_post_burn_diag_config(config_inputs):
         "num_full_gene_sets": config_inputs["num_full_gene_sets"],
         "burn_in_patience": config_inputs["burn_in_patience"],
     }
-
-
-def _build_gibbs_epoch_runtime_configs(config_inputs):
-    # Group per-epoch and per-iteration static knobs so run_gibbs can focus on
-    # control flow.
-    epoch_phase_config = _build_gibbs_epoch_phase_config(config_inputs)
-    inner_beta_kwargs = _build_gibbs_inner_beta_kwargs(config_inputs)
-    iteration_update_config = _build_gibbs_iteration_update_config(config_inputs)
-    prefilter_config = _build_gibbs_prefilter_config(config_inputs)
-    burn_in_config = _build_gibbs_burn_in_config(config_inputs)
-    post_burn_diag_config = _build_gibbs_post_burn_diag_config(config_inputs)
     iteration_progress_config = {
         "diag_every": config_inputs["diag_every"],
         "use_mean_betas": config_inputs["use_mean_betas"],
