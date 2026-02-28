@@ -5321,6 +5321,115 @@ class GeneSetData(object):
             absent_log_bf_for_regression,
         )
 
+    def _compute_huge_signal_gene_posteriors(
+        self,
+        region_var_pos,
+        full_prob,
+        full_prob_detect,
+        separate_detect,
+        window_fun_slope,
+        window_fun_intercept,
+        gene_pos,
+        gene_index_to_name_index,
+        gene_name_to_index,
+        scale_raw_closest_gene,
+        cap_raw_closest_gene,
+        closest_gene_prob,
+        exon_interval_tree,
+        interval_to_gene,
+        pos_to_gene_prob,
+        max_closest_gene_dist,
+    ):
+        # Find max offset needed for this region based on max gene-linking distance.
+        gene_index_ranges = self._get_huge_closest_gene_indices(
+            gene_pos,
+            np.vstack(
+                (
+                    region_var_pos,
+                    region_var_pos - max_closest_gene_dist,
+                    region_var_pos + max_closest_gene_dist,
+                )
+            ),
+        )
+        max_num_indices = np.maximum(
+            np.max(gene_index_ranges[0, :] - gene_index_ranges[1, :]),
+            np.max(gene_index_ranges[2, :] - gene_index_ranges[0, :]),
+        )
+
+        (
+            cur_gene_prob_causal,
+            cur_gene_indices,
+            cur_gene_po,
+            cur_gene_prob_causal_norm,
+            cur_gene_indices_norm,
+        ) = self._compute_huge_gene_posterior(
+            region_pos=region_var_pos,
+            full_prob=full_prob,
+            window_fun_slope=window_fun_slope,
+            window_fun_intercept=window_fun_intercept,
+            gene_pos=gene_pos,
+            gene_index_to_name_index=gene_index_to_name_index,
+            gene_name_to_index=gene_name_to_index,
+            scale_raw_closest_gene=scale_raw_closest_gene,
+            cap_raw_closest_gene=cap_raw_closest_gene,
+            closest_gene_prob=closest_gene_prob,
+            exon_interval_tree=exon_interval_tree,
+            interval_to_gene=interval_to_gene,
+            pos_to_gene_prob=pos_to_gene_prob,
+            max_offset=max_num_indices,
+        )
+
+        if separate_detect:
+            (
+                cur_gene_prob_causal_detect,
+                cur_gene_indices_detect,
+                cur_gene_po_detect,
+                cur_gene_prob_causal_norm_detect,
+                cur_gene_indices_norm_detect,
+            ) = self._compute_huge_gene_posterior(
+                region_pos=region_var_pos,
+                full_prob=full_prob_detect,
+                window_fun_slope=window_fun_slope,
+                window_fun_intercept=window_fun_intercept,
+                gene_pos=gene_pos,
+                gene_index_to_name_index=gene_index_to_name_index,
+                gene_name_to_index=gene_name_to_index,
+                scale_raw_closest_gene=scale_raw_closest_gene,
+                cap_raw_closest_gene=cap_raw_closest_gene,
+                closest_gene_prob=closest_gene_prob,
+                exon_interval_tree=exon_interval_tree,
+                interval_to_gene=interval_to_gene,
+                pos_to_gene_prob=pos_to_gene_prob,
+                max_offset=max_num_indices,
+            )
+        else:
+            (
+                cur_gene_prob_causal_detect,
+                cur_gene_indices_detect,
+                cur_gene_po_detect,
+                cur_gene_prob_causal_norm_detect,
+                cur_gene_indices_norm_detect,
+            ) = (
+                copy.copy(cur_gene_prob_causal),
+                copy.copy(cur_gene_indices),
+                copy.copy(cur_gene_po),
+                copy.copy(cur_gene_prob_causal_norm),
+                copy.copy(cur_gene_indices_norm),
+            )
+
+        return (
+            cur_gene_prob_causal,
+            cur_gene_indices,
+            cur_gene_po,
+            cur_gene_prob_causal_norm,
+            cur_gene_indices_norm,
+            cur_gene_prob_causal_detect,
+            cur_gene_indices_detect,
+            cur_gene_po_detect,
+            cur_gene_prob_causal_norm_detect,
+            cur_gene_indices_norm_detect,
+        )
+
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
@@ -5885,18 +5994,22 @@ class GeneSetData(object):
 
                         if not learn_params:
 
-                            #calculate the posteriors
-
-                            #find out how many indices to look to the left and right of the nearest one before assigning 0 linkage probability
-
-                            #first get all of the gene indices within the max window of each variant on each size
-                            gene_index_ranges = self._get_huge_closest_gene_indices(gene_pos, np.vstack((var_pos[region_vars], var_pos[region_vars] - max_closest_gene_dist, var_pos[region_vars] + max_closest_gene_dist)))
-
-                            max_num_indices = np.maximum(np.max(gene_index_ranges[0,:] - gene_index_ranges[1,:]), np.max(gene_index_ranges[2,:] - gene_index_ranges[0,:]))
-
-                            (cur_gene_prob_causal, cur_gene_indices, cur_gene_po, cur_gene_prob_causal_norm, cur_gene_indices_norm) = self._compute_huge_gene_posterior(
-                                region_pos=var_pos[region_vars],
+                            (
+                                cur_gene_prob_causal,
+                                cur_gene_indices,
+                                cur_gene_po,
+                                cur_gene_prob_causal_norm,
+                                cur_gene_indices_norm,
+                                cur_gene_prob_causal_detect,
+                                cur_gene_indices_detect,
+                                cur_gene_po_detect,
+                                cur_gene_prob_causal_norm_detect,
+                                cur_gene_indices_norm_detect,
+                            ) = self._compute_huge_signal_gene_posteriors(
+                                region_var_pos=var_pos[region_vars],
                                 full_prob=full_prob,
+                                full_prob_detect=full_prob_detect,
+                                separate_detect=separate_detect,
                                 window_fun_slope=window_fun_slope,
                                 window_fun_intercept=window_fun_intercept,
                                 gene_pos=gene_pos,
@@ -5908,28 +6021,8 @@ class GeneSetData(object):
                                 exon_interval_tree=exon_interval_tree,
                                 interval_to_gene=interval_to_gene,
                                 pos_to_gene_prob=pos_to_gene_prob,
-                                max_offset=max_num_indices,
+                                max_closest_gene_dist=max_closest_gene_dist,
                             )
-
-                            if separate_detect:
-                                (cur_gene_prob_causal_detect, cur_gene_indices_detect, cur_gene_po_detect, cur_gene_prob_causal_norm_detect, cur_gene_indices_norm_detect) = self._compute_huge_gene_posterior(
-                                    region_pos=var_pos[region_vars],
-                                    full_prob=full_prob_detect,
-                                    window_fun_slope=window_fun_slope,
-                                    window_fun_intercept=window_fun_intercept,
-                                    gene_pos=gene_pos,
-                                    gene_index_to_name_index=gene_index_to_name_index,
-                                    gene_name_to_index=gene_name_to_index,
-                                    scale_raw_closest_gene=scale_raw_closest_gene,
-                                    cap_raw_closest_gene=cap_raw_closest_gene,
-                                    closest_gene_prob=closest_gene_prob,
-                                    exon_interval_tree=exon_interval_tree,
-                                    interval_to_gene=interval_to_gene,
-                                    pos_to_gene_prob=pos_to_gene_prob,
-                                    max_offset=max_num_indices,
-                                )
-                            else:
-                                (cur_gene_prob_causal_detect, cur_gene_indices_detect, cur_gene_po_detect, cur_gene_prob_causal_norm_detect, cur_gene_indices_norm_detect) = (copy.copy(cur_gene_prob_causal), copy.copy(cur_gene_indices), copy.copy(cur_gene_po), copy.copy(cur_gene_prob_causal_norm), copy.copy(cur_gene_indices_norm))
 
                             gene_prob_col_num = self._append_huge_signal_gene_results(
                                 chrom=chrom,
