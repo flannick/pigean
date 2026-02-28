@@ -21697,13 +21697,29 @@ def _prepare_gibbs_gene_set_mask_with_prefilter(
         full_is_dense_gene_set_m,
         full_ps_m,
         full_sigma2s_m,
-    ) = _unpack_gibbs_prefilter_iter_state(iter_state)
+    ) = (
+        iter_state["uncorrected_betas_mean_m"],
+        iter_state["uncorrected_betas_sample_m"],
+        iter_state["full_p_values_m"],
+        iter_state["full_beta_tildes_m"],
+        iter_state["full_ses_m"],
+        iter_state["full_scale_factors_m"],
+        iter_state["full_mean_shifts_m"],
+        iter_state["full_is_dense_gene_set_m"],
+        iter_state["full_ps_m"],
+        iter_state["full_sigma2s_m"],
+    )
     (
         sparse_frac_gibbs,
         sparse_max_gibbs,
         pre_filter_batch_size,
         pre_filter_small_batch_size,
-    ) = _unpack_gibbs_prefilter_config(prefilter_config)
+    ) = (
+        prefilter_config["sparse_frac_gibbs"],
+        prefilter_config["sparse_max_gibbs"],
+        prefilter_config["pre_filter_batch_size"],
+        prefilter_config["pre_filter_small_batch_size"],
+    )
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
 
     # Start from sparsity mask on uncorrected betas, then optionally run a
@@ -21927,30 +21943,6 @@ def _normalize_gibbs_gene_set_mask_across_chains(gene_set_mask_m):
                 if cur_num >= max_num_non_missing - num_non_missing_v[chain_num]:
                     break
     return gene_set_mask_m
-
-
-def _unpack_gibbs_prefilter_iter_state(iter_state):
-    return (
-        iter_state["uncorrected_betas_mean_m"],
-        iter_state["uncorrected_betas_sample_m"],
-        iter_state["full_p_values_m"],
-        iter_state["full_beta_tildes_m"],
-        iter_state["full_ses_m"],
-        iter_state["full_scale_factors_m"],
-        iter_state["full_mean_shifts_m"],
-        iter_state["full_is_dense_gene_set_m"],
-        iter_state["full_ps_m"],
-        iter_state["full_sigma2s_m"],
-    )
-
-
-def _unpack_gibbs_prefilter_config(prefilter_config):
-    return (
-        prefilter_config["sparse_frac_gibbs"],
-        prefilter_config["sparse_max_gibbs"],
-        prefilter_config["pre_filter_batch_size"],
-        prefilter_config["pre_filter_small_batch_size"],
-    )
 
 
 def _compute_gibbs_corrected_betas_for_gene_set_mask(
