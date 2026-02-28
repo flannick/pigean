@@ -17898,6 +17898,31 @@ def _build_gibbs_logistic_config(iteration_input_config, num_chains):
     }
 
 
+def _sample_gibbs_iteration_y_state(
+    state,
+    priors_for_Y_m,
+    log_bf_m,
+    log_bf_raw_m,
+    cur_background_log_bf_v,
+    y_var_orig,
+):
+    log("Sampling new Ys")
+    log("Setting logistic Ys", TRACE)
+    y_terms = _compute_gibbs_iteration_y_terms(
+        priors_for_Y_m,
+        log_bf_m,
+        log_bf_raw_m,
+        cur_background_log_bf_v,
+    )
+
+    if state.y_corr_sparse is not None:
+        log("Adjusting correlation matrix")
+    y_corr_sparse = _compute_gibbs_y_corr_sparse(state.y_corr_sparse, priors_for_Y_m, y_var_orig)
+
+    y_terms["y_corr_sparse"] = y_corr_sparse
+    return y_terms
+
+
 def _prepare_gibbs_iteration_inputs(
     state,
     iteration_num,
@@ -17923,13 +17948,13 @@ def _prepare_gibbs_iteration_inputs(
     state._record_param("num_gibbs_iter", iteration_num, overwrite=True)
     state._record_param("num_gibbs_iter_total", total_iter_num, overwrite=True)
 
-    log("Sampling new Ys")
-    log("Setting logistic Ys", TRACE)
-    y_terms = _compute_gibbs_iteration_y_terms(
-        priors_for_Y_m,
-        log_bf_m,
-        log_bf_raw_m,
-        cur_background_log_bf_v,
+    y_terms = _sample_gibbs_iteration_y_state(
+        state=state,
+        priors_for_Y_m=priors_for_Y_m,
+        log_bf_m=log_bf_m,
+        log_bf_raw_m=log_bf_raw_m,
+        cur_background_log_bf_v=cur_background_log_bf_v,
+        y_var_orig=y_var_orig,
     )
     Y_sample_m = y_terms["Y_sample_m"]
     Y_raw_sample_m = y_terms["Y_raw_sample_m"]
@@ -17938,10 +17963,7 @@ def _prepare_gibbs_iteration_inputs(
     log_po_sample_m = y_terms["log_po_sample_m"]
     D_raw_sample_m = y_terms["D_raw_sample_m"]
     log_po_raw_sample_m = y_terms["log_po_raw_sample_m"]
-
-    if state.y_corr_sparse is not None:
-        log("Adjusting correlation matrix")
-    y_corr_sparse = _compute_gibbs_y_corr_sparse(state.y_corr_sparse, priors_for_Y_m, y_var_orig)
+    y_corr_sparse = y_terms["y_corr_sparse"]
 
     logistic_config = _build_gibbs_logistic_config(iteration_input_config, len(Y_sample_m))
     logistic_setup = _compute_gibbs_logistic_beta_tildes(
