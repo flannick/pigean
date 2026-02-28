@@ -1638,56 +1638,17 @@ class PigeanState(object):
           aligned_existing_values (list of np.array, one per existing source),
           aligned_new_source_values (np.array)
         """
-        new_source_gene_to_ind = _construct_map_to_ind(new_source_genes)
-        merged_extra_genes = list(new_source_genes)
-        merged_new_source_values = list(new_source_values)
-        aligned_existing_values = [
-            list(np.full(len(merged_new_source_values), missing_value))
-            for missing_value in existing_missing_values
-        ]
-
-        for i in range(len(existing_extra_genes)):
-            gene = existing_extra_genes[i]
-            if gene in new_source_gene_to_ind:
-                source_ind = new_source_gene_to_ind[gene]
-                for j in range(len(existing_extra_values)):
-                    aligned_existing_values[j][source_ind] = existing_extra_values[j][i]
-            else:
-                merged_extra_genes.append(gene)
-                for j in range(len(existing_extra_values)):
-                    aligned_existing_values[j].append(existing_extra_values[j][i])
-                merged_new_source_values.append(new_source_missing_value)
-
-        return (
-            merged_extra_genes,
-            [np.array(x) for x in aligned_existing_values],
-            np.array(merged_new_source_values),
+        return _align_extra_genes_with_new_source(
+            existing_extra_genes,
+            existing_extra_values,
+            new_source_genes,
+            new_source_values,
+            existing_missing_values,
+            new_source_missing_value,
         )
 
     def _apply_hold_out_chrom_to_y(self, Y, extra_genes, extra_Y, hold_out_chrom, gene_loc_file):
-        if hold_out_chrom is None:
-            return (Y, extra_genes, extra_Y)
-
-        if self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
-
-        extra_Y_mask = np.full(len(extra_Y), True)
-        for i in range(len(extra_genes)):
-            if extra_genes[i] in self.gene_to_chrom and self.gene_to_chrom[extra_genes[i]] == hold_out_chrom:
-                extra_Y_mask[i] = False
-        if np.sum(~extra_Y_mask) > 0:
-            extra_genes = [extra_genes[i] for i in range(len(extra_genes)) if extra_Y_mask[i]]
-            extra_Y = extra_Y[extra_Y_mask]
-
-        if self.genes is not None:
-            Y_nan_mask = np.full(len(Y), False)
-            for i in range(len(self.genes)):
-                if self.genes[i] in self.gene_to_chrom and self.gene_to_chrom[self.genes[i]] == hold_out_chrom:
-                    Y_nan_mask[i] = True
-            if np.sum(Y_nan_mask) > 0:
-                Y[Y_nan_mask] = np.nan
-
-        return (Y, extra_genes, extra_Y)
+        return _apply_hold_out_chrom_to_y(self, Y, extra_genes, extra_Y, hold_out_chrom, gene_loc_file)
 
     def _read_primary_y_source(
         self,
@@ -14834,6 +14795,71 @@ GeneSetData = PigeanState
 # ==========================================================================
 # State-agnostic parsing helpers used by both legacy objects and runtime-state.
 # ==========================================================================
+def _align_extra_genes_with_new_source(
+    existing_extra_genes,
+    existing_extra_values,
+    new_source_genes,
+    new_source_values,
+    existing_missing_values,
+    new_source_missing_value,
+):
+    new_source_gene_to_ind = _construct_map_to_ind(new_source_genes)
+    merged_extra_genes = list(new_source_genes)
+    merged_new_source_values = list(new_source_values)
+    aligned_existing_values = [
+        list(np.full(len(merged_new_source_values), missing_value))
+        for missing_value in existing_missing_values
+    ]
+
+    for i in range(len(existing_extra_genes)):
+        gene = existing_extra_genes[i]
+        if gene in new_source_gene_to_ind:
+            source_ind = new_source_gene_to_ind[gene]
+            for j in range(len(existing_extra_values)):
+                aligned_existing_values[j][source_ind] = existing_extra_values[j][i]
+        else:
+            merged_extra_genes.append(gene)
+            for j in range(len(existing_extra_values)):
+                aligned_existing_values[j].append(existing_extra_values[j][i])
+            merged_new_source_values.append(new_source_missing_value)
+
+    return (
+        merged_extra_genes,
+        [np.array(x) for x in aligned_existing_values],
+        np.array(merged_new_source_values),
+    )
+
+
+def _apply_hold_out_chrom_to_y(runtime_state, Y, extra_genes, extra_Y, hold_out_chrom, gene_loc_file):
+    if hold_out_chrom is None:
+        return (Y, extra_genes, extra_Y)
+
+    if runtime_state.gene_to_chrom is None:
+        (
+            runtime_state.gene_chrom_name_pos,
+            runtime_state.gene_to_chrom,
+            runtime_state.gene_to_pos,
+        ) = _read_loc_file_with_gene_map(gene_loc_file, runtime_state.gene_label_map)
+
+    extra_Y_mask = np.full(len(extra_Y), True)
+    for i in range(len(extra_genes)):
+        if extra_genes[i] in runtime_state.gene_to_chrom and runtime_state.gene_to_chrom[extra_genes[i]] == hold_out_chrom:
+            extra_Y_mask[i] = False
+    if np.sum(~extra_Y_mask) > 0:
+        extra_genes = [extra_genes[i] for i in range(len(extra_genes)) if extra_Y_mask[i]]
+        extra_Y = extra_Y[extra_Y_mask]
+
+    if runtime_state.genes is not None:
+        Y_nan_mask = np.full(len(Y), False)
+        for i in range(len(runtime_state.genes)):
+            if runtime_state.genes[i] in runtime_state.gene_to_chrom and runtime_state.gene_to_chrom[runtime_state.genes[i]] == hold_out_chrom:
+                Y_nan_mask[i] = True
+        if np.sum(Y_nan_mask) > 0:
+            Y[Y_nan_mask] = np.nan
+
+    return (Y, extra_genes, extra_Y)
+
+
 def _construct_map_to_ind(values):
     return dict([(values[i], i) for i in range(len(values))])
 
