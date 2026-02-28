@@ -18921,7 +18921,6 @@ def _compute_gibbs_logistic_outputs_for_batches(
     full_z_scores_m = np.zeros(full_betas_m_shape)
     full_p_values_m = np.zeros(full_betas_m_shape)
     se_inflation_factors_m = np.zeros(full_betas_m_shape)
-    full_alpha_tildes_m = np.zeros(full_betas_m_shape)
     diverged_m = np.full(full_betas_m_shape, False)
 
     for batch in range(num_stack_batches):
@@ -18937,7 +18936,7 @@ def _compute_gibbs_logistic_outputs_for_batches(
             batch_z_scores_m,
             batch_p_values_m,
             init_se_inflation_factors_m,
-            batch_alpha_tildes_m,
+            _batch_alpha_tildes_m,
             batch_diverged_m,
         ) = _compute_gibbs_logistic_beta_tildes_batch(
             state=state,
@@ -18953,7 +18952,6 @@ def _compute_gibbs_logistic_outputs_for_batches(
         full_ses_m[begin:end,pre_gene_set_filter_mask] = batch_ses_m
         full_z_scores_m[begin:end,pre_gene_set_filter_mask] = batch_z_scores_m
         full_p_values_m[begin:end,pre_gene_set_filter_mask] = batch_p_values_m
-        full_alpha_tildes_m[begin:end,pre_gene_set_filter_mask] = batch_alpha_tildes_m
         diverged_m[begin:end,pre_gene_set_filter_mask] = batch_diverged_m
 
         full_ses_m[begin:end,~pre_gene_set_filter_mask] = 100
@@ -18970,7 +18968,6 @@ def _compute_gibbs_logistic_outputs_for_batches(
         "full_z_scores_m": full_z_scores_m,
         "full_p_values_m": full_p_values_m,
         "se_inflation_factors_m": se_inflation_factors_m,
-        "full_alpha_tildes_m": full_alpha_tildes_m,
         "diverged_m": diverged_m,
     }
 
@@ -19078,7 +19075,6 @@ def _compute_gibbs_logistic_beta_tildes(
     full_z_scores_m = logistic_outputs["full_z_scores_m"]
     full_p_values_m = logistic_outputs["full_p_values_m"]
     se_inflation_factors_m = logistic_outputs["se_inflation_factors_m"]
-    full_alpha_tildes_m = logistic_outputs["full_alpha_tildes_m"]
     diverged_m = logistic_outputs["diverged_m"]
 
     # Legacy outlier-z filtering was experimental and is disabled in this path.
