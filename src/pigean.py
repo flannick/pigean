@@ -18772,7 +18772,7 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
     }
 
 
-def _build_gibbs_epoch_runtime_base_inputs(gibbs_controls, dynamic_inputs):
+def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
     return {
         "total_num_iter": gibbs_controls["total_num_iter"],
         "num_chains": gibbs_controls["num_chains"],
@@ -18809,11 +18809,6 @@ def _build_gibbs_epoch_runtime_base_inputs(gibbs_controls, dynamic_inputs):
         "r_threshold_burn_in": dynamic_inputs["r_threshold_burn_in"],
         "gauss_seidel": dynamic_inputs["gauss_seidel"],
         "eps": dynamic_inputs["eps"],
-    }
-
-
-def _build_gibbs_epoch_runtime_inner_beta_inputs(gibbs_controls, dynamic_inputs):
-    return {
         "passed_in_max_num_burn_in": gibbs_controls["passed_in_max_num_burn_in"],
         "max_num_iter_betas": dynamic_inputs["max_num_iter_betas"],
         "min_num_iter_betas": dynamic_inputs["min_num_iter_betas"],
@@ -18825,11 +18820,6 @@ def _build_gibbs_epoch_runtime_inner_beta_inputs(gibbs_controls, dynamic_inputs)
         "gauss_seidel_betas": dynamic_inputs["gauss_seidel_betas"],
         "sparse_solution": dynamic_inputs["sparse_solution"],
         "sparse_frac_betas": dynamic_inputs["sparse_frac_betas"],
-    }
-
-
-def _build_gibbs_epoch_runtime_diag_inputs(gibbs_controls):
-    return {
         "active_beta_top_k": gibbs_controls["active_beta_top_k"],
         "active_beta_min_abs": gibbs_controls["active_beta_min_abs"],
         "burn_in_rhat_quantile": gibbs_controls["burn_in_rhat_quantile"],
@@ -18849,14 +18839,6 @@ def _build_gibbs_epoch_runtime_diag_inputs(gibbs_controls):
         "stall_min_post_burn_in": gibbs_controls["stall_min_post_burn_in"],
         "stall_delta_mcse": gibbs_controls["stall_delta_mcse"],
     }
-
-
-def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
-    config_inputs = {}
-    config_inputs.update(_build_gibbs_epoch_runtime_base_inputs(gibbs_controls, dynamic_inputs))
-    config_inputs.update(_build_gibbs_epoch_runtime_inner_beta_inputs(gibbs_controls, dynamic_inputs))
-    config_inputs.update(_build_gibbs_epoch_runtime_diag_inputs(gibbs_controls))
-    return config_inputs
 
 
 def _build_gibbs_epoch_iteration_loop_config(
