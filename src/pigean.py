@@ -19360,6 +19360,39 @@ def _run_gibbs_corrected_betas_step(
     )
 
 
+def _run_gibbs_refresh_priors_huge_step(
+    state,
+    iteration_update_config,
+    epoch_priors,
+    full_betas_sample_m,
+    full_betas_mean_m,
+    full_postp_sample_m,
+    full_postp_mean_m,
+    log_bf_m,
+    log_bf_uncorrected_m,
+    log_bf_raw_m,
+):
+    return _refresh_gibbs_iteration_priors_and_huge(
+        state,
+        warm_start=iteration_update_config["warm_start"],
+        use_mean_betas=iteration_update_config["use_mean_betas"],
+        prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
+        prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
+        full_betas_sample_m=full_betas_sample_m,
+        full_betas_mean_m=full_betas_mean_m,
+        full_postp_sample_m=full_postp_sample_m,
+        full_postp_mean_m=full_postp_mean_m,
+        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
+        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
+        priors_for_Y_m=epoch_priors["priors_for_Y_m"],
+        update_huge_scores=iteration_update_config["update_huge_scores"],
+        compute_Y_raw=iteration_update_config["compute_Y_raw"],
+        log_bf_m=log_bf_m,
+        log_bf_uncorrected_m=log_bf_uncorrected_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
+
+
 def _compute_gibbs_iteration_betas_and_priors(
     state,
     iter_state,
@@ -19387,21 +19420,14 @@ def _compute_gibbs_iteration_betas_and_priors(
         inner_beta_kwargs=inner_beta_kwargs,
     )
 
-    refresh_update = _refresh_gibbs_iteration_priors_and_huge(
-        state,
-        warm_start=iteration_update_config["warm_start"],
-        use_mean_betas=iteration_update_config["use_mean_betas"],
-        prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
-        prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
+    refresh_update = _run_gibbs_refresh_priors_huge_step(
+        state=state,
+        iteration_update_config=iteration_update_config,
+        epoch_priors=epoch_priors,
         full_betas_sample_m=full_betas_sample_m,
         full_betas_mean_m=full_betas_mean_m,
         full_postp_sample_m=full_postp_sample_m,
         full_postp_mean_m=full_postp_mean_m,
-        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
-        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-        priors_for_Y_m=epoch_priors["priors_for_Y_m"],
-        update_huge_scores=iteration_update_config["update_huge_scores"],
-        compute_Y_raw=iteration_update_config["compute_Y_raw"],
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
