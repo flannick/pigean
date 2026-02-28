@@ -21434,31 +21434,6 @@ def _write_gibbs_iteration_gene_set_stats_trace(
     )
 
 
-def _unpack_gibbs_progress_runtime_config(progress_runtime_config):
-    return (
-        progress_runtime_config["trace_chain_offset"],
-        progress_runtime_config["epoch_total_iter_offset"],
-        progress_runtime_config["epoch_max_num_iter"],
-        progress_runtime_config["max_num_burn_in_for_epoch"],
-        progress_runtime_config["min_num_iter_for_epoch"],
-        progress_runtime_config["min_num_burn_in_for_epoch"],
-        progress_runtime_config["max_num_post_burn_in_for_epoch"],
-        progress_runtime_config["min_num_post_burn_in_for_epoch"],
-        progress_runtime_config["post_burn_reset_arrays"],
-        progress_runtime_config["post_burn_reset_missing_arrays"],
-        progress_runtime_config["iteration_progress_config"],
-    )
-
-
-def _unpack_gibbs_iteration_update_state(iteration_update):
-    return (
-        iteration_update["full_betas_sample_m"],
-        iteration_update["full_postp_sample_m"],
-        iteration_update["full_betas_mean_m"],
-        iteration_update["full_postp_mean_m"],
-    )
-
-
 def _run_gibbs_iteration_burn_in_update(
     epoch_control,
     iteration_num,
@@ -21553,13 +21528,30 @@ def _advance_gibbs_iteration_progress(
         post_burn_reset_arrays,
         post_burn_reset_missing_arrays,
         iteration_progress_config,
-    ) = _unpack_gibbs_progress_runtime_config(progress_runtime_config)
+    ) = (
+        progress_runtime_config["trace_chain_offset"],
+        progress_runtime_config["epoch_total_iter_offset"],
+        progress_runtime_config["epoch_max_num_iter"],
+        progress_runtime_config["max_num_burn_in_for_epoch"],
+        progress_runtime_config["min_num_iter_for_epoch"],
+        progress_runtime_config["min_num_burn_in_for_epoch"],
+        progress_runtime_config["max_num_post_burn_in_for_epoch"],
+        progress_runtime_config["min_num_post_burn_in_for_epoch"],
+        progress_runtime_config["post_burn_reset_arrays"],
+        progress_runtime_config["post_burn_reset_missing_arrays"],
+        progress_runtime_config["iteration_progress_config"],
+    )
     (
         full_betas_sample_m,
         full_postp_sample_m,
         full_betas_mean_m,
         full_postp_mean_m,
-    ) = _unpack_gibbs_iteration_update_state(iteration_update)
+    ) = (
+        iteration_update["full_betas_sample_m"],
+        iteration_update["full_postp_sample_m"],
+        iteration_update["full_betas_mean_m"],
+        iteration_update["full_postp_mean_m"],
+    )
 
     _run_gibbs_iteration_burn_in_update(
         epoch_control=epoch_control,
