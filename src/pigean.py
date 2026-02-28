@@ -19326,18 +19326,6 @@ def _finalize_gibbs_run_after_epochs(run_state, num_chains):
     log("Aggregated %d Gibbs epoch(s) into %d effective chains" % (run_state["num_completed_epochs"], run_state["num_completed_epochs"] * num_chains), INFO)
 
 
-def _apply_gibbs_iteration_run_log_bf_state(
-    iteration_run,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    log_bf_m = iteration_run["log_bf_m"]
-    log_bf_uncorrected_m = iteration_run["log_bf_uncorrected_m"]
-    log_bf_raw_m = iteration_run["log_bf_raw_m"]
-    return (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m)
-
-
 def _run_single_gibbs_epoch_iteration_step(
     state,
     run_state,
@@ -19370,12 +19358,9 @@ def _run_single_gibbs_epoch_iteration_step(
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
     )
-    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _apply_gibbs_iteration_run_log_bf_state(
-        iteration_run=iteration_run,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-    )
+    log_bf_m = iteration_run["log_bf_m"]
+    log_bf_uncorrected_m = iteration_run["log_bf_uncorrected_m"]
+    log_bf_raw_m = iteration_run["log_bf_raw_m"]
     return {
         "log_bf_m": log_bf_m,
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
