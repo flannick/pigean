@@ -18590,7 +18590,13 @@ def _maybe_log_gibbs_conditional_variance(state, top_gene_prior):
         log("Setting Y cond var=%.4g (total var = %.4g) given top gene prior of %.4g" % (y_cond_var, y_total_var, top_gene_prior))
 
 
-def _build_gibbs_initial_log_bf_state(state, num_chains):
+def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
+    _snapshot_pre_gibbs_state(state)
+
+    # We always update correlation relative to the original Y variance.
+    y_var_orig = np.var(state.Y_for_regression)
+
+    _maybe_log_gibbs_conditional_variance(state, top_gene_prior)
     bf_orig = np.exp(state.Y_for_regression_orig)
     bf_orig_raw = np.exp(state.Y_orig)
 
@@ -18603,40 +18609,12 @@ def _build_gibbs_initial_log_bf_state(state, num_chains):
     compute_Y_raw = np.any(~np.isclose(log_bf_m, log_bf_raw_m))
     cur_background_log_bf_v = np.tile(state.background_log_bf, num_chains)
 
-    return {
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-        "compute_Y_raw": compute_Y_raw,
-        "cur_background_log_bf_v": cur_background_log_bf_v,
-    }
-
-
-def _get_total_gibbs_gene_set_count(state):
-    num_full_gene_sets = len(state.gene_sets)
-    if state.gene_sets_missing is not None:
-        num_full_gene_sets += len(state.gene_sets_missing)
-    return num_full_gene_sets
-
-
-def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
-    _snapshot_pre_gibbs_state(state)
-
-    # We always update correlation relative to the original Y variance.
-    y_var_orig = np.var(state.Y_for_regression)
-
-    _maybe_log_gibbs_conditional_variance(state, top_gene_prior)
-    log_bf_state = _build_gibbs_initial_log_bf_state(state, num_chains)
-    log_bf_m = log_bf_state["log_bf_m"]
-    log_bf_uncorrected_m = log_bf_state["log_bf_uncorrected_m"]
-    log_bf_raw_m = log_bf_state["log_bf_raw_m"]
-    compute_Y_raw = log_bf_state["compute_Y_raw"]
-    cur_background_log_bf_v = log_bf_state["cur_background_log_bf_v"]
-
     if state.y_corr_cholesky is not None:
         bail("GLS not implemented yet for Gibbs sampling!")
 
-    num_full_gene_sets = _get_total_gibbs_gene_set_count(state)
+    num_full_gene_sets = len(state.gene_sets)
+    if state.gene_sets_missing is not None:
+        num_full_gene_sets += len(state.gene_sets_missing)
 
     return {
         "y_var_orig": y_var_orig,
