@@ -18319,23 +18319,6 @@ def _accumulate_gibbs_post_burn_iteration(
         epoch_sums["num_sum_priors_missing_m"] += 1
 
 
-def _build_gibbs_logistic_config(iteration_input_config, num_chains):
-    return {
-        "full_betas_m_shape": iteration_input_config["full_betas_m_shape"],
-        "num_stack_batches": iteration_input_config["num_stack_batches"],
-        "stack_batch_size": iteration_input_config["stack_batch_size"],
-        "X_hstacked": iteration_input_config["X_hstacked"],
-        "inner_beta_kwargs": iteration_input_config["inner_beta_kwargs"],
-        "num_chains": num_chains,
-        "gauss_seidel": iteration_input_config["gauss_seidel"],
-        "initial_linear_filter": iteration_input_config["initial_linear_filter"],
-        "sparse_frac_gibbs": iteration_input_config["sparse_frac_gibbs"],
-        "sparse_max_gibbs": iteration_input_config["sparse_max_gibbs"],
-        "correct_betas_mean": iteration_input_config["correct_betas_mean"],
-        "correct_betas_var": iteration_input_config["correct_betas_var"],
-    }
-
-
 def _sample_gibbs_iteration_y_state(
     state,
     priors_for_Y_m,
@@ -18414,7 +18397,20 @@ def _prepare_gibbs_iteration_inputs(
         y_terms["y_corr_sparse"],
     )
 
-    logistic_config = _build_gibbs_logistic_config(iteration_input_config, len(Y_sample_m))
+    logistic_config = {
+        "full_betas_m_shape": iteration_input_config["full_betas_m_shape"],
+        "num_stack_batches": iteration_input_config["num_stack_batches"],
+        "stack_batch_size": iteration_input_config["stack_batch_size"],
+        "X_hstacked": iteration_input_config["X_hstacked"],
+        "inner_beta_kwargs": iteration_input_config["inner_beta_kwargs"],
+        "num_chains": len(Y_sample_m),
+        "gauss_seidel": iteration_input_config["gauss_seidel"],
+        "initial_linear_filter": iteration_input_config["initial_linear_filter"],
+        "sparse_frac_gibbs": iteration_input_config["sparse_frac_gibbs"],
+        "sparse_max_gibbs": iteration_input_config["sparse_max_gibbs"],
+        "correct_betas_mean": iteration_input_config["correct_betas_mean"],
+        "correct_betas_var": iteration_input_config["correct_betas_var"],
+    }
     logistic_setup = _compute_gibbs_logistic_beta_tildes(
         state=state,
         Y_sample_m=Y_sample_m,
@@ -20035,14 +20031,6 @@ def _maybe_correct_gibbs_logistic_beta_tildes(
     )
 
 
-def _build_gibbs_logistic_p_sample(Y_sample_m, D_sample_m, gauss_seidel):
-    if not gauss_seidel:
-        log("Sampling Ds for logistic", TRACE)
-    else:
-        log("Setting Ds to mean probabilities", TRACE)
-    return _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
-
-
 def _compute_gibbs_logistic_beta_tildes(
     state,
     Y_sample_m,
@@ -20093,11 +20081,11 @@ def _compute_gibbs_logistic_beta_tildes(
     if state.sigma2s is not None:
         full_sigma2s_m = np.tile(state.sigma2s, num_chains).reshape((num_chains, num_gene_sets))
 
-    p_sample_m = _build_gibbs_logistic_p_sample(
-        Y_sample_m=Y_sample_m,
-        D_sample_m=D_sample_m,
-        gauss_seidel=gauss_seidel,
-    )
+    if not gauss_seidel:
+        log("Sampling Ds for logistic", TRACE)
+    else:
+        log("Setting Ds to mean probabilities", TRACE)
+    p_sample_m = _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel)
 
     pre_gene_set_filter_mask = _compute_gibbs_pre_gene_set_filter_mask(
         state=state,
