@@ -20069,6 +20069,23 @@ def _build_gibbs_logistic_beta_tilde_outputs(
     }
 
 
+def _unpack_gibbs_logistic_config(logistic_config):
+    return (
+        logistic_config["full_betas_m_shape"],
+        logistic_config["num_stack_batches"],
+        logistic_config["stack_batch_size"],
+        logistic_config["X_hstacked"],
+        logistic_config["inner_beta_kwargs"],
+        logistic_config["num_chains"],
+        logistic_config["gauss_seidel"],
+        logistic_config["initial_linear_filter"],
+        logistic_config["sparse_frac_gibbs"],
+        logistic_config["sparse_max_gibbs"],
+        logistic_config["correct_betas_mean"],
+        logistic_config["correct_betas_var"],
+    )
+
+
 def _compute_gibbs_logistic_beta_tildes(
     state,
     Y_sample_m,
@@ -20077,18 +20094,20 @@ def _compute_gibbs_logistic_beta_tildes(
     y_corr_sparse,
     logistic_config,
 ):
-    full_betas_m_shape = logistic_config["full_betas_m_shape"]
-    num_stack_batches = logistic_config["num_stack_batches"]
-    stack_batch_size = logistic_config["stack_batch_size"]
-    X_hstacked = logistic_config["X_hstacked"]
-    inner_beta_kwargs = logistic_config["inner_beta_kwargs"]
-    num_chains = logistic_config["num_chains"]
-    gauss_seidel = logistic_config["gauss_seidel"]
-    initial_linear_filter = logistic_config["initial_linear_filter"]
-    sparse_frac_gibbs = logistic_config["sparse_frac_gibbs"]
-    sparse_max_gibbs = logistic_config["sparse_max_gibbs"]
-    correct_betas_mean = logistic_config["correct_betas_mean"]
-    correct_betas_var = logistic_config["correct_betas_var"]
+    (
+        full_betas_m_shape,
+        num_stack_batches,
+        stack_batch_size,
+        X_hstacked,
+        inner_beta_kwargs,
+        num_chains,
+        gauss_seidel,
+        initial_linear_filter,
+        sparse_frac_gibbs,
+        sparse_max_gibbs,
+        correct_betas_mean,
+        correct_betas_var,
+    ) = _unpack_gibbs_logistic_config(logistic_config)
 
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
     expanded_state = _build_gibbs_chain_expanded_gene_set_state(state, num_chains)
