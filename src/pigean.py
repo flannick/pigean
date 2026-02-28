@@ -19776,6 +19776,36 @@ def _compute_gibbs_logistic_beta_tildes_batch(
     )
 
 
+def _maybe_correct_gibbs_logistic_beta_tildes(
+    state,
+    full_beta_tildes_m,
+    full_ses_m,
+    full_z_scores_m,
+    full_p_values_m,
+    se_inflation_factors_m,
+    correct_betas_mean,
+    correct_betas_var,
+):
+    if not (correct_betas_mean or correct_betas_var):
+        return (
+            full_beta_tildes_m,
+            full_ses_m,
+            full_z_scores_m,
+            full_p_values_m,
+            se_inflation_factors_m,
+        )
+    return state._correct_beta_tildes(
+        full_beta_tildes_m,
+        full_ses_m,
+        se_inflation_factors_m,
+        state.total_qc_metrics,
+        state.total_qc_metrics_directions,
+        correct_mean=correct_betas_mean,
+        correct_var=correct_betas_var,
+        fit=False,
+    )
+
+
 def _compute_gibbs_logistic_beta_tildes(
     state,
     Y_sample_m,
@@ -19849,8 +19879,22 @@ def _compute_gibbs_logistic_beta_tildes(
     full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
 
     _log_gibbs_logistic_divergence(diverged_m, state.gene_sets)
-    if correct_betas_mean or correct_betas_var:
-        (full_beta_tildes_m, full_ses_m, full_z_scores_m, full_p_values_m, se_inflation_factors_m) = state._correct_beta_tildes(full_beta_tildes_m, full_ses_m, se_inflation_factors_m, state.total_qc_metrics, state.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, fit=False)
+    (
+        full_beta_tildes_m,
+        full_ses_m,
+        full_z_scores_m,
+        full_p_values_m,
+        se_inflation_factors_m,
+    ) = _maybe_correct_gibbs_logistic_beta_tildes(
+        state=state,
+        full_beta_tildes_m=full_beta_tildes_m,
+        full_ses_m=full_ses_m,
+        full_z_scores_m=full_z_scores_m,
+        full_p_values_m=full_p_values_m,
+        se_inflation_factors_m=se_inflation_factors_m,
+        correct_betas_mean=correct_betas_mean,
+        correct_betas_var=correct_betas_var,
+    )
 
     return {
         "full_scale_factors_m": full_scale_factors_m,
