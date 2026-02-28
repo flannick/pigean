@@ -21251,6 +21251,73 @@ def _unpack_gibbs_iteration_update_state(iteration_update):
     )
 
 
+def _run_gibbs_iteration_burn_in_update(
+    epoch_control,
+    iteration_num,
+    epoch_total_iter_offset,
+    epoch_max_num_iter,
+    max_num_burn_in_for_epoch,
+    min_num_iter_for_epoch,
+    min_num_burn_in_for_epoch,
+    post_burn_reset_arrays,
+    post_burn_reset_missing_arrays,
+    iteration_progress_config,
+    iter_state,
+    epoch_runtime,
+):
+    burn_in_update = _update_gibbs_burn_in_state(
+        epoch_control=epoch_control,
+        iteration_num=iteration_num,
+        epoch_total_iter_offset=epoch_total_iter_offset,
+        epoch_max_num_iter=epoch_max_num_iter,
+        max_num_burn_in_for_epoch=max_num_burn_in_for_epoch,
+        min_num_iter_for_epoch=min_num_iter_for_epoch,
+        min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
+        post_burn_reset_arrays=post_burn_reset_arrays,
+        post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
+        burn_in_config=iteration_progress_config["burn_in_config"],
+        iter_state=iter_state,
+        epoch_runtime=epoch_runtime,
+    )
+    _apply_gibbs_burn_in_update_to_epoch_control(epoch_control, burn_in_update)
+    return burn_in_update
+
+
+def _run_gibbs_iteration_post_burn_update(
+    state,
+    max_num_post_burn_in_for_epoch,
+    min_num_post_burn_in_for_epoch,
+    epoch_max_num_iter,
+    iteration_progress_config,
+    iter_state,
+    epoch_sums,
+    epoch_priors,
+    epoch_control,
+    run_state,
+    log_bf_m,
+    log_bf_raw_m,
+    full_betas_mean_m,
+    full_postp_sample_m,
+):
+    return _update_gibbs_post_burn_state(
+        state=state,
+        max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
+        min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
+        epoch_max_num_iter=epoch_max_num_iter,
+        diag_every=iteration_progress_config["diag_every"],
+        post_burn_diag_config=iteration_progress_config["post_burn_diag_config"],
+        iter_state=iter_state,
+        epoch_sums=epoch_sums,
+        epoch_priors=epoch_priors,
+        epoch_control=epoch_control,
+        run_state=run_state,
+        log_bf_m=log_bf_m,
+        log_bf_raw_m=log_bf_raw_m,
+        full_betas_mean_m=full_betas_mean_m,
+        full_postp_sample_m=full_postp_sample_m,
+    )
+
+
 def _advance_gibbs_iteration_progress(
     state,
     epoch_control,
@@ -21286,7 +21353,7 @@ def _advance_gibbs_iteration_progress(
         full_postp_mean_m,
     ) = _unpack_gibbs_iteration_update_state(iteration_update)
 
-    burn_in_update = _update_gibbs_burn_in_state(
+    _run_gibbs_iteration_burn_in_update(
         epoch_control=epoch_control,
         iteration_num=iteration_num,
         epoch_total_iter_offset=epoch_total_iter_offset,
@@ -21296,19 +21363,17 @@ def _advance_gibbs_iteration_progress(
         min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
         post_burn_reset_arrays=post_burn_reset_arrays,
         post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
-        burn_in_config=iteration_progress_config["burn_in_config"],
+        iteration_progress_config=iteration_progress_config,
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
     )
-    _apply_gibbs_burn_in_update_to_epoch_control(epoch_control, burn_in_update)
 
-    post_burn_update = _update_gibbs_post_burn_state(
+    post_burn_update = _run_gibbs_iteration_post_burn_update(
         state=state,
         max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
         min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
         epoch_max_num_iter=epoch_max_num_iter,
-        diag_every=iteration_progress_config["diag_every"],
-        post_burn_diag_config=iteration_progress_config["post_burn_diag_config"],
+        iteration_progress_config=iteration_progress_config,
         iter_state=iter_state,
         epoch_sums=epoch_sums,
         epoch_priors=epoch_priors,
