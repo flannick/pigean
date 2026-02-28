@@ -5957,12 +5957,6 @@ class GeneSetData(object):
                             )
 
                 if learn_params:
-
-                    #first update units if needed
-                    unit_scale_factor = None
-                    if gwas_units is not None:
-                        unit_scale_factor = np.square(gwas_units)
-
                     index_var_ps = self._collect_huge_independent_signal_pvalues(index_var_chrom_pos_ps)
                     num_below_low_p = np.sum(index_var_ps < gwas_low_p)
 
