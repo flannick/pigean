@@ -18319,6 +18319,50 @@ def _sample_gibbs_iteration_y_state(
     return y_terms
 
 
+def _unpack_gibbs_iteration_sampled_y_terms(y_terms):
+    return (
+        y_terms["Y_sample_m"],
+        y_terms["Y_raw_sample_m"],
+        y_terms["y_var"],
+        y_terms["D_sample_m"],
+        y_terms["log_po_sample_m"],
+        y_terms["D_raw_sample_m"],
+        y_terms["log_po_raw_sample_m"],
+        y_terms["y_corr_sparse"],
+    )
+
+
+def _build_gibbs_iteration_inputs_result(
+    epoch_iter_num,
+    total_iter_num,
+    y_terms,
+    logistic_setup,
+):
+    return {
+        "epoch_iter_num": epoch_iter_num,
+        "total_iter_num": total_iter_num,
+        "Y_sample_m": y_terms["Y_sample_m"],
+        "Y_raw_sample_m": y_terms["Y_raw_sample_m"],
+        "y_var": y_terms["y_var"],
+        "D_sample_m": y_terms["D_sample_m"],
+        "log_po_sample_m": y_terms["log_po_sample_m"],
+        "D_raw_sample_m": y_terms["D_raw_sample_m"],
+        "log_po_raw_sample_m": y_terms["log_po_raw_sample_m"],
+        "full_scale_factors_m": logistic_setup["full_scale_factors_m"],
+        "full_mean_shifts_m": logistic_setup["full_mean_shifts_m"],
+        "full_is_dense_gene_set_m": logistic_setup["full_is_dense_gene_set_m"],
+        "full_ps_m": logistic_setup["full_ps_m"],
+        "full_sigma2s_m": logistic_setup["full_sigma2s_m"],
+        "p_sample_m": logistic_setup["p_sample_m"],
+        "pre_gene_set_filter_mask": logistic_setup["pre_gene_set_filter_mask"],
+        "full_z_cur_beta_tildes_m": logistic_setup["full_z_cur_beta_tildes_m"],
+        "full_beta_tildes_m": logistic_setup["full_beta_tildes_m"],
+        "full_ses_m": logistic_setup["full_ses_m"],
+        "full_z_scores_m": logistic_setup["full_z_scores_m"],
+        "full_p_values_m": logistic_setup["full_p_values_m"],
+    }
+
+
 def _prepare_gibbs_iteration_inputs(
     state,
     iteration_num,
@@ -18352,14 +18396,16 @@ def _prepare_gibbs_iteration_inputs(
         cur_background_log_bf_v=cur_background_log_bf_v,
         y_var_orig=y_var_orig,
     )
-    Y_sample_m = y_terms["Y_sample_m"]
-    Y_raw_sample_m = y_terms["Y_raw_sample_m"]
-    y_var = y_terms["y_var"]
-    D_sample_m = y_terms["D_sample_m"]
-    log_po_sample_m = y_terms["log_po_sample_m"]
-    D_raw_sample_m = y_terms["D_raw_sample_m"]
-    log_po_raw_sample_m = y_terms["log_po_raw_sample_m"]
-    y_corr_sparse = y_terms["y_corr_sparse"]
+    (
+        Y_sample_m,
+        _Y_raw_sample_m,
+        y_var,
+        D_sample_m,
+        _log_po_sample_m,
+        _D_raw_sample_m,
+        _log_po_raw_sample_m,
+        y_corr_sparse,
+    ) = _unpack_gibbs_iteration_sampled_y_terms(y_terms)
 
     logistic_config = _build_gibbs_logistic_config(iteration_input_config, len(Y_sample_m))
     logistic_setup = _compute_gibbs_logistic_beta_tildes(
@@ -18371,7 +18417,6 @@ def _prepare_gibbs_iteration_inputs(
         logistic_config=logistic_config,
     )
 
-    p_sample_m = logistic_setup["p_sample_m"]
     _maybe_write_gibbs_gene_stats_trace(
         gene_stats_trace_fh,
         iteration_num,
@@ -18380,34 +18425,17 @@ def _prepare_gibbs_iteration_inputs(
         priors_for_Y_m,
         Y_sample_m,
         log_bf_m,
-        p_sample_m,
+        logistic_setup["p_sample_m"],
         priors_percentage_max_for_Y_m,
         priors_adjustment_for_Y_m,
     )
 
-    return {
-        "epoch_iter_num": epoch_iter_num,
-        "total_iter_num": total_iter_num,
-        "Y_sample_m": Y_sample_m,
-        "Y_raw_sample_m": Y_raw_sample_m,
-        "y_var": y_var,
-        "D_sample_m": D_sample_m,
-        "log_po_sample_m": log_po_sample_m,
-        "D_raw_sample_m": D_raw_sample_m,
-        "log_po_raw_sample_m": log_po_raw_sample_m,
-        "full_scale_factors_m": logistic_setup["full_scale_factors_m"],
-        "full_mean_shifts_m": logistic_setup["full_mean_shifts_m"],
-        "full_is_dense_gene_set_m": logistic_setup["full_is_dense_gene_set_m"],
-        "full_ps_m": logistic_setup["full_ps_m"],
-        "full_sigma2s_m": logistic_setup["full_sigma2s_m"],
-        "p_sample_m": p_sample_m,
-        "pre_gene_set_filter_mask": logistic_setup["pre_gene_set_filter_mask"],
-        "full_z_cur_beta_tildes_m": logistic_setup["full_z_cur_beta_tildes_m"],
-        "full_beta_tildes_m": logistic_setup["full_beta_tildes_m"],
-        "full_ses_m": logistic_setup["full_ses_m"],
-        "full_z_scores_m": logistic_setup["full_z_scores_m"],
-        "full_p_values_m": logistic_setup["full_p_values_m"],
-    }
+    return _build_gibbs_iteration_inputs_result(
+        epoch_iter_num=epoch_iter_num,
+        total_iter_num=total_iter_num,
+        y_terms=y_terms,
+        logistic_setup=logistic_setup,
+    )
 
 
 def _prepare_gibbs_iteration_state(
