@@ -20289,6 +20289,25 @@ def _update_post_stall_best_histories(
     post_stall_best_D_mcse_history.append(post_best_D_mcse_q)
 
 
+def _unpack_post_burn_stall_tracking_config(stall_tracking_config):
+    return (
+        stall_tracking_config["active_beta_top_k"],
+        stall_tracking_config["post_stall_best_beta_rhat_history"],
+        stall_tracking_config["post_stall_best_D_mcse_history"],
+        stall_tracking_config["post_stall_snapshots"],
+        stall_tracking_config["post_stall_beta_indices"],
+        stall_tracking_config["post_stall_gene_indices"],
+        stall_tracking_config["stop_mcse_quantile"],
+        stall_tracking_config["stall_window"],
+        stall_tracking_config["stall_min_post_burn_in"],
+        stall_tracking_config["min_num_post_burn_in_for_epoch"],
+        stall_tracking_config["stall_delta_rhat"],
+        stall_tracking_config["stall_delta_mcse"],
+        stall_tracking_config["stall_recent_window"],
+        stall_tracking_config["stall_recent_eps"],
+    )
+
+
 def _resolve_post_stall_indices(
     post_stall_beta_indices,
     post_stall_gene_indices,
@@ -20318,20 +20337,22 @@ def _update_post_burn_stall_tracking(
     num_post_burn_beta,
     stall_tracking_config,
 ):
-    active_beta_top_k = stall_tracking_config["active_beta_top_k"]
-    post_stall_best_beta_rhat_history = stall_tracking_config["post_stall_best_beta_rhat_history"]
-    post_stall_best_D_mcse_history = stall_tracking_config["post_stall_best_D_mcse_history"]
-    post_stall_snapshots = stall_tracking_config["post_stall_snapshots"]
-    post_stall_beta_indices = stall_tracking_config["post_stall_beta_indices"]
-    post_stall_gene_indices = stall_tracking_config["post_stall_gene_indices"]
-    stop_mcse_quantile = stall_tracking_config["stop_mcse_quantile"]
-    stall_window = stall_tracking_config["stall_window"]
-    stall_min_post_burn_in = stall_tracking_config["stall_min_post_burn_in"]
-    min_num_post_burn_in_for_epoch = stall_tracking_config["min_num_post_burn_in_for_epoch"]
-    stall_delta_rhat = stall_tracking_config["stall_delta_rhat"]
-    stall_delta_mcse = stall_tracking_config["stall_delta_mcse"]
-    stall_recent_window = stall_tracking_config["stall_recent_window"]
-    stall_recent_eps = stall_tracking_config["stall_recent_eps"]
+    (
+        active_beta_top_k,
+        post_stall_best_beta_rhat_history,
+        post_stall_best_D_mcse_history,
+        post_stall_snapshots,
+        post_stall_beta_indices,
+        post_stall_gene_indices,
+        stop_mcse_quantile,
+        stall_window,
+        stall_min_post_burn_in,
+        min_num_post_burn_in_for_epoch,
+        stall_delta_rhat,
+        stall_delta_mcse,
+        stall_recent_window,
+        stall_recent_eps,
+    ) = _unpack_post_burn_stall_tracking_config(stall_tracking_config)
 
     _update_post_stall_best_histories(
         post_stall_best_beta_rhat_history=post_stall_best_beta_rhat_history,
