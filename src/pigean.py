@@ -15971,16 +15971,6 @@ def _append_completed_gibbs_epoch(epoch_aggregates, epoch_sums, include_missing)
     )
 
 
-def _stack_and_unpack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=False):
-    stacked = _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=include_missing)
-    values = tuple(stacked[key] for key in _GIBBS_EPOCH_SUM_KEYS)
-    if include_missing:
-        values = values + tuple(stacked[key] for key in _GIBBS_EPOCH_MISSING_SUM_KEYS)
-    else:
-        values = values + (None, None, None)
-    return values
-
-
 # ========================= Outer Gibbs Control Normalization =========================
 def _normalize_gibbs_epoch_iteration_controls(
     max_num_iter,
@@ -18109,35 +18099,36 @@ def _finalize_gibbs_epoch_attempt(
             "should_continue": True,
         }
 
-    (
-        sum_betas_m,
-        sum_betas2_m,
-        sum_betas_uncorrected_m,
-        sum_betas_uncorrected2_m,
-        sum_postp_m,
-        sum_beta_tildes_m,
-        sum_z_scores_m,
-        num_sum_beta_m,
-        sum_Ys_m,
-        sum_Y_raws_m,
-        sum_log_pos_m,
-        sum_log_po_raws_m,
-        sum_log_po_raws2_m,
-        sum_priors_m,
-        sum_priors2_m,
-        sum_Ds_m,
-        sum_D_raws_m,
-        sum_bf_orig_m,
-        sum_bf_orig_raw_m,
-        sum_bf_orig_raw2_m,
-        num_sum_Y_m,
-        sum_priors_missing_m,
-        sum_Ds_missing_m,
-        num_sum_priors_missing_m,
-    ) = _stack_and_unpack_gibbs_epoch_aggregates(
-        epoch_aggregates,
-        include_missing=include_missing,
-    )
+    stacked = _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing=include_missing)
+    sum_betas_m = stacked["sum_betas_m"]
+    sum_betas2_m = stacked["sum_betas2_m"]
+    sum_betas_uncorrected_m = stacked["sum_betas_uncorrected_m"]
+    sum_betas_uncorrected2_m = stacked["sum_betas_uncorrected2_m"]
+    sum_postp_m = stacked["sum_postp_m"]
+    sum_beta_tildes_m = stacked["sum_beta_tildes_m"]
+    sum_z_scores_m = stacked["sum_z_scores_m"]
+    num_sum_beta_m = stacked["num_sum_beta_m"]
+    sum_Ys_m = stacked["sum_Ys_m"]
+    sum_Y_raws_m = stacked["sum_Y_raws_m"]
+    sum_log_pos_m = stacked["sum_log_pos_m"]
+    sum_log_po_raws_m = stacked["sum_log_po_raws_m"]
+    sum_log_po_raws2_m = stacked["sum_log_po_raws2_m"]
+    sum_priors_m = stacked["sum_priors_m"]
+    sum_priors2_m = stacked["sum_priors2_m"]
+    sum_Ds_m = stacked["sum_Ds_m"]
+    sum_D_raws_m = stacked["sum_D_raws_m"]
+    sum_bf_orig_m = stacked["sum_bf_orig_m"]
+    sum_bf_orig_raw_m = stacked["sum_bf_orig_raw_m"]
+    sum_bf_orig_raw2_m = stacked["sum_bf_orig_raw2_m"]
+    num_sum_Y_m = stacked["num_sum_Y_m"]
+    if include_missing:
+        sum_priors_missing_m = stacked["sum_priors_missing_m"]
+        sum_Ds_missing_m = stacked["sum_Ds_missing_m"]
+        num_sum_priors_missing_m = stacked["num_sum_priors_missing_m"]
+    else:
+        sum_priors_missing_m = None
+        sum_Ds_missing_m = None
+        num_sum_priors_missing_m = None
 
     num_chains_effective = sum_betas_m.shape[0]
     final_summary = _summarize_gibbs_chain_aggregates(
