@@ -18820,6 +18820,29 @@ def _sample_gibbs_p_targets(Y_sample_m, D_sample_m, gauss_seidel):
 
 
 # ========================= Outer Gibbs Logistic Updates =========================
+def _build_gibbs_chain_expanded_gene_set_state(state, num_chains):
+    num_gene_sets = len(state.scale_factors)
+    full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, num_gene_sets))
+    full_mean_shifts_m = np.tile(state.mean_shifts, num_chains).reshape((num_chains, num_gene_sets))
+    full_is_dense_gene_set_m = np.tile(state.is_dense_gene_set, num_chains).reshape((num_chains, num_gene_sets))
+
+    full_ps_m = None
+    if state.ps is not None:
+        full_ps_m = np.tile(state.ps, num_chains).reshape((num_chains, num_gene_sets))
+
+    full_sigma2s_m = None
+    if state.sigma2s is not None:
+        full_sigma2s_m = np.tile(state.sigma2s, num_chains).reshape((num_chains, num_gene_sets))
+
+    return {
+        "full_scale_factors_m": full_scale_factors_m,
+        "full_mean_shifts_m": full_mean_shifts_m,
+        "full_is_dense_gene_set_m": full_is_dense_gene_set_m,
+        "full_ps_m": full_ps_m,
+        "full_sigma2s_m": full_sigma2s_m,
+    }
+
+
 def _compute_gibbs_logistic_beta_tildes_batch(
     state,
     pre_gene_set_filter_mask,
@@ -18869,16 +18892,12 @@ def _compute_gibbs_logistic_beta_tildes(
     correct_betas_var = logistic_config["correct_betas_var"]
 
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
-
-    full_scale_factors_m = np.tile(state.scale_factors, num_chains).reshape((num_chains, len(state.scale_factors)))
-    full_mean_shifts_m = np.tile(state.mean_shifts, num_chains).reshape((num_chains, len(state.mean_shifts)))
-    full_is_dense_gene_set_m = np.tile(state.is_dense_gene_set, num_chains).reshape((num_chains, len(state.is_dense_gene_set)))
-    full_ps_m = None
-    if state.ps is not None:
-        full_ps_m = np.tile(state.ps, num_chains).reshape((num_chains, len(state.ps)))
-    full_sigma2s_m = None
-    if state.sigma2s is not None:
-        full_sigma2s_m = np.tile(state.sigma2s, num_chains).reshape((num_chains, len(state.sigma2s)))
+    expanded_state = _build_gibbs_chain_expanded_gene_set_state(state, num_chains)
+    full_scale_factors_m = expanded_state["full_scale_factors_m"]
+    full_mean_shifts_m = expanded_state["full_mean_shifts_m"]
+    full_is_dense_gene_set_m = expanded_state["full_is_dense_gene_set_m"]
+    full_ps_m = expanded_state["full_ps_m"]
+    full_sigma2s_m = expanded_state["full_sigma2s_m"]
 
     if not gauss_seidel:
         log("Sampling Ds for logistic", TRACE)
