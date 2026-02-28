@@ -21988,21 +21988,16 @@ def _compute_gibbs_corrected_betas_for_gene_set_mask(
 
         if run_one_V:
             print_overlapping = None
-            if print_overlapping is not None:
-                gene_sets_run = [state.gene_sets[i] for i in range(len(state.gene_sets)) if cur_gene_set_mask[i]]
-                gene_set_to_ind = _construct_map_to_ind(gene_sets_run)
-                for gene_set in print_overlapping:
-                    if gene_set in gene_set_to_ind:
-                        log("For gene set %s" % (gene_set))
-                        ind = gene_set_to_ind[gene_set]
-                        values = V_m[ind,:] * (cur_betas_mean_m if use_mean_betas else cur_betas_sample_m)
-                        indices = np.argsort(values, axis=1)
-                        for chain in range(values.shape[0]):
-                            log("Chain %d (uncorrected beta=%.4g, corrected beta=%.4g)" % (chain, uncorrected_betas_mean_m[chain,state.gene_set_to_ind[gene_set]], (cur_betas_mean_m[chain,ind] if use_mean_betas else cur_betas_sample_m[chain,ind])))
-                            for i in indices[chain,::-1]:
-                                if values[chain,i] == 0:
-                                    break
-                                log("%s, V=%.4g, beta=%.4g, prod=%.4g" % (gene_sets_run[i], V_m[ind,i], (cur_betas_mean_m[chain,i] if use_mean_betas else cur_betas_sample_m[chain,i]), values[chain,i]))
+            _log_gibbs_overlapping_corrected_beta_details(
+                print_overlapping=print_overlapping,
+                state=state,
+                cur_gene_set_mask=cur_gene_set_mask,
+                V_m=V_m,
+                cur_betas_mean_m=cur_betas_mean_m,
+                cur_betas_sample_m=cur_betas_sample_m,
+                use_mean_betas=use_mean_betas,
+                uncorrected_betas_mean_m=uncorrected_betas_mean_m,
+            )
 
     return (
         full_betas_sample_m,
@@ -22038,6 +22033,34 @@ def _store_gibbs_corrected_batch_results(
     full_postp_sample_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_sample_m.ravel()
     full_betas_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_betas_mean_m.ravel()
     full_postp_mean_m[begin:end,:][gene_set_mask_m[begin:end,:]] = cur_postp_mean_m.ravel()
+
+
+def _log_gibbs_overlapping_corrected_beta_details(
+    print_overlapping,
+    state,
+    cur_gene_set_mask,
+    V_m,
+    cur_betas_mean_m,
+    cur_betas_sample_m,
+    use_mean_betas,
+    uncorrected_betas_mean_m,
+):
+    if print_overlapping is None:
+        return
+    gene_sets_run = [state.gene_sets[i] for i in range(len(state.gene_sets)) if cur_gene_set_mask[i]]
+    gene_set_to_ind = _construct_map_to_ind(gene_sets_run)
+    for gene_set in print_overlapping:
+        if gene_set in gene_set_to_ind:
+            log("For gene set %s" % (gene_set))
+            ind = gene_set_to_ind[gene_set]
+            values = V_m[ind,:] * (cur_betas_mean_m if use_mean_betas else cur_betas_sample_m)
+            indices = np.argsort(values, axis=1)
+            for chain in range(values.shape[0]):
+                log("Chain %d (uncorrected beta=%.4g, corrected beta=%.4g)" % (chain, uncorrected_betas_mean_m[chain,state.gene_set_to_ind[gene_set]], (cur_betas_mean_m[chain,ind] if use_mean_betas else cur_betas_sample_m[chain,ind])))
+                for i in indices[chain,::-1]:
+                    if values[chain,i] == 0:
+                        break
+                    log("%s, V=%.4g, beta=%.4g, prod=%.4g" % (gene_sets_run[i], V_m[ind,i], (cur_betas_mean_m[chain,i] if use_mean_betas else cur_betas_sample_m[chain,i]), values[chain,i]))
 
 
 def _prepare_gibbs_corrected_batch_inputs(
