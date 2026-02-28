@@ -19437,36 +19437,6 @@ def _build_gibbs_iteration_result(
     }
 
 
-def _run_gibbs_iteration_correction_phase(
-    state,
-    epoch_control,
-    correction_config,
-    epoch_priors,
-    epoch_runtime,
-    epoch_sums,
-    iteration_num,
-    iter_state,
-    gene_set_mask_m,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
-):
-    return _run_gibbs_iteration_correction_and_updates(
-        state=state,
-        iter_state=iter_state,
-        gene_set_mask_m=gene_set_mask_m,
-        epoch_control=epoch_control,
-        correction_config=correction_config,
-        epoch_priors=epoch_priors,
-        epoch_runtime=epoch_runtime,
-        epoch_sums=epoch_sums,
-        iteration_num=iteration_num,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
-    )
-
-
 def _run_single_gibbs_iteration(
     state,
     run_state,
@@ -19491,16 +19461,16 @@ def _run_single_gibbs_iteration(
         log_bf_raw_m=log_bf_raw_m,
     )
 
-    iteration_update = _run_gibbs_iteration_correction_phase(
+    iteration_update = _run_gibbs_iteration_correction_and_updates(
         state=state,
+        iter_state=iter_state,
+        gene_set_mask_m=gene_set_mask_m,
         epoch_control=epoch_control,
         correction_config=correction_config,
         epoch_priors=epoch_priors,
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
         iteration_num=iteration_num,
-        iter_state=iter_state,
-        gene_set_mask_m=gene_set_mask_m,
         log_bf_m=log_bf_m,
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
