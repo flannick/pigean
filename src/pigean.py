@@ -1597,23 +1597,19 @@ class PigeanState(object):
         self.param_keys = []
 
     def init_gene_locs(self, gene_loc_file):
-        log("Reading --gene-loc-file %s" % gene_loc_file)
-        (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(
-            gene_loc_file,
-            self.gene_label_map,
-        )
+        _init_gene_locs(self, gene_loc_file)
 
     def read_gene_map(self, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
-        self.gene_label_map = _parse_gene_map(
-            gene_map_in,
+        _read_gene_map(
+            self,
+            gene_map_in=gene_map_in,
             gene_map_orig_gene_col=gene_map_orig_gene_col,
             gene_map_new_gene_col=gene_map_new_gene_col,
             allow_multi=allow_multi,
         )
 
     def set_const_Y(self, value):
-        const_Y = np.full(len(self.genes), value)
-        self._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
+        _set_const_Y(self, value)
 
     # ------------------------------------------------------------------
     # Gene-level Y Input Assembly
@@ -14795,6 +14791,32 @@ GeneSetData = PigeanState
 # ==========================================================================
 # State-agnostic parsing helpers used by both legacy objects and runtime-state.
 # ==========================================================================
+def _init_gene_locs(runtime_state, gene_loc_file):
+    log("Reading --gene-loc-file %s" % gene_loc_file)
+    (
+        runtime_state.gene_chrom_name_pos,
+        runtime_state.gene_to_chrom,
+        runtime_state.gene_to_pos,
+    ) = _read_loc_file_with_gene_map(
+        gene_loc_file,
+        runtime_state.gene_label_map,
+    )
+
+
+def _read_gene_map(runtime_state, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
+    runtime_state.gene_label_map = _parse_gene_map(
+        gene_map_in,
+        gene_map_orig_gene_col=gene_map_orig_gene_col,
+        gene_map_new_gene_col=gene_map_new_gene_col,
+        allow_multi=allow_multi,
+    )
+
+
+def _set_const_Y(runtime_state, value):
+    const_Y = np.full(len(runtime_state.genes), value)
+    runtime_state._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
+
+
 def _align_extra_genes_with_new_source(
     existing_extra_genes,
     existing_extra_values,
