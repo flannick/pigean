@@ -18864,8 +18864,6 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_uncorrected_m,
     log_bf_raw_m,
 ):
-    inner_beta_kwargs = correction_config["inner_beta_kwargs"]
-    iteration_update_config = correction_config["iteration_update_config"]
     num_mad = correction_config["num_mad"]
     num_attempts = correction_config["num_attempts"]
     max_num_attempt_restarts = correction_config["max_num_attempt_restarts"]
