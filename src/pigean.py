@@ -16187,7 +16187,6 @@ def _normalize_gibbs_run_controls(
     max_num_burn_in = normalized_epoch_controls["max_num_burn_in"]
     min_num_post_burn_in = normalized_epoch_controls["min_num_post_burn_in"]
     max_num_post_burn_in = normalized_epoch_controls["max_num_post_burn_in"]
-    passed_in_max_num_burn_in = normalized_epoch_controls["passed_in_max_num_burn_in"]
     epoch_max_num_iter_config = normalized_epoch_controls["epoch_max_num_iter_config"]
 
     if total_num_iter is None:
@@ -16218,25 +16217,6 @@ def _normalize_gibbs_run_controls(
         burn_in_rhat_quantile=burn_in_rhat_quantile,
         use_max_r_for_convergence=use_max_r_for_convergence,
     )
-    num_chains = sanitized_diag_controls["num_chains"]
-    diag_every = sanitized_diag_controls["diag_every"]
-    burn_in_patience = sanitized_diag_controls["burn_in_patience"]
-    burn_in_stall_window = sanitized_diag_controls["burn_in_stall_window"]
-    burn_in_stall_delta = sanitized_diag_controls["burn_in_stall_delta"]
-    stop_patience = sanitized_diag_controls["stop_patience"]
-    stop_top_gene_k = sanitized_diag_controls["stop_top_gene_k"]
-    stop_min_gene_d = sanitized_diag_controls["stop_min_gene_d"]
-    active_beta_top_k = sanitized_diag_controls["active_beta_top_k"]
-    active_beta_min_abs = sanitized_diag_controls["active_beta_min_abs"]
-    beta_rel_mcse_denom_floor = sanitized_diag_controls["beta_rel_mcse_denom_floor"]
-    stall_window = sanitized_diag_controls["stall_window"]
-    stall_min_burn_in = sanitized_diag_controls["stall_min_burn_in"]
-    stall_min_post_burn_in = sanitized_diag_controls["stall_min_post_burn_in"]
-    stall_delta_rhat = sanitized_diag_controls["stall_delta_rhat"]
-    stall_delta_mcse = sanitized_diag_controls["stall_delta_mcse"]
-    stall_recent_window = sanitized_diag_controls["stall_recent_window"]
-    stall_recent_eps = sanitized_diag_controls["stall_recent_eps"]
-    burn_in_rhat_quantile = sanitized_diag_controls["burn_in_rhat_quantile"]
 
     (
         _,
