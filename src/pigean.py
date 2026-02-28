@@ -20268,6 +20268,66 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     )
 
 
+def _run_optional_gibbs_post_burn_diagnostics(
+    min_num_post_burn_in_for_epoch,
+    diag_every,
+    epoch_iter_num,
+    epoch_max_num_iter,
+    post_burn_diag_config,
+    iter_state,
+    epoch_sums,
+    epoch_control,
+    run_state,
+    stop_pass_streak,
+    post_stall_beta_indices,
+    post_stall_gene_indices,
+    betas_sem2_v,
+    sem2_v,
+    done,
+    stop_due_to_precision,
+    restart_due_to_stall,
+    stop_due_to_stall,
+):
+    if not _should_run_gibbs_post_burn_diagnostics(
+        epoch_sums=epoch_sums,
+        diag_every=diag_every,
+        epoch_iter_num=epoch_iter_num,
+        epoch_max_num_iter=epoch_max_num_iter,
+    ):
+        return {
+            "stop_pass_streak": stop_pass_streak,
+            "post_stall_beta_indices": post_stall_beta_indices,
+            "post_stall_gene_indices": post_stall_gene_indices,
+            "betas_sem2_v": betas_sem2_v,
+            "sem2_v": sem2_v,
+            "done": done,
+            "stop_due_to_precision": stop_due_to_precision,
+            "restart_due_to_stall": restart_due_to_stall,
+            "stop_due_to_stall": stop_due_to_stall,
+        }
+
+    post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
+        min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
+        diag_config=post_burn_diag_config,
+        iter_state=iter_state,
+        epoch_sums=epoch_sums,
+        epoch_control=epoch_control,
+        run_state=run_state,
+    )
+
+    return {
+        "stop_pass_streak": post_burn_diag["stop_pass_streak"],
+        "post_stall_beta_indices": post_burn_diag["post_stall_beta_indices"],
+        "post_stall_gene_indices": post_burn_diag["post_stall_gene_indices"],
+        "betas_sem2_v": post_burn_diag["betas_sem2_v"],
+        "sem2_v": post_burn_diag["sem2_v"],
+        "done": done or post_burn_diag["done"],
+        "stop_due_to_precision": stop_due_to_precision or post_burn_diag["stop_due_to_precision"],
+        "restart_due_to_stall": restart_due_to_stall or post_burn_diag["restart_due_to_stall"],
+        "stop_due_to_stall": stop_due_to_stall or post_burn_diag["stop_due_to_stall"],
+    }
+
+
 def _update_gibbs_post_burn_state(
     state,
     max_num_post_burn_in_for_epoch,
@@ -20345,30 +20405,35 @@ def _update_gibbs_post_burn_state(
         epoch_sums,
     )
 
-    if _should_run_gibbs_post_burn_diagnostics(
-        epoch_sums=epoch_sums,
+    post_burn_diag_update = _run_optional_gibbs_post_burn_diagnostics(
+        min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
         diag_every=diag_every,
         epoch_iter_num=epoch_iter_num,
         epoch_max_num_iter=epoch_max_num_iter,
-    ):
-        post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
-            min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
-            diag_config=post_burn_diag_config,
-            iter_state=iter_state,
-            epoch_sums=epoch_sums,
-            epoch_control=epoch_control,
-            run_state=run_state,
-        )
-
-        stop_pass_streak = post_burn_diag["stop_pass_streak"]
-        post_stall_beta_indices = post_burn_diag["post_stall_beta_indices"]
-        post_stall_gene_indices = post_burn_diag["post_stall_gene_indices"]
-        betas_sem2_v = post_burn_diag["betas_sem2_v"]
-        sem2_v = post_burn_diag["sem2_v"]
-        done = done or post_burn_diag["done"]
-        stop_due_to_precision = stop_due_to_precision or post_burn_diag["stop_due_to_precision"]
-        restart_due_to_stall = restart_due_to_stall or post_burn_diag["restart_due_to_stall"]
-        stop_due_to_stall = stop_due_to_stall or post_burn_diag["stop_due_to_stall"]
+        post_burn_diag_config=post_burn_diag_config,
+        iter_state=iter_state,
+        epoch_sums=epoch_sums,
+        epoch_control=epoch_control,
+        run_state=run_state,
+        stop_pass_streak=stop_pass_streak,
+        post_stall_beta_indices=post_stall_beta_indices,
+        post_stall_gene_indices=post_stall_gene_indices,
+        betas_sem2_v=betas_sem2_v,
+        sem2_v=sem2_v,
+        done=done,
+        stop_due_to_precision=stop_due_to_precision,
+        restart_due_to_stall=restart_due_to_stall,
+        stop_due_to_stall=stop_due_to_stall,
+    )
+    stop_pass_streak = post_burn_diag_update["stop_pass_streak"]
+    post_stall_beta_indices = post_burn_diag_update["post_stall_beta_indices"]
+    post_stall_gene_indices = post_burn_diag_update["post_stall_gene_indices"]
+    betas_sem2_v = post_burn_diag_update["betas_sem2_v"]
+    sem2_v = post_burn_diag_update["sem2_v"]
+    done = post_burn_diag_update["done"]
+    stop_due_to_precision = post_burn_diag_update["stop_due_to_precision"]
+    restart_due_to_stall = post_burn_diag_update["restart_due_to_stall"]
+    stop_due_to_stall = post_burn_diag_update["stop_due_to_stall"]
 
     num_post_burn_samples_now = int(np.min(epoch_sums["num_sum_Y_m"]))
     if (not done) and num_post_burn_samples_now >= max_num_post_burn_in_for_epoch:
