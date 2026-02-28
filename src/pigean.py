@@ -16688,17 +16688,21 @@ def _evaluate_burn_in_diagnostics(
     stall_recent_eps = burn_in_config["stall_recent_eps"]
     burn_in_stall_window = burn_in_config["burn_in_stall_window"]
     burn_in_stall_delta = burn_in_config["burn_in_stall_delta"]
-    (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
-    active_beta_mask_v, _, _ = _get_active_beta_mask(all_sum_betas_m, all_num_sum_m, active_beta_top_k, active_beta_min_abs)
-    num_active_betas = int(np.sum(active_beta_mask_v))
-    if num_active_betas > 0:
-        R_beta_active_v = R_beta_v[active_beta_mask_v]
-        rhat_candidates = R_beta_active_v[np.logical_and(np.isfinite(R_beta_active_v), R_beta_active_v >= 1)]
-        beta_rhat_q = _safe_quantile(rhat_candidates, burn_in_rhat_quantile, 1.0)
-        beta_rhat_max = _safe_quantile(R_beta_active_v, 1.0, 1.0)
-    else:
-        beta_rhat_q = 1.0
-        beta_rhat_max = 1.0
+    (
+        R_beta_v,
+        active_beta_mask_v,
+        num_active_betas,
+        beta_rhat_q,
+        beta_rhat_max,
+    ) = _compute_burn_in_active_beta_rhat_stats(
+        all_sum_betas_m=all_sum_betas_m,
+        all_sum_betas2_m=all_sum_betas2_m,
+        all_num_sum_m=all_num_sum_m,
+        num_samples=num_samples,
+        active_beta_top_k=active_beta_top_k,
+        active_beta_min_abs=active_beta_min_abs,
+        burn_in_rhat_quantile=burn_in_rhat_quantile,
+    )
 
     if beta_rhat_q <= r_threshold_burn_in:
         burn_in_pass_streak += 1
@@ -16770,6 +16774,29 @@ def _evaluate_burn_in_diagnostics(
         "burn_window_plateau_detected": burn_window_plateau_detected,
         "burn_window_span": burn_window_span,
     }
+
+
+def _compute_burn_in_active_beta_rhat_stats(
+    all_sum_betas_m,
+    all_sum_betas2_m,
+    all_num_sum_m,
+    num_samples,
+    active_beta_top_k,
+    active_beta_min_abs,
+    burn_in_rhat_quantile,
+):
+    (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
+    active_beta_mask_v, _, _ = _get_active_beta_mask(all_sum_betas_m, all_num_sum_m, active_beta_top_k, active_beta_min_abs)
+    num_active_betas = int(np.sum(active_beta_mask_v))
+    if num_active_betas > 0:
+        R_beta_active_v = R_beta_v[active_beta_mask_v]
+        rhat_candidates = R_beta_active_v[np.logical_and(np.isfinite(R_beta_active_v), R_beta_active_v >= 1)]
+        beta_rhat_q = _safe_quantile(rhat_candidates, burn_in_rhat_quantile, 1.0)
+        beta_rhat_max = _safe_quantile(R_beta_active_v, 1.0, 1.0)
+    else:
+        beta_rhat_q = 1.0
+        beta_rhat_max = 1.0
+    return (R_beta_v, active_beta_mask_v, num_active_betas, beta_rhat_q, beta_rhat_max)
 
 
 def _update_gibbs_burn_in_state(
