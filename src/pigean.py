@@ -21297,17 +21297,17 @@ def _build_gibbs_optional_post_burn_passthrough_update(
     restart_due_to_stall,
     stop_due_to_stall,
 ):
-    return {
-        "stop_pass_streak": stop_pass_streak,
-        "post_stall_beta_indices": post_stall_beta_indices,
-        "post_stall_gene_indices": post_stall_gene_indices,
-        "betas_sem2_v": betas_sem2_v,
-        "sem2_v": sem2_v,
-        "done": done,
-        "stop_due_to_precision": stop_due_to_precision,
-        "restart_due_to_stall": restart_due_to_stall,
-        "stop_due_to_stall": stop_due_to_stall,
-    }
+    return _build_gibbs_post_burn_control_update(
+        stop_pass_streak=stop_pass_streak,
+        post_stall_beta_indices=post_stall_beta_indices,
+        post_stall_gene_indices=post_stall_gene_indices,
+        betas_sem2_v=betas_sem2_v,
+        sem2_v=sem2_v,
+        done=done,
+        stop_due_to_precision=stop_due_to_precision,
+        restart_due_to_stall=restart_due_to_stall,
+        stop_due_to_stall=stop_due_to_stall,
+    )
 
 
 def _build_gibbs_optional_post_burn_from_diag_update(
@@ -21317,17 +21317,17 @@ def _build_gibbs_optional_post_burn_from_diag_update(
     restart_due_to_stall,
     stop_due_to_stall,
 ):
-    return {
-        "stop_pass_streak": post_burn_diag["stop_pass_streak"],
-        "post_stall_beta_indices": post_burn_diag["post_stall_beta_indices"],
-        "post_stall_gene_indices": post_burn_diag["post_stall_gene_indices"],
-        "betas_sem2_v": post_burn_diag["betas_sem2_v"],
-        "sem2_v": post_burn_diag["sem2_v"],
-        "done": done or post_burn_diag["done"],
-        "stop_due_to_precision": stop_due_to_precision or post_burn_diag["stop_due_to_precision"],
-        "restart_due_to_stall": restart_due_to_stall or post_burn_diag["restart_due_to_stall"],
-        "stop_due_to_stall": stop_due_to_stall or post_burn_diag["stop_due_to_stall"],
-    }
+    return _build_gibbs_post_burn_control_update(
+        stop_pass_streak=post_burn_diag["stop_pass_streak"],
+        post_stall_beta_indices=post_burn_diag["post_stall_beta_indices"],
+        post_stall_gene_indices=post_burn_diag["post_stall_gene_indices"],
+        betas_sem2_v=post_burn_diag["betas_sem2_v"],
+        sem2_v=post_burn_diag["sem2_v"],
+        done=(done or post_burn_diag["done"]),
+        stop_due_to_precision=(stop_due_to_precision or post_burn_diag["stop_due_to_precision"]),
+        restart_due_to_stall=(restart_due_to_stall or post_burn_diag["restart_due_to_stall"]),
+        stop_due_to_stall=(stop_due_to_stall or post_burn_diag["stop_due_to_stall"]),
+    )
 
 
 def _maybe_end_gibbs_epoch_for_post_burn_cap(
