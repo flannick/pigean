@@ -20688,12 +20688,14 @@ def _compute_gibbs_post_burn_diag_metrics(
     epoch_sums,
     epoch_control,
 ):
-    epoch_aggregates = epoch_sums["epoch_aggregates"]
-    sum_betas_m = epoch_sums["sum_betas_m"]
-    sum_betas2_m = epoch_sums["sum_betas2_m"]
-    num_sum_beta_m = epoch_sums["num_sum_beta_m"]
-    sum_Ds_m = epoch_sums["sum_Ds_m"]
-    num_sum_Y_m = epoch_sums["num_sum_Y_m"]
+    (
+        epoch_aggregates,
+        sum_betas_m,
+        sum_betas2_m,
+        num_sum_beta_m,
+        sum_Ds_m,
+        num_sum_Y_m,
+    ) = _unpack_gibbs_post_burn_epoch_sums(epoch_sums)
     num_chains = diag_config["num_chains"]
     stop_mcse_quantile = diag_config["stop_mcse_quantile"]
 
@@ -20767,6 +20769,17 @@ def _compute_gibbs_post_burn_diag_metrics(
         "D_mcse_q": gene_diag["D_mcse_q"],
         "post_stall_update": post_stall_update,
     }
+
+
+def _unpack_gibbs_post_burn_epoch_sums(epoch_sums):
+    return (
+        epoch_sums["epoch_aggregates"],
+        epoch_sums["sum_betas_m"],
+        epoch_sums["sum_betas2_m"],
+        epoch_sums["num_sum_beta_m"],
+        epoch_sums["sum_Ds_m"],
+        epoch_sums["num_sum_Y_m"],
+    )
 
 
 def _unpack_gibbs_post_burn_diag_config(diag_config):
