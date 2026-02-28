@@ -19828,6 +19828,27 @@ def _maybe_correct_gibbs_logistic_beta_tildes(
     )
 
 
+def _unpack_gibbs_chain_expanded_gene_set_state(expanded_state):
+    return (
+        expanded_state["full_scale_factors_m"],
+        expanded_state["full_mean_shifts_m"],
+        expanded_state["full_is_dense_gene_set_m"],
+        expanded_state["full_ps_m"],
+        expanded_state["full_sigma2s_m"],
+    )
+
+
+def _unpack_gibbs_logistic_outputs(logistic_outputs):
+    return (
+        logistic_outputs["full_beta_tildes_m"],
+        logistic_outputs["full_ses_m"],
+        logistic_outputs["full_z_scores_m"],
+        logistic_outputs["full_p_values_m"],
+        logistic_outputs["se_inflation_factors_m"],
+        logistic_outputs["diverged_m"],
+    )
+
+
 def _compute_gibbs_logistic_beta_tildes(
     state,
     Y_sample_m,
@@ -19851,11 +19872,13 @@ def _compute_gibbs_logistic_beta_tildes(
 
     inner_beta_kwargs_linear = _build_non_inf_beta_sampler_kwargs(inner_beta_kwargs)
     expanded_state = _build_gibbs_chain_expanded_gene_set_state(state, num_chains)
-    full_scale_factors_m = expanded_state["full_scale_factors_m"]
-    full_mean_shifts_m = expanded_state["full_mean_shifts_m"]
-    full_is_dense_gene_set_m = expanded_state["full_is_dense_gene_set_m"]
-    full_ps_m = expanded_state["full_ps_m"]
-    full_sigma2s_m = expanded_state["full_sigma2s_m"]
+    (
+        full_scale_factors_m,
+        full_mean_shifts_m,
+        full_is_dense_gene_set_m,
+        full_ps_m,
+        full_sigma2s_m,
+    ) = _unpack_gibbs_chain_expanded_gene_set_state(expanded_state)
 
     if not gauss_seidel:
         log("Sampling Ds for logistic", TRACE)
@@ -19890,12 +19913,14 @@ def _compute_gibbs_logistic_beta_tildes(
         num_chains=num_chains,
         full_betas_m_shape=full_betas_m_shape,
     )
-    full_beta_tildes_m = logistic_outputs["full_beta_tildes_m"]
-    full_ses_m = logistic_outputs["full_ses_m"]
-    full_z_scores_m = logistic_outputs["full_z_scores_m"]
-    full_p_values_m = logistic_outputs["full_p_values_m"]
-    se_inflation_factors_m = logistic_outputs["se_inflation_factors_m"]
-    diverged_m = logistic_outputs["diverged_m"]
+    (
+        full_beta_tildes_m,
+        full_ses_m,
+        full_z_scores_m,
+        full_p_values_m,
+        se_inflation_factors_m,
+        diverged_m,
+    ) = _unpack_gibbs_logistic_outputs(logistic_outputs)
 
     # Legacy outlier-z filtering was experimental and is disabled in this path.
     full_z_cur_beta_tildes_m = np.zeros(full_beta_tildes_m.shape)
