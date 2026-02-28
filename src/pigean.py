@@ -18458,6 +18458,20 @@ def _prepare_gibbs_iteration_state(
     )
     iter_state = dict(iter_setup)
 
+    return _augment_gibbs_iteration_state_with_uncorrected_and_mask(
+        state=state,
+        iter_state=iter_state,
+        prefilter_config=prefilter_config,
+        inner_beta_kwargs=inner_beta_kwargs,
+    )
+
+
+def _augment_gibbs_iteration_state_with_uncorrected_and_mask(
+    state,
+    iter_state,
+    prefilter_config,
+    inner_beta_kwargs,
+):
     uncorrected_setup = _compute_gibbs_uncorrected_betas_and_defaults(
         state,
         full_beta_tildes_m=iter_state["full_beta_tildes_m"],
