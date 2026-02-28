@@ -16819,24 +16819,6 @@ def _compute_burn_in_active_beta_rhat_stats(
     return (R_beta_v, active_beta_mask_v, num_active_betas, beta_rhat_q, beta_rhat_max)
 
 
-def _build_gibbs_burn_in_state_update(
-    in_burn_in,
-    burn_in_pass_streak,
-    stop_pass_streak,
-    prev_Ys_m,
-    burn_stall_beta_indices,
-    R_beta_v,
-):
-    return {
-        "in_burn_in": in_burn_in,
-        "burn_in_pass_streak": burn_in_pass_streak,
-        "stop_pass_streak": stop_pass_streak,
-        "prev_Ys_m": prev_Ys_m,
-        "burn_stall_beta_indices": burn_stall_beta_indices,
-        "R_beta_v": R_beta_v,
-    }
-
-
 def _handle_gibbs_burn_in_max_iter(
     num_samples,
     post_burn_reset_arrays,
@@ -17015,14 +16997,14 @@ def _update_gibbs_burn_in_state(
     Y_sample_m = iter_state["Y_sample_m"]
 
     if not in_burn_in:
-        return _build_gibbs_burn_in_state_update(
-            in_burn_in=in_burn_in,
-            burn_in_pass_streak=burn_in_pass_streak,
-            stop_pass_streak=stop_pass_streak,
-            prev_Ys_m=prev_Ys_m,
-            burn_stall_beta_indices=burn_stall_beta_indices,
-            R_beta_v=R_beta_v,
-        )
+        return {
+            "in_burn_in": in_burn_in,
+            "burn_in_pass_streak": burn_in_pass_streak,
+            "stop_pass_streak": stop_pass_streak,
+            "prev_Ys_m": prev_Ys_m,
+            "burn_stall_beta_indices": burn_stall_beta_indices,
+            "R_beta_v": R_beta_v,
+        }
 
     num_samples = iteration_num + 1
     if num_samples >= max_num_burn_in_for_epoch:
@@ -17059,14 +17041,14 @@ def _update_gibbs_burn_in_state(
             stop_pass_streak=stop_pass_streak,
         )
 
-    return _build_gibbs_burn_in_state_update(
-        in_burn_in=in_burn_in,
-        burn_in_pass_streak=burn_in_pass_streak,
-        stop_pass_streak=stop_pass_streak,
-        prev_Ys_m=prev_Ys_m,
-        burn_stall_beta_indices=burn_stall_beta_indices,
-        R_beta_v=R_beta_v,
-    )
+    return {
+        "in_burn_in": in_burn_in,
+        "burn_in_pass_streak": burn_in_pass_streak,
+        "stop_pass_streak": stop_pass_streak,
+        "prev_Ys_m": prev_Ys_m,
+        "burn_stall_beta_indices": burn_stall_beta_indices,
+        "R_beta_v": R_beta_v,
+    }
 
 
 def _maybe_restart_gibbs_for_low_betas(
