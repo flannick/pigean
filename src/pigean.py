@@ -21022,23 +21022,6 @@ def _advance_gibbs_post_burn_state(
     )
 
 
-def _apply_gibbs_burn_in_update_to_epoch_control(epoch_control, burn_in_update):
-    for key in (
-        "in_burn_in",
-        "burn_in_pass_streak",
-        "stop_pass_streak",
-        "prev_Ys_m",
-        "burn_stall_beta_indices",
-        "R_beta_v",
-    ):
-        epoch_control[key] = burn_in_update[key]
-
-
-def _apply_gibbs_post_burn_update_to_epoch_control(epoch_control, post_burn_update):
-    for key in GIBBS_POST_BURN_CONTROL_KEYS:
-        epoch_control[key] = post_burn_update[key]
-
-
 def _write_gibbs_iteration_gene_set_stats_trace(
     gene_set_stats_trace_fh,
     iteration_num,
@@ -21142,7 +21125,15 @@ def _advance_gibbs_iteration_progress(
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
     )
-    _apply_gibbs_burn_in_update_to_epoch_control(epoch_control, burn_in_update)
+    for key in (
+        "in_burn_in",
+        "burn_in_pass_streak",
+        "stop_pass_streak",
+        "prev_Ys_m",
+        "burn_stall_beta_indices",
+        "R_beta_v",
+    ):
+        epoch_control[key] = burn_in_update[key]
 
     post_burn_update = _update_gibbs_post_burn_state(
         state=state,
@@ -21211,7 +21202,8 @@ def _finalize_gibbs_iteration_progress(
         use_mean_betas,
     )
 
-    _apply_gibbs_post_burn_update_to_epoch_control(epoch_control, post_burn_update)
+    for key in GIBBS_POST_BURN_CONTROL_KEYS:
+        epoch_control[key] = post_burn_update[key]
     return {"done": post_burn_update["done"]}
 
 
