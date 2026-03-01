@@ -1935,19 +1935,15 @@ class PigeanState(object):
         self._record_param("gene_set_weighted_prune_threshold", weighted_prune_gene_sets)
         self._record_param("gene_set_prune_deterinistically", prune_deterministically)
 
-        if self.p_values is not None and max_num_gene_sets_initial is not None:
+        _maybe_limit_initial_gene_sets_by_p(self, max_num_gene_sets_initial=max_num_gene_sets_initial)
 
-            if max_num_gene_sets_initial > 0 and max_num_gene_sets_initial < len(self.p_values):
-                p_value_filter = np.partition(self.p_values, max_num_gene_sets_initial - 1)[max_num_gene_sets_initial - 1]
-                log("Keeping only %d most significant gene sets due to --max-num-gene-sets-initial" % max_num_gene_sets_initial)
-                self.subset_gene_sets(self.p_values <= p_value_filter, ignore_missing=True, keep_missing=False, skip_V=True)            
-            
-        if not skip_betas or self.Y is None:
-            self._prune_gene_sets(prune_gene_sets, prune_deterministically=prune_deterministically, keep_missing=False, ignore_missing=True, skip_V=True)
-
-            if weighted_prune_gene_sets and self.Y is not None:
-                gene_weights = np.exp(self.Y + self.background_log_bf)/ (1 + np.exp(self.Y + self.background_log_bf))
-                self._prune_gene_sets(weighted_prune_gene_sets, prune_deterministically=prune_deterministically, keep_missing=False, ignore_missing=True, skip_V=True, gene_weights=gene_weights)            
+        _maybe_prune_gene_sets_after_x_read(
+            self,
+            skip_betas=skip_betas,
+            prune_gene_sets=prune_gene_sets,
+            prune_deterministically=prune_deterministically,
+            weighted_prune_gene_sets=weighted_prune_gene_sets,
+        )
 
 
         #if permute_gene_sets:
@@ -14714,6 +14710,48 @@ def _maybe_correct_gene_set_betas_after_x_read(
             % (np.sum(~newly_below_p_mask), np.sum(newly_below_p_mask))
         )
         runtime_state.subset_gene_sets(newly_below_p_mask, ignore_missing=True, keep_missing=False, skip_V=True)
+
+
+def _maybe_limit_initial_gene_sets_by_p(runtime_state, max_num_gene_sets_initial):
+    if runtime_state.p_values is None or max_num_gene_sets_initial is None:
+        return
+
+    if max_num_gene_sets_initial > 0 and max_num_gene_sets_initial < len(runtime_state.p_values):
+        p_value_filter = np.partition(runtime_state.p_values, max_num_gene_sets_initial - 1)[max_num_gene_sets_initial - 1]
+        log("Keeping only %d most significant gene sets due to --max-num-gene-sets-initial" % max_num_gene_sets_initial)
+        runtime_state.subset_gene_sets(runtime_state.p_values <= p_value_filter, ignore_missing=True, keep_missing=False, skip_V=True)
+
+
+def _maybe_prune_gene_sets_after_x_read(
+    runtime_state,
+    skip_betas,
+    prune_gene_sets,
+    prune_deterministically,
+    weighted_prune_gene_sets,
+):
+    if skip_betas and runtime_state.Y is not None:
+        return
+
+    runtime_state._prune_gene_sets(
+        prune_gene_sets,
+        prune_deterministically=prune_deterministically,
+        keep_missing=False,
+        ignore_missing=True,
+        skip_V=True,
+    )
+
+    if weighted_prune_gene_sets and runtime_state.Y is not None:
+        gene_weights = np.exp(runtime_state.Y + runtime_state.background_log_bf) / (
+            1 + np.exp(runtime_state.Y + runtime_state.background_log_bf)
+        )
+        runtime_state._prune_gene_sets(
+            weighted_prune_gene_sets,
+            prune_deterministically=prune_deterministically,
+            keep_missing=False,
+            ignore_missing=True,
+            skip_V=True,
+            gene_weights=gene_weights,
+        )
 
 
 def _init_sparse_x_batch_state(runtime_state):
