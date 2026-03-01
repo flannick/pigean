@@ -23950,7 +23950,7 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
             filter_gene_set_metric_z=options.filter_gene_set_metric_z,
             initial_p=options.p_noninf,
             xin_to_p_noninf_ind=xin_to_p_noninf_ind,
-            initial_sigma2=state.sigma2,
+            initial_sigma2=sigma2_internal_before_read,
             initial_sigma2_cond=sigma2_cond,
             sigma_power=options.sigma_power,
             sigma_soft_threshold_95=options.sigma_soft_threshold_95,
