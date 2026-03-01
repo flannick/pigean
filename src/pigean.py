@@ -2062,58 +2062,36 @@ class PigeanState(object):
                     filter_negative=filter_negative,
                 )
 
-                p_value_ignore = np.full(len(p_value_mask), False)
-                if filter_gene_set_p < 1 or filter_gene_set_metric_z is not None:
-
-                    p_value_ignore = ~p_value_mask
-                    if np.sum(p_value_ignore) > 0:
-                        log("Kept %d gene sets after p-value and beta filters" % (np.sum(p_value_mask)))
-
-                    self.gene_sets_ignored = self.gene_sets_ignored + [gene_sets[i] for i in range(len(gene_sets)) if p_value_ignore[i]]
-                    gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if p_value_mask[i]]
-
-                    self.col_sums_ignored = np.append(self.col_sums_ignored, self.get_col_sums(cur_X[:,p_value_ignore]))
-                    self.scale_factors_ignored = np.append(self.scale_factors_ignored, scale_factors[p_value_ignore])
-                    self.mean_shifts_ignored = np.append(self.mean_shifts_ignored, mean_shifts[p_value_ignore])
-                    self.beta_tildes_ignored = np.append(self.beta_tildes_ignored, beta_tildes[p_value_ignore])
-                    self.p_values_ignored = np.append(self.p_values_ignored, p_values[p_value_ignore])
-                    self.ses_ignored = np.append(self.ses_ignored, ses[p_value_ignore])
-                    self.z_scores_ignored = np.append(self.z_scores_ignored, z_scores[p_value_ignore])
-
-                    self.beta_tildes = np.append(self.beta_tildes, beta_tildes[p_value_mask])
-                    self.p_values = np.append(self.p_values, p_values[p_value_mask])
-                    self.ses = np.append(self.ses, ses[p_value_mask])
-                    self.z_scores = np.append(self.z_scores, z_scores[p_value_mask])
-
-                    if se_inflation_factors is not None:
-                        self.se_inflation_factors_ignored = np.append(self.se_inflation_factors_ignored, se_inflation_factors[p_value_ignore])
-                        if self.se_inflation_factors is None:
-                            self.se_inflation_factors = np.array([])
-                        self.se_inflation_factors = np.append(self.se_inflation_factors, se_inflation_factors[p_value_mask])
-
-                    if self.gene_covariates is not None:
-                        if self.total_qc_metrics_ignored is None:
-                            self.total_qc_metrics_ignored = total_qc_metrics[p_value_ignore,:]
-                            self.mean_qc_metrics_ignored = mean_qc_metrics[p_value_ignore]
-                        else:
-                            self.total_qc_metrics_ignored = np.vstack((self.total_qc_metrics_ignored, total_qc_metrics[p_value_ignore,:]))
-                            self.mean_qc_metrics_ignored = np.append(self.mean_qc_metrics_ignored, mean_qc_metrics[p_value_ignore])
-
-                        total_qc_metrics = total_qc_metrics[p_value_mask]
-                        mean_qc_metrics = mean_qc_metrics[p_value_mask]                        
-
-                    #need to record how many ignored
-                    gene_ignored_N = self.get_col_sums(cur_X[:,p_value_ignore], axis=1)
-
-                    if cur_X_missing_genes_new is not None:
-                        gene_ignored_N_missing_new = np.array(np.abs(cur_X_missing_genes_new[:,p_value_ignore]).sum(axis=1)).flatten()
-                        cur_X_missing_genes_new = cur_X_missing_genes_new[:,p_value_mask]
-
-                    if cur_X_missing_genes_int is not None:
-                        gene_ignored_N_missing_int = np.array(np.abs(cur_X_missing_genes_int[:,p_value_ignore]).sum(axis=1)).flatten()
-                        cur_X_missing_genes_int = cur_X_missing_genes_int[:,p_value_mask]
-
-                    cur_X = cur_X[:,p_value_mask]
+                (
+                    cur_X,
+                    gene_sets,
+                    p_value_ignore,
+                    gene_ignored_N,
+                    cur_X_missing_genes_new,
+                    gene_ignored_N_missing_new,
+                    cur_X_missing_genes_int,
+                    gene_ignored_N_missing_int,
+                    total_qc_metrics,
+                    mean_qc_metrics,
+                ) = _apply_prefilter_and_record(
+                    self,
+                    cur_X=cur_X,
+                    gene_sets=gene_sets,
+                    p_value_mask=p_value_mask,
+                    filter_gene_set_p=filter_gene_set_p,
+                    filter_gene_set_metric_z=filter_gene_set_metric_z,
+                    scale_factors=scale_factors,
+                    mean_shifts=mean_shifts,
+                    beta_tildes=beta_tildes,
+                    p_values=p_values,
+                    ses=ses,
+                    z_scores=z_scores,
+                    se_inflation_factors=se_inflation_factors,
+                    total_qc_metrics=total_qc_metrics,
+                    mean_qc_metrics=mean_qc_metrics,
+                    cur_X_missing_genes_new=cur_X_missing_genes_new,
+                    cur_X_missing_genes_int=cur_X_missing_genes_int,
+                )
 
             #construct the mean shifts / etc needed for compute beta tildes
             #then call compute beta tildes
@@ -14975,6 +14953,101 @@ def _compute_prefilter_assoc_stats(runtime_state, cur_X, run_logistic, filter_us
         se_inflation_factors,
         beta_tildes_phewas,
         p_values_phewas,
+    )
+
+
+def _apply_prefilter_and_record(
+    runtime_state,
+    cur_X,
+    gene_sets,
+    p_value_mask,
+    filter_gene_set_p,
+    filter_gene_set_metric_z,
+    scale_factors,
+    mean_shifts,
+    beta_tildes,
+    p_values,
+    ses,
+    z_scores,
+    se_inflation_factors,
+    total_qc_metrics,
+    mean_qc_metrics,
+    cur_X_missing_genes_new,
+    cur_X_missing_genes_int,
+):
+    p_value_ignore = np.full(len(p_value_mask), False)
+    gene_ignored_N = None
+    gene_ignored_N_missing_new = None
+    gene_ignored_N_missing_int = None
+
+    if filter_gene_set_p < 1 or filter_gene_set_metric_z is not None:
+        p_value_ignore = ~p_value_mask
+        if np.sum(p_value_ignore) > 0:
+            log("Kept %d gene sets after p-value and beta filters" % (np.sum(p_value_mask)))
+
+        runtime_state.gene_sets_ignored = runtime_state.gene_sets_ignored + [gene_sets[i] for i in range(len(gene_sets)) if p_value_ignore[i]]
+        gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if p_value_mask[i]]
+
+        runtime_state.col_sums_ignored = np.append(runtime_state.col_sums_ignored, runtime_state.get_col_sums(cur_X[:, p_value_ignore]))
+        runtime_state.scale_factors_ignored = np.append(runtime_state.scale_factors_ignored, scale_factors[p_value_ignore])
+        runtime_state.mean_shifts_ignored = np.append(runtime_state.mean_shifts_ignored, mean_shifts[p_value_ignore])
+        runtime_state.beta_tildes_ignored = np.append(runtime_state.beta_tildes_ignored, beta_tildes[p_value_ignore])
+        runtime_state.p_values_ignored = np.append(runtime_state.p_values_ignored, p_values[p_value_ignore])
+        runtime_state.ses_ignored = np.append(runtime_state.ses_ignored, ses[p_value_ignore])
+        runtime_state.z_scores_ignored = np.append(runtime_state.z_scores_ignored, z_scores[p_value_ignore])
+
+        runtime_state.beta_tildes = np.append(runtime_state.beta_tildes, beta_tildes[p_value_mask])
+        runtime_state.p_values = np.append(runtime_state.p_values, p_values[p_value_mask])
+        runtime_state.ses = np.append(runtime_state.ses, ses[p_value_mask])
+        runtime_state.z_scores = np.append(runtime_state.z_scores, z_scores[p_value_mask])
+
+        if se_inflation_factors is not None:
+            runtime_state.se_inflation_factors_ignored = np.append(
+                runtime_state.se_inflation_factors_ignored,
+                se_inflation_factors[p_value_ignore],
+            )
+            if runtime_state.se_inflation_factors is None:
+                runtime_state.se_inflation_factors = np.array([])
+            runtime_state.se_inflation_factors = np.append(
+                runtime_state.se_inflation_factors,
+                se_inflation_factors[p_value_mask],
+            )
+
+        if runtime_state.gene_covariates is not None:
+            if runtime_state.total_qc_metrics_ignored is None:
+                runtime_state.total_qc_metrics_ignored = total_qc_metrics[p_value_ignore, :]
+                runtime_state.mean_qc_metrics_ignored = mean_qc_metrics[p_value_ignore]
+            else:
+                runtime_state.total_qc_metrics_ignored = np.vstack((runtime_state.total_qc_metrics_ignored, total_qc_metrics[p_value_ignore, :]))
+                runtime_state.mean_qc_metrics_ignored = np.append(runtime_state.mean_qc_metrics_ignored, mean_qc_metrics[p_value_ignore])
+
+            total_qc_metrics = total_qc_metrics[p_value_mask]
+            mean_qc_metrics = mean_qc_metrics[p_value_mask]
+
+        # need to record how many ignored
+        gene_ignored_N = runtime_state.get_col_sums(cur_X[:, p_value_ignore], axis=1)
+
+        if cur_X_missing_genes_new is not None:
+            gene_ignored_N_missing_new = np.array(np.abs(cur_X_missing_genes_new[:, p_value_ignore]).sum(axis=1)).flatten()
+            cur_X_missing_genes_new = cur_X_missing_genes_new[:, p_value_mask]
+
+        if cur_X_missing_genes_int is not None:
+            gene_ignored_N_missing_int = np.array(np.abs(cur_X_missing_genes_int[:, p_value_ignore]).sum(axis=1)).flatten()
+            cur_X_missing_genes_int = cur_X_missing_genes_int[:, p_value_mask]
+
+        cur_X = cur_X[:, p_value_mask]
+
+    return (
+        cur_X,
+        gene_sets,
+        p_value_ignore,
+        gene_ignored_N,
+        cur_X_missing_genes_new,
+        gene_ignored_N_missing_new,
+        cur_X_missing_genes_int,
+        gene_ignored_N_missing_int,
+        total_qc_metrics,
+        mean_qc_metrics,
     )
 
 
