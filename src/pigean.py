@@ -1757,134 +1757,20 @@ class PigeanState(object):
 
                 mat_info, genes = _normalize_dense_gene_rows(mat_info, genes, self.gene_label_map)
 
-
-                #check if actually sparse
-                if len(x_sparsify) > 0:
-                    sparsity_threshold = 1 - np.max(x_sparsify).astype(float) / mat_info.shape[0]
-                else:
-                    sparsity_threshold = 0.95
-
-                orig_dense_gene_sets = gene_sets
-
-                cur_X = None
-                #convert to sparse if (a) many zeros
-                convert_to_sparse = np.sum(mat_info == 0, axis=0) / mat_info.shape[0] > sparsity_threshold
-
-                # or (b) if all non-zero are same value
-                abs_mat_info = np.abs(mat_info)
-                max_weights = abs_mat_info.max(axis=0)
-                all_non_zero_same = np.sum(abs_mat_info * (abs_mat_info != max_weights), axis=0) == 0
-
-                convert_to_sparse = np.logical_or(convert_to_sparse, all_non_zero_same)
-                if np.any(convert_to_sparse):
-                    log("Detected sparse matrix for %d of %d columns" % (np.sum(convert_to_sparse), len(convert_to_sparse)), DEBUG)
-                    cur_X = sparse.csc_matrix(mat_info[:,convert_to_sparse])
-                    #update the gene sets, as well as the dense ones we will expand later
-                    gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if convert_to_sparse[i]]
-                    orig_dense_gene_sets = [orig_dense_gene_sets[i] for i in range(len(orig_dense_gene_sets)) if not convert_to_sparse[i]]
-
-                    mat_info = mat_info[:,~convert_to_sparse]
-                    #respect min gene size
-                    enough_genes = self.get_col_sums(cur_X, num_nonzero=True) >= min_gene_set_size
-                    if np.any(~enough_genes):
-                        log("Excluded %d gene sets due to too small size" % np.sum(~enough_genes), DEBUG)
-                        cur_X = cur_X[:,enough_genes]
-                        gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if enough_genes[i]]
-
-                if mat_info.shape[1] > 0:
-
-                    mat_sd = np.std(mat_info, axis=0)
-                    if np.any(mat_sd == 0):
-                        mat_info = mat_info[:,mat_sd != 0]
-
-                    mat_info = (mat_info - np.mean(mat_info, axis=0)) / np.std(mat_info, axis=0)
-
-                    subset_mask = np.full(len(genes), True)
-                    x_for_stats = mat_info
-                    if self.Y is not None and self.genes is not None:
-                        #make a mask to subset it down for the purposes of quantiles
-                        subset_mask[[i for i in range(len(genes)) if genes[i] not in self.gene_to_ind]] = False
-                        x_for_stats = mat_info[subset_mask,:]
-
-                    if x_for_stats.shape[0] == 0:
-                        warn("No genes in --Xd-in %swere seen before so skipping; example genes: %s" % ("%s " % fname if fname is not None else "", ",".join(genes[:4])))
-                        return (0, 0)
-
-                    top_numbers = list(reversed(sorted(x_sparsify)))
-
-                    top_fractions = np.array(top_numbers, dtype=float) / x_for_stats.shape[0]
-
-                    top_fractions[top_fractions > 1] = 1
-                    top_fractions[top_fractions < 0] = 0
-
-                    if len(top_fractions) == 0:
-                        bail("No --X-sparsify set so doing nothing")
-                        return (0, 0)
-
-                    upper_quantiles = np.quantile(x_for_stats, 1 - top_fractions, axis=0)
-                    lower_quantiles = np.quantile(x_for_stats, top_fractions, axis=0)
-
-                    upper = copy.copy(mat_info)
-                    lower = copy.copy(mat_info)
-
-                    assert(np.all(upper_quantiles[0,:] == np.min(upper_quantiles, axis=0)))
-                    assert(np.all(lower_quantiles[0,:] == np.max(lower_quantiles, axis=0)))
-
-                    for i in range(len(top_numbers)):
-                        #since we are sorted in descending order, can throw away everything below current threshold
-                        upper_threshold_mask = upper < upper_quantiles[i,:]
-                        if np.sum(upper_threshold_mask) == 0:
-                            upper_threshold_mask = upper <= upper_quantiles[i,:]
-
-                        lower_threshold_mask = lower > lower_quantiles[i,:]
-                        if np.sum(lower_threshold_mask) == 0:
-                            lower_threshold_mask = lower >= lower_quantiles[i,:]
-
-                        mat_info[np.logical_and(upper_threshold_mask, lower_threshold_mask)] = 0
-                        upper[upper_threshold_mask] = 0
-                        lower[lower_threshold_mask] = 0
-
-                        if add_ext:
-                            temp_X = sparse.csc_matrix(mat_info)
-                            top_gene_sets = ["%s_%s%d" % (x, EXT_TAG, top_numbers[i]) for x in orig_dense_gene_sets]
-                            if cur_X is None:
-                                cur_X = temp_X
-                                gene_sets = top_gene_sets
-                            else:
-                                cur_X = sparse.hstack((cur_X, temp_X))
-                                gene_sets = gene_sets + top_gene_sets
-
-                        if add_bottom:
-                            temp_X = sparse.csc_matrix(lower)
-                            top_gene_sets = ["%s_%s%d" % (x, BOT_TAG, top_numbers[i]) for x in orig_dense_gene_sets]
-                            if cur_X is None:
-                                cur_X = temp_X
-                                gene_sets = top_gene_sets
-                            else:
-                                cur_X = sparse.hstack((cur_X, temp_X))
-                                gene_sets = gene_sets + top_gene_sets
-
-                        if add_top or (not add_ext and not add_bottom):
-                            temp_X = sparse.csc_matrix(upper)
-                            top_gene_sets = ["%s_%s%d" % (x, TOP_TAG, top_numbers[i]) for x in orig_dense_gene_sets]
-                            if cur_X is None:
-                                cur_X = temp_X
-                                gene_sets = top_gene_sets
-                            else:
-                                gene_sets = gene_sets + top_gene_sets
-                                cur_X = sparse.hstack((cur_X, temp_X))
-
-                        if cur_X is None:
-                            return (0, 0)
-
-                        #if all of the values for a row are negative, flip the sign to make it positive
-                        all_negative_mask = ((cur_X < 0).sum(axis=0) == cur_X.astype(bool).sum(axis=0)).A1
-                        cur_X[:,all_negative_mask] = -cur_X[:,all_negative_mask]
-
-                        cur_X.eliminate_zeros()
-
-                    if cur_X is None or cur_X.shape[1] == 0:
-                        return (0, 0)
+                cur_X, gene_sets, should_skip_dense = _build_sparse_x_from_dense_input(
+                    self,
+                    mat_info=mat_info,
+                    genes=genes,
+                    gene_sets=gene_sets,
+                    x_sparsify=x_sparsify,
+                    min_gene_set_size=min_gene_set_size,
+                    add_ext=add_ext,
+                    add_top=add_top,
+                    add_bottom=add_bottom,
+                    fname=fname,
+                )
+                if should_skip_dense:
+                    return (0, 0)
 
                 cur_X, genes = _reindex_x_rows_to_current_genes(self, cur_X=cur_X, genes=genes)
 
@@ -14561,6 +14447,149 @@ def _normalize_dense_gene_rows(mat_info, genes, gene_label_map):
         genes = [genes[i] for i in range(len(genes)) if unique_mask[i]]
 
     return (mat_info, genes)
+
+
+def _build_sparse_x_from_dense_input(
+    runtime_state,
+    mat_info,
+    genes,
+    gene_sets,
+    x_sparsify,
+    min_gene_set_size,
+    add_ext,
+    add_top,
+    add_bottom,
+    fname=None,
+):
+    # Check if actually sparse.
+    if len(x_sparsify) > 0:
+        sparsity_threshold = 1 - np.max(x_sparsify).astype(float) / mat_info.shape[0]
+    else:
+        sparsity_threshold = 0.95
+
+    orig_dense_gene_sets = gene_sets
+    cur_X = None
+
+    # Convert to sparse if (a) many zeros.
+    convert_to_sparse = np.sum(mat_info == 0, axis=0) / mat_info.shape[0] > sparsity_threshold
+
+    # Or (b) if all non-zero values are the same.
+    abs_mat_info = np.abs(mat_info)
+    max_weights = abs_mat_info.max(axis=0)
+    all_non_zero_same = np.sum(abs_mat_info * (abs_mat_info != max_weights), axis=0) == 0
+
+    convert_to_sparse = np.logical_or(convert_to_sparse, all_non_zero_same)
+    if np.any(convert_to_sparse):
+        log("Detected sparse matrix for %d of %d columns" % (np.sum(convert_to_sparse), len(convert_to_sparse)), DEBUG)
+        cur_X = sparse.csc_matrix(mat_info[:, convert_to_sparse])
+        # Update sparse gene sets and keep dense gene sets for expansions below.
+        gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if convert_to_sparse[i]]
+        orig_dense_gene_sets = [orig_dense_gene_sets[i] for i in range(len(orig_dense_gene_sets)) if not convert_to_sparse[i]]
+
+        mat_info = mat_info[:, ~convert_to_sparse]
+        # Respect min gene size for sparse columns.
+        enough_genes = runtime_state.get_col_sums(cur_X, num_nonzero=True) >= min_gene_set_size
+        if np.any(~enough_genes):
+            log("Excluded %d gene sets due to too small size" % np.sum(~enough_genes), DEBUG)
+            cur_X = cur_X[:, enough_genes]
+            gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if enough_genes[i]]
+
+    if mat_info.shape[1] > 0:
+        mat_sd = np.std(mat_info, axis=0)
+        if np.any(mat_sd == 0):
+            mat_info = mat_info[:, mat_sd != 0]
+
+        mat_info = (mat_info - np.mean(mat_info, axis=0)) / np.std(mat_info, axis=0)
+
+        subset_mask = np.full(len(genes), True)
+        x_for_stats = mat_info
+        if runtime_state.Y is not None and runtime_state.genes is not None:
+            # Subset down for quantiles using genes seen in Y.
+            subset_mask[[i for i in range(len(genes)) if genes[i] not in runtime_state.gene_to_ind]] = False
+            x_for_stats = mat_info[subset_mask, :]
+
+        if x_for_stats.shape[0] == 0:
+            warn(
+                "No genes in --Xd-in %swere seen before so skipping; example genes: %s"
+                % ("%s " % fname if fname is not None else "", ",".join(genes[:4]))
+            )
+            return (None, None, True)
+
+        top_numbers = list(reversed(sorted(x_sparsify)))
+        top_fractions = np.array(top_numbers, dtype=float) / x_for_stats.shape[0]
+
+        top_fractions[top_fractions > 1] = 1
+        top_fractions[top_fractions < 0] = 0
+
+        if len(top_fractions) == 0:
+            bail("No --X-sparsify set so doing nothing")
+            return (None, None, True)
+
+        upper_quantiles = np.quantile(x_for_stats, 1 - top_fractions, axis=0)
+        lower_quantiles = np.quantile(x_for_stats, top_fractions, axis=0)
+
+        upper = copy.copy(mat_info)
+        lower = copy.copy(mat_info)
+
+        assert np.all(upper_quantiles[0, :] == np.min(upper_quantiles, axis=0))
+        assert np.all(lower_quantiles[0, :] == np.max(lower_quantiles, axis=0))
+
+        for i in range(len(top_numbers)):
+            # Since we are sorted descending, throw away everything below threshold.
+            upper_threshold_mask = upper < upper_quantiles[i, :]
+            if np.sum(upper_threshold_mask) == 0:
+                upper_threshold_mask = upper <= upper_quantiles[i, :]
+
+            lower_threshold_mask = lower > lower_quantiles[i, :]
+            if np.sum(lower_threshold_mask) == 0:
+                lower_threshold_mask = lower >= lower_quantiles[i, :]
+
+            mat_info[np.logical_and(upper_threshold_mask, lower_threshold_mask)] = 0
+            upper[upper_threshold_mask] = 0
+            lower[lower_threshold_mask] = 0
+
+            if add_ext:
+                temp_X = sparse.csc_matrix(mat_info)
+                top_gene_sets = ["%s_%s%d" % (x, EXT_TAG, top_numbers[i]) for x in orig_dense_gene_sets]
+                if cur_X is None:
+                    cur_X = temp_X
+                    gene_sets = top_gene_sets
+                else:
+                    cur_X = sparse.hstack((cur_X, temp_X))
+                    gene_sets = gene_sets + top_gene_sets
+
+            if add_bottom:
+                temp_X = sparse.csc_matrix(lower)
+                top_gene_sets = ["%s_%s%d" % (x, BOT_TAG, top_numbers[i]) for x in orig_dense_gene_sets]
+                if cur_X is None:
+                    cur_X = temp_X
+                    gene_sets = top_gene_sets
+                else:
+                    cur_X = sparse.hstack((cur_X, temp_X))
+                    gene_sets = gene_sets + top_gene_sets
+
+            if add_top or (not add_ext and not add_bottom):
+                temp_X = sparse.csc_matrix(upper)
+                top_gene_sets = ["%s_%s%d" % (x, TOP_TAG, top_numbers[i]) for x in orig_dense_gene_sets]
+                if cur_X is None:
+                    cur_X = temp_X
+                    gene_sets = top_gene_sets
+                else:
+                    gene_sets = gene_sets + top_gene_sets
+                    cur_X = sparse.hstack((cur_X, temp_X))
+
+            if cur_X is None:
+                return (None, None, True)
+
+            # If all values for a column are negative, flip sign to positive.
+            all_negative_mask = ((cur_X < 0).sum(axis=0) == cur_X.astype(bool).sum(axis=0)).A1
+            cur_X[:, all_negative_mask] = -cur_X[:, all_negative_mask]
+            cur_X.eliminate_zeros()
+
+        if cur_X is None or cur_X.shape[1] == 0:
+            return (None, None, True)
+
+    return (cur_X, gene_sets, False)
 
 
 def _normalize_gene_set_weights(runtime_state, cur_X, threshold_weights, cap_weights):
