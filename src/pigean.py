@@ -1894,25 +1894,9 @@ class PigeanState(object):
             initial_ps = []
             assert(xin_to_p_noninf_ind is not None)
 
-        def normalize_input_specs(input_specs):
-            if input_specs is None:
-                return ([], [])
-            if type(input_specs) == str:
-                return ([input_specs], [input_specs])
-            if type(input_specs) == list:
-                return (input_specs, copy.copy(input_specs))
-            return ([], [])
-
-        def append_initial_p_indices(input_specs):
-            if initial_ps is None:
-                return
-            for input_spec in input_specs:
-                assert(input_spec in xin_to_p_noninf_ind)
-                initial_ps.append(xin_to_p_noninf_ind[input_spec])
-
         #list of the X files specified on the command line
-        (X_ins, orig_files) = normalize_input_specs(X_in)
-        append_initial_p_indices(X_ins)
+        (X_ins, orig_files) = _normalize_input_specs(X_in)
+        _append_initial_p_indices(initial_ps, X_ins, xin_to_p_noninf_ind)
             
         append_inputs_from_list_files(
             list_specs=X_list,
@@ -1928,8 +1912,8 @@ class PigeanState(object):
 
         is_dense = [False for x in X_ins]
 
-        (Xd_ins, orig_dfiles) = normalize_input_specs(Xd_in)
-        append_initial_p_indices(Xd_ins)
+        (Xd_ins, orig_dfiles) = _normalize_input_specs(Xd_in)
+        _append_initial_p_indices(initial_ps, Xd_ins, xin_to_p_noninf_ind)
 
         append_inputs_from_list_files(
             list_specs=Xd_list,
@@ -1943,16 +1927,8 @@ class PigeanState(object):
 
         Xd_ins, batches2, labels2, orig_dfiles = expand_Xs(Xd_ins, orig_dfiles)
 
-        def map_initial_p_indices_to_values(initial_ps, initial_p):
-            if initial_ps is None:
-                return
-            assert(type(initial_p) is list)
-            for i in range(len(initial_ps)):
-                assert(initial_ps[i]) >= 0 and initial_ps[i] < len(initial_p)
-                initial_ps[i] = initial_p[initial_ps[i]]
-
         #now map from inds to ps
-        map_initial_p_indices_to_values(initial_ps, initial_p)
+        _map_initial_p_indices_to_values(initial_ps, initial_p)
 
 
         X_ins += Xd_ins
@@ -15031,6 +15007,33 @@ def _assign_default_batches(batches, orig_files, batch_all_for_hyper, first_for_
                     batches[j] = None
             break
     return batches
+
+
+def _normalize_input_specs(input_specs):
+    if input_specs is None:
+        return ([], [])
+    if type(input_specs) == str:
+        return ([input_specs], [input_specs])
+    if type(input_specs) == list:
+        return (input_specs, copy.copy(input_specs))
+    return ([], [])
+
+
+def _append_initial_p_indices(initial_ps, input_specs, xin_to_p_noninf_ind):
+    if initial_ps is None:
+        return
+    for input_spec in input_specs:
+        assert(input_spec in xin_to_p_noninf_ind)
+        initial_ps.append(xin_to_p_noninf_ind[input_spec])
+
+
+def _map_initial_p_indices_to_values(initial_ps, initial_p):
+    if initial_ps is None:
+        return
+    assert(type(initial_p) is list)
+    for i in range(len(initial_ps)):
+        assert(initial_ps[i]) >= 0 and initial_ps[i] < len(initial_p)
+        initial_ps[i] = initial_p[initial_ps[i]]
 
 
 def _align_extra_genes_with_new_source(
