@@ -1795,55 +1795,6 @@ class PigeanState(object):
 
         self._record_params({"filter_gene_set_p": filter_gene_set_p, "filter_negative": filter_negative, "threshold_weights": threshold_weights, "cap_weights": cap_weights, "max_num_gene_sets_initial": max_num_gene_sets_initial, "max_num_gene_sets": max_num_gene_sets, "max_num_gene_sets_hyper": max_num_gene_sets_hyper, "filter_gene_set_metric_z": filter_gene_set_metric_z, "num_chains_betas": num_chains_betas, "sigma_num_devs_to_top": sigma_num_devs_to_top, "p_noninf_inflate": p_noninf_inflate})
 
-        def remove_tag(X_in, tag_separator=':'):
-            tag = None
-            if tag_separator in X_in:
-                tag_index = X_in.index(tag_separator)
-                tag = X_in[:tag_index]
-
-                X_in = X_in[tag_index+1:]
-                if len(tag) == 0:
-                    tag = None
-            return (X_in, tag)
-
-        def add_tag(X_in, tag, tag_separator=':'):
-            if tag is None:
-                return X_in
-            else:
-                return tag_separator.join([tag, X_in])
-
-        def expand_Xs(Xs, orig_files):
-            new_Xs = []
-            batches = []
-            labels = []
-            new_orig_files = []
-            for i in range(len(Xs)):
-                X = Xs[i]
-                orig_file = orig_files[i]
-                batch = None
-                label = os.path.basename(orig_file)
-                if "." in label:
-                    label = ".".join(label.split(".")[:-1])
-                if batch_separator in X:
-                    batch = X.split(batch_separator)[-1]
-                    label = batch
-                    X = batch_separator.join(X.split(batch_separator)[:-1])
-
-                (X, tag) = remove_tag(X)
-                if tag is not None:
-                    label = tag
-
-                if file_separator is not None:
-                    x_to_add = X.split(file_separator)
-                else:
-                    x_to_add = [X]
-
-                new_Xs += x_to_add
-                batches += [batch] * len(x_to_add)
-                labels += [label] * len(x_to_add)
-                new_orig_files += [orig_file] * len(x_to_add)
-            return (new_Xs, batches, labels, new_orig_files)
-
         def append_inputs_from_list_files(
             list_specs,
             dest_inputs,
@@ -1873,10 +1824,10 @@ class PigeanState(object):
                             continue
 
                         if resolve_relative_paths:
-                            (path, label) = remove_tag(line)
+                            (path, label) = _remove_tag_from_input(line)
                             if path and not os.path.isabs(path):
                                 path = os.path.normpath(os.path.join(list_dir, path))
-                            line = add_tag(path, label)
+                            line = _add_tag_to_input(path, label)
 
                         if batch is not None and batch_separator not in line:
                             line = "%s%s%s" % (line, batch_separator, batch)
@@ -1908,7 +1859,12 @@ class PigeanState(object):
             skip_empty_lines=True,
         )
 
-        X_ins, batches, labels, orig_files = expand_Xs(X_ins, orig_files)
+        X_ins, batches, labels, orig_files = _expand_x_inputs(
+            X_ins,
+            orig_files,
+            batch_separator=batch_separator,
+            file_separator=file_separator,
+        )
 
         is_dense = [False for x in X_ins]
 
@@ -1925,7 +1881,12 @@ class PigeanState(object):
             skip_empty_lines=False,
         )
 
-        Xd_ins, batches2, labels2, orig_dfiles = expand_Xs(Xd_ins, orig_dfiles)
+        Xd_ins, batches2, labels2, orig_dfiles = _expand_x_inputs(
+            Xd_ins,
+            orig_dfiles,
+            batch_separator=batch_separator,
+            file_separator=file_separator,
+        )
 
         #now map from inds to ps
         _map_initial_p_indices_to_values(initial_ps, initial_p)
@@ -2632,7 +2593,7 @@ class PigeanState(object):
             num_gene_sets = 0
             for i in range(len(X_ins)):
                 X_in = X_ins[i]
-                (X_in, tag) = remove_tag(X_in)
+                (X_in, tag) = _remove_tag_from_input(X_in)
 
                 if is_dense[i]:
                     with open_gz(X_in) as gene_sets_fh:
@@ -2722,7 +2683,7 @@ class PigeanState(object):
 
         for i in range(len(X_ins)):
             X_in = X_ins[i]
-            (X_in, tag) = remove_tag(X_in)
+            (X_in, tag) = _remove_tag_from_input(X_in)
 
             log("Reading X %d of %d from --X-in file %s" % (i+1,len(X_ins),X_in), INFO)
 
@@ -15034,6 +14995,57 @@ def _map_initial_p_indices_to_values(initial_ps, initial_p):
     for i in range(len(initial_ps)):
         assert(initial_ps[i]) >= 0 and initial_ps[i] < len(initial_p)
         initial_ps[i] = initial_p[initial_ps[i]]
+
+
+def _remove_tag_from_input(x_in, tag_separator=':'):
+    tag = None
+    if tag_separator in x_in:
+        tag_index = x_in.index(tag_separator)
+        tag = x_in[:tag_index]
+
+        x_in = x_in[tag_index + 1:]
+        if len(tag) == 0:
+            tag = None
+    return (x_in, tag)
+
+
+def _add_tag_to_input(x_in, tag, tag_separator=':'):
+    if tag is None:
+        return x_in
+    return tag_separator.join([tag, x_in])
+
+
+def _expand_x_inputs(x_inputs, orig_files, batch_separator='@', file_separator=None):
+    expanded_inputs = []
+    batches = []
+    labels = []
+    expanded_orig_files = []
+    for i in range(len(x_inputs)):
+        x_input = x_inputs[i]
+        orig_file = orig_files[i]
+        batch = None
+        label = os.path.basename(orig_file)
+        if "." in label:
+            label = ".".join(label.split(".")[:-1])
+        if batch_separator in x_input:
+            batch = x_input.split(batch_separator)[-1]
+            label = batch
+            x_input = batch_separator.join(x_input.split(batch_separator)[:-1])
+
+        (x_input, tag) = _remove_tag_from_input(x_input)
+        if tag is not None:
+            label = tag
+
+        if file_separator is not None:
+            x_to_add = x_input.split(file_separator)
+        else:
+            x_to_add = [x_input]
+
+        expanded_inputs += x_to_add
+        batches += [batch] * len(x_to_add)
+        labels += [label] * len(x_to_add)
+        expanded_orig_files += [orig_file] * len(x_to_add)
+    return (expanded_inputs, batches, labels, expanded_orig_files)
 
 
 def _align_extra_genes_with_new_source(
