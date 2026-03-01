@@ -1910,57 +1910,17 @@ class PigeanState(object):
         self.gene_sets = []
         self.is_dense_gene_set = np.array([], dtype=bool)
 
-        def initialize_filtered_gene_set_state():
-            self.gene_sets_ignored = []
-            if self.gene_set_labels is not None:
-                self.gene_set_labels_ignored = np.array([])
-
-            self.col_sums_ignored = np.array([])
-            self.scale_factors_ignored = np.array([])
-            self.mean_shifts_ignored = np.array([])
-            self.beta_tildes_ignored = np.array([])
-            self.p_values_ignored = np.array([])
-            self.ses_ignored = np.array([])
-            self.z_scores_ignored = np.array([])
-            self.se_inflation_factors_ignored = np.array([])
-
-            self.beta_tildes = np.array([])
-            self.p_values = np.array([])
-            self.ses = np.array([])
-            self.z_scores = np.array([])
-
-            self.se_inflation_factors = None
-
-            self.total_qc_metrics = None
-            self.mean_qc_metrics = None
-
-            self.total_qc_metrics_missing = None
-            self.mean_qc_metrics_missing = None
-
-            self.total_qc_metrics_ignored = None
-            self.mean_qc_metrics_ignored = None
-
-            self.total_qc_metrics_directions = None
-
-            self.sigma2s = None
-            self.sigma2s_missing = None
-            if update_hyper_p is not None:
-                self.ps = np.array([])
-            else:
-                self.ps = None
-            self.ps_missing = None
-
-        def maybe_prepare_filtered_gls_correlation():
-            if (run_gls or run_corrected_ols) and self.y_corr is None:
-                correlation_m = self._read_correlations(gene_cor_file, gene_loc_file, gene_cor_file_gene_col=gene_cor_file_gene_col, gene_cor_file_cor_start_col=gene_cor_file_cor_start_col)
-
-                #convert X and Y to their new values
-                min_correlation = 0.05
-                self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, store_cholesky=run_gls, store_corr_sparse=run_corrected_ols, skip_V=True, skip_scale_factors=True, min_correlation=min_correlation)
-
         if (filter_gene_set_p < 1 or filter_gene_set_metric_z) and self.Y is not None:
-            initialize_filtered_gene_set_state()
-            maybe_prepare_filtered_gls_correlation()
+            _initialize_filtered_gene_set_state(self, update_hyper_p=update_hyper_p)
+            _maybe_prepare_filtered_gls_correlation(
+                self,
+                run_gls=run_gls,
+                run_corrected_ols=run_corrected_ols,
+                gene_cor_file=gene_cor_file,
+                gene_loc_file=gene_loc_file,
+                gene_cor_file_gene_col=gene_cor_file_gene_col,
+                gene_cor_file_cor_start_col=gene_cor_file_cor_start_col,
+            )
 
         if not run_logistic and self.Y_for_regression is not None and np.max(np.exp(self.Y_for_regression + self.background_log_bf) / (1 + np.exp(self.Y_for_regression + self.background_log_bf))) > max_for_linear:
             log("Switching to logistic sampling due to high Y values", DEBUG)
@@ -15056,6 +15016,81 @@ def _append_inputs_from_list_files(
                     assert(list_spec in xin_to_p_noninf_ind)
                     initial_ps.append(xin_to_p_noninf_ind[list_spec])
                 dest_orig_files.append(list_spec)
+
+
+def _initialize_filtered_gene_set_state(runtime_state, update_hyper_p):
+    runtime_state.gene_sets_ignored = []
+    if runtime_state.gene_set_labels is not None:
+        runtime_state.gene_set_labels_ignored = np.array([])
+
+    runtime_state.col_sums_ignored = np.array([])
+    runtime_state.scale_factors_ignored = np.array([])
+    runtime_state.mean_shifts_ignored = np.array([])
+    runtime_state.beta_tildes_ignored = np.array([])
+    runtime_state.p_values_ignored = np.array([])
+    runtime_state.ses_ignored = np.array([])
+    runtime_state.z_scores_ignored = np.array([])
+    runtime_state.se_inflation_factors_ignored = np.array([])
+
+    runtime_state.beta_tildes = np.array([])
+    runtime_state.p_values = np.array([])
+    runtime_state.ses = np.array([])
+    runtime_state.z_scores = np.array([])
+
+    runtime_state.se_inflation_factors = None
+
+    runtime_state.total_qc_metrics = None
+    runtime_state.mean_qc_metrics = None
+
+    runtime_state.total_qc_metrics_missing = None
+    runtime_state.mean_qc_metrics_missing = None
+
+    runtime_state.total_qc_metrics_ignored = None
+    runtime_state.mean_qc_metrics_ignored = None
+
+    runtime_state.total_qc_metrics_directions = None
+
+    runtime_state.sigma2s = None
+    runtime_state.sigma2s_missing = None
+    if update_hyper_p is not None:
+        runtime_state.ps = np.array([])
+    else:
+        runtime_state.ps = None
+    runtime_state.ps_missing = None
+
+
+def _maybe_prepare_filtered_gls_correlation(
+    runtime_state,
+    run_gls,
+    run_corrected_ols,
+    gene_cor_file,
+    gene_loc_file,
+    gene_cor_file_gene_col,
+    gene_cor_file_cor_start_col,
+):
+    if (run_gls or run_corrected_ols) and runtime_state.y_corr is None:
+        correlation_m = runtime_state._read_correlations(
+            gene_cor_file,
+            gene_loc_file,
+            gene_cor_file_gene_col=gene_cor_file_gene_col,
+            gene_cor_file_cor_start_col=gene_cor_file_cor_start_col,
+        )
+
+        # convert X and Y to their new values
+        min_correlation = 0.05
+        runtime_state._set_Y(
+            runtime_state.Y,
+            runtime_state.Y_for_regression,
+            runtime_state.Y_exomes,
+            runtime_state.Y_positive_controls,
+            runtime_state.Y_case_counts,
+            Y_corr_m=correlation_m,
+            store_cholesky=run_gls,
+            store_corr_sparse=run_corrected_ols,
+            skip_V=True,
+            skip_scale_factors=True,
+            min_correlation=min_correlation,
+        )
 
 
 def _align_extra_genes_with_new_source(
