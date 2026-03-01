@@ -1618,140 +1618,6 @@ class PigeanState(object):
     # (GWAS/HuGE, exomes, positive controls, and case/control counts)
     # into a consistent in-memory representation for downstream priors/Gibbs.
 
-    def _align_extra_genes_with_new_source(
-        self,
-        existing_extra_genes,
-        existing_extra_values,
-        new_source_genes,
-        new_source_values,
-        existing_missing_values,
-        new_source_missing_value,
-    ):
-        """
-        Align existing extra-gene arrays to a new source's extra-gene ordering.
-        Returns:
-          merged_extra_genes,
-          aligned_existing_values (list of np.array, one per existing source),
-          aligned_new_source_values (np.array)
-        """
-        return _align_extra_genes_with_new_source(
-            existing_extra_genes,
-            existing_extra_values,
-            new_source_genes,
-            new_source_values,
-            existing_missing_values,
-            new_source_missing_value,
-        )
-
-    def _apply_hold_out_chrom_to_y(self, Y, extra_genes, extra_Y, hold_out_chrom, gene_loc_file):
-        return _apply_hold_out_chrom_to_y(self, Y, extra_genes, extra_Y, hold_out_chrom, gene_loc_file)
-
-    def _read_primary_y_source(
-        self,
-        gwas_in=None,
-        huge_statistics_in=None,
-        huge_statistics_out=None,
-        exomes_in=None,
-        positive_controls_in=None,
-        positive_controls_list=None,
-        case_counts_in=None,
-        gene_bfs_in=None,
-        hold_out_chrom=None,
-        gene_loc_file=None,
-        Y1_exomes=None,
-        Y1_positive_controls=None,
-        Y1_case_counts=None,
-        **kwargs,
-    ):
-        return _read_primary_y_source(
-            self,
-            gwas_in=gwas_in,
-            huge_statistics_in=huge_statistics_in,
-            huge_statistics_out=huge_statistics_out,
-            exomes_in=exomes_in,
-            positive_controls_in=positive_controls_in,
-            positive_controls_list=positive_controls_list,
-            case_counts_in=case_counts_in,
-            gene_bfs_in=gene_bfs_in,
-            hold_out_chrom=hold_out_chrom,
-            gene_loc_file=gene_loc_file,
-            Y1_exomes=Y1_exomes,
-            Y1_positive_controls=Y1_positive_controls,
-            Y1_case_counts=Y1_case_counts,
-            **kwargs
-        )
-
-    def _initialize_y_from_new_gene_universe(
-        self,
-        extra_genes,
-        extra_Y,
-        extra_Y_for_regression,
-        extra_genes_all,
-        extra_Y_exomes,
-        extra_Y_positive_controls,
-        extra_Y_case_counts,
-        missing_value,
-        missing_value_exomes,
-        missing_value_positive_controls,
-        missing_value_case_counts,
-    ):
-        return _initialize_y_from_new_gene_universe(
-            self,
-            extra_genes=extra_genes,
-            extra_Y=extra_Y,
-            extra_Y_for_regression=extra_Y_for_regression,
-            extra_genes_all=extra_genes_all,
-            extra_Y_exomes=extra_Y_exomes,
-            extra_Y_positive_controls=extra_Y_positive_controls,
-            extra_Y_case_counts=extra_Y_case_counts,
-            missing_value=missing_value,
-            missing_value_exomes=missing_value_exomes,
-            missing_value_positive_controls=missing_value_positive_controls,
-            missing_value_case_counts=missing_value_case_counts,
-        )
-
-    def _merge_y_into_existing_gene_universe(
-        self,
-        Y1,
-        Y1_for_regression,
-        Y1_exomes,
-        Y1_positive_controls,
-        Y1_case_counts,
-        extra_genes,
-        extra_Y,
-        extra_Y_for_regression,
-        extra_genes_all,
-        extra_Y_exomes,
-        extra_Y_positive_controls,
-        extra_Y_case_counts,
-        missing_value,
-        missing_value_exomes,
-        missing_value_positive_controls,
-        missing_value_case_counts,
-    ):
-        return _merge_y_into_existing_gene_universe(
-            self,
-            Y1=Y1,
-            Y1_for_regression=Y1_for_regression,
-            Y1_exomes=Y1_exomes,
-            Y1_positive_controls=Y1_positive_controls,
-            Y1_case_counts=Y1_case_counts,
-            extra_genes=extra_genes,
-            extra_Y=extra_Y,
-            extra_Y_for_regression=extra_Y_for_regression,
-            extra_genes_all=extra_genes_all,
-            extra_Y_exomes=extra_Y_exomes,
-            extra_Y_positive_controls=extra_Y_positive_controls,
-            extra_Y_case_counts=extra_Y_case_counts,
-            missing_value=missing_value,
-            missing_value_exomes=missing_value_exomes,
-            missing_value_positive_controls=missing_value_positive_controls,
-            missing_value_case_counts=missing_value_case_counts,
-        )
-
-    def _apply_gene_covariates_and_correct_huge(self, gene_covs_in=None, **kwargs):
-        _apply_gene_covariates_and_correct_huge(self, gene_covs_in=gene_covs_in, **kwargs)
-
     def read_Y(self, gwas_in=None, huge_statistics_in=None, huge_statistics_out=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, gene_loc_file=None, gene_covs_in=None, hold_out_chrom=None, **kwargs):
         return _read_Y(
             self,
@@ -14508,7 +14374,8 @@ def _read_primary_y_source(
         else:
             bail("Need to specify either gene_bfs_in or exomes_in or positive_controls_in or case_counts_in")
 
-        (Y1, extra_genes, extra_Y) = runtime_state._apply_hold_out_chrom_to_y(
+        (Y1, extra_genes, extra_Y) = _apply_hold_out_chrom_to_y(
+            runtime_state,
             Y1,
             extra_genes,
             extra_Y,
