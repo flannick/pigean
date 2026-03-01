@@ -2008,27 +2008,11 @@ class PigeanState(object):
                 #    self.huge_signal_bfs = sparse.csc_matrix((self.huge_signal_bfs.data, self.huge_signal_bfs.indices, self.huge_signal_bfs.indptr), shape=(self.huge_signal_bfs.shape[0] + num_add, self.huge_signal_bfs.shape[1]))
 
 
-            if permute_gene_sets:
-                #build random permutation
-                #have to do this at the end after we have added in all of the genes (even those missing from the original X)
-                if self.Y is not None:
-                    assert(len(self.Y) == len(self.genes))
-                    #self.genes is always at the start
-                    #permute only within those that have non-missing data
-                    orig_indices = list(range(len(self.Y)))
-                    new_indices = random.sample(orig_indices, len(orig_indices))
-                    if cur_X.shape[0] > len(orig_indices):
-                        num_to_add = cur_X.shape[0] - len(orig_indices)
-                        to_add = list(range(len(orig_indices), len(orig_indices) + num_to_add))
-                        orig_indices += to_add
-                        new_indices += random.sample(to_add, len(to_add))
-                else:
-                    orig_indices = list(range(cur_X.shape[0]))
-                    new_indices = random.sample(orig_indices, len(orig_indices))
-
-                index_map = dict(zip(orig_indices, new_indices))
-                cur_X = sparse.csc_matrix(cur_X)
-                cur_X = sparse.csc_matrix((cur_X.data, [index_map[x] for x in cur_X.indices], cur_X.indptr), shape=(cur_X.shape[0], cur_X.shape[1]))                
+            cur_X = _maybe_permute_gene_set_rows(
+                self,
+                cur_X=cur_X,
+                permute_gene_sets=permute_gene_sets,
+            )
 
             p_value_ignore = None
 
@@ -14822,6 +14806,33 @@ def _normalize_gene_set_weights(runtime_state, cur_X, threshold_weights, cap_wei
         cur_X.eliminate_zeros()
 
     return cur_X
+
+
+def _maybe_permute_gene_set_rows(runtime_state, cur_X, permute_gene_sets):
+    if not permute_gene_sets:
+        return cur_X
+
+    # Permute rows while preserving the "observed genes first, missing genes last"
+    # contract when Y is already loaded.
+    if runtime_state.Y is not None:
+        assert len(runtime_state.Y) == len(runtime_state.genes)
+        orig_indices = list(range(len(runtime_state.Y)))
+        new_indices = random.sample(orig_indices, len(orig_indices))
+        if cur_X.shape[0] > len(orig_indices):
+            num_to_add = cur_X.shape[0] - len(orig_indices)
+            to_add = list(range(len(orig_indices), len(orig_indices) + num_to_add))
+            orig_indices += to_add
+            new_indices += random.sample(to_add, len(to_add))
+    else:
+        orig_indices = list(range(cur_X.shape[0]))
+        new_indices = random.sample(orig_indices, len(orig_indices))
+
+    index_map = dict(zip(orig_indices, new_indices))
+    cur_X = sparse.csc_matrix(cur_X)
+    return sparse.csc_matrix(
+        (cur_X.data, [index_map[x] for x in cur_X.indices], cur_X.indptr),
+        shape=(cur_X.shape[0], cur_X.shape[1]),
+    )
 
 
 def _ensure_gene_universe_for_x(
