@@ -13070,121 +13070,28 @@ def _read_Y(
     hold_out_chrom=None,
     **kwargs
 ):
-    Y1_exomes = np.array([])
-    extra_genes_all = []
-    extra_Y_exomes = []
-
-    if exomes_in is not None:
-        (Y1_exomes, extra_genes_exomes, extra_Y_exomes) = runtime_state.calculate_huge_scores_exomes(
-            exomes_in,
-            hold_out_chrom=hold_out_chrom,
-            gene_loc_file=gene_loc_file,
-            **kwargs
-        )
-        if runtime_state.genes is None:
-            runtime_state._set_X(runtime_state.X_orig, extra_genes_exomes, runtime_state.gene_sets, skip_N=True, skip_V=True)
-            # set this temporarily for use in huge
-            runtime_state.Y_exomes = extra_Y_exomes
-            Y1_exomes = extra_Y_exomes
-            extra_genes_all = []
-            extra_Y_exomes = np.array([])
-        else:
-            # extra_genes_exomes and extra_Y_exomes have genes not yet in runtime_state.genes
-            extra_genes_all = extra_genes_exomes
-
-    missing_value_exomes = 0
-    missing_value_positive_controls = 0
-    missing_value_case_counts = 0
-
-    Y1_positive_controls = np.array([])
-    extra_Y_positive_controls = []
-
-    if positive_controls_in is not None or positive_controls_list is not None:
-        (Y1_positive_controls, extra_genes_positive_controls, extra_Y_positive_controls) = runtime_state.read_positive_controls(
-            positive_controls_in,
-            positive_controls_list=positive_controls_list,
-            hold_out_chrom=hold_out_chrom,
-            gene_loc_file=gene_loc_file,
-            **kwargs
-        )
-        if runtime_state.genes is None:
-            # this is the first time genes were read in
-            assert(len(Y1_exomes) == 0)
-            runtime_state._set_X(runtime_state.X_orig, extra_genes_positive_controls, runtime_state.gene_sets, skip_N=True, skip_V=True)
-            # set this temporarily for use in huge
-            runtime_state.Y_positive_controls = extra_Y_positive_controls
-            Y1_positive_controls = extra_Y_positive_controls
-            extra_genes_positive_controls = []
-            extra_genes_all = extra_genes_positive_controls
-            extra_Y_positive_controls = np.array([])
-            Y1_exomes = np.zeros(len(Y1_positive_controls))
-        else:
-            # exomes is already aligned to runtime_state.genes: Y1_exomes matches runtime_state.genes
-            # align so genes includes the union of exomes and positive controls
-            extra_genes_all, aligned_existing_values, extra_Y_positive_controls = _align_extra_genes_with_new_source(
-                existing_extra_genes=extra_genes_all,
-                existing_extra_values=[extra_Y_exomes],
-                new_source_genes=extra_genes_positive_controls,
-                new_source_values=extra_Y_positive_controls,
-                existing_missing_values=[missing_value_exomes],
-                new_source_missing_value=missing_value_positive_controls,
-            )
-            extra_Y_exomes = aligned_existing_values[0]
-    else:
-        Y1_positive_controls = np.zeros(len(Y1_exomes))
-        extra_Y_positive_controls = np.zeros(len(extra_Y_positive_controls))
-
-    assert(len(extra_Y_exomes) == len(extra_genes_all))
-    assert(len(extra_Y_exomes) == len(extra_Y_positive_controls))
-    assert(len(Y1_exomes) == len(Y1_positive_controls))
-
-    Y1_case_counts = np.array([])
-    extra_Y_case_counts = []
-
-    if case_counts_in is not None or ctrl_counts_in is not None:
-        if case_counts_in is None or ctrl_counts_in is None:
-            bail("If specify one of --case-counts-in or --ctrl-counts-in must specify both of them")
-
-        (Y1_case_counts, extra_genes_case_counts, extra_Y_case_counts) = runtime_state.read_count_file(
-            case_counts_in,
-            ctrl_counts_in,
-            hold_out_chrom=hold_out_chrom,
-            gene_loc_file=gene_loc_file,
-            **kwargs
-        )
-        if runtime_state.genes is None:
-            assert(len(Y1_exomes) == 0)
-            assert(len(Y1_positive_controls) == 0)
-            runtime_state._set_X(runtime_state.X_orig, extra_genes_case_counts, runtime_state.gene_sets, skip_N=True, skip_V=True)
-            # set this temporarily for use in huge
-            runtime_state.Y_case_counts = extra_Y_case_counts
-            Y1_case_counts = extra_Y_case_counts
-            extra_genes_case_counts = []
-            extra_Y_case_counts = np.array([])
-            extra_genes_all = extra_genes_case_counts
-            Y1_exomes = np.zeros(len(Y1_case_counts))
-            Y1_positive_controls = np.zeros(len(Y1_case_counts))
-        else:
-            # exomes and positive controls are already aligned to runtime_state.genes
-            extra_genes_all, aligned_existing_values, extra_Y_case_counts = _align_extra_genes_with_new_source(
-                existing_extra_genes=extra_genes_all,
-                existing_extra_values=[extra_Y_exomes, extra_Y_positive_controls],
-                new_source_genes=extra_genes_case_counts,
-                new_source_values=extra_Y_case_counts,
-                existing_missing_values=[missing_value_exomes, missing_value_positive_controls],
-                new_source_missing_value=missing_value_case_counts,
-            )
-            extra_Y_exomes = aligned_existing_values[0]
-            extra_Y_positive_controls = aligned_existing_values[1]
-    else:
-        Y1_case_counts = np.zeros(len(Y1_exomes))
-        extra_Y_case_counts = np.zeros(len(extra_Y_case_counts))
-
-    assert(len(extra_Y_exomes) == len(extra_genes_all))
-    assert(len(extra_Y_exomes) == len(extra_Y_positive_controls))
-    assert(len(extra_Y_exomes) == len(extra_Y_case_counts))
-    assert(len(Y1_exomes) == len(Y1_positive_controls))
-    assert(len(Y1_exomes) == len(Y1_case_counts))
+    (
+        Y1_exomes,
+        Y1_positive_controls,
+        Y1_case_counts,
+        extra_genes_all,
+        extra_Y_exomes,
+        extra_Y_positive_controls,
+        extra_Y_case_counts,
+        missing_value_exomes,
+        missing_value_positive_controls,
+        missing_value_case_counts,
+    ) = _read_and_align_auxiliary_y_components(
+        runtime_state,
+        exomes_in=exomes_in,
+        positive_controls_in=positive_controls_in,
+        positive_controls_list=positive_controls_list,
+        case_counts_in=case_counts_in,
+        ctrl_counts_in=ctrl_counts_in,
+        gene_loc_file=gene_loc_file,
+        hold_out_chrom=hold_out_chrom,
+        **kwargs,
+    )
 
     (
         Y1,
@@ -13369,6 +13276,147 @@ def _finalize_y_vectors_and_expand_x(
         Y_case_counts,
         skip_V=True,
         skip_scale_factors=True,
+    )
+
+
+def _read_and_align_auxiliary_y_components(
+    runtime_state,
+    exomes_in=None,
+    positive_controls_in=None,
+    positive_controls_list=None,
+    case_counts_in=None,
+    ctrl_counts_in=None,
+    gene_loc_file=None,
+    hold_out_chrom=None,
+    **kwargs,
+):
+    Y1_exomes = np.array([])
+    extra_genes_all = []
+    extra_Y_exomes = []
+
+    if exomes_in is not None:
+        (Y1_exomes, extra_genes_exomes, extra_Y_exomes) = runtime_state.calculate_huge_scores_exomes(
+            exomes_in,
+            hold_out_chrom=hold_out_chrom,
+            gene_loc_file=gene_loc_file,
+            **kwargs
+        )
+        if runtime_state.genes is None:
+            runtime_state._set_X(runtime_state.X_orig, extra_genes_exomes, runtime_state.gene_sets, skip_N=True, skip_V=True)
+            # set this temporarily for use in huge
+            runtime_state.Y_exomes = extra_Y_exomes
+            Y1_exomes = extra_Y_exomes
+            extra_genes_all = []
+            extra_Y_exomes = np.array([])
+        else:
+            # extra_genes_exomes and extra_Y_exomes have genes not yet in runtime_state.genes
+            extra_genes_all = extra_genes_exomes
+
+    missing_value_exomes = 0
+    missing_value_positive_controls = 0
+    missing_value_case_counts = 0
+
+    Y1_positive_controls = np.array([])
+    extra_Y_positive_controls = []
+
+    if positive_controls_in is not None or positive_controls_list is not None:
+        (Y1_positive_controls, extra_genes_positive_controls, extra_Y_positive_controls) = runtime_state.read_positive_controls(
+            positive_controls_in,
+            positive_controls_list=positive_controls_list,
+            hold_out_chrom=hold_out_chrom,
+            gene_loc_file=gene_loc_file,
+            **kwargs
+        )
+        if runtime_state.genes is None:
+            # this is the first time genes were read in
+            assert(len(Y1_exomes) == 0)
+            runtime_state._set_X(runtime_state.X_orig, extra_genes_positive_controls, runtime_state.gene_sets, skip_N=True, skip_V=True)
+            # set this temporarily for use in huge
+            runtime_state.Y_positive_controls = extra_Y_positive_controls
+            Y1_positive_controls = extra_Y_positive_controls
+            extra_genes_positive_controls = []
+            extra_genes_all = extra_genes_positive_controls
+            extra_Y_positive_controls = np.array([])
+            Y1_exomes = np.zeros(len(Y1_positive_controls))
+        else:
+            # exomes is already aligned to runtime_state.genes: Y1_exomes matches runtime_state.genes
+            # align so genes includes the union of exomes and positive controls
+            extra_genes_all, aligned_existing_values, extra_Y_positive_controls = _align_extra_genes_with_new_source(
+                existing_extra_genes=extra_genes_all,
+                existing_extra_values=[extra_Y_exomes],
+                new_source_genes=extra_genes_positive_controls,
+                new_source_values=extra_Y_positive_controls,
+                existing_missing_values=[missing_value_exomes],
+                new_source_missing_value=missing_value_positive_controls,
+            )
+            extra_Y_exomes = aligned_existing_values[0]
+    else:
+        Y1_positive_controls = np.zeros(len(Y1_exomes))
+        extra_Y_positive_controls = np.zeros(len(extra_Y_positive_controls))
+
+    assert(len(extra_Y_exomes) == len(extra_genes_all))
+    assert(len(extra_Y_exomes) == len(extra_Y_positive_controls))
+    assert(len(Y1_exomes) == len(Y1_positive_controls))
+
+    Y1_case_counts = np.array([])
+    extra_Y_case_counts = []
+
+    if case_counts_in is not None or ctrl_counts_in is not None:
+        if case_counts_in is None or ctrl_counts_in is None:
+            bail("If specify one of --case-counts-in or --ctrl-counts-in must specify both of them")
+
+        (Y1_case_counts, extra_genes_case_counts, extra_Y_case_counts) = runtime_state.read_count_file(
+            case_counts_in,
+            ctrl_counts_in,
+            hold_out_chrom=hold_out_chrom,
+            gene_loc_file=gene_loc_file,
+            **kwargs
+        )
+        if runtime_state.genes is None:
+            assert(len(Y1_exomes) == 0)
+            assert(len(Y1_positive_controls) == 0)
+            runtime_state._set_X(runtime_state.X_orig, extra_genes_case_counts, runtime_state.gene_sets, skip_N=True, skip_V=True)
+            # set this temporarily for use in huge
+            runtime_state.Y_case_counts = extra_Y_case_counts
+            Y1_case_counts = extra_Y_case_counts
+            extra_genes_case_counts = []
+            extra_Y_case_counts = np.array([])
+            extra_genes_all = extra_genes_case_counts
+            Y1_exomes = np.zeros(len(Y1_case_counts))
+            Y1_positive_controls = np.zeros(len(Y1_case_counts))
+        else:
+            # exomes and positive controls are already aligned to runtime_state.genes
+            extra_genes_all, aligned_existing_values, extra_Y_case_counts = _align_extra_genes_with_new_source(
+                existing_extra_genes=extra_genes_all,
+                existing_extra_values=[extra_Y_exomes, extra_Y_positive_controls],
+                new_source_genes=extra_genes_case_counts,
+                new_source_values=extra_Y_case_counts,
+                existing_missing_values=[missing_value_exomes, missing_value_positive_controls],
+                new_source_missing_value=missing_value_case_counts,
+            )
+            extra_Y_exomes = aligned_existing_values[0]
+            extra_Y_positive_controls = aligned_existing_values[1]
+    else:
+        Y1_case_counts = np.zeros(len(Y1_exomes))
+        extra_Y_case_counts = np.zeros(len(extra_Y_case_counts))
+
+    assert(len(extra_Y_exomes) == len(extra_genes_all))
+    assert(len(extra_Y_exomes) == len(extra_Y_positive_controls))
+    assert(len(extra_Y_exomes) == len(extra_Y_case_counts))
+    assert(len(Y1_exomes) == len(Y1_positive_controls))
+    assert(len(Y1_exomes) == len(Y1_case_counts))
+
+    return (
+        Y1_exomes,
+        Y1_positive_controls,
+        Y1_case_counts,
+        extra_genes_all,
+        extra_Y_exomes,
+        extra_Y_positive_controls,
+        extra_Y_case_counts,
+        missing_value_exomes,
+        missing_value_positive_controls,
+        missing_value_case_counts,
     )
 
 
