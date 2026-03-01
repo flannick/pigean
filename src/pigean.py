@@ -13819,7 +13819,10 @@ def _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=None, **
         return
 
     _prepare_gene_covariate_regression_state(runtime_state)
+    _apply_huge_correction_with_covariates(runtime_state)
 
+
+def _apply_huge_correction_with_covariates(runtime_state):
     # Recompute corrected HuGE scores.
     Y_for_regression = runtime_state.Y_for_regression
     if runtime_state.Y_for_regression is not None:
