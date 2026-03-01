@@ -1913,10 +1913,11 @@ class PigeanState(object):
                     gene_sets = gene_sets[1:]
 
                     #maximum number of sets to avoid memory overflow
-                    max_num_at_once = 500
-                    if only_ids and len(only_ids) < len(gene_sets):
-                        #estimate fraction
-                        max_num_at_once = int(max_num_at_once / (float(len(only_ids)) / len(gene_sets)))
+                    max_num_at_once = _estimate_dense_chunk_size(
+                        len(gene_sets),
+                        only_ids=only_ids,
+                        default_chunk_size=500,
+                    )
 
                     if len(gene_sets) > max_num_at_once:
                         log("Splitting reading of file into chunks to limit memory", DEBUG)
@@ -1926,21 +1927,15 @@ class PigeanState(object):
 
                         gene_set_indices_to_load = list(range(j, min(len(gene_sets), j+max_num_at_once)))
 
+                        gene_set_indices_to_load = _filter_dense_chunk_gene_set_indices(
+                            gene_sets,
+                            chunk_indices=gene_set_indices_to_load,
+                            only_ids=only_ids,
+                            x_sparsify=x_sparsify,
+                        )
                         if only_ids is not None:
-                            gene_set_mask = np.full(len(gene_set_indices_to_load), False)
-                            for k in range(len(gene_set_mask)):
-                                if gene_sets[gene_set_indices_to_load[k]] in only_ids:
-                                    gene_set_mask[k] = True
-                                elif x_sparsify is not None:
-                                    for top_number in x_sparsify:
-                                        for sparse_tag in [EXT_TAG, TOP_TAG, BOT_TAG]:
-                                            if "%s_%s%d" % (gene_sets[gene_set_indices_to_load[k]], sparse_tag, top_number) in only_ids:
-                                                gene_set_mask[k] = True
-                                                break
-
-                            if np.any(gene_set_mask):
-                                gene_set_indices_to_load = [gene_set_indices_to_load[i] for i in range(len(gene_set_mask)) if gene_set_mask[i]]
-                                log("Will load %d gene sets that were requested" % (np.sum(gene_set_mask)), TRACE)
+                            if len(gene_set_indices_to_load) > 0:
+                                log("Will load %d gene sets that were requested" % len(gene_set_indices_to_load), TRACE)
                             else:
                                 continue
 
@@ -14537,6 +14532,39 @@ def _build_sparse_x_from_dense_input(
             return (None, None, True)
 
     return (cur_X, gene_sets, False)
+
+
+def _estimate_dense_chunk_size(gene_set_count, only_ids, default_chunk_size=500):
+    max_num_at_once = default_chunk_size
+    if only_ids and len(only_ids) < gene_set_count:
+        # Estimate a larger chunk to maintain enough retained sets after filtering.
+        max_num_at_once = int(max_num_at_once / (float(len(only_ids)) / gene_set_count))
+    return max_num_at_once
+
+
+def _filter_dense_chunk_gene_set_indices(gene_sets, chunk_indices, only_ids, x_sparsify):
+    if only_ids is None:
+        return chunk_indices
+
+    keep_mask = np.full(len(chunk_indices), False)
+    for k in range(len(keep_mask)):
+        gs = gene_sets[chunk_indices[k]]
+        if gs in only_ids:
+            keep_mask[k] = True
+        elif x_sparsify is not None:
+            for top_number in x_sparsify:
+                matched = False
+                for sparse_tag in [EXT_TAG, TOP_TAG, BOT_TAG]:
+                    if "%s_%s%d" % (gs, sparse_tag, top_number) in only_ids:
+                        keep_mask[k] = True
+                        matched = True
+                        break
+                if matched:
+                    break
+
+    if np.any(keep_mask):
+        return [chunk_indices[i] for i in range(len(keep_mask)) if keep_mask[i]]
+    return []
 
 
 def _normalize_gene_set_weights(runtime_state, cur_X, threshold_weights, cap_weights):
