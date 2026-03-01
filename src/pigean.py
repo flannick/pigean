@@ -1908,56 +1908,12 @@ class PigeanState(object):
                     index_map = {i: gene_to_ind[old_genes[i]] for i in range(len(old_genes))}
                     cur_X = sparse.csc_matrix((cur_X.data, [index_map[x] for x in cur_X.indices], cur_X.indptr), shape=(len(genes), cur_X.shape[1]))
 
-            denom = self.get_col_sums(cur_X, num_nonzero=True)
-            denom[denom == 0] = 1
-            avg_weights = np.abs(cur_X).sum(axis=0) / denom
-            if np.sum(avg_weights != 1) > 0:
-                #(mean_shifts_raw, scale_factors_raw) = self._calc_X_shift_scale(cur_X)
-                #(mean_shifts_bool, scale_factors_bool) = self._calc_X_shift_scale(cur_X.astype(bool))
-                #avg_weights = scale_factors_raw / scale_factors_bool
-
-                #this is an option to use the max weight after throwing out outliers as the norm
-                #it doesn't look to work as well as avg_weights
-                max_weight_devs = None
-                if max_weight_devs is not None:
-                    dev_weights = np.sqrt(np.abs(cur_X).power(2).sum(axis=0) / denom - np.power(avg_weights, 2))
-                    temp_X = copy.copy(np.abs(cur_X))
-                    temp_X[temp_X > avg_weights + max_weight_devs * dev_weights] = 0
-
-                    #I don't think we need to set really low ones to zero, since temp_X is only positive
-                    #temp_X[temp_X < avg_weights - max_weight_devs * dev_weights] = 0
-
-                    weight_norm = temp_X.max(axis=0).todense().A1
-                else:
-                    weight_norm = avg_weights.A1
-
-                weight_norm = np.round(weight_norm, 10)
-                weight_norm[weight_norm == 0] = 1
-
-                #assume rows are already normalized if (a) all are below 1 and (b) threshold is None or all are above threshold 
-                #so, normalize if (a) any is above 1 or (b) threshold is not None and any are below threshold 
-                normalize_mask = (np.abs(cur_X) > 1).sum(axis=0).A1 > 0
-                if threshold_weights is not None and threshold_weights > 0:
-                    #check for those that have different number above 0 and above threshold
-                    normalize_mask = np.logical_or(normalize_mask, (np.abs(cur_X) >= threshold_weights).sum(axis=0).A1 != (np.abs(cur_X) > 0).sum(axis=0).A1)
-
-                #this uses less memory
-                weight_norm[~normalize_mask] = 1.0
-                cur_X = sparse.csc_matrix(cur_X.multiply(1.0 / weight_norm))
-                #old method that uses higher memory
-                #cur_X[:,normalize_mask] = sparse.csc_matrix(cur_X[:,normalize_mask].multiply(1.0 / weight_norm[normalize_mask]))
-
-                #don't do binary; use threshold instead
-                #if make_binary_weights is not None:
-                #    cur_X.data[np.abs(cur_X.data) < make_binary_weights] = 0
-                #    cur_X.data[np.abs(cur_X.data) >= make_binary_weights] = 1
-
-                if threshold_weights is not None and threshold_weights > 0:
-                    cur_X.data[np.abs(cur_X.data) < threshold_weights] = 0
-                    if cap_weights:
-                        cur_X.data[cur_X.data > 1] = 1
-                        cur_X.data[cur_X.data < -1] = -1
-                cur_X.eliminate_zeros()
+            cur_X = _normalize_gene_set_weights(
+                self,
+                cur_X=cur_X,
+                threshold_weights=threshold_weights,
+                cap_weights=cap_weights,
+            )
             #now need to find any new genes that will be added as missing later, as well as any missing genes that need to be updated
 
             gene_ignored_N = None
@@ -14909,6 +14865,50 @@ def _normalize_dense_gene_rows(mat_info, genes, gene_label_map):
         genes = [genes[i] for i in range(len(genes)) if unique_mask[i]]
 
     return (mat_info, genes)
+
+
+def _normalize_gene_set_weights(runtime_state, cur_X, threshold_weights, cap_weights):
+    denom = runtime_state.get_col_sums(cur_X, num_nonzero=True)
+    denom[denom == 0] = 1
+    avg_weights = np.abs(cur_X).sum(axis=0) / denom
+    if np.sum(avg_weights != 1) > 0:
+        # this is an option to use the max weight after throwing out outliers as the norm
+        # it doesn't look to work as well as avg_weights
+        max_weight_devs = None
+        if max_weight_devs is not None:
+            dev_weights = np.sqrt(np.abs(cur_X).power(2).sum(axis=0) / denom - np.power(avg_weights, 2))
+            temp_X = copy.copy(np.abs(cur_X))
+            temp_X[temp_X > avg_weights + max_weight_devs * dev_weights] = 0
+            weight_norm = temp_X.max(axis=0).todense().A1
+        else:
+            weight_norm = avg_weights.A1
+
+        weight_norm = np.round(weight_norm, 10)
+        weight_norm[weight_norm == 0] = 1
+
+        # assume rows are already normalized if (a) all are below 1 and
+        # (b) threshold is None or all are above threshold
+        normalize_mask = (np.abs(cur_X) > 1).sum(axis=0).A1 > 0
+        if threshold_weights is not None and threshold_weights > 0:
+            # check for those that have different number above 0 and above threshold
+            normalize_mask = np.logical_or(
+                normalize_mask,
+                (np.abs(cur_X) >= threshold_weights).sum(axis=0).A1 != (np.abs(cur_X) > 0).sum(axis=0).A1,
+            )
+
+        # this uses less memory
+        weight_norm[~normalize_mask] = 1.0
+        cur_X = sparse.csc_matrix(cur_X.multiply(1.0 / weight_norm))
+
+        # don't do binary; use threshold instead
+        if threshold_weights is not None and threshold_weights > 0:
+            cur_X.data[np.abs(cur_X.data) < threshold_weights] = 0
+            if cap_weights:
+                cur_X.data[cur_X.data > 1] = 1
+                cur_X.data[cur_X.data < -1] = -1
+        cur_X.eliminate_zeros()
+
+    return cur_X
 
 
 def _initialize_filtered_gene_set_state(runtime_state, update_hyper_p):
