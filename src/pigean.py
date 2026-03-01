@@ -11474,66 +11474,26 @@ class PigeanState(object):
             else:
                 # 3c) Adapt hyperparameters (p, sigma) while still in burn-in.
                 if update_hyper_p or update_hyper_sigma:
-                    # Hyper-updates use Rao-Blackwellized moments to avoid sigma collapse.
-                    # conditional slab mean m = hdmp_hdmpn * res_beta_hat
-                    cond_mean_t = hdmp_hdmpn_m[np.newaxis, :, :] * res_beta_hat_t
-                    # conditional slab variance v = hdmp_hdmpn * se2
-                    cond_var_m = hdmp_hdmpn_m * se2s_m
-                    # E[beta^2] = postp * (m^2 + v)
-                    e_beta2_m = np.mean(curr_postp_t * (np.square(cond_mean_t) + cond_var_m[np.newaxis, :, :]), axis=0)
-                    # mu = E[beta]
-                    mu_m = curr_betas_m
-                    # Var(beta) = E[beta^2] - (E[beta])^2
-                    var_m = e_beta2_m - np.square(mu_m)
-                    var_m[var_m < 0] = 0.0
-
-                    if V_diag_m is None:
-                        diag_m = np.ones(mu_m.shape)
-                    else:
-                        diag_m = V_diag_m
-
-                    h2 = 0.0
-                    for i in range(num_parallel):
-                        if use_X:
-                            # In X-implicit mode, use diagonal approximation directly from E[beta^2].
-                            h2 += float(np.sum(e_beta2_m[i, :]))
-                        else:
-                            if multiple_V:
-                                cur_V = V[i, :, :]
-                            else:
-                                cur_V = V
-
-                            mu_v = mu_m[i, :]
-                            if sparse_V:
-                                muVmu = float(mu_v.dot(cur_V.dot(mu_v)))
-                            else:
-                                muVmu = float(mu_v.dot(cur_V).dot(mu_v))
-                            h2 += muVmu + float(np.sum(diag_m[i, :] * var_m[i, :]))
-                    h2 /= float(num_parallel)
-
-                    # Rao-Blackwellized p update from posterior inclusion probabilities.
-                    if num_p_pseudo is not None and num_p_pseudo > 0:
-                        a0 = float(num_p_pseudo)
-                        b0 = float(num_p_pseudo)
-                        sum_r = float(np.sum(curr_postp_m))
-                        m_tot = float(curr_postp_m.size)
-                        new_p = (a0 + sum_r) / (a0 + b0 + m_tot)
-                    else:
-                        new_p = float(np.mean(curr_postp_m))
-
-                    if self.sigma_power is not None:
-                        new_sigma2 = h2 / np.mean(np.sum(np.power(scale_factors_m, self.sigma_power), axis=1))
-                    else:
-                        new_sigma2 = h2 / num_gene_sets
-
-                    if num_missing_gene_sets:
-                        missing_scale_factor = num_gene_sets / (num_gene_sets + num_missing_gene_sets)
-                        new_sigma2 *= missing_scale_factor
-                        new_p *= missing_scale_factor
-
-                    if p_noninf_inflate != 1:
-                        log("Inflating p by %.3g" % p_noninf_inflate, DEBUG)
-                        new_p *= p_noninf_inflate
+                    (new_p, new_sigma2) = _compute_inner_beta_hyper_update_targets(
+                        curr_postp_t=curr_postp_t,
+                        res_beta_hat_t=res_beta_hat_t,
+                        hdmp_hdmpn_m=hdmp_hdmpn_m,
+                        se2s_m=se2s_m,
+                        curr_betas_m=curr_betas_m,
+                        V_diag_m=V_diag_m,
+                        num_parallel=num_parallel,
+                        use_X=use_X,
+                        multiple_V=multiple_V,
+                        V=V,
+                        sparse_V=sparse_V,
+                        num_p_pseudo=num_p_pseudo,
+                        curr_postp_m=curr_postp_m,
+                        sigma_power=self.sigma_power,
+                        scale_factors_m=scale_factors_m,
+                        num_gene_sets=num_gene_sets,
+                        num_missing_gene_sets=num_missing_gene_sets,
+                        p_noninf_inflate=p_noninf_inflate,
+                    )
 
                     sigma2_deque.append(new_sigma2 - self.sigma2)
                     p_deque.append(new_p - self.p)
@@ -18612,6 +18572,90 @@ def _write_inner_beta_trace_rows(
                 )
 
     betas_trace_fh.flush()
+
+
+def _compute_inner_beta_hyper_update_targets(
+    curr_postp_t,
+    res_beta_hat_t,
+    hdmp_hdmpn_m,
+    se2s_m,
+    curr_betas_m,
+    V_diag_m,
+    num_parallel,
+    use_X,
+    multiple_V,
+    V,
+    sparse_V,
+    num_p_pseudo,
+    curr_postp_m,
+    sigma_power,
+    scale_factors_m,
+    num_gene_sets,
+    num_missing_gene_sets,
+    p_noninf_inflate,
+):
+    # Hyper-updates use Rao-Blackwellized moments to avoid sigma collapse.
+    # Conditional slab mean m = hdmp_hdmpn * res_beta_hat.
+    cond_mean_t = hdmp_hdmpn_m[np.newaxis, :, :] * res_beta_hat_t
+    # Conditional slab variance v = hdmp_hdmpn * se2.
+    cond_var_m = hdmp_hdmpn_m * se2s_m
+    # E[beta^2] = postp * (m^2 + v).
+    e_beta2_m = np.mean(curr_postp_t * (np.square(cond_mean_t) + cond_var_m[np.newaxis, :, :]), axis=0)
+    # mu = E[beta].
+    mu_m = curr_betas_m
+    # Var(beta) = E[beta^2] - (E[beta])^2.
+    var_m = e_beta2_m - np.square(mu_m)
+    var_m[var_m < 0] = 0.0
+
+    if V_diag_m is None:
+        diag_m = np.ones(mu_m.shape)
+    else:
+        diag_m = V_diag_m
+
+    h2 = 0.0
+    for i in range(num_parallel):
+        if use_X:
+            # In X-implicit mode, use diagonal approximation directly from E[beta^2].
+            h2 += float(np.sum(e_beta2_m[i, :]))
+        else:
+            if multiple_V:
+                cur_V = V[i, :, :]
+            else:
+                cur_V = V
+
+            mu_v = mu_m[i, :]
+            if sparse_V:
+                muVmu = float(mu_v.dot(cur_V.dot(mu_v)))
+            else:
+                muVmu = float(mu_v.dot(cur_V).dot(mu_v))
+            h2 += muVmu + float(np.sum(diag_m[i, :] * var_m[i, :]))
+    h2 /= float(num_parallel)
+
+    # Rao-Blackwellized p update from posterior inclusion probabilities.
+    if num_p_pseudo is not None and num_p_pseudo > 0:
+        a0 = float(num_p_pseudo)
+        b0 = float(num_p_pseudo)
+        sum_r = float(np.sum(curr_postp_m))
+        m_tot = float(curr_postp_m.size)
+        new_p = (a0 + sum_r) / (a0 + b0 + m_tot)
+    else:
+        new_p = float(np.mean(curr_postp_m))
+
+    if sigma_power is not None:
+        new_sigma2 = h2 / np.mean(np.sum(np.power(scale_factors_m, sigma_power), axis=1))
+    else:
+        new_sigma2 = h2 / num_gene_sets
+
+    if num_missing_gene_sets:
+        missing_scale_factor = num_gene_sets / (num_gene_sets + num_missing_gene_sets)
+        new_sigma2 *= missing_scale_factor
+        new_p *= missing_scale_factor
+
+    if p_noninf_inflate != 1:
+        log("Inflating p by %.3g" % p_noninf_inflate, DEBUG)
+        new_p *= p_noninf_inflate
+
+    return (new_p, new_sigma2)
 
 
 def _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, num):
