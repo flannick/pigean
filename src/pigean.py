@@ -23905,12 +23905,16 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
         (mode_state["run_huge"] or mode_state["run_beta_tilde"])
         and not (mode_state["run_beta"] or mode_state["run_priors"] or mode_state["run_naive_priors"] or mode_state["run_gibbs"])
     )
-    filter_gene_set_p = options.filter_gene_set_p
-    force_reread = False
+    # Retry state for adaptive read_X filtering. Keep this explicit/local so we do
+    # not leak transient retry behavior into persistent state.
+    read_x_retry_state = {
+        "filter_gene_set_p": options.filter_gene_set_p,
+        "force_reread": False,
+    }
     # 2) Read X and, if needed, adaptively relax filter_gene_set_p until enough
     #    gene sets survive or no further retry is required.
     while True:
-        orig_sigma2 = state.sigma2
+        sigma2_internal_before_read = state.sigma2
         read_x_kwargs = dict(
             Xd_in=options.Xd_in,
             X_list=options.X_list,
@@ -23934,7 +23938,7 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
             cap_weights=options.cap_weights,
             permute_gene_sets=options.permute_gene_sets,
             max_gene_set_p=options.max_gene_set_read_p,
-            filter_gene_set_p=filter_gene_set_p,
+            filter_gene_set_p=read_x_retry_state["filter_gene_set_p"],
             filter_using_phewas=options.betas_uncorrected_from_phewas,
             increase_filter_gene_set_p=options.increase_filter_gene_set_p,
             max_num_gene_sets_initial=options.max_num_gene_sets_initial,
@@ -23984,34 +23988,34 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
             show_progress=not options.hide_progress,
             skip_V=(options.max_gene_set_read_p is not None),
             max_num_entries_at_once=options.max_read_entries_at_once,
-            force_reread=force_reread,
+            force_reread=read_x_retry_state["force_reread"],
         )
         state.read_X(options.X_in, **read_x_kwargs)
 
         should_reread = False
-        new_filter_gene_set_p = filter_gene_set_p
+        new_filter_gene_set_p = read_x_retry_state["filter_gene_set_p"]
         # If too few sets survived filtering, relax filter_gene_set_p and retry once per loop.
         if (
             options.min_num_gene_sets is not None
-            and filter_gene_set_p is not None
-            and filter_gene_set_p < 1
+            and read_x_retry_state["filter_gene_set_p"] is not None
+            and read_x_retry_state["filter_gene_set_p"] < 1
             and state.gene_sets is not None
             and len(state.gene_sets) < options.min_num_gene_sets
         ):
             fraction_to_increase = float(options.min_num_gene_sets) / (len(state.gene_sets) + 1)
             if fraction_to_increase > 1:
                 # add in a fudge factor
-                new_filter_gene_set_p = filter_gene_set_p * fraction_to_increase * 1.2
+                new_filter_gene_set_p = read_x_retry_state["filter_gene_set_p"] * fraction_to_increase * 1.2
                 if new_filter_gene_set_p > 1:
                     new_filter_gene_set_p = 1
                 log("Only read in %d gene sets; scaled --filter-gene-set-p to %.3g and re-reading gene sets" % (len(state.gene_sets), new_filter_gene_set_p))
                 # Keep sigma stable across adaptive filter retries.
-                state.set_sigma(orig_sigma2, state.sigma_power)
+                state.set_sigma(sigma2_internal_before_read, state.sigma_power)
                 should_reread = True
         if not should_reread:
             break
-        filter_gene_set_p = new_filter_gene_set_p
-        force_reread = True
+        read_x_retry_state["filter_gene_set_p"] = new_filter_gene_set_p
+        read_x_retry_state["force_reread"] = True
 
 
 def main():
