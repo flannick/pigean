@@ -1805,87 +1805,34 @@ class PigeanState(object):
                 permute_gene_sets=permute_gene_sets,
             )
 
-            p_value_ignore = None
-            total_qc_metrics = None
-            mean_qc_metrics = None
-            total_qc_metrics_directions = None
-
-            if (filter_gene_set_p < 1 or filter_gene_set_metric_z is not None) and self.Y is not None:
-
-                log("Analyzing gene sets to pre-filter")
-
-                (mean_shifts, scale_factors) = self._calc_X_shift_scale(cur_X)
-
-                (
-                    total_qc_metrics,
-                    mean_qc_metrics,
-                    total_qc_metrics_directions,
-                ) = _compute_prefilter_qc_metrics(self, cur_X)
-
-                (
-                    beta_tildes,
-                    ses,
-                    z_scores,
-                    p_values,
-                    se_inflation_factors,
-                    beta_tildes_phewas,
-                    p_values_phewas,
-                ) = _compute_prefilter_assoc_stats(
-                    self,
-                    cur_X=cur_X,
-                    run_logistic=run_logistic,
-                    filter_using_phewas=filter_using_phewas,
-                    mean_shifts=mean_shifts,
-                    scale_factors=scale_factors,
-                )
-
-                cur_X, beta_tildes, z_scores = _align_prefilter_gene_set_signs(
-                    cur_X,
-                    beta_tildes=beta_tildes,
-                    z_scores=z_scores,
-                )
-
-                p_value_mask = _build_prefilter_keep_mask(
-                    p_values,
-                    beta_tildes=beta_tildes,
-                    filter_gene_set_p=filter_gene_set_p,
-                    filter_using_phewas=filter_using_phewas,
-                    p_values_phewas=p_values_phewas if filter_using_phewas else None,
-                    beta_tildes_phewas=beta_tildes_phewas if filter_using_phewas else None,
-                    increase_filter_gene_set_p=increase_filter_gene_set_p,
-                    filter_negative=filter_negative,
-                )
-
-                (
-                    cur_X,
-                    gene_sets,
-                    p_value_ignore,
-                    gene_ignored_N,
-                    cur_X_missing_genes_new,
-                    gene_ignored_N_missing_new,
-                    cur_X_missing_genes_int,
-                    gene_ignored_N_missing_int,
-                    total_qc_metrics,
-                    mean_qc_metrics,
-                ) = _apply_prefilter_and_record(
-                    self,
-                    cur_X=cur_X,
-                    gene_sets=gene_sets,
-                    p_value_mask=p_value_mask,
-                    filter_gene_set_p=filter_gene_set_p,
-                    filter_gene_set_metric_z=filter_gene_set_metric_z,
-                    scale_factors=scale_factors,
-                    mean_shifts=mean_shifts,
-                    beta_tildes=beta_tildes,
-                    p_values=p_values,
-                    ses=ses,
-                    z_scores=z_scores,
-                    se_inflation_factors=se_inflation_factors,
-                    total_qc_metrics=total_qc_metrics,
-                    mean_qc_metrics=mean_qc_metrics,
-                    cur_X_missing_genes_new=cur_X_missing_genes_new,
-                    cur_X_missing_genes_int=cur_X_missing_genes_int,
-                )
+            (
+                cur_X,
+                gene_sets,
+                p_value_ignore,
+                gene_ignored_N,
+                cur_X_missing_genes_new,
+                gene_ignored_N_missing_new,
+                cur_X_missing_genes_int,
+                gene_ignored_N_missing_int,
+                total_qc_metrics,
+                mean_qc_metrics,
+                total_qc_metrics_directions,
+            ) = _maybe_prefilter_x_block(
+                self,
+                cur_X=cur_X,
+                gene_sets=gene_sets,
+                run_logistic=run_logistic,
+                filter_gene_set_p=filter_gene_set_p,
+                filter_gene_set_metric_z=filter_gene_set_metric_z,
+                filter_using_phewas=filter_using_phewas,
+                increase_filter_gene_set_p=increase_filter_gene_set_p,
+                filter_negative=filter_negative,
+                cur_X_missing_genes_new=cur_X_missing_genes_new,
+                gene_ignored_N_missing_new=gene_ignored_N_missing_new,
+                cur_X_missing_genes_int=cur_X_missing_genes_int,
+                gene_ignored_N_missing_int=gene_ignored_N_missing_int,
+                gene_ignored_N=gene_ignored_N,
+            )
 
             self.is_dense_gene_set = np.append(self.is_dense_gene_set, np.full(len(gene_sets), is_dense))
 
@@ -14934,6 +14881,118 @@ def _apply_prefilter_and_record(
         gene_ignored_N_missing_int,
         total_qc_metrics,
         mean_qc_metrics,
+    )
+
+
+def _maybe_prefilter_x_block(
+    runtime_state,
+    cur_X,
+    gene_sets,
+    run_logistic,
+    filter_gene_set_p,
+    filter_gene_set_metric_z,
+    filter_using_phewas,
+    increase_filter_gene_set_p,
+    filter_negative,
+    cur_X_missing_genes_new,
+    gene_ignored_N_missing_new,
+    cur_X_missing_genes_int,
+    gene_ignored_N_missing_int,
+    gene_ignored_N,
+):
+    p_value_ignore = None
+    total_qc_metrics = None
+    mean_qc_metrics = None
+    total_qc_metrics_directions = None
+
+    if (filter_gene_set_p < 1 or filter_gene_set_metric_z is not None) and runtime_state.Y is not None:
+        log("Analyzing gene sets to pre-filter")
+
+        (mean_shifts, scale_factors) = runtime_state._calc_X_shift_scale(cur_X)
+
+        (
+            total_qc_metrics,
+            mean_qc_metrics,
+            total_qc_metrics_directions,
+        ) = _compute_prefilter_qc_metrics(runtime_state, cur_X)
+
+        (
+            beta_tildes,
+            ses,
+            z_scores,
+            p_values,
+            se_inflation_factors,
+            beta_tildes_phewas,
+            p_values_phewas,
+        ) = _compute_prefilter_assoc_stats(
+            runtime_state,
+            cur_X=cur_X,
+            run_logistic=run_logistic,
+            filter_using_phewas=filter_using_phewas,
+            mean_shifts=mean_shifts,
+            scale_factors=scale_factors,
+        )
+
+        cur_X, beta_tildes, z_scores = _align_prefilter_gene_set_signs(
+            cur_X,
+            beta_tildes=beta_tildes,
+            z_scores=z_scores,
+        )
+
+        p_value_mask = _build_prefilter_keep_mask(
+            p_values,
+            beta_tildes=beta_tildes,
+            filter_gene_set_p=filter_gene_set_p,
+            filter_using_phewas=filter_using_phewas,
+            p_values_phewas=p_values_phewas if filter_using_phewas else None,
+            beta_tildes_phewas=beta_tildes_phewas if filter_using_phewas else None,
+            increase_filter_gene_set_p=increase_filter_gene_set_p,
+            filter_negative=filter_negative,
+        )
+
+        (
+            cur_X,
+            gene_sets,
+            p_value_ignore,
+            gene_ignored_N,
+            cur_X_missing_genes_new,
+            gene_ignored_N_missing_new,
+            cur_X_missing_genes_int,
+            gene_ignored_N_missing_int,
+            total_qc_metrics,
+            mean_qc_metrics,
+        ) = _apply_prefilter_and_record(
+            runtime_state,
+            cur_X=cur_X,
+            gene_sets=gene_sets,
+            p_value_mask=p_value_mask,
+            filter_gene_set_p=filter_gene_set_p,
+            filter_gene_set_metric_z=filter_gene_set_metric_z,
+            scale_factors=scale_factors,
+            mean_shifts=mean_shifts,
+            beta_tildes=beta_tildes,
+            p_values=p_values,
+            ses=ses,
+            z_scores=z_scores,
+            se_inflation_factors=se_inflation_factors,
+            total_qc_metrics=total_qc_metrics,
+            mean_qc_metrics=mean_qc_metrics,
+            cur_X_missing_genes_new=cur_X_missing_genes_new,
+            cur_X_missing_genes_int=cur_X_missing_genes_int,
+        )
+
+    return (
+        cur_X,
+        gene_sets,
+        p_value_ignore,
+        gene_ignored_N,
+        cur_X_missing_genes_new,
+        gene_ignored_N_missing_new,
+        cur_X_missing_genes_int,
+        gene_ignored_N_missing_int,
+        total_qc_metrics,
+        mean_qc_metrics,
+        total_qc_metrics_directions,
     )
 
 
