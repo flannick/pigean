@@ -642,6 +642,26 @@ REMOVED_OPTION_REPLACEMENTS = {
     "max_no_write_gene_pheno": "__MOVED_TO_EAGGL__",
 }
 
+
+def _format_removed_option_message(option_name, replacement, context, config_path=None):
+    if context == "cli":
+        if replacement == "__MOVED_TO_EAGGL__":
+            return "Error: option %s moved to eaggl.py after repository split; run this in the eaggl repository" % option_name
+        if replacement is None:
+            return "Error: option %s has been removed and is no longer supported" % option_name
+        return "Error: option %s has been removed; use %s instead" % (option_name, replacement)
+
+    if context == "config":
+        if replacement == "__MOVED_TO_EAGGL__":
+            return "Config key '%s' moved to eaggl.py after repository split; run this in the eaggl repository" % option_name
+        if replacement is None:
+            return "Config key '%s' has been removed in %s and is no longer supported" % (option_name, config_path)
+        replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
+        return "Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (option_name, config_path, replacement_config_key, replacement)
+
+    bail("Internal error: unknown removed-option message context '%s'" % context)
+
+
 def _open_optional_log_handle(_filepath):
     if _filepath is not None:
         return open(_filepath, 'w')
@@ -656,13 +676,7 @@ for _arg in argv_parse:
     _normalized = _flag[2:].replace("-", "_")
     if _normalized in REMOVED_OPTION_REPLACEMENTS:
         replacement = REMOVED_OPTION_REPLACEMENTS[_normalized]
-        if replacement == "__MOVED_TO_EAGGL__":
-            sys.stderr.write("Error: option %s moved to eaggl.py after repository split; run this in the eaggl repository\n" % _flag)
-            sys.exit(2)
-        if replacement is None:
-            sys.stderr.write("Error: option %s has been removed and is no longer supported\n" % _flag)
-            sys.exit(2)
-        sys.stderr.write("Error: option %s has been removed; use %s instead\n" % (_flag, replacement))
+        sys.stderr.write("%s\n" % _format_removed_option_message(_flag, replacement, context="cli"))
         sys.exit(2)
 
 (options, args) = parser.parse_args(argv_parse)
@@ -722,12 +736,7 @@ if options.config is not None:
             normalized_config_key = normalized_config_key.replace("-", "_")
         if normalized_config_key in REMOVED_OPTION_REPLACEMENTS:
             replacement = REMOVED_OPTION_REPLACEMENTS[normalized_config_key]
-            if replacement == "__MOVED_TO_EAGGL__":
-                bail("Config key '%s' moved to eaggl.py after repository split; run this in the eaggl repository" % raw_key)
-            if replacement is None:
-                bail("Config key '%s' has been removed in %s and is no longer supported" % (raw_key, config_path))
-            replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
-            bail("Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (raw_key, config_path, replacement_config_key, replacement))
+            bail(_format_removed_option_message(raw_key, replacement, context="config", config_path=config_path))
 
         key = raw_key[2:] if isinstance(raw_key, str) and raw_key.startswith("--") else raw_key
         key_norm = key.replace("-", "_") if isinstance(key, str) else key
