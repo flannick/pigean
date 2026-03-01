@@ -2065,15 +2065,11 @@ class PigeanState(object):
                     if filter_using_phewas:
                         (beta_tildes_phewas, ses_phewas, z_scores_phewas, p_values_phewas, se_inflation_factors_phewas) = self._compute_beta_tildes(cur_X, gene_pheno_Y, None, scale_factors, mean_shifts, resid_correlation_matrix=self.y_corr_sparse)                    
 
-                #if we have negative weights, that means we don't know which side is actually "better" for the trait (the feature is continuous). So flip the sign if the beta is negative
-                negative_weights_mask = (cur_X < 0).sum(axis=0).A1 > 0
-                if np.sum(negative_weights_mask) > 0:
-                    flip_mask = np.logical_and(beta_tildes < 0, negative_weights_mask)
-                    if np.sum(flip_mask) > 0:
-                        log("Flipped %d gene sets" % np.sum(flip_mask), DEBUG)
-                        beta_tildes[flip_mask] = -beta_tildes[flip_mask]
-                        z_scores[flip_mask] = -z_scores[flip_mask]
-                        cur_X[:,flip_mask] = -cur_X[:,flip_mask]
+                cur_X, beta_tildes, z_scores = _align_prefilter_gene_set_signs(
+                    cur_X,
+                    beta_tildes=beta_tildes,
+                    z_scores=z_scores,
+                )
 
                 p_value_mask = p_values <= filter_gene_set_p
                 if filter_using_phewas:
@@ -14833,6 +14829,20 @@ def _maybe_permute_gene_set_rows(runtime_state, cur_X, permute_gene_sets):
         (cur_X.data, [index_map[x] for x in cur_X.indices], cur_X.indptr),
         shape=(cur_X.shape[0], cur_X.shape[1]),
     )
+
+
+def _align_prefilter_gene_set_signs(cur_X, beta_tildes, z_scores):
+    # For continuous gene-set weights, orient each feature so pre-filtering is
+    # based on the stronger (positive) association direction.
+    negative_weights_mask = (cur_X < 0).sum(axis=0).A1 > 0
+    if np.sum(negative_weights_mask) > 0:
+        flip_mask = np.logical_and(beta_tildes < 0, negative_weights_mask)
+        if np.sum(flip_mask) > 0:
+            log("Flipped %d gene sets" % np.sum(flip_mask), DEBUG)
+            beta_tildes[flip_mask] = -beta_tildes[flip_mask]
+            z_scores[flip_mask] = -z_scores[flip_mask]
+            cur_X[:, flip_mask] = -cur_X[:, flip_mask]
+    return (cur_X, beta_tildes, z_scores)
 
 
 def _ensure_gene_universe_for_x(
