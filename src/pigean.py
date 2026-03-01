@@ -1736,70 +1736,19 @@ class PigeanState(object):
         missing_value_positive_controls,
         missing_value_case_counts,
     ):
-        # Build the initial gene universe from all gene-level sources.
-        genes_union = []
-        genes_seen = set()
-        for gene in extra_genes + extra_genes_all:
-            if gene not in genes_seen:
-                genes_union.append(gene)
-                genes_seen.add(gene)
-
-        # Populate gene index maps.
-        self._set_X(self.X_orig, genes_union, self.gene_sets, skip_N=False)
-
-        # Materialize each Y component on the new gene order.
-        Y = np.full(len(self.genes), missing_value, dtype=float)
-        Y_for_regression = np.full(len(self.genes), missing_value, dtype=float)
-        Y_exomes = np.full(len(self.genes), missing_value_exomes, dtype=float)
-        Y_positive_controls = np.full(len(self.genes), missing_value_positive_controls, dtype=float)
-        Y_case_counts = np.full(len(self.genes), missing_value_case_counts, dtype=float)
-
-        for i in range(len(extra_genes)):
-            Y[self.gene_to_ind[extra_genes[i]]] = extra_Y[i]
-            Y_for_regression[self.gene_to_ind[extra_genes[i]]] = extra_Y_for_regression[i]
-
-        for i in range(len(extra_genes_all)):
-            Y_exomes[self.gene_to_ind[extra_genes_all[i]]] = extra_Y_exomes[i]
-
-        for i in range(len(extra_genes_all)):
-            Y_positive_controls[self.gene_to_ind[extra_genes_all[i]]] = extra_Y_positive_controls[i]
-
-        for i in range(len(extra_genes_all)):
-            Y_case_counts[self.gene_to_ind[extra_genes_all[i]]] = extra_Y_case_counts[i]
-
-        Y += Y_exomes
-        Y += Y_positive_controls
-        Y += Y_case_counts
-
-        Y_for_regression += Y_exomes
-        Y_for_regression += Y_positive_controls
-        Y_for_regression += Y_case_counts
-
-        if self.huge_signal_bfs is not None or self.gene_covariates is not None:
-            if self.huge_signal_bfs is not None:
-                index_map = {i: self.gene_to_ind[extra_genes[i]] for i in range(len(extra_genes))}
-                self.huge_signal_bfs = sparse.csc_matrix((self.huge_signal_bfs.data, [index_map[x] for x in self.huge_signal_bfs.indices], self.huge_signal_bfs.indptr), shape=self.huge_signal_bfs.shape)
-
-            if self.huge_signal_bfs_for_regression is not None:
-                index_map = {i: self.gene_to_ind[extra_genes[i]] for i in range(len(extra_genes))}
-                self.huge_signal_bfs_for_regression = sparse.csc_matrix((self.huge_signal_bfs_for_regression.data, [index_map[x] for x in self.huge_signal_bfs_for_regression.indices], self.huge_signal_bfs_for_regression.indptr), shape=self.huge_signal_bfs_for_regression.shape)
-
-            if self.gene_covariates is not None:
-                index_map_rev = {self.gene_to_ind[extra_genes[i]]: i for i in range(len(extra_genes))}
-                self.gene_covariates = self.gene_covariates[[index_map_rev[x] for x in range(self.gene_covariates.shape[0])],:]
-
-        return (
-            Y,
-            Y_for_regression,
-            Y_exomes,
-            Y_positive_controls,
-            Y_case_counts,
-            [],
-            np.array([]),
-            np.array([]),
-            np.array([]),
-            np.array([]),
-            np.array([]),
+        return _initialize_y_from_new_gene_universe(
+            self,
+            extra_genes=extra_genes,
+            extra_Y=extra_Y,
+            extra_Y_for_regression=extra_Y_for_regression,
+            extra_genes_all=extra_genes_all,
+            extra_Y_exomes=extra_Y_exomes,
+            extra_Y_positive_controls=extra_Y_positive_controls,
+            extra_Y_case_counts=extra_Y_case_counts,
+            missing_value=missing_value,
+            missing_value_exomes=missing_value_exomes,
+            missing_value_positive_controls=missing_value_positive_controls,
+            missing_value_case_counts=missing_value_case_counts,
         )
 
     def _merge_y_into_existing_gene_universe(
@@ -1821,80 +1770,24 @@ class PigeanState(object):
         missing_value_positive_controls,
         missing_value_case_counts,
     ):
-        # Combine components on existing genes while preserving original NaN-imputation behavior.
-        Y = Y1 + Y1_exomes + Y1_positive_controls + Y1_case_counts
-        Y[np.isnan(Y1)] = Y1_exomes[np.isnan(Y1)] + Y1_positive_controls[np.isnan(Y1)] + + Y1_case_counts[np.isnan(Y1)] + missing_value
-        Y[np.isnan(Y1_exomes)] = Y1[np.isnan(Y1_exomes)] + Y1_positive_controls[np.isnan(Y1_exomes)] + Y1_case_counts[np.isnan(Y1_exomes)] + missing_value_exomes
-        Y[np.isnan(Y1_positive_controls)] = Y1[np.isnan(Y1_positive_controls)] + Y1_exomes[np.isnan(Y1_positive_controls)] + Y1_case_counts[np.isnan(Y1_positive_controls)] + missing_value_positive_controls
-        Y[np.isnan(Y1_case_counts)] = Y1[np.isnan(Y1_case_counts)] + Y1_exomes[np.isnan(Y1_case_counts)] + Y1_positive_controls[np.isnan(Y1_case_counts)] + missing_value_case_counts
-
-        Y_for_regression = Y1_for_regression + Y1_exomes + Y1_positive_controls + Y1_case_counts
-        Y_for_regression[np.isnan(Y1_for_regression)] = Y1_exomes[np.isnan(Y1_for_regression)] + Y1_positive_controls[np.isnan(Y1_for_regression)] + Y1_case_counts[np.isnan(Y1_for_regression)] + missing_value
-        Y_for_regression[np.isnan(Y1_exomes)] = Y1_for_regression[np.isnan(Y1_exomes)] + Y1_positive_controls[np.isnan(Y1_exomes)] + Y1_case_counts[np.isnan(Y1_exomes)] + missing_value_exomes
-        Y_for_regression[np.isnan(Y1_positive_controls)] = Y1_for_regression[np.isnan(Y1_positive_controls)] + Y1_exomes[np.isnan(Y1_positive_controls)] + Y1_case_counts[np.isnan(Y1_positive_controls)] + missing_value_positive_controls
-        Y_for_regression[np.isnan(Y1_case_counts)] = Y1_for_regression[np.isnan(Y1_case_counts)] + Y1_exomes[np.isnan(Y1_case_counts)] + Y1_positive_controls[np.isnan(Y1_case_counts)] + missing_value_case_counts
-
-        Y_exomes = Y1_exomes
-        Y_exomes[np.isnan(Y1_exomes)] = missing_value_exomes
-
-        Y_positive_controls = Y1_positive_controls
-        Y_positive_controls[np.isnan(Y1_positive_controls)] = missing_value_positive_controls
-
-        Y_case_counts = Y1_case_counts
-        Y_case_counts[np.isnan(Y1_case_counts)] = missing_value_case_counts
-
-        extra_gene_to_ind = _construct_map_to_ind(extra_genes)
-        extra_Y = list(extra_Y)
-        extra_Y_for_regression = list(extra_Y_for_regression)
-        new_extra_Y_exomes = list(np.full(len(extra_Y), missing_value_exomes))
-        new_extra_Y_positive_controls = list(np.full(len(extra_Y), missing_value_positive_controls))
-        new_extra_Y_case_counts = list(np.full(len(extra_Y), missing_value_case_counts))
-
-        num_add = 0
-        for i in range(len(extra_genes_all)):
-            if extra_genes_all[i] in extra_gene_to_ind:
-                extra_Y[extra_gene_to_ind[extra_genes_all[i]]] += (extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
-                extra_Y_for_regression[extra_gene_to_ind[extra_genes_all[i]]] += (extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
-                new_extra_Y_exomes[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_exomes[i]
-                new_extra_Y_positive_controls[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_positive_controls[i]
-                new_extra_Y_case_counts[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_case_counts[i]
-            else:
-                num_add += 1
-                extra_genes.append(extra_genes_all[i])
-                extra_Y.append(extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
-                extra_Y_for_regression.append(extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
-                new_extra_Y_exomes.append(extra_Y_exomes[i])
-                new_extra_Y_positive_controls.append(extra_Y_positive_controls[i])
-                new_extra_Y_case_counts.append(extra_Y_case_counts[i])
-
-        extra_Y = np.array(extra_Y)
-        extra_Y_for_regression = np.array(extra_Y_for_regression)
-        extra_Y_exomes = np.array(new_extra_Y_exomes)
-        extra_Y_positive_controls = np.array(new_extra_Y_positive_controls)
-        extra_Y_case_counts = np.array(new_extra_Y_case_counts)
-
-        if self.huge_signal_bfs is not None:
-            self.huge_signal_bfs = sparse.csc_matrix((self.huge_signal_bfs.data, self.huge_signal_bfs.indices, self.huge_signal_bfs.indptr), shape=(self.huge_signal_bfs.shape[0] + num_add, self.huge_signal_bfs.shape[1]))
-
-        if self.huge_signal_bfs_for_regression is not None:
-            self.huge_signal_bfs_for_regression = sparse.csc_matrix((self.huge_signal_bfs_for_regression.data, self.huge_signal_bfs_for_regression.indices, self.huge_signal_bfs_for_regression.indptr), shape=(self.huge_signal_bfs_for_regression.shape[0] + num_add, self.huge_signal_bfs_for_regression.shape[1]))
-
-        if self.gene_covariates is not None:
-            add_gene_covariates = np.tile(np.mean(self.gene_covariates, axis=0), num_add).reshape((num_add, self.gene_covariates.shape[1]))
-            self.gene_covariates = np.vstack((self.gene_covariates, add_gene_covariates))
-
-        return (
-            Y,
-            Y_for_regression,
-            Y_exomes,
-            Y_positive_controls,
-            Y_case_counts,
-            extra_genes,
-            extra_Y,
-            extra_Y_for_regression,
-            extra_Y_exomes,
-            extra_Y_positive_controls,
-            extra_Y_case_counts,
+        return _merge_y_into_existing_gene_universe(
+            self,
+            Y1=Y1,
+            Y1_for_regression=Y1_for_regression,
+            Y1_exomes=Y1_exomes,
+            Y1_positive_controls=Y1_positive_controls,
+            Y1_case_counts=Y1_case_counts,
+            extra_genes=extra_genes,
+            extra_Y=extra_Y,
+            extra_Y_for_regression=extra_Y_for_regression,
+            extra_genes_all=extra_genes_all,
+            extra_Y_exomes=extra_Y_exomes,
+            extra_Y_positive_controls=extra_Y_positive_controls,
+            extra_Y_case_counts=extra_Y_case_counts,
+            missing_value=missing_value,
+            missing_value_exomes=missing_value_exomes,
+            missing_value_positive_controls=missing_value_positive_controls,
+            missing_value_case_counts=missing_value_case_counts,
         )
 
     def _apply_gene_covariates_and_correct_huge(self, gene_covs_in=None, **kwargs):
@@ -14815,6 +14708,209 @@ def _read_gene_map(runtime_state, gene_map_in, gene_map_orig_gene_col=1, gene_ma
 def _set_const_Y(runtime_state, value):
     const_Y = np.full(len(runtime_state.genes), value)
     runtime_state._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
+
+
+def _initialize_y_from_new_gene_universe(
+    runtime_state,
+    extra_genes,
+    extra_Y,
+    extra_Y_for_regression,
+    extra_genes_all,
+    extra_Y_exomes,
+    extra_Y_positive_controls,
+    extra_Y_case_counts,
+    missing_value,
+    missing_value_exomes,
+    missing_value_positive_controls,
+    missing_value_case_counts,
+):
+    # Build the initial gene universe from all gene-level sources.
+    genes_union = []
+    genes_seen = set()
+    for gene in extra_genes + extra_genes_all:
+        if gene not in genes_seen:
+            genes_union.append(gene)
+            genes_seen.add(gene)
+
+    # Populate gene index maps.
+    runtime_state._set_X(runtime_state.X_orig, genes_union, runtime_state.gene_sets, skip_N=False)
+
+    # Materialize each Y component on the new gene order.
+    Y = np.full(len(runtime_state.genes), missing_value, dtype=float)
+    Y_for_regression = np.full(len(runtime_state.genes), missing_value, dtype=float)
+    Y_exomes = np.full(len(runtime_state.genes), missing_value_exomes, dtype=float)
+    Y_positive_controls = np.full(len(runtime_state.genes), missing_value_positive_controls, dtype=float)
+    Y_case_counts = np.full(len(runtime_state.genes), missing_value_case_counts, dtype=float)
+
+    for i in range(len(extra_genes)):
+        Y[runtime_state.gene_to_ind[extra_genes[i]]] = extra_Y[i]
+        Y_for_regression[runtime_state.gene_to_ind[extra_genes[i]]] = extra_Y_for_regression[i]
+
+    for i in range(len(extra_genes_all)):
+        Y_exomes[runtime_state.gene_to_ind[extra_genes_all[i]]] = extra_Y_exomes[i]
+
+    for i in range(len(extra_genes_all)):
+        Y_positive_controls[runtime_state.gene_to_ind[extra_genes_all[i]]] = extra_Y_positive_controls[i]
+
+    for i in range(len(extra_genes_all)):
+        Y_case_counts[runtime_state.gene_to_ind[extra_genes_all[i]]] = extra_Y_case_counts[i]
+
+    Y += Y_exomes
+    Y += Y_positive_controls
+    Y += Y_case_counts
+
+    Y_for_regression += Y_exomes
+    Y_for_regression += Y_positive_controls
+    Y_for_regression += Y_case_counts
+
+    if runtime_state.huge_signal_bfs is not None or runtime_state.gene_covariates is not None:
+        if runtime_state.huge_signal_bfs is not None:
+            index_map = {i: runtime_state.gene_to_ind[extra_genes[i]] for i in range(len(extra_genes))}
+            runtime_state.huge_signal_bfs = sparse.csc_matrix(
+                (
+                    runtime_state.huge_signal_bfs.data,
+                    [index_map[x] for x in runtime_state.huge_signal_bfs.indices],
+                    runtime_state.huge_signal_bfs.indptr,
+                ),
+                shape=runtime_state.huge_signal_bfs.shape,
+            )
+
+        if runtime_state.huge_signal_bfs_for_regression is not None:
+            index_map = {i: runtime_state.gene_to_ind[extra_genes[i]] for i in range(len(extra_genes))}
+            runtime_state.huge_signal_bfs_for_regression = sparse.csc_matrix(
+                (
+                    runtime_state.huge_signal_bfs_for_regression.data,
+                    [index_map[x] for x in runtime_state.huge_signal_bfs_for_regression.indices],
+                    runtime_state.huge_signal_bfs_for_regression.indptr,
+                ),
+                shape=runtime_state.huge_signal_bfs_for_regression.shape,
+            )
+
+        if runtime_state.gene_covariates is not None:
+            index_map_rev = {runtime_state.gene_to_ind[extra_genes[i]]: i for i in range(len(extra_genes))}
+            runtime_state.gene_covariates = runtime_state.gene_covariates[
+                [index_map_rev[x] for x in range(runtime_state.gene_covariates.shape[0])], :
+            ]
+
+    return (
+        Y,
+        Y_for_regression,
+        Y_exomes,
+        Y_positive_controls,
+        Y_case_counts,
+        [],
+        np.array([]),
+        np.array([]),
+        np.array([]),
+        np.array([]),
+        np.array([]),
+    )
+
+
+def _merge_y_into_existing_gene_universe(
+    runtime_state,
+    Y1,
+    Y1_for_regression,
+    Y1_exomes,
+    Y1_positive_controls,
+    Y1_case_counts,
+    extra_genes,
+    extra_Y,
+    extra_Y_for_regression,
+    extra_genes_all,
+    extra_Y_exomes,
+    extra_Y_positive_controls,
+    extra_Y_case_counts,
+    missing_value,
+    missing_value_exomes,
+    missing_value_positive_controls,
+    missing_value_case_counts,
+):
+    # Combine components on existing genes while preserving original NaN-imputation behavior.
+    Y = Y1 + Y1_exomes + Y1_positive_controls + Y1_case_counts
+    Y[np.isnan(Y1)] = Y1_exomes[np.isnan(Y1)] + Y1_positive_controls[np.isnan(Y1)] + + Y1_case_counts[np.isnan(Y1)] + missing_value
+    Y[np.isnan(Y1_exomes)] = Y1[np.isnan(Y1_exomes)] + Y1_positive_controls[np.isnan(Y1_exomes)] + Y1_case_counts[np.isnan(Y1_exomes)] + missing_value_exomes
+    Y[np.isnan(Y1_positive_controls)] = Y1[np.isnan(Y1_positive_controls)] + Y1_exomes[np.isnan(Y1_positive_controls)] + Y1_case_counts[np.isnan(Y1_positive_controls)] + missing_value_positive_controls
+    Y[np.isnan(Y1_case_counts)] = Y1[np.isnan(Y1_case_counts)] + Y1_exomes[np.isnan(Y1_case_counts)] + Y1_positive_controls[np.isnan(Y1_case_counts)] + missing_value_case_counts
+
+    Y_for_regression = Y1_for_regression + Y1_exomes + Y1_positive_controls + Y1_case_counts
+    Y_for_regression[np.isnan(Y1_for_regression)] = Y1_exomes[np.isnan(Y1_for_regression)] + Y1_positive_controls[np.isnan(Y1_for_regression)] + Y1_case_counts[np.isnan(Y1_for_regression)] + missing_value
+    Y_for_regression[np.isnan(Y1_exomes)] = Y1_for_regression[np.isnan(Y1_exomes)] + Y1_positive_controls[np.isnan(Y1_exomes)] + Y1_case_counts[np.isnan(Y1_exomes)] + missing_value_exomes
+    Y_for_regression[np.isnan(Y1_positive_controls)] = Y1_for_regression[np.isnan(Y1_positive_controls)] + Y1_exomes[np.isnan(Y1_positive_controls)] + Y1_case_counts[np.isnan(Y1_positive_controls)] + missing_value_positive_controls
+    Y_for_regression[np.isnan(Y1_case_counts)] = Y1_for_regression[np.isnan(Y1_case_counts)] + Y1_exomes[np.isnan(Y1_case_counts)] + Y1_positive_controls[np.isnan(Y1_case_counts)] + missing_value_case_counts
+
+    Y_exomes = Y1_exomes
+    Y_exomes[np.isnan(Y1_exomes)] = missing_value_exomes
+
+    Y_positive_controls = Y1_positive_controls
+    Y_positive_controls[np.isnan(Y1_positive_controls)] = missing_value_positive_controls
+
+    Y_case_counts = Y1_case_counts
+    Y_case_counts[np.isnan(Y1_case_counts)] = missing_value_case_counts
+
+    extra_gene_to_ind = _construct_map_to_ind(extra_genes)
+    extra_Y = list(extra_Y)
+    extra_Y_for_regression = list(extra_Y_for_regression)
+    new_extra_Y_exomes = list(np.full(len(extra_Y), missing_value_exomes))
+    new_extra_Y_positive_controls = list(np.full(len(extra_Y), missing_value_positive_controls))
+    new_extra_Y_case_counts = list(np.full(len(extra_Y), missing_value_case_counts))
+
+    num_add = 0
+    for i in range(len(extra_genes_all)):
+        if extra_genes_all[i] in extra_gene_to_ind:
+            extra_Y[extra_gene_to_ind[extra_genes_all[i]]] += (extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
+            extra_Y_for_regression[extra_gene_to_ind[extra_genes_all[i]]] += (extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
+            new_extra_Y_exomes[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_exomes[i]
+            new_extra_Y_positive_controls[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_positive_controls[i]
+            new_extra_Y_case_counts[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_case_counts[i]
+        else:
+            num_add += 1
+            extra_genes.append(extra_genes_all[i])
+            extra_Y.append(extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
+            extra_Y_for_regression.append(extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
+            new_extra_Y_exomes.append(extra_Y_exomes[i])
+            new_extra_Y_positive_controls.append(extra_Y_positive_controls[i])
+            new_extra_Y_case_counts.append(extra_Y_case_counts[i])
+
+    extra_Y = np.array(extra_Y)
+    extra_Y_for_regression = np.array(extra_Y_for_regression)
+    extra_Y_exomes = np.array(new_extra_Y_exomes)
+    extra_Y_positive_controls = np.array(new_extra_Y_positive_controls)
+    extra_Y_case_counts = np.array(new_extra_Y_case_counts)
+
+    if runtime_state.huge_signal_bfs is not None:
+        runtime_state.huge_signal_bfs = sparse.csc_matrix(
+            (runtime_state.huge_signal_bfs.data, runtime_state.huge_signal_bfs.indices, runtime_state.huge_signal_bfs.indptr),
+            shape=(runtime_state.huge_signal_bfs.shape[0] + num_add, runtime_state.huge_signal_bfs.shape[1]),
+        )
+
+    if runtime_state.huge_signal_bfs_for_regression is not None:
+        runtime_state.huge_signal_bfs_for_regression = sparse.csc_matrix(
+            (
+                runtime_state.huge_signal_bfs_for_regression.data,
+                runtime_state.huge_signal_bfs_for_regression.indices,
+                runtime_state.huge_signal_bfs_for_regression.indptr,
+            ),
+            shape=(runtime_state.huge_signal_bfs_for_regression.shape[0] + num_add, runtime_state.huge_signal_bfs_for_regression.shape[1]),
+        )
+
+    if runtime_state.gene_covariates is not None:
+        add_gene_covariates = np.tile(np.mean(runtime_state.gene_covariates, axis=0), num_add).reshape((num_add, runtime_state.gene_covariates.shape[1]))
+        runtime_state.gene_covariates = np.vstack((runtime_state.gene_covariates, add_gene_covariates))
+
+    return (
+        Y,
+        Y_for_regression,
+        Y_exomes,
+        Y_positive_controls,
+        Y_case_counts,
+        extra_genes,
+        extra_Y,
+        extra_Y_for_regression,
+        extra_Y_exomes,
+        extra_Y_positive_controls,
+        extra_Y_case_counts,
+    )
 
 
 def _align_extra_genes_with_new_source(
