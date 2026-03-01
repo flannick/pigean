@@ -13312,18 +13312,26 @@ def _read_Y(
 
     runtime_state._set_Y(Y, Y_for_regression, Y_exomes, Y_positive_controls, Y_case_counts, skip_V=True, skip_scale_factors=True)
 
-    # If we read in combined or priors.
+    _apply_gene_level_maps_after_read_y(
+        runtime_state,
+        gene_combined_map=gene_combined_map,
+        gene_prior_map=gene_prior_map,
+    )
+    _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
+
+
+def _apply_gene_level_maps_after_read_y(runtime_state, gene_combined_map=None, gene_prior_map=None):
     if gene_combined_map is not None:
         runtime_state.combined_prior_Ys = copy.copy(runtime_state.Y)
         for i in range(len(runtime_state.genes)):
             if runtime_state.genes[i] in gene_combined_map:
                 runtime_state.combined_prior_Ys[i] = gene_combined_map[runtime_state.genes[i]]
+
     if gene_prior_map is not None:
         runtime_state.priors = np.zeros(len(runtime_state.genes))
         for i in range(len(runtime_state.genes)):
             if runtime_state.genes[i] in gene_prior_map:
                 runtime_state.priors[i] = gene_prior_map[runtime_state.genes[i]]
-    _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
 
 
 def _read_primary_y_source(
