@@ -14015,9 +14015,6 @@ class PigeanState(object):
         cho_factor = scipy.linalg.cho_factor(matrix_in)
         return scipy.linalg.cho_solve(cho_factor, np.eye(matrix_in.shape[0]))
 
-# Backward-compatible alias during state refactor.
-GeneSetData = PigeanState
-
 # ==========================================================================
 # State-agnostic parsing helpers used by both legacy objects and runtime-state.
 # ==========================================================================
