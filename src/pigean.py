@@ -11287,122 +11287,20 @@ class PigeanState(object):
                         log("Converged after %d iterations" % (iteration_num+1), INFO)
                 prev_betas_m = curr_betas_m
             elif iteration_num > min_num_iter and np.sum(burn_in_phase_v) > 0:
-                #these matrices have convergence statistics in format (num_parallel, num_gene_sets)
-                #WARNING: only the results for compute_mask_v are valid
-                (B_m, W_m, R_m, avg_W_m, mean_t) = _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, iteration_num)
-
-                beta_weights_m = np.zeros((sum_betas_t.shape[1], sum_betas_t.shape[2]))
-                sum_betas_t_mean = np.mean(sum_betas_t)
-                if sum_betas_t_mean > 0:
-                    np.mean(sum_betas_t, axis=0) / sum_betas_t_mean
-
-                #calculate the thresholded / scaled R_v
-                num_R_above_1_v = np.sum(R_m >= 1, axis=1)
-                num_R_above_1_v[num_R_above_1_v == 0] = 1
-
-                #mean for each parallel run
-
-                R_m_above_1 = copy.copy(R_m)
-                R_m_above_1[R_m_above_1 < 1] = 0
-                mean_thresholded_R_v = np.sum(R_m_above_1, axis=1) / num_R_above_1_v
-
-                #max for each parallel run
-                max_index_v = np.argmax(R_m, axis=1)
-                max_index_parallel = None
-                max_val = None
-                for i in range(len(max_index_v)):
-                    if compute_mask_v[i] and (max_val is None or R_m[i,max_index_v[i]] > max_val):
-                        max_val = R_m[i,max_index_v[i]]
-                        max_index_parallel = i
-                max_R_v = np.max(R_m, axis=1)
-               
-
-                #TEMP TEMP TEMP
-                #if priors_for_convergence:
-                #    curr_v = curr_betas_v
-                #    s_cur2_v = np.array([curr_v[i] for i in sorted(range(len(curr_v)), key=lambda k: -np.abs(curr_v[k]))])
-                #    s_cur2_v = np.square(s_cur2_v - np.mean(s_cur2_v))
-                #    cum_cur2_v = np.cumsum(s_cur2_v) / np.sum(s_cur2_v)
-                #    top_mask2 = np.array(cum_cur2_v < 0.99)
-                #    (B_v2, W_v2, R_v2) = _calculate_rhat_from_sums(sum_betas_m[:,top_mask2], sum_betas2_m[:,top_mask2], iteration_num)
-                #    max_index2 = np.argmax(R_v2)
-                #    log("Iteration %d (betas): max ind=%d; max B=%.3g; max W=%.3g; max R=%.4g; avg R=%.4g; num above=%.4g" % (iteration_num, max_index2, B_v2[max_index2], W_v2[max_index2], R_v2[max_index2], np.mean(R_v2), np.sum(R_v2 > r_threshold_burn_in)), TRACE)
-                #END TEMP TEMP TEMP
-                    
-                if use_max_r_for_convergence:
-                    convergence_statistic_v = max_R_v
-                else:
-                    convergence_statistic_v = mean_thresholded_R_v
-
-                outlier_mask_m = np.full(avg_W_m.shape, False)
-                if avg_W_m.shape[0] > 10:
-                    #check the variances
-                    q3, median, q1 = np.percentile(avg_W_m, [75, 50, 25], axis=0)
-                    iqr_mask = q3 > q1
-                    chain_iqr_m = np.zeros(avg_W_m.shape)
-                    chain_iqr_m[:,iqr_mask] = (avg_W_m[:,iqr_mask] - median[iqr_mask]) / (q3 - q1)[iqr_mask]
-                    #dimensions chain x parallel
-                    outlier_mask_m = beta_outlier_iqr_threshold
-                    if np.sum(outlier_mask_m) > 0:
-                        log("Detected %d outlier chains due to oscillations" % np.sum(outlier_mask_m), DEBUG)
-
-                if np.sum(R_m > 1) > 10:
-                    #check the Rs
-                    q3, median, q1 = np.percentile(R_m[R_m > 1], [75, 50, 25])
-                    if q3 > q1:
-                        #Z score per parallel, gene
-                        R_iqr_m = (R_m - median) / (q3 - q1)
-                        #dimensions of parallel x gene sets
-                        bad_gene_sets_m = np.logical_and(R_iqr_m > 100, R_m > 2.5)
-                        bad_gene_sets_v = np.any(bad_gene_sets_m,0)
-                        if np.sum(bad_gene_sets_m) > 0:
-                            #now find the bad chains
-                            bad_chains = np.argmax(np.abs(mean_t - np.mean(mean_t, axis=0)), axis=0)[bad_gene_sets_m]
-
-                            #np.where bad gene sets[0] lists parallel
-                            #bad chains lists the bad chain corresponding to each parallel
-                            cur_outlier_mask_m = np.zeros(outlier_mask_m.shape)
-                            cur_outlier_mask_m[bad_chains, np.where(bad_gene_sets_m)[0]] = True
-
-                            log("Found %d outlier chains across %d parallel runs due to %d gene sets with high R (%.4g - %.4g; %.4g - %.4g)" % (np.sum(cur_outlier_mask_m), np.sum(np.any(cur_outlier_mask_m, axis=0)), np.sum(bad_gene_sets_m), np.min(R_m[bad_gene_sets_m]), np.max(R_m[bad_gene_sets_m]), np.min(R_iqr_m[bad_gene_sets_m]), np.max(R_iqr_m[bad_gene_sets_m])), DEBUG)
-                            outlier_mask_m = np.logical_or(outlier_mask_m, cur_outlier_mask_m)
-
-                            #log("Outlier parallel: %s" % (np.where(bad_gene_sets_m)[0]), DEBUG)
-                            #log("Outlier values: %s" % (R_m[bad_gene_sets_m]), DEBUG)
-                            #log("Outlier IQR: %s" % (R_iqr_m[bad_gene_sets_m]), DEBUG)
-                            #log("Outlier chains: %s" % (bad_chains), DEBUG)
-
-
-                            #log("Actually in mask: %s" % (str(np.where(outlier_mask_m))))
-
-                non_outliers_m = ~outlier_mask_m
-                if np.sum(outlier_mask_m) > 0:
-                    log("Detected %d total outlier chains" % np.sum(outlier_mask_m), DEBUG)
-                    #dimensions are num_chains x num_parallel
-                    for outlier_parallel in np.where(np.any(outlier_mask_m, axis=0))[0]:
-                        #find a non-outlier chain and replace the three matrices in the right place
-                        if np.sum(outlier_mask_m[:,outlier_parallel]) > 0:
-                            if np.sum(non_outliers_m[:,outlier_parallel]) > 0:
-                                replacement_chains = np.random.choice(np.where(non_outliers_m[:,outlier_parallel])[0], size=np.sum(outlier_mask_m[:,outlier_parallel]))
-                                log("Replaced chains %s with chains %s in parallel %d" % (np.where(outlier_mask_m[:,outlier_parallel])[0], replacement_chains, outlier_parallel), DEBUG)
-
-                                for tensor in [curr_betas_t, curr_postp_t, curr_post_means_t, sum_betas_t, sum_betas2_t]:
-                                    tensor[outlier_mask_m[:,outlier_parallel],outlier_parallel,:] = copy.copy(tensor[replacement_chains,outlier_parallel,:])
-
-                            else:
-                                log("Every chain was an outlier so doing nothing", TRACE)
-
-
-                log("Iteration %d: max ind=%s; max B=%.3g; max W=%.3g; max R=%.4g; avg R=%.4g; num above=%.4g;" % (iteration_num, (max_index_parallel, max_index_v[max_index_parallel]) if num_parallel > 1 else max_index_v[max_index_parallel], B_m[max_index_parallel, max_index_v[max_index_parallel]], W_m[max_index_parallel, max_index_v[max_index_parallel]], R_m[max_index_parallel, max_index_v[max_index_parallel]], np.mean(mean_thresholded_R_v), np.sum(R_m > r_threshold_burn_in)), TRACE)
-
-                converged_v = convergence_statistic_v < r_threshold_burn_in
-                newly_converged_v = np.logical_and(burn_in_phase_v, converged_v)
-                if np.sum(newly_converged_v) > 0:
-                    if num_parallel == 1:
-                        log("Converged after %d iterations" % iteration_num, INFO)
-                    else:
-                        log("Parallel %s converged after %d iterations" % (",".join([str(p) for p in np.nditer(np.where(newly_converged_v))]), iteration_num), INFO)
-                    burn_in_phase_v = np.logical_and(burn_in_phase_v, np.logical_not(converged_v))
+                (R_m, beta_weights_m, burn_in_phase_v) = _update_inner_beta_rhat_and_outliers(
+                    sum_betas_t=sum_betas_t,
+                    sum_betas2_t=sum_betas2_t,
+                    iteration_num=iteration_num,
+                    compute_mask_v=compute_mask_v,
+                    use_max_r_for_convergence=use_max_r_for_convergence,
+                    beta_outlier_iqr_threshold=beta_outlier_iqr_threshold,
+                    curr_betas_t=curr_betas_t,
+                    curr_postp_t=curr_postp_t,
+                    curr_post_means_t=curr_post_means_t,
+                    burn_in_phase_v=burn_in_phase_v,
+                    r_threshold_burn_in=r_threshold_burn_in,
+                    num_parallel=num_parallel,
+                )
 
             if np.sum(burn_in_phase_v) == 0 or iteration_num >= max_num_burn_in:
 
@@ -18656,6 +18554,149 @@ def _compute_inner_beta_hyper_update_targets(
         new_p *= p_noninf_inflate
 
     return (new_p, new_sigma2)
+
+
+def _update_inner_beta_rhat_and_outliers(
+    sum_betas_t,
+    sum_betas2_t,
+    iteration_num,
+    compute_mask_v,
+    use_max_r_for_convergence,
+    beta_outlier_iqr_threshold,
+    curr_betas_t,
+    curr_postp_t,
+    curr_post_means_t,
+    burn_in_phase_v,
+    r_threshold_burn_in,
+    num_parallel,
+):
+    # These matrices have convergence statistics in format (num_parallel, num_gene_sets).
+    # WARNING: only results for compute_mask_v are valid.
+    (B_m, W_m, R_m, avg_W_m, mean_t) = _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, iteration_num)
+
+    beta_weights_m = np.zeros((sum_betas_t.shape[1], sum_betas_t.shape[2]))
+    sum_betas_t_mean = np.mean(sum_betas_t)
+    if sum_betas_t_mean > 0:
+        np.mean(sum_betas_t, axis=0) / sum_betas_t_mean
+
+    # Calculate thresholded/scaled R summary.
+    num_R_above_1_v = np.sum(R_m >= 1, axis=1)
+    num_R_above_1_v[num_R_above_1_v == 0] = 1
+
+    R_m_above_1 = copy.copy(R_m)
+    R_m_above_1[R_m_above_1 < 1] = 0
+    mean_thresholded_R_v = np.sum(R_m_above_1, axis=1) / num_R_above_1_v
+
+    # Max R for each parallel run.
+    max_index_v = np.argmax(R_m, axis=1)
+    max_index_parallel = None
+    max_val = None
+    for i in range(len(max_index_v)):
+        if compute_mask_v[i] and (max_val is None or R_m[i, max_index_v[i]] > max_val):
+            max_val = R_m[i, max_index_v[i]]
+            max_index_parallel = i
+    max_R_v = np.max(R_m, axis=1)
+
+    if use_max_r_for_convergence:
+        convergence_statistic_v = max_R_v
+    else:
+        convergence_statistic_v = mean_thresholded_R_v
+
+    outlier_mask_m = np.full(avg_W_m.shape, False)
+    if avg_W_m.shape[0] > 10:
+        # Check per-chain oscillation via variance IQR.
+        q3, median, q1 = np.percentile(avg_W_m, [75, 50, 25], axis=0)
+        iqr_mask = q3 > q1
+        chain_iqr_m = np.zeros(avg_W_m.shape)
+        chain_iqr_m[:, iqr_mask] = (avg_W_m[:, iqr_mask] - median[iqr_mask]) / (q3 - q1)[iqr_mask]
+        # dimensions chain x parallel
+        outlier_mask_m = beta_outlier_iqr_threshold
+        if np.sum(outlier_mask_m) > 0:
+            log("Detected %d outlier chains due to oscillations" % np.sum(outlier_mask_m), DEBUG)
+
+    if np.sum(R_m > 1) > 10:
+        # Check extreme high-R outliers.
+        q3, median, q1 = np.percentile(R_m[R_m > 1], [75, 50, 25])
+        if q3 > q1:
+            R_iqr_m = (R_m - median) / (q3 - q1)
+            bad_gene_sets_m = np.logical_and(R_iqr_m > 100, R_m > 2.5)
+            if np.sum(bad_gene_sets_m) > 0:
+                bad_chains = np.argmax(np.abs(mean_t - np.mean(mean_t, axis=0)), axis=0)[bad_gene_sets_m]
+
+                cur_outlier_mask_m = np.zeros(outlier_mask_m.shape)
+                cur_outlier_mask_m[bad_chains, np.where(bad_gene_sets_m)[0]] = True
+
+                log(
+                    "Found %d outlier chains across %d parallel runs due to %d gene sets with high R (%.4g - %.4g; %.4g - %.4g)"
+                    % (
+                        np.sum(cur_outlier_mask_m),
+                        np.sum(np.any(cur_outlier_mask_m, axis=0)),
+                        np.sum(bad_gene_sets_m),
+                        np.min(R_m[bad_gene_sets_m]),
+                        np.max(R_m[bad_gene_sets_m]),
+                        np.min(R_iqr_m[bad_gene_sets_m]),
+                        np.max(R_iqr_m[bad_gene_sets_m]),
+                    ),
+                    DEBUG,
+                )
+                outlier_mask_m = np.logical_or(outlier_mask_m, cur_outlier_mask_m)
+
+    non_outliers_m = ~outlier_mask_m
+    if np.sum(outlier_mask_m) > 0:
+        log("Detected %d total outlier chains" % np.sum(outlier_mask_m), DEBUG)
+        # Dimensions are num_chains x num_parallel.
+        for outlier_parallel in np.where(np.any(outlier_mask_m, axis=0))[0]:
+            if np.sum(outlier_mask_m[:, outlier_parallel]) > 0:
+                if np.sum(non_outliers_m[:, outlier_parallel]) > 0:
+                    replacement_chains = np.random.choice(
+                        np.where(non_outliers_m[:, outlier_parallel])[0],
+                        size=np.sum(outlier_mask_m[:, outlier_parallel]),
+                    )
+                    log(
+                        "Replaced chains %s with chains %s in parallel %d"
+                        % (
+                            np.where(outlier_mask_m[:, outlier_parallel])[0],
+                            replacement_chains,
+                            outlier_parallel,
+                        ),
+                        DEBUG,
+                    )
+
+                    for tensor in [curr_betas_t, curr_postp_t, curr_post_means_t, sum_betas_t, sum_betas2_t]:
+                        tensor[outlier_mask_m[:, outlier_parallel], outlier_parallel, :] = copy.copy(
+                            tensor[replacement_chains, outlier_parallel, :]
+                        )
+                else:
+                    log("Every chain was an outlier so doing nothing", TRACE)
+
+    log(
+        "Iteration %d: max ind=%s; max B=%.3g; max W=%.3g; max R=%.4g; avg R=%.4g; num above=%.4g;"
+        % (
+            iteration_num,
+            (max_index_parallel, max_index_v[max_index_parallel]) if num_parallel > 1 else max_index_v[max_index_parallel],
+            B_m[max_index_parallel, max_index_v[max_index_parallel]],
+            W_m[max_index_parallel, max_index_v[max_index_parallel]],
+            R_m[max_index_parallel, max_index_v[max_index_parallel]],
+            np.mean(mean_thresholded_R_v),
+            np.sum(R_m > r_threshold_burn_in),
+        ),
+        TRACE,
+    )
+
+    converged_v = convergence_statistic_v < r_threshold_burn_in
+    newly_converged_v = np.logical_and(burn_in_phase_v, converged_v)
+    if np.sum(newly_converged_v) > 0:
+        if num_parallel == 1:
+            log("Converged after %d iterations" % iteration_num, INFO)
+        else:
+            log(
+                "Parallel %s converged after %d iterations"
+                % (",".join([str(p) for p in np.nditer(np.where(newly_converged_v))]), iteration_num),
+                INFO,
+            )
+        burn_in_phase_v = np.logical_and(burn_in_phase_v, np.logical_not(converged_v))
+
+    return (R_m, beta_weights_m, burn_in_phase_v)
 
 
 def _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, num):
