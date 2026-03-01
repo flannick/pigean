@@ -1923,18 +1923,13 @@ class PigeanState(object):
 
         _standardize_qc_metrics_after_x_read(self)
 
-        if filter_gene_set_p is not None and (correct_betas_mean or correct_betas_var) and self.beta_tildes is not None:
-            (self.beta_tildes, self.ses, self.z_scores, self.p_values, self.se_inflation_factors) = self._correct_beta_tildes(self.beta_tildes, self.ses, self.se_inflation_factors, self.total_qc_metrics, self.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, correct_ignored=True, fit=True)
-            newly_below_p_mask = self.p_values <= filter_gene_set_p
-            if filter_using_phewas:
-                newly_below_p_mask = np.full(len(self.p_values), True)
-
-            #ensure at least one
-            if np.sum(newly_below_p_mask) == 0:
-                newly_below_p_mask[np.argmin(self.p_values)] = True
-            if np.sum(newly_below_p_mask) != len(newly_below_p_mask):
-                log("Ignoring %d gene sets whose p-value increased after adjusting betas (kept %d)" % (np.sum(~newly_below_p_mask), np.sum(newly_below_p_mask)))
-                self.subset_gene_sets(newly_below_p_mask, ignore_missing=True, keep_missing=False, skip_V=True)
+        _maybe_correct_gene_set_betas_after_x_read(
+            self,
+            filter_gene_set_p=filter_gene_set_p,
+            correct_betas_mean=correct_betas_mean,
+            correct_betas_var=correct_betas_var,
+            filter_using_phewas=filter_using_phewas,
+        )
 
         self._record_param("gene_set_prune_threshold", prune_gene_sets)
         self._record_param("gene_set_weighted_prune_threshold", weighted_prune_gene_sets)
@@ -14677,6 +14672,48 @@ def _standardize_qc_metrics_after_x_read(runtime_state):
             runtime_state.mean_qc_metrics_ignored = (
                 runtime_state.mean_qc_metrics_ignored - np.mean(mean_qc_metrics)
             ) / np.std(mean_qc_metrics)
+
+
+def _maybe_correct_gene_set_betas_after_x_read(
+    runtime_state,
+    filter_gene_set_p,
+    correct_betas_mean,
+    correct_betas_var,
+    filter_using_phewas,
+):
+    if not (filter_gene_set_p is not None and (correct_betas_mean or correct_betas_var) and runtime_state.beta_tildes is not None):
+        return
+
+    (
+        runtime_state.beta_tildes,
+        runtime_state.ses,
+        runtime_state.z_scores,
+        runtime_state.p_values,
+        runtime_state.se_inflation_factors,
+    ) = runtime_state._correct_beta_tildes(
+        runtime_state.beta_tildes,
+        runtime_state.ses,
+        runtime_state.se_inflation_factors,
+        runtime_state.total_qc_metrics,
+        runtime_state.total_qc_metrics_directions,
+        correct_mean=correct_betas_mean,
+        correct_var=correct_betas_var,
+        correct_ignored=True,
+        fit=True,
+    )
+    newly_below_p_mask = runtime_state.p_values <= filter_gene_set_p
+    if filter_using_phewas:
+        newly_below_p_mask = np.full(len(runtime_state.p_values), True)
+
+    # Ensure at least one.
+    if np.sum(newly_below_p_mask) == 0:
+        newly_below_p_mask[np.argmin(runtime_state.p_values)] = True
+    if np.sum(newly_below_p_mask) != len(newly_below_p_mask):
+        log(
+            "Ignoring %d gene sets whose p-value increased after adjusting betas (kept %d)"
+            % (np.sum(~newly_below_p_mask), np.sum(newly_below_p_mask))
+        )
+        runtime_state.subset_gene_sets(newly_below_p_mask, ignore_missing=True, keep_missing=False, skip_V=True)
 
 
 def _init_sparse_x_batch_state(runtime_state):
