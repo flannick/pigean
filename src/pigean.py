@@ -1972,27 +1972,23 @@ class PigeanState(object):
 
             else:
 
-                data = []
-                row = []
-                col = []
-                num_read = 0
-
-                new_gene_to_ind = {}
+                (
+                    genes,
+                    gene_to_ind,
+                    new_gene_to_ind,
+                    gene_sets,
+                    data,
+                    row,
+                    col,
+                    num_read,
+                    cur_num_read,
+                ) = _init_sparse_x_batch_state(self)
                 gene_set_to_ind = {}
-                gene_to_ind = None
-                if self.genes is not None:
-                    #ensure that the matrix always contains all of the current genes
-                    #this simplifies code in add_to_X
-                    genes = copy.copy(self.genes)
-                    if self.genes_missing is not None:
-                        genes += self.genes_missing
-                    gene_to_ind = _construct_map_to_ind(genes)
 
                 with open_gz(X_in) as gene_sets_fh:
 
                     if max_num_entries_at_once is None:
                         max_num_entries_at_once = 200 * 10000
-                    cur_num_read = 0
 
                     already_seen = 0
                     for line in gene_sets_fh:
@@ -2086,17 +2082,17 @@ class PigeanState(object):
                             )
 
                             #re-initialize things
-                            genes = copy.copy(self.genes)
-                            if self.genes_missing is not None:
-                                genes += self.genes_missing
-                            gene_to_ind = _construct_map_to_ind(genes)
-                            new_gene_to_ind = {}
-                            gene_sets = []
-                            data = []
-                            row = []
-                            col = []
-                            num_read = 0
-                            cur_num_read = 0
+                            (
+                                genes,
+                                gene_to_ind,
+                                new_gene_to_ind,
+                                gene_sets,
+                                data,
+                                row,
+                                col,
+                                num_read,
+                                cur_num_read,
+                            ) = _init_sparse_x_batch_state(self)
                             log("Continuing reading...")
                     #get the end if there are any
 
@@ -14567,6 +14563,29 @@ def _record_x_addition(
         runtime_state.ps = np.append(runtime_state.ps, np.full(num_added, initial_p_value))
     runtime_state.gene_set_labels_ignored = np.append(runtime_state.gene_set_labels_ignored, np.full(num_ignored, label_value))
     num_ignored_gene_sets[input_index] += num_ignored
+
+
+def _init_sparse_x_batch_state(runtime_state):
+    genes = []
+    gene_to_ind = None
+    if runtime_state.genes is not None:
+        # Ensure the batch matrix always contains all currently tracked genes.
+        genes = copy.copy(runtime_state.genes)
+        if runtime_state.genes_missing is not None:
+            genes += runtime_state.genes_missing
+        gene_to_ind = _construct_map_to_ind(genes)
+
+    return (
+        genes,
+        gene_to_ind,
+        {},
+        [],
+        [],
+        [],
+        [],
+        0,
+        0,
+    )
 
 
 def _filter_dense_chunk_gene_set_indices(gene_sets, chunk_indices, only_ids, x_sparsify):
