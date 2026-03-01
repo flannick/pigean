@@ -18457,8 +18457,7 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
             num_sum_priors_missing_m,
         )
 
-    if state.gene_sets_missing is not None:
-        state._unsubset_gene_sets(skip_V=True)
+    _maybe_unsubset_gene_sets(state, state.gene_sets_missing is not None, skip_V=True)
 
     stack_batch_size = num_chains + 1
     if num_chains > 1:
