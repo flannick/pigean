@@ -2258,102 +2258,15 @@ class PigeanState(object):
         if only_inc_genes:
             add_all_genes = True
 
-        if self.genes is None or add_all_genes:
-            if self.genes is None:
-                log("No genes initialized before reading X: constructing gene list from union of all files", DEBUG)
-            #need to set it to the union of all genes
-            all_genes = []
-            gene_counts = {}
-            num_gene_sets = 0
-            for i in range(len(X_ins)):
-                X_in = X_ins[i]
-                (X_in, tag) = _remove_tag_from_input(X_in)
-
-                if is_dense[i]:
-                    with open_gz(X_in) as gene_sets_fh:
-                        num_in_file = None
-                        for line in gene_sets_fh:
-                            line = line.strip('\n')
-                            cols = line.split()
-                            if num_in_file is None:
-                                num_in_file = len(cols) - 1
-                                num_gene_sets += num_in_file
-                            elif len(cols) - 1 != num_in_file:
-                                bail("Not a square matrix!")
-
-                            if len(cols) > 0:
-                                all_genes += cols[0]
-                            if cols[0] not in gene_counts:
-                                    gene_counts[cols[0]] = 0
-                            gene_counts[cols[0]] += num_in_file
-                else:
-                    with open_gz(X_in) as gene_sets_fh:
-                        it = 0
-                        for line in gene_sets_fh:
-                            line = line.strip('\n')
-                            cols = line.split()
-                            if len(cols) < 2:
-                                continue
-
-                            cur_genes = set(cols[1:])
-
-                            if only_ids is not None and cols[0] not in only_ids:
-                                continue
-
-                            if ":" in line:
-                                cur_genes = [gene.split(":")[0] for gene in cur_genes]
-                            if self.gene_label_map is not None:
-                                cur_genes = set(map(lambda x: self.gene_label_map[x] if x in self.gene_label_map else x, cur_genes))
-
-                            if not add_all_genes and only_inc_genes is not None:
-                                fraction_match = len(only_inc_genes.intersection(cur_genes)) / float(len(only_inc_genes))
-
-                                if fraction_match < (fraction_inc_genes if fraction_inc_genes is not None else 1e-5):
-                                    continue
-
-                            all_genes += cur_genes
-                            for gene in cur_genes:
-                                if gene not in gene_counts:
-                                    gene_counts[gene] = 0
-                                gene_counts[gene] += 1
-
-                            num_gene_sets += 1
-                            it += 1
-                            if it % 1000 == 0:
-                                all_genes = list(set(all_genes))
-
-                all_genes = list(set(all_genes))
-
-            if self.genes is not None:
-                add_genes = [x for x in all_genes if x not in self.gene_to_ind]
-                log("Adding an additional %d genes from gene sets not in input Y values" % len(add_genes), DEBUG)
-                all_genes = self.genes + add_genes
-                new_Y = self.Y
-                if new_Y is not None:
-                    assert(len(new_Y) == len(self.genes))
-                    new_Y = np.append(new_Y, np.zeros(len(add_genes)))
-                new_Y_for_regression = self.Y_for_regression
-                if new_Y_for_regression is not None:
-                    assert(len(new_Y_for_regression) == len(self.genes))
-                    new_Y_for_regression = np.append(new_Y_for_regression, np.zeros(len(add_genes)))
-                new_Y_exomes = self.Y_exomes
-                if new_Y_exomes is not None:
-                    assert(len(new_Y_exomes) == len(self.genes))
-                    new_Y_exomes = np.append(new_Y_exomes, np.zeros(len(add_genes)))
-                new_Y_positive_controls = self.Y_positive_controls
-                if new_Y_positive_controls is not None:
-                    assert(len(new_Y_positive_controls) == len(self.genes))
-                    new_Y_positive_controls = np.append(new_Y_positive_controls, np.zeros(len(add_genes)))
-
-                new_Y_case_counts = self.Y_case_counts
-                if new_Y_case_counts is not None:
-                    assert(len(new_Y_case_counts) == len(self.genes))
-                    new_Y_case_counts = np.append(new_Y_case_counts, np.zeros(len(add_genes)))
-
-                self._set_Y(new_Y, new_Y_for_regression, new_Y_exomes, new_Y_positive_controls, new_Y_case_counts)
-
-            #really calling this just to set the genes
-            self._set_X(self.X_orig, list(all_genes), self.gene_sets, skip_N=False)
+        _ensure_gene_universe_for_x(
+            self,
+            X_ins=X_ins,
+            is_dense=is_dense,
+            add_all_genes=add_all_genes,
+            only_ids=only_ids,
+            only_inc_genes=only_inc_genes,
+            fraction_inc_genes=fraction_inc_genes,
+        )
 
         for i in range(len(X_ins)):
             X_in = X_ins[i]
@@ -14909,6 +14822,113 @@ def _normalize_gene_set_weights(runtime_state, cur_X, threshold_weights, cap_wei
         cur_X.eliminate_zeros()
 
     return cur_X
+
+
+def _ensure_gene_universe_for_x(
+    runtime_state,
+    X_ins,
+    is_dense,
+    add_all_genes,
+    only_ids,
+    only_inc_genes,
+    fraction_inc_genes,
+):
+    if runtime_state.genes is None or add_all_genes:
+        if runtime_state.genes is None:
+            log("No genes initialized before reading X: constructing gene list from union of all files", DEBUG)
+
+        # need to set it to the union of all genes
+        all_genes = []
+        gene_counts = {}
+        num_gene_sets = 0
+        for i in range(len(X_ins)):
+            X_in = X_ins[i]
+            (X_in, tag) = _remove_tag_from_input(X_in)
+
+            if is_dense[i]:
+                with open_gz(X_in) as gene_sets_fh:
+                    num_in_file = None
+                    for line in gene_sets_fh:
+                        line = line.strip('\n')
+                        cols = line.split()
+                        if num_in_file is None:
+                            num_in_file = len(cols) - 1
+                            num_gene_sets += num_in_file
+                        elif len(cols) - 1 != num_in_file:
+                            bail("Not a square matrix!")
+
+                        if len(cols) > 0:
+                            all_genes += cols[0]
+                        if cols[0] not in gene_counts:
+                            gene_counts[cols[0]] = 0
+                        gene_counts[cols[0]] += num_in_file
+            else:
+                with open_gz(X_in) as gene_sets_fh:
+                    it = 0
+                    for line in gene_sets_fh:
+                        line = line.strip('\n')
+                        cols = line.split()
+                        if len(cols) < 2:
+                            continue
+
+                        cur_genes = set(cols[1:])
+
+                        if only_ids is not None and cols[0] not in only_ids:
+                            continue
+
+                        if ":" in line:
+                            cur_genes = [gene.split(":")[0] for gene in cur_genes]
+                        if runtime_state.gene_label_map is not None:
+                            cur_genes = set(map(lambda x: runtime_state.gene_label_map[x] if x in runtime_state.gene_label_map else x, cur_genes))
+
+                        if not add_all_genes and only_inc_genes is not None:
+                            fraction_match = len(only_inc_genes.intersection(cur_genes)) / float(len(only_inc_genes))
+                            if fraction_match < (fraction_inc_genes if fraction_inc_genes is not None else 1e-5):
+                                continue
+
+                        all_genes += cur_genes
+                        for gene in cur_genes:
+                            if gene not in gene_counts:
+                                gene_counts[gene] = 0
+                            gene_counts[gene] += 1
+
+                        num_gene_sets += 1
+                        it += 1
+                        if it % 1000 == 0:
+                            all_genes = list(set(all_genes))
+
+            all_genes = list(set(all_genes))
+
+        if runtime_state.genes is not None:
+            add_genes = [x for x in all_genes if x not in runtime_state.gene_to_ind]
+            log("Adding an additional %d genes from gene sets not in input Y values" % len(add_genes), DEBUG)
+            all_genes = runtime_state.genes + add_genes
+            new_Y = runtime_state.Y
+            if new_Y is not None:
+                assert(len(new_Y) == len(runtime_state.genes))
+                new_Y = np.append(new_Y, np.zeros(len(add_genes)))
+            new_Y_for_regression = runtime_state.Y_for_regression
+            if new_Y_for_regression is not None:
+                assert(len(new_Y_for_regression) == len(runtime_state.genes))
+                new_Y_for_regression = np.append(new_Y_for_regression, np.zeros(len(add_genes)))
+            new_Y_exomes = runtime_state.Y_exomes
+            if new_Y_exomes is not None:
+                assert(len(new_Y_exomes) == len(runtime_state.genes))
+                new_Y_exomes = np.append(new_Y_exomes, np.zeros(len(add_genes)))
+            new_Y_positive_controls = runtime_state.Y_positive_controls
+            if new_Y_positive_controls is not None:
+                assert(len(new_Y_positive_controls) == len(runtime_state.genes))
+                new_Y_positive_controls = np.append(new_Y_positive_controls, np.zeros(len(add_genes)))
+
+            new_Y_case_counts = runtime_state.Y_case_counts
+            if new_Y_case_counts is not None:
+                assert(len(new_Y_case_counts) == len(runtime_state.genes))
+                new_Y_case_counts = np.append(new_Y_case_counts, np.zeros(len(add_genes)))
+
+            runtime_state._set_Y(new_Y, new_Y_for_regression, new_Y_exomes, new_Y_positive_controls, new_Y_case_counts)
+
+        # really calling this just to set the genes
+        runtime_state._set_X(runtime_state.X_orig, list(all_genes), runtime_state.gene_sets, skip_N=False)
 
 
 def _initialize_filtered_gene_set_state(runtime_state, update_hyper_p):
