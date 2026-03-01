@@ -1921,20 +1921,7 @@ class PigeanState(object):
             log("No gene sets to analyze; returning")
             return
 
-        if self.total_qc_metrics is not None:
-            total_qc_metrics = self.total_qc_metrics
-            if self.total_qc_metrics_ignored is not None:
-                total_qc_metrics = np.vstack((self.total_qc_metrics, self.total_qc_metrics_ignored))
-
-            self.total_qc_metrics = (self.total_qc_metrics - np.mean(total_qc_metrics, axis=0)) / np.std(total_qc_metrics, axis=0)
-            if self.total_qc_metrics_ignored is not None:
-                self.total_qc_metrics_ignored = (self.total_qc_metrics_ignored - np.mean(total_qc_metrics, axis=0)) / np.std(total_qc_metrics, axis=0)
-
-        if self.mean_qc_metrics is not None:
-            mean_qc_metrics = np.append(self.mean_qc_metrics, self.mean_qc_metrics_ignored if self.mean_qc_metrics_ignored is not None else [])
-            self.mean_qc_metrics = (self.mean_qc_metrics - np.mean(mean_qc_metrics)) / np.std(mean_qc_metrics)
-            if self.mean_qc_metrics_ignored is not None:
-                self.mean_qc_metrics_ignored = (self.mean_qc_metrics_ignored - np.mean(mean_qc_metrics)) / np.std(mean_qc_metrics)
+        _standardize_qc_metrics_after_x_read(self)
 
         if filter_gene_set_p is not None and (correct_betas_mean or correct_betas_var) and self.beta_tildes is not None:
             (self.beta_tildes, self.ses, self.z_scores, self.p_values, self.se_inflation_factors) = self._correct_beta_tildes(self.beta_tildes, self.ses, self.se_inflation_factors, self.total_qc_metrics, self.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, correct_ignored=True, fit=True)
@@ -14666,6 +14653,30 @@ def _process_x_input_file(
         )
 
     return (num_too_small, ignored_for_fraction_inc, True)
+
+
+def _standardize_qc_metrics_after_x_read(runtime_state):
+    if runtime_state.total_qc_metrics is not None:
+        total_qc_metrics = runtime_state.total_qc_metrics
+        if runtime_state.total_qc_metrics_ignored is not None:
+            total_qc_metrics = np.vstack((runtime_state.total_qc_metrics, runtime_state.total_qc_metrics_ignored))
+
+        runtime_state.total_qc_metrics = (runtime_state.total_qc_metrics - np.mean(total_qc_metrics, axis=0)) / np.std(total_qc_metrics, axis=0)
+        if runtime_state.total_qc_metrics_ignored is not None:
+            runtime_state.total_qc_metrics_ignored = (
+                runtime_state.total_qc_metrics_ignored - np.mean(total_qc_metrics, axis=0)
+            ) / np.std(total_qc_metrics, axis=0)
+
+    if runtime_state.mean_qc_metrics is not None:
+        mean_qc_metrics = np.append(
+            runtime_state.mean_qc_metrics,
+            runtime_state.mean_qc_metrics_ignored if runtime_state.mean_qc_metrics_ignored is not None else [],
+        )
+        runtime_state.mean_qc_metrics = (runtime_state.mean_qc_metrics - np.mean(mean_qc_metrics)) / np.std(mean_qc_metrics)
+        if runtime_state.mean_qc_metrics_ignored is not None:
+            runtime_state.mean_qc_metrics_ignored = (
+                runtime_state.mean_qc_metrics_ignored - np.mean(mean_qc_metrics)
+            ) / np.std(mean_qc_metrics)
 
 
 def _init_sparse_x_batch_state(runtime_state):
