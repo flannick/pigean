@@ -1998,31 +1998,13 @@ class PigeanState(object):
             filter_using_phewas=filter_using_phewas,
         )
 
-        #do another check of min_gene_set_size in case we converted some gene sets with weights
-        if self.X_orig is not None:
-            col_sums = self.get_col_sums(self.X_orig, num_nonzero=True)
-            size_ignore = col_sums < min_gene_set_size
-
-            if np.sum(size_ignore) > 0:
-                size_mask = ~size_ignore
-                log("Ignoring %d gene sets due to too few genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
-                self.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
-
-            col_sums = self.get_col_sums(self.X_orig, num_nonzero=True)
-            size_ignore = col_sums > max_gene_set_size
-            if np.sum(size_ignore) > 0:
-                size_mask = ~size_ignore
-                log("Ignoring %d gene sets due to too many genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
-                self.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
-
-            if self.total_qc_metrics is not None and filter_gene_set_metric_z:
-                filter_mask = np.abs(self.mean_qc_metrics) < filter_gene_set_metric_z
-                filter_ignore = ~filter_mask
-                log("Ignoring %d gene sets due to QC metric filters (kept %d)" % (np.sum(filter_ignore), np.sum(filter_mask)))
-                self.subset_gene_sets(filter_mask, keep_missing=False, ignore_missing=True, skip_V=True)
-
-                #self.total_qc_metrics = np.vstack((self.mean_qc_metrics, np.ones(len(self.mean_qc_metrics)))).T
-                #self.total_qc_metrics_ignored = np.vstack((self.mean_qc_metrics_ignored, np.ones(len(self.mean_qc_metrics_ignored)))).T
+        # Do another size/QC pass after all in-memory transformations.
+        _apply_post_read_gene_set_size_and_qc_filters(
+            self,
+            min_gene_set_size=min_gene_set_size,
+            max_gene_set_size=max_gene_set_size,
+            filter_gene_set_metric_z=filter_gene_set_metric_z,
+        )
 
         if self.p_values is not None:
             sort_rank = -np.sqrt(-np.log(self.p_values + 1e-200))
@@ -14864,6 +14846,36 @@ def _maybe_adjust_overaggressive_p_filter_after_x_read(
                     % (np.sum(overcorrect_ignore), p_from_quantile, np.sum(overcorrect_mask))
                 )
                 runtime_state.subset_gene_sets(overcorrect_mask, ignore_missing=True, keep_missing=False, skip_V=True)
+
+
+def _apply_post_read_gene_set_size_and_qc_filters(
+    runtime_state,
+    min_gene_set_size,
+    max_gene_set_size,
+    filter_gene_set_metric_z,
+):
+    if runtime_state.X_orig is None:
+        return
+
+    col_sums = runtime_state.get_col_sums(runtime_state.X_orig, num_nonzero=True)
+    size_ignore = col_sums < min_gene_set_size
+    if np.sum(size_ignore) > 0:
+        size_mask = ~size_ignore
+        log("Ignoring %d gene sets due to too few genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
+        runtime_state.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
+
+    col_sums = runtime_state.get_col_sums(runtime_state.X_orig, num_nonzero=True)
+    size_ignore = col_sums > max_gene_set_size
+    if np.sum(size_ignore) > 0:
+        size_mask = ~size_ignore
+        log("Ignoring %d gene sets due to too many genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
+        runtime_state.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
+
+    if runtime_state.total_qc_metrics is not None and filter_gene_set_metric_z:
+        filter_mask = np.abs(runtime_state.mean_qc_metrics) < filter_gene_set_metric_z
+        filter_ignore = ~filter_mask
+        log("Ignoring %d gene sets due to QC metric filters (kept %d)" % (np.sum(filter_ignore), np.sum(filter_mask)))
+        runtime_state.subset_gene_sets(filter_mask, keep_missing=False, ignore_missing=True, skip_V=True)
 
 
 def _init_sparse_x_batch_state(runtime_state):
