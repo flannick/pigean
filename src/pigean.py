@@ -7583,6 +7583,134 @@ class PigeanState(object):
             one_sided_append,
         )
 
+    def _resolve_phewas_file_columns(self, header_cols, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None):
+        id_col_name = gene_phewas_bfs_id_col if gene_phewas_bfs_id_col is not None else "Gene"
+        pheno_col_name = gene_phewas_bfs_pheno_col if gene_phewas_bfs_pheno_col is not None else "Pheno"
+        return {
+            "id_col": _get_col(id_col_name, header_cols),
+            "pheno_col": _get_col(pheno_col_name, header_cols),
+            "bf_col": _get_col(gene_phewas_bfs_log_bf_col, header_cols) if gene_phewas_bfs_log_bf_col is not None else _get_col("log_bf", header_cols, False),
+            "combined_col": _get_col(gene_phewas_bfs_combined_col, header_cols, True) if gene_phewas_bfs_combined_col is not None else _get_col("combined", header_cols, False),
+            "prior_col": _get_col(gene_phewas_bfs_prior_col, header_cols, True) if gene_phewas_bfs_prior_col is not None else _get_col("prior", header_cols, False),
+        }
+
+    def _expand_phewas_state_for_added_phenos(self, num_added_phenos):
+        if num_added_phenos <= 0:
+            return
+        if self.X_phewas_beta is not None:
+            self.X_phewas_beta = sparse.csc_matrix(sparse.vstack((self.X_phewas_beta, sparse.csc_matrix((num_added_phenos, self.X_phewas_beta.shape[1])))))
+        if self.X_phewas_beta_uncorrected is not None:
+            self.X_phewas_beta_uncorrected = sparse.csc_matrix(sparse.vstack((self.X_phewas_beta_uncorrected, sparse.csc_matrix((num_added_phenos, self.X_phewas_beta_uncorrected.shape[1])))))
+        if self.gene_pheno_Y is not None:
+            self.gene_pheno_Y = sparse.csc_matrix(sparse.hstack((self.gene_pheno_Y, sparse.csc_matrix((self.gene_pheno_Y.shape[0], num_added_phenos)))))
+        if self.gene_pheno_combined_prior_Ys is not None:
+            self.gene_pheno_combined_prior_Ys = sparse.csc_matrix(sparse.hstack((self.gene_pheno_combined_prior_Ys, sparse.csc_matrix((self.gene_pheno_combined_prior_Ys.shape[0], num_added_phenos)))))
+        if self.gene_pheno_priors is not None:
+            self.gene_pheno_priors = sparse.csc_matrix(sparse.hstack((self.gene_pheno_priors, sparse.csc_matrix((self.gene_pheno_priors.shape[0], num_added_phenos)))))
+
+    def _prepare_phewas_phenos_from_file(self, gene_phewas_bfs_in, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None):
+        if self.phenos is not None:
+            phenos = copy.copy(self.phenos)
+            pheno_to_ind = copy.copy(self.pheno_to_ind)
+        else:
+            phenos = []
+            pheno_to_ind = {}
+
+        self.num_gene_phewas_filtered = 0
+        with open_gz(gene_phewas_bfs_in) as gene_phewas_bfs_fh:
+            log("Fetching phenotypes to use", DEBUG)
+            header_cols = gene_phewas_bfs_fh.readline().strip('\n').split()
+            col_info = self._resolve_phewas_file_columns(
+                header_cols=header_cols,
+                gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+                gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+                gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+                gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+                gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+            )
+            id_col = col_info["id_col"]
+            pheno_col = col_info["pheno_col"]
+            bf_col = col_info["bf_col"]
+            combined_col = col_info["combined_col"]
+            prior_col = col_info["prior_col"]
+
+            for line in gene_phewas_bfs_fh:
+                cols = line.strip('\n').split()
+                if id_col >= len(cols) or pheno_col >= len(cols) or (bf_col is not None and bf_col >= len(cols)) or (combined_col is not None and combined_col >= len(cols)) or (prior_col is not None and prior_col >= len(cols)):
+                    warn("Skipping due to too few columns in line: %s" % line)
+                    continue
+
+                gene = cols[id_col]
+                if self.gene_label_map is not None and gene in self.gene_label_map:
+                    gene = self.gene_label_map[gene]
+                if gene not in self.gene_to_ind:
+                    continue
+
+                pheno = cols[pheno_col]
+                if pheno not in pheno_to_ind:
+                    pheno_to_ind[pheno] = len(phenos)
+                    phenos.append(pheno)
+
+        prior_num_phenos = len(self.phenos) if self.phenos is not None else 0
+        self._expand_phewas_state_for_added_phenos(len(phenos) - prior_num_phenos)
+        self.phenos = phenos
+        return phenos, _construct_map_to_ind(phenos), col_info
+
+    def _read_phewas_file_batch(self, gene_phewas_bfs_in, begin, cur_batch_size, pheno_to_ind, id_col, pheno_col, bf_col, combined_col, prior_col):
+        gene_pheno_Y = np.zeros((len(self.genes), cur_batch_size)) if bf_col is not None else None
+        gene_pheno_combined_prior_Ys = np.zeros((len(self.genes), cur_batch_size)) if combined_col is not None else None
+        gene_pheno_priors = np.zeros((len(self.genes), cur_batch_size)) if prior_col is not None else None
+
+        with open_gz(gene_phewas_bfs_in) as gene_phewas_bfs_fh:
+            for line in gene_phewas_bfs_fh:
+                cols = line.strip('\n').split()
+                if id_col >= len(cols) or pheno_col >= len(cols) or (bf_col is not None and bf_col >= len(cols)) or (combined_col is not None and combined_col >= len(cols)) or (prior_col is not None and prior_col >= len(cols)):
+                    warn("Skipping due to too few columns in line: %s" % line)
+                    continue
+
+                gene = cols[id_col]
+                if self.gene_label_map is not None and gene in self.gene_label_map:
+                    gene = self.gene_label_map[gene]
+                if gene not in self.gene_to_ind:
+                    continue
+
+                pheno = cols[pheno_col]
+                if pheno not in pheno_to_ind:
+                    continue
+                pheno_ind = pheno_to_ind[pheno] - begin
+                if pheno_ind < 0 or pheno_ind >= cur_batch_size:
+                    continue
+
+                gene_ind = self.gene_to_ind[gene]
+                if combined_col is not None:
+                    try:
+                        combined = float(cols[combined_col])
+                    except ValueError:
+                        if cols[combined_col] != "NA":
+                            warn("Skipping unconvertible value %s for gene %s" % (cols[combined_col], gene))
+                        continue
+                    gene_pheno_combined_prior_Ys[gene_ind, pheno_ind] = combined
+
+                if bf_col is not None:
+                    try:
+                        bf = float(cols[bf_col])
+                    except ValueError:
+                        if cols[bf_col] != "NA":
+                            warn("Skipping unconvertible value %s for gene %s and pheno %s" % (cols[bf_col], gene, pheno))
+                        continue
+                    gene_pheno_Y[gene_ind, pheno_ind] = bf
+
+                if prior_col is not None:
+                    try:
+                        prior = float(cols[prior_col])
+                    except ValueError:
+                        if cols[prior_col] != "NA":
+                            warn("Skipping unconvertible value %s for gene %s" % (cols[prior_col], gene))
+                        continue
+                    gene_pheno_priors[gene_ind, pheno_ind] = prior
+
+        return gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors
+
     def run_phewas(self, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, **kwargs):
 
         #require X matrix
@@ -7601,86 +7729,17 @@ class PigeanState(object):
         #first get the list of phenotypes
         read_file = gene_phewas_bfs_in is not None
 
-        id_col = None
-        pheno_col = None
-        bf_col = None
-        combined_col = None
-        prior_col = None
+        col_info = None
 
         if read_file:
-            if self.phenos is not None:
-                phenos = copy.copy(self.phenos)
-                pheno_to_ind = copy.copy(self.pheno_to_ind)
-            else:
-                phenos = []
-                pheno_to_ind = {}
-
-            self.num_gene_phewas_filtered = 0
-            with open_gz(gene_phewas_bfs_in) as gene_phewas_bfs_fh:
-                log("Fetching phenotypes to use", DEBUG)
-                header_cols = gene_phewas_bfs_fh.readline().strip('\n').split()
-                if gene_phewas_bfs_id_col is None:
-                    gene_phewas_bfs_id_col = "Gene"
-                if gene_phewas_bfs_pheno_col is None:
-                    gene_phewas_bfs_pheno_col = "Pheno"
-
-                id_col = _get_col(gene_phewas_bfs_id_col, header_cols)
-                pheno_col = _get_col(gene_phewas_bfs_pheno_col, header_cols)
-                if gene_phewas_bfs_log_bf_col is not None:
-                    bf_col = _get_col(gene_phewas_bfs_log_bf_col, header_cols)
-                else:
-                    bf_col = _get_col("log_bf", header_cols, False)
-
-                if gene_phewas_bfs_combined_col is not None:
-                    combined_col = _get_col(gene_phewas_bfs_combined_col, header_cols, True)
-                else:
-                    combined_col = _get_col("combined", header_cols, False)
-
-                prior_col = None
-                if gene_phewas_bfs_prior_col is not None:
-                    prior_col = _get_col(gene_phewas_bfs_prior_col, header_cols, True)
-                else:
-                    prior_col = _get_col("prior", header_cols, False)
-
-                for line in gene_phewas_bfs_fh:
-                    cols = line.strip('\n').split()
-                    if id_col >= len(cols) or pheno_col >= len(cols) or (bf_col is not None and bf_col >= len(cols)) or (combined_col is not None and combined_col >= len(cols)) or (prior_col is not None and prior_col >= len(cols)):
-                        warn("Skipping due to too few columns in line: %s" % line)
-                        continue
-
-                    gene = cols[id_col]
-                    if self.gene_label_map is not None and gene in self.gene_label_map:
-                        gene = self.gene_label_map[gene]
-
-                    if gene not in self.gene_to_ind:
-                        continue
-
-                    pheno = cols[pheno_col]
-
-                    if pheno not in pheno_to_ind:
-                        pheno_to_ind[pheno] = len(phenos)
-                        phenos.append(pheno)
-
-                #update what's stored internally
-                num_added_phenos = 0
-                if self.phenos is not None and len(self.phenos) < len(phenos):
-                    num_added_phenos = len(phenos) - len(self.phenos)
-
-                if num_added_phenos > 0:
-                    if self.X_phewas_beta is not None:
-                        self.X_phewas_beta = sparse.csc_matrix(sparse.vstack((self.X_phewas_beta, sparse.csc_matrix((num_added_phenos, self.X_phewas_beta.shape[1])))))
-                    if self.X_phewas_beta_uncorrected is not None:
-                        self.X_phewas_beta_uncorrected = sparse.csc_matrix(sparse.vstack((self.X_phewas_beta_uncorrected, sparse.csc_matrix((num_added_phenos, self.X_phewas_beta_uncorrected.shape[1])))))
-                    if self.gene_pheno_Y is not None:
-                        self.gene_pheno_Y = sparse.csc_matrix(sparse.hstack((self.gene_pheno_Y, sparse.csc_matrix((self.gene_pheno_Y.shape[0], num_added_phenos)))))
-                    if self.gene_pheno_combined_prior_Ys is not None:
-                        self.gene_pheno_combined_prior_Ys = sparse.csc_matrix(sparse.hstack((self.gene_pheno_combined_prior_Ys, sparse.csc_matrix((self.gene_pheno_combined_prior_Ys.shape[0], num_added_phenos)))))
-                    if self.gene_pheno_priors is not None:
-                        self.gene_pheno_priors = sparse.csc_matrix(sparse.hstack((self.gene_pheno_priors, sparse.csc_matrix((self.gene_pheno_priors.shape[0], num_added_phenos)))))
-
-                self.phenos = phenos
-                pheno_to_ind = _construct_map_to_ind(phenos)
-
+            phenos, pheno_to_ind, col_info = self._prepare_phewas_phenos_from_file(
+                gene_phewas_bfs_in=gene_phewas_bfs_in,
+                gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+                gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+                gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+                gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+                gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+            )
         else:
             phenos = self.phenos
 
@@ -7713,65 +7772,17 @@ class PigeanState(object):
             log("Processing phenos %d-%d" % (begin + 1, end))
 
             if read_file:
-                gene_pheno_Y = np.zeros((len(self.genes), cur_batch_size)) if bf_col is not None else None
-                gene_pheno_combined_prior_Ys = np.zeros((len(self.genes), cur_batch_size)) if combined_col is not None else None
-                gene_pheno_priors = np.zeros((len(self.genes), cur_batch_size)) if prior_col is not None else None
-
-                with open_gz(gene_phewas_bfs_in) as gene_phewas_bfs_fh:
-                    for line in gene_phewas_bfs_fh:
-                        cols = line.strip('\n').split()
-                        if id_col >= len(cols) or pheno_col >= len(cols) or (bf_col is not None and bf_col >= len(cols)) or (combined_col is not None and combined_col >= len(cols)) or (prior_col is not None and prior_col >= len(cols)):
-                            warn("Skipping due to too few columns in line: %s" % line)
-                            continue
-
-                        gene = cols[id_col]
-                        if self.gene_label_map is not None and gene in self.gene_label_map:
-                            gene = self.gene_label_map[gene]
-
-                        if gene not in self.gene_to_ind:
-                            continue
-
-                        gene_ind = self.gene_to_ind[gene]
-
-                        pheno = cols[pheno_col]
-
-                        if pheno not in pheno_to_ind:
-                            continue
-
-                        pheno_ind = pheno_to_ind[pheno] - begin
-                        if pheno_ind < 0 or pheno_ind >= cur_batch_size:
-                            continue
-
-
-                        if combined_col is not None:
-                            try:
-                                combined = float(cols[combined_col])
-                            except ValueError:
-                                if not cols[combined_col] == "NA":
-                                    warn("Skipping unconvertible value %s for gene %s" % (cols[combined_col], gene))
-                                continue
-
-                            gene_pheno_combined_prior_Ys[gene_ind,pheno_ind] = combined
-
-                        if bf_col is not None:
-                            try:
-                                bf = float(cols[bf_col])
-                            except ValueError:
-                                if not cols[bf_col] == "NA":
-                                    warn("Skipping unconvertible value %s for gene %s and pheno %s" % (cols[bf_col], gene, pheno))
-                                continue
-
-                            gene_pheno_Y[gene_ind,pheno_ind] = bf
-
-                        if prior_col is not None:
-                            try:
-                                prior = float(cols[prior_col])
-                            except ValueError:
-                                if not cols[prior_col] == "NA":
-                                    warn("Skipping unconvertible value %s for gene %s" % (cols[prior_col], gene))
-                                continue
-
-                            gene_pheno_prior[gene_ind,pheno_ind] = prior
+                gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors = self._read_phewas_file_batch(
+                    gene_phewas_bfs_in=gene_phewas_bfs_in,
+                    begin=begin,
+                    cur_batch_size=cur_batch_size,
+                    pheno_to_ind=pheno_to_ind,
+                    id_col=col_info["id_col"],
+                    pheno_col=col_info["pheno_col"],
+                    bf_col=col_info["bf_col"],
+                    combined_col=col_info["combined_col"],
+                    prior_col=col_info["prior_col"],
+                )
 
             else:
                 gene_pheno_Y = self.gene_pheno_Y[:,begin:end].toarray() if self.gene_pheno_Y is not None else None
