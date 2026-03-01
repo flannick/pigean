@@ -21,6 +21,7 @@ import json
 import tarfile
 import tempfile
 import re
+from dataclasses import dataclass, field
 import scipy
 import scipy.sparse as sparse
 import scipy.stats
@@ -23199,9 +23200,62 @@ def _configure_hyperparameters_for_main(state, options):
 
     return sigma2_cond
 
+@dataclass
+class YPrimaryInputsContract:
+    gwas_in: str | None = None
+    huge_statistics_in: str | None = None
+    exomes_in: str | None = None
+    positive_controls_in: str | None = None
+    positive_controls_list: list | None = None
+    case_counts_in: str | None = None
 
-def _build_main_read_y_source_kwargs(options):
-    return dict(
+    def has_any_source(self) -> bool:
+        return any([
+            self.gwas_in is not None,
+            self.huge_statistics_in is not None,
+            self.exomes_in is not None,
+            self.positive_controls_in is not None,
+            self.positive_controls_list is not None,
+            self.case_counts_in is not None,
+        ])
+
+    def has_only_positive_controls(self) -> bool:
+        return (
+            self.positive_controls_in is not None
+            or self.positive_controls_list is not None
+        ) and (
+            self.gwas_in is None
+            and self.huge_statistics_in is None
+            and self.exomes_in is None
+            and self.case_counts_in is None
+        )
+
+
+@dataclass
+class YReadContract:
+    primary_inputs: YPrimaryInputsContract = field(default_factory=YPrimaryInputsContract)
+    read_kwargs: dict = field(default_factory=dict)
+
+    def has_any_source(self) -> bool:
+        return self.primary_inputs.has_any_source()
+
+    def has_only_positive_controls(self) -> bool:
+        return self.primary_inputs.has_only_positive_controls()
+
+    def to_read_kwargs(self) -> dict:
+        return dict(self.read_kwargs)
+
+
+def _build_main_y_read_contract(options):
+    primary_inputs = YPrimaryInputsContract(
+        gwas_in=options.gwas_in,
+        huge_statistics_in=options.huge_statistics_in,
+        exomes_in=options.exomes_in,
+        positive_controls_in=options.positive_controls_in,
+        positive_controls_list=options.positive_controls_list,
+        case_counts_in=options.case_counts_in,
+    )
+    read_kwargs = dict(
         gwas_in=options.gwas_in,
         huge_statistics_in=options.huge_statistics_in,
         huge_statistics_out=options.huge_statistics_out,
@@ -23302,6 +23356,7 @@ def _build_main_read_y_source_kwargs(options):
         credible_sets_pos_col=options.credible_sets_pos_col,
         credible_sets_ppa_col=options.credible_sets_ppa_col,
     )
+    return YReadContract(primary_inputs=primary_inputs, read_kwargs=read_kwargs)
 
 
 def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
@@ -23475,6 +23530,8 @@ def _load_main_Y_inputs(state, options, mode_state):
     if not _mode_requires_gene_scores(mode_state):
         return True
 
+    y_read_contract = _build_main_y_read_contract(options)
+
     if options.gene_stats_in:
         state.read_Y(
             gene_bfs_in=options.gene_stats_in,
@@ -23489,24 +23546,12 @@ def _load_main_Y_inputs(state, options, mode_state):
         )
         return False
 
-    if (
-        options.gwas_in
-        or options.huge_statistics_in
-        or options.exomes_in
-        or options.positive_controls_in
-        or options.positive_controls_list is not None
-        or options.case_counts_in is not None
-    ):
-        if (
-            options.gwas_in is None
-            and options.huge_statistics_in is None
-            and options.exomes_in is None
-            and options.case_counts_in is None
-        ):
+    if y_read_contract.has_any_source():
+        if y_read_contract.has_only_positive_controls():
             options.ols = True
             if options.positive_controls_all_in is None and not options.add_all_genes:
                 bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
-        state.read_Y(**_build_main_read_y_source_kwargs(options))
+        state.read_Y(**y_read_contract.to_read_kwargs())
         return False
 
     if _load_advanced_set_b_y_inputs(state, options):
