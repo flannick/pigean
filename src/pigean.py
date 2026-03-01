@@ -13403,50 +13403,48 @@ def _read_primary_y_source(
     gene_combined_map = None
     gene_prior_map = None
 
-    # Read primary HuGE/gene-level signal source.
-    if huge_statistics_in is not None:
-        if gwas_in is not None:
-            warn("Both --gwas-in and --huge-statistics-in were passed; using --huge-statistics-in")
-        (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = runtime_state.read_huge_statistics(huge_statistics_in)
-        missing_value = 0
-    elif gwas_in is not None:
-        (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = runtime_state.calculate_huge_scores_gwas(
-            gwas_in,
-            gene_loc_file=gene_loc_file,
-            hold_out_chrom=hold_out_chrom,
-            **kwargs
-        )
-        if huge_statistics_out is not None:
-            runtime_state.write_huge_statistics(huge_statistics_out, Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression)
-        missing_value = 0
-    else:
-        runtime_state.huge_signal_bfs = None
-        runtime_state.huge_signal_bfs_for_regression = None
+    huge_or_gwas_source = _read_primary_huge_or_gwas_source(
+        runtime_state,
+        huge_statistics_in=huge_statistics_in,
+        gwas_in=gwas_in,
+        huge_statistics_out=huge_statistics_out,
+        gene_loc_file=gene_loc_file,
+        hold_out_chrom=hold_out_chrom,
+        **kwargs,
+    )
 
-        if gene_bfs_in is not None:
-            (Y1, extra_genes, extra_Y, gene_combined_map, gene_prior_map) = runtime_state.read_gene_bfs(
-                gene_bfs_in,
-                **kwargs
-            )
-        elif exomes_in is not None:
-            (Y1, extra_genes, extra_Y) = (np.zeros(Y1_exomes.shape), [], [])
-        elif positive_controls_in is not None or positive_controls_list is not None:
-            (Y1, extra_genes, extra_Y) = (np.zeros(Y1_positive_controls.shape), [], [])
-        elif case_counts_in is not None:
-            (Y1, extra_genes, extra_Y) = (np.zeros(Y1_case_counts.shape), [], [])
-        else:
-            bail("Need to specify either gene_bfs_in or exomes_in or positive_controls_in or case_counts_in")
-
-        (Y1, extra_genes, extra_Y) = _apply_hold_out_chrom_to_y(
-            runtime_state,
+    if huge_or_gwas_source is not None:
+        (
             Y1,
             extra_genes,
             extra_Y,
+            Y1_for_regression,
+            extra_Y_for_regression,
+            missing_value,
+        ) = huge_or_gwas_source
+    else:
+        (
+            Y1,
+            extra_genes,
+            extra_Y,
+            Y1_for_regression,
+            extra_Y_for_regression,
+            gene_combined_map,
+            gene_prior_map,
+        ) = _read_primary_non_huge_source(
+            runtime_state,
+            gene_bfs_in=gene_bfs_in,
+            exomes_in=exomes_in,
+            positive_controls_in=positive_controls_in,
+            positive_controls_list=positive_controls_list,
+            case_counts_in=case_counts_in,
+            Y1_exomes=Y1_exomes,
+            Y1_positive_controls=Y1_positive_controls,
+            Y1_case_counts=Y1_case_counts,
             hold_out_chrom=hold_out_chrom,
             gene_loc_file=gene_loc_file,
+            **kwargs,
         )
-        Y1_for_regression = copy.copy(Y1)
-        extra_Y_for_regression = copy.copy(extra_Y)
 
     return (
         Y1,
@@ -13455,6 +13453,91 @@ def _read_primary_y_source(
         Y1_for_regression,
         extra_Y_for_regression,
         missing_value,
+        gene_combined_map,
+        gene_prior_map,
+    )
+
+
+def _read_primary_huge_or_gwas_source(
+    runtime_state,
+    huge_statistics_in=None,
+    gwas_in=None,
+    huge_statistics_out=None,
+    gene_loc_file=None,
+    hold_out_chrom=None,
+    **kwargs,
+):
+    # Read primary HuGE/gene-level signal from cached statistics or raw GWAS.
+    if huge_statistics_in is not None:
+        if gwas_in is not None:
+            warn("Both --gwas-in and --huge-statistics-in were passed; using --huge-statistics-in")
+        (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = runtime_state.read_huge_statistics(huge_statistics_in)
+        return (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression, 0)
+
+    if gwas_in is None:
+        return None
+
+    (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = runtime_state.calculate_huge_scores_gwas(
+        gwas_in,
+        gene_loc_file=gene_loc_file,
+        hold_out_chrom=hold_out_chrom,
+        **kwargs
+    )
+    if huge_statistics_out is not None:
+        runtime_state.write_huge_statistics(huge_statistics_out, Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression)
+    return (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression, 0)
+
+
+def _read_primary_non_huge_source(
+    runtime_state,
+    gene_bfs_in=None,
+    exomes_in=None,
+    positive_controls_in=None,
+    positive_controls_list=None,
+    case_counts_in=None,
+    Y1_exomes=None,
+    Y1_positive_controls=None,
+    Y1_case_counts=None,
+    hold_out_chrom=None,
+    gene_loc_file=None,
+    **kwargs,
+):
+    runtime_state.huge_signal_bfs = None
+    runtime_state.huge_signal_bfs_for_regression = None
+
+    gene_combined_map = None
+    gene_prior_map = None
+    if gene_bfs_in is not None:
+        (Y1, extra_genes, extra_Y, gene_combined_map, gene_prior_map) = runtime_state.read_gene_bfs(
+            gene_bfs_in,
+            **kwargs
+        )
+    elif exomes_in is not None:
+        (Y1, extra_genes, extra_Y) = (np.zeros(Y1_exomes.shape), [], [])
+    elif positive_controls_in is not None or positive_controls_list is not None:
+        (Y1, extra_genes, extra_Y) = (np.zeros(Y1_positive_controls.shape), [], [])
+    elif case_counts_in is not None:
+        (Y1, extra_genes, extra_Y) = (np.zeros(Y1_case_counts.shape), [], [])
+    else:
+        bail("Need to specify either gene_bfs_in or exomes_in or positive_controls_in or case_counts_in")
+
+    (Y1, extra_genes, extra_Y) = _apply_hold_out_chrom_to_y(
+        runtime_state,
+        Y1,
+        extra_genes,
+        extra_Y,
+        hold_out_chrom=hold_out_chrom,
+        gene_loc_file=gene_loc_file,
+    )
+    Y1_for_regression = copy.copy(Y1)
+    extra_Y_for_regression = copy.copy(extra_Y)
+
+    return (
+        Y1,
+        extra_genes,
+        extra_Y,
+        Y1_for_regression,
+        extra_Y_for_regression,
         gene_combined_map,
         gene_prior_map,
     )
