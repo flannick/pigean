@@ -11250,19 +11250,15 @@ class PigeanState(object):
                     norm_scale_m=norm_scale_m,
                 )
 
-            if sparse_solution:
-                sparse_mask_t = curr_postp_t < ps_m
-
-                if sparse_frac_betas is not None:
-                    #zero out very small values relative to top or median
-                    relative_value = np.max(np.abs(curr_post_means_t), axis=2)
-                    sparse_mask_t = np.logical_or(sparse_mask_t, (np.abs(curr_post_means_t).T < sparse_frac_betas * relative_value.T).T)
-
-                #don't set anything not currently computed
-                sparse_mask_t[:,np.logical_not(compute_mask_v),:] = False
-                log("Setting %d entries to zero due to sparsity" % (np.sum(np.logical_and(sparse_mask_t, curr_betas_t > 0))), TRACE)
-                curr_betas_t[sparse_mask_t] = 0
-                curr_post_means_t[sparse_mask_t] = 0
+            _apply_inner_beta_sparsity_update(
+                sparse_solution=sparse_solution,
+                sparse_frac_betas=sparse_frac_betas,
+                curr_postp_t=curr_postp_t,
+                ps_m=ps_m,
+                curr_post_means_t=curr_post_means_t,
+                curr_betas_t=curr_betas_t,
+                compute_mask_v=compute_mask_v,
+            )
 
             curr_betas_m = np.mean(curr_post_means_t, axis=0)
             curr_postp_m = np.mean(curr_postp_t, axis=0)
@@ -11645,16 +11641,26 @@ class PigeanState(object):
                             ps_m *= new_p / np.mean(ps_m)
 
             if betas_trace_out is not None:
-                for parallel_num in range(num_parallel):
-                    for chain_num in range(num_chains):
-                        for i in range(num_gene_sets):
-                            gene_set = i
-                            if betas_trace_gene_sets is not None and len(betas_trace_gene_sets) == num_gene_sets:
-                                gene_set = betas_trace_gene_sets[i]
-
-                            betas_trace_fh.write("%d\t%d\t%d\t%s\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\n" % (iteration_num, parallel_num+1, chain_num+1, gene_set, curr_post_means_t[chain_num,parallel_num,i] / scale_factors_m[parallel_num,i], curr_betas_t[chain_num,parallel_num,i] / scale_factors_m[parallel_num,i], curr_postp_t[chain_num,parallel_num,i], res_beta_hat_t[chain_num,parallel_num,i] / scale_factors_m[parallel_num,i], beta_tildes_m[parallel_num,i] / scale_factors_m[parallel_num,i], curr_betas_t[chain_num,parallel_num,i], res_beta_hat_t[chain_num,parallel_num,i], beta_tildes_m[parallel_num,i], ses_m[parallel_num,i], sigma2_m[parallel_num,i] if len(np.shape(sigma2_m)) > 0 else sigma2_m, ps_m[parallel_num,i] if len(np.shape(ps_m)) > 0 else ps_m, R_m[parallel_num,i], R_m[parallel_num,i] * beta_weights_m[parallel_num,i], sem2_m[parallel_num, i]))
-
-                betas_trace_fh.flush()
+                _write_inner_beta_trace_rows(
+                    betas_trace_fh=betas_trace_fh,
+                    iteration_num=iteration_num,
+                    num_parallel=num_parallel,
+                    num_chains=num_chains,
+                    num_gene_sets=num_gene_sets,
+                    betas_trace_gene_sets=betas_trace_gene_sets,
+                    curr_post_means_t=curr_post_means_t,
+                    curr_betas_t=curr_betas_t,
+                    curr_postp_t=curr_postp_t,
+                    res_beta_hat_t=res_beta_hat_t,
+                    scale_factors_m=scale_factors_m,
+                    beta_tildes_m=beta_tildes_m,
+                    ses_m=ses_m,
+                    sigma2_m=sigma2_m,
+                    ps_m=ps_m,
+                    R_m=R_m,
+                    beta_weights_m=beta_weights_m,
+                    sem2_m=sem2_m,
+                )
 
             if will_break:
                 break
@@ -18513,6 +18519,99 @@ def _prepare_stall_indices(mask_v, fallback_scores_v, fallback_k):
 
 def _means_from_sums(sum_m, num_sum_m):
     return np.divide(sum_m, np.maximum(num_sum_m, 1.0))
+
+
+def _apply_inner_beta_sparsity_update(
+    sparse_solution,
+    sparse_frac_betas,
+    curr_postp_t,
+    ps_m,
+    curr_post_means_t,
+    curr_betas_t,
+    compute_mask_v,
+):
+    if not sparse_solution:
+        return
+
+    sparse_mask_t = curr_postp_t < ps_m
+    if sparse_frac_betas is not None:
+        # Zero out very small values relative to the top within each chain/parallel slice.
+        relative_value = np.max(np.abs(curr_post_means_t), axis=2)
+        sparse_mask_t = np.logical_or(
+            sparse_mask_t,
+            (np.abs(curr_post_means_t).T < sparse_frac_betas * relative_value.T).T,
+        )
+
+    # Do not sparsify slices that are currently outside the compute mask.
+    sparse_mask_t[:, np.logical_not(compute_mask_v), :] = False
+    log(
+        "Setting %d entries to zero due to sparsity"
+        % np.sum(np.logical_and(sparse_mask_t, curr_betas_t > 0)),
+        TRACE,
+    )
+    curr_betas_t[sparse_mask_t] = 0
+    curr_post_means_t[sparse_mask_t] = 0
+
+
+def _write_inner_beta_trace_rows(
+    betas_trace_fh,
+    iteration_num,
+    num_parallel,
+    num_chains,
+    num_gene_sets,
+    betas_trace_gene_sets,
+    curr_post_means_t,
+    curr_betas_t,
+    curr_postp_t,
+    res_beta_hat_t,
+    scale_factors_m,
+    beta_tildes_m,
+    ses_m,
+    sigma2_m,
+    ps_m,
+    R_m,
+    beta_weights_m,
+    sem2_m,
+):
+    for parallel_num in range(num_parallel):
+        for chain_num in range(num_chains):
+            for gene_set_idx in range(num_gene_sets):
+                gene_set = gene_set_idx
+                if betas_trace_gene_sets is not None and len(betas_trace_gene_sets) == num_gene_sets:
+                    gene_set = betas_trace_gene_sets[gene_set_idx]
+
+                betas_trace_fh.write(
+                    "%d\t%d\t%d\t%s\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\t%.4g\n"
+                    % (
+                        iteration_num,
+                        parallel_num + 1,
+                        chain_num + 1,
+                        gene_set,
+                        curr_post_means_t[chain_num, parallel_num, gene_set_idx]
+                        / scale_factors_m[parallel_num, gene_set_idx],
+                        curr_betas_t[chain_num, parallel_num, gene_set_idx]
+                        / scale_factors_m[parallel_num, gene_set_idx],
+                        curr_postp_t[chain_num, parallel_num, gene_set_idx],
+                        res_beta_hat_t[chain_num, parallel_num, gene_set_idx]
+                        / scale_factors_m[parallel_num, gene_set_idx],
+                        beta_tildes_m[parallel_num, gene_set_idx]
+                        / scale_factors_m[parallel_num, gene_set_idx],
+                        curr_betas_t[chain_num, parallel_num, gene_set_idx],
+                        res_beta_hat_t[chain_num, parallel_num, gene_set_idx],
+                        beta_tildes_m[parallel_num, gene_set_idx],
+                        ses_m[parallel_num, gene_set_idx],
+                        sigma2_m[parallel_num, gene_set_idx]
+                        if len(np.shape(sigma2_m)) > 0
+                        else sigma2_m,
+                        ps_m[parallel_num, gene_set_idx] if len(np.shape(ps_m)) > 0 else ps_m,
+                        R_m[parallel_num, gene_set_idx],
+                        R_m[parallel_num, gene_set_idx]
+                        * beta_weights_m[parallel_num, gene_set_idx],
+                        sem2_m[parallel_num, gene_set_idx],
+                    )
+                )
+
+    betas_trace_fh.flush()
 
 
 def _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, num):
