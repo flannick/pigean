@@ -1766,6 +1766,9 @@ class PigeanState(object):
             **kwargs
         )
 
+    def read_Y_contract(self, y_read_contract):
+        return _read_Y_from_contract(self, y_read_contract)
+
 
     def read_X(self, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=None, skip_V=True, force_reread=False, min_gene_set_size=1, max_gene_set_size=30000, only_ids=None, only_inc_genes=None, fraction_inc_genes=None, add_all_genes=False, prune_gene_sets=0.8, weighted_prune_gene_sets=None, prune_deterministically=False, x_sparsify=[50,100,200,500,1000], add_ext=False, add_top=True, add_bottom=True, filter_negative=True, threshold_weights=0.5, cap_weights=True, permute_gene_sets=False, max_gene_set_p=None, filter_gene_set_p=1, filter_using_phewas=False, increase_filter_gene_set_p=0.01, max_num_gene_sets_initial=None, max_num_gene_sets=None, max_num_gene_sets_hyper=None, skip_betas=False, run_logistic=True, max_for_linear=0.95, filter_gene_set_metric_z=2.5, initial_p=0.01, xin_to_p_noninf_ind=None, initial_sigma2=1e-3, initial_sigma2_cond=None, sigma_power=0, sigma_soft_threshold_95=None, sigma_soft_threshold_5=None, run_gls=False, run_corrected_ols=False, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, update_hyper_p=False, update_hyper_sigma=False, batch_all_for_hyper=False, first_for_hyper=False, first_max_p_for_hyper=False, first_for_sigma_cond=False, sigma_num_devs_to_top=2.0, p_noninf_inflate=1, batch_separator="@", ignore_genes=set(["NA"]), file_separator=None, max_num_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=10, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, max_allowed_batch_correlation=None, sparse_solution=False, sparse_frac_betas=None, betas_trace_out=None, show_progress=True, max_num_entries_at_once=None):
 
@@ -12335,6 +12338,13 @@ def _read_gene_map(runtime_state, gene_map_in, gene_map_orig_gene_col=1, gene_ma
 def _set_const_Y(runtime_state, value):
     const_Y = np.full(len(runtime_state.genes), value)
     runtime_state._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
+
+def _read_Y_from_contract(runtime_state, y_read_contract):
+    if y_read_contract is None:
+        bail("Bug in code: y_read_contract must be non-None")
+    if not hasattr(y_read_contract, "to_read_kwargs"):
+        bail("Bug in code: y_read_contract must provide to_read_kwargs()")
+    return _read_Y(runtime_state, **y_read_contract.to_read_kwargs())
 
 
 def _read_Y(
@@ -23200,6 +23210,12 @@ def _configure_hyperparameters_for_main(state, options):
 
     return sigma2_cond
 
+# --------------------------------------------------------------------------
+# Main-pipeline Y input contract.
+# This keeps source detection and read_Y kwargs assembly in one structured
+# object so mode dispatch can reason about "what Y sources are present"
+# without re-encoding ad-hoc option checks.
+# --------------------------------------------------------------------------
 @dataclass
 class YPrimaryInputsContract:
     gwas_in: str | None = None
@@ -23551,7 +23567,7 @@ def _load_main_Y_inputs(state, options, mode_state):
             options.ols = True
             if options.positive_controls_all_in is None and not options.add_all_genes:
                 bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
-        state.read_Y(**y_read_contract.to_read_kwargs())
+        state.read_Y_contract(y_read_contract)
         return False
 
     if _load_advanced_set_b_y_inputs(state, options):
