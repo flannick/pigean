@@ -7003,20 +7003,13 @@ class PigeanState(object):
             num_chains=num_chains,
             top_gene_prior=top_gene_prior,
         )
-        y_var_orig = gibbs_inputs["y_var_orig"]
-        log_bf_m = gibbs_inputs["log_bf_m"]
-        log_bf_uncorrected_m = gibbs_inputs["log_bf_uncorrected_m"]
-        log_bf_raw_m = gibbs_inputs["log_bf_raw_m"]
-        compute_Y_raw = gibbs_inputs["compute_Y_raw"]
-        cur_background_log_bf_v = gibbs_inputs["cur_background_log_bf_v"]
-        num_full_gene_sets = gibbs_inputs["num_full_gene_sets"]
 
         epoch_aggregates = _new_gibbs_epoch_aggregates()
         epoch_runtime_configs = _build_gibbs_epoch_runtime_configs(
             _build_gibbs_epoch_runtime_config_inputs(
                 gibbs_controls,
                 {
-                    "num_full_gene_sets": num_full_gene_sets,
+                    "num_full_gene_sets": gibbs_inputs["num_full_gene_sets"],
                     "use_mean_betas": use_mean_betas,
                     "max_mb_X_h": max_mb_X_h,
                     "num_mad": num_mad,
@@ -7037,7 +7030,7 @@ class PigeanState(object):
                     "num_batches_parallel": num_batches_parallel,
                     "betas_trace_out": betas_trace_out,
                     "update_huge_scores": update_huge_scores,
-                    "compute_Y_raw": compute_Y_raw,
+                    "compute_Y_raw": gibbs_inputs["compute_Y_raw"],
                     "sparse_frac_gibbs": sparse_frac_gibbs,
                     "sparse_max_gibbs": sparse_max_gibbs,
                     "pre_filter_batch_size": pre_filter_batch_size,
@@ -7051,8 +7044,8 @@ class PigeanState(object):
                     "initial_linear_filter": initial_linear_filter,
                     "correct_betas_mean": correct_betas_mean,
                     "correct_betas_var": correct_betas_var,
-                    "cur_background_log_bf_v": cur_background_log_bf_v,
-                    "y_var_orig": y_var_orig,
+                    "cur_background_log_bf_v": gibbs_inputs["cur_background_log_bf_v"],
+                    "y_var_orig": gibbs_inputs["y_var_orig"],
                 },
             )
         )
@@ -7071,9 +7064,9 @@ class PigeanState(object):
                 epoch_iteration_static_config=epoch_iteration_static_config,
                 gene_set_stats_trace_fh=gene_set_stats_trace_fh,
                 gene_stats_trace_fh=gene_stats_trace_fh,
-                log_bf_m=log_bf_m,
-                log_bf_uncorrected_m=log_bf_uncorrected_m,
-                log_bf_raw_m=log_bf_raw_m,
+                log_bf_m=gibbs_inputs["log_bf_m"],
+                log_bf_uncorrected_m=gibbs_inputs["log_bf_uncorrected_m"],
+                log_bf_raw_m=gibbs_inputs["log_bf_raw_m"],
             )
 
         if run_state["num_completed_epochs"] == 0:
