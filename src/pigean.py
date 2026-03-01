@@ -2071,28 +2071,16 @@ class PigeanState(object):
                     z_scores=z_scores,
                 )
 
-                p_value_mask = p_values <= filter_gene_set_p
-                if filter_using_phewas:
-                    p_value_mask = np.logical_or(p_value_mask, np.any(p_values_phewas <= filter_gene_set_p, axis=0))
-
-                if increase_filter_gene_set_p is not None and np.mean(p_value_mask) < increase_filter_gene_set_p:
-                    #choose a new more lenient threshold
-                    p_from_quantile = np.quantile(p_values, increase_filter_gene_set_p)
-                    log("Choosing revised p threshold %.3g to ensure keeping %.3g fraction of gene sets" % (p_from_quantile, increase_filter_gene_set_p), DEBUG)
-                    p_value_mask = p_values <= p_from_quantile
-                    if filter_using_phewas:
-                        p_value_mask = np.logical_or(p_value_mask, np.any(p_values_phewas <= p_from_quantile, axis=1))
-
-                    if np.sum(~p_value_mask) > 0:
-                        log("Ignoring %d gene sets due to p-value filters" % (np.sum(~p_value_mask)))
-
-                if filter_negative:
-                    negative_beta_tildes_mask = beta_tildes < 0
-                    if filter_using_phewas:
-                        negative_beta_tildes_mask = np.logical_and(negative_beta_tildes_mask, np.all(beta_tildes_phewas <0, axis=0))                        
-                    p_value_mask = np.logical_and(p_value_mask, ~negative_beta_tildes_mask)
-                    if np.sum(negative_beta_tildes_mask) > 0:
-                        log("Ignoring %d gene sets due to negative beta filters" % (np.sum(negative_beta_tildes_mask)))
+                p_value_mask = _build_prefilter_keep_mask(
+                    p_values,
+                    beta_tildes=beta_tildes,
+                    filter_gene_set_p=filter_gene_set_p,
+                    filter_using_phewas=filter_using_phewas,
+                    p_values_phewas=p_values_phewas if filter_using_phewas else None,
+                    beta_tildes_phewas=beta_tildes_phewas if filter_using_phewas else None,
+                    increase_filter_gene_set_p=increase_filter_gene_set_p,
+                    filter_negative=filter_negative,
+                )
 
                 p_value_ignore = np.full(len(p_value_mask), False)
                 if filter_gene_set_p < 1 or filter_gene_set_metric_z is not None:
@@ -14843,6 +14831,46 @@ def _align_prefilter_gene_set_signs(cur_X, beta_tildes, z_scores):
             z_scores[flip_mask] = -z_scores[flip_mask]
             cur_X[:, flip_mask] = -cur_X[:, flip_mask]
     return (cur_X, beta_tildes, z_scores)
+
+
+def _build_prefilter_keep_mask(
+    p_values,
+    beta_tildes,
+    filter_gene_set_p,
+    filter_using_phewas=False,
+    p_values_phewas=None,
+    beta_tildes_phewas=None,
+    increase_filter_gene_set_p=None,
+    filter_negative=True,
+):
+    p_value_mask = p_values <= filter_gene_set_p
+    if filter_using_phewas:
+        p_value_mask = np.logical_or(p_value_mask, np.any(p_values_phewas <= filter_gene_set_p, axis=0))
+
+    if increase_filter_gene_set_p is not None and np.mean(p_value_mask) < increase_filter_gene_set_p:
+        # Choose a new more lenient threshold.
+        p_from_quantile = np.quantile(p_values, increase_filter_gene_set_p)
+        log(
+            "Choosing revised p threshold %.3g to ensure keeping %.3g fraction of gene sets"
+            % (p_from_quantile, increase_filter_gene_set_p),
+            DEBUG,
+        )
+        p_value_mask = p_values <= p_from_quantile
+        if filter_using_phewas:
+            p_value_mask = np.logical_or(p_value_mask, np.any(p_values_phewas <= p_from_quantile, axis=1))
+
+        if np.sum(~p_value_mask) > 0:
+            log("Ignoring %d gene sets due to p-value filters" % (np.sum(~p_value_mask)))
+
+    if filter_negative:
+        negative_beta_tildes_mask = beta_tildes < 0
+        if filter_using_phewas:
+            negative_beta_tildes_mask = np.logical_and(negative_beta_tildes_mask, np.all(beta_tildes_phewas < 0, axis=0))
+        p_value_mask = np.logical_and(p_value_mask, ~negative_beta_tildes_mask)
+        if np.sum(negative_beta_tildes_mask) > 0:
+            log("Ignoring %d gene sets due to negative beta filters" % (np.sum(negative_beta_tildes_mask)))
+
+    return p_value_mask
 
 
 def _ensure_gene_universe_for_x(
