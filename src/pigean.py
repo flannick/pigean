@@ -11291,34 +11291,9 @@ class PigeanState(object):
                         log("Converged after %d iterations" % (iteration_num+1), INFO)
                 prev_betas_m = curr_betas_m
             elif iteration_num > min_num_iter and np.sum(burn_in_phase_v) > 0:
-                def __calculate_R_tensor(sum_t, sum2_t, num):
-
-                    #mean of betas across all iterations; psi_dot_j
-                    mean_t = sum_t / float(num)
-
-                    #mean of betas across replicates; psi_dot_dot
-                    mean_m = np.mean(mean_t, axis=0)
-                    #variances of betas across all iterators; s_j
-                    var_t = (sum2_t - float(num) * np.power(mean_t, 2)) / (float(num) - 1)
-                    #B_v = (float(iteration_num) / (num_chains - 1)) * np.apply_along_axis(np.sum, 0, np.apply_along_axis(lambda x: np.power(x - mean_betas_v, 2), 1, mean_betas_m))
-                    B_m = (float(num) / (mean_t.shape[0] - 1)) * np.sum(np.power(mean_t - mean_m, 2), axis=0)
-                    W_m = (1.0 / float(mean_t.shape[0])) * np.sum(var_t, axis=0)
-                    avg_W_m = (1.0 / float(mean_t.shape[2])) * np.sum(var_t, axis=2)
-                    var_given_y_m = np.add((float(num) - 1) / float(num) * W_m, (1.0 / float(num)) * B_m)
-                    var_given_y_m[var_given_y_m < 0] = 0
-
-                    R_m = np.ones(W_m.shape)
-                    R_non_zero_mask_m = W_m > 0
-
-                    var_given_y_m[var_given_y_m < 0] = 0
-
-                    R_m[R_non_zero_mask_m] = np.sqrt(var_given_y_m[R_non_zero_mask_m] / W_m[R_non_zero_mask_m])
-                    
-                    return (B_m, W_m, R_m, avg_W_m, mean_t)
-
                 #these matrices have convergence statistics in format (num_parallel, num_gene_sets)
                 #WARNING: only the results for compute_mask_v are valid
-                (B_m, W_m, R_m, avg_W_m, mean_t) = __calculate_R_tensor(sum_betas_t, sum_betas2_t, iteration_num)
+                (B_m, W_m, R_m, avg_W_m, mean_t) = _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, iteration_num)
 
                 beta_weights_m = np.zeros((sum_betas_t.shape[1], sum_betas_t.shape[2]))
                 sum_betas_t_mean = np.mean(sum_betas_t)
@@ -11719,7 +11694,6 @@ class PigeanState(object):
             printed_warning_swing = False
 
         return (avg_betas_m, avg_postp_m)
-
 
     #store Y value
     #Y is whitened if Y_corr_m is not null
@@ -18539,6 +18513,31 @@ def _prepare_stall_indices(mask_v, fallback_scores_v, fallback_k):
 
 def _means_from_sums(sum_m, num_sum_m):
     return np.divide(sum_m, np.maximum(num_sum_m, 1.0))
+
+
+def _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, num):
+    num_chains = sum_betas_t.shape[0]
+    num_parallel = sum_betas_t.shape[1]
+    num_gene_sets = sum_betas_t.shape[2]
+
+    mean_t = sum_betas_t / float(max(num, 1))
+    if num <= 1:
+        ones_m = np.ones((num_parallel, num_gene_sets))
+        avg_W_m = np.ones((num_chains, num_parallel))
+        return (ones_m, ones_m, ones_m, avg_W_m, mean_t)
+
+    mean_m = np.mean(mean_t, axis=0)
+    var_t = (sum_betas2_t - float(num) * np.square(mean_t)) / (float(num) - 1)
+    b_denom = max(num_chains - 1, 1)
+    B_m = (float(num) / float(b_denom)) * np.sum(np.square(mean_t - mean_m), axis=0)
+    W_m = np.mean(var_t, axis=0)
+    var_given_y_m = np.add((float(num) - 1) / float(num) * W_m, (1.0 / float(num)) * B_m)
+    var_given_y_m[var_given_y_m < 0] = 0
+    R_m = np.ones((num_parallel, num_gene_sets))
+    R_non_zero_mask = W_m > 0
+    R_m[R_non_zero_mask] = np.sqrt(var_given_y_m[R_non_zero_mask] / W_m[R_non_zero_mask])
+    avg_W_m = np.mean(var_t, axis=2)
+    return (B_m, W_m, R_m, avg_W_m, mean_t)
 
 
 def _calculate_rhat_from_sums(sum_m, sum2_m, num):
