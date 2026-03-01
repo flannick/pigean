@@ -1890,49 +1890,27 @@ class PigeanState(object):
 
             log("Reading X %d of %d from --X-in file %s" % (i+1,len(X_ins),X_in), INFO)
 
-            num_too_small = 0
-
-            genes = []
-            gene_sets = []
-            cur_X = None
-
-            ignored_for_fraction_inc = 0
-
-            if is_dense[i]:
-                processed_dense = _process_dense_x_file(
-                    self,
-                    X_in=X_in,
-                    tag=tag,
-                    only_ids=only_ids,
-                    x_sparsify=x_sparsify,
-                    batch_value=batches[i],
-                    label_value=labels[i],
-                    initial_p_value=initial_ps[i] if initial_ps is not None else None,
-                    num_ignored_gene_sets=num_ignored_gene_sets,
-                    input_index=i,
-                    add_to_x_fn=__add_to_X,
-                )
-                if not processed_dense:
-                    continue
-
-            else:
-                num_too_small, ignored_for_fraction_inc = _process_sparse_x_file(
-                    self,
-                    X_in=X_in,
-                    tag=tag,
-                    only_ids=only_ids,
-                    min_gene_set_size=min_gene_set_size,
-                    only_inc_genes=only_inc_genes,
-                    fraction_inc_genes=fraction_inc_genes,
-                    ignore_genes=ignore_genes,
-                    max_num_entries_at_once=max_num_entries_at_once,
-                    batch_value=batches[i],
-                    label_value=labels[i],
-                    initial_p_value=initial_ps[i] if initial_ps is not None else None,
-                    num_ignored_gene_sets=num_ignored_gene_sets,
-                    input_index=i,
-                    add_to_x_fn=__add_to_X,
-                )
+            num_too_small, ignored_for_fraction_inc, processed_input = _process_x_input_file(
+                self,
+                X_in=X_in,
+                tag=tag,
+                is_dense_input=is_dense[i],
+                only_ids=only_ids,
+                x_sparsify=x_sparsify,
+                batch_value=batches[i],
+                label_value=labels[i],
+                initial_p_value=initial_ps[i] if initial_ps is not None else None,
+                num_ignored_gene_sets=num_ignored_gene_sets,
+                input_index=i,
+                add_to_x_fn=__add_to_X,
+                min_gene_set_size=min_gene_set_size,
+                only_inc_genes=only_inc_genes,
+                fraction_inc_genes=fraction_inc_genes,
+                ignore_genes=ignore_genes,
+                max_num_entries_at_once=max_num_entries_at_once,
+            )
+            if not processed_input:
+                continue
 
             log("Ignored %d gene sets due to too few genes" % num_too_small, DEBUG)
 
@@ -14628,6 +14606,66 @@ def _process_sparse_x_file(
         )
 
     return (num_too_small, ignored_for_fraction_inc)
+
+
+def _process_x_input_file(
+    runtime_state,
+    X_in,
+    tag,
+    is_dense_input,
+    only_ids,
+    x_sparsify,
+    batch_value,
+    label_value,
+    initial_p_value,
+    num_ignored_gene_sets,
+    input_index,
+    add_to_x_fn,
+    min_gene_set_size,
+    only_inc_genes,
+    fraction_inc_genes,
+    ignore_genes,
+    max_num_entries_at_once,
+):
+    num_too_small = 0
+    ignored_for_fraction_inc = 0
+
+    if is_dense_input:
+        processed_dense = _process_dense_x_file(
+            runtime_state,
+            X_in=X_in,
+            tag=tag,
+            only_ids=only_ids,
+            x_sparsify=x_sparsify,
+            batch_value=batch_value,
+            label_value=label_value,
+            initial_p_value=initial_p_value,
+            num_ignored_gene_sets=num_ignored_gene_sets,
+            input_index=input_index,
+            add_to_x_fn=add_to_x_fn,
+        )
+        if not processed_dense:
+            return (num_too_small, ignored_for_fraction_inc, False)
+    else:
+        num_too_small, ignored_for_fraction_inc = _process_sparse_x_file(
+            runtime_state,
+            X_in=X_in,
+            tag=tag,
+            only_ids=only_ids,
+            min_gene_set_size=min_gene_set_size,
+            only_inc_genes=only_inc_genes,
+            fraction_inc_genes=fraction_inc_genes,
+            ignore_genes=ignore_genes,
+            max_num_entries_at_once=max_num_entries_at_once,
+            batch_value=batch_value,
+            label_value=label_value,
+            initial_p_value=initial_p_value,
+            num_ignored_gene_sets=num_ignored_gene_sets,
+            input_index=input_index,
+            add_to_x_fn=add_to_x_fn,
+        )
+
+    return (num_too_small, ignored_for_fraction_inc, True)
 
 
 def _init_sparse_x_batch_state(runtime_state):
