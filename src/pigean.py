@@ -1661,71 +1661,16 @@ class PigeanState(object):
 
         self._record_params({"filter_gene_set_p": filter_gene_set_p, "filter_negative": filter_negative, "threshold_weights": threshold_weights, "cap_weights": cap_weights, "max_num_gene_sets_initial": max_num_gene_sets_initial, "max_num_gene_sets": max_num_gene_sets, "max_num_gene_sets_hyper": max_num_gene_sets_hyper, "filter_gene_set_metric_z": filter_gene_set_metric_z, "num_chains_betas": num_chains_betas, "sigma_num_devs_to_top": sigma_num_devs_to_top, "p_noninf_inflate": p_noninf_inflate})
 
-        initial_ps = None
-        if initial_p is not None:
-            if type(initial_p) is not list:
-                initial_p = [initial_p]
-            initial_ps = []
-            assert(xin_to_p_noninf_ind is not None)
-
-        #list of the X files specified on the command line
-        (X_ins, orig_files) = _normalize_input_specs(X_in)
-        _append_initial_p_indices(initial_ps, X_ins, xin_to_p_noninf_ind)
-            
-        _append_inputs_from_list_files(
-            list_specs=X_list,
-            dest_inputs=X_ins,
-            dest_orig_files=orig_files,
-            list_open_fn=open_gz,
-            strip_fn=lambda line: line.strip(),
-            resolve_relative_paths=True,
-            skip_empty_lines=True,
-            initial_ps=initial_ps,
+        initial_ps, X_ins, batches, labels, orig_files, is_dense = _prepare_read_x_inputs(
+            X_in=X_in,
+            X_list=X_list,
+            Xd_in=Xd_in,
+            Xd_list=Xd_list,
+            initial_p=initial_p,
             xin_to_p_noninf_ind=xin_to_p_noninf_ind,
-            batch_separator=batch_separator,
-        )
-
-        X_ins, batches, labels, orig_files = _expand_x_inputs(
-            X_ins,
-            orig_files,
             batch_separator=batch_separator,
             file_separator=file_separator,
         )
-
-        is_dense = [False for x in X_ins]
-
-        (Xd_ins, orig_dfiles) = _normalize_input_specs(Xd_in)
-        _append_initial_p_indices(initial_ps, Xd_ins, xin_to_p_noninf_ind)
-
-        _append_inputs_from_list_files(
-            list_specs=Xd_list,
-            dest_inputs=Xd_ins,
-            dest_orig_files=orig_dfiles,
-            list_open_fn=open,
-            strip_fn=lambda line: line.strip('\n'),
-            resolve_relative_paths=False,
-            skip_empty_lines=False,
-            initial_ps=initial_ps,
-            xin_to_p_noninf_ind=xin_to_p_noninf_ind,
-            batch_separator=batch_separator,
-        )
-
-        Xd_ins, batches2, labels2, orig_dfiles = _expand_x_inputs(
-            Xd_ins,
-            orig_dfiles,
-            batch_separator=batch_separator,
-            file_separator=file_separator,
-        )
-
-        #now map from inds to ps
-        _map_initial_p_indices_to_values(initial_ps, initial_p)
-
-
-        X_ins += Xd_ins
-        batches += batches2
-        labels += labels2
-        orig_files += orig_dfiles
-        is_dense += [True for x in Xd_ins]
 
         #first reorder the files so that those with batches are at the front
 
@@ -14883,6 +14828,83 @@ def _append_inputs_from_list_files(
                     assert(list_spec in xin_to_p_noninf_ind)
                     initial_ps.append(xin_to_p_noninf_ind[list_spec])
                 dest_orig_files.append(list_spec)
+
+
+def _prepare_read_x_inputs(
+    X_in,
+    X_list,
+    Xd_in,
+    Xd_list,
+    initial_p,
+    xin_to_p_noninf_ind,
+    batch_separator,
+    file_separator,
+):
+    initial_ps = None
+    if initial_p is not None:
+        if type(initial_p) is not list:
+            initial_p = [initial_p]
+        initial_ps = []
+        assert(xin_to_p_noninf_ind is not None)
+
+    # list of the X files specified on the command line
+    (X_ins, orig_files) = _normalize_input_specs(X_in)
+    _append_initial_p_indices(initial_ps, X_ins, xin_to_p_noninf_ind)
+
+    _append_inputs_from_list_files(
+        list_specs=X_list,
+        dest_inputs=X_ins,
+        dest_orig_files=orig_files,
+        list_open_fn=open_gz,
+        strip_fn=lambda line: line.strip(),
+        resolve_relative_paths=True,
+        skip_empty_lines=True,
+        initial_ps=initial_ps,
+        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
+        batch_separator=batch_separator,
+    )
+
+    X_ins, batches, labels, orig_files = _expand_x_inputs(
+        X_ins,
+        orig_files,
+        batch_separator=batch_separator,
+        file_separator=file_separator,
+    )
+
+    is_dense = [False for _ in X_ins]
+
+    (Xd_ins, orig_dfiles) = _normalize_input_specs(Xd_in)
+    _append_initial_p_indices(initial_ps, Xd_ins, xin_to_p_noninf_ind)
+
+    _append_inputs_from_list_files(
+        list_specs=Xd_list,
+        dest_inputs=Xd_ins,
+        dest_orig_files=orig_dfiles,
+        list_open_fn=open,
+        strip_fn=lambda line: line.strip('\n'),
+        resolve_relative_paths=False,
+        skip_empty_lines=False,
+        initial_ps=initial_ps,
+        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
+        batch_separator=batch_separator,
+    )
+
+    Xd_ins, batches2, labels2, orig_dfiles = _expand_x_inputs(
+        Xd_ins,
+        orig_dfiles,
+        batch_separator=batch_separator,
+        file_separator=file_separator,
+    )
+
+    # now map from index positions to concrete p values
+    _map_initial_p_indices_to_values(initial_ps, initial_p)
+
+    X_ins += Xd_ins
+    batches += batches2
+    labels += labels2
+    orig_files += orig_dfiles
+    is_dense += [True for _ in Xd_ins]
+    return (initial_ps, X_ins, batches, labels, orig_files, is_dense)
 
 
 def _initialize_filtered_gene_set_state(runtime_state, update_hyper_p):
