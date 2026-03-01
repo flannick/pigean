@@ -13283,6 +13283,57 @@ def _read_Y(
             missing_value_case_counts=missing_value_case_counts,
         )
 
+    _finalize_y_vectors_and_expand_x(
+        runtime_state,
+        Y=Y,
+        Y_for_regression=Y_for_regression,
+        Y_exomes=Y_exomes,
+        Y_positive_controls=Y_positive_controls,
+        Y_case_counts=Y_case_counts,
+        extra_genes=extra_genes,
+        extra_Y=extra_Y,
+        extra_Y_for_regression=extra_Y_for_regression,
+        extra_Y_exomes=extra_Y_exomes,
+        extra_Y_positive_controls=extra_Y_positive_controls,
+        extra_Y_case_counts=extra_Y_case_counts,
+    )
+
+    _apply_gene_level_maps_after_read_y(
+        runtime_state,
+        gene_combined_map=gene_combined_map,
+        gene_prior_map=gene_prior_map,
+    )
+    _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
+
+
+def _apply_gene_level_maps_after_read_y(runtime_state, gene_combined_map=None, gene_prior_map=None):
+    if gene_combined_map is not None:
+        runtime_state.combined_prior_Ys = copy.copy(runtime_state.Y)
+        for i in range(len(runtime_state.genes)):
+            if runtime_state.genes[i] in gene_combined_map:
+                runtime_state.combined_prior_Ys[i] = gene_combined_map[runtime_state.genes[i]]
+
+    if gene_prior_map is not None:
+        runtime_state.priors = np.zeros(len(runtime_state.genes))
+        for i in range(len(runtime_state.genes)):
+            if runtime_state.genes[i] in gene_prior_map:
+                runtime_state.priors[i] = gene_prior_map[runtime_state.genes[i]]
+
+
+def _finalize_y_vectors_and_expand_x(
+    runtime_state,
+    Y,
+    Y_for_regression,
+    Y_exomes,
+    Y_positive_controls,
+    Y_case_counts,
+    extra_genes,
+    extra_Y,
+    extra_Y_for_regression,
+    extra_Y_exomes,
+    extra_Y_positive_controls,
+    extra_Y_case_counts,
+):
     # Y contains all of the genes in runtime_state.genes that have gene statistics.
     # extra_Y contains additional genes not in runtime_state.genes that have gene statistics.
     if len(extra_Y) > 0:
@@ -13310,28 +13361,15 @@ def _read_Y(
     if runtime_state.genes is not None:
         runtime_state._set_X(runtime_state.X_orig, runtime_state.genes + extra_genes, runtime_state.gene_sets, skip_N=False)
 
-    runtime_state._set_Y(Y, Y_for_regression, Y_exomes, Y_positive_controls, Y_case_counts, skip_V=True, skip_scale_factors=True)
-
-    _apply_gene_level_maps_after_read_y(
-        runtime_state,
-        gene_combined_map=gene_combined_map,
-        gene_prior_map=gene_prior_map,
+    runtime_state._set_Y(
+        Y,
+        Y_for_regression,
+        Y_exomes,
+        Y_positive_controls,
+        Y_case_counts,
+        skip_V=True,
+        skip_scale_factors=True,
     )
-    _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
-
-
-def _apply_gene_level_maps_after_read_y(runtime_state, gene_combined_map=None, gene_prior_map=None):
-    if gene_combined_map is not None:
-        runtime_state.combined_prior_Ys = copy.copy(runtime_state.Y)
-        for i in range(len(runtime_state.genes)):
-            if runtime_state.genes[i] in gene_combined_map:
-                runtime_state.combined_prior_Ys[i] = gene_combined_map[runtime_state.genes[i]]
-
-    if gene_prior_map is not None:
-        runtime_state.priors = np.zeros(len(runtime_state.genes))
-        for i in range(len(runtime_state.genes)):
-            if runtime_state.genes[i] in gene_prior_map:
-                runtime_state.priors[i] = gene_prior_map[runtime_state.genes[i]]
 
 
 def _read_primary_y_source(
