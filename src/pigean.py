@@ -2120,47 +2120,18 @@ class PigeanState(object):
                 genes_missing_new=genes_missing_new,
             )
 
-            #save subset mask for later
-            subset_mask = np.full(len(genes), True)
-            if self.gene_to_ind is not None:
-
-                subset_mask[[i for i in range(len(genes)) if genes[i] not in self.gene_to_ind]] = False
-
-            #set full X with including new and old missing genes
-
-            num_added = cur_X.shape[1]
-            if self.X_orig is not None:
-                num_added -= self.X_orig.shape[1]
-            num_ignored = np.sum(p_value_ignore) if p_value_ignore is not None else 0
-
-            self._set_X(sparse.csc_matrix(cur_X, shape=cur_X.shape), genes, gene_sets, skip_scale_factors=skip_scale_factors, skip_V=True, skip_N=False)
-
-            #have to add ignored_N since this is only place we have the information
-            if self.gene_ignored_N is not None:
-                if gene_ignored_N is not None:
-                    self.gene_ignored_N += gene_ignored_N
-            else:
-                self.gene_ignored_N = gene_ignored_N
-
-            if self.gene_ignored_N is not None and self.gene_ignored_N_missing is not None:
-                self.gene_ignored_N = np.append(self.gene_ignored_N, self.gene_ignored_N_missing)
-
-            #have to call this function to ensure every data structure gets subsetted
-            #don't subset Y since we didn't expand these
-
-            self._subset_genes(subset_mask, skip_V=True, overwrite_missing=True, skip_scale_factors=False, skip_Y=True)
-
-            if self.gene_covariates is not None:
-                if self.total_qc_metrics is None:
-                    self.total_qc_metrics = total_qc_metrics
-                    self.mean_qc_metrics = mean_qc_metrics
-                else:
-                    self.total_qc_metrics = np.vstack((self.total_qc_metrics, total_qc_metrics))
-                    self.mean_qc_metrics = np.append(self.mean_qc_metrics, mean_qc_metrics)
-
-                self.total_qc_metrics_directions = total_qc_metrics_directions
-
-            return (num_added, num_ignored)
+            return _finalize_added_x_block(
+                self,
+                cur_X=cur_X,
+                genes=genes,
+                gene_sets=gene_sets,
+                skip_scale_factors=skip_scale_factors,
+                p_value_ignore=p_value_ignore,
+                gene_ignored_N=gene_ignored_N,
+                total_qc_metrics=total_qc_metrics,
+                mean_qc_metrics=mean_qc_metrics,
+                total_qc_metrics_directions=total_qc_metrics_directions,
+            )
 
         ignored_gs = 0
 
@@ -15087,6 +15058,70 @@ def _merge_missing_gene_rows(
         genes += genes_missing_new
 
     return (cur_X, genes)
+
+
+def _finalize_added_x_block(
+    runtime_state,
+    cur_X,
+    genes,
+    gene_sets,
+    skip_scale_factors,
+    p_value_ignore,
+    gene_ignored_N,
+    total_qc_metrics,
+    mean_qc_metrics,
+    total_qc_metrics_directions,
+):
+    # Save subset mask for later.
+    subset_mask = np.full(len(genes), True)
+    if runtime_state.gene_to_ind is not None:
+        subset_mask[[i for i in range(len(genes)) if genes[i] not in runtime_state.gene_to_ind]] = False
+
+    # Set full X including new and old missing genes.
+    num_added = cur_X.shape[1]
+    if runtime_state.X_orig is not None:
+        num_added -= runtime_state.X_orig.shape[1]
+    num_ignored = np.sum(p_value_ignore) if p_value_ignore is not None else 0
+
+    runtime_state._set_X(
+        sparse.csc_matrix(cur_X, shape=cur_X.shape),
+        genes,
+        gene_sets,
+        skip_scale_factors=skip_scale_factors,
+        skip_V=True,
+        skip_N=False,
+    )
+
+    # Add ignored_N since this is the only place we have the information.
+    if runtime_state.gene_ignored_N is not None:
+        if gene_ignored_N is not None:
+            runtime_state.gene_ignored_N += gene_ignored_N
+    else:
+        runtime_state.gene_ignored_N = gene_ignored_N
+
+    if runtime_state.gene_ignored_N is not None and runtime_state.gene_ignored_N_missing is not None:
+        runtime_state.gene_ignored_N = np.append(runtime_state.gene_ignored_N, runtime_state.gene_ignored_N_missing)
+
+    # Ensure every data structure gets subsetted (without subsetting Y here).
+    runtime_state._subset_genes(
+        subset_mask,
+        skip_V=True,
+        overwrite_missing=True,
+        skip_scale_factors=False,
+        skip_Y=True,
+    )
+
+    if runtime_state.gene_covariates is not None:
+        if runtime_state.total_qc_metrics is None:
+            runtime_state.total_qc_metrics = total_qc_metrics
+            runtime_state.mean_qc_metrics = mean_qc_metrics
+        else:
+            runtime_state.total_qc_metrics = np.vstack((runtime_state.total_qc_metrics, total_qc_metrics))
+            runtime_state.mean_qc_metrics = np.append(runtime_state.mean_qc_metrics, mean_qc_metrics)
+
+        runtime_state.total_qc_metrics_directions = total_qc_metrics_directions
+
+    return (num_added, num_ignored)
 
 
 def _ensure_gene_universe_for_x(
