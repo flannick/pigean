@@ -24132,6 +24132,74 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
         read_x_retry_state["force_reread"] = True
 
 
+def _mode_requires_gene_scores(mode_state):
+    return (
+        mode_state["run_huge"]
+        or mode_state["run_beta_tilde"]
+        or mode_state["run_beta"]
+        or mode_state["run_priors"]
+        or mode_state["run_naive_priors"]
+        or mode_state["run_gibbs"]
+    )
+
+
+def _load_main_Y_inputs(state, options, mode_state):
+    if not _mode_requires_gene_scores(mode_state):
+        return True
+
+    if options.gene_stats_in:
+        state.read_Y(
+            gene_bfs_in=options.gene_stats_in,
+            show_progress=not options.hide_progress,
+            gene_bfs_id_col=options.gene_stats_id_col,
+            gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
+            gene_bfs_combined_col=options.gene_stats_combined_col,
+            gene_bfs_prob_col=options.gene_stats_prob_col,
+            gene_bfs_prior_col=options.gene_stats_prior_col,
+            gene_covs_in=options.gene_covs_in,
+            hold_out_chrom=options.hold_out_chrom,
+        )
+        return False
+
+    if (
+        options.gwas_in
+        or options.huge_statistics_in
+        or options.exomes_in
+        or options.positive_controls_in
+        or options.positive_controls_list is not None
+        or options.case_counts_in is not None
+    ):
+        if (
+            options.gwas_in is None
+            and options.huge_statistics_in is None
+            and options.exomes_in is None
+            and options.case_counts_in is None
+        ):
+            options.ols = True
+            if options.positive_controls_all_in is None and not options.add_all_genes:
+                bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
+        state.read_Y(**_build_main_read_y_source_kwargs(options))
+        return False
+
+    if options.betas_uncorrected_from_phewas:
+        if not options.gene_phewas_bfs_in:
+            bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
+        state.read_gene_phewas_bfs(
+            gene_phewas_bfs_in=options.gene_phewas_bfs_in,
+            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+            phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
+            min_value=options.min_gene_phewas_read_value,
+            max_num_entries_at_once=options.max_read_entries_at_once,
+        )
+        return False
+
+    return True
+
+
 def main():
     # ==========================================================================
     # Main Phase A: Runtime setup and global option echo.
@@ -24152,64 +24220,7 @@ def main():
     # ==========================================================================
     # Main Phase C: Input loading helpers (Y, then X/gene sets).
     # ==========================================================================
-    if not (
-        mode_state["run_huge"]
-        or mode_state["run_beta_tilde"]
-        or mode_state["run_beta"]
-        or mode_state["run_priors"]
-        or mode_state["run_naive_priors"]
-        or mode_state["run_gibbs"]
-    ):
-        Y_not_loaded = False
-    elif options.gene_stats_in:
-        state.read_Y(
-            gene_bfs_in=options.gene_stats_in,
-            show_progress=not options.hide_progress,
-            gene_bfs_id_col=options.gene_stats_id_col,
-            gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
-            gene_bfs_combined_col=options.gene_stats_combined_col,
-            gene_bfs_prob_col=options.gene_stats_prob_col,
-            gene_bfs_prior_col=options.gene_stats_prior_col,
-            gene_covs_in=options.gene_covs_in,
-            hold_out_chrom=options.hold_out_chrom,
-        )
-        Y_not_loaded = False
-    elif (
-        options.gwas_in
-        or options.huge_statistics_in
-        or options.exomes_in
-        or options.positive_controls_in
-        or options.positive_controls_list is not None
-        or options.case_counts_in is not None
-    ):
-        if (
-            options.gwas_in is None
-            and options.huge_statistics_in is None
-            and options.exomes_in is None
-            and options.case_counts_in is None
-        ):
-            options.ols = True
-            if options.positive_controls_all_in is None and not options.add_all_genes:
-                bail("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
-        state.read_Y(**_build_main_read_y_source_kwargs(options))
-        Y_not_loaded = False
-    elif options.betas_uncorrected_from_phewas:
-        if not options.gene_phewas_bfs_in:
-            bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-        state.read_gene_phewas_bfs(
-            gene_phewas_bfs_in=options.gene_phewas_bfs_in,
-            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-            phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-            min_value=options.min_gene_phewas_read_value,
-            max_num_entries_at_once=options.max_read_entries_at_once,
-        )
-        Y_not_loaded = False
-    else:
-        Y_not_loaded = True
+    Y_not_loaded = _load_main_Y_inputs(state, options, mode_state)
 
     # ==========================================================================
     # Main Phase D: Core model computation (betas, priors, outer Gibbs).
