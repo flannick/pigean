@@ -24424,43 +24424,7 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
         )
 
 
-def main():
-    # ==========================================================================
-    # Main Phase A: Runtime setup and global option echo.
-    # ==========================================================================
-    if not options.hide_opts:
-        log("Python version: %s" % sys.version)
-        log("Numpy version: %s" % np.__version__)
-        log("Scipy version: %s" % scipy.__version__)
-        log("Options: %s" % options)
-    state = _build_runtime_state(options)
-    mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
-
-    # ==========================================================================
-    # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
-    # ==========================================================================
-    sigma2_cond = _configure_hyperparameters_for_main(state, options)
-
-    # ==========================================================================
-    # Main Phase C: Input loading helpers (Y, then X/gene sets).
-    # ==========================================================================
-    Y_not_loaded = _load_main_Y_inputs(state, options, mode_state)
-
-    # ==========================================================================
-    # Main Phase D: Core model computation (betas, priors, outer Gibbs).
-    # ==========================================================================
-    if not mode_state["run_huge"]:
-        _run_main_non_huge_pipeline(
-            state=state,
-            options=options,
-            mode_state=mode_state,
-            sigma2_cond=sigma2_cond,
-            Y_not_loaded=Y_not_loaded,
-        )
-
-    # ==========================================================================
-    # Main Phase E: Output writers and optional downstream analyses.
-    # ==========================================================================
+def _write_main_outputs_and_optional_phewas(state, options, mode_state):
     if options.gene_set_stats_out:
         state.write_gene_set_statistics(
             options.gene_set_stats_out,
@@ -24518,6 +24482,46 @@ def main():
 
     if options.params_out:
         state.write_params(options.params_out)
+
+
+def main():
+    # ==========================================================================
+    # Main Phase A: Runtime setup and global option echo.
+    # ==========================================================================
+    if not options.hide_opts:
+        log("Python version: %s" % sys.version)
+        log("Numpy version: %s" % np.__version__)
+        log("Scipy version: %s" % scipy.__version__)
+        log("Options: %s" % options)
+    state = _build_runtime_state(options)
+    mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
+
+    # ==========================================================================
+    # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
+    # ==========================================================================
+    sigma2_cond = _configure_hyperparameters_for_main(state, options)
+
+    # ==========================================================================
+    # Main Phase C: Input loading helpers (Y, then X/gene sets).
+    # ==========================================================================
+    Y_not_loaded = _load_main_Y_inputs(state, options, mode_state)
+
+    # ==========================================================================
+    # Main Phase D: Core model computation (betas, priors, outer Gibbs).
+    # ==========================================================================
+    if not mode_state["run_huge"]:
+        _run_main_non_huge_pipeline(
+            state=state,
+            options=options,
+            mode_state=mode_state,
+            sigma2_cond=sigma2_cond,
+            Y_not_loaded=Y_not_loaded,
+        )
+
+    # ==========================================================================
+    # Main Phase E: Output writers and optional downstream analyses.
+    # ==========================================================================
+    _write_main_outputs_and_optional_phewas(state, options, mode_state)
 
 if __name__ == '__main__':
     main()
