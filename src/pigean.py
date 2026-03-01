@@ -1042,6 +1042,16 @@ def _open_optional_gibbs_trace_files(gene_set_stats_trace_out, gene_stats_trace_
         yield (gene_set_stats_trace_fh, gene_stats_trace_fh)
 
 
+def _open_optional_inner_betas_trace_file(betas_trace_out):
+    if betas_trace_out is None:
+        return None
+    betas_trace_fh = open_gz(betas_trace_out, "w")
+    betas_trace_fh.write(
+        "It\tParallel\tChain\tGene_Set\tbeta_post\tbeta\tpostp\tres_beta_hat\tbeta_tilde\tbeta_internal\tres_beta_hat_internal\tbeta_tilde_internal\tse_internal\tsigma2\tp\tR\tR_weighted\tSEM\n"
+    )
+    return betas_trace_fh
+
+
 _GIBBS_STOPPING_PRESETS = {
     "lenient": {
         "stop_mcse_quantile": 0.90,
@@ -10625,9 +10635,7 @@ class PigeanState(object):
         burn_in_phase_v = np.array([True for i in range(num_parallel)])
 
 
-        if betas_trace_out is not None:
-            betas_trace_fh = open_gz(betas_trace_out, 'w')
-            betas_trace_fh.write("It\tParallel\tChain\tGene_Set\tbeta_post\tbeta\tpostp\tres_beta_hat\tbeta_tilde\tbeta_internal\tres_beta_hat_internal\tbeta_tilde_internal\tse_internal\tsigma2\tp\tR\tR_weighted\tSEM\n")
+        betas_trace_fh = _open_optional_inner_betas_trace_file(betas_trace_out)
 
         prev_betas_m = None
         sigma_underflow = False
@@ -10954,7 +10962,7 @@ class PigeanState(object):
 
                             ps_m *= new_p / np.mean(ps_m)
 
-            if betas_trace_out is not None:
+            if betas_trace_fh is not None:
                 _write_inner_beta_trace_rows(
                     betas_trace_fh=betas_trace_fh,
                     iteration_num=iteration_num,
@@ -10983,7 +10991,7 @@ class PigeanState(object):
         # Inner Beta Gibbs Phase 4: Finalize posterior summaries and return.
         # ==========================================================================
 
-        if betas_trace_out is not None:
+        if betas_trace_fh is not None:
             betas_trace_fh.close()
 
             #log("%d\t%s" % (iteration_num, "\t".join(["%.3g\t%.3g" % (curr_betas_m[i,0], (np.mean(sum_betas_m, axis=0) / iteration_num)[i]) for i in range(curr_betas_m.shape[0])])), TRACE)
