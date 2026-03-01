@@ -1899,76 +1899,21 @@ class PigeanState(object):
             ignored_for_fraction_inc = 0
 
             if is_dense[i]:
-                with open_gz(X_in) as gene_sets_fh:
-                    header = gene_sets_fh.readline().strip('\n')
-                    header = header.lstrip("# \t")
-                    gene_sets = header.split()
-                    if len(gene_sets) < 2:
-                        warn("First line of --Xd-in %s must contain gene column followed by list of gene sets; skipping file" % X_in)
-                        continue
-                    #if header[0] != "#":
-                    #    warn("Assuming first line is header line despite lack of #; first characters are '%s...'" % header[:10])
-
-                    #first column is genes so split
-                    gene_sets = gene_sets[1:]
-
-                    #maximum number of sets to avoid memory overflow
-                    max_num_at_once = _estimate_dense_chunk_size(
-                        len(gene_sets),
-                        only_ids=only_ids,
-                        default_chunk_size=500,
-                    )
-
-                    if len(gene_sets) > max_num_at_once:
-                        log("Splitting reading of file into chunks to limit memory", DEBUG)
-                    for j in range(0, len(gene_sets), max_num_at_once):
-                        if len(gene_sets) > max_num_at_once:
-                            log("Reading gene sets %d-%d" % (j+1, j+min(len(gene_sets), j+max_num_at_once+1)), DEBUG)
-
-                        gene_set_indices_to_load = list(range(j, min(len(gene_sets), j+max_num_at_once)))
-
-                        gene_set_indices_to_load = _filter_dense_chunk_gene_set_indices(
-                            gene_sets,
-                            chunk_indices=gene_set_indices_to_load,
-                            only_ids=only_ids,
-                            x_sparsify=x_sparsify,
-                        )
-                        if only_ids is not None:
-                            if len(gene_set_indices_to_load) > 0:
-                                log("Will load %d gene sets that were requested" % len(gene_set_indices_to_load), TRACE)
-                            else:
-                                continue
-
-                        indices_to_load = [0] + [k+1 for k in gene_set_indices_to_load]
-
-                        cur_X = np.loadtxt(X_in, skiprows=1, dtype=str, usecols=indices_to_load)
-
-                        if len(cur_X.shape) == 1:
-                            cur_X = cur_X[:,np.newaxis]
-
-                        if cur_X.shape[1] != len(indices_to_load):
-                            bail("Xd matrix %s dimensions %s do not match number of gene sets in header line (%s)" % (X_in, cur_X.shape, len(gene_sets)))
-                        cur_gene_sets = [gene_sets[k] for k in gene_set_indices_to_load]
-
-                        genes = cur_X[:,0]
-                        if self.gene_label_map is not None:
-                            genes = list(map(lambda x: self.gene_label_map[x] if x in self.gene_label_map else x, genes))
-
-                        cur_X = cur_X[:,1:].astype(float)
-                        mat_info = cur_X
-
-                        num_added, num_ignored = __add_to_X(mat_info, genes, cur_gene_sets, tag, skip_scale_factors=False)
-                        _record_x_addition(
-                            self,
-                            num_added=num_added,
-                            num_ignored=num_ignored,
-                            batch_value=batches[i],
-                            label_value=labels[i],
-                            initial_p_value=initial_ps[i] if initial_ps is not None else None,
-                            num_ignored_gene_sets=num_ignored_gene_sets,
-                            input_index=i,
-                            fail_if_first_empty=(i == 0),
-                        )
+                processed_dense = _process_dense_x_file(
+                    self,
+                    X_in=X_in,
+                    tag=tag,
+                    only_ids=only_ids,
+                    x_sparsify=x_sparsify,
+                    batch_value=batches[i],
+                    label_value=labels[i],
+                    initial_p_value=initial_ps[i] if initial_ps is not None else None,
+                    num_ignored_gene_sets=num_ignored_gene_sets,
+                    input_index=i,
+                    add_to_x_fn=__add_to_X,
+                )
+                if not processed_dense:
+                    continue
 
             else:
 
@@ -14563,6 +14508,95 @@ def _record_x_addition(
         runtime_state.ps = np.append(runtime_state.ps, np.full(num_added, initial_p_value))
     runtime_state.gene_set_labels_ignored = np.append(runtime_state.gene_set_labels_ignored, np.full(num_ignored, label_value))
     num_ignored_gene_sets[input_index] += num_ignored
+
+
+def _process_dense_x_file(
+    runtime_state,
+    X_in,
+    tag,
+    only_ids,
+    x_sparsify,
+    batch_value,
+    label_value,
+    initial_p_value,
+    num_ignored_gene_sets,
+    input_index,
+    add_to_x_fn,
+):
+    with open_gz(X_in) as gene_sets_fh:
+        header = gene_sets_fh.readline().strip('\n')
+        header = header.lstrip("# \t")
+        gene_sets = header.split()
+        if len(gene_sets) < 2:
+            warn("First line of --Xd-in %s must contain gene column followed by list of gene sets; skipping file" % X_in)
+            return False
+
+        # First column is genes so split.
+        gene_sets = gene_sets[1:]
+
+        # Maximum number of sets to avoid memory overflow.
+        max_num_at_once = _estimate_dense_chunk_size(
+            len(gene_sets),
+            only_ids=only_ids,
+            default_chunk_size=500,
+        )
+
+        if len(gene_sets) > max_num_at_once:
+            log("Splitting reading of file into chunks to limit memory", DEBUG)
+        for j in range(0, len(gene_sets), max_num_at_once):
+            if len(gene_sets) > max_num_at_once:
+                log("Reading gene sets %d-%d" % (j + 1, j + min(len(gene_sets), j + max_num_at_once + 1)), DEBUG)
+
+            gene_set_indices_to_load = list(range(j, min(len(gene_sets), j + max_num_at_once)))
+
+            gene_set_indices_to_load = _filter_dense_chunk_gene_set_indices(
+                gene_sets,
+                chunk_indices=gene_set_indices_to_load,
+                only_ids=only_ids,
+                x_sparsify=x_sparsify,
+            )
+            if only_ids is not None:
+                if len(gene_set_indices_to_load) > 0:
+                    log("Will load %d gene sets that were requested" % len(gene_set_indices_to_load), TRACE)
+                else:
+                    continue
+
+            indices_to_load = [0] + [k + 1 for k in gene_set_indices_to_load]
+
+            cur_X = np.loadtxt(X_in, skiprows=1, dtype=str, usecols=indices_to_load)
+
+            if len(cur_X.shape) == 1:
+                cur_X = cur_X[:, np.newaxis]
+
+            if cur_X.shape[1] != len(indices_to_load):
+                bail("Xd matrix %s dimensions %s do not match number of gene sets in header line (%s)" % (X_in, cur_X.shape, len(gene_sets)))
+            cur_gene_sets = [gene_sets[k] for k in gene_set_indices_to_load]
+
+            genes = cur_X[:, 0]
+            if runtime_state.gene_label_map is not None:
+                genes = list(map(lambda x: runtime_state.gene_label_map[x] if x in runtime_state.gene_label_map else x, genes))
+
+            mat_info = cur_X[:, 1:].astype(float)
+            num_added, num_ignored = add_to_x_fn(
+                mat_info,
+                genes,
+                cur_gene_sets,
+                tag,
+                skip_scale_factors=False,
+            )
+            _record_x_addition(
+                runtime_state,
+                num_added=num_added,
+                num_ignored=num_ignored,
+                batch_value=batch_value,
+                label_value=label_value,
+                initial_p_value=initial_p_value,
+                num_ignored_gene_sets=num_ignored_gene_sets,
+                input_index=input_index,
+                fail_if_first_empty=(input_index == 0),
+            )
+
+    return True
 
 
 def _init_sparse_x_batch_state(runtime_state):
