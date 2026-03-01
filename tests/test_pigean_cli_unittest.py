@@ -70,6 +70,14 @@ class PigeanCliTest(unittest.TestCase):
         self.assertTrue(payload["options"]["deterministic"])
         self.assertEqual(payload["options"]["seed"], 0)
 
+    def test_deterministic_keeps_explicit_seed(self) -> None:
+        proc = self._run("gibbs", "--deterministic", "--seed", "123", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["mode"], "gibbs")
+        self.assertTrue(payload["options"]["deterministic"])
+        self.assertEqual(payload["options"]["seed"], 123)
+
     def test_help_usage_uses_pigean_name(self) -> None:
         proc = self._run("gibbs", "--help")
         self.assertEqual(proc.returncode, 0)

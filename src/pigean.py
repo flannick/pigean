@@ -827,12 +827,17 @@ def warn(message):
         warnings_fh.flush()
     log(message, level=INFO)
 
-if options.deterministic and options.seed is None:
-    options.seed = 0
-if options.seed is not None:
-    random.seed(options.seed)
-    np.random.seed(options.seed)
-    log("Using deterministic random seed %d" % options.seed, INFO)
+
+def _configure_random_seed(options_obj):
+    if options_obj.deterministic and options_obj.seed is None:
+        options_obj.seed = 0
+    if options_obj.seed is not None:
+        random.seed(options_obj.seed)
+        np.random.seed(options_obj.seed)
+        log("Using deterministic random seed %d" % options_obj.seed, INFO)
+
+
+_configure_random_seed(options)
 
 try:
     options.x_sparsify = [int(x) for x in options.x_sparsify]
