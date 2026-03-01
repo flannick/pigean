@@ -1766,23 +1766,7 @@ class PigeanState(object):
                 #disabling this setting
                 is_dense = False
 
-                if self.gene_label_map is not None:
-                    genes = list(map(lambda x: self.gene_label_map[x] if x in self.gene_label_map else x, genes))
-
-                #make sure no repeated genes
-                if len(set(genes)) != len(genes):
-                    #make the mask
-                    seen_genes = set()
-                    unique_mask = np.full(len(genes), True)
-
-                    for i in range(len(genes)):
-                        if genes[i] in seen_genes:
-                            unique_mask[i] = False
-                        else:
-                            seen_genes.add(genes[i])
-                    #now subset both down
-                    mat_info = mat_info[unique_mask,:]
-                    genes = [genes[i] for i in range(len(genes)) if unique_mask[i]] 
+                mat_info, genes = _normalize_dense_gene_rows(mat_info, genes, self.gene_label_map)
 
 
                 #check if actually sparse
@@ -14905,6 +14889,26 @@ def _prepare_read_x_inputs(
     orig_files += orig_dfiles
     is_dense += [True for _ in Xd_ins]
     return (initial_ps, X_ins, batches, labels, orig_files, is_dense)
+
+
+def _normalize_dense_gene_rows(mat_info, genes, gene_label_map):
+    if gene_label_map is not None:
+        genes = list(map(lambda x: gene_label_map[x] if x in gene_label_map else x, genes))
+
+    # Make sure no repeated genes.
+    if len(set(genes)) != len(genes):
+        seen_genes = set()
+        unique_mask = np.full(len(genes), True)
+        for i in range(len(genes)):
+            if genes[i] in seen_genes:
+                unique_mask[i] = False
+            else:
+                seen_genes.add(genes[i])
+        # Subset both matrix rows and gene list to unique genes only.
+        mat_info = mat_info[unique_mask, :]
+        genes = [genes[i] for i in range(len(genes)) if unique_mask[i]]
+
+    return (mat_info, genes)
 
 
 def _initialize_filtered_gene_set_state(runtime_state, update_hyper_p):
