@@ -13813,24 +13813,7 @@ def _merge_y_into_existing_gene_universe(
 
 
 def _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=None, **kwargs):
-    # Load optional covariates and append to any existing covariate matrix.
-    if gene_covs_in is not None:
-        (cov_names, gene_covs, _, _) = runtime_state.read_gene_covs(gene_covs_in, **kwargs)
-        cov_dirs = np.array([0] * len(cov_names))
-
-        col_means = np.nanmean(gene_covs, axis=0)
-        nan_indices = np.where(np.isnan(gene_covs))
-        gene_covs[nan_indices] = np.take(col_means, nan_indices[1])
-
-        if runtime_state.gene_covariates is not None:
-            assert(gene_covs.shape[0] == runtime_state.gene_covariates.shape[0])
-            runtime_state.gene_covariates = np.hstack((runtime_state.gene_covariates, gene_covs))
-            runtime_state.gene_covariate_names = runtime_state.gene_covariate_names + cov_names
-            runtime_state.gene_covariate_directions = np.append(runtime_state.gene_covariate_directions, cov_dirs)
-        else:
-            runtime_state.gene_covariates = gene_covs
-            runtime_state.gene_covariate_names = cov_names
-            runtime_state.gene_covariate_directions = cov_dirs
+    _maybe_append_input_gene_covariates(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
 
     if runtime_state.gene_covariates is None:
         return
@@ -13937,6 +13920,29 @@ def _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=None, **
                 runtime_state.gene_to_gwas_huge_score[runtime_state.genes[i]] = Y_huge[i]
 
         runtime_state.combine_huge_scores()
+
+
+def _maybe_append_input_gene_covariates(runtime_state, gene_covs_in=None, **kwargs):
+    # Load optional covariates and append to any existing covariate matrix.
+    if gene_covs_in is None:
+        return
+
+    (cov_names, gene_covs, _, _) = runtime_state.read_gene_covs(gene_covs_in, **kwargs)
+    cov_dirs = np.array([0] * len(cov_names))
+
+    col_means = np.nanmean(gene_covs, axis=0)
+    nan_indices = np.where(np.isnan(gene_covs))
+    gene_covs[nan_indices] = np.take(col_means, nan_indices[1])
+
+    if runtime_state.gene_covariates is not None:
+        assert(gene_covs.shape[0] == runtime_state.gene_covariates.shape[0])
+        runtime_state.gene_covariates = np.hstack((runtime_state.gene_covariates, gene_covs))
+        runtime_state.gene_covariate_names = runtime_state.gene_covariate_names + cov_names
+        runtime_state.gene_covariate_directions = np.append(runtime_state.gene_covariate_directions, cov_dirs)
+    else:
+        runtime_state.gene_covariates = gene_covs
+        runtime_state.gene_covariate_names = cov_names
+        runtime_state.gene_covariate_directions = cov_dirs
 
 
 def _assign_default_batches(batches, orig_files, batch_all_for_hyper, first_for_hyper):
