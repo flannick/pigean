@@ -1663,63 +1663,22 @@ class PigeanState(object):
         Y1_case_counts=None,
         **kwargs,
     ):
-        missing_value = None
-        gene_combined_map = None
-        gene_prior_map = None
-
-        # Read primary HuGE/gene-level signal source.
-        if huge_statistics_in is not None:
-            if gwas_in is not None:
-                warn("Both --gwas-in and --huge-statistics-in were passed; using --huge-statistics-in")
-            (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = self.read_huge_statistics(huge_statistics_in)
-            missing_value = 0
-        elif gwas_in is not None:
-            (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = self.calculate_huge_scores_gwas(
-                gwas_in,
-                gene_loc_file=gene_loc_file,
-                hold_out_chrom=hold_out_chrom,
-                **kwargs
-            )
-            if huge_statistics_out is not None:
-                self.write_huge_statistics(huge_statistics_out, Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression)
-            missing_value = 0
-        else:
-            self.huge_signal_bfs = None
-            self.huge_signal_bfs_for_regression = None
-
-            if gene_bfs_in is not None:
-                (Y1, extra_genes, extra_Y, gene_combined_map, gene_prior_map) = self.read_gene_bfs(
-                    gene_bfs_in,
-                    **kwargs
-                )
-            elif exomes_in is not None:
-                (Y1, extra_genes, extra_Y) = (np.zeros(Y1_exomes.shape), [], [])
-            elif positive_controls_in is not None or positive_controls_list is not None:
-                (Y1, extra_genes, extra_Y) = (np.zeros(Y1_positive_controls.shape), [], [])
-            elif case_counts_in is not None:
-                (Y1, extra_genes, extra_Y) = (np.zeros(Y1_case_counts.shape), [], [])
-            else:
-                bail("Need to specify either gene_bfs_in or exomes_in or positive_controls_in or case_counts_in")
-
-            (Y1, extra_genes, extra_Y) = self._apply_hold_out_chrom_to_y(
-                Y1,
-                extra_genes,
-                extra_Y,
-                hold_out_chrom=hold_out_chrom,
-                gene_loc_file=gene_loc_file,
-            )
-            Y1_for_regression = copy.copy(Y1)
-            extra_Y_for_regression = copy.copy(extra_Y)
-
-        return (
-            Y1,
-            extra_genes,
-            extra_Y,
-            Y1_for_regression,
-            extra_Y_for_regression,
-            missing_value,
-            gene_combined_map,
-            gene_prior_map,
+        return _read_primary_y_source(
+            self,
+            gwas_in=gwas_in,
+            huge_statistics_in=huge_statistics_in,
+            huge_statistics_out=huge_statistics_out,
+            exomes_in=exomes_in,
+            positive_controls_in=positive_controls_in,
+            positive_controls_list=positive_controls_list,
+            case_counts_in=case_counts_in,
+            gene_bfs_in=gene_bfs_in,
+            hold_out_chrom=hold_out_chrom,
+            gene_loc_file=gene_loc_file,
+            Y1_exomes=Y1_exomes,
+            Y1_positive_controls=Y1_positive_controls,
+            Y1_case_counts=Y1_case_counts,
+            **kwargs
         )
 
     def _initialize_y_from_new_gene_universe(
@@ -14660,6 +14619,83 @@ def _read_Y(
             if runtime_state.genes[i] in gene_prior_map:
                 runtime_state.priors[i] = gene_prior_map[runtime_state.genes[i]]
     runtime_state._apply_gene_covariates_and_correct_huge(gene_covs_in=gene_covs_in, **kwargs)
+
+
+def _read_primary_y_source(
+    runtime_state,
+    gwas_in=None,
+    huge_statistics_in=None,
+    huge_statistics_out=None,
+    exomes_in=None,
+    positive_controls_in=None,
+    positive_controls_list=None,
+    case_counts_in=None,
+    gene_bfs_in=None,
+    hold_out_chrom=None,
+    gene_loc_file=None,
+    Y1_exomes=None,
+    Y1_positive_controls=None,
+    Y1_case_counts=None,
+    **kwargs,
+):
+    missing_value = None
+    gene_combined_map = None
+    gene_prior_map = None
+
+    # Read primary HuGE/gene-level signal source.
+    if huge_statistics_in is not None:
+        if gwas_in is not None:
+            warn("Both --gwas-in and --huge-statistics-in were passed; using --huge-statistics-in")
+        (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = runtime_state.read_huge_statistics(huge_statistics_in)
+        missing_value = 0
+    elif gwas_in is not None:
+        (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = runtime_state.calculate_huge_scores_gwas(
+            gwas_in,
+            gene_loc_file=gene_loc_file,
+            hold_out_chrom=hold_out_chrom,
+            **kwargs
+        )
+        if huge_statistics_out is not None:
+            runtime_state.write_huge_statistics(huge_statistics_out, Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression)
+        missing_value = 0
+    else:
+        runtime_state.huge_signal_bfs = None
+        runtime_state.huge_signal_bfs_for_regression = None
+
+        if gene_bfs_in is not None:
+            (Y1, extra_genes, extra_Y, gene_combined_map, gene_prior_map) = runtime_state.read_gene_bfs(
+                gene_bfs_in,
+                **kwargs
+            )
+        elif exomes_in is not None:
+            (Y1, extra_genes, extra_Y) = (np.zeros(Y1_exomes.shape), [], [])
+        elif positive_controls_in is not None or positive_controls_list is not None:
+            (Y1, extra_genes, extra_Y) = (np.zeros(Y1_positive_controls.shape), [], [])
+        elif case_counts_in is not None:
+            (Y1, extra_genes, extra_Y) = (np.zeros(Y1_case_counts.shape), [], [])
+        else:
+            bail("Need to specify either gene_bfs_in or exomes_in or positive_controls_in or case_counts_in")
+
+        (Y1, extra_genes, extra_Y) = runtime_state._apply_hold_out_chrom_to_y(
+            Y1,
+            extra_genes,
+            extra_Y,
+            hold_out_chrom=hold_out_chrom,
+            gene_loc_file=gene_loc_file,
+        )
+        Y1_for_regression = copy.copy(Y1)
+        extra_Y_for_regression = copy.copy(extra_Y)
+
+    return (
+        Y1,
+        extra_genes,
+        extra_Y,
+        Y1_for_regression,
+        extra_Y_for_regression,
+        missing_value,
+        gene_combined_map,
+        gene_prior_map,
+    )
 
 
 def _initialize_y_from_new_gene_universe(
