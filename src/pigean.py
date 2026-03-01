@@ -1886,16 +1886,7 @@ class PigeanState(object):
                     if cur_X is None or cur_X.shape[1] == 0:
                         return (0, 0)
 
-                if self.genes is not None:
-                    #need to reorder the genes to match the old and add the new ones
-                    old_genes = genes
-                    genes = self.genes
-                    if self.genes_missing is not None:
-                        genes += self.genes_missing
-                    genes += [x for x in old_genes if (self.gene_to_ind is None or x not in self.gene_to_ind) and (self.gene_missing_to_ind is None or x not in self.gene_missing_to_ind)]
-                    gene_to_ind = _construct_map_to_ind(genes)
-                    index_map = {i: gene_to_ind[old_genes[i]] for i in range(len(old_genes))}
-                    cur_X = sparse.csc_matrix((cur_X.data, [index_map[x] for x in cur_X.indices], cur_X.indptr), shape=(len(genes), cur_X.shape[1]))
+                cur_X, genes = _reindex_x_rows_to_current_genes(self, cur_X=cur_X, genes=genes)
 
             cur_X = _normalize_gene_set_weights(
                 self,
@@ -15103,6 +15094,31 @@ def _partition_missing_gene_rows(runtime_state, cur_X, genes, gene_sets):
         cur_X_missing_genes_new,
         gene_ignored_N_missing_new,
     )
+
+
+def _reindex_x_rows_to_current_genes(runtime_state, cur_X, genes):
+    if runtime_state.genes is None:
+        return (cur_X, genes)
+
+    # Reorder rows to align with already-initialized runtime gene order and
+    # append previously unseen genes at the end.
+    old_genes = genes
+    genes = runtime_state.genes
+    if runtime_state.genes_missing is not None:
+        genes += runtime_state.genes_missing
+    genes += [
+        x
+        for x in old_genes
+        if (runtime_state.gene_to_ind is None or x not in runtime_state.gene_to_ind)
+        and (runtime_state.gene_missing_to_ind is None or x not in runtime_state.gene_missing_to_ind)
+    ]
+    gene_to_ind = _construct_map_to_ind(genes)
+    index_map = {i: gene_to_ind[old_genes[i]] for i in range(len(old_genes))}
+    cur_X = sparse.csc_matrix(
+        (cur_X.data, [index_map[x] for x in cur_X.indices], cur_X.indptr),
+        shape=(len(genes), cur_X.shape[1]),
+    )
+    return (cur_X, genes)
 
 
 def _ensure_gene_universe_for_x(
