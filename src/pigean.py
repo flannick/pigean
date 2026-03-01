@@ -36,31 +36,12 @@ def bail(message):
     sys.stderr.write("%s\n" % (message))
     sys.exit(1)
 
-def get_current_memory_usage_linux(tag=None):
-    with open('/proc/self/status') as f:
-        for line in f:
-            if 'VmRSS' in line:  # Resident Set Size
-                memory_kb = int(line.split()[1])  # Memory in KB
-                if tag is not None:
-                    print(tag)
-                print(f"Current memory usage: {memory_kb / 1024:.2f} MB")
-                get_memory_usage()
-                return memory_kb / 1024
-
-def get_memory_usage():
-    import resource
-    usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss  # Max RSS in KB
-    print(f"Max memory usage: {usage / 1024:.2f} MB")
-
-
 usage = "usage: pigean.py [beta_tildes|sigma|betas|priors|naive_priors|gibbs|sim|pops|naive_pops] [options]"
 
 def get_comma_separated_args_as_float(option, opt, value, parser):
     setattr(parser.values, option.dest, [float(x) for x in value.split(',')])
 def get_comma_separated_args(option, opt, value, parser):
     setattr(parser.values, option.dest, value.split(','))
-def get_comma_separated_args_as_set(option, opt, value, parser):
-    setattr(parser.values, option.dest, set(value.split(',')))
 
 parser = optparse.OptionParser(usage)
 #gene x gene_set matrix
@@ -114,7 +95,6 @@ parser.add_option("","--background-prior",type=float,default=0.05) #specify back
 #correlation matrix (otherwise will be calculated from X)
 parser.add_option("","--V-in",default=None)
 parser.add_option("","--V-out",default=None)
-parser.add_option("","--shrink-mat-out",default=None)
 
 #optional gene name map
 parser.add_option("","--gene-map-in",default=None)
@@ -225,7 +205,6 @@ parser.add_option("","--gene-stats-log-bf-col",default=None,dest="gene_stats_log
 parser.add_option("","--gene-stats-combined-col",default=None,dest="gene_stats_combined_col")
 parser.add_option("","--gene-stats-prior-col",default=None,dest="gene_stats_prior_col")
 parser.add_option("","--gene-stats-prob-col",default=None,dest="gene_stats_prob_col")
-parser.add_option("","--const-gene-log-bf",default=None,type=float)
 
 #locations of genes
 #ALL GENE LOC FILES MUST BE IN FORMAT "GENE CHROM START END STRAND GENE" 
@@ -479,6 +458,52 @@ parser.add_option("","--debug-zero-sparse",action="store_true") #
 parser.add_option("","--debug-just-check-header",action="store_true") #
 parser.add_option("","--debug-only-avg-huge",action="store_true")
 
+_ADVANCED_OPTION_HELP_BY_FLAG = {
+    "--gene-stats-in": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
+    "--gene-stats-id-col": "column mapping for advanced --gene-stats-in ingestion",
+    "--gene-stats-log-bf-col": "log BF column mapping for advanced --gene-stats-in ingestion",
+    "--gene-stats-combined-col": "combined column mapping for advanced --gene-stats-in ingestion",
+    "--gene-stats-prior-col": "prior column mapping for advanced --gene-stats-in ingestion",
+    "--gene-stats-prob-col": "probability column mapping for advanced --gene-stats-in ingestion",
+    "--gene-set-stats-in": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
+    "--gene-set-stats-id-col": "column mapping for advanced --gene-set-stats-in ingestion",
+    "--gene-set-stats-exp-beta-tilde-col": "exp(beta-tilde) column mapping for advanced gene-set stats ingestion",
+    "--gene-set-stats-beta-tilde-col": "beta-tilde column mapping for advanced gene-set stats ingestion",
+    "--gene-set-stats-beta-col": "beta column mapping for advanced gene-set stats ingestion",
+    "--gene-set-stats-beta-uncorrected-col": "uncorrected beta column mapping for advanced gene-set stats ingestion",
+    "--gene-set-stats-se-col": "SE column mapping for advanced gene-set stats ingestion",
+    "--gene-set-stats-p-col": "p-value column mapping for advanced gene-set stats ingestion",
+    "--huge-statistics-in": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
+    "--huge-statistics-out": "write HuGE statistics cache for faster reruns",
+    "--cross-val": "enable cross-validation tuning of inner beta sampling hyperparameters",
+    "--no-cross-val": "explicitly disable cross-validation tuning",
+    "--cross-val-num-explore-each-direction": "cross-validation exploration breadth for sigma tuning",
+    "--cross-val-max-num-tries": "maximum cross-validation boundary expansions",
+    "--cross-val-folds": "number of folds for cross-validation tuning",
+    "--sim-log-bf-noise-sigma-mult": "simulation-only noise scale for generated log Bayes factors",
+    "--sim-only-positive": "simulation-only: constrain synthetic effects to positive values",
+    "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
+    "--betas-uncorrected-from-phewas": "compute uncorrected beta path from gene-phewas statistics",
+    "--run-phewas-from-gene-phewas-stats-in": "run gene-level phewas output stage from precomputed gene-phewas stats",
+    "--phewas-stats-out": "write optional advanced gene-level phewas output table",
+    "--gene-phewas-bfs-in": "input gene-phewas BFS table for advanced phewas workflows",
+    "--gene-phewas-stats-in": "input gene-phewas statistics table for advanced phewas workflows",
+    "--gene-phewas-bfs-id-col": "gene ID column for advanced gene-phewas input",
+    "--gene-phewas-stats-id-col": "gene ID column for advanced gene-phewas input",
+    "--gene-phewas-bfs-log-bf-col": "log BF column for advanced gene-phewas input",
+    "--gene-phewas-stats-log-bf-col": "log BF column for advanced gene-phewas input",
+    "--gene-phewas-bfs-combined-col": "combined column for advanced gene-phewas input",
+    "--gene-phewas-stats-combined-col": "combined column for advanced gene-phewas input",
+    "--gene-phewas-bfs-prior-col": "prior column for advanced gene-phewas input",
+    "--gene-phewas-stats-prior-col": "prior column for advanced gene-phewas input",
+    "--gene-phewas-bfs-pheno-col": "phenotype column for advanced gene-phewas input",
+    "--gene-phewas-stats-pheno-col": "phenotype column for advanced gene-phewas input",
+    "--gene-phewas-id-to-X-id": "gene ID remapping table for advanced gene-phewas ingestion",
+    "--min-gene-phewas-read-value": "minimum value filter for advanced gene-phewas ingestion",
+    "--deterministic": "force deterministic random seed behavior (seed=0 unless --seed is set)",
+    "--seed": "set explicit random seed for deterministic reproducibility checks",
+}
+
 def _iter_parser_options(_parser):
     for _opt in _parser.option_list:
         if _opt is not None and _opt.dest is not None:
@@ -487,6 +512,31 @@ def _iter_parser_options(_parser):
         for _opt in _group.option_list:
             if _opt is not None and _opt.dest is not None:
                 yield _opt
+
+def _apply_cli_help_layout(_parser):
+    _parser.description = (
+        "PIGEAN core workflow: load gene-level evidence, read/filter gene sets, "
+        "estimate betas/priors, then run outer Gibbs."
+    )
+    _parser.epilog = (
+        "Core quickstart:\n"
+        "  pigean.py gibbs --config /path/to/config.json --gwas-in /path/to/sumstats.gz\n\n"
+        "Advanced workflows (Set B): simulation (`sim` mode), PoPS-style priors (`pops`/`naive_pops`), "
+        "precomputed input ingestion (`--gene-stats-in`/`--gene-set-stats-in`), "
+        "optional PheWAS output, and HuGE cache I/O. "
+        "Advanced flags are tagged with '[advanced]' in --help."
+    )
+
+    long_opt_to_option = {}
+    for _opt in _iter_parser_options(_parser):
+        for _long_opt in _opt._long_opts:
+            long_opt_to_option[_long_opt] = _opt
+
+    for _flag, _help_text in _ADVANCED_OPTION_HELP_BY_FLAG.items():
+        _opt = long_opt_to_option.get(_flag)
+        if _opt is None:
+            continue
+        _opt.help = "[advanced] %s" % _help_text
 
 def _merge_dicts(_base, _override):
     if not isinstance(_base, dict):
@@ -666,6 +716,8 @@ def _open_optional_log_handle(_filepath):
     if _filepath is not None:
         return open(_filepath, 'w')
     return sys.stderr
+
+_apply_cli_help_layout(parser)
 
 
 argv_parse = sys.argv[1:]
@@ -2116,44 +2168,6 @@ class PigeanState(object):
         self._record_param("num_genes_read", len(self.genes))
 
         log("Read %d gene sets and %d genes" % (len(self.gene_sets), len(self.genes)))
-
-    #this reads a V matrix directly from a file
-    #it does not initialize an X matrix; if the X-matrix is needed, read_X should be used instead
-    def read_V(self, V_in):
-
-        log("Reading V from --V-in file %s" % V_in, INFO)
-        with open(V_in) as V_fh:
-            header = V_fh.readline().strip('\n')
-        if len(header) == 0 or header[0] != "#":
-            bail("First line of --V-in must be proceeded by #")
-        header = header.lstrip("# \t")
-        gene_sets = header.split()
-        if len(gene_sets) < 1:
-            bail("First line of --X-in must contain list of gene sets")
-
-        gene_set_to_ind = _construct_map_to_ind(gene_sets)
-        V = np.genfromtxt(V_in, skip_header=1)
-        if V.shape[0] != V.shape[1] or V.shape[0] != len(gene_sets):
-            bail("V matrix dimensions %s do not match number of gene sets in header line (%s)" % (V.shape, len(gene_sets)))
-
-        if self.gene_sets is None:
-            self.gene_sets = gene_sets
-            self.gene_set_to_ind = gene_set_to_ind
-        else:
-            #first remove everything from V that is not in gene sets previously
-            subset_mask = np.array([(x in self.gene_set_to_ind) for x in gene_sets])
-            if sum(subset_mask) != len(subset_mask):
-                warn("Excluding %s values from previously loaded files because absent from --V-in file" % (len(subset_mask) - sum(subset_mask)))
-                V = V[subset_mask,:][:,subset_mask]
-                self.gene_sets = list(itertools.compress(self.gene_sets, subset_mask))
-                self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
-            #now remove everything from the other files that are not in V
-            old_subset_mask = np.array([(x in gene_set_to_ind) for x in self.gene_sets])
-            if sum(old_subset_mask) != len(old_subset_mask):
-                warn("Excluding %s values from --V-in file because absent from previously loaded files" % (len(old_subset_mask) - sum(old_subset_mask)))
-                self.subset_gene_sets(old_subset_mask, keep_missing=False, skip_V=True)
-        return V
-
 
     def write_V(self, V_out):
         if self.X_orig is not None:
@@ -4939,59 +4953,6 @@ class PigeanState(object):
 
         return (positive_controls, extra_genes, np.array(extra_positive_controls))
 
-    def read_all_genes(self, all_genes_in=None, all_genes_id_col=None, all_genes_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
-        if all_genes_in is None:
-            bail("Require --all-genes-in")
-
-        if hold_out_chrom is not None and self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
-
-        all_genes = []
-        with open_gz(all_genes_in) as all_genes_fh:
-            id_col = 0
-            seen_header = False
-            for line in all_genes_fh:
-                cols = line.strip('\n').split()
-                if not seen_header:
-                    seen_header = True
-                    if all_genes_has_header or len(cols) > 1:
-                        if len(cols) > 1 and all_genes_id_col is None:
-                            bail("--all-genes-id-col required for positive control files with more than one column")
-                        elif all_genes_id_col is not None:
-                            id_col = _get_col(all_genes_id_col, cols)
-
-                        if all_genes_has_header and all_genes_id_col is not None:
-                            continue
-
-                if id_col >= len(cols):
-                    warn("Skipping due to too few columns in line: %s" % line)
-                    continue
-
-                gene = cols[id_col]
-
-                if self.gene_label_map is not None and gene in self.gene_label_map:
-                    gene = self.gene_label_map[gene]
-
-                if hold_out_chrom is not None and gene in self.gene_to_chrom and self.gene_to_chrom[gene] == hold_out_chrom:
-                    continue
-
-                all_genes.append(gene)
-
-        if self.genes is not None:
-            genes = self.genes
-            gene_to_ind = self.gene_to_ind
-        else:
-            genes = []
-            gene_to_ind = {}
-
-        for gene in all_genes:
-            if gene not in gene_to_ind:
-                gene_to_ind[gene] = len(genes)
-                genes.append(gene)
-
-        self._set_X(None, genes, None, skip_N=True)
-
-
     #written by o3
     def read_count_file(self, case_counts_in, ctrl_counts_in, min_revels=None, mean_rrs=None, case_counts_gene_col=None, ctrl_counts_gene_col=None, case_counts_revel_col=None, ctrl_counts_revel_col=None, case_counts_count_col=None, ctrl_counts_count_col=None, case_counts_tot_col=None, ctrl_counts_tot_col=None, case_counts_max_freq_col=None, ctrl_counts_max_freq_col=None, max_case_freq=0.001, max_ctrl_freq=0.001, syn_revel_threshold=0, syn_fisher_p=1e-4, nu=1, beta=1.0, hold_out_chrom=None, gene_loc_file=None, bound_zero=True, **kwargs):
 
@@ -5710,223 +5671,6 @@ class PigeanState(object):
         #self.is_logistic = False
         #make sure we are doing the normalization
         self._set_X(self.X_orig, self.genes, self.gene_sets, skip_N=True)
-
-
-    def read_gene_set_phewas_statistics(self, stats_in, stats_id_col=None, stats_pheno_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, update_X=False, phenos_to_match=None, return_only_ids=False, max_num_entries_at_once=None):
-
-        if stats_in is None:
-            bail("Require --gene-set-stats-in or --gene-set-phewas-stats-in for this operation")
-
-        log("Reading --gene-set-phewas-stats-in file %s" % stats_in, INFO)
-
-        for delim in [None, '\t']:
-            subset_mask = None
-            need_to_take_log = False
-
-            read_ids = set()
-
-            success = True
-            with open_gz(stats_in) as stats_fh:
-                header_cols = stats_fh.readline().strip('\n').split(delim)
-                if len(header_cols) == 1:
-                    success = False
-                    continue
-                id_col = _get_col(stats_id_col, header_cols)
-                pheno_col = _get_col(stats_pheno_col, header_cols)
-
-                beta_col = None
-                if stats_beta_col is not None:
-                    beta_col = _get_col(stats_beta_col, header_cols, True)
-                else:
-                    beta_col = _get_col("beta", header_cols, False)
-
-                beta_uncorrected_col = None
-                if stats_beta_uncorrected_col is not None:
-                    beta_uncorrected_col = _get_col(stats_beta_uncorrected_col, header_cols, True)
-                else:
-                    beta_uncorrected_col = _get_col("beta_uncorrected", header_cols, False)
-
-                if beta_col is None and beta_uncorrected_col is None:
-                    bail("Require at least beta or beta_uncorrected to read from --gene-set-stats-in")
-
-                if self.gene_sets is not None:
-                    subset_mask = np.array([False] * len(self.gene_sets))
-
-                gene_sets = []
-                gene_set_to_ind = {}
-
-                phenos = []
-                pheno_to_ind = {}
-
-                ignored = 0
-
-                if max_num_entries_at_once is None:
-                    max_num_entries_at_once = 200 * 10000
-
-                betas = []
-                betas_uncorrected = []
-                row = []
-                col = []
-                betas_chunks = []
-                betas_uncorrected_chunks = []
-                row_chunks = []
-                col_chunks = []
-
-                def __flush_chunks():
-                    if len(row) == 0:
-                        return
-                    row_chunks.append(np.array(row, dtype=np.int32))
-                    col_chunks.append(np.array(col, dtype=np.int32))
-                    betas_chunks.append(np.array(betas, dtype=np.float64))
-                    betas_uncorrected_chunks.append(np.array(betas_uncorrected, dtype=np.float64))
-                    row[:] = []
-                    col[:] = []
-                    betas[:] = []
-                    betas_uncorrected[:] = []
-
-                for line in stats_fh:
-                    beta = None
-                    beta_uncorrected = None
-
-                    cols = line.strip('\n').split(delim)
-                    if len(cols) != len(header_cols):
-                        success = False
-                        continue
-
-                    if id_col > len(cols) or pheno_col > len(cols) or (beta_col is not None and beta_col > len(cols)) or (beta_uncorrected_col is not None and beta_uncorrected_col > len(cols)):
-                        warn("Skipping due to too few columns in line: %s" % line)
-                        continue
-
-                    gene_set = cols[id_col]
-                    pheno = cols[pheno_col]
-
-                    if phenos_to_match is not None and pheno not in phenos_to_match:
-                        continue
-
-                    if beta_col is not None:
-                        try:
-                            beta = float(cols[beta_col])
-                            if min_gene_set_beta is not None and beta < min_gene_set_beta:
-                                continue
-
-                        except ValueError:
-                            if not cols[beta_col] == "NA":
-                                warn("Skipping unconvertible beta value %s for gene_set %s" % (cols[beta_col], gene_set))
-                            continue
-
-                    if beta_uncorrected_col is not None:
-                        try:
-                            beta_uncorrected = float(cols[beta_uncorrected_col])
-                            if min_gene_set_beta_uncorrected is not None and beta_uncorrected < min_gene_set_beta_uncorrected:
-                                continue
-
-                        except ValueError:
-                            if not cols[beta_uncorrected_col] == "NA":
-                                warn("Skipping unconvertible beta_uncorrected value %s for gene_set %s" % (cols[beta_uncorrected_col], gene_set))
-                            continue
-
-                    if pheno in pheno_to_ind:
-                        pheno_ind = pheno_to_ind[pheno]
-                    else:
-                        pheno_ind = len(phenos)
-                        pheno_to_ind[pheno] = pheno_ind
-                        phenos.append(pheno)
-
-                    gene_set_ind = None
-
-                    if self.gene_sets is not None:
-                        if gene_set not in self.gene_set_to_ind:
-                            ignored += 1
-                            continue
-
-                        gene_set_ind = self.gene_set_to_ind[gene_set]
-                        if gene_set_ind is not None:
-                            subset_mask[gene_set_ind] = True
-                    else:
-                        #store these in all cases to be able to check for duplicate gene sets in the input
-                        gene_set_to_ind[gene_set] = len(gene_sets)
-                        gene_sets.append(gene_set)
-
-                    if return_only_ids:
-                        read_ids.add(gene_set)
-                        continue
-
-                    if gene_set_ind is not None:
-                        col.append(gene_set_ind)
-                        row.append(pheno_ind)
-
-                        if beta_uncorrected is not None:
-                            betas_uncorrected.append(beta_uncorrected)
-                        else:
-                            betas_uncorrected.append(beta)
-
-                        if beta is not None:
-                            betas.append(beta)
-                        else:
-                            betas.append(beta_uncorrected)
-
-                        if len(row) >= max_num_entries_at_once:
-                            __flush_chunks()
-
-                __flush_chunks()
-
-                log("Done reading --stats-in-file", DEBUG)
-
-                if success:
-                    break
-
-        if not success:
-            bail("Error: number of columns in header did not match number of columns in lines after header")
-
-        if return_only_ids:
-            return read_ids
-
-        if update_X:
-            if self.gene_sets is not None:
-                log("Subsetting matrices", DEBUG)
-                #need to subset existing matrices
-                if sum(subset_mask) != len(subset_mask):
-                    warn("Excluding %s values from previously loaded files because absent from --stats-in file" % (len(subset_mask) - sum(subset_mask)))
-                    self.subset_gene_sets(subset_mask, keep_missing=True)
-                log("Done subsetting matrices", DEBUG)
-
-            self._set_X(self.X_orig, self.genes, self.gene_sets, skip_N=True)
-
-        #store the phenotypes
-        if self.phenos is not None:
-            bail("Bug in code: cannot call this function if phenos have already been read")
-            
-        self.phenos = phenos
-
-        self.pheno_to_ind = _construct_map_to_ind(phenos)
-
-        #uniquify if needed
-        if len(row_chunks) > 0:
-            row = np.concatenate(row_chunks)
-            col = np.concatenate(col_chunks)
-            betas = np.concatenate(betas_chunks)
-            betas_uncorrected = np.concatenate(betas_uncorrected_chunks)
-        else:
-            row = np.array([], dtype=np.int32)
-            col = np.array([], dtype=np.int32)
-            betas = np.array([], dtype=np.float64)
-            betas_uncorrected = np.array([], dtype=np.float64)
-
-        if len(row) > 0:
-            key = row.astype(np.int64) * int(len(self.gene_sets)) + col.astype(np.int64)
-            _, unique_indices = np.unique(key, return_index=True)
-        else:
-            unique_indices = np.array([], dtype=np.int64)
-        if len(unique_indices) < len(row):
-            warn("Found %d duplicate values; ignoring duplicates" % (len(row) - len(unique_indices)))
-
-        betas = betas[unique_indices]
-        betas_uncorrected = betas_uncorrected[unique_indices]
-        row = row[unique_indices]
-        col = col[unique_indices]
-
-        self.X_phewas_beta = sparse.csc_matrix((betas, (row, col)), shape=(len(self.phenos), len(self.gene_sets)))
-        self.X_phewas_beta_uncorrected = sparse.csc_matrix((betas_uncorrected, (row, col)), shape=(len(self.phenos), len(self.gene_sets)))
 
 
     def _reread_gene_phewas_bfs(self):
@@ -8947,67 +8691,6 @@ class PigeanState(object):
                 if self.pheno_combined_prior_Ys_vs_input_priors_beta is not None:
                     output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "combined_vs_prior", self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde[i], self.pheno_combined_prior_Ys_vs_input_priors_p_value[i], self.pheno_combined_prior_Ys_vs_input_priors_Z[i], self.pheno_combined_prior_Ys_vs_input_priors_se[i], self.pheno_combined_prior_Ys_vs_input_priors_beta[i]))
 
-    def write_gene_pheno_statistics(self, output_file=None, min_value_to_print=0):
-        if self.gene_pheno_Y is None and self.gene_pheno_combined_prior_Ys is None and self.gene_pheno_priors is None:
-            return
-
-        if self.genes is None or self.phenos is None:
-            return
-
-        log("Writing gene pheno statistics to %s" % output_file)
-
-        with open_gz(output_file, 'w') as output_fh:
-
-            header = "Gene\tPheno"
-
-            if self.gene_pheno_priors is not None:
-                header = "%s\t%s" % (header, "prior")
-            if self.gene_pheno_combined_prior_Ys is not None:
-                header = "%s\t%s" % (header, "combined")
-            if self.gene_pheno_Y is not None:
-                header = "%s\t%s" % (header, "log_bf")
-
-            output_fh.write("%s\n" % header)
-
-            ordered_i = range(len(self.genes))
-
-            use_for_ordering = None
-
-            if self.gene_pheno_combined_prior_Ys is not None:
-                use_for_ordering = self.gene_pheno_combined_prior_Ys
-            elif self.gene_pheno_priors is not None:
-                use_for_ordering = self.gene_pheno_priors
-            elif self.gene_pheno_Y is not None:
-                use_for_ordering = self.gene_pheno_Y
-
-            use_for_ordering_genes = use_for_ordering.max(axis=1).toarray().squeeze()
-
-            ordered_i = sorted(ordered_i, key=lambda k: -np.max(use_for_ordering[k]))
-
-            for i in ordered_i:
-                gene = self.genes[i]
-                ordered_j = range(len(self.phenos))
-                ordered_j = sorted(ordered_j, key=lambda k: -use_for_ordering[i,k])
-                for j in ordered_j:
-                    pheno = self.phenos[j]
-                    line = "%s\t%s" % (gene, pheno)
-                    print_line = False
-                    if self.gene_pheno_priors is not None:
-                        line = "%s\t%.3g" % (line, self.gene_pheno_priors[i,j])
-                        if self.gene_pheno_priors[i,j] > min_value_to_print:
-                            print_line = True
-                    if self.gene_pheno_combined_prior_Ys is not None:
-                        line = "%s\t%.3g" % (line, self.gene_pheno_combined_prior_Ys[i,j])
-                        if self.gene_pheno_combined_prior_Ys[i,j] > min_value_to_print:
-                            print_line = True
-                    if self.gene_pheno_Y is not None:
-                        line = "%s\t%.3g" % (line, self.gene_pheno_Y[i,j])
-                        if self.gene_pheno_Y[i,j] > min_value_to_print:
-                            print_line = True
-                    if print_line:
-                        output_fh.write("%s\n" % line)
-
-
     #HELPER FUNCTIONS
 
     '''
@@ -9228,19 +8911,6 @@ class PigeanState(object):
             bail("--frac-gene-sets-for-prior must be in (0,1]")
         var = frac * np.square(top_bf / (-scipy.stats.norm.ppf(1.0 / (num * frac))))
         return var
-
-    def _adjust_bf(self, Y, min_mean_bf, max_mean_bf):
-        Y_to_use = np.exp(Y)
-        Y_mean = np.mean(Y_to_use)
-        if min_mean_bf is not None and Y_mean < min_mean_bf:
-            scale_factor = min_mean_bf / Y_mean
-            log("Scaling up BFs by %.4g" % scale_factor)
-            Y_to_use = Y_to_use * scale_factor
-        elif max_mean_bf is not None and Y_mean > max_mean_bf:
-            scale_factor = max_mean_bf / Y_mean
-            log("Scaling down BFs by %.4g" % scale_factor)
-            Y_to_use = Y_to_use * max_mean_bf / Y_mean
-        return np.log(Y_to_use)
 
     def _complete_p_beta_se(self, p, beta, se):
         p_none_mask = np.logical_or(p == None, np.isnan(p))
@@ -10049,371 +9719,6 @@ class PigeanState(object):
         # ------------------------------------
         #the inflation factors have already been accounted for above
         return self._finalize_regression(betas, final_ses, se_inflation_factors=None)
-
-    def _compute_multivariate_beta_tildes_huber_correlated(self, X, Y, resid_correlation_matrix=None, covs=None, add_intercept=True, delta=1.0, max_iter=100, tol=1e-6, rel_tol=0.01):
-        """
-        Perform a naive "Huber + correlation" regression:
-          1) Fit a Huber-type IRLS ignoring correlation.
-          2) Post-hoc sandwich correction of standard errors using
-             the provided sparse correlation matrices.
-
-        Parameters
-        ----------
-        X : ndarray of shape (genes, factors)
-            Rows represent genes, columns represent factors (predictors).
-
-        Y : ndarray of shape (phenos, genes)
-            Rows represent phenotypes, columns represent genes (observations).
-
-        resid_correlation_matrix : list of sparse (genes x genes) or None
-            If provided, must have length == number of phenotypes. Each
-            entry is the correlation matrix for that phenotype. We apply
-            a naive "sandwich" correction to the final standard errors.
-
-        covs : ndarray of shape (genes, n_covs) or None
-            Additional covariates where rows = covariates, cols = genes.
-
-        add_intercept : bool
-            If True, add a column of ones as intercept.
-
-        delta : float
-            Huber threshold parameter.
-
-        max_iter : int
-            Maximum IRLS iterations.
-
-        tol : float
-            Convergence tolerance (Frobenius norm difference in betas).
-
-        Returns
-        -------
-        betas : ndarray of shape (phenos, k)
-            Robust regression coefficients. (k = # factors + # covs + [1 if intercept])
-
-        ses : ndarray of shape (phenos, k)
-            "Sandwich"-adjusted standard errors (if resid_correlation_matrix is provided);
-            otherwise, approximate robust SE ignoring correlation.
-
-        pvals : ndarray of shape (phenos, k)
-            Two-sided p-values for each coefficient.
-
-        zscores : ndarray of shape (phenos, k)
-            Z-scores for each coefficient.
-
-        Notes
-        -----
-        - This method is *not* a rigorous robust + correlated approach. It simply:
-           (a) obtains robust betas via Huber IRLS ignoring correlation,
-           (b) applies a naive post-hoc "correlation sandwich" to the variance.
-
-        - We carefully multiply by each R_p (which is sparse) to avoid blowing up memory.
-        """
-
-        # --------------------------------------------------------------------
-        # 0) Build the design matrix: X_design
-        # --------------------------------------------------------------------
-        # X: (genes, factors)
-        X_design = X
-        if add_intercept:
-            ones_col = np.ones((X.shape[0], 1))
-            X_design = np.hstack([X_design, ones_col])  # now (genes, factors + 1)
-
-        if covs is not None:
-            # covs is (genes, n_covs) or (genes,) if you do covs[:, np.newaxis] above
-            if len(covs.shape) == 1:
-                covs = covs[:, np.newaxis]
-            X_design = np.hstack([X_design, covs])  # final shape (genes, k)
-
-        n_obs, n_pred = X_design.shape
-        n_phenos = Y.shape[0]
-        Y_t = Y.T  # (genes, phenos)
-
-        # --------------------------------------------------------------------
-        # 1) Huber IRLS ignoring correlation to get robust betas
-        # --------------------------------------------------------------------
-        def __huber_weight(resid, d):
-            """w(r) = 1 if |r| <= d, else d / |r|."""
-            w_ = np.ones_like(resid)
-            mask_out = np.abs(resid) > d
-            w_[mask_out] = d / np.abs(resid[mask_out])
-            return w_
-
-        def __huber_loss(resid, d):
-            """
-            piecewise huber:
-              0.5*r^2 if |r| <= d,  d*(|r| - 0.5*d) otherwise.
-            """
-            out_ = np.zeros_like(resid)
-            mask_in = np.abs(resid) <= d
-            mask_out = ~mask_in
-            out_[mask_in] = 0.5 * resid[mask_in]**2
-            out_[mask_out] = d * (np.abs(resid[mask_out]) - 0.5*d)
-            return out_
-
-        # Initial guess: regular least squares
-        # np.linalg.lstsq => returns coefs in shape (n_pred, phenos)
-        W0, _, _, _ = np.linalg.lstsq(X_design, Y_t, rcond=None)
-        betas_rob = W0.T  # => shape (phenos, n_pred)
-
-        # X_expand shaped (phenos, genes, n_pred)
-        # so axis=0 = phenos, axis=1 = genes, axis=2 = n_pred
-        # We repeat along phenos dimension:
-        X_expand = np.repeat(X_design[np.newaxis, :, :], n_phenos, axis=0)
-        # => (phenos, genes, n_pred)
-
-        for _ in range(max_iter):
-            # shape => (genes, phenos)
-            Y_hat = X_design @ betas_rob.T
-            resid = Y_t - Y_hat
-
-            # robust weights => shape (genes, phenos)
-            w_ij_orig = __huber_weight(resid, delta)
-
-            # Transpose to (phenos, genes) so it lines up with X_expand
-            #   which is (phenos, genes, n_pred).
-            w_ij = w_ij_orig.T  # => (phenos, genes)
-
-            # Now broadcast: multiply each row j by w_ij[p, j]
-            # X_expand is (phenos, genes, n_pred), w_ij is (phenos, genes)
-            # => w_ij[..., None] => (phenos, genes, 1)
-            X_expand_w = X_expand * w_ij[..., None]
-
-            # X^T W X => shape (phenos, n_pred, n_pred)
-            # We do "ijk, jh -> ikh"
-            # i=phenos, j=genes, k=n_pred, h=n_pred
-            XTwX = np.einsum('ijk,jh->ikh', X_expand_w, X_design)
-
-            # X^T W Y => shape (phenos, n_pred)
-            # "ijk, ji->ik" => i=phenos, j=genes, k=n_pred
-            # But we want to multiply X_expand_w by Y_t => shape(genes, phenos)
-            # => also note we need to use the shape from the same orientation
-            XTwY = np.einsum('ijk,ji->ik', X_expand_w, Y_t)
-
-            betas_new = np.zeros_like(betas_rob)  # (phenos, n_pred)
-            for p in range(n_phenos):
-                betas_new[p, :] = np.linalg.solve(XTwX[p], XTwY[p])
-
-            diff = np.linalg.norm(betas_new - betas_rob, ord='fro')
-            rel_diff = np.max(np.abs(W_new - W) / (np.abs(W_new) + np.abs(W) + 1e-20))
-
-            betas_rob = betas_new
-            log("Absolute diff=%.3g; rel_diff=%.3g" % (diff, rel_diff), TRACE)
-            if diff < tol:
-                break
-            if rel_diff < rel_tol:
-                break
-
-        # Final residuals
-        Y_hat = X_design @ betas_rob.T
-        resid = Y_t - Y_hat
-
-        # Huber "loss SSE"
-        huber_vals = __huber_loss(resid, delta)  # (genes, phenos)
-        sse = np.sum(huber_vals, axis=0)      # (phenos,)
-
-        df = n_obs - n_pred
-        if df <= 0:
-            raise ValueError("Degrees of freedom <= 0; check input sizes.")
-
-        # Approx. robust residual variance
-        sigma2 = sse / df  # shape (phenos,)
-
-        # We'll also need (X^T X)^{-1} for a quasi-variance approach
-        XtX = X_design.T @ X_design
-        XtX_inv = np.linalg.inv(XtX)
-
-        # 2) "Base" robust standard errors ignoring correlation
-        diag_inv = np.diag(XtX_inv)  # (n_pred,)
-        base_ses = np.sqrt(sigma2[:, None] * diag_inv[None, :])  # (phenos, n_pred)
-
-        # 3) If no correlation matrix => Done
-        #    Else do naive "sandwich" for correlated data
-        if resid_correlation_matrix is None:
-            final_ses = base_ses
-        else:
-            if len(resid_correlation_matrix) != n_phenos:
-                raise ValueError("resid_correlation_matrix must match number of phenotypes.")
-
-            final_ses = np.zeros_like(base_ses)  # shape (phenos, n_pred)
-
-            # We'll reuse w_ij_orig for the final sandwich step, which is shape (genes, phenos)
-            for p in range(n_phenos):
-                R_p = resid_correlation_matrix[p]  # (genes, genes)
-                # robust weights for phenotype p => w_ij_orig[:, p] => shape (genes,)
-                w_vec = np.sqrt(w_ij_orig[:, p])
-
-                # WeightedX => multiply each row i by w_vec[i]
-                WeightedX = X_design * w_vec[:, None]  # shape (genes, n_pred)
-
-                # Then multiply by R_p => shape => (genes, n_pred)
-                if sparse.issparse(R_p):
-                    WeightedX_R = R_p.dot(WeightedX)
-                else:
-                    WeightedX_R = R_p @ WeightedX
-
-                # WeightedX^T * WeightedX_R => (n_pred, n_pred)
-                XtRprimeX = WeightedX.T @ WeightedX_R
-
-                var_betas_p = XtX_inv @ XtRprimeX @ XtX_inv
-                se_p = np.sqrt(np.diag(var_betas_p))
-                final_ses[p, :] = se_p
-
-        # ------------------------------------
-        # 6) Optionally strip out covariate betas
-        # ------------------------------------
-        if covs is not None or add_intercept:
-            n_factors = X.shape[1]  # Number of factors (columns in X)
-            betas_rob = betas_rob[:, :n_factors]  # Only the factor betas
-            final_ses = final_ses[:, :n_factors]  # Corresponding standard errors
-
-        # 4) Compute z-scores & p-values
-        return self._finalize_regression(betas_rob, final_ses, se_inflation_factors=None)
-
-    def _compute_robust_betas(self, X, Y, resid_correlation_matrix=None, covs=None, add_intercept=True, delta=1.0, max_iter=100, tol=1e-6, rel_tol=0.01):
-
-        log("Calculating robust beta tildes", DEBUG)
-
-        Y = Y.T
-        if len(Y.shape) == 1:
-            Y = Y[:,np.newaxis]
-
-        n_phenos = Y.shape[1]
-
-        #x is gene x factor
-        n_factors = X.shape[1]  # Number of factors (columns in X)
-
-        if add_intercept:
-            X = np.hstack((X, np.ones((X.shape[0],1))))
-
-        if covs is not None:
-            if len(covs.shape) == 1:
-                covs = covs[:,np.newaxis]
-            X = np.hstack((X, covs))
-
-        def _huber_loss(residuals, delta):
-            return np.where(np.abs(residuals) <= delta, 0.5 * residuals ** 2, delta * (np.abs(residuals) - 0.5 * delta))
-
-        def _huber_weight(residuals, delta):
-            residuals[residuals == 0] = delta
-            return np.where((np.abs(residuals) > 0) & (np.abs(residuals) <= delta), 1, delta / np.abs(residuals))
-
-        # Initial coefficients
-        W = np.linalg.lstsq(X, Y, rcond=None)[0]
-
-        #pheno x gene x factor
-        X_x_pheno = np.repeat(X[np.newaxis,:,:], Y.shape[1], axis=0)
-
-        # Iteratively Reweighted Least Squares
-        for iteration in range(max_iter):
-
-            Y_pred = np.dot(X, W)
-            residuals = Y - Y_pred
-            weights = _huber_weight(residuals, delta)
-
-            #unvectorized code for reference
-            #W_new = np.zeros_like(W)
-            #for i in range(Y.shape[1]):
-            #    W_i = weights[:, i]
-            #    XTWX = np.dot(X.T, np.multiply(X.T, W_i).T)
-            #    XTWY = np.dot(X.T, np.multiply(W_i, Y[:, i]))
-            #    W_new[:, i] = np.linalg.solve(XTWX, XTWY)
-
-
-            #W is factor x phenos
-            #weights is gene x phenos
-            #Y is gene x phenos
-            #X is gene x factor
-            #X_x_pheno is pheno x gene x factor
-            #X_x_pheno.T is factor x gene x pheno
-            #weights are gene x factor
-
-            #per pheno
-
-            #pheno x gene x factor
-            X_x_pheno_w = np.multiply(X_x_pheno.T, weights).T
-            #X is factor x gene
-
-            #pheno x factor x factor
-            XTwX = np.einsum('pgf,gh->pfh', X_x_pheno_w, X)
-
-            #gene x pheno 
-            wY = np.multiply(weights, Y)
-            #X_x_pheno is pheno x gene x factor
-
-            XTwY = np.einsum('pgf,gp->fp', X_x_pheno, wY)
-
-            #W_new = np.linalg.solve(XTwX, XTwY)
-
-            #pheno x factor x factor
-            XTwX_inv = np.linalg.inv(XTwX)
-            W_new = np.einsum("phf,fp->hp", XTwX_inv, XTwY)
-
-            if np.linalg.norm(W_new - W, ord='fro') < tol:
-                break
-
-            if np.max(np.abs(W_new - W) / (np.abs(W_new) + np.abs(W) + 1e-20)) < rel_tol:
-                break
-
-
-            W = W_new
-
-        Y_pred = np.dot(X, W)
-        residuals = Y - Y_pred
-        betas = W.T
-
-        # Calculate the variance of the residuals
-        n = X.shape[0]
-        p = X.shape[1]
-        sse = np.sum(_huber_loss(residuals, delta), axis=0)
-        #length equal to phenos
-        sigma2 = sse / (n - p)
-
-
-        # We'll also need (X^T X)^{-1} for a quasi-variance approach
-        XtX = X.T @ X
-        XtX_inv = np.linalg.inv(XtX)
-
-        # 2) "Base" robust standard errors ignoring correlation
-        diag_inv = np.diag(XtX_inv)  # (n_pred,)
-        base_ses = np.sqrt(sigma2[:, None] * diag_inv[None, :])  # (phenos, n_pred)
-
-        if resid_correlation_matrix is None:
-            ses = base_ses
-        else:
-            if len(resid_correlation_matrix) != n_phenos:
-                raise ValueError("resid_correlation_matrix must match number of phenotypes.")
-
-            ses = np.zeros_like(base_ses)  # shape (phenos, n_pred)
-
-            # We'll reuse weights for the final sandwich step, which is shape (genes, phenos)
-            for p in range(n_phenos):
-                R_p = resid_correlation_matrix[p]  # (genes, genes)
-                # robust weights for phenotype p => weights[:, p] => shape (genes,)
-                w_vec = np.sqrt(weights[:, p])
-
-                # WeightedX => multiply each row i by w_vec[i]
-                WeightedX = X * w_vec[:, None]  # shape (genes, n_pred)
-
-                # Then multiply by R_p => shape => (genes, n_pred)
-                if sparse.issparse(R_p):
-                    WeightedX_R = R_p.dot(WeightedX)
-                else:
-                    WeightedX_R = R_p @ WeightedX
-
-                # WeightedX^T * WeightedX_R => (n_pred, n_pred)
-                XtRprimeX = WeightedX.T @ WeightedX_R
-
-                var_betas_p = XtX_inv @ XtRprimeX @ XtX_inv
-                se_p = np.sqrt(np.diag(var_betas_p))
-                ses[p, :] = se_p
-
-        if covs is not None or add_intercept:
-            betas = betas[:, :n_factors]  # Only the factor betas
-            ses = ses[:, :n_factors]  # Corresponding standard errors
-
-        return self._finalize_regression(betas, ses, se_inflation_factors=None)
-
-
 
     def _compute_logistic_beta_tildes(self, X, Y, scale_factors=None, mean_shifts=None, resid_correlation_matrix=None, convert_to_dichotomous=True, rel_tol=0.01, X_stacked=None, append_pseudo=True, log_fun=log):
 
@@ -13001,15 +12306,6 @@ class PigeanState(object):
             self.X_orig_missing_genes_missing_gene_sets = None
 
         return(subset_mask)
-
-    # inverse_matrix calculations
-    def _invert_matrix(self,matrix_in):
-        inv_matrix=np.linalg.inv(matrix_in) 
-        return inv_matrix
-
-    def _invert_sym_matrix(self,matrix_in):
-        cho_factor = scipy.linalg.cho_factor(matrix_in)
-        return scipy.linalg.cho_solve(cho_factor, np.eye(matrix_in.shape[0]))
 
 # ==========================================================================
 # State-agnostic parsing helpers used by both legacy objects and runtime-state.
@@ -24156,6 +23452,24 @@ def _mode_requires_gene_scores(mode_state):
         or mode_state["run_gibbs"]
     )
 
+def _load_advanced_set_b_y_inputs(state, options):
+    if not options.betas_uncorrected_from_phewas:
+        return False
+    if not options.gene_phewas_bfs_in:
+        bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
+    state.read_gene_phewas_bfs(
+        gene_phewas_bfs_in=options.gene_phewas_bfs_in,
+        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+        phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
+        min_value=options.min_gene_phewas_read_value,
+        max_num_entries_at_once=options.max_read_entries_at_once,
+    )
+    return True
+
 
 def _load_main_Y_inputs(state, options, mode_state):
     if not _mode_requires_gene_scores(mode_state):
@@ -24195,23 +23509,49 @@ def _load_main_Y_inputs(state, options, mode_state):
         state.read_Y(**_build_main_read_y_source_kwargs(options))
         return False
 
-    if options.betas_uncorrected_from_phewas:
-        if not options.gene_phewas_bfs_in:
-            bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-        state.read_gene_phewas_bfs(
-            gene_phewas_bfs_in=options.gene_phewas_bfs_in,
-            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-            phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-            min_value=options.min_gene_phewas_read_value,
-            max_num_entries_at_once=options.max_read_entries_at_once,
-        )
+    if _load_advanced_set_b_y_inputs(state, options):
         return False
 
     return True
+
+def _run_advanced_set_b_phewas_beta_sampling_if_requested(state, options, beta_sampling_kwargs):
+    if not options.betas_uncorrected_from_phewas:
+        return
+    phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
+    phewas_beta_sampling_kwargs.update({
+        "run_betas_using_phewas": options.betas_from_phewas,
+        "run_uncorrected_using_phewas": True,
+    })
+    state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
+
+def _run_advanced_set_b_output_phewas_if_requested(state, options):
+    if not options.run_phewas_from_gene_phewas_stats_in:
+        return
+    bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
+    can_reuse_loaded_bfs = (
+        options.gene_phewas_bfs_in is not None
+        and bfs_to_use == options.gene_phewas_bfs_in
+        and state.num_gene_phewas_filtered == 0
+        and state.read_gene_phewas()
+    )
+    if can_reuse_loaded_bfs:
+        # Skip re-reading if this is the same unfiltered PheWAS BFS file.
+        bfs_to_use = None
+
+    run_kwargs = dict(
+        gene_phewas_bfs_in=bfs_to_use,
+        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+        batch_size=1500,
+    )
+    run_kwargs.update(_build_inner_beta_sampler_common_kwargs(options))
+    state.run_phewas(**run_kwargs)
+
+    if options.phewas_stats_out:
+        state.write_phewas_statistics(options.phewas_stats_out)
 
 
 def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_loaded):
@@ -24339,14 +23679,11 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
             "betas_trace_out": options.betas_trace_out,
         })
         state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
-
-        if options.betas_uncorrected_from_phewas:
-            phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
-            phewas_beta_sampling_kwargs.update({
-                "run_betas_using_phewas": options.betas_from_phewas,
-                "run_uncorrected_using_phewas": True,
-            })
-            state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
+        _run_advanced_set_b_phewas_beta_sampling_if_requested(
+            state=state,
+            options=options,
+            beta_sampling_kwargs=beta_sampling_kwargs,
+        )
 
     # D5) Final inference stage: priors and/or outer Gibbs.
     if mode_state["run_priors"]:
@@ -24468,31 +23805,7 @@ def _write_main_outputs_and_optional_phewas(state, options, mode_state):
         state.write_gene_effectors(options.gene_effectors_out)
 
     if mode_state["run_phewas"]:
-        bfs_to_use = options.run_phewas_from_gene_phewas_stats_in
-        can_reuse_loaded_bfs = (
-            options.gene_phewas_bfs_in is not None
-            and bfs_to_use == options.gene_phewas_bfs_in
-            and state.num_gene_phewas_filtered == 0
-            and state.read_gene_phewas()
-        )
-        if can_reuse_loaded_bfs:
-            # Skip re-reading if this is the same unfiltered PheWAS BFS file.
-            bfs_to_use = None
-
-        run_kwargs = dict(
-            gene_phewas_bfs_in=bfs_to_use,
-            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-            batch_size=1500,
-        )
-        run_kwargs.update(_build_inner_beta_sampler_common_kwargs(options))
-        state.run_phewas(**run_kwargs)
-
-        if options.phewas_stats_out:
-            state.write_phewas_statistics(options.phewas_stats_out)
+        _run_advanced_set_b_output_phewas_if_requested(state=state, options=options)
 
     if options.params_out:
         state.write_params(options.params_out)

@@ -18,3 +18,20 @@ msigdb:/path/gene_set_list_msigdb_nohp.txt@msigdb
 
 - `label:` controls display label
 - `@batch` controls hyperparameter pooling (p/sigma sharing)
+
+## Core vs advanced options
+
+`src/pigean.py --help` marks advanced Set B flags with `[advanced]`.
+
+Core configs should target the main path:
+
+1. raw evidence input (`--gwas-in` / `--exomes-in` / positive controls)
+2. gene-set matrix input (`--X-in` / `--X-list`)
+3. Gibbs output files
+
+Advanced configs can layer in:
+
+1. precomputed input ingestion (`--gene-stats-in`, `--gene-set-stats-in`)
+2. HuGE cache workflows (`--huge-statistics-in/out`)
+3. optional PheWAS output workflow
+4. specialized modes (`sim`, `pops`, `naive_pops`)

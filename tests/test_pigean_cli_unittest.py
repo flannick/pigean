@@ -83,6 +83,51 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Usage: pigean.py", proc.stdout)
 
+    def test_help_includes_core_and_advanced_sections(self) -> None:
+        proc = self._run("gibbs", "--help")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("Core quickstart:", proc.stdout)
+        self.assertIn("Advanced workflows (Set B)", proc.stdout)
+
+    def test_help_marks_set_b_flags_as_advanced(self) -> None:
+        proc = self._run("gibbs", "--help")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
+        self.assertIn("[advanced] run gene-level phewas output stage", proc.stdout)
+        self.assertIn("--gene-stats-in", proc.stdout)
+        self.assertIn("[advanced] use precomputed gene-level statistics", proc.stdout)
+        self.assertIn("--huge-statistics-in", proc.stdout)
+        self.assertIn("[advanced] read precomputed HuGE statistics cache", proc.stdout)
+
+    def test_pops_mode_defaults_are_exposed_in_effective_config(self) -> None:
+        proc = self._run("pops", "--deterministic", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["mode"], "pops")
+        self.assertTrue(payload["options"]["linear"])
+        self.assertEqual(payload["options"]["update_hyper"], "none")
+        self.assertTrue(payload["options"]["cross_val"])
+
+    def test_sim_mode_is_supported_in_effective_config(self) -> None:
+        proc = self._run("sim", "--deterministic", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["mode"], "sim")
+        self.assertTrue(payload["options"]["deterministic"])
+        self.assertEqual(payload["options"]["seed"], 0)
+
+    def test_gene_stats_in_option_round_trips_in_effective_config(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gene-stats-in",
+            "tests/data/mody.gene.list",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["mode"], "gibbs")
+        self.assertEqual(payload["options"]["gene_stats_in"], "tests/data/mody.gene.list")
+
     def test_config_removed_gene_bfs_key_has_replacement_message(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             cfg_path = Path(td) / "cfg.json"
