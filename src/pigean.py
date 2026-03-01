@@ -13818,6 +13818,56 @@ def _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=None, **
     if runtime_state.gene_covariates is None:
         return
 
+    _prepare_gene_covariate_regression_state(runtime_state)
+
+    # Recompute corrected HuGE scores.
+    Y_for_regression = runtime_state.Y_for_regression
+    if runtime_state.Y_for_regression is not None:
+        (Y_for_regression, _, _) = runtime_state._correct_huge(
+            runtime_state.Y_for_regression,
+            runtime_state.gene_covariates,
+            runtime_state.gene_covariates_mask,
+            runtime_state.gene_covariates_mat_inv,
+            runtime_state.gene_covariate_names,
+            runtime_state.gene_covariate_intercept_index,
+        )
+
+    (Y, runtime_state.Y_uncorrected, _) = runtime_state._correct_huge(
+        runtime_state.Y,
+        runtime_state.gene_covariates,
+        runtime_state.gene_covariates_mask,
+        runtime_state.gene_covariates_mat_inv,
+        runtime_state.gene_covariate_names,
+        runtime_state.gene_covariate_intercept_index,
+    )
+
+    runtime_state._set_Y(Y, Y_for_regression, runtime_state.Y_exomes, runtime_state.Y_positive_controls, runtime_state.Y_case_counts)
+    runtime_state.gene_covariate_adjustments = runtime_state.Y_for_regression - runtime_state.Y_uncorrected
+
+    if runtime_state.gene_to_gwas_huge_score is not None:
+        Y_huge = np.zeros(len(runtime_state.Y_for_regression))
+        assert(len(Y_huge) == len(runtime_state.genes))
+        for i in range(len(runtime_state.genes)):
+            if runtime_state.genes[i] in runtime_state.gene_to_gwas_huge_score:
+                Y_huge[i] = runtime_state.gene_to_gwas_huge_score[runtime_state.genes[i]]
+
+        (Y_huge, _, _) = runtime_state._correct_huge(
+            Y_huge,
+            runtime_state.gene_covariates,
+            runtime_state.gene_covariates_mask,
+            runtime_state.gene_covariates_mat_inv,
+            runtime_state.gene_covariate_names,
+            runtime_state.gene_covariate_intercept_index,
+        )
+
+        for i in range(len(runtime_state.genes)):
+            if runtime_state.genes[i] in runtime_state.gene_to_gwas_huge_score:
+                runtime_state.gene_to_gwas_huge_score[runtime_state.genes[i]] = Y_huge[i]
+
+        runtime_state.combine_huge_scores()
+
+
+def _prepare_gene_covariate_regression_state(runtime_state):
     # Remove degenerate / highly collinear columns before linear correction.
     constant_features = np.isclose(np.var(runtime_state.gene_covariates, axis=0), 0)
     if np.sum(constant_features) > 0:
@@ -13874,52 +13924,6 @@ def _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=None, **
     gene_covariate_sds = np.std(runtime_state.gene_covariates, axis=0)
     gene_covariate_sds[gene_covariate_sds == 0] = 1
     runtime_state.gene_covariate_zs = (runtime_state.gene_covariates - np.mean(runtime_state.gene_covariates, axis=0)) / gene_covariate_sds
-
-    # Recompute corrected HuGE scores.
-    Y_for_regression = runtime_state.Y_for_regression
-    if runtime_state.Y_for_regression is not None:
-        (Y_for_regression, _, _) = runtime_state._correct_huge(
-            runtime_state.Y_for_regression,
-            runtime_state.gene_covariates,
-            runtime_state.gene_covariates_mask,
-            runtime_state.gene_covariates_mat_inv,
-            runtime_state.gene_covariate_names,
-            runtime_state.gene_covariate_intercept_index,
-        )
-
-    (Y, runtime_state.Y_uncorrected, _) = runtime_state._correct_huge(
-        runtime_state.Y,
-        runtime_state.gene_covariates,
-        runtime_state.gene_covariates_mask,
-        runtime_state.gene_covariates_mat_inv,
-        runtime_state.gene_covariate_names,
-        runtime_state.gene_covariate_intercept_index,
-    )
-
-    runtime_state._set_Y(Y, Y_for_regression, runtime_state.Y_exomes, runtime_state.Y_positive_controls, runtime_state.Y_case_counts)
-    runtime_state.gene_covariate_adjustments = runtime_state.Y_for_regression - runtime_state.Y_uncorrected
-
-    if runtime_state.gene_to_gwas_huge_score is not None:
-        Y_huge = np.zeros(len(runtime_state.Y_for_regression))
-        assert(len(Y_huge) == len(runtime_state.genes))
-        for i in range(len(runtime_state.genes)):
-            if runtime_state.genes[i] in runtime_state.gene_to_gwas_huge_score:
-                Y_huge[i] = runtime_state.gene_to_gwas_huge_score[runtime_state.genes[i]]
-
-        (Y_huge, _, _) = runtime_state._correct_huge(
-            Y_huge,
-            runtime_state.gene_covariates,
-            runtime_state.gene_covariates_mask,
-            runtime_state.gene_covariates_mat_inv,
-            runtime_state.gene_covariate_names,
-            runtime_state.gene_covariate_intercept_index,
-        )
-
-        for i in range(len(runtime_state.genes)):
-            if runtime_state.genes[i] in runtime_state.gene_to_gwas_huge_score:
-                runtime_state.gene_to_gwas_huge_score[runtime_state.genes[i]] = Y_huge[i]
-
-        runtime_state.combine_huge_scores()
 
 
 def _maybe_append_input_gene_covariates(runtime_state, gene_covs_in=None, **kwargs):
