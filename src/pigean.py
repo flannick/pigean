@@ -1744,12 +1744,6 @@ class PigeanState(object):
 
         def __add_to_X(mat_info, genes, gene_sets, tag=None, skip_scale_factors=False, fname=None):
 
-            #if self.genes_missing is not None:
-            #    gene_to_ind = _construct_map_to_ind(genes)
-            #    #we are going to construct the full matrices including all of the missing genes
-            #    #and then subset the matrix down
-            #    genes += [x for x in self.genes_missing if x not in gene_to_ind]
-
             if tag is not None:
                 gene_sets = ["%s_%s" % (tag, x) for x in gene_sets]
 
@@ -1757,14 +1751,9 @@ class PigeanState(object):
             if type(mat_info) is tuple:
                 (data, row, col) = mat_info
                 cur_X = sparse.csc_matrix((data, (row, col)), shape=(len(genes), len(gene_sets)))
-                is_dense = False
                 if cur_X.shape[1] == 0:
                     return (0, 0)
             else:
-
-                #is_dense = True
-                #disabling this setting
-                is_dense = False
 
                 mat_info, genes = _normalize_dense_gene_rows(mat_info, genes, self.gene_label_map)
 
@@ -1933,7 +1922,6 @@ class PigeanState(object):
                 gene_sets=gene_sets,
             )
 
-
             cur_X = _maybe_permute_gene_set_rows(
                 self,
                 cur_X=cur_X,
@@ -1941,6 +1929,9 @@ class PigeanState(object):
             )
 
             p_value_ignore = None
+            total_qc_metrics = None
+            mean_qc_metrics = None
+            total_qc_metrics_directions = None
 
             if (filter_gene_set_p < 1 or filter_gene_set_metric_z is not None) and self.Y is not None:
 
@@ -2018,11 +2009,6 @@ class PigeanState(object):
                     cur_X_missing_genes_new=cur_X_missing_genes_new,
                     cur_X_missing_genes_int=cur_X_missing_genes_int,
                 )
-
-            #construct the mean shifts / etc needed for compute beta tildes
-            #then call compute beta tildes
-            #then call compute betas without V
-            #then filter
 
             self.is_dense_gene_set = np.append(self.is_dense_gene_set, np.full(len(gene_sets), is_dense))
 
