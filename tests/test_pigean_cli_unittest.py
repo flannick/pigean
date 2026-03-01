@@ -128,6 +128,12 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(payload["mode"], "gibbs")
         self.assertEqual(payload["options"]["gene_stats_in"], "tests/data/mody.gene.list")
 
+    def test_positive_controls_only_requires_positive_controls_all_in(self) -> None:
+        proc = self._run("gibbs", "--positive-controls-list", "INS")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Specified positive controls without --positive-controls-all-in", err)
+
     def test_config_removed_gene_bfs_key_has_replacement_message(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             cfg_path = Path(td) / "cfg.json"
