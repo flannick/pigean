@@ -14248,7 +14248,7 @@ def _read_Y(
         else:
             # exomes is already aligned to runtime_state.genes: Y1_exomes matches runtime_state.genes
             # align so genes includes the union of exomes and positive controls
-            extra_genes_all, aligned_existing_values, extra_Y_positive_controls = runtime_state._align_extra_genes_with_new_source(
+            extra_genes_all, aligned_existing_values, extra_Y_positive_controls = _align_extra_genes_with_new_source(
                 existing_extra_genes=extra_genes_all,
                 existing_extra_values=[extra_Y_exomes],
                 new_source_genes=extra_genes_positive_controls,
@@ -14293,7 +14293,7 @@ def _read_Y(
             Y1_positive_controls = np.zeros(len(Y1_case_counts))
         else:
             # exomes and positive controls are already aligned to runtime_state.genes
-            extra_genes_all, aligned_existing_values, extra_Y_case_counts = runtime_state._align_extra_genes_with_new_source(
+            extra_genes_all, aligned_existing_values, extra_Y_case_counts = _align_extra_genes_with_new_source(
                 existing_extra_genes=extra_genes_all,
                 existing_extra_values=[extra_Y_exomes, extra_Y_positive_controls],
                 new_source_genes=extra_genes_case_counts,
@@ -14322,7 +14322,8 @@ def _read_Y(
         missing_value,
         gene_combined_map,
         gene_prior_map,
-    ) = runtime_state._read_primary_y_source(
+    ) = _read_primary_y_source(
+        runtime_state,
         gwas_in=gwas_in,
         huge_statistics_in=huge_statistics_in,
         huge_statistics_out=huge_statistics_out,
@@ -14362,7 +14363,8 @@ def _read_Y(
             extra_Y_exomes,
             extra_Y_positive_controls,
             extra_Y_case_counts,
-        ) = runtime_state._initialize_y_from_new_gene_universe(
+        ) = _initialize_y_from_new_gene_universe(
+            runtime_state,
             extra_genes=extra_genes,
             extra_Y=extra_Y,
             extra_Y_for_regression=extra_Y_for_regression,
@@ -14388,7 +14390,8 @@ def _read_Y(
             extra_Y_exomes,
             extra_Y_positive_controls,
             extra_Y_case_counts,
-        ) = runtime_state._merge_y_into_existing_gene_universe(
+        ) = _merge_y_into_existing_gene_universe(
+            runtime_state,
             Y1=Y1,
             Y1_for_regression=Y1_for_regression,
             Y1_exomes=Y1_exomes,
@@ -14447,7 +14450,7 @@ def _read_Y(
         for i in range(len(runtime_state.genes)):
             if runtime_state.genes[i] in gene_prior_map:
                 runtime_state.priors[i] = gene_prior_map[runtime_state.genes[i]]
-    runtime_state._apply_gene_covariates_and_correct_huge(gene_covs_in=gene_covs_in, **kwargs)
+    _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
 
 
 def _read_primary_y_source(
