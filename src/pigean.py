@@ -11121,81 +11121,6 @@ class PigeanState(object):
         printed_warning_swing = False
         printed_warning_increase = False
 
-        def __update_gene_set_batch(compute_mask_m, compute_mask_v, alpha_shrink, rand_ps_t, rand_norms_t, hdmp_hdmpn_m, c_const_m, d_const_m, hdmpn_m, se2s_m, norm_scale_m):
-            # 1) Build residualized beta_tilde for the active batch.
-            compute_mask_union = np.any(compute_mask_m, axis=0)
-            compute_mask_union_filter_m = compute_mask_m[:,compute_mask_union]
-
-            if assume_independent:
-                res_beta_hat_t_flat = beta_tildes_m[compute_mask_m]
-            else:
-                current_num_parallel = sum(compute_mask_v)
-
-                if multiple_V:
-                    # Pointwise matmul across active parallels while preserving chain dimension.
-                    res_beta_hat_union_t = np.einsum('hij,ijk->hik', curr_betas_t[:,compute_mask_v,:], V[compute_mask_v,:,:][:,:,compute_mask_union]).reshape((num_chains, current_num_parallel, np.sum(compute_mask_union)))
-                elif sparse_V:
-                    res_beta_hat_union_t = V[compute_mask_union,:].dot(curr_betas_t[:,compute_mask_v,:].T.reshape((curr_betas_t.shape[2], np.sum(compute_mask_v) * curr_betas_t.shape[0]))).reshape((np.sum(compute_mask_union), np.sum(compute_mask_v), curr_betas_t.shape[0])).T
-                elif use_X:
-                    if len(compute_mask_union.shape) == 2:
-                        assert(compute_mask_union.shape[0] == 1)
-                        compute_mask_union = np.squeeze(compute_mask_union)
-
-                    curr_betas_filtered_t = curr_betas_t[:,compute_mask_v,:] / scale_factors_m[compute_mask_v,:]
-                    interm = X_orig.dot(curr_betas_filtered_t.T.reshape((curr_betas_filtered_t.shape[2],curr_betas_filtered_t.shape[0] * curr_betas_filtered_t.shape[1]))).reshape((X_orig.shape[0],curr_betas_filtered_t.shape[1],curr_betas_filtered_t.shape[0])) - np.sum(mean_shifts_m[compute_mask_v,:] * curr_betas_filtered_t, axis=2).T
-
-                    # This path can be sensitive when some parallels converge earlier.
-                    res_beta_hat_union_t = (X_orig[:,compute_mask_union].T.dot(interm.reshape((interm.shape[0],interm.shape[1]*interm.shape[2]))).reshape((np.sum(compute_mask_union),interm.shape[1],interm.shape[2])) - mean_shifts_m.T[compute_mask_union,:][:,compute_mask_v,np.newaxis] * np.sum(interm, axis=0)).T
-                    res_beta_hat_union_t /= (X_orig.shape[0] * scale_factors_m[compute_mask_v,:][:,compute_mask_union])
-                else:
-                    res_beta_hat_union_t = curr_betas_t[:,compute_mask_v,:].dot(V[:,compute_mask_union])
-
-                if betas_trace_out is not None and betas_trace_gene_sets is not None:
-                    all_map = _construct_map_to_ind(betas_trace_gene_sets)
-                    cur_sets = [betas_trace_gene_sets[x] for x in range(len(betas_trace_gene_sets)) if compute_mask_union[x]]
-                    cur_map = _construct_map_to_ind(cur_sets)
-
-                res_beta_hat_t_flat = res_beta_hat_union_t[:,compute_mask_union_filter_m[compute_mask_v,:]]
-                assert(res_beta_hat_t_flat.shape[1] == np.sum(compute_mask_m))
-                res_beta_hat_t_flat = beta_tildes_m[compute_mask_m] - res_beta_hat_t_flat
-
-                if account_for_V_diag_m:
-                    res_beta_hat_t_flat = res_beta_hat_t_flat + V_diag_m[compute_mask_m] * curr_betas_t[:,compute_mask_m]
-                else:
-                    res_beta_hat_t_flat = res_beta_hat_t_flat + curr_betas_t[:,compute_mask_m]
-
-            # 2) Convert residualized effect to inclusion probabilities.
-            b2_t_flat = np.power(res_beta_hat_t_flat, 2)
-            d_const_b2_exp_t_flat = d_const_m[compute_mask_m] * np.exp(-b2_t_flat / (se2s_m[compute_mask_m] * 2.0))
-            numerator_t_flat = c_const_m[compute_mask_m] * np.exp(-b2_t_flat / (2.0 * hdmpn_m[compute_mask_m]))
-            numerator_zero_mask_t_flat = (numerator_t_flat == 0)
-            denominator_t_flat = numerator_t_flat + d_const_b2_exp_t_flat
-            denominator_t_flat[numerator_zero_mask_t_flat] = 1
-
-            d_imaginary_mask_t_flat = ~np.isreal(d_const_b2_exp_t_flat)
-            numerator_imaginary_mask_t_flat = ~np.isreal(numerator_t_flat)
-
-            if np.any(np.logical_or(d_imaginary_mask_t_flat, numerator_imaginary_mask_t_flat)):
-                warn("Detected imaginary numbers!")
-                denominator_t_flat[d_imaginary_mask_t_flat] = numerator_t_flat[d_imaginary_mask_t_flat]
-                numerator_t_flat[np.logical_and(~d_imaginary_mask_t_flat, numerator_imaginary_mask_t_flat)] = 0
-
-            curr_postp_t[:,compute_mask_m] = (numerator_t_flat / denominator_t_flat)
-
-            # 3) Update conditional means and sampled betas for this batch.
-            curr_post_means_t[:,compute_mask_m] = hdmp_hdmpn_m[compute_mask_m] * (curr_postp_t[:,compute_mask_m] * res_beta_hat_t_flat)
-
-            if gauss_seidel:
-                proposed_beta_t_flat = curr_post_means_t[:,compute_mask_m]
-            else:
-                norm_mean_t_flat = hdmp_hdmpn_m[compute_mask_m] * res_beta_hat_t_flat
-                proposed_beta_t_flat = norm_mean_t_flat + norm_scale_m[compute_mask_m] * rand_norms_t[:,compute_mask_m]
-                zero_mask_t_flat = rand_ps_t[:,compute_mask_m] >= curr_postp_t[:,compute_mask_m] * alpha_shrink
-                proposed_beta_t_flat[zero_mask_t_flat] = 0
-
-            curr_betas_t[:,compute_mask_m] = proposed_beta_t_flat
-            res_beta_hat_t[:,compute_mask_m] = res_beta_hat_t_flat
-
         # ==========================================================================
         # Inner Beta Gibbs Phase 3: Iterative Gibbs updates + convergence checks.
         # ==========================================================================
@@ -11236,7 +11161,7 @@ class PigeanState(object):
                 # estimates are way off compared to heritability estimates.
                 alpha_shrink = 1
 
-                __update_gene_set_batch(
+                _update_inner_beta_gene_set_batch(
                     compute_mask_m=compute_mask_m,
                     compute_mask_v=compute_mask_v,
                     alpha_shrink=alpha_shrink,
@@ -11248,6 +11173,24 @@ class PigeanState(object):
                     hdmpn_m=hdmpn_m,
                     se2s_m=se2s_m,
                     norm_scale_m=norm_scale_m,
+                    assume_independent=assume_independent,
+                    beta_tildes_m=beta_tildes_m,
+                    curr_betas_t=curr_betas_t,
+                    V=V,
+                    multiple_V=multiple_V,
+                    sparse_V=sparse_V,
+                    use_X=use_X,
+                    X_orig=X_orig,
+                    scale_factors_m=scale_factors_m,
+                    mean_shifts_m=mean_shifts_m,
+                    betas_trace_out=betas_trace_out,
+                    betas_trace_gene_sets=betas_trace_gene_sets,
+                    account_for_V_diag_m=account_for_V_diag_m,
+                    V_diag_m=V_diag_m,
+                    curr_postp_t=curr_postp_t,
+                    curr_post_means_t=curr_post_means_t,
+                    gauss_seidel=gauss_seidel,
+                    res_beta_hat_t=res_beta_hat_t,
                 )
 
             _apply_inner_beta_sparsity_update(
@@ -18554,6 +18497,133 @@ def _compute_inner_beta_hyper_update_targets(
         new_p *= p_noninf_inflate
 
     return (new_p, new_sigma2)
+
+
+def _update_inner_beta_gene_set_batch(
+    compute_mask_m,
+    compute_mask_v,
+    alpha_shrink,
+    rand_ps_t,
+    rand_norms_t,
+    hdmp_hdmpn_m,
+    c_const_m,
+    d_const_m,
+    hdmpn_m,
+    se2s_m,
+    norm_scale_m,
+    assume_independent,
+    beta_tildes_m,
+    curr_betas_t,
+    V,
+    multiple_V,
+    sparse_V,
+    use_X,
+    X_orig,
+    scale_factors_m,
+    mean_shifts_m,
+    betas_trace_out,
+    betas_trace_gene_sets,
+    account_for_V_diag_m,
+    V_diag_m,
+    curr_postp_t,
+    curr_post_means_t,
+    gauss_seidel,
+    res_beta_hat_t,
+):
+    # 1) Build residualized beta_tilde for the active batch.
+    compute_mask_union = np.any(compute_mask_m, axis=0)
+    compute_mask_union_filter_m = compute_mask_m[:, compute_mask_union]
+
+    if assume_independent:
+        res_beta_hat_t_flat = beta_tildes_m[compute_mask_m]
+    else:
+        current_num_parallel = sum(compute_mask_v)
+
+        if multiple_V:
+            # Pointwise matmul across active parallels while preserving chain dimension.
+            res_beta_hat_union_t = np.einsum(
+                "hij,ijk->hik",
+                curr_betas_t[:, compute_mask_v, :],
+                V[compute_mask_v, :, :][:, :, compute_mask_union],
+            ).reshape((curr_betas_t.shape[0], current_num_parallel, np.sum(compute_mask_union)))
+        elif sparse_V:
+            res_beta_hat_union_t = V[compute_mask_union, :].dot(
+                curr_betas_t[:, compute_mask_v, :].T.reshape(
+                    (curr_betas_t.shape[2], np.sum(compute_mask_v) * curr_betas_t.shape[0])
+                )
+            ).reshape((np.sum(compute_mask_union), np.sum(compute_mask_v), curr_betas_t.shape[0])).T
+        elif use_X:
+            if len(compute_mask_union.shape) == 2:
+                assert compute_mask_union.shape[0] == 1
+                compute_mask_union = np.squeeze(compute_mask_union)
+
+            curr_betas_filtered_t = curr_betas_t[:, compute_mask_v, :] / scale_factors_m[compute_mask_v, :]
+            interm = X_orig.dot(
+                curr_betas_filtered_t.T.reshape(
+                    (curr_betas_filtered_t.shape[2], curr_betas_filtered_t.shape[0] * curr_betas_filtered_t.shape[1])
+                )
+            ).reshape((X_orig.shape[0], curr_betas_filtered_t.shape[1], curr_betas_filtered_t.shape[0])) - np.sum(
+                mean_shifts_m[compute_mask_v, :] * curr_betas_filtered_t, axis=2
+            ).T
+
+            # This path can be sensitive when some parallels converge earlier.
+            res_beta_hat_union_t = (
+                X_orig[:, compute_mask_union]
+                .T.dot(interm.reshape((interm.shape[0], interm.shape[1] * interm.shape[2])))
+                .reshape((np.sum(compute_mask_union), interm.shape[1], interm.shape[2]))
+                - mean_shifts_m.T[compute_mask_union, :][:, compute_mask_v, np.newaxis] * np.sum(interm, axis=0)
+            ).T
+            res_beta_hat_union_t /= (X_orig.shape[0] * scale_factors_m[compute_mask_v, :][:, compute_mask_union])
+        else:
+            res_beta_hat_union_t = curr_betas_t[:, compute_mask_v, :].dot(V[:, compute_mask_union])
+
+        if betas_trace_out is not None and betas_trace_gene_sets is not None:
+            cur_sets = [betas_trace_gene_sets[x] for x in range(len(betas_trace_gene_sets)) if compute_mask_union[x]]
+            _construct_map_to_ind(betas_trace_gene_sets)
+            _construct_map_to_ind(cur_sets)
+
+        res_beta_hat_t_flat = res_beta_hat_union_t[:, compute_mask_union_filter_m[compute_mask_v, :]]
+        assert res_beta_hat_t_flat.shape[1] == np.sum(compute_mask_m)
+        res_beta_hat_t_flat = beta_tildes_m[compute_mask_m] - res_beta_hat_t_flat
+
+        if account_for_V_diag_m:
+            res_beta_hat_t_flat = res_beta_hat_t_flat + V_diag_m[compute_mask_m] * curr_betas_t[:, compute_mask_m]
+        else:
+            res_beta_hat_t_flat = res_beta_hat_t_flat + curr_betas_t[:, compute_mask_m]
+
+    # 2) Convert residualized effect to inclusion probabilities.
+    b2_t_flat = np.power(res_beta_hat_t_flat, 2)
+    d_const_b2_exp_t_flat = d_const_m[compute_mask_m] * np.exp(-b2_t_flat / (se2s_m[compute_mask_m] * 2.0))
+    numerator_t_flat = c_const_m[compute_mask_m] * np.exp(-b2_t_flat / (2.0 * hdmpn_m[compute_mask_m]))
+    numerator_zero_mask_t_flat = numerator_t_flat == 0
+    denominator_t_flat = numerator_t_flat + d_const_b2_exp_t_flat
+    denominator_t_flat[numerator_zero_mask_t_flat] = 1
+
+    d_imaginary_mask_t_flat = ~np.isreal(d_const_b2_exp_t_flat)
+    numerator_imaginary_mask_t_flat = ~np.isreal(numerator_t_flat)
+
+    if np.any(np.logical_or(d_imaginary_mask_t_flat, numerator_imaginary_mask_t_flat)):
+        warn("Detected imaginary numbers!")
+        denominator_t_flat[d_imaginary_mask_t_flat] = numerator_t_flat[d_imaginary_mask_t_flat]
+        numerator_t_flat[np.logical_and(~d_imaginary_mask_t_flat, numerator_imaginary_mask_t_flat)] = 0
+
+    curr_postp_t[:, compute_mask_m] = numerator_t_flat / denominator_t_flat
+
+    # 3) Update conditional means and sampled betas for this batch.
+    curr_post_means_t[:, compute_mask_m] = hdmp_hdmpn_m[compute_mask_m] * (
+        curr_postp_t[:, compute_mask_m] * res_beta_hat_t_flat
+    )
+
+    if gauss_seidel:
+        proposed_beta_t_flat = curr_post_means_t[:, compute_mask_m]
+    else:
+        norm_mean_t_flat = hdmp_hdmpn_m[compute_mask_m] * res_beta_hat_t_flat
+        proposed_beta_t_flat = norm_mean_t_flat + norm_scale_m[compute_mask_m] * rand_norms_t[:, compute_mask_m]
+        zero_mask_t_flat = rand_ps_t[:, compute_mask_m] >= curr_postp_t[:, compute_mask_m] * alpha_shrink
+        proposed_beta_t_flat[zero_mask_t_flat] = 0
+
+    curr_betas_t[:, compute_mask_m] = proposed_beta_t_flat
+    res_beta_hat_t[:, compute_mask_m] = res_beta_hat_t_flat
 
 
 def _update_inner_beta_rhat_and_outliers(
