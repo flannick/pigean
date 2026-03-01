@@ -1951,53 +1951,17 @@ class PigeanState(object):
         #    min_allowed_p = 0.05 / (len(self.gene_sets) + len(self.gene_sets_ignored) if self.gene_sets_ignored is not None else 0)
         #    self.subset_gene_sets(self.p_values >= min_allowed_p, ignore_missing=True, keep_missing=False, skip_V=True)
 
-        #if these were not set previously, use the initial values
-
-        if self.p is None:
-            if initial_p is not None and type(initial_p) is list:
-                self.set_p(np.mean(initial_p))
-                if update_hyper_p:
-                    warn("Since --update-hyper-p was passed, using average --p-noninf (%.3g) as initial condition" % self.p)
-                if self.Y is not None:
-                    assert(self.ps is not None)
-            else:
-                self.set_p(initial_p)
-        if self.sigma_power is None:
-            self.set_sigma(self.sigma2, sigma_power)
-        fixed_sigma_cond = False
-        if self.sigma2 is None:
-            if initial_sigma2_cond is not None:
-                #if they specify cond sigma, we set the actual sigma (cond * p) and adjust for scale factors
-                if not update_hyper_sigma:
-                    fixed_sigma_cond = True
-                self.set_sigma(self.p * initial_sigma2_cond, self.sigma_power)
-            else:
-                self.set_sigma(initial_sigma2, self.sigma_power)
-
-        if sigma_soft_threshold_95 is not None and sigma_soft_threshold_5 is not None:
-            if sigma_soft_threshold_95 < 0 or sigma_soft_threshold_5 < 0:
-                warn("Ignoring sigma soft thresholding since both are not positive")
-            else:
-                #this will map scale factor to 
-                frac_95 = float(sigma_soft_threshold_95) / len(self.genes)
-                x1 = np.sqrt(frac_95 * (1 - frac_95))
-                y1 = 0.95
-
-                frac_5 = float(sigma_soft_threshold_5) / len(self.genes)
-                x2 = np.sqrt(frac_5 * (1 - frac_5))
-                y2 = 0.05
-                L = 1
-
-                if x2 < x1:
-                    warn("--sigma-threshold-5 (%.3g) is less than --sigma-threshold-95 (%.3g); this is the opposite of what you usually want as it will threshold smaller gene sets rather than larger ones")
-
-                self.sigma_threshold_k = -(np.log(1/y2 - L) - np.log(1/y1 - 1))/(x2-x1)
-                self.sigma_threshold_xo = (x1 * np.log(1/y2 - L) - x2 * np.log(1/y1 - L)) / (np.log(1/y2 - L) - np.log(1/y1 - L))
-
-                #self.sigma_threshold_xo = (x1 * np.log(L / y2 - 1) - x2 * np.log(L / y1 - 1)) / (np.log(L / y2 - 1) - np.log(L / y1 - 1))
-                #self.sigma_threshold_k = -np.log(L / y2 - 1)/ (x2 - self.sigma_threshold_xo)
-
-                log("Thresholding sigma with k=%.3g, xo=%.3g" % (self.sigma_threshold_k, self.sigma_threshold_xo))
+        fixed_sigma_cond = _initialize_hyper_defaults_after_x_read(
+            self,
+            initial_p=initial_p,
+            update_hyper_p=update_hyper_p,
+            sigma_power=sigma_power,
+            initial_sigma2_cond=initial_sigma2_cond,
+            update_hyper_sigma=update_hyper_sigma,
+            initial_sigma2=initial_sigma2,
+            sigma_soft_threshold_95=sigma_soft_threshold_95,
+            sigma_soft_threshold_5=sigma_soft_threshold_5,
+        )
 
         if not skip_betas and self.p_values is not None and (update_hyper_p or update_hyper_sigma) and len(self.gene_set_batches) > 0:
 
@@ -14752,6 +14716,62 @@ def _maybe_prune_gene_sets_after_x_read(
             skip_V=True,
             gene_weights=gene_weights,
         )
+
+
+def _initialize_hyper_defaults_after_x_read(
+    runtime_state,
+    initial_p,
+    update_hyper_p,
+    sigma_power,
+    initial_sigma2_cond,
+    update_hyper_sigma,
+    initial_sigma2,
+    sigma_soft_threshold_95,
+    sigma_soft_threshold_5,
+):
+    if runtime_state.p is None:
+        if initial_p is not None and type(initial_p) is list:
+            runtime_state.set_p(np.mean(initial_p))
+            if update_hyper_p:
+                warn("Since --update-hyper-p was passed, using average --p-noninf (%.3g) as initial condition" % runtime_state.p)
+            if runtime_state.Y is not None:
+                assert(runtime_state.ps is not None)
+        else:
+            runtime_state.set_p(initial_p)
+    if runtime_state.sigma_power is None:
+        runtime_state.set_sigma(runtime_state.sigma2, sigma_power)
+    fixed_sigma_cond = False
+    if runtime_state.sigma2 is None:
+        if initial_sigma2_cond is not None:
+            # if cond sigma is specified, set actual sigma to cond * p
+            if not update_hyper_sigma:
+                fixed_sigma_cond = True
+            runtime_state.set_sigma(runtime_state.p * initial_sigma2_cond, runtime_state.sigma_power)
+        else:
+            runtime_state.set_sigma(initial_sigma2, runtime_state.sigma_power)
+
+    if sigma_soft_threshold_95 is not None and sigma_soft_threshold_5 is not None:
+        if sigma_soft_threshold_95 < 0 or sigma_soft_threshold_5 < 0:
+            warn("Ignoring sigma soft thresholding since both are not positive")
+        else:
+            frac_95 = float(sigma_soft_threshold_95) / len(runtime_state.genes)
+            x1 = np.sqrt(frac_95 * (1 - frac_95))
+            y1 = 0.95
+
+            frac_5 = float(sigma_soft_threshold_5) / len(runtime_state.genes)
+            x2 = np.sqrt(frac_5 * (1 - frac_5))
+            y2 = 0.05
+            L = 1
+
+            if x2 < x1:
+                warn("--sigma-threshold-5 (%.3g) is less than --sigma-threshold-95 (%.3g); this is the opposite of what you usually want as it will threshold smaller gene sets rather than larger ones")
+
+            runtime_state.sigma_threshold_k = -(np.log(1 / y2 - L) - np.log(1 / y1 - 1)) / (x2 - x1)
+            runtime_state.sigma_threshold_xo = (x1 * np.log(1 / y2 - L) - x2 * np.log(1 / y1 - L)) / (np.log(1 / y2 - L) - np.log(1 / y1 - L))
+
+            log("Thresholding sigma with k=%.3g, xo=%.3g" % (runtime_state.sigma_threshold_k, runtime_state.sigma_threshold_xo))
+
+    return fixed_sigma_cond
 
 
 def _init_sparse_x_batch_state(runtime_state):
