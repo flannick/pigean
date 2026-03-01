@@ -2010,23 +2010,23 @@ class PigeanState(object):
             sort_rank = -np.sqrt(-np.log(self.p_values + 1e-200))
         else:
             sort_rank = None
-        if not skip_betas and self.p_values is not None and filter_gene_set_p < 1 and not filter_using_phewas:
-            #remove those that have uncorrected beta equal to zero
-            (betas, avg_postp) = self._calculate_non_inf_betas(initial_p=None, assume_independent=True, max_num_burn_in=max_num_burn_in, max_num_iter=max_num_iter_betas, min_num_iter=min_num_iter_betas, num_chains=num_chains_betas, r_threshold_burn_in=r_threshold_burn_in_betas, use_max_r_for_convergence=use_max_r_for_convergence_betas, max_frac_sem=max_frac_sem_betas, max_allowed_batch_correlation=max_allowed_batch_correlation, gauss_seidel=False, update_hyper_sigma=False, update_hyper_p=False, adjust_hyper_sigma_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas)
-
-            log("%d have betas uncorrected equal 0" % np.sum(betas == 0))
-            log("%d have betas uncorrected below 0.001" % np.sum(betas < 0.001))
-            log("%d have betas uncorrected below 0.01" % np.sum(betas < 0.01))
-
-            beta_ignore = betas == 0
-            beta_mask = ~beta_ignore
-            if np.sum(beta_mask) > 0:
-                log("Ignoring %d gene sets due to zero uncorrected betas (kept %d)" % (np.sum(beta_ignore), np.sum(beta_mask)))
-                self.subset_gene_sets(beta_mask, keep_missing=False, ignore_missing=True, skip_V=True)
-            else:
-                log("Keeping %d gene sets with zero uncorrected betas to avoid having none" % (np.sum(beta_ignore)))
-
-            sort_rank = -np.abs(betas[beta_mask])
+        sort_rank = _maybe_filter_zero_uncorrected_betas_after_x_read(
+            self,
+            sort_rank=sort_rank,
+            skip_betas=skip_betas,
+            filter_gene_set_p=filter_gene_set_p,
+            filter_using_phewas=filter_using_phewas,
+            max_num_burn_in=max_num_burn_in,
+            max_num_iter_betas=max_num_iter_betas,
+            min_num_iter_betas=min_num_iter_betas,
+            num_chains_betas=num_chains_betas,
+            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+            max_frac_sem_betas=max_frac_sem_betas,
+            max_allowed_batch_correlation=max_allowed_batch_correlation,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+        )
 
         if not skip_betas and max_num_gene_sets is not None and len(self.gene_sets) > max_num_gene_sets and max_num_gene_sets > 0:
             log("Current %d gene sets is greater than the maximum specified %d; reducing using pruning + small beta removal" % (len(self.gene_sets), max_num_gene_sets), DEBUG)
@@ -14876,6 +14876,61 @@ def _apply_post_read_gene_set_size_and_qc_filters(
         filter_ignore = ~filter_mask
         log("Ignoring %d gene sets due to QC metric filters (kept %d)" % (np.sum(filter_ignore), np.sum(filter_mask)))
         runtime_state.subset_gene_sets(filter_mask, keep_missing=False, ignore_missing=True, skip_V=True)
+
+
+def _maybe_filter_zero_uncorrected_betas_after_x_read(
+    runtime_state,
+    sort_rank,
+    skip_betas,
+    filter_gene_set_p,
+    filter_using_phewas,
+    max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    sparse_solution,
+    sparse_frac_betas,
+):
+    if skip_betas or runtime_state.p_values is None or filter_gene_set_p >= 1 or filter_using_phewas:
+        return sort_rank
+
+    # Remove features with identically zero uncorrected effects.
+    betas, _avg_postp = runtime_state._calculate_non_inf_betas(
+        initial_p=None,
+        assume_independent=True,
+        max_num_burn_in=max_num_burn_in,
+        max_num_iter=max_num_iter_betas,
+        min_num_iter=min_num_iter_betas,
+        num_chains=num_chains_betas,
+        r_threshold_burn_in=r_threshold_burn_in_betas,
+        use_max_r_for_convergence=use_max_r_for_convergence_betas,
+        max_frac_sem=max_frac_sem_betas,
+        max_allowed_batch_correlation=max_allowed_batch_correlation,
+        gauss_seidel=False,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        adjust_hyper_sigma_p=False,
+        sparse_solution=sparse_solution,
+        sparse_frac_betas=sparse_frac_betas,
+    )
+
+    log("%d have betas uncorrected equal 0" % np.sum(betas == 0))
+    log("%d have betas uncorrected below 0.001" % np.sum(betas < 0.001))
+    log("%d have betas uncorrected below 0.01" % np.sum(betas < 0.01))
+
+    beta_ignore = betas == 0
+    beta_mask = ~beta_ignore
+    if np.sum(beta_mask) > 0:
+        log("Ignoring %d gene sets due to zero uncorrected betas (kept %d)" % (np.sum(beta_ignore), np.sum(beta_mask)))
+        runtime_state.subset_gene_sets(beta_mask, keep_missing=False, ignore_missing=True, skip_V=True)
+    else:
+        log("Keeping %d gene sets with zero uncorrected betas to avoid having none" % (np.sum(beta_ignore)))
+
+    return -np.abs(betas[beta_mask])
 
 
 def _init_sparse_x_batch_state(runtime_state):
