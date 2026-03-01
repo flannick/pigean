@@ -1916,96 +1916,22 @@ class PigeanState(object):
             )
             #now need to find any new genes that will be added as missing later, as well as any missing genes that need to be updated
 
-            gene_ignored_N = None
-
-            #these are the new missing that are in the old missing
-            #these are not necessarily in the self.X structures, since self.genes could be set before that
-            genes_missing_int = []
-            cur_X_missing_genes_int = None
-            gene_ignored_N_missing_int = None
-
-            #these are the new missing that are not in the old missing
-            genes_missing_new = []
-            cur_X_missing_genes_new = None
-            gene_ignored_N_missing_new = None
-
-
-            if (self.Y is not None and len(genes) > len(self.Y)) or (self.genes is not None):
-                genes_missing_old = self.genes_missing if self.genes_missing is not None else []
-                gene_missing_old_to_ind = _construct_map_to_ind(genes_missing_old)
-                gene_to_ind = _construct_map_to_ind(genes)
-
-                #these are the genes that are new this time around
-                genes_missing_new = [x for x in genes if x not in self.gene_to_ind and x not in gene_missing_old_to_ind]
-                genes_missing_new_set = set(genes_missing_new)
-
-                #these are missing genes shared with before
-                genes_missing_int = [x for x in genes if x in gene_missing_old_to_ind]
-                genes_missing_int_set = set(genes_missing_int)
-
-                #all genes missing
-                #genes_missing = set(genes_missing_new + genes_missing_int + genes_missing_old)
-                #gene_missing_to_ind = _construct_map_to_ind(genes_missing)
-                #assert(len(genes_missing) == len(set(genes_missing)))
-
-                #subset down X to only non missing
-
-                int_mask = np.full(len(genes), False)
-                int_mask[[i for i in range(len(genes)) if genes[i] in genes_missing_int_set]] = True
-                if np.sum(int_mask) > 0:
-                    cur_X_missing_genes_int = cur_X[int_mask,:]
-
-                new_mask = np.full(len(genes), False)
-                new_mask[[i for i in range(len(genes)) if genes[i] in genes_missing_new_set]] = True
-                if np.sum(new_mask) > 0:
-                    cur_X_missing_genes_new = cur_X[new_mask,:]
-
-                subset_mask = np.full(len(genes), True)
-                subset_mask[[i for i in range(len(genes)) if genes[i] not in self.gene_to_ind]] = False
-
-                cur_X = cur_X[subset_mask,:]
-
-                genes = [x for x in genes if x in self.gene_to_ind]
-
-                #remove empty gene sets
-                gene_set_nonempty_mask = self.get_col_sums(cur_X) > 0
-
-                if np.sum(~gene_set_nonempty_mask) > 0:
-                    cur_X = cur_X[:,gene_set_nonempty_mask]
-
-                    if cur_X_missing_genes_int is not None:
-                        cur_X_missing_genes_int = cur_X_missing_genes_int[:,gene_set_nonempty_mask]
-                    if cur_X_missing_genes_new is not None:
-                        cur_X_missing_genes_new = cur_X_missing_genes_new[:,gene_set_nonempty_mask]
-
-                    gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if gene_set_nonempty_mask[i]]
-
-                #at this point, we have subset X down to only non missing genes before
-                if self.Y is not None:
-                    assert(len(genes) == len(self.Y))
-
-                if cur_X.shape[1] == 0:
-                    bail("Error: no genes overlapped Y and X; you may have forgotten to map gene names over to a common namespace")
-
-                #our missing genes come from two sources: self.X_orig_missing_genes (those are the old ones) and cur_X_missing_gnenes (those are the new ones). genes_missing_to_add tells us which are new
-
-                #we only added genes at the end
-                #num_add = len(genes) - len(self.Y)
-
-                #new_Y = np.append(self.Y, np.full(num_add, np.nanmean(self.Y)))
-                #new_Y_exomes = self.Y_exomes
-                #if self.Y_exomes is not None:
-                #    new_Y_exomes = np.append(self.Y_exomes, np.full(num_add, np.nanmean(self.Y_exomes)))
-
-                #if self.y_corr is not None:
-                #    padding = np.zeros((self.y_corr.shape[0], num_add))
-                #    padding[0,:] = 1
-                #    self.y_corr = np.hstack((self.y_corr, padding))
-
-                #self._set_Y(new_Y, new_Y_exomes, Y_corr_m=self.y_corr, store_cholesky=run_gls and num_add > 0, store_corr_sparse=run_corrected_ols and num_add > 0, skip_V=skip_V)
-
-                #if self.huge_signal_bfs is not None:
-                #    self.huge_signal_bfs = sparse.csc_matrix((self.huge_signal_bfs.data, self.huge_signal_bfs.indices, self.huge_signal_bfs.indptr), shape=(self.huge_signal_bfs.shape[0] + num_add, self.huge_signal_bfs.shape[1]))
+            (
+                cur_X,
+                genes,
+                gene_sets,
+                gene_ignored_N,
+                cur_X_missing_genes_int,
+                gene_ignored_N_missing_int,
+                genes_missing_new,
+                cur_X_missing_genes_new,
+                gene_ignored_N_missing_new,
+            ) = _partition_missing_gene_rows(
+                self,
+                cur_X=cur_X,
+                genes=genes,
+                gene_sets=gene_sets,
+            )
 
 
             cur_X = _maybe_permute_gene_set_rows(
@@ -15122,6 +15048,75 @@ def _finalize_added_x_block(
         runtime_state.total_qc_metrics_directions = total_qc_metrics_directions
 
     return (num_added, num_ignored)
+
+
+def _partition_missing_gene_rows(runtime_state, cur_X, genes, gene_sets):
+    gene_ignored_N = None
+
+    # New missing that overlap historical missing genes.
+    cur_X_missing_genes_int = None
+    gene_ignored_N_missing_int = None
+
+    # New missing that are newly introduced in this call.
+    genes_missing_new = []
+    cur_X_missing_genes_new = None
+    gene_ignored_N_missing_new = None
+
+    if (runtime_state.Y is not None and len(genes) > len(runtime_state.Y)) or (runtime_state.genes is not None):
+        genes_missing_old = runtime_state.genes_missing if runtime_state.genes_missing is not None else []
+        gene_missing_old_to_ind = _construct_map_to_ind(genes_missing_old)
+
+        # Genes newly missing this round.
+        genes_missing_new = [x for x in genes if x not in runtime_state.gene_to_ind and x not in gene_missing_old_to_ind]
+        genes_missing_new_set = set(genes_missing_new)
+
+        # Missing genes shared with previous rounds.
+        genes_missing_int_set = set([x for x in genes if x in gene_missing_old_to_ind])
+
+        int_mask = np.full(len(genes), False)
+        int_mask[[i for i in range(len(genes)) if genes[i] in genes_missing_int_set]] = True
+        if np.sum(int_mask) > 0:
+            cur_X_missing_genes_int = cur_X[int_mask, :]
+
+        new_mask = np.full(len(genes), False)
+        new_mask[[i for i in range(len(genes)) if genes[i] in genes_missing_new_set]] = True
+        if np.sum(new_mask) > 0:
+            cur_X_missing_genes_new = cur_X[new_mask, :]
+
+        subset_mask = np.full(len(genes), True)
+        subset_mask[[i for i in range(len(genes)) if genes[i] not in runtime_state.gene_to_ind]] = False
+
+        cur_X = cur_X[subset_mask, :]
+        genes = [x for x in genes if x in runtime_state.gene_to_ind]
+
+        # Remove empty gene sets.
+        gene_set_nonempty_mask = runtime_state.get_col_sums(cur_X) > 0
+        if np.sum(~gene_set_nonempty_mask) > 0:
+            cur_X = cur_X[:, gene_set_nonempty_mask]
+
+            if cur_X_missing_genes_int is not None:
+                cur_X_missing_genes_int = cur_X_missing_genes_int[:, gene_set_nonempty_mask]
+            if cur_X_missing_genes_new is not None:
+                cur_X_missing_genes_new = cur_X_missing_genes_new[:, gene_set_nonempty_mask]
+            gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if gene_set_nonempty_mask[i]]
+
+        if runtime_state.Y is not None:
+            assert len(genes) == len(runtime_state.Y)
+
+        if cur_X.shape[1] == 0:
+            bail("Error: no genes overlapped Y and X; you may have forgotten to map gene names over to a common namespace")
+
+    return (
+        cur_X,
+        genes,
+        gene_sets,
+        gene_ignored_N,
+        cur_X_missing_genes_int,
+        gene_ignored_N_missing_int,
+        genes_missing_new,
+        cur_X_missing_genes_new,
+        gene_ignored_N_missing_new,
+    )
 
 
 def _ensure_gene_universe_for_x(
