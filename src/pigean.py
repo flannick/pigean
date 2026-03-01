@@ -2107,35 +2107,18 @@ class PigeanState(object):
                 cur_X = sparse.hstack((self.X_orig, cur_X))
                 gene_sets = self.gene_sets + gene_sets
 
-            if self.genes_missing is not None:
-                genes += self.genes_missing
-
-                if self.X_orig_missing_genes is None:
-                    X_orig_missing_genes = sparse.csc_matrix(([], ([], [])), shape=(len(self.genes_missing), num_old_gene_sets))
-                else:
-                    X_orig_missing_genes = copy.copy(self.X_orig_missing_genes)                    
-
-                if cur_X_missing_genes_int is not None:
-                    if self.gene_ignored_N_missing is not None:
-                        if gene_ignored_N_missing_int is not None:
-                            self.gene_ignored_N_missing += gene_ignored_N_missing_int
-                    else:
-                        self.gene_ignored_N_missing = gene_ignored_N_missing_int
-
-                    cur_X = sparse.vstack((cur_X, sparse.hstack((X_orig_missing_genes, cur_X_missing_genes_int))))
-                elif X_orig_missing_genes is not None:
-                    X_orig_missing_genes.resize((X_orig_missing_genes.shape[0], X_orig_missing_genes.shape[1] + num_new_gene_sets))
-                    cur_X = sparse.vstack((cur_X, X_orig_missing_genes))
-
-            if cur_X_missing_genes_new is not None:
-                cur_X = sparse.vstack((cur_X, sparse.hstack((sparse.csc_matrix(([], ([], [])), shape=(cur_X_missing_genes_new.shape[0], num_old_gene_sets)), cur_X_missing_genes_new))))
-                if self.gene_ignored_N_missing is not None:
-                    if gene_ignored_N_missing_new is not None:
-                        self.gene_ignored_N_missing = np.append(self.gene_ignored_N_missing, gene_ignored_N_missing_new)
-                else:
-                    self.gene_ignored_N_missing = gene_ignored_N_missing_new
-
-                genes += genes_missing_new
+            cur_X, genes = _merge_missing_gene_rows(
+                self,
+                cur_X=cur_X,
+                genes=genes,
+                num_old_gene_sets=num_old_gene_sets,
+                num_new_gene_sets=num_new_gene_sets,
+                cur_X_missing_genes_int=cur_X_missing_genes_int,
+                gene_ignored_N_missing_int=gene_ignored_N_missing_int,
+                cur_X_missing_genes_new=cur_X_missing_genes_new,
+                gene_ignored_N_missing_new=gene_ignored_N_missing_new,
+                genes_missing_new=genes_missing_new,
+            )
 
             #save subset mask for later
             subset_mask = np.full(len(genes), True)
@@ -15049,6 +15032,61 @@ def _apply_prefilter_and_record(
         total_qc_metrics,
         mean_qc_metrics,
     )
+
+
+def _merge_missing_gene_rows(
+    runtime_state,
+    cur_X,
+    genes,
+    num_old_gene_sets,
+    num_new_gene_sets,
+    cur_X_missing_genes_int,
+    gene_ignored_N_missing_int,
+    cur_X_missing_genes_new,
+    gene_ignored_N_missing_new,
+    genes_missing_new,
+):
+    if runtime_state.genes_missing is not None:
+        genes += runtime_state.genes_missing
+
+        if runtime_state.X_orig_missing_genes is None:
+            X_orig_missing_genes = sparse.csc_matrix(([], ([], [])), shape=(len(runtime_state.genes_missing), num_old_gene_sets))
+        else:
+            X_orig_missing_genes = copy.copy(runtime_state.X_orig_missing_genes)
+
+        if cur_X_missing_genes_int is not None:
+            if runtime_state.gene_ignored_N_missing is not None:
+                if gene_ignored_N_missing_int is not None:
+                    runtime_state.gene_ignored_N_missing += gene_ignored_N_missing_int
+            else:
+                runtime_state.gene_ignored_N_missing = gene_ignored_N_missing_int
+
+            cur_X = sparse.vstack((cur_X, sparse.hstack((X_orig_missing_genes, cur_X_missing_genes_int))))
+        elif X_orig_missing_genes is not None:
+            X_orig_missing_genes.resize((X_orig_missing_genes.shape[0], X_orig_missing_genes.shape[1] + num_new_gene_sets))
+            cur_X = sparse.vstack((cur_X, X_orig_missing_genes))
+
+    if cur_X_missing_genes_new is not None:
+        cur_X = sparse.vstack(
+            (
+                cur_X,
+                sparse.hstack(
+                    (
+                        sparse.csc_matrix(([], ([], [])), shape=(cur_X_missing_genes_new.shape[0], num_old_gene_sets)),
+                        cur_X_missing_genes_new,
+                    )
+                ),
+            )
+        )
+        if runtime_state.gene_ignored_N_missing is not None:
+            if gene_ignored_N_missing_new is not None:
+                runtime_state.gene_ignored_N_missing = np.append(runtime_state.gene_ignored_N_missing, gene_ignored_N_missing_new)
+        else:
+            runtime_state.gene_ignored_N_missing = gene_ignored_N_missing_new
+
+        genes += genes_missing_new
+
+    return (cur_X, genes)
 
 
 def _ensure_gene_universe_for_x(
