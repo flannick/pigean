@@ -1991,20 +1991,12 @@ class PigeanState(object):
         )
 
 
-        if filter_gene_set_p is not None and increase_filter_gene_set_p is not None and self.p_values is not None and self.p_values_ignored is not None:
-            #since we required each batch to have increase_filter_gene_set_p, maybe we need to reduce
-            if float(len(self.p_values)) / (len(self.p_values) + len(self.p_values_ignored)) > increase_filter_gene_set_p:
-                #choose a potentially more strict threshold
-                #want keep_frac * len(self.p_values) / (len(self.p_values) + len(self.p_values_ignored)) = filter_gene_set_p
-                keep_frac = increase_filter_gene_set_p * float(len(self.p_values) + len(self.p_values_ignored)) / len(self.p_values)
-                p_from_quantile = np.quantile(self.p_values, keep_frac)
-                if p_from_quantile > filter_gene_set_p and not filter_using_phewas:
-                    overcorrect_ignore = self.p_values > p_from_quantile
-                    if np.sum(overcorrect_ignore) > 0:
-                        overcorrect_mask = ~overcorrect_ignore
-                        self._record_param("adjusted_filter_gene_set_p", p_from_quantile)
-                        log("Ignoring %d gene sets due to p > %.3g (overaggressive adjustment of p-value filters; kept %d)" % (np.sum(overcorrect_ignore), p_from_quantile, np.sum(overcorrect_mask)))
-                        self.subset_gene_sets(overcorrect_mask, ignore_missing=True, keep_missing=False, skip_V=True)
+        _maybe_adjust_overaggressive_p_filter_after_x_read(
+            self,
+            filter_gene_set_p=filter_gene_set_p,
+            increase_filter_gene_set_p=increase_filter_gene_set_p,
+            filter_using_phewas=filter_using_phewas,
+        )
 
         #do another check of min_gene_set_size in case we converted some gene sets with weights
         if self.X_orig is not None:
@@ -14847,6 +14839,31 @@ def _maybe_learn_batch_hyper_after_x_read(
 
     runtime_state.set_p(np.mean(runtime_state.ps))
     runtime_state.set_sigma(np.mean(runtime_state.sigma2s), runtime_state.sigma_power)
+
+
+def _maybe_adjust_overaggressive_p_filter_after_x_read(
+    runtime_state,
+    filter_gene_set_p,
+    increase_filter_gene_set_p,
+    filter_using_phewas,
+):
+    if filter_gene_set_p is None or increase_filter_gene_set_p is None or runtime_state.p_values is None or runtime_state.p_values_ignored is None:
+        return
+
+    # Since we required each batch to have increase_filter_gene_set_p, we may need to reduce.
+    if float(len(runtime_state.p_values)) / (len(runtime_state.p_values) + len(runtime_state.p_values_ignored)) > increase_filter_gene_set_p:
+        keep_frac = increase_filter_gene_set_p * float(len(runtime_state.p_values) + len(runtime_state.p_values_ignored)) / len(runtime_state.p_values)
+        p_from_quantile = np.quantile(runtime_state.p_values, keep_frac)
+        if p_from_quantile > filter_gene_set_p and not filter_using_phewas:
+            overcorrect_ignore = runtime_state.p_values > p_from_quantile
+            if np.sum(overcorrect_ignore) > 0:
+                overcorrect_mask = ~overcorrect_ignore
+                runtime_state._record_param("adjusted_filter_gene_set_p", p_from_quantile)
+                log(
+                    "Ignoring %d gene sets due to p > %.3g (overaggressive adjustment of p-value filters; kept %d)"
+                    % (np.sum(overcorrect_ignore), p_from_quantile, np.sum(overcorrect_mask))
+                )
+                runtime_state.subset_gene_sets(overcorrect_mask, ignore_missing=True, keep_missing=False, skip_V=True)
 
 
 def _init_sparse_x_batch_state(runtime_state):
