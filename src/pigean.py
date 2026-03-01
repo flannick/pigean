@@ -2022,48 +2022,28 @@ class PigeanState(object):
 
                 (mean_shifts, scale_factors) = self._calc_X_shift_scale(cur_X)
 
-                total_qc_metrics = None
-                mean_qc_metrics = None                
-                total_qc_metrics_directions = None
-                if self.gene_covariates is not None:
-                    cur_X_size = np.abs(cur_X).sum(axis=0)
-                    cur_X_size[cur_X_size == 0] = 1
+                (
+                    total_qc_metrics,
+                    mean_qc_metrics,
+                    total_qc_metrics_directions,
+                ) = _compute_prefilter_qc_metrics(self, cur_X)
 
-                    total_qc_metrics = (np.array(cur_X.T.dot(self.gene_covariate_zs).T / cur_X_size)).T
-                    total_qc_metrics = np.hstack((total_qc_metrics[:,:self.gene_covariate_intercept_index], total_qc_metrics[:,self.gene_covariate_intercept_index+1:]))
-
-                    total_qc_metrics_directions = np.append(self.gene_covariate_directions[:self.gene_covariate_intercept_index], self.gene_covariate_directions[self.gene_covariate_intercept_index+1:])
-
-                    total_huge_adjustments = (np.array(cur_X.T.dot(self.gene_covariate_adjustments).T / cur_X_size)).T
-
-                    total_qc_metrics = np.hstack((total_qc_metrics, total_huge_adjustments))
-                    total_qc_metrics_directions = np.append(total_qc_metrics_directions, -1)
-
-                    if self.debug_only_avg_huge:
-                        total_qc_metrics = total_huge_adjustments
-                        total_qc_metrics_directions = np.array(-1)
-
-                    mean_qc_metrics = total_huge_adjustments.squeeze()
-                    mean_qc_metrics = total_huge_adjustments
-                    if len(mean_qc_metrics.shape) == 2 and mean_qc_metrics.shape[1] == 1:
-                        mean_qc_metrics = mean_qc_metrics.squeeze(axis=1)
-
-                Y_to_use = self.Y_for_regression
-
-                if filter_using_phewas:
-                    gene_pheno_Y = self.gene_pheno_Y.T.toarray()
-
-                if run_logistic:
-                    Y = np.exp(Y_to_use + self.background_log_bf) / (1 + np.exp(Y_to_use + self.background_log_bf))
-                    (beta_tildes, ses, z_scores, p_values, se_inflation_factors, alpha_tildes, diverged) = self._compute_logistic_beta_tildes(cur_X, Y, scale_factors, mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
-
-                    if filter_using_phewas:
-                        gene_pheno_Y = np.exp(np.array(gene_pheno_Y) + self.background_log_bf) / (1 + np.exp(gene_pheno_Y + self.background_log_bf))
-                        (beta_tildes_phewas, ses_phewas, z_scores_phewas, p_values_phewas, se_inflation_factors_phewas, alpha_tildes_phewas, diverged_phewas) = self._compute_logistic_beta_tildes(cur_X, gene_pheno_Y, scale_factors, mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
-                else:
-                    (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._compute_beta_tildes(cur_X, Y_to_use, np.var(Y_to_use), scale_factors, mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
-                    if filter_using_phewas:
-                        (beta_tildes_phewas, ses_phewas, z_scores_phewas, p_values_phewas, se_inflation_factors_phewas) = self._compute_beta_tildes(cur_X, gene_pheno_Y, None, scale_factors, mean_shifts, resid_correlation_matrix=self.y_corr_sparse)                    
+                (
+                    beta_tildes,
+                    ses,
+                    z_scores,
+                    p_values,
+                    se_inflation_factors,
+                    beta_tildes_phewas,
+                    p_values_phewas,
+                ) = _compute_prefilter_assoc_stats(
+                    self,
+                    cur_X=cur_X,
+                    run_logistic=run_logistic,
+                    filter_using_phewas=filter_using_phewas,
+                    mean_shifts=mean_shifts,
+                    scale_factors=scale_factors,
+                )
 
                 cur_X, beta_tildes, z_scores = _align_prefilter_gene_set_signs(
                     cur_X,
@@ -14871,6 +14851,131 @@ def _build_prefilter_keep_mask(
             log("Ignoring %d gene sets due to negative beta filters" % (np.sum(negative_beta_tildes_mask)))
 
     return p_value_mask
+
+
+def _compute_prefilter_qc_metrics(runtime_state, cur_X):
+    total_qc_metrics = None
+    mean_qc_metrics = None
+    total_qc_metrics_directions = None
+    if runtime_state.gene_covariates is None:
+        return (total_qc_metrics, mean_qc_metrics, total_qc_metrics_directions)
+
+    cur_X_size = np.abs(cur_X).sum(axis=0)
+    cur_X_size[cur_X_size == 0] = 1
+
+    total_qc_metrics = (np.array(cur_X.T.dot(runtime_state.gene_covariate_zs).T / cur_X_size)).T
+    total_qc_metrics = np.hstack(
+        (
+            total_qc_metrics[:, : runtime_state.gene_covariate_intercept_index],
+            total_qc_metrics[:, runtime_state.gene_covariate_intercept_index + 1 :],
+        )
+    )
+
+    total_qc_metrics_directions = np.append(
+        runtime_state.gene_covariate_directions[: runtime_state.gene_covariate_intercept_index],
+        runtime_state.gene_covariate_directions[runtime_state.gene_covariate_intercept_index + 1 :],
+    )
+
+    total_huge_adjustments = (np.array(cur_X.T.dot(runtime_state.gene_covariate_adjustments).T / cur_X_size)).T
+
+    total_qc_metrics = np.hstack((total_qc_metrics, total_huge_adjustments))
+    total_qc_metrics_directions = np.append(total_qc_metrics_directions, -1)
+
+    if runtime_state.debug_only_avg_huge:
+        total_qc_metrics = total_huge_adjustments
+        total_qc_metrics_directions = np.array(-1)
+
+    mean_qc_metrics = total_huge_adjustments.squeeze()
+    mean_qc_metrics = total_huge_adjustments
+    if len(mean_qc_metrics.shape) == 2 and mean_qc_metrics.shape[1] == 1:
+        mean_qc_metrics = mean_qc_metrics.squeeze(axis=1)
+
+    return (total_qc_metrics, mean_qc_metrics, total_qc_metrics_directions)
+
+
+def _compute_prefilter_assoc_stats(runtime_state, cur_X, run_logistic, filter_using_phewas, mean_shifts, scale_factors):
+    Y_to_use = runtime_state.Y_for_regression
+    gene_pheno_Y = runtime_state.gene_pheno_Y.T.toarray() if filter_using_phewas else None
+
+    if run_logistic:
+        Y = np.exp(Y_to_use + runtime_state.background_log_bf) / (1 + np.exp(Y_to_use + runtime_state.background_log_bf))
+        (
+            beta_tildes,
+            ses,
+            z_scores,
+            p_values,
+            se_inflation_factors,
+            _alpha_tildes,
+            _diverged,
+        ) = runtime_state._compute_logistic_beta_tildes(
+            cur_X,
+            Y,
+            scale_factors,
+            mean_shifts,
+            resid_correlation_matrix=runtime_state.y_corr_sparse,
+        )
+
+        beta_tildes_phewas = None
+        p_values_phewas = None
+        if filter_using_phewas:
+            gene_pheno_Y = np.exp(np.array(gene_pheno_Y) + runtime_state.background_log_bf) / (1 + np.exp(gene_pheno_Y + runtime_state.background_log_bf))
+            (
+                beta_tildes_phewas,
+                _ses_phewas,
+                _z_scores_phewas,
+                p_values_phewas,
+                _se_inflation_factors_phewas,
+                _alpha_tildes_phewas,
+                _diverged_phewas,
+            ) = runtime_state._compute_logistic_beta_tildes(
+                cur_X,
+                gene_pheno_Y,
+                scale_factors,
+                mean_shifts,
+                resid_correlation_matrix=runtime_state.y_corr_sparse,
+            )
+    else:
+        (
+            beta_tildes,
+            ses,
+            z_scores,
+            p_values,
+            se_inflation_factors,
+        ) = runtime_state._compute_beta_tildes(
+            cur_X,
+            Y_to_use,
+            np.var(Y_to_use),
+            scale_factors,
+            mean_shifts,
+            resid_correlation_matrix=runtime_state.y_corr_sparse,
+        )
+        beta_tildes_phewas = None
+        p_values_phewas = None
+        if filter_using_phewas:
+            (
+                beta_tildes_phewas,
+                _ses_phewas,
+                _z_scores_phewas,
+                p_values_phewas,
+                _se_inflation_factors_phewas,
+            ) = runtime_state._compute_beta_tildes(
+                cur_X,
+                gene_pheno_Y,
+                None,
+                scale_factors,
+                mean_shifts,
+                resid_correlation_matrix=runtime_state.y_corr_sparse,
+            )
+
+    return (
+        beta_tildes,
+        ses,
+        z_scores,
+        p_values,
+        se_inflation_factors,
+        beta_tildes_phewas,
+        p_values_phewas,
+    )
 
 
 def _ensure_gene_universe_for_x(
