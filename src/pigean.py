@@ -7711,6 +7711,43 @@ class PigeanState(object):
 
         return gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors
 
+    def _accumulate_phewas_outputs(self, output_prefix, beta, beta_tilde, se, z_score, p_value):
+        input_axes = [
+            ("Y", self.Y is not None, 0),
+            ("combined_prior_Ys", self.combined_prior_Ys is not None, 1),
+            ("priors", self.priors is not None, 2),
+        ]
+        for axis_name, axis_enabled, axis_index in input_axes:
+            if not axis_enabled:
+                continue
+            output_base = "%s_vs_input_%s" % (output_prefix, axis_name)
+            (
+                updated_beta,
+                updated_beta_tilde,
+                updated_se,
+                updated_z,
+                updated_p_value,
+                _,
+            ) = self._append_phewas_metric_block(
+                getattr(self, "%s_beta" % output_base),
+                getattr(self, "%s_beta_tilde" % output_base),
+                getattr(self, "%s_se" % output_base),
+                getattr(self, "%s_Z" % output_base),
+                getattr(self, "%s_p_value" % output_base),
+                None,
+                beta[axis_index, :],
+                beta_tilde[axis_index, :],
+                se[axis_index, :],
+                z_score[axis_index, :],
+                p_value[axis_index, :],
+                None,
+            )
+            setattr(self, "%s_beta" % output_base, updated_beta)
+            setattr(self, "%s_beta_tilde" % output_base, updated_beta_tilde)
+            setattr(self, "%s_se" % output_base, updated_se)
+            setattr(self, "%s_Z" % output_base, updated_z)
+            setattr(self, "%s_p_value" % output_base, updated_p_value)
+
     def run_phewas(self, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, **kwargs):
 
         #require X matrix
@@ -7792,14 +7829,7 @@ class PigeanState(object):
             if gene_pheno_Y is not None:
                 beta, _, beta_tilde, se, Z, p_value, _ = self._calculate_phewas_block(input_values, gene_pheno_Y.T, **phewas_beta_kwargs)
                 assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
-                if self.Y is not None:
-                    self.pheno_Y_vs_input_Y_beta, self.pheno_Y_vs_input_Y_beta_tilde, self.pheno_Y_vs_input_Y_se, self.pheno_Y_vs_input_Y_Z, self.pheno_Y_vs_input_Y_p_value, _ = self._append_phewas_metric_block(self.pheno_Y_vs_input_Y_beta, self.pheno_Y_vs_input_Y_beta_tilde, self.pheno_Y_vs_input_Y_se, self.pheno_Y_vs_input_Y_Z, self.pheno_Y_vs_input_Y_p_value, None, beta[0,:], beta_tilde[0,:], se[0,:], Z[0,:], p_value[0,:], None)
-
-                if self.combined_prior_Ys is not None:
-                    self.pheno_Y_vs_input_combined_prior_Ys_beta, self.pheno_Y_vs_input_combined_prior_Ys_beta_tilde, self.pheno_Y_vs_input_combined_prior_Ys_se, self.pheno_Y_vs_input_combined_prior_Ys_Z, self.pheno_Y_vs_input_combined_prior_Ys_p_value, _ = self._append_phewas_metric_block(self.pheno_Y_vs_input_combined_prior_Ys_beta, self.pheno_Y_vs_input_combined_prior_Ys_beta_tilde, self.pheno_Y_vs_input_combined_prior_Ys_se, self.pheno_Y_vs_input_combined_prior_Ys_Z, self.pheno_Y_vs_input_combined_prior_Ys_p_value, None, beta[1,:], beta_tilde[1,:], se[1,:], Z[1,:], p_value[1,:], None)
-
-                if self.priors is not None:
-                    self.pheno_Y_vs_input_priors_beta, self.pheno_Y_vs_input_priors_beta_tilde, self.pheno_Y_vs_input_priors_se, self.pheno_Y_vs_input_priors_Z, self.pheno_Y_vs_input_priors_p_value, _ = self._append_phewas_metric_block(self.pheno_Y_vs_input_priors_beta, self.pheno_Y_vs_input_priors_beta_tilde, self.pheno_Y_vs_input_priors_se, self.pheno_Y_vs_input_priors_Z, self.pheno_Y_vs_input_priors_p_value, None, beta[2,:], beta_tilde[2,:], se[2,:], Z[2,:], p_value[2,:], None)
+                self._accumulate_phewas_outputs("pheno_Y", beta, beta_tilde, se, Z, p_value)
 
             if gene_pheno_combined_prior_Ys is not None and not self.debug_skip_correlation:
                 #we have to use the correlations here
@@ -7812,14 +7842,7 @@ class PigeanState(object):
                     **phewas_beta_kwargs
                 )
                 assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
-                if self.Y is not None:
-                    self.pheno_combined_prior_Ys_vs_input_Y_beta, self.pheno_combined_prior_Ys_vs_input_Y_beta_tilde, self.pheno_combined_prior_Ys_vs_input_Y_se, self.pheno_combined_prior_Ys_vs_input_Y_Z, self.pheno_combined_prior_Ys_vs_input_Y_p_value, _ = self._append_phewas_metric_block(self.pheno_combined_prior_Ys_vs_input_Y_beta, self.pheno_combined_prior_Ys_vs_input_Y_beta_tilde, self.pheno_combined_prior_Ys_vs_input_Y_se, self.pheno_combined_prior_Ys_vs_input_Y_Z, self.pheno_combined_prior_Ys_vs_input_Y_p_value, None, beta[0,:], beta_tilde[0,:], se[0,:], Z[0,:], p_value[0,:], None)
-
-                if self.combined_prior_Ys is not None:
-                    self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta, self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta_tilde, self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_se, self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_Z, self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_p_value, _ = self._append_phewas_metric_block(self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta, self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta_tilde, self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_se, self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_Z, self.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_p_value, None, beta[1,:], beta_tilde[1,:], se[1,:], Z[1,:], p_value[1,:], None)
-
-                if self.priors is not None:
-                    self.pheno_combined_prior_Ys_vs_input_priors_beta, self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde, self.pheno_combined_prior_Ys_vs_input_priors_se, self.pheno_combined_prior_Ys_vs_input_priors_Z, self.pheno_combined_prior_Ys_vs_input_priors_p_value, _ = self._append_phewas_metric_block(self.pheno_combined_prior_Ys_vs_input_priors_beta, self.pheno_combined_prior_Ys_vs_input_priors_beta_tilde, self.pheno_combined_prior_Ys_vs_input_priors_se, self.pheno_combined_prior_Ys_vs_input_priors_Z, self.pheno_combined_prior_Ys_vs_input_priors_p_value, None, beta[2,:], beta_tilde[2,:], se[2,:], Z[2,:], p_value[2,:], None)
+                self._accumulate_phewas_outputs("pheno_combined_prior_Ys", beta, beta_tilde, se, Z, p_value)
 
     def run_sim(self, sigma2, p, sigma_power, log_bf_noise_sigma_mult=0, treat_sigma2_as_sigma2_cond=True, only_positive=False):
 
