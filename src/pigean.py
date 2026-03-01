@@ -1958,15 +1958,17 @@ class PigeanState(object):
                         mat_info = cur_X
 
                         num_added, num_ignored = __add_to_X(mat_info, genes, cur_gene_sets, tag, skip_scale_factors=False)
-                        if i == 0 and num_added + num_ignored == 0:
-                            bail("--first-for-hyper was specified but first file had no gene sets")
-                        #add gene set batches here
-                        self.gene_set_batches = np.append(self.gene_set_batches, np.full(num_added, batches[i]))
-                        self.gene_set_labels = np.append(self.gene_set_labels, np.full(num_added, labels[i]))
-                        if self.ps is not None and initial_ps is not None:
-                            self.ps = np.append(self.ps, np.full(num_added, initial_ps[i]))                            
-                        self.gene_set_labels_ignored = np.append(self.gene_set_labels_ignored, np.full(num_ignored, labels[i]))
-                        num_ignored_gene_sets[i] += num_ignored
+                        _record_x_addition(
+                            self,
+                            num_added=num_added,
+                            num_ignored=num_ignored,
+                            batch_value=batches[i],
+                            label_value=labels[i],
+                            initial_p_value=initial_ps[i] if initial_ps is not None else None,
+                            num_ignored_gene_sets=num_ignored_gene_sets,
+                            input_index=i,
+                            fail_if_first_empty=(i == 0),
+                        )
 
             else:
 
@@ -2071,16 +2073,17 @@ class PigeanState(object):
                         if len(data) >= max_num_entries_at_once:
                             log("Batching %d lines to save memory" % cur_num_read)
                             num_added, num_ignored = __add_to_X((data, row, col), genes, gene_sets, tag, skip_scale_factors=False)
-                            if i == 0 and num_added + num_ignored == 0:
-                                bail("--first-for-hyper was specified but first file had no gene sets")
-                            #add gene set batches here
-                            self.gene_set_batches = np.append(self.gene_set_batches, np.full(num_added, batches[i]))
-                            self.gene_set_labels = np.append(self.gene_set_labels, np.full(num_added, labels[i]))
-                            self.gene_set_labels_ignored = np.append(self.gene_set_labels_ignored, np.full(num_ignored, labels[i]))
-                            if self.ps is not None and initial_ps is not None:
-                                self.ps = np.append(self.ps, np.full(num_added, initial_ps[i]))  
-
-                            num_ignored_gene_sets[i] += num_ignored
+                            _record_x_addition(
+                                self,
+                                num_added=num_added,
+                                num_ignored=num_ignored,
+                                batch_value=batches[i],
+                                label_value=labels[i],
+                                initial_p_value=initial_ps[i] if initial_ps is not None else None,
+                                num_ignored_gene_sets=num_ignored_gene_sets,
+                                input_index=i,
+                                fail_if_first_empty=(i == 0),
+                            )
 
                             #re-initialize things
                             genes = copy.copy(self.genes)
@@ -2108,15 +2111,17 @@ class PigeanState(object):
                 if mat_info is not None:
 
                     num_added, num_ignored = __add_to_X(mat_info, genes, gene_sets, tag, skip_scale_factors=False)
-                    if i == 0 and num_added + num_ignored == 0:
-                        bail("--first-for-hyper was specified but first file had no gene sets")
-                    #add gene set batches here
-                    self.gene_set_batches = np.append(self.gene_set_batches, np.full(num_added, batches[i]))
-                    self.gene_set_labels = np.append(self.gene_set_labels, np.full(num_added, labels[i]))
-                    self.gene_set_labels_ignored = np.append(self.gene_set_labels_ignored, np.full(num_ignored, labels[i]))
-                    num_ignored_gene_sets[i] += num_ignored
-                    if self.ps is not None and initial_ps is not None:
-                        self.ps = np.append(self.ps, np.full(num_added, initial_ps[i]))  
+                    _record_x_addition(
+                        self,
+                        num_added=num_added,
+                        num_ignored=num_ignored,
+                        batch_value=batches[i],
+                        label_value=labels[i],
+                        initial_p_value=initial_ps[i] if initial_ps is not None else None,
+                        num_ignored_gene_sets=num_ignored_gene_sets,
+                        input_index=i,
+                        fail_if_first_empty=(i == 0),
+                    )
 
             log("Ignored %d gene sets due to too few genes" % num_too_small, DEBUG)
 
@@ -14540,6 +14545,28 @@ def _estimate_dense_chunk_size(gene_set_count, only_ids, default_chunk_size=500)
         # Estimate a larger chunk to maintain enough retained sets after filtering.
         max_num_at_once = int(max_num_at_once / (float(len(only_ids)) / gene_set_count))
     return max_num_at_once
+
+
+def _record_x_addition(
+    runtime_state,
+    num_added,
+    num_ignored,
+    batch_value,
+    label_value,
+    initial_p_value,
+    num_ignored_gene_sets,
+    input_index,
+    fail_if_first_empty=False,
+):
+    if fail_if_first_empty and num_added + num_ignored == 0:
+        bail("--first-for-hyper was specified but first file had no gene sets")
+
+    runtime_state.gene_set_batches = np.append(runtime_state.gene_set_batches, np.full(num_added, batch_value))
+    runtime_state.gene_set_labels = np.append(runtime_state.gene_set_labels, np.full(num_added, label_value))
+    if runtime_state.ps is not None and initial_p_value is not None:
+        runtime_state.ps = np.append(runtime_state.ps, np.full(num_added, initial_p_value))
+    runtime_state.gene_set_labels_ignored = np.append(runtime_state.gene_set_labels_ignored, np.full(num_ignored, label_value))
+    num_ignored_gene_sets[input_index] += num_ignored
 
 
 def _filter_dense_chunk_gene_set_indices(gene_sets, chunk_indices, only_ids, x_sparsify):
