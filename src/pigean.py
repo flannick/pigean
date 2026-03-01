@@ -1052,6 +1052,23 @@ def _open_optional_inner_betas_trace_file(betas_trace_out):
     return betas_trace_fh
 
 
+def _maybe_unsubset_gene_sets(state, enabled, skip_V=False, skip_scale_factors=False):
+    if not enabled:
+        return None
+    return state._unsubset_gene_sets(skip_V=skip_V, skip_scale_factors=skip_scale_factors)
+
+
+def _restore_subset_gene_sets(state, subset_mask, keep_missing=True, skip_V=False, skip_scale_factors=False):
+    if subset_mask is None:
+        return
+    state.subset_gene_sets(
+        subset_mask,
+        keep_missing=keep_missing,
+        skip_V=skip_V,
+        skip_scale_factors=skip_scale_factors,
+    )
+
+
 _GIBBS_STOPPING_PRESETS = {
     "lenient": {
         "stop_mcse_quantile": 0.90,
@@ -6630,10 +6647,8 @@ class PigeanState(object):
             full_include_mask_m = np.zeros((len(batches), len(self.genes)), dtype=bool)
             full_priors_mask_m = np.zeros((len(batches), len(self.genes)), dtype=bool)
 
-            #combine X_orig and X_orig missing
-            revert_subset_mask = None
-            if self.gene_sets_missing is not None:
-                revert_subset_mask = self._unsubset_gene_sets(skip_V=True)
+            # combine X_orig and X_orig_missing for batched prior calculations.
+            revert_subset_mask = _maybe_unsubset_gene_sets(self, self.gene_sets_missing is not None, skip_V=True)
 
             for batch_ind in range(len(batches)):
                 batch = batches[batch_ind]
@@ -6846,8 +6861,8 @@ class PigeanState(object):
                 #self.set_sigma(orig_sigma2, self.sigma_power, sigma2_osc=self.sigma2_osc)
                 #self.set_p(orig_p)
 
-            #now restore previous subsets
-            self.subset_gene_sets(revert_subset_mask, keep_missing=True, skip_V=True)
+            # Restore prior gene-set subsetting (if any) after batched calculations.
+            _restore_subset_gene_sets(self, revert_subset_mask, keep_missing=True, skip_V=True)
 
         #now for the genes that were not included in X
         if self.X_orig_missing_genes is not None:
