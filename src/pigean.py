@@ -13120,75 +13120,37 @@ def _read_Y(
         **kwargs,
     )
 
-    if missing_value is None:
-        if len(Y1) > 0:
-            missing_value = np.nanmean(Y1)
-        else:
-            missing_value = 0
-
-    if runtime_state.genes is None:
-        assert(len(Y1) == 0)
-        assert(len(Y1_exomes) == 0)
-        assert(len(Y1_positive_controls) == 0)
-        assert(len(Y1_case_counts) == 0)
-        (
-            Y,
-            Y_for_regression,
-            Y_exomes,
-            Y_positive_controls,
-            Y_case_counts,
-            extra_genes,
-            extra_Y,
-            extra_Y_for_regression,
-            extra_Y_exomes,
-            extra_Y_positive_controls,
-            extra_Y_case_counts,
-        ) = _initialize_y_from_new_gene_universe(
-            runtime_state,
-            extra_genes=extra_genes,
-            extra_Y=extra_Y,
-            extra_Y_for_regression=extra_Y_for_regression,
-            extra_genes_all=extra_genes_all,
-            extra_Y_exomes=extra_Y_exomes,
-            extra_Y_positive_controls=extra_Y_positive_controls,
-            extra_Y_case_counts=extra_Y_case_counts,
-            missing_value=missing_value,
-            missing_value_exomes=missing_value_exomes,
-            missing_value_positive_controls=missing_value_positive_controls,
-            missing_value_case_counts=missing_value_case_counts,
-        )
-    else:
-        (
-            Y,
-            Y_for_regression,
-            Y_exomes,
-            Y_positive_controls,
-            Y_case_counts,
-            extra_genes,
-            extra_Y,
-            extra_Y_for_regression,
-            extra_Y_exomes,
-            extra_Y_positive_controls,
-            extra_Y_case_counts,
-        ) = _merge_y_into_existing_gene_universe(
-            runtime_state,
-            Y1=Y1,
-            Y1_for_regression=Y1_for_regression,
-            Y1_exomes=Y1_exomes,
-            Y1_positive_controls=Y1_positive_controls,
-            Y1_case_counts=Y1_case_counts,
-            extra_genes=extra_genes,
-            extra_Y=extra_Y,
-            extra_Y_for_regression=extra_Y_for_regression,
-            extra_genes_all=extra_genes_all,
-            extra_Y_exomes=extra_Y_exomes,
-            extra_Y_positive_controls=extra_Y_positive_controls,
-            extra_Y_case_counts=extra_Y_case_counts,
-            missing_value=missing_value,
-            missing_value_exomes=missing_value_exomes,
-            missing_value_positive_controls=missing_value_positive_controls,
-            missing_value_case_counts=missing_value_case_counts,
-        )
+    (
+        Y,
+        Y_for_regression,
+        Y_exomes,
+        Y_positive_controls,
+        Y_case_counts,
+        extra_genes,
+        extra_Y,
+        extra_Y_for_regression,
+        extra_Y_exomes,
+        extra_Y_positive_controls,
+        extra_Y_case_counts,
+    ) = _materialize_y_on_gene_universe(
+        runtime_state,
+        Y1=Y1,
+        Y1_for_regression=Y1_for_regression,
+        Y1_exomes=Y1_exomes,
+        Y1_positive_controls=Y1_positive_controls,
+        Y1_case_counts=Y1_case_counts,
+        extra_genes=extra_genes,
+        extra_Y=extra_Y,
+        extra_Y_for_regression=extra_Y_for_regression,
+        extra_genes_all=extra_genes_all,
+        extra_Y_exomes=extra_Y_exomes,
+        extra_Y_positive_controls=extra_Y_positive_controls,
+        extra_Y_case_counts=extra_Y_case_counts,
+        missing_value=missing_value,
+        missing_value_exomes=missing_value_exomes,
+        missing_value_positive_controls=missing_value_positive_controls,
+        missing_value_case_counts=missing_value_case_counts,
+    )
 
     _finalize_y_vectors_and_expand_x(
         runtime_state,
@@ -13495,6 +13457,72 @@ def _read_primary_y_source(
         missing_value,
         gene_combined_map,
         gene_prior_map,
+    )
+
+
+def _materialize_y_on_gene_universe(
+    runtime_state,
+    Y1,
+    Y1_for_regression,
+    Y1_exomes,
+    Y1_positive_controls,
+    Y1_case_counts,
+    extra_genes,
+    extra_Y,
+    extra_Y_for_regression,
+    extra_genes_all,
+    extra_Y_exomes,
+    extra_Y_positive_controls,
+    extra_Y_case_counts,
+    missing_value,
+    missing_value_exomes,
+    missing_value_positive_controls,
+    missing_value_case_counts,
+):
+    if missing_value is None:
+        if len(Y1) > 0:
+            missing_value = np.nanmean(Y1)
+        else:
+            missing_value = 0
+
+    if runtime_state.genes is None:
+        assert(len(Y1) == 0)
+        assert(len(Y1_exomes) == 0)
+        assert(len(Y1_positive_controls) == 0)
+        assert(len(Y1_case_counts) == 0)
+        return _initialize_y_from_new_gene_universe(
+            runtime_state,
+            extra_genes=extra_genes,
+            extra_Y=extra_Y,
+            extra_Y_for_regression=extra_Y_for_regression,
+            extra_genes_all=extra_genes_all,
+            extra_Y_exomes=extra_Y_exomes,
+            extra_Y_positive_controls=extra_Y_positive_controls,
+            extra_Y_case_counts=extra_Y_case_counts,
+            missing_value=missing_value,
+            missing_value_exomes=missing_value_exomes,
+            missing_value_positive_controls=missing_value_positive_controls,
+            missing_value_case_counts=missing_value_case_counts,
+        )
+
+    return _merge_y_into_existing_gene_universe(
+        runtime_state,
+        Y1=Y1,
+        Y1_for_regression=Y1_for_regression,
+        Y1_exomes=Y1_exomes,
+        Y1_positive_controls=Y1_positive_controls,
+        Y1_case_counts=Y1_case_counts,
+        extra_genes=extra_genes,
+        extra_Y=extra_Y,
+        extra_Y_for_regression=extra_Y_for_regression,
+        extra_genes_all=extra_genes_all,
+        extra_Y_exomes=extra_Y_exomes,
+        extra_Y_positive_controls=extra_Y_positive_controls,
+        extra_Y_case_counts=extra_Y_case_counts,
+        missing_value=missing_value,
+        missing_value_exomes=missing_value_exomes,
+        missing_value_positive_controls=missing_value_positive_controls,
+        missing_value_case_counts=missing_value_case_counts,
     )
 
 
