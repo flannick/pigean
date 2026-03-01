@@ -2028,20 +2028,12 @@ class PigeanState(object):
             sparse_frac_betas=sparse_frac_betas,
         )
 
-        if not skip_betas and max_num_gene_sets is not None and len(self.gene_sets) > max_num_gene_sets and max_num_gene_sets > 0:
-            log("Current %d gene sets is greater than the maximum specified %d; reducing using pruning + small beta removal" % (len(self.gene_sets), max_num_gene_sets), DEBUG)
-            gene_set_masks = self._compute_gene_set_batches(V=None, X_orig=self.X_orig, mean_shifts=self.mean_shifts, scale_factors=self.scale_factors, sort_values=sort_rank, resort_as_added=True, stop_at=max_num_gene_sets)
-            keep_mask = np.full(len(self.gene_sets), False)
-            for gene_set_mask in gene_set_masks:
-                keep_mask[gene_set_mask] = True
-                log("Adding %d relatively uncorrelated gene sets (total now %d)" % (np.sum(gene_set_mask), np.sum(keep_mask)), TRACE)
-                if np.sum(keep_mask) > max_num_gene_sets:
-                    break
-            if np.sum(keep_mask) > max_num_gene_sets:
-                threshold_value = sorted(sort_rank[keep_mask])[max_num_gene_sets - 1]
-                keep_mask[sort_rank > threshold_value] = False
-            if np.sum(~keep_mask) > 0:
-                self.subset_gene_sets(keep_mask, keep_missing=False, ignore_missing=True, skip_V=True)
+        _maybe_reduce_gene_sets_to_max_after_x_read(
+            self,
+            skip_betas=skip_betas,
+            max_num_gene_sets=max_num_gene_sets,
+            sort_rank=sort_rank,
+        )
 
         self._record_param("num_gene_sets_read", len(self.gene_sets))
         self._record_param("num_genes_read", len(self.genes))
@@ -14931,6 +14923,44 @@ def _maybe_filter_zero_uncorrected_betas_after_x_read(
         log("Keeping %d gene sets with zero uncorrected betas to avoid having none" % (np.sum(beta_ignore)))
 
     return -np.abs(betas[beta_mask])
+
+
+def _maybe_reduce_gene_sets_to_max_after_x_read(
+    runtime_state,
+    skip_betas,
+    max_num_gene_sets,
+    sort_rank,
+):
+    if skip_betas or max_num_gene_sets is None or max_num_gene_sets <= 0:
+        return
+    if len(runtime_state.gene_sets) <= max_num_gene_sets:
+        return
+
+    log(
+        "Current %d gene sets is greater than the maximum specified %d; reducing using pruning + small beta removal"
+        % (len(runtime_state.gene_sets), max_num_gene_sets),
+        DEBUG,
+    )
+    gene_set_masks = runtime_state._compute_gene_set_batches(
+        V=None,
+        X_orig=runtime_state.X_orig,
+        mean_shifts=runtime_state.mean_shifts,
+        scale_factors=runtime_state.scale_factors,
+        sort_values=sort_rank,
+        resort_as_added=True,
+        stop_at=max_num_gene_sets,
+    )
+    keep_mask = np.full(len(runtime_state.gene_sets), False)
+    for gene_set_mask in gene_set_masks:
+        keep_mask[gene_set_mask] = True
+        log("Adding %d relatively uncorrelated gene sets (total now %d)" % (np.sum(gene_set_mask), np.sum(keep_mask)), TRACE)
+        if np.sum(keep_mask) > max_num_gene_sets:
+            break
+    if np.sum(keep_mask) > max_num_gene_sets:
+        threshold_value = sorted(sort_rank[keep_mask])[max_num_gene_sets - 1]
+        keep_mask[sort_rank > threshold_value] = False
+    if np.sum(~keep_mask) > 0:
+        runtime_state.subset_gene_sets(keep_mask, keep_missing=False, ignore_missing=True, skip_V=True)
 
 
 def _init_sparse_x_batch_state(runtime_state):
