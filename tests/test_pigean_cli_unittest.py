@@ -101,6 +101,48 @@ class PigeanCliTest(unittest.TestCase):
         self.assertIn("--huge-statistics-in", proc.stdout)
         self.assertIn("[advanced] read precomputed HuGE statistics cache", proc.stdout)
 
+    def test_huge_statistics_out_requires_gwas_in(self) -> None:
+        proc = self._run("gibbs", "--huge-statistics-out", "cache_prefix")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Option --huge-statistics-out requires --gwas-in", err)
+
+    def test_huge_statistics_in_and_out_conflict(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--huge-statistics-in",
+            "cache_prefix",
+            "--huge-statistics-out",
+            "cache_prefix_out",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Do not pass both --huge-statistics-in and --huge-statistics-out", err)
+
+    def test_run_phewas_from_gene_phewas_stats_requires_output_path(self) -> None:
+        proc = self._run("beta_tildes", "--run-phewas-from-gene-phewas-stats-in", "x.tsv")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("requires --phewas-stats-out", err)
+
+    def test_gene_set_stats_column_option_requires_gene_set_stats_in(self) -> None:
+        proc = self._run("gibbs", "--gene-set-stats-beta-col", "beta")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Option --gene-set-stats-beta-col requires --gene-set-stats-in", err)
+
+    def test_gene_stats_column_option_requires_gene_stats_in(self) -> None:
+        proc = self._run("gibbs", "--gene-stats-log-bf-col", "log_bf")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Option --gene-stats-log-bf-col requires --gene-stats-in", err)
+
+    def test_gene_phewas_input_requires_consumer_flag(self) -> None:
+        proc = self._run("gibbs", "--gene-phewas-bfs-in", "phewas.tsv")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Option --gene-phewas-bfs-in requires either --betas-uncorrected-from-phewas", err)
+
     def test_pops_mode_defaults_are_exposed_in_effective_config(self) -> None:
         proc = self._run("pops", "--deterministic", "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
@@ -147,6 +189,18 @@ class PigeanCliTest(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             err = (proc.stderr or "") + (proc.stdout or "")
             self.assertIn("Config key 'gene_bfs_in' has been removed", err)
+
+    def test_config_gene_set_stats_column_requires_gene_set_stats_in(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            cfg_path = Path(td) / "cfg.json"
+            cfg_path.write_text(
+                json.dumps({"mode": "gibbs", "options": {"gene_set_stats_beta_col": "beta"}}),
+                encoding="utf-8",
+            )
+            proc = self._run("--config", str(cfg_path))
+            self.assertNotEqual(proc.returncode, 0)
+            err = (proc.stderr or "") + (proc.stdout or "")
+            self.assertIn("Option --gene-set-stats-beta-col requires --gene-set-stats-in", err)
 
     def test_config_removed_gene_zs_key_has_removed_message(self) -> None:
         with tempfile.TemporaryDirectory() as td:

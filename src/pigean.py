@@ -782,6 +782,7 @@ for _opt in _iter_parser_options(parser):
         option_lookup[_long_opt] = _opt
 
 cli_specified_dests = set()
+config_specified_dests = set()
 i = 0
 while i < len(argv_parse):
     arg = argv_parse[i]
@@ -894,6 +895,7 @@ if options.config is not None:
             elif isinstance(coerced_value, str):
                 coerced_value = _resolve_config_path_value(coerced_value, config_dir)
         setattr(options, dest, coerced_value)
+        config_specified_dests.add(dest)
 
 if config_mode is not None:
     if len(args) < 1:
@@ -1184,6 +1186,88 @@ def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_na
     setattr(_options, opt_name, int(new_value))
 
 
+def _is_advanced_option_explicit(dest, argv, cli_dests, config_dests, *flags):
+    if dest in cli_dests or dest in config_dests:
+        return True
+    for flag in flags:
+        if _flag_present_in_argv(argv, flag):
+            return True
+    return False
+
+
+def _validate_advanced_option_dispatch(_options, _argv, _cli_dests, _config_dests):
+    # HuGE cache read/write dispatch must be explicit.
+    if _options.huge_statistics_in is not None and _options.huge_statistics_out is not None:
+        bail("Do not pass both --huge-statistics-in and --huge-statistics-out in the same run")
+    if _options.huge_statistics_out is not None and _options.gwas_in is None:
+        bail("Option --huge-statistics-out requires --gwas-in")
+
+    # Column-mapping flags are advanced adjuncts; fail fast if base input is missing.
+    gene_stats_col_flags = (
+        ("gene_stats_id_col", "--gene-stats-id-col"),
+        ("gene_stats_log_bf_col", "--gene-stats-log-bf-col"),
+        ("gene_stats_combined_col", "--gene-stats-combined-col"),
+        ("gene_stats_prior_col", "--gene-stats-prior-col"),
+        ("gene_stats_prob_col", "--gene-stats-prob-col"),
+    )
+    if _options.gene_stats_in is None:
+        for dest, flag in gene_stats_col_flags:
+            if _is_advanced_option_explicit(dest, _argv, _cli_dests, _config_dests, flag):
+                bail("Option %s requires --gene-stats-in" % flag)
+
+    gene_set_stats_col_flags = (
+        ("gene_set_stats_id_col", "--gene-set-stats-id-col"),
+        ("gene_set_stats_exp_beta_tilde_col", "--gene-set-stats-exp-beta-tilde-col"),
+        ("gene_set_stats_beta_tilde_col", "--gene-set-stats-beta-tilde-col"),
+        ("gene_set_stats_beta_col", "--gene-set-stats-beta-col"),
+        ("gene_set_stats_beta_uncorrected_col", "--gene-set-stats-beta-uncorrected-col"),
+        ("gene_set_stats_se_col", "--gene-set-stats-se-col"),
+        ("gene_set_stats_p_col", "--gene-set-stats-p-col"),
+        ("ignore_negative_exp_beta", "--ignore-negative-exp-beta"),
+    )
+    if _options.gene_set_stats_in is None:
+        for dest, flag in gene_set_stats_col_flags:
+            if _is_advanced_option_explicit(dest, _argv, _cli_dests, _config_dests, flag):
+                bail("Option %s requires --gene-set-stats-in" % flag)
+
+    # Optional PheWAS output path should never run silently with no output sink.
+    if _options.run_phewas_from_gene_phewas_stats_in is not None and _options.phewas_stats_out is None:
+        bail("Option --run-phewas-from-gene-phewas-stats-in requires --phewas-stats-out")
+
+    has_phewas_consumer = (
+        _options.betas_uncorrected_from_phewas
+        or _options.betas_from_phewas
+        or _options.run_phewas_from_gene_phewas_stats_in is not None
+    )
+    if _options.gene_phewas_bfs_in is not None and not has_phewas_consumer:
+        bail(
+            "Option --gene-phewas-bfs-in requires either --betas-uncorrected-from-phewas "
+            "(or --betas-from-phewas) or --run-phewas-from-gene-phewas-stats-in"
+        )
+
+    gene_phewas_mapping_flags = (
+        ("gene_phewas_bfs_id_col", "--gene-phewas-bfs-id-col"),
+        ("gene_phewas_bfs_pheno_col", "--gene-phewas-bfs-pheno-col"),
+        ("gene_phewas_bfs_log_bf_col", "--gene-phewas-bfs-log-bf-col"),
+        ("gene_phewas_bfs_combined_col", "--gene-phewas-bfs-combined-col"),
+        ("gene_phewas_bfs_prior_col", "--gene-phewas-bfs-prior-col"),
+        ("gene_phewas_id_to_X_id", "--gene-phewas-id-to-X-id"),
+        ("min_gene_phewas_read_value", "--min-gene-phewas-read-value"),
+    )
+    if (
+        _options.gene_phewas_bfs_in is None
+        and _options.run_phewas_from_gene_phewas_stats_in is None
+        and not _options.betas_uncorrected_from_phewas
+        and not _options.betas_from_phewas
+    ):
+        for dest, flag in gene_phewas_mapping_flags:
+            if _is_advanced_option_explicit(dest, _argv, _cli_dests, _config_dests, flag):
+                bail(
+                    "Option %s requires --gene-phewas-bfs-in or "
+                    "--run-phewas-from-gene-phewas-stats-in" % flag
+                )
+
+
 def _apply_mode_and_runtime_defaults(_options, _mode, _argv):
     # Mode-dependent defaults.
     if _mode in ("pops", "naive_pops"):
@@ -1303,7 +1387,15 @@ if options.gene_cor_file is None and options.gene_loc_file is None and not optio
     warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
     options.ols = True
 if options.betas_from_phewas:
+    _early_warn("Enabling --betas-uncorrected-from-phewas because --betas-from-phewas was passed")
     options.betas_uncorrected_from_phewas = True
+
+_validate_advanced_option_dispatch(
+    options,
+    argv_parse,
+    cli_specified_dests,
+    config_specified_dests,
+)
 
 if options.print_effective_config:
     effective_config = {
