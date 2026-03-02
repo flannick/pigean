@@ -19197,12 +19197,14 @@ def _finalize_gibbs_epoch_attempt(
         INFO,
     )
 
-    should_continue = (
-        (not stop_due_to_stall)
-        and (not stop_due_to_precision)
-        and (num_completed_epochs < target_num_epochs)
-        and (remaining_total_iter > 0)
-        and (num_attempts < max_num_attempt_restarts)
+    should_continue = _should_continue_gibbs_epoch_attempts(
+        remaining_total_iter=remaining_total_iter,
+        num_completed_epochs=num_completed_epochs,
+        target_num_epochs=target_num_epochs,
+        num_attempts=num_attempts,
+        max_num_attempt_restarts=max_num_attempt_restarts,
+        stop_due_to_stall=stop_due_to_stall,
+        stop_due_to_precision=stop_due_to_precision,
     )
     if should_continue:
         return {
@@ -20187,11 +20189,31 @@ def _run_gibbs_epoch_phase(
     return None
 
 
-def _should_continue_gibbs_epoch_loop(run_state):
+def _should_continue_gibbs_epoch_attempts(
+    remaining_total_iter,
+    num_completed_epochs,
+    target_num_epochs,
+    num_attempts,
+    max_num_attempt_restarts,
+    stop_due_to_stall=False,
+    stop_due_to_precision=False,
+):
     return (
-        run_state["num_attempts"] < run_state["max_num_attempt_restarts"]
-        and run_state["num_completed_epochs"] < run_state["target_num_epochs"]
-        and run_state["remaining_total_iter"] > 0
+        (not stop_due_to_stall)
+        and (not stop_due_to_precision)
+        and (num_completed_epochs < target_num_epochs)
+        and (remaining_total_iter > 0)
+        and (num_attempts < max_num_attempt_restarts)
+    )
+
+
+def _should_continue_gibbs_epoch_loop(run_state):
+    return _should_continue_gibbs_epoch_attempts(
+        remaining_total_iter=run_state["remaining_total_iter"],
+        num_completed_epochs=run_state["num_completed_epochs"],
+        target_num_epochs=run_state["target_num_epochs"],
+        num_attempts=run_state["num_attempts"],
+        max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
     )
 
 
