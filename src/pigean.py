@@ -19292,25 +19292,55 @@ def _compute_gibbs_iteration_y_terms(
     }
 
 
-def _accumulate_gibbs_post_burn_iteration(
-    state,
-    Y_sample_m,
-    Y_raw_sample_m,
-    log_po_sample_m,
-    log_po_raw_sample_m,
+def _build_gibbs_post_burn_accumulation_payload(
+    iter_state,
+    full_betas_mean_m,
+    full_postp_sample_m,
     priors_for_Y_m,
-    D_sample_m,
-    D_raw_sample_m,
+    priors_missing_mean_m,
     log_bf_m,
     log_bf_raw_m,
-    full_betas_mean_m,
-    uncorrected_betas_mean_m,
-    full_postp_sample_m,
-    full_beta_tildes_m,
-    full_z_scores_m,
-    priors_missing_mean_m,
+):
+    return {
+        "Y_sample_m": iter_state["Y_sample_m"],
+        "Y_raw_sample_m": iter_state["Y_raw_sample_m"],
+        "log_po_sample_m": iter_state["log_po_sample_m"],
+        "log_po_raw_sample_m": iter_state["log_po_raw_sample_m"],
+        "priors_for_Y_m": priors_for_Y_m,
+        "D_sample_m": iter_state["D_sample_m"],
+        "D_raw_sample_m": iter_state["D_raw_sample_m"],
+        "log_bf_m": log_bf_m,
+        "log_bf_raw_m": log_bf_raw_m,
+        "full_betas_mean_m": full_betas_mean_m,
+        "uncorrected_betas_mean_m": iter_state["uncorrected_betas_mean_m"],
+        "full_postp_sample_m": full_postp_sample_m,
+        "full_beta_tildes_m": iter_state["full_beta_tildes_m"],
+        "full_z_scores_m": iter_state["full_z_scores_m"],
+        "priors_missing_mean_m": priors_missing_mean_m,
+    }
+
+
+def _accumulate_gibbs_post_burn_iteration(
+    state,
+    accumulation_payload,
     epoch_sums,
 ):
+    Y_sample_m = accumulation_payload["Y_sample_m"]
+    Y_raw_sample_m = accumulation_payload["Y_raw_sample_m"]
+    log_po_sample_m = accumulation_payload["log_po_sample_m"]
+    log_po_raw_sample_m = accumulation_payload["log_po_raw_sample_m"]
+    priors_for_Y_m = accumulation_payload["priors_for_Y_m"]
+    D_sample_m = accumulation_payload["D_sample_m"]
+    D_raw_sample_m = accumulation_payload["D_raw_sample_m"]
+    log_bf_m = accumulation_payload["log_bf_m"]
+    log_bf_raw_m = accumulation_payload["log_bf_raw_m"]
+    full_betas_mean_m = accumulation_payload["full_betas_mean_m"]
+    uncorrected_betas_mean_m = accumulation_payload["uncorrected_betas_mean_m"]
+    full_postp_sample_m = accumulation_payload["full_postp_sample_m"]
+    full_beta_tildes_m = accumulation_payload["full_beta_tildes_m"]
+    full_z_scores_m = accumulation_payload["full_z_scores_m"]
+    priors_missing_mean_m = accumulation_payload["priors_missing_mean_m"]
+
     # Collect one post-burn Gibbs draw into running sums used for MCSE/R-hat and
     # final epoch aggregation.
     epoch_sums["sum_Ys_m"] += Y_sample_m
@@ -21775,31 +21805,8 @@ def _update_gibbs_post_burn_state(
         epoch_control,
         done=False,
     )
-    (
-        epoch_iter_num,
-        total_iter_num,
-        Y_sample_m,
-        Y_raw_sample_m,
-        log_po_sample_m,
-        log_po_raw_sample_m,
-        D_sample_m,
-        D_raw_sample_m,
-        uncorrected_betas_mean_m,
-        full_beta_tildes_m,
-        full_z_scores_m,
-    ) = (
-        iter_state["epoch_iter_num"],
-        iter_state["total_iter_num"],
-        iter_state["Y_sample_m"],
-        iter_state["Y_raw_sample_m"],
-        iter_state["log_po_sample_m"],
-        iter_state["log_po_raw_sample_m"],
-        iter_state["D_sample_m"],
-        iter_state["D_raw_sample_m"],
-        iter_state["uncorrected_betas_mean_m"],
-        iter_state["full_beta_tildes_m"],
-        iter_state["full_z_scores_m"],
-    )
+    epoch_iter_num = iter_state["epoch_iter_num"]
+    total_iter_num = iter_state["total_iter_num"]
 
     priors_for_Y_m = epoch_priors["priors_for_Y_m"]
     priors_missing_mean_m = epoch_priors["priors_missing_mean_m"]
@@ -21809,20 +21816,11 @@ def _update_gibbs_post_burn_state(
 
     return _advance_gibbs_post_burn_state(
         state=state,
-        Y_sample_m=Y_sample_m,
-        Y_raw_sample_m=Y_raw_sample_m,
-        log_po_sample_m=log_po_sample_m,
-        log_po_raw_sample_m=log_po_raw_sample_m,
         priors_for_Y_m=priors_for_Y_m,
-        D_sample_m=D_sample_m,
-        D_raw_sample_m=D_raw_sample_m,
         log_bf_m=log_bf_m,
         log_bf_raw_m=log_bf_raw_m,
         full_betas_mean_m=full_betas_mean_m,
-        uncorrected_betas_mean_m=uncorrected_betas_mean_m,
         full_postp_sample_m=full_postp_sample_m,
-        full_beta_tildes_m=full_beta_tildes_m,
-        full_z_scores_m=full_z_scores_m,
         priors_missing_mean_m=priors_missing_mean_m,
         epoch_sums=epoch_sums,
         min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
@@ -21841,20 +21839,11 @@ def _update_gibbs_post_burn_state(
 
 def _advance_gibbs_post_burn_state(
     state,
-    Y_sample_m,
-    Y_raw_sample_m,
-    log_po_sample_m,
-    log_po_raw_sample_m,
     priors_for_Y_m,
-    D_sample_m,
-    D_raw_sample_m,
     log_bf_m,
     log_bf_raw_m,
     full_betas_mean_m,
-    uncorrected_betas_mean_m,
     full_postp_sample_m,
-    full_beta_tildes_m,
-    full_z_scores_m,
     priors_missing_mean_m,
     epoch_sums,
     min_num_post_burn_in_for_epoch,
@@ -21869,24 +21858,19 @@ def _advance_gibbs_post_burn_state(
     max_num_post_burn_in_for_epoch,
     total_iter_num,
 ):
+    accumulation_payload = _build_gibbs_post_burn_accumulation_payload(
+        iter_state=iter_state,
+        full_betas_mean_m=full_betas_mean_m,
+        full_postp_sample_m=full_postp_sample_m,
+        priors_for_Y_m=priors_for_Y_m,
+        priors_missing_mean_m=priors_missing_mean_m,
+        log_bf_m=log_bf_m,
+        log_bf_raw_m=log_bf_raw_m,
+    )
     _accumulate_gibbs_post_burn_iteration(
-        state,
-        Y_sample_m,
-        Y_raw_sample_m,
-        log_po_sample_m,
-        log_po_raw_sample_m,
-        priors_for_Y_m,
-        D_sample_m,
-        D_raw_sample_m,
-        log_bf_m,
-        log_bf_raw_m,
-        full_betas_mean_m,
-        uncorrected_betas_mean_m,
-        full_postp_sample_m,
-        full_beta_tildes_m,
-        full_z_scores_m,
-        priors_missing_mean_m,
-        epoch_sums,
+        state=state,
+        accumulation_payload=accumulation_payload,
+        epoch_sums=epoch_sums,
     )
 
     post_burn_diag_update = _run_optional_gibbs_post_burn_diagnostics(
