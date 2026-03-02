@@ -7112,9 +7112,11 @@ class PigeanState(object):
                 epoch_iteration_static_config=epoch_iteration_static_config,
                 gene_set_stats_trace_fh=gene_set_stats_trace_fh,
                 gene_stats_trace_fh=gene_stats_trace_fh,
-                log_bf_m=gibbs_inputs["log_bf_m"],
-                log_bf_uncorrected_m=gibbs_inputs["log_bf_uncorrected_m"],
-                log_bf_raw_m=gibbs_inputs["log_bf_raw_m"],
+                log_bf_state=(
+                    gibbs_inputs["log_bf_m"],
+                    gibbs_inputs["log_bf_uncorrected_m"],
+                    gibbs_inputs["log_bf_raw_m"],
+                ),
             )
 
         if run_state["num_completed_epochs"] == 0:
@@ -20017,10 +20019,9 @@ def _run_single_gibbs_epoch_attempt(
     epoch_iteration_static_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
+    log_bf_state,
 ):
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     epoch_attempt = _prepare_gibbs_epoch_attempt(
         state=state,
         run_state=run_state,
@@ -20160,9 +20161,7 @@ def _run_gibbs_epoch_phase(
     epoch_iteration_static_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
+    log_bf_state,
 ):
     # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
     while _should_continue_gibbs_epoch_loop(run_state):
@@ -20174,15 +20173,9 @@ def _run_gibbs_epoch_phase(
             epoch_iteration_static_config=epoch_iteration_static_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             gene_stats_trace_fh=gene_stats_trace_fh,
-            log_bf_m=log_bf_m,
-            log_bf_uncorrected_m=log_bf_uncorrected_m,
-            log_bf_raw_m=log_bf_raw_m,
+            log_bf_state=log_bf_state,
         )
-        (log_bf_state, should_break) = _apply_gibbs_epoch_attempt_update(
-            log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
-            epoch_update=epoch_update,
-        )
-        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
+        (log_bf_state, should_break) = _apply_gibbs_epoch_attempt_update(log_bf_state=log_bf_state, epoch_update=epoch_update)
         if should_break:
             break
 
