@@ -59,6 +59,9 @@ Supported advanced paths are explicit and tagged as `[advanced]` in `--help`:
    - `pops`
    - `naive_pops`
 
+For required inputs and expected outputs per retained advanced workflow, see:
+- `docs/ADVANCED_SET_B.md`
+
 Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `src/pigean.py`.
 
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.

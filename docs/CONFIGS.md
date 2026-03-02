@@ -35,3 +35,7 @@ Advanced configs can layer in:
 2. HuGE cache workflows (`--huge-statistics-in/out`)
 3. optional PheWAS output workflow
 4. specialized modes (`sim`, `pops`, `naive_pops`)
+
+For concise required-input/output blocks for each retained advanced workflow, see:
+
+1. `docs/ADVANCED_SET_B.md`
