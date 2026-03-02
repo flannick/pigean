@@ -505,6 +505,9 @@ _ADVANCED_OPTION_HELP_BY_FLAG = {
     "--seed": "set explicit random seed for deterministic reproducibility checks",
 }
 
+_CORE_OPTION_GROUP_TITLE = "Core options"
+_ADVANCED_OPTION_GROUP_TITLE = "Advanced options (Set B and expert tuning)"
+
 def _iter_parser_options(_parser):
     for _opt in _parser.option_list:
         if _opt is not None and _opt.dest is not None:
@@ -538,6 +541,44 @@ def _apply_cli_help_layout(_parser):
         if _opt is None:
             continue
         _opt.help = "[advanced] %s" % _help_text
+
+
+def _is_advanced_cli_option(_opt):
+    for _long_opt in _opt._long_opts:
+        if _long_opt in _ADVANCED_OPTION_HELP_BY_FLAG:
+            return True
+    return _opt.help is not None and _opt.help.startswith("[advanced]")
+
+
+def _move_option_to_group(_parser, _opt, _group):
+    if _opt in _parser.option_list:
+        _parser.option_list.remove(_opt)
+    if _opt not in _group.option_list:
+        _group.option_list.append(_opt)
+
+
+def _apply_cli_option_groups(_parser):
+    # Keep parser-level meta options (for example --help), and move the rest
+    # into explicit core vs advanced groups for clearer --help output.
+    core_group = optparse.OptionGroup(
+        _parser,
+        _CORE_OPTION_GROUP_TITLE,
+        "Default PIGEAN workflow inputs, outputs, and inference controls.",
+    )
+    advanced_group = optparse.OptionGroup(
+        _parser,
+        _ADVANCED_OPTION_GROUP_TITLE,
+        "Set B workflows, expert tuning, and cache/repro options.",
+    )
+
+    for _opt in list(_parser.option_list):
+        if _opt.dest is None:
+            continue
+        target_group = advanced_group if _is_advanced_cli_option(_opt) else core_group
+        _move_option_to_group(_parser, _opt, target_group)
+
+    _parser.add_option_group(core_group)
+    _parser.add_option_group(advanced_group)
 
 def _merge_dicts(_base, _override):
     if not isinstance(_base, dict):
@@ -719,6 +760,7 @@ def _open_optional_log_handle(_filepath):
     return sys.stderr
 
 _apply_cli_help_layout(parser)
+_apply_cli_option_groups(parser)
 
 
 argv_parse = sys.argv[1:]
