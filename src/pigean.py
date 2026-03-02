@@ -17626,14 +17626,7 @@ def _update_gibbs_burn_in_state(
     Y_sample_m = iter_state["Y_sample_m"]
 
     if not in_burn_in:
-        return {
-            "in_burn_in": in_burn_in,
-            "burn_in_pass_streak": burn_in_pass_streak,
-            "stop_pass_streak": stop_pass_streak,
-            "prev_Ys_m": prev_Ys_m,
-            "burn_stall_beta_indices": burn_stall_beta_indices,
-            "R_beta_v": R_beta_v,
-        }
+        return _build_gibbs_burn_in_control_from_epoch(epoch_control)
 
     num_samples = iteration_num + 1
     if num_samples >= max_num_burn_in_for_epoch:
@@ -17670,14 +17663,14 @@ def _update_gibbs_burn_in_state(
             stop_pass_streak=stop_pass_streak,
         )
 
-    return {
-        "in_burn_in": in_burn_in,
-        "burn_in_pass_streak": burn_in_pass_streak,
-        "stop_pass_streak": stop_pass_streak,
-        "prev_Ys_m": prev_Ys_m,
-        "burn_stall_beta_indices": burn_stall_beta_indices,
-        "R_beta_v": R_beta_v,
-    }
+    return _build_gibbs_burn_in_control_update(
+        in_burn_in=in_burn_in,
+        burn_in_pass_streak=burn_in_pass_streak,
+        stop_pass_streak=stop_pass_streak,
+        prev_Ys_m=prev_Ys_m,
+        burn_stall_beta_indices=burn_stall_beta_indices,
+        R_beta_v=R_beta_v,
+    )
 
 
 def _maybe_restart_gibbs_for_low_betas(
@@ -21390,6 +21383,51 @@ def _apply_gibbs_control_update(epoch_control, control_update, control_keys):
         epoch_control[key] = control_update[key]
 
 
+def _build_gibbs_burn_in_control_update(
+    in_burn_in,
+    burn_in_pass_streak,
+    stop_pass_streak,
+    prev_Ys_m,
+    burn_stall_beta_indices,
+    R_beta_v,
+):
+    return {
+        "in_burn_in": in_burn_in,
+        "burn_in_pass_streak": burn_in_pass_streak,
+        "stop_pass_streak": stop_pass_streak,
+        "prev_Ys_m": prev_Ys_m,
+        "burn_stall_beta_indices": burn_stall_beta_indices,
+        "R_beta_v": R_beta_v,
+    }
+
+
+def _build_gibbs_burn_in_control_from_epoch(epoch_control):
+    return _build_gibbs_burn_in_control_update(
+        in_burn_in=epoch_control["in_burn_in"],
+        burn_in_pass_streak=epoch_control["burn_in_pass_streak"],
+        stop_pass_streak=epoch_control["stop_pass_streak"],
+        prev_Ys_m=epoch_control["prev_Ys_m"],
+        burn_stall_beta_indices=epoch_control["burn_stall_beta_indices"],
+        R_beta_v=epoch_control["R_beta_v"],
+    )
+
+
+def _apply_gibbs_burn_in_control_update(epoch_control, burn_in_update):
+    _apply_gibbs_control_update(
+        epoch_control=epoch_control,
+        control_update=burn_in_update,
+        control_keys=GIBBS_BURN_IN_CONTROL_KEYS,
+    )
+
+
+def _apply_gibbs_post_burn_control_update(epoch_control, post_burn_update):
+    _apply_gibbs_control_update(
+        epoch_control=epoch_control,
+        control_update=post_burn_update,
+        control_keys=GIBBS_POST_BURN_CONTROL_KEYS,
+    )
+
+
 def _build_gibbs_post_burn_control_update(
     stop_pass_streak,
     post_stall_beta_indices,
@@ -22108,11 +22146,7 @@ def _finalize_gibbs_iteration_progress(
         use_mean_betas,
     )
 
-    _apply_gibbs_control_update(
-        epoch_control=epoch_control,
-        control_update=post_burn_update,
-        control_keys=GIBBS_POST_BURN_CONTROL_KEYS,
-    )
+    _apply_gibbs_post_burn_control_update(epoch_control=epoch_control, post_burn_update=post_burn_update)
     return {"done": post_burn_update["done"]}
 
 
