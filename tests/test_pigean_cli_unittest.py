@@ -88,6 +88,8 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Core quickstart:", proc.stdout)
         self.assertIn("Advanced workflows (Set B)", proc.stdout)
+        self.assertIn("Core options:", proc.stdout)
+        self.assertIn("Advanced options (Set B and expert tuning):", proc.stdout)
 
     def test_help_marks_set_b_flags_as_advanced(self) -> None:
         proc = self._run("gibbs", "--help")
