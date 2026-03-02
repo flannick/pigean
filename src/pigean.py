@@ -14266,6 +14266,45 @@ def _learn_hyper_for_gene_set_batch(
         }
 
 
+def _apply_learned_batch_hyper_values(
+    runtime_state,
+    gene_sets_in_batch_mask,
+    computed_p,
+    computed_sigma2,
+    first_p,
+    first_max_p_for_hyper,
+):
+    updated_first_p = first_p
+    adjusted_p = computed_p
+    adjusted_sigma2 = computed_sigma2
+
+    if updated_first_p is None:
+        updated_first_p = adjusted_p
+    elif first_max_p_for_hyper and adjusted_p > updated_first_p:
+        # Keep sigma/first_p = sigma/computed_p.
+        adjusted_sigma2 = adjusted_sigma2 / adjusted_p * updated_first_p
+        adjusted_p = updated_first_p
+
+    runtime_state.ps[gene_sets_in_batch_mask] = adjusted_p
+    runtime_state.sigma2s[gene_sets_in_batch_mask] = adjusted_sigma2
+    return updated_first_p
+
+
+def _finalize_batch_hyper_vectors(runtime_state, first_for_hyper):
+    assert(len(runtime_state.ps) > 0 and not np.isnan(runtime_state.ps[0]))
+    assert(len(runtime_state.sigma2s) > 0 and not np.isnan(runtime_state.sigma2s[0]))
+
+    if first_for_hyper:
+        runtime_state.ps[np.isnan(runtime_state.ps)] = runtime_state.ps[0]
+        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = runtime_state.sigma2s[0]
+    else:
+        runtime_state.ps[np.isnan(runtime_state.ps)] = np.mean(runtime_state.ps[~np.isnan(runtime_state.ps)])
+        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = np.mean(runtime_state.sigma2s[~np.isnan(runtime_state.sigma2s)])
+
+    runtime_state.set_p(np.mean(runtime_state.ps))
+    runtime_state.set_sigma(np.mean(runtime_state.sigma2s), runtime_state.sigma_power)
+
+
 def _maybe_learn_batch_hyper_after_x_read(
     runtime_state,
     skip_betas,
@@ -14373,29 +14412,16 @@ def _maybe_learn_batch_hyper_after_x_read(
             }
         )
 
-        if first_p is None:
-            first_p = computed_p
-        elif first_max_p_for_hyper and computed_p > first_p:
-            # Keep sigma/first_p = sigma/computed_p.
-            computed_sigma2 = computed_sigma2 / computed_p * first_p
-            computed_p = first_p
+        first_p = _apply_learned_batch_hyper_values(
+            runtime_state=runtime_state,
+            gene_sets_in_batch_mask=gene_sets_in_batch_mask,
+            computed_p=computed_p,
+            computed_sigma2=computed_sigma2,
+            first_p=first_p,
+            first_max_p_for_hyper=first_max_p_for_hyper,
+        )
 
-        runtime_state.ps[gene_sets_in_batch_mask] = computed_p
-        runtime_state.sigma2s[gene_sets_in_batch_mask] = computed_sigma2
-
-    # Fill missing p/sigma2 values.
-    assert(len(runtime_state.ps) > 0 and not np.isnan(runtime_state.ps[0]))
-    assert(len(runtime_state.sigma2s) > 0 and not np.isnan(runtime_state.sigma2s[0]))
-
-    if first_for_hyper:
-        runtime_state.ps[np.isnan(runtime_state.ps)] = runtime_state.ps[0]
-        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = runtime_state.sigma2s[0]
-    else:
-        runtime_state.ps[np.isnan(runtime_state.ps)] = np.mean(runtime_state.ps[~np.isnan(runtime_state.ps)])
-        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = np.mean(runtime_state.sigma2s[~np.isnan(runtime_state.sigma2s)])
-
-    runtime_state.set_p(np.mean(runtime_state.ps))
-    runtime_state.set_sigma(np.mean(runtime_state.sigma2s), runtime_state.sigma_power)
+    _finalize_batch_hyper_vectors(runtime_state=runtime_state, first_for_hyper=first_for_hyper)
 
 
 def _maybe_adjust_overaggressive_p_filter_after_x_read(
