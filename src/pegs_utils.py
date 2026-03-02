@@ -204,3 +204,17 @@ def format_removed_option_message(option_name, replacement, context, config_path
         )
 
     raise ValueError("Unknown removed-option message context '%s'" % context)
+
+
+def configure_random_seed(options_obj, random_module, numpy_module, log_fn=None, info_level=None):
+    if getattr(options_obj, "deterministic", False) and getattr(options_obj, "seed", None) is None:
+        options_obj.seed = 0
+
+    if getattr(options_obj, "seed", None) is not None:
+        random_module.seed(options_obj.seed)
+        numpy_module.random.seed(options_obj.seed)
+        if log_fn is not None:
+            if info_level is None:
+                log_fn("Using deterministic random seed %d" % options_obj.seed)
+            else:
+                log_fn("Using deterministic random seed %d" % options_obj.seed, info_level)

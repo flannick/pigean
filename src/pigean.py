@@ -35,6 +35,7 @@ try:
     from .pegs_utils import (
         collect_cli_specified_dests as pegs_collect_cli_specified_dests,
         coerce_config_value as pegs_coerce_config_value,
+        configure_random_seed as pegs_configure_random_seed,
         format_removed_option_message as pegs_format_removed_option_message,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
@@ -46,6 +47,7 @@ except ImportError:
     from pegs_utils import (
         collect_cli_specified_dests as pegs_collect_cli_specified_dests,
         coerce_config_value as pegs_coerce_config_value,
+        configure_random_seed as pegs_configure_random_seed,
         format_removed_option_message as pegs_format_removed_option_message,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
@@ -822,12 +824,7 @@ def warn(message):
 
 
 def _configure_random_seed(options_obj):
-    if options_obj.deterministic and options_obj.seed is None:
-        options_obj.seed = 0
-    if options_obj.seed is not None:
-        random.seed(options_obj.seed)
-        np.random.seed(options_obj.seed)
-        log("Using deterministic random seed %d" % options_obj.seed, INFO)
+    pegs_configure_random_seed(options_obj, random, np, log_fn=log, info_level=INFO)
 
 
 _configure_random_seed(options)
