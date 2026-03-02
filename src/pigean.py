@@ -18,6 +18,7 @@ import os
 import copy
 import contextlib
 import json
+import hashlib
 import tarfile
 import tempfile
 import re
@@ -232,6 +233,7 @@ parser.add_option("","--gene-set-overlap-stats-out",default=None)
 parser.add_option("","--gene-covs-out",default=None)
 parser.add_option("","--gene-effectors-out",default=None)
 parser.add_option("","--phewas-stats-out",default=None)
+parser.add_option("","--eaggl-out",default=None) #write a bundled handoff tarball for eaggl.py inputs
 
 #for beta calculation against additional traits
 parser.add_option("","--betas-from-phewas",action="store_true",default=False)
@@ -476,6 +478,7 @@ _ADVANCED_OPTION_HELP_BY_FLAG = {
     "--gene-set-stats-p-col": "p-value column mapping for advanced gene-set stats ingestion",
     "--huge-statistics-in": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
     "--huge-statistics-out": "write HuGE statistics cache for faster reruns",
+    "--eaggl-out": "write bundled PIGEAN outputs for direct eaggl.py consumption",
     "--cross-val": "enable cross-validation tuning of inner beta sampling hyperparameters",
     "--no-cross-val": "explicitly disable cross-validation tuning",
     "--cross-val-num-explore-each-direction": "cross-validation exploration breadth for sigma tuning",
@@ -1201,6 +1204,10 @@ def _validate_advanced_option_dispatch(_options, _argv, _cli_dests, _config_dest
         bail("Do not pass both --huge-statistics-in and --huge-statistics-out in the same run")
     if _options.huge_statistics_out is not None and _options.gwas_in is None:
         bail("Option --huge-statistics-out requires --gwas-in")
+    if _options.eaggl_out is not None:
+        lower = _options.eaggl_out.lower()
+        if not (lower.endswith(".tar.gz") or lower.endswith(".tgz") or lower.endswith(".tar")):
+            bail("Option --eaggl-out must end with .tar, .tar.gz, or .tgz")
 
     # Column-mapping flags are advanced adjuncts; fail fast if base input is missing.
     gene_stats_col_flags = (
@@ -24239,6 +24246,122 @@ def _run_advanced_set_b_output_phewas_if_requested(state, options):
         state.write_phewas_statistics(options.phewas_stats_out)
 
 
+_EAGGL_BUNDLE_SCHEMA = "pigean_eaggl_bundle/v1"
+
+
+def _get_tar_write_mode_for_bundle_path(bundle_path):
+    lower = bundle_path.lower()
+    if lower.endswith(".tar.gz") or lower.endswith(".tgz"):
+        return "w:gz"
+    if lower.endswith(".tar"):
+        return "w"
+    bail("Option --eaggl-out must end with .tar, .tar.gz, or .tgz")
+
+
+def _hash_file_sha256(path):
+    sha = hashlib.sha256()
+    with open(path, "rb") as fh:
+        while True:
+            chunk = fh.read(1024 * 1024)
+            if not chunk:
+                break
+            sha.update(chunk)
+    return sha.hexdigest()
+
+
+def _collect_bundle_file_metadata(path):
+    return {
+        "size_bytes": int(os.path.getsize(path)),
+        "sha256": _hash_file_sha256(path),
+    }
+
+
+def _require_bundle_file(path, label, suggestion):
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        return
+    bail("Cannot write --eaggl-out: missing %s (%s)" % (label, suggestion))
+
+
+def _write_eaggl_bundle_if_requested(state, options, mode):
+    if options.eaggl_out is None:
+        return
+
+    out_path = options.eaggl_out
+    tar_mode = _get_tar_write_mode_for_bundle_path(out_path)
+    out_dir = os.path.dirname(os.path.abspath(out_path))
+    if out_dir and not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+    log("Writing EAGGL handoff bundle to %s" % out_path, INFO)
+    with tempfile.TemporaryDirectory(prefix="pigean_eaggl_bundle_") as tmp_dir:
+        file_map = {}
+        file_meta = {}
+
+        # Required core handoff inputs for standard factor workflows.
+        x_name = "X.tsv.gz"
+        x_path = os.path.join(tmp_dir, x_name)
+        state.write_X(x_path)
+        _require_bundle_file(x_path, "X matrix", "run with --X-in/--X-list and ensure gene sets were loaded")
+        file_map["X_in"] = x_name
+        file_meta[x_name] = _collect_bundle_file_metadata(x_path)
+
+        gene_stats_name = "gene_stats.tsv.gz"
+        gene_stats_path = os.path.join(tmp_dir, gene_stats_name)
+        state.write_gene_statistics(gene_stats_path)
+        _require_bundle_file(gene_stats_path, "gene statistics", "run a mode that computes/loads gene scores")
+        file_map["gene_stats_in"] = gene_stats_name
+        file_meta[gene_stats_name] = _collect_bundle_file_metadata(gene_stats_path)
+
+        gene_set_stats_name = "gene_set_stats.tsv.gz"
+        gene_set_stats_path = os.path.join(tmp_dir, gene_set_stats_name)
+        state.write_gene_set_statistics(
+            gene_set_stats_path,
+            max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
+            max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
+        )
+        _require_bundle_file(gene_set_stats_path, "gene-set statistics", "run a mode that computes/loads gene-set statistics")
+        file_map["gene_set_stats_in"] = gene_set_stats_name
+        file_meta[gene_set_stats_name] = _collect_bundle_file_metadata(gene_set_stats_path)
+
+        optional_existing_files = [
+            ("gene_phewas_bfs_in", options.phewas_stats_out, "gene_phewas_stats.tsv.gz"),
+            ("gene_set_phewas_stats_in", options.phewas_gene_set_stats_out, "gene_set_phewas_stats.tsv.gz"),
+        ]
+        for option_key, source_path, bundle_name in optional_existing_files:
+            if source_path is None or not os.path.exists(source_path):
+                continue
+            with open(source_path, "rb") as in_fh:
+                with open(os.path.join(tmp_dir, bundle_name), "wb") as out_fh:
+                    out_fh.write(in_fh.read())
+            file_map[option_key] = bundle_name
+            file_meta[bundle_name] = _collect_bundle_file_metadata(os.path.join(tmp_dir, bundle_name))
+
+        manifest = {
+            "schema": _EAGGL_BUNDLE_SCHEMA,
+            "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "source": {
+                "tool": "pigean.py",
+                "mode": mode,
+                "argv": list(sys.argv),
+            },
+            "default_inputs": file_map,
+            "files": file_meta,
+        }
+
+        manifest_name = "manifest.json"
+        manifest_path = os.path.join(tmp_dir, manifest_name)
+        with open(manifest_path, "w", encoding="utf-8") as out_fh:
+            json.dump(manifest, out_fh, indent=2, sort_keys=True)
+            out_fh.write("\n")
+
+        with tarfile.open(out_path, tar_mode) as tar_fh:
+            tar_fh.add(manifest_path, arcname=manifest_name)
+            for bundle_name in sorted(file_meta.keys()):
+                tar_fh.add(os.path.join(tmp_dir, bundle_name), arcname=bundle_name)
+
+    log("Finished writing EAGGL handoff bundle %s" % out_path, INFO)
+
+
 def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_loaded):
     # D1) Prepare X / V / p and optional X exports.
     if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
@@ -24460,7 +24583,7 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
         )
 
 
-def _write_main_outputs_and_optional_phewas(state, options, mode_state):
+def _write_main_outputs_and_optional_phewas(state, options, mode_state, mode):
     if options.gene_set_stats_out:
         state.write_gene_set_statistics(
             options.gene_set_stats_out,
@@ -24494,6 +24617,7 @@ def _write_main_outputs_and_optional_phewas(state, options, mode_state):
 
     if options.params_out:
         state.write_params(options.params_out)
+    _write_eaggl_bundle_if_requested(state=state, options=options, mode=mode)
 
 
 def main():
@@ -24533,7 +24657,7 @@ def main():
     # ==========================================================================
     # Main Phase E: Output writers and optional downstream analyses.
     # ==========================================================================
-    _write_main_outputs_and_optional_phewas(state, options, mode_state)
+    _write_main_outputs_and_optional_phewas(state, options, mode_state, mode)
 
 if __name__ == '__main__':
     main()

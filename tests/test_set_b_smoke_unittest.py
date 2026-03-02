@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -180,6 +182,39 @@ class SetBSmokeTest(unittest.TestCase):
             "0.001",
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+
+    def test_eaggl_out_bundle_smoke(self) -> None:
+        bundle_out = self.tmpdir / "pigean_to_eaggl.tar.gz"
+        proc = self._run(
+            "beta_tildes",
+            *self._common_x_args(),
+            *self._common_gene_stats_args(),
+            "--gene-set-stats-in",
+            str(self.reference_root / "mody_beta_tildes_gene_set_beta_tilde.tsv"),
+            "--gene-set-stats-id-col",
+            "Gene_Set",
+            "--gene-set-stats-beta-tilde-col",
+            "beta_tilde",
+            "--eaggl-out",
+            str(bundle_out),
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        self.assertTrue(bundle_out.exists(), msg="Expected eaggl bundle to be written")
+
+        with tarfile.open(bundle_out, "r:*") as tar_fh:
+            members = {m.name for m in tar_fh.getmembers()}
+            self.assertIn("manifest.json", members)
+            self.assertIn("X.tsv.gz", members)
+            self.assertIn("gene_stats.tsv.gz", members)
+            self.assertIn("gene_set_stats.tsv.gz", members)
+            manifest_fh = tar_fh.extractfile("manifest.json")
+            self.assertIsNotNone(manifest_fh)
+            manifest = json.loads(manifest_fh.read().decode("utf-8"))
+
+        self.assertEqual(manifest["schema"], "pigean_eaggl_bundle/v1")
+        self.assertEqual(manifest["default_inputs"]["X_in"], "X.tsv.gz")
+        self.assertEqual(manifest["default_inputs"]["gene_stats_in"], "gene_stats.tsv.gz")
+        self.assertEqual(manifest["default_inputs"]["gene_set_stats_in"], "gene_set_stats.tsv.gz")
 
 
 if __name__ == "__main__":
