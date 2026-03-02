@@ -19946,28 +19946,20 @@ def _run_single_gibbs_epoch_attempt(
             "log_bf_raw_m": log_bf_raw_m,
         }
 
-    epoch_context = _start_gibbs_epoch(
+    epoch_attempt_context = _initialize_gibbs_epoch_attempt_context(
         state=state,
-        num_chains=epoch_phase_config["num_chains"],
-        num_full_gene_sets=epoch_phase_config["num_full_gene_sets"],
-        use_mean_betas=epoch_phase_config["use_mean_betas"],
-        max_mb_X_h=epoch_phase_config["max_mb_X_h"],
-        log_fun=log,
+        run_state=run_state,
         epoch_aggregates=epoch_aggregates,
-        num_p_increases=run_state["num_p_increases"],
-    )
-    epoch_context.update(epoch_attempt)
-
-    epoch_control = epoch_context["epoch_control"]
-    epoch_sums = epoch_context["epoch_sums"]
-    epoch_priors = epoch_context["epoch_priors"]
-    epoch_runtime = epoch_context["epoch_runtime"]
-    loop_config = _build_gibbs_epoch_iteration_loop_config(
-        epoch_context=epoch_context,
         epoch_phase_config=epoch_phase_config,
         epoch_iteration_static_config=epoch_iteration_static_config,
-        run_state=run_state,
+        epoch_attempt=epoch_attempt,
     )
+    epoch_context = epoch_attempt_context["epoch_context"]
+    epoch_control = epoch_attempt_context["epoch_control"]
+    epoch_sums = epoch_attempt_context["epoch_sums"]
+    epoch_priors = epoch_attempt_context["epoch_priors"]
+    epoch_runtime = epoch_attempt_context["epoch_runtime"]
+    loop_config = epoch_attempt_context["loop_config"]
     epoch_loop_update = _run_gibbs_epoch_iterations(
         state=state,
         run_state=run_state,
@@ -20013,6 +20005,40 @@ def _run_single_gibbs_epoch_attempt(
         "log_bf_m": log_bf_m,
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
         "log_bf_raw_m": log_bf_raw_m,
+    }
+
+
+def _initialize_gibbs_epoch_attempt_context(
+    state,
+    run_state,
+    epoch_aggregates,
+    epoch_phase_config,
+    epoch_iteration_static_config,
+    epoch_attempt,
+):
+    epoch_context = _start_gibbs_epoch(
+        state=state,
+        num_chains=epoch_phase_config["num_chains"],
+        num_full_gene_sets=epoch_phase_config["num_full_gene_sets"],
+        use_mean_betas=epoch_phase_config["use_mean_betas"],
+        max_mb_X_h=epoch_phase_config["max_mb_X_h"],
+        log_fun=log,
+        epoch_aggregates=epoch_aggregates,
+        num_p_increases=run_state["num_p_increases"],
+    )
+    epoch_context.update(epoch_attempt)
+    return {
+        "epoch_context": epoch_context,
+        "epoch_control": epoch_context["epoch_control"],
+        "epoch_sums": epoch_context["epoch_sums"],
+        "epoch_priors": epoch_context["epoch_priors"],
+        "epoch_runtime": epoch_context["epoch_runtime"],
+        "loop_config": _build_gibbs_epoch_iteration_loop_config(
+            epoch_context=epoch_context,
+            epoch_phase_config=epoch_phase_config,
+            epoch_iteration_static_config=epoch_iteration_static_config,
+            run_state=run_state,
+        ),
     }
 
 
