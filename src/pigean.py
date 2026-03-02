@@ -7071,24 +7071,16 @@ class PigeanState(object):
         epoch_phase_config = epoch_runtime_configs["epoch_phase_config"]
         epoch_iteration_static_config = epoch_runtime_configs["epoch_iteration_static_config"]
 
-        with _open_optional_gibbs_trace_files(
+        _run_gibbs_epochs_with_optional_traces(
+            state=self,
+            run_state=run_state,
+            epoch_aggregates=epoch_aggregates,
+            epoch_phase_config=epoch_phase_config,
+            epoch_iteration_static_config=epoch_iteration_static_config,
             gene_set_stats_trace_out=gene_set_stats_trace_out,
             gene_stats_trace_out=gene_stats_trace_out,
-        ) as (gene_set_stats_trace_fh, gene_stats_trace_fh):
-            _run_gibbs_epoch_phase(
-                state=self,
-                run_state=run_state,
-                epoch_aggregates=epoch_aggregates,
-                epoch_phase_config=epoch_phase_config,
-                epoch_iteration_static_config=epoch_iteration_static_config,
-                gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-                gene_stats_trace_fh=gene_stats_trace_fh,
-                log_bf_state=(
-                    gibbs_inputs["log_bf_m"],
-                    gibbs_inputs["log_bf_uncorrected_m"],
-                    gibbs_inputs["log_bf_raw_m"],
-                ),
-            )
+            gibbs_inputs=gibbs_inputs,
+        )
 
         if run_state["num_completed_epochs"] == 0:
             bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
@@ -20321,6 +20313,40 @@ def _run_gibbs_epoch_phase(
             break
 
     return None
+
+
+def _build_initial_gibbs_log_bf_state(gibbs_inputs):
+    return (
+        gibbs_inputs["log_bf_m"],
+        gibbs_inputs["log_bf_uncorrected_m"],
+        gibbs_inputs["log_bf_raw_m"],
+    )
+
+
+def _run_gibbs_epochs_with_optional_traces(
+    state,
+    run_state,
+    epoch_aggregates,
+    epoch_phase_config,
+    epoch_iteration_static_config,
+    gene_set_stats_trace_out,
+    gene_stats_trace_out,
+    gibbs_inputs,
+):
+    with _open_optional_gibbs_trace_files(
+        gene_set_stats_trace_out=gene_set_stats_trace_out,
+        gene_stats_trace_out=gene_stats_trace_out,
+    ) as (gene_set_stats_trace_fh, gene_stats_trace_fh):
+        _run_gibbs_epoch_phase(
+            state=state,
+            run_state=run_state,
+            epoch_aggregates=epoch_aggregates,
+            epoch_phase_config=epoch_phase_config,
+            epoch_iteration_static_config=epoch_iteration_static_config,
+            gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_stats_trace_fh=gene_stats_trace_fh,
+            log_bf_state=_build_initial_gibbs_log_bf_state(gibbs_inputs),
+        )
 
 
 def _run_and_apply_gibbs_epoch_attempt(
