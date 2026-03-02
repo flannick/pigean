@@ -20194,7 +20194,7 @@ def _run_gibbs_epoch_phase(
 ):
     # Gibbs Phase 1: run one or more epochs (optionally restarting on stalls).
     while _should_continue_gibbs_epoch_loop(run_state):
-        epoch_update = _run_single_gibbs_epoch_attempt(
+        (log_bf_state, should_break) = _run_and_apply_gibbs_epoch_attempt(
             state=state,
             run_state=run_state,
             epoch_aggregates=epoch_aggregates,
@@ -20204,11 +20204,33 @@ def _run_gibbs_epoch_phase(
             gene_stats_trace_fh=gene_stats_trace_fh,
             log_bf_state=log_bf_state,
         )
-        (log_bf_state, should_break) = _apply_gibbs_epoch_attempt_update(log_bf_state=log_bf_state, epoch_update=epoch_update)
         if should_break:
             break
 
     return None
+
+
+def _run_and_apply_gibbs_epoch_attempt(
+    state,
+    run_state,
+    epoch_aggregates,
+    epoch_phase_config,
+    epoch_iteration_static_config,
+    gene_set_stats_trace_fh,
+    gene_stats_trace_fh,
+    log_bf_state,
+):
+    epoch_update = _run_single_gibbs_epoch_attempt(
+        state=state,
+        run_state=run_state,
+        epoch_aggregates=epoch_aggregates,
+        epoch_phase_config=epoch_phase_config,
+        epoch_iteration_static_config=epoch_iteration_static_config,
+        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+        gene_stats_trace_fh=gene_stats_trace_fh,
+        log_bf_state=log_bf_state,
+    )
+    return _apply_gibbs_epoch_attempt_update(log_bf_state=log_bf_state, epoch_update=epoch_update)
 
 
 def _should_continue_gibbs_epoch_attempts(
