@@ -20162,8 +20162,12 @@ def _run_gibbs_epoch_iterations(
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
         )
-        log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(iteration_run)
-        if iteration_run["stop_epoch"]:
+        log_bf_state, stop_epoch = _apply_gibbs_iteration_loop_update(
+            log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
+            iteration_run=iteration_run,
+        )
+        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
+        if stop_epoch:
             break
 
     return _build_gibbs_log_bf_payload(
@@ -20172,6 +20176,11 @@ def _run_gibbs_epoch_iterations(
         log_bf_raw_m,
         iteration_num=iteration_num,
     )
+
+
+def _apply_gibbs_iteration_loop_update(log_bf_state, iteration_run):
+    log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(iteration_run)
+    return ((log_bf_m, log_bf_uncorrected_m, log_bf_raw_m), iteration_run["stop_epoch"])
 
 
 def _run_single_gibbs_iteration(
