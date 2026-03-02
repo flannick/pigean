@@ -20060,9 +20060,7 @@ def _run_single_gibbs_epoch_attempt(
         loop_config=loop_config,
         gene_set_stats_trace_fh=gene_set_stats_trace_fh,
         gene_stats_trace_fh=gene_stats_trace_fh,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
+        log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
     )
     iteration_num = epoch_loop_update["iteration_num"]
     log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(epoch_loop_update)
@@ -20228,9 +20226,7 @@ def _run_gibbs_epoch_iterations(
     loop_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
+    log_bf_state,
 ):
     epoch_max_num_iter = loop_config["epoch_max_num_iter"]
     iteration_runtime_configs = _build_gibbs_iteration_runtime_configs(
@@ -20256,18 +20252,16 @@ def _run_gibbs_epoch_iterations(
             iteration_state_config=iteration_state_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             iteration_num=iteration_num,
-            log_bf_m=log_bf_m,
-            log_bf_uncorrected_m=log_bf_uncorrected_m,
-            log_bf_raw_m=log_bf_raw_m,
+            log_bf_state=log_bf_state,
         )
         log_bf_state, stop_epoch = _apply_gibbs_iteration_loop_update(
-            log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
+            log_bf_state=log_bf_state,
             iteration_run=iteration_run,
         )
-        (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
         if stop_epoch:
             break
 
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     return _build_gibbs_log_bf_payload(
         log_bf_m,
         log_bf_uncorrected_m,
@@ -20297,10 +20291,9 @@ def _run_single_gibbs_iteration(
     iteration_state_config,
     gene_set_stats_trace_fh,
     iteration_num,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
+    log_bf_state,
 ):
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     iter_state, gene_set_mask_m = _prepare_gibbs_iteration_state(
         state=state,
         iteration_num=iteration_num,
@@ -20322,7 +20315,6 @@ def _run_single_gibbs_iteration(
         log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
     )
     (log_bf_state, should_break) = _extract_gibbs_iteration_update_state(iteration_update)
-    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
 
     return _finalize_gibbs_iteration_after_correction(
         state=state,
@@ -20337,9 +20329,7 @@ def _run_single_gibbs_iteration(
         gene_set_stats_trace_fh=gene_set_stats_trace_fh,
         iteration_update=iteration_update,
         should_break=should_break,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
+        log_bf_state=log_bf_state,
     )
 
 
@@ -20356,10 +20346,9 @@ def _finalize_gibbs_iteration_after_correction(
     gene_set_stats_trace_fh,
     iteration_update,
     should_break,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
+    log_bf_state,
 ):
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     if should_break:
         return _build_gibbs_log_bf_payload(
             log_bf_m,
