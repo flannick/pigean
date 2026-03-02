@@ -20392,12 +20392,11 @@ def _run_gibbs_iteration_correction_and_updates(
         iteration_num=iteration_num,
         full_betas_mean_m=full_betas_mean_m,
     )
-    for key in _GIBBS_EPOCH_RUNTIME_SUM_KEYS:
-        epoch_runtime[key] = all_iteration_update[key]
-    epoch_control["R_beta_v"] = all_iteration_update["R_beta_v"]
-    epoch_runtime["gibbs_good"] = all_iteration_update["gibbs_good"]
-    epoch_runtime["num_p_increases"] = all_iteration_update["num_p_increases"]
-    should_break = all_iteration_update["should_break"]
+    should_break = _apply_gibbs_all_iteration_update(
+        epoch_runtime=epoch_runtime,
+        epoch_control=epoch_control,
+        all_iteration_update=all_iteration_update,
+    )
 
     return {
         "full_betas_sample_m": full_betas_sample_m,
@@ -20409,6 +20408,15 @@ def _run_gibbs_iteration_correction_and_updates(
         "log_bf_raw_m": log_bf_raw_m,
         "should_break": should_break,
     }
+
+
+def _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update):
+    for key in _GIBBS_EPOCH_RUNTIME_SUM_KEYS:
+        epoch_runtime[key] = all_iteration_update[key]
+    epoch_control["R_beta_v"] = all_iteration_update["R_beta_v"]
+    epoch_runtime["gibbs_good"] = all_iteration_update["gibbs_good"]
+    epoch_runtime["num_p_increases"] = all_iteration_update["num_p_increases"]
+    return all_iteration_update["should_break"]
 
 
 def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig):
