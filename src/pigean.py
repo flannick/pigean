@@ -20319,6 +20319,32 @@ def _extract_gibbs_iteration_update_state(iteration_update):
     return (_apply_gibbs_log_bf_update(iteration_update), iteration_update["should_break"])
 
 
+def _build_gibbs_iteration_correction_context(
+    state,
+    iter_state,
+    gene_set_mask_m,
+    epoch_control,
+    correction_config,
+    epoch_priors,
+    epoch_runtime,
+    epoch_sums,
+    iteration_num,
+    log_bf_state,
+):
+    return {
+        "state": state,
+        "iter_state": iter_state,
+        "gene_set_mask_m": gene_set_mask_m,
+        "epoch_control": epoch_control,
+        "correction_config": correction_config,
+        "epoch_priors": epoch_priors,
+        "epoch_runtime": epoch_runtime,
+        "epoch_sums": epoch_sums,
+        "iteration_num": iteration_num,
+        "log_bf_state": log_bf_state,
+    }
+
+
 def _run_single_gibbs_iteration(
     state,
     run_state,
@@ -20343,16 +20369,18 @@ def _run_single_gibbs_iteration(
     )
 
     iteration_update = _run_gibbs_iteration_correction_and_updates(
-        state=state,
-        iter_state=iter_state,
-        gene_set_mask_m=gene_set_mask_m,
-        epoch_control=epoch_control,
-        correction_config=correction_config,
-        epoch_priors=epoch_priors,
-        epoch_runtime=epoch_runtime,
-        epoch_sums=epoch_sums,
-        iteration_num=iteration_num,
-        log_bf_state=log_bf_state,
+        correction_context=_build_gibbs_iteration_correction_context(
+            state=state,
+            iter_state=iter_state,
+            gene_set_mask_m=gene_set_mask_m,
+            epoch_control=epoch_control,
+            correction_config=correction_config,
+            epoch_priors=epoch_priors,
+            epoch_runtime=epoch_runtime,
+            epoch_sums=epoch_sums,
+            iteration_num=iteration_num,
+            log_bf_state=log_bf_state,
+        ),
     )
     (log_bf_state, should_break) = _extract_gibbs_iteration_update_state(iteration_update)
 
@@ -20574,18 +20602,18 @@ def _compute_gibbs_iteration_betas_and_priors(
     }
 
 
-def _run_gibbs_iteration_correction_and_updates(
-    state,
-    iter_state,
-    gene_set_mask_m,
-    epoch_control,
-    correction_config,
-    epoch_priors,
-    epoch_runtime,
-    epoch_sums,
-    iteration_num,
-    log_bf_state,
-):
+def _run_gibbs_iteration_correction_and_updates(correction_context):
+    state = correction_context["state"]
+    iter_state = correction_context["iter_state"]
+    gene_set_mask_m = correction_context["gene_set_mask_m"]
+    epoch_control = correction_context["epoch_control"]
+    correction_config = correction_context["correction_config"]
+    epoch_priors = correction_context["epoch_priors"]
+    epoch_runtime = correction_context["epoch_runtime"]
+    epoch_sums = correction_context["epoch_sums"]
+    iteration_num = correction_context["iteration_num"]
+    log_bf_state = correction_context["log_bf_state"]
+
     (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     restart_controls = _build_gibbs_low_beta_restart_controls(correction_config)
 
