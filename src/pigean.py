@@ -19117,6 +19117,16 @@ def _apply_gibbs_final_state(state, final_summary, adjust_priors):
         state.combined_prior_Ys_adj = state.combined_prior_Ys - combined_slope * gene_N - combined_intercept
 
 
+def _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing):
+    stacked = {}
+    for key in _GIBBS_EPOCH_SUM_KEYS:
+        stacked[key] = np.vstack(epoch_aggregates[key])
+    if include_missing:
+        for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
+            stacked[key] = np.vstack(epoch_aggregates[key])
+    return stacked
+
+
 def _finalize_gibbs_epoch_attempt(
     state,
     epoch_aggregates,
@@ -19175,12 +19185,10 @@ def _finalize_gibbs_epoch_attempt(
             "should_continue": True,
         }
 
-    stacked = {}
-    for key in _GIBBS_EPOCH_SUM_KEYS:
-        stacked[key] = np.vstack(epoch_aggregates[key])
-    if include_missing:
-        for key in _GIBBS_EPOCH_MISSING_SUM_KEYS:
-            stacked[key] = np.vstack(epoch_aggregates[key])
+    stacked = _stack_gibbs_epoch_aggregates(
+        epoch_aggregates=epoch_aggregates,
+        include_missing=include_missing,
+    )
     sum_betas_m = stacked["sum_betas_m"]
     sum_betas2_m = stacked["sum_betas2_m"]
     sum_betas_uncorrected_m = stacked["sum_betas_uncorrected_m"]
