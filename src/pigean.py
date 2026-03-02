@@ -22073,11 +22073,7 @@ def _advance_gibbs_iteration_progress(
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
     )
-    _apply_gibbs_control_update(
-        epoch_control=epoch_control,
-        control_update=burn_in_update,
-        control_keys=GIBBS_BURN_IN_CONTROL_KEYS,
-    )
+    _apply_gibbs_burn_in_control_update(epoch_control=epoch_control, burn_in_update=burn_in_update)
 
     post_burn_update = _update_gibbs_post_burn_state(
         state=state,
