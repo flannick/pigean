@@ -6587,6 +6587,9 @@ class PigeanState(object):
                 self.non_inf_avg_cond_betas_missing = np.zeros(len(self.gene_sets_missing))
 
     def calculate_priors(self, max_gene_set_p=None, num_gene_batches=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, p_noninf=None, run_logistic=True, max_for_linear=0.95, adjust_priors=False, tag="", **kwargs):
+        # ==========================================================================
+        # Prior Phase 0: Validate prerequisites and choose batching strategy.
+        # ==========================================================================
         if self.X_orig is None:
             bail("X is required for this operation")
         if self.betas is None:
@@ -6609,6 +6612,9 @@ class PigeanState(object):
             loco = True
 
         if num_gene_batches is not None and num_gene_batches < 2:
+            # ==========================================================================
+            # Prior Phase 1a: Single-pass projection from betas to priors.
+            # ==========================================================================
             #this calculates the values for the non missing genes
             #use original X matrix here because we are rescaling betas back to those units
             priors = np.array(self.X_orig.dot(self.betas / self.scale_factors) - np.sum(self.mean_shifts * self.betas / self.scale_factors)).flatten()
@@ -6619,6 +6625,9 @@ class PigeanState(object):
             self.combined_Ds = None
             self.batches = None
         else:
+            # ==========================================================================
+            # Prior Phase 1b: Build batch metadata (LOCO or correlation-aware batches).
+            # ==========================================================================
 
             if loco:
                 if gene_loc_file is None:
@@ -6683,6 +6692,9 @@ class PigeanState(object):
             full_include_mask_m = np.zeros((len(batches), len(self.genes)), dtype=bool)
             full_priors_mask_m = np.zeros((len(batches), len(self.genes)), dtype=bool)
 
+            # ==========================================================================
+            # Prior Phase 2: Per-batch beta-tilde estimation on subsetted genes.
+            # ==========================================================================
             # combine X_orig and X_orig_missing for batched prior calculations.
             with _temporary_unsubset_gene_sets(self, self.gene_sets_missing is not None, keep_missing=True, skip_V=True):
 
@@ -6826,7 +6838,10 @@ class PigeanState(object):
                     full_is_dense_gene_set_m[batch_ind,:] = is_dense_gene_set
                     full_include_mask_m[batch_ind,:] = include_mask
                     full_priors_mask_m[batch_ind,:] = priors_mask
-    
+
+                # ==========================================================================
+                # Prior Phase 3: Fit non-inf betas per batch window and back-project priors.
+                # ==========================================================================
                 #now calculate everything
                 if p_noninf is None or p_noninf >= 1:
                     num_gene_batches_parallel = 1
@@ -6892,11 +6907,14 @@ class PigeanState(object):
                     for i,j in zip(range(begin, end),range(end-begin)):
     
                         priors[full_priors_mask_m[i,:]] = np.array(self.X_orig[full_priors_mask_m[i,:],:][:,new_gene_set_mask].dot(betas[j,:] / cur_scale_factors[j,:]))
-    
+
                     #now restore the p and sigma
                     #self.set_sigma(orig_sigma2, self.sigma_power, sigma2_osc=self.sigma2_osc)
                     #self.set_p(orig_p)
 
+        # ==========================================================================
+        # Prior Phase 4: Merge missing-gene priors, center values, and finalize.
+        # ==========================================================================
         #now for the genes that were not included in X
         if self.X_orig_missing_genes is not None:
             #these can use the original betas because they were never included
@@ -6970,7 +6988,9 @@ class PigeanState(object):
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
     def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
-
+        # ==========================================================================
+        # Gibbs Phase 0: Normalize controls and initialize run-level state.
+        # ==========================================================================
         gibbs_controls = _normalize_gibbs_run_controls(
             max_num_iter=max_num_iter,
             total_num_iter=total_num_iter,
@@ -7003,6 +7023,9 @@ class PigeanState(object):
         run_state = gibbs_controls["run_state"]
         num_chains = gibbs_controls["num_chains"]
 
+        # ==========================================================================
+        # Gibbs Phase 1: Record configuration and reset diagnostics.
+        # ==========================================================================
         gibbs_record_config = _build_gibbs_record_config(
             gibbs_controls=gibbs_controls,
             num_chains_betas=num_chains_betas,
@@ -7030,6 +7053,9 @@ class PigeanState(object):
 
         _reset_gibbs_diagnostics(self)
 
+        # ==========================================================================
+        # Gibbs Phase 2: Build static inputs and epoch runtime configs.
+        # ==========================================================================
         gibbs_inputs = _prepare_gibbs_run_inputs(
             state=self,
             num_chains=num_chains,
@@ -7081,6 +7107,9 @@ class PigeanState(object):
         epoch_phase_config = epoch_runtime_configs["epoch_phase_config"]
         epoch_iteration_static_config = epoch_runtime_configs["epoch_iteration_static_config"]
 
+        # ==========================================================================
+        # Gibbs Phase 3: Execute epoch attempts (with optional trace writers).
+        # ==========================================================================
         _run_gibbs_epochs_with_optional_traces(
             state=self,
             run_state=run_state,
@@ -7092,6 +7121,9 @@ class PigeanState(object):
             gibbs_inputs=gibbs_inputs,
         )
 
+        # ==========================================================================
+        # Gibbs Phase 4: Finalize run-level completion checks.
+        # ==========================================================================
         if run_state["num_completed_epochs"] == 0:
             bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
         log(
