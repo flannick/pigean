@@ -20221,9 +20221,7 @@ def _run_single_gibbs_iteration(
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
         iteration_num=iteration_num,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
+        log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
     )
     (log_bf_state, should_break) = _extract_gibbs_iteration_update_state(iteration_update)
     (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
@@ -20427,10 +20425,9 @@ def _run_gibbs_iteration_correction_and_updates(
     epoch_runtime,
     epoch_sums,
     iteration_num,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
+    log_bf_state,
 ):
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     restart_controls = _build_gibbs_low_beta_restart_controls(correction_config)
 
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
