@@ -20375,6 +20375,39 @@ def _apply_prior_update_to_epoch_priors(epoch_priors, prior_update):
     epoch_priors["priors_adjustment_for_Y_m"] = prior_update["priors_adjustment_for_Y_m"]
 
 
+def _build_refresh_gibbs_iteration_inputs(epoch_priors, iteration_update_config, log_bf_state):
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
+    return {
+        "warm_start": iteration_update_config["warm_start"],
+        "use_mean_betas": iteration_update_config["use_mean_betas"],
+        "prev_warm_start_betas_m": epoch_priors["prev_warm_start_betas_m"],
+        "prev_warm_start_postp_m": epoch_priors["prev_warm_start_postp_m"],
+        "priors_missing_sample_m": epoch_priors["priors_missing_sample_m"],
+        "priors_missing_mean_m": epoch_priors["priors_missing_mean_m"],
+        "priors_for_Y_m": epoch_priors["priors_for_Y_m"],
+        "update_huge_scores": iteration_update_config["update_huge_scores"],
+        "compute_Y_raw": iteration_update_config["compute_Y_raw"],
+        "log_bf_m": log_bf_m,
+        "log_bf_uncorrected_m": log_bf_uncorrected_m,
+        "log_bf_raw_m": log_bf_raw_m,
+    }
+
+
+def _build_finalize_gibbs_prior_inputs(epoch_priors, iteration_update_config):
+    return {
+        "priors_sample_m": epoch_priors["priors_sample_m"],
+        "priors_mean_m": epoch_priors["priors_mean_m"],
+        "priors_missing_sample_m": epoch_priors["priors_missing_sample_m"],
+        "priors_missing_mean_m": epoch_priors["priors_missing_mean_m"],
+        "adjust_priors": iteration_update_config["adjust_priors"],
+        "use_mean_betas": iteration_update_config["use_mean_betas"],
+        "priors_percentage_max_sample_m": epoch_priors["priors_percentage_max_sample_m"],
+        "priors_percentage_max_mean_m": epoch_priors["priors_percentage_max_mean_m"],
+        "priors_adjustment_sample_m": epoch_priors["priors_adjustment_sample_m"],
+        "priors_adjustment_mean_m": epoch_priors["priors_adjustment_mean_m"],
+    }
+
+
 def _compute_gibbs_iteration_betas_and_priors(
     state,
     iter_state,
@@ -20383,7 +20416,6 @@ def _compute_gibbs_iteration_betas_and_priors(
     epoch_priors,
     log_bf_state,
 ):
-    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     inner_beta_kwargs = correction_config["inner_beta_kwargs"]
     iteration_update_config = correction_config["iteration_update_config"]
 
@@ -20401,45 +20433,35 @@ def _compute_gibbs_iteration_betas_and_priors(
         inner_beta_kwargs=inner_beta_kwargs,
     )
 
+    refresh_inputs = _build_refresh_gibbs_iteration_inputs(
+        epoch_priors,
+        iteration_update_config,
+        log_bf_state,
+    )
     refresh_update = _refresh_gibbs_iteration_priors_and_huge(
         state,
-        warm_start=iteration_update_config["warm_start"],
-        use_mean_betas=iteration_update_config["use_mean_betas"],
-        prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
-        prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
         full_betas_sample_m=full_betas_sample_m,
         full_betas_mean_m=full_betas_mean_m,
         full_postp_sample_m=full_postp_sample_m,
         full_postp_mean_m=full_postp_mean_m,
-        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
-        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-        priors_for_Y_m=epoch_priors["priors_for_Y_m"],
-        update_huge_scores=iteration_update_config["update_huge_scores"],
-        compute_Y_raw=iteration_update_config["compute_Y_raw"],
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
+        **refresh_inputs,
     )
-    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = _apply_refresh_update_to_epoch_priors(
+    log_bf_state = _apply_refresh_update_to_epoch_priors(
         epoch_priors,
         refresh_update,
     )
 
+    finalize_inputs = _build_finalize_gibbs_prior_inputs(
+        epoch_priors,
+        iteration_update_config,
+    )
     prior_update = _finalize_gibbs_priors_for_sampling(
         state,
-        priors_sample_m=epoch_priors["priors_sample_m"],
-        priors_mean_m=epoch_priors["priors_mean_m"],
-        priors_missing_sample_m=epoch_priors["priors_missing_sample_m"],
-        priors_missing_mean_m=epoch_priors["priors_missing_mean_m"],
-        adjust_priors=iteration_update_config["adjust_priors"],
-        use_mean_betas=iteration_update_config["use_mean_betas"],
-        priors_percentage_max_sample_m=epoch_priors["priors_percentage_max_sample_m"],
-        priors_percentage_max_mean_m=epoch_priors["priors_percentage_max_mean_m"],
-        priors_adjustment_sample_m=epoch_priors["priors_adjustment_sample_m"],
-        priors_adjustment_mean_m=epoch_priors["priors_adjustment_mean_m"],
+        **finalize_inputs,
     )
     _apply_prior_update_to_epoch_priors(epoch_priors, prior_update)
 
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     return {
         "full_betas_sample_m": full_betas_sample_m,
         "full_postp_sample_m": full_postp_sample_m,
