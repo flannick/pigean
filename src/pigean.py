@@ -21910,6 +21910,26 @@ def _advance_gibbs_post_burn_state(
     return post_burn_diag_update
 
 
+def _build_gibbs_iteration_progress_context(progress_runtime_config, iteration_update):
+    return {
+        "trace_chain_offset": progress_runtime_config["trace_chain_offset"],
+        "epoch_total_iter_offset": progress_runtime_config["epoch_total_iter_offset"],
+        "epoch_max_num_iter": progress_runtime_config["epoch_max_num_iter"],
+        "max_num_burn_in_for_epoch": progress_runtime_config["max_num_burn_in_for_epoch"],
+        "min_num_iter_for_epoch": progress_runtime_config["min_num_iter_for_epoch"],
+        "min_num_burn_in_for_epoch": progress_runtime_config["min_num_burn_in_for_epoch"],
+        "max_num_post_burn_in_for_epoch": progress_runtime_config["max_num_post_burn_in_for_epoch"],
+        "min_num_post_burn_in_for_epoch": progress_runtime_config["min_num_post_burn_in_for_epoch"],
+        "post_burn_reset_arrays": progress_runtime_config["post_burn_reset_arrays"],
+        "post_burn_reset_missing_arrays": progress_runtime_config["post_burn_reset_missing_arrays"],
+        "iteration_progress_config": progress_runtime_config["iteration_progress_config"],
+        "full_betas_sample_m": iteration_update["full_betas_sample_m"],
+        "full_postp_sample_m": iteration_update["full_postp_sample_m"],
+        "full_betas_mean_m": iteration_update["full_betas_mean_m"],
+        "full_postp_mean_m": iteration_update["full_postp_mean_m"],
+    }
+
+
 def _write_gibbs_iteration_gene_set_stats_trace(
     gene_set_stats_trace_fh,
     iteration_num,
@@ -21962,53 +21982,22 @@ def _advance_gibbs_iteration_progress(
     iteration_update,
     gene_set_stats_trace_fh,
 ):
-    (
-        trace_chain_offset,
-        epoch_total_iter_offset,
-        epoch_max_num_iter,
-        max_num_burn_in_for_epoch,
-        min_num_iter_for_epoch,
-        min_num_burn_in_for_epoch,
-        max_num_post_burn_in_for_epoch,
-        min_num_post_burn_in_for_epoch,
-        post_burn_reset_arrays,
-        post_burn_reset_missing_arrays,
-        iteration_progress_config,
-    ) = (
-        progress_runtime_config["trace_chain_offset"],
-        progress_runtime_config["epoch_total_iter_offset"],
-        progress_runtime_config["epoch_max_num_iter"],
-        progress_runtime_config["max_num_burn_in_for_epoch"],
-        progress_runtime_config["min_num_iter_for_epoch"],
-        progress_runtime_config["min_num_burn_in_for_epoch"],
-        progress_runtime_config["max_num_post_burn_in_for_epoch"],
-        progress_runtime_config["min_num_post_burn_in_for_epoch"],
-        progress_runtime_config["post_burn_reset_arrays"],
-        progress_runtime_config["post_burn_reset_missing_arrays"],
-        progress_runtime_config["iteration_progress_config"],
+    progress_context = _build_gibbs_iteration_progress_context(
+        progress_runtime_config=progress_runtime_config,
+        iteration_update=iteration_update,
     )
-    (
-        full_betas_sample_m,
-        full_postp_sample_m,
-        full_betas_mean_m,
-        full_postp_mean_m,
-    ) = (
-        iteration_update["full_betas_sample_m"],
-        iteration_update["full_postp_sample_m"],
-        iteration_update["full_betas_mean_m"],
-        iteration_update["full_postp_mean_m"],
-    )
+    iteration_progress_config = progress_context["iteration_progress_config"]
 
     burn_in_update = _update_gibbs_burn_in_state(
         epoch_control=epoch_control,
         iteration_num=iteration_num,
-        epoch_total_iter_offset=epoch_total_iter_offset,
-        epoch_max_num_iter=epoch_max_num_iter,
-        max_num_burn_in_for_epoch=max_num_burn_in_for_epoch,
-        min_num_iter_for_epoch=min_num_iter_for_epoch,
-        min_num_burn_in_for_epoch=min_num_burn_in_for_epoch,
-        post_burn_reset_arrays=post_burn_reset_arrays,
-        post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
+        epoch_total_iter_offset=progress_context["epoch_total_iter_offset"],
+        epoch_max_num_iter=progress_context["epoch_max_num_iter"],
+        max_num_burn_in_for_epoch=progress_context["max_num_burn_in_for_epoch"],
+        min_num_iter_for_epoch=progress_context["min_num_iter_for_epoch"],
+        min_num_burn_in_for_epoch=progress_context["min_num_burn_in_for_epoch"],
+        post_burn_reset_arrays=progress_context["post_burn_reset_arrays"],
+        post_burn_reset_missing_arrays=progress_context["post_burn_reset_missing_arrays"],
         burn_in_config=iteration_progress_config["burn_in_config"],
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
@@ -22021,9 +22010,9 @@ def _advance_gibbs_iteration_progress(
 
     post_burn_update = _update_gibbs_post_burn_state(
         state=state,
-        max_num_post_burn_in_for_epoch=max_num_post_burn_in_for_epoch,
-        min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
-        epoch_max_num_iter=epoch_max_num_iter,
+        max_num_post_burn_in_for_epoch=progress_context["max_num_post_burn_in_for_epoch"],
+        min_num_post_burn_in_for_epoch=progress_context["min_num_post_burn_in_for_epoch"],
+        epoch_max_num_iter=progress_context["epoch_max_num_iter"],
         diag_every=iteration_progress_config["diag_every"],
         post_burn_diag_config=iteration_progress_config["post_burn_diag_config"],
         iter_state=iter_state,
@@ -22033,20 +22022,20 @@ def _advance_gibbs_iteration_progress(
         run_state=run_state,
         log_bf_m=log_bf_m,
         log_bf_raw_m=log_bf_raw_m,
-        full_betas_mean_m=full_betas_mean_m,
-        full_postp_sample_m=full_postp_sample_m,
+        full_betas_mean_m=progress_context["full_betas_mean_m"],
+        full_postp_sample_m=progress_context["full_postp_sample_m"],
     )
 
     return _finalize_gibbs_iteration_progress(
         state=state,
         gene_set_stats_trace_fh=gene_set_stats_trace_fh,
         iteration_num=iteration_num,
-        trace_chain_offset=trace_chain_offset,
+        trace_chain_offset=progress_context["trace_chain_offset"],
         iter_state=iter_state,
-        full_betas_mean_m=full_betas_mean_m,
-        full_betas_sample_m=full_betas_sample_m,
-        full_postp_mean_m=full_postp_mean_m,
-        full_postp_sample_m=full_postp_sample_m,
+        full_betas_mean_m=progress_context["full_betas_mean_m"],
+        full_betas_sample_m=progress_context["full_betas_sample_m"],
+        full_postp_mean_m=progress_context["full_postp_mean_m"],
+        full_postp_sample_m=progress_context["full_postp_sample_m"],
         R_beta_v=epoch_control["R_beta_v"],
         betas_sem2_v=post_burn_update["betas_sem2_v"],
         use_mean_betas=iteration_progress_config["use_mean_betas"],
