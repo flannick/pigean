@@ -20021,21 +20021,43 @@ def _run_single_gibbs_epoch_attempt(
     gene_stats_trace_fh,
     log_bf_state,
 ):
-    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     epoch_attempt = _prepare_gibbs_epoch_attempt(
         state=state,
         run_state=run_state,
         epoch_phase_config=epoch_phase_config,
     )
     if epoch_attempt is None:
-        return _build_gibbs_log_bf_payload(
-            log_bf_m,
-            log_bf_uncorrected_m,
-            log_bf_raw_m,
+        return _build_gibbs_epoch_attempt_result(
+            log_bf_state=log_bf_state,
             attempt_started=False,
             should_continue=False,
         )
 
+    return _run_started_gibbs_epoch_attempt(
+        state=state,
+        run_state=run_state,
+        epoch_aggregates=epoch_aggregates,
+        epoch_phase_config=epoch_phase_config,
+        epoch_iteration_static_config=epoch_iteration_static_config,
+        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+        gene_stats_trace_fh=gene_stats_trace_fh,
+        log_bf_state=log_bf_state,
+        epoch_attempt=epoch_attempt,
+    )
+
+
+def _run_started_gibbs_epoch_attempt(
+    state,
+    run_state,
+    epoch_aggregates,
+    epoch_phase_config,
+    epoch_iteration_static_config,
+    gene_set_stats_trace_fh,
+    gene_stats_trace_fh,
+    log_bf_state,
+    epoch_attempt,
+):
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     epoch_attempt_context = _initialize_gibbs_epoch_attempt_context(
         state=state,
         run_state=run_state,
@@ -20083,10 +20105,8 @@ def _run_single_gibbs_epoch_attempt(
         epoch_runtime=epoch_runtime,
         epoch_finalize_update=epoch_finalize_update,
     )
-    return _build_gibbs_log_bf_payload(
-        log_bf_m,
-        log_bf_uncorrected_m,
-        log_bf_raw_m,
+    return _build_gibbs_epoch_attempt_result(
+        log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
         attempt_started=True,
         should_continue=should_continue,
     )
@@ -20149,6 +20169,17 @@ def _build_gibbs_log_bf_payload(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m, **
     }
     payload.update(extra)
     return payload
+
+
+def _build_gibbs_epoch_attempt_result(log_bf_state, attempt_started, should_continue):
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
+    return _build_gibbs_log_bf_payload(
+        log_bf_m,
+        log_bf_uncorrected_m,
+        log_bf_raw_m,
+        attempt_started=attempt_started,
+        should_continue=should_continue,
+    )
 
 
 def _run_gibbs_epoch_phase(
