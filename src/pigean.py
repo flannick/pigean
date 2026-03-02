@@ -1069,6 +1069,32 @@ def _restore_subset_gene_sets(state, subset_mask, keep_missing=True, skip_V=Fals
     )
 
 
+@contextlib.contextmanager
+def _temporary_unsubset_gene_sets(
+    state,
+    enabled,
+    keep_missing=True,
+    skip_V=False,
+    skip_scale_factors=False,
+):
+    subset_mask = _maybe_unsubset_gene_sets(
+        state,
+        enabled,
+        skip_V=skip_V,
+        skip_scale_factors=skip_scale_factors,
+    )
+    try:
+        yield subset_mask
+    finally:
+        _restore_subset_gene_sets(
+            state,
+            subset_mask,
+            keep_missing=keep_missing,
+            skip_V=skip_V,
+            skip_scale_factors=skip_scale_factors,
+        )
+
+
 _GIBBS_STOPPING_PRESETS = {
     "lenient": {
         "stop_mcse_quantile": 0.90,
