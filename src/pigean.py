@@ -31,6 +31,21 @@ import itertools
 import gzip
 import random
 
+try:
+    from .pegs_utils import (
+        json_safe as pegs_json_safe,
+        load_json_config as pegs_load_json_config,
+        merge_dicts as pegs_merge_dicts,
+        resolve_config_path_value as pegs_resolve_config_path_value,
+    )
+except ImportError:
+    from pegs_utils import (
+        json_safe as pegs_json_safe,
+        load_json_config as pegs_load_json_config,
+        merge_dicts as pegs_merge_dicts,
+        resolve_config_path_value as pegs_resolve_config_path_value,
+    )
+
 random.seed(0)
 
 def bail(message):
@@ -38,7 +53,7 @@ def bail(message):
     sys.stderr.write("%s\n" % (message))
     sys.exit(1)
 
-usage = "usage: pigean.py [beta_tildes|sigma|betas|priors|naive_priors|gibbs|sim|pops|naive_pops] [options]"
+usage = "usage: pigean.py [beta_tildes|betas|priors|naive_priors|gibbs|sim|pops|naive_pops] [options]"
 
 def get_comma_separated_args_as_float(option, opt, value, parser):
     setattr(parser.values, option.dest, [float(x) for x in value.split(',')])
@@ -584,80 +599,20 @@ def _apply_cli_option_groups(_parser):
     _parser.add_option_group(advanced_group)
 
 def _merge_dicts(_base, _override):
-    if not isinstance(_base, dict):
-        _base = {}
-    merged = dict(_base)
-    for _k, _v in _override.items():
-        if _k in merged and isinstance(merged[_k], dict) and isinstance(_v, dict):
-            merged[_k] = _merge_dicts(merged[_k], _v)
-        else:
-            merged[_k] = _v
-    return merged
+    return pegs_merge_dicts(_base, _override)
 
 def _load_json_config(_config_path, _seen=None):
-    if _seen is None:
-        _seen = set()
-
-    abs_path = os.path.abspath(_config_path)
-    if abs_path in _seen:
-        bail("Detected circular config include at %s" % abs_path)
-    _seen.add(abs_path)
-
-    with open(abs_path) as cfg_fh:
-        cfg = json.load(cfg_fh)
-
-    if not isinstance(cfg, dict):
-        bail("Config file must contain a JSON object: %s" % abs_path)
-
-    includes = cfg.get("include")
-    if includes is None:
-        return cfg
-
-    include_list = includes if isinstance(includes, list) else [includes]
-    merged = {}
-    cfg_dir = os.path.dirname(abs_path)
-    for include_file in include_list:
-        if not isinstance(include_file, str):
-            bail("Config include entries must be strings in %s" % abs_path)
-        include_path = include_file
-        if not os.path.isabs(include_path):
-            include_path = os.path.normpath(os.path.join(cfg_dir, include_path))
-        include_cfg = _load_json_config(include_path, _seen=_seen)
-        merged = _merge_dicts(merged, include_cfg)
-
-    cfg = dict(cfg)
-    del cfg["include"]
-    return _merge_dicts(merged, cfg)
+    return pegs_load_json_config(_config_path, bail_fn=bail, seen_paths=_seen)
 
 def _resolve_config_path_value(_value, _config_dir):
-    if not isinstance(_value, str):
-        return _value
-    if _value == "":
-        return _value
-    lower = _value.lower()
-    if lower.startswith("http:") or lower.startswith("https:") or lower.startswith("ftp:"):
-        return _value
-    expanded = os.path.expanduser(_value)
-    if os.path.isabs(expanded):
-        return os.path.normpath(expanded)
-    return os.path.normpath(os.path.join(_config_dir, expanded))
+    return pegs_resolve_config_path_value(_value, _config_dir)
 
 def _early_warn(_message):
     sys.stderr.write("Warning: %s\n" % _message)
     sys.stderr.flush()
 
 def _json_safe(_value):
-    if isinstance(_value, np.generic):
-        return _value.item()
-    if isinstance(_value, np.ndarray):
-        return [_json_safe(x) for x in _value.tolist()]
-    if isinstance(_value, tuple):
-        return [_json_safe(x) for x in _value]
-    if isinstance(_value, list):
-        return [_json_safe(x) for x in _value]
-    if isinstance(_value, dict):
-        return {str(k): _json_safe(v) for k, v in _value.items()}
-    return _value
+    return pegs_json_safe(_value)
 
 REMOVED_OPTION_REPLACEMENTS = {
     "gene_bfs_in": "--gene-stats-in",
