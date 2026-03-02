@@ -19127,23 +19127,49 @@ def _stack_gibbs_epoch_aggregates(epoch_aggregates, include_missing):
     return stacked
 
 
+def _build_gibbs_epoch_finalize_context(
+    state,
+    run_state,
+    epoch_phase_config,
+    epoch_control,
+    epoch_runtime,
+    iteration_num,
+):
+    return {
+        "include_missing": (state.genes_missing is not None),
+        "gibbs_good": epoch_runtime["gibbs_good"],
+        "iterations_run_this_epoch": (iteration_num + 1),
+        "remaining_total_iter": run_state["remaining_total_iter"],
+        "num_completed_epochs": run_state["num_completed_epochs"],
+        "target_num_epochs": epoch_phase_config["target_num_epochs"],
+        "num_attempts": run_state["num_attempts"],
+        "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+        "stop_due_to_stall": epoch_control["stop_due_to_stall"],
+        "stop_due_to_precision": epoch_control["stop_due_to_precision"],
+        "num_mad": epoch_phase_config["num_mad"],
+        "adjust_priors": epoch_phase_config["adjust_priors"],
+    }
+
+
 def _finalize_gibbs_epoch_attempt(
     state,
     epoch_aggregates,
-    include_missing,
-    gibbs_good,
-    iterations_run_this_epoch,
-    remaining_total_iter,
-    num_completed_epochs,
-    target_num_epochs,
-    num_attempts,
-    max_num_attempt_restarts,
-    stop_due_to_stall,
-    stop_due_to_precision,
     epoch_sums,
-    num_mad,
-    adjust_priors,
+    finalize_context,
 ):
+    include_missing = finalize_context["include_missing"]
+    gibbs_good = finalize_context["gibbs_good"]
+    iterations_run_this_epoch = finalize_context["iterations_run_this_epoch"]
+    remaining_total_iter = finalize_context["remaining_total_iter"]
+    num_completed_epochs = finalize_context["num_completed_epochs"]
+    target_num_epochs = finalize_context["target_num_epochs"]
+    num_attempts = finalize_context["num_attempts"]
+    max_num_attempt_restarts = finalize_context["max_num_attempt_restarts"]
+    stop_due_to_stall = finalize_context["stop_due_to_stall"]
+    stop_due_to_precision = finalize_context["stop_due_to_precision"]
+    num_mad = finalize_context["num_mad"]
+    adjust_priors = finalize_context["adjust_priors"]
+
     remaining_total_iter -= iterations_run_this_epoch
     if remaining_total_iter < 0:
         remaining_total_iter = 0
@@ -20039,21 +20065,17 @@ def _run_single_gibbs_epoch_attempt(
     log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(epoch_loop_update)
 
     epoch_finalize_update = _finalize_gibbs_epoch_attempt(
-        state,
+        state=state,
         epoch_aggregates=epoch_aggregates,
-        include_missing=(state.genes_missing is not None),
-        gibbs_good=epoch_runtime["gibbs_good"],
-        iterations_run_this_epoch=(iteration_num + 1),
-        remaining_total_iter=run_state["remaining_total_iter"],
-        num_completed_epochs=run_state["num_completed_epochs"],
-        target_num_epochs=epoch_phase_config["target_num_epochs"],
-        num_attempts=run_state["num_attempts"],
-        max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
-        stop_due_to_stall=epoch_control["stop_due_to_stall"],
-        stop_due_to_precision=epoch_control["stop_due_to_precision"],
         epoch_sums=epoch_sums,
-        num_mad=epoch_phase_config["num_mad"],
-        adjust_priors=epoch_phase_config["adjust_priors"],
+        finalize_context=_build_gibbs_epoch_finalize_context(
+            state=state,
+            run_state=run_state,
+            epoch_phase_config=epoch_phase_config,
+            epoch_control=epoch_control,
+            epoch_runtime=epoch_runtime,
+            iteration_num=iteration_num,
+        ),
     )
     should_continue = _apply_gibbs_epoch_finalize_update(
         run_state=run_state,
