@@ -62,6 +62,9 @@ Supported advanced paths are explicit and tagged as `[advanced]` in `--help`:
 For required inputs and expected outputs per retained advanced workflow, see:
 - `docs/ADVANCED_SET_B.md`
 
+For PIGEAN -> EAGGL handoff bundle usage, see:
+- `docs/EAGGL_INTEROP.md`
+
 Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `src/pigean.py`.
 
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.
