@@ -20335,10 +20335,9 @@ def _compute_gibbs_iteration_betas_and_priors(
     gene_set_mask_m,
     correction_config,
     epoch_priors,
-    log_bf_m,
-    log_bf_uncorrected_m,
-    log_bf_raw_m,
+    log_bf_state,
 ):
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     inner_beta_kwargs = correction_config["inner_beta_kwargs"]
     iteration_update_config = correction_config["iteration_update_config"]
 
@@ -20438,9 +20437,7 @@ def _run_gibbs_iteration_correction_and_updates(
         gene_set_mask_m=gene_set_mask_m,
         correction_config=correction_config,
         epoch_priors=epoch_priors,
-        log_bf_m=log_bf_m,
-        log_bf_uncorrected_m=log_bf_uncorrected_m,
-        log_bf_raw_m=log_bf_raw_m,
+        log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
     )
     full_betas_sample_m = iteration_betas_priors["full_betas_sample_m"]
     full_postp_sample_m = iteration_betas_priors["full_postp_sample_m"]
