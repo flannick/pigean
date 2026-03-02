@@ -20183,6 +20183,10 @@ def _apply_gibbs_iteration_loop_update(log_bf_state, iteration_run):
     return ((log_bf_m, log_bf_uncorrected_m, log_bf_raw_m), iteration_run["stop_epoch"])
 
 
+def _extract_gibbs_iteration_update_state(iteration_update):
+    return (_apply_gibbs_log_bf_update(iteration_update), iteration_update["should_break"])
+
+
 def _run_single_gibbs_iteration(
     state,
     run_state,
@@ -20221,8 +20225,8 @@ def _run_single_gibbs_iteration(
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
     )
-    log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(iteration_update)
-    should_break = iteration_update["should_break"]
+    (log_bf_state, should_break) = _extract_gibbs_iteration_update_state(iteration_update)
+    (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
 
     return _finalize_gibbs_iteration_after_correction(
         state=state,
