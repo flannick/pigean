@@ -20377,6 +20377,36 @@ def _build_gibbs_iteration_finalize_context(
     }
 
 
+def _build_gibbs_iteration_progress_update_context(
+    state,
+    epoch_control,
+    run_state,
+    progress_runtime_config,
+    iter_state,
+    iteration_num,
+    epoch_sums,
+    epoch_priors,
+    epoch_runtime,
+    gene_set_stats_trace_fh,
+    iteration_update,
+    log_bf_state,
+):
+    return {
+        "state": state,
+        "epoch_control": epoch_control,
+        "run_state": run_state,
+        "progress_runtime_config": progress_runtime_config,
+        "iter_state": iter_state,
+        "iteration_num": iteration_num,
+        "epoch_sums": epoch_sums,
+        "epoch_priors": epoch_priors,
+        "epoch_runtime": epoch_runtime,
+        "gene_set_stats_trace_fh": gene_set_stats_trace_fh,
+        "iteration_update": iteration_update,
+        "log_bf_state": log_bf_state,
+    }
+
+
 def _run_single_gibbs_iteration(
     state,
     run_state,
@@ -20460,19 +20490,20 @@ def _finalize_gibbs_iteration_after_correction(finalize_context):
         )
 
     iteration_progress_update = _advance_gibbs_iteration_progress(
-        state=state,
-        epoch_control=epoch_control,
-        run_state=run_state,
-        progress_runtime_config=progress_runtime_config,
-        iter_state=iter_state,
-        iteration_num=iteration_num,
-        epoch_sums=epoch_sums,
-        epoch_priors=epoch_priors,
-        epoch_runtime=epoch_runtime,
-        gene_set_stats_trace_fh=gene_set_stats_trace_fh,
-        iteration_update=iteration_update,
-        log_bf_m=log_bf_m,
-        log_bf_raw_m=log_bf_raw_m,
+        progress_update_context=_build_gibbs_iteration_progress_update_context(
+            state=state,
+            epoch_control=epoch_control,
+            run_state=run_state,
+            progress_runtime_config=progress_runtime_config,
+            iter_state=iter_state,
+            iteration_num=iteration_num,
+            epoch_sums=epoch_sums,
+            epoch_priors=epoch_priors,
+            epoch_runtime=epoch_runtime,
+            gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            iteration_update=iteration_update,
+            log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
+        ),
     )
     stop_epoch = iteration_progress_update["done"]
     return _build_gibbs_log_bf_payload(
@@ -22107,21 +22138,21 @@ def _write_gibbs_iteration_gene_set_stats_trace(
     )
 
 
-def _advance_gibbs_iteration_progress(
-    state,
-    epoch_control,
-    run_state,
-    progress_runtime_config,
-    iter_state,
-    epoch_sums,
-    epoch_priors,
-    epoch_runtime,
-    iteration_num,
-    log_bf_m,
-    log_bf_raw_m,
-    iteration_update,
-    gene_set_stats_trace_fh,
-):
+def _advance_gibbs_iteration_progress(progress_update_context):
+    state = progress_update_context["state"]
+    epoch_control = progress_update_context["epoch_control"]
+    run_state = progress_update_context["run_state"]
+    progress_runtime_config = progress_update_context["progress_runtime_config"]
+    iter_state = progress_update_context["iter_state"]
+    epoch_sums = progress_update_context["epoch_sums"]
+    epoch_priors = progress_update_context["epoch_priors"]
+    epoch_runtime = progress_update_context["epoch_runtime"]
+    iteration_num = progress_update_context["iteration_num"]
+    iteration_update = progress_update_context["iteration_update"]
+    gene_set_stats_trace_fh = progress_update_context["gene_set_stats_trace_fh"]
+    log_bf_state = progress_update_context["log_bf_state"]
+    (log_bf_m, _log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
+
     progress_context = _build_gibbs_iteration_progress_context(
         progress_runtime_config=progress_runtime_config,
         iteration_update=iteration_update,
