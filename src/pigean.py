@@ -20230,7 +20230,7 @@ def _run_and_apply_gibbs_epoch_attempt(
         gene_stats_trace_fh=gene_stats_trace_fh,
         log_bf_state=log_bf_state,
     )
-    return _apply_gibbs_epoch_attempt_update(log_bf_state=log_bf_state, epoch_update=epoch_update)
+    return _apply_gibbs_epoch_attempt_update(epoch_update=epoch_update)
 
 
 def _should_continue_gibbs_epoch_attempts(
@@ -20261,9 +20261,9 @@ def _should_continue_gibbs_epoch_loop(run_state):
     )
 
 
-def _apply_gibbs_epoch_attempt_update(log_bf_state, epoch_update):
+def _apply_gibbs_epoch_attempt_update(epoch_update):
     if not epoch_update["attempt_started"]:
-        return (log_bf_state, True)
+        return (_apply_gibbs_log_bf_update(epoch_update), True)
     return (_apply_gibbs_log_bf_update(epoch_update), not epoch_update["should_continue"])
 
 
