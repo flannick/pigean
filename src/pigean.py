@@ -14736,8 +14736,12 @@ def _maybe_reduce_gene_sets_to_max_after_x_read(
         if np.sum(keep_mask) > max_num_gene_sets:
             break
     if np.sum(keep_mask) > max_num_gene_sets:
-        threshold_value = sorted(sort_rank[keep_mask])[max_num_gene_sets - 1]
-        keep_mask[sort_rank > threshold_value] = False
+        keep_indices = np.where(keep_mask)[0]
+        if sort_rank is not None:
+            keep_indices = keep_indices[np.argsort(sort_rank[keep_indices], kind="stable")]
+        trimmed_keep_mask = np.full(len(runtime_state.gene_sets), False)
+        trimmed_keep_mask[keep_indices[:max_num_gene_sets]] = True
+        keep_mask = trimmed_keep_mask
     if np.sum(~keep_mask) > 0:
         runtime_state.subset_gene_sets(keep_mask, keep_missing=False, ignore_missing=True, skip_V=True)
 

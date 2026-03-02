@@ -162,6 +162,25 @@ class SetBSmokeTest(unittest.TestCase):
         self.assertGreater(len(lines), 1, msg="Expected non-empty phewas output")
         self.assertTrue(lines[0].startswith("Pheno\tanalysis\tbeta_tilde"))
 
+    def test_sim_mode_with_x_only_and_max_gene_set_caps_smoke(self) -> None:
+        proc = self._run(
+            "sim",
+            *self._common_x_args(),
+            "--max-num-gene-sets-initial",
+            "20",
+            "--max-num-gene-sets-hyper",
+            "20",
+            "--max-num-gene-sets",
+            "20",
+            "--p-noninf",
+            "0.2",
+            "--sigma-power",
+            "0",
+            "--sigma2",
+            "0.001",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+
 
 if __name__ == "__main__":
     unittest.main()
