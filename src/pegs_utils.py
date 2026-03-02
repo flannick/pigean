@@ -218,3 +218,100 @@ def configure_random_seed(options_obj, random_module, numpy_module, log_fn=None,
                 log_fn("Using deterministic random seed %d" % options_obj.seed)
             else:
                 log_fn("Using deterministic random seed %d" % options_obj.seed, info_level)
+
+
+def apply_config_option_overrides(
+    options_obj,
+    parser,
+    config_options,
+    config_path,
+    config_dir,
+    cli_specified_dests,
+    *,
+    resolve_path_fn,
+    is_path_like_dest_fn,
+    early_warn_fn,
+    bail_fn,
+    removed_option_replacements=None,
+    format_removed_option_message_fn=None,
+    config_specified_dests=None,
+):
+    dest_to_option = {}
+    long_key_to_dest = {}
+    for opt in iter_parser_options(parser):
+        dest_to_option[opt.dest] = opt
+        for long_opt in opt._long_opts:
+            key = long_opt.lstrip("-")
+            long_key_to_dest[key] = opt.dest
+            long_key_to_dest[key.replace("-", "_")] = opt.dest
+
+    for raw_key, raw_value in config_options.items():
+        if raw_key in ("mode", "options", "include"):
+            continue
+
+        normalized_config_key = raw_key
+        if isinstance(normalized_config_key, str):
+            if normalized_config_key.startswith("--"):
+                normalized_config_key = normalized_config_key[2:]
+            normalized_config_key = normalized_config_key.replace("-", "_")
+
+        if (
+            removed_option_replacements is not None
+            and normalized_config_key in removed_option_replacements
+        ):
+            replacement = removed_option_replacements[normalized_config_key]
+            if format_removed_option_message_fn is not None:
+                bail_fn(
+                    format_removed_option_message_fn(
+                        raw_key,
+                        replacement,
+                        context="config",
+                        config_path=config_path,
+                    )
+                )
+            if replacement is None:
+                bail_fn(
+                    "Config key '%s' has been removed in %s and is no longer supported"
+                    % (raw_key, config_path)
+                )
+            replacement_config_key = (
+                replacement[2:].replace("-", "_")
+                if isinstance(replacement, str) and replacement.startswith("--")
+                else replacement
+            )
+            bail_fn(
+                "Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead"
+                % (raw_key, config_path, replacement_config_key, replacement)
+            )
+
+        key = raw_key[2:] if isinstance(raw_key, str) and raw_key.startswith("--") else raw_key
+        key_norm = key.replace("-", "_") if isinstance(key, str) else key
+        if key in dest_to_option:
+            dest = key
+        elif key_norm in dest_to_option:
+            dest = key_norm
+        elif key in long_key_to_dest:
+            dest = long_key_to_dest[key]
+        elif key_norm in long_key_to_dest:
+            dest = long_key_to_dest[key_norm]
+        else:
+            early_warn_fn("Ignoring unknown config key '%s' in %s" % (raw_key, config_path))
+            continue
+
+        if dest in cli_specified_dests:
+            continue
+
+        opt = dest_to_option[dest]
+        coerced_value = coerce_config_value(opt, raw_value, bail_fn=bail_fn)
+        if is_path_like_dest_fn(dest):
+            if isinstance(coerced_value, list):
+                coerced_value = [
+                    resolve_path_fn(v, config_dir) if isinstance(v, str) else v
+                    for v in coerced_value
+                ]
+            elif isinstance(coerced_value, str):
+                coerced_value = resolve_path_fn(coerced_value, config_dir)
+
+        setattr(options_obj, dest, coerced_value)
+        if config_specified_dests is not None:
+            config_specified_dests.add(dest)
