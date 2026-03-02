@@ -35,6 +35,7 @@ try:
     from .pegs_utils import (
         collect_cli_specified_dests as pegs_collect_cli_specified_dests,
         coerce_config_value as pegs_coerce_config_value,
+        format_removed_option_message as pegs_format_removed_option_message,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
         load_json_config as pegs_load_json_config,
@@ -45,6 +46,7 @@ except ImportError:
     from pegs_utils import (
         collect_cli_specified_dests as pegs_collect_cli_specified_dests,
         coerce_config_value as pegs_coerce_config_value,
+        format_removed_option_message as pegs_format_removed_option_message,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
         load_json_config as pegs_load_json_config,
@@ -695,22 +697,10 @@ REMOVED_OPTION_REPLACEMENTS = {
 
 
 def _format_removed_option_message(option_name, replacement, context, config_path=None):
-    if context == "cli":
-        if replacement == "__MOVED_TO_EAGGL__":
-            return "Error: option %s moved to eaggl.py after repository split; run this in the eaggl repository" % option_name
-        if replacement is None:
-            return "Error: option %s has been removed and is no longer supported" % option_name
-        return "Error: option %s has been removed; use %s instead" % (option_name, replacement)
-
-    if context == "config":
-        if replacement == "__MOVED_TO_EAGGL__":
-            return "Config key '%s' moved to eaggl.py after repository split; run this in the eaggl repository" % option_name
-        if replacement is None:
-            return "Config key '%s' has been removed in %s and is no longer supported" % (option_name, config_path)
-        replacement_config_key = replacement[2:].replace("-", "_") if replacement.startswith("--") else replacement
-        return "Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (option_name, config_path, replacement_config_key, replacement)
-
-    bail("Internal error: unknown removed-option message context '%s'" % context)
+    try:
+        return pegs_format_removed_option_message(option_name, replacement, context, config_path=config_path)
+    except ValueError as _err:
+        bail("Internal error: %s" % _err)
 
 
 def _open_optional_log_handle(_filepath):

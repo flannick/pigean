@@ -160,3 +160,47 @@ def coerce_config_value(option, raw_value, bail_fn=None):
         return raw_value
 
     return _cast_scalar(raw_value)
+
+
+def _format_moved_tool_name(replacement):
+    if not isinstance(replacement, str):
+        return None
+    if not replacement.startswith("__MOVED_TO_"):
+        return None
+    tool = replacement[len("__MOVED_TO_"):].strip("_")
+    if len(tool) == 0:
+        return None
+    return tool.lower()
+
+
+def format_removed_option_message(option_name, replacement, context, config_path=None):
+    moved_tool = _format_moved_tool_name(replacement)
+    if context == "cli":
+        if moved_tool is not None:
+            return "Error: option %s moved to %s.py after repository split; run this in the %s repository" % (
+                option_name,
+                moved_tool,
+                moved_tool,
+            )
+        if replacement is None:
+            return "Error: option %s has been removed and is no longer supported" % option_name
+        return "Error: option %s has been removed; use %s instead" % (option_name, replacement)
+
+    if context == "config":
+        if moved_tool is not None:
+            return "Config key '%s' moved to %s.py after repository split; run this in the %s repository" % (
+                option_name,
+                moved_tool,
+                moved_tool,
+            )
+        if replacement is None:
+            return "Config key '%s' has been removed in %s and is no longer supported" % (option_name, config_path)
+        replacement_config_key = replacement[2:].replace("-", "_") if isinstance(replacement, str) and replacement.startswith("--") else replacement
+        return "Config key '%s' has been removed in %s; use '%s' (CLI: %s) instead" % (
+            option_name,
+            config_path,
+            replacement_config_key,
+            replacement,
+        )
+
+    raise ValueError("Unknown removed-option message context '%s'" % context)
