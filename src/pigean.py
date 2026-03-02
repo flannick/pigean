@@ -19835,6 +19835,7 @@ def _maybe_log_gibbs_conditional_variance(state, top_gene_prior):
         log("Setting Y cond var=%.4g (total var = %.4g) given top gene prior of %.4g" % (y_cond_var, y_total_var, top_gene_prior))
 
 
+# ========================= Outer Gibbs Input Snapshot + Prep =========================
 def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
     _snapshot_pre_gibbs_state(state)
 
@@ -19886,6 +19887,7 @@ def _reset_gibbs_diagnostics(state):
     state.Y_mcse = None
 
 
+# ========================= Outer Gibbs Runtime Config Builders =========================
 def _build_gibbs_epoch_runtime_configs(config_inputs):
     # Group per-epoch and per-iteration static knobs so run_gibbs can focus on
     # control flow.
@@ -20239,6 +20241,7 @@ def _build_gibbs_iteration_runtime_configs(loop_config, epoch_priors, gene_stats
     }
 
 
+# ========================= Outer Gibbs Epoch Attempt Orchestration =========================
 def _run_single_gibbs_epoch_attempt(
     state,
     run_state,
@@ -20529,6 +20532,7 @@ def _apply_gibbs_epoch_attempt_update(epoch_update):
     return (_apply_gibbs_log_bf_update(epoch_update), not epoch_update["should_continue"])
 
 
+# ========================= Outer Gibbs Per-Iteration Orchestration =========================
 def _run_gibbs_epoch_iterations(
     state,
     run_state,
@@ -20588,6 +20592,7 @@ def _extract_gibbs_iteration_update_state(iteration_update):
     return (_apply_gibbs_log_bf_update(iteration_update), iteration_update["should_break"])
 
 
+# ========================= Outer Gibbs Iteration Context Builders =========================
 def _build_gibbs_iteration_correction_context(
     state,
     iter_state,
