@@ -20352,21 +20352,7 @@ def _run_gibbs_iteration_correction_and_updates(
     log_bf_uncorrected_m,
     log_bf_raw_m,
 ):
-    (
-        num_mad,
-        num_attempts,
-        max_num_attempt_restarts,
-        increase_hyper_if_betas_below_for_epoch,
-        num_before_checking_p_increase,
-        p_scale_factor,
-    ) = (
-        correction_config["num_mad"],
-        correction_config["num_attempts"],
-        correction_config["max_num_attempt_restarts"],
-        correction_config["increase_hyper_if_betas_below_for_epoch"],
-        correction_config["num_before_checking_p_increase"],
-        correction_config["p_scale_factor"],
-    )
+    restart_controls = _build_gibbs_low_beta_restart_controls(correction_config)
 
     # Compute corrected betas, refresh priors/HuGE scores, then update all-iteration
     # sums and restart diagnostics.
@@ -20392,12 +20378,7 @@ def _run_gibbs_iteration_correction_and_updates(
         state=state,
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
-        num_mad=num_mad,
-        num_attempts=num_attempts,
-        max_num_attempt_restarts=max_num_attempt_restarts,
-        increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
-        num_before_checking_p_increase=num_before_checking_p_increase,
-        p_scale_factor=p_scale_factor,
+        restart_controls=restart_controls,
         iteration_num=iteration_num,
         full_betas_mean_m=full_betas_mean_m,
     )
@@ -20416,6 +20397,17 @@ def _run_gibbs_iteration_correction_and_updates(
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
         "log_bf_raw_m": log_bf_raw_m,
         "should_break": should_break,
+    }
+
+
+def _build_gibbs_low_beta_restart_controls(correction_config):
+    return {
+        "num_mad": correction_config["num_mad"],
+        "num_attempts": correction_config["num_attempts"],
+        "max_num_attempt_restarts": correction_config["max_num_attempt_restarts"],
+        "increase_hyper_if_betas_below_for_epoch": correction_config["increase_hyper_if_betas_below_for_epoch"],
+        "num_before_checking_p_increase": correction_config["num_before_checking_p_increase"],
+        "p_scale_factor": correction_config["p_scale_factor"],
     }
 
 
@@ -23132,12 +23124,7 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     state,
     epoch_runtime,
     epoch_sums,
-    num_mad,
-    num_attempts,
-    max_num_attempt_restarts,
-    increase_hyper_if_betas_below_for_epoch,
-    num_before_checking_p_increase,
-    p_scale_factor,
+    restart_controls,
     iteration_num,
     full_betas_mean_m,
 ):
@@ -23153,14 +23140,14 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
 
     low_beta_restart_update = _maybe_restart_gibbs_for_low_betas(
         state=state,
-        increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
-        num_before_checking_p_increase=num_before_checking_p_increase,
-        p_scale_factor=p_scale_factor,
+        increase_hyper_if_betas_below_for_epoch=restart_controls["increase_hyper_if_betas_below_for_epoch"],
+        num_before_checking_p_increase=restart_controls["num_before_checking_p_increase"],
+        p_scale_factor=restart_controls["p_scale_factor"],
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
-        num_mad=num_mad,
-        num_attempts=num_attempts,
-        max_num_attempt_restarts=max_num_attempt_restarts,
+        num_mad=restart_controls["num_mad"],
+        num_attempts=restart_controls["num_attempts"],
+        max_num_attempt_restarts=restart_controls["max_num_attempt_restarts"],
         iteration_num=iteration_num,
     )
 
