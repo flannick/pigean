@@ -79,6 +79,21 @@ class SetBSmokeTest(unittest.TestCase):
             "2",
         ]
 
+    @classmethod
+    def _common_gene_stats_args(cls) -> list[str]:
+        return [
+            "--gene-stats-in",
+            str(cls.gene_stats),
+            "--gene-stats-id-col",
+            "GENE",
+            "--gene-stats-log-bf-col",
+            "log_bf",
+            "--gene-stats-combined-col",
+            "combined",
+            "--gene-stats-prior-col",
+            "prior",
+        ]
+
     def test_gene_set_stats_in_smoke_beta_tildes(self) -> None:
         proc = self._run(
             "beta_tildes",
@@ -94,6 +109,58 @@ class SetBSmokeTest(unittest.TestCase):
         output = (proc.stdout or "") + (proc.stderr or "")
         self.assertIn("Reading --stats-in file", output)
         self.assertIn("Using col beta_tilde for beta_tilde values", output)
+
+    def test_run_phewas_from_gene_phewas_stats_in_smoke(self) -> None:
+        phewas_in = self.tmpdir / "set_b_gene_phewas_in.tsv"
+        phewas_out = self.tmpdir / "set_b_phewas_stats.out"
+
+        genes: list[str] = []
+        with self.gene_stats.open(encoding="utf-8") as fh:
+            next(fh)  # header
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                genes.append(line.split("\t", 1)[0])
+                if len(genes) >= 12:
+                    break
+        self.assertGreaterEqual(len(genes), 4, msg="Expected enough genes to build phewas smoke input")
+
+        with phewas_in.open("w", encoding="utf-8") as fh:
+            fh.write("Gene\tPheno\tlog_bf\n")
+            for gene in genes:
+                fh.write(f"{gene}\tTEST_PHENO_A\t2.0\n")
+                fh.write(f"{gene}\tTEST_PHENO_B\t1.5\n")
+
+        proc = self._run(
+            "beta_tildes",
+            *self._common_x_args(),
+            *self._common_gene_stats_args(),
+            "--max-num-gene-sets-initial",
+            "3",
+            "--max-num-gene-sets-hyper",
+            "3",
+            "--max-num-gene-sets",
+            "3",
+            "--run-phewas-from-gene-phewas-stats-in",
+            str(phewas_in),
+            "--gene-phewas-bfs-id-col",
+            "Gene",
+            "--gene-phewas-bfs-pheno-col",
+            "Pheno",
+            "--gene-phewas-bfs-log-bf-col",
+            "log_bf",
+            "--min-gene-phewas-read-value",
+            "0",
+            "--phewas-stats-out",
+            str(phewas_out),
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        self.assertTrue(phewas_out.exists(), msg="Expected phewas-stats-out file to be created")
+
+        lines = [line for line in phewas_out.read_text(encoding="utf-8").splitlines() if line.strip()]
+        self.assertGreater(len(lines), 1, msg="Expected non-empty phewas output")
+        self.assertTrue(lines[0].startswith("Pheno\tanalysis\tbeta_tilde"))
 
 
 if __name__ == "__main__":
