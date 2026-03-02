@@ -1052,6 +1052,16 @@ def _open_optional_inner_betas_trace_file(betas_trace_out):
     return betas_trace_fh
 
 
+def _close_optional_inner_betas_trace_file(betas_trace_fh):
+    if betas_trace_fh is not None:
+        betas_trace_fh.close()
+
+
+def _return_inner_betas_result(betas_trace_fh, result):
+    _close_optional_inner_betas_trace_file(betas_trace_fh)
+    return result
+
+
 def _maybe_unsubset_gene_sets(state, enabled, skip_V=False, skip_scale_factors=False):
     if not enabled:
         return None
@@ -10773,7 +10783,7 @@ class PigeanState(object):
 
                 #if we only care about parameters, we can return immediately (burn in stops hyper updates)
                 if only_update_hyper:
-                    return (None, None)
+                    return _return_inner_betas_result(betas_trace_fh, (None, None))
 
                 #if we want a sample, first one after convergence will do
                 if return_sample:
@@ -10805,7 +10815,10 @@ class PigeanState(object):
                     #        curr_betas_mask = curr_betas_m.ravel() > threshold_ravel
                     #        curr_betas_m.ravel()[curr_betas_mask] = threshold_ravel[curr_betas_mask]
 
-                    return (sample_betas_m, sample_postp_m, curr_betas_m, curr_postp_m)
+                    return _return_inner_betas_result(
+                        betas_trace_fh,
+                        (sample_betas_m, sample_postp_m, curr_betas_m, curr_postp_m),
+                    )
 
                 #average over the posterior means instead of samples
                 #these differ from sum_betas_v because those include the burn in phase
@@ -10877,7 +10890,7 @@ class PigeanState(object):
                         update_hyper_p = False
 
                         if only_update_hyper:
-                            return (None, None)
+                            return _return_inner_betas_result(betas_trace_fh, (None, None))
 
                     else:
                         if update_hyper_p:
@@ -10994,10 +11007,7 @@ class PigeanState(object):
         # Inner Beta Gibbs Phase 4: Finalize posterior summaries and return.
         # ==========================================================================
 
-        if betas_trace_fh is not None:
-            betas_trace_fh.close()
-
-            #log("%d\t%s" % (iteration_num, "\t".join(["%.3g\t%.3g" % (curr_betas_m[i,0], (np.mean(sum_betas_m, axis=0) / iteration_num)[i]) for i in range(curr_betas_m.shape[0])])), TRACE)
+        #log("%d\t%s" % (iteration_num, "\t".join(["%.3g\t%.3g" % (curr_betas_m[i,0], (np.mean(sum_betas_m, axis=0) / iteration_num)[i]) for i in range(curr_betas_m.shape[0])])), TRACE)
 
         avg_betas_m /= num_avg
         avg_postp_m /= num_avg
@@ -11024,7 +11034,7 @@ class PigeanState(object):
             warn("A large fraction of betas (%.3g) are of opposite signs than the beta tildes; this could indicate a problem. Try increasing --prune-gene-sets value or decreasing --sigma2" % frac_opposite)
             printed_warning_swing = False
 
-        return (avg_betas_m, avg_postp_m)
+        return _return_inner_betas_result(betas_trace_fh, (avg_betas_m, avg_postp_m))
 
     #store Y value
     #Y is whitened if Y_corr_m is not null
