@@ -233,7 +233,7 @@ parser.add_option("","--gene-set-overlap-stats-out",default=None)
 parser.add_option("","--gene-covs-out",default=None)
 parser.add_option("","--gene-effectors-out",default=None)
 parser.add_option("","--phewas-stats-out",default=None)
-parser.add_option("","--eaggl-out",default=None) #write a bundled handoff tarball for eaggl.py inputs
+parser.add_option("","--eaggl-bundle-out",default=None) #write a bundled handoff tarball for eaggl.py inputs
 
 #for beta calculation against additional traits
 parser.add_option("","--betas-from-phewas",action="store_true",default=False)
@@ -478,7 +478,7 @@ _ADVANCED_OPTION_HELP_BY_FLAG = {
     "--gene-set-stats-p-col": "p-value column mapping for advanced gene-set stats ingestion",
     "--huge-statistics-in": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
     "--huge-statistics-out": "write HuGE statistics cache for faster reruns",
-    "--eaggl-out": "write bundled PIGEAN outputs for direct eaggl.py consumption",
+    "--eaggl-bundle-out": "write bundled PIGEAN outputs for direct eaggl.py consumption",
     "--cross-val": "enable cross-validation tuning of inner beta sampling hyperparameters",
     "--no-cross-val": "explicitly disable cross-validation tuning",
     "--cross-val-num-explore-each-direction": "cross-validation exploration breadth for sigma tuning",
@@ -1204,10 +1204,10 @@ def _validate_advanced_option_dispatch(_options, _argv, _cli_dests, _config_dest
         bail("Do not pass both --huge-statistics-in and --huge-statistics-out in the same run")
     if _options.huge_statistics_out is not None and _options.gwas_in is None:
         bail("Option --huge-statistics-out requires --gwas-in")
-    if _options.eaggl_out is not None:
-        lower = _options.eaggl_out.lower()
+    if _options.eaggl_bundle_out is not None:
+        lower = _options.eaggl_bundle_out.lower()
         if not (lower.endswith(".tar.gz") or lower.endswith(".tgz") or lower.endswith(".tar")):
-            bail("Option --eaggl-out must end with .tar, .tar.gz, or .tgz")
+            bail("Option --eaggl-bundle-out must end with .tar, .tar.gz, or .tgz")
 
     # Column-mapping flags are advanced adjuncts; fail fast if base input is missing.
     gene_stats_col_flags = (
@@ -24255,7 +24255,7 @@ def _get_tar_write_mode_for_bundle_path(bundle_path):
         return "w:gz"
     if lower.endswith(".tar"):
         return "w"
-    bail("Option --eaggl-out must end with .tar, .tar.gz, or .tgz")
+    bail("Option --eaggl-bundle-out must end with .tar, .tar.gz, or .tgz")
 
 
 def _hash_file_sha256(path):
@@ -24279,14 +24279,14 @@ def _collect_bundle_file_metadata(path):
 def _require_bundle_file(path, label, suggestion):
     if os.path.exists(path) and os.path.getsize(path) > 0:
         return
-    bail("Cannot write --eaggl-out: missing %s (%s)" % (label, suggestion))
+    bail("Cannot write --eaggl-bundle-out: missing %s (%s)" % (label, suggestion))
 
 
 def _write_eaggl_bundle_if_requested(state, options, mode):
-    if options.eaggl_out is None:
+    if options.eaggl_bundle_out is None:
         return
 
-    out_path = options.eaggl_out
+    out_path = options.eaggl_bundle_out
     tar_mode = _get_tar_write_mode_for_bundle_path(out_path)
     out_dir = os.path.dirname(os.path.abspath(out_path))
     if out_dir and not os.path.exists(out_dir):

@@ -2,7 +2,7 @@
 
 This document describes how to package PIGEAN outputs for direct EAGGL consumption.
 
-## Bundle Handoff (`--eaggl-out`)
+## Bundle Handoff (`--eaggl-bundle-out`)
 
 `pigean.py` can write a single tarball containing the minimum default EAGGL inputs.
 
@@ -16,12 +16,12 @@ $PYTHON src/pigean.py gibbs \
   --positive-controls-list INS,GCK,HNF1A \
   --gene-stats-out results/pigean.gene_stats.out \
   --gene-set-stats-out results/pigean.gene_set_stats.out \
-  --eaggl-out results/pigean_to_eaggl.tar.gz
+  --eaggl-bundle-out results/pigean_to_eaggl.tar.gz
 ```
 
 ### Output requirements
 
-1. `--eaggl-out` must end with `.tar`, `.tar.gz`, or `.tgz`.
+1. `--eaggl-bundle-out` must end with `.tar`, `.tar.gz`, or `.tgz`.
 2. The run must have usable X/gene/gene-set outputs available to bundle.
 3. PIGEAN hard-fails if required handoff files are missing.
 
@@ -54,7 +54,7 @@ In the `eaggl` repo:
 PYTHON=../../.venv/bin/python
 
 $PYTHON src/eaggl.py factor \
-  --eaggl-in /abs/path/to/pigean/results/pigean_to_eaggl.tar.gz \
+  --eaggl-bundle-in /abs/path/to/pigean/results/pigean_to_eaggl.tar.gz \
   --factors-out results/factors.out
 ```
 

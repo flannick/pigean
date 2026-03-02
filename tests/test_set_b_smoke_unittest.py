@@ -183,7 +183,7 @@ class SetBSmokeTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
 
-    def test_eaggl_out_bundle_smoke(self) -> None:
+    def test_eaggl_bundle_out_smoke(self) -> None:
         bundle_out = self.tmpdir / "pigean_to_eaggl.tar.gz"
         proc = self._run(
             "beta_tildes",
@@ -195,7 +195,7 @@ class SetBSmokeTest(unittest.TestCase):
             "Gene_Set",
             "--gene-set-stats-beta-tilde-col",
             "beta_tilde",
-            "--eaggl-out",
+            "--eaggl-bundle-out",
             str(bundle_out),
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))

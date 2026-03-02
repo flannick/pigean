@@ -119,11 +119,11 @@ class PigeanCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("Do not pass both --huge-statistics-in and --huge-statistics-out", err)
 
-    def test_eaggl_out_requires_tar_extension(self) -> None:
-        proc = self._run("gibbs", "--eaggl-out", "handoff_bundle.txt")
+    def test_eaggl_bundle_out_requires_tar_extension(self) -> None:
+        proc = self._run("gibbs", "--eaggl-bundle-out", "handoff_bundle.txt")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("Option --eaggl-out must end with .tar, .tar.gz, or .tgz", err)
+        self.assertIn("Option --eaggl-bundle-out must end with .tar, .tar.gz, or .tgz", err)
 
     def test_run_phewas_from_gene_phewas_stats_requires_output_path(self) -> None:
         proc = self._run("beta_tildes", "--run-phewas-from-gene-phewas-stats-in", "x.tsv")
