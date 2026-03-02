@@ -20339,6 +20339,10 @@ def _apply_refresh_update_to_epoch_priors(epoch_priors, refresh_update):
     return _apply_gibbs_log_bf_update(refresh_update)
 
 
+def _apply_prior_update_to_epoch_priors(epoch_priors, prior_update):
+    _apply_prior_update_to_epoch_priors(epoch_priors, prior_update)
+
+
 def _compute_gibbs_iteration_betas_and_priors(
     state,
     iter_state,
