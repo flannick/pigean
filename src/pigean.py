@@ -21294,6 +21294,21 @@ GIBBS_POST_BURN_CONTROL_KEYS = (
 )
 
 
+GIBBS_BURN_IN_CONTROL_KEYS = (
+    "in_burn_in",
+    "burn_in_pass_streak",
+    "stop_pass_streak",
+    "prev_Ys_m",
+    "burn_stall_beta_indices",
+    "R_beta_v",
+)
+
+
+def _apply_gibbs_control_update(epoch_control, control_update, control_keys):
+    for key in control_keys:
+        epoch_control[key] = control_update[key]
+
+
 def _build_gibbs_post_burn_control_update(
     stop_pass_streak,
     post_stall_beta_indices,
@@ -21998,15 +22013,11 @@ def _advance_gibbs_iteration_progress(
         iter_state=iter_state,
         epoch_runtime=epoch_runtime,
     )
-    for key in (
-        "in_burn_in",
-        "burn_in_pass_streak",
-        "stop_pass_streak",
-        "prev_Ys_m",
-        "burn_stall_beta_indices",
-        "R_beta_v",
-    ):
-        epoch_control[key] = burn_in_update[key]
+    _apply_gibbs_control_update(
+        epoch_control=epoch_control,
+        control_update=burn_in_update,
+        control_keys=GIBBS_BURN_IN_CONTROL_KEYS,
+    )
 
     post_burn_update = _update_gibbs_post_burn_state(
         state=state,
@@ -22075,8 +22086,11 @@ def _finalize_gibbs_iteration_progress(
         use_mean_betas,
     )
 
-    for key in GIBBS_POST_BURN_CONTROL_KEYS:
-        epoch_control[key] = post_burn_update[key]
+    _apply_gibbs_control_update(
+        epoch_control=epoch_control,
+        control_update=post_burn_update,
+        control_keys=GIBBS_POST_BURN_CONTROL_KEYS,
+    )
     return {"done": post_burn_update["done"]}
 
 
