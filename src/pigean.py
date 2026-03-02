@@ -33,6 +33,9 @@ import random
 
 try:
     from .pegs_utils import (
+        collect_cli_specified_dests as pegs_collect_cli_specified_dests,
+        coerce_config_value as pegs_coerce_config_value,
+        iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
         load_json_config as pegs_load_json_config,
         merge_dicts as pegs_merge_dicts,
@@ -40,6 +43,9 @@ try:
     )
 except ImportError:
     from pegs_utils import (
+        collect_cli_specified_dests as pegs_collect_cli_specified_dests,
+        coerce_config_value as pegs_coerce_config_value,
+        iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
         load_json_config as pegs_load_json_config,
         merge_dicts as pegs_merge_dicts,
@@ -527,13 +533,8 @@ _CORE_OPTION_GROUP_TITLE = "Core options"
 _ADVANCED_OPTION_GROUP_TITLE = "Advanced options (Set B and expert tuning)"
 
 def _iter_parser_options(_parser):
-    for _opt in _parser.option_list:
-        if _opt is not None and _opt.dest is not None:
-            yield _opt
-    for _group in _parser.option_groups:
-        for _opt in _group.option_list:
-            if _opt is not None and _opt.dest is not None:
-                yield _opt
+    for _opt in pegs_iter_parser_options(_parser):
+        yield _opt
 
 def _apply_cli_help_layout(_parser):
     _parser.description = (
@@ -734,27 +735,8 @@ for _arg in argv_parse:
 
 (options, args) = parser.parse_args(argv_parse)
 config_mode = None
-option_lookup = {}
-for _opt in _iter_parser_options(parser):
-    for _long_opt in _opt._long_opts:
-        option_lookup[_long_opt] = _opt
-
-cli_specified_dests = set()
+cli_specified_dests = pegs_collect_cli_specified_dests(argv_parse, parser)
 config_specified_dests = set()
-i = 0
-while i < len(argv_parse):
-    arg = argv_parse[i]
-    if arg == "--":
-        break
-    if arg.startswith("--"):
-        opt_token = arg.split("=", 1)[0]
-        if opt_token in option_lookup:
-            opt_obj = option_lookup[opt_token]
-            if opt_obj.dest is not None:
-                cli_specified_dests.add(opt_obj.dest)
-            if "=" not in arg and opt_obj.takes_value() and i + 1 < len(argv_parse):
-                i += 1
-    i += 1
 
 if options.config is not None:
     config_path = _resolve_config_path_value(options.config, os.getcwd())
@@ -810,41 +792,7 @@ if options.config is not None:
             continue
 
         opt = dest_to_option[dest]
-        if opt.action == "append":
-            values = raw_value if isinstance(raw_value, list) else [raw_value]
-            coerced_value = []
-            for scalar in values:
-                if scalar is None:
-                    coerced_value.append(None)
-                elif opt.type == "int":
-                    coerced_value.append(int(scalar))
-                elif opt.type == "float":
-                    coerced_value.append(float(scalar))
-                else:
-                    coerced_value.append(scalar)
-        elif opt.action in ("store_true", "store_false"):
-            if isinstance(raw_value, bool):
-                coerced_value = raw_value
-            elif isinstance(raw_value, str):
-                lower = raw_value.strip().lower()
-                if lower in ("1", "true", "yes", "y", "on"):
-                    coerced_value = True
-                elif lower in ("0", "false", "no", "n", "off"):
-                    coerced_value = False
-                else:
-                    bail("Config value for %s must be boolean" % (opt.dest))
-            else:
-                bail("Config value for %s must be boolean" % (opt.dest))
-        elif opt.action == "callback":
-            coerced_value = raw_value
-        elif raw_value is None:
-            coerced_value = None
-        elif opt.type == "int":
-            coerced_value = int(raw_value)
-        elif opt.type == "float":
-            coerced_value = float(raw_value)
-        else:
-            coerced_value = raw_value
+        coerced_value = pegs_coerce_config_value(opt, raw_value, bail_fn=bail)
         dest_lower = dest.lower() if dest is not None else ""
         is_path_like_dest = dest_lower.endswith("_in") or dest_lower.endswith("_out") or dest_lower.endswith("_file") or "_file_" in dest_lower or dest_lower in ("log_file", "warnings_file", "config")
         if is_path_like_dest:

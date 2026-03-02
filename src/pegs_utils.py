@@ -92,3 +92,71 @@ def json_safe(value):
     if isinstance(value, dict):
         return {str(k): json_safe(v) for k, v in value.items()}
     return value
+
+
+def iter_parser_options(parser):
+    for option in parser.option_list:
+        if option is not None and option.dest is not None:
+            yield option
+    for group in parser.option_groups:
+        for option in group.option_list:
+            if option is not None and option.dest is not None:
+                yield option
+
+
+def collect_cli_specified_dests(argv, parser):
+    option_lookup = {}
+    for option in iter_parser_options(parser):
+        for long_opt in option._long_opts:
+            option_lookup[long_opt] = option
+
+    specified_dests = set()
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--":
+            break
+        if arg.startswith("--"):
+            opt_token = arg.split("=", 1)[0]
+            if opt_token in option_lookup:
+                opt_obj = option_lookup[opt_token]
+                if opt_obj.dest is not None:
+                    specified_dests.add(opt_obj.dest)
+                if "=" not in arg and opt_obj.takes_value() and i + 1 < len(argv):
+                    i += 1
+        i += 1
+    return specified_dests
+
+
+def coerce_config_value(option, raw_value, bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    def _cast_scalar(scalar):
+        if scalar is None:
+            return None
+        if option.type == "int":
+            return int(scalar)
+        if option.type == "float":
+            return float(scalar)
+        return scalar
+
+    if option.action == "append":
+        values = raw_value if isinstance(raw_value, list) else [raw_value]
+        return [_cast_scalar(v) for v in values]
+
+    if option.action in ("store_true", "store_false"):
+        if isinstance(raw_value, bool):
+            return raw_value
+        if isinstance(raw_value, str):
+            lower = raw_value.strip().lower()
+            if lower in ("1", "true", "yes", "y", "on"):
+                return True
+            if lower in ("0", "false", "no", "n", "off"):
+                return False
+        bail_fn("Config value for %s must be boolean" % (option.dest))
+
+    if option.action == "callback":
+        return raw_value
+
+    return _cast_scalar(raw_value)
