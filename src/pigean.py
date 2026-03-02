@@ -19983,12 +19983,7 @@ def _run_single_gibbs_epoch_attempt(
         log_bf_raw_m=log_bf_raw_m,
     )
     iteration_num = epoch_loop_update["iteration_num"]
-    log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(
-        log_bf_m,
-        log_bf_uncorrected_m,
-        log_bf_raw_m,
-        epoch_loop_update,
-    )
+    log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(epoch_loop_update)
 
     epoch_finalize_update = _finalize_gibbs_epoch_attempt(
         state,
@@ -20028,7 +20023,7 @@ def _apply_gibbs_epoch_finalize_update(run_state, epoch_runtime, epoch_finalize_
     return epoch_finalize_update["should_continue"]
 
 
-def _apply_gibbs_log_bf_update(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m, update):
+def _apply_gibbs_log_bf_update(update):
     return (
         update["log_bf_m"],
         update["log_bf_uncorrected_m"],
@@ -20090,12 +20085,7 @@ def _should_continue_gibbs_epoch_loop(run_state):
 def _apply_gibbs_epoch_attempt_update(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m, epoch_update):
     if not epoch_update["attempt_started"]:
         return (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m, True)
-    log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(
-        log_bf_m,
-        log_bf_uncorrected_m,
-        log_bf_raw_m,
-        epoch_update,
-    )
+    log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(epoch_update)
     return (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m, not epoch_update["should_continue"])
 
 
@@ -20141,12 +20131,7 @@ def _run_gibbs_epoch_iterations(
             log_bf_uncorrected_m=log_bf_uncorrected_m,
             log_bf_raw_m=log_bf_raw_m,
         )
-        log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(
-            log_bf_m,
-            log_bf_uncorrected_m,
-            log_bf_raw_m,
-            iteration_run,
-        )
+        log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(iteration_run)
         if iteration_run["stop_epoch"]:
             break
 
@@ -20196,12 +20181,7 @@ def _run_single_gibbs_iteration(
         log_bf_uncorrected_m=log_bf_uncorrected_m,
         log_bf_raw_m=log_bf_raw_m,
     )
-    log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(
-        log_bf_m,
-        log_bf_uncorrected_m,
-        log_bf_raw_m,
-        iteration_update,
-    )
+    log_bf_m, log_bf_uncorrected_m, log_bf_raw_m = _apply_gibbs_log_bf_update(iteration_update)
     should_break = iteration_update["should_break"]
 
     return _finalize_gibbs_iteration_after_correction(
