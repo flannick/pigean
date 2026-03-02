@@ -6586,6 +6586,9 @@ class PigeanState(object):
                 self.non_inf_avg_postps_missing = np.zeros(len(self.gene_sets_missing))
                 self.non_inf_avg_cond_betas_missing = np.zeros(len(self.gene_sets_missing))
 
+    # ==========================================================================
+    # Section: Core Inference Orchestration (priors + outer Gibbs).
+    # ==========================================================================
     def calculate_priors(self, max_gene_set_p=None, num_gene_batches=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, p_noninf=None, run_logistic=True, max_for_linear=0.95, adjust_priors=False, tag="", **kwargs):
         # ==========================================================================
         # Prior Phase 0: Validate prerequisites and choose batching strategy.
@@ -10811,6 +10814,7 @@ class PigeanState(object):
                     num_parallel=num_parallel,
                 )
 
+            # Burn-in either converged or hit cap: collect samples/summaries.
             if np.sum(burn_in_phase_v) == 0 or iteration_num >= max_num_burn_in:
 
                 #if we only care about parameters, we can return immediately (burn in stops hyper updates)
