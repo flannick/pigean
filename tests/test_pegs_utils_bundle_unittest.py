@@ -575,6 +575,82 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertTrue(np.isfinite(z))
             self.assertAlmostEqual(beta_uncorrected, 0.4)
 
+    def test_parse_gene_phewas_bfs_file_deduplicates_and_maps(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text(
+                "Gene\tPheno\tlog_bf\tcombined\tprior\n"
+                "GENE_A\tP1\t1.0\t0.2\t0.1\n"
+                "GENE_A\tP1\t2.0\t0.3\t0.2\n"
+                "GENE_B\tP2\t3.0\t0.4\t0.3\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_phewas_bfs_file(
+                str(path),
+                gene_phewas_bfs_id_col="Gene",
+                gene_phewas_bfs_pheno_col="Pheno",
+                gene_phewas_bfs_log_bf_col=None,
+                gene_phewas_bfs_combined_col=None,
+                gene_phewas_bfs_prior_col=None,
+                min_value=None,
+                max_num_entries_at_once=2,
+                existing_phenos=["P0"],
+                existing_pheno_to_ind={"P0": 0},
+                gene_to_ind={"GENE_A_ALIAS": 0, "GENE_B": 1},
+                gene_label_map={"GENE_A": "GENE_A_ALIAS"},
+                phewas_gene_to_x_gene=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                warn_fn=lambda _m: None,
+            )
+
+            self.assertEqual(parsed.phenos, ["P0", "P1", "P2"])
+            self.assertEqual(parsed.pheno_to_ind["P1"], 1)
+            self.assertEqual(parsed.pheno_to_ind["P2"], 2)
+            self.assertEqual(parsed.row.shape[0], 2)
+            self.assertEqual(parsed.col.shape[0], 2)
+            np.testing.assert_allclose(parsed.Ys, np.array([1.0, 3.0]))
+            np.testing.assert_allclose(parsed.combineds, np.array([0.2, 0.4]))
+            np.testing.assert_allclose(parsed.priors, np.array([0.1, 0.3]))
+
+    def test_parse_gene_phewas_bfs_file_fallbacks_to_tab_delim(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas_tab.tsv"
+            path.write_text(
+                "Gene\tPheno\tcombined\n"
+                "GENE_A\tType 2 diabetes\t0.7\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_phewas_bfs_file(
+                str(path),
+                gene_phewas_bfs_id_col="Gene",
+                gene_phewas_bfs_pheno_col="Pheno",
+                gene_phewas_bfs_log_bf_col=None,
+                gene_phewas_bfs_combined_col="combined",
+                gene_phewas_bfs_prior_col=None,
+                min_value=0.5,
+                max_num_entries_at_once=100,
+                existing_phenos=None,
+                existing_pheno_to_ind=None,
+                gene_to_ind={"GENE_A": 0},
+                gene_label_map=None,
+                phewas_gene_to_x_gene=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                warn_fn=lambda _m: None,
+            )
+            self.assertEqual(parsed.phenos, ["Type 2 diabetes"])
+            self.assertEqual(parsed.row.tolist(), [0])
+            self.assertEqual(parsed.col.tolist(), [0])
+            self.assertIsNone(parsed.Ys)
+            np.testing.assert_allclose(parsed.combineds, np.array([0.7]))
+
     def test_remove_tag_from_input(self) -> None:
         path, tag = pegs_utils.remove_tag_from_input("mouse:data.tsv")
         self.assertEqual(path, "data.tsv")
