@@ -22027,7 +22027,7 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
             max_num_entries_at_once=options.max_read_entries_at_once,
             force_reread=read_x_retry_state["force_reread"],
         )
-        state.read_X(options.X_in, **read_x_kwargs)
+        _run_read_x_stage(state, options.X_in, **read_x_kwargs)
 
         should_reread = False
         new_filter_gene_set_p = read_x_retry_state["filter_gene_set_p"]
@@ -22053,6 +22053,11 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
             break
         read_x_retry_state["filter_gene_set_p"] = new_filter_gene_set_p
         read_x_retry_state["force_reread"] = True
+
+
+def _run_read_x_stage(runtime, X_in, **read_x_kwargs):
+    # Transitional stage entrypoint: main pipeline no longer calls runtime.read_X directly.
+    return type(runtime).read_X(runtime, X_in, **read_x_kwargs)
 
 
 def _mode_requires_gene_scores(mode_state):
