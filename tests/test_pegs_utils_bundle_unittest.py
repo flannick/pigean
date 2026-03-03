@@ -1083,6 +1083,61 @@ class PegsUtilsBundleTest(unittest.TestCase):
         np.testing.assert_array_equal(rt.anchor_gene_mask, np.array([True, False]))
         np.testing.assert_array_equal(rt.anchor_pheno_mask, np.array([True]))
 
+    def test_load_and_apply_gene_set_phewas_statistics_to_runtime(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.gene_sets = ["SET_A", "SET_B"]
+                self.gene_set_to_ind = {"SET_A": 0, "SET_B": 1}
+                self.X_orig = np.zeros((2, 2))
+                self.genes = ["G1", "G2"]
+                self.phenos = None
+                self.pheno_to_ind = None
+                self.X_phewas_beta = None
+                self.X_phewas_beta_uncorrected = None
+
+            def subset_gene_sets(self, subset_mask, keep_missing=True):
+                self.subset_mask = subset_mask
+                self.keep_missing = keep_missing
+
+            def _set_X(self, X_orig, genes, gene_sets, skip_N=True):
+                self.last_set_x = (X_orig, genes, gene_sets, skip_N)
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_set_phewas.tsv"
+            path.write_text(
+                "Gene_Set\tPheno\tbeta\tbeta_uncorrected\n"
+                "SET_A\tP1\t1.0\t1.1\n"
+                "SET_A\tP1\t1.2\t1.3\n"
+                "SET_B\tP2\t0.5\t0.6\n",
+                encoding="utf-8",
+            )
+            rt = _Runtime()
+            pegs_utils.load_and_apply_gene_set_phewas_statistics_to_runtime(
+                rt,
+                str(path),
+                stats_id_col="Gene_Set",
+                stats_pheno_col="Pheno",
+                stats_beta_col="beta",
+                stats_beta_uncorrected_col="beta_uncorrected",
+                update_X=True,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                construct_map_to_ind_fn=pegs_utils.construct_map_to_ind,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                log_fn=lambda _m: None,
+            )
+
+        self.assertEqual(rt.phenos, ["P1", "P2"])
+        self.assertEqual(rt.pheno_to_ind, {"P1": 0, "P2": 1})
+        self.assertEqual(rt.X_phewas_beta.shape, (2, 2))
+        self.assertEqual(rt.X_phewas_beta_uncorrected.shape, (2, 2))
+        self.assertAlmostEqual(rt.X_phewas_beta[0, 0], 1.0)
+        self.assertAlmostEqual(rt.X_phewas_beta_uncorrected[0, 0], 1.1)
+        self.assertTrue(hasattr(rt, "last_set_x"))
+
     def test_remove_tag_from_input(self) -> None:
         path, tag = pegs_utils.remove_tag_from_input("mouse:data.tsv")
         self.assertEqual(path, "data.tsv")

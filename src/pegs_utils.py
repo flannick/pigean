@@ -1879,6 +1879,251 @@ def load_and_apply_gene_set_statistics_to_runtime(
     )
 
 
+def load_and_apply_gene_set_phewas_statistics_to_runtime(
+    runtime,
+    stats_in,
+    *,
+    stats_id_col=None,
+    stats_pheno_col=None,
+    stats_beta_col=None,
+    stats_beta_uncorrected_col=None,
+    min_gene_set_beta=None,
+    min_gene_set_beta_uncorrected=None,
+    update_X=False,
+    phenos_to_match=None,
+    return_only_ids=False,
+    max_num_entries_at_once=None,
+    open_text_fn=None,
+    get_col_fn=None,
+    construct_map_to_ind_fn=None,
+    warn_fn=None,
+    bail_fn=None,
+    log_fn=None,
+):
+    if open_text_fn is None:
+        open_text_fn = lambda path: open(path)
+    if get_col_fn is None:
+        get_col_fn = resolve_column_index
+    if construct_map_to_ind_fn is None:
+        construct_map_to_ind_fn = construct_map_to_ind
+    if warn_fn is None:
+        warn_fn = lambda _m: None
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if log_fn is None:
+        log_fn = lambda _m: None
+
+    if stats_in is None:
+        bail_fn("Require --gene-set-stats-in or --gene-set-phewas-stats-in for this operation")
+
+    log_fn("Reading --gene-set-phewas-stats-in file %s" % stats_in)
+
+    for delim in [None, '\t']:
+        subset_mask = None
+        read_ids = set()
+        success = True
+        with open_text_fn(stats_in) as stats_fh:
+            header_cols = stats_fh.readline().strip('\n').split(delim)
+            if len(header_cols) == 1:
+                success = False
+                continue
+            id_col = get_col_fn(stats_id_col, header_cols)
+            pheno_col = get_col_fn(stats_pheno_col, header_cols)
+
+            beta_col = None
+            if stats_beta_col is not None:
+                beta_col = get_col_fn(stats_beta_col, header_cols, True)
+            else:
+                beta_col = get_col_fn("beta", header_cols, False)
+
+            beta_uncorrected_col = None
+            if stats_beta_uncorrected_col is not None:
+                beta_uncorrected_col = get_col_fn(stats_beta_uncorrected_col, header_cols, True)
+            else:
+                beta_uncorrected_col = get_col_fn("beta_uncorrected", header_cols, False)
+
+            if beta_col is None and beta_uncorrected_col is None:
+                bail_fn("Require at least beta or beta_uncorrected to read from --gene-set-stats-in")
+
+            if runtime.gene_sets is not None:
+                subset_mask = np.array([False] * len(runtime.gene_sets))
+
+            gene_sets = []
+            gene_set_to_ind = {}
+            phenos = []
+            pheno_to_ind = {}
+            if max_num_entries_at_once is None:
+                max_num_entries_at_once = 200 * 10000
+
+            betas = []
+            betas_uncorrected = []
+            row = []
+            col = []
+            betas_chunks = []
+            betas_uncorrected_chunks = []
+            row_chunks = []
+            col_chunks = []
+
+            def __flush_chunks():
+                if len(row) == 0:
+                    return
+                row_chunks.append(np.array(row, dtype=np.int32))
+                col_chunks.append(np.array(col, dtype=np.int32))
+                betas_chunks.append(np.array(betas, dtype=np.float64))
+                betas_uncorrected_chunks.append(np.array(betas_uncorrected, dtype=np.float64))
+                row[:] = []
+                col[:] = []
+                betas[:] = []
+                betas_uncorrected[:] = []
+
+            for line in stats_fh:
+                beta = None
+                beta_uncorrected = None
+                cols = line.strip('\n').split(delim)
+                if len(cols) != len(header_cols):
+                    success = False
+                    continue
+
+                if (
+                    id_col > len(cols)
+                    or pheno_col > len(cols)
+                    or (beta_col is not None and beta_col > len(cols))
+                    or (beta_uncorrected_col is not None and beta_uncorrected_col > len(cols))
+                ):
+                    warn_fn("Skipping due to too few columns in line: %s" % line)
+                    continue
+
+                gene_set = cols[id_col]
+                pheno = cols[pheno_col]
+                if phenos_to_match is not None and pheno not in phenos_to_match:
+                    continue
+
+                if beta_col is not None:
+                    try:
+                        beta = float(cols[beta_col])
+                        if min_gene_set_beta is not None and beta < min_gene_set_beta:
+                            continue
+                    except ValueError:
+                        if cols[beta_col] != "NA":
+                            warn_fn("Skipping unconvertible beta value %s for gene_set %s" % (cols[beta_col], gene_set))
+                        continue
+
+                if beta_uncorrected_col is not None:
+                    try:
+                        beta_uncorrected = float(cols[beta_uncorrected_col])
+                        if min_gene_set_beta_uncorrected is not None and beta_uncorrected < min_gene_set_beta_uncorrected:
+                            continue
+                    except ValueError:
+                        if cols[beta_uncorrected_col] != "NA":
+                            warn_fn(
+                                "Skipping unconvertible beta_uncorrected value %s for gene_set %s"
+                                % (cols[beta_uncorrected_col], gene_set)
+                            )
+                        continue
+
+                if pheno in pheno_to_ind:
+                    pheno_ind = pheno_to_ind[pheno]
+                else:
+                    pheno_ind = len(phenos)
+                    pheno_to_ind[pheno] = pheno_ind
+                    phenos.append(pheno)
+
+                gene_set_ind = None
+                if runtime.gene_sets is not None:
+                    if gene_set not in runtime.gene_set_to_ind:
+                        continue
+                    gene_set_ind = runtime.gene_set_to_ind[gene_set]
+                    if gene_set_ind is not None:
+                        subset_mask[gene_set_ind] = True
+                else:
+                    gene_set_to_ind[gene_set] = len(gene_sets)
+                    gene_sets.append(gene_set)
+
+                if return_only_ids:
+                    read_ids.add(gene_set)
+                    continue
+
+                if gene_set_ind is not None:
+                    col.append(gene_set_ind)
+                    row.append(pheno_ind)
+                    if beta_uncorrected is not None:
+                        betas_uncorrected.append(beta_uncorrected)
+                    else:
+                        betas_uncorrected.append(beta)
+                    if beta is not None:
+                        betas.append(beta)
+                    else:
+                        betas.append(beta_uncorrected)
+                    if len(row) >= max_num_entries_at_once:
+                        __flush_chunks()
+
+            __flush_chunks()
+            log_fn("Done reading --stats-in-file")
+            if success:
+                break
+
+    if not success:
+        bail_fn("Error: number of columns in header did not match number of columns in lines after header")
+
+    if return_only_ids:
+        return read_ids
+
+    if update_X:
+        if runtime.gene_sets is not None:
+            log_fn("Subsetting matrices")
+            if np.sum(subset_mask) != len(subset_mask):
+                warn_fn(
+                    "Excluding %s values from previously loaded files because absent from --stats-in file"
+                    % (len(subset_mask) - np.sum(subset_mask))
+                )
+                runtime.subset_gene_sets(subset_mask, keep_missing=True)
+            log_fn("Done subsetting matrices")
+
+        runtime._set_X(runtime.X_orig, runtime.genes, runtime.gene_sets, skip_N=True)
+
+    if runtime.phenos is not None:
+        bail_fn("Bug in code: cannot call this function if phenos have already been read")
+
+    runtime.phenos = phenos
+    runtime.pheno_to_ind = construct_map_to_ind_fn(phenos)
+
+    if len(row_chunks) > 0:
+        row = np.concatenate(row_chunks)
+        col = np.concatenate(col_chunks)
+        betas = np.concatenate(betas_chunks)
+        betas_uncorrected = np.concatenate(betas_uncorrected_chunks)
+    else:
+        row = np.array([], dtype=np.int32)
+        col = np.array([], dtype=np.int32)
+        betas = np.array([], dtype=np.float64)
+        betas_uncorrected = np.array([], dtype=np.float64)
+
+    if len(row) > 0:
+        key = row.astype(np.int64) * int(len(runtime.gene_sets)) + col.astype(np.int64)
+        _, unique_indices = np.unique(key, return_index=True)
+    else:
+        unique_indices = np.array([], dtype=np.int64)
+
+    if len(unique_indices) < len(row):
+        warn_fn("Found %d duplicate values; ignoring duplicates" % (len(row) - len(unique_indices)))
+
+    betas = betas[unique_indices]
+    betas_uncorrected = betas_uncorrected[unique_indices]
+    row = row[unique_indices]
+    col = col[unique_indices]
+
+    runtime.X_phewas_beta = sparse.csc_matrix(
+        (betas, (row, col)),
+        shape=(len(runtime.phenos), len(runtime.gene_sets)),
+    )
+    runtime.X_phewas_beta_uncorrected = sparse.csc_matrix(
+        (betas_uncorrected, (row, col)),
+        shape=(len(runtime.phenos), len(runtime.gene_sets)),
+    )
+
+    return None
+
+
 def read_gene_phewas_stats(path, *, bail_fn=None):
     return read_tsv(path, key_column="Gene", required_columns=["Gene"], bail_fn=bail_fn)
 
