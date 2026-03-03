@@ -78,7 +78,11 @@ try:
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         remove_tag_from_input as pegs_remove_tag_from_input,
+        XReadConfig as PegsXReadConfig,
+        XReadCallbacks as PegsXReadCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
+        make_add_to_x_handler as pegs_make_add_to_x_handler,
+        ingest_x_inputs as pegs_ingest_x_inputs,
         initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -159,7 +163,11 @@ except ImportError:
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         remove_tag_from_input as pegs_remove_tag_from_input,
+        XReadConfig as PegsXReadConfig,
+        XReadCallbacks as PegsXReadCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
+        make_add_to_x_handler as pegs_make_add_to_x_handler,
+        ingest_x_inputs as pegs_ingest_x_inputs,
         initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -1844,137 +1852,40 @@ class PigeanState(object):
             log_fn=lambda message: log(message, DEBUG),
         )
 
-
-        #returns num added, num ignored
-
-        def __add_to_X(mat_info, genes, gene_sets, tag=None, skip_scale_factors=False, fname=None):
-
-            if tag is not None:
-                gene_sets = ["%s_%s" % (tag, x) for x in gene_sets]
-
-            is_dense = False
-            if type(mat_info) is tuple:
-                (data, row, col) = mat_info
-                cur_X = sparse.csc_matrix((data, (row, col)), shape=(len(genes), len(gene_sets)))
-                if cur_X.shape[1] == 0:
-                    return (0, 0)
-            else:
-
-                mat_info, genes = _normalize_dense_gene_rows(mat_info, genes, self.gene_label_map)
-
-                cur_X, gene_sets, should_skip_dense = _build_sparse_x_from_dense_input(
-                    self,
-                    mat_info=mat_info,
-                    genes=genes,
-                    gene_sets=gene_sets,
-                    x_sparsify=x_sparsify,
-                    min_gene_set_size=min_gene_set_size,
-                    add_ext=add_ext,
-                    add_top=add_top,
-                    add_bottom=add_bottom,
-                    fname=fname,
-                )
-                if should_skip_dense:
-                    return (0, 0)
-
-                cur_X, genes = _reindex_x_rows_to_current_genes(self, cur_X=cur_X, genes=genes)
-
-            cur_X = _normalize_gene_set_weights(
-                self,
-                cur_X=cur_X,
-                threshold_weights=threshold_weights,
-                cap_weights=cap_weights,
-            )
-            #now need to find any new genes that will be added as missing later, as well as any missing genes that need to be updated
-
-            (
-                cur_X,
-                genes,
-                gene_sets,
-                gene_ignored_N,
-                cur_X_missing_genes_int,
-                gene_ignored_N_missing_int,
-                genes_missing_new,
-                cur_X_missing_genes_new,
-                gene_ignored_N_missing_new,
-            ) = _partition_missing_gene_rows(
-                self,
-                cur_X=cur_X,
-                genes=genes,
-                gene_sets=gene_sets,
-            )
-
-            cur_X = _maybe_permute_gene_set_rows(
-                self,
-                cur_X=cur_X,
-                permute_gene_sets=permute_gene_sets,
-            )
-
-            (
-                cur_X,
-                gene_sets,
-                p_value_ignore,
-                gene_ignored_N,
-                cur_X_missing_genes_new,
-                gene_ignored_N_missing_new,
-                cur_X_missing_genes_int,
-                gene_ignored_N_missing_int,
-                total_qc_metrics,
-                mean_qc_metrics,
-                total_qc_metrics_directions,
-            ) = _maybe_prefilter_x_block(
-                self,
-                cur_X=cur_X,
-                gene_sets=gene_sets,
-                run_logistic=run_logistic,
-                filter_gene_set_p=filter_gene_set_p,
-                filter_gene_set_metric_z=filter_gene_set_metric_z,
-                filter_using_phewas=filter_using_phewas,
-                increase_filter_gene_set_p=increase_filter_gene_set_p,
-                filter_negative=filter_negative,
-                cur_X_missing_genes_new=cur_X_missing_genes_new,
-                gene_ignored_N_missing_new=gene_ignored_N_missing_new,
-                cur_X_missing_genes_int=cur_X_missing_genes_int,
-                gene_ignored_N_missing_int=gene_ignored_N_missing_int,
-                gene_ignored_N=gene_ignored_N,
-            )
-
-            self.is_dense_gene_set = np.append(self.is_dense_gene_set, np.full(len(gene_sets), is_dense))
-
-            num_new_gene_sets = len(gene_sets)
-            num_old_gene_sets = len(self.gene_sets) if self.gene_sets is not None else 0
-            if self.X_orig is not None:
-
-                cur_X = sparse.hstack((self.X_orig, cur_X))
-                gene_sets = self.gene_sets + gene_sets
-
-            cur_X, genes = _merge_missing_gene_rows(
-                self,
-                cur_X=cur_X,
-                genes=genes,
-                num_old_gene_sets=num_old_gene_sets,
-                num_new_gene_sets=num_new_gene_sets,
-                cur_X_missing_genes_int=cur_X_missing_genes_int,
-                gene_ignored_N_missing_int=gene_ignored_N_missing_int,
-                cur_X_missing_genes_new=cur_X_missing_genes_new,
-                gene_ignored_N_missing_new=gene_ignored_N_missing_new,
-                genes_missing_new=genes_missing_new,
-            )
-
-            return _finalize_added_x_block(
-                self,
-                cur_X=cur_X,
-                genes=genes,
-                gene_sets=gene_sets,
-                skip_scale_factors=skip_scale_factors,
-                p_value_ignore=p_value_ignore,
-                gene_ignored_N=gene_ignored_N,
-                total_qc_metrics=total_qc_metrics,
-                mean_qc_metrics=mean_qc_metrics,
-                total_qc_metrics_directions=total_qc_metrics_directions,
-            )
-
-        ignored_gs = 0
+        read_x_config = PegsXReadConfig(
+            x_sparsify=x_sparsify,
+            min_gene_set_size=min_gene_set_size,
+            add_ext=add_ext,
+            add_top=add_top,
+            add_bottom=add_bottom,
+            threshold_weights=threshold_weights,
+            cap_weights=cap_weights,
+            permute_gene_sets=permute_gene_sets,
+            filter_gene_set_p=filter_gene_set_p,
+            filter_gene_set_metric_z=filter_gene_set_metric_z,
+            filter_using_phewas=filter_using_phewas,
+            increase_filter_gene_set_p=increase_filter_gene_set_p,
+            filter_negative=filter_negative,
+        )
+        read_x_callbacks = PegsXReadCallbacks(
+            sparse_module=sparse,
+            np_module=np,
+            normalize_dense_gene_rows_fn=_normalize_dense_gene_rows,
+            build_sparse_x_from_dense_input_fn=_build_sparse_x_from_dense_input,
+            reindex_x_rows_to_current_genes_fn=_reindex_x_rows_to_current_genes,
+            normalize_gene_set_weights_fn=_normalize_gene_set_weights,
+            partition_missing_gene_rows_fn=_partition_missing_gene_rows,
+            maybe_permute_gene_set_rows_fn=_maybe_permute_gene_set_rows,
+            maybe_prefilter_x_block_fn=_maybe_prefilter_x_block,
+            merge_missing_gene_rows_fn=_merge_missing_gene_rows,
+            finalize_added_x_block_fn=_finalize_added_x_block,
+        )
+        add_to_x_fn = pegs_make_add_to_x_handler(
+            self,
+            read_x_config,
+            read_x_callbacks,
+            run_logistic=run_logistic,
+        )
 
         if only_inc_genes:
             add_all_genes = True
@@ -1989,35 +1900,28 @@ class PigeanState(object):
             fraction_inc_genes=fraction_inc_genes,
         )
 
-        for i in range(len(X_ins)):
-            X_in = X_ins[i]
-            (X_in, tag) = _remove_tag_from_input(X_in)
-
-            log("Reading X %d of %d from --X-in file %s" % (i+1,len(X_ins),X_in), INFO)
-
-            num_too_small, ignored_for_fraction_inc, processed_input = _process_x_input_file(
-                self,
-                X_in=X_in,
-                tag=tag,
-                is_dense_input=is_dense[i],
-                only_ids=only_ids,
-                x_sparsify=x_sparsify,
-                batch_value=batches[i],
-                label_value=labels[i],
-                initial_p_value=initial_ps[i] if initial_ps is not None else None,
-                num_ignored_gene_sets=num_ignored_gene_sets,
-                input_index=i,
-                add_to_x_fn=__add_to_X,
-                min_gene_set_size=min_gene_set_size,
-                only_inc_genes=only_inc_genes,
-                fraction_inc_genes=fraction_inc_genes,
-                ignore_genes=ignore_genes,
-                max_num_entries_at_once=max_num_entries_at_once,
-            )
-            if not processed_input:
-                continue
-
-            log("Ignored %d gene sets due to too few genes" % num_too_small, DEBUG)
+        ignored_for_fraction_inc = pegs_ingest_x_inputs(
+            self,
+            X_ins,
+            is_dense,
+            batches,
+            labels,
+            initial_ps,
+            num_ignored_gene_sets,
+            only_ids=only_ids,
+            x_sparsify=x_sparsify,
+            min_gene_set_size=min_gene_set_size,
+            only_inc_genes=only_inc_genes,
+            fraction_inc_genes=fraction_inc_genes,
+            ignore_genes=ignore_genes,
+            max_num_entries_at_once=max_num_entries_at_once,
+            add_to_x_fn=add_to_x_fn,
+            process_x_input_file_fn=_process_x_input_file,
+            remove_tag_from_input_fn=_remove_tag_from_input,
+            log_fn=log,
+            info_level=INFO,
+            debug_level=DEBUG,
+        )
 
         if ignored_for_fraction_inc > 0:
             log("Ignored %d gene sets due to too small a fraction of anchor genes" % ignored_for_fraction_inc, DEBUG)
