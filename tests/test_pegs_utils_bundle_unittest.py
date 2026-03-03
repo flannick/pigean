@@ -535,6 +535,48 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertIsInstance(parsed.gene_in_combined, dict)
             self.assertEqual(len(parsed.gene_in_combined), 0)
 
+    def test_parse_gene_covariates_file_and_align_helpers(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_covs.tsv"
+            path.write_text(
+                "Gene\tC1\tC2\nGENE_A\t1.0\t2.0\nGENE_X\t3.0\t4.0\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_covariates_file(
+                str(path),
+                gene_covs_id_col="Gene",
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                log_fn=lambda _m: None,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertEqual(parsed.cov_names, ["C1", "C2"])
+            self.assertIn("GENE_A", parsed.gene_to_covs)
+
+            gene_bfs, extra_genes, extra_bfs = pegs_utils.align_gene_scalar_map(
+                {"GENE_A": 1.5, "GENE_X": 2.5},
+                genes=["GENE_A", "GENE_B"],
+                gene_to_ind={"GENE_A": 0, "GENE_B": 1},
+            )
+            np.testing.assert_allclose(gene_bfs[:1], np.array([1.5]))
+            self.assertTrue(np.isnan(gene_bfs[1]))
+            self.assertEqual(extra_genes, ["GENE_X"])
+            np.testing.assert_allclose(extra_bfs, np.array([2.5]))
+
+            gene_covs, extra_cov_genes, extra_covs = pegs_utils.align_gene_vector_map(
+                parsed.gene_to_covs,
+                num_values=2,
+                genes=["GENE_A", "GENE_B"],
+                gene_to_ind={"GENE_A": 0, "GENE_B": 1},
+            )
+            np.testing.assert_allclose(gene_covs[0, :], np.array([1.0, 2.0]))
+            self.assertTrue(np.isnan(gene_covs[1, 0]))
+            self.assertEqual(extra_cov_genes, ["GENE_X"])
+            self.assertEqual(extra_covs.shape, (1, 2))
+
     def test_parse_gene_set_statistics_file(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "gene_set_stats.tsv"

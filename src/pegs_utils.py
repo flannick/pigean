@@ -80,6 +80,12 @@ class ParsedGeneBfs:
 
 
 @dataclass
+class ParsedGeneCovariates:
+    cov_names: list
+    gene_to_covs: dict
+
+
+@dataclass
 class ParsedGenePhewasBfs:
     phenos: list
     pheno_to_ind: dict
@@ -857,6 +863,96 @@ def parse_gene_bfs_file(
         gene_in_combined=gene_in_combined,
         gene_in_priors=gene_in_priors,
     )
+
+
+def parse_gene_covariates_file(
+    gene_covs_in,
+    *,
+    gene_covs_id_col=None,
+    open_text_fn=None,
+    get_col_fn=None,
+    log_fn=None,
+    warn_fn=None,
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if log_fn is None:
+        log_fn = lambda _m: None
+    if warn_fn is None:
+        warn_fn = lambda _m: None
+    if open_text_fn is None:
+        open_text_fn = lambda path: open(path)
+    if get_col_fn is None:
+        get_col_fn = resolve_column_index
+
+    log_fn("Reading --gene-covs-in file %s" % gene_covs_in)
+
+    gene_in_covs = {}
+    cov_names = []
+    with open_text_fn(gene_covs_in) as gene_covs_fh:
+        header_cols = gene_covs_fh.readline().strip('\n').split()
+        if gene_covs_id_col is None:
+            gene_covs_id_col = "Gene"
+
+        id_col = get_col_fn(gene_covs_id_col, header_cols)
+        cov_names = [header_cols[i] for i in range(len(header_cols)) if i != id_col]
+
+        if len(cov_names) > 0:
+            log_fn("Read covariates %s" % (",".join(cov_names)))
+            for line in gene_covs_fh:
+                cols = line.strip('\n').split()
+                if len(cols) != len(header_cols):
+                    warn_fn("Skipping due to too few columns in line: %s" % line)
+                    continue
+
+                gene = cols[id_col]
+                try:
+                    covs = np.array([float(cols[i]) for i in range(len(cols)) if i != id_col])
+                except ValueError:
+                    continue
+
+                gene_in_covs[gene] = covs
+
+    return ParsedGeneCovariates(cov_names=cov_names, gene_to_covs=gene_in_covs)
+
+
+def align_gene_scalar_map(gene_to_value, genes=None, gene_to_ind=None, missing_value=np.nan):
+    if genes is None:
+        genes = []
+    if gene_to_ind is None:
+        gene_to_ind = {}
+
+    aligned_values = np.array([missing_value] * len(genes))
+    extra_values = []
+    extra_genes = []
+    for gene, value in gene_to_value.items():
+        if gene in gene_to_ind:
+            aligned_values[gene_to_ind[gene]] = value
+        else:
+            extra_values.append(value)
+            extra_genes.append(gene)
+
+    return (aligned_values, extra_genes, np.array(extra_values))
+
+
+def align_gene_vector_map(gene_to_values, num_values, genes=None, gene_to_ind=None, missing_value=np.nan):
+    if genes is None:
+        genes = []
+    if gene_to_ind is None:
+        gene_to_ind = {}
+
+    aligned_values = np.full((len(genes), num_values), missing_value)
+    extra_values = []
+    extra_genes = []
+    for gene, values in gene_to_values.items():
+        if gene in gene_to_ind:
+            aligned_values[gene_to_ind[gene], :] = values
+        else:
+            extra_values.append(values)
+            extra_genes.append(gene)
+
+    return (aligned_values, extra_genes, np.array(extra_values))
 
 
 def parse_gene_phewas_bfs_file(
