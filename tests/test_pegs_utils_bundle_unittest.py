@@ -967,6 +967,27 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertTrue(np.array_equal(rt.scale_factors_missing, np.array([1.0])))
         self.assertTrue(np.array_equal(y_state.y_corr_cholesky, rt.y_corr_cholesky))
 
+    def test_initialize_matrix_and_gene_index_state(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.X_orig = "X"
+        rt.batch_size = 1
+        rt.scale_factors = np.array([1.0])
+        rt.gene_set_labels = np.array(["A"])
+        rt.genes = ["G1"]
+        rt.gene_to_huge_score = {"G1": 1.0}
+
+        pegs_utils.initialize_matrix_and_gene_index_state(rt, batch_size=777)
+
+        self.assertIsNone(rt.X_orig)
+        self.assertEqual(rt.batch_size, 777)
+        self.assertIsNone(rt.scale_factors)
+        self.assertIsNone(rt.gene_set_labels)
+        self.assertIsNone(rt.genes)
+        self.assertIsNone(rt.gene_to_huge_score)
+
     def test_apply_parsed_gene_set_statistics_to_runtime(self) -> None:
         class _Runtime:
             def __init__(self) -> None:
