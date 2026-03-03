@@ -58,6 +58,12 @@ try:
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
         parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
+        y_data_from_runtime as pegs_y_data_from_runtime,
+        apply_y_data_to_runtime as pegs_apply_y_data_to_runtime,
+        hyperparameter_data_from_runtime as pegs_hyperparameter_data_from_runtime,
+        apply_hyperparameter_data_to_runtime as pegs_apply_hyperparameter_data_to_runtime,
+        phewas_runtime_state_from_runtime as pegs_phewas_runtime_state_from_runtime,
+        apply_phewas_runtime_state_to_runtime as pegs_apply_phewas_runtime_state_to_runtime,
         remove_tag_from_input as pegs_remove_tag_from_input,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
@@ -119,6 +125,12 @@ except ImportError:
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
         parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
+        y_data_from_runtime as pegs_y_data_from_runtime,
+        apply_y_data_to_runtime as pegs_apply_y_data_to_runtime,
+        hyperparameter_data_from_runtime as pegs_hyperparameter_data_from_runtime,
+        apply_hyperparameter_data_to_runtime as pegs_apply_hyperparameter_data_to_runtime,
+        phewas_runtime_state_from_runtime as pegs_phewas_runtime_state_from_runtime,
+        apply_phewas_runtime_state_to_runtime as pegs_apply_phewas_runtime_state_to_runtime,
         remove_tag_from_input as pegs_remove_tag_from_input,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
@@ -1331,6 +1343,9 @@ class PigeanState(object):
         self._init_gene_set_regression_state()
         self._init_gene_signal_and_huge_state()
         self._init_model_summary_state()
+        self.y_state = pegs_y_data_from_runtime(self)
+        self.hyperparameter_state = pegs_hyperparameter_data_from_runtime(self)
+        self.phewas_state = pegs_phewas_runtime_state_from_runtime(self)
 
     def _init_matrix_and_gene_index_state(self, batch_size):
         #genes x gene set indicator matrix (sparse)
@@ -1462,6 +1477,7 @@ class PigeanState(object):
         self.default_pheno = "__default__"
         self.phenos = None
         self.pheno_to_ind = None
+        self.phewas_state = pegs_phewas_runtime_state_from_runtime(self)
 
         #note that these phewas betas are all stored in *external* units (by contrast to the betas which are in internal units)
         self.X_phewas_beta_uncorrected = None
@@ -1618,6 +1634,7 @@ class PigeanState(object):
         self.mean_qc_metrics_ignored = None
 
         self.total_qc_metrics_directions = None
+        self.y_state = pegs_y_data_from_runtime(self)
 
     def _init_model_summary_state(self):
         self.p = None
@@ -1654,6 +1671,7 @@ class PigeanState(object):
         self.betas_mcse_missing = None
         self.betas_uncorrected_r_hat_missing = None
         self.betas_uncorrected_mcse_missing = None
+        self.hyperparameter_state = pegs_hyperparameter_data_from_runtime(self)
         self.non_inf_avg_cond_betas_missing = None
         self.non_inf_avg_postps_missing = None
 
@@ -5647,6 +5665,8 @@ class PigeanState(object):
             self.anchor_pheno_mask = np.array([x in anchor_phenos for x in self.phenos])
             if np.sum(self.anchor_pheno_mask) == 0:
                 bail("Couldn't find any match for %s" % list(anchor_phenos))
+        self.phewas_state = pegs_phewas_runtime_state_from_runtime(self)
+        pegs_apply_phewas_runtime_state_to_runtime(self, self.phewas_state)
 
 
     def calculate_gene_set_statistics(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_gls=False, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
@@ -5814,12 +5834,15 @@ class PigeanState(object):
         return self.X_orig is not None and self.X_orig.shape[1] > 0
 
     def set_p(self, p):
+        hyper_state = pegs_hyperparameter_data_from_runtime(self)
         if p is not None:
             if p > 1:
                 p = 1
             if p < 0:
                 p = 0
-        self.p = p
+        hyper_state.p = p
+        pegs_apply_hyperparameter_data_to_runtime(self, hyper_state)
+        self.hyperparameter_state = hyper_state
 
     def get_sigma2(self, convert_sigma_to_external_units=False):
         sigma2 = self.sigma2
@@ -5857,7 +5880,8 @@ class PigeanState(object):
         return result
 
     def set_sigma(self, sigma2, sigma_power, sigma2_osc=None, sigma2_se=None, sigma2_p=None, sigma2_scale_factors=None, convert_sigma_to_internal_units=False):
-        self.sigma_power = sigma_power
+        hyper_state = pegs_hyperparameter_data_from_runtime(self)
+        hyper_state.sigma_power = sigma_power
         if sigma_power is None:
             sigma_power = 2
 
@@ -5866,41 +5890,45 @@ class PigeanState(object):
             is_dense_gene_set = self.is_dense_gene_set
             if scale_factors is not None:
                 if is_dense_gene_set is not None and np.sum(~is_dense_gene_set) > 0:
-                    self.sigma2 = sigma2 / np.mean(np.power(scale_factors[~is_dense_gene_set], self.sigma_power - 2))
+                    hyper_state.sigma2 = sigma2 / np.mean(np.power(scale_factors[~is_dense_gene_set], hyper_state.sigma_power - 2))
                 else:
-                    self.sigma2 = sigma2 / np.mean(np.power(scale_factors, self.sigma_power - 2))
+                    hyper_state.sigma2 = sigma2 / np.mean(np.power(scale_factors, hyper_state.sigma_power - 2))
             else:
-                self.sigma2 = sigma2 / np.power(self.MEAN_MOUSE_SCALE, self.sigma_power - 2)
+                hyper_state.sigma2 = sigma2 / np.power(self.MEAN_MOUSE_SCALE, hyper_state.sigma_power - 2)
         else:
-            self.sigma2 = sigma2
+            hyper_state.sigma2 = sigma2
 
         if sigma2_osc is not None:
-            self.sigma2_osc = sigma2_osc
+            hyper_state.sigma2_osc = sigma2_osc
 
         if sigma2_scale_factors is None:
             sigma2_scale_factors = self.scale_factors
 
         if sigma2_se is not None:
-            self.sigma2_se = sigma2_se
-        if self.sigma2_p is not None:
-            self.sigma2_p = sigma2_p
+            hyper_state.sigma2_se = sigma2_se
+        if hyper_state.sigma2_p is not None:
+            hyper_state.sigma2_p = sigma2_p
 
-        if self.sigma2 is None and self.sigma2_osc is None:
+        if hyper_state.sigma2 is None and hyper_state.sigma2_osc is None:
+            pegs_apply_hyperparameter_data_to_runtime(self, hyper_state)
+            self.hyperparameter_state = hyper_state
             return
 
-        sigma2_for_var = self.sigma2_osc if self.sigma2_osc is not None else self.sigma2
+        sigma2_for_var = hyper_state.sigma2_osc if hyper_state.sigma2_osc is not None else hyper_state.sigma2
 
         if sigma2_for_var is not None and sigma2_scale_factors is not None:
-            if self.sigma_power is None:
-                self.sigma2_total_var = sigma2_for_var * len(sigma2_scale_factors)
+            if hyper_state.sigma_power is None:
+                hyper_state.sigma2_total_var = sigma2_for_var * len(sigma2_scale_factors)
             else:
-                self.sigma2_total_var = sigma2_for_var * np.sum(np.square(sigma2_scale_factors))
+                hyper_state.sigma2_total_var = sigma2_for_var * np.sum(np.square(sigma2_scale_factors))
 
-        if self.sigma2_total_var is not None and self.sigma2_se is not None:
-            self.sigma2_total_var_lower = self.sigma2_total_var * (sigma2_for_var - 1.96 * self.sigma2_se) / (sigma2_for_var)
-            self.sigma2_total_var_upper = self.sigma2_total_var * (sigma2_for_var + 1.96 * self.sigma2_se) / (sigma2_for_var)
+        if hyper_state.sigma2_total_var is not None and hyper_state.sigma2_se is not None:
+            hyper_state.sigma2_total_var_lower = hyper_state.sigma2_total_var * (sigma2_for_var - 1.96 * hyper_state.sigma2_se) / (sigma2_for_var)
+            hyper_state.sigma2_total_var_upper = hyper_state.sigma2_total_var * (sigma2_for_var + 1.96 * hyper_state.sigma2_se) / (sigma2_for_var)
 
-        if self.sigma2 is None:
+        pegs_apply_hyperparameter_data_to_runtime(self, hyper_state)
+        self.hyperparameter_state = hyper_state
+        if hyper_state.sigma2 is None:
             return
 
     def write_params(self, output_file):
@@ -10662,6 +10690,8 @@ class PigeanState(object):
         self.Y_exomes = Y_exomes
         self.Y_positive_controls = Y_positive_controls
         self.Y_case_counts = Y_case_counts
+        self.y_state = pegs_y_data_from_runtime(self)
+        pegs_apply_y_data_to_runtime(self, self.y_state)
 
     def _get_y_corr_cholesky(self, Y_corr_m):
         Y_corr_m_copy = copy.copy(Y_corr_m)

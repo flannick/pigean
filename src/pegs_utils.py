@@ -91,6 +91,55 @@ class ParsedGenePhewasBfs:
     num_filtered: int
 
 
+@dataclass
+class YData:
+    Y: object = None
+    Y_for_regression: object = None
+    Y_exomes: object = None
+    Y_positive_controls: object = None
+    Y_case_counts: object = None
+    y_var: object = None
+    y_corr: object = None
+    y_corr_cholesky: object = None
+    y_corr_sparse: object = None
+    Y_w: object = None
+    Y_fw: object = None
+    y_w_var: object = None
+    y_w_mean: object = None
+    y_fw_var: object = None
+    y_fw_mean: object = None
+
+
+@dataclass
+class HyperparameterData:
+    p: object = None
+    sigma2: object = None
+    sigma_power: object = None
+    sigma2_osc: object = None
+    sigma2_se: object = None
+    sigma2_p: object = None
+    sigma2_total_var: object = None
+    sigma2_total_var_lower: object = None
+    sigma2_total_var_upper: object = None
+    ps: object = None
+    sigma2s: object = None
+    sigma2s_missing: object = None
+
+
+@dataclass
+class PhewasRuntimeState:
+    phenos: object = None
+    pheno_to_ind: object = None
+    gene_pheno_Y: object = None
+    gene_pheno_combined_prior_Ys: object = None
+    gene_pheno_priors: object = None
+    X_phewas_beta: object = None
+    X_phewas_beta_uncorrected: object = None
+    num_gene_phewas_filtered: int = 0
+    anchor_gene_mask: object = None
+    anchor_pheno_mask: object = None
+
+
 def _default_bail(message):
     raise ValueError(message)
 
@@ -1074,6 +1123,104 @@ def parse_gene_phewas_bfs_file(
         priors=final_priors,
         num_filtered=num_filtered,
     )
+
+
+def y_data_from_runtime(runtime):
+    return YData(
+        Y=getattr(runtime, "Y", None),
+        Y_for_regression=getattr(runtime, "Y_for_regression", None),
+        Y_exomes=getattr(runtime, "Y_exomes", None),
+        Y_positive_controls=getattr(runtime, "Y_positive_controls", None),
+        Y_case_counts=getattr(runtime, "Y_case_counts", None),
+        y_var=getattr(runtime, "y_var", None),
+        y_corr=getattr(runtime, "y_corr", None),
+        y_corr_cholesky=getattr(runtime, "y_corr_cholesky", None),
+        y_corr_sparse=getattr(runtime, "y_corr_sparse", None),
+        Y_w=getattr(runtime, "Y_w", None),
+        Y_fw=getattr(runtime, "Y_fw", None),
+        y_w_var=getattr(runtime, "y_w_var", None),
+        y_w_mean=getattr(runtime, "y_w_mean", None),
+        y_fw_var=getattr(runtime, "y_fw_var", None),
+        y_fw_mean=getattr(runtime, "y_fw_mean", None),
+    )
+
+
+def apply_y_data_to_runtime(runtime, y_data):
+    runtime.Y = y_data.Y
+    runtime.Y_for_regression = y_data.Y_for_regression
+    runtime.Y_exomes = y_data.Y_exomes
+    runtime.Y_positive_controls = y_data.Y_positive_controls
+    runtime.Y_case_counts = y_data.Y_case_counts
+    runtime.y_var = y_data.y_var
+    runtime.y_corr = y_data.y_corr
+    runtime.y_corr_cholesky = y_data.y_corr_cholesky
+    runtime.y_corr_sparse = y_data.y_corr_sparse
+    runtime.Y_w = y_data.Y_w
+    runtime.Y_fw = y_data.Y_fw
+    runtime.y_w_var = y_data.y_w_var
+    runtime.y_w_mean = y_data.y_w_mean
+    runtime.y_fw_var = y_data.y_fw_var
+    runtime.y_fw_mean = y_data.y_fw_mean
+
+
+def hyperparameter_data_from_runtime(runtime):
+    return HyperparameterData(
+        p=getattr(runtime, "p", None),
+        sigma2=getattr(runtime, "sigma2", None),
+        sigma_power=getattr(runtime, "sigma_power", None),
+        sigma2_osc=getattr(runtime, "sigma2_osc", None),
+        sigma2_se=getattr(runtime, "sigma2_se", None),
+        sigma2_p=getattr(runtime, "sigma2_p", None),
+        sigma2_total_var=getattr(runtime, "sigma2_total_var", None),
+        sigma2_total_var_lower=getattr(runtime, "sigma2_total_var_lower", None),
+        sigma2_total_var_upper=getattr(runtime, "sigma2_total_var_upper", None),
+        ps=getattr(runtime, "ps", None),
+        sigma2s=getattr(runtime, "sigma2s", None),
+        sigma2s_missing=getattr(runtime, "sigma2s_missing", None),
+    )
+
+
+def apply_hyperparameter_data_to_runtime(runtime, hyper_data):
+    runtime.p = hyper_data.p
+    runtime.sigma2 = hyper_data.sigma2
+    runtime.sigma_power = hyper_data.sigma_power
+    runtime.sigma2_osc = hyper_data.sigma2_osc
+    runtime.sigma2_se = hyper_data.sigma2_se
+    runtime.sigma2_p = hyper_data.sigma2_p
+    runtime.sigma2_total_var = hyper_data.sigma2_total_var
+    runtime.sigma2_total_var_lower = hyper_data.sigma2_total_var_lower
+    runtime.sigma2_total_var_upper = hyper_data.sigma2_total_var_upper
+    runtime.ps = hyper_data.ps
+    runtime.sigma2s = hyper_data.sigma2s
+    runtime.sigma2s_missing = hyper_data.sigma2s_missing
+
+
+def phewas_runtime_state_from_runtime(runtime):
+    return PhewasRuntimeState(
+        phenos=getattr(runtime, "phenos", None),
+        pheno_to_ind=getattr(runtime, "pheno_to_ind", None),
+        gene_pheno_Y=getattr(runtime, "gene_pheno_Y", None),
+        gene_pheno_combined_prior_Ys=getattr(runtime, "gene_pheno_combined_prior_Ys", None),
+        gene_pheno_priors=getattr(runtime, "gene_pheno_priors", None),
+        X_phewas_beta=getattr(runtime, "X_phewas_beta", None),
+        X_phewas_beta_uncorrected=getattr(runtime, "X_phewas_beta_uncorrected", None),
+        num_gene_phewas_filtered=getattr(runtime, "num_gene_phewas_filtered", 0),
+        anchor_gene_mask=getattr(runtime, "anchor_gene_mask", None),
+        anchor_pheno_mask=getattr(runtime, "anchor_pheno_mask", None),
+    )
+
+
+def apply_phewas_runtime_state_to_runtime(runtime, phewas_state):
+    runtime.phenos = phewas_state.phenos
+    runtime.pheno_to_ind = phewas_state.pheno_to_ind
+    runtime.gene_pheno_Y = phewas_state.gene_pheno_Y
+    runtime.gene_pheno_combined_prior_Ys = phewas_state.gene_pheno_combined_prior_Ys
+    runtime.gene_pheno_priors = phewas_state.gene_pheno_priors
+    runtime.X_phewas_beta = phewas_state.X_phewas_beta
+    runtime.X_phewas_beta_uncorrected = phewas_state.X_phewas_beta_uncorrected
+    runtime.num_gene_phewas_filtered = phewas_state.num_gene_phewas_filtered
+    runtime.anchor_gene_mask = phewas_state.anchor_gene_mask
+    runtime.anchor_pheno_mask = phewas_state.anchor_pheno_mask
 
 
 def read_gene_phewas_stats(path, *, bail_fn=None):
