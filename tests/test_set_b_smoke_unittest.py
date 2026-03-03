@@ -216,6 +216,63 @@ class SetBSmokeTest(unittest.TestCase):
         self.assertEqual(manifest["default_inputs"]["gene_stats_in"], "gene_stats.tsv.gz")
         self.assertEqual(manifest["default_inputs"]["gene_set_stats_in"], "gene_set_stats.tsv.gz")
 
+    def test_eaggl_bundle_roundtrip_with_eaggl_repo(self) -> None:
+        eaggl_repo = self.repo_root.parent / "eaggl"
+        eaggl_entry = eaggl_repo / "src/eaggl.py"
+        if not eaggl_entry.exists():
+            raise unittest.SkipTest("Sibling eaggl repo not found; skipping bundle handoff roundtrip test")
+
+        bundle_out = self.tmpdir / "pigean_to_eaggl_roundtrip.tar.gz"
+        pigean_proc = self._run(
+            "beta_tildes",
+            *self._common_x_args(),
+            *self._common_gene_stats_args(),
+            "--gene-set-stats-in",
+            str(self.reference_root / "mody_beta_tildes_gene_set_beta_tilde.tsv"),
+            "--gene-set-stats-id-col",
+            "Gene_Set",
+            "--gene-set-stats-beta-tilde-col",
+            "beta_tilde",
+            "--eaggl-bundle-out",
+            str(bundle_out),
+        )
+        self.assertEqual(
+            pigean_proc.returncode,
+            0,
+            msg=(pigean_proc.stderr or "") + (pigean_proc.stdout or ""),
+        )
+        self.assertTrue(bundle_out.exists(), msg="Expected eaggl bundle to be written")
+
+        eaggl_cmd = [
+            sys.executable,
+            "src/eaggl.py",
+            "factor",
+            "--eaggl-bundle-in",
+            str(bundle_out),
+            "--print-effective-config",
+        ]
+        eaggl_proc = subprocess.run(
+            eaggl_cmd,
+            cwd=eaggl_repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            eaggl_proc.returncode,
+            0,
+            msg=(eaggl_proc.stderr or "") + (eaggl_proc.stdout or ""),
+        )
+        payload = json.loads(eaggl_proc.stdout)
+        options = payload["options"]
+        self.assertIsInstance(options["X_in"], list)
+        self.assertEqual(len(options["X_in"]), 1)
+        self.assertTrue(options["X_in"][0].endswith("X.tsv.gz"))
+        self.assertTrue(options["gene_stats_in"].endswith("gene_stats.tsv.gz"))
+        self.assertTrue(options["gene_set_stats_in"].endswith("gene_set_stats.tsv.gz"))
+        self.assertIn("eaggl_bundle", payload)
+        self.assertEqual(payload["eaggl_bundle"]["schema"], "pigean_eaggl_bundle/v1")
+
 
 if __name__ == "__main__":
     unittest.main()
