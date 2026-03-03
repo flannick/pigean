@@ -904,6 +904,69 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertAlmostEqual(hyper_state.p, rt.p)
         self.assertEqual(phewas_state.phenos, rt.phenos)
 
+    def test_set_runtime_y_from_inputs_helper(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.Y = None
+                self.Y_for_regression = None
+                self.Y_exomes = None
+                self.Y_positive_controls = None
+                self.Y_case_counts = None
+                self.y_var = None
+                self.y_corr = None
+                self.y_corr_cholesky = None
+                self.y_corr_sparse = None
+                self.Y_w = None
+                self.Y_fw = None
+                self.y_w_var = None
+                self.y_w_mean = None
+                self.y_fw_var = None
+                self.y_fw_mean = None
+                self.X_orig = np.array([[1.0], [2.0], [3.0]])
+                self.genes = ["G1", "G2", "G3"]
+                self.gene_sets = ["S1"]
+                self.X_orig_missing_gene_sets = np.array([[1.0], [0.0], [1.0]])
+                self.mean_shifts_missing = None
+                self.scale_factors_missing = None
+
+        rt = _Runtime()
+        set_x_calls = []
+        calc_calls = []
+        Y = np.array([1.0, 2.0, 3.0])
+        Y_corr_m = np.array(
+            [
+                [1.0, 0.1, 0.1],
+                [0.5, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+
+        y_state = pegs_utils.set_runtime_y_from_inputs(
+            runtime=rt,
+            Y=Y,
+            Y_for_regression=np.array([1.0, 2.0, 3.0]),
+            Y_corr_m=Y_corr_m,
+            store_cholesky=True,
+            store_corr_sparse=True,
+            get_y_corr_cholesky_fn=lambda _m: np.ones((1, len(Y))),
+            set_X_fn=lambda *args, **kwargs: set_x_calls.append((args, kwargs)),
+            calc_X_shift_scale_fn=lambda *args, **kwargs: (
+                calc_calls.append((args, kwargs)) or (np.array([0.0]), np.array([1.0]))
+            ),
+        )
+
+        self.assertTrue(np.array_equal(rt.Y, Y, equal_nan=True))
+        self.assertAlmostEqual(rt.y_var, np.var(Y))
+        self.assertEqual(rt.y_corr.shape[0], 2)
+        self.assertEqual(rt.y_corr_cholesky.shape, (1, 3))
+        self.assertIsNotNone(rt.y_corr_sparse)
+        self.assertEqual(len(set_x_calls), 1)
+        self.assertEqual(len(calc_calls), 1)
+        self.assertTrue(np.array_equal(rt.mean_shifts_missing, np.array([0.0])))
+        self.assertTrue(np.array_equal(rt.scale_factors_missing, np.array([1.0])))
+        self.assertTrue(np.array_equal(y_state.y_corr_cholesky, rt.y_corr_cholesky))
+
     def test_apply_parsed_gene_set_statistics_to_runtime(self) -> None:
         class _Runtime:
             def __init__(self) -> None:

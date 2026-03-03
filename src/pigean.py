@@ -59,6 +59,7 @@ try:
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
         load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
         load_and_apply_gene_set_statistics_to_runtime as pegs_load_and_apply_gene_set_statistics_to_runtime,
+        set_runtime_y_from_inputs as pegs_set_runtime_y_from_inputs,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -126,6 +127,7 @@ except ImportError:
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
         load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
         load_and_apply_gene_set_statistics_to_runtime as pegs_load_and_apply_gene_set_statistics_to_runtime,
+        set_runtime_y_from_inputs as pegs_set_runtime_y_from_inputs,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -10373,70 +10375,26 @@ class PigeanState(object):
     #Y is whitened if Y_corr_m is not null
     def _set_Y(self, Y, Y_for_regression=None, Y_exomes=None, Y_positive_controls=None, Y_case_counts=None, Y_corr_m=None, store_cholesky=True, store_corr_sparse=False, skip_V=False, skip_scale_factors=False, min_correlation=0):
         log("Setting Y", TRACE)
-
         self.last_X_block = None
-        if Y_corr_m is not None:
-
-            if min_correlation is not None:
-                #set things too far away to 0
-                Y_corr_m[Y_corr_m <= 0] = 0
-
-            #remove bands at the end that are all zero
-            keep_mask = np.array([True] * len(Y_corr_m))
-            for i in range(len(Y_corr_m)-1, -1, -1):
-                if sum(Y_corr_m[i] != 0) == 0:
-                    keep_mask[i] = False
-                else:
-                    break
-            if sum(keep_mask) > 0:
-                Y_corr_m = Y_corr_m[keep_mask]
-
-            #scale factor for diagonal to ensure non-singularity
-            self.y_corr = copy.copy(Y_corr_m)
-
-            y_corr_diags = [self.y_corr[i,:(len(self.y_corr[i,:]) - i)] for i in range(len(self.y_corr))]
-            y_corr_sparse = sparse.csc_matrix(sparse.diags(y_corr_diags + y_corr_diags[1:], list(range(len(y_corr_diags))) + list(range(-1, -len(y_corr_diags), -1))))            
-
-            if store_cholesky:
-                self.y_corr_cholesky = self._get_y_corr_cholesky(Y_corr_m)
-                log("Banded cholesky matrix: shape %s, %s" % (self.y_corr_cholesky.shape[0], self.y_corr_cholesky.shape[1]), DEBUG)
-                #whitened
-                self.Y_w = scipy.linalg.solve_banded((self.y_corr_cholesky.shape[0]-1, 0), self.y_corr_cholesky, Y)
-                na_mask = ~np.isnan(self.Y_w)
-                self.y_w_var = np.var(self.Y_w[na_mask])
-                self.y_w_mean = np.mean(self.Y_w[na_mask])
-                self.Y_w = self.Y_w - self.y_w_mean
-                #fully whitened
-                self.Y_fw = scipy.linalg.cho_solve_banded((self.y_corr_cholesky, True), Y)
-                na_mask = ~np.isnan(self.Y_fw)
-                self.y_fw_var = np.var(self.Y_fw[na_mask])
-                self.y_fw_mean = np.mean(self.Y_fw[na_mask])
-                self.Y_fw = self.Y_fw - self.y_fw_mean
-
-                #update the scale factors and mean shifts for the whitened X
-                self._set_X(self.X_orig, self.genes, self.gene_sets, skip_V=skip_V, skip_scale_factors=skip_scale_factors, skip_N=True)
-                if self.X_orig_missing_gene_sets is not None and not skip_scale_factors:
-            
-                    (self.mean_shifts_missing, self.scale_factors_missing) = self._calc_X_shift_scale(self.X_orig_missing_gene_sets, self.y_corr_cholesky)
-
-            if store_corr_sparse:
-
-                self.y_corr_sparse = y_corr_sparse
-
-        if Y is not None:
-            na_mask = ~np.isnan(Y)
-            self.y_var = np.var(Y[na_mask])
-        else:
-            self.y_var = None
-        #DO WE NEED THIS???
-        #self.y_mean = np.mean(Y[na_mask])
-        #self.Y = Y - self.y_mean
-        self.Y = Y
-        self.Y_for_regression = Y_for_regression
-        self.Y_exomes = Y_exomes
-        self.Y_positive_controls = Y_positive_controls
-        self.Y_case_counts = Y_case_counts
-        self.y_state = pegs_sync_y_state(self)
+        self.y_state = pegs_set_runtime_y_from_inputs(
+            runtime=self,
+            Y=Y,
+            Y_for_regression=Y_for_regression,
+            Y_exomes=Y_exomes,
+            Y_positive_controls=Y_positive_controls,
+            Y_case_counts=Y_case_counts,
+            Y_corr_m=Y_corr_m,
+            store_cholesky=store_cholesky,
+            store_corr_sparse=store_corr_sparse,
+            skip_V=skip_V,
+            skip_scale_factors=skip_scale_factors,
+            min_correlation=min_correlation,
+            get_y_corr_cholesky_fn=self._get_y_corr_cholesky,
+            set_X_fn=self._set_X,
+            calc_X_shift_scale_fn=self._calc_X_shift_scale,
+        )
+        if store_cholesky and self.y_corr_cholesky is not None:
+            log("Banded cholesky matrix: shape %s, %s" % (self.y_corr_cholesky.shape[0], self.y_corr_cholesky.shape[1]), DEBUG)
 
     def _get_y_corr_cholesky(self, Y_corr_m):
         Y_corr_m_copy = copy.copy(Y_corr_m)

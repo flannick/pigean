@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import scipy.stats
+import scipy.linalg
 import scipy.sparse as sparse
 
 EAGGL_BUNDLE_SCHEMA = "pigean_eaggl_bundle/v1"
@@ -1338,6 +1339,132 @@ def y_data_from_runtime(runtime):
         y_fw_var=getattr(runtime, "y_fw_var", None),
         y_fw_mean=getattr(runtime, "y_fw_mean", None),
     )
+
+
+def build_y_data_from_inputs(
+    runtime,
+    Y,
+    Y_for_regression=None,
+    Y_exomes=None,
+    Y_positive_controls=None,
+    Y_case_counts=None,
+    Y_corr_m=None,
+    store_cholesky=True,
+    store_corr_sparse=False,
+    skip_V=False,
+    skip_scale_factors=False,
+    min_correlation=0,
+    get_y_corr_cholesky_fn=None,
+    set_X_fn=None,
+    calc_X_shift_scale_fn=None,
+):
+    y_data = y_data_from_runtime(runtime)
+    if Y_corr_m is not None:
+        y_corr_m = copy.copy(Y_corr_m)
+        if min_correlation is not None:
+            # preserve existing behavior: zero-out non-positive correlations
+            y_corr_m[y_corr_m <= 0] = 0
+
+        keep_mask = np.array([True] * len(y_corr_m))
+        for i in range(len(y_corr_m) - 1, -1, -1):
+            if np.sum(y_corr_m[i] != 0) == 0:
+                keep_mask[i] = False
+            else:
+                break
+        if np.sum(keep_mask) > 0:
+            y_corr_m = y_corr_m[keep_mask]
+
+        y_data.y_corr = copy.copy(y_corr_m)
+
+        y_corr_diags = [y_data.y_corr[i, :(len(y_data.y_corr[i, :]) - i)] for i in range(len(y_data.y_corr))]
+        y_corr_sparse = sparse.csc_matrix(
+            sparse.diags(
+                y_corr_diags + y_corr_diags[1:],
+                list(range(len(y_corr_diags))) + list(range(-1, -len(y_corr_diags), -1)),
+            )
+        )
+
+        if store_cholesky:
+            if get_y_corr_cholesky_fn is None:
+                _default_bail("Expected get_y_corr_cholesky_fn when store_cholesky is True")
+            y_data.y_corr_cholesky = get_y_corr_cholesky_fn(y_corr_m)
+            y_data.Y_w = scipy.linalg.solve_banded(
+                (y_data.y_corr_cholesky.shape[0] - 1, 0), y_data.y_corr_cholesky, Y
+            )
+            na_mask = ~np.isnan(y_data.Y_w)
+            y_data.y_w_var = np.var(y_data.Y_w[na_mask])
+            y_data.y_w_mean = np.mean(y_data.Y_w[na_mask])
+            y_data.Y_w = y_data.Y_w - y_data.y_w_mean
+
+            y_data.Y_fw = scipy.linalg.cho_solve_banded((y_data.y_corr_cholesky, True), Y)
+            na_mask = ~np.isnan(y_data.Y_fw)
+            y_data.y_fw_var = np.var(y_data.Y_fw[na_mask])
+            y_data.y_fw_mean = np.mean(y_data.Y_fw[na_mask])
+            y_data.Y_fw = y_data.Y_fw - y_data.y_fw_mean
+
+            if set_X_fn is not None:
+                set_X_fn(runtime.X_orig, runtime.genes, runtime.gene_sets, skip_V=skip_V, skip_scale_factors=skip_scale_factors, skip_N=True)
+            if (
+                calc_X_shift_scale_fn is not None
+                and runtime.X_orig_missing_gene_sets is not None
+                and not skip_scale_factors
+            ):
+                runtime.mean_shifts_missing, runtime.scale_factors_missing = calc_X_shift_scale_fn(
+                    runtime.X_orig_missing_gene_sets, y_data.y_corr_cholesky
+                )
+
+        if store_corr_sparse:
+            y_data.y_corr_sparse = y_corr_sparse
+
+    if Y is not None:
+        na_mask = ~np.isnan(Y)
+        y_data.y_var = np.var(Y[na_mask])
+    else:
+        y_data.y_var = None
+    y_data.Y = Y
+    y_data.Y_for_regression = Y_for_regression
+    y_data.Y_exomes = Y_exomes
+    y_data.Y_positive_controls = Y_positive_controls
+    y_data.Y_case_counts = Y_case_counts
+    return y_data
+
+
+def set_runtime_y_from_inputs(
+    runtime,
+    Y,
+    Y_for_regression=None,
+    Y_exomes=None,
+    Y_positive_controls=None,
+    Y_case_counts=None,
+    Y_corr_m=None,
+    store_cholesky=True,
+    store_corr_sparse=False,
+    skip_V=False,
+    skip_scale_factors=False,
+    min_correlation=0,
+    get_y_corr_cholesky_fn=None,
+    set_X_fn=None,
+    calc_X_shift_scale_fn=None,
+):
+    y_data = build_y_data_from_inputs(
+        runtime=runtime,
+        Y=Y,
+        Y_for_regression=Y_for_regression,
+        Y_exomes=Y_exomes,
+        Y_positive_controls=Y_positive_controls,
+        Y_case_counts=Y_case_counts,
+        Y_corr_m=Y_corr_m,
+        store_cholesky=store_cholesky,
+        store_corr_sparse=store_corr_sparse,
+        skip_V=skip_V,
+        skip_scale_factors=skip_scale_factors,
+        min_correlation=min_correlation,
+        get_y_corr_cholesky_fn=get_y_corr_cholesky_fn,
+        set_X_fn=set_X_fn,
+        calc_X_shift_scale_fn=calc_X_shift_scale_fn,
+    )
+    apply_y_data_to_runtime(runtime, y_data)
+    return y_data
 
 
 def apply_y_data_to_runtime(runtime, y_data):
