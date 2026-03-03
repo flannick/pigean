@@ -726,14 +726,6 @@ REMOVED_OPTION_REPLACEMENTS = {
     "max_no_write_gene_pheno": "__MOVED_TO_EAGGL__",
 }
 
-
-def _format_removed_option_message(option_name, replacement, context, config_path=None):
-    try:
-        return pegs_format_removed_option_message(option_name, replacement, context, config_path=config_path)
-    except ValueError as _err:
-        bail("Internal error: %s" % _err)
-
-
 _apply_cli_help_layout(parser)
 _apply_cli_option_groups(parser)
 
@@ -746,7 +738,7 @@ for _arg in argv_parse:
     _normalized = _flag[2:].replace("-", "_")
     if _normalized in REMOVED_OPTION_REPLACEMENTS:
         replacement = REMOVED_OPTION_REPLACEMENTS[_normalized]
-        sys.stderr.write("%s\n" % _format_removed_option_message(_flag, replacement, context="cli"))
+        sys.stderr.write("%s\n" % pegs_format_removed_option_message(_flag, replacement, context="cli"))
         sys.exit(2)
 
 (options, args) = parser.parse_args(argv_parse)
@@ -781,7 +773,7 @@ if options.config is not None:
         early_warn_fn=_early_warn,
         bail_fn=bail,
         removed_option_replacements=REMOVED_OPTION_REPLACEMENTS,
-        format_removed_option_message_fn=_format_removed_option_message,
+        format_removed_option_message_fn=pegs_format_removed_option_message,
         config_specified_dests=config_specified_dests,
     )
 
