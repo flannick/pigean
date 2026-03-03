@@ -82,6 +82,17 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertEqual(meta["size_bytes"], path.stat().st_size)
             self.assertRegex(meta["sha256"], r"^[0-9a-f]{64}$")
 
+    def test_resolve_column_index_supports_name_and_1_based_index(self) -> None:
+        header = ["gene", "log_bf", "prior"]
+        self.assertEqual(pegs_utils.resolve_column_index("log_bf", header), 1)
+        self.assertEqual(pegs_utils.resolve_column_index(3, header), 2)
+        self.assertEqual(pegs_utils.resolve_column_index("3", header), 2)
+        self.assertIsNone(pegs_utils.resolve_column_index("missing", header, require_match=False))
+        with self.assertRaisesRegex(ValueError, "Could not find match for column"):
+            pegs_utils.resolve_column_index("missing", header)
+        with self.assertRaisesRegex(ValueError, "1-based"):
+            pegs_utils.resolve_column_index(0, header)
+
 
 if __name__ == "__main__":
     unittest.main()

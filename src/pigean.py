@@ -47,6 +47,7 @@ try:
         merge_dicts as pegs_merge_dicts,
         open_text_auto as pegs_open_text_auto,
         require_existing_nonempty_file as pegs_require_existing_nonempty_file,
+        resolve_column_index as pegs_resolve_column_index,
         resolve_config_path_value as pegs_resolve_config_path_value,
         stage_file_into_dir as pegs_stage_file_into_dir,
         urlopen_with_retry as pegs_urlopen_with_retry,
@@ -71,6 +72,7 @@ except ImportError:
         merge_dicts as pegs_merge_dicts,
         open_text_auto as pegs_open_text_auto,
         require_existing_nonempty_file as pegs_require_existing_nonempty_file,
+        resolve_column_index as pegs_resolve_column_index,
         resolve_config_path_value as pegs_resolve_config_path_value,
         stage_file_into_dir as pegs_stage_file_into_dir,
         urlopen_with_retry as pegs_urlopen_with_retry,
@@ -15512,22 +15514,12 @@ def _construct_map_to_ind(values):
 
 
 def _get_col(col_name_or_index, header_cols, require_match=True):
-    try:
-        if col_name_or_index is None:
-            raise ValueError
-        if int(col_name_or_index) <= 0:
-            bail("All column ids specified as indices are 1-based")
-        return(int(col_name_or_index) - 1)
-    except ValueError:
-        matching_cols = [i for i in range(0, len(header_cols)) if header_cols[i] == col_name_or_index]
-        if len(matching_cols) == 0:
-            if require_match:
-                bail("Could not find match for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
-            else:
-                return None
-        if len(matching_cols) > 1:
-            bail("Found two matches for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
-        return matching_cols[0]
+    return pegs_resolve_column_index(
+        col_name_or_index,
+        header_cols,
+        require_match=require_match,
+        bail_fn=bail,
+    )
 
 
 def _determine_columns_from_file(filename):

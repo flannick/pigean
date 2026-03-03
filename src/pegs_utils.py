@@ -289,6 +289,31 @@ def json_safe(value):
     return value
 
 
+def resolve_column_index(col_name_or_index, header_cols, require_match=True, *, bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    try:
+        col_ind = int(col_name_or_index)
+    except (TypeError, ValueError):
+        col_ind = None
+
+    if col_ind is not None:
+        if col_ind <= 0:
+            bail_fn("All column ids specified as indices are 1-based")
+        return col_ind - 1
+
+    matching_cols = [i for i in range(0, len(header_cols)) if header_cols[i] == col_name_or_index]
+    if len(matching_cols) == 0:
+        if require_match:
+            bail_fn("Could not find match for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
+        else:
+            return None
+    if len(matching_cols) > 1:
+        bail_fn("Found two matches for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
+    return matching_cols[0]
+
+
 def iter_parser_options(parser):
     for option in parser.option_list:
         if option is not None and option.dest is not None:
