@@ -15,6 +15,7 @@ import urllib.request
 
 import numpy as np
 import scipy.stats
+import scipy.sparse as sparse
 
 EAGGL_BUNDLE_SCHEMA = "pigean_eaggl_bundle/v1"
 EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS = set([
@@ -1721,3 +1722,111 @@ def read_huge_statistics_covariates_if_present(runtime_state, paths, *, open_tex
                 continue
             covariate_rows.append([float(x) for x in cols[1:]])
     runtime_state["gene_covariates"] = np.array(covariate_rows)
+
+
+def load_huge_statistics_sparse_and_vectors(runtime_state, paths, meta, *, read_vector_fn):
+    huge_signal_bfs_shape = tuple(meta["huge_signal_bfs_shape"])
+    huge_signal_bfs_for_regression_shape = tuple(meta["huge_signal_bfs_for_regression_shape"])
+
+    sparse_components = {
+        "bfs_data": read_vector_fn(paths["bfs_data"], value_type=float),
+        "bfs_indices": read_vector_fn(paths["bfs_indices"], value_type=int),
+        "bfs_indptr": read_vector_fn(paths["bfs_indptr"], value_type=int),
+        "bfs_reg_data": read_vector_fn(paths["bfs_reg_data"], value_type=float),
+        "bfs_reg_indices": read_vector_fn(paths["bfs_reg_indices"], value_type=int),
+        "bfs_reg_indptr": read_vector_fn(paths["bfs_reg_indptr"], value_type=int),
+    }
+
+    runtime_state["huge_signal_bfs"] = sparse.csc_matrix(
+        (sparse_components["bfs_data"], sparse_components["bfs_indices"], sparse_components["bfs_indptr"]),
+        shape=huge_signal_bfs_shape,
+    )
+    runtime_state["huge_signal_bfs_for_regression"] = sparse.csc_matrix(
+        (sparse_components["bfs_reg_data"], sparse_components["bfs_reg_indices"], sparse_components["bfs_reg_indptr"]),
+        shape=huge_signal_bfs_for_regression_shape,
+    )
+
+    runtime_vector_map = (
+        ("huge_signal_posteriors", "signal_posteriors"),
+        ("huge_signal_posteriors_for_regression", "signal_posteriors_for_regression"),
+        ("huge_signal_sum_gene_cond_probabilities", "signal_sum_gene_cond_probabilities"),
+        ("huge_signal_sum_gene_cond_probabilities_for_regression", "signal_sum_gene_cond_probabilities_for_regression"),
+        ("huge_signal_mean_gene_pos", "signal_mean_gene_pos"),
+        ("huge_signal_mean_gene_pos_for_regression", "signal_mean_gene_pos_for_regression"),
+    )
+    for state_key, path_key in runtime_vector_map:
+        runtime_state[state_key] = read_vector_fn(paths[path_key], value_type=float)
+
+
+def apply_huge_statistics_meta_to_runtime(runtime_state, meta):
+    runtime_state["huge_signal_max_closest_gene_prob"] = meta["huge_signal_max_closest_gene_prob"]
+    runtime_state["huge_cap_region_posterior"] = bool(meta["huge_cap_region_posterior"])
+    runtime_state["huge_scale_region_posterior"] = bool(meta["huge_scale_region_posterior"])
+    runtime_state["huge_phantom_region_posterior"] = bool(meta["huge_phantom_region_posterior"])
+    runtime_state["huge_allow_evidence_of_absence"] = bool(meta["huge_allow_evidence_of_absence"])
+    runtime_state["huge_sparse_mode"] = bool(meta["huge_sparse_mode"])
+    runtime_state["huge_signals"] = [tuple(x) for x in meta["huge_signals"]]
+
+    runtime_state["gene_covariates"] = None
+    runtime_state["gene_covariates_mask"] = None
+    runtime_state["gene_covariate_names"] = meta.get("gene_covariate_names")
+    runtime_state["gene_covariate_directions"] = None
+    if meta.get("gene_covariate_directions") is not None:
+        runtime_state["gene_covariate_directions"] = np.array(meta["gene_covariate_directions"], dtype=float)
+    runtime_state["gene_covariate_intercept_index"] = meta.get("gene_covariate_intercept_index")
+    runtime_state["gene_covariates_mat_inv"] = None
+    runtime_state["gene_covariate_zs"] = None
+    runtime_state["gene_covariate_adjustments"] = None
+
+    runtime_state["gene_covariate_slope_defaults"] = None if meta.get("gene_covariate_slope_defaults") is None else np.array(meta.get("gene_covariate_slope_defaults"), dtype=float)
+    runtime_state["total_qc_metric_betas_defaults"] = None if meta.get("total_qc_metric_betas_defaults") is None else np.array(meta.get("total_qc_metric_betas_defaults"), dtype=float)
+    runtime_state["total_qc_metric_intercept_defaults"] = meta.get("total_qc_metric_intercept_defaults")
+    runtime_state["total_qc_metric2_betas_defaults"] = None if meta.get("total_qc_metric2_betas_defaults") is None else np.array(meta.get("total_qc_metric2_betas_defaults"), dtype=float)
+    runtime_state["total_qc_metric2_intercept_defaults"] = meta.get("total_qc_metric2_intercept_defaults")
+
+
+def combine_runtime_huge_scores(runtime_state):
+    if runtime_state.get("gene_to_gwas_huge_score") is not None and runtime_state.get("gene_to_exomes_huge_score") is not None:
+        runtime_state["gene_to_huge_score"] = {}
+        genes = list(set().union(runtime_state["gene_to_gwas_huge_score"], runtime_state["gene_to_exomes_huge_score"]))
+        for gene in genes:
+            runtime_state["gene_to_huge_score"][gene] = 0
+            if gene in runtime_state["gene_to_gwas_huge_score"]:
+                runtime_state["gene_to_huge_score"][gene] += runtime_state["gene_to_gwas_huge_score"][gene]
+            if gene in runtime_state["gene_to_exomes_huge_score"]:
+                runtime_state["gene_to_huge_score"][gene] += runtime_state["gene_to_exomes_huge_score"][gene]
+
+
+def validate_huge_statistics_loaded_shapes(runtime_state, matrix_row_genes, *, bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if runtime_state["huge_signal_bfs"].shape[1] != len(runtime_state["huge_signals"]):
+        bail_fn("HuGE cache is inconsistent: huge_signal_bfs has %d columns but found %d signals" % (runtime_state["huge_signal_bfs"].shape[1], len(runtime_state["huge_signals"])))
+    if runtime_state["huge_signal_bfs"].shape[0] != len(matrix_row_genes):
+        bail_fn("HuGE cache is inconsistent: huge_signal_bfs has %d rows but found %d matrix-row genes" % (runtime_state["huge_signal_bfs"].shape[0], len(matrix_row_genes)))
+
+
+def write_huge_statistics_runtime_vectors(paths, runtime_state, *, write_vector_fn):
+    runtime_vector_map = (
+        ("signal_posteriors", "huge_signal_posteriors"),
+        ("signal_posteriors_for_regression", "huge_signal_posteriors_for_regression"),
+        ("signal_sum_gene_cond_probabilities", "huge_signal_sum_gene_cond_probabilities"),
+        ("signal_sum_gene_cond_probabilities_for_regression", "huge_signal_sum_gene_cond_probabilities_for_regression"),
+        ("signal_mean_gene_pos", "huge_signal_mean_gene_pos"),
+        ("signal_mean_gene_pos_for_regression", "huge_signal_mean_gene_pos_for_regression"),
+    )
+    for path_key, state_key in runtime_vector_map:
+        write_vector_fn(paths[path_key], runtime_state.get(state_key), value_type=float)
+
+
+def write_huge_statistics_sparse_components(paths, huge_signal_bfs, huge_signal_bfs_for_regression, *, write_vector_fn):
+    sparse_vector_map = (
+        ("bfs_data", huge_signal_bfs.data, float),
+        ("bfs_indices", huge_signal_bfs.indices, int),
+        ("bfs_indptr", huge_signal_bfs.indptr, int),
+        ("bfs_reg_data", huge_signal_bfs_for_regression.data, float),
+        ("bfs_reg_indices", huge_signal_bfs_for_regression.indices, int),
+        ("bfs_reg_indptr", huge_signal_bfs_for_regression.indptr, int),
+    )
+    for path_key, values, value_type in sparse_vector_map:
+        write_vector_fn(paths[path_key], values, value_type=value_type)

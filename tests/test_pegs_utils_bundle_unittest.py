@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import numpy as np
+import scipy.sparse as sparse
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -374,6 +375,91 @@ class PegsUtilsBundleTest(unittest.TestCase):
 
         self.assertEqual(pegs_utils.coerce_runtime_state_dict({"x": 1}, bail_fn=self.fail), {"x": 1})
         self.assertEqual(pegs_utils.coerce_runtime_state_dict(_State(), bail_fn=self.fail)["value"], 1)
+
+    def test_huge_meta_apply_combine_and_validate_helpers(self) -> None:
+        runtime = {}
+        meta = {
+            "huge_signal_max_closest_gene_prob": 0.9,
+            "huge_cap_region_posterior": True,
+            "huge_scale_region_posterior": False,
+            "huge_phantom_region_posterior": False,
+            "huge_allow_evidence_of_absence": False,
+            "huge_sparse_mode": False,
+            "huge_signals": [["1", 100, 1.0, None]],
+            "gene_covariate_names": ["c1"],
+            "gene_covariate_directions": [1.0],
+            "gene_covariate_intercept_index": 0,
+            "gene_covariate_slope_defaults": [0.1],
+            "total_qc_metric_betas_defaults": [0.2],
+            "total_qc_metric_intercept_defaults": 0.3,
+            "total_qc_metric2_betas_defaults": [0.4],
+            "total_qc_metric2_intercept_defaults": 0.5,
+        }
+        pegs_utils.apply_huge_statistics_meta_to_runtime(runtime, meta)
+        self.assertEqual(runtime["huge_signal_max_closest_gene_prob"], 0.9)
+        self.assertEqual(len(runtime["huge_signals"]), 1)
+
+        runtime["gene_to_gwas_huge_score"] = {"G1": 1.0}
+        runtime["gene_to_exomes_huge_score"] = {"G1": 0.5, "G2": 1.5}
+        pegs_utils.combine_runtime_huge_scores(runtime)
+        self.assertEqual(runtime["gene_to_huge_score"]["G1"], 1.5)
+        self.assertEqual(runtime["gene_to_huge_score"]["G2"], 1.5)
+
+        runtime["huge_signal_bfs"] = sparse.csc_matrix(np.zeros((2, 1)))
+        pegs_utils.validate_huge_statistics_loaded_shapes(runtime, ["G1", "G2"], bail_fn=self.fail)
+        with self.assertRaisesRegex(ValueError, "inconsistent"):
+            pegs_utils.validate_huge_statistics_loaded_shapes(
+                runtime,
+                ["G1"],
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+
+    def test_huge_sparse_vector_helpers_roundtrip_with_callbacks(self) -> None:
+        values_map = {
+            "bfs_data": np.array([1.0, 2.0]),
+            "bfs_indices": np.array([0, 1], dtype=int),
+            "bfs_indptr": np.array([0, 1, 2], dtype=int),
+            "bfs_reg_data": np.array([1.5, 2.5]),
+            "bfs_reg_indices": np.array([0, 1], dtype=int),
+            "bfs_reg_indptr": np.array([0, 1, 2], dtype=int),
+            "signal_posteriors": np.array([0.1, 0.2]),
+            "signal_posteriors_for_regression": np.array([0.1, 0.2]),
+            "signal_sum_gene_cond_probabilities": np.array([0.3, 0.4]),
+            "signal_sum_gene_cond_probabilities_for_regression": np.array([0.3, 0.4]),
+            "signal_mean_gene_pos": np.array([10.0, 20.0]),
+            "signal_mean_gene_pos_for_regression": np.array([10.0, 20.0]),
+        }
+        paths = {k: k for k in values_map.keys()}
+        runtime = {}
+        meta = {
+            "huge_signal_bfs_shape": [2, 2],
+            "huge_signal_bfs_for_regression_shape": [2, 2],
+        }
+
+        def _reader(path, value_type=float):
+            arr = values_map[path]
+            if value_type == int:
+                return arr.astype(int)
+            return arr.astype(float)
+
+        pegs_utils.load_huge_statistics_sparse_and_vectors(runtime, paths, meta, read_vector_fn=_reader)
+        self.assertEqual(runtime["huge_signal_bfs"].shape, (2, 2))
+        self.assertEqual(runtime["huge_signal_posteriors"].shape[0], 2)
+
+        written = {}
+
+        def _writer(path, values, value_type=float):
+            written[path] = np.array(values)
+
+        pegs_utils.write_huge_statistics_runtime_vectors(paths, runtime, write_vector_fn=_writer)
+        pegs_utils.write_huge_statistics_sparse_components(
+            paths,
+            runtime["huge_signal_bfs"],
+            runtime["huge_signal_bfs_for_regression"],
+            write_vector_fn=_writer,
+        )
+        self.assertIn("signal_posteriors", written)
+        self.assertIn("bfs_data", written)
 
     def test_complete_p_beta_se_fills_missing_values(self) -> None:
         p = np.array([np.nan, 0.05, 0.2], dtype=float)
