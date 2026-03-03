@@ -4,6 +4,12 @@ import shutil
 import tarfile
 import tempfile
 import hashlib
+import gzip
+import io
+import re
+import time
+import urllib.error
+import urllib.request
 
 import numpy as np
 
@@ -15,6 +21,9 @@ EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS = set([
     "gene_phewas_bfs_in",
     "gene_set_phewas_stats_in",
 ])
+
+DIG_OPEN_DATA_PREFIX = "dig-open-data:"
+DIG_OPEN_DATA_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
 
 
 def _default_bail(message):
@@ -89,6 +98,179 @@ def resolve_config_path_value(value, config_dir):
     if os.path.isabs(expanded):
         return os.path.normpath(expanded)
     return os.path.normpath(os.path.join(config_dir, expanded))
+
+
+def urlopen_with_retry(
+    file,
+    flag=None,
+    tries=5,
+    delay=60,
+    backoff=2,
+    *,
+    log_fn=None,
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    while tries > 1:
+        try:
+            if flag is not None:
+                return urllib.request.urlopen(file, flag)
+            return urllib.request.urlopen(file)
+        except urllib.error.URLError as e:
+            if log_fn is not None:
+                log_fn("%s, Retrying in %d seconds..." % (str(e), delay))
+            time.sleep(delay)
+            tries -= 1
+            delay *= backoff
+    bail_fn("Couldn't open file after too many retries")
+
+
+def is_dig_open_data_uri(filepath):
+    return isinstance(filepath, str) and filepath.startswith(DIG_OPEN_DATA_PREFIX)
+
+
+def is_dig_open_data_ancestry_trait_spec(spec):
+    if not isinstance(spec, str):
+        return False
+    if spec.count(":") != 1:
+        return False
+    ancestry, trait = spec.split(":", 1)
+    if len(ancestry) == 0 or len(trait) == 0:
+        return False
+    if "/" in ancestry or "/" in trait:
+        return False
+    if not DIG_OPEN_DATA_TOKEN_RE.match(ancestry):
+        return False
+    if not DIG_OPEN_DATA_TOKEN_RE.match(trait):
+        return False
+    return True
+
+
+def open_dig_open_data(uri, flag=None, *, log_fn=None, bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    if flag is not None and "w" in flag:
+        bail_fn("dig-open-data sources are read-only and cannot be opened for writing")
+
+    spec = uri[len(DIG_OPEN_DATA_PREFIX):]
+    if len(spec.strip()) == 0:
+        bail_fn("Invalid dig-open-data source '%s'; expected dig-open-data:<ancestry>:<trait>" % uri)
+
+    try:
+        from dig_open_data import open_text, open_trait
+    except ImportError:
+        bail_fn("dig_open_data is required to read '%s'. Install https://github.com/flannick/dig-open-data/" % uri)
+
+    if is_dig_open_data_ancestry_trait_spec(spec):
+        ancestry, trait = spec.split(":", 1)
+        if log_fn is not None:
+            log_fn("Reading dig-open-data trait ancestry=%s trait=%s" % (ancestry, trait))
+        return open_trait(ancestry, trait)
+
+    if log_fn is not None:
+        log_fn("Reading dig-open-data source %s" % spec)
+    return open_text(spec)
+
+
+def is_gz_file(filepath, is_remote, flag=None, *, urlopen_with_retry_fn=None):
+    open_url_fn = urlopen_with_retry if urlopen_with_retry_fn is None else urlopen_with_retry_fn
+
+    if len(filepath) >= 3 and (filepath[-3:] == ".gz" or filepath[-4:] == ".bgz") and (flag is None or "w" not in flag):
+        try:
+            if is_remote:
+                test_fh = open_url_fn(filepath)
+            else:
+                test_fh = gzip.open(filepath, "rb")
+
+            try:
+                test_fh.readline()
+                test_fh.close()
+                return True
+            except Exception:
+                return False
+        except FileNotFoundError:
+            return True
+
+    elif flag is None or "w" not in flag:
+        test_flag = "rb"
+        if is_remote:
+            test_fh = open_url_fn(filepath, test_flag)
+        else:
+            test_fh = open(filepath, test_flag)
+
+        gz_magic = test_fh.read(2) == b"\x1f\x8b"
+        test_fh.close()
+        return gz_magic
+
+    return filepath[-3:] == ".gz" or filepath[-4:] == ".bgz"
+
+
+def open_text_auto(
+    file,
+    flag=None,
+    *,
+    log_fn=None,
+    bail_fn=None,
+    urlopen_with_retry_fn=None,
+    is_gz_file_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    open_url_fn = urlopen_with_retry if urlopen_with_retry_fn is None else urlopen_with_retry_fn
+    detect_gz_fn = is_gz_file if is_gz_file_fn is None else is_gz_file_fn
+
+    if is_dig_open_data_uri(file):
+        return open_dig_open_data(file, flag=flag, log_fn=log_fn, bail_fn=bail_fn)
+
+    is_remote = is_remote_path(file)
+
+    try:
+        is_gz = detect_gz_fn(
+            file,
+            is_remote,
+            flag=flag,
+            urlopen_with_retry_fn=open_url_fn,
+        )
+    except TypeError:
+        # Backward-compatible path for legacy wrapper call signatures.
+        is_gz = detect_gz_fn(file, is_remote, flag=flag)
+
+    if is_gz:
+        open_fun = gzip.open
+        if flag is not None and len(flag) > 0 and not flag.endswith("t"):
+            flag = "%st" % flag
+        elif flag is None:
+            flag = "rt"
+    else:
+        open_fun = open
+
+    if is_remote:
+        if flag is not None:
+            if open_fun is open:
+                fh = io.TextIOWrapper(open_url_fn(file, flag))
+            else:
+                fh = open_fun(open_url_fn(file), flag)
+        else:
+            if open_fun is open:
+                fh = io.TextIOWrapper(open_url_fn(file))
+            else:
+                fh = open_fun(open_url_fn(file))
+    else:
+        if flag is not None:
+            try:
+                fh = open_fun(file, flag, encoding="utf-8")
+            except LookupError:
+                fh = open_fun(file, flag)
+        else:
+            try:
+                fh = open_fun(file, encoding="utf-8")
+            except LookupError:
+                fh = open_fun(file)
+
+    return fh
 
 
 def json_safe(value):
