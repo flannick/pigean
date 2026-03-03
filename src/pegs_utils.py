@@ -614,6 +614,107 @@ def resolve_bundle_default_inputs(
     return resolved_default_inputs
 
 
+def load_bundle_defaults(
+    bundle_path,
+    expected_schema,
+    allowed_default_inputs,
+    *,
+    bundle_flag_name="--bundle-in",
+    manifest_name="manifest.json",
+    temp_prefix="bundle_in_",
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    extract_dir, manifest = load_bundle_manifest(
+        bundle_path,
+        expected_schema,
+        bundle_flag_name=bundle_flag_name,
+        manifest_name=manifest_name,
+        temp_prefix=temp_prefix,
+        bail_fn=bail_fn,
+    )
+    default_inputs = resolve_bundle_default_inputs(
+        manifest.get("default_inputs"),
+        extract_dir,
+        allowed_default_inputs,
+        bundle_flag_name=bundle_flag_name,
+        bail_fn=bail_fn,
+    )
+    return extract_dir, manifest, default_inputs
+
+
+def ensure_parent_dir_for_file(path):
+    out_dir = os.path.dirname(os.path.abspath(path))
+    if out_dir and not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+
+def require_existing_nonempty_file(
+    path,
+    label,
+    suggestion,
+    *,
+    option_name="--bundle-out",
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        return
+    bail_fn("Cannot write %s: missing %s (%s)" % (option_name, label, suggestion))
+
+
+def stage_file_into_dir(source_path, stage_dir, bundle_name, *, bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if source_path is None or not os.path.exists(source_path):
+        bail_fn("Cannot stage missing file into bundle: %s" % source_path)
+    staged_path = os.path.join(stage_dir, bundle_name)
+    with open(source_path, "rb") as in_fh:
+        with open(staged_path, "wb") as out_fh:
+            shutil.copyfileobj(in_fh, out_fh)
+    return staged_path
+
+
+def build_bundle_manifest(
+    schema,
+    source_tool,
+    source_mode,
+    source_argv,
+    default_inputs,
+    files_metadata,
+):
+    return {
+        "schema": schema,
+        "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "source": {
+            "tool": source_tool,
+            "mode": source_mode,
+            "argv": list(source_argv),
+        },
+        "default_inputs": dict(default_inputs),
+        "files": dict(files_metadata),
+    }
+
+
+def write_bundle_manifest_file(stage_dir, manifest, manifest_name="manifest.json"):
+    manifest_path = os.path.join(stage_dir, manifest_name)
+    with open(manifest_path, "w", encoding="utf-8") as out_fh:
+        json.dump(manifest, out_fh, indent=2, sort_keys=True)
+        out_fh.write("\n")
+    return manifest_path
+
+
+def write_bundle_archive(out_path, tar_mode, stage_dir, staged_file_names, *, manifest_name="manifest.json"):
+    manifest_path = os.path.join(stage_dir, manifest_name)
+    with tarfile.open(out_path, tar_mode) as tar_fh:
+        tar_fh.add(manifest_path, arcname=manifest_name)
+        for bundle_name in sorted(staged_file_names):
+            tar_fh.add(os.path.join(stage_dir, bundle_name), arcname=bundle_name)
+
+
 def hash_file_sha256(path):
     sha = hashlib.sha256()
     with open(path, "rb") as fh:
