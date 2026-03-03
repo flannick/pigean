@@ -38,6 +38,9 @@ try:
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
         clean_chrom_name as pegs_clean_chrom_name,
+        infer_columns_from_table_file as pegs_infer_columns_from_table_file,
+        needs_gwas_column_detection as pegs_needs_gwas_column_detection,
+        autodetect_gwas_columns as pegs_autodetect_gwas_columns,
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
@@ -55,6 +58,7 @@ try:
         load_json_config as pegs_load_json_config,
         merge_dicts as pegs_merge_dicts,
         open_text_auto as pegs_open_text_auto,
+        open_text_with_retry as pegs_open_text_with_retry,
         require_existing_nonempty_file as pegs_require_existing_nonempty_file,
         resolve_column_index as pegs_resolve_column_index,
         resolve_config_path_value as pegs_resolve_config_path_value,
@@ -72,6 +76,9 @@ except ImportError:
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
         clean_chrom_name as pegs_clean_chrom_name,
+        infer_columns_from_table_file as pegs_infer_columns_from_table_file,
+        needs_gwas_column_detection as pegs_needs_gwas_column_detection,
+        autodetect_gwas_columns as pegs_autodetect_gwas_columns,
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
@@ -89,6 +96,7 @@ except ImportError:
         load_json_config as pegs_load_json_config,
         merge_dicts as pegs_merge_dicts,
         open_text_auto as pegs_open_text_auto,
+        open_text_with_retry as pegs_open_text_with_retry,
         require_existing_nonempty_file as pegs_require_existing_nonempty_file,
         resolve_column_index as pegs_resolve_column_index,
         resolve_config_path_value as pegs_resolve_config_path_value,
@@ -1244,18 +1252,11 @@ if options.print_effective_config:
     sys.exit(0)
 
 def open_gz(file, flag=None):
-    open_url_with_retry_fn = lambda _file, _flag=None: pegs_urlopen_with_retry(
-        _file,
-        flag=_flag,
-        log_fn=lambda message: log(message),
-        bail_fn=bail,
-    )
-    return pegs_open_text_auto(
+    return pegs_open_text_with_retry(
         file,
         flag=flag,
         log_fn=lambda message: log(message, INFO),
         bail_fn=bail,
-        urlopen_with_retry_fn=open_url_with_retry_fn,
     )
 
 class PigeanState(object):
@@ -15424,208 +15425,11 @@ def _get_col(col_name_or_index, header_cols, require_match=True):
 
 
 def _determine_columns_from_file(filename):
-    # Try to determine columns for gene_id, var_id, chrom, pos, p, beta, se, freq, n.
-    log("Trying to determine columns from headers and data for %s..." % filename)
-    header = None
-    with open_gz(filename) as fh:
-        header = fh.readline().strip('\n')
-        orig_header_cols = header.split()
-
-        first_line = fh.readline().strip('\n')
-        first_cols = first_line.split()
-
-        if len(orig_header_cols) > len(first_cols):
-            orig_header_cols = header.split('\t')
-
-        header_cols = [x.strip('"').strip("'").strip('\n') for x in orig_header_cols]
-
-        def __get_possible_from_headers(header_cols, possible_headers1, possible_headers2=None):
-            possible = np.full(len(header_cols), False)
-            possible_inds = [i for i in range(len(header_cols)) if header_cols[i].lower().strip('_"') in possible_headers1]
-            if len(possible_inds) == 0 and possible_headers2 is not None:
-                possible_inds = [i for i in range(len(header_cols)) if header_cols[i].lower() in possible_headers2]
-            possible[possible_inds] = True
-            return possible
-
-        possible_gene_id_headers = set(["gene", "id"])
-        possible_var_id_headers = set(["var", "id", "rs", "varid"])
-        possible_chrom_headers = set(["chr", "chrom", "chromosome", "#chrom"])
-        possible_pos_headers = set(["pos", "bp", "position", "base_pair_location"])
-        possible_locus_headers = set(["variant"])
-        possible_p_headers = set(["p-val", "p_val", "pval", "p.value", "p-value", "p_value"])
-        possible_p_headers2 = set(["p"])
-        possible_beta_headers = set(["beta", "effect"])
-        possible_se_headers = set(["se", "std", "stderr", "standard_error"])
-        possible_freq_headers = set(["maf", "freq"])
-        possible_freq_headers2 = set(["af", "effect_allele_frequency"])
-        possible_n_headers = set(["sample", "neff", "TotalSampleSize", "n_samples"])
-        possible_n_headers2 = set(["n"])
-
-        possible_gene_id_cols = __get_possible_from_headers(header_cols, possible_gene_id_headers)
-        possible_var_id_cols = __get_possible_from_headers(header_cols, possible_var_id_headers)
-        possible_chrom_cols = __get_possible_from_headers(header_cols, possible_chrom_headers)
-        possible_locus_cols = __get_possible_from_headers(header_cols, possible_locus_headers)
-        possible_pos_cols = __get_possible_from_headers(header_cols, possible_pos_headers)
-        possible_p_cols = __get_possible_from_headers(header_cols, possible_p_headers, possible_p_headers2)
-        possible_beta_cols = __get_possible_from_headers(header_cols, possible_beta_headers)
-        possible_se_cols = __get_possible_from_headers(header_cols, possible_se_headers)
-        possible_freq_cols = __get_possible_from_headers(header_cols, possible_freq_headers, possible_freq_headers2)
-        possible_n_cols = __get_possible_from_headers(header_cols, possible_n_headers, possible_n_headers2)
-
-        missing_vals = set(["", ".", "-", "na"])
-        num_read = 0
-        max_to_read = 1000
-
-        for line in fh:
-            cols = line.strip('\n').split()
-            seen_non_missing = False
-            if len(cols) != len(header_cols):
-                cols = line.strip('\n').split('\t')
-
-            if len(cols) != len(header_cols):
-                bail("Error: couldn't parse line into same number of columns as header (%d vs. %d)" % (len(cols), len(header_cols)))
-
-            for i in range(len(cols)):
-                token = cols[i].lower()
-
-                if token.lower() in missing_vals:
-                    continue
-
-                seen_non_missing = True
-
-                if possible_gene_id_cols[i]:
-                    try:
-                        val = float(cols[i])
-                        if not int(val) == val:
-                            possible_gene_id_cols[i] = False
-                    except ValueError:
-                        pass
-                if possible_var_id_cols[i]:
-                    if len(token) < 4:
-                        possible_var_id_cols[i] = False
-
-                    if "chr" in token or ":" in token or "rs" in token or "_" in token or "-" in token or "var" in token:
-                        pass
-                    else:
-                        possible_var_id_cols[i] = False
-                if possible_chrom_cols[i]:
-                    if "chr" in token or "x" in token or "y" in token or "m" in token:
-                        pass
-                    else:
-                        try:
-                            val = int(cols[i])
-                            if val < 1 or val > 26:
-                                possible_chrom_cols[i] = False
-                        except ValueError:
-                            possible_chrom_cols[i] = False
-                if possible_locus_cols[i]:
-                    if "chr" in token or "x" in token or "y" in token or "m" in token:
-                        pass
-                    else:
-                        try:
-                            locus = None
-                            for delim in [":", "_"]:
-                                if delim in cols[i]:
-                                    locus = cols[i].split(delim)
-                            if locus is not None and len(locus) >= 2:
-                                chrom = int(locus[0])
-                                pos = int(locus[1])
-                                if chrom < 1 or chrom > 26:
-                                    possible_locus_cols[i] = False
-                        except ValueError:
-                            possible_locus_cols[i] = False
-                if possible_pos_cols[i]:
-                    try:
-                        if len(token) < 3:
-                            possible_pos_cols[i] = False
-                        val = float(cols[i])
-                        if not int(val) == val:
-                            possible_pos_cols[i] = False
-                    except ValueError:
-                        possible_pos_cols[i] = False
-
-                if possible_p_cols[i]:
-                    try:
-                        val = float(cols[i])
-                        if val > 1 or val < 0:
-                            possible_p_cols[i] = False
-                    except ValueError:
-                        possible_p_cols[i] = False
-                if possible_beta_cols[i]:
-                    try:
-                        val = float(cols[i])
-                    except ValueError:
-                        possible_beta_cols[i] = False
-                if possible_se_cols[i]:
-                    try:
-                        val = float(cols[i])
-                        if val < 0:
-                            possible_se_cols[i] = False
-                    except ValueError:
-                        possible_se_cols[i] = False
-                if possible_freq_cols[i]:
-                    try:
-                        val = float(cols[i])
-                        if val > 1 or val < 0:
-                            possible_freq_cols[i] = False
-                    except ValueError:
-                        possible_freq_cols[i] = False
-                if possible_n_cols[i]:
-                    if len(token) < 3:
-                        possible_n_cols[i] = False
-                    else:
-                        try:
-                            val = float(cols[i])
-                            if val < 0:
-                                possible_n_cols[i] = False
-                        except ValueError:
-                            possible_n_cols[i] = False
-            if seen_non_missing:
-                num_read += 1
-                if num_read >= max_to_read:
-                    break
-
-    possible_beta_cols[possible_p_cols] = False
-    possible_beta_cols[possible_se_cols] = False
-    possible_beta_cols[possible_pos_cols] = False
-
-    total_possible = (
-        possible_gene_id_cols.astype(int)
-        + possible_var_id_cols.astype(int)
-        + possible_chrom_cols.astype(int)
-        + possible_pos_cols.astype(int)
-        + possible_p_cols.astype(int)
-        + possible_beta_cols.astype(int)
-        + possible_se_cols.astype(int)
-        + possible_freq_cols.astype(int)
-        + possible_n_cols.astype(int)
-    )
-    for possible_cols in [
-        possible_gene_id_cols,
-        possible_var_id_cols,
-        possible_chrom_cols,
-        possible_pos_cols,
-        possible_p_cols,
-        possible_beta_cols,
-        possible_se_cols,
-        possible_freq_cols,
-        possible_n_cols,
-    ]:
-        possible_cols[total_possible > 1] = False
-
-    orig_header_cols = np.array(orig_header_cols)
-    return (
-        orig_header_cols[possible_gene_id_cols],
-        orig_header_cols[possible_var_id_cols],
-        orig_header_cols[possible_chrom_cols],
-        orig_header_cols[possible_pos_cols],
-        orig_header_cols[possible_locus_cols],
-        orig_header_cols[possible_p_cols],
-        orig_header_cols[possible_beta_cols],
-        orig_header_cols[possible_se_cols],
-        orig_header_cols[possible_freq_cols],
-        orig_header_cols[possible_n_cols],
-        header,
+    return pegs_infer_columns_from_table_file(
+        filename,
+        open_gz,
+        log_fn=lambda message: log(message),
+        bail_fn=bail,
     )
 
 
@@ -15639,13 +15443,16 @@ def _needs_gwas_column_detection(
     gwas_n_col,
     gwas_n,
 ):
-    if (gwas_pos_col is None or gwas_chrom_col is None) and gwas_locus_col is None:
-        return True
-
-    has_se = gwas_se_col is not None or gwas_n_col is not None or gwas_n is not None
-    if (gwas_p_col is not None and gwas_beta_col is not None) or (gwas_p_col is not None and has_se) or (gwas_beta_col is not None and has_se):
-        return False
-    return True
+    return pegs_needs_gwas_column_detection(
+        gwas_pos_col,
+        gwas_chrom_col,
+        gwas_locus_col,
+        gwas_p_col,
+        gwas_beta_col,
+        gwas_se_col,
+        gwas_n_col,
+        gwas_n,
+    )
 
 
 def _autodetect_gwas_columns(
@@ -15661,81 +15468,8 @@ def _autodetect_gwas_columns(
     gwas_n,
     debug_just_check_header=False,
 ):
-    (
-        _possible_gene_id_cols,
-        _possible_var_id_cols,
-        possible_chrom_cols,
-        possible_pos_cols,
-        possible_locus_cols,
-        possible_p_cols,
-        possible_beta_cols,
-        possible_se_cols,
-        possible_freq_cols,
-        possible_n_cols,
-        header,
-    ) = _determine_columns_from_file(gwas_in)
-
-    if gwas_pos_col is None:
-        if len(possible_pos_cols) == 1:
-            gwas_pos_col = possible_pos_cols[0]
-            log("Using %s for position column; change with --gwas-pos-col if incorrect" % gwas_pos_col)
-        else:
-            log("Could not determine position column from header %s; specify with --gwas-pos-col" % header)
-    if gwas_chrom_col is None:
-        if len(possible_chrom_cols) == 1:
-            gwas_chrom_col = possible_chrom_cols[0]
-            log("Using %s for chrom column; change with --gwas-chrom-col if incorrect" % gwas_chrom_col)
-        else:
-            log("Could not determine chrom column from header %s; specify with --gwas-chrom-col" % header)
-    if (gwas_pos_col is None or gwas_chrom_col is None) and gwas_locus_col is None:
-        if len(possible_locus_cols) == 1:
-            gwas_locus_col = possible_locus_cols[0]
-            log("Using %s for locus column; change with --gwas-locus-col if incorrect" % gwas_locus_col)
-        else:
-            bail("Could not determine chrom and pos columns from header %s; specify with --gwas-chrom-col and --gwas-pos-col or with --gwas-locus-col" % header)
-
-    if gwas_p_col is None:
-        if len(possible_p_cols) == 1:
-            gwas_p_col = possible_p_cols[0]
-            log("Using %s for p column; change with --gwas-p-col if incorrect" % gwas_p_col)
-        else:
-            log("Could not determine p column from header %s; if desired specify with --gwas-p-col" % header)
-    if gwas_se_col is None:
-        if len(possible_se_cols) == 1:
-            gwas_se_col = possible_se_cols[0]
-            log("Using %s for se column; change with --gwas-se-col if incorrect" % gwas_se_col)
-        else:
-            log("Could not determine se column from header %s; if desired specify with --gwas-se-col" % header)
-    if gwas_beta_col is None:
-        if len(possible_beta_cols) == 1:
-            gwas_beta_col = possible_beta_cols[0]
-            log("Using %s for beta column; change with --gwas-beta-col if incorrect" % gwas_beta_col)
-        else:
-            log("Could not determine beta column from header %s; if desired specify with --gwas-beta-col" % header)
-
-    if gwas_n_col is None:
-        if len(possible_n_cols) == 1:
-            gwas_n_col = possible_n_cols[0]
-            log("Using %s for N column; change with --gwas-n-col if incorrect" % gwas_n_col)
-        else:
-            log("Could not determine N column from header %s; if desired specify with --gwas-n-col" % header)
-
-    if gwas_freq_col is None:
-        if len(possible_freq_cols) == 1:
-            gwas_freq_col = possible_freq_cols[0]
-            log("Using %s for freq column; change with --gwas-freq-col if incorrect" % gwas_freq_col)
-
-    has_se = gwas_se_col is not None
-    has_n = gwas_n_col is not None or gwas_n is not None
-    if (gwas_p_col is not None and gwas_beta_col is not None) or (gwas_p_col is not None and (has_se or has_n)) or (gwas_beta_col is not None and has_se):
-        pass
-    else:
-        bail("Require information about p-value and se or N or beta, or beta and se; specify with --gwas-p-col, --gwas-beta-col, --gwas-se-col, and --gwas-n-col")
-
-    if debug_just_check_header:
-        bail("Done checking headers")
-
-    return (
+    return pegs_autodetect_gwas_columns(
+        gwas_in,
         gwas_pos_col,
         gwas_chrom_col,
         gwas_locus_col,
@@ -15744,6 +15478,11 @@ def _autodetect_gwas_columns(
         gwas_se_col,
         gwas_freq_col,
         gwas_n_col,
+        gwas_n,
+        infer_columns_fn=_determine_columns_from_file,
+        log_fn=log,
+        bail_fn=bail,
+        debug_just_check_header=debug_just_check_header,
     )
 
 

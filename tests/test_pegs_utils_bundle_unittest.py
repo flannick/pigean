@@ -259,6 +259,75 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertIn("info message", text)
         self.assertIn("Warning: warn message", text)
 
+    def test_infer_columns_from_table_file(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gwas.tsv"
+            path.write_text(
+                "CHROM\tPOS\tP\tBETA\tSE\tN\n1\t12345\t0.02\t0.1\t0.03\t10000\n",
+                encoding="utf-8",
+            )
+
+            result = pegs_utils.infer_columns_from_table_file(
+                str(path),
+                lambda p: open(p, "rt", encoding="utf-8"),
+            )
+            self.assertIn("CHROM", set(result[2]))
+            self.assertIn("POS", set(result[3]))
+            self.assertIn("P", set(result[5]))
+            self.assertIn("BETA", set(result[6]))
+            self.assertIn("SE", set(result[7]))
+            self.assertIn("N", set(result[9]))
+
+    def test_needs_gwas_column_detection(self) -> None:
+        self.assertTrue(
+            pegs_utils.needs_gwas_column_detection(
+                None, None, None, "P", None, "SE", "N", None
+            )
+        )
+        self.assertFalse(
+            pegs_utils.needs_gwas_column_detection(
+                "POS", "CHROM", None, "P", None, "SE", "N", None
+            )
+        )
+
+    def test_autodetect_gwas_columns(self) -> None:
+        inferred = (
+            np.array([]),  # gene id
+            np.array([]),  # var id
+            np.array(["CHROM"]),
+            np.array(["POS"]),
+            np.array([]),  # locus
+            np.array(["P"]),
+            np.array(["BETA"]),
+            np.array(["SE"]),
+            np.array(["AF"]),
+            np.array(["N"]),
+            "CHROM POS P BETA SE AF N",
+        )
+        out = pegs_utils.autodetect_gwas_columns(
+            "dummy",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            infer_columns_fn=lambda _gwas: inferred,
+            log_fn=lambda _m: None,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            debug_just_check_header=False,
+        )
+        self.assertEqual(out[0], "POS")
+        self.assertEqual(out[1], "CHROM")
+        self.assertEqual(out[3], "P")
+        self.assertEqual(out[4], "BETA")
+        self.assertEqual(out[5], "SE")
+        self.assertEqual(out[6], "AF")
+        self.assertEqual(out[7], "N")
+
     def test_complete_p_beta_se_fills_missing_values(self) -> None:
         p = np.array([np.nan, 0.05, 0.2], dtype=float)
         beta = np.array([np.nan, np.nan, 0.2], dtype=float)
