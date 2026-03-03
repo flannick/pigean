@@ -213,6 +213,52 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertIn("foo", cli_specified_dests)
             self.assertIn("input_file", config_specified_dests)
 
+    def test_harmonize_cli_mode_args_prefers_cli_and_fills_from_config(self) -> None:
+        warns = []
+        self.assertEqual(
+            pegs_utils.harmonize_cli_mode_args([], "gibbs", early_warn_fn=warns.append),
+            ["gibbs"],
+        )
+        self.assertEqual(
+            pegs_utils.harmonize_cli_mode_args(["priors"], "gibbs", early_warn_fn=warns.append),
+            ["priors"],
+        )
+        self.assertEqual(len(warns), 1)
+        self.assertIn("Config mode 'gibbs' differs from CLI mode 'priors'", warns[0])
+
+    def test_coerce_option_int_list(self) -> None:
+        self.assertEqual(pegs_utils.coerce_option_int_list(["1", "2", 3], "--x", self.fail), [1, 2, 3])
+        with self.assertRaisesRegex(ValueError, "invalid integer list"):
+            pegs_utils.coerce_option_int_list(
+                ["1", "bad"],
+                "--x",
+                lambda message: (_ for _ in ()).throw(ValueError(message)),
+            )
+
+    def test_initialize_cli_logging(self) -> None:
+        class _Options:
+            log_file = None
+            warnings_file = None
+            debug_level = None
+
+        class _Capture:
+            def __init__(self):
+                self.items = []
+
+            def write(self, message):
+                self.items.append(message)
+
+            def flush(self):
+                return None
+
+        stream = _Capture()
+        state = pegs_utils.initialize_cli_logging(_Options(), stderr_stream=stream, default_debug_level=1)
+        state["log"]("info message", level=state["INFO"])
+        state["warn"]("warn message")
+        text = "".join(stream.items)
+        self.assertIn("info message", text)
+        self.assertIn("Warning: warn message", text)
+
     def test_complete_p_beta_se_fills_missing_values(self) -> None:
         p = np.array([np.nan, 0.05, 0.2], dtype=float)
         beta = np.array([np.nan, np.nan, 0.2], dtype=float)

@@ -42,8 +42,10 @@ try:
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
         fail_removed_cli_aliases as pegs_fail_removed_cli_aliases,
-        open_optional_log_handle as pegs_open_optional_log_handle,
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
+        harmonize_cli_mode_args as pegs_harmonize_cli_mode_args,
+        initialize_cli_logging as pegs_initialize_cli_logging,
+        coerce_option_int_list as pegs_coerce_option_int_list,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
@@ -74,8 +76,10 @@ except ImportError:
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
         fail_removed_cli_aliases as pegs_fail_removed_cli_aliases,
-        open_optional_log_handle as pegs_open_optional_log_handle,
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
+        harmonize_cli_mode_args as pegs_harmonize_cli_mode_args,
+        initialize_cli_logging as pegs_initialize_cli_logging,
+        coerce_option_int_list as pegs_coerce_option_int_list,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
@@ -752,44 +756,21 @@ pegs_fail_removed_cli_aliases(
     track_config_specified_dests=True,
 )
 
-if config_mode is not None:
-    if len(args) < 1:
-        args = [config_mode]
-    elif args[0] != config_mode:
-        _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, args[0]))
+args = pegs_harmonize_cli_mode_args(args, config_mode, early_warn_fn=_early_warn)
 
-log_fh = pegs_open_optional_log_handle(options.log_file, default_stream=sys.stderr, mode="w")
+_logging_state = pegs_initialize_cli_logging(options, stderr_stream=sys.stderr, default_debug_level=1)
+NONE = _logging_state["NONE"]
+INFO = _logging_state["INFO"]
+DEBUG = _logging_state["DEBUG"]
+TRACE = _logging_state["TRACE"]
+debug_level = _logging_state["debug_level"]
+log_fh = _logging_state["log_fh"]
+warnings_fh = _logging_state["warnings_fh"]
+log = _logging_state["log"]
+warn = _logging_state["warn"]
 
-NONE=0
-INFO=1
-DEBUG=2
-TRACE=3
-debug_level = INFO if options.debug_level is None else options.debug_level
-def log(message, level=INFO, end_char='\n'):
-    if level <= debug_level:
-        log_fh.write("%s%s" % (message, end_char))
-        log_fh.flush()
-
-#set up warnings
-warnings_fh = pegs_open_optional_log_handle(options.warnings_file, default_stream=sys.stderr, mode="w")
-
-def warn(message):
-    if warnings_fh is not None:
-        warnings_fh.write("Warning: %s\n" % message)
-        warnings_fh.flush()
-    log(message, level=INFO)
-
-
-def _configure_random_seed(options_obj):
-    pegs_configure_random_seed(options_obj, random, np, log_fn=log, info_level=INFO)
-
-
-_configure_random_seed(options)
-
-try:
-    options.x_sparsify = [int(x) for x in options.x_sparsify]
-except ValueError:
-    bail("option --x-sparsify: invalid integer list %s" % options.x_sparsify)
+pegs_configure_random_seed(options, random, np, log_fn=log, info_level=INFO)
+options.x_sparsify = pegs_coerce_option_int_list(options.x_sparsify, "--x-sparsify", bail)
 
 if len(args) < 1:
     bail(usage)

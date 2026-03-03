@@ -667,6 +667,69 @@ def apply_cli_config_overrides(
     return options_obj, args, config_mode, cli_specified_dests, config_specified_dests
 
 
+def harmonize_cli_mode_args(args, config_mode, *, early_warn_fn=None):
+    resolved_args = list(args)
+    if config_mode is None:
+        return resolved_args
+    if len(resolved_args) < 1:
+        return [config_mode]
+    if resolved_args[0] != config_mode and early_warn_fn is not None:
+        early_warn_fn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, resolved_args[0]))
+    return resolved_args
+
+
+def coerce_option_int_list(values, option_name, bail_fn):
+    try:
+        return [int(x) for x in values]
+    except Exception:
+        bail_fn("option %s: invalid integer list %s" % (option_name, values))
+
+
+def initialize_cli_logging(options_obj, *, stderr_stream=None, default_debug_level=1):
+    if stderr_stream is None:
+        stderr_stream = sys.stderr
+
+    log_fh = open_optional_log_handle(
+        getattr(options_obj, "log_file", None),
+        default_stream=stderr_stream,
+        mode="w",
+    )
+    warnings_fh = open_optional_log_handle(
+        getattr(options_obj, "warnings_file", None),
+        default_stream=stderr_stream,
+        mode="w",
+    )
+
+    NONE = 0
+    INFO = 1
+    DEBUG = 2
+    TRACE = 3
+    debug_level = default_debug_level if getattr(options_obj, "debug_level", None) is None else options_obj.debug_level
+
+    def log(message, level=INFO, end_char="\n"):
+        if level <= debug_level:
+            log_fh.write("%s%s" % (message, end_char))
+            log_fh.flush()
+
+    def warn(message):
+        if warnings_fh is not None:
+            warnings_fh.write("Warning: %s\n" % message)
+            warnings_fh.flush()
+        log(message, level=INFO)
+
+    return {
+        "NONE": NONE,
+        "INFO": INFO,
+        "DEBUG": DEBUG,
+        "TRACE": TRACE,
+        "debug_level": debug_level,
+        "log_fh": log_fh,
+        "warnings_fh": warnings_fh,
+        "log": log,
+        "warn": warn,
+    }
+
+
 def configure_random_seed(options_obj, random_module, numpy_module, log_fn=None, info_level=None):
     if getattr(options_obj, "deterministic", False) and getattr(options_obj, "seed", None) is None:
         options_obj.seed = 0
