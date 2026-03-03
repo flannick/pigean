@@ -58,10 +58,8 @@ try:
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
-        parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
-        parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
-        apply_parsed_gene_phewas_bfs_to_runtime as pegs_apply_parsed_gene_phewas_bfs_to_runtime,
-        apply_parsed_gene_set_statistics_to_runtime as pegs_apply_parsed_gene_set_statistics_to_runtime,
+        load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
+        load_and_apply_gene_set_statistics_to_runtime as pegs_load_and_apply_gene_set_statistics_to_runtime,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -128,10 +126,8 @@ except ImportError:
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
-        parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
-        parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
-        apply_parsed_gene_phewas_bfs_to_runtime as pegs_apply_parsed_gene_phewas_bfs_to_runtime,
-        apply_parsed_gene_set_statistics_to_runtime as pegs_apply_parsed_gene_set_statistics_to_runtime,
+        load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
+        load_and_apply_gene_set_statistics_to_runtime as pegs_load_and_apply_gene_set_statistics_to_runtime,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -5427,7 +5423,8 @@ class PigeanState(object):
                     self.gene_to_huge_score[gene] += self.gene_to_exomes_huge_score[gene]
 
     def read_gene_set_statistics(self, stats_in, stats_id_col=None, stats_exp_beta_tilde_col=None, stats_beta_tilde_col=None, stats_p_col=None, stats_se_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, ignore_negative_exp_beta=False, max_gene_set_p=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, return_only_ids=False):
-        parsed_stats = pegs_parse_gene_set_statistics_file(
+        return pegs_load_and_apply_gene_set_statistics_to_runtime(
+            self,
             stats_in,
             stats_id_col=stats_id_col,
             stats_exp_beta_tilde_col=stats_exp_beta_tilde_col,
@@ -5440,20 +5437,13 @@ class PigeanState(object):
             max_gene_set_p=max_gene_set_p,
             min_gene_set_beta=min_gene_set_beta,
             min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
+            return_only_ids=return_only_ids,
             open_text_fn=open_gz,
             get_col_fn=_get_col,
-            log_fn=lambda message: log(message, INFO),
+            parse_log_fn=lambda message: log(message, INFO),
+            apply_log_fn=lambda message: log(message, DEBUG),
             warn_fn=warn,
             bail_fn=bail,
-        )
-        return pegs_apply_parsed_gene_set_statistics_to_runtime(
-            self,
-            parsed_stats,
-            return_only_ids=return_only_ids,
-            stats_beta_col=stats_beta_col,
-            warn_fn=warn,
-            bail_fn=bail,
-            log_fn=lambda message: log(message, DEBUG),
         )
 
 
@@ -5483,31 +5473,23 @@ class PigeanState(object):
         if phewas_gene_to_X_gene_in is not None:
             phewas_gene_to_X_gene = _parse_gene_map(phewas_gene_to_X_gene_in, allow_multi=True)
 
-        parsed_phewas = pegs_parse_gene_phewas_bfs_file(
+        pegs_load_and_apply_gene_phewas_bfs_to_runtime(
+            self,
             gene_phewas_bfs_in,
             gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
             gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+            anchor_genes=anchor_genes,
+            anchor_phenos=anchor_phenos,
             gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
             gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
             gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+            phewas_gene_to_x_gene=phewas_gene_to_X_gene,
             min_value=min_value,
             max_num_entries_at_once=max_num_entries_at_once,
-            existing_phenos=self.phenos,
-            existing_pheno_to_ind=self.pheno_to_ind,
-            gene_to_ind=self.gene_to_ind,
-            gene_label_map=self.gene_label_map,
-            phewas_gene_to_x_gene=phewas_gene_to_X_gene,
             open_text_fn=open_gz,
             get_col_fn=_get_col,
-            bail_fn=bail,
-            warn_fn=warn,
-        )
-        pegs_apply_parsed_gene_phewas_bfs_to_runtime(
-            self,
-            parsed_phewas,
-            anchor_genes=anchor_genes,
-            anchor_phenos=anchor_phenos,
             construct_map_to_ind_fn=_construct_map_to_ind,
+            warn_fn=warn,
             bail_fn=bail,
             log_fn=lambda message: log(message, DEBUG),
         )

@@ -1604,6 +1604,67 @@ def apply_parsed_gene_phewas_bfs_to_runtime(
             bail_fn("Couldn't find any match for %s" % list(anchor_phenos))
 
 
+def load_and_apply_gene_phewas_bfs_to_runtime(
+    runtime,
+    gene_phewas_bfs_in,
+    *,
+    gene_phewas_bfs_id_col=None,
+    gene_phewas_bfs_pheno_col=None,
+    anchor_genes=None,
+    anchor_phenos=None,
+    gene_phewas_bfs_log_bf_col=None,
+    gene_phewas_bfs_combined_col=None,
+    gene_phewas_bfs_prior_col=None,
+    phewas_gene_to_x_gene=None,
+    min_value=None,
+    max_num_entries_at_once=None,
+    open_text_fn=None,
+    get_col_fn=None,
+    construct_map_to_ind_fn=None,
+    warn_fn=None,
+    bail_fn=None,
+    log_fn=None,
+):
+    if open_text_fn is None:
+        open_text_fn = lambda path: open(path)
+    if get_col_fn is None:
+        get_col_fn = resolve_column_index
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if warn_fn is None:
+        warn_fn = lambda _m: None
+
+    parsed_phewas = parse_gene_phewas_bfs_file(
+        gene_phewas_bfs_in,
+        gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+        gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+        gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+        gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+        gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+        min_value=min_value,
+        max_num_entries_at_once=max_num_entries_at_once,
+        existing_phenos=runtime.phenos,
+        existing_pheno_to_ind=runtime.pheno_to_ind,
+        gene_to_ind=runtime.gene_to_ind,
+        gene_label_map=runtime.gene_label_map,
+        phewas_gene_to_x_gene=phewas_gene_to_x_gene,
+        open_text_fn=open_text_fn,
+        get_col_fn=get_col_fn,
+        bail_fn=bail_fn,
+        warn_fn=warn_fn,
+    )
+    apply_parsed_gene_phewas_bfs_to_runtime(
+        runtime,
+        parsed_phewas,
+        anchor_genes=anchor_genes,
+        anchor_phenos=anchor_phenos,
+        construct_map_to_ind_fn=construct_map_to_ind_fn,
+        bail_fn=bail_fn,
+        log_fn=log_fn,
+    )
+    return parsed_phewas
+
+
 def apply_parsed_gene_set_statistics_to_runtime(
     runtime,
     parsed_stats,
@@ -1754,6 +1815,68 @@ def apply_parsed_gene_set_statistics_to_runtime(
 
     runtime._set_X(runtime.X_orig, runtime.genes, runtime.gene_sets, skip_N=True)
     return None
+
+
+def load_and_apply_gene_set_statistics_to_runtime(
+    runtime,
+    stats_in,
+    *,
+    stats_id_col=None,
+    stats_exp_beta_tilde_col=None,
+    stats_beta_tilde_col=None,
+    stats_p_col=None,
+    stats_se_col=None,
+    stats_beta_col=None,
+    stats_beta_uncorrected_col=None,
+    ignore_negative_exp_beta=False,
+    max_gene_set_p=None,
+    min_gene_set_beta=None,
+    min_gene_set_beta_uncorrected=None,
+    return_only_ids=False,
+    open_text_fn=None,
+    get_col_fn=None,
+    warn_fn=None,
+    bail_fn=None,
+    parse_log_fn=None,
+    apply_log_fn=None,
+):
+    if open_text_fn is None:
+        open_text_fn = lambda path: open(path)
+    if get_col_fn is None:
+        get_col_fn = resolve_column_index
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if warn_fn is None:
+        warn_fn = lambda _m: None
+
+    parsed_stats = parse_gene_set_statistics_file(
+        stats_in,
+        stats_id_col=stats_id_col,
+        stats_exp_beta_tilde_col=stats_exp_beta_tilde_col,
+        stats_beta_tilde_col=stats_beta_tilde_col,
+        stats_p_col=stats_p_col,
+        stats_se_col=stats_se_col,
+        stats_beta_col=stats_beta_col,
+        stats_beta_uncorrected_col=stats_beta_uncorrected_col,
+        ignore_negative_exp_beta=ignore_negative_exp_beta,
+        max_gene_set_p=max_gene_set_p,
+        min_gene_set_beta=min_gene_set_beta,
+        min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
+        open_text_fn=open_text_fn,
+        get_col_fn=get_col_fn,
+        log_fn=parse_log_fn,
+        warn_fn=warn_fn,
+        bail_fn=bail_fn,
+    )
+    return apply_parsed_gene_set_statistics_to_runtime(
+        runtime,
+        parsed_stats,
+        return_only_ids=return_only_ids,
+        stats_beta_col=stats_beta_col,
+        warn_fn=warn_fn,
+        bail_fn=bail_fn,
+        log_fn=apply_log_fn,
+    )
 
 
 def read_gene_phewas_stats(path, *, bail_fn=None):
