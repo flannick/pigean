@@ -577,6 +577,63 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertEqual(extra_cov_genes, ["GENE_X"])
             self.assertEqual(extra_covs.shape, (1, 2))
 
+    def test_load_aligned_gene_bfs_and_covariates(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            gene_bfs_path = Path(td) / "gene_stats.tsv"
+            gene_bfs_path.write_text(
+                "Gene\tlog_bf\tcombined\tprior\nGENE_A\t1.2\t0.4\t0.2\nGENE_X\t2.2\t0.7\t0.6\n",
+                encoding="utf-8",
+            )
+            aligned_bfs = pegs_utils.load_aligned_gene_bfs(
+                str(gene_bfs_path),
+                genes=["GENE_A", "GENE_B"],
+                gene_to_ind={"GENE_A": 0, "GENE_B": 1},
+                gene_bfs_id_col="Gene",
+                gene_bfs_log_bf_col="log_bf",
+                gene_bfs_combined_col="combined",
+                gene_bfs_prob_col=None,
+                gene_bfs_prior_col="prior",
+                background_log_bf=0.0,
+                gene_label_map=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                log_fn=lambda _m: None,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertAlmostEqual(aligned_bfs.gene_bfs[0], 1.2)
+            self.assertTrue(np.isnan(aligned_bfs.gene_bfs[1]))
+            self.assertEqual(aligned_bfs.extra_genes, ["GENE_X"])
+            np.testing.assert_allclose(aligned_bfs.extra_gene_bfs, np.array([2.2]))
+            self.assertAlmostEqual(aligned_bfs.gene_in_combined["GENE_A"], 0.4)
+            self.assertAlmostEqual(aligned_bfs.gene_in_priors["GENE_A"], 0.2)
+
+            gene_cov_path = Path(td) / "gene_covs.tsv"
+            gene_cov_path.write_text(
+                "Gene\tC1\tC2\nGENE_A\t1.0\t2.0\nGENE_X\t3.0\t4.0\n",
+                encoding="utf-8",
+            )
+            aligned_covs = pegs_utils.load_aligned_gene_covariates(
+                str(gene_cov_path),
+                genes=["GENE_A", "GENE_B"],
+                gene_to_ind={"GENE_A": 0, "GENE_B": 1},
+                gene_covs_id_col="Gene",
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                log_fn=lambda _m: None,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertEqual(aligned_covs.cov_names, ["C1", "C2"])
+            np.testing.assert_allclose(aligned_covs.gene_covs[0, :], np.array([1.0, 2.0]))
+            self.assertTrue(np.isnan(aligned_covs.gene_covs[1, 0]))
+            self.assertEqual(aligned_covs.extra_genes, ["GENE_X"])
+            self.assertEqual(aligned_covs.extra_gene_covs.shape, (1, 2))
+
     def test_parse_gene_set_statistics_file(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "gene_set_stats.tsv"

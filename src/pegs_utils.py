@@ -86,6 +86,23 @@ class ParsedGeneCovariates:
 
 
 @dataclass
+class AlignedGeneBfs:
+    gene_bfs: object
+    extra_genes: list
+    extra_gene_bfs: object
+    gene_in_combined: object
+    gene_in_priors: object
+
+
+@dataclass
+class AlignedGeneCovariates:
+    cov_names: list
+    gene_covs: object
+    extra_genes: list
+    extra_gene_covs: object
+
+
+@dataclass
 class ParsedGenePhewasBfs:
     phenos: list
     pheno_to_ind: dict
@@ -953,6 +970,88 @@ def align_gene_vector_map(gene_to_values, num_values, genes=None, gene_to_ind=No
             extra_genes.append(gene)
 
     return (aligned_values, extra_genes, np.array(extra_values))
+
+
+def load_aligned_gene_bfs(
+    gene_bfs_in,
+    *,
+    genes=None,
+    gene_to_ind=None,
+    gene_bfs_id_col=None,
+    gene_bfs_log_bf_col=None,
+    gene_bfs_combined_col=None,
+    gene_bfs_prob_col=None,
+    gene_bfs_prior_col=None,
+    background_log_bf=0.0,
+    gene_label_map=None,
+    open_text_fn=None,
+    get_col_fn=None,
+    log_fn=None,
+    warn_fn=None,
+    bail_fn=None,
+):
+    parsed_gene_bfs = parse_gene_bfs_file(
+        gene_bfs_in,
+        gene_bfs_id_col=gene_bfs_id_col,
+        gene_bfs_log_bf_col=gene_bfs_log_bf_col,
+        gene_bfs_combined_col=gene_bfs_combined_col,
+        gene_bfs_prob_col=gene_bfs_prob_col,
+        gene_bfs_prior_col=gene_bfs_prior_col,
+        background_log_bf=background_log_bf,
+        gene_label_map=gene_label_map,
+        open_text_fn=open_text_fn,
+        get_col_fn=get_col_fn,
+        log_fn=log_fn,
+        warn_fn=warn_fn,
+        bail_fn=bail_fn,
+    )
+    gene_bfs, extra_genes, extra_gene_bfs = align_gene_scalar_map(
+        parsed_gene_bfs.gene_in_bfs,
+        genes=genes,
+        gene_to_ind=gene_to_ind,
+    )
+    return AlignedGeneBfs(
+        gene_bfs=gene_bfs,
+        extra_genes=extra_genes,
+        extra_gene_bfs=extra_gene_bfs,
+        gene_in_combined=parsed_gene_bfs.gene_in_combined,
+        gene_in_priors=parsed_gene_bfs.gene_in_priors,
+    )
+
+
+def load_aligned_gene_covariates(
+    gene_covs_in,
+    *,
+    genes=None,
+    gene_to_ind=None,
+    gene_covs_id_col=None,
+    open_text_fn=None,
+    get_col_fn=None,
+    log_fn=None,
+    warn_fn=None,
+    bail_fn=None,
+):
+    parsed_gene_covs = parse_gene_covariates_file(
+        gene_covs_in,
+        gene_covs_id_col=gene_covs_id_col,
+        open_text_fn=open_text_fn,
+        get_col_fn=get_col_fn,
+        log_fn=log_fn,
+        warn_fn=warn_fn,
+        bail_fn=bail_fn,
+    )
+    gene_covs, extra_genes, extra_gene_covs = align_gene_vector_map(
+        parsed_gene_covs.gene_to_covs,
+        num_values=len(parsed_gene_covs.cov_names),
+        genes=genes,
+        gene_to_ind=gene_to_ind,
+    )
+    return AlignedGeneCovariates(
+        cov_names=parsed_gene_covs.cov_names,
+        gene_covs=gene_covs,
+        extra_genes=extra_genes,
+        extra_gene_covs=extra_gene_covs,
+    )
 
 
 def parse_gene_phewas_bfs_file(
