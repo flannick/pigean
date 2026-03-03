@@ -80,8 +80,10 @@ try:
         remove_tag_from_input as pegs_remove_tag_from_input,
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
+        XReadPostCallbacks as PegsXReadPostCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
-        run_read_x_ingestion as pegs_run_read_x_ingestion,
+        build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
+        build_read_x_post_options as pegs_build_read_x_post_options,
         initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -164,8 +166,10 @@ except ImportError:
         remove_tag_from_input as pegs_remove_tag_from_input,
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
+        XReadPostCallbacks as PegsXReadPostCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
-        run_read_x_ingestion as pegs_run_read_x_ingestion,
+        build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
+        build_read_x_post_options as pegs_build_read_x_post_options,
         initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -1752,16 +1756,11 @@ class PigeanState(object):
         return _read_Y_from_contract(self, y_read_contract)
 
 
-    def read_X(self, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=None, skip_V=True, force_reread=False, min_gene_set_size=1, max_gene_set_size=30000, only_ids=None, only_inc_genes=None, fraction_inc_genes=None, add_all_genes=False, prune_gene_sets=0.8, weighted_prune_gene_sets=None, prune_deterministically=False, x_sparsify=[50,100,200,500,1000], add_ext=False, add_top=True, add_bottom=True, filter_negative=True, threshold_weights=0.5, cap_weights=True, permute_gene_sets=False, max_gene_set_p=None, filter_gene_set_p=1, filter_using_phewas=False, increase_filter_gene_set_p=0.01, max_num_gene_sets_initial=None, max_num_gene_sets=None, max_num_gene_sets_hyper=None, skip_betas=False, run_logistic=True, max_for_linear=0.95, filter_gene_set_metric_z=2.5, initial_p=0.01, xin_to_p_noninf_ind=None, initial_sigma2=1e-3, initial_sigma2_cond=None, sigma_power=0, sigma_soft_threshold_95=None, sigma_soft_threshold_5=None, run_gls=False, run_corrected_ols=False, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, update_hyper_p=False, update_hyper_sigma=False, batch_all_for_hyper=False, first_for_hyper=False, first_max_p_for_hyper=False, first_for_sigma_cond=False, sigma_num_devs_to_top=2.0, p_noninf_inflate=1, batch_separator="@", ignore_genes=set(["NA"]), file_separator=None, max_num_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=10, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, max_allowed_batch_correlation=None, sparse_solution=False, sparse_frac_betas=None, betas_trace_out=None, show_progress=True, max_num_entries_at_once=None):
-
     #Initialize the matrices, genes, and gene sets
     #This can be called multiple times; it will subset the current matrices down to the new set of gene sets
     #any information regarding *genes* though is overwritten -- there is no way to subset the old genes down to a new set of genes
     #(although reading multiple files hasn't been tested thoroughly)
-    
-        X_format = "<gene_set_id> <gene 1> <gene 2> ... <gene n>"
-        V_format = "<gene_set1> <gene_set_2> ...<gene_set_n>\n<V11> <V12> ... <V1n>\n<V21> <V22> ... <V2n>"
-
+    def read_X(self, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=None, skip_V=True, force_reread=False, min_gene_set_size=1, max_gene_set_size=30000, only_ids=None, only_inc_genes=None, fraction_inc_genes=None, add_all_genes=False, prune_gene_sets=0.8, weighted_prune_gene_sets=None, prune_deterministically=False, x_sparsify=[50,100,200,500,1000], add_ext=False, add_top=True, add_bottom=True, filter_negative=True, threshold_weights=0.5, cap_weights=True, permute_gene_sets=False, max_gene_set_p=None, filter_gene_set_p=1, filter_using_phewas=False, increase_filter_gene_set_p=0.01, max_num_gene_sets_initial=None, max_num_gene_sets=None, max_num_gene_sets_hyper=None, skip_betas=False, run_logistic=True, max_for_linear=0.95, filter_gene_set_metric_z=2.5, initial_p=0.01, xin_to_p_noninf_ind=None, initial_sigma2=1e-3, initial_sigma2_cond=None, sigma_power=0, sigma_soft_threshold_95=None, sigma_soft_threshold_5=None, run_gls=False, run_corrected_ols=False, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, update_hyper_p=False, update_hyper_sigma=False, batch_all_for_hyper=False, first_for_hyper=False, first_max_p_for_hyper=False, first_for_sigma_cond=False, sigma_num_devs_to_top=2.0, p_noninf_inflate=1, batch_separator="@", ignore_genes=set(["NA"]), file_separator=None, max_num_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=10, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, max_allowed_batch_correlation=None, sparse_solution=False, sparse_frac_betas=None, betas_trace_out=None, show_progress=True, max_num_entries_at_once=None):
         if not force_reread and self.X_orig is not None:
             return
 
@@ -1769,10 +1768,21 @@ class PigeanState(object):
             filter_using_phewas = False
 
         self._set_X(None, self.genes, None, skip_N=True)
+        self._record_params({
+            "filter_gene_set_p": filter_gene_set_p,
+            "filter_negative": filter_negative,
+            "threshold_weights": threshold_weights,
+            "cap_weights": cap_weights,
+            "max_num_gene_sets_initial": max_num_gene_sets_initial,
+            "max_num_gene_sets": max_num_gene_sets,
+            "max_num_gene_sets_hyper": max_num_gene_sets_hyper,
+            "filter_gene_set_metric_z": filter_gene_set_metric_z,
+            "num_chains_betas": num_chains_betas,
+            "sigma_num_devs_to_top": sigma_num_devs_to_top,
+            "p_noninf_inflate": p_noninf_inflate,
+        })
 
-        self._record_params({"filter_gene_set_p": filter_gene_set_p, "filter_negative": filter_negative, "threshold_weights": threshold_weights, "cap_weights": cap_weights, "max_num_gene_sets_initial": max_num_gene_sets_initial, "max_num_gene_sets": max_num_gene_sets, "max_num_gene_sets_hyper": max_num_gene_sets_hyper, "filter_gene_set_metric_z": filter_gene_set_metric_z, "num_chains_betas": num_chains_betas, "sigma_num_devs_to_top": sigma_num_devs_to_top, "p_noninf_inflate": p_noninf_inflate})
-
-        _x_input_plan = pegs_prepare_read_x_inputs(
+        x_input_plan = pegs_prepare_read_x_inputs(
             X_in=X_in,
             X_list=X_list,
             Xd_in=Xd_in,
@@ -1784,71 +1794,7 @@ class PigeanState(object):
             sparse_list_open_fn=open_gz,
             dense_list_open_fn=open,
         )
-        initial_ps = _x_input_plan.initial_ps
-        X_ins = _x_input_plan.X_ins
-        batches = _x_input_plan.batches
-        labels = _x_input_plan.labels
-        orig_files = _x_input_plan.orig_files
-        is_dense = _x_input_plan.is_dense
-        _xdata_seed = pegs_xdata_from_input_plan(_x_input_plan)
-
-        #first reorder the files so that those with batches are at the front
-
-        #X_ins = [X_ins[i] for i in range(len(batches)) if batches[i] is not None] + [X_ins[i] for i in range(len(batches)) if batches[i] is None]
-        #is_dense = [is_dense[i] for i in range(len(batches)) if batches[i] is not None] + [is_dense[i] for i in range(len(batches)) if batches[i] is None]
-        #orig_files = [orig_files[i] for i in range(len(batches)) if batches[i] is not None] + [orig_files[i] for i in range(len(batches)) if batches[i] is None]
-
-        #batches = [batches[i] for i in range(len(batches)) if batches[i] is not None] + [batches[i] for i in range(len(batches)) if batches[i] is None]
-
-        #README: batching / hyper semantics 
-        #Use of @{batch} after file is the way to label a file
-        #1. First we take each input file and assign it a batch
-        #   If the file is labelled, that is the batch
-        #   If the first file is not labelled, it is assigned a batch
-        #   If the remaining files are not labelled, AND first-for-hyper is NOT set, they are assigned a batch.
-        #   If first-for-hyper is set, batches with no labels bave None for batch
-        #2. We then learn p (if update_hyper_p is specified) and sigma (if update_hyper_sigma is specified) separately for each batch
-        #   All files with the same batch are pooled for learning the p and sigma
-        #   If first_for_sigma_cond is specified, then the sigma to p ratio learned by the first batch is fixed throughout
-        #   This means that if only one of sigma or p is learned, the other is adjusted to keep the sigma/p ratio the same
-
-        #now handle the None batches
-        #semantics are that things with a batch have value learned from all files with that batch,
-        #things with None have it learned from first batch that appears in arg list
-        batches, num_ignored_gene_sets = pegs_initialize_read_x_batch_seed_state(
-            runtime=self,
-            xdata_seed=_xdata_seed,
-            batches=batches,
-            orig_files=orig_files,
-            batch_all_for_hyper=batch_all_for_hyper,
-            first_for_hyper=first_for_hyper,
-            update_hyper_sigma=update_hyper_sigma,
-            update_hyper_p=update_hyper_p,
-            first_for_sigma_cond=first_for_sigma_cond,
-            record_params_fn=self._record_params,
-            log_fn=log,
-        )
-
-        if (filter_gene_set_p < 1 or filter_gene_set_metric_z) and self.Y is not None:
-            pegs_initialize_filtered_gene_set_state(self, update_hyper_p=update_hyper_p)
-            pegs_maybe_prepare_filtered_gls_correlation(
-                runtime=self,
-                run_gls=run_gls,
-                run_corrected_ols=run_corrected_ols,
-                gene_cor_file=gene_cor_file,
-                gene_loc_file=gene_loc_file,
-                gene_cor_file_gene_col=gene_cor_file_gene_col,
-                gene_cor_file_cor_start_col=gene_cor_file_cor_start_col,
-            )
-
-        run_logistic = pegs_resolve_read_x_run_logistic(
-            runtime=self,
-            run_logistic=run_logistic,
-            max_for_linear=max_for_linear,
-            background_log_bf=self.background_log_bf,
-            record_param_fn=self._record_param,
-            log_fn=lambda message: log(message, DEBUG),
-        )
+        xdata_seed = pegs_xdata_from_input_plan(x_input_plan)
 
         read_x_config = PegsXReadConfig(
             x_sparsify=x_sparsify,
@@ -1878,23 +1824,14 @@ class PigeanState(object):
             merge_missing_gene_rows_fn=_merge_missing_gene_rows,
             finalize_added_x_block_fn=_finalize_added_x_block,
         )
-        ignored_for_fraction_inc = pegs_run_read_x_ingestion(
+
+        ingestion_options = pegs_build_read_x_ingestion_options(locals())
+        ingestion_state = xdata_seed.run_ingestion_stage(
             self,
-            X_ins=X_ins,
-            is_dense=is_dense,
-            batches=batches,
-            labels=labels,
-            initial_ps=initial_ps,
-            num_ignored_gene_sets=num_ignored_gene_sets,
+            input_plan=x_input_plan,
             read_config=read_x_config,
             read_callbacks=read_x_callbacks,
-            run_logistic=run_logistic,
-            only_ids=only_ids,
-            add_all_genes=add_all_genes,
-            only_inc_genes=only_inc_genes,
-            fraction_inc_genes=fraction_inc_genes,
-            ignore_genes=ignore_genes,
-            max_num_entries_at_once=max_num_entries_at_once,
+            ingestion_options=ingestion_options,
             ensure_gene_universe_fn=_ensure_gene_universe_for_x,
             process_x_input_file_fn=_process_x_input_file,
             remove_tag_from_input_fn=_remove_tag_from_input,
@@ -1903,131 +1840,31 @@ class PigeanState(object):
             debug_level=DEBUG,
         )
 
-        if ignored_for_fraction_inc > 0:
-            log("Ignored %d gene sets due to too small a fraction of anchor genes" % ignored_for_fraction_inc, DEBUG)
-
-        if not self.has_gene_sets():
-            log("No gene sets to analyze; returning")
-            return
-
-        _standardize_qc_metrics_after_x_read(self)
-
-        _maybe_correct_gene_set_betas_after_x_read(
-            self,
-            filter_gene_set_p=filter_gene_set_p,
-            correct_betas_mean=correct_betas_mean,
-            correct_betas_var=correct_betas_var,
-            filter_using_phewas=filter_using_phewas,
+        post_options = pegs_build_read_x_post_options(
+            locals(),
+            batches=ingestion_state["batches"],
+            num_ignored_gene_sets=ingestion_state["num_ignored_gene_sets"],
+            ignored_for_fraction_inc=ingestion_state["ignored_for_fraction_inc"],
         )
-
-        self._record_param("gene_set_prune_threshold", prune_gene_sets)
-        self._record_param("gene_set_weighted_prune_threshold", weighted_prune_gene_sets)
-        self._record_param("gene_set_prune_deterinistically", prune_deterministically)
-
-        _maybe_limit_initial_gene_sets_by_p(self, max_num_gene_sets_initial=max_num_gene_sets_initial)
-
-        _maybe_prune_gene_sets_after_x_read(
-            self,
-            skip_betas=skip_betas,
-            prune_gene_sets=prune_gene_sets,
-            prune_deterministically=prune_deterministically,
-            weighted_prune_gene_sets=weighted_prune_gene_sets,
+        post_callbacks = PegsXReadPostCallbacks(
+            standardize_qc_metrics_after_x_read_fn=_standardize_qc_metrics_after_x_read,
+            maybe_correct_gene_set_betas_after_x_read_fn=_maybe_correct_gene_set_betas_after_x_read,
+            maybe_limit_initial_gene_sets_by_p_fn=_maybe_limit_initial_gene_sets_by_p,
+            maybe_prune_gene_sets_after_x_read_fn=_maybe_prune_gene_sets_after_x_read,
+            initialize_hyper_defaults_after_x_read_fn=_initialize_hyper_defaults_after_x_read,
+            maybe_learn_batch_hyper_after_x_read_fn=_maybe_learn_batch_hyper_after_x_read,
+            maybe_adjust_overaggressive_p_filter_after_x_read_fn=_maybe_adjust_overaggressive_p_filter_after_x_read,
+            apply_post_read_gene_set_size_and_qc_filters_fn=_apply_post_read_gene_set_size_and_qc_filters,
+            maybe_filter_zero_uncorrected_betas_after_x_read_fn=_maybe_filter_zero_uncorrected_betas_after_x_read,
+            maybe_reduce_gene_sets_to_max_after_x_read_fn=_maybe_reduce_gene_sets_to_max_after_x_read,
+            record_read_x_counts_fn=pegs_record_read_x_counts,
         )
-
-
-        #if permute_gene_sets:
-        #    #assume these are due to some error in permutation
-        #    min_allowed_p = 0.05 / (len(self.gene_sets) + len(self.gene_sets_ignored) if self.gene_sets_ignored is not None else 0)
-        #    self.subset_gene_sets(self.p_values >= min_allowed_p, ignore_missing=True, keep_missing=False, skip_V=True)
-
-        fixed_sigma_cond = _initialize_hyper_defaults_after_x_read(
+        xdata_seed.run_post_stage(
             self,
-            initial_p=initial_p,
-            update_hyper_p=update_hyper_p,
-            sigma_power=sigma_power,
-            initial_sigma2_cond=initial_sigma2_cond,
-            update_hyper_sigma=update_hyper_sigma,
-            initial_sigma2=initial_sigma2,
-            sigma_soft_threshold_95=sigma_soft_threshold_95,
-            sigma_soft_threshold_5=sigma_soft_threshold_5,
-        )
-
-        _maybe_learn_batch_hyper_after_x_read(
-            self,
-            skip_betas=skip_betas,
-            update_hyper_p=update_hyper_p,
-            update_hyper_sigma=update_hyper_sigma,
-            batches=batches,
-            num_ignored_gene_sets=num_ignored_gene_sets,
-            first_for_hyper=first_for_hyper,
-            max_num_gene_sets_hyper=max_num_gene_sets_hyper,
-            first_for_sigma_cond=first_for_sigma_cond,
-            fixed_sigma_cond=fixed_sigma_cond,
-            first_max_p_for_hyper=first_max_p_for_hyper,
-            max_num_burn_in=max_num_burn_in,
-            max_num_iter_betas=max_num_iter_betas,
-            min_num_iter_betas=min_num_iter_betas,
-            num_chains_betas=num_chains_betas,
-            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
-            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
-            max_frac_sem_betas=max_frac_sem_betas,
-            max_allowed_batch_correlation=max_allowed_batch_correlation,
-            sigma_num_devs_to_top=sigma_num_devs_to_top,
-            p_noninf_inflate=p_noninf_inflate,
-            sparse_solution=sparse_solution,
-            sparse_frac_betas=sparse_frac_betas,
-            betas_trace_out=betas_trace_out,
-        )
-
-
-        _maybe_adjust_overaggressive_p_filter_after_x_read(
-            self,
-            filter_gene_set_p=filter_gene_set_p,
-            increase_filter_gene_set_p=increase_filter_gene_set_p,
-            filter_using_phewas=filter_using_phewas,
-        )
-
-        # Do another size/QC pass after all in-memory transformations.
-        _apply_post_read_gene_set_size_and_qc_filters(
-            self,
-            min_gene_set_size=min_gene_set_size,
-            max_gene_set_size=max_gene_set_size,
-            filter_gene_set_metric_z=filter_gene_set_metric_z,
-        )
-
-        if self.p_values is not None:
-            sort_rank = -np.sqrt(-np.log(self.p_values + 1e-200))
-        else:
-            sort_rank = None
-        sort_rank = _maybe_filter_zero_uncorrected_betas_after_x_read(
-            self,
-            sort_rank=sort_rank,
-            skip_betas=skip_betas,
-            filter_gene_set_p=filter_gene_set_p,
-            filter_using_phewas=filter_using_phewas,
-            max_num_burn_in=max_num_burn_in,
-            max_num_iter_betas=max_num_iter_betas,
-            min_num_iter_betas=min_num_iter_betas,
-            num_chains_betas=num_chains_betas,
-            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
-            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
-            max_frac_sem_betas=max_frac_sem_betas,
-            max_allowed_batch_correlation=max_allowed_batch_correlation,
-            sparse_solution=sparse_solution,
-            sparse_frac_betas=sparse_frac_betas,
-        )
-
-        _maybe_reduce_gene_sets_to_max_after_x_read(
-            self,
-            skip_betas=skip_betas,
-            max_num_gene_sets=max_num_gene_sets,
-            sort_rank=sort_rank,
-        )
-
-        pegs_record_read_x_counts(
-            self,
-            record_param_fn=self._record_param,
-            log_fn=lambda message: log(message),
+            post_options=post_options,
+            post_callbacks=post_callbacks,
+            log_fn=log,
+            debug_level=DEBUG,
         )
 
     def write_V(self, V_out):

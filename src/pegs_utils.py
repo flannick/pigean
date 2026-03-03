@@ -69,6 +69,221 @@ class XData:
     def num_gene_sets(self):
         return 0 if self.gene_sets is None else len(self.gene_sets)
 
+    def run_ingestion_stage(
+        self,
+        runtime,
+        input_plan,
+        read_config,
+        read_callbacks,
+        ingestion_options,
+        *,
+        ensure_gene_universe_fn,
+        process_x_input_file_fn,
+        remove_tag_from_input_fn,
+        log_fn,
+        info_level,
+        debug_level,
+    ):
+        initial_ps = input_plan.initial_ps
+        X_ins = input_plan.X_ins
+        batches = input_plan.batches
+        labels = input_plan.labels
+        orig_files = input_plan.orig_files
+        is_dense = input_plan.is_dense
+
+        batches, num_ignored_gene_sets = initialize_read_x_batch_seed_state(
+            runtime=runtime,
+            xdata_seed=self,
+            batches=batches,
+            orig_files=orig_files,
+            batch_all_for_hyper=ingestion_options.batch_all_for_hyper,
+            first_for_hyper=ingestion_options.first_for_hyper,
+            update_hyper_sigma=ingestion_options.update_hyper_sigma,
+            update_hyper_p=ingestion_options.update_hyper_p,
+            first_for_sigma_cond=ingestion_options.first_for_sigma_cond,
+            record_params_fn=runtime._record_params,
+            log_fn=log_fn,
+        )
+
+        if (
+            (ingestion_options.filter_gene_set_p < 1 or ingestion_options.filter_gene_set_metric_z)
+            and runtime.Y is not None
+        ):
+            initialize_filtered_gene_set_state(runtime, update_hyper_p=ingestion_options.update_hyper_p)
+            maybe_prepare_filtered_gls_correlation(
+                runtime=runtime,
+                run_gls=ingestion_options.run_gls,
+                run_corrected_ols=ingestion_options.run_corrected_ols,
+                gene_cor_file=ingestion_options.gene_cor_file,
+                gene_loc_file=ingestion_options.gene_loc_file,
+                gene_cor_file_gene_col=ingestion_options.gene_cor_file_gene_col,
+                gene_cor_file_cor_start_col=ingestion_options.gene_cor_file_cor_start_col,
+            )
+
+        resolved_run_logistic = resolve_read_x_run_logistic(
+            runtime=runtime,
+            run_logistic=ingestion_options.run_logistic,
+            max_for_linear=ingestion_options.max_for_linear,
+            background_log_bf=runtime.background_log_bf,
+            record_param_fn=runtime._record_param,
+            log_fn=lambda message: log_fn(message, debug_level),
+        )
+
+        ignored_for_fraction_inc = run_read_x_ingestion(
+            runtime,
+            X_ins=X_ins,
+            is_dense=is_dense,
+            batches=batches,
+            labels=labels,
+            initial_ps=initial_ps,
+            num_ignored_gene_sets=num_ignored_gene_sets,
+            read_config=read_config,
+            read_callbacks=read_callbacks,
+            run_logistic=resolved_run_logistic,
+            only_ids=ingestion_options.only_ids,
+            add_all_genes=ingestion_options.add_all_genes,
+            only_inc_genes=ingestion_options.only_inc_genes,
+            fraction_inc_genes=ingestion_options.fraction_inc_genes,
+            ignore_genes=ingestion_options.ignore_genes,
+            max_num_entries_at_once=ingestion_options.max_num_entries_at_once,
+            ensure_gene_universe_fn=ensure_gene_universe_fn,
+            process_x_input_file_fn=process_x_input_file_fn,
+            remove_tag_from_input_fn=remove_tag_from_input_fn,
+            log_fn=log_fn,
+            info_level=info_level,
+            debug_level=debug_level,
+        )
+
+        return {
+            "batches": batches,
+            "num_ignored_gene_sets": num_ignored_gene_sets,
+            "ignored_for_fraction_inc": ignored_for_fraction_inc,
+            "run_logistic": resolved_run_logistic,
+        }
+
+    def run_post_stage(self, runtime, post_options, post_callbacks, *, log_fn, debug_level):
+        if post_options.ignored_for_fraction_inc > 0:
+            log_fn(
+                "Ignored %d gene sets due to too small a fraction of anchor genes"
+                % post_options.ignored_for_fraction_inc,
+                debug_level,
+            )
+
+        if not runtime.has_gene_sets():
+            log_fn("No gene sets to analyze; returning")
+            return False
+
+        post_callbacks.standardize_qc_metrics_after_x_read_fn(runtime)
+        post_callbacks.maybe_correct_gene_set_betas_after_x_read_fn(
+            runtime,
+            filter_gene_set_p=post_options.filter_gene_set_p,
+            correct_betas_mean=post_options.correct_betas_mean,
+            correct_betas_var=post_options.correct_betas_var,
+            filter_using_phewas=post_options.filter_using_phewas,
+        )
+
+        runtime._record_param("gene_set_prune_threshold", post_options.prune_gene_sets)
+        runtime._record_param("gene_set_weighted_prune_threshold", post_options.weighted_prune_gene_sets)
+        runtime._record_param("gene_set_prune_deterinistically", post_options.prune_deterministically)
+
+        post_callbacks.maybe_limit_initial_gene_sets_by_p_fn(
+            runtime,
+            max_num_gene_sets_initial=post_options.max_num_gene_sets_initial,
+        )
+        post_callbacks.maybe_prune_gene_sets_after_x_read_fn(
+            runtime,
+            skip_betas=post_options.skip_betas,
+            prune_gene_sets=post_options.prune_gene_sets,
+            prune_deterministically=post_options.prune_deterministically,
+            weighted_prune_gene_sets=post_options.weighted_prune_gene_sets,
+        )
+
+        fixed_sigma_cond = post_callbacks.initialize_hyper_defaults_after_x_read_fn(
+            runtime,
+            initial_p=post_options.initial_p,
+            update_hyper_p=post_options.update_hyper_p,
+            sigma_power=post_options.sigma_power,
+            initial_sigma2_cond=post_options.initial_sigma2_cond,
+            update_hyper_sigma=post_options.update_hyper_sigma,
+            initial_sigma2=post_options.initial_sigma2,
+            sigma_soft_threshold_95=post_options.sigma_soft_threshold_95,
+            sigma_soft_threshold_5=post_options.sigma_soft_threshold_5,
+        )
+
+        post_callbacks.maybe_learn_batch_hyper_after_x_read_fn(
+            runtime,
+            skip_betas=post_options.skip_betas,
+            update_hyper_p=post_options.update_hyper_p,
+            update_hyper_sigma=post_options.update_hyper_sigma,
+            batches=post_options.batches,
+            num_ignored_gene_sets=post_options.num_ignored_gene_sets,
+            first_for_hyper=post_options.first_for_hyper,
+            max_num_gene_sets_hyper=post_options.max_num_gene_sets_hyper,
+            first_for_sigma_cond=post_options.first_for_sigma_cond,
+            fixed_sigma_cond=fixed_sigma_cond,
+            first_max_p_for_hyper=post_options.first_max_p_for_hyper,
+            max_num_burn_in=post_options.max_num_burn_in,
+            max_num_iter_betas=post_options.max_num_iter_betas,
+            min_num_iter_betas=post_options.min_num_iter_betas,
+            num_chains_betas=post_options.num_chains_betas,
+            r_threshold_burn_in_betas=post_options.r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=post_options.use_max_r_for_convergence_betas,
+            max_frac_sem_betas=post_options.max_frac_sem_betas,
+            max_allowed_batch_correlation=post_options.max_allowed_batch_correlation,
+            sigma_num_devs_to_top=post_options.sigma_num_devs_to_top,
+            p_noninf_inflate=post_options.p_noninf_inflate,
+            sparse_solution=post_options.sparse_solution,
+            sparse_frac_betas=post_options.sparse_frac_betas,
+            betas_trace_out=post_options.betas_trace_out,
+        )
+
+        post_callbacks.maybe_adjust_overaggressive_p_filter_after_x_read_fn(
+            runtime,
+            filter_gene_set_p=post_options.filter_gene_set_p,
+            increase_filter_gene_set_p=post_options.increase_filter_gene_set_p,
+            filter_using_phewas=post_options.filter_using_phewas,
+        )
+        post_callbacks.apply_post_read_gene_set_size_and_qc_filters_fn(
+            runtime,
+            min_gene_set_size=post_options.min_gene_set_size,
+            max_gene_set_size=post_options.max_gene_set_size,
+            filter_gene_set_metric_z=post_options.filter_gene_set_metric_z,
+        )
+
+        if runtime.p_values is not None:
+            sort_rank = -np.sqrt(-np.log(runtime.p_values + 1e-200))
+        else:
+            sort_rank = None
+        sort_rank = post_callbacks.maybe_filter_zero_uncorrected_betas_after_x_read_fn(
+            runtime,
+            sort_rank=sort_rank,
+            skip_betas=post_options.skip_betas,
+            filter_gene_set_p=post_options.filter_gene_set_p,
+            filter_using_phewas=post_options.filter_using_phewas,
+            max_num_burn_in=post_options.max_num_burn_in,
+            max_num_iter_betas=post_options.max_num_iter_betas,
+            min_num_iter_betas=post_options.min_num_iter_betas,
+            num_chains_betas=post_options.num_chains_betas,
+            r_threshold_burn_in_betas=post_options.r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=post_options.use_max_r_for_convergence_betas,
+            max_frac_sem_betas=post_options.max_frac_sem_betas,
+            max_allowed_batch_correlation=post_options.max_allowed_batch_correlation,
+            sparse_solution=post_options.sparse_solution,
+            sparse_frac_betas=post_options.sparse_frac_betas,
+        )
+        post_callbacks.maybe_reduce_gene_sets_to_max_after_x_read_fn(
+            runtime,
+            skip_betas=post_options.skip_betas,
+            max_num_gene_sets=post_options.max_num_gene_sets,
+            sort_rank=sort_rank,
+        )
+        post_callbacks.record_read_x_counts_fn(
+            runtime,
+            record_param_fn=runtime._record_param,
+            log_fn=lambda message: log_fn(message),
+        )
+        return True
+
 
 @dataclass
 class XInputPlan:
@@ -111,6 +326,92 @@ class XReadCallbacks:
     merge_missing_gene_rows_fn: object
     finalize_added_x_block_fn: object
 
+
+@dataclass
+class XReadIngestionOptions:
+    batch_all_for_hyper: bool
+    first_for_hyper: bool
+    update_hyper_sigma: bool
+    update_hyper_p: bool
+    first_for_sigma_cond: bool
+    run_gls: bool
+    run_corrected_ols: bool
+    gene_cor_file: object
+    gene_loc_file: object
+    gene_cor_file_gene_col: object
+    gene_cor_file_cor_start_col: object
+    run_logistic: bool
+    max_for_linear: float
+    only_ids: object
+    add_all_genes: bool
+    only_inc_genes: object
+    fraction_inc_genes: object
+    ignore_genes: object
+    max_num_entries_at_once: object
+    filter_gene_set_p: float
+    filter_gene_set_metric_z: float
+    filter_using_phewas: bool
+
+
+@dataclass
+class XReadPostOptions:
+    ignored_for_fraction_inc: int
+    filter_gene_set_p: float
+    correct_betas_mean: bool
+    correct_betas_var: bool
+    filter_using_phewas: bool
+    prune_gene_sets: float
+    weighted_prune_gene_sets: object
+    prune_deterministically: bool
+    max_num_gene_sets_initial: object
+    skip_betas: bool
+    initial_p: float
+    update_hyper_p: bool
+    sigma_power: object
+    initial_sigma2_cond: object
+    update_hyper_sigma: bool
+    initial_sigma2: object
+    sigma_soft_threshold_95: object
+    sigma_soft_threshold_5: object
+    batches: list
+    num_ignored_gene_sets: object
+    first_for_hyper: bool
+    max_num_gene_sets_hyper: object
+    first_for_sigma_cond: bool
+    first_max_p_for_hyper: bool
+    max_num_burn_in: object
+    max_num_iter_betas: int
+    min_num_iter_betas: int
+    num_chains_betas: int
+    r_threshold_burn_in_betas: float
+    use_max_r_for_convergence_betas: bool
+    max_frac_sem_betas: float
+    max_allowed_batch_correlation: object
+    sigma_num_devs_to_top: float
+    p_noninf_inflate: float
+    sparse_solution: bool
+    sparse_frac_betas: object
+    betas_trace_out: object
+    increase_filter_gene_set_p: float
+    min_gene_set_size: int
+    max_gene_set_size: int
+    filter_gene_set_metric_z: float
+    max_num_gene_sets: object
+
+
+@dataclass
+class XReadPostCallbacks:
+    standardize_qc_metrics_after_x_read_fn: object
+    maybe_correct_gene_set_betas_after_x_read_fn: object
+    maybe_limit_initial_gene_sets_by_p_fn: object
+    maybe_prune_gene_sets_after_x_read_fn: object
+    initialize_hyper_defaults_after_x_read_fn: object
+    maybe_learn_batch_hyper_after_x_read_fn: object
+    maybe_adjust_overaggressive_p_filter_after_x_read_fn: object
+    apply_post_read_gene_set_size_and_qc_filters_fn: object
+    maybe_filter_zero_uncorrected_betas_after_x_read_fn: object
+    maybe_reduce_gene_sets_to_max_after_x_read_fn: object
+    record_read_x_counts_fn: object
 
 @dataclass
 class ParsedGeneSetStats:
@@ -3237,6 +3538,80 @@ def run_read_x_ingestion(
         log_fn=log_fn,
         info_level=info_level,
         debug_level=debug_level,
+    )
+
+
+def build_read_x_ingestion_options(local_vars):
+    return XReadIngestionOptions(
+        batch_all_for_hyper=local_vars["batch_all_for_hyper"],
+        first_for_hyper=local_vars["first_for_hyper"],
+        update_hyper_sigma=local_vars["update_hyper_sigma"],
+        update_hyper_p=local_vars["update_hyper_p"],
+        first_for_sigma_cond=local_vars["first_for_sigma_cond"],
+        run_gls=local_vars["run_gls"],
+        run_corrected_ols=local_vars["run_corrected_ols"],
+        gene_cor_file=local_vars["gene_cor_file"],
+        gene_loc_file=local_vars["gene_loc_file"],
+        gene_cor_file_gene_col=local_vars["gene_cor_file_gene_col"],
+        gene_cor_file_cor_start_col=local_vars["gene_cor_file_cor_start_col"],
+        run_logistic=local_vars["run_logistic"],
+        max_for_linear=local_vars["max_for_linear"],
+        only_ids=local_vars["only_ids"],
+        add_all_genes=local_vars["add_all_genes"],
+        only_inc_genes=local_vars["only_inc_genes"],
+        fraction_inc_genes=local_vars["fraction_inc_genes"],
+        ignore_genes=local_vars["ignore_genes"],
+        max_num_entries_at_once=local_vars["max_num_entries_at_once"],
+        filter_gene_set_p=local_vars["filter_gene_set_p"],
+        filter_gene_set_metric_z=local_vars["filter_gene_set_metric_z"],
+        filter_using_phewas=local_vars["filter_using_phewas"],
+    )
+
+
+def build_read_x_post_options(local_vars, *, batches, num_ignored_gene_sets, ignored_for_fraction_inc):
+    return XReadPostOptions(
+        ignored_for_fraction_inc=ignored_for_fraction_inc,
+        filter_gene_set_p=local_vars["filter_gene_set_p"],
+        correct_betas_mean=local_vars["correct_betas_mean"],
+        correct_betas_var=local_vars["correct_betas_var"],
+        filter_using_phewas=local_vars["filter_using_phewas"],
+        prune_gene_sets=local_vars["prune_gene_sets"],
+        weighted_prune_gene_sets=local_vars["weighted_prune_gene_sets"],
+        prune_deterministically=local_vars["prune_deterministically"],
+        max_num_gene_sets_initial=local_vars["max_num_gene_sets_initial"],
+        skip_betas=local_vars["skip_betas"],
+        initial_p=local_vars["initial_p"],
+        update_hyper_p=local_vars["update_hyper_p"],
+        sigma_power=local_vars["sigma_power"],
+        initial_sigma2_cond=local_vars["initial_sigma2_cond"],
+        update_hyper_sigma=local_vars["update_hyper_sigma"],
+        initial_sigma2=local_vars["initial_sigma2"],
+        sigma_soft_threshold_95=local_vars["sigma_soft_threshold_95"],
+        sigma_soft_threshold_5=local_vars["sigma_soft_threshold_5"],
+        batches=batches,
+        num_ignored_gene_sets=num_ignored_gene_sets,
+        first_for_hyper=local_vars["first_for_hyper"],
+        max_num_gene_sets_hyper=local_vars["max_num_gene_sets_hyper"],
+        first_for_sigma_cond=local_vars["first_for_sigma_cond"],
+        first_max_p_for_hyper=local_vars["first_max_p_for_hyper"],
+        max_num_burn_in=local_vars["max_num_burn_in"],
+        max_num_iter_betas=local_vars["max_num_iter_betas"],
+        min_num_iter_betas=local_vars["min_num_iter_betas"],
+        num_chains_betas=local_vars["num_chains_betas"],
+        r_threshold_burn_in_betas=local_vars["r_threshold_burn_in_betas"],
+        use_max_r_for_convergence_betas=local_vars["use_max_r_for_convergence_betas"],
+        max_frac_sem_betas=local_vars["max_frac_sem_betas"],
+        max_allowed_batch_correlation=local_vars["max_allowed_batch_correlation"],
+        sigma_num_devs_to_top=local_vars["sigma_num_devs_to_top"],
+        p_noninf_inflate=local_vars["p_noninf_inflate"],
+        sparse_solution=local_vars["sparse_solution"],
+        sparse_frac_betas=local_vars["sparse_frac_betas"],
+        betas_trace_out=local_vars["betas_trace_out"],
+        increase_filter_gene_set_p=local_vars["increase_filter_gene_set_p"],
+        min_gene_set_size=local_vars["min_gene_set_size"],
+        max_gene_set_size=local_vars["max_gene_set_size"],
+        filter_gene_set_metric_z=local_vars["filter_gene_set_metric_z"],
+        max_num_gene_sets=local_vars["max_num_gene_sets"],
     )
 
 
