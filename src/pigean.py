@@ -6104,11 +6104,11 @@ class PigeanState(object):
         # ==========================================================================
         # Gibbs Phase 4: Finalize run-level completion checks.
         # ==========================================================================
-        if run_state["num_completed_epochs"] == 0:
+        if run_state.num_completed_epochs == 0:
             bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
         log(
             "Aggregated %d Gibbs epoch(s) into %d effective chains"
-            % (run_state["num_completed_epochs"], run_state["num_completed_epochs"] * num_chains),
+            % (run_state.num_completed_epochs, run_state.num_completed_epochs * num_chains),
             INFO,
         )
 
@@ -14944,7 +14944,7 @@ def _record_gibbs_configuration_params(state, run_state, config):
             "num_chains_betas": config["num_chains_betas"],
             "max_num_restarts": config["max_num_restarts"],
             "target_num_epochs": config["target_num_epochs"],
-            "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+            "max_num_attempt_restarts": run_state.max_num_attempt_restarts,
             "max_num_iter": config["max_num_iter"],
             "total_num_iter": config["total_num_iter"],
             "epoch_max_num_iter": config["epoch_max_num_iter_config"],
@@ -15013,7 +15013,7 @@ def _log_gibbs_configuration_summary(config, run_state):
         % (
             config["target_num_epochs"],
             config["max_num_restarts"],
-            run_state["max_num_attempt_restarts"],
+            run_state.max_num_attempt_restarts,
             config["epoch_max_num_iter_config"],
             config["total_num_iter"],
         ),
@@ -15103,13 +15103,6 @@ class GibbsRunState:
     num_completed_epochs: int = 0
     remaining_total_iter: int = 0
 
-    # Transitional dict-like access so existing helper code remains unchanged.
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        setattr(self, key, value)
-
 
 def _initialize_gibbs_run_state(total_num_iter, target_num_epochs, max_num_restarts):
     # Mutable run-level counters shared across epoch attempts.
@@ -15139,7 +15132,7 @@ def _prepare_gibbs_epoch_attempt(
     max_num_post_burn_in = epoch_phase_config["max_num_post_burn_in"]
     increase_hyper_if_betas_below = epoch_phase_config["increase_hyper_if_betas_below"]
 
-    run_state["num_attempts"] += 1
+    run_state.num_attempts += 1
 
     (
         epoch_max_num_iter,
@@ -15148,7 +15141,7 @@ def _prepare_gibbs_epoch_attempt(
         min_num_post_burn_in_for_epoch,
         max_num_post_burn_in_for_epoch,
     ) = _resolve_epoch_iteration_budget(
-        run_state["remaining_total_iter"],
+        run_state.remaining_total_iter,
         epoch_max_num_iter_config,
         min_num_burn_in,
         max_num_burn_in,
@@ -15158,36 +15151,36 @@ def _prepare_gibbs_epoch_attempt(
     if epoch_max_num_iter < 1:
         return None
 
-    trace_chain_offset = run_state["num_completed_epochs"] * num_chains
+    trace_chain_offset = run_state.num_completed_epochs * num_chains
     p_scale_factor = 1 - np.log(state.p) / (2 * np.log(10))
 
     min_num_iter_for_epoch = min_num_burn_in_for_epoch
-    increase_hyper_if_betas_below_for_epoch = increase_hyper_if_betas_below if run_state["num_completed_epochs"] == 0 else None
+    increase_hyper_if_betas_below_for_epoch = increase_hyper_if_betas_below if run_state.num_completed_epochs == 0 else None
     num_before_checking_p_increase = max(min_num_iter_for_epoch, min_num_burn_in_for_epoch)
     if increase_hyper_if_betas_below_for_epoch is not None and num_before_checking_p_increase > min_num_iter_for_epoch:
         # Ensure this check runs before any early break.
         min_num_iter_for_epoch = num_before_checking_p_increase
 
-    state._record_param("num_gibbs_restarts", run_state["num_attempts"] - 1, overwrite=True)
-    state._record_param("num_gibbs_epochs_completed", run_state["num_completed_epochs"], overwrite=True)
-    if run_state["num_attempts"] > 1:
-        log("Gibbs restart attempt %d" % (run_state["num_attempts"] - 1))
+    state._record_param("num_gibbs_restarts", run_state.num_attempts - 1, overwrite=True)
+    state._record_param("num_gibbs_epochs_completed", run_state.num_completed_epochs, overwrite=True)
+    if run_state.num_attempts > 1:
+        log("Gibbs restart attempt %d" % (run_state.num_attempts - 1))
     log(
         "Gibbs epoch %d/%d: max_num_iter=%d, burn=[%d,%d], post=[%d,%d], remaining_total_iter=%d"
         % (
-            run_state["num_completed_epochs"] + 1,
+            run_state.num_completed_epochs + 1,
             target_num_epochs,
             epoch_max_num_iter,
             min_num_burn_in_for_epoch,
             max_num_burn_in_for_epoch,
             min_num_post_burn_in_for_epoch,
             max_num_post_burn_in_for_epoch,
-            run_state["remaining_total_iter"],
+            run_state.remaining_total_iter,
         ),
         INFO,
     )
 
-    epoch_total_iter_offset = total_num_iter - run_state["remaining_total_iter"]
+    epoch_total_iter_offset = total_num_iter - run_state.remaining_total_iter
     return {
         "epoch_max_num_iter": epoch_max_num_iter,
         "min_num_burn_in_for_epoch": min_num_burn_in_for_epoch,
@@ -17202,11 +17195,11 @@ def _build_gibbs_epoch_finalize_context(
         "include_missing": (state.genes_missing is not None),
         "gibbs_good": epoch_runtime["gibbs_good"],
         "iterations_run_this_epoch": (iteration_num + 1),
-        "remaining_total_iter": run_state["remaining_total_iter"],
-        "num_completed_epochs": run_state["num_completed_epochs"],
+        "remaining_total_iter": run_state.remaining_total_iter,
+        "num_completed_epochs": run_state.num_completed_epochs,
         "target_num_epochs": epoch_phase_config["target_num_epochs"],
-        "num_attempts": run_state["num_attempts"],
-        "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+        "num_attempts": run_state.num_attempts,
+        "max_num_attempt_restarts": run_state.max_num_attempt_restarts,
         "stop_due_to_stall": epoch_control["stop_due_to_stall"],
         "stop_due_to_precision": epoch_control["stop_due_to_precision"],
         "num_mad": epoch_phase_config["num_mad"],
@@ -18091,8 +18084,8 @@ def _build_gibbs_epoch_iteration_loop_config(
         "correct_betas_var": epoch_iteration_static_config["correct_betas_var"],
         "prefilter_config": epoch_iteration_static_config["prefilter_config"],
         "iteration_progress_config": epoch_iteration_static_config["iteration_progress_config"],
-        "num_attempts": run_state["num_attempts"],
-        "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+        "num_attempts": run_state.num_attempts,
+        "max_num_attempt_restarts": run_state.max_num_attempt_restarts,
         "num_mad": epoch_phase_config["num_mad"],
         "increase_hyper_if_betas_below_for_epoch": epoch_context["increase_hyper_if_betas_below_for_epoch"],
         "num_before_checking_p_increase": epoch_context["num_before_checking_p_increase"],
@@ -18269,7 +18262,7 @@ def _initialize_gibbs_epoch_attempt_context(
         max_mb_X_h=epoch_phase_config["max_mb_X_h"],
         log_fun=log,
         epoch_aggregates=epoch_aggregates,
-        num_p_increases=run_state["num_p_increases"],
+        num_p_increases=run_state.num_p_increases,
     )
     epoch_context.update(epoch_attempt)
     return {
@@ -18288,9 +18281,9 @@ def _initialize_gibbs_epoch_attempt_context(
 
 
 def _apply_gibbs_epoch_finalize_update(run_state, epoch_runtime, epoch_finalize_update):
-    run_state["num_p_increases"] = epoch_runtime["num_p_increases"]
-    run_state["remaining_total_iter"] = epoch_finalize_update["remaining_total_iter"]
-    run_state["num_completed_epochs"] = epoch_finalize_update["num_completed_epochs"]
+    run_state.num_p_increases = epoch_runtime["num_p_increases"]
+    run_state.remaining_total_iter = epoch_finalize_update["remaining_total_iter"]
+    run_state.num_completed_epochs = epoch_finalize_update["num_completed_epochs"]
     return epoch_finalize_update["should_continue"]
 
 
@@ -18428,11 +18421,11 @@ def _should_continue_gibbs_epoch_attempts(
 
 def _should_continue_gibbs_epoch_loop(run_state):
     return _should_continue_gibbs_epoch_attempts(
-        remaining_total_iter=run_state["remaining_total_iter"],
-        num_completed_epochs=run_state["num_completed_epochs"],
-        target_num_epochs=run_state["target_num_epochs"],
-        num_attempts=run_state["num_attempts"],
-        max_num_attempt_restarts=run_state["max_num_attempt_restarts"],
+        remaining_total_iter=run_state.remaining_total_iter,
+        num_completed_epochs=run_state.num_completed_epochs,
+        target_num_epochs=run_state.target_num_epochs,
+        num_attempts=run_state.num_attempts,
+        max_num_attempt_restarts=run_state.max_num_attempt_restarts,
     )
 
 
@@ -19868,8 +19861,8 @@ def _build_post_burn_action_config(
     D_mcse_q,
 ):
     return {
-        "num_attempts": run_state["num_attempts"],
-        "max_num_attempt_restarts": run_state["max_num_attempt_restarts"],
+        "num_attempts": run_state.num_attempts,
+        "max_num_attempt_restarts": run_state.max_num_attempt_restarts,
         "epoch_iter_num": iter_state["epoch_iter_num"],
         "total_iter_num": iter_state["total_iter_num"],
         "post_stall_plateau": post_stall_update["post_stall_plateau"],
