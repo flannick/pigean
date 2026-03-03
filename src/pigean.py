@@ -81,8 +81,7 @@ try:
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
-        make_add_to_x_handler as pegs_make_add_to_x_handler,
-        ingest_x_inputs as pegs_ingest_x_inputs,
+        run_read_x_ingestion as pegs_run_read_x_ingestion,
         initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -166,8 +165,7 @@ except ImportError:
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
-        make_add_to_x_handler as pegs_make_add_to_x_handler,
-        ingest_x_inputs as pegs_ingest_x_inputs,
+        run_read_x_ingestion as pegs_run_read_x_ingestion,
         initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -1880,42 +1878,24 @@ class PigeanState(object):
             merge_missing_gene_rows_fn=_merge_missing_gene_rows,
             finalize_added_x_block_fn=_finalize_added_x_block,
         )
-        add_to_x_fn = pegs_make_add_to_x_handler(
-            self,
-            read_x_config,
-            read_x_callbacks,
-            run_logistic=run_logistic,
-        )
-
-        if only_inc_genes:
-            add_all_genes = True
-
-        _ensure_gene_universe_for_x(
+        ignored_for_fraction_inc = pegs_run_read_x_ingestion(
             self,
             X_ins=X_ins,
             is_dense=is_dense,
+            batches=batches,
+            labels=labels,
+            initial_ps=initial_ps,
+            num_ignored_gene_sets=num_ignored_gene_sets,
+            read_config=read_x_config,
+            read_callbacks=read_x_callbacks,
+            run_logistic=run_logistic,
+            only_ids=only_ids,
             add_all_genes=add_all_genes,
-            only_ids=only_ids,
-            only_inc_genes=only_inc_genes,
-            fraction_inc_genes=fraction_inc_genes,
-        )
-
-        ignored_for_fraction_inc = pegs_ingest_x_inputs(
-            self,
-            X_ins,
-            is_dense,
-            batches,
-            labels,
-            initial_ps,
-            num_ignored_gene_sets,
-            only_ids=only_ids,
-            x_sparsify=x_sparsify,
-            min_gene_set_size=min_gene_set_size,
             only_inc_genes=only_inc_genes,
             fraction_inc_genes=fraction_inc_genes,
             ignore_genes=ignore_genes,
             max_num_entries_at_once=max_num_entries_at_once,
-            add_to_x_fn=add_to_x_fn,
+            ensure_gene_universe_fn=_ensure_gene_universe_for_x,
             process_x_input_file_fn=_process_x_input_file,
             remove_tag_from_input_fn=_remove_tag_from_input,
             log_fn=log,

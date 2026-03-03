@@ -3171,6 +3171,75 @@ def ingest_x_inputs(
     return ignored_for_fraction_inc
 
 
+def run_read_x_ingestion(
+    runtime,
+    *,
+    X_ins,
+    is_dense,
+    batches,
+    labels,
+    initial_ps,
+    num_ignored_gene_sets,
+    read_config,
+    read_callbacks,
+    run_logistic,
+    only_ids,
+    add_all_genes,
+    only_inc_genes,
+    fraction_inc_genes,
+    ignore_genes,
+    max_num_entries_at_once,
+    ensure_gene_universe_fn,
+    process_x_input_file_fn,
+    remove_tag_from_input_fn,
+    log_fn,
+    info_level,
+    debug_level,
+):
+    if only_inc_genes:
+        add_all_genes = True
+
+    ensure_gene_universe_fn(
+        runtime,
+        X_ins=X_ins,
+        is_dense=is_dense,
+        add_all_genes=add_all_genes,
+        only_ids=only_ids,
+        only_inc_genes=only_inc_genes,
+        fraction_inc_genes=fraction_inc_genes,
+    )
+
+    add_to_x_fn = make_add_to_x_handler(
+        runtime,
+        read_config,
+        read_callbacks,
+        run_logistic=run_logistic,
+    )
+
+    return ingest_x_inputs(
+        runtime,
+        X_ins,
+        is_dense,
+        batches,
+        labels,
+        initial_ps,
+        num_ignored_gene_sets,
+        only_ids=only_ids,
+        x_sparsify=read_config.x_sparsify,
+        min_gene_set_size=read_config.min_gene_set_size,
+        only_inc_genes=only_inc_genes,
+        fraction_inc_genes=fraction_inc_genes,
+        ignore_genes=ignore_genes,
+        max_num_entries_at_once=max_num_entries_at_once,
+        add_to_x_fn=add_to_x_fn,
+        process_x_input_file_fn=process_x_input_file_fn,
+        remove_tag_from_input_fn=remove_tag_from_input_fn,
+        log_fn=log_fn,
+        info_level=info_level,
+        debug_level=debug_level,
+    )
+
+
 def initialize_matrix_and_gene_index_state(runtime, batch_size):
     # genes x gene-set indicator matrices (sparse, unscaled storage)
     runtime.X_orig = None
