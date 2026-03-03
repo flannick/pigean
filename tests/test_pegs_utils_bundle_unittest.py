@@ -482,6 +482,75 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertTrue(np.any(out_se == 1.0))
         self.assertGreaterEqual(len(warnings), 1)
 
+    def test_remove_tag_from_input(self) -> None:
+        path, tag = pegs_utils.remove_tag_from_input("mouse:data.tsv")
+        self.assertEqual(path, "data.tsv")
+        self.assertEqual(tag, "mouse")
+        path, tag = pegs_utils.remove_tag_from_input("data.tsv")
+        self.assertEqual(path, "data.tsv")
+        self.assertIsNone(tag)
+
+    def test_assign_default_batches(self) -> None:
+        batches = [None, None, "X", None]
+        orig_files = ["a", "a", "b", "c"]
+        out = pegs_utils.assign_default_batches(
+            batches=batches,
+            orig_files=orig_files,
+            batch_all_for_hyper=False,
+            first_for_hyper=False,
+        )
+        self.assertEqual(out[0], out[1])
+        self.assertEqual(out[2], "X")
+        self.assertIsNotNone(out[3])
+
+        out_first = pegs_utils.assign_default_batches(
+            batches=[None, None, "Y"],
+            orig_files=["a", "b", "c"],
+            batch_all_for_hyper=False,
+            first_for_hyper=True,
+        )
+        self.assertIsNotNone(out_first[0])
+        self.assertIsNone(out_first[1])
+        self.assertIsNone(out_first[2])
+
+    def test_prepare_read_x_inputs_and_xdata_from_input_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            sparse_list = root / "x_list.txt"
+            dense_list = root / "xd_list.txt"
+            (root / "rel_sparse.tsv").write_text("SET1 GENE1\n", encoding="utf-8")
+            dense_member = root / "dense.tsv"
+            dense_member.write_text("SET2\tGENE2\n", encoding="utf-8")
+
+            sparse_list.write_text("tagS:rel_sparse.tsv\n", encoding="utf-8")
+            dense_list.write_text(str(dense_member) + "\n", encoding="utf-8")
+
+            plan = pegs_utils.prepare_read_x_inputs(
+                X_in=["tagA:fileA.tsv@B0"],
+                X_list=[str(sparse_list) + "@BL"],
+                Xd_in=None,
+                Xd_list=[str(dense_list)],
+                initial_p=None,
+                xin_to_p_noninf_ind=None,
+                batch_separator="@",
+                file_separator=None,
+                sparse_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                dense_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+            )
+
+            self.assertEqual(len(plan.X_ins), 3)
+            self.assertTrue(any("rel_sparse.tsv" in x for x in plan.X_ins))
+            self.assertEqual(plan.batches[0], "B0")
+            self.assertEqual(plan.batches[1], "BL")
+            self.assertFalse(plan.is_dense[0])
+            self.assertFalse(plan.is_dense[1])
+            self.assertTrue(plan.is_dense[2])
+
+            xdata = pegs_utils.xdata_from_input_plan(plan)
+            self.assertEqual(xdata.gene_set_batches.shape[0], 3)
+            self.assertEqual(xdata.gene_set_labels.shape[0], 3)
+            self.assertEqual(xdata.is_dense_gene_set.dtype, np.bool_)
+
 
 if __name__ == "__main__":
     unittest.main()
