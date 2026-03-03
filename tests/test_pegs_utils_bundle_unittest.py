@@ -651,6 +651,67 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertIsNone(parsed.Ys)
             np.testing.assert_allclose(parsed.combineds, np.array([0.7]))
 
+    def test_runtime_state_dataclass_roundtrip_helpers(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.Y = np.array([1.0, 2.0])
+        rt.Y_for_regression = np.array([0.5, 1.5])
+        rt.Y_exomes = None
+        rt.Y_positive_controls = None
+        rt.Y_case_counts = None
+        rt.y_var = 1.2
+        rt.y_corr = None
+        rt.y_corr_cholesky = None
+        rt.y_corr_sparse = None
+        rt.Y_w = None
+        rt.Y_fw = None
+        rt.y_w_var = None
+        rt.y_w_mean = None
+        rt.y_fw_var = None
+        rt.y_fw_mean = None
+
+        rt.p = 0.1
+        rt.sigma2 = 0.2
+        rt.sigma_power = 2.0
+        rt.sigma2_osc = None
+        rt.sigma2_se = 0.01
+        rt.sigma2_p = 0.5
+        rt.sigma2_total_var = 1.0
+        rt.sigma2_total_var_lower = 0.9
+        rt.sigma2_total_var_upper = 1.1
+        rt.ps = np.array([0.1, 0.2])
+        rt.sigma2s = np.array([0.2, 0.3])
+        rt.sigma2s_missing = None
+
+        rt.phenos = ["P1"]
+        rt.pheno_to_ind = {"P1": 0}
+        rt.gene_pheno_Y = sparse.csc_matrix(([1.0], ([0], [0])), shape=(1, 1))
+        rt.gene_pheno_combined_prior_Ys = None
+        rt.gene_pheno_priors = None
+        rt.X_phewas_beta = None
+        rt.X_phewas_beta_uncorrected = None
+        rt.num_gene_phewas_filtered = 3
+        rt.anchor_gene_mask = np.array([True])
+        rt.anchor_pheno_mask = np.array([True])
+
+        y_state = pegs_utils.y_data_from_runtime(rt)
+        hyper_state = pegs_utils.hyperparameter_data_from_runtime(rt)
+        phewas_state = pegs_utils.phewas_runtime_state_from_runtime(rt)
+
+        y_state.y_var = 2.5
+        hyper_state.p = 0.25
+        phewas_state.num_gene_phewas_filtered = 7
+
+        pegs_utils.apply_y_data_to_runtime(rt, y_state)
+        pegs_utils.apply_hyperparameter_data_to_runtime(rt, hyper_state)
+        pegs_utils.apply_phewas_runtime_state_to_runtime(rt, phewas_state)
+
+        self.assertAlmostEqual(rt.y_var, 2.5)
+        self.assertAlmostEqual(rt.p, 0.25)
+        self.assertEqual(rt.num_gene_phewas_filtered, 7)
+
     def test_remove_tag_from_input(self) -> None:
         path, tag = pegs_utils.remove_tag_from_input("mouse:data.tsv")
         self.assertEqual(path, "data.tsv")
