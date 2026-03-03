@@ -55,6 +55,8 @@ try:
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
         assign_default_batches as pegs_assign_default_batches,
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
+        initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
+        maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -125,6 +127,8 @@ except ImportError:
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
         assign_default_batches as pegs_assign_default_batches,
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
+        initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
+        maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -1800,9 +1804,9 @@ class PigeanState(object):
         )
 
         if (filter_gene_set_p < 1 or filter_gene_set_metric_z) and self.Y is not None:
-            _initialize_filtered_gene_set_state(self, update_hyper_p=update_hyper_p)
-            _maybe_prepare_filtered_gls_correlation(
-                self,
+            pegs_initialize_filtered_gene_set_state(self, update_hyper_p=update_hyper_p)
+            pegs_maybe_prepare_filtered_gls_correlation(
+                runtime=self,
                 run_gls=run_gls,
                 run_corrected_ols=run_corrected_ols,
                 gene_cor_file=gene_cor_file,
@@ -14424,81 +14428,6 @@ def _ensure_gene_universe_for_x(
 
         # really calling this just to set the genes
         runtime_state._set_X(runtime_state.X_orig, list(all_genes), runtime_state.gene_sets, skip_N=False)
-
-
-def _initialize_filtered_gene_set_state(runtime_state, update_hyper_p):
-    runtime_state.gene_sets_ignored = []
-    if runtime_state.gene_set_labels is not None:
-        runtime_state.gene_set_labels_ignored = np.array([])
-
-    runtime_state.col_sums_ignored = np.array([])
-    runtime_state.scale_factors_ignored = np.array([])
-    runtime_state.mean_shifts_ignored = np.array([])
-    runtime_state.beta_tildes_ignored = np.array([])
-    runtime_state.p_values_ignored = np.array([])
-    runtime_state.ses_ignored = np.array([])
-    runtime_state.z_scores_ignored = np.array([])
-    runtime_state.se_inflation_factors_ignored = np.array([])
-
-    runtime_state.beta_tildes = np.array([])
-    runtime_state.p_values = np.array([])
-    runtime_state.ses = np.array([])
-    runtime_state.z_scores = np.array([])
-
-    runtime_state.se_inflation_factors = None
-
-    runtime_state.total_qc_metrics = None
-    runtime_state.mean_qc_metrics = None
-
-    runtime_state.total_qc_metrics_missing = None
-    runtime_state.mean_qc_metrics_missing = None
-
-    runtime_state.total_qc_metrics_ignored = None
-    runtime_state.mean_qc_metrics_ignored = None
-
-    runtime_state.total_qc_metrics_directions = None
-
-    runtime_state.sigma2s = None
-    runtime_state.sigma2s_missing = None
-    if update_hyper_p is not None:
-        runtime_state.ps = np.array([])
-    else:
-        runtime_state.ps = None
-    runtime_state.ps_missing = None
-
-
-def _maybe_prepare_filtered_gls_correlation(
-    runtime_state,
-    run_gls,
-    run_corrected_ols,
-    gene_cor_file,
-    gene_loc_file,
-    gene_cor_file_gene_col,
-    gene_cor_file_cor_start_col,
-):
-    if (run_gls or run_corrected_ols) and runtime_state.y_corr is None:
-        correlation_m = runtime_state._read_correlations(
-            gene_cor_file,
-            gene_loc_file,
-            gene_cor_file_gene_col=gene_cor_file_gene_col,
-            gene_cor_file_cor_start_col=gene_cor_file_cor_start_col,
-        )
-
-        # convert X and Y to their new values
-        min_correlation = 0.05
-        runtime_state._set_Y(
-            runtime_state.Y,
-            runtime_state.Y_for_regression,
-            runtime_state.Y_exomes,
-            runtime_state.Y_positive_controls,
-            runtime_state.Y_case_counts,
-            Y_corr_m=correlation_m,
-            store_cholesky=run_gls,
-            store_corr_sparse=run_corrected_ols,
-            skip_V=True,
-            skip_scale_factors=True,
-            min_correlation=min_correlation,
-        )
 
 
 def _align_extra_genes_with_new_source(

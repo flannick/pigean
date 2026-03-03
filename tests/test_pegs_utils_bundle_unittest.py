@@ -1289,6 +1289,79 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertTrue(any("Will fix conditional sigma" in m for m in logs))
         self.assertTrue(any(d.get("num_X_batches") == 2 for d in params))
 
+    def test_initialize_filtered_gene_set_state(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.gene_set_labels = np.array(["L1"])
+        pegs_utils.initialize_filtered_gene_set_state(rt, update_hyper_p=True)
+        self.assertEqual(rt.gene_sets_ignored, [])
+        self.assertEqual(rt.gene_set_labels_ignored.shape[0], 0)
+        self.assertEqual(rt.beta_tildes.shape[0], 0)
+        self.assertIsNone(rt.se_inflation_factors)
+        self.assertEqual(rt.ps.shape[0], 0)
+        self.assertIsNone(rt.ps_missing)
+
+        rt2 = _Runtime()
+        rt2.gene_set_labels = None
+        pegs_utils.initialize_filtered_gene_set_state(rt2, update_hyper_p=None)
+        self.assertIsNone(rt2.ps)
+
+    def test_maybe_prepare_filtered_gls_correlation(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.y_corr = None
+                self.Y = np.array([1.0, 2.0])
+                self.Y_for_regression = np.array([1.0, 2.0])
+                self.Y_exomes = np.array([0.0, 0.0])
+                self.Y_positive_controls = np.array([0.0, 0.0])
+                self.Y_case_counts = np.array([0.0, 0.0])
+                self.read_args = None
+                self.set_y_kwargs = None
+
+            def _read_correlations(self, gene_cor_file, gene_loc_file, gene_cor_file_gene_col=None, gene_cor_file_cor_start_col=None):
+                self.read_args = (
+                    gene_cor_file,
+                    gene_loc_file,
+                    gene_cor_file_gene_col,
+                    gene_cor_file_cor_start_col,
+                )
+                return np.array([[1.0, 0.1], [0.0, 0.0]])
+
+            def _set_Y(self, *args, **kwargs):
+                self.set_y_kwargs = kwargs
+
+        rt = _Runtime()
+        pegs_utils.maybe_prepare_filtered_gls_correlation(
+            runtime=rt,
+            run_gls=True,
+            run_corrected_ols=False,
+            gene_cor_file="cor.tsv",
+            gene_loc_file="loc.tsv",
+            gene_cor_file_gene_col=1,
+            gene_cor_file_cor_start_col=10,
+        )
+        self.assertEqual(rt.read_args, ("cor.tsv", "loc.tsv", 1, 10))
+        self.assertIsNotNone(rt.set_y_kwargs)
+        self.assertTrue(rt.set_y_kwargs["store_cholesky"])
+        self.assertFalse(rt.set_y_kwargs["store_corr_sparse"])
+        self.assertAlmostEqual(rt.set_y_kwargs["min_correlation"], 0.05)
+
+        rt2 = _Runtime()
+        rt2.y_corr = np.array([[1.0]])
+        pegs_utils.maybe_prepare_filtered_gls_correlation(
+            runtime=rt2,
+            run_gls=True,
+            run_corrected_ols=False,
+            gene_cor_file="cor.tsv",
+            gene_loc_file="loc.tsv",
+            gene_cor_file_gene_col=1,
+            gene_cor_file_cor_start_col=10,
+        )
+        self.assertIsNone(rt2.read_args)
+        self.assertIsNone(rt2.set_y_kwargs)
+
     def test_prepare_read_x_inputs_and_xdata_from_input_plan(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

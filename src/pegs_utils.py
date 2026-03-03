@@ -2402,6 +2402,76 @@ def initialize_read_x_batch_seed_state(
     return batches, num_ignored_gene_sets
 
 
+def initialize_filtered_gene_set_state(runtime, update_hyper_p):
+    runtime.gene_sets_ignored = []
+    if runtime.gene_set_labels is not None:
+        runtime.gene_set_labels_ignored = np.array([])
+
+    runtime.col_sums_ignored = np.array([])
+    runtime.scale_factors_ignored = np.array([])
+    runtime.mean_shifts_ignored = np.array([])
+    runtime.beta_tildes_ignored = np.array([])
+    runtime.p_values_ignored = np.array([])
+    runtime.ses_ignored = np.array([])
+    runtime.z_scores_ignored = np.array([])
+    runtime.se_inflation_factors_ignored = np.array([])
+
+    runtime.beta_tildes = np.array([])
+    runtime.p_values = np.array([])
+    runtime.ses = np.array([])
+    runtime.z_scores = np.array([])
+
+    runtime.se_inflation_factors = None
+
+    runtime.total_qc_metrics = None
+    runtime.mean_qc_metrics = None
+    runtime.total_qc_metrics_missing = None
+    runtime.mean_qc_metrics_missing = None
+    runtime.total_qc_metrics_ignored = None
+    runtime.mean_qc_metrics_ignored = None
+    runtime.total_qc_metrics_directions = None
+
+    runtime.sigma2s = None
+    runtime.sigma2s_missing = None
+    if update_hyper_p is not None:
+        runtime.ps = np.array([])
+    else:
+        runtime.ps = None
+    runtime.ps_missing = None
+
+
+def maybe_prepare_filtered_gls_correlation(
+    runtime,
+    run_gls,
+    run_corrected_ols,
+    gene_cor_file,
+    gene_loc_file,
+    gene_cor_file_gene_col,
+    gene_cor_file_cor_start_col,
+    min_correlation=0.05,
+):
+    if (run_gls or run_corrected_ols) and runtime.y_corr is None:
+        correlation_m = runtime._read_correlations(
+            gene_cor_file,
+            gene_loc_file,
+            gene_cor_file_gene_col=gene_cor_file_gene_col,
+            gene_cor_file_cor_start_col=gene_cor_file_cor_start_col,
+        )
+        runtime._set_Y(
+            runtime.Y,
+            runtime.Y_for_regression,
+            runtime.Y_exomes,
+            runtime.Y_positive_controls,
+            runtime.Y_case_counts,
+            Y_corr_m=correlation_m,
+            store_cholesky=run_gls,
+            store_corr_sparse=run_corrected_ols,
+            skip_V=True,
+            skip_scale_factors=True,
+            min_correlation=min_correlation,
+        )
+
+
 def _normalize_input_specs(input_specs):
     if input_specs is None:
         return ([], [])
