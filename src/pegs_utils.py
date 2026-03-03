@@ -69,6 +69,12 @@ class XData:
     def num_gene_sets(self):
         return 0 if self.gene_sets is None else len(self.gene_sets)
 
+    def seed_runtime_read_x_state(self, runtime):
+        runtime.gene_set_batches = self.gene_set_batches[:0]
+        runtime.gene_set_labels = self.gene_set_labels[:0]
+        runtime.gene_sets = []
+        runtime.is_dense_gene_set = self.is_dense_gene_set[:0]
+
     def run_ingestion_stage(
         self,
         runtime,
@@ -2744,10 +2750,7 @@ def initialize_read_x_batch_seed_state(
 
     num_ignored_gene_sets = np.zeros((len(batches)))
 
-    runtime.gene_set_batches = xdata_seed.gene_set_batches[:0]
-    runtime.gene_set_labels = xdata_seed.gene_set_labels[:0]
-    runtime.gene_sets = []
-    runtime.is_dense_gene_set = xdata_seed.is_dense_gene_set[:0]
+    xdata_seed.seed_runtime_read_x_state(runtime)
 
     return batches, num_ignored_gene_sets
 
