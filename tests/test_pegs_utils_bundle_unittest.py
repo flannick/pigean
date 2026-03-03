@@ -123,6 +123,22 @@ class PegsUtilsBundleTest(unittest.TestCase):
         pegs_utils.callback_set_comma_separated_args_as_set(_Opt(), None, "x,y,x", parser)
         self.assertEqual(parser.values.value, {"x", "y"})
 
+    def test_open_optional_log_handle(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "log.txt"
+            fh = pegs_utils.open_optional_log_handle(str(path), default_stream=sys.stderr, mode="w")
+            try:
+                fh.write("hello\n")
+            finally:
+                fh.close()
+            self.assertTrue(path.exists())
+            self.assertEqual(path.read_text(encoding="utf-8"), "hello\n")
+
+        self.assertIs(
+            pegs_utils.open_optional_log_handle(None, default_stream=sys.stderr, mode="w"),
+            sys.stderr,
+        )
+
     def test_complete_p_beta_se_fills_missing_values(self) -> None:
         p = np.array([np.nan, 0.05, 0.2], dtype=float)
         beta = np.array([np.nan, np.nan, 0.2], dtype=float)

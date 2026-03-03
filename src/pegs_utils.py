@@ -132,6 +132,14 @@ def callback_set_comma_separated_args_as_set(option, opt, value, parser):
     setattr(parser.values, option.dest, set(value.split(",")))
 
 
+def open_optional_log_handle(filepath, default_stream=None, mode="w"):
+    if filepath is not None:
+        return open(filepath, mode)
+    if default_stream is not None:
+        return default_stream
+    return sys.stderr
+
+
 def urlopen_with_retry(
     file,
     flag=None,

@@ -43,6 +43,7 @@ try:
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
+        open_optional_log_handle as pegs_open_optional_log_handle,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
@@ -74,6 +75,7 @@ except ImportError:
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
+        open_optional_log_handle as pegs_open_optional_log_handle,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
@@ -732,11 +734,6 @@ def _format_removed_option_message(option_name, replacement, context, config_pat
         bail("Internal error: %s" % _err)
 
 
-def _open_optional_log_handle(_filepath):
-    if _filepath is not None:
-        return open(_filepath, 'w')
-    return sys.stderr
-
 _apply_cli_help_layout(parser)
 _apply_cli_option_groups(parser)
 
@@ -794,7 +791,7 @@ if config_mode is not None:
     elif args[0] != config_mode:
         _early_warn("Config mode '%s' differs from CLI mode '%s'; using CLI mode" % (config_mode, args[0]))
 
-log_fh = _open_optional_log_handle(options.log_file)
+log_fh = pegs_open_optional_log_handle(options.log_file, default_stream=sys.stderr, mode="w")
 
 NONE=0
 INFO=1
@@ -807,7 +804,7 @@ def log(message, level=INFO, end_char='\n'):
         log_fh.flush()
 
 #set up warnings
-warnings_fh = _open_optional_log_handle(options.warnings_file)
+warnings_fh = pegs_open_optional_log_handle(options.warnings_file, default_stream=sys.stderr, mode="w")
 
 def warn(message):
     if warnings_fh is not None:
