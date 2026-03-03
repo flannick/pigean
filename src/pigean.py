@@ -21931,6 +21931,42 @@ class YReadContract:
         return dict(self.read_kwargs)
 
 
+@dataclass
+class BetaStageResult:
+    ran: bool = False
+    source: str | None = None
+
+
+@dataclass
+class PriorsStageResult:
+    ran: bool = False
+    method: str | None = None
+
+
+@dataclass
+class GibbsStageResult:
+    ran: bool = False
+    num_chains: int | None = None
+    total_num_iter: int | None = None
+
+
+@dataclass
+class NonHugePipelineResult:
+    beta_tilde: BetaStageResult = field(default_factory=BetaStageResult)
+    beta: BetaStageResult = field(default_factory=BetaStageResult)
+    priors: PriorsStageResult = field(default_factory=PriorsStageResult)
+    gibbs: GibbsStageResult = field(default_factory=GibbsStageResult)
+
+
+@dataclass
+class MainPipelineResult:
+    state: object
+    mode_state: dict
+    sigma2_cond: object
+    y_not_loaded: bool
+    non_huge: NonHugePipelineResult | None = None
+
+
 def _build_main_y_read_contract(options):
     primary_inputs = YPrimaryInputsContract(
         gwas_in=options.gwas_in,
@@ -22384,6 +22420,8 @@ def _write_eaggl_bundle_if_requested(state, options, mode):
 
 
 def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_loaded):
+    stage_result = NonHugePipelineResult()
+
     # D1) Prepare X / V / p and optional X exports.
     if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
         _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond)
@@ -22429,6 +22467,7 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
     )
     if options.const_gene_set_beta is not None:
         state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
+        stage_result.beta_tilde = BetaStageResult(ran=True, source="const_gene_set_beta")
     elif options.gene_set_stats_in is not None:
         state.read_gene_set_statistics(
             options.gene_set_stats_in,
@@ -22445,6 +22484,7 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
             min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
             return_only_ids=False,
         )
+        stage_result.beta_tilde = BetaStageResult(ran=True, source="gene_set_stats_in")
     elif needs_gene_set_stats:
         max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
         gene_set_stats_kwargs = dict(
@@ -22468,6 +22508,7 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
                 run_using_phewas=True,
                 **gene_set_stats_kwargs,
             )
+        stage_result.beta_tilde = BetaStageResult(ran=True, source="calculate_gene_set_statistics")
 
     # D4) Resolve gene-set betas.
     needs_gene_set_betas = (
@@ -22494,8 +22535,10 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
     if options.const_gene_set_beta is not None:
         state.betas = np.full(len(state.gene_sets), options.const_gene_set_beta)
         state.betas_uncorrected = np.full(len(state.gene_sets), options.const_gene_set_beta)
+        stage_result.beta = BetaStageResult(ran=True, source="const_gene_set_beta")
     elif options.gene_set_betas_in:
         state.read_betas(options.gene_set_betas_in)
+        stage_result.beta = BetaStageResult(ran=True, source="gene_set_betas_in")
     elif needs_gene_set_betas:
         # Hyper updates happen during X-read; this branch only samples betas.
         beta_sampling_kwargs = _build_inner_beta_sampler_common_kwargs(options)
@@ -22513,6 +22556,7 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
             options=options,
             beta_sampling_kwargs=beta_sampling_kwargs,
         )
+        stage_result.beta = BetaStageResult(ran=True, source="calculate_non_inf_betas")
 
     # D5) Final inference stage: priors and/or outer Gibbs.
     if mode_state["run_priors"]:
@@ -22533,8 +22577,10 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
             "max_allowed_batch_correlation": options.max_allowed_batch_correlation,
         })
         state.calculate_priors(**priors_kwargs)
+        stage_result.priors = PriorsStageResult(ran=True, method="priors")
     elif mode_state["run_naive_priors"]:
         state.calculate_naive_priors(adjust_priors=options.adjust_priors)
+        stage_result.priors = PriorsStageResult(ran=True, method="naive_priors")
 
     if mode_state["run_gibbs"]:
         state.run_gibbs(
@@ -22602,6 +22648,13 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
             betas_trace_out=options.betas_trace_out,
             debug_zero_sparse=options.debug_zero_sparse,
         )
+        stage_result.gibbs = GibbsStageResult(
+            ran=True,
+            num_chains=options.num_chains,
+            total_num_iter=options.total_num_iter_gibbs,
+        )
+
+    return stage_result
 
 
 def _write_main_outputs_and_optional_phewas(state, options, mode_state, mode):
@@ -22641,10 +22694,8 @@ def _write_main_outputs_and_optional_phewas(state, options, mode_state, mode):
     _write_eaggl_bundle_if_requested(state=state, options=options, mode=mode)
 
 
-def main():
-    # ==========================================================================
-    # Main Phase A: Runtime setup and global option echo.
-    # ==========================================================================
+def run_main_pipeline(options, mode):
+    # Phase A: runtime setup and global option echo.
     if not options.hide_opts:
         log("Python version: %s" % sys.version)
         log("Numpy version: %s" % np.__version__)
@@ -22653,32 +22704,37 @@ def main():
     state = _build_runtime_state(options)
     mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 
-    # ==========================================================================
-    # Main Phase B: Hyperparameter configuration (p / sigma defaults and modes).
-    # ==========================================================================
+    # Phase B: hyperparameter configuration.
     sigma2_cond = _configure_hyperparameters_for_main(state, options)
 
-    # ==========================================================================
-    # Main Phase C: Input loading helpers (Y, then X/gene sets).
-    # ==========================================================================
-    Y_not_loaded = _load_main_Y_inputs(state, options, mode_state)
+    # Phase C: input loading.
+    y_not_loaded = _load_main_Y_inputs(state, options, mode_state)
 
-    # ==========================================================================
-    # Main Phase D: Core model computation (betas, priors, outer Gibbs).
-    # ==========================================================================
+    # Phase D: core inference.
+    non_huge_result = None
     if not mode_state["run_huge"]:
-        _run_main_non_huge_pipeline(
+        non_huge_result = _run_main_non_huge_pipeline(
             state=state,
             options=options,
             mode_state=mode_state,
             sigma2_cond=sigma2_cond,
-            Y_not_loaded=Y_not_loaded,
+            Y_not_loaded=y_not_loaded,
         )
 
-    # ==========================================================================
-    # Main Phase E: Output writers and optional downstream analyses.
-    # ==========================================================================
+    # Phase E: outputs.
     _write_main_outputs_and_optional_phewas(state, options, mode_state, mode)
+
+    return MainPipelineResult(
+        state=state,
+        mode_state=mode_state,
+        sigma2_cond=sigma2_cond,
+        y_not_loaded=y_not_loaded,
+        non_huge=non_huge_result,
+    )
+
+
+def main():
+    run_main_pipeline(options, mode)
 
 if __name__ == '__main__':
     main()
