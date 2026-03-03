@@ -56,11 +56,10 @@ try:
         assign_default_batches as pegs_assign_default_batches,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
-        parse_gene_covariates_file as pegs_parse_gene_covariates_file,
+        load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
+        load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
         parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
-        align_gene_scalar_map as pegs_align_gene_scalar_map,
-        align_gene_vector_map as pegs_align_gene_vector_map,
         apply_parsed_gene_phewas_bfs_to_runtime as pegs_apply_parsed_gene_phewas_bfs_to_runtime,
         apply_parsed_gene_set_statistics_to_runtime as pegs_apply_parsed_gene_set_statistics_to_runtime,
         set_runtime_p as pegs_set_runtime_p,
@@ -127,11 +126,10 @@ except ImportError:
         assign_default_batches as pegs_assign_default_batches,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
-        parse_gene_covariates_file as pegs_parse_gene_covariates_file,
+        load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
+        load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
         parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
-        align_gene_scalar_map as pegs_align_gene_scalar_map,
-        align_gene_vector_map as pegs_align_gene_vector_map,
         apply_parsed_gene_phewas_bfs_to_runtime as pegs_apply_parsed_gene_phewas_bfs_to_runtime,
         apply_parsed_gene_set_statistics_to_runtime as pegs_apply_parsed_gene_set_statistics_to_runtime,
         set_runtime_p as pegs_set_runtime_p,
@@ -8236,9 +8234,17 @@ class PigeanState(object):
     def read_gene_bfs(self, gene_bfs_in, gene_bfs_id_col=None, gene_bfs_log_bf_col=None, gene_bfs_combined_col=None, gene_bfs_prob_col=None, gene_bfs_prior_col=None, gene_bfs_sd_col=None, **kwargs):
 
         #require X matrix
+        if self.genes is not None:
+            genes = self.genes
+            gene_to_ind = self.gene_to_ind
+        else:
+            genes = []
+            gene_to_ind = {}
 
-        parsed_gene_bfs = pegs_parse_gene_bfs_file(
+        aligned_gene_bfs = pegs_load_aligned_gene_bfs(
             gene_bfs_in,
+            genes=genes,
+            gene_to_ind=gene_to_ind,
             gene_bfs_id_col=gene_bfs_id_col,
             gene_bfs_log_bf_col=gene_bfs_log_bf_col,
             gene_bfs_combined_col=gene_bfs_combined_col,
@@ -8252,24 +8258,13 @@ class PigeanState(object):
             warn_fn=warn,
             bail_fn=bail,
         )
-        gene_in_bfs = parsed_gene_bfs.gene_in_bfs
-        gene_in_combined = parsed_gene_bfs.gene_in_combined
-        gene_in_priors = parsed_gene_bfs.gene_in_priors
-
-
-        if self.genes is not None:
-            genes = self.genes
-            gene_to_ind = self.gene_to_ind
-        else:
-            genes = []
-            gene_to_ind = {}
-        (gene_bfs, extra_genes, extra_gene_bfs) = pegs_align_gene_scalar_map(
-            gene_in_bfs,
-            genes=genes,
-            gene_to_ind=gene_to_ind,
+        return (
+            aligned_gene_bfs.gene_bfs,
+            aligned_gene_bfs.extra_genes,
+            aligned_gene_bfs.extra_gene_bfs,
+            aligned_gene_bfs.gene_in_combined,
+            aligned_gene_bfs.gene_in_priors,
         )
-
-        return (gene_bfs, extra_genes, extra_gene_bfs, gene_in_combined, gene_in_priors)
 
     def read_gene_covs(self, gene_covs_in, gene_covs_id_col=None, gene_covs_cov_cols=None, **kwargs):
 
@@ -8278,22 +8273,7 @@ class PigeanState(object):
         if gene_covs_in is None:
             bail("Require --gene-covs-in for this operation")
 
-        parsed_gene_covs = pegs_parse_gene_covariates_file(
-            gene_covs_in,
-            gene_covs_id_col=gene_covs_id_col,
-            open_text_fn=open_gz,
-            get_col_fn=_get_col,
-            log_fn=lambda message: log(message, TRACE),
-            warn_fn=warn,
-            bail_fn=bail,
-        )
-        cov_names = parsed_gene_covs.cov_names
-        gene_in_covs = parsed_gene_covs.gene_to_covs
-
-        if len(cov_names) == 0:
-            warn("No covariates in file")
-            return
-
+        log("Reading --gene-covs-in file %s" % gene_covs_in, INFO)
         if self.genes is not None:
             genes = self.genes
             gene_to_ind = self.gene_to_ind
@@ -8301,14 +8281,28 @@ class PigeanState(object):
             genes = []
             gene_to_ind = {}
 
-        (gene_covs, extra_genes, extra_gene_covs) = pegs_align_gene_vector_map(
-            gene_in_covs,
-            num_values=len(cov_names),
+        aligned_gene_covs = pegs_load_aligned_gene_covariates(
+            gene_covs_in,
             genes=genes,
             gene_to_ind=gene_to_ind,
+            gene_covs_id_col=gene_covs_id_col,
+            open_text_fn=open_gz,
+            get_col_fn=_get_col,
+            log_fn=lambda message: log(message, DEBUG),
+            warn_fn=warn,
+            bail_fn=bail,
         )
+        cov_names = aligned_gene_covs.cov_names
 
-        return (cov_names, gene_covs, extra_genes, extra_gene_covs)
+        if len(cov_names) == 0:
+            warn("No covariates in file")
+            return
+        return (
+            cov_names,
+            aligned_gene_covs.gene_covs,
+            aligned_gene_covs.extra_genes,
+            aligned_gene_covs.extra_gene_covs,
+        )
 
 
     def convert_prior_to_var(self, top_prior, num, frac):
