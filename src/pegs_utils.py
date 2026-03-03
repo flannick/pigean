@@ -4,6 +4,7 @@ import shutil
 import tarfile
 import tempfile
 import hashlib
+import csv
 import gzip
 import io
 import re
@@ -271,6 +272,80 @@ def open_text_auto(
                 fh = open_fun(file)
 
     return fh
+
+
+class TsvTable(object):
+    def __init__(self, columns, rows, key_column=None, by_key=None):
+        self.columns = columns
+        self.rows = rows
+        self.key_column = key_column
+        self.by_key = by_key
+
+
+def read_tsv(path, key_column=None, required_columns=None, *, bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    required = set(required_columns or [])
+
+    with open_text_auto(str(path), "rt", bail_fn=bail_fn) as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        if reader.fieldnames is None:
+            bail_fn("No header found in TSV: %s" % path)
+
+        missing = required.difference(reader.fieldnames)
+        if missing:
+            missing_fmt = ", ".join(sorted(missing))
+            bail_fn("Missing required columns (%s) in %s" % (missing_fmt, path))
+
+        rows = []
+        by_key = {} if key_column else None
+        for row in reader:
+            rows.append(row)
+            if key_column:
+                key = row.get(key_column, "")
+                if key in by_key:
+                    bail_fn("Duplicate key '%s' in %s (%s)" % (key, path, key_column))
+                by_key[key] = row
+
+    return TsvTable(columns=list(reader.fieldnames), rows=rows, key_column=key_column, by_key=by_key)
+
+
+def write_tsv(path, columns, rows):
+    path = str(path)
+    ensure_parent_dir_for_file(path)
+    cols = list(columns)
+    if path.endswith(".gz"):
+        with gzip.open(path, "wt", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=cols, delimiter="\t", extrasaction="ignore")
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
+    else:
+        with open(path, "w", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=cols, delimiter="\t", extrasaction="ignore")
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
+
+
+def read_gene_stats(path, *, bail_fn=None):
+    return read_tsv(path, key_column="Gene", required_columns=["Gene"], bail_fn=bail_fn)
+
+
+def read_gene_set_stats(path, *, bail_fn=None):
+    return read_tsv(path, key_column="Gene_Set", required_columns=["Gene_Set"], bail_fn=bail_fn)
+
+
+def read_gene_phewas_stats(path, *, bail_fn=None):
+    return read_tsv(path, key_column="Gene", required_columns=["Gene"], bail_fn=bail_fn)
+
+
+def read_gene_set_phewas_stats(path, *, bail_fn=None):
+    return read_tsv(path, key_column="Gene_Set", required_columns=["Gene_Set"], bail_fn=bail_fn)
+
+
+def read_factor_phewas_stats(path, *, bail_fn=None):
+    return read_tsv(path, required_columns=[], bail_fn=bail_fn)
 
 
 def json_safe(value):
