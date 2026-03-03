@@ -12,6 +12,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import copy
+from dataclasses import dataclass, field
 
 import numpy as np
 import scipy.stats
@@ -28,6 +30,36 @@ EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS = set([
 
 DIG_OPEN_DATA_PREFIX = "dig-open-data:"
 DIG_OPEN_DATA_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
+
+
+@dataclass
+class XData:
+    X_orig: object = None
+    X_orig_missing_genes: object = None
+    X_orig_missing_gene_sets: object = None
+    X_orig_missing_genes_missing_gene_sets: object = None
+    genes: list = field(default_factory=list)
+    genes_missing: list = field(default_factory=list)
+    gene_sets: list = field(default_factory=list)
+    gene_sets_missing: list = field(default_factory=list)
+    gene_sets_ignored: list = field(default_factory=list)
+    gene_to_ind: dict = field(default_factory=dict)
+    gene_set_to_ind: dict = field(default_factory=dict)
+    scale_factors: object = None
+    mean_shifts: object = None
+    gene_set_batches: object = None
+    gene_set_labels: object = None
+    is_dense_gene_set: object = None
+
+
+@dataclass
+class XInputPlan:
+    initial_ps: object
+    X_ins: list
+    batches: list
+    labels: list
+    orig_files: list
+    is_dense: list
 
 
 def _default_bail(message):
@@ -449,6 +481,251 @@ def resolve_column_index(col_name_or_index, header_cols, require_match=True, *, 
     if len(matching_cols) > 1:
         bail_fn("Found two matches for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
     return matching_cols[0]
+
+
+def remove_tag_from_input(x_in, tag_separator=":"):
+    tag = None
+    if tag_separator in x_in:
+        tag_index = x_in.index(tag_separator)
+        tag = x_in[:tag_index]
+        x_in = x_in[tag_index + 1 :]
+        if len(tag) == 0:
+            tag = None
+    return (x_in, tag)
+
+
+def add_tag_to_input(x_in, tag, tag_separator=":"):
+    if tag is None:
+        return x_in
+    return tag_separator.join([tag, x_in])
+
+
+def assign_default_batches(batches, orig_files, batch_all_for_hyper, first_for_hyper):
+    batches = list(batches)
+    used_batches = set([str(b) for b in batches if b is not None])
+    next_batch_num = 1
+
+    def _generate_new_batch(new_batch_num):
+        new_batch = "BATCH%d" % new_batch_num
+        while new_batch in used_batches:
+            new_batch_num += 1
+            new_batch = "BATCH%d" % new_batch_num
+        used_batches.add(new_batch)
+        return new_batch, new_batch_num
+
+    for i in range(len(batches)):
+        if batches[i] is None:
+            batches[i], next_batch_num = _generate_new_batch(next_batch_num)
+
+            if batch_all_for_hyper:
+                for j in range(i + 1, len(batches)):
+                    batches[j] = batches[i]
+                break
+            for j in range(i + 1, len(batches)):
+                if batches[j] is None and orig_files[i] == orig_files[j]:
+                    batches[j] = batches[i]
+
+        if first_for_hyper:
+            for j in range(i + 1, len(batches)):
+                if batches[j] != batches[i]:
+                    batches[j] = None
+            break
+    return batches
+
+
+def _normalize_input_specs(input_specs):
+    if input_specs is None:
+        return ([], [])
+    if type(input_specs) == str:
+        return ([input_specs], [input_specs])
+    if type(input_specs) == list:
+        return (input_specs, copy.copy(input_specs))
+    return ([], [])
+
+
+def _append_initial_p_indices(initial_ps, input_specs, xin_to_p_noninf_ind):
+    if initial_ps is None:
+        return
+    for input_spec in input_specs:
+        assert(input_spec in xin_to_p_noninf_ind)
+        initial_ps.append(xin_to_p_noninf_ind[input_spec])
+
+
+def _map_initial_p_indices_to_values(initial_ps, initial_p):
+    if initial_ps is None:
+        return
+    assert(type(initial_p) is list)
+    for i in range(len(initial_ps)):
+        assert(initial_ps[i]) >= 0 and initial_ps[i] < len(initial_p)
+        initial_ps[i] = initial_p[initial_ps[i]]
+
+
+def _expand_x_inputs(x_inputs, orig_files, batch_separator="@", file_separator=None):
+    expanded_inputs = []
+    batches = []
+    labels = []
+    expanded_orig_files = []
+    for i in range(len(x_inputs)):
+        x_input = x_inputs[i]
+        orig_file = orig_files[i]
+        batch = None
+        label = os.path.basename(orig_file)
+        if "." in label:
+            label = ".".join(label.split(".")[:-1])
+        if batch_separator in x_input:
+            batch = x_input.split(batch_separator)[-1]
+            label = batch
+            x_input = batch_separator.join(x_input.split(batch_separator)[:-1])
+
+        (x_input, tag) = remove_tag_from_input(x_input)
+        if tag is not None:
+            label = tag
+
+        if file_separator is not None:
+            x_to_add = x_input.split(file_separator)
+        else:
+            x_to_add = [x_input]
+
+        expanded_inputs += x_to_add
+        batches += [batch] * len(x_to_add)
+        labels += [label] * len(x_to_add)
+        expanded_orig_files += [orig_file] * len(x_to_add)
+    return (expanded_inputs, batches, labels, expanded_orig_files)
+
+
+def _append_inputs_from_list_files(
+    list_specs,
+    dest_inputs,
+    dest_orig_files,
+    list_open_fn,
+    strip_fn,
+    resolve_relative_paths=False,
+    skip_empty_lines=True,
+    initial_ps=None,
+    xin_to_p_noninf_ind=None,
+    batch_separator="@",
+):
+    if list_specs is None:
+        return
+
+    if type(list_specs) == str:
+        list_specs = [list_specs]
+
+    for list_spec in list_specs:
+        batch = None
+        if batch_separator in list_spec:
+            batch = list_spec.split(batch_separator)[-1]
+            list_spec = batch_separator.join(list_spec.split(batch_separator)[:-1])
+
+        list_dir = os.path.dirname(os.path.abspath(list_spec))
+        with list_open_fn(list_spec) as list_fh:
+            for raw_line in list_fh:
+                line = strip_fn(raw_line)
+                if skip_empty_lines and len(line) == 0:
+                    continue
+
+                if resolve_relative_paths:
+                    (path, label) = remove_tag_from_input(line)
+                    if path and not os.path.isabs(path):
+                        path = os.path.normpath(os.path.join(list_dir, path))
+                    line = add_tag_to_input(path, label)
+
+                if batch is not None and batch_separator not in line:
+                    line = "%s%s%s" % (line, batch_separator, batch)
+
+                dest_inputs.append(line)
+                if initial_ps is not None:
+                    assert(list_spec in xin_to_p_noninf_ind)
+                    initial_ps.append(xin_to_p_noninf_ind[list_spec])
+                dest_orig_files.append(list_spec)
+
+
+def prepare_read_x_inputs(
+    X_in,
+    X_list,
+    Xd_in,
+    Xd_list,
+    initial_p,
+    xin_to_p_noninf_ind,
+    batch_separator,
+    file_separator,
+    *,
+    sparse_list_open_fn,
+    dense_list_open_fn,
+):
+    initial_ps = None
+    if initial_p is not None:
+        if type(initial_p) is not list:
+            initial_p = [initial_p]
+        initial_ps = []
+        assert(xin_to_p_noninf_ind is not None)
+
+    (X_ins, orig_files) = _normalize_input_specs(X_in)
+    _append_initial_p_indices(initial_ps, X_ins, xin_to_p_noninf_ind)
+    _append_inputs_from_list_files(
+        list_specs=X_list,
+        dest_inputs=X_ins,
+        dest_orig_files=orig_files,
+        list_open_fn=sparse_list_open_fn,
+        strip_fn=lambda line: line.strip(),
+        resolve_relative_paths=True,
+        skip_empty_lines=True,
+        initial_ps=initial_ps,
+        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
+        batch_separator=batch_separator,
+    )
+    X_ins, batches, labels, orig_files = _expand_x_inputs(
+        X_ins,
+        orig_files,
+        batch_separator=batch_separator,
+        file_separator=file_separator,
+    )
+    is_dense = [False for _ in X_ins]
+
+    (Xd_ins, orig_dfiles) = _normalize_input_specs(Xd_in)
+    _append_initial_p_indices(initial_ps, Xd_ins, xin_to_p_noninf_ind)
+    _append_inputs_from_list_files(
+        list_specs=Xd_list,
+        dest_inputs=Xd_ins,
+        dest_orig_files=orig_dfiles,
+        list_open_fn=dense_list_open_fn,
+        strip_fn=lambda line: line.strip("\n"),
+        resolve_relative_paths=False,
+        skip_empty_lines=False,
+        initial_ps=initial_ps,
+        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
+        batch_separator=batch_separator,
+    )
+    Xd_ins, batches2, labels2, orig_dfiles = _expand_x_inputs(
+        Xd_ins,
+        orig_dfiles,
+        batch_separator=batch_separator,
+        file_separator=file_separator,
+    )
+
+    _map_initial_p_indices_to_values(initial_ps, initial_p)
+
+    X_ins += Xd_ins
+    batches += batches2
+    labels += labels2
+    orig_files += orig_dfiles
+    is_dense += [True for _ in Xd_ins]
+    return XInputPlan(
+        initial_ps=initial_ps,
+        X_ins=X_ins,
+        batches=batches,
+        labels=labels,
+        orig_files=orig_files,
+        is_dense=is_dense,
+    )
+
+
+def xdata_from_input_plan(input_plan):
+    return XData(
+        gene_set_batches=np.array(input_plan.batches),
+        gene_set_labels=np.array(input_plan.labels),
+        is_dense_gene_set=np.array(input_plan.is_dense, dtype=bool),
+    )
 
 
 def infer_columns_from_table_file(filename, open_text_fn, *, log_fn=None, bail_fn=None):
