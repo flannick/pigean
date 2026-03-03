@@ -102,6 +102,24 @@ def resolve_config_path_value(value, config_dir):
     return os.path.normpath(os.path.join(config_dir, expanded))
 
 
+def is_path_like_dest(dest):
+    if dest is None:
+        return False
+    dest_lower = dest.lower()
+    return (
+        dest_lower.endswith("_in")
+        or dest_lower.endswith("_out")
+        or dest_lower.endswith("_file")
+        or "_file_" in dest_lower
+        or dest_lower in ("log_file", "warnings_file", "config")
+    )
+
+
+def emit_stderr_warning(message):
+    sys.stderr.write("Warning: %s\n" % message)
+    sys.stderr.flush()
+
+
 def urlopen_with_retry(
     file,
     flag=None,

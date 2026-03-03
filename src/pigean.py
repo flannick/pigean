@@ -39,9 +39,11 @@ try:
         build_bundle_manifest as pegs_build_bundle_manifest,
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
+        emit_stderr_warning as pegs_emit_stderr_warning,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
+        is_path_like_dest as pegs_is_path_like_dest,
         is_gz_file as pegs_is_gz_file,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
@@ -66,9 +68,11 @@ except ImportError:
         build_bundle_manifest as pegs_build_bundle_manifest,
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
+        emit_stderr_warning as pegs_emit_stderr_warning,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
+        is_path_like_dest as pegs_is_path_like_dest,
         is_gz_file as pegs_is_gz_file,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
@@ -565,9 +569,7 @@ _ADVANCED_OPTION_HELP_BY_FLAG = {
 _CORE_OPTION_GROUP_TITLE = "Core options"
 _ADVANCED_OPTION_GROUP_TITLE = "Advanced options (Set B and expert tuning)"
 
-def _iter_parser_options(_parser):
-    for _opt in pegs_iter_parser_options(_parser):
-        yield _opt
+_iter_parser_options = pegs_iter_parser_options
 
 def _apply_cli_help_layout(_parser):
     _parser.description = (
@@ -632,27 +634,18 @@ def _apply_cli_option_groups(_parser):
     _parser.add_option_group(core_group)
     _parser.add_option_group(advanced_group)
 
-def _merge_dicts(_base, _override):
-    return pegs_merge_dicts(_base, _override)
+_merge_dicts = pegs_merge_dicts
 
 def _load_json_config(_config_path, _seen=None):
     return pegs_load_json_config(_config_path, bail_fn=bail, seen_paths=_seen)
 
-def _resolve_config_path_value(_value, _config_dir):
-    return pegs_resolve_config_path_value(_value, _config_dir)
+_resolve_config_path_value = pegs_resolve_config_path_value
 
-def _early_warn(_message):
-    sys.stderr.write("Warning: %s\n" % _message)
-    sys.stderr.flush()
+_early_warn = pegs_emit_stderr_warning
 
-def _is_path_like_dest(_dest):
-    if _dest is None:
-        return False
-    _dest_lower = _dest.lower()
-    return _dest_lower.endswith("_in") or _dest_lower.endswith("_out") or _dest_lower.endswith("_file") or "_file_" in _dest_lower or _dest_lower in ("log_file", "warnings_file", "config")
+_is_path_like_dest = pegs_is_path_like_dest
 
-def _json_safe(_value):
-    return pegs_json_safe(_value)
+_json_safe = pegs_json_safe
 
 REMOVED_OPTION_REPLACEMENTS = {
     "gene_bfs_in": "--gene-stats-in",
