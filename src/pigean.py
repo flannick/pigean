@@ -195,6 +195,12 @@ except ImportError:
 
 random.seed(0)
 
+# Canonical suffix tags used when expanding dense gene-set inputs into
+# sparse derived sets (top/ext/bottom thresholds).
+EXT_TAG = "ext"
+BOT_TAG = "bot"
+TOP_TAG = "top"
+
 def bail(message):
     raise ValueError(message)
     sys.stderr.write("%s\n" % (message))
@@ -1749,10 +1755,6 @@ class PigeanState(object):
     
         X_format = "<gene_set_id> <gene 1> <gene 2> ... <gene n>"
         V_format = "<gene_set1> <gene_set_2> ...<gene_set_n>\n<V11> <V12> ... <V1n>\n<V21> <V22> ... <V2n>"
-
-        EXT_TAG = "ext"
-        BOT_TAG = "bot"
-        TOP_TAG = "top"
 
         if not force_reread and self.X_orig is not None:
             return
