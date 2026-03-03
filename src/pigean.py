@@ -44,7 +44,6 @@ try:
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
         is_path_like_dest as pegs_is_path_like_dest,
-        is_gz_file as pegs_is_gz_file,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
         load_json_config as pegs_load_json_config,
@@ -73,7 +72,6 @@ except ImportError:
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
         is_path_like_dest as pegs_is_path_like_dest,
-        is_gz_file as pegs_is_gz_file,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
         load_json_config as pegs_load_json_config,
@@ -1299,23 +1297,12 @@ if options.print_effective_config:
     sys.stdout.write("%s\n" % json.dumps(effective_config, indent=2, sort_keys=True))
     sys.exit(0)
 
-def urlopen_with_retry(file, flag=None, tries=5, delay=60, backoff=2):
+def _open_url_with_retry(file, flag=None):
     return pegs_urlopen_with_retry(
         file,
         flag=flag,
-        tries=tries,
-        delay=delay,
-        backoff=backoff,
         log_fn=lambda message: log(message),
         bail_fn=bail,
-    )
-
-def is_gz_file(filepath, is_remote, flag=None):
-    return pegs_is_gz_file(
-        filepath,
-        is_remote,
-        flag=flag,
-        urlopen_with_retry_fn=urlopen_with_retry,
     )
 
 def open_gz(file, flag=None):
@@ -1324,8 +1311,7 @@ def open_gz(file, flag=None):
         flag=flag,
         log_fn=lambda message: log(message, INFO),
         bail_fn=bail,
-        urlopen_with_retry_fn=urlopen_with_retry,
-        is_gz_file_fn=is_gz_file,
+        urlopen_with_retry_fn=_open_url_with_retry,
     )
 
 class PigeanState(object):
