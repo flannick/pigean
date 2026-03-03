@@ -58,10 +58,13 @@ try:
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
         parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
+        apply_parsed_gene_phewas_bfs_to_runtime as pegs_apply_parsed_gene_phewas_bfs_to_runtime,
+        apply_parsed_gene_set_statistics_to_runtime as pegs_apply_parsed_gene_set_statistics_to_runtime,
+        set_runtime_p as pegs_set_runtime_p,
+        set_runtime_sigma as pegs_set_runtime_sigma,
         y_data_from_runtime as pegs_y_data_from_runtime,
         apply_y_data_to_runtime as pegs_apply_y_data_to_runtime,
         hyperparameter_data_from_runtime as pegs_hyperparameter_data_from_runtime,
-        apply_hyperparameter_data_to_runtime as pegs_apply_hyperparameter_data_to_runtime,
         phewas_runtime_state_from_runtime as pegs_phewas_runtime_state_from_runtime,
         apply_phewas_runtime_state_to_runtime as pegs_apply_phewas_runtime_state_to_runtime,
         remove_tag_from_input as pegs_remove_tag_from_input,
@@ -125,10 +128,13 @@ except ImportError:
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
         parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
+        apply_parsed_gene_phewas_bfs_to_runtime as pegs_apply_parsed_gene_phewas_bfs_to_runtime,
+        apply_parsed_gene_set_statistics_to_runtime as pegs_apply_parsed_gene_set_statistics_to_runtime,
+        set_runtime_p as pegs_set_runtime_p,
+        set_runtime_sigma as pegs_set_runtime_sigma,
         y_data_from_runtime as pegs_y_data_from_runtime,
         apply_y_data_to_runtime as pegs_apply_y_data_to_runtime,
         hyperparameter_data_from_runtime as pegs_hyperparameter_data_from_runtime,
-        apply_hyperparameter_data_to_runtime as pegs_apply_hyperparameter_data_to_runtime,
         phewas_runtime_state_from_runtime as pegs_phewas_runtime_state_from_runtime,
         apply_phewas_runtime_state_to_runtime as pegs_apply_phewas_runtime_state_to_runtime,
         remove_tag_from_input as pegs_remove_tag_from_input,
@@ -5421,9 +5427,6 @@ class PigeanState(object):
                     self.gene_to_huge_score[gene] += self.gene_to_exomes_huge_score[gene]
 
     def read_gene_set_statistics(self, stats_in, stats_id_col=None, stats_exp_beta_tilde_col=None, stats_beta_tilde_col=None, stats_p_col=None, stats_se_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, ignore_negative_exp_beta=False, max_gene_set_p=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, return_only_ids=False):
-
-        subset_mask = None
-        read_ids = set()
         parsed_stats = pegs_parse_gene_set_statistics_file(
             stats_in,
             stats_id_col=stats_id_col,
@@ -5443,137 +5446,15 @@ class PigeanState(object):
             warn_fn=warn,
             bail_fn=bail,
         )
-        need_to_take_log = parsed_stats.need_to_take_log
-        has_beta_tilde = parsed_stats.has_beta_tilde
-        has_p_or_se = parsed_stats.has_p_or_se
-        has_beta = parsed_stats.has_beta
-        has_beta_uncorrected = parsed_stats.has_beta_uncorrected
-        records = parsed_stats.records
-
-        if not return_only_ids:
-
-            if self.gene_sets is not None:
-                if has_beta_tilde:
-                    self.beta_tildes = np.zeros(len(self.gene_sets))
-                if has_p_or_se:
-                    self.p_values = np.zeros(len(self.gene_sets))
-                    self.ses = np.zeros(len(self.gene_sets))
-                    self.z_scores = np.zeros(len(self.gene_sets))
-                if has_beta:
-                    self.betas = np.zeros(len(self.gene_sets))
-                if has_beta_uncorrected:
-                    self.betas_uncorrected = np.zeros(len(self.gene_sets))
-
-                subset_mask = np.array([False] * len(self.gene_sets))
-            else:
-                if has_beta_tilde:
-                    self.beta_tildes = []
-                if has_p_or_se:
-                    self.p_values = []
-                    self.ses = []
-                    self.z_scores = []
-                if has_beta:
-                    self.betas = []
-                if has_beta_uncorrected:
-                    self.betas_uncorrected = []
-
-        gene_sets = []
-        gene_set_to_ind = {}
-        ignored = 0
-
-        for gene_set, values in records.items():
-            beta_tilde, p, se, z, beta, beta_uncorrected = values
-            if self.gene_sets is not None:
-                if gene_set not in self.gene_set_to_ind:
-                    ignored += 1
-                    continue
-
-                if return_only_ids:
-                    read_ids.add(gene_set)
-                    continue
-
-                gene_set_ind = self.gene_set_to_ind[gene_set]
-                if gene_set_ind is not None:
-                    if has_beta_tilde:
-                        self.beta_tildes[gene_set_ind] = beta_tilde * self.scale_factors[gene_set_ind]
-                    if has_p_or_se:
-                        self.p_values[gene_set_ind] = p
-                        self.z_scores[gene_set_ind] = z
-                        self.ses[gene_set_ind] = se * self.scale_factors[gene_set_ind]
-                    if has_beta:
-                        self.betas[gene_set_ind] = beta * self.scale_factors[gene_set_ind]
-                    if has_beta_uncorrected:
-                        self.betas_uncorrected[gene_set_ind] = beta_uncorrected * self.scale_factors[gene_set_ind]
-                    subset_mask[gene_set_ind] = True
-            else:
-                if return_only_ids:
-                    read_ids.add(gene_set)
-                    continue
-
-                bail("Not yet implemented this -- no way to convert external beta tilde units reading in into internal units")
-                if has_beta_tilde:
-                    self.beta_tildes.append(beta_tilde)
-                if has_p_or_se:
-                    self.p_values.append(p)
-                    self.z_scores.append(z)
-                    self.ses.append(se)
-                if has_beta:
-                    self.betas.append(beta)
-                if has_beta_uncorrected:
-                    self.betas_uncorrected.append(beta_uncorrected)
-
-                #store these in all cases to be able to check for duplicate gene sets in the input
-                gene_set_to_ind[gene_set] = len(gene_sets)
-                gene_sets.append(gene_set)
-
-        log("Done reading --stats-in-file", DEBUG)
-
-        if return_only_ids:
-            return read_ids
-
-        if self.gene_sets is not None:
-            log("Subsetting matrices", DEBUG)
-            #need to subset existing matrices
-            if ignored > 0:
-                warn("Ignored %s values from --stats-in file because absent from previously loaded files" % ignored)
-            if sum(subset_mask) != len(subset_mask):
-                warn("Excluding %s values from previously loaded files because absent from --stats-in file" % (len(subset_mask) - sum(subset_mask)))
-                if self.beta_tildes is not None and not need_to_take_log and sum(self.beta_tildes < 0) == 0:
-                    warn("All beta_tilde values are positive. Are you sure that the values in column %s are not exp(beta_tilde)?" % stats_beta_col)
-                self.subset_gene_sets(subset_mask, keep_missing=True)
-            log("Done subsetting matrices", DEBUG)
-        else:
-            self.X_orig_missing_gene_sets = None
-            self.mean_shifts_missing = None
-            self.scale_factors_missing = None
-            self.is_dense_gene_set_missing = None
-            self.ps_missing = None
-            self.sigma2s_missing = None
-
-            self.beta_tildes_missing = None
-            self.p_values_missing = None
-            self.ses_missing = None
-            self.z_scores_missing = None
-
-            self.beta_tildes = np.array(self.beta_tildes)
-            self.p_values = np.array(self.p_values)
-            self.z_scores = np.array(self.z_scores)
-            self.ses = np.array(self.ses)
-            self.gene_sets = gene_sets
-            self.gene_set_to_ind = gene_set_to_ind
-
-            if has_beta:
-                self.betas = np.array(self.betas)
-            if has_beta_uncorrected:
-                self.betas_uncorrected = np.array(self.betas_uncorrected)
-
-            self.total_qc_metrics_missing = None
-            self.mean_qc_metrics_missing = None
-
-        #self.max_gene_set_p = max_gene_set_p
-        #self.is_logistic = False
-        #make sure we are doing the normalization
-        self._set_X(self.X_orig, self.genes, self.gene_sets, skip_N=True)
+        return pegs_apply_parsed_gene_set_statistics_to_runtime(
+            self,
+            parsed_stats,
+            return_only_ids=return_only_ids,
+            stats_beta_col=stats_beta_col,
+            warn_fn=warn,
+            bail_fn=bail,
+            log_fn=lambda message: log(message, DEBUG),
+        )
 
 
     def _reread_gene_phewas_bfs(self):
@@ -5621,50 +5502,15 @@ class PigeanState(object):
             bail_fn=bail,
             warn_fn=warn,
         )
-        self.num_gene_phewas_filtered = parsed_phewas.num_filtered
-        phenos = parsed_phewas.phenos
-        row = parsed_phewas.row
-        col = parsed_phewas.col
-        Ys = parsed_phewas.Ys
-        combineds = parsed_phewas.combineds
-        priors = parsed_phewas.priors
-
-        #update what's stored internally
-        num_added_phenos = 0
-        if self.phenos is not None and len(self.phenos) < len(phenos):
-            num_added_phenos = len(phenos) - len(self.phenos)
-
-        if num_added_phenos > 0:
-            if self.X_phewas_beta is not None:
-                self.X_phewas_beta = sparse.csc_matrix(sparse.vstack((self.X_phewas_beta, sparse.csc_matrix((num_added_phenos, self.X_phewas_beta.shape[1])))))
-            if self.X_phewas_beta_uncorrected is not None:
-                self.X_phewas_beta_uncorrected = sparse.csc_matrix(sparse.vstack((self.X_phewas_beta_uncorrected, sparse.csc_matrix((num_added_phenos, self.X_phewas_beta_uncorrected.shape[1])))))
-
-        self.phenos = phenos
-        self.pheno_to_ind = _construct_map_to_ind(phenos)
-
-        if combineds is not None:
-            self.gene_pheno_combined_prior_Ys = sparse.csc_matrix((combineds, (row, col)), shape=(len(self.genes), len(self.phenos)))
-
-        if Ys is not None:
-            self.gene_pheno_Y = sparse.csc_matrix((Ys, (row, col)), shape=(len(self.genes), len(self.phenos)))
-            
-        if priors is not None:
-            self.gene_pheno_priors = sparse.csc_matrix((priors, (row, col)), shape=(len(self.genes), len(self.phenos)))
-        
-        self.anchor_gene_mask = None
-        if anchor_genes is not None:
-            self.anchor_gene_mask = np.array([x in anchor_genes for x in self.genes])
-            if np.sum(self.anchor_gene_mask) == 0:
-                bail("Couldn't find any match for %s" % list(anchor_genes))
-
-        log("Read values for %d gene, pheno pairs" % (len(self.gene_pheno_Y.nonzero()[0]) if self.gene_pheno_Y is not None else 0), DEBUG)
-
-        self.anchor_pheno_mask = None
-        if anchor_phenos is not None:
-            self.anchor_pheno_mask = np.array([x in anchor_phenos for x in self.phenos])
-            if np.sum(self.anchor_pheno_mask) == 0:
-                bail("Couldn't find any match for %s" % list(anchor_phenos))
+        pegs_apply_parsed_gene_phewas_bfs_to_runtime(
+            self,
+            parsed_phewas,
+            anchor_genes=anchor_genes,
+            anchor_phenos=anchor_phenos,
+            construct_map_to_ind_fn=_construct_map_to_ind,
+            bail_fn=bail,
+            log_fn=lambda message: log(message, DEBUG),
+        )
         self.phewas_state = pegs_phewas_runtime_state_from_runtime(self)
         pegs_apply_phewas_runtime_state_to_runtime(self, self.phewas_state)
 
@@ -5834,14 +5680,7 @@ class PigeanState(object):
         return self.X_orig is not None and self.X_orig.shape[1] > 0
 
     def set_p(self, p):
-        hyper_state = pegs_hyperparameter_data_from_runtime(self)
-        if p is not None:
-            if p > 1:
-                p = 1
-            if p < 0:
-                p = 0
-        hyper_state.p = p
-        pegs_apply_hyperparameter_data_to_runtime(self, hyper_state)
+        hyper_state = pegs_set_runtime_p(self, p)
         self.hyperparameter_state = hyper_state
 
     def get_sigma2(self, convert_sigma_to_external_units=False):
@@ -5880,53 +5719,16 @@ class PigeanState(object):
         return result
 
     def set_sigma(self, sigma2, sigma_power, sigma2_osc=None, sigma2_se=None, sigma2_p=None, sigma2_scale_factors=None, convert_sigma_to_internal_units=False):
-        hyper_state = pegs_hyperparameter_data_from_runtime(self)
-        hyper_state.sigma_power = sigma_power
-        if sigma_power is None:
-            sigma_power = 2
-
-        if convert_sigma_to_internal_units:
-            scale_factors = self.scale_factors
-            is_dense_gene_set = self.is_dense_gene_set
-            if scale_factors is not None:
-                if is_dense_gene_set is not None and np.sum(~is_dense_gene_set) > 0:
-                    hyper_state.sigma2 = sigma2 / np.mean(np.power(scale_factors[~is_dense_gene_set], hyper_state.sigma_power - 2))
-                else:
-                    hyper_state.sigma2 = sigma2 / np.mean(np.power(scale_factors, hyper_state.sigma_power - 2))
-            else:
-                hyper_state.sigma2 = sigma2 / np.power(self.MEAN_MOUSE_SCALE, hyper_state.sigma_power - 2)
-        else:
-            hyper_state.sigma2 = sigma2
-
-        if sigma2_osc is not None:
-            hyper_state.sigma2_osc = sigma2_osc
-
-        if sigma2_scale_factors is None:
-            sigma2_scale_factors = self.scale_factors
-
-        if sigma2_se is not None:
-            hyper_state.sigma2_se = sigma2_se
-        if hyper_state.sigma2_p is not None:
-            hyper_state.sigma2_p = sigma2_p
-
-        if hyper_state.sigma2 is None and hyper_state.sigma2_osc is None:
-            pegs_apply_hyperparameter_data_to_runtime(self, hyper_state)
-            self.hyperparameter_state = hyper_state
-            return
-
-        sigma2_for_var = hyper_state.sigma2_osc if hyper_state.sigma2_osc is not None else hyper_state.sigma2
-
-        if sigma2_for_var is not None and sigma2_scale_factors is not None:
-            if hyper_state.sigma_power is None:
-                hyper_state.sigma2_total_var = sigma2_for_var * len(sigma2_scale_factors)
-            else:
-                hyper_state.sigma2_total_var = sigma2_for_var * np.sum(np.square(sigma2_scale_factors))
-
-        if hyper_state.sigma2_total_var is not None and hyper_state.sigma2_se is not None:
-            hyper_state.sigma2_total_var_lower = hyper_state.sigma2_total_var * (sigma2_for_var - 1.96 * hyper_state.sigma2_se) / (sigma2_for_var)
-            hyper_state.sigma2_total_var_upper = hyper_state.sigma2_total_var * (sigma2_for_var + 1.96 * hyper_state.sigma2_se) / (sigma2_for_var)
-
-        pegs_apply_hyperparameter_data_to_runtime(self, hyper_state)
+        hyper_state = pegs_set_runtime_sigma(
+            self,
+            sigma2,
+            sigma_power,
+            sigma2_osc=sigma2_osc,
+            sigma2_se=sigma2_se,
+            sigma2_p=sigma2_p,
+            sigma2_scale_factors=sigma2_scale_factors,
+            convert_sigma_to_internal_units=convert_sigma_to_internal_units,
+        )
         self.hyperparameter_state = hyper_state
         if hyper_state.sigma2 is None:
             return

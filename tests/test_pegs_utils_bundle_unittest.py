@@ -712,6 +712,138 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertAlmostEqual(rt.p, 0.25)
         self.assertEqual(rt.num_gene_phewas_filtered, 7)
 
+    def test_set_runtime_hyper_helpers(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.p = 0.2
+        rt.sigma2 = None
+        rt.sigma_power = 2.0
+        rt.sigma2_osc = None
+        rt.sigma2_se = None
+        rt.sigma2_p = 0.1
+        rt.sigma2_total_var = None
+        rt.sigma2_total_var_lower = None
+        rt.sigma2_total_var_upper = None
+        rt.ps = None
+        rt.sigma2s = None
+        rt.sigma2s_missing = None
+        rt.scale_factors = np.array([1.0, 2.0])
+        rt.is_dense_gene_set = np.array([True, True])
+        rt.MEAN_MOUSE_SCALE = 300.0
+
+        state_p = pegs_utils.set_runtime_p(rt, 1.5)
+        self.assertAlmostEqual(state_p.p, 1.0)
+        self.assertAlmostEqual(rt.p, 1.0)
+
+        state_sigma = pegs_utils.set_runtime_sigma(
+            rt,
+            sigma2=2.0,
+            sigma_power=2.0,
+            sigma2_osc=None,
+            sigma2_se=0.1,
+            sigma2_p=0.25,
+            sigma2_scale_factors=np.array([1.0, 2.0]),
+            convert_sigma_to_internal_units=False,
+        )
+        self.assertAlmostEqual(state_sigma.sigma2, 2.0)
+        self.assertAlmostEqual(rt.sigma2, 2.0)
+        self.assertAlmostEqual(rt.sigma2_p, 0.25)
+        self.assertAlmostEqual(rt.sigma2_total_var, 10.0)
+        self.assertAlmostEqual(rt.sigma2_total_var_lower, 9.02, places=2)
+        self.assertAlmostEqual(rt.sigma2_total_var_upper, 10.98, places=2)
+
+    def test_apply_parsed_gene_set_statistics_to_runtime(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.gene_sets = ["SET_A", "SET_B"]
+                self.gene_set_to_ind = {"SET_A": 0, "SET_B": 1}
+                self.scale_factors = np.array([2.0, 3.0])
+                self.X_orig = np.zeros((2, 2))
+                self.genes = ["G1", "G2"]
+                self.subset_calls = []
+                self.set_x_calls = []
+
+            def subset_gene_sets(self, subset_mask, keep_missing=True):
+                self.subset_calls.append((subset_mask.copy(), keep_missing))
+
+            def _set_X(self, X_orig, genes, gene_sets, skip_N=True):
+                self.set_x_calls.append((X_orig.shape, tuple(genes), tuple(gene_sets), skip_N))
+
+        parsed = pegs_utils.ParsedGeneSetStats(
+            need_to_take_log=False,
+            has_beta_tilde=True,
+            has_p_or_se=True,
+            has_beta=True,
+            has_beta_uncorrected=True,
+            records={"SET_A": (1.0, 0.05, 2.0, 3.0, 4.0, 5.0)},
+        )
+        rt = _Runtime()
+        pegs_utils.apply_parsed_gene_set_statistics_to_runtime(
+            rt,
+            parsed,
+            return_only_ids=False,
+            stats_beta_col="beta",
+            warn_fn=lambda _m: None,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            log_fn=lambda _m: None,
+        )
+
+        self.assertAlmostEqual(rt.beta_tildes[0], 2.0)
+        self.assertAlmostEqual(rt.p_values[0], 0.05)
+        self.assertAlmostEqual(rt.ses[0], 4.0)
+        self.assertAlmostEqual(rt.betas[0], 8.0)
+        self.assertAlmostEqual(rt.betas_uncorrected[0], 10.0)
+        self.assertEqual(len(rt.subset_calls), 1)
+        np.testing.assert_array_equal(rt.subset_calls[0][0], np.array([True, False]))
+        self.assertEqual(len(rt.set_x_calls), 1)
+
+    def test_apply_parsed_gene_phewas_bfs_to_runtime(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.genes = ["GENE_A", "GENE_B"]
+                self.phenos = None
+                self.pheno_to_ind = None
+                self.gene_pheno_Y = None
+                self.gene_pheno_combined_prior_Ys = None
+                self.gene_pheno_priors = None
+                self.X_phewas_beta = None
+                self.X_phewas_beta_uncorrected = None
+                self.num_gene_phewas_filtered = 0
+                self.anchor_gene_mask = None
+                self.anchor_pheno_mask = None
+
+        parsed = pegs_utils.ParsedGenePhewasBfs(
+            phenos=["P1"],
+            pheno_to_ind={"P1": 0},
+            row=np.array([0], dtype=np.int32),
+            col=np.array([0], dtype=np.int32),
+            Ys=np.array([1.5]),
+            combineds=np.array([0.5]),
+            priors=np.array([0.2]),
+            num_filtered=3,
+        )
+        rt = _Runtime()
+        pegs_utils.apply_parsed_gene_phewas_bfs_to_runtime(
+            rt,
+            parsed,
+            anchor_genes={"GENE_A"},
+            anchor_phenos={"P1"},
+            construct_map_to_ind_fn=pegs_utils.construct_map_to_ind,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            log_fn=lambda _m: None,
+        )
+
+        self.assertEqual(rt.num_gene_phewas_filtered, 3)
+        self.assertEqual(rt.phenos, ["P1"])
+        self.assertEqual(rt.pheno_to_ind, {"P1": 0})
+        self.assertEqual(rt.gene_pheno_Y.shape, (2, 1))
+        self.assertEqual(rt.gene_pheno_combined_prior_Ys.shape, (2, 1))
+        self.assertEqual(rt.gene_pheno_priors.shape, (2, 1))
+        np.testing.assert_array_equal(rt.anchor_gene_mask, np.array([True, False]))
+        np.testing.assert_array_equal(rt.anchor_pheno_mask, np.array([True]))
+
     def test_remove_tag_from_input(self) -> None:
         path, tag = pegs_utils.remove_tag_from_input("mouse:data.tsv")
         self.assertEqual(path, "data.tsv")

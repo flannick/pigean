@@ -1223,6 +1223,326 @@ def apply_phewas_runtime_state_to_runtime(runtime, phewas_state):
     runtime.anchor_pheno_mask = phewas_state.anchor_pheno_mask
 
 
+def set_runtime_p(runtime, p):
+    hyper_state = hyperparameter_data_from_runtime(runtime)
+    if p is not None:
+        if p > 1:
+            p = 1
+        if p < 0:
+            p = 0
+    hyper_state.p = p
+    apply_hyperparameter_data_to_runtime(runtime, hyper_state)
+    return hyper_state
+
+
+def set_runtime_sigma(
+    runtime,
+    sigma2,
+    sigma_power,
+    sigma2_osc=None,
+    sigma2_se=None,
+    sigma2_p=None,
+    sigma2_scale_factors=None,
+    convert_sigma_to_internal_units=False,
+):
+    hyper_state = hyperparameter_data_from_runtime(runtime)
+    hyper_state.sigma_power = sigma_power
+    if sigma_power is None:
+        sigma_power = 2
+
+    if convert_sigma_to_internal_units:
+        scale_factors = runtime.scale_factors
+        is_dense_gene_set = runtime.is_dense_gene_set
+        if scale_factors is not None:
+            if is_dense_gene_set is not None and np.sum(~is_dense_gene_set) > 0:
+                hyper_state.sigma2 = sigma2 / np.mean(
+                    np.power(scale_factors[~is_dense_gene_set], hyper_state.sigma_power - 2)
+                )
+            else:
+                hyper_state.sigma2 = sigma2 / np.mean(
+                    np.power(scale_factors, hyper_state.sigma_power - 2)
+                )
+        else:
+            hyper_state.sigma2 = sigma2 / np.power(runtime.MEAN_MOUSE_SCALE, hyper_state.sigma_power - 2)
+    else:
+        hyper_state.sigma2 = sigma2
+
+    if sigma2_osc is not None:
+        hyper_state.sigma2_osc = sigma2_osc
+
+    if sigma2_scale_factors is None:
+        sigma2_scale_factors = runtime.scale_factors
+
+    if sigma2_se is not None:
+        hyper_state.sigma2_se = sigma2_se
+    if hyper_state.sigma2_p is not None:
+        hyper_state.sigma2_p = sigma2_p
+
+    if hyper_state.sigma2 is None and hyper_state.sigma2_osc is None:
+        apply_hyperparameter_data_to_runtime(runtime, hyper_state)
+        return hyper_state
+
+    sigma2_for_var = hyper_state.sigma2_osc if hyper_state.sigma2_osc is not None else hyper_state.sigma2
+
+    if sigma2_for_var is not None and sigma2_scale_factors is not None:
+        if hyper_state.sigma_power is None:
+            hyper_state.sigma2_total_var = sigma2_for_var * len(sigma2_scale_factors)
+        else:
+            hyper_state.sigma2_total_var = sigma2_for_var * np.sum(np.square(sigma2_scale_factors))
+
+    if hyper_state.sigma2_total_var is not None and hyper_state.sigma2_se is not None:
+        hyper_state.sigma2_total_var_lower = hyper_state.sigma2_total_var * (
+            sigma2_for_var - 1.96 * hyper_state.sigma2_se
+        ) / sigma2_for_var
+        hyper_state.sigma2_total_var_upper = hyper_state.sigma2_total_var * (
+            sigma2_for_var + 1.96 * hyper_state.sigma2_se
+        ) / sigma2_for_var
+
+    apply_hyperparameter_data_to_runtime(runtime, hyper_state)
+    return hyper_state
+
+
+def apply_parsed_gene_phewas_bfs_to_runtime(
+    runtime,
+    parsed_phewas,
+    *,
+    anchor_genes=None,
+    anchor_phenos=None,
+    construct_map_to_ind_fn=None,
+    bail_fn=None,
+    log_fn=None,
+):
+    if construct_map_to_ind_fn is None:
+        construct_map_to_ind_fn = construct_map_to_ind
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    runtime.num_gene_phewas_filtered = parsed_phewas.num_filtered
+    phenos = parsed_phewas.phenos
+    row = parsed_phewas.row
+    col = parsed_phewas.col
+    Ys = parsed_phewas.Ys
+    combineds = parsed_phewas.combineds
+    priors = parsed_phewas.priors
+
+    num_added_phenos = 0
+    if runtime.phenos is not None and len(runtime.phenos) < len(phenos):
+        num_added_phenos = len(phenos) - len(runtime.phenos)
+
+    if num_added_phenos > 0:
+        if runtime.X_phewas_beta is not None:
+            runtime.X_phewas_beta = sparse.csc_matrix(
+                sparse.vstack(
+                    (
+                        runtime.X_phewas_beta,
+                        sparse.csc_matrix((num_added_phenos, runtime.X_phewas_beta.shape[1])),
+                    )
+                )
+            )
+        if runtime.X_phewas_beta_uncorrected is not None:
+            runtime.X_phewas_beta_uncorrected = sparse.csc_matrix(
+                sparse.vstack(
+                    (
+                        runtime.X_phewas_beta_uncorrected,
+                        sparse.csc_matrix((num_added_phenos, runtime.X_phewas_beta_uncorrected.shape[1])),
+                    )
+                )
+            )
+
+    runtime.phenos = phenos
+    runtime.pheno_to_ind = construct_map_to_ind_fn(phenos)
+
+    if combineds is not None:
+        runtime.gene_pheno_combined_prior_Ys = sparse.csc_matrix(
+            (combineds, (row, col)),
+            shape=(len(runtime.genes), len(runtime.phenos)),
+        )
+
+    if Ys is not None:
+        runtime.gene_pheno_Y = sparse.csc_matrix(
+            (Ys, (row, col)),
+            shape=(len(runtime.genes), len(runtime.phenos)),
+        )
+
+    if priors is not None:
+        runtime.gene_pheno_priors = sparse.csc_matrix(
+            (priors, (row, col)),
+            shape=(len(runtime.genes), len(runtime.phenos)),
+        )
+
+    runtime.anchor_gene_mask = None
+    if anchor_genes is not None:
+        runtime.anchor_gene_mask = np.array([x in anchor_genes for x in runtime.genes])
+        if np.sum(runtime.anchor_gene_mask) == 0:
+            bail_fn("Couldn't find any match for %s" % list(anchor_genes))
+
+    if log_fn is not None:
+        num_pairs = (
+            len(runtime.gene_pheno_Y.nonzero()[0])
+            if runtime.gene_pheno_Y is not None
+            else 0
+        )
+        log_fn("Read values for %d gene, pheno pairs" % num_pairs)
+
+    runtime.anchor_pheno_mask = None
+    if anchor_phenos is not None:
+        runtime.anchor_pheno_mask = np.array([x in anchor_phenos for x in runtime.phenos])
+        if np.sum(runtime.anchor_pheno_mask) == 0:
+            bail_fn("Couldn't find any match for %s" % list(anchor_phenos))
+
+
+def apply_parsed_gene_set_statistics_to_runtime(
+    runtime,
+    parsed_stats,
+    *,
+    return_only_ids=False,
+    stats_beta_col=None,
+    warn_fn=None,
+    bail_fn=None,
+    log_fn=None,
+):
+    if warn_fn is None:
+        warn_fn = lambda _m: None
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if log_fn is None:
+        log_fn = lambda _m: None
+
+    subset_mask = None
+    read_ids = set()
+    need_to_take_log = parsed_stats.need_to_take_log
+    has_beta_tilde = parsed_stats.has_beta_tilde
+    has_p_or_se = parsed_stats.has_p_or_se
+    has_beta = parsed_stats.has_beta
+    has_beta_uncorrected = parsed_stats.has_beta_uncorrected
+    records = parsed_stats.records
+
+    if not return_only_ids:
+        if runtime.gene_sets is not None:
+            if has_beta_tilde:
+                runtime.beta_tildes = np.zeros(len(runtime.gene_sets))
+            if has_p_or_se:
+                runtime.p_values = np.zeros(len(runtime.gene_sets))
+                runtime.ses = np.zeros(len(runtime.gene_sets))
+                runtime.z_scores = np.zeros(len(runtime.gene_sets))
+            if has_beta:
+                runtime.betas = np.zeros(len(runtime.gene_sets))
+            if has_beta_uncorrected:
+                runtime.betas_uncorrected = np.zeros(len(runtime.gene_sets))
+            subset_mask = np.array([False] * len(runtime.gene_sets))
+        else:
+            if has_beta_tilde:
+                runtime.beta_tildes = []
+            if has_p_or_se:
+                runtime.p_values = []
+                runtime.ses = []
+                runtime.z_scores = []
+            if has_beta:
+                runtime.betas = []
+            if has_beta_uncorrected:
+                runtime.betas_uncorrected = []
+
+    gene_sets = []
+    gene_set_to_ind = {}
+    ignored = 0
+
+    for gene_set, values in records.items():
+        beta_tilde, p, se, z, beta, beta_uncorrected = values
+        if runtime.gene_sets is not None:
+            if gene_set not in runtime.gene_set_to_ind:
+                ignored += 1
+                continue
+            if return_only_ids:
+                read_ids.add(gene_set)
+                continue
+            gene_set_ind = runtime.gene_set_to_ind[gene_set]
+            if gene_set_ind is not None:
+                if has_beta_tilde:
+                    runtime.beta_tildes[gene_set_ind] = beta_tilde * runtime.scale_factors[gene_set_ind]
+                if has_p_or_se:
+                    runtime.p_values[gene_set_ind] = p
+                    runtime.z_scores[gene_set_ind] = z
+                    runtime.ses[gene_set_ind] = se * runtime.scale_factors[gene_set_ind]
+                if has_beta:
+                    runtime.betas[gene_set_ind] = beta * runtime.scale_factors[gene_set_ind]
+                if has_beta_uncorrected:
+                    runtime.betas_uncorrected[gene_set_ind] = (
+                        beta_uncorrected * runtime.scale_factors[gene_set_ind]
+                    )
+                subset_mask[gene_set_ind] = True
+        else:
+            if return_only_ids:
+                read_ids.add(gene_set)
+                continue
+            bail_fn(
+                "Not yet implemented this -- no way to convert external beta tilde units reading in into internal units"
+            )
+            if has_beta_tilde:
+                runtime.beta_tildes.append(beta_tilde)
+            if has_p_or_se:
+                runtime.p_values.append(p)
+                runtime.z_scores.append(z)
+                runtime.ses.append(se)
+            if has_beta:
+                runtime.betas.append(beta)
+            if has_beta_uncorrected:
+                runtime.betas_uncorrected.append(beta_uncorrected)
+            gene_set_to_ind[gene_set] = len(gene_sets)
+            gene_sets.append(gene_set)
+
+    log_fn("Done reading --stats-in-file")
+
+    if return_only_ids:
+        return read_ids
+
+    if runtime.gene_sets is not None:
+        log_fn("Subsetting matrices")
+        if ignored > 0:
+            warn_fn("Ignored %s values from --stats-in file because absent from previously loaded files" % ignored)
+        if np.sum(subset_mask) != len(subset_mask):
+            warn_fn(
+                "Excluding %s values from previously loaded files because absent from --stats-in file"
+                % (len(subset_mask) - np.sum(subset_mask))
+            )
+            if runtime.beta_tildes is not None and not need_to_take_log and np.sum(runtime.beta_tildes < 0) == 0:
+                warn_fn(
+                    "All beta_tilde values are positive. Are you sure that the values in column %s are not exp(beta_tilde)?"
+                    % stats_beta_col
+                )
+            runtime.subset_gene_sets(subset_mask, keep_missing=True)
+        log_fn("Done subsetting matrices")
+    else:
+        runtime.X_orig_missing_gene_sets = None
+        runtime.mean_shifts_missing = None
+        runtime.scale_factors_missing = None
+        runtime.is_dense_gene_set_missing = None
+        runtime.ps_missing = None
+        runtime.sigma2s_missing = None
+
+        runtime.beta_tildes_missing = None
+        runtime.p_values_missing = None
+        runtime.ses_missing = None
+        runtime.z_scores_missing = None
+
+        runtime.beta_tildes = np.array(runtime.beta_tildes)
+        runtime.p_values = np.array(runtime.p_values)
+        runtime.z_scores = np.array(runtime.z_scores)
+        runtime.ses = np.array(runtime.ses)
+        runtime.gene_sets = gene_sets
+        runtime.gene_set_to_ind = gene_set_to_ind
+
+        if has_beta:
+            runtime.betas = np.array(runtime.betas)
+        if has_beta_uncorrected:
+            runtime.betas_uncorrected = np.array(runtime.betas_uncorrected)
+
+        runtime.total_qc_metrics_missing = None
+        runtime.mean_qc_metrics_missing = None
+
+    runtime._set_X(runtime.X_orig, runtime.genes, runtime.gene_sets, skip_N=True)
+    return None
+
+
 def read_gene_phewas_stats(path, *, bail_fn=None):
     return read_tsv(path, key_column="Gene", required_columns=["Gene"], bail_fn=bail_fn)
 
