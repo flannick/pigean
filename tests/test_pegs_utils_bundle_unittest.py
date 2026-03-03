@@ -328,6 +328,53 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(out[6], "AF")
         self.assertEqual(out[7], "N")
 
+    def test_huge_statistics_path_and_bundle_helpers(self) -> None:
+        self.assertTrue(pegs_utils.is_huge_statistics_bundle_path("x.tar.gz"))
+        self.assertTrue(pegs_utils.is_huge_statistics_bundle_path("x.tgz"))
+        self.assertTrue(pegs_utils.is_huge_statistics_bundle_path("x.tar"))
+        self.assertFalse(pegs_utils.is_huge_statistics_bundle_path("x.txt"))
+
+        paths = pegs_utils.get_huge_statistics_paths_for_prefix("/tmp/demo")
+        self.assertIn("meta", paths)
+        self.assertTrue(paths["meta"].endswith(".huge.meta.json.gz"))
+
+    def test_huge_statistics_numeric_vector_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            out_file = Path(td) / "vals.txt"
+            pegs_utils.write_numeric_vector_file(
+                str(out_file),
+                [1.0, 2.5, 3.0],
+                open_text_fn=lambda p, mode=None: open(p, mode or "rt", encoding="utf-8"),
+                value_type=float,
+            )
+            vals = pegs_utils.read_numeric_vector_file(
+                str(out_file),
+                open_text_fn=lambda p, mode=None: open(p, mode or "rt", encoding="utf-8"),
+                value_type=float,
+            )
+            np.testing.assert_allclose(vals, np.array([1.0, 2.5, 3.0]))
+
+    def test_build_huge_statistics_matrix_row_genes(self) -> None:
+        self.assertEqual(
+            pegs_utils.build_huge_statistics_matrix_row_genes(["G1"], ["E1", "E2"], 2, bail_fn=self.fail),
+            ["G1", "E1"],
+        )
+        with self.assertRaisesRegex(ValueError, "matrix rows"):
+            pegs_utils.build_huge_statistics_matrix_row_genes(
+                ["G1", "G2"],
+                [],
+                1,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+
+    def test_coerce_runtime_state_dict(self) -> None:
+        class _State:
+            def __init__(self):
+                self.value = 1
+
+        self.assertEqual(pegs_utils.coerce_runtime_state_dict({"x": 1}, bail_fn=self.fail), {"x": 1})
+        self.assertEqual(pegs_utils.coerce_runtime_state_dict(_State(), bail_fn=self.fail)["value"], 1)
+
     def test_complete_p_beta_se_fills_missing_values(self) -> None:
         p = np.array([np.nan, 0.05, 0.2], dtype=float)
         beta = np.array([np.nan, np.nan, 0.2], dtype=float)
