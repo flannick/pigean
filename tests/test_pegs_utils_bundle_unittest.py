@@ -104,6 +104,25 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(pegs_utils.clean_chrom_name("chrX"), "X")
         self.assertIsNone(pegs_utils.clean_chrom_name(None))
 
+    def test_comma_callback_helpers(self) -> None:
+        class _Opt:
+            dest = "value"
+
+        class _Parser:
+            class _Vals:
+                value = None
+            values = _Vals()
+
+        parser = _Parser()
+        pegs_utils.callback_set_comma_separated_args(_Opt(), None, "a,b,c", parser)
+        self.assertEqual(parser.values.value, ["a", "b", "c"])
+
+        pegs_utils.callback_set_comma_separated_args_as_float(_Opt(), None, "1,2.5,3", parser)
+        self.assertEqual(parser.values.value, [1.0, 2.5, 3.0])
+
+        pegs_utils.callback_set_comma_separated_args_as_set(_Opt(), None, "x,y,x", parser)
+        self.assertEqual(parser.values.value, {"x", "y"})
+
     def test_complete_p_beta_se_fills_missing_values(self) -> None:
         p = np.array([np.nan, 0.05, 0.2], dtype=float)
         beta = np.array([np.nan, np.nan, 0.2], dtype=float)

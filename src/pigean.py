@@ -37,6 +37,8 @@ try:
         apply_config_option_overrides as pegs_apply_config_option_overrides,
         collect_file_metadata as pegs_collect_file_metadata,
         build_bundle_manifest as pegs_build_bundle_manifest,
+        callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
+        callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
         clean_chrom_name as pegs_clean_chrom_name,
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
@@ -66,6 +68,8 @@ except ImportError:
         apply_config_option_overrides as pegs_apply_config_option_overrides,
         collect_file_metadata as pegs_collect_file_metadata,
         build_bundle_manifest as pegs_build_bundle_manifest,
+        callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
+        callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
         clean_chrom_name as pegs_clean_chrom_name,
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
@@ -98,10 +102,8 @@ def bail(message):
 
 usage = "usage: pigean.py [beta_tildes|betas|priors|naive_priors|gibbs|sim|pops|naive_pops] [options]"
 
-def get_comma_separated_args_as_float(option, opt, value, parser):
-    setattr(parser.values, option.dest, [float(x) for x in value.split(',')])
-def get_comma_separated_args(option, opt, value, parser):
-    setattr(parser.values, option.dest, value.split(','))
+get_comma_separated_args_as_float = pegs_callback_set_comma_separated_args_as_float
+get_comma_separated_args = pegs_callback_set_comma_separated_args
 
 parser = optparse.OptionParser(usage)
 #gene x gene_set matrix

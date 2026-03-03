@@ -120,6 +120,18 @@ def emit_stderr_warning(message):
     sys.stderr.flush()
 
 
+def callback_set_comma_separated_args(option, opt, value, parser):
+    setattr(parser.values, option.dest, value.split(","))
+
+
+def callback_set_comma_separated_args_as_float(option, opt, value, parser):
+    setattr(parser.values, option.dest, [float(x) for x in value.split(",")])
+
+
+def callback_set_comma_separated_args_as_set(option, opt, value, parser):
+    setattr(parser.values, option.dest, set(value.split(",")))
+
+
 def urlopen_with_retry(
     file,
     flag=None,
