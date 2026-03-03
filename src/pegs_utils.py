@@ -2472,6 +2472,39 @@ def maybe_prepare_filtered_gls_correlation(
         )
 
 
+def resolve_read_x_run_logistic(
+    runtime,
+    run_logistic,
+    max_for_linear,
+    background_log_bf,
+    *,
+    record_param_fn=None,
+    log_fn=None,
+):
+    if log_fn is None:
+        log_fn = lambda _message, _level=None: None
+
+    if (
+        not run_logistic
+        and runtime.Y_for_regression is not None
+        and np.max(np.exp(runtime.Y_for_regression + background_log_bf) / (1 + np.exp(runtime.Y_for_regression + background_log_bf))) > max_for_linear
+    ):
+        log_fn("Switching to logistic sampling due to high Y values")
+        run_logistic = True
+
+    if record_param_fn is not None:
+        record_param_fn("read_X_run_logistic", run_logistic)
+    return run_logistic
+
+
+def record_read_x_counts(runtime, *, record_param_fn=None, log_fn=None):
+    if record_param_fn is not None:
+        record_param_fn("num_gene_sets_read", len(runtime.gene_sets))
+        record_param_fn("num_genes_read", len(runtime.genes))
+    if log_fn is not None:
+        log_fn("Read %d gene sets and %d genes" % (len(runtime.gene_sets), len(runtime.genes)))
+
+
 def _normalize_input_specs(input_specs):
     if input_specs is None:
         return ([], [])

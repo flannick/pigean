@@ -1308,6 +1308,44 @@ class PegsUtilsBundleTest(unittest.TestCase):
         pegs_utils.initialize_filtered_gene_set_state(rt2, update_hyper_p=None)
         self.assertIsNone(rt2.ps)
 
+    def test_resolve_read_x_run_logistic(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.Y_for_regression = np.array([100.0, 120.0])
+        recorded = []
+        logs = []
+        out = pegs_utils.resolve_read_x_run_logistic(
+            runtime=rt,
+            run_logistic=False,
+            max_for_linear=0.95,
+            background_log_bf=0.0,
+            record_param_fn=lambda k, v: recorded.append((k, v)),
+            log_fn=lambda m: logs.append(m),
+        )
+        self.assertTrue(out)
+        self.assertTrue(any("Switching to logistic sampling" in m for m in logs))
+        self.assertIn(("read_X_run_logistic", True), recorded)
+
+    def test_record_read_x_counts(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.gene_sets = ["S1", "S2"]
+        rt.genes = ["G1", "G2", "G3"]
+        recorded = []
+        logs = []
+        pegs_utils.record_read_x_counts(
+            rt,
+            record_param_fn=lambda k, v: recorded.append((k, v)),
+            log_fn=lambda m: logs.append(m),
+        )
+        self.assertIn(("num_gene_sets_read", 2), recorded)
+        self.assertIn(("num_genes_read", 3), recorded)
+        self.assertTrue(any("Read 2 gene sets and 3 genes" in m for m in logs))
+
     def test_maybe_prepare_filtered_gls_correlation(self) -> None:
         class _Runtime:
             def __init__(self) -> None:

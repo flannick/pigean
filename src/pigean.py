@@ -57,6 +57,8 @@ try:
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
         maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
+        resolve_read_x_run_logistic as pegs_resolve_read_x_run_logistic,
+        record_read_x_counts as pegs_record_read_x_counts,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -129,6 +131,8 @@ except ImportError:
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
         maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
+        resolve_read_x_run_logistic as pegs_resolve_read_x_run_logistic,
+        record_read_x_counts as pegs_record_read_x_counts,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -1815,11 +1819,14 @@ class PigeanState(object):
                 gene_cor_file_cor_start_col=gene_cor_file_cor_start_col,
             )
 
-        if not run_logistic and self.Y_for_regression is not None and np.max(np.exp(self.Y_for_regression + self.background_log_bf) / (1 + np.exp(self.Y_for_regression + self.background_log_bf))) > max_for_linear:
-            log("Switching to logistic sampling due to high Y values", DEBUG)
-            run_logistic = True
-
-        self._record_param("read_X_run_logistic", run_logistic)
+        run_logistic = pegs_resolve_read_x_run_logistic(
+            runtime=self,
+            run_logistic=run_logistic,
+            max_for_linear=max_for_linear,
+            background_log_bf=self.background_log_bf,
+            record_param_fn=self._record_param,
+            log_fn=lambda message: log(message, DEBUG),
+        )
 
 
         #returns num added, num ignored
@@ -2117,10 +2124,11 @@ class PigeanState(object):
             sort_rank=sort_rank,
         )
 
-        self._record_param("num_gene_sets_read", len(self.gene_sets))
-        self._record_param("num_genes_read", len(self.genes))
-
-        log("Read %d gene sets and %d genes" % (len(self.gene_sets), len(self.genes)))
+        pegs_record_read_x_counts(
+            self,
+            record_param_fn=self._record_param,
+            log_fn=lambda message: log(message),
+        )
 
     def write_V(self, V_out):
         if self.X_orig is not None:
