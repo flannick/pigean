@@ -55,6 +55,8 @@ try:
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
         assign_default_batches as pegs_assign_default_batches,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
+        parse_gene_bfs_file as pegs_parse_gene_bfs_file,
+        parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
         remove_tag_from_input as pegs_remove_tag_from_input,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
@@ -113,6 +115,8 @@ except ImportError:
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
         assign_default_batches as pegs_assign_default_batches,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
+        parse_gene_bfs_file as pegs_parse_gene_bfs_file,
+        parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
         remove_tag_from_input as pegs_remove_tag_from_input,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
@@ -5398,224 +5402,111 @@ class PigeanState(object):
 
     def read_gene_set_statistics(self, stats_in, stats_id_col=None, stats_exp_beta_tilde_col=None, stats_beta_tilde_col=None, stats_p_col=None, stats_se_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, ignore_negative_exp_beta=False, max_gene_set_p=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, return_only_ids=False):
 
-        if stats_in is None:
-            bail("Require --stats-in for this operation")
-
-        log("Reading --stats-in file %s" % stats_in, INFO)
         subset_mask = None
-        need_to_take_log = False
-
         read_ids = set()
+        parsed_stats = pegs_parse_gene_set_statistics_file(
+            stats_in,
+            stats_id_col=stats_id_col,
+            stats_exp_beta_tilde_col=stats_exp_beta_tilde_col,
+            stats_beta_tilde_col=stats_beta_tilde_col,
+            stats_p_col=stats_p_col,
+            stats_se_col=stats_se_col,
+            stats_beta_col=stats_beta_col,
+            stats_beta_uncorrected_col=stats_beta_uncorrected_col,
+            ignore_negative_exp_beta=ignore_negative_exp_beta,
+            max_gene_set_p=max_gene_set_p,
+            min_gene_set_beta=min_gene_set_beta,
+            min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
+            open_text_fn=open_gz,
+            get_col_fn=_get_col,
+            log_fn=lambda message: log(message, INFO),
+            warn_fn=warn,
+            bail_fn=bail,
+        )
+        need_to_take_log = parsed_stats.need_to_take_log
+        has_beta_tilde = parsed_stats.has_beta_tilde
+        has_p_or_se = parsed_stats.has_p_or_se
+        has_beta = parsed_stats.has_beta
+        has_beta_uncorrected = parsed_stats.has_beta_uncorrected
+        records = parsed_stats.records
 
-        with open_gz(stats_in) as stats_fh:
-            header_cols = stats_fh.readline().strip('\n').split()
-            id_col = _get_col(stats_id_col, header_cols)
-            beta_tilde_col = None
+        if not return_only_ids:
 
-            if stats_beta_tilde_col is not None:
-                beta_tilde_col = _get_col(stats_beta_tilde_col, header_cols, False)
-            if beta_tilde_col is not None:
-                log("Using col %s for beta_tilde values" % stats_beta_tilde_col)
-            elif stats_exp_beta_tilde_col is not None:
-                beta_tilde_col = _get_col(stats_exp_beta_tilde_col, header_cols)
-                need_to_take_log = True
-                if beta_tilde_col is not None:
-                    log("Using %s for exp(beta_tilde) values" % stats_exp_beta_tilde_col)
-                else:
-                    bail("Could not find beta_tilde column %s or %s in header: %s" % (stats_beta_tilde_col, stats_exp_beta_tilde_col, "\t".join(header_cols)))
+            if self.gene_sets is not None:
+                if has_beta_tilde:
+                    self.beta_tildes = np.zeros(len(self.gene_sets))
+                if has_p_or_se:
+                    self.p_values = np.zeros(len(self.gene_sets))
+                    self.ses = np.zeros(len(self.gene_sets))
+                    self.z_scores = np.zeros(len(self.gene_sets))
+                if has_beta:
+                    self.betas = np.zeros(len(self.gene_sets))
+                if has_beta_uncorrected:
+                    self.betas_uncorrected = np.zeros(len(self.gene_sets))
 
-            p_col = None
-            if stats_p_col is not None:
-                p_col = _get_col(stats_p_col, header_cols, False)            
-
-            se_col = None
-            if stats_se_col is not None:
-                se_col = _get_col(stats_se_col, header_cols, False)            
-
-            beta_col = None
-            if stats_beta_col is not None:
-                beta_col = _get_col(stats_beta_col, header_cols, True)
+                subset_mask = np.array([False] * len(self.gene_sets))
             else:
-                beta_col = _get_col("beta", header_cols, False)
-                
-            beta_uncorrected_col = None
-            if stats_beta_uncorrected_col is not None:
-                beta_uncorrected_col = _get_col(stats_beta_uncorrected_col, header_cols, True)
-            else:
-                beta_uncorrected_col = _get_col("beta_uncorrected", header_cols, False)
+                if has_beta_tilde:
+                    self.beta_tildes = []
+                if has_p_or_se:
+                    self.p_values = []
+                    self.ses = []
+                    self.z_scores = []
+                if has_beta:
+                    self.betas = []
+                if has_beta_uncorrected:
+                    self.betas_uncorrected = []
 
-            if se_col is None and p_col is None and beta_tilde_col is None and beta_col is None and beta_uncorrected_col is None:
-                bail("Require at least something to read from --gene-set-stats-in")
+        gene_sets = []
+        gene_set_to_ind = {}
+        ignored = 0
 
-            if not return_only_ids:
-
-                if self.gene_sets is not None:
-                    if beta_tilde_col is not None:
-                        self.beta_tildes = np.zeros(len(self.gene_sets))
-                    if p_col is not None or se_col is not None:
-                        self.p_values = np.zeros(len(self.gene_sets))
-                        self.ses = np.zeros(len(self.gene_sets))
-                        self.z_scores = np.zeros(len(self.gene_sets))
-                    if beta_col is not None:
-                        self.betas = np.zeros(len(self.gene_sets))
-                    if beta_uncorrected_col is not None:
-                        self.betas_uncorrected = np.zeros(len(self.gene_sets))
-
-                    subset_mask = np.array([False] * len(self.gene_sets))
-                else:
-                    if beta_tilde_col is not None:
-                        self.beta_tildes = []
-                    if p_col is not None or se_col is not None:
-                        self.p_values = []
-                        self.ses = []
-                        self.z_scores = []
-                    if beta_col is not None:
-                        self.betas = []
-                    if beta_uncorrected_col is not None:
-                        self.betas_uncorrected = []
-
-            gene_sets = []
-            gene_set_to_ind = {}
-
-            ignored = 0
-
-            already_seen = 0
-
-            for line in stats_fh:
-                beta_tilde = None
-                alpha_tilde = None
-                p = None
-                se = None
-                z = None
-                beta = None
-                beta_uncorrected = None
-
-                cols = line.strip('\n').split()
-                if id_col > len(cols) or (beta_tilde_col is not None and beta_tilde_col > len(cols)) or (p_col is not None and p_col > len(cols)) or (se_col is not None and se_col > len(cols)):
-                    warn("Skipping due to too few columns in line: %s" % line)
+        for gene_set, values in records.items():
+            beta_tilde, p, se, z, beta, beta_uncorrected = values
+            if self.gene_sets is not None:
+                if gene_set not in self.gene_set_to_ind:
+                    ignored += 1
                     continue
 
-                gene_set = cols[id_col]
-                if gene_set in gene_set_to_ind:
-                    warn("Already seen gene set %s; only considering first instance" % (gene_set))
+                if return_only_ids:
+                    read_ids.add(gene_set)
                     continue
 
-                if beta_tilde_col is not None:
-                    try:
-                        beta_tilde = float(cols[beta_tilde_col])
-                    except ValueError:
-                        if not cols[beta_tilde_col] == "NA":
-                            warn("Skipping unconvertible beta_tilde value %s for gene_set %s" % (cols[beta_tilde_col], gene_set))
-                        continue
+                gene_set_ind = self.gene_set_to_ind[gene_set]
+                if gene_set_ind is not None:
+                    if has_beta_tilde:
+                        self.beta_tildes[gene_set_ind] = beta_tilde * self.scale_factors[gene_set_ind]
+                    if has_p_or_se:
+                        self.p_values[gene_set_ind] = p
+                        self.z_scores[gene_set_ind] = z
+                        self.ses[gene_set_ind] = se * self.scale_factors[gene_set_ind]
+                    if has_beta:
+                        self.betas[gene_set_ind] = beta * self.scale_factors[gene_set_ind]
+                    if has_beta_uncorrected:
+                        self.betas_uncorrected[gene_set_ind] = beta_uncorrected * self.scale_factors[gene_set_ind]
+                    subset_mask[gene_set_ind] = True
+            else:
+                if return_only_ids:
+                    read_ids.add(gene_set)
+                    continue
 
-                    if need_to_take_log:
-                        if beta_tilde < 0:
-                            if ignore_negative_exp_beta:
-                                continue
-                            bail("Exp(beta) value %s for gene set %s is < 0; did you mean to specify --stats-beta-col? Otherwise, specify --ignore-negative-exp-beta to ignore these" % (beta_tilde, gene_set))
-                        beta_tilde = np.log(beta_tilde)
-                    alpha_tilde = 0
+                bail("Not yet implemented this -- no way to convert external beta tilde units reading in into internal units")
+                if has_beta_tilde:
+                    self.beta_tildes.append(beta_tilde)
+                if has_p_or_se:
+                    self.p_values.append(p)
+                    self.z_scores.append(z)
+                    self.ses.append(se)
+                if has_beta:
+                    self.betas.append(beta)
+                if has_beta_uncorrected:
+                    self.betas_uncorrected.append(beta_uncorrected)
 
-                if se_col is not None:
-                    try:
-                        se = float(cols[se_col])
-                    except ValueError:
-                        if not cols[se_col] == "NA":
-                            warn("Skipping unconvertible se value %s for gene_set %s" % (cols[se_col], gene_set))
-                        continue
+                #store these in all cases to be able to check for duplicate gene sets in the input
+                gene_set_to_ind[gene_set] = len(gene_sets)
+                gene_sets.append(gene_set)
 
-                    if beta_tilde_col is not None:
-                        z = beta_tilde / se
-                        p = 2*scipy.stats.norm.cdf(-np.abs(z))
-                        if max_gene_set_p is not None and p > max_gene_set_p:
-                            continue
-                elif p_col is not None:
-                    try:
-                        p = float(cols[p_col])
-                        if max_gene_set_p is not None and p > max_gene_set_p:
-                            continue
-                    except ValueError:
-                        if not cols[p_col] == "NA":
-                            warn("Skipping unconvertible p value %s for gene_set %s" % (cols[p_col], gene_set))
-                        continue
-
-                    z = np.abs(scipy.stats.norm.ppf(p/2))
-                    if z == 0:
-                        warn("Skipping gene_set %s due to 0 z-score" % (gene_set))
-                        continue
-
-                    if beta_tilde_col is not None:
-                        se = np.abs(beta_tilde) / z
-
-                if beta_col is not None:
-                    try:
-                        beta = float(cols[beta_col])
-                        if min_gene_set_beta is not None and beta < min_gene_set_beta:
-                            continue
-
-                    except ValueError:
-                        if not cols[beta_col] == "NA":
-                            warn("Skipping unconvertible beta value %s for gene_set %s" % (cols[beta_col], gene_set))
-                        continue
-
-                if beta_uncorrected_col is not None:
-                    try:
-                        beta_uncorrected = float(cols[beta_uncorrected_col])
-                        if min_gene_set_beta_uncorrected is not None and beta_uncorrected < min_gene_set_beta_uncorrected:
-                            continue
-
-                    except ValueError:
-                        if not cols[beta_uncorrected_col] == "NA":
-                            warn("Skipping unconvertible beta_uncorrected value %s for gene_set %s" % (cols[beta_uncorrected_col], gene_set))
-                        continue
-
-
-                gene_set_ind = None
-
-                if self.gene_sets is not None:
-                    if gene_set not in self.gene_set_to_ind:
-                        ignored += 1
-                        continue
-
-                    if return_only_ids:
-                        read_ids.add(gene_set)
-                        continue
-
-                    gene_set_ind = self.gene_set_to_ind[gene_set]
-                    if gene_set_ind is not None:
-                        if beta_tilde_col is not None:
-                            self.beta_tildes[gene_set_ind] = beta_tilde * self.scale_factors[gene_set_ind]
-                        if p_col is not None or se_col is not None:
-                            self.p_values[gene_set_ind] = p
-                            self.z_scores[gene_set_ind] = z
-                            self.ses[gene_set_ind] = se * self.scale_factors[gene_set_ind]
-                        if beta_col is not None:
-                            self.betas[gene_set_ind] = beta * self.scale_factors[gene_set_ind]
-                        if beta_uncorrected_col is not None:
-                            self.betas_uncorrected[gene_set_ind] = beta_uncorrected * self.scale_factors[gene_set_ind]
-                        subset_mask[gene_set_ind] = True
-                else:
-                    if return_only_ids:
-                        read_ids.add(gene_set)
-                        continue
-
-                    bail("Not yet implemented this -- no way to convert external beta tilde units reading in into internal units")
-                    if beta_tilde_col is not None:
-                        self.beta_tildes.append(beta_tilde)
-                    if p_col is not None or se_col is not None:
-                        self.p_values.append(p)
-                        self.z_scores.append(z)
-                        self.ses.append(se)
-                    if beta_col is not None:
-                        self.betas.append(beta)
-                    if beta_uncorrected_col is not None:
-                        self.betas_uncorrected.append(beta_uncorrected)
-
-                    #store these in all cases to be able to check for duplicate gene sets in the input
-                    gene_set_to_ind[gene_set] = len(gene_sets)
-                    gene_sets.append(gene_set)
-
-            log("Done reading --stats-in-file", DEBUG)
+        log("Done reading --stats-in-file", DEBUG)
 
         if return_only_ids:
             return read_ids
@@ -5651,9 +5542,9 @@ class PigeanState(object):
             self.gene_sets = gene_sets
             self.gene_set_to_ind = gene_set_to_ind
 
-            if beta_col is not None:
+            if has_beta:
                 self.betas = np.array(self.betas)
-            if beta_uncorrected_col is not None:
+            if has_beta_uncorrected:
                 self.betas_uncorrected = np.array(self.betas_uncorrected)
 
             self.total_qc_metrics_missing = None
@@ -8690,100 +8581,24 @@ class PigeanState(object):
 
         #require X matrix
 
-        if gene_bfs_in is None:
-            bail("Require --gene-stats-in for this operation")
-
-        log("Reading --gene-stats-in file %s" % gene_bfs_in, INFO)
-        gene_in_bfs = {}
-        gene_in_combined = None
-        gene_in_priors = None
-        with open_gz(gene_bfs_in) as gene_bfs_fh:
-            header_cols = gene_bfs_fh.readline().strip('\n').split()
-            if gene_bfs_id_col is None:
-                gene_bfs_id_col = "Gene"
-
-            id_col = _get_col(gene_bfs_id_col, header_cols)
-
-            prob_col = None
-            if gene_bfs_prob_col is not None:
-                prob_col = _get_col(gene_bfs_prob_col, header_cols, True)
-
-            bf_col = None
-            if gene_bfs_log_bf_col is not None:
-                bf_col = _get_col(gene_bfs_log_bf_col, header_cols)
-            else:
-                if prob_col is None:
-                    bf_col = _get_col("log_bf", header_cols)
-
-            if bf_col is None and prob_col is None:
-                bail("--gene-stats-log-bf-col or --gene-stats-prob-col required for this operation")
-
-            combined_col = None
-            if gene_bfs_combined_col is not None:
-                combined_col = _get_col(gene_bfs_combined_col, header_cols, True)
-            else:
-                combined_col = _get_col("combined", header_cols, False)
-
-            prior_col = None
-            if gene_bfs_prior_col is not None:
-                prior_col = _get_col(gene_bfs_prior_col, header_cols, True)
-            else:
-                prior_col = _get_col("prior", header_cols, False)
-
-            if combined_col is not None or prob_col is not None:
-                gene_in_combined = {}
-            if prior_col is not None:
-                gene_in_priors = {}
-
-            for line in gene_bfs_fh:
-                cols = line.strip('\n').split()
-                if id_col >= len(cols) or (bf_col is not None and bf_col >= len(cols)) or (combined_col is not None and combined_col >= len(cols)) or (prob_col is not None and prob_col >= len(cols)) or (prior_col is not None and prior_col >= len(cols)):
-                    warn("Skipping due to too few columns in line: %s" % line)
-                    continue
-
-                gene = cols[id_col]
-                
-                if self.gene_label_map is not None and gene in self.gene_label_map:
-                    gene = self.gene_label_map[gene]
-
-                if bf_col is not None:
-                    try:
-                        bf = float(cols[bf_col])
-                    except ValueError:
-                        if not cols[bf_col] == "NA":
-                            warn("Skipping unconvertible bf value %s for gene %s" % (cols[bf_col], gene))
-                        continue
-                elif prob_col is not None:
-                    try:
-                        prob = float(cols[prob_col])
-                    except ValueError:
-                        if not cols[prob_col] == "NA":
-                            warn("Skipping unconvertible prob value %s for gene %s" % (cols[prob_col], gene))
-                        continue
-                    if prob <= 0 or prob >= 1:
-                        warn("Skipping probability %.3g outside of (0,1)" % (prob))
-                        continue
-                    bf = np.log(prob / (1 - prob)) - self.background_log_bf
-
-                gene_in_bfs[gene] = bf
-
-                if combined_col is not None:
-                    try:
-                        combined = float(cols[combined_col])
-                    except ValueError:
-                        if not cols[combined_col] == "NA":
-                            warn("Skipping unconvertible combined value %s for gene %s" % (cols[combined_col], gene))
-                        continue
-                    gene_in_combined[gene] = combined
-
-                if prior_col is not None:
-                    try:
-                        prior = float(cols[prior_col])
-                    except ValueError:
-                        if not cols[prior_col] == "NA":
-                            warn("Skipping unconvertible prior value %s for gene %s" % (cols[prior_col], gene))
-                        continue
-                    gene_in_priors[gene] = prior
+        parsed_gene_bfs = pegs_parse_gene_bfs_file(
+            gene_bfs_in,
+            gene_bfs_id_col=gene_bfs_id_col,
+            gene_bfs_log_bf_col=gene_bfs_log_bf_col,
+            gene_bfs_combined_col=gene_bfs_combined_col,
+            gene_bfs_prob_col=gene_bfs_prob_col,
+            gene_bfs_prior_col=gene_bfs_prior_col,
+            background_log_bf=self.background_log_bf,
+            gene_label_map=self.gene_label_map,
+            open_text_fn=open_gz,
+            get_col_fn=_get_col,
+            log_fn=lambda message: log(message, INFO),
+            warn_fn=warn,
+            bail_fn=bail,
+        )
+        gene_in_bfs = parsed_gene_bfs.gene_in_bfs
+        gene_in_combined = parsed_gene_bfs.gene_in_combined
+        gene_in_priors = parsed_gene_bfs.gene_in_priors
 
 
         if self.genes is not None:
