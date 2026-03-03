@@ -15094,16 +15094,33 @@ def _resolve_epoch_iteration_budget(
     )
 
 
+@dataclass
+class GibbsRunState:
+    target_num_epochs: int
+    max_num_attempt_restarts: int
+    num_p_increases: int = 0
+    num_attempts: int = 0
+    num_completed_epochs: int = 0
+    remaining_total_iter: int = 0
+
+    # Transitional dict-like access so existing helper code remains unchanged.
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+
 def _initialize_gibbs_run_state(total_num_iter, target_num_epochs, max_num_restarts):
     # Mutable run-level counters shared across epoch attempts.
-    return {
-        "target_num_epochs": target_num_epochs,
-        "max_num_attempt_restarts": target_num_epochs + max_num_restarts,
-        "num_p_increases": 0,
-        "num_attempts": 0,
-        "num_completed_epochs": 0,
-        "remaining_total_iter": int(total_num_iter),
-    }
+    return GibbsRunState(
+        target_num_epochs=target_num_epochs,
+        max_num_attempt_restarts=target_num_epochs + max_num_restarts,
+        num_p_increases=0,
+        num_attempts=0,
+        num_completed_epochs=0,
+        remaining_total_iter=int(total_num_iter),
+    )
 
 
 def _prepare_gibbs_epoch_attempt(
@@ -21657,6 +21674,13 @@ class GibbsStageResult:
 
 
 @dataclass
+class GibbsStageConfig:
+    run_kwargs: dict = field(default_factory=dict)
+    num_chains: int | None = None
+    total_num_iter: int | None = None
+
+
+@dataclass
 class NonHugePipelineResult:
     beta_tilde: BetaStageResult = field(default_factory=BetaStageResult)
     beta: BetaStageResult = field(default_factory=BetaStageResult)
@@ -22369,78 +22393,87 @@ def _run_main_priors_stage(state, options, mode_state):
     return PriorsStageResult(ran=False, method="skipped")
 
 
+def _build_main_gibbs_stage_config(options):
+    return GibbsStageConfig(
+        run_kwargs=dict(
+            max_num_iter=options.max_num_iter,
+            total_num_iter=options.total_num_iter_gibbs,
+            max_num_restarts=options.max_num_restarts,
+            num_chains=options.num_chains,
+            num_mad=options.num_mad,
+            r_threshold_burn_in=options.r_threshold_burn_in,
+            use_max_r_for_convergence=options.use_max_r_for_convergence,
+            increase_hyper_if_betas_below=options.increase_hyper_if_betas_below,
+            update_huge_scores=options.update_huge_scores,
+            top_gene_prior=options.top_gene_prior,
+            min_num_burn_in=options.min_num_burn_in,
+            max_num_burn_in=options.max_num_burn_in,
+            min_num_post_burn_in=options.min_num_post_burn_in,
+            max_num_post_burn_in=options.max_num_post_burn_in,
+            max_num_iter_betas=options.max_num_iter_betas,
+            min_num_iter_betas=options.min_num_iter_betas,
+            num_chains_betas=options.num_chains_betas,
+            r_threshold_burn_in_betas=options.r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=options.use_max_r_for_convergence_betas,
+            max_frac_sem_betas=options.max_frac_sem_betas,
+            use_mean_betas=not options.use_sampled_betas_in_gibbs,
+            warm_start=options.warm_start,
+            burn_in_rhat_quantile=options.burn_in_rhat_quantile,
+            burn_in_patience=options.burn_in_patience,
+            burn_in_stall_window=options.burn_in_stall_window,
+            burn_in_stall_delta=options.burn_in_stall_delta,
+            stop_mcse_quantile=options.stop_mcse_quantile,
+            stop_patience=options.stop_patience,
+            stop_top_gene_k=options.stop_top_gene_k,
+            stop_min_gene_d=options.stop_min_gene_d,
+            max_abs_mcse_d=options.max_abs_mcse_d,
+            max_rel_mcse_beta=options.max_rel_mcse_beta,
+            active_beta_top_k=options.active_beta_top_k,
+            active_beta_min_abs=options.active_beta_min_abs,
+            beta_rel_mcse_denom_floor=options.beta_rel_mcse_denom_floor,
+            stall_window=options.stall_window,
+            stall_min_burn_in=options.stall_min_burn_in,
+            stall_min_post_burn_in=options.stall_min_post_burn_in,
+            stall_delta_rhat=options.stall_delta_rhat,
+            stall_delta_mcse=options.stall_delta_mcse,
+            stall_recent_window=options.stall_recent_window,
+            stall_recent_eps=options.stall_recent_eps,
+            stopping_preset_name=options.gibbs_stopping_preset,
+            diag_every=options.diag_every,
+            sparse_frac_gibbs=options.sparse_frac_gibbs,
+            sparse_max_gibbs=options.sparse_max_gibbs,
+            sparse_solution=options.sparse_solution,
+            sparse_frac_betas=options.sparse_frac_betas,
+            pre_filter_batch_size=options.pre_filter_batch_size,
+            pre_filter_small_batch_size=options.pre_filter_small_batch_size,
+            max_allowed_batch_correlation=options.max_allowed_batch_correlation,
+            gauss_seidel=options.gauss_seidel,
+            gauss_seidel_betas=options.gauss_seidel_betas,
+            num_batches_parallel=options.gibbs_num_batches_parallel,
+            max_mb_X_h=options.gibbs_max_mb_X_h,
+            initial_linear_filter=options.initial_linear_filter,
+            adjust_priors=options.adjust_priors,
+            correct_betas_mean=options.correct_betas_mean,
+            correct_betas_var=options.correct_betas_var,
+            gene_set_stats_trace_out=options.gene_set_stats_trace_out,
+            gene_stats_trace_out=options.gene_stats_trace_out,
+            betas_trace_out=options.betas_trace_out,
+            debug_zero_sparse=options.debug_zero_sparse,
+        ),
+        num_chains=options.num_chains,
+        total_num_iter=options.total_num_iter_gibbs,
+    )
+
+
 def _run_main_gibbs_stage(state, options, mode_state):
     if not mode_state["run_gibbs"]:
         return GibbsStageResult(ran=False, num_chains=None, total_num_iter=None)
-    state.run_gibbs(
-        max_num_iter=options.max_num_iter,
-        total_num_iter=options.total_num_iter_gibbs,
-        max_num_restarts=options.max_num_restarts,
-        num_chains=options.num_chains,
-        num_mad=options.num_mad,
-        r_threshold_burn_in=options.r_threshold_burn_in,
-        use_max_r_for_convergence=options.use_max_r_for_convergence,
-        increase_hyper_if_betas_below=options.increase_hyper_if_betas_below,
-        update_huge_scores=options.update_huge_scores,
-        top_gene_prior=options.top_gene_prior,
-        min_num_burn_in=options.min_num_burn_in,
-        max_num_burn_in=options.max_num_burn_in,
-        min_num_post_burn_in=options.min_num_post_burn_in,
-        max_num_post_burn_in=options.max_num_post_burn_in,
-        max_num_iter_betas=options.max_num_iter_betas,
-        min_num_iter_betas=options.min_num_iter_betas,
-        num_chains_betas=options.num_chains_betas,
-        r_threshold_burn_in_betas=options.r_threshold_burn_in_betas,
-        use_max_r_for_convergence_betas=options.use_max_r_for_convergence_betas,
-        max_frac_sem_betas=options.max_frac_sem_betas,
-        use_mean_betas=not options.use_sampled_betas_in_gibbs,
-        warm_start=options.warm_start,
-        burn_in_rhat_quantile=options.burn_in_rhat_quantile,
-        burn_in_patience=options.burn_in_patience,
-        burn_in_stall_window=options.burn_in_stall_window,
-        burn_in_stall_delta=options.burn_in_stall_delta,
-        stop_mcse_quantile=options.stop_mcse_quantile,
-        stop_patience=options.stop_patience,
-        stop_top_gene_k=options.stop_top_gene_k,
-        stop_min_gene_d=options.stop_min_gene_d,
-        max_abs_mcse_d=options.max_abs_mcse_d,
-        max_rel_mcse_beta=options.max_rel_mcse_beta,
-        active_beta_top_k=options.active_beta_top_k,
-        active_beta_min_abs=options.active_beta_min_abs,
-        beta_rel_mcse_denom_floor=options.beta_rel_mcse_denom_floor,
-        stall_window=options.stall_window,
-        stall_min_burn_in=options.stall_min_burn_in,
-        stall_min_post_burn_in=options.stall_min_post_burn_in,
-        stall_delta_rhat=options.stall_delta_rhat,
-        stall_delta_mcse=options.stall_delta_mcse,
-        stall_recent_window=options.stall_recent_window,
-        stall_recent_eps=options.stall_recent_eps,
-        stopping_preset_name=options.gibbs_stopping_preset,
-        diag_every=options.diag_every,
-        sparse_frac_gibbs=options.sparse_frac_gibbs,
-        sparse_max_gibbs=options.sparse_max_gibbs,
-        sparse_solution=options.sparse_solution,
-        sparse_frac_betas=options.sparse_frac_betas,
-        pre_filter_batch_size=options.pre_filter_batch_size,
-        pre_filter_small_batch_size=options.pre_filter_small_batch_size,
-        max_allowed_batch_correlation=options.max_allowed_batch_correlation,
-        gauss_seidel=options.gauss_seidel,
-        gauss_seidel_betas=options.gauss_seidel_betas,
-        num_batches_parallel=options.gibbs_num_batches_parallel,
-        max_mb_X_h=options.gibbs_max_mb_X_h,
-        initial_linear_filter=options.initial_linear_filter,
-        adjust_priors=options.adjust_priors,
-        correct_betas_mean=options.correct_betas_mean,
-        correct_betas_var=options.correct_betas_var,
-        gene_set_stats_trace_out=options.gene_set_stats_trace_out,
-        gene_stats_trace_out=options.gene_stats_trace_out,
-        betas_trace_out=options.betas_trace_out,
-        debug_zero_sparse=options.debug_zero_sparse,
-    )
+    gibbs_config = _build_main_gibbs_stage_config(options)
+    state.run_gibbs(**gibbs_config.run_kwargs)
     return GibbsStageResult(
         ran=True,
-        num_chains=options.num_chains,
-        total_num_iter=options.total_num_iter_gibbs,
+        num_chains=gibbs_config.num_chains,
+        total_num_iter=gibbs_config.total_num_iter,
     )
 
 
