@@ -1,7 +1,20 @@
 import json
 import os
+import shutil
+import tarfile
+import tempfile
+import hashlib
 
 import numpy as np
+
+EAGGL_BUNDLE_SCHEMA = "pigean_eaggl_bundle/v1"
+EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS = set([
+    "X_in",
+    "gene_stats_in",
+    "gene_set_stats_in",
+    "gene_phewas_bfs_in",
+    "gene_set_phewas_stats_in",
+])
 
 
 def _default_bail(message):
@@ -315,3 +328,123 @@ def apply_config_option_overrides(
         setattr(options_obj, dest, coerced_value)
         if config_specified_dests is not None:
             config_specified_dests.add(dest)
+
+
+def get_tar_write_mode_for_bundle_path(bundle_path, option_name="--eaggl-bundle-out", bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    lower = bundle_path.lower()
+    if lower.endswith(".tar.gz") or lower.endswith(".tgz"):
+        return "w:gz"
+    if lower.endswith(".tar"):
+        return "w"
+    bail_fn("Option %s must end with .tar, .tar.gz, or .tgz" % option_name)
+
+
+def _is_unsafe_tar_member_path(member_name):
+    if os.path.isabs(member_name):
+        return True
+    normalized_parts = member_name.replace("\\", "/").split("/")
+    return ".." in normalized_parts
+
+
+def safe_extract_tar_to_temp(bundle_path, temp_prefix="bundle_in_", bundle_flag_name="--bundle-in", bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    tmp_dir = tempfile.mkdtemp(prefix=temp_prefix)
+    try:
+        with tarfile.open(bundle_path, "r:*") as tar_fh:
+            members = tar_fh.getmembers()
+            for member in members:
+                if _is_unsafe_tar_member_path(member.name):
+                    bail_fn("Refusing to read suspicious path in %s bundle: %s" % (bundle_flag_name, member.name))
+            tar_fh.extractall(tmp_dir)
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+    return tmp_dir
+
+
+def load_bundle_manifest(
+    bundle_path,
+    expected_schema,
+    *,
+    bundle_flag_name="--bundle-in",
+    manifest_name="manifest.json",
+    temp_prefix="bundle_in_",
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if not os.path.exists(bundle_path):
+        bail_fn("Could not find %s bundle %s" % (bundle_flag_name, bundle_path))
+
+    extract_dir = safe_extract_tar_to_temp(
+        bundle_path,
+        temp_prefix=temp_prefix,
+        bundle_flag_name=bundle_flag_name,
+        bail_fn=bail_fn,
+    )
+    manifest_path = os.path.join(extract_dir, manifest_name)
+    if not os.path.exists(manifest_path):
+        bail_fn("%s bundle is missing %s: %s" % (bundle_flag_name, manifest_name, bundle_path))
+
+    with open(manifest_path) as in_fh:
+        manifest = json.load(in_fh)
+    if not isinstance(manifest, dict):
+        bail_fn("%s manifest must be a JSON object: %s" % (bundle_flag_name, bundle_path))
+    if manifest.get("schema") != expected_schema:
+        bail_fn(
+            "Unsupported %s schema '%s' in %s (expected %s)"
+            % (bundle_flag_name, manifest.get("schema"), bundle_path, expected_schema)
+        )
+    return extract_dir, manifest
+
+
+def resolve_bundle_default_inputs(
+    raw_default_inputs,
+    extract_dir,
+    allowed_default_inputs,
+    *,
+    bundle_flag_name="--bundle-in",
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    if not isinstance(raw_default_inputs, dict):
+        bail_fn("%s manifest missing required object key 'default_inputs'" % bundle_flag_name)
+
+    resolved_default_inputs = {}
+    abs_extract_dir = os.path.abspath(extract_dir)
+    for key, rel_path in raw_default_inputs.items():
+        if key not in allowed_default_inputs:
+            continue
+        if not isinstance(rel_path, str) or len(rel_path.strip()) == 0:
+            bail_fn("Invalid bundle path for default input '%s'" % key)
+        joined = os.path.normpath(os.path.join(extract_dir, rel_path))
+        abs_joined = os.path.abspath(joined)
+        if os.path.commonpath([abs_extract_dir, abs_joined]) != abs_extract_dir:
+            bail_fn("Refusing to resolve path outside %s bundle for key '%s': %s" % (bundle_flag_name, key, rel_path))
+        if not os.path.exists(joined):
+            bail_fn("%s manifest path for '%s' does not exist: %s" % (bundle_flag_name, key, rel_path))
+        resolved_default_inputs[key] = joined
+    return resolved_default_inputs
+
+
+def hash_file_sha256(path):
+    sha = hashlib.sha256()
+    with open(path, "rb") as fh:
+        while True:
+            chunk = fh.read(1024 * 1024)
+            if not chunk:
+                break
+            sha.update(chunk)
+    return sha.hexdigest()
+
+
+def collect_file_metadata(path):
+    return {
+        "size_bytes": int(os.path.getsize(path)),
+        "sha256": hash_file_sha256(path),
+    }

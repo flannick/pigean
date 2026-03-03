@@ -18,7 +18,6 @@ import os
 import copy
 import contextlib
 import json
-import hashlib
 import tarfile
 import tempfile
 import re
@@ -36,24 +35,30 @@ try:
         collect_cli_specified_dests as pegs_collect_cli_specified_dests,
         configure_random_seed as pegs_configure_random_seed,
         apply_config_option_overrides as pegs_apply_config_option_overrides,
+        collect_file_metadata as pegs_collect_file_metadata,
         format_removed_option_message as pegs_format_removed_option_message,
+        get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
         load_json_config as pegs_load_json_config,
         merge_dicts as pegs_merge_dicts,
         resolve_config_path_value as pegs_resolve_config_path_value,
+        EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 except ImportError:
     from pegs_utils import (
         collect_cli_specified_dests as pegs_collect_cli_specified_dests,
         configure_random_seed as pegs_configure_random_seed,
         apply_config_option_overrides as pegs_apply_config_option_overrides,
+        collect_file_metadata as pegs_collect_file_metadata,
         format_removed_option_message as pegs_format_removed_option_message,
+        get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
         iter_parser_options as pegs_iter_parser_options,
         json_safe as pegs_json_safe,
         load_json_config as pegs_load_json_config,
         merge_dicts as pegs_merge_dicts,
         resolve_config_path_value as pegs_resolve_config_path_value,
+        EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 
 random.seed(0)
@@ -1067,9 +1072,11 @@ def _validate_advanced_option_dispatch(_options, _argv, _cli_dests, _config_dest
     if _options.huge_statistics_out is not None and _options.gwas_in is None:
         bail("Option --huge-statistics-out requires --gwas-in")
     if _options.eaggl_bundle_out is not None:
-        lower = _options.eaggl_bundle_out.lower()
-        if not (lower.endswith(".tar.gz") or lower.endswith(".tgz") or lower.endswith(".tar")):
-            bail("Option --eaggl-bundle-out must end with .tar, .tar.gz, or .tgz")
+        pegs_get_tar_write_mode_for_bundle_path(
+            _options.eaggl_bundle_out,
+            option_name="--eaggl-bundle-out",
+            bail_fn=bail,
+        )
 
     # Column-mapping flags are advanced adjuncts; fail fast if base input is missing.
     gene_stats_col_flags = (
@@ -24108,36 +24115,6 @@ def _run_advanced_set_b_output_phewas_if_requested(state, options):
         state.write_phewas_statistics(options.phewas_stats_out)
 
 
-_EAGGL_BUNDLE_SCHEMA = "pigean_eaggl_bundle/v1"
-
-
-def _get_tar_write_mode_for_bundle_path(bundle_path):
-    lower = bundle_path.lower()
-    if lower.endswith(".tar.gz") or lower.endswith(".tgz"):
-        return "w:gz"
-    if lower.endswith(".tar"):
-        return "w"
-    bail("Option --eaggl-bundle-out must end with .tar, .tar.gz, or .tgz")
-
-
-def _hash_file_sha256(path):
-    sha = hashlib.sha256()
-    with open(path, "rb") as fh:
-        while True:
-            chunk = fh.read(1024 * 1024)
-            if not chunk:
-                break
-            sha.update(chunk)
-    return sha.hexdigest()
-
-
-def _collect_bundle_file_metadata(path):
-    return {
-        "size_bytes": int(os.path.getsize(path)),
-        "sha256": _hash_file_sha256(path),
-    }
-
-
 def _require_bundle_file(path, label, suggestion):
     if os.path.exists(path) and os.path.getsize(path) > 0:
         return
@@ -24149,7 +24126,11 @@ def _write_eaggl_bundle_if_requested(state, options, mode):
         return
 
     out_path = options.eaggl_bundle_out
-    tar_mode = _get_tar_write_mode_for_bundle_path(out_path)
+    tar_mode = pegs_get_tar_write_mode_for_bundle_path(
+        out_path,
+        option_name="--eaggl-bundle-out",
+        bail_fn=bail,
+    )
     out_dir = os.path.dirname(os.path.abspath(out_path))
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
@@ -24165,14 +24146,14 @@ def _write_eaggl_bundle_if_requested(state, options, mode):
         state.write_X(x_path)
         _require_bundle_file(x_path, "X matrix", "run with --X-in/--X-list and ensure gene sets were loaded")
         file_map["X_in"] = x_name
-        file_meta[x_name] = _collect_bundle_file_metadata(x_path)
+        file_meta[x_name] = pegs_collect_file_metadata(x_path)
 
         gene_stats_name = "gene_stats.tsv.gz"
         gene_stats_path = os.path.join(tmp_dir, gene_stats_name)
         state.write_gene_statistics(gene_stats_path)
         _require_bundle_file(gene_stats_path, "gene statistics", "run a mode that computes/loads gene scores")
         file_map["gene_stats_in"] = gene_stats_name
-        file_meta[gene_stats_name] = _collect_bundle_file_metadata(gene_stats_path)
+        file_meta[gene_stats_name] = pegs_collect_file_metadata(gene_stats_path)
 
         gene_set_stats_name = "gene_set_stats.tsv.gz"
         gene_set_stats_path = os.path.join(tmp_dir, gene_set_stats_name)
@@ -24183,7 +24164,7 @@ def _write_eaggl_bundle_if_requested(state, options, mode):
         )
         _require_bundle_file(gene_set_stats_path, "gene-set statistics", "run a mode that computes/loads gene-set statistics")
         file_map["gene_set_stats_in"] = gene_set_stats_name
-        file_meta[gene_set_stats_name] = _collect_bundle_file_metadata(gene_set_stats_path)
+        file_meta[gene_set_stats_name] = pegs_collect_file_metadata(gene_set_stats_path)
 
         optional_existing_files = [
             ("gene_phewas_bfs_in", options.phewas_stats_out, "gene_phewas_stats.tsv.gz"),
@@ -24196,10 +24177,10 @@ def _write_eaggl_bundle_if_requested(state, options, mode):
                 with open(os.path.join(tmp_dir, bundle_name), "wb") as out_fh:
                     out_fh.write(in_fh.read())
             file_map[option_key] = bundle_name
-            file_meta[bundle_name] = _collect_bundle_file_metadata(os.path.join(tmp_dir, bundle_name))
+            file_meta[bundle_name] = pegs_collect_file_metadata(os.path.join(tmp_dir, bundle_name))
 
         manifest = {
-            "schema": _EAGGL_BUNDLE_SCHEMA,
+            "schema": PEGS_EAGGL_BUNDLE_SCHEMA,
             "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "source": {
                 "tool": "pigean.py",
