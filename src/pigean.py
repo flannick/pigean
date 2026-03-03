@@ -56,8 +56,11 @@ try:
         assign_default_batches as pegs_assign_default_batches,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
+        parse_gene_covariates_file as pegs_parse_gene_covariates_file,
         parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
+        align_gene_scalar_map as pegs_align_gene_scalar_map,
+        align_gene_vector_map as pegs_align_gene_vector_map,
         apply_parsed_gene_phewas_bfs_to_runtime as pegs_apply_parsed_gene_phewas_bfs_to_runtime,
         apply_parsed_gene_set_statistics_to_runtime as pegs_apply_parsed_gene_set_statistics_to_runtime,
         set_runtime_p as pegs_set_runtime_p,
@@ -124,8 +127,11 @@ except ImportError:
         assign_default_batches as pegs_assign_default_batches,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
+        parse_gene_covariates_file as pegs_parse_gene_covariates_file,
         parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
+        align_gene_scalar_map as pegs_align_gene_scalar_map,
+        align_gene_vector_map as pegs_align_gene_vector_map,
         apply_parsed_gene_phewas_bfs_to_runtime as pegs_apply_parsed_gene_phewas_bfs_to_runtime,
         apply_parsed_gene_set_statistics_to_runtime as pegs_apply_parsed_gene_set_statistics_to_runtime,
         set_runtime_p as pegs_set_runtime_p,
@@ -8257,20 +8263,13 @@ class PigeanState(object):
         else:
             genes = []
             gene_to_ind = {}
+        (gene_bfs, extra_genes, extra_gene_bfs) = pegs_align_gene_scalar_map(
+            gene_in_bfs,
+            genes=genes,
+            gene_to_ind=gene_to_ind,
+        )
 
-        gene_bfs = np.array([np.nan] * len(genes))
-        
-        extra_gene_bfs = []
-        extra_genes = []
-        for gene in gene_in_bfs:
-            bf = gene_in_bfs[gene]
-            if gene in gene_to_ind:
-                gene_bfs[gene_to_ind[gene]] = bf
-            else:
-                extra_gene_bfs.append(bf)
-                extra_genes.append(gene)
-
-        return (gene_bfs, extra_genes, np.array(extra_gene_bfs), gene_in_combined, gene_in_priors)
+        return (gene_bfs, extra_genes, extra_gene_bfs, gene_in_combined, gene_in_priors)
 
     def read_gene_covs(self, gene_covs_in, gene_covs_id_col=None, gene_covs_cov_cols=None, **kwargs):
 
@@ -8279,36 +8278,17 @@ class PigeanState(object):
         if gene_covs_in is None:
             bail("Require --gene-covs-in for this operation")
 
-        log("Reading --gene-covs-in file %s" % gene_covs_in, INFO)
-        gene_in_covs = {}
-        cov_names = []
-        with open_gz(gene_covs_in) as gene_covs_fh:
-            header_cols = gene_covs_fh.readline().strip('\n').split()
-            if gene_covs_id_col is None:
-                gene_covs_id_col = "Gene"
-
-            id_col = _get_col(gene_covs_id_col, header_cols)
-
-            cov_names = [header_cols[i] for i in range(len(header_cols)) if i != id_col]
-
-            if len(cov_names) > 0:
-                log("Read covariates %s" % (",".join(cov_names)), TRACE)
-
-                for line in gene_covs_fh:
-                    cols = line.strip('\n').split()
-                    if len(cols) != len(header_cols):
-                        warn("Skipping due to too few columns in line: %s" % line)
-                        continue
-
-                    gene = cols[id_col]
-
-                    covs = np.full(len(cov_names), np.nan)
-                    try:
-                        covs = np.array([float(cols[i]) for i in range(len(cols)) if i != id_col])
-                    except ValueError:
-                        continue
-
-                    gene_in_covs[gene] = covs
+        parsed_gene_covs = pegs_parse_gene_covariates_file(
+            gene_covs_in,
+            gene_covs_id_col=gene_covs_id_col,
+            open_text_fn=open_gz,
+            get_col_fn=_get_col,
+            log_fn=lambda message: log(message, TRACE),
+            warn_fn=warn,
+            bail_fn=bail,
+        )
+        cov_names = parsed_gene_covs.cov_names
+        gene_in_covs = parsed_gene_covs.gene_to_covs
 
         if len(cov_names) == 0:
             warn("No covariates in file")
@@ -8321,19 +8301,14 @@ class PigeanState(object):
             genes = []
             gene_to_ind = {}
 
-        gene_covs = np.full((len(genes), len(cov_names)), np.nan)
-        
-        extra_gene_covs = []
-        extra_genes = []
-        for gene in gene_in_covs:
-            covs = gene_in_covs[gene]
-            if gene in gene_to_ind:
-                gene_covs[gene_to_ind[gene],:] = covs
-            else:
-                extra_gene_covs.append(covs)
-                extra_genes.append(gene)
+        (gene_covs, extra_genes, extra_gene_covs) = pegs_align_gene_vector_map(
+            gene_in_covs,
+            num_values=len(cov_names),
+            genes=genes,
+            gene_to_ind=gene_to_ind,
+        )
 
-        return (cov_names, gene_covs, extra_genes, np.array(extra_gene_covs))
+        return (cov_names, gene_covs, extra_genes, extra_gene_covs)
 
 
     def convert_prior_to_var(self, top_prior, num, frac):
