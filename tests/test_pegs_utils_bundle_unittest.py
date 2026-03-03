@@ -482,6 +482,99 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertTrue(np.any(out_se == 1.0))
         self.assertGreaterEqual(len(warnings), 1)
 
+    def test_parse_gene_bfs_file_from_log_bf(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_stats.tsv"
+            path.write_text(
+                "Gene\tlog_bf\tcombined\tprior\nGENE_A\t1.5\t0.2\t0.1\nGENE_B\tNA\t0.3\t0.2\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_bfs_file(
+                str(path),
+                gene_bfs_id_col="Gene",
+                gene_bfs_log_bf_col=None,
+                gene_bfs_combined_col=None,
+                gene_bfs_prob_col=None,
+                gene_bfs_prior_col=None,
+                background_log_bf=0.0,
+                gene_label_map={"GENE_A": "GENE_A_ALIAS"},
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertIn("GENE_A_ALIAS", parsed.gene_in_bfs)
+            self.assertNotIn("GENE_B", parsed.gene_in_bfs)
+            self.assertAlmostEqual(parsed.gene_in_combined["GENE_A_ALIAS"], 0.2)
+            self.assertAlmostEqual(parsed.gene_in_priors["GENE_A_ALIAS"], 0.1)
+
+    def test_parse_gene_bfs_file_from_prob(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_probs.tsv"
+            path.write_text("Gene\tprob\nGENE_A\t0.8\n", encoding="utf-8")
+            parsed = pegs_utils.parse_gene_bfs_file(
+                str(path),
+                gene_bfs_id_col="Gene",
+                gene_bfs_log_bf_col=None,
+                gene_bfs_combined_col=None,
+                gene_bfs_prob_col="prob",
+                gene_bfs_prior_col=None,
+                background_log_bf=0.0,
+                gene_label_map=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            expected = np.log(0.8 / 0.2)
+            self.assertAlmostEqual(parsed.gene_in_bfs["GENE_A"], expected)
+            self.assertIsInstance(parsed.gene_in_combined, dict)
+            self.assertEqual(len(parsed.gene_in_combined), 0)
+
+    def test_parse_gene_set_statistics_file(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_set_stats.tsv"
+            path.write_text(
+                "Gene_Set\texp_beta\tp\tbeta_uncorrected\nSET_A\t2.0\t0.05\t0.4\nSET_A\t2.5\t0.05\t0.5\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_set_statistics_file(
+                str(path),
+                stats_id_col="Gene_Set",
+                stats_exp_beta_tilde_col="exp_beta",
+                stats_beta_tilde_col=None,
+                stats_p_col="p",
+                stats_se_col=None,
+                stats_beta_col=None,
+                stats_beta_uncorrected_col="beta_uncorrected",
+                ignore_negative_exp_beta=False,
+                max_gene_set_p=None,
+                min_gene_set_beta=None,
+                min_gene_set_beta_uncorrected=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                log_fn=lambda _m: None,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertTrue(parsed.need_to_take_log)
+            self.assertTrue(parsed.has_beta_tilde)
+            self.assertTrue(parsed.has_p_or_se)
+            self.assertFalse(parsed.has_beta)
+            self.assertTrue(parsed.has_beta_uncorrected)
+            self.assertEqual(len(parsed.records), 1)
+            beta_tilde, p, _se, z, _beta, beta_uncorrected = parsed.records["SET_A"]
+            self.assertAlmostEqual(beta_tilde, np.log(2.0))
+            self.assertAlmostEqual(p, 0.05)
+            self.assertTrue(np.isfinite(z))
+            self.assertAlmostEqual(beta_uncorrected, 0.4)
+
     def test_remove_tag_from_input(self) -> None:
         path, tag = pegs_utils.remove_tag_from_input("mouse:data.tsv")
         self.assertEqual(path, "data.tsv")
