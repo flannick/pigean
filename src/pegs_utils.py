@@ -1223,6 +1223,24 @@ def apply_phewas_runtime_state_to_runtime(runtime, phewas_state):
     runtime.anchor_pheno_mask = phewas_state.anchor_pheno_mask
 
 
+def sync_y_state(runtime):
+    y_state = y_data_from_runtime(runtime)
+    apply_y_data_to_runtime(runtime, y_state)
+    return y_state
+
+
+def sync_hyperparameter_state(runtime):
+    hyper_state = hyperparameter_data_from_runtime(runtime)
+    apply_hyperparameter_data_to_runtime(runtime, hyper_state)
+    return hyper_state
+
+
+def sync_phewas_runtime_state(runtime):
+    phewas_state = phewas_runtime_state_from_runtime(runtime)
+    apply_phewas_runtime_state_to_runtime(runtime, phewas_state)
+    return phewas_state
+
+
 def set_runtime_p(runtime, p):
     hyper_state = hyperparameter_data_from_runtime(runtime)
     if p is not None:

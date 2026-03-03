@@ -754,6 +754,57 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertAlmostEqual(rt.sigma2_total_var_lower, 9.02, places=2)
         self.assertAlmostEqual(rt.sigma2_total_var_upper, 10.98, places=2)
 
+    def test_sync_runtime_state_helpers(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.Y = np.array([1.0])
+        rt.Y_for_regression = np.array([1.0])
+        rt.Y_exomes = None
+        rt.Y_positive_controls = None
+        rt.Y_case_counts = None
+        rt.y_var = 1.0
+        rt.y_corr = None
+        rt.y_corr_cholesky = None
+        rt.y_corr_sparse = None
+        rt.Y_w = None
+        rt.Y_fw = None
+        rt.y_w_var = None
+        rt.y_w_mean = None
+        rt.y_fw_var = None
+        rt.y_fw_mean = None
+        rt.p = 0.1
+        rt.sigma2 = 0.2
+        rt.sigma_power = 2.0
+        rt.sigma2_osc = None
+        rt.sigma2_se = None
+        rt.sigma2_p = None
+        rt.sigma2_total_var = None
+        rt.sigma2_total_var_lower = None
+        rt.sigma2_total_var_upper = None
+        rt.ps = None
+        rt.sigma2s = None
+        rt.sigma2s_missing = None
+        rt.phenos = ["P1"]
+        rt.pheno_to_ind = {"P1": 0}
+        rt.gene_pheno_Y = None
+        rt.gene_pheno_combined_prior_Ys = None
+        rt.gene_pheno_priors = None
+        rt.X_phewas_beta = None
+        rt.X_phewas_beta_uncorrected = None
+        rt.num_gene_phewas_filtered = 0
+        rt.anchor_gene_mask = None
+        rt.anchor_pheno_mask = None
+
+        y_state = pegs_utils.sync_y_state(rt)
+        hyper_state = pegs_utils.sync_hyperparameter_state(rt)
+        phewas_state = pegs_utils.sync_phewas_runtime_state(rt)
+
+        self.assertTrue(np.array_equal(y_state.Y, rt.Y))
+        self.assertAlmostEqual(hyper_state.p, rt.p)
+        self.assertEqual(phewas_state.phenos, rt.phenos)
+
     def test_apply_parsed_gene_set_statistics_to_runtime(self) -> None:
         class _Runtime:
             def __init__(self) -> None:
