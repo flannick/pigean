@@ -79,6 +79,18 @@ class ParsedGeneBfs:
     gene_in_priors: object
 
 
+@dataclass
+class ParsedGenePhewasBfs:
+    phenos: list
+    pheno_to_ind: dict
+    row: object
+    col: object
+    Ys: object
+    combineds: object
+    priors: object
+    num_filtered: int
+
+
 def _default_bail(message):
     raise ValueError(message)
 
@@ -795,6 +807,272 @@ def parse_gene_bfs_file(
         gene_in_bfs=gene_in_bfs,
         gene_in_combined=gene_in_combined,
         gene_in_priors=gene_in_priors,
+    )
+
+
+def parse_gene_phewas_bfs_file(
+    gene_phewas_bfs_in,
+    *,
+    gene_phewas_bfs_id_col,
+    gene_phewas_bfs_pheno_col,
+    gene_phewas_bfs_log_bf_col,
+    gene_phewas_bfs_combined_col,
+    gene_phewas_bfs_prior_col,
+    min_value,
+    max_num_entries_at_once,
+    existing_phenos,
+    existing_pheno_to_ind,
+    gene_to_ind,
+    gene_label_map,
+    phewas_gene_to_x_gene,
+    open_text_fn,
+    get_col_fn,
+    bail_fn=None,
+    warn_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if warn_fn is None:
+        warn_fn = lambda _msg: None
+
+    if max_num_entries_at_once is None:
+        max_num_entries_at_once = 200 * 10000
+
+    success = False
+    num_filtered = 0
+    final_phenos = list(existing_phenos) if existing_phenos is not None else []
+    final_pheno_to_ind = copy.copy(existing_pheno_to_ind) if existing_pheno_to_ind is not None else {}
+    final_row = np.array([], dtype=np.int32)
+    final_col = np.array([], dtype=np.int32)
+    final_Ys = None
+    final_combineds = None
+    final_priors = None
+
+    for delim in [None, "\t"]:
+        success = True
+        Ys = None
+        combineds = None
+        priors = None
+
+        row = []
+        col = []
+        row_chunks = []
+        col_chunks = []
+        Y_chunks = []
+        combined_chunks = []
+        prior_chunks = []
+
+        with open_text_fn(gene_phewas_bfs_in) as gene_phewas_bfs_fh:
+            header_cols = gene_phewas_bfs_fh.readline().strip("\n").split(delim)
+            id_col_name = gene_phewas_bfs_id_col if gene_phewas_bfs_id_col is not None else "Gene"
+            pheno_col_name = gene_phewas_bfs_pheno_col if gene_phewas_bfs_pheno_col is not None else "Pheno"
+
+            id_col = get_col_fn(id_col_name, header_cols)
+            pheno_col = get_col_fn(pheno_col_name, header_cols)
+
+            if gene_phewas_bfs_log_bf_col is not None:
+                bf_col = get_col_fn(gene_phewas_bfs_log_bf_col, header_cols)
+            else:
+                bf_col = get_col_fn("log_bf", header_cols, False)
+
+            if gene_phewas_bfs_combined_col is not None:
+                combined_col = get_col_fn(gene_phewas_bfs_combined_col, header_cols, True)
+            else:
+                combined_col = get_col_fn("combined", header_cols, False)
+
+            if gene_phewas_bfs_prior_col is not None:
+                prior_col = get_col_fn(gene_phewas_bfs_prior_col, header_cols, True)
+            else:
+                prior_col = get_col_fn("prior", header_cols, False)
+
+            if bf_col is not None:
+                Ys = []
+            if combined_col is not None:
+                combineds = []
+            if prior_col is not None:
+                priors = []
+
+            def _flush_chunks():
+                if len(row) == 0:
+                    return
+                row_chunks.append(np.array(row, dtype=np.int32))
+                col_chunks.append(np.array(col, dtype=np.int32))
+                if Ys is not None:
+                    Y_chunks.append(np.array(Ys, dtype=np.float64))
+                    Ys[:] = []
+                if combineds is not None:
+                    combined_chunks.append(np.array(combineds, dtype=np.float64))
+                    combineds[:] = []
+                if priors is not None:
+                    prior_chunks.append(np.array(priors, dtype=np.float64))
+                    priors[:] = []
+                row[:] = []
+                col[:] = []
+
+            phenos = list(existing_phenos) if existing_phenos is not None else []
+            pheno_to_ind = (
+                copy.copy(existing_pheno_to_ind) if existing_pheno_to_ind is not None else {}
+            )
+            num_filtered = 0
+
+            for line in gene_phewas_bfs_fh:
+                cols = line.strip("\n").split(delim)
+                if len(cols) != len(header_cols):
+                    success = False
+                    continue
+
+                if (
+                    id_col >= len(cols)
+                    or pheno_col >= len(cols)
+                    or (bf_col is not None and bf_col >= len(cols))
+                    or (combined_col is not None and combined_col >= len(cols))
+                    or (prior_col is not None and prior_col >= len(cols))
+                ):
+                    warn_fn("Skipping due to too few columns in line: %s" % line)
+                    continue
+
+                gene = cols[id_col]
+                pheno = cols[pheno_col]
+
+                cur_combined = None
+                if combined_col is not None:
+                    try:
+                        combined = float(cols[combined_col])
+                    except ValueError:
+                        if cols[combined_col] != "NA":
+                            warn_fn(
+                                "Skipping unconvertible value %s for gene_set %s"
+                                % (cols[combined_col], gene)
+                            )
+                        continue
+
+                    if min_value is not None and combined < min_value:
+                        num_filtered += 1
+                        continue
+                    cur_combined = combined
+
+                cur_Y = None
+                if bf_col is not None:
+                    try:
+                        bf = float(cols[bf_col])
+                    except ValueError:
+                        if cols[bf_col] != "NA":
+                            warn_fn(
+                                "Skipping unconvertible value %s for gene %s and pheno %s"
+                                % (cols[bf_col], gene, pheno)
+                            )
+                        continue
+
+                    if min_value is not None and combined_col is None and bf < min_value:
+                        num_filtered += 1
+                        continue
+                    cur_Y = bf
+
+                cur_prior = None
+                if prior_col is not None:
+                    try:
+                        prior = float(cols[prior_col])
+                    except ValueError:
+                        if cols[prior_col] != "NA":
+                            warn_fn(
+                                "Skipping unconvertible value %s for gene %s"
+                                % (cols[prior_col], gene)
+                            )
+                        continue
+
+                    if min_value is not None and combined_col is None and bf_col is None and prior < min_value:
+                        num_filtered += 1
+                        continue
+                    cur_prior = prior
+
+                if pheno not in pheno_to_ind:
+                    pheno_to_ind[pheno] = len(phenos)
+                    phenos.append(pheno)
+                pheno_ind = pheno_to_ind[pheno]
+
+                if gene_label_map is not None and gene in gene_label_map:
+                    gene = gene_label_map[gene]
+
+                mapped_genes = [gene]
+                if phewas_gene_to_x_gene is not None and gene in phewas_gene_to_x_gene:
+                    mapped_genes = list(phewas_gene_to_x_gene[gene])
+
+                for cur_gene in mapped_genes:
+                    if cur_gene not in gene_to_ind:
+                        continue
+                    if combineds is not None:
+                        combineds.append(cur_combined)
+                    if Ys is not None:
+                        Ys.append(cur_Y)
+                    if priors is not None:
+                        priors.append(cur_prior)
+
+                    col.append(pheno_ind)
+                    row.append(gene_to_ind[cur_gene])
+                    if len(row) >= max_num_entries_at_once:
+                        _flush_chunks()
+
+            _flush_chunks()
+
+        if success:
+            final_phenos = phenos
+            final_pheno_to_ind = pheno_to_ind
+            if len(row_chunks) > 0:
+                row = np.concatenate(row_chunks)
+                col = np.concatenate(col_chunks)
+            else:
+                row = np.array([], dtype=np.int32)
+                col = np.array([], dtype=np.int32)
+
+            if len(row) > 0:
+                key = row.astype(np.int64) * int(len(phenos)) + col.astype(np.int64)
+                _, unique_indices = np.unique(key, return_index=True)
+            else:
+                unique_indices = np.array([], dtype=np.int64)
+
+            if len(unique_indices) < len(row):
+                warn_fn("Found %d duplicate values; ignoring duplicates" % (len(row) - len(unique_indices)))
+
+            final_row = row[unique_indices]
+            final_col = col[unique_indices]
+
+            if combineds is not None:
+                if len(combined_chunks) > 0:
+                    final_combineds = np.concatenate(combined_chunks)[unique_indices]
+                else:
+                    final_combineds = np.array([], dtype=np.float64)
+            else:
+                final_combineds = None
+
+            if Ys is not None:
+                if len(Y_chunks) > 0:
+                    final_Ys = np.concatenate(Y_chunks)[unique_indices]
+                else:
+                    final_Ys = np.array([], dtype=np.float64)
+            else:
+                final_Ys = None
+
+            if priors is not None:
+                if len(prior_chunks) > 0:
+                    final_priors = np.concatenate(prior_chunks)[unique_indices]
+                else:
+                    final_priors = np.array([], dtype=np.float64)
+            else:
+                final_priors = None
+            break
+
+    if not success:
+        bail_fn("Error: different number of columns in header row and non header rows")
+
+    return ParsedGenePhewasBfs(
+        phenos=final_phenos,
+        pheno_to_ind=final_pheno_to_ind,
+        row=final_row,
+        col=final_col,
+        Ys=final_Ys,
+        combineds=final_combineds,
+        priors=final_priors,
+        num_filtered=num_filtered,
     )
 
 

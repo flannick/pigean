@@ -56,6 +56,7 @@ try:
         assign_default_batches as pegs_assign_default_batches,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
+        parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
         remove_tag_from_input as pegs_remove_tag_from_input,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
@@ -116,6 +117,7 @@ except ImportError:
         assign_default_batches as pegs_assign_default_batches,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         parse_gene_bfs_file as pegs_parse_gene_bfs_file,
+        parse_gene_phewas_bfs_file as pegs_parse_gene_phewas_bfs_file,
         parse_gene_set_statistics_file as pegs_parse_gene_set_statistics_file,
         remove_tag_from_input as pegs_remove_tag_from_input,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
@@ -5582,177 +5584,32 @@ class PigeanState(object):
         if phewas_gene_to_X_gene_in is not None:
             phewas_gene_to_X_gene = _parse_gene_map(phewas_gene_to_X_gene_in, allow_multi=True)
 
-        for delim in [None, '\t']:
-            success = True
-            Ys = None
-            combineds = None
-            priors = None
-
-
-            if max_num_entries_at_once is None:
-                max_num_entries_at_once = 200 * 10000
-
-            row = []
-            col = []
-            row_chunks = []
-            col_chunks = []
-            Y_chunks = []
-            combined_chunks = []
-            prior_chunks = []
-
-            with open_gz(gene_phewas_bfs_in) as gene_phewas_bfs_fh:
-                header_cols = gene_phewas_bfs_fh.readline().strip('\n').split(delim)
-                if gene_phewas_bfs_id_col is None:
-                    gene_phewas_bfs_id_col = "Gene"
-                if gene_phewas_bfs_pheno_col is None:
-                    gene_phewas_bfs_pheno_col = "Pheno"
-
-                id_col = _get_col(gene_phewas_bfs_id_col, header_cols)
-
-                pheno_col = _get_col(gene_phewas_bfs_pheno_col, header_cols)
-
-                bf_col = None
-                if gene_phewas_bfs_log_bf_col is not None:
-                    bf_col = _get_col(gene_phewas_bfs_log_bf_col, header_cols)
-                else:
-                    bf_col = _get_col("log_bf", header_cols, False)
-
-                combined_col = None
-                if gene_phewas_bfs_combined_col is not None:
-                    combined_col = _get_col(gene_phewas_bfs_combined_col, header_cols, True)
-                else:
-                    combined_col = _get_col("combined", header_cols, False)
-
-                prior_col = None
-                if gene_phewas_bfs_prior_col is not None:
-                    prior_col = _get_col(gene_phewas_bfs_prior_col, header_cols, True)
-                else:
-                    prior_col = _get_col("prior", header_cols, False)
-
-                if bf_col is not None:
-                    Ys  = []
-                if combined_col is not None:
-                    combineds = []
-                if prior_col is not None:
-                    priors = []
-
-                def __flush_chunks():
-                    if len(row) == 0:
-                        return
-                    row_chunks.append(np.array(row, dtype=np.int32))
-                    col_chunks.append(np.array(col, dtype=np.int32))
-                    if Ys is not None:
-                        Y_chunks.append(np.array(Ys, dtype=np.float64))
-                        Ys[:] = []
-                    if combineds is not None:
-                        combined_chunks.append(np.array(combineds, dtype=np.float64))
-                        combineds[:] = []
-                    if priors is not None:
-                        prior_chunks.append(np.array(priors, dtype=np.float64))
-                        priors[:] = []
-                    row[:] = []
-                    col[:] = []
-
-                if self.phenos is not None:
-                    phenos = copy.copy(self.phenos)
-                    pheno_to_ind = copy.copy(self.pheno_to_ind)
-                else:
-                    phenos = []
-                    pheno_to_ind = {}
-
-                self.num_gene_phewas_filtered = 0
-                for line in gene_phewas_bfs_fh:
-                    cols = line.strip('\n').split(delim)
-                    if len(cols) != len(header_cols):
-                        success = False
-                        continue
-                    if id_col >= len(cols) or pheno_col >= len(cols) or (bf_col is not None and bf_col >= len(cols)) or (combined_col is not None and combined_col >= len(cols)) or (prior_col is not None and prior_col >= len(cols)):
-                        warn("Skipping due to too few columns in line: %s" % line)
-                        continue
-
-                    pheno = cols[pheno_col]
-
-                    cur_combined = None
-                    if combined_col is not None:
-                        try:
-                            combined = float(cols[combined_col])
-                        except ValueError:
-                            if not cols[combined_col] == "NA":
-                                warn("Skipping unconvertible value %s for gene_set %s" % (cols[combined_col], gene))
-                            continue
-
-                        if min_value is not None and combined < min_value:
-                            self.num_gene_phewas_filtered += 1
-                            continue
-
-                        cur_combined = combined
-
-                    if bf_col is not None:
-                        try:
-                            bf = float(cols[bf_col])
-                        except ValueError:
-                            if not cols[bf_col] == "NA":
-                                warn("Skipping unconvertible value %s for gene %s and pheno %s" % (cols[bf_col], gene, pheno))
-                            continue
-
-                        if min_value is not None and combined_col is None and bf < min_value:
-                            self.num_gene_phewas_filtered += 1
-                            continue
-
-                        cur_Y = bf
-
-                    if prior_col is not None:
-                        try:
-                            prior = float(cols[prior_col])
-                        except ValueError:
-                            if not cols[prior_col] == "NA":
-                                warn("Skipping unconvertible value %s for gene %s" % (cols[prior_col], gene))
-                            continue
-
-                        if min_value is not None and combined_col is None and bf_col is None and prior < min_value:
-                            self.num_gene_phewas_filtered += 1
-                            continue
-
-                        cur_prior = prior
-
-
-                    if pheno not in pheno_to_ind:
-                        pheno_to_ind[pheno] = len(phenos)
-                        phenos.append(pheno)
-
-                    pheno_ind = pheno_to_ind[pheno]
-
-                    gene = cols[id_col]
-
-                    if self.gene_label_map is not None and gene in self.gene_label_map:
-                        gene = self.gene_label_map[gene]
-                    
-                    genes = [gene]
-                    if phewas_gene_to_X_gene is not None and gene in phewas_gene_to_X_gene:
-                        genes = list(phewas_gene_to_X_gene[gene])
-
-                    for cur_gene in genes:
-                        if cur_gene not in self.gene_to_ind:
-                            continue
-                        if combineds is not None:
-                            combineds.append(cur_combined)
-                        if Ys is not None:
-                            Ys.append(cur_Y)
-                        if priors is not None:
-                            priors.append(cur_prior)
-
-                        col.append(pheno_ind)
-                        row.append(self.gene_to_ind[cur_gene])
-                        if len(row) >= max_num_entries_at_once:
-                            __flush_chunks()
-
-                __flush_chunks()
-
-            if success:
-                break
-
-        if not success:
-            bail("Error: different number of columns in header row and non header rows")
+        parsed_phewas = pegs_parse_gene_phewas_bfs_file(
+            gene_phewas_bfs_in,
+            gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+            gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+            gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+            gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+            gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+            min_value=min_value,
+            max_num_entries_at_once=max_num_entries_at_once,
+            existing_phenos=self.phenos,
+            existing_pheno_to_ind=self.pheno_to_ind,
+            gene_to_ind=self.gene_to_ind,
+            gene_label_map=self.gene_label_map,
+            phewas_gene_to_x_gene=phewas_gene_to_X_gene,
+            open_text_fn=open_gz,
+            get_col_fn=_get_col,
+            bail_fn=bail,
+            warn_fn=warn,
+        )
+        self.num_gene_phewas_filtered = parsed_phewas.num_filtered
+        phenos = parsed_phewas.phenos
+        row = parsed_phewas.row
+        col = parsed_phewas.col
+        Ys = parsed_phewas.Ys
+        combineds = parsed_phewas.combineds
+        priors = parsed_phewas.priors
 
         #update what's stored internally
         num_added_phenos = 0
@@ -5768,45 +5625,13 @@ class PigeanState(object):
         self.phenos = phenos
         self.pheno_to_ind = _construct_map_to_ind(phenos)
 
-        #uniquify if needed
-        if len(row_chunks) > 0:
-            row = np.concatenate(row_chunks)
-            col = np.concatenate(col_chunks)
-        else:
-            row = np.array([], dtype=np.int32)
-            col = np.array([], dtype=np.int32)
-
-        if len(row) > 0:
-            key = row.astype(np.int64) * int(len(self.phenos)) + col.astype(np.int64)
-            _, unique_indices = np.unique(key, return_index=True)
-        else:
-            unique_indices = np.array([], dtype=np.int64)
-
-        if len(unique_indices) < len(row):
-            warn("Found %d duplicate values; ignoring duplicates" % (len(row) - len(unique_indices)))
-
-        row = row[unique_indices]
-        col = col[unique_indices]
-
         if combineds is not None:
-            if len(combined_chunks) > 0:
-                combineds = np.concatenate(combined_chunks)[unique_indices]
-            else:
-                combineds = np.array([], dtype=np.float64)
             self.gene_pheno_combined_prior_Ys = sparse.csc_matrix((combineds, (row, col)), shape=(len(self.genes), len(self.phenos)))
 
         if Ys is not None:
-            if len(Y_chunks) > 0:
-                Ys = np.concatenate(Y_chunks)[unique_indices]
-            else:
-                Ys = np.array([], dtype=np.float64)
             self.gene_pheno_Y = sparse.csc_matrix((Ys, (row, col)), shape=(len(self.genes), len(self.phenos)))
             
         if priors is not None:
-            if len(prior_chunks) > 0:
-                priors = np.concatenate(prior_chunks)[unique_indices]
-            else:
-                priors = np.array([], dtype=np.float64)
             self.gene_pheno_priors = sparse.csc_matrix((priors, (row, col)), shape=(len(self.genes), len(self.phenos)))
         
         self.anchor_gene_mask = None
