@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import optparse
 import shutil
 import sys
 import tarfile
@@ -138,6 +139,79 @@ class PegsUtilsBundleTest(unittest.TestCase):
             pegs_utils.open_optional_log_handle(None, default_stream=sys.stderr, mode="w"),
             sys.stderr,
         )
+
+    def test_fail_removed_cli_aliases_uses_formatter_and_exit(self) -> None:
+        writes: list[str] = []
+        exits: list[int] = []
+
+        def _write(msg: str) -> None:
+            writes.append(msg)
+
+        def _exit(code: int) -> None:
+            exits.append(code)
+            raise RuntimeError("stop")
+
+        def _fmt(flag: str, replacement, context: str, config_path=None) -> str:
+            return "MSG %s %s %s" % (flag, replacement, context)
+
+        with self.assertRaisesRegex(RuntimeError, "stop"):
+            pegs_utils.fail_removed_cli_aliases(
+                ["--old-flag", "--other"],
+                {"old_flag": "--new-flag"},
+                format_removed_option_message_fn=_fmt,
+                stderr_write_fn=_write,
+                exit_fn=_exit,
+            )
+
+        self.assertEqual(exits, [2])
+        self.assertEqual(writes, ["MSG --old-flag --new-flag cli\n"])
+
+    def test_apply_cli_config_overrides_applies_mode_and_options(self) -> None:
+        parser = optparse.OptionParser()
+        parser.add_option("", "--config", default=None)
+        parser.add_option("", "--foo", default=None)
+        parser.add_option("", "--input-file", dest="input_file", default=None)
+
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            cfg_path = td_path / "config.json"
+            cfg = {
+                "mode": "gibbs",
+                "options": {
+                    "foo": "from_config",
+                    "input_file": "relative.tsv",
+                },
+            }
+            cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+            options, args = parser.parse_args(
+                ["--config", str(cfg_path), "--foo", "from_cli"]
+            )
+            (
+                options,
+                args,
+                config_mode,
+                cli_specified_dests,
+                config_specified_dests,
+            ) = pegs_utils.apply_cli_config_overrides(
+                options,
+                args,
+                parser,
+                ["--config", str(cfg_path), "--foo", "from_cli"],
+                resolve_path_fn=pegs_utils.resolve_config_path_value,
+                is_path_like_dest_fn=pegs_utils.is_path_like_dest,
+                early_warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                removed_option_replacements={},
+                format_removed_option_message_fn=pegs_utils.format_removed_option_message,
+                track_config_specified_dests=True,
+            )
+
+            self.assertEqual(config_mode, "gibbs")
+            self.assertEqual(options.foo, "from_cli")
+            self.assertTrue(options.input_file.endswith("relative.tsv"))
+            self.assertIn("foo", cli_specified_dests)
+            self.assertIn("input_file", config_specified_dests)
 
     def test_complete_p_beta_se_fills_missing_values(self) -> None:
         p = np.array([np.nan, 0.05, 0.2], dtype=float)

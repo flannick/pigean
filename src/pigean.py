@@ -32,9 +32,7 @@ import random
 
 try:
     from .pegs_utils import (
-        collect_cli_specified_dests as pegs_collect_cli_specified_dests,
         configure_random_seed as pegs_configure_random_seed,
-        apply_config_option_overrides as pegs_apply_config_option_overrides,
         collect_file_metadata as pegs_collect_file_metadata,
         build_bundle_manifest as pegs_build_bundle_manifest,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
@@ -43,7 +41,9 @@ try:
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
+        fail_removed_cli_aliases as pegs_fail_removed_cli_aliases,
         open_optional_log_handle as pegs_open_optional_log_handle,
+        apply_cli_config_overrides as pegs_apply_cli_config_overrides,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
@@ -64,9 +64,7 @@ try:
     )
 except ImportError:
     from pegs_utils import (
-        collect_cli_specified_dests as pegs_collect_cli_specified_dests,
         configure_random_seed as pegs_configure_random_seed,
-        apply_config_option_overrides as pegs_apply_config_option_overrides,
         collect_file_metadata as pegs_collect_file_metadata,
         build_bundle_manifest as pegs_build_bundle_manifest,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
@@ -75,7 +73,9 @@ except ImportError:
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
+        fail_removed_cli_aliases as pegs_fail_removed_cli_aliases,
         open_optional_log_handle as pegs_open_optional_log_handle,
+        apply_cli_config_overrides as pegs_apply_cli_config_overrides,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
@@ -731,51 +731,26 @@ _apply_cli_option_groups(parser)
 
 
 argv_parse = sys.argv[1:]
-for _arg in argv_parse:
-    if not _arg.startswith("--"):
-        continue
-    _flag = _arg.split("=", 1)[0]
-    _normalized = _flag[2:].replace("-", "_")
-    if _normalized in REMOVED_OPTION_REPLACEMENTS:
-        replacement = REMOVED_OPTION_REPLACEMENTS[_normalized]
-        sys.stderr.write("%s\n" % pegs_format_removed_option_message(_flag, replacement, context="cli"))
-        sys.exit(2)
+pegs_fail_removed_cli_aliases(
+    argv_parse,
+    REMOVED_OPTION_REPLACEMENTS,
+    format_removed_option_message_fn=pegs_format_removed_option_message,
+)
 
 (options, args) = parser.parse_args(argv_parse)
-config_mode = None
-cli_specified_dests = pegs_collect_cli_specified_dests(argv_parse, parser)
-config_specified_dests = set()
-
-if options.config is not None:
-    config_path = _resolve_config_path_value(options.config, os.getcwd())
-    options.config = config_path
-    config_dir = os.path.dirname(config_path)
-    config_data = pegs_load_json_config(config_path, bail_fn=bail, seen_paths=None)
-    config_mode = config_data["mode"] if "mode" in config_data else None
-    if "options" in config_data:
-        config_options = config_data["options"]
-        if not isinstance(config_options, dict):
-            bail("Config key 'options' must be a JSON object")
-    else:
-        config_options = dict(config_data)
-        config_options.pop("mode", None)
-        config_options.pop("include", None)
-
-    pegs_apply_config_option_overrides(
-        options,
-        parser,
-        config_options,
-        config_path,
-        config_dir,
-        cli_specified_dests,
-        resolve_path_fn=_resolve_config_path_value,
-        is_path_like_dest_fn=_is_path_like_dest,
-        early_warn_fn=_early_warn,
-        bail_fn=bail,
-        removed_option_replacements=REMOVED_OPTION_REPLACEMENTS,
-        format_removed_option_message_fn=pegs_format_removed_option_message,
-        config_specified_dests=config_specified_dests,
-    )
+(options, args, config_mode, cli_specified_dests, config_specified_dests) = pegs_apply_cli_config_overrides(
+    options,
+    args,
+    parser,
+    argv_parse,
+    resolve_path_fn=_resolve_config_path_value,
+    is_path_like_dest_fn=_is_path_like_dest,
+    early_warn_fn=_early_warn,
+    bail_fn=bail,
+    removed_option_replacements=REMOVED_OPTION_REPLACEMENTS,
+    format_removed_option_message_fn=pegs_format_removed_option_message,
+    track_config_specified_dests=True,
+)
 
 if config_mode is not None:
     if len(args) < 1:

@@ -8,6 +8,7 @@ import csv
 import gzip
 import io
 import re
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -588,6 +589,82 @@ def format_removed_option_message(option_name, replacement, context, config_path
         )
 
     raise ValueError("Unknown removed-option message context '%s'" % context)
+
+
+def fail_removed_cli_aliases(
+    argv,
+    removed_option_replacements,
+    *,
+    format_removed_option_message_fn=None,
+    stderr_write_fn=None,
+    exit_fn=None,
+):
+    formatter = format_removed_option_message if format_removed_option_message_fn is None else format_removed_option_message_fn
+    write_fn = sys.stderr.write if stderr_write_fn is None else stderr_write_fn
+    terminate_fn = sys.exit if exit_fn is None else exit_fn
+
+    for arg in argv:
+        if not isinstance(arg, str) or not arg.startswith("--"):
+            continue
+        flag = arg.split("=", 1)[0]
+        normalized = flag[2:].replace("-", "_")
+        if normalized in removed_option_replacements:
+            replacement = removed_option_replacements[normalized]
+            write_fn("%s\n" % formatter(flag, replacement, context="cli"))
+            terminate_fn(2)
+
+
+def apply_cli_config_overrides(
+    options_obj,
+    args,
+    parser,
+    argv,
+    *,
+    resolve_path_fn,
+    is_path_like_dest_fn,
+    early_warn_fn,
+    bail_fn,
+    removed_option_replacements,
+    format_removed_option_message_fn,
+    track_config_specified_dests=False,
+):
+    cli_specified_dests = collect_cli_specified_dests(argv, parser)
+    config_specified_dests = set() if track_config_specified_dests else None
+    config_mode = None
+
+    if getattr(options_obj, "config", None) is not None:
+        config_path = resolve_path_fn(options_obj.config, os.getcwd())
+        options_obj.config = config_path
+        config_dir = os.path.dirname(config_path)
+        config_data = load_json_config(config_path, bail_fn=bail_fn, seen_paths=None)
+        config_mode = config_data["mode"] if "mode" in config_data else None
+
+        if "options" in config_data:
+            config_options = config_data["options"]
+            if not isinstance(config_options, dict):
+                bail_fn("Config key 'options' must be a JSON object")
+        else:
+            config_options = dict(config_data)
+            config_options.pop("mode", None)
+            config_options.pop("include", None)
+
+        apply_config_option_overrides(
+            options_obj,
+            parser,
+            config_options,
+            config_path,
+            config_dir,
+            cli_specified_dests,
+            resolve_path_fn=resolve_path_fn,
+            is_path_like_dest_fn=is_path_like_dest_fn,
+            early_warn_fn=early_warn_fn,
+            bail_fn=bail_fn,
+            removed_option_replacements=removed_option_replacements,
+            format_removed_option_message_fn=format_removed_option_message_fn,
+            config_specified_dests=config_specified_dests,
+        )
+
+    return options_obj, args, config_mode, cli_specified_dests, config_specified_dests
 
 
 def configure_random_seed(options_obj, random_module, numpy_module, log_fn=None, info_level=None):
