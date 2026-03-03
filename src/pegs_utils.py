@@ -52,6 +52,23 @@ class XData:
     gene_set_labels: object = None
     is_dense_gene_set: object = None
 
+    @classmethod
+    def from_input_plan(cls, input_plan):
+        return cls(
+            gene_set_batches=np.array(input_plan.batches),
+            gene_set_labels=np.array(input_plan.labels),
+            is_dense_gene_set=np.array(input_plan.is_dense, dtype=bool),
+        )
+
+    def has_gene_sets(self):
+        return bool(self.gene_sets is not None and len(self.gene_sets) > 0)
+
+    def num_genes(self):
+        return 0 if self.genes is None else len(self.genes)
+
+    def num_gene_sets(self):
+        return 0 if self.gene_sets is None else len(self.gene_sets)
+
 
 @dataclass
 class XInputPlan:
@@ -61,6 +78,38 @@ class XInputPlan:
     labels: list
     orig_files: list
     is_dense: list
+
+
+@dataclass
+class XReadConfig:
+    x_sparsify: object
+    min_gene_set_size: int
+    add_ext: bool
+    add_top: bool
+    add_bottom: bool
+    threshold_weights: float
+    cap_weights: bool
+    permute_gene_sets: bool
+    filter_gene_set_p: float
+    filter_gene_set_metric_z: float
+    filter_using_phewas: bool
+    increase_filter_gene_set_p: float
+    filter_negative: bool
+
+
+@dataclass
+class XReadCallbacks:
+    sparse_module: object
+    np_module: object
+    normalize_dense_gene_rows_fn: object
+    build_sparse_x_from_dense_input_fn: object
+    reindex_x_rows_to_current_genes_fn: object
+    normalize_gene_set_weights_fn: object
+    partition_missing_gene_rows_fn: object
+    maybe_permute_gene_set_rows_fn: object
+    maybe_prefilter_x_block_fn: object
+    merge_missing_gene_rows_fn: object
+    finalize_added_x_block_fn: object
 
 
 @dataclass
@@ -2935,11 +2984,191 @@ def prepare_read_x_inputs(
 
 
 def xdata_from_input_plan(input_plan):
-    return XData(
-        gene_set_batches=np.array(input_plan.batches),
-        gene_set_labels=np.array(input_plan.labels),
-        is_dense_gene_set=np.array(input_plan.is_dense, dtype=bool),
-    )
+    return XData.from_input_plan(input_plan)
+
+
+def make_add_to_x_handler(runtime, read_config, read_callbacks, *, run_logistic):
+    def _add_to_x(mat_info, genes, gene_sets, tag=None, skip_scale_factors=False, fname=None):
+        if tag is not None:
+            gene_sets = ["%s_%s" % (tag, gene_set) for gene_set in gene_sets]
+
+        is_dense = False
+        if isinstance(mat_info, tuple):
+            (data, row, col) = mat_info
+            cur_X = read_callbacks.sparse_module.csc_matrix((data, (row, col)), shape=(len(genes), len(gene_sets)))
+            if cur_X.shape[1] == 0:
+                return (0, 0)
+        else:
+            mat_info, genes = read_callbacks.normalize_dense_gene_rows_fn(mat_info, genes, runtime.gene_label_map)
+            cur_X, gene_sets, should_skip_dense = read_callbacks.build_sparse_x_from_dense_input_fn(
+                runtime,
+                mat_info=mat_info,
+                genes=genes,
+                gene_sets=gene_sets,
+                x_sparsify=read_config.x_sparsify,
+                min_gene_set_size=read_config.min_gene_set_size,
+                add_ext=read_config.add_ext,
+                add_top=read_config.add_top,
+                add_bottom=read_config.add_bottom,
+                fname=fname,
+            )
+            if should_skip_dense:
+                return (0, 0)
+            cur_X, genes = read_callbacks.reindex_x_rows_to_current_genes_fn(runtime, cur_X=cur_X, genes=genes)
+
+        cur_X = read_callbacks.normalize_gene_set_weights_fn(
+            runtime,
+            cur_X=cur_X,
+            threshold_weights=read_config.threshold_weights,
+            cap_weights=read_config.cap_weights,
+        )
+        (
+            cur_X,
+            genes,
+            gene_sets,
+            gene_ignored_N,
+            cur_X_missing_genes_int,
+            gene_ignored_N_missing_int,
+            genes_missing_new,
+            cur_X_missing_genes_new,
+            gene_ignored_N_missing_new,
+        ) = read_callbacks.partition_missing_gene_rows_fn(
+            runtime,
+            cur_X=cur_X,
+            genes=genes,
+            gene_sets=gene_sets,
+        )
+
+        cur_X = read_callbacks.maybe_permute_gene_set_rows_fn(
+            runtime,
+            cur_X=cur_X,
+            permute_gene_sets=read_config.permute_gene_sets,
+        )
+
+        (
+            cur_X,
+            gene_sets,
+            p_value_ignore,
+            gene_ignored_N,
+            cur_X_missing_genes_new,
+            gene_ignored_N_missing_new,
+            cur_X_missing_genes_int,
+            gene_ignored_N_missing_int,
+            total_qc_metrics,
+            mean_qc_metrics,
+            total_qc_metrics_directions,
+        ) = read_callbacks.maybe_prefilter_x_block_fn(
+            runtime,
+            cur_X=cur_X,
+            gene_sets=gene_sets,
+            run_logistic=run_logistic,
+            filter_gene_set_p=read_config.filter_gene_set_p,
+            filter_gene_set_metric_z=read_config.filter_gene_set_metric_z,
+            filter_using_phewas=read_config.filter_using_phewas,
+            increase_filter_gene_set_p=read_config.increase_filter_gene_set_p,
+            filter_negative=read_config.filter_negative,
+            cur_X_missing_genes_new=cur_X_missing_genes_new,
+            gene_ignored_N_missing_new=gene_ignored_N_missing_new,
+            cur_X_missing_genes_int=cur_X_missing_genes_int,
+            gene_ignored_N_missing_int=gene_ignored_N_missing_int,
+            gene_ignored_N=gene_ignored_N,
+        )
+
+        runtime.is_dense_gene_set = read_callbacks.np_module.append(
+            runtime.is_dense_gene_set,
+            read_callbacks.np_module.full(len(gene_sets), is_dense),
+        )
+
+        num_new_gene_sets = len(gene_sets)
+        num_old_gene_sets = len(runtime.gene_sets) if runtime.gene_sets is not None else 0
+        if runtime.X_orig is not None:
+            cur_X = read_callbacks.sparse_module.hstack((runtime.X_orig, cur_X))
+            gene_sets = runtime.gene_sets + gene_sets
+
+        cur_X, genes = read_callbacks.merge_missing_gene_rows_fn(
+            runtime,
+            cur_X=cur_X,
+            genes=genes,
+            num_old_gene_sets=num_old_gene_sets,
+            num_new_gene_sets=num_new_gene_sets,
+            cur_X_missing_genes_int=cur_X_missing_genes_int,
+            gene_ignored_N_missing_int=gene_ignored_N_missing_int,
+            cur_X_missing_genes_new=cur_X_missing_genes_new,
+            gene_ignored_N_missing_new=gene_ignored_N_missing_new,
+            genes_missing_new=genes_missing_new,
+        )
+
+        return read_callbacks.finalize_added_x_block_fn(
+            runtime,
+            cur_X=cur_X,
+            genes=genes,
+            gene_sets=gene_sets,
+            skip_scale_factors=skip_scale_factors,
+            p_value_ignore=p_value_ignore,
+            gene_ignored_N=gene_ignored_N,
+            total_qc_metrics=total_qc_metrics,
+            mean_qc_metrics=mean_qc_metrics,
+            total_qc_metrics_directions=total_qc_metrics_directions,
+        )
+
+    return _add_to_x
+
+
+def ingest_x_inputs(
+    runtime,
+    X_ins,
+    is_dense,
+    batches,
+    labels,
+    initial_ps,
+    num_ignored_gene_sets,
+    *,
+    only_ids,
+    x_sparsify,
+    min_gene_set_size,
+    only_inc_genes,
+    fraction_inc_genes,
+    ignore_genes,
+    max_num_entries_at_once,
+    add_to_x_fn,
+    process_x_input_file_fn,
+    remove_tag_from_input_fn,
+    log_fn,
+    info_level,
+    debug_level,
+):
+    ignored_for_fraction_inc = 0
+    for input_index in range(len(X_ins)):
+        X_in = X_ins[input_index]
+        (X_in, tag) = remove_tag_from_input_fn(X_in)
+
+        log_fn("Reading X %d of %d from --X-in file %s" % (input_index + 1, len(X_ins), X_in), info_level)
+
+        num_too_small, ignored_for_fraction_inc, processed_input = process_x_input_file_fn(
+            runtime,
+            X_in=X_in,
+            tag=tag,
+            is_dense_input=is_dense[input_index],
+            only_ids=only_ids,
+            x_sparsify=x_sparsify,
+            batch_value=batches[input_index],
+            label_value=labels[input_index],
+            initial_p_value=initial_ps[input_index] if initial_ps is not None else None,
+            num_ignored_gene_sets=num_ignored_gene_sets,
+            input_index=input_index,
+            add_to_x_fn=add_to_x_fn,
+            min_gene_set_size=min_gene_set_size,
+            only_inc_genes=only_inc_genes,
+            fraction_inc_genes=fraction_inc_genes,
+            ignore_genes=ignore_genes,
+            max_num_entries_at_once=max_num_entries_at_once,
+        )
+        if not processed_input:
+            continue
+
+        log_fn("Ignored %d gene sets due to too few genes" % num_too_small, debug_level)
+
+    return ignored_for_fraction_inc
 
 
 def initialize_matrix_and_gene_index_state(runtime, batch_size):
