@@ -2354,6 +2354,54 @@ def assign_default_batches(batches, orig_files, batch_all_for_hyper, first_for_h
     return batches
 
 
+def initialize_read_x_batch_seed_state(
+    runtime,
+    xdata_seed,
+    batches,
+    orig_files,
+    *,
+    batch_all_for_hyper,
+    first_for_hyper,
+    update_hyper_sigma,
+    update_hyper_p,
+    first_for_sigma_cond,
+    record_params_fn=None,
+    log_fn=None,
+):
+    if log_fn is None:
+        log_fn = lambda _message: None
+
+    batches = assign_default_batches(
+        batches=batches,
+        orig_files=orig_files,
+        batch_all_for_hyper=batch_all_for_hyper,
+        first_for_hyper=first_for_hyper,
+    )
+
+    if record_params_fn is not None:
+        record_params_fn({"num_X_batches": len(batches)})
+
+    if update_hyper_sigma or update_hyper_p:
+        num_batched = len([x for x in batches if x is not None])
+        num_unique_batched = len(set([x for x in batches if x is not None]))
+        num_unbatched = len([x for x in batches if x is None])
+        log_fn(
+            "Will learn parameters for %d files as %d batches and fill in %d additional files from the first"
+            % (num_batched, num_unique_batched, num_unbatched)
+        )
+    if first_for_sigma_cond:
+        log_fn("Will fix conditional sigma from the first batch")
+
+    num_ignored_gene_sets = np.zeros((len(batches)))
+
+    runtime.gene_set_batches = xdata_seed.gene_set_batches[:0]
+    runtime.gene_set_labels = xdata_seed.gene_set_labels[:0]
+    runtime.gene_sets = []
+    runtime.is_dense_gene_set = xdata_seed.is_dense_gene_set[:0]
+
+    return batches, num_ignored_gene_sets
+
+
 def _normalize_input_specs(input_specs):
     if input_specs is None:
         return ([], [])

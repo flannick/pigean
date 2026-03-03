@@ -54,6 +54,7 @@ try:
         write_huge_statistics_runtime_vectors as pegs_write_huge_statistics_runtime_vectors,
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
         assign_default_batches as pegs_assign_default_batches,
+        initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -123,6 +124,7 @@ except ImportError:
         write_huge_statistics_runtime_vectors as pegs_write_huge_statistics_runtime_vectors,
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
         assign_default_batches as pegs_assign_default_batches,
+        initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -1783,31 +1785,19 @@ class PigeanState(object):
         #now handle the None batches
         #semantics are that things with a batch have value learned from all files with that batch,
         #things with None have it learned from first batch that appears in arg list
-
-        batches = pegs_assign_default_batches(
+        batches, num_ignored_gene_sets = pegs_initialize_read_x_batch_seed_state(
+            runtime=self,
+            xdata_seed=_xdata_seed,
             batches=batches,
             orig_files=orig_files,
             batch_all_for_hyper=batch_all_for_hyper,
             first_for_hyper=first_for_hyper,
+            update_hyper_sigma=update_hyper_sigma,
+            update_hyper_p=update_hyper_p,
+            first_for_sigma_cond=first_for_sigma_cond,
+            record_params_fn=self._record_params,
+            log_fn=log,
         )
-
-
-        self._record_params({"num_X_batches": len(batches)})
-
-        if update_hyper_sigma or update_hyper_p:
-            log("Will learn parameters for %d files as %d batches and fill in %d additional files from the first" % (len([x for x in batches if x is not None]), len(set([x for x in batches if x is not None])), len([x for x in batches if x is None])))
-        if first_for_sigma_cond:
-            log("Will fix conditional sigma from the first batch")
-        #this will store the number of ignored gene sets per file
-        num_ignored_gene_sets = np.zeros((len(batches)))
-
-        #expands the file batches to have one per gene set
-        self.gene_set_batches = _xdata_seed.gene_set_batches[:0]
-        self.gene_set_labels = _xdata_seed.gene_set_labels[:0]
-           
-
-        self.gene_sets = []
-        self.is_dense_gene_set = _xdata_seed.is_dense_gene_set[:0]
 
         if (filter_gene_set_p < 1 or filter_gene_set_metric_z) and self.Y is not None:
             _initialize_filtered_gene_set_state(self, update_hyper_p=update_hyper_p)

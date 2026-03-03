@@ -1253,6 +1253,42 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertIsNone(out_first[1])
         self.assertIsNone(out_first[2])
 
+    def test_initialize_read_x_batch_seed_state(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        xdata_seed = pegs_utils.XData(
+            gene_set_batches=np.array(["B0", "B1"]),
+            gene_set_labels=np.array(["L0", "L1"]),
+            is_dense_gene_set=np.array([False, True], dtype=bool),
+        )
+        logs = []
+        params = []
+        batches, ignored = pegs_utils.initialize_read_x_batch_seed_state(
+            runtime=rt,
+            xdata_seed=xdata_seed,
+            batches=[None, None],
+            orig_files=["a", "b"],
+            batch_all_for_hyper=False,
+            first_for_hyper=False,
+            update_hyper_sigma=True,
+            update_hyper_p=False,
+            first_for_sigma_cond=True,
+            record_params_fn=lambda d: params.append(d),
+            log_fn=lambda m: logs.append(m),
+        )
+
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(ignored.shape[0], 2)
+        self.assertEqual(rt.gene_set_batches.shape[0], 0)
+        self.assertEqual(rt.gene_set_labels.shape[0], 0)
+        self.assertEqual(rt.is_dense_gene_set.shape[0], 0)
+        self.assertEqual(rt.gene_sets, [])
+        self.assertTrue(any("Will learn parameters" in m for m in logs))
+        self.assertTrue(any("Will fix conditional sigma" in m for m in logs))
+        self.assertTrue(any(d.get("num_X_batches") == 2 for d in params))
+
     def test_prepare_read_x_inputs_and_xdata_from_input_plan(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
