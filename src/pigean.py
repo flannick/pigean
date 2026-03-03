@@ -59,6 +59,13 @@ try:
         maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
         resolve_read_x_run_logistic as pegs_resolve_read_x_run_logistic,
         record_read_x_counts as pegs_record_read_x_counts,
+        standardize_qc_metrics_after_x_read as pegs_standardize_qc_metrics_after_x_read,
+        maybe_correct_gene_set_betas_after_x_read as pegs_maybe_correct_gene_set_betas_after_x_read,
+        maybe_limit_initial_gene_sets_by_p as pegs_maybe_limit_initial_gene_sets_by_p,
+        maybe_prune_gene_sets_after_x_read as pegs_maybe_prune_gene_sets_after_x_read,
+        initialize_hyper_defaults_after_x_read as pegs_initialize_hyper_defaults_after_x_read,
+        maybe_adjust_overaggressive_p_filter_after_x_read as pegs_maybe_adjust_overaggressive_p_filter_after_x_read,
+        apply_post_read_gene_set_size_and_qc_filters as pegs_apply_post_read_gene_set_size_and_qc_filters,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -133,6 +140,13 @@ except ImportError:
         maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
         resolve_read_x_run_logistic as pegs_resolve_read_x_run_logistic,
         record_read_x_counts as pegs_record_read_x_counts,
+        standardize_qc_metrics_after_x_read as pegs_standardize_qc_metrics_after_x_read,
+        maybe_correct_gene_set_betas_after_x_read as pegs_maybe_correct_gene_set_betas_after_x_read,
+        maybe_limit_initial_gene_sets_by_p as pegs_maybe_limit_initial_gene_sets_by_p,
+        maybe_prune_gene_sets_after_x_read as pegs_maybe_prune_gene_sets_after_x_read,
+        initialize_hyper_defaults_after_x_read as pegs_initialize_hyper_defaults_after_x_read,
+        maybe_adjust_overaggressive_p_filter_after_x_read as pegs_maybe_adjust_overaggressive_p_filter_after_x_read,
+        apply_post_read_gene_set_size_and_qc_filters as pegs_apply_post_read_gene_set_size_and_qc_filters,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -13044,27 +13058,7 @@ def _process_x_input_file(
 
 
 def _standardize_qc_metrics_after_x_read(runtime_state):
-    if runtime_state.total_qc_metrics is not None:
-        total_qc_metrics = runtime_state.total_qc_metrics
-        if runtime_state.total_qc_metrics_ignored is not None:
-            total_qc_metrics = np.vstack((runtime_state.total_qc_metrics, runtime_state.total_qc_metrics_ignored))
-
-        runtime_state.total_qc_metrics = (runtime_state.total_qc_metrics - np.mean(total_qc_metrics, axis=0)) / np.std(total_qc_metrics, axis=0)
-        if runtime_state.total_qc_metrics_ignored is not None:
-            runtime_state.total_qc_metrics_ignored = (
-                runtime_state.total_qc_metrics_ignored - np.mean(total_qc_metrics, axis=0)
-            ) / np.std(total_qc_metrics, axis=0)
-
-    if runtime_state.mean_qc_metrics is not None:
-        mean_qc_metrics = np.append(
-            runtime_state.mean_qc_metrics,
-            runtime_state.mean_qc_metrics_ignored if runtime_state.mean_qc_metrics_ignored is not None else [],
-        )
-        runtime_state.mean_qc_metrics = (runtime_state.mean_qc_metrics - np.mean(mean_qc_metrics)) / np.std(mean_qc_metrics)
-        if runtime_state.mean_qc_metrics_ignored is not None:
-            runtime_state.mean_qc_metrics_ignored = (
-                runtime_state.mean_qc_metrics_ignored - np.mean(mean_qc_metrics)
-            ) / np.std(mean_qc_metrics)
+    pegs_standardize_qc_metrics_after_x_read(runtime_state)
 
 
 def _maybe_correct_gene_set_betas_after_x_read(
@@ -13074,49 +13068,22 @@ def _maybe_correct_gene_set_betas_after_x_read(
     correct_betas_var,
     filter_using_phewas,
 ):
-    if not (filter_gene_set_p is not None and (correct_betas_mean or correct_betas_var) and runtime_state.beta_tildes is not None):
-        return
-
-    (
-        runtime_state.beta_tildes,
-        runtime_state.ses,
-        runtime_state.z_scores,
-        runtime_state.p_values,
-        runtime_state.se_inflation_factors,
-    ) = runtime_state._correct_beta_tildes(
-        runtime_state.beta_tildes,
-        runtime_state.ses,
-        runtime_state.se_inflation_factors,
-        runtime_state.total_qc_metrics,
-        runtime_state.total_qc_metrics_directions,
-        correct_mean=correct_betas_mean,
-        correct_var=correct_betas_var,
-        correct_ignored=True,
-        fit=True,
+    pegs_maybe_correct_gene_set_betas_after_x_read(
+        runtime_state,
+        filter_gene_set_p=filter_gene_set_p,
+        correct_betas_mean=correct_betas_mean,
+        correct_betas_var=correct_betas_var,
+        filter_using_phewas=filter_using_phewas,
+        log_fn=lambda message: log(message),
     )
-    newly_below_p_mask = runtime_state.p_values <= filter_gene_set_p
-    if filter_using_phewas:
-        newly_below_p_mask = np.full(len(runtime_state.p_values), True)
-
-    # Ensure at least one.
-    if np.sum(newly_below_p_mask) == 0:
-        newly_below_p_mask[np.argmin(runtime_state.p_values)] = True
-    if np.sum(newly_below_p_mask) != len(newly_below_p_mask):
-        log(
-            "Ignoring %d gene sets whose p-value increased after adjusting betas (kept %d)"
-            % (np.sum(~newly_below_p_mask), np.sum(newly_below_p_mask))
-        )
-        runtime_state.subset_gene_sets(newly_below_p_mask, ignore_missing=True, keep_missing=False, skip_V=True)
 
 
 def _maybe_limit_initial_gene_sets_by_p(runtime_state, max_num_gene_sets_initial):
-    if runtime_state.p_values is None or max_num_gene_sets_initial is None:
-        return
-
-    if max_num_gene_sets_initial > 0 and max_num_gene_sets_initial < len(runtime_state.p_values):
-        p_value_filter = np.partition(runtime_state.p_values, max_num_gene_sets_initial - 1)[max_num_gene_sets_initial - 1]
-        log("Keeping only %d most significant gene sets due to --max-num-gene-sets-initial" % max_num_gene_sets_initial)
-        runtime_state.subset_gene_sets(runtime_state.p_values <= p_value_filter, ignore_missing=True, keep_missing=False, skip_V=True)
+    pegs_maybe_limit_initial_gene_sets_by_p(
+        runtime_state,
+        max_num_gene_sets_initial=max_num_gene_sets_initial,
+        log_fn=lambda message: log(message),
+    )
 
 
 def _maybe_prune_gene_sets_after_x_read(
@@ -13126,29 +13093,13 @@ def _maybe_prune_gene_sets_after_x_read(
     prune_deterministically,
     weighted_prune_gene_sets,
 ):
-    if skip_betas and runtime_state.Y is not None:
-        return
-
-    runtime_state._prune_gene_sets(
-        prune_gene_sets,
+    pegs_maybe_prune_gene_sets_after_x_read(
+        runtime_state,
+        skip_betas=skip_betas,
+        prune_gene_sets=prune_gene_sets,
         prune_deterministically=prune_deterministically,
-        keep_missing=False,
-        ignore_missing=True,
-        skip_V=True,
+        weighted_prune_gene_sets=weighted_prune_gene_sets,
     )
-
-    if weighted_prune_gene_sets and runtime_state.Y is not None:
-        gene_weights = np.exp(runtime_state.Y + runtime_state.background_log_bf) / (
-            1 + np.exp(runtime_state.Y + runtime_state.background_log_bf)
-        )
-        runtime_state._prune_gene_sets(
-            weighted_prune_gene_sets,
-            prune_deterministically=prune_deterministically,
-            keep_missing=False,
-            ignore_missing=True,
-            skip_V=True,
-            gene_weights=gene_weights,
-        )
 
 
 def _initialize_hyper_defaults_after_x_read(
@@ -13162,49 +13113,19 @@ def _initialize_hyper_defaults_after_x_read(
     sigma_soft_threshold_95,
     sigma_soft_threshold_5,
 ):
-    if runtime_state.p is None:
-        if initial_p is not None and type(initial_p) is list:
-            runtime_state.set_p(np.mean(initial_p))
-            if update_hyper_p:
-                warn("Since --update-hyper-p was passed, using average --p-noninf (%.3g) as initial condition" % runtime_state.p)
-            if runtime_state.Y is not None:
-                assert(runtime_state.ps is not None)
-        else:
-            runtime_state.set_p(initial_p)
-    if runtime_state.sigma_power is None:
-        runtime_state.set_sigma(runtime_state.sigma2, sigma_power)
-    fixed_sigma_cond = False
-    if runtime_state.sigma2 is None:
-        if initial_sigma2_cond is not None:
-            # if cond sigma is specified, set actual sigma to cond * p
-            if not update_hyper_sigma:
-                fixed_sigma_cond = True
-            runtime_state.set_sigma(runtime_state.p * initial_sigma2_cond, runtime_state.sigma_power)
-        else:
-            runtime_state.set_sigma(initial_sigma2, runtime_state.sigma_power)
-
-    if sigma_soft_threshold_95 is not None and sigma_soft_threshold_5 is not None:
-        if sigma_soft_threshold_95 < 0 or sigma_soft_threshold_5 < 0:
-            warn("Ignoring sigma soft thresholding since both are not positive")
-        else:
-            frac_95 = float(sigma_soft_threshold_95) / len(runtime_state.genes)
-            x1 = np.sqrt(frac_95 * (1 - frac_95))
-            y1 = 0.95
-
-            frac_5 = float(sigma_soft_threshold_5) / len(runtime_state.genes)
-            x2 = np.sqrt(frac_5 * (1 - frac_5))
-            y2 = 0.05
-            L = 1
-
-            if x2 < x1:
-                warn("--sigma-threshold-5 (%.3g) is less than --sigma-threshold-95 (%.3g); this is the opposite of what you usually want as it will threshold smaller gene sets rather than larger ones")
-
-            runtime_state.sigma_threshold_k = -(np.log(1 / y2 - L) - np.log(1 / y1 - 1)) / (x2 - x1)
-            runtime_state.sigma_threshold_xo = (x1 * np.log(1 / y2 - L) - x2 * np.log(1 / y1 - L)) / (np.log(1 / y2 - L) - np.log(1 / y1 - L))
-
-            log("Thresholding sigma with k=%.3g, xo=%.3g" % (runtime_state.sigma_threshold_k, runtime_state.sigma_threshold_xo))
-
-    return fixed_sigma_cond
+    return pegs_initialize_hyper_defaults_after_x_read(
+        runtime_state,
+        initial_p=initial_p,
+        update_hyper_p=update_hyper_p,
+        sigma_power=sigma_power,
+        initial_sigma2_cond=initial_sigma2_cond,
+        update_hyper_sigma=update_hyper_sigma,
+        initial_sigma2=initial_sigma2,
+        sigma_soft_threshold_95=sigma_soft_threshold_95,
+        sigma_soft_threshold_5=sigma_soft_threshold_5,
+        warn_fn=lambda message: warn(message),
+        log_fn=lambda message: log(message),
+    )
 
 
 def _learn_hyper_for_gene_set_batch(
@@ -13467,23 +13388,13 @@ def _maybe_adjust_overaggressive_p_filter_after_x_read(
     increase_filter_gene_set_p,
     filter_using_phewas,
 ):
-    if filter_gene_set_p is None or increase_filter_gene_set_p is None or runtime_state.p_values is None or runtime_state.p_values_ignored is None:
-        return
-
-    # Since we required each batch to have increase_filter_gene_set_p, we may need to reduce.
-    if float(len(runtime_state.p_values)) / (len(runtime_state.p_values) + len(runtime_state.p_values_ignored)) > increase_filter_gene_set_p:
-        keep_frac = increase_filter_gene_set_p * float(len(runtime_state.p_values) + len(runtime_state.p_values_ignored)) / len(runtime_state.p_values)
-        p_from_quantile = np.quantile(runtime_state.p_values, keep_frac)
-        if p_from_quantile > filter_gene_set_p and not filter_using_phewas:
-            overcorrect_ignore = runtime_state.p_values > p_from_quantile
-            if np.sum(overcorrect_ignore) > 0:
-                overcorrect_mask = ~overcorrect_ignore
-                runtime_state._record_param("adjusted_filter_gene_set_p", p_from_quantile)
-                log(
-                    "Ignoring %d gene sets due to p > %.3g (overaggressive adjustment of p-value filters; kept %d)"
-                    % (np.sum(overcorrect_ignore), p_from_quantile, np.sum(overcorrect_mask))
-                )
-                runtime_state.subset_gene_sets(overcorrect_mask, ignore_missing=True, keep_missing=False, skip_V=True)
+    pegs_maybe_adjust_overaggressive_p_filter_after_x_read(
+        runtime_state,
+        filter_gene_set_p=filter_gene_set_p,
+        increase_filter_gene_set_p=increase_filter_gene_set_p,
+        filter_using_phewas=filter_using_phewas,
+        log_fn=lambda message: log(message),
+    )
 
 
 def _apply_post_read_gene_set_size_and_qc_filters(
@@ -13492,28 +13403,13 @@ def _apply_post_read_gene_set_size_and_qc_filters(
     max_gene_set_size,
     filter_gene_set_metric_z,
 ):
-    if runtime_state.X_orig is None:
-        return
-
-    col_sums = runtime_state.get_col_sums(runtime_state.X_orig, num_nonzero=True)
-    size_ignore = col_sums < min_gene_set_size
-    if np.sum(size_ignore) > 0:
-        size_mask = ~size_ignore
-        log("Ignoring %d gene sets due to too few genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
-        runtime_state.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
-
-    col_sums = runtime_state.get_col_sums(runtime_state.X_orig, num_nonzero=True)
-    size_ignore = col_sums > max_gene_set_size
-    if np.sum(size_ignore) > 0:
-        size_mask = ~size_ignore
-        log("Ignoring %d gene sets due to too many genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
-        runtime_state.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
-
-    if runtime_state.total_qc_metrics is not None and filter_gene_set_metric_z:
-        filter_mask = np.abs(runtime_state.mean_qc_metrics) < filter_gene_set_metric_z
-        filter_ignore = ~filter_mask
-        log("Ignoring %d gene sets due to QC metric filters (kept %d)" % (np.sum(filter_ignore), np.sum(filter_mask)))
-        runtime_state.subset_gene_sets(filter_mask, keep_missing=False, ignore_missing=True, skip_V=True)
+    pegs_apply_post_read_gene_set_size_and_qc_filters(
+        runtime_state,
+        min_gene_set_size=min_gene_set_size,
+        max_gene_set_size=max_gene_set_size,
+        filter_gene_set_metric_z=filter_gene_set_metric_z,
+        log_fn=lambda message: log(message),
+    )
 
 
 def _maybe_filter_zero_uncorrected_betas_after_x_read(

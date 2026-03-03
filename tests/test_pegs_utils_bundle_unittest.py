@@ -1346,6 +1346,84 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertIn(("num_genes_read", 3), recorded)
         self.assertTrue(any("Read 2 gene sets and 3 genes" in m for m in logs))
 
+    def test_initialize_hyper_defaults_after_x_read(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.p = None
+                self.ps = np.array([0.1])
+                self.sigma2 = None
+                self.sigma_power = None
+                self.genes = ["G1", "G2", "G3", "G4", "G5"] * 20
+                self.Y = np.array([0.0, 0.0])
+                self.sigma_threshold_k = None
+                self.sigma_threshold_xo = None
+
+            def set_p(self, p):
+                self.p = p
+
+            def set_sigma(self, sigma2, sigma_power):
+                self.sigma2 = sigma2
+                self.sigma_power = sigma_power
+
+        warns = []
+        logs = []
+        rt = _Runtime()
+        fixed = pegs_utils.initialize_hyper_defaults_after_x_read(
+            rt,
+            initial_p=[0.1, 0.2],
+            update_hyper_p=True,
+            sigma_power=0.0,
+            initial_sigma2_cond=0.5,
+            update_hyper_sigma=False,
+            initial_sigma2=1e-3,
+            sigma_soft_threshold_95=80,
+            sigma_soft_threshold_5=10,
+            warn_fn=lambda m: warns.append(m),
+            log_fn=lambda m: logs.append(m),
+        )
+        self.assertTrue(fixed)
+        self.assertAlmostEqual(rt.p, 0.15)
+        self.assertAlmostEqual(rt.sigma2, 0.075)
+        self.assertIsNotNone(rt.sigma_threshold_k)
+        self.assertIsNotNone(rt.sigma_threshold_xo)
+        self.assertTrue(any("Thresholding sigma" in m for m in logs))
+        self.assertTrue(any("--update-hyper-p" in m for m in warns))
+
+    def test_limit_and_adjust_p_filters_after_x_read(self) -> None:
+        class _Runtime:
+            def __init__(self, p_values, p_values_ignored=None):
+                self.p_values = np.array(p_values, dtype=float)
+                self.p_values_ignored = None if p_values_ignored is None else np.array(p_values_ignored, dtype=float)
+                self.last_subset = None
+                self.last_record = None
+
+            def subset_gene_sets(self, mask, **_kwargs):
+                self.last_subset = np.array(mask)
+
+            def _record_param(self, key, value):
+                self.last_record = (key, value)
+
+        logs = []
+        rt_limit = _Runtime([0.1, 0.01, 0.2])
+        pegs_utils.maybe_limit_initial_gene_sets_by_p(
+            rt_limit,
+            max_num_gene_sets_initial=2,
+            log_fn=lambda m: logs.append(m),
+        )
+        self.assertTrue(np.array_equal(rt_limit.last_subset, np.array([True, True, False])))
+        self.assertTrue(any("max-num-gene-sets-initial" in m for m in logs))
+
+        rt_adjust = _Runtime([0.01, 0.2], p_values_ignored=[0.5] * 8)
+        pegs_utils.maybe_adjust_overaggressive_p_filter_after_x_read(
+            rt_adjust,
+            filter_gene_set_p=0.05,
+            increase_filter_gene_set_p=0.1,
+            filter_using_phewas=False,
+            log_fn=lambda _m: None,
+        )
+        self.assertEqual(rt_adjust.last_record[0], "adjusted_filter_gene_set_p")
+        self.assertTrue(np.array_equal(rt_adjust.last_subset, np.array([True, False])))
+
     def test_maybe_prepare_filtered_gls_correlation(self) -> None:
         class _Runtime:
             def __init__(self) -> None:
