@@ -98,6 +98,12 @@ class PegsUtilsBundleTest(unittest.TestCase):
         mapping = pegs_utils.construct_map_to_ind(["A", "B", "C"])
         self.assertEqual(mapping, {"A": 0, "B": 1, "C": 2})
 
+    def test_clean_chrom_name(self) -> None:
+        self.assertEqual(pegs_utils.clean_chrom_name("chr1"), "1")
+        self.assertEqual(pegs_utils.clean_chrom_name("1"), "1")
+        self.assertEqual(pegs_utils.clean_chrom_name("chrX"), "X")
+        self.assertIsNone(pegs_utils.clean_chrom_name(None))
+
     def test_complete_p_beta_se_fills_missing_values(self) -> None:
         p = np.array([np.nan, 0.05, 0.2], dtype=float)
         beta = np.array([np.nan, np.nan, 0.2], dtype=float)

@@ -37,6 +37,7 @@ try:
         apply_config_option_overrides as pegs_apply_config_option_overrides,
         collect_file_metadata as pegs_collect_file_metadata,
         build_bundle_manifest as pegs_build_bundle_manifest,
+        clean_chrom_name as pegs_clean_chrom_name,
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
@@ -65,6 +66,7 @@ except ImportError:
         apply_config_option_overrides as pegs_apply_config_option_overrides,
         collect_file_metadata as pegs_collect_file_metadata,
         build_bundle_manifest as pegs_build_bundle_manifest,
+        clean_chrom_name as pegs_clean_chrom_name,
         complete_p_beta_se as pegs_complete_p_beta_se,
         construct_map_to_ind as pegs_construct_map_to_ind,
         emit_stderr_warning as pegs_emit_stderr_warning,
@@ -15872,10 +15874,7 @@ class _IntervalTree(object):
 
 
 def _clean_chrom_name(chrom):
-    if chrom[:3] == 'chr':
-        return chrom[3:]
-    else:
-        return chrom
+    return pegs_clean_chrom_name(chrom)
 
 
 def _parse_gene_map(gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):

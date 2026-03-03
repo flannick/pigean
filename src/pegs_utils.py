@@ -408,6 +408,14 @@ def resolve_column_index(col_name_or_index, header_cols, require_match=True, *, 
     return matching_cols[0]
 
 
+def clean_chrom_name(chrom):
+    if chrom is None:
+        return chrom
+    if len(chrom) >= 3 and chrom[:3] == "chr":
+        return chrom[3:]
+    return chrom
+
+
 def construct_map_to_ind(values):
     return dict([(values[i], i) for i in range(len(values))])
 
