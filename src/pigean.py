@@ -37,6 +37,8 @@ try:
         apply_config_option_overrides as pegs_apply_config_option_overrides,
         collect_file_metadata as pegs_collect_file_metadata,
         build_bundle_manifest as pegs_build_bundle_manifest,
+        complete_p_beta_se as pegs_complete_p_beta_se,
+        construct_map_to_ind as pegs_construct_map_to_ind,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
@@ -62,6 +64,8 @@ except ImportError:
         apply_config_option_overrides as pegs_apply_config_option_overrides,
         collect_file_metadata as pegs_collect_file_metadata,
         build_bundle_manifest as pegs_build_bundle_manifest,
+        complete_p_beta_se as pegs_complete_p_beta_se,
+        construct_map_to_ind as pegs_construct_map_to_ind,
         ensure_parent_dir_for_file as pegs_ensure_parent_dir_for_file,
         format_removed_option_message as pegs_format_removed_option_message,
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
@@ -8906,38 +8910,12 @@ class PigeanState(object):
         return var
 
     def _complete_p_beta_se(self, p, beta, se):
-        p_none_mask = np.logical_or(p == None, np.isnan(p))
-        beta_none_mask = np.logical_or(beta == None, np.isnan(beta))
-        se_none_mask = np.logical_or(se == None, np.isnan(se))
-
-        se_zero_mask = np.logical_and(~se_none_mask, se == 0)
-        se_zero_beta_non_zero_mask = np.logical_and(se_zero_mask, np.logical_and(~beta_none_mask, beta != 0))
-
-        if np.sum(se_zero_beta_non_zero_mask) != 0:
-            warn("%d variants had zero SEs; setting these to beta zero and se 1" % (np.sum(se_zero_beta_non_zero_mask)))
-            beta[se_zero_beta_non_zero_mask] = 0
-        se[se_zero_mask] = 1
-
-        bad_mask = np.logical_and(np.logical_and(p_none_mask, beta_none_mask), se_none_mask)
-        if np.sum(bad_mask) > 0:
-            warn("Couldn't infer p/beta/se at %d positions; setting these to beta zero and se 1" % (np.sum(bad_mask)))
-            p[bad_mask] = 1
-            beta[bad_mask] = 0
-            se[bad_mask] = 1
-            p_none_mask[bad_mask] = False
-            beta_none_mask[bad_mask] = False
-            se_none_mask[bad_mask] = False
-
-        if np.sum(p_none_mask) > 0:
-            p[p_none_mask] = 2 * scipy.stats.norm.pdf(-np.abs(beta[p_none_mask] / se[p_none_mask]))
-        if np.sum(beta_none_mask) > 0:
-            z = np.abs(scipy.stats.norm.ppf(np.array(p[beta_none_mask]/2)))
-            beta[beta_none_mask] = z * se[beta_none_mask]
-        if np.sum(se_none_mask) > 0:
-            z = np.abs(scipy.stats.norm.ppf(np.array(p[se_none_mask]/2)))
-            z[z == 0] = 1
-            se[se_none_mask] = np.abs(beta[se_none_mask] / z)
-        return (p, beta, se)
+        return pegs_complete_p_beta_se(
+            p,
+            beta,
+            se,
+            warn_fn=warn,
+        )
         
     def _distill_huge_signal_bfs(self, huge_signal_bfs, huge_signal_posteriors, huge_signal_sum_gene_cond_probabilities, huge_signal_mean_gene_pos, huge_signal_max_closest_gene_prob, cap_region_posterior, scale_region_posterior, phantom_region_posterior, allow_evidence_of_absence, gene_covariates, gene_covariates_mask, gene_covariates_mat_inv, gene_covariate_names, gene_covariate_intercept_index, gene_prob_genes, total_genes=None, rel_prior_log_bf=None):
 
@@ -15510,7 +15488,7 @@ def _apply_hold_out_chrom_to_y(runtime_state, Y, extra_genes, extra_Y, hold_out_
 
 
 def _construct_map_to_ind(values):
-    return dict([(values[i], i) for i in range(len(values))])
+    return pegs_construct_map_to_ind(values)
 
 
 def _get_col(col_name_or_index, header_cols, require_match=True):

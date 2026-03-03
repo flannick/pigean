@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+import numpy as np
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -92,6 +93,31 @@ class PegsUtilsBundleTest(unittest.TestCase):
             pegs_utils.resolve_column_index("missing", header)
         with self.assertRaisesRegex(ValueError, "1-based"):
             pegs_utils.resolve_column_index(0, header)
+
+    def test_construct_map_to_ind(self) -> None:
+        mapping = pegs_utils.construct_map_to_ind(["A", "B", "C"])
+        self.assertEqual(mapping, {"A": 0, "B": 1, "C": 2})
+
+    def test_complete_p_beta_se_fills_missing_values(self) -> None:
+        p = np.array([np.nan, 0.05, 0.2], dtype=float)
+        beta = np.array([np.nan, np.nan, 0.2], dtype=float)
+        se = np.array([np.nan, 0.1, 0.0], dtype=float)
+        warnings = []
+
+        out_p, out_beta, out_se = pegs_utils.complete_p_beta_se(
+            p,
+            beta,
+            se,
+            warn_fn=warnings.append,
+        )
+        self.assertEqual(out_p.shape, (3,))
+        self.assertEqual(out_beta.shape, (3,))
+        self.assertEqual(out_se.shape, (3,))
+        self.assertFalse(np.any(np.isnan(out_p)))
+        self.assertFalse(np.any(np.isnan(out_beta)))
+        self.assertFalse(np.any(np.isnan(out_se)))
+        self.assertTrue(np.any(out_se == 1.0))
+        self.assertGreaterEqual(len(warnings), 1)
 
 
 if __name__ == "__main__":
