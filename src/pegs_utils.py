@@ -4704,6 +4704,22 @@ class BundleManifest:
                 tar_fh.add(os.path.join(stage_dir, bundle_name), arcname=bundle_name)
 
 
+@dataclass
+class BundleDefaultsApplication:
+    bundle: BundleManifest
+    applied_defaults: dict = field(default_factory=dict)
+
+    def as_dict(self):
+        return {
+            "bundle_path": self.bundle.bundle_path,
+            "extract_dir": self.bundle.extract_dir,
+            "schema": self.bundle.manifest.get("schema") if isinstance(self.bundle.manifest, dict) else None,
+            "manifest": self.bundle.manifest,
+            "default_inputs": self.bundle.default_inputs,
+            "applied_defaults": self.applied_defaults,
+        }
+
+
 def load_bundle_manifest(
     bundle_path,
     expected_schema,
@@ -4769,6 +4785,38 @@ def resolve_bundle_default_inputs(
             bail_fn("%s manifest path for '%s' does not exist: %s" % (bundle_flag_name, key, rel_path))
         resolved_default_inputs[key] = joined
     return resolved_default_inputs
+
+
+def apply_bundle_defaults_to_options(
+    options,
+    bundle_manifest,
+    *,
+    x_source_option_names=None,
+    x_default_key="X_in",
+    x_target_option_name="X_in",
+    scalar_default_option_names=None,
+):
+    defaults = bundle_manifest.default_inputs
+    applied = {}
+
+    if x_source_option_names is None:
+        x_source_option_names = ["X_in", "X_list", "Xd_in", "Xd_list"]
+    if scalar_default_option_names is None:
+        scalar_default_option_names = []
+
+    has_explicit_x_source = any(getattr(options, key, None) is not None for key in x_source_option_names)
+    if x_default_key in defaults and not has_explicit_x_source:
+        setattr(options, x_target_option_name, [defaults[x_default_key]])
+        applied[x_target_option_name] = defaults[x_default_key]
+
+    for key in scalar_default_option_names:
+        if key not in defaults:
+            continue
+        if getattr(options, key, None) is None:
+            setattr(options, key, defaults[key])
+            applied[key] = defaults[key]
+
+    return BundleDefaultsApplication(bundle=bundle_manifest, applied_defaults=applied)
 
 
 def ensure_parent_dir_for_file(path):

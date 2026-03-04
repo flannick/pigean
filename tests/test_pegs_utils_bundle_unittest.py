@@ -116,6 +116,44 @@ class PegsUtilsBundleTest(unittest.TestCase):
             )
             self.assertTrue(out_path.exists())
 
+    def test_apply_bundle_defaults_to_options_respects_existing_values(self) -> None:
+        class _Options:
+            X_in = None
+            X_list = None
+            Xd_in = None
+            Xd_list = None
+            gene_stats_in = None
+            gene_set_stats_in = "already_set.tsv"
+            gene_phewas_bfs_in = None
+            gene_set_phewas_stats_in = None
+
+        bundle = pegs_utils.BundleManifest(
+            manifest={"schema": pegs_utils.EAGGL_BUNDLE_SCHEMA},
+            bundle_path="bundle.tar.gz",
+            extract_dir="/tmp/example",
+            default_inputs={
+                "X_in": "/tmp/example/X.tsv.gz",
+                "gene_stats_in": "/tmp/example/gene_stats.tsv.gz",
+                "gene_set_stats_in": "/tmp/example/gene_set_stats.tsv.gz",
+            },
+        )
+
+        options = _Options()
+        applied = pegs_utils.apply_bundle_defaults_to_options(
+            options,
+            bundle,
+            x_source_option_names=["X_in", "X_list", "Xd_in", "Xd_list"],
+            x_default_key="X_in",
+            x_target_option_name="X_in",
+            scalar_default_option_names=["gene_stats_in", "gene_set_stats_in", "gene_phewas_bfs_in", "gene_set_phewas_stats_in"],
+        )
+        self.assertEqual(options.X_in, ["/tmp/example/X.tsv.gz"])
+        self.assertEqual(options.gene_stats_in, "/tmp/example/gene_stats.tsv.gz")
+        self.assertEqual(options.gene_set_stats_in, "already_set.tsv")
+        self.assertEqual(applied.applied_defaults["X_in"], "/tmp/example/X.tsv.gz")
+        self.assertEqual(applied.applied_defaults["gene_stats_in"], "/tmp/example/gene_stats.tsv.gz")
+        self.assertNotIn("gene_set_stats_in", applied.applied_defaults)
+
     def test_resolve_bundle_default_inputs_rejects_parent_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
