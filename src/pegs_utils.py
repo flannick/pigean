@@ -4181,6 +4181,121 @@ def clean_chrom_name(chrom):
     return chrom
 
 
+def parse_gene_map_file(
+    gene_map_in,
+    *,
+    gene_map_orig_gene_col=1,
+    gene_map_new_gene_col=2,
+    allow_multi=False,
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    gene_label_map = {}
+    gene_map_orig_gene_col -= 1
+    if gene_map_orig_gene_col < 0:
+        bail_fn("--gene-map-orig-gene-col must be greater than 1")
+    gene_map_new_gene_col -= 1
+    if gene_map_new_gene_col < 0:
+        bail_fn("--gene-map-new-gene-col must be greater than 1")
+
+    with open(gene_map_in) as map_fh:
+        for line in map_fh:
+            cols = line.strip('\n').split()
+            if len(cols) <= gene_map_orig_gene_col or len(cols) <= gene_map_new_gene_col:
+                bail_fn("Not enough columns in --gene-map-in:\n\t%s" % line)
+
+            # Preserve legacy semantics: currently the parser always consumes
+            # columns 1 and 2 after validating requested column indices.
+            orig_gene = cols[0]
+            new_gene = cols[1]
+            if allow_multi:
+                if orig_gene not in gene_label_map:
+                    gene_label_map[orig_gene] = set()
+                gene_label_map[orig_gene].add(new_gene)
+            else:
+                gene_label_map[orig_gene] = new_gene
+    return gene_label_map
+
+
+def read_loc_file_with_gene_map(
+    loc_file,
+    *,
+    gene_label_map=None,
+    return_intervals=False,
+    hold_out_chrom=None,
+    clean_chrom_fn=None,
+    warn_fn=None,
+    bail_fn=None,
+    split_gene_length=1000000,
+):
+    if clean_chrom_fn is None:
+        clean_chrom_fn = clean_chrom_name
+    if warn_fn is None:
+        warn_fn = lambda _msg: None
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    gene_to_chrom = {}
+    gene_to_pos = {}
+    gene_chrom_name_pos = {}
+    chrom_interval_to_gene = {}
+
+    with open(loc_file) as loc_fh:
+        for line in loc_fh:
+            cols = line.strip('\n').split()
+            if len(cols) != 6:
+                bail_fn(
+                    "Format for --gene-loc-file is:\n\tgene_id\tchrom\tstart\tstop\tstrand\tgene_name\nOffending line:\n\t%s"
+                    % line
+                )
+            gene = cols[5]
+            if gene_label_map is not None and gene in gene_label_map:
+                gene = gene_label_map[gene]
+            chrom = clean_chrom_fn(cols[1])
+            if hold_out_chrom is not None and chrom == hold_out_chrom:
+                continue
+            pos1 = int(cols[2])
+            pos2 = int(cols[3])
+
+            if gene in gene_to_chrom and gene_to_chrom[gene] != chrom:
+                warn_fn("Gene %s appears multiple times with different chromosomes; keeping only first" % gene)
+                continue
+
+            if gene in gene_to_pos and np.abs(np.mean(gene_to_pos[gene]) - np.mean((pos1, pos2))) > 1e7:
+                warn_fn("Gene %s appears multiple times with far away positions; keeping only first" % gene)
+                continue
+
+            gene_to_chrom[gene] = chrom
+            gene_to_pos[gene] = (pos1, pos2)
+
+            if chrom not in gene_chrom_name_pos:
+                gene_chrom_name_pos[chrom] = {}
+            if gene not in gene_chrom_name_pos[chrom]:
+                gene_chrom_name_pos[chrom][gene] = set()
+            gene_chrom_name_pos[chrom][gene].add(pos1)
+            gene_chrom_name_pos[chrom][gene].add(pos2)
+
+            if pos2 < pos1:
+                pos1, pos2 = pos2, pos1
+
+            if return_intervals:
+                if chrom not in chrom_interval_to_gene:
+                    chrom_interval_to_gene[chrom] = {}
+                if (pos1, pos2) not in chrom_interval_to_gene[chrom]:
+                    chrom_interval_to_gene[chrom][(pos1, pos2)] = []
+                chrom_interval_to_gene[chrom][(pos1, pos2)].append(gene)
+
+            if pos2 > pos1:
+                for posm in range(pos1, pos2, split_gene_length)[1:]:
+                    gene_chrom_name_pos[chrom][gene].add(posm)
+
+    if return_intervals:
+        return chrom_interval_to_gene
+    return (gene_chrom_name_pos, gene_to_chrom, gene_to_pos)
+
+
 def construct_map_to_ind(values):
     return dict([(values[i], i) for i in range(len(values))])
 

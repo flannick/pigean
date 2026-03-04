@@ -86,6 +86,8 @@ try:
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
         clean_chrom_name as pegs_clean_chrom_name,
+        parse_gene_map_file as pegs_parse_gene_map_file,
+        read_loc_file_with_gene_map as pegs_read_loc_file_with_gene_map,
         infer_columns_from_table_file as pegs_infer_columns_from_table_file,
         needs_gwas_column_detection as pegs_needs_gwas_column_detection,
         autodetect_gwas_columns as pegs_autodetect_gwas_columns,
@@ -171,6 +173,8 @@ except ImportError:
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
         clean_chrom_name as pegs_clean_chrom_name,
+        parse_gene_map_file as pegs_parse_gene_map_file,
+        read_loc_file_with_gene_map as pegs_read_loc_file_with_gene_map,
         infer_columns_from_table_file as pegs_infer_columns_from_table_file,
         needs_gwas_column_detection as pegs_needs_gwas_column_detection,
         autodetect_gwas_columns as pegs_autodetect_gwas_columns,
@@ -4118,7 +4122,13 @@ class PigeanState(object):
             bail("Require --exomes-in for this operation")
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = pegs_read_loc_file_with_gene_map(
+                gene_loc_file,
+                gene_label_map=self.gene_label_map,
+                clean_chrom_fn=_clean_chrom_name,
+                warn_fn=warn,
+                bail_fn=bail,
+            )
 
         self._record_params({"exomes_low_p": exomes_low_p, "exomes_high_p": exomes_high_p, "exomes_low_p_posterior": exomes_low_p_posterior, "exomes_high_p_posterior": exomes_high_p_posterior})
 
@@ -4400,7 +4410,13 @@ class PigeanState(object):
             bail("Require --positive-controls-in or --positive-controls-list for this operation")
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = pegs_read_loc_file_with_gene_map(
+                gene_loc_file,
+                gene_label_map=self.gene_label_map,
+                clean_chrom_fn=_clean_chrom_name,
+                warn_fn=warn,
+                bail_fn=bail,
+            )
 
         if positive_controls_default_prob >= 1:
             positive_controls_default_prob = 0.99
@@ -4507,7 +4523,13 @@ class PigeanState(object):
     def read_count_file(self, case_counts_in, ctrl_counts_in, min_revels=None, mean_rrs=None, case_counts_gene_col=None, ctrl_counts_gene_col=None, case_counts_revel_col=None, ctrl_counts_revel_col=None, case_counts_count_col=None, ctrl_counts_count_col=None, case_counts_tot_col=None, ctrl_counts_tot_col=None, case_counts_max_freq_col=None, ctrl_counts_max_freq_col=None, max_case_freq=0.001, max_ctrl_freq=0.001, syn_revel_threshold=0, syn_fisher_p=1e-4, nu=1, beta=1.0, hold_out_chrom=None, gene_loc_file=None, bound_zero=True, **kwargs):
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
-            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, self.gene_label_map)
+            (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = pegs_read_loc_file_with_gene_map(
+                gene_loc_file,
+                gene_label_map=self.gene_label_map,
+                clean_chrom_fn=_clean_chrom_name,
+                warn_fn=warn,
+                bail_fn=bail,
+            )
 
         if min_revels is None or len(min_revels) == 0:
             min_revels = [0.4, 0.7, 1]
@@ -5003,7 +5025,11 @@ class PigeanState(object):
 
         phewas_gene_to_X_gene = None
         if phewas_gene_to_X_gene_in is not None:
-            phewas_gene_to_X_gene = _parse_gene_map(phewas_gene_to_X_gene_in, allow_multi=True)
+            phewas_gene_to_X_gene = pegs_parse_gene_map_file(
+                phewas_gene_to_X_gene_in,
+                allow_multi=True,
+                bail_fn=bail,
+            )
 
         pegs_load_and_apply_gene_phewas_bfs_to_runtime(
             self,
@@ -11165,18 +11191,22 @@ def _init_gene_locs(runtime_state, gene_loc_file):
         runtime_state.gene_chrom_name_pos,
         runtime_state.gene_to_chrom,
         runtime_state.gene_to_pos,
-    ) = _read_loc_file_with_gene_map(
+    ) = pegs_read_loc_file_with_gene_map(
         gene_loc_file,
-        runtime_state.gene_label_map,
+        gene_label_map=runtime_state.gene_label_map,
+        clean_chrom_fn=_clean_chrom_name,
+        warn_fn=warn,
+        bail_fn=bail,
     )
 
 
 def _read_gene_map(runtime_state, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
-    runtime_state.gene_label_map = _parse_gene_map(
+    runtime_state.gene_label_map = pegs_parse_gene_map_file(
         gene_map_in,
         gene_map_orig_gene_col=gene_map_orig_gene_col,
         gene_map_new_gene_col=gene_map_new_gene_col,
         allow_multi=allow_multi,
+        bail_fn=bail,
     )
 
 
@@ -13962,7 +13992,13 @@ def _apply_hold_out_chrom_to_y(runtime_state, Y, extra_genes, extra_Y, hold_out_
             runtime_state.gene_chrom_name_pos,
             runtime_state.gene_to_chrom,
             runtime_state.gene_to_pos,
-        ) = _read_loc_file_with_gene_map(gene_loc_file, runtime_state.gene_label_map)
+        ) = pegs_read_loc_file_with_gene_map(
+            gene_loc_file,
+            gene_label_map=runtime_state.gene_label_map,
+            clean_chrom_fn=_clean_chrom_name,
+            warn_fn=warn,
+            bail_fn=bail,
+        )
 
     extra_Y_mask = np.full(len(extra_Y), True)
     for i in range(len(extra_genes)):
@@ -14130,104 +14166,17 @@ def _clean_chrom_name(chrom):
     return pegs_clean_chrom_name(chrom)
 
 
-def _parse_gene_map(gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
-    gene_label_map = {}
-
-    gene_map_orig_gene_col -= 1
-    if gene_map_orig_gene_col < 0:
-        bail("--gene-map-orig-gene-col must be greater than 1")
-    gene_map_new_gene_col -= 1
-    if gene_map_new_gene_col < 0:
-        bail("--gene-map-new-gene-col must be greater than 1")
-
-    with open(gene_map_in) as map_fh:
-        for line in map_fh:
-            cols = line.strip('\n').split()
-            if len(cols) <= gene_map_orig_gene_col or len(cols) <= gene_map_new_gene_col:
-                bail("Not enough columns in --gene-map-in:\n\t%s" % line)
-
-            orig_gene = cols[0]
-            new_gene = cols[1]
-            if allow_multi:
-                if orig_gene not in gene_label_map:
-                    gene_label_map[orig_gene] = set()
-                gene_label_map[orig_gene].add(new_gene)
-            else:
-                gene_label_map[orig_gene] = new_gene
-    return gene_label_map
-
-
-def _read_loc_file_with_gene_map(loc_file, gene_label_map, return_intervals=False, hold_out_chrom=None):
-    gene_to_chrom = {}
-    gene_to_pos = {}
-    gene_chrom_name_pos = {}
-
-    chrom_interval_to_gene = {}
-
-    with open(loc_file) as loc_fh:
-        for line in loc_fh:
-            cols = line.strip('\n').split()
-            if len(cols) != 6:
-                bail("Format for --gene-loc-file is:\n\tgene_id\tchrom\tstart\tstop\tstrand\tgene_name\nOffending line:\n\t%s" % line)
-            gene = cols[5]
-            if gene_label_map is not None and gene in gene_label_map:
-                gene = gene_label_map[gene]
-            chrom = _clean_chrom_name(cols[1])
-            if hold_out_chrom is not None and chrom == hold_out_chrom:
-                continue
-            pos1 = int(cols[2])
-            pos2 = int(cols[3])
-
-            if gene in gene_to_chrom and gene_to_chrom[gene] != chrom:
-                warn("Gene %s appears multiple times with different chromosomes; keeping only first" % gene)
-                continue
-
-            if gene in gene_to_pos and np.abs(np.mean(gene_to_pos[gene]) - np.mean((pos1, pos2))) > 1e7:
-                warn("Gene %s appears multiple times with far away positions; keeping only first" % gene)
-                continue
-
-            gene_to_chrom[gene] = chrom
-            gene_to_pos[gene] = (pos1, pos2)
-
-            if chrom not in gene_chrom_name_pos:
-                gene_chrom_name_pos[chrom] = {}
-            if gene not in gene_chrom_name_pos[chrom]:
-                gene_chrom_name_pos[chrom][gene] = set()
-            if pos1 not in gene_chrom_name_pos[chrom][gene]:
-                gene_chrom_name_pos[chrom][gene].add(pos1)
-            if pos2 not in gene_chrom_name_pos[chrom][gene]:
-                gene_chrom_name_pos[chrom][gene].add(pos2)
-
-            if pos2 < pos1:
-                t = pos1
-                pos1 = pos2
-                pos2 = t
-
-            if return_intervals:
-                if chrom not in chrom_interval_to_gene:
-                    chrom_interval_to_gene[chrom] = {}
-
-                if (pos1, pos2) not in chrom_interval_to_gene[chrom]:
-                    chrom_interval_to_gene[chrom][(pos1, pos2)] = []
-
-                chrom_interval_to_gene[chrom][(pos1, pos2)].append(gene)
-
-            # we consider distance to a gene to be both endpoints and intermediate points.
-            split_gene_length = 1000000
-            if pos2 > pos1:
-                for posm in range(pos1, pos2, split_gene_length)[1:]:
-                    gene_chrom_name_pos[chrom][gene].add(posm)
-
-    if return_intervals:
-        return chrom_interval_to_gene
-    else:
-        return (gene_chrom_name_pos, gene_to_chrom, gene_to_pos)
-
-
 def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_chrom=None, exons_loc_file=None):
     # Store per-chromosome gene endpoints used by nearby-gene and window lookups.
     log("Reading gene locations")
-    (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = _read_loc_file_with_gene_map(gene_loc_file, gene_label_map, hold_out_chrom=hold_out_chrom)
+    (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = pegs_read_loc_file_with_gene_map(
+        gene_loc_file,
+        gene_label_map=gene_label_map,
+        hold_out_chrom=hold_out_chrom,
+        clean_chrom_fn=_clean_chrom_name,
+        warn_fn=warn,
+        bail_fn=bail,
+    )
 
     for chrom in gene_chrom_name_pos:
         serialized_gene_info = []
@@ -14240,7 +14189,14 @@ def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_c
     if exons_loc_file is not None:
         log("Reading exon locations")
 
-        chrom_interval_to_gene = _read_loc_file_with_gene_map(exons_loc_file, gene_label_map, return_intervals=True)
+        chrom_interval_to_gene = pegs_read_loc_file_with_gene_map(
+            exons_loc_file,
+            gene_label_map=gene_label_map,
+            return_intervals=True,
+            clean_chrom_fn=_clean_chrom_name,
+            warn_fn=warn,
+            bail_fn=bail,
+        )
         chrom_to_interval_tree = {}
         for chrom in chrom_interval_to_gene:
             chrom_to_interval_tree[chrom] = _IntervalTree(chrom_interval_to_gene[chrom].keys())

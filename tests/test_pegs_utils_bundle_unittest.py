@@ -341,6 +341,44 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(pegs_utils.clean_chrom_name("chrX"), "X")
         self.assertIsNone(pegs_utils.clean_chrom_name(None))
 
+    def test_parse_gene_map_file_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_map.tsv"
+            path.write_text("A B\nC D\nA E\n", encoding="utf-8")
+            parsed = pegs_utils.parse_gene_map_file(str(path))
+            self.assertEqual(parsed, {"A": "E", "C": "D"})
+
+            parsed_multi = pegs_utils.parse_gene_map_file(str(path), allow_multi=True)
+            self.assertEqual(parsed_multi["A"], {"B", "E"})
+            self.assertEqual(parsed_multi["C"], {"D"})
+
+    def test_read_loc_file_with_gene_map_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene.loc"
+            path.write_text(
+                "id1 chr1 100 200 + GENE1\n"
+                "id2 chr1 300 400 + GENE2\n",
+                encoding="utf-8",
+            )
+            gene_label_map = {"GENE1": "GENE1_MAPPED"}
+            (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = pegs_utils.read_loc_file_with_gene_map(
+                str(path),
+                gene_label_map=gene_label_map,
+                clean_chrom_fn=pegs_utils.clean_chrom_name,
+            )
+            self.assertIn("1", gene_chrom_name_pos)
+            self.assertIn("GENE1_MAPPED", gene_to_pos)
+            self.assertEqual(gene_to_chrom["GENE1_MAPPED"], "1")
+            self.assertEqual(gene_to_pos["GENE2"], (300, 400))
+
+            intervals = pegs_utils.read_loc_file_with_gene_map(
+                str(path),
+                return_intervals=True,
+                clean_chrom_fn=pegs_utils.clean_chrom_name,
+            )
+            self.assertIn("1", intervals)
+            self.assertIn((100, 200), intervals["1"])
+
     def test_comma_callback_helpers(self) -> None:
         class _Opt:
             dest = "value"
