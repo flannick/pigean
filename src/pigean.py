@@ -4091,7 +4091,7 @@ class PigeanState(object):
                 gene_bf_for_regression,
                 extra_gene_bf_for_regression,
             ),
-            is_bundle_path_fn=_is_huge_statistics_bundle_path,
+            is_bundle_path_fn=pegs_is_huge_statistics_bundle_path,
             option_name="--huge-statistics-out",
             temp_prefix="huge_statistics_out_",
             bail_fn=bail,
@@ -4106,7 +4106,7 @@ class PigeanState(object):
             huge_statistics_in,
             required_suffix=".huge.meta.json.gz",
             read_prefix_fn=lambda prefix: _read_huge_statistics_bundle(self, prefix),
-            is_bundle_path_fn=_is_huge_statistics_bundle_path,
+            is_bundle_path_fn=pegs_is_huge_statistics_bundle_path,
             bundle_flag_name="HuGE cache",
             temp_prefix="huge_statistics_in_",
             bail_fn=bail,
@@ -14306,130 +14306,9 @@ def _validate_and_normalize_huge_gwas_inputs(
     return (signal_window_size, signal_max_logp_ratio)
 
 
-def _is_huge_statistics_bundle_path(huge_statistics_file):
-    return pegs_is_huge_statistics_bundle_path(huge_statistics_file)
-
-
-def _coerce_runtime_state_dict(runtime_state):
-    return pegs_coerce_runtime_state_dict(runtime_state, bail_fn=bail)
-
-
-def _get_huge_statistics_paths_for_prefix(prefix):
-    return pegs_get_huge_statistics_paths_for_prefix(prefix)
-
-
-def _write_huge_statistics_vector_file(out_file, values, value_type=float):
-    return pegs_write_numeric_vector_file(out_file, values, open_text_fn=open_gz, value_type=value_type)
-
-
-def _read_huge_statistics_vector_file(in_file, value_type=float):
-    return pegs_read_numeric_vector_file(in_file, open_text_fn=open_gz, value_type=value_type)
-
-
-def _build_huge_statistics_matrix_row_genes(cache_genes, extra_genes, num_matrix_rows):
-    return pegs_build_huge_statistics_matrix_row_genes(cache_genes, extra_genes, num_matrix_rows, bail_fn=bail)
-
-
-def _build_huge_statistics_score_maps(runtime_state, cache_genes, extra_genes, gene_bf, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-    return pegs_build_huge_statistics_score_maps(
-        runtime_state,
-        cache_genes,
-        extra_genes,
-        gene_bf,
-        extra_gene_bf,
-        gene_bf_for_regression,
-        extra_gene_bf_for_regression,
-    )
-
-
-def _build_huge_statistics_meta(runtime_state, huge_signal_bfs, huge_signal_bfs_for_regression):
-    return pegs_build_huge_statistics_meta(
-        runtime_state,
-        huge_signal_bfs,
-        huge_signal_bfs_for_regression,
-        json_safe_fn=_json_safe,
-    )
-
-
-def _write_huge_statistics_text_tables(paths, runtime_state, cache_genes, extra_genes, extra_gene_bf, extra_gene_bf_for_regression, matrix_row_genes, gene_to_score, gene_to_score_uncorrected, gene_to_score_for_regression):
-    return pegs_write_huge_statistics_text_tables(
-        paths,
-        runtime_state,
-        cache_genes,
-        extra_genes,
-        extra_gene_bf,
-        extra_gene_bf_for_regression,
-        matrix_row_genes,
-        gene_to_score,
-        gene_to_score_uncorrected,
-        gene_to_score_for_regression,
-        open_text_fn=open_gz,
-        bail_fn=bail,
-    )
-
-
-def _read_huge_statistics_text_tables(paths):
-    return pegs_read_huge_statistics_text_tables(paths, open_text_fn=open_gz)
-
-
-def _resolve_huge_statistics_gene_vectors(runtime_state, cache_genes, extra_genes, matrix_row_genes, gene_to_score, gene_to_score_for_regression):
-    return pegs_resolve_huge_statistics_gene_vectors(
-        runtime_state,
-        cache_genes,
-        extra_genes,
-        matrix_row_genes,
-        gene_to_score,
-        gene_to_score_for_regression,
-        bail_fn=bail,
-    )
-
-
-def _load_huge_statistics_sparse_and_vectors(runtime_state, paths, meta):
-    return pegs_load_huge_statistics_sparse_and_vectors(
-        runtime_state,
-        paths,
-        meta,
-        read_vector_fn=_read_huge_statistics_vector_file,
-    )
-
-
-def _apply_huge_statistics_meta_to_runtime(runtime_state, meta):
-    return pegs_apply_huge_statistics_meta_to_runtime(runtime_state, meta)
-
-
-def _read_huge_statistics_covariates_if_present(runtime_state, paths):
-    return pegs_read_huge_statistics_covariates_if_present(
-        runtime_state,
-        paths,
-        open_text_fn=open_gz,
-        exists_fn=os.path.exists,
-    )
-
-
-def _combine_runtime_huge_scores(runtime_state):
-    return pegs_combine_runtime_huge_scores(runtime_state)
-
-
-def _validate_huge_statistics_loaded_shapes(runtime_state, matrix_row_genes):
-    return pegs_validate_huge_statistics_loaded_shapes(runtime_state, matrix_row_genes, bail_fn=bail)
-
-
-def _write_huge_statistics_runtime_vectors(paths, runtime_state):
-    return pegs_write_huge_statistics_runtime_vectors(paths, runtime_state, write_vector_fn=_write_huge_statistics_vector_file)
-
-
-def _write_huge_statistics_sparse_components(paths, huge_signal_bfs, huge_signal_bfs_for_regression):
-    return pegs_write_huge_statistics_sparse_components(
-        paths,
-        huge_signal_bfs,
-        huge_signal_bfs_for_regression,
-        write_vector_fn=_write_huge_statistics_vector_file,
-    )
-
-
 def _write_huge_statistics_bundle(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-    runtime_state = _coerce_runtime_state_dict(runtime_state)
-    paths = _get_huge_statistics_paths_for_prefix(prefix)
+    runtime_state = pegs_coerce_runtime_state_dict(runtime_state, bail_fn=bail)
+    paths = pegs_get_huge_statistics_paths_for_prefix(prefix)
 
     cache_genes = list(runtime_state["genes"]) if runtime_state.get("genes") is not None else []
     extra_genes = list(extra_genes)
@@ -14441,8 +14320,13 @@ def _write_huge_statistics_bundle(runtime_state, prefix, gene_bf, extra_genes, e
     if huge_signal_bfs_for_regression is None:
         huge_signal_bfs_for_regression = sparse.csc_matrix((0, 0))
 
-    matrix_row_genes = _build_huge_statistics_matrix_row_genes(cache_genes, extra_genes, huge_signal_bfs.shape[0])
-    (gene_to_score, gene_to_score_uncorrected, gene_to_score_for_regression) = _build_huge_statistics_score_maps(
+    matrix_row_genes = pegs_build_huge_statistics_matrix_row_genes(
+        cache_genes,
+        extra_genes,
+        huge_signal_bfs.shape[0],
+        bail_fn=bail,
+    )
+    (gene_to_score, gene_to_score_uncorrected, gene_to_score_for_regression) = pegs_build_huge_statistics_score_maps(
         runtime_state,
         cache_genes,
         extra_genes,
@@ -14451,13 +14335,18 @@ def _write_huge_statistics_bundle(runtime_state, prefix, gene_bf, extra_genes, e
         gene_bf_for_regression,
         extra_gene_bf_for_regression,
     )
-    meta = _build_huge_statistics_meta(runtime_state, huge_signal_bfs, huge_signal_bfs_for_regression)
+    meta = pegs_build_huge_statistics_meta(
+        runtime_state,
+        huge_signal_bfs,
+        huge_signal_bfs_for_regression,
+        json_safe_fn=_json_safe,
+    )
 
     with open_gz(paths["meta"], 'w') as out_fh:
         json.dump(meta, out_fh, sort_keys=True)
         out_fh.write("\n")
 
-    _write_huge_statistics_text_tables(
+    pegs_write_huge_statistics_text_tables(
         paths,
         runtime_state,
         cache_genes,
@@ -14468,15 +14357,36 @@ def _write_huge_statistics_bundle(runtime_state, prefix, gene_bf, extra_genes, e
         gene_to_score,
         gene_to_score_uncorrected,
         gene_to_score_for_regression,
+        open_text_fn=open_gz,
+        bail_fn=bail,
     )
 
-    _write_huge_statistics_runtime_vectors(paths, runtime_state)
-    _write_huge_statistics_sparse_components(paths, huge_signal_bfs, huge_signal_bfs_for_regression)
+    pegs_write_huge_statistics_runtime_vectors(
+        paths,
+        runtime_state,
+        write_vector_fn=lambda out_file, values, value_type=float: pegs_write_numeric_vector_file(
+            out_file,
+            values,
+            open_text_fn=open_gz,
+            value_type=value_type,
+        ),
+    )
+    pegs_write_huge_statistics_sparse_components(
+        paths,
+        huge_signal_bfs,
+        huge_signal_bfs_for_regression,
+        write_vector_fn=lambda out_file, values, value_type=float: pegs_write_numeric_vector_file(
+            out_file,
+            values,
+            open_text_fn=open_gz,
+            value_type=value_type,
+        ),
+    )
 
 
 def _read_huge_statistics_bundle(runtime_state, prefix):
-    runtime_state = _coerce_runtime_state_dict(runtime_state)
-    paths = _get_huge_statistics_paths_for_prefix(prefix)
+    runtime_state = pegs_coerce_runtime_state_dict(runtime_state, bail_fn=bail)
+    paths = pegs_get_huge_statistics_paths_for_prefix(prefix)
     if not os.path.exists(paths["meta"]):
         bail("Could not find HuGE statistics cache file %s" % paths["meta"])
 
@@ -14497,25 +14407,40 @@ def _read_huge_statistics_bundle(runtime_state, prefix):
         gene_to_score,
         gene_to_score_uncorrected,
         gene_to_score_for_regression,
-    ) = _read_huge_statistics_text_tables(paths)
+    ) = pegs_read_huge_statistics_text_tables(paths, open_text_fn=open_gz)
 
-    (gene_bf, gene_bf_for_regression) = _resolve_huge_statistics_gene_vectors(
+    (gene_bf, gene_bf_for_regression) = pegs_resolve_huge_statistics_gene_vectors(
         runtime_state,
         cache_genes,
         extra_genes,
         matrix_row_genes,
         gene_to_score,
         gene_to_score_for_regression,
+        bail_fn=bail,
     )
 
-    _load_huge_statistics_sparse_and_vectors(runtime_state, paths, meta)
-    _apply_huge_statistics_meta_to_runtime(runtime_state, meta)
-    _read_huge_statistics_covariates_if_present(runtime_state, paths)
+    pegs_load_huge_statistics_sparse_and_vectors(
+        runtime_state,
+        paths,
+        meta,
+        read_vector_fn=lambda in_file, value_type=float: pegs_read_numeric_vector_file(
+            in_file,
+            open_text_fn=open_gz,
+            value_type=value_type,
+        ),
+    )
+    pegs_apply_huge_statistics_meta_to_runtime(runtime_state, meta)
+    pegs_read_huge_statistics_covariates_if_present(
+        runtime_state,
+        paths,
+        open_text_fn=open_gz,
+        exists_fn=os.path.exists,
+    )
 
     runtime_state["gene_to_gwas_huge_score"] = gene_to_score
     runtime_state["gene_to_gwas_huge_score_uncorrected"] = gene_to_score_uncorrected
-    _combine_runtime_huge_scores(runtime_state)
-    _validate_huge_statistics_loaded_shapes(runtime_state, matrix_row_genes)
+    pegs_combine_runtime_huge_scores(runtime_state)
+    pegs_validate_huge_statistics_loaded_shapes(runtime_state, matrix_row_genes, bail_fn=bail)
 
     return (gene_bf, extra_genes, np.array(extra_gene_bf), gene_bf_for_regression, np.array(extra_gene_bf_for_regression))
 
