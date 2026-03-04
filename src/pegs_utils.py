@@ -4819,6 +4819,40 @@ def apply_bundle_defaults_to_options(
     return BundleDefaultsApplication(bundle=bundle_manifest, applied_defaults=applied)
 
 
+def load_and_apply_bundle_defaults(
+    options,
+    *,
+    bundle_path,
+    expected_schema,
+    allowed_default_inputs,
+    bundle_flag_name="--bundle-in",
+    manifest_name="manifest.json",
+    temp_prefix="bundle_in_",
+    x_source_option_names=None,
+    x_default_key="X_in",
+    x_target_option_name="X_in",
+    scalar_default_option_names=None,
+    bail_fn=None,
+):
+    bundle = BundleManifest.load_defaults(
+        bundle_path=bundle_path,
+        expected_schema=expected_schema,
+        allowed_default_inputs=allowed_default_inputs,
+        bundle_flag_name=bundle_flag_name,
+        manifest_name=manifest_name,
+        temp_prefix=temp_prefix,
+        bail_fn=bail_fn,
+    )
+    return apply_bundle_defaults_to_options(
+        options,
+        bundle,
+        x_source_option_names=x_source_option_names,
+        x_default_key=x_default_key,
+        x_target_option_name=x_target_option_name,
+        scalar_default_option_names=scalar_default_option_names,
+    )
+
+
 def ensure_parent_dir_for_file(path):
     out_dir = os.path.dirname(os.path.abspath(path))
     if out_dir and not os.path.exists(out_dir):

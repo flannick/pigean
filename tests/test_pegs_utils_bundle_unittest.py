@@ -154,6 +154,57 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(applied.applied_defaults["gene_stats_in"], "/tmp/example/gene_stats.tsv.gz")
         self.assertNotIn("gene_set_stats_in", applied.applied_defaults)
 
+    def test_load_and_apply_bundle_defaults_contract(self) -> None:
+        class _Options:
+            X_in = None
+            X_list = None
+            Xd_in = None
+            Xd_list = None
+            gene_stats_in = None
+            gene_set_stats_in = None
+            gene_phewas_bfs_in = None
+            gene_set_phewas_stats_in = None
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "X.tsv.gz").write_text("SET_A\tGENE1\n", encoding="utf-8")
+            (root / "gene_stats.tsv.gz").write_text("Gene\tprior\nGENE1\t0.1\n", encoding="utf-8")
+            manifest = {
+                "schema": pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                "default_inputs": {
+                    "X_in": "X.tsv.gz",
+                    "gene_stats_in": "gene_stats.tsv.gz",
+                },
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            bundle_path = root / "handoff.tar.gz"
+            with tarfile.open(bundle_path, "w:gz") as tar_fh:
+                tar_fh.add(root / "manifest.json", arcname="manifest.json")
+                tar_fh.add(root / "X.tsv.gz", arcname="X.tsv.gz")
+                tar_fh.add(root / "gene_stats.tsv.gz", arcname="gene_stats.tsv.gz")
+
+            options = _Options()
+            applied = pegs_utils.load_and_apply_bundle_defaults(
+                options,
+                bundle_path=str(bundle_path),
+                expected_schema=pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                allowed_default_inputs=pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+                bundle_flag_name="--eaggl-bundle-in",
+                manifest_name="manifest.json",
+                temp_prefix="eaggl_bundle_in_",
+                x_source_option_names=["X_in", "X_list", "Xd_in", "Xd_list"],
+                x_default_key="X_in",
+                x_target_option_name="X_in",
+                scalar_default_option_names=["gene_stats_in", "gene_set_stats_in", "gene_phewas_bfs_in", "gene_set_phewas_stats_in"],
+            )
+            try:
+                self.assertEqual(options.X_in, [str(Path(applied.bundle.extract_dir) / "X.tsv.gz")])
+                self.assertTrue(options.gene_stats_in.endswith("gene_stats.tsv.gz"))
+                self.assertIn("X_in", applied.applied_defaults)
+                self.assertIn("gene_stats_in", applied.applied_defaults)
+            finally:
+                shutil.rmtree(applied.bundle.extract_dir, ignore_errors=True)
+
     def test_resolve_bundle_default_inputs_rejects_parent_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
