@@ -15757,20 +15757,20 @@ def _maybe_restart_gibbs_for_low_betas(
     should_break = False
 
     if increase_hyper_if_betas_below_for_epoch is None:
-        return {
-            "gibbs_good": gibbs_good,
-            "num_p_increases": num_p_increases,
-            "should_break": should_break,
-        }
+        return GibbsLowBetaRestartUpdate(
+            gibbs_good=gibbs_good,
+            num_p_increases=num_p_increases,
+            should_break=should_break,
+        )
 
     # Check to make sure that we satisfy the hyperparameter growth criteria.
     if np.any(all_num_sum_m == 0):
         gibbs_good = False
-        return {
-            "gibbs_good": gibbs_good,
-            "num_p_increases": num_p_increases,
-            "should_break": should_break,
-        }
+        return GibbsLowBetaRestartUpdate(
+            gibbs_good=gibbs_good,
+            num_p_increases=num_p_increases,
+            should_break=should_break,
+        )
 
     # Check both sums over all iterations and post-burn aggregates.
     _outlier_resistant_mean(all_sum_betas_m, all_num_sum_m, num_mad, record_param_fn=state._record_param)
@@ -15824,11 +15824,11 @@ def _maybe_restart_gibbs_for_low_betas(
     else:
         gibbs_good = True
 
-    return {
-        "gibbs_good": gibbs_good,
-        "num_p_increases": num_p_increases,
-        "should_break": should_break,
-    }
+    return GibbsLowBetaRestartUpdate(
+        gibbs_good=gibbs_good,
+        num_p_increases=num_p_increases,
+        should_break=should_break,
+    )
 
 
 def _evaluate_gibbs_low_beta_condition(
@@ -18901,24 +18901,52 @@ def _run_gibbs_iteration_correction_and_updates(correction_context):
     }
 
 
+@dataclass
+class GibbsLowBetaRestartControls:
+    num_mad: int
+    num_attempts: int
+    max_num_attempt_restarts: int
+    increase_hyper_if_betas_below_for_epoch: float | None
+    num_before_checking_p_increase: int
+    p_scale_factor: float
+
+
+@dataclass
+class GibbsLowBetaRestartUpdate:
+    gibbs_good: bool
+    num_p_increases: int
+    should_break: bool
+
+
+@dataclass
+class GibbsAllIterationUpdate:
+    all_sum_betas_m: object
+    all_sum_betas2_m: object
+    all_num_sum_m: object
+    R_beta_v: object
+    gibbs_good: bool
+    num_p_increases: int
+    should_break: bool
+
+
 def _build_gibbs_low_beta_restart_controls(correction_config):
-    return {
-        "num_mad": correction_config["num_mad"],
-        "num_attempts": correction_config["num_attempts"],
-        "max_num_attempt_restarts": correction_config["max_num_attempt_restarts"],
-        "increase_hyper_if_betas_below_for_epoch": correction_config["increase_hyper_if_betas_below_for_epoch"],
-        "num_before_checking_p_increase": correction_config["num_before_checking_p_increase"],
-        "p_scale_factor": correction_config["p_scale_factor"],
-    }
+    return GibbsLowBetaRestartControls(
+        num_mad=correction_config["num_mad"],
+        num_attempts=correction_config["num_attempts"],
+        max_num_attempt_restarts=correction_config["max_num_attempt_restarts"],
+        increase_hyper_if_betas_below_for_epoch=correction_config["increase_hyper_if_betas_below_for_epoch"],
+        num_before_checking_p_increase=correction_config["num_before_checking_p_increase"],
+        p_scale_factor=correction_config["p_scale_factor"],
+    )
 
 
 def _apply_gibbs_all_iteration_update(epoch_runtime, epoch_control, all_iteration_update):
     for key in _GIBBS_EPOCH_RUNTIME_SUM_KEYS:
-        epoch_runtime[key] = all_iteration_update[key]
-    epoch_control["R_beta_v"] = all_iteration_update["R_beta_v"]
-    epoch_runtime["gibbs_good"] = all_iteration_update["gibbs_good"]
-    epoch_runtime["num_p_increases"] = all_iteration_update["num_p_increases"]
-    return all_iteration_update["should_break"]
+        epoch_runtime[key] = getattr(all_iteration_update, key)
+    epoch_control["R_beta_v"] = all_iteration_update.R_beta_v
+    epoch_runtime["gibbs_good"] = all_iteration_update.gibbs_good
+    epoch_runtime["num_p_increases"] = all_iteration_update.num_p_increases
+    return all_iteration_update.should_break
 
 
 def _compute_gibbs_y_corr_sparse(y_corr_sparse_base, priors_for_Y_m, y_var_orig):
@@ -21500,26 +21528,26 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
 
     low_beta_restart_update = _maybe_restart_gibbs_for_low_betas(
         state=state,
-        increase_hyper_if_betas_below_for_epoch=restart_controls["increase_hyper_if_betas_below_for_epoch"],
-        num_before_checking_p_increase=restart_controls["num_before_checking_p_increase"],
-        p_scale_factor=restart_controls["p_scale_factor"],
+        increase_hyper_if_betas_below_for_epoch=restart_controls.increase_hyper_if_betas_below_for_epoch,
+        num_before_checking_p_increase=restart_controls.num_before_checking_p_increase,
+        p_scale_factor=restart_controls.p_scale_factor,
         epoch_runtime=epoch_runtime,
         epoch_sums=epoch_sums,
-        num_mad=restart_controls["num_mad"],
-        num_attempts=restart_controls["num_attempts"],
-        max_num_attempt_restarts=restart_controls["max_num_attempt_restarts"],
+        num_mad=restart_controls.num_mad,
+        num_attempts=restart_controls.num_attempts,
+        max_num_attempt_restarts=restart_controls.max_num_attempt_restarts,
         iteration_num=iteration_num,
     )
 
-    return {
-        "all_sum_betas_m": all_sum_betas_m,
-        "all_sum_betas2_m": all_sum_betas2_m,
-        "all_num_sum_m": all_num_sum_m,
-        "R_beta_v": R_beta_v,
-        "gibbs_good": low_beta_restart_update["gibbs_good"],
-        "num_p_increases": low_beta_restart_update["num_p_increases"],
-        "should_break": low_beta_restart_update["should_break"],
-    }
+    return GibbsAllIterationUpdate(
+        all_sum_betas_m=all_sum_betas_m,
+        all_sum_betas2_m=all_sum_betas2_m,
+        all_num_sum_m=all_num_sum_m,
+        R_beta_v=R_beta_v,
+        gibbs_good=low_beta_restart_update.gibbs_good,
+        num_p_increases=low_beta_restart_update.num_p_increases,
+        should_break=low_beta_restart_update.should_break,
+    )
 
 
 def _build_inner_beta_sampler_common_kwargs(options):
