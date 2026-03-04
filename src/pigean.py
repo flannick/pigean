@@ -18,8 +18,6 @@ import os
 import copy
 import contextlib
 import json
-import tarfile
-import tempfile
 import re
 from dataclasses import dataclass, field
 import scipy
@@ -81,7 +79,6 @@ try:
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         XReadPostCallbacks as PegsXReadPostCallbacks,
-        BundleManifest as PegsBundleManifest,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
         build_read_x_post_options as pegs_build_read_x_post_options,
@@ -112,6 +109,8 @@ try:
         resolve_column_index as pegs_resolve_column_index,
         resolve_config_path_value as pegs_resolve_config_path_value,
         write_bundle_from_specs as pegs_write_bundle_from_specs,
+        write_prefixed_tar_bundle as pegs_write_prefixed_tar_bundle,
+        read_prefixed_tar_bundle as pegs_read_prefixed_tar_bundle,
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 except ImportError:
@@ -165,7 +164,6 @@ except ImportError:
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         XReadPostCallbacks as PegsXReadPostCallbacks,
-        BundleManifest as PegsBundleManifest,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
         build_read_x_post_options as pegs_build_read_x_post_options,
@@ -196,6 +194,8 @@ except ImportError:
         resolve_column_index as pegs_resolve_column_index,
         resolve_config_path_value as pegs_resolve_config_path_value,
         write_bundle_from_specs as pegs_write_bundle_from_specs,
+        write_prefixed_tar_bundle as pegs_write_prefixed_tar_bundle,
+        read_prefixed_tar_bundle as pegs_read_prefixed_tar_bundle,
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 
@@ -4079,42 +4079,38 @@ class PigeanState(object):
             return
 
         log("Writing HuGE statistics cache to %s" % huge_statistics_out, INFO)
-        if _is_huge_statistics_bundle_path(huge_statistics_out):
-            tar_mode = "w:gz"
-            if huge_statistics_out.lower().endswith(".tar"):
-                tar_mode = "w"
-            with tempfile.TemporaryDirectory() as tmpdir:
-                prefix = os.path.join(tmpdir, "huge_stats")
-                _write_huge_statistics_bundle(self, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
-                with tarfile.open(huge_statistics_out, tar_mode) as tar_fh:
-                    for name in sorted(os.listdir(tmpdir)):
-                        if name.startswith("huge_stats."):
-                            tar_fh.add(os.path.join(tmpdir, name), arcname=name)
-        else:
-            _write_huge_statistics_bundle(self, huge_statistics_out, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
+        pegs_write_prefixed_tar_bundle(
+            huge_statistics_out,
+            prefix_basename="huge_stats",
+            write_prefix_fn=lambda prefix: _write_huge_statistics_bundle(
+                self,
+                prefix,
+                gene_bf,
+                extra_genes,
+                extra_gene_bf,
+                gene_bf_for_regression,
+                extra_gene_bf_for_regression,
+            ),
+            is_bundle_path_fn=_is_huge_statistics_bundle_path,
+            option_name="--huge-statistics-out",
+            temp_prefix="huge_statistics_out_",
+            bail_fn=bail,
+        )
 
     def read_huge_statistics(self, huge_statistics_in):
         if huge_statistics_in is None:
             bail("Require --huge-statistics-in for this operation")
 
         log("Reading HuGE statistics cache from %s" % huge_statistics_in, INFO)
-        if _is_huge_statistics_bundle_path(huge_statistics_in):
-            with tempfile.TemporaryDirectory() as tmpdir:
-                with tarfile.open(huge_statistics_in, "r:*") as tar_fh:
-                    for member in tar_fh.getmembers():
-                        if member.name.startswith("/") or ".." in member.name.split("/"):
-                            bail("Refusing to read suspicious path in HuGE cache bundle: %s" % member.name)
-                    tar_fh.extractall(tmpdir)
-
-                meta_suffix = ".huge.meta.json.gz"
-                meta_files = [x for x in os.listdir(tmpdir) if x.endswith(meta_suffix)]
-                if len(meta_files) == 0:
-                    bail("HuGE cache bundle did not contain a %s file" % meta_suffix)
-                if len(meta_files) > 1:
-                    bail("HuGE cache bundle contained multiple metadata files: %s" % ", ".join(meta_files))
-                prefix = os.path.join(tmpdir, meta_files[0][:-len(meta_suffix)])
-                return _read_huge_statistics_bundle(self, prefix)
-        return _read_huge_statistics_bundle(self, huge_statistics_in)
+        return pegs_read_prefixed_tar_bundle(
+            huge_statistics_in,
+            required_suffix=".huge.meta.json.gz",
+            read_prefix_fn=lambda prefix: _read_huge_statistics_bundle(self, prefix),
+            is_bundle_path_fn=_is_huge_statistics_bundle_path,
+            bundle_flag_name="HuGE cache",
+            temp_prefix="huge_statistics_in_",
+            bail_fn=bail,
+        )
 
     def calculate_huge_scores_exomes(self, exomes_in, exomes_gene_col=None, exomes_p_col=None, exomes_beta_col=None, exomes_se_col=None, exomes_n_col=None, exomes_n=None, exomes_units=None, allelic_var=0.36, exomes_low_p=2.5e-6, exomes_high_p=0.05, exomes_low_p_posterior=0.95, exomes_high_p_posterior=0.10, hold_out_chrom=None, gene_loc_file=None, **kwargs):
 

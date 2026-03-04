@@ -34,6 +34,50 @@ class PegsUtilsBundleTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must end with .tar, .tar.gz, or .tgz"):
             pegs_utils.get_tar_write_mode_for_bundle_path("handoff.zip")
 
+    def test_write_and_read_prefixed_tar_bundle_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+
+            def _write(prefix: str) -> None:
+                Path(prefix + ".huge.meta.json.gz").write_text("{\"ok\": 1}\n", encoding="utf-8")
+                Path(prefix + ".huge.genes.tsv.gz").write_text("GENE1\n", encoding="utf-8")
+
+            plain_prefix = root / "huge_cache"
+            pegs_utils.write_prefixed_tar_bundle(
+                str(plain_prefix),
+                prefix_basename="huge_stats",
+                write_prefix_fn=_write,
+                option_name="--huge-statistics-out",
+            )
+            self.assertTrue((root / "huge_cache.huge.meta.json.gz").exists())
+            plain_read = pegs_utils.read_prefixed_tar_bundle(
+                str(plain_prefix),
+                required_suffix=".huge.meta.json.gz",
+                read_prefix_fn=lambda prefix: Path(prefix + ".huge.genes.tsv.gz").read_text(encoding="utf-8"),
+                bundle_flag_name="HuGE cache",
+            )
+            self.assertEqual(plain_read.strip(), "GENE1")
+
+            bundle_path = root / "huge_cache.tar.gz"
+            pegs_utils.write_prefixed_tar_bundle(
+                str(bundle_path),
+                prefix_basename="huge_stats",
+                write_prefix_fn=_write,
+                option_name="--huge-statistics-out",
+            )
+            self.assertTrue(bundle_path.exists())
+            with tarfile.open(bundle_path, "r:*") as tar_fh:
+                members = set(tar_fh.getnames())
+                self.assertIn("huge_stats.huge.meta.json.gz", members)
+                self.assertIn("huge_stats.huge.genes.tsv.gz", members)
+            bundle_read = pegs_utils.read_prefixed_tar_bundle(
+                str(bundle_path),
+                required_suffix=".huge.meta.json.gz",
+                read_prefix_fn=lambda prefix: Path(prefix + ".huge.genes.tsv.gz").read_text(encoding="utf-8"),
+                bundle_flag_name="HuGE cache",
+            )
+            self.assertEqual(bundle_read.strip(), "GENE1")
+
     def test_load_bundle_manifest_and_defaults_roundtrip(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

@@ -4620,6 +4620,89 @@ def safe_extract_tar_to_temp(bundle_path, temp_prefix="bundle_in_", bundle_flag_
     return tmp_dir
 
 
+def write_prefixed_tar_bundle(
+    out_path,
+    *,
+    prefix_basename,
+    write_prefix_fn,
+    is_bundle_path_fn=None,
+    option_name="--bundle-out",
+    temp_prefix="bundle_out_",
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if is_bundle_path_fn is None:
+        is_bundle_path_fn = is_huge_statistics_bundle_path
+
+    if not is_bundle_path_fn(out_path):
+        write_prefix_fn(out_path)
+        return out_path
+
+    tar_mode = get_tar_write_mode_for_bundle_path(
+        out_path,
+        option_name=option_name,
+        bail_fn=bail_fn,
+    )
+    ensure_parent_dir_for_file(out_path)
+
+    with tempfile.TemporaryDirectory(prefix=temp_prefix) as stage_dir:
+        staged_prefix = os.path.join(stage_dir, prefix_basename)
+        write_prefix_fn(staged_prefix)
+        staged_names = sorted(
+            name for name in os.listdir(stage_dir)
+            if name.startswith(prefix_basename + ".")
+        )
+        if len(staged_names) == 0:
+            bail_fn("Cannot write %s: no staged files with prefix %s." % (option_name, prefix_basename))
+        with tarfile.open(out_path, tar_mode) as tar_fh:
+            for name in staged_names:
+                tar_fh.add(os.path.join(stage_dir, name), arcname=name)
+    return out_path
+
+
+def read_prefixed_tar_bundle(
+    in_path,
+    *,
+    required_suffix,
+    read_prefix_fn,
+    is_bundle_path_fn=None,
+    bundle_flag_name="--bundle-in",
+    temp_prefix="bundle_in_",
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if is_bundle_path_fn is None:
+        is_bundle_path_fn = is_huge_statistics_bundle_path
+
+    if not is_bundle_path_fn(in_path):
+        return read_prefix_fn(in_path)
+
+    extract_dir = safe_extract_tar_to_temp(
+        in_path,
+        temp_prefix=temp_prefix,
+        bundle_flag_name=bundle_flag_name,
+        bail_fn=bail_fn,
+    )
+    try:
+        marker_files = sorted(
+            name for name in os.listdir(extract_dir)
+            if name.endswith(required_suffix)
+        )
+        if len(marker_files) == 0:
+            bail_fn("%s bundle did not contain a %s file" % (bundle_flag_name, required_suffix))
+        if len(marker_files) > 1:
+            bail_fn(
+                "%s bundle contained multiple %s files: %s"
+                % (bundle_flag_name, required_suffix, ", ".join(marker_files))
+            )
+        prefix = os.path.join(extract_dir, marker_files[0][:-len(required_suffix)])
+        return read_prefix_fn(prefix)
+    finally:
+        shutil.rmtree(extract_dir, ignore_errors=True)
+
+
 @dataclass
 class BundleManifest:
     manifest: dict
