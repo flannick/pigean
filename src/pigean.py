@@ -1710,18 +1710,6 @@ class PigeanState(object):
         self.params = {}
         self.param_keys = []
 
-    def init_gene_locs(self, gene_loc_file):
-        _init_gene_locs(self, gene_loc_file)
-
-    def read_gene_map(self, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
-        _read_gene_map(
-            self,
-            gene_map_in=gene_map_in,
-            gene_map_orig_gene_col=gene_map_orig_gene_col,
-            gene_map_new_gene_col=gene_map_new_gene_col,
-            allow_multi=allow_multi,
-        )
-
     def set_const_Y(self, value):
         _set_const_Y(self, value)
 
@@ -21632,9 +21620,14 @@ def _configure_hyperparameters_for_main(state, options):
         bail("Invalid value for --update-hyper (both, p, sigma2, or none)")
 
     if options.gene_map_in:
-        state.read_gene_map(options.gene_map_in, options.gene_map_orig_gene_col, options.gene_map_new_gene_col)
+        _read_gene_map(
+            state,
+            gene_map_in=options.gene_map_in,
+            gene_map_orig_gene_col=options.gene_map_orig_gene_col,
+            gene_map_new_gene_col=options.gene_map_new_gene_col,
+        )
     if options.gene_loc_file:
-        state.init_gene_locs(options.gene_loc_file)
+        _init_gene_locs(state, options.gene_loc_file)
 
     return sigma2_cond
 
