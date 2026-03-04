@@ -6084,8 +6084,8 @@ class PigeanState(object):
                 ),
             )
         )
-        epoch_phase_config = epoch_runtime_configs["epoch_phase_config"]
-        epoch_iteration_static_config = epoch_runtime_configs["epoch_iteration_static_config"]
+        epoch_phase_config = epoch_runtime_configs.epoch_phase_config
+        epoch_iteration_static_config = epoch_runtime_configs.epoch_iteration_static_config
 
         # ==========================================================================
         # Gibbs Phase 3: Execute epoch attempts (with optional trace writers).
@@ -15104,6 +15104,71 @@ class GibbsRunState:
     remaining_total_iter: int = 0
 
 
+@dataclass
+class GibbsEpochPhaseConfig:
+    total_num_iter: int
+    num_chains: int
+    num_full_gene_sets: int
+    use_mean_betas: bool
+    max_mb_X_h: int
+    target_num_epochs: int
+    num_mad: int
+    adjust_priors: bool
+    epoch_max_num_iter_config: int
+    min_num_burn_in: int
+    max_num_burn_in: int
+    min_num_post_burn_in: int
+    max_num_post_burn_in: int
+    increase_hyper_if_betas_below: float | None
+
+
+@dataclass
+class GibbsIterationUpdateConfig:
+    use_mean_betas: bool
+    warm_start: bool
+    debug_zero_sparse: bool
+    num_chains: int
+    num_batches_parallel: int
+    betas_trace_out: str | None
+    update_huge_scores: bool
+    compute_Y_raw: bool
+    adjust_priors: bool
+
+
+@dataclass
+class GibbsEpochIterationStaticConfig:
+    inner_beta_kwargs: dict
+    iteration_update_config: GibbsIterationUpdateConfig
+    cur_background_log_bf_v: object
+    y_var_orig: float
+    gauss_seidel: bool
+    initial_linear_filter: bool
+    sparse_frac_gibbs: float
+    sparse_max_gibbs: float
+    correct_betas_mean: bool
+    correct_betas_var: bool
+    prefilter_config: dict
+    iteration_progress_config: dict
+
+
+@dataclass
+class GibbsEpochRuntimeConfigs:
+    epoch_phase_config: GibbsEpochPhaseConfig
+    epoch_iteration_static_config: GibbsEpochIterationStaticConfig
+
+
+@dataclass
+class GibbsIterationCorrectionConfig:
+    inner_beta_kwargs: dict
+    iteration_update_config: GibbsIterationUpdateConfig
+    num_mad: int
+    num_attempts: int
+    max_num_attempt_restarts: int
+    increase_hyper_if_betas_below_for_epoch: float | None
+    num_before_checking_p_increase: int
+    p_scale_factor: float
+
+
 def _initialize_gibbs_run_state(total_num_iter, target_num_epochs, max_num_restarts):
     # Mutable run-level counters shared across epoch attempts.
     return GibbsRunState(
@@ -15122,15 +15187,15 @@ def _prepare_gibbs_epoch_attempt(
     epoch_phase_config,
 ):
     # Resolve one epoch attempt's bounds and bookkeeping from run-level state.
-    total_num_iter = epoch_phase_config["total_num_iter"]
-    num_chains = epoch_phase_config["num_chains"]
-    target_num_epochs = epoch_phase_config["target_num_epochs"]
-    epoch_max_num_iter_config = epoch_phase_config["epoch_max_num_iter_config"]
-    min_num_burn_in = epoch_phase_config["min_num_burn_in"]
-    max_num_burn_in = epoch_phase_config["max_num_burn_in"]
-    min_num_post_burn_in = epoch_phase_config["min_num_post_burn_in"]
-    max_num_post_burn_in = epoch_phase_config["max_num_post_burn_in"]
-    increase_hyper_if_betas_below = epoch_phase_config["increase_hyper_if_betas_below"]
+    total_num_iter = epoch_phase_config.total_num_iter
+    num_chains = epoch_phase_config.num_chains
+    target_num_epochs = epoch_phase_config.target_num_epochs
+    epoch_max_num_iter_config = epoch_phase_config.epoch_max_num_iter_config
+    min_num_burn_in = epoch_phase_config.min_num_burn_in
+    max_num_burn_in = epoch_phase_config.max_num_burn_in
+    min_num_post_burn_in = epoch_phase_config.min_num_post_burn_in
+    max_num_post_burn_in = epoch_phase_config.max_num_post_burn_in
+    increase_hyper_if_betas_below = epoch_phase_config.increase_hyper_if_betas_below
 
     run_state.num_attempts += 1
 
@@ -17197,13 +17262,13 @@ def _build_gibbs_epoch_finalize_context(
         "iterations_run_this_epoch": (iteration_num + 1),
         "remaining_total_iter": run_state.remaining_total_iter,
         "num_completed_epochs": run_state.num_completed_epochs,
-        "target_num_epochs": epoch_phase_config["target_num_epochs"],
+        "target_num_epochs": epoch_phase_config.target_num_epochs,
         "num_attempts": run_state.num_attempts,
         "max_num_attempt_restarts": run_state.max_num_attempt_restarts,
         "stop_due_to_stall": epoch_control["stop_due_to_stall"],
         "stop_due_to_precision": epoch_control["stop_due_to_precision"],
-        "num_mad": epoch_phase_config["num_mad"],
-        "adjust_priors": epoch_phase_config["adjust_priors"],
+        "num_mad": epoch_phase_config.num_mad,
+        "adjust_priors": epoch_phase_config.adjust_priors,
     }
 
 
@@ -17794,22 +17859,22 @@ def _reset_gibbs_diagnostics(state):
 def _build_gibbs_epoch_runtime_configs(config_inputs):
     # Group per-epoch and per-iteration static knobs so run_gibbs can focus on
     # control flow.
-    epoch_phase_config = {
-        "total_num_iter": config_inputs["total_num_iter"],
-        "num_chains": config_inputs["num_chains"],
-        "num_full_gene_sets": config_inputs["num_full_gene_sets"],
-        "use_mean_betas": config_inputs["use_mean_betas"],
-        "max_mb_X_h": config_inputs["max_mb_X_h"],
-        "target_num_epochs": config_inputs["target_num_epochs"],
-        "num_mad": config_inputs["num_mad"],
-        "adjust_priors": config_inputs["adjust_priors"],
-        "epoch_max_num_iter_config": config_inputs["epoch_max_num_iter_config"],
-        "min_num_burn_in": config_inputs["min_num_burn_in"],
-        "max_num_burn_in": config_inputs["max_num_burn_in"],
-        "min_num_post_burn_in": config_inputs["min_num_post_burn_in"],
-        "max_num_post_burn_in": config_inputs["max_num_post_burn_in"],
-        "increase_hyper_if_betas_below": config_inputs["increase_hyper_if_betas_below"],
-    }
+    epoch_phase_config = GibbsEpochPhaseConfig(
+        total_num_iter=config_inputs["total_num_iter"],
+        num_chains=config_inputs["num_chains"],
+        num_full_gene_sets=config_inputs["num_full_gene_sets"],
+        use_mean_betas=config_inputs["use_mean_betas"],
+        max_mb_X_h=config_inputs["max_mb_X_h"],
+        target_num_epochs=config_inputs["target_num_epochs"],
+        num_mad=config_inputs["num_mad"],
+        adjust_priors=config_inputs["adjust_priors"],
+        epoch_max_num_iter_config=config_inputs["epoch_max_num_iter_config"],
+        min_num_burn_in=config_inputs["min_num_burn_in"],
+        max_num_burn_in=config_inputs["max_num_burn_in"],
+        min_num_post_burn_in=config_inputs["min_num_post_burn_in"],
+        max_num_post_burn_in=config_inputs["max_num_post_burn_in"],
+        increase_hyper_if_betas_below=config_inputs["increase_hyper_if_betas_below"],
+    )
     inner_beta_kwargs = {
         "passed_in_max_num_burn_in": config_inputs["passed_in_max_num_burn_in"],
         "max_num_iter_betas": config_inputs["max_num_iter_betas"],
@@ -17823,17 +17888,17 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
         "sparse_solution": config_inputs["sparse_solution"],
         "sparse_frac_betas": config_inputs["sparse_frac_betas"],
     }
-    iteration_update_config = {
-        "use_mean_betas": config_inputs["use_mean_betas"],
-        "warm_start": config_inputs["warm_start"],
-        "debug_zero_sparse": config_inputs["debug_zero_sparse"],
-        "num_chains": config_inputs["num_chains"],
-        "num_batches_parallel": config_inputs["num_batches_parallel"],
-        "betas_trace_out": config_inputs["betas_trace_out"],
-        "update_huge_scores": config_inputs["update_huge_scores"],
-        "compute_Y_raw": config_inputs["compute_Y_raw"],
-        "adjust_priors": config_inputs["adjust_priors"],
-    }
+    iteration_update_config = GibbsIterationUpdateConfig(
+        use_mean_betas=config_inputs["use_mean_betas"],
+        warm_start=config_inputs["warm_start"],
+        debug_zero_sparse=config_inputs["debug_zero_sparse"],
+        num_chains=config_inputs["num_chains"],
+        num_batches_parallel=config_inputs["num_batches_parallel"],
+        betas_trace_out=config_inputs["betas_trace_out"],
+        update_huge_scores=config_inputs["update_huge_scores"],
+        compute_Y_raw=config_inputs["compute_Y_raw"],
+        adjust_priors=config_inputs["adjust_priors"],
+    )
     prefilter_config = {
         "sparse_frac_gibbs": config_inputs["sparse_frac_gibbs"],
         "sparse_max_gibbs": config_inputs["sparse_max_gibbs"],
@@ -17885,24 +17950,24 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
         "post_burn_diag_config": post_burn_diag_config,
         "burn_in_config": burn_in_config,
     }
-    epoch_iteration_static_config = {
-        "inner_beta_kwargs": inner_beta_kwargs,
-        "iteration_update_config": iteration_update_config,
-        "cur_background_log_bf_v": config_inputs["cur_background_log_bf_v"],
-        "y_var_orig": config_inputs["y_var_orig"],
-        "gauss_seidel": config_inputs["gauss_seidel"],
-        "initial_linear_filter": config_inputs["initial_linear_filter"],
-        "sparse_frac_gibbs": config_inputs["sparse_frac_gibbs"],
-        "sparse_max_gibbs": config_inputs["sparse_max_gibbs"],
-        "correct_betas_mean": config_inputs["correct_betas_mean"],
-        "correct_betas_var": config_inputs["correct_betas_var"],
-        "prefilter_config": prefilter_config,
-        "iteration_progress_config": iteration_progress_config,
-    }
-    return {
-        "epoch_phase_config": epoch_phase_config,
-        "epoch_iteration_static_config": epoch_iteration_static_config,
-    }
+    epoch_iteration_static_config = GibbsEpochIterationStaticConfig(
+        inner_beta_kwargs=inner_beta_kwargs,
+        iteration_update_config=iteration_update_config,
+        cur_background_log_bf_v=config_inputs["cur_background_log_bf_v"],
+        y_var_orig=config_inputs["y_var_orig"],
+        gauss_seidel=config_inputs["gauss_seidel"],
+        initial_linear_filter=config_inputs["initial_linear_filter"],
+        sparse_frac_gibbs=config_inputs["sparse_frac_gibbs"],
+        sparse_max_gibbs=config_inputs["sparse_max_gibbs"],
+        correct_betas_mean=config_inputs["correct_betas_mean"],
+        correct_betas_var=config_inputs["correct_betas_var"],
+        prefilter_config=prefilter_config,
+        iteration_progress_config=iteration_progress_config,
+    )
+    return GibbsEpochRuntimeConfigs(
+        epoch_phase_config=epoch_phase_config,
+        epoch_iteration_static_config=epoch_iteration_static_config,
+    )
 
 
 def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
@@ -18072,21 +18137,21 @@ def _build_gibbs_epoch_iteration_loop_config(
         "max_num_post_burn_in_for_epoch": epoch_context["max_num_post_burn_in_for_epoch"],
         "post_burn_reset_arrays": epoch_context["post_burn_reset_arrays"],
         "post_burn_reset_missing_arrays": epoch_context["post_burn_reset_missing_arrays"],
-        "inner_beta_kwargs": epoch_iteration_static_config["inner_beta_kwargs"],
-        "iteration_update_config": epoch_iteration_static_config["iteration_update_config"],
-        "cur_background_log_bf_v": epoch_iteration_static_config["cur_background_log_bf_v"],
-        "y_var_orig": epoch_iteration_static_config["y_var_orig"],
-        "gauss_seidel": epoch_iteration_static_config["gauss_seidel"],
-        "initial_linear_filter": epoch_iteration_static_config["initial_linear_filter"],
-        "sparse_frac_gibbs": epoch_iteration_static_config["sparse_frac_gibbs"],
-        "sparse_max_gibbs": epoch_iteration_static_config["sparse_max_gibbs"],
-        "correct_betas_mean": epoch_iteration_static_config["correct_betas_mean"],
-        "correct_betas_var": epoch_iteration_static_config["correct_betas_var"],
-        "prefilter_config": epoch_iteration_static_config["prefilter_config"],
-        "iteration_progress_config": epoch_iteration_static_config["iteration_progress_config"],
+        "inner_beta_kwargs": epoch_iteration_static_config.inner_beta_kwargs,
+        "iteration_update_config": epoch_iteration_static_config.iteration_update_config,
+        "cur_background_log_bf_v": epoch_iteration_static_config.cur_background_log_bf_v,
+        "y_var_orig": epoch_iteration_static_config.y_var_orig,
+        "gauss_seidel": epoch_iteration_static_config.gauss_seidel,
+        "initial_linear_filter": epoch_iteration_static_config.initial_linear_filter,
+        "sparse_frac_gibbs": epoch_iteration_static_config.sparse_frac_gibbs,
+        "sparse_max_gibbs": epoch_iteration_static_config.sparse_max_gibbs,
+        "correct_betas_mean": epoch_iteration_static_config.correct_betas_mean,
+        "correct_betas_var": epoch_iteration_static_config.correct_betas_var,
+        "prefilter_config": epoch_iteration_static_config.prefilter_config,
+        "iteration_progress_config": epoch_iteration_static_config.iteration_progress_config,
         "num_attempts": run_state.num_attempts,
         "max_num_attempt_restarts": run_state.max_num_attempt_restarts,
-        "num_mad": epoch_phase_config["num_mad"],
+        "num_mad": epoch_phase_config.num_mad,
         "increase_hyper_if_betas_below_for_epoch": epoch_context["increase_hyper_if_betas_below_for_epoch"],
         "num_before_checking_p_increase": epoch_context["num_before_checking_p_increase"],
         "p_scale_factor": epoch_context["p_scale_factor"],
@@ -18094,16 +18159,16 @@ def _build_gibbs_epoch_iteration_loop_config(
 
 
 def _build_gibbs_iteration_runtime_configs(loop_config, epoch_priors, gene_stats_trace_fh):
-    correction_config = {
-        "inner_beta_kwargs": loop_config["inner_beta_kwargs"],
-        "iteration_update_config": loop_config["iteration_update_config"],
-        "num_mad": loop_config["num_mad"],
-        "num_attempts": loop_config["num_attempts"],
-        "max_num_attempt_restarts": loop_config["max_num_attempt_restarts"],
-        "increase_hyper_if_betas_below_for_epoch": loop_config["increase_hyper_if_betas_below_for_epoch"],
-        "num_before_checking_p_increase": loop_config["num_before_checking_p_increase"],
-        "p_scale_factor": loop_config["p_scale_factor"],
-    }
+    correction_config = GibbsIterationCorrectionConfig(
+        inner_beta_kwargs=loop_config["inner_beta_kwargs"],
+        iteration_update_config=loop_config["iteration_update_config"],
+        num_mad=loop_config["num_mad"],
+        num_attempts=loop_config["num_attempts"],
+        max_num_attempt_restarts=loop_config["max_num_attempt_restarts"],
+        increase_hyper_if_betas_below_for_epoch=loop_config["increase_hyper_if_betas_below_for_epoch"],
+        num_before_checking_p_increase=loop_config["num_before_checking_p_increase"],
+        p_scale_factor=loop_config["p_scale_factor"],
+    )
     progress_runtime_config = {
         "trace_chain_offset": loop_config["trace_chain_offset"],
         "epoch_total_iter_offset": loop_config["epoch_total_iter_offset"],
@@ -18256,10 +18321,10 @@ def _initialize_gibbs_epoch_attempt_context(
 ):
     epoch_context = _start_gibbs_epoch(
         state=state,
-        num_chains=epoch_phase_config["num_chains"],
-        num_full_gene_sets=epoch_phase_config["num_full_gene_sets"],
-        use_mean_betas=epoch_phase_config["use_mean_betas"],
-        max_mb_X_h=epoch_phase_config["max_mb_X_h"],
+        num_chains=epoch_phase_config.num_chains,
+        num_full_gene_sets=epoch_phase_config.num_full_gene_sets,
+        use_mean_betas=epoch_phase_config.use_mean_betas,
+        max_mb_X_h=epoch_phase_config.max_mb_X_h,
         log_fun=log,
         epoch_aggregates=epoch_aggregates,
         num_p_increases=run_state.num_p_increases,
@@ -18714,15 +18779,15 @@ def _run_gibbs_corrected_betas_step(
         full_ps_m=iter_state["full_ps_m"],
         full_sigma2s_m=iter_state["full_sigma2s_m"],
         uncorrected_betas_mean_m=iter_state["uncorrected_betas_mean_m"],
-        use_mean_betas=iteration_update_config["use_mean_betas"],
-        warm_start=iteration_update_config["warm_start"],
+        use_mean_betas=iteration_update_config.use_mean_betas,
+        warm_start=iteration_update_config.warm_start,
         prev_warm_start_betas_m=epoch_priors["prev_warm_start_betas_m"],
         prev_warm_start_postp_m=epoch_priors["prev_warm_start_postp_m"],
-        debug_zero_sparse=iteration_update_config["debug_zero_sparse"],
-        num_chains=iteration_update_config["num_chains"],
-        num_batches_parallel=iteration_update_config["num_batches_parallel"],
+        debug_zero_sparse=iteration_update_config.debug_zero_sparse,
+        num_chains=iteration_update_config.num_chains,
+        num_batches_parallel=iteration_update_config.num_batches_parallel,
         **inner_beta_kwargs,
-        betas_trace_out=iteration_update_config["betas_trace_out"],
+        betas_trace_out=iteration_update_config.betas_trace_out,
     )
 
 
@@ -18749,15 +18814,15 @@ def _apply_prior_update_to_epoch_priors(epoch_priors, prior_update):
 def _build_refresh_gibbs_iteration_inputs(epoch_priors, iteration_update_config, log_bf_state):
     (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     return {
-        "warm_start": iteration_update_config["warm_start"],
-        "use_mean_betas": iteration_update_config["use_mean_betas"],
+        "warm_start": iteration_update_config.warm_start,
+        "use_mean_betas": iteration_update_config.use_mean_betas,
         "prev_warm_start_betas_m": epoch_priors["prev_warm_start_betas_m"],
         "prev_warm_start_postp_m": epoch_priors["prev_warm_start_postp_m"],
         "priors_missing_sample_m": epoch_priors["priors_missing_sample_m"],
         "priors_missing_mean_m": epoch_priors["priors_missing_mean_m"],
         "priors_for_Y_m": epoch_priors["priors_for_Y_m"],
-        "update_huge_scores": iteration_update_config["update_huge_scores"],
-        "compute_Y_raw": iteration_update_config["compute_Y_raw"],
+        "update_huge_scores": iteration_update_config.update_huge_scores,
+        "compute_Y_raw": iteration_update_config.compute_Y_raw,
         "log_bf_m": log_bf_m,
         "log_bf_uncorrected_m": log_bf_uncorrected_m,
         "log_bf_raw_m": log_bf_raw_m,
@@ -18770,8 +18835,8 @@ def _build_finalize_gibbs_prior_inputs(epoch_priors, iteration_update_config):
         "priors_mean_m": epoch_priors["priors_mean_m"],
         "priors_missing_sample_m": epoch_priors["priors_missing_sample_m"],
         "priors_missing_mean_m": epoch_priors["priors_missing_mean_m"],
-        "adjust_priors": iteration_update_config["adjust_priors"],
-        "use_mean_betas": iteration_update_config["use_mean_betas"],
+        "adjust_priors": iteration_update_config.adjust_priors,
+        "use_mean_betas": iteration_update_config.use_mean_betas,
         "priors_percentage_max_sample_m": epoch_priors["priors_percentage_max_sample_m"],
         "priors_percentage_max_mean_m": epoch_priors["priors_percentage_max_mean_m"],
         "priors_adjustment_sample_m": epoch_priors["priors_adjustment_sample_m"],
@@ -18787,8 +18852,8 @@ def _compute_gibbs_iteration_betas_and_priors(
     epoch_priors,
     log_bf_state,
 ):
-    inner_beta_kwargs = correction_config["inner_beta_kwargs"]
-    iteration_update_config = correction_config["iteration_update_config"]
+    inner_beta_kwargs = correction_config.inner_beta_kwargs
+    iteration_update_config = correction_config.iteration_update_config
 
     (
         full_betas_sample_m,
@@ -18931,12 +18996,12 @@ class GibbsAllIterationUpdate:
 
 def _build_gibbs_low_beta_restart_controls(correction_config):
     return GibbsLowBetaRestartControls(
-        num_mad=correction_config["num_mad"],
-        num_attempts=correction_config["num_attempts"],
-        max_num_attempt_restarts=correction_config["max_num_attempt_restarts"],
-        increase_hyper_if_betas_below_for_epoch=correction_config["increase_hyper_if_betas_below_for_epoch"],
-        num_before_checking_p_increase=correction_config["num_before_checking_p_increase"],
-        p_scale_factor=correction_config["p_scale_factor"],
+        num_mad=correction_config.num_mad,
+        num_attempts=correction_config.num_attempts,
+        max_num_attempt_restarts=correction_config.max_num_attempt_restarts,
+        increase_hyper_if_betas_below_for_epoch=correction_config.increase_hyper_if_betas_below_for_epoch,
+        num_before_checking_p_increase=correction_config.num_before_checking_p_increase,
+        p_scale_factor=correction_config.p_scale_factor,
     )
 
 
