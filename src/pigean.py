@@ -1707,9 +1707,6 @@ class PigeanState(object):
         self.params = {}
         self.param_keys = []
 
-    def set_const_Y(self, value):
-        _set_const_Y(self, value)
-
     def write_V(self, V_out):
         if self.X_orig is not None:
             V = self._get_V()
@@ -22466,7 +22463,7 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
     assert(state.p is not None)
 
     if Y_not_loaded and options.const_gene_Y:
-        state.set_const_Y(options.const_gene_Y)
+        _set_const_Y(state, options.const_gene_Y)
     if options.X_out:
         state.write_X(options.X_out)
     if options.Xd_out:
