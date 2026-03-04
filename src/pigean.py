@@ -34,7 +34,7 @@ try:
     from .pegs_utils import (
         configure_random_seed as pegs_configure_random_seed,
         collect_file_metadata as pegs_collect_file_metadata,
-        build_bundle_manifest as pegs_build_bundle_manifest,
+        build_bundle_manifest_contract as pegs_build_bundle_manifest_contract,
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
         coerce_runtime_state_dict as pegs_coerce_runtime_state_dict,
         get_huge_statistics_paths_for_prefix as pegs_get_huge_statistics_paths_for_prefix,
@@ -114,15 +114,13 @@ try:
         resolve_column_index as pegs_resolve_column_index,
         resolve_config_path_value as pegs_resolve_config_path_value,
         stage_file_into_dir as pegs_stage_file_into_dir,
-        write_bundle_archive as pegs_write_bundle_archive,
-        write_bundle_manifest_file as pegs_write_bundle_manifest_file,
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 except ImportError:
     from pegs_utils import (
         configure_random_seed as pegs_configure_random_seed,
         collect_file_metadata as pegs_collect_file_metadata,
-        build_bundle_manifest as pegs_build_bundle_manifest,
+        build_bundle_manifest_contract as pegs_build_bundle_manifest_contract,
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
         coerce_runtime_state_dict as pegs_coerce_runtime_state_dict,
         get_huge_statistics_paths_for_prefix as pegs_get_huge_statistics_paths_for_prefix,
@@ -202,8 +200,6 @@ except ImportError:
         resolve_column_index as pegs_resolve_column_index,
         resolve_config_path_value as pegs_resolve_config_path_value,
         stage_file_into_dir as pegs_stage_file_into_dir,
-        write_bundle_archive as pegs_write_bundle_archive,
-        write_bundle_manifest_file as pegs_write_bundle_manifest_file,
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 
@@ -22431,24 +22427,17 @@ def _write_eaggl_bundle_if_requested(state, options, mode):
             file_map[option_key] = bundle_name
             file_meta[bundle_name] = pegs_collect_file_metadata(staged_path)
 
-        manifest = pegs_build_bundle_manifest(
-            PEGS_EAGGL_BUNDLE_SCHEMA,
-            "pigean.py",
-            mode,
-            sys.argv,
-            file_map,
-            file_meta,
-        )
-
         manifest_name = "manifest.json"
-        pegs_write_bundle_manifest_file(tmp_dir, manifest, manifest_name=manifest_name)
-        pegs_write_bundle_archive(
-            out_path,
-            tar_mode,
-            tmp_dir,
-            file_meta.keys(),
-            manifest_name=manifest_name,
+        bundle_manifest = pegs_build_bundle_manifest_contract(
+            schema=PEGS_EAGGL_BUNDLE_SCHEMA,
+            source_tool="pigean.py",
+            source_mode=mode,
+            source_argv=sys.argv,
+            default_inputs=file_map,
+            files_metadata=file_meta,
         )
+        bundle_manifest.write_manifest(tmp_dir, manifest_name=manifest_name)
+        bundle_manifest.write_archive(out_path, tar_mode, tmp_dir, file_meta.keys(), manifest_name=manifest_name)
 
     log("Finished writing EAGGL handoff bundle %s" % out_path, INFO)
 

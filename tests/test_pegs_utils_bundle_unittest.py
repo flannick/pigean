@@ -66,6 +66,56 @@ class PegsUtilsBundleTest(unittest.TestCase):
             finally:
                 shutil.rmtree(extract_dir, ignore_errors=True)
 
+    def test_bundle_manifest_contract_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "X.tsv.gz").write_text("SET_A\tGENE1\n", encoding="utf-8")
+            manifest = {
+                "schema": pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                "default_inputs": {"X_in": "X.tsv.gz"},
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            bundle_path = root / "handoff.tar.gz"
+            with tarfile.open(bundle_path, "w:gz") as tar_fh:
+                tar_fh.add(root / "manifest.json", arcname="manifest.json")
+                tar_fh.add(root / "X.tsv.gz", arcname="X.tsv.gz")
+
+            bundle = pegs_utils.load_bundle_defaults_contract(
+                str(bundle_path),
+                pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+                bundle_flag_name="--eaggl-bundle-in",
+            )
+            try:
+                self.assertEqual(bundle.manifest["schema"], pegs_utils.EAGGL_BUNDLE_SCHEMA)
+                self.assertIn("X_in", bundle.default_inputs)
+                self.assertTrue(Path(bundle.default_inputs["X_in"]).exists())
+            finally:
+                shutil.rmtree(bundle.extract_dir, ignore_errors=True)
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            staged_file = root / "X.tsv.gz"
+            staged_file.write_text("SET_A\tGENE1\n", encoding="utf-8")
+            out_path = root / "out.tar.gz"
+            manifest_contract = pegs_utils.build_bundle_manifest_contract(
+                pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                "pigean.py",
+                "gibbs",
+                ["gibbs", "--x-in", "X.tsv.gz"],
+                {"X_in": "X.tsv.gz"},
+                {"X.tsv.gz": pegs_utils.collect_file_metadata(str(staged_file))},
+            )
+            manifest_contract.write_manifest(str(root), manifest_name="manifest.json")
+            manifest_contract.write_archive(
+                str(out_path),
+                "w:gz",
+                str(root),
+                ["X.tsv.gz"],
+                manifest_name="manifest.json",
+            )
+            self.assertTrue(out_path.exists())
+
     def test_resolve_bundle_default_inputs_rejects_parent_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

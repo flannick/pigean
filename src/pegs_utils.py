@@ -891,6 +891,46 @@ class TsvTable(object):
         self.by_key = by_key
 
 
+class GeneStatsTable(TsvTable):
+    KEY_COLUMN = "Gene"
+    REQUIRED_COLUMNS = ["Gene"]
+
+    @classmethod
+    def read(cls, path, *, bail_fn=None):
+        table = read_tsv(
+            path,
+            key_column=cls.KEY_COLUMN,
+            required_columns=cls.REQUIRED_COLUMNS,
+            bail_fn=bail_fn,
+        )
+        return cls(
+            columns=table.columns,
+            rows=table.rows,
+            key_column=table.key_column,
+            by_key=table.by_key,
+        )
+
+
+class GeneSetStatsTable(TsvTable):
+    KEY_COLUMN = "Gene_Set"
+    REQUIRED_COLUMNS = ["Gene_Set"]
+
+    @classmethod
+    def read(cls, path, *, bail_fn=None):
+        table = read_tsv(
+            path,
+            key_column=cls.KEY_COLUMN,
+            required_columns=cls.REQUIRED_COLUMNS,
+            bail_fn=bail_fn,
+        )
+        return cls(
+            columns=table.columns,
+            rows=table.rows,
+            key_column=table.key_column,
+            by_key=table.by_key,
+        )
+
+
 def read_tsv(path, key_column=None, required_columns=None, *, bail_fn=None):
     if bail_fn is None:
         bail_fn = _default_bail
@@ -938,11 +978,11 @@ def write_tsv(path, columns, rows):
 
 
 def read_gene_stats(path, *, bail_fn=None):
-    return read_tsv(path, key_column="Gene", required_columns=["Gene"], bail_fn=bail_fn)
+    return GeneStatsTable.read(path, bail_fn=bail_fn)
 
 
 def read_gene_set_stats(path, *, bail_fn=None):
-    return read_tsv(path, key_column="Gene_Set", required_columns=["Gene_Set"], bail_fn=bail_fn)
+    return GeneSetStatsTable.read(path, bail_fn=bail_fn)
 
 
 def parse_gene_set_statistics_file(
@@ -4588,6 +4628,90 @@ def safe_extract_tar_to_temp(bundle_path, temp_prefix="bundle_in_", bundle_flag_
     return tmp_dir
 
 
+@dataclass
+class BundleManifest:
+    manifest: dict
+    bundle_path: str | None = None
+    extract_dir: str | None = None
+    default_inputs: dict = field(default_factory=dict)
+
+    @classmethod
+    def load_defaults(
+        cls,
+        bundle_path,
+        expected_schema,
+        allowed_default_inputs,
+        *,
+        bundle_flag_name="--bundle-in",
+        manifest_name="manifest.json",
+        temp_prefix="bundle_in_",
+        bail_fn=None,
+    ):
+        if bail_fn is None:
+            bail_fn = _default_bail
+
+        extract_dir, manifest = load_bundle_manifest(
+            bundle_path,
+            expected_schema,
+            bundle_flag_name=bundle_flag_name,
+            manifest_name=manifest_name,
+            temp_prefix=temp_prefix,
+            bail_fn=bail_fn,
+        )
+        default_inputs = resolve_bundle_default_inputs(
+            manifest.get("default_inputs"),
+            extract_dir,
+            allowed_default_inputs,
+            bundle_flag_name=bundle_flag_name,
+            bail_fn=bail_fn,
+        )
+        return cls(
+            manifest=manifest,
+            bundle_path=bundle_path,
+            extract_dir=extract_dir,
+            default_inputs=default_inputs,
+        )
+
+    @classmethod
+    def build(
+        cls,
+        schema,
+        source_tool,
+        source_mode,
+        source_argv,
+        default_inputs,
+        files_metadata,
+    ):
+        return cls(
+            manifest={
+                "schema": schema,
+                "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "source": {
+                    "tool": source_tool,
+                    "mode": source_mode,
+                    "argv": list(source_argv),
+                },
+                "default_inputs": dict(default_inputs),
+                "files": dict(files_metadata),
+            },
+            default_inputs=dict(default_inputs),
+        )
+
+    def write_manifest(self, stage_dir, manifest_name="manifest.json"):
+        manifest_path = os.path.join(stage_dir, manifest_name)
+        with open(manifest_path, "w", encoding="utf-8") as out_fh:
+            json.dump(self.manifest, out_fh, indent=2, sort_keys=True)
+            out_fh.write("\n")
+        return manifest_path
+
+    def write_archive(self, out_path, tar_mode, stage_dir, staged_file_names, *, manifest_name="manifest.json"):
+        manifest_path = os.path.join(stage_dir, manifest_name)
+        with tarfile.open(out_path, tar_mode) as tar_fh:
+            tar_fh.add(manifest_path, arcname=manifest_name)
+            for bundle_name in sorted(staged_file_names):
+                tar_fh.add(os.path.join(stage_dir, bundle_name), arcname=bundle_name)
+
+
 def load_bundle_manifest(
     bundle_path,
     expected_schema,
@@ -4668,22 +4792,37 @@ def load_bundle_defaults(
     if bail_fn is None:
         bail_fn = _default_bail
 
-    extract_dir, manifest = load_bundle_manifest(
-        bundle_path,
-        expected_schema,
+    bundle = BundleManifest.load_defaults(
+        bundle_path=bundle_path,
+        expected_schema=expected_schema,
+        allowed_default_inputs=allowed_default_inputs,
         bundle_flag_name=bundle_flag_name,
         manifest_name=manifest_name,
         temp_prefix=temp_prefix,
         bail_fn=bail_fn,
     )
-    default_inputs = resolve_bundle_default_inputs(
-        manifest.get("default_inputs"),
-        extract_dir,
-        allowed_default_inputs,
+    return bundle.extract_dir, bundle.manifest, bundle.default_inputs
+
+
+def load_bundle_defaults_contract(
+    bundle_path,
+    expected_schema,
+    allowed_default_inputs,
+    *,
+    bundle_flag_name="--bundle-in",
+    manifest_name="manifest.json",
+    temp_prefix="bundle_in_",
+    bail_fn=None,
+):
+    return BundleManifest.load_defaults(
+        bundle_path=bundle_path,
+        expected_schema=expected_schema,
+        allowed_default_inputs=allowed_default_inputs,
         bundle_flag_name=bundle_flag_name,
+        manifest_name=manifest_name,
+        temp_prefix=temp_prefix,
         bail_fn=bail_fn,
     )
-    return extract_dir, manifest, default_inputs
 
 
 def ensure_parent_dir_for_file(path):
@@ -4727,33 +4866,49 @@ def build_bundle_manifest(
     default_inputs,
     files_metadata,
 ):
-    return {
-        "schema": schema,
-        "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "source": {
-            "tool": source_tool,
-            "mode": source_mode,
-            "argv": list(source_argv),
-        },
-        "default_inputs": dict(default_inputs),
-        "files": dict(files_metadata),
-    }
+    return BundleManifest.build(
+        schema=schema,
+        source_tool=source_tool,
+        source_mode=source_mode,
+        source_argv=source_argv,
+        default_inputs=default_inputs,
+        files_metadata=files_metadata,
+    ).manifest
+
+
+def build_bundle_manifest_contract(
+    schema,
+    source_tool,
+    source_mode,
+    source_argv,
+    default_inputs,
+    files_metadata,
+):
+    return BundleManifest.build(
+        schema=schema,
+        source_tool=source_tool,
+        source_mode=source_mode,
+        source_argv=source_argv,
+        default_inputs=default_inputs,
+        files_metadata=files_metadata,
+    )
 
 
 def write_bundle_manifest_file(stage_dir, manifest, manifest_name="manifest.json"):
-    manifest_path = os.path.join(stage_dir, manifest_name)
-    with open(manifest_path, "w", encoding="utf-8") as out_fh:
-        json.dump(manifest, out_fh, indent=2, sort_keys=True)
-        out_fh.write("\n")
-    return manifest_path
+    return BundleManifest(manifest=dict(manifest)).write_manifest(
+        stage_dir,
+        manifest_name=manifest_name,
+    )
 
 
 def write_bundle_archive(out_path, tar_mode, stage_dir, staged_file_names, *, manifest_name="manifest.json"):
-    manifest_path = os.path.join(stage_dir, manifest_name)
-    with tarfile.open(out_path, tar_mode) as tar_fh:
-        tar_fh.add(manifest_path, arcname=manifest_name)
-        for bundle_name in sorted(staged_file_names):
-            tar_fh.add(os.path.join(stage_dir, bundle_name), arcname=bundle_name)
+    BundleManifest(manifest={}).write_archive(
+        out_path,
+        tar_mode,
+        stage_dir,
+        staged_file_names,
+        manifest_name=manifest_name,
+    )
 
 
 def hash_file_sha256(path):
