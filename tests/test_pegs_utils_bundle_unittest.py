@@ -80,10 +80,10 @@ class PegsUtilsBundleTest(unittest.TestCase):
                 tar_fh.add(root / "manifest.json", arcname="manifest.json")
                 tar_fh.add(root / "X.tsv.gz", arcname="X.tsv.gz")
 
-            bundle = pegs_utils.load_bundle_defaults_contract(
-                str(bundle_path),
-                pegs_utils.EAGGL_BUNDLE_SCHEMA,
-                pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+            bundle = pegs_utils.BundleManifest.load_defaults(
+                bundle_path=str(bundle_path),
+                expected_schema=pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                allowed_default_inputs=pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
                 bundle_flag_name="--eaggl-bundle-in",
             )
             try:
@@ -98,13 +98,13 @@ class PegsUtilsBundleTest(unittest.TestCase):
             staged_file = root / "X.tsv.gz"
             staged_file.write_text("SET_A\tGENE1\n", encoding="utf-8")
             out_path = root / "out.tar.gz"
-            manifest_contract = pegs_utils.build_bundle_manifest_contract(
-                pegs_utils.EAGGL_BUNDLE_SCHEMA,
-                "pigean.py",
-                "gibbs",
-                ["gibbs", "--x-in", "X.tsv.gz"],
-                {"X_in": "X.tsv.gz"},
-                {"X.tsv.gz": pegs_utils.collect_file_metadata(str(staged_file))},
+            manifest_contract = pegs_utils.BundleManifest.build(
+                schema=pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                source_tool="pigean.py",
+                source_mode="gibbs",
+                source_argv=["gibbs", "--x-in", "X.tsv.gz"],
+                default_inputs={"X_in": "X.tsv.gz"},
+                files_metadata={"X.tsv.gz": pegs_utils.collect_file_metadata(str(staged_file))},
             )
             manifest_contract.write_manifest(str(root), manifest_name="manifest.json")
             manifest_contract.write_archive(

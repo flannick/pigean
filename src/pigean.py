@@ -34,7 +34,6 @@ try:
     from .pegs_utils import (
         configure_random_seed as pegs_configure_random_seed,
         collect_file_metadata as pegs_collect_file_metadata,
-        build_bundle_manifest_contract as pegs_build_bundle_manifest_contract,
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
         coerce_runtime_state_dict as pegs_coerce_runtime_state_dict,
         get_huge_statistics_paths_for_prefix as pegs_get_huge_statistics_paths_for_prefix,
@@ -83,6 +82,7 @@ try:
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         XReadPostCallbacks as PegsXReadPostCallbacks,
+        BundleManifest as PegsBundleManifest,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
         build_read_x_post_options as pegs_build_read_x_post_options,
@@ -120,7 +120,6 @@ except ImportError:
     from pegs_utils import (
         configure_random_seed as pegs_configure_random_seed,
         collect_file_metadata as pegs_collect_file_metadata,
-        build_bundle_manifest_contract as pegs_build_bundle_manifest_contract,
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
         coerce_runtime_state_dict as pegs_coerce_runtime_state_dict,
         get_huge_statistics_paths_for_prefix as pegs_get_huge_statistics_paths_for_prefix,
@@ -169,6 +168,7 @@ except ImportError:
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         XReadPostCallbacks as PegsXReadPostCallbacks,
+        BundleManifest as PegsBundleManifest,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
         build_read_x_post_options as pegs_build_read_x_post_options,
@@ -22428,7 +22428,7 @@ def _write_eaggl_bundle_if_requested(state, options, mode):
             file_meta[bundle_name] = pegs_collect_file_metadata(staged_path)
 
         manifest_name = "manifest.json"
-        bundle_manifest = pegs_build_bundle_manifest_contract(
+        bundle_manifest = PegsBundleManifest.build(
             schema=PEGS_EAGGL_BUNDLE_SCHEMA,
             source_tool="pigean.py",
             source_mode=mode,

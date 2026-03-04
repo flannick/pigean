@@ -4779,52 +4779,6 @@ def resolve_bundle_default_inputs(
     return resolved_default_inputs
 
 
-def load_bundle_defaults(
-    bundle_path,
-    expected_schema,
-    allowed_default_inputs,
-    *,
-    bundle_flag_name="--bundle-in",
-    manifest_name="manifest.json",
-    temp_prefix="bundle_in_",
-    bail_fn=None,
-):
-    if bail_fn is None:
-        bail_fn = _default_bail
-
-    bundle = BundleManifest.load_defaults(
-        bundle_path=bundle_path,
-        expected_schema=expected_schema,
-        allowed_default_inputs=allowed_default_inputs,
-        bundle_flag_name=bundle_flag_name,
-        manifest_name=manifest_name,
-        temp_prefix=temp_prefix,
-        bail_fn=bail_fn,
-    )
-    return bundle.extract_dir, bundle.manifest, bundle.default_inputs
-
-
-def load_bundle_defaults_contract(
-    bundle_path,
-    expected_schema,
-    allowed_default_inputs,
-    *,
-    bundle_flag_name="--bundle-in",
-    manifest_name="manifest.json",
-    temp_prefix="bundle_in_",
-    bail_fn=None,
-):
-    return BundleManifest.load_defaults(
-        bundle_path=bundle_path,
-        expected_schema=expected_schema,
-        allowed_default_inputs=allowed_default_inputs,
-        bundle_flag_name=bundle_flag_name,
-        manifest_name=manifest_name,
-        temp_prefix=temp_prefix,
-        bail_fn=bail_fn,
-    )
-
-
 def ensure_parent_dir_for_file(path):
     out_dir = os.path.dirname(os.path.abspath(path))
     if out_dir and not os.path.exists(out_dir):
@@ -4856,59 +4810,6 @@ def stage_file_into_dir(source_path, stage_dir, bundle_name, *, bail_fn=None):
         with open(staged_path, "wb") as out_fh:
             shutil.copyfileobj(in_fh, out_fh)
     return staged_path
-
-
-def build_bundle_manifest(
-    schema,
-    source_tool,
-    source_mode,
-    source_argv,
-    default_inputs,
-    files_metadata,
-):
-    return BundleManifest.build(
-        schema=schema,
-        source_tool=source_tool,
-        source_mode=source_mode,
-        source_argv=source_argv,
-        default_inputs=default_inputs,
-        files_metadata=files_metadata,
-    ).manifest
-
-
-def build_bundle_manifest_contract(
-    schema,
-    source_tool,
-    source_mode,
-    source_argv,
-    default_inputs,
-    files_metadata,
-):
-    return BundleManifest.build(
-        schema=schema,
-        source_tool=source_tool,
-        source_mode=source_mode,
-        source_argv=source_argv,
-        default_inputs=default_inputs,
-        files_metadata=files_metadata,
-    )
-
-
-def write_bundle_manifest_file(stage_dir, manifest, manifest_name="manifest.json"):
-    return BundleManifest(manifest=dict(manifest)).write_manifest(
-        stage_dir,
-        manifest_name=manifest_name,
-    )
-
-
-def write_bundle_archive(out_path, tar_mode, stage_dir, staged_file_names, *, manifest_name="manifest.json"):
-    BundleManifest(manifest={}).write_archive(
-        out_path,
-        tar_mode,
-        stage_dir,
-        staged_file_names,
-        manifest_name=manifest_name,
-    )
 
 
 def hash_file_sha256(path):
