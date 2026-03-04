@@ -4886,6 +4886,79 @@ def stage_file_into_dir(source_path, stage_dir, bundle_name, *, bail_fn=None):
     return staged_path
 
 
+def write_bundle_from_specs(
+    out_path,
+    *,
+    schema,
+    source_tool,
+    source_mode,
+    source_argv,
+    generated_file_specs,
+    optional_existing_files=None,
+    option_name="--bundle-out",
+    temp_prefix="bundle_out_",
+    manifest_name="manifest.json",
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    tar_mode = get_tar_write_mode_for_bundle_path(
+        out_path,
+        option_name=option_name,
+        bail_fn=bail_fn,
+    )
+    ensure_parent_dir_for_file(out_path)
+
+    with tempfile.TemporaryDirectory(prefix=temp_prefix) as stage_dir:
+        file_map = {}
+        file_meta = {}
+
+        for (default_key, bundle_name, write_fn, label, suggestion) in generated_file_specs:
+            staged_path = os.path.join(stage_dir, bundle_name)
+            write_fn(staged_path)
+            require_existing_nonempty_file(
+                staged_path,
+                label,
+                suggestion,
+                option_name=option_name,
+                bail_fn=bail_fn,
+            )
+            file_map[default_key] = bundle_name
+            file_meta[bundle_name] = collect_file_metadata(staged_path)
+
+        for (default_key, source_path, bundle_name) in optional_existing_files or []:
+            if source_path is None or not os.path.exists(source_path):
+                continue
+            staged_path = stage_file_into_dir(
+                source_path,
+                stage_dir,
+                bundle_name,
+                bail_fn=bail_fn,
+            )
+            file_map[default_key] = bundle_name
+            file_meta[bundle_name] = collect_file_metadata(staged_path)
+
+        manifest = BundleManifest.build(
+            schema=schema,
+            source_tool=source_tool,
+            source_mode=source_mode,
+            source_argv=source_argv,
+            default_inputs=file_map,
+            files_metadata=file_meta,
+        )
+        manifest.write_manifest(stage_dir, manifest_name=manifest_name)
+        manifest.write_archive(
+            out_path,
+            tar_mode,
+            stage_dir,
+            file_meta.keys(),
+            manifest_name=manifest_name,
+        )
+
+    return out_path
+
+
 def hash_file_sha256(path):
     sha = hashlib.sha256()
     with open(path, "rb") as fh:

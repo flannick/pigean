@@ -116,6 +116,58 @@ class PegsUtilsBundleTest(unittest.TestCase):
             )
             self.assertTrue(out_path.exists())
 
+    def test_write_bundle_from_specs_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            out_path = root / "handoff.tar.gz"
+            optional_path = root / "gene_phewas.tsv.gz"
+            optional_path.write_text("gene\ttrait\tbf\nGENE1\tT2D\t1.2\n", encoding="utf-8")
+
+            pegs_utils.write_bundle_from_specs(
+                str(out_path),
+                schema=pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                source_tool="pigean.py",
+                source_mode="gibbs",
+                source_argv=["gibbs", "--eaggl-bundle-out", str(out_path)],
+                generated_file_specs=[
+                    (
+                        "X_in",
+                        "X.tsv.gz",
+                        lambda p: Path(p).write_text("SET_A\tGENE1\n", encoding="utf-8"),
+                        "X matrix",
+                        "run with --X-in/--X-list",
+                    ),
+                    (
+                        "gene_stats_in",
+                        "gene_stats.tsv.gz",
+                        lambda p: Path(p).write_text("Gene\tprior\nGENE1\t0.1\n", encoding="utf-8"),
+                        "gene statistics",
+                        "run priors/gibbs first",
+                    ),
+                ],
+                optional_existing_files=[
+                    ("gene_phewas_bfs_in", str(optional_path), "gene_phewas_stats.tsv.gz"),
+                    ("gene_set_phewas_stats_in", str(root / "missing.tsv.gz"), "gene_set_phewas_stats.tsv.gz"),
+                ],
+                option_name="--eaggl-bundle-out",
+                temp_prefix="bundle_contract_",
+                manifest_name="manifest.json",
+            )
+
+            self.assertTrue(out_path.exists())
+            with tarfile.open(out_path, "r:*") as tar_fh:
+                members = set(tar_fh.getnames())
+                self.assertIn("manifest.json", members)
+                self.assertIn("X.tsv.gz", members)
+                self.assertIn("gene_stats.tsv.gz", members)
+                self.assertIn("gene_phewas_stats.tsv.gz", members)
+                self.assertNotIn("gene_set_phewas_stats.tsv.gz", members)
+                manifest = json.load(tar_fh.extractfile("manifest.json"))
+            defaults = manifest.get("default_inputs", {})
+            self.assertEqual(defaults.get("X_in"), "X.tsv.gz")
+            self.assertEqual(defaults.get("gene_stats_in"), "gene_stats.tsv.gz")
+            self.assertEqual(defaults.get("gene_phewas_bfs_in"), "gene_phewas_stats.tsv.gz")
+
     def test_apply_bundle_defaults_to_options_respects_existing_values(self) -> None:
         class _Options:
             X_in = None
