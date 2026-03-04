@@ -20,7 +20,7 @@ class SharedIoTest(unittest.TestCase):
                 {"Gene": "HNF1A", "prior": "1.8", "combined": "1.7"},
             ]
             pegs_utils.write_tsv(path, ["Gene", "prior", "combined"], rows)
-            table = pegs_utils.read_gene_stats(path)
+            table = pegs_utils.GeneStatsTable.read(path)
             self.assertIsInstance(table, pegs_utils.GeneStatsTable)
             self.assertEqual(len(table.rows), 2)
             self.assertEqual(table.by_key["INS"]["prior"], "2.3")
@@ -33,7 +33,7 @@ class SharedIoTest(unittest.TestCase):
                 {"Gene_Set": "set_b", "beta_uncorrected": "0.2"},
             ]
             pegs_utils.write_tsv(path, ["Gene_Set", "beta_uncorrected"], rows)
-            table = pegs_utils.read_gene_set_stats(path)
+            table = pegs_utils.GeneSetStatsTable.read(path)
             self.assertIsInstance(table, pegs_utils.GeneSetStatsTable)
             self.assertEqual(table.by_key["set_b"]["beta_uncorrected"], "0.2")
 

@@ -977,14 +977,6 @@ def write_tsv(path, columns, rows):
                 writer.writerow(row)
 
 
-def read_gene_stats(path, *, bail_fn=None):
-    return GeneStatsTable.read(path, bail_fn=bail_fn)
-
-
-def read_gene_set_stats(path, *, bail_fn=None):
-    return GeneSetStatsTable.read(path, bail_fn=bail_fn)
-
-
 def parse_gene_set_statistics_file(
     stats_in,
     *,
