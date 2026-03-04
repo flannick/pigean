@@ -49,7 +49,6 @@ try:
         validate_huge_statistics_loaded_shapes as pegs_validate_huge_statistics_loaded_shapes,
         write_huge_statistics_runtime_vectors as pegs_write_huge_statistics_runtime_vectors,
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
-        assign_default_batches as pegs_assign_default_batches,
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
         maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
@@ -136,7 +135,6 @@ except ImportError:
         validate_huge_statistics_loaded_shapes as pegs_validate_huge_statistics_loaded_shapes,
         write_huge_statistics_runtime_vectors as pegs_write_huge_statistics_runtime_vectors,
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
-        assign_default_batches as pegs_assign_default_batches,
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
         maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
@@ -1800,7 +1798,7 @@ class PigeanState(object):
             gene_to_ind = self.gene_to_ind
         else:
             genes = list(gene_to_chrom.keys())
-            gene_to_ind = _construct_map_to_ind(genes)
+            gene_to_ind = pegs_construct_map_to_ind(genes)
 
         # Remap sparse matrix row indices into the final gene ordering.
         extra_genes = []
@@ -1918,7 +1916,7 @@ class PigeanState(object):
                     warn("Skipping due to too few columns in line: %s" % line)
                     continue
 
-                chrom = _clean_chrom_name(cols[chrom_col])
+                chrom = pegs_clean_chrom_name(cols[chrom_col])
                 if hold_out_chrom is not None and chrom == hold_out_chrom:
                     continue
 
@@ -2013,7 +2011,7 @@ class PigeanState(object):
                     warn("Skipping due to too few columns in line: %s" % line)
                     continue
 
-                chrom = _clean_chrom_name(cols[chrom_col])
+                chrom = pegs_clean_chrom_name(cols[chrom_col])
 
                 if hold_out_chrom is not None and chrom == hold_out_chrom:
                     continue
@@ -2680,7 +2678,7 @@ class PigeanState(object):
         gene_end_indices = np.zeros(len(gene_names), dtype=int)
         gene_num_indices = np.zeros(len(gene_names), dtype=int)
 
-        gene_name_to_ind = _construct_map_to_ind(gene_names)
+        gene_name_to_ind = pegs_construct_map_to_ind(gene_names)
         for i in range(len(gene_names_non_unique)):
             gene_name_ind = gene_name_to_ind[gene_names_non_unique[i]]
             if gene_start_indices[gene_name_ind] == 0:
@@ -3503,7 +3501,7 @@ class PigeanState(object):
                     chrom = locus_tokens[0]
                     pos = locus_tokens[1]
 
-                chrom = _clean_chrom_name(chrom)
+                chrom = pegs_clean_chrom_name(chrom)
                 if hold_out_chrom is not None and chrom == hold_out_chrom:
                     continue
                 try:
@@ -3725,7 +3723,7 @@ class PigeanState(object):
                     gene_names_non_unique = np.array(gene_zipped[0])
 
                     gene_names, gene_index_to_name_index = np.unique(gene_names_non_unique, return_inverse=True)
-                    gene_name_to_index = _construct_map_to_ind(gene_names)
+                    gene_name_to_index = pegs_construct_map_to_ind(gene_names)
                     gene_pos = np.array(gene_zipped[1])
 
                     #get a map from position to gene
@@ -4125,7 +4123,7 @@ class PigeanState(object):
             (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = pegs_read_loc_file_with_gene_map(
                 gene_loc_file,
                 gene_label_map=self.gene_label_map,
-                clean_chrom_fn=_clean_chrom_name,
+                clean_chrom_fn=pegs_clean_chrom_name,
                 warn_fn=warn,
                 bail_fn=bail,
             )
@@ -4413,7 +4411,7 @@ class PigeanState(object):
             (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = pegs_read_loc_file_with_gene_map(
                 gene_loc_file,
                 gene_label_map=self.gene_label_map,
-                clean_chrom_fn=_clean_chrom_name,
+                clean_chrom_fn=pegs_clean_chrom_name,
                 warn_fn=warn,
                 bail_fn=bail,
             )
@@ -4526,7 +4524,7 @@ class PigeanState(object):
             (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = pegs_read_loc_file_with_gene_map(
                 gene_loc_file,
                 gene_label_map=self.gene_label_map,
-                clean_chrom_fn=_clean_chrom_name,
+                clean_chrom_fn=pegs_clean_chrom_name,
                 warn_fn=warn,
                 bail_fn=bail,
             )
@@ -5046,7 +5044,7 @@ class PigeanState(object):
             max_num_entries_at_once=max_num_entries_at_once,
             open_text_fn=open_gz,
             get_col_fn=_get_col,
-            construct_map_to_ind_fn=_construct_map_to_ind,
+            construct_map_to_ind_fn=pegs_construct_map_to_ind,
             warn_fn=warn,
             bail_fn=bail,
             log_fn=lambda message: log(message, DEBUG),
@@ -5648,7 +5646,7 @@ class PigeanState(object):
                         if gene_name not in self.gene_to_ind:
                             continue
 
-                        chrom = _clean_chrom_name(cols[1])
+                        chrom = pegs_clean_chrom_name(cols[1])
                         pos1 = int(cols[2])
                         pos2 = int(cols[3])
 
@@ -6468,7 +6466,7 @@ class PigeanState(object):
         prior_num_phenos = len(self.phenos) if self.phenos is not None else 0
         self._expand_phewas_state_for_added_phenos(len(phenos) - prior_num_phenos)
         self.phenos = phenos
-        return phenos, _construct_map_to_ind(phenos), col_info
+        return phenos, pegs_construct_map_to_ind(phenos), col_info
 
     def _read_phewas_file_batch(self, gene_phewas_bfs_in, begin, cur_batch_size, pheno_to_ind, id_col, pheno_col, bf_col, combined_col, prior_col):
         gene_pheno_Y = np.zeros((len(self.genes), cur_batch_size)) if bf_col is not None else None
@@ -7873,7 +7871,7 @@ class PigeanState(object):
         if total_genes is not None:
             total_genes = self.genes
 
-        #gene_to_ind = _construct_map_to_ind(gene_prob_genes)
+        #gene_to_ind = pegs_construct_map_to_ind(gene_prob_genes)
 
 
         if rel_prior_log_bf is None:
@@ -10098,13 +10096,13 @@ class PigeanState(object):
                 self._reread_gene_phewas_bfs()
 
         if self.genes is not None:
-            self.gene_to_ind = _construct_map_to_ind(self.genes)
+            self.gene_to_ind = pegs_construct_map_to_ind(self.genes)
         else:
             self.gene_to_ind = None
 
         self.gene_sets = gene_sets
         if self.gene_sets is not None:
-            self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
+            self.gene_set_to_ind = pegs_construct_map_to_ind(self.gene_sets)
         else:
             self.gene_set_to_ind = None
 
@@ -10465,7 +10463,7 @@ class PigeanState(object):
             bail("Sorting genes after setting correlation matrix is not yet implemented")
 
         self.genes = [self.genes[i] for i in sorted_gene_indices]
-        self.gene_to_ind = _construct_map_to_ind(self.genes)
+        self.gene_to_ind = pegs_construct_map_to_ind(self.genes)
 
         index_map = {sorted_gene_indices[i]: i for i in range(len(sorted_gene_indices))}
 
@@ -10689,10 +10687,10 @@ class PigeanState(object):
 
         self.genes_missing = (self.genes_missing if self.genes_missing is not None else []) + [self.genes[i] for i in range(len(self.genes)) if not gene_mask[i]]
 
-        self.gene_missing_to_ind = _construct_map_to_ind(self.genes_missing)
+        self.gene_missing_to_ind = pegs_construct_map_to_ind(self.genes_missing)
         
         self.genes = [self.genes[i] for i in range(len(self.genes)) if gene_mask[i]]
-        self.gene_to_ind = _construct_map_to_ind(self.genes)
+        self.gene_to_ind = pegs_construct_map_to_ind(self.genes)
 
         remove_mask = np.logical_not(gene_mask)
 
@@ -11035,7 +11033,7 @@ class PigeanState(object):
             self.sigma2s = self.sigma2s[subset_mask]
 
         self.gene_sets = list(itertools.compress(self.gene_sets, subset_mask))
-        self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
+        self.gene_set_to_ind = pegs_construct_map_to_ind(self.gene_sets)
 
         if self.X_phewas_beta is not None:
             self.X_phewas_beta = self.X_phewas_beta[:,subset_mask]                
@@ -11073,7 +11071,7 @@ class PigeanState(object):
 
         self.gene_sets += self.gene_sets_missing
         self.gene_sets_missing = None
-        self.gene_set_to_ind = _construct_map_to_ind(self.gene_sets)
+        self.gene_set_to_ind = pegs_construct_map_to_ind(self.gene_sets)
 
         if self.beta_tildes_missing is not None:
             self.beta_tildes = np.append(self.beta_tildes, self.beta_tildes_missing)
@@ -11194,7 +11192,7 @@ def _init_gene_locs(runtime_state, gene_loc_file):
     ) = pegs_read_loc_file_with_gene_map(
         gene_loc_file,
         gene_label_map=runtime_state.gene_label_map,
-        clean_chrom_fn=_clean_chrom_name,
+        clean_chrom_fn=pegs_clean_chrom_name,
         warn_fn=warn,
         bail_fn=bail,
     )
@@ -11923,7 +11921,7 @@ def _merge_y_into_existing_gene_universe(
     Y_case_counts = Y1_case_counts
     Y_case_counts[np.isnan(Y1_case_counts)] = missing_value_case_counts
 
-    extra_gene_to_ind = _construct_map_to_ind(extra_genes)
+    extra_gene_to_ind = pegs_construct_map_to_ind(extra_genes)
     extra_Y = list(extra_Y)
     extra_Y_for_regression = list(extra_Y_for_regression)
     new_extra_Y_exomes = list(np.full(len(extra_Y), missing_value_exomes))
@@ -12126,14 +12124,6 @@ def _maybe_append_input_gene_covariates(runtime_state, gene_covs_in=None, **kwar
         runtime_state.gene_covariates = gene_covs
         runtime_state.gene_covariate_names = cov_names
         runtime_state.gene_covariate_directions = cov_dirs
-
-
-def _assign_default_batches(batches, orig_files, batch_all_for_hyper, first_for_hyper):
-    return pegs_assign_default_batches(batches, orig_files, batch_all_for_hyper, first_for_hyper)
-
-
-def _remove_tag_from_input(x_in, tag_separator=':'):
-    return pegs_remove_tag_from_input(x_in, tag_separator=tag_separator)
 
 
 def _prepare_read_x_inputs(
@@ -13131,7 +13121,7 @@ def _init_sparse_x_batch_state(runtime_state):
         genes = copy.copy(runtime_state.genes)
         if runtime_state.genes_missing is not None:
             genes += runtime_state.genes_missing
-        gene_to_ind = _construct_map_to_ind(genes)
+        gene_to_ind = pegs_construct_map_to_ind(genes)
 
     return (
         genes,
@@ -13761,7 +13751,7 @@ def _partition_missing_gene_rows(runtime_state, cur_X, genes, gene_sets):
 
     if (runtime_state.Y is not None and len(genes) > len(runtime_state.Y)) or (runtime_state.genes is not None):
         genes_missing_old = runtime_state.genes_missing if runtime_state.genes_missing is not None else []
-        gene_missing_old_to_ind = _construct_map_to_ind(genes_missing_old)
+        gene_missing_old_to_ind = pegs_construct_map_to_ind(genes_missing_old)
 
         # Genes newly missing this round.
         genes_missing_new = [x for x in genes if x not in runtime_state.gene_to_ind and x not in gene_missing_old_to_ind]
@@ -13832,7 +13822,7 @@ def _reindex_x_rows_to_current_genes(runtime_state, cur_X, genes):
         if (runtime_state.gene_to_ind is None or x not in runtime_state.gene_to_ind)
         and (runtime_state.gene_missing_to_ind is None or x not in runtime_state.gene_missing_to_ind)
     ]
-    gene_to_ind = _construct_map_to_ind(genes)
+    gene_to_ind = pegs_construct_map_to_ind(genes)
     index_map = {i: gene_to_ind[old_genes[i]] for i in range(len(old_genes))}
     cur_X = sparse.csc_matrix(
         (cur_X.data, [index_map[x] for x in cur_X.indices], cur_X.indptr),
@@ -13860,7 +13850,7 @@ def _ensure_gene_universe_for_x(
         num_gene_sets = 0
         for i in range(len(X_ins)):
             X_in = X_ins[i]
-            (X_in, tag) = _remove_tag_from_input(X_in)
+            (X_in, tag) = pegs_remove_tag_from_input(X_in)
 
             if is_dense[i]:
                 with open_gz(X_in) as gene_sets_fh:
@@ -13956,7 +13946,7 @@ def _align_extra_genes_with_new_source(
     existing_missing_values,
     new_source_missing_value,
 ):
-    new_source_gene_to_ind = _construct_map_to_ind(new_source_genes)
+    new_source_gene_to_ind = pegs_construct_map_to_ind(new_source_genes)
     merged_extra_genes = list(new_source_genes)
     merged_new_source_values = list(new_source_values)
     aligned_existing_values = [
@@ -13995,7 +13985,7 @@ def _apply_hold_out_chrom_to_y(runtime_state, Y, extra_genes, extra_Y, hold_out_
         ) = pegs_read_loc_file_with_gene_map(
             gene_loc_file,
             gene_label_map=runtime_state.gene_label_map,
-            clean_chrom_fn=_clean_chrom_name,
+            clean_chrom_fn=pegs_clean_chrom_name,
             warn_fn=warn,
             bail_fn=bail,
         )
@@ -14017,10 +14007,6 @@ def _apply_hold_out_chrom_to_y(runtime_state, Y, extra_genes, extra_Y, hold_out_
             Y[Y_nan_mask] = np.nan
 
     return (Y, extra_genes, extra_Y)
-
-
-def _construct_map_to_ind(values):
-    return pegs_construct_map_to_ind(values)
 
 
 def _get_col(col_name_or_index, header_cols, require_match=True):
@@ -14162,10 +14148,6 @@ class _IntervalTree(object):
         return overlapping_indices
 
 
-def _clean_chrom_name(chrom):
-    return pegs_clean_chrom_name(chrom)
-
-
 def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_chrom=None, exons_loc_file=None):
     # Store per-chromosome gene endpoints used by nearby-gene and window lookups.
     log("Reading gene locations")
@@ -14173,7 +14155,7 @@ def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_c
         gene_loc_file,
         gene_label_map=gene_label_map,
         hold_out_chrom=hold_out_chrom,
-        clean_chrom_fn=_clean_chrom_name,
+        clean_chrom_fn=pegs_clean_chrom_name,
         warn_fn=warn,
         bail_fn=bail,
     )
@@ -14193,7 +14175,7 @@ def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_c
             exons_loc_file,
             gene_label_map=gene_label_map,
             return_intervals=True,
-            clean_chrom_fn=_clean_chrom_name,
+            clean_chrom_fn=pegs_clean_chrom_name,
             warn_fn=warn,
             bail_fn=bail,
         )
@@ -16222,8 +16204,8 @@ def _update_inner_beta_gene_set_batch(
 
         if betas_trace_out is not None and betas_trace_gene_sets is not None:
             cur_sets = [betas_trace_gene_sets[x] for x in range(len(betas_trace_gene_sets)) if compute_mask_union[x]]
-            _construct_map_to_ind(betas_trace_gene_sets)
-            _construct_map_to_ind(cur_sets)
+            pegs_construct_map_to_ind(betas_trace_gene_sets)
+            pegs_construct_map_to_ind(cur_sets)
 
         res_beta_hat_t_flat = res_beta_hat_union_t[:, compute_mask_union_filter_m[compute_mask_v, :]]
         assert res_beta_hat_t_flat.shape[1] == np.sum(compute_mask_m)
@@ -21088,7 +21070,7 @@ def _log_gibbs_overlapping_corrected_beta_details(
     if print_overlapping is None:
         return
     gene_sets_run = [state.gene_sets[i] for i in range(len(state.gene_sets)) if cur_gene_set_mask[i]]
-    gene_set_to_ind = _construct_map_to_ind(gene_sets_run)
+    gene_set_to_ind = pegs_construct_map_to_ind(gene_sets_run)
     for gene_set in print_overlapping:
         if gene_set in gene_set_to_ind:
             log("For gene set %s" % (gene_set))
@@ -22080,7 +22062,7 @@ def _read_x_pipeline(runtime, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=
         ingestion_options=ingestion_options,
         ensure_gene_universe_fn=_ensure_gene_universe_for_x,
         process_x_input_file_fn=_process_x_input_file,
-        remove_tag_from_input_fn=_remove_tag_from_input,
+        remove_tag_from_input_fn=pegs_remove_tag_from_input,
         log_fn=log,
         info_level=INFO,
         debug_level=DEBUG,
