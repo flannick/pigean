@@ -1380,7 +1380,7 @@ class PigeanState(object):
         self.debug_only_avg_huge = False
         self.debug_just_check_header = False
 
-        self._init_matrix_and_gene_index_state(batch_size=batch_size)
+        pegs_initialize_matrix_and_gene_index_state(self, batch_size=batch_size)
         self._init_phewas_and_label_state()
         self._init_gene_set_regression_state()
         self._init_gene_signal_and_huge_state()
@@ -1388,9 +1388,6 @@ class PigeanState(object):
         self.y_state = pegs_sync_y_state(self)
         self.hyperparameter_state = pegs_sync_hyperparameter_state(self)
         self.phewas_state = pegs_sync_phewas_runtime_state(self)
-
-    def _init_matrix_and_gene_index_state(self, batch_size):
-        pegs_initialize_matrix_and_gene_index_state(self, batch_size=batch_size)
 
     def _init_phewas_and_label_state(self):
         self.anchor_pheno_mask = None
@@ -3688,7 +3685,12 @@ class PigeanState(object):
                     var_beta = np.array(vars_zipped[2], dtype=float)
                     var_se = np.array(vars_zipped[3], dtype=float)
 
-                    (var_p, var_beta, var_se) = self._complete_p_beta_se(var_p, var_beta, var_se)
+                    (var_p, var_beta, var_se) = pegs_complete_p_beta_se(
+                        var_p,
+                        var_beta,
+                        var_se,
+                        warn_fn=warn,
+                    )
 
                     var_z = var_beta / var_se
                     var_se2 = np.square(var_se)
@@ -4319,7 +4321,12 @@ class PigeanState(object):
             gene_betas = np.array(gene_betas, dtype=float)
             gene_ses = np.array(gene_ses, dtype=float)
 
-            (gene_ps, gene_betas, gene_ses) = self._complete_p_beta_se(gene_ps, gene_betas, gene_ses)
+            (gene_ps, gene_betas, gene_ses) = pegs_complete_p_beta_se(
+                gene_ps,
+                gene_betas,
+                gene_ses,
+                warn_fn=warn,
+            )
 
             gene_zs = gene_betas / gene_ses
 
@@ -4961,31 +4968,6 @@ class PigeanState(object):
                     self.gene_to_huge_score[gene] += self.gene_to_gwas_huge_score[gene]
                 if gene in self.gene_to_exomes_huge_score:
                     self.gene_to_huge_score[gene] += self.gene_to_exomes_huge_score[gene]
-
-    def read_gene_set_statistics(self, stats_in, stats_id_col=None, stats_exp_beta_tilde_col=None, stats_beta_tilde_col=None, stats_p_col=None, stats_se_col=None, stats_beta_col=None, stats_beta_uncorrected_col=None, ignore_negative_exp_beta=False, max_gene_set_p=None, min_gene_set_beta=None, min_gene_set_beta_uncorrected=None, return_only_ids=False):
-        return pegs_load_and_apply_gene_set_statistics_to_runtime(
-            self,
-            stats_in,
-            stats_id_col=stats_id_col,
-            stats_exp_beta_tilde_col=stats_exp_beta_tilde_col,
-            stats_beta_tilde_col=stats_beta_tilde_col,
-            stats_p_col=stats_p_col,
-            stats_se_col=stats_se_col,
-            stats_beta_col=stats_beta_col,
-            stats_beta_uncorrected_col=stats_beta_uncorrected_col,
-            ignore_negative_exp_beta=ignore_negative_exp_beta,
-            max_gene_set_p=max_gene_set_p,
-            min_gene_set_beta=min_gene_set_beta,
-            min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
-            return_only_ids=return_only_ids,
-            open_text_fn=open_gz,
-            get_col_fn=_get_col,
-            parse_log_fn=lambda message: log(message, INFO),
-            apply_log_fn=lambda message: log(message, DEBUG),
-            warn_fn=warn,
-            bail_fn=bail,
-        )
-
 
     def _reread_gene_phewas_bfs(self):
         if self.cached_gene_phewas_call is not None:
@@ -7843,14 +7825,6 @@ class PigeanState(object):
         var = frac * np.square(top_bf / (-scipy.stats.norm.ppf(1.0 / (num * frac))))
         return var
 
-    def _complete_p_beta_se(self, p, beta, se):
-        return pegs_complete_p_beta_se(
-            p,
-            beta,
-            se,
-            warn_fn=warn,
-        )
-        
     def _distill_huge_signal_bfs(self, huge_signal_bfs, huge_signal_posteriors, huge_signal_sum_gene_cond_probabilities, huge_signal_mean_gene_pos, huge_signal_max_closest_gene_prob, cap_region_posterior, scale_region_posterior, phantom_region_posterior, allow_evidence_of_absence, gene_covariates, gene_covariates_mask, gene_covariates_mat_inv, gene_covariate_names, gene_covariate_intercept_index, gene_prob_genes, total_genes=None, rel_prior_log_bf=None):
 
         if huge_signal_bfs is None:
@@ -22265,7 +22239,8 @@ def _run_main_beta_tilde_stage(state, options, mode_state):
         state.beta_tildes = np.full(len(state.gene_sets), options.const_gene_set_beta)
         return BetaStageResult(ran=True, source="const_gene_set_beta")
     if options.gene_set_stats_in is not None:
-        state.read_gene_set_statistics(
+        pegs_load_and_apply_gene_set_statistics_to_runtime(
+            state,
             options.gene_set_stats_in,
             stats_id_col=options.gene_set_stats_id_col,
             stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
@@ -22279,6 +22254,12 @@ def _run_main_beta_tilde_stage(state, options, mode_state):
             min_gene_set_beta=options.min_gene_set_read_beta,
             min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
             return_only_ids=False,
+            open_text_fn=open_gz,
+            get_col_fn=_get_col,
+            parse_log_fn=lambda message: log(message, INFO),
+            apply_log_fn=lambda message: log(message, DEBUG),
+            warn_fn=warn,
+            bail_fn=bail,
         )
         return BetaStageResult(ran=True, source="gene_set_stats_in")
     if needs_gene_set_stats:
