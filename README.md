@@ -65,6 +65,10 @@ For required inputs and expected outputs per retained advanced workflow, see:
 For PIGEAN -> EAGGL handoff bundle usage, see:
 - `docs/EAGGL_INTEROP.md`
 
+For curated CLI surface and category inventory (auto-generated):
+- `docs/CLI_OPTIONS.md`
+- `docs/cli_option_manifest.json`
+
 Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `src/pigean.py`.
 
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.

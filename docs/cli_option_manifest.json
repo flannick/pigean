@@ -1,0 +1,5298 @@
+{
+  "categories": {
+    "core_model": 273,
+    "engineering": 36,
+    "experimental": 2
+  },
+  "entrypoint": "src/pigean.py",
+  "num_options": 311,
+  "options": [
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "V_in",
+      "flags": [
+        "",
+        "--V-in"
+      ],
+      "help": null,
+      "primary_flag": "--V-in",
+      "replacement": null,
+      "source_line": 343,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "V_out",
+      "flags": [
+        "",
+        "--V-out"
+      ],
+      "help": null,
+      "primary_flag": "--V-out",
+      "replacement": null,
+      "source_line": 344,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "append",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "X_in",
+      "flags": [
+        "",
+        "--X-in"
+      ],
+      "help": null,
+      "primary_flag": "--X-in",
+      "replacement": null,
+      "source_line": 301,
+      "type": null,
+      "usage_references": 30
+    },
+    {
+      "action": "append",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "X_list",
+      "flags": [
+        "",
+        "--X-list"
+      ],
+      "help": null,
+      "primary_flag": "--X-list",
+      "replacement": null,
+      "source_line": 302,
+      "type": null,
+      "usage_references": 15
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "X_out",
+      "flags": [
+        "",
+        "--X-out"
+      ],
+      "help": null,
+      "primary_flag": "--X-out",
+      "replacement": null,
+      "source_line": 305,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "append",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "Xd_in",
+      "flags": [
+        "",
+        "--Xd-in"
+      ],
+      "help": null,
+      "primary_flag": "--Xd-in",
+      "replacement": null,
+      "source_line": 303,
+      "type": null,
+      "usage_references": 10
+    },
+    {
+      "action": "append",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "Xd_list",
+      "flags": [
+        "",
+        "--Xd-list"
+      ],
+      "help": null,
+      "primary_flag": "--Xd-list",
+      "replacement": null,
+      "source_line": 304,
+      "type": null,
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "Xd_out",
+      "flags": [
+        "",
+        "--Xd-out"
+      ],
+      "help": null,
+      "primary_flag": "--Xd-out",
+      "replacement": null,
+      "source_line": 306,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.005",
+      "deprecation_timeline": null,
+      "dest": "active_beta_min_abs",
+      "flags": [
+        "",
+        "--active-beta-min-abs"
+      ],
+      "help": null,
+      "primary_flag": "--active-beta-min-abs",
+      "replacement": null,
+      "source_line": 678,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "200",
+      "deprecation_timeline": null,
+      "dest": "active_beta_top_k",
+      "flags": [
+        "",
+        "--active-beta-top-k"
+      ],
+      "help": null,
+      "primary_flag": "--active-beta-top-k",
+      "replacement": null,
+      "source_line": 677,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "add_all_genes",
+      "flags": [
+        "",
+        "--add-all-genes"
+      ],
+      "help": null,
+      "primary_flag": "--add-all-genes",
+      "replacement": null,
+      "source_line": 559,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "add_ext",
+      "flags": [
+        "",
+        "--add-ext"
+      ],
+      "help": null,
+      "primary_flag": "--add-ext",
+      "replacement": null,
+      "source_line": 552,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "adjust_priors",
+      "flags": [
+        "",
+        "--adjust-priors"
+      ],
+      "help": null,
+      "primary_flag": "--adjust-priors",
+      "replacement": null,
+      "source_line": 616,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "allow_evidence_of_absence",
+      "flags": [
+        "",
+        "--allow-evidence-of-absence"
+      ],
+      "help": null,
+      "primary_flag": "--allow-evidence-of-absence",
+      "replacement": null,
+      "source_line": 594,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.05",
+      "deprecation_timeline": null,
+      "dest": "background_prior",
+      "flags": [
+        "",
+        "--background-prior"
+      ],
+      "help": null,
+      "primary_flag": "--background-prior",
+      "replacement": null,
+      "source_line": 340,
+      "type": "float",
+      "usage_references": 7
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "batch_all_for_hyper",
+      "flags": [
+        "",
+        "--batch-all-for-hyper"
+      ],
+      "help": null,
+      "primary_flag": "--batch-all-for-hyper",
+      "replacement": null,
+      "source_line": 335,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "@",
+      "deprecation_timeline": null,
+      "dest": "batch_separator",
+      "flags": [
+        "",
+        "--batch-separator"
+      ],
+      "help": null,
+      "primary_flag": "--batch-separator",
+      "replacement": null,
+      "source_line": 308,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "5000",
+      "deprecation_timeline": null,
+      "dest": "batch_size",
+      "flags": [
+        "",
+        "--batch-size"
+      ],
+      "help": null,
+      "primary_flag": "--batch-size",
+      "replacement": null,
+      "source_line": 530,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.1",
+      "deprecation_timeline": null,
+      "dest": "beta_rel_mcse_denom_floor",
+      "flags": [
+        "",
+        "--beta-rel-mcse-denom-floor"
+      ],
+      "help": null,
+      "primary_flag": "--beta-rel-mcse-denom-floor",
+      "replacement": null,
+      "source_line": 681,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "betas_from_phewas",
+      "flags": [
+        "",
+        "--betas-from-phewas"
+      ],
+      "help": null,
+      "primary_flag": "--betas-from-phewas",
+      "replacement": null,
+      "source_line": 484,
+      "type": null,
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "betas_trace_out",
+      "flags": [
+        "",
+        "--betas-trace-out"
+      ],
+      "help": null,
+      "primary_flag": "--betas-trace-out",
+      "replacement": null,
+      "source_line": 473,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "betas_uncorrected_from_phewas",
+      "flags": [
+        "",
+        "--betas-uncorrected-from-phewas"
+      ],
+      "help": null,
+      "primary_flag": "--betas-uncorrected-from-phewas",
+      "replacement": null,
+      "source_line": 485,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "2",
+      "deprecation_timeline": null,
+      "dest": "burn_in_patience",
+      "flags": [
+        "",
+        "--burn-in-patience"
+      ],
+      "help": null,
+      "primary_flag": "--burn-in-patience",
+      "replacement": null,
+      "source_line": 674,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.9",
+      "deprecation_timeline": null,
+      "dest": "burn_in_rhat_quantile",
+      "flags": [
+        "",
+        "--burn-in-rhat-quantile"
+      ],
+      "help": null,
+      "primary_flag": "--burn-in-rhat-quantile",
+      "replacement": null,
+      "source_line": 673,
+      "type": "float",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "burn_in_stall_delta",
+      "flags": [
+        "",
+        "--burn-in-stall-delta"
+      ],
+      "help": null,
+      "primary_flag": "--burn-in-stall-delta",
+      "replacement": null,
+      "source_line": 676,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "3",
+      "deprecation_timeline": null,
+      "dest": "burn_in_stall_window",
+      "flags": [
+        "",
+        "--burn-in-stall-window"
+      ],
+      "help": null,
+      "primary_flag": "--burn-in-stall-window",
+      "replacement": null,
+      "source_line": 675,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "cap_raw_closest_gene",
+      "flags": [
+        "",
+        "--cap-raw-closest-gene"
+      ],
+      "help": null,
+      "primary_flag": "--cap-raw-closest-gene",
+      "replacement": null,
+      "source_line": 587,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "case_counts_count_col",
+      "flags": [
+        "",
+        "--case-counts-count-col"
+      ],
+      "help": null,
+      "primary_flag": "--case-counts-count-col",
+      "replacement": null,
+      "source_line": 413,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "case_counts_gene_col",
+      "flags": [
+        "",
+        "--case-counts-gene-col"
+      ],
+      "help": null,
+      "primary_flag": "--case-counts-gene-col",
+      "replacement": null,
+      "source_line": 411,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "case_counts_in",
+      "flags": [
+        "",
+        "--case-counts-in"
+      ],
+      "help": null,
+      "primary_flag": "--case-counts-in",
+      "replacement": null,
+      "source_line": 410,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "case_counts_max_freq_col",
+      "flags": [
+        "",
+        "--case-counts-max-freq-col"
+      ],
+      "help": null,
+      "primary_flag": "--case-counts-max-freq-col",
+      "replacement": null,
+      "source_line": 415,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "case_counts_revel_col",
+      "flags": [
+        "",
+        "--case-counts-revel-col"
+      ],
+      "help": null,
+      "primary_flag": "--case-counts-revel-col",
+      "replacement": null,
+      "source_line": 412,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "case_counts_tot_col",
+      "flags": [
+        "",
+        "--case-counts-tot-col"
+      ],
+      "help": null,
+      "primary_flag": "--case-counts-tot-col",
+      "replacement": null,
+      "source_line": 414,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.7",
+      "deprecation_timeline": null,
+      "dest": "closest_gene_prob",
+      "flags": [
+        "",
+        "--closest-gene-prob"
+      ],
+      "help": null,
+      "primary_flag": "--closest-gene-prob",
+      "replacement": null,
+      "source_line": 584,
+      "type": "float",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "config",
+      "flags": [
+        "",
+        "--config"
+      ],
+      "help": null,
+      "primary_flag": "--config",
+      "replacement": null,
+      "source_line": 508,
+      "type": null,
+      "usage_references": 28
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "const_gene_Y",
+      "flags": [
+        "",
+        "--const-gene-Y"
+      ],
+      "help": null,
+      "primary_flag": "--const-gene-Y",
+      "replacement": null,
+      "source_line": 446,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "const_gene_set_beta",
+      "flags": [
+        "",
+        "--const-gene-set-beta"
+      ],
+      "help": null,
+      "primary_flag": "--const-gene-set-beta",
+      "replacement": null,
+      "source_line": 445,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "const_sigma",
+      "flags": [
+        "",
+        "--const-sigma"
+      ],
+      "help": null,
+      "primary_flag": "--const-sigma",
+      "replacement": null,
+      "source_line": 324,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "correct_betas_mean",
+      "flags": [
+        "",
+        "--correct-betas-mean"
+      ],
+      "help": null,
+      "primary_flag": "--correct-betas-mean",
+      "replacement": null,
+      "source_line": 595,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "correct_betas_var",
+      "flags": [
+        "",
+        "--correct-betas-var"
+      ],
+      "help": null,
+      "primary_flag": "--correct-betas-var",
+      "replacement": null,
+      "source_line": 597,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1.0",
+      "deprecation_timeline": null,
+      "dest": "counts_beta",
+      "flags": [
+        "",
+        "--counts-beta"
+      ],
+      "help": null,
+      "primary_flag": "--counts-beta",
+      "replacement": null,
+      "source_line": 429,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.001",
+      "deprecation_timeline": null,
+      "dest": "counts_max_case_freq",
+      "flags": [
+        "",
+        "--counts-max-case-freq"
+      ],
+      "help": null,
+      "primary_flag": "--counts-max-case-freq",
+      "replacement": null,
+      "source_line": 424,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.001",
+      "deprecation_timeline": null,
+      "dest": "counts_max_ctrl_freq",
+      "flags": [
+        "",
+        "--counts-max-ctrl-freq"
+      ],
+      "help": null,
+      "primary_flag": "--counts-max-ctrl-freq",
+      "replacement": null,
+      "source_line": 425,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": "callback",
+      "category": "core_model",
+      "default": "[1.3, 1.6, 2.5, 3.8]",
+      "deprecation_timeline": null,
+      "dest": "counts_mean_rrs",
+      "flags": [
+        "",
+        "--counts-mean-rrs"
+      ],
+      "help": null,
+      "primary_flag": "--counts-mean-rrs",
+      "replacement": null,
+      "source_line": 423,
+      "type": "string",
+      "usage_references": 7
+    },
+    {
+      "action": "callback",
+      "category": "core_model",
+      "default": "[0.4, 0.6, 0.8, 1]",
+      "deprecation_timeline": null,
+      "dest": "counts_min_revels",
+      "flags": [
+        "",
+        "--counts-min-revels"
+      ],
+      "help": null,
+      "primary_flag": "--counts-min-revels",
+      "replacement": null,
+      "source_line": 422,
+      "type": "string",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1.0",
+      "deprecation_timeline": null,
+      "dest": "counts_nu",
+      "flags": [
+        "",
+        "--counts-nu"
+      ],
+      "help": null,
+      "primary_flag": "--counts-nu",
+      "replacement": null,
+      "source_line": 428,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.0001",
+      "deprecation_timeline": null,
+      "dest": "counts_syn_fisher_p",
+      "flags": [
+        "",
+        "--counts-syn-fisher-p"
+      ],
+      "help": null,
+      "primary_flag": "--counts-syn-fisher-p",
+      "replacement": null,
+      "source_line": 427,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0",
+      "deprecation_timeline": null,
+      "dest": "counts_syn_revel",
+      "flags": [
+        "",
+        "--counts-syn-revel"
+      ],
+      "help": null,
+      "primary_flag": "--counts-syn-revel",
+      "replacement": null,
+      "source_line": 426,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "25000",
+      "deprecation_timeline": null,
+      "dest": "credible_set_span",
+      "flags": [
+        "",
+        "--credible-set-span"
+      ],
+      "help": null,
+      "primary_flag": "--credible-set-span",
+      "replacement": null,
+      "source_line": 375,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "credible_sets_chrom_col",
+      "flags": [
+        "",
+        "--credible-sets-chrom-col"
+      ],
+      "help": null,
+      "primary_flag": "--credible-sets-chrom-col",
+      "replacement": null,
+      "source_line": 372,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "credible_sets_id_col",
+      "flags": [
+        "",
+        "--credible-sets-id-col"
+      ],
+      "help": null,
+      "primary_flag": "--credible-sets-id-col",
+      "replacement": null,
+      "source_line": 371,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "credible_sets_in",
+      "flags": [
+        "",
+        "--credible-sets-in"
+      ],
+      "help": null,
+      "primary_flag": "--credible-sets-in",
+      "replacement": null,
+      "source_line": 370,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "credible_sets_pos_col",
+      "flags": [
+        "",
+        "--credible-sets-pos-col"
+      ],
+      "help": null,
+      "primary_flag": "--credible-sets-pos-col",
+      "replacement": null,
+      "source_line": 373,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "credible_sets_ppa_col",
+      "flags": [
+        "",
+        "--credible-sets-ppa-col"
+      ],
+      "help": null,
+      "primary_flag": "--credible-sets-ppa-col",
+      "replacement": null,
+      "source_line": 374,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "cross_val",
+      "flags": [
+        "",
+        "--cross-val"
+      ],
+      "help": null,
+      "primary_flag": "--cross-val",
+      "replacement": null,
+      "source_line": 327,
+      "type": null,
+      "usage_references": 24
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "4",
+      "deprecation_timeline": null,
+      "dest": "cross_val_folds",
+      "flags": [
+        "",
+        "--cross-val-folds"
+      ],
+      "help": null,
+      "primary_flag": "--cross-val-folds",
+      "replacement": null,
+      "source_line": 331,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "2",
+      "deprecation_timeline": null,
+      "dest": "cross_val_max_num_tries",
+      "flags": [
+        "",
+        "--cross-val-max-num-tries"
+      ],
+      "help": null,
+      "primary_flag": "--cross-val-max-num-tries",
+      "replacement": null,
+      "source_line": 330,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "3",
+      "deprecation_timeline": null,
+      "dest": "cross_val_num_explore_each_direction",
+      "flags": [
+        "",
+        "--cross-val-num-explore-each-direction"
+      ],
+      "help": null,
+      "primary_flag": "--cross-val-num-explore-each-direction",
+      "replacement": null,
+      "source_line": 329,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "ctrl_counts_count_col",
+      "flags": [
+        "",
+        "--ctrl-counts-count-col"
+      ],
+      "help": null,
+      "primary_flag": "--ctrl-counts-count-col",
+      "replacement": null,
+      "source_line": 419,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "ctrl_counts_gene_col",
+      "flags": [
+        "",
+        "--ctrl-counts-gene-col"
+      ],
+      "help": null,
+      "primary_flag": "--ctrl-counts-gene-col",
+      "replacement": null,
+      "source_line": 417,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "ctrl_counts_in",
+      "flags": [
+        "",
+        "--ctrl-counts-in"
+      ],
+      "help": null,
+      "primary_flag": "--ctrl-counts-in",
+      "replacement": null,
+      "source_line": 416,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "ctrl_counts_max_freq_col",
+      "flags": [
+        "",
+        "--ctrl-counts-max-freq-col"
+      ],
+      "help": null,
+      "primary_flag": "--ctrl-counts-max-freq-col",
+      "replacement": null,
+      "source_line": 421,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "ctrl_counts_revel_col",
+      "flags": [
+        "",
+        "--ctrl-counts-revel-col"
+      ],
+      "help": null,
+      "primary_flag": "--ctrl-counts-revel-col",
+      "replacement": null,
+      "source_line": 418,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "ctrl_counts_tot_col",
+      "flags": [
+        "",
+        "--ctrl-counts-tot-col"
+      ],
+      "help": null,
+      "primary_flag": "--ctrl-counts-tot-col",
+      "replacement": null,
+      "source_line": 420,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "debug_just_check_header",
+      "flags": [
+        "",
+        "--debug-just-check-header"
+      ],
+      "help": null,
+      "primary_flag": "--debug-just-check-header",
+      "replacement": null,
+      "source_line": 708,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "debug_level",
+      "flags": [
+        "",
+        "--debug-level"
+      ],
+      "help": null,
+      "primary_flag": "--debug-level",
+      "replacement": null,
+      "source_line": 503,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "debug_max_gene_sets_for_hyper",
+      "flags": [
+        "",
+        "--debug-max-gene-sets-for-hyper"
+      ],
+      "help": null,
+      "primary_flag": "--debug-max-gene-sets-for-hyper",
+      "replacement": null,
+      "source_line": 703,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "debug_old_batch",
+      "flags": [
+        "",
+        "--debug-old-batch"
+      ],
+      "help": null,
+      "primary_flag": "--debug-old-batch",
+      "replacement": null,
+      "source_line": 702,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "debug_only_avg_huge",
+      "flags": [
+        "",
+        "--debug-only-avg-huge"
+      ],
+      "help": null,
+      "primary_flag": "--debug-only-avg-huge",
+      "replacement": null,
+      "source_line": 709,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "debug_skip_correlation",
+      "flags": [
+        "",
+        "--debug-skip-correlation"
+      ],
+      "help": null,
+      "primary_flag": "--debug-skip-correlation",
+      "replacement": null,
+      "source_line": 706,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "debug_skip_huber",
+      "flags": [
+        "",
+        "--debug-skip-huber"
+      ],
+      "help": null,
+      "primary_flag": "--debug-skip-huber",
+      "replacement": null,
+      "source_line": 705,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "debug_skip_phewas_covs",
+      "flags": [
+        "",
+        "--debug-skip-phewas-covs"
+      ],
+      "help": null,
+      "primary_flag": "--debug-skip-phewas-covs",
+      "replacement": null,
+      "source_line": 704,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "debug_zero_sparse",
+      "flags": [
+        "",
+        "--debug-zero-sparse"
+      ],
+      "help": null,
+      "primary_flag": "--debug-zero-sparse",
+      "replacement": null,
+      "source_line": 707,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "deterministic",
+      "flags": [
+        "",
+        "--deterministic"
+      ],
+      "help": null,
+      "primary_flag": "--deterministic",
+      "replacement": null,
+      "source_line": 507,
+      "type": null,
+      "usage_references": 16
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "4",
+      "deprecation_timeline": null,
+      "dest": "diag_every",
+      "flags": [
+        "",
+        "--diag-every"
+      ],
+      "help": null,
+      "primary_flag": "--diag-every",
+      "replacement": null,
+      "source_line": 689,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "disable_stall_detection",
+      "flags": [
+        "",
+        "--disable-stall-detection"
+      ],
+      "help": null,
+      "primary_flag": "--disable-stall-detection",
+      "replacement": null,
+      "source_line": 688,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "eaggl_bundle_out",
+      "flags": [
+        "",
+        "--eaggl-bundle-out"
+      ],
+      "help": null,
+      "primary_flag": "--eaggl-bundle-out",
+      "replacement": null,
+      "source_line": 481,
+      "type": null,
+      "usage_references": 18
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exomes_beta_col",
+      "flags": [
+        "",
+        "--exomes-beta-col"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-beta-col",
+      "replacement": null,
+      "source_line": 390,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exomes_gene_col",
+      "flags": [
+        "",
+        "--exomes-gene-col"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-gene-col",
+      "replacement": null,
+      "source_line": 388,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.05",
+      "deprecation_timeline": null,
+      "dest": "exomes_high_p",
+      "flags": [
+        "",
+        "--exomes-high-p"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-high-p",
+      "replacement": null,
+      "source_line": 569,
+      "type": "float",
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.1",
+      "deprecation_timeline": null,
+      "dest": "exomes_high_p_posterior",
+      "flags": [
+        "",
+        "--exomes-high-p-posterior"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-high-p-posterior",
+      "replacement": null,
+      "source_line": 570,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exomes_in",
+      "flags": [
+        "",
+        "--exomes-in"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-in",
+      "replacement": null,
+      "source_line": 387,
+      "type": null,
+      "usage_references": 23
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "2.5e-06",
+      "deprecation_timeline": null,
+      "dest": "exomes_low_p",
+      "flags": [
+        "",
+        "--exomes-low-p"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-low-p",
+      "replacement": null,
+      "source_line": 571,
+      "type": "float",
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.95",
+      "deprecation_timeline": null,
+      "dest": "exomes_low_p_posterior",
+      "flags": [
+        "",
+        "--exomes-low-p-posterior"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-low-p-posterior",
+      "replacement": null,
+      "source_line": 572,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exomes_n",
+      "flags": [
+        "",
+        "--exomes-n"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-n",
+      "replacement": null,
+      "source_line": 394,
+      "type": "float",
+      "usage_references": 14
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exomes_n_col",
+      "flags": [
+        "",
+        "--exomes-n-col"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-n-col",
+      "replacement": null,
+      "source_line": 393,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exomes_p_col",
+      "flags": [
+        "",
+        "--exomes-p-col"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-p-col",
+      "replacement": null,
+      "source_line": 389,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exomes_se_col",
+      "flags": [
+        "",
+        "--exomes-se-col"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-se-col",
+      "replacement": null,
+      "source_line": 391,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exomes_units",
+      "flags": [
+        "",
+        "--exomes-units"
+      ],
+      "help": null,
+      "primary_flag": "--exomes-units",
+      "replacement": null,
+      "source_line": 392,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "exons_loc_file_huge",
+      "flags": [
+        "",
+        "--exons-loc-file-huge"
+      ],
+      "help": null,
+      "primary_flag": "--exons-loc-file-huge",
+      "replacement": null,
+      "source_line": 460,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "experimental",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "experimental_hyper_mutation",
+      "flags": [
+        "",
+        "--experimental-hyper-mutation"
+      ],
+      "help": null,
+      "primary_flag": "--experimental-hyper-mutation",
+      "replacement": null,
+      "source_line": 622,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "experimental_increase_hyper_if_betas_below",
+      "flags": [
+        "",
+        "--experimental-increase-hyper-if-betas-below"
+      ],
+      "help": null,
+      "primary_flag": "--experimental-increase-hyper-if-betas-below",
+      "replacement": null,
+      "source_line": 623,
+      "type": "float",
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "file_separator",
+      "flags": [
+        "",
+        "--file-separator"
+      ],
+      "help": null,
+      "primary_flag": "--file-separator",
+      "replacement": null,
+      "source_line": 309,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "2.5",
+      "deprecation_timeline": null,
+      "dest": "filter_gene_set_metric_z",
+      "flags": [
+        "",
+        "--filter-gene-set-metric-z"
+      ],
+      "help": null,
+      "primary_flag": "--filter-gene-set-metric-z",
+      "replacement": null,
+      "source_line": 547,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "filter_gene_set_p",
+      "flags": [
+        "",
+        "--filter-gene-set-p"
+      ],
+      "help": null,
+      "primary_flag": "--filter-gene-set-p",
+      "replacement": null,
+      "source_line": 538,
+      "type": "float",
+      "usage_references": 10
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "filter_negative",
+      "flags": [
+        "",
+        "--filter-negative"
+      ],
+      "help": null,
+      "primary_flag": "--filter-negative",
+      "replacement": null,
+      "source_line": 539,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "first_for_hyper",
+      "flags": [
+        "",
+        "--first-for-hyper"
+      ],
+      "help": null,
+      "primary_flag": "--first-for-hyper",
+      "replacement": null,
+      "source_line": 336,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "first_for_sigma_cond",
+      "flags": [
+        "",
+        "--first-for-sigma-cond"
+      ],
+      "help": null,
+      "primary_flag": "--first-for-sigma-cond",
+      "replacement": null,
+      "source_line": 337,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "first_max_p_for_hyper",
+      "flags": [
+        "",
+        "--first-max-p-for-hyper"
+      ],
+      "help": null,
+      "primary_flag": "--first-max-p-for-hyper",
+      "replacement": null,
+      "source_line": 338,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1",
+      "deprecation_timeline": null,
+      "dest": "frac_gene_sets_for_prior",
+      "flags": [
+        "",
+        "--frac-gene-sets-for-prior"
+      ],
+      "help": null,
+      "primary_flag": "--frac-gene-sets-for-prior",
+      "replacement": null,
+      "source_line": 318,
+      "type": "float",
+      "usage_references": 9
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "gauss_seidel",
+      "flags": [
+        "",
+        "--gauss-seidel"
+      ],
+      "help": null,
+      "primary_flag": "--gauss-seidel",
+      "replacement": null,
+      "source_line": 654,
+      "type": null,
+      "usage_references": 10
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "gauss_seidel_betas",
+      "flags": [
+        "",
+        "--gauss-seidel-betas"
+      ],
+      "help": null,
+      "primary_flag": "--gauss-seidel-betas",
+      "replacement": null,
+      "source_line": 696,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_cor_file",
+      "flags": [
+        "",
+        "--gene-cor-file"
+      ],
+      "help": null,
+      "primary_flag": "--gene-cor-file",
+      "replacement": null,
+      "source_line": 461,
+      "type": null,
+      "usage_references": 23
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "gene_cor_file_cor_start_col",
+      "flags": [
+        "",
+        "--gene-cor-file-cor-start-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-cor-file-cor-start-col",
+      "replacement": null,
+      "source_line": 463,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1",
+      "deprecation_timeline": null,
+      "dest": "gene_cor_file_gene_col",
+      "flags": [
+        "",
+        "--gene-cor-file-gene-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-cor-file-gene-col",
+      "replacement": null,
+      "source_line": 462,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_covs_in",
+      "flags": [
+        "",
+        "--gene-covs-in"
+      ],
+      "help": null,
+      "primary_flag": "--gene-covs-in",
+      "replacement": null,
+      "source_line": 467,
+      "type": null,
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_covs_out",
+      "flags": [
+        "",
+        "--gene-covs-out"
+      ],
+      "help": null,
+      "primary_flag": "--gene-covs-out",
+      "replacement": null,
+      "source_line": 478,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_effectors_out",
+      "flags": [
+        "",
+        "--gene-effectors-out"
+      ],
+      "help": null,
+      "primary_flag": "--gene-effectors-out",
+      "replacement": null,
+      "source_line": 479,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_gene_set_stats_out",
+      "flags": [
+        "",
+        "--gene-gene-set-stats-out"
+      ],
+      "help": null,
+      "primary_flag": "--gene-gene-set-stats-out",
+      "replacement": null,
+      "source_line": 476,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_loc_file",
+      "flags": [
+        "",
+        "--gene-loc-file"
+      ],
+      "help": null,
+      "primary_flag": "--gene-loc-file",
+      "replacement": null,
+      "source_line": 458,
+      "type": null,
+      "usage_references": 32
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_loc_file_huge",
+      "flags": [
+        "",
+        "--gene-loc-file-huge"
+      ],
+      "help": null,
+      "primary_flag": "--gene-loc-file-huge",
+      "replacement": null,
+      "source_line": 459,
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_map_in",
+      "flags": [
+        "",
+        "--gene-map-in"
+      ],
+      "help": null,
+      "primary_flag": "--gene-map-in",
+      "replacement": null,
+      "source_line": 347,
+      "type": null,
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "2",
+      "deprecation_timeline": null,
+      "dest": "gene_map_new_gene_col",
+      "flags": [
+        "",
+        "--gene-map-new-gene-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-map-new-gene-col",
+      "replacement": null,
+      "source_line": 349,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1",
+      "deprecation_timeline": null,
+      "dest": "gene_map_orig_gene_col",
+      "flags": [
+        "",
+        "--gene-map-orig-gene-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-map-orig-gene-col",
+      "replacement": null,
+      "source_line": 348,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_combined_col",
+      "flags": [
+        "",
+        "--gene-phewas-bfs-combined-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-bfs-combined-col",
+      "replacement": null,
+      "source_line": 633,
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_id_col",
+      "flags": [
+        "",
+        "--gene-phewas-bfs-id-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-bfs-id-col",
+      "replacement": null,
+      "source_line": 629,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_in",
+      "flags": [
+        "",
+        "--gene-phewas-bfs-in"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-bfs-in",
+      "replacement": null,
+      "source_line": 627,
+      "type": null,
+      "usage_references": 18
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_log_bf_col",
+      "flags": [
+        "",
+        "--gene-phewas-bfs-log-bf-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-bfs-log-bf-col",
+      "replacement": null,
+      "source_line": 631,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_pheno_col",
+      "flags": [
+        "",
+        "--gene-phewas-bfs-pheno-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-bfs-pheno-col",
+      "replacement": null,
+      "source_line": 637,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_prior_col",
+      "flags": [
+        "",
+        "--gene-phewas-bfs-prior-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-bfs-prior-col",
+      "replacement": null,
+      "source_line": 635,
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_id_to_X_id",
+      "flags": [
+        "",
+        "--gene-phewas-id-to-X-id"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-id-to-X-id",
+      "replacement": null,
+      "source_line": 640,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_combined_col",
+      "flags": [
+        "",
+        "--gene-phewas-stats-combined-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-stats-combined-col",
+      "replacement": null,
+      "source_line": 634,
+      "type": null,
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_id_col",
+      "flags": [
+        "",
+        "--gene-phewas-stats-id-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-stats-id-col",
+      "replacement": null,
+      "source_line": 630,
+      "type": null,
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_in",
+      "flags": [
+        "",
+        "--gene-phewas-stats-in"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-stats-in",
+      "replacement": null,
+      "source_line": 628,
+      "type": null,
+      "usage_references": 17
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_log_bf_col",
+      "flags": [
+        "",
+        "--gene-phewas-stats-log-bf-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-stats-log-bf-col",
+      "replacement": null,
+      "source_line": 632,
+      "type": null,
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_pheno_col",
+      "flags": [
+        "",
+        "--gene-phewas-stats-pheno-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-stats-pheno-col",
+      "replacement": null,
+      "source_line": 638,
+      "type": null,
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_phewas_bfs_prior_col",
+      "flags": [
+        "",
+        "--gene-phewas-stats-prior-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-phewas-stats-prior-col",
+      "replacement": null,
+      "source_line": 636,
+      "type": null,
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_betas_in",
+      "flags": [
+        "",
+        "--gene-set-betas-in"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-betas-in",
+      "replacement": null,
+      "source_line": 444,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_overlap_stats_out",
+      "flags": [
+        "",
+        "--gene-set-overlap-stats-out"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-overlap-stats-out",
+      "replacement": null,
+      "source_line": 477,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_beta_col",
+      "flags": [
+        "",
+        "--gene-set-stats-beta-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-beta-col",
+      "replacement": null,
+      "source_line": 437,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_beta_tilde_col",
+      "flags": [
+        "",
+        "--gene-set-stats-beta-tilde-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-beta-tilde-col",
+      "replacement": null,
+      "source_line": 436,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_beta_uncorrected_col",
+      "flags": [
+        "",
+        "--gene-set-stats-beta-uncorrected-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-beta-uncorrected-col",
+      "replacement": null,
+      "source_line": 438,
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_exp_beta_tilde_col",
+      "flags": [
+        "",
+        "--gene-set-stats-exp-beta-tilde-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-exp-beta-tilde-col",
+      "replacement": null,
+      "source_line": 435,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "Gene_Set",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_id_col",
+      "flags": [
+        "",
+        "--gene-set-stats-id-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-id-col",
+      "replacement": null,
+      "source_line": 434,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_in",
+      "flags": [
+        "",
+        "--gene-set-stats-in"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-in",
+      "replacement": null,
+      "source_line": 433,
+      "type": null,
+      "usage_references": 24
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_out",
+      "flags": [
+        "",
+        "--gene-set-stats-out"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-out",
+      "replacement": null,
+      "source_line": 470,
+      "type": null,
+      "usage_references": 14
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_p_col",
+      "flags": [
+        "",
+        "--gene-set-stats-p-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-p-col",
+      "replacement": null,
+      "source_line": 440,
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_se_col",
+      "flags": [
+        "",
+        "--gene-set-stats-se-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-se-col",
+      "replacement": null,
+      "source_line": 439,
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_set_stats_trace_out",
+      "flags": [
+        "",
+        "--gene-set-stats-trace-out"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-stats-trace-out",
+      "replacement": null,
+      "source_line": 472,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_stats_combined_col",
+      "flags": [
+        "",
+        "--gene-stats-combined-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-stats-combined-col",
+      "replacement": null,
+      "source_line": 452,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_stats_id_col",
+      "flags": [
+        "",
+        "--gene-stats-id-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-stats-id-col",
+      "replacement": null,
+      "source_line": 450,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_stats_in",
+      "flags": [
+        "",
+        "--gene-stats-in"
+      ],
+      "help": null,
+      "primary_flag": "--gene-stats-in",
+      "replacement": null,
+      "source_line": 449,
+      "type": null,
+      "usage_references": 30
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_stats_log_bf_col",
+      "flags": [
+        "",
+        "--gene-stats-log-bf-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-stats-log-bf-col",
+      "replacement": null,
+      "source_line": 451,
+      "type": null,
+      "usage_references": 14
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_stats_out",
+      "flags": [
+        "",
+        "--gene-stats-out"
+      ],
+      "help": null,
+      "primary_flag": "--gene-stats-out",
+      "replacement": null,
+      "source_line": 474,
+      "type": null,
+      "usage_references": 16
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_stats_prior_col",
+      "flags": [
+        "",
+        "--gene-stats-prior-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-stats-prior-col",
+      "replacement": null,
+      "source_line": 453,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_stats_prob_col",
+      "flags": [
+        "",
+        "--gene-stats-prob-col"
+      ],
+      "help": null,
+      "primary_flag": "--gene-stats-prob-col",
+      "replacement": null,
+      "source_line": 454,
+      "type": null,
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_stats_trace_out",
+      "flags": [
+        "",
+        "--gene-stats-trace-out"
+      ],
+      "help": null,
+      "primary_flag": "--gene-stats-trace-out",
+      "replacement": null,
+      "source_line": 475,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gene_zs_gws_prob_true",
+      "flags": [
+        "",
+        "--gene-zs-gws-prob-true"
+      ],
+      "help": null,
+      "primary_flag": "--gene-zs-gws-prob-true",
+      "replacement": null,
+      "source_line": 566,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "100",
+      "deprecation_timeline": null,
+      "dest": "gibbs_max_mb_X_h",
+      "flags": [
+        "",
+        "--gibbs-max-mb-X-h"
+      ],
+      "help": null,
+      "primary_flag": "--gibbs-max-mb-X-h",
+      "replacement": null,
+      "source_line": 527,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "gibbs_num_batches_parallel",
+      "flags": [
+        "",
+        "--gibbs-num-batches-parallel"
+      ],
+      "help": null,
+      "primary_flag": "--gibbs-num-batches-parallel",
+      "replacement": null,
+      "source_line": 526,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_beta_col",
+      "flags": [
+        "",
+        "--gwas-beta-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-beta-col",
+      "replacement": null,
+      "source_line": 359,
+      "type": null,
+      "usage_references": 12
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_chrom_col",
+      "flags": [
+        "",
+        "--gwas-chrom-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-chrom-col",
+      "replacement": null,
+      "source_line": 356,
+      "type": null,
+      "usage_references": 15
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "100",
+      "deprecation_timeline": null,
+      "dest": "gwas_detect_high_power",
+      "flags": [
+        "",
+        "--gwas-detect-high-power"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-detect-high-power",
+      "replacement": null,
+      "source_line": 580,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "gwas_detect_low_power",
+      "flags": [
+        "",
+        "--gwas-detect-low-power"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-detect-low-power",
+      "replacement": null,
+      "source_line": 579,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "gwas_detect_adjust_huge",
+      "flags": [
+        "",
+        "--gwas-detect-no-adjust-huge"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-detect-no-adjust-huge",
+      "replacement": null,
+      "source_line": 581,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_filter_col",
+      "flags": [
+        "",
+        "--gwas-filter-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-filter-col",
+      "replacement": null,
+      "source_line": 365,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_filter_value",
+      "flags": [
+        "",
+        "--gwas-filter-value"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-filter-value",
+      "replacement": null,
+      "source_line": 366,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_freq_col",
+      "flags": [
+        "",
+        "--gwas-freq-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-freq-col",
+      "replacement": null,
+      "source_line": 364,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "gwas_high_p",
+      "flags": [
+        "",
+        "--gwas-high-p"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-high-p",
+      "replacement": null,
+      "source_line": 575,
+      "type": "float",
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "gwas_high_p_posterior",
+      "flags": [
+        "",
+        "--gwas-high-p-posterior"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-high-p-posterior",
+      "replacement": null,
+      "source_line": 576,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_ignore_p_threshold",
+      "flags": [
+        "",
+        "--gwas-ignore-p-threshold"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-ignore-p-threshold",
+      "replacement": null,
+      "source_line": 367,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_in",
+      "flags": [
+        "",
+        "--gwas-in"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-in",
+      "replacement": null,
+      "source_line": 352,
+      "type": null,
+      "usage_references": 35
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_locus_col",
+      "flags": [
+        "",
+        "--gwas-locus-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-locus-col",
+      "replacement": null,
+      "source_line": 355,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "5e-08",
+      "deprecation_timeline": null,
+      "dest": "gwas_low_p",
+      "flags": [
+        "",
+        "--gwas-low-p"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-low-p",
+      "replacement": null,
+      "source_line": 577,
+      "type": "float",
+      "usage_references": 16
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.75",
+      "deprecation_timeline": null,
+      "dest": "gwas_low_p_posterior",
+      "flags": [
+        "",
+        "--gwas-low-p-posterior"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-low-p-posterior",
+      "replacement": null,
+      "source_line": 578,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_n",
+      "flags": [
+        "",
+        "--gwas-n"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-n",
+      "replacement": null,
+      "source_line": 363,
+      "type": "float",
+      "usage_references": 18
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_n_col",
+      "flags": [
+        "",
+        "--gwas-n-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-n-col",
+      "replacement": null,
+      "source_line": 362,
+      "type": null,
+      "usage_references": 13
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_p_col",
+      "flags": [
+        "",
+        "--gwas-p-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-p-col",
+      "replacement": null,
+      "source_line": 358,
+      "type": null,
+      "usage_references": 13
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_pos_col",
+      "flags": [
+        "",
+        "--gwas-pos-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-pos-col",
+      "replacement": null,
+      "source_line": 357,
+      "type": null,
+      "usage_references": 15
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_se_col",
+      "flags": [
+        "",
+        "--gwas-se-col"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-se-col",
+      "replacement": null,
+      "source_line": 360,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_units",
+      "flags": [
+        "",
+        "--gwas-units"
+      ],
+      "help": null,
+      "primary_flag": "--gwas-units",
+      "replacement": null,
+      "source_line": 361,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "hide_opts",
+      "flags": [
+        "",
+        "--hide-opts"
+      ],
+      "help": null,
+      "primary_flag": "--hide-opts",
+      "replacement": null,
+      "source_line": 505,
+      "type": null,
+      "usage_references": 10
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "hide_progress",
+      "flags": [
+        "",
+        "--hide-progress"
+      ],
+      "help": null,
+      "primary_flag": "--hide-progress",
+      "replacement": null,
+      "source_line": 504,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "hold_out_chrom",
+      "flags": [
+        "",
+        "--hold-out-chrom"
+      ],
+      "help": null,
+      "primary_flag": "--hold-out-chrom",
+      "replacement": null,
+      "source_line": 520,
+      "type": "string",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "huge_statistics_in",
+      "flags": [
+        "",
+        "--huge-statistics-in"
+      ],
+      "help": null,
+      "primary_flag": "--huge-statistics-in",
+      "replacement": null,
+      "source_line": 353,
+      "type": null,
+      "usage_references": 23
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "huge_statistics_out",
+      "flags": [
+        "",
+        "--huge-statistics-out"
+      ],
+      "help": null,
+      "primary_flag": "--huge-statistics-out",
+      "replacement": null,
+      "source_line": 354,
+      "type": null,
+      "usage_references": 20
+    },
+    {
+      "action": "append",
+      "category": "core_model",
+      "default": "[\"NA\"]",
+      "deprecation_timeline": null,
+      "dest": "ignore_genes",
+      "flags": [
+        "",
+        "--ignore-genes"
+      ],
+      "help": null,
+      "primary_flag": "--ignore-genes",
+      "replacement": null,
+      "source_line": 307,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "ignore_negative_exp_beta",
+      "flags": [
+        "",
+        "--ignore-negative-exp-beta"
+      ],
+      "help": null,
+      "primary_flag": "--ignore-negative-exp-beta",
+      "replacement": null,
+      "source_line": 441,
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "increase_filter_gene_set_p",
+      "flags": [
+        "",
+        "--increase-filter-gene-set-p"
+      ],
+      "help": null,
+      "primary_flag": "--increase-filter-gene-set-p",
+      "replacement": null,
+      "source_line": 542,
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "experimental",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "increase_hyper_if_betas_below",
+      "flags": [
+        "",
+        "--increase-hyper-if-betas-below"
+      ],
+      "help": null,
+      "primary_flag": "--increase-hyper-if-betas-below",
+      "replacement": null,
+      "source_line": 624,
+      "type": "float",
+      "usage_references": 9
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "learn_window",
+      "flags": [
+        "",
+        "--learn-window"
+      ],
+      "help": null,
+      "primary_flag": "--learn-window",
+      "replacement": null,
+      "source_line": 582,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "linear",
+      "flags": [
+        "",
+        "--linear"
+      ],
+      "help": null,
+      "primary_flag": "--linear",
+      "replacement": null,
+      "source_line": 513,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "log_file",
+      "flags": [
+        "",
+        "--log-file"
+      ],
+      "help": null,
+      "primary_flag": "--log-file",
+      "replacement": null,
+      "source_line": 501,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_abs_mcse_d",
+      "flags": [
+        "",
+        "--max-abs-mcse-d"
+      ],
+      "help": null,
+      "primary_flag": "--max-abs-mcse-d",
+      "replacement": null,
+      "source_line": 660,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "0.5",
+      "deprecation_timeline": null,
+      "dest": "max_allowed_batch_correlation",
+      "flags": [
+        "",
+        "--max-allowed-batch-correlation"
+      ],
+      "help": null,
+      "primary_flag": "--max-allowed-batch-correlation",
+      "replacement": null,
+      "source_line": 533,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "250000.0",
+      "deprecation_timeline": null,
+      "dest": "max_closest_gene_dist",
+      "flags": [
+        "",
+        "--max-closest-gene-dist"
+      ],
+      "help": null,
+      "primary_flag": "--max-closest-gene-dist",
+      "replacement": null,
+      "source_line": 589,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.9",
+      "deprecation_timeline": null,
+      "dest": "max_closest_gene_prob",
+      "flags": [
+        "",
+        "--max-closest-gene-prob"
+      ],
+      "help": null,
+      "primary_flag": "--max-closest-gene-prob",
+      "replacement": null,
+      "source_line": 588,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.5",
+      "deprecation_timeline": null,
+      "dest": "max_clump_ld",
+      "flags": [
+        "",
+        "--max-clump-ld"
+      ],
+      "help": null,
+      "primary_flag": "--max-clump-ld",
+      "replacement": null,
+      "source_line": 600,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_for_linear",
+      "flags": [
+        "",
+        "--max-for-linear"
+      ],
+      "help": null,
+      "primary_flag": "--max-for-linear",
+      "replacement": null,
+      "source_line": 515,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "max_frac_sem_betas",
+      "flags": [
+        "",
+        "--max-frac-sem-betas"
+      ],
+      "help": null,
+      "primary_flag": "--max-frac-sem-betas",
+      "replacement": null,
+      "source_line": 697,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "2.0",
+      "deprecation_timeline": null,
+      "dest": "max_gb",
+      "flags": [
+        "",
+        "--max-gb"
+      ],
+      "help": null,
+      "primary_flag": "--max-gb",
+      "replacement": null,
+      "source_line": 528,
+      "type": "float",
+      "usage_references": 13
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.05",
+      "deprecation_timeline": null,
+      "dest": "max_gene_set_read_p",
+      "flags": [
+        "",
+        "--max-gene-set-read-p"
+      ],
+      "help": null,
+      "primary_flag": "--max-gene-set-read-p",
+      "replacement": null,
+      "source_line": 548,
+      "type": "float",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "30000",
+      "deprecation_timeline": null,
+      "dest": "max_gene_set_size",
+      "flags": [
+        "",
+        "--max-gene-set-size"
+      ],
+      "help": null,
+      "primary_flag": "--max-gene-set-size",
+      "replacement": null,
+      "source_line": 558,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0",
+      "deprecation_timeline": null,
+      "dest": "max_no_write_gene_gene_set_beta",
+      "flags": [
+        "",
+        "--max-no-write-gene-gene-set-beta"
+      ],
+      "help": null,
+      "primary_flag": "--max-no-write-gene-gene-set-beta",
+      "replacement": null,
+      "source_line": 493,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_no_write_gene_set_beta",
+      "flags": [
+        "",
+        "--max-no-write-gene-set-beta"
+      ],
+      "help": null,
+      "primary_flag": "--max-no-write-gene-set-beta",
+      "replacement": null,
+      "source_line": 492,
+      "type": "float",
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_no_write_gene_set_beta_uncorrected",
+      "flags": [
+        "",
+        "--max-no-write-gene-set-beta-uncorrected"
+      ],
+      "help": null,
+      "primary_flag": "--max-no-write-gene-set-beta-uncorrected",
+      "replacement": null,
+      "source_line": 495,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_num_burn_in",
+      "flags": [
+        "",
+        "--max-num-burn-in"
+      ],
+      "help": null,
+      "primary_flag": "--max-num-burn-in",
+      "replacement": null,
+      "source_line": 606,
+      "type": "int",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "5000",
+      "deprecation_timeline": null,
+      "dest": "max_num_gene_sets",
+      "flags": [
+        "",
+        "--max-num-gene-sets"
+      ],
+      "help": null,
+      "primary_flag": "--max-num-gene-sets",
+      "replacement": null,
+      "source_line": 545,
+      "type": "int",
+      "usage_references": 29
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "5000",
+      "deprecation_timeline": null,
+      "dest": "max_num_gene_sets_hyper",
+      "flags": [
+        "",
+        "--max-num-gene-sets-hyper"
+      ],
+      "help": null,
+      "primary_flag": "--max-num-gene-sets-hyper",
+      "replacement": null,
+      "source_line": 544,
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_num_gene_sets_initial",
+      "flags": [
+        "",
+        "--max-num-gene-sets-initial"
+      ],
+      "help": null,
+      "primary_flag": "--max-num-gene-sets-initial",
+      "replacement": null,
+      "source_line": 543,
+      "type": "int",
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "500",
+      "deprecation_timeline": null,
+      "dest": "max_num_iter",
+      "flags": [
+        "",
+        "--max-num-iter"
+      ],
+      "help": null,
+      "primary_flag": "--max-num-iter",
+      "replacement": null,
+      "source_line": 651,
+      "type": "int",
+      "usage_references": 19
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1100",
+      "deprecation_timeline": null,
+      "dest": "max_num_iter_betas",
+      "flags": [
+        "",
+        "--max-num-iter-betas"
+      ],
+      "help": null,
+      "primary_flag": "--max-num-iter-betas",
+      "replacement": null,
+      "source_line": 693,
+      "type": "int",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_num_post_burn_in",
+      "flags": [
+        "",
+        "--max-num-post-burn-in"
+      ],
+      "help": null,
+      "primary_flag": "--max-num-post-burn-in",
+      "replacement": null,
+      "source_line": 650,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "max_num_restarts",
+      "flags": [
+        "",
+        "--max-num-restarts"
+      ],
+      "help": null,
+      "primary_flag": "--max-num-restarts",
+      "replacement": null,
+      "source_line": 663,
+      "type": "int",
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_read_entries_at_once",
+      "flags": [
+        "",
+        "--max-read-entries-at-once"
+      ],
+      "help": null,
+      "primary_flag": "--max-read-entries-at-once",
+      "replacement": null,
+      "source_line": 529,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "max_rel_mcse_beta",
+      "flags": [
+        "",
+        "--max-rel-mcse-beta"
+      ],
+      "help": null,
+      "primary_flag": "--max-rel-mcse-beta",
+      "replacement": null,
+      "source_line": 661,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1",
+      "deprecation_timeline": null,
+      "dest": "min_gene_phewas_read_value",
+      "flags": [
+        "",
+        "--min-gene-phewas-read-value"
+      ],
+      "help": null,
+      "primary_flag": "--min-gene-phewas-read-value",
+      "replacement": null,
+      "source_line": 639,
+      "type": "float",
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1e-20",
+      "deprecation_timeline": null,
+      "dest": "min_gene_set_read_beta",
+      "flags": [
+        "",
+        "--min-gene-set-read-beta"
+      ],
+      "help": null,
+      "primary_flag": "--min-gene-set-read-beta",
+      "replacement": null,
+      "source_line": 549,
+      "type": "float",
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1e-20",
+      "deprecation_timeline": null,
+      "dest": "min_gene_set_read_beta_uncorrected",
+      "flags": [
+        "",
+        "--min-gene-set-read-beta-uncorrected"
+      ],
+      "help": null,
+      "primary_flag": "--min-gene-set-read-beta-uncorrected",
+      "replacement": null,
+      "source_line": 550,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "min_gene_set_size",
+      "flags": [
+        "",
+        "--min-gene-set-size"
+      ],
+      "help": null,
+      "primary_flag": "--min-gene-set-size",
+      "replacement": null,
+      "source_line": 537,
+      "type": "int",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.5",
+      "deprecation_timeline": null,
+      "dest": "min_n_ratio",
+      "flags": [
+        "",
+        "--min-n-ratio"
+      ],
+      "help": null,
+      "primary_flag": "--min-n-ratio",
+      "replacement": null,
+      "source_line": 599,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "min_num_burn_in",
+      "flags": [
+        "",
+        "--min-num-burn-in"
+      ],
+      "help": null,
+      "primary_flag": "--min-num-burn-in",
+      "replacement": null,
+      "source_line": 648,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1",
+      "deprecation_timeline": null,
+      "dest": "min_num_gene_sets",
+      "flags": [
+        "",
+        "--min-num-gene-sets"
+      ],
+      "help": null,
+      "primary_flag": "--min-num-gene-sets",
+      "replacement": null,
+      "source_line": 546,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "min_num_iter_betas",
+      "flags": [
+        "",
+        "--min-num-iter-betas"
+      ],
+      "help": null,
+      "primary_flag": "--min-num-iter-betas",
+      "replacement": null,
+      "source_line": 692,
+      "type": "int",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "min_num_post_burn_in",
+      "flags": [
+        "",
+        "--min-num-post-burn-in"
+      ],
+      "help": null,
+      "primary_flag": "--min-num-post-burn-in",
+      "replacement": null,
+      "source_line": 649,
+      "type": "int",
+      "usage_references": 19
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "min_var_posterior",
+      "flags": [
+        "",
+        "--min-var-posterior"
+      ],
+      "help": null,
+      "primary_flag": "--min-var-posterior",
+      "replacement": null,
+      "source_line": 583,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "add_bottom",
+      "flags": [
+        "",
+        "--no-add-bottom"
+      ],
+      "help": null,
+      "primary_flag": "--no-add-bottom",
+      "replacement": null,
+      "source_line": 554,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "add_top",
+      "flags": [
+        "",
+        "--no-add-top"
+      ],
+      "help": null,
+      "primary_flag": "--no-add-top",
+      "replacement": null,
+      "source_line": 553,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "adjust_priors",
+      "flags": [
+        "",
+        "--no-adjust-priors"
+      ],
+      "help": null,
+      "primary_flag": "--no-adjust-priors",
+      "replacement": null,
+      "source_line": 617,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "cap_region_posterior",
+      "flags": [
+        "",
+        "--no-cap-region-posterior"
+      ],
+      "help": null,
+      "primary_flag": "--no-cap-region-posterior",
+      "replacement": null,
+      "source_line": 591,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "cap_weights",
+      "flags": [
+        "",
+        "--no-cap-weights"
+      ],
+      "help": null,
+      "primary_flag": "--no-cap-weights",
+      "replacement": null,
+      "source_line": 557,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "correct_betas_mean",
+      "flags": [
+        "",
+        "--no-correct-betas-mean"
+      ],
+      "help": null,
+      "primary_flag": "--no-correct-betas-mean",
+      "replacement": null,
+      "source_line": 596,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "correct_huge",
+      "flags": [
+        "",
+        "--no-correct-huge"
+      ],
+      "help": null,
+      "primary_flag": "--no-correct-huge",
+      "replacement": null,
+      "source_line": 466,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "cross_val",
+      "flags": [
+        "",
+        "--no-cross-val"
+      ],
+      "help": null,
+      "primary_flag": "--no-cross-val",
+      "replacement": null,
+      "source_line": 328,
+      "type": null,
+      "usage_references": 6
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "filter_negative",
+      "flags": [
+        "",
+        "--no-filter-negative"
+      ],
+      "help": null,
+      "primary_flag": "--no-filter-negative",
+      "replacement": null,
+      "source_line": 540,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "initial_linear_filter",
+      "flags": [
+        "",
+        "--no-initial-linear-filter"
+      ],
+      "help": null,
+      "primary_flag": "--no-initial-linear-filter",
+      "replacement": null,
+      "source_line": 534,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "linear",
+      "flags": [
+        "",
+        "--no-linear"
+      ],
+      "help": null,
+      "primary_flag": "--no-linear",
+      "replacement": null,
+      "source_line": 514,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "scale_raw_closest_gene",
+      "flags": [
+        "",
+        "--no-scale-raw-closest-gene"
+      ],
+      "help": null,
+      "primary_flag": "--no-scale-raw-closest-gene",
+      "replacement": null,
+      "source_line": 586,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sparse_solution",
+      "flags": [
+        "",
+        "--no-sparse-solution"
+      ],
+      "help": null,
+      "primary_flag": "--no-sparse-solution",
+      "replacement": null,
+      "source_line": 610,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "update_huge_scores",
+      "flags": [
+        "",
+        "--no-update-huge-scores"
+      ],
+      "help": null,
+      "primary_flag": "--no-update-huge-scores",
+      "replacement": null,
+      "source_line": 620,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "warm_start",
+      "flags": [
+        "",
+        "--no-warm-start"
+      ],
+      "help": null,
+      "primary_flag": "--no-warm-start",
+      "replacement": null,
+      "source_line": 657,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "num_chains",
+      "flags": [
+        "",
+        "--num-chains"
+      ],
+      "help": null,
+      "primary_flag": "--num-chains",
+      "replacement": null,
+      "source_line": 662,
+      "type": "int",
+      "usage_references": 14
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "4",
+      "deprecation_timeline": null,
+      "dest": "num_chains_betas",
+      "flags": [
+        "",
+        "--num-chains-betas"
+      ],
+      "help": null,
+      "primary_flag": "--num-chains-betas",
+      "replacement": null,
+      "source_line": 694,
+      "type": "int",
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "num_gene_sets_for_prior",
+      "flags": [
+        "",
+        "--num-gene-sets-for-prior"
+      ],
+      "help": null,
+      "primary_flag": "--num-gene-sets-for-prior",
+      "replacement": null,
+      "source_line": 317,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "num_mad",
+      "flags": [
+        "",
+        "--num-mad"
+      ],
+      "help": null,
+      "primary_flag": "--num-mad",
+      "replacement": null,
+      "source_line": 647,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "ols",
+      "flags": [
+        "",
+        "--ols"
+      ],
+      "help": null,
+      "primary_flag": "--ols",
+      "replacement": null,
+      "source_line": 512,
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": "append",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "p_noninf",
+      "flags": [
+        "",
+        "--p-noninf"
+      ],
+      "help": null,
+      "primary_flag": "--p-noninf",
+      "replacement": null,
+      "source_line": 312,
+      "type": "float",
+      "usage_references": 20
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1.0",
+      "deprecation_timeline": null,
+      "dest": "p_noninf_inflate",
+      "flags": [
+        "",
+        "--p-noninf-inflate"
+      ],
+      "help": null,
+      "primary_flag": "--p-noninf-inflate",
+      "replacement": null,
+      "source_line": 333,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "params_out",
+      "flags": [
+        "",
+        "--params-out"
+      ],
+      "help": null,
+      "primary_flag": "--params-out",
+      "replacement": null,
+      "source_line": 498,
+      "type": null,
+      "usage_references": 15
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "permute_gene_sets",
+      "flags": [
+        "",
+        "--permute-gene-sets"
+      ],
+      "help": null,
+      "primary_flag": "--permute-gene-sets",
+      "replacement": null,
+      "source_line": 521,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "phantom_region_posterior",
+      "flags": [
+        "",
+        "--phantom-region-posterior"
+      ],
+      "help": null,
+      "primary_flag": "--phantom-region-posterior",
+      "replacement": null,
+      "source_line": 593,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "phewas_gene_set_stats_out",
+      "flags": [
+        "",
+        "--phewas-gene-set-stats-out"
+      ],
+      "help": null,
+      "primary_flag": "--phewas-gene-set-stats-out",
+      "replacement": null,
+      "source_line": 471,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "phewas_stats_out",
+      "flags": [
+        "",
+        "--phewas-stats-out"
+      ],
+      "help": null,
+      "primary_flag": "--phewas-stats-out",
+      "replacement": null,
+      "source_line": 480,
+      "type": null,
+      "usage_references": 13
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_all_id_col",
+      "flags": [
+        "",
+        "--positive-controls-all-id-col"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-all-id-col",
+      "replacement": null,
+      "source_line": 404,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_all_in",
+      "flags": [
+        "",
+        "--positive-controls-all-in"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-all-in",
+      "replacement": null,
+      "source_line": 403,
+      "type": null,
+      "usage_references": 10
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_all_has_header",
+      "flags": [
+        "",
+        "--positive-controls-all-no-header"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-all-no-header",
+      "replacement": null,
+      "source_line": 405,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.95",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_default_prob",
+      "flags": [
+        "",
+        "--positive-controls-default-prob"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-default-prob",
+      "replacement": null,
+      "source_line": 401,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_id_col",
+      "flags": [
+        "",
+        "--positive-controls-id-col"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-id-col",
+      "replacement": null,
+      "source_line": 398,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_in",
+      "flags": [
+        "",
+        "--positive-controls-in"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-in",
+      "replacement": null,
+      "source_line": 397,
+      "type": null,
+      "usage_references": 13
+    },
+    {
+      "action": "callback",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_list",
+      "flags": [
+        "",
+        "--positive-controls-list"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-list",
+      "replacement": null,
+      "source_line": 400,
+      "type": "string",
+      "usage_references": 16
+    },
+    {
+      "action": "store_false",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_has_header",
+      "flags": [
+        "",
+        "--positive-controls-no-header"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-no-header",
+      "replacement": null,
+      "source_line": 402,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "positive_controls_prob_col",
+      "flags": [
+        "",
+        "--positive-controls-prob-col"
+      ],
+      "help": null,
+      "primary_flag": "--positive-controls-prob-col",
+      "replacement": null,
+      "source_line": 399,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "pre_filter_batch_size",
+      "flags": [
+        "",
+        "--pre-filter-batch-size"
+      ],
+      "help": null,
+      "primary_flag": "--pre-filter-batch-size",
+      "replacement": null,
+      "source_line": 531,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "500",
+      "deprecation_timeline": null,
+      "dest": "pre_filter_small_batch_size",
+      "flags": [
+        "",
+        "--pre-filter-small-batch-size"
+      ],
+      "help": null,
+      "primary_flag": "--pre-filter-small-batch-size",
+      "replacement": null,
+      "source_line": 532,
+      "type": "int",
+      "usage_references": 6
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "print_effective_config",
+      "flags": [
+        "",
+        "--print-effective-config"
+      ],
+      "help": null,
+      "primary_flag": "--print-effective-config",
+      "replacement": null,
+      "source_line": 509,
+      "type": null,
+      "usage_references": 14
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "20",
+      "deprecation_timeline": null,
+      "dest": "priors_num_gene_batches",
+      "flags": [
+        "",
+        "--priors-num-gene-batches"
+      ],
+      "help": null,
+      "primary_flag": "--priors-num-gene-batches",
+      "replacement": null,
+      "source_line": 525,
+      "type": "int",
+      "usage_references": 7
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "prune_deterministically",
+      "flags": [
+        "",
+        "--prune-deterministically"
+      ],
+      "help": null,
+      "primary_flag": "--prune-deterministically",
+      "replacement": null,
+      "source_line": 562,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "prune_gene_sets",
+      "flags": [
+        "",
+        "--prune-gene-sets"
+      ],
+      "help": null,
+      "primary_flag": "--prune-gene-sets",
+      "replacement": null,
+      "source_line": 560,
+      "type": "float",
+      "usage_references": 13
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1.1",
+      "deprecation_timeline": null,
+      "dest": "r_threshold_burn_in",
+      "flags": [
+        "",
+        "--r-threshold-burn-in"
+      ],
+      "help": null,
+      "primary_flag": "--r-threshold-burn-in",
+      "replacement": null,
+      "source_line": 653,
+      "type": "float",
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "1.01",
+      "deprecation_timeline": null,
+      "dest": "r_threshold_burn_in_betas",
+      "flags": [
+        "",
+        "--r-threshold-burn-in-betas"
+      ],
+      "help": null,
+      "primary_flag": "--r-threshold-burn-in-betas",
+      "replacement": null,
+      "source_line": 695,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "run_phewas_from_gene_phewas_stats_in",
+      "flags": [
+        "",
+        "--run-phewas-from-gene-phewas-stats-in"
+      ],
+      "help": null,
+      "primary_flag": "--run-phewas-from-gene-phewas-stats-in",
+      "replacement": null,
+      "source_line": 489,
+      "type": null,
+      "usage_references": 17
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "s2g_chrom_col",
+      "flags": [
+        "",
+        "--s2g-chrom-col"
+      ],
+      "help": null,
+      "primary_flag": "--s2g-chrom-col",
+      "replacement": null,
+      "source_line": 380,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "s2g_gene_col",
+      "flags": [
+        "",
+        "--s2g-gene-col"
+      ],
+      "help": null,
+      "primary_flag": "--s2g-gene-col",
+      "replacement": null,
+      "source_line": 382,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "s2g_in",
+      "flags": [
+        "",
+        "--s2g-in"
+      ],
+      "help": null,
+      "primary_flag": "--s2g-in",
+      "replacement": null,
+      "source_line": 379,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "s2g_normalize_values",
+      "flags": [
+        "",
+        "--s2g-normalize-values"
+      ],
+      "help": null,
+      "primary_flag": "--s2g-normalize-values",
+      "replacement": null,
+      "source_line": 384,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "s2g_pos_col",
+      "flags": [
+        "",
+        "--s2g-pos-col"
+      ],
+      "help": null,
+      "primary_flag": "--s2g-pos-col",
+      "replacement": null,
+      "source_line": 381,
+      "type": null,
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "s2g_prob_col",
+      "flags": [
+        "",
+        "--s2g-prob-col"
+      ],
+      "help": null,
+      "primary_flag": "--s2g-prob-col",
+      "replacement": null,
+      "source_line": 383,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "scale_region_posterior",
+      "flags": [
+        "",
+        "--scale-region-posterior"
+      ],
+      "help": null,
+      "primary_flag": "--scale-region-posterior",
+      "replacement": null,
+      "source_line": 592,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "seed",
+      "flags": [
+        "",
+        "--seed"
+      ],
+      "help": null,
+      "primary_flag": "--seed",
+      "replacement": null,
+      "source_line": 506,
+      "type": "int",
+      "usage_references": 13
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "2.0",
+      "deprecation_timeline": null,
+      "dest": "sigma_num_devs_to_top",
+      "flags": [
+        "",
+        "--sigma-num-devs-to-top"
+      ],
+      "help": null,
+      "primary_flag": "--sigma-num-devs-to-top",
+      "replacement": null,
+      "source_line": 332,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sigma_power",
+      "flags": [
+        "",
+        "--sigma-power"
+      ],
+      "help": null,
+      "primary_flag": "--sigma-power",
+      "replacement": null,
+      "source_line": 319,
+      "type": "float",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sigma_soft_threshold_5",
+      "flags": [
+        "",
+        "--sigma-soft-threshold-5"
+      ],
+      "help": null,
+      "primary_flag": "--sigma-soft-threshold-5",
+      "replacement": null,
+      "source_line": 321,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sigma_soft_threshold_95",
+      "flags": [
+        "",
+        "--sigma-soft-threshold-95"
+      ],
+      "help": null,
+      "primary_flag": "--sigma-soft-threshold-95",
+      "replacement": null,
+      "source_line": 320,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sigma2",
+      "flags": [
+        "",
+        "--sigma2"
+      ],
+      "help": null,
+      "primary_flag": "--sigma2",
+      "replacement": null,
+      "source_line": 315,
+      "type": "float",
+      "usage_references": 30
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sigma2_cond",
+      "flags": [
+        "",
+        "--sigma2-cond"
+      ],
+      "help": null,
+      "primary_flag": "--sigma2-cond",
+      "replacement": null,
+      "source_line": 313,
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sigma2_ext",
+      "flags": [
+        "",
+        "--sigma2-ext"
+      ],
+      "help": null,
+      "primary_flag": "--sigma2-ext",
+      "replacement": null,
+      "source_line": 314,
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "signal_max_logp_ratio",
+      "flags": [
+        "",
+        "--signal-max-logp-ratio"
+      ],
+      "help": null,
+      "primary_flag": "--signal-max-logp-ratio",
+      "replacement": null,
+      "source_line": 603,
+      "type": "float",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "100000",
+      "deprecation_timeline": null,
+      "dest": "signal_min_sep",
+      "flags": [
+        "",
+        "--signal-min-sep"
+      ],
+      "help": null,
+      "primary_flag": "--signal-min-sep",
+      "replacement": null,
+      "source_line": 602,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "250000",
+      "deprecation_timeline": null,
+      "dest": "signal_window_size",
+      "flags": [
+        "",
+        "--signal-window-size"
+      ],
+      "help": null,
+      "primary_flag": "--signal-window-size",
+      "replacement": null,
+      "source_line": 601,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "0",
+      "deprecation_timeline": null,
+      "dest": "sim_log_bf_noise_sigma_mult",
+      "flags": [
+        "",
+        "--sim-log-bf-noise-sigma-mult"
+      ],
+      "help": null,
+      "primary_flag": "--sim-log-bf-noise-sigma-mult",
+      "replacement": null,
+      "source_line": 643,
+      "type": "float",
+      "usage_references": 7
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "sim_only_positive",
+      "flags": [
+        "",
+        "--sim-only-positive"
+      ],
+      "help": null,
+      "primary_flag": "--sim-only-positive",
+      "replacement": null,
+      "source_line": 644,
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sparse_frac_betas",
+      "flags": [
+        "",
+        "--sparse-frac-betas"
+      ],
+      "help": null,
+      "primary_flag": "--sparse-frac-betas",
+      "replacement": null,
+      "source_line": 613,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "sparse_frac_gibbs",
+      "flags": [
+        "",
+        "--sparse-frac-gibbs"
+      ],
+      "help": null,
+      "primary_flag": "--sparse-frac-gibbs",
+      "replacement": null,
+      "source_line": 611,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.001",
+      "deprecation_timeline": null,
+      "dest": "sparse_max_gibbs",
+      "flags": [
+        "",
+        "--sparse-max-gibbs"
+      ],
+      "help": null,
+      "primary_flag": "--sparse-max-gibbs",
+      "replacement": null,
+      "source_line": 612,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sparse_solution",
+      "flags": [
+        "",
+        "--sparse-solution"
+      ],
+      "help": null,
+      "primary_flag": "--sparse-solution",
+      "replacement": null,
+      "source_line": 609,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.002",
+      "deprecation_timeline": null,
+      "dest": "stall_delta_mcse",
+      "flags": [
+        "",
+        "--stall-delta-mcse"
+      ],
+      "help": null,
+      "primary_flag": "--stall-delta-mcse",
+      "replacement": null,
+      "source_line": 685,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "stall_delta_rhat",
+      "flags": [
+        "",
+        "--stall-delta-rhat"
+      ],
+      "help": null,
+      "primary_flag": "--stall-delta-rhat",
+      "replacement": null,
+      "source_line": 684,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "10",
+      "deprecation_timeline": null,
+      "dest": "stall_min_burn_in",
+      "flags": [
+        "",
+        "--stall-min-burn-in"
+      ],
+      "help": null,
+      "primary_flag": "--stall-min-burn-in",
+      "replacement": null,
+      "source_line": 683,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "50",
+      "deprecation_timeline": null,
+      "dest": "stall_min_post_burn_in",
+      "flags": [
+        "",
+        "--stall-min-post-burn-samples"
+      ],
+      "help": null,
+      "primary_flag": "--stall-min-post-burn-samples",
+      "replacement": null,
+      "source_line": 666,
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.05",
+      "deprecation_timeline": null,
+      "dest": "stall_recent_eps",
+      "flags": [
+        "",
+        "--stall-recent-eps"
+      ],
+      "help": null,
+      "primary_flag": "--stall-recent-eps",
+      "replacement": null,
+      "source_line": 687,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "4",
+      "deprecation_timeline": null,
+      "dest": "stall_recent_window",
+      "flags": [
+        "",
+        "--stall-recent-window"
+      ],
+      "help": null,
+      "primary_flag": "--stall-recent-window",
+      "replacement": null,
+      "source_line": 686,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "3",
+      "deprecation_timeline": null,
+      "dest": "stall_window",
+      "flags": [
+        "",
+        "--stall-window"
+      ],
+      "help": null,
+      "primary_flag": "--stall-window",
+      "replacement": null,
+      "source_line": 682,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "stop_mcse_quantile",
+      "flags": [
+        "",
+        "--stop-mcse-quantile"
+      ],
+      "help": null,
+      "primary_flag": "--stop-mcse-quantile",
+      "replacement": null,
+      "source_line": 667,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.3",
+      "deprecation_timeline": null,
+      "dest": "stop_min_gene_d",
+      "flags": [
+        "",
+        "--stop-min-gene-d"
+      ],
+      "help": null,
+      "primary_flag": "--stop-min-gene-d",
+      "replacement": null,
+      "source_line": 680,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "2",
+      "deprecation_timeline": null,
+      "dest": "stop_patience",
+      "flags": [
+        "",
+        "--stop-patience"
+      ],
+      "help": null,
+      "primary_flag": "--stop-patience",
+      "replacement": null,
+      "source_line": 668,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "200",
+      "deprecation_timeline": null,
+      "dest": "stop_top_gene_k",
+      "flags": [
+        "",
+        "--stop-top-gene-k"
+      ],
+      "help": null,
+      "primary_flag": "--stop-top-gene-k",
+      "replacement": null,
+      "source_line": 679,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "strict_stopping",
+      "flags": [
+        "",
+        "--strict-stopping"
+      ],
+      "help": null,
+      "primary_flag": "--strict-stopping",
+      "replacement": null,
+      "source_line": 671,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "0.5",
+      "deprecation_timeline": null,
+      "dest": "threshold_weights",
+      "flags": [
+        "",
+        "--threshold-weights"
+      ],
+      "help": null,
+      "primary_flag": "--threshold-weights",
+      "replacement": null,
+      "source_line": 556,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "top_gene_prior",
+      "flags": [
+        "",
+        "--top-gene-prior"
+      ],
+      "help": null,
+      "primary_flag": "--top-gene-prior",
+      "replacement": null,
+      "source_line": 621,
+      "type": "float",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "top_gene_set_prior",
+      "flags": [
+        "",
+        "--top-gene-set-prior"
+      ],
+      "help": null,
+      "primary_flag": "--top-gene-set-prior",
+      "replacement": null,
+      "source_line": 316,
+      "type": "float",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "total_num_iter_gibbs",
+      "flags": [
+        "",
+        "--total-num-iter-gibbs"
+      ],
+      "help": null,
+      "primary_flag": "--total-num-iter-gibbs",
+      "replacement": null,
+      "source_line": 652,
+      "type": "int",
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "update_hyper",
+      "flags": [
+        "",
+        "--update-hyper"
+      ],
+      "help": null,
+      "primary_flag": "--update-hyper",
+      "replacement": null,
+      "source_line": 326,
+      "type": "string",
+      "usage_references": 10
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "use_beta_uncorrected_for_gene_gene_set_write_filter",
+      "flags": [
+        "",
+        "--use-beta-uncorrected-for-gene-gene-set-write-filter"
+      ],
+      "help": null,
+      "primary_flag": "--use-beta-uncorrected-for-gene-gene-set-write-filter",
+      "replacement": null,
+      "source_line": 494,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "use_max_r_for_convergence",
+      "flags": [
+        "",
+        "--use-max-r-for-convergence"
+      ],
+      "help": null,
+      "primary_flag": "--use-max-r-for-convergence",
+      "replacement": null,
+      "source_line": 672,
+      "type": null,
+      "usage_references": 11
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "use_max_r_for_convergence_betas",
+      "flags": [
+        "",
+        "--use-max-r-for-convergence-betas"
+      ],
+      "help": null,
+      "primary_flag": "--use-max-r-for-convergence-betas",
+      "replacement": null,
+      "source_line": 698,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "use_sampled_betas_in_gibbs",
+      "flags": [
+        "",
+        "--use-sampled-betas-in-gibbs"
+      ],
+      "help": null,
+      "primary_flag": "--use-sampled-betas-in-gibbs",
+      "replacement": null,
+      "source_line": 655,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "use_sampling_for_betas",
+      "flags": [
+        "",
+        "--use-sampling-for-betas"
+      ],
+      "help": null,
+      "primary_flag": "--use-sampling-for-betas",
+      "replacement": null,
+      "source_line": 516,
+      "type": "int",
+      "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "core_model",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "warm_start",
+      "flags": [
+        "",
+        "--warm-start"
+      ],
+      "help": null,
+      "primary_flag": "--warm-start",
+      "replacement": null,
+      "source_line": 656,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "warnings_file",
+      "flags": [
+        "",
+        "--warnings-file"
+      ],
+      "help": null,
+      "primary_flag": "--warnings-file",
+      "replacement": null,
+      "source_line": 502,
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": null,
+      "category": "core_model",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "weighted_prune_gene_sets",
+      "flags": [
+        "",
+        "--weighted-prune-gene-sets"
+      ],
+      "help": null,
+      "primary_flag": "--weighted-prune-gene-sets",
+      "replacement": null,
+      "source_line": 561,
+      "type": "float",
+      "usage_references": 5
+    },
+    {
+      "action": "callback",
+      "category": "core_model",
+      "default": "[50,100,250,1000]",
+      "deprecation_timeline": null,
+      "dest": "x_sparsify",
+      "flags": [
+        "",
+        "--x-sparsify"
+      ],
+      "help": null,
+      "primary_flag": "--x-sparsify",
+      "replacement": null,
+      "source_line": 551,
+      "type": "string",
+      "usage_references": 7
+    }
+  ]
+}
