@@ -97,7 +97,7 @@ try:
         correct_beta_tildes as pegs_correct_beta_tildes,
         compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
-        resolve_gene_phewas_input_for_stage as pegs_resolve_gene_phewas_input_for_stage,
+        resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
@@ -207,7 +207,7 @@ except ImportError:
         correct_beta_tildes as pegs_correct_beta_tildes,
         compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
-        resolve_gene_phewas_input_for_stage as pegs_resolve_gene_phewas_input_for_stage,
+        resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
@@ -20526,12 +20526,17 @@ def _run_advanced_set_b_phewas_beta_sampling_if_requested(state, options, beta_s
 def _run_advanced_set_b_output_phewas_if_requested(state, options):
     if not options.run_phewas_from_gene_phewas_stats_in:
         return
-    bfs_to_use = pegs_resolve_gene_phewas_input_for_stage(
+    decision = pegs_resolve_gene_phewas_input_decision_for_stage(
         requested_input=options.run_phewas_from_gene_phewas_stats_in,
         reusable_inputs=[options.gene_phewas_bfs_in],
         read_gene_phewas=state.read_gene_phewas(),
         num_gene_phewas_filtered=state.num_gene_phewas_filtered,
     )
+    log(
+        "PheWAS stage 'output_phewas': mode=%s reason=%s" % (decision.mode, decision.reason),
+        INFO,
+    )
+    bfs_to_use = decision.resolved_input
 
     phewas_config = pegs_build_phewas_stage_config(
         gene_phewas_bfs_in=bfs_to_use,
