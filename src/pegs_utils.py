@@ -5657,6 +5657,113 @@ def finalize_regression_outputs(beta_tildes, ses, se_inflation_factors, *, log_f
     return (beta_tildes, ses, z_scores, p_values, se_inflation_factors)
 
 
+def compute_beta_tildes(
+    X,
+    Y,
+    *,
+    y_var=None,
+    scale_factors=None,
+    mean_shifts=None,
+    resid_correlation_matrix=None,
+    calc_x_shift_scale_fn=None,
+    finalize_regression_fn=None,
+    bail_fn=None,
+    log_fun=None,
+    debug_level=0,
+):
+    if finalize_regression_fn is None:
+        finalize_regression_fn = finalize_regression_outputs
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if log_fun is None:
+        log_fun = lambda *args, **kwargs: None
+
+    log_fun("Calculating beta tildes")
+
+    if X.shape[0] == 0 or X.shape[1] == 0:
+        bail_fn("Can't compute beta tildes on no gene sets!")
+
+    if len(Y.shape) == 2:
+        len_Y = Y.shape[1]
+        Y_mean = np.mean(Y, axis=1, keepdims=True)
+    else:
+        len_Y = Y.shape[0]
+        Y_mean = np.mean(Y)
+
+    if mean_shifts is None or scale_factors is None:
+        if calc_x_shift_scale_fn is None:
+            if sparse.issparse(X):
+                mean_shifts = np.array(X.mean(axis=0)).ravel()
+                scale_factors = np.sqrt(np.array(X.multiply(X).mean(axis=0)).ravel() - np.square(mean_shifts))
+            else:
+                mean_shifts = np.mean(X, axis=0)
+                scale_factors = np.std(X, axis=0)
+        else:
+            (mean_shifts, scale_factors) = calc_x_shift_scale_fn(X)
+
+    if y_var is None:
+        if len(Y.shape) == 1:
+            y_var = np.var(Y)
+        else:
+            y_var = np.var(Y, axis=1)
+
+    if sparse.issparse(X):
+        X_sum = X.sum(axis=0).A1.T[:, np.newaxis]
+    else:
+        X_sum = np.asarray(X.sum(axis=0, keepdims=True).T)
+
+    if len(Y.shape) == 1:
+        X_sum = X_sum.squeeze(axis=1)
+
+    dot_product = (X.T.dot(Y.T) - X_sum * Y_mean.T).T / len_Y
+
+    variances = np.power(scale_factors, 2)
+    variances[variances == 0] = 1
+
+    beta_tildes = scale_factors * dot_product / variances
+
+    if len(Y.shape) == 2:
+        ses = np.outer(np.sqrt(y_var), scale_factors)
+    else:
+        ses = np.sqrt(y_var) * scale_factors
+
+    if len_Y > 1:
+        ses /= (np.sqrt(variances * (len_Y - 1)))
+
+    se_inflation_factors = None
+    if resid_correlation_matrix is not None:
+        log_fun("Adjusting standard errors for correlations", debug_level)
+
+        if type(resid_correlation_matrix) is list:
+            resid_correlation_matrix_list = resid_correlation_matrix
+            assert len(resid_correlation_matrix_list) == beta_tildes.shape[0]
+        else:
+            resid_correlation_matrix_list = [resid_correlation_matrix]
+
+        se_inflation_factors = np.zeros(beta_tildes.shape)
+
+        for i in range(len(resid_correlation_matrix_list)):
+            r_X = resid_correlation_matrix_list[i].dot(X)
+            if sparse.issparse(X):
+                r_X_col_means = r_X.multiply(X).sum(axis=0).A1 / X.shape[0]
+            else:
+                r_X_col_means = np.sum(r_X * X, axis=0) / X.shape[0]
+
+            cor_variances = r_X_col_means - np.square(r_X_col_means)
+            cor_variances[cor_variances < variances] = variances[cor_variances < variances]
+            cur_se_inflation_factors = np.sqrt(cor_variances / variances)
+
+            if len(resid_correlation_matrix_list) == 1:
+                se_inflation_factors = cur_se_inflation_factors
+                if len(beta_tildes.shape) == 2:
+                    se_inflation_factors = np.tile(se_inflation_factors, beta_tildes.shape[0]).reshape(beta_tildes.shape)
+                break
+            else:
+                se_inflation_factors[i, :] = cur_se_inflation_factors
+
+    return finalize_regression_fn(beta_tildes, ses, se_inflation_factors)
+
+
 def compute_multivariate_beta_tildes(
     X,
     Y,

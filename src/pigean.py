@@ -73,6 +73,7 @@ try:
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         finalize_regression_outputs as pegs_finalize_regression_outputs,
+        compute_beta_tildes as pegs_compute_beta_tildes,
         compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_for_stage as pegs_resolve_gene_phewas_input_for_stage,
@@ -161,6 +162,7 @@ except ImportError:
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         finalize_regression_outputs as pegs_finalize_regression_outputs,
+        compute_beta_tildes as pegs_compute_beta_tildes,
         compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_for_stage as pegs_resolve_gene_phewas_input_for_stage,
@@ -8343,103 +8345,19 @@ class PigeanState(object):
             
 
     def _compute_beta_tildes(self, X, Y, y_var=None, scale_factors=None, mean_shifts=None, resid_correlation_matrix=None, log_fun=log):
-
-        log_fun("Calculating beta tildes")
-
-        if X.shape[0] == 0 or X.shape[1] == 0:
-            bail("Can't compute beta tildes on no gene sets!")
-
-        # Y can be a matrix with dimensions: 
-        # number of parallel runs x number of genes
-        #(k x n)
-        #X is always a matrix with dimensions
-        #(n x m)
-        if len(Y.shape) == 2:
-            len_Y = Y.shape[1]
-            Y_mean = np.mean(Y, axis=1, keepdims=True)  # Compute row-wise mean
-        else:
-            len_Y = Y.shape[0]
-            Y_mean = np.mean(Y)
-
-        if mean_shifts is None or scale_factors is None:
-            (mean_shifts, scale_factors) = self._calc_X_shift_scale(X)
-
-        if y_var is None:
-            if len(Y.shape) == 1:
-                y_var = np.var(Y)
-            else:
-                y_var = np.var(Y, axis=1)
-
-        # Update dot product to incorporate mean adjustment
-
-        if sparse.issparse(X):
-            X_sum = X.sum(axis=0).A1.T[:,np.newaxis]
-        else:
-            X_sum = np.asarray(X.sum(axis=0, keepdims=True).T)
-
-        if len(Y.shape) == 1:
-            X_sum = X_sum.squeeze(axis=1)
-
-        dot_product = (X.T.dot(Y.T) - X_sum * Y_mean.T).T / len_Y
-
-        variances = np.power(scale_factors, 2)
-
-        #avoid divide by 0 only
-        variances[variances == 0] = 1
-
-        #multiply by scale factors because we store beta_tilde in units of scaled X
-        beta_tildes = scale_factors * dot_product / variances
-
-        if len(Y.shape) == 2:
-            ses = np.outer(np.sqrt(y_var), scale_factors)
-        else:
-            ses = np.sqrt(y_var) * scale_factors
-
-        if len_Y > 1:
-            ses /= (np.sqrt(variances * (len_Y - 1)))
-
-        se_inflation_factors = None
-        if resid_correlation_matrix is not None:
-            log_fun("Adjusting standard errors for correlations", DEBUG)
-            #need to multiply by inflation factors: (X * sigma * X) / variances
-
-            #SEs and betas are stored in units of centered and scaled X
-            #we do not need to scale X here, however, because cor_variances will then be in units of unscaled X
-            #since variances are also in units of unscaled X, these will cancel out
-
-            if type(resid_correlation_matrix) is list:
-                resid_correlation_matrix_list = resid_correlation_matrix
-                assert(len(resid_correlation_matrix_list) == beta_tildes.shape[0])
-            else:
-                resid_correlation_matrix_list = [resid_correlation_matrix]
-                
-            se_inflation_factors = np.zeros(beta_tildes.shape)
-
-            for i in range(len(resid_correlation_matrix_list)):
-                r_X = resid_correlation_matrix_list[i].dot(X)
-                if sparse.issparse(X):
-                    r_X_col_means = r_X.multiply(X).sum(axis=0).A1 / X.shape[0]
-                else:
-                    r_X_col_means = np.sum(r_X * X, axis=0) / X.shape[0]
-
-                cor_variances = r_X_col_means - np.square(r_X_col_means)
-
-                #never increase significance
-                cor_variances[cor_variances < variances] = variances[cor_variances < variances]
-
-                #both cor_variances and variances are in units of unscaled X
-                cur_se_inflation_factors = np.sqrt(cor_variances / variances)
-
-                if len(resid_correlation_matrix_list) == 1:
-                    #these are all the same so just return
-                    se_inflation_factors = cur_se_inflation_factors
-                    if len(beta_tildes.shape) == 2:
-                        se_inflation_factors = np.tile(se_inflation_factors, beta_tildes.shape[0]).reshape(beta_tildes.shape)
-                    break
-                else:
-                    se_inflation_factors[i,:] = cur_se_inflation_factors
-
-        return self._finalize_regression(beta_tildes, ses, se_inflation_factors)
+        return pegs_compute_beta_tildes(
+            X,
+            Y,
+            y_var=y_var,
+            scale_factors=scale_factors,
+            mean_shifts=mean_shifts,
+            resid_correlation_matrix=resid_correlation_matrix,
+            calc_x_shift_scale_fn=self._calc_X_shift_scale,
+            finalize_regression_fn=self._finalize_regression,
+            bail_fn=bail,
+            log_fun=log_fun,
+            debug_level=DEBUG,
+        )
 
     def _compute_multivariate_beta_tildes(self, X, Y, resid_correlation_matrix=None, add_intercept=True, covs=None):
         return pegs_compute_multivariate_beta_tildes(
