@@ -1359,6 +1359,42 @@ def open_gz(file, flag=None):
         bail_fn=bail,
     )
 
+
+_HYPERPARAMETER_PROXY_FIELDS = (
+    "p",
+    "sigma2",
+    "sigma_power",
+    "sigma2_osc",
+    "sigma2_se",
+    "sigma2_p",
+    "sigma2_total_var",
+    "sigma2_total_var_lower",
+    "sigma2_total_var_upper",
+    "ps",
+    "sigma2s",
+    "sigma2s_missing",
+)
+
+
+def _bind_hyperparameter_properties(state_cls):
+    for field_name in _HYPERPARAMETER_PROXY_FIELDS:
+        private_name = "_%s" % field_name
+
+        def _getter(self, _field=field_name, _private=private_name):
+            hyper_state = self.__dict__.get("hyperparameter_state")
+            if hyper_state is not None:
+                return getattr(hyper_state, _field)
+            return self.__dict__.get(_private, None)
+
+        def _setter(self, value, _field=field_name, _private=private_name):
+            self.__dict__[_private] = value
+            hyper_state = self.__dict__.get("hyperparameter_state")
+            if hyper_state is not None:
+                setattr(hyper_state, _field, value)
+
+        setattr(state_cls, field_name, property(_getter, _setter))
+
+
 class PigeanState(object):
     '''
     Stores gene and gene set annotations and derived matrices
@@ -11085,6 +11121,9 @@ class PigeanState(object):
             self.X_orig_missing_genes_missing_gene_sets = None
 
         return(subset_mask)
+
+_bind_hyperparameter_properties(PigeanState)
+
 
 # ==========================================================================
 # State-agnostic parsing helpers used by both legacy objects and runtime-state.
