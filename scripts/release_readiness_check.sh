@@ -2,8 +2,20 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PYTHON_CMD="${ROOT_DIR}/../.venv/bin/python"
 OUT_DIR="${ROOT_DIR}/reports/release_v1"
+
+PYTHON_CMD=""
+for candidate in "${ROOT_DIR}/../.venv/bin/python" "${ROOT_DIR}/../../.venv/bin/python"; do
+    if [ -x "${candidate}" ]; then
+        PYTHON_CMD="${candidate}"
+        break
+    fi
+done
+
+if [ -z "${PYTHON_CMD}" ]; then
+    echo "[release] ERROR: could not find venv python at ../.venv/bin/python or ../../.venv/bin/python" >&2
+    exit 1
+fi
 
 mkdir -p "${OUT_DIR}"
 
