@@ -74,6 +74,8 @@ try:
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
         read_phewas_file_batch as pegs_read_phewas_file_batch,
+        append_phewas_metric_block as pegs_append_phewas_metric_block,
+        accumulate_standard_phewas_outputs as pegs_accumulate_standard_phewas_outputs,
         finalize_regression_outputs as pegs_finalize_regression_outputs,
         compute_beta_tildes as pegs_compute_beta_tildes,
         compute_logistic_beta_tildes as pegs_compute_logistic_beta_tildes,
@@ -167,6 +169,8 @@ except ImportError:
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
         read_phewas_file_batch as pegs_read_phewas_file_batch,
+        append_phewas_metric_block as pegs_append_phewas_metric_block,
+        accumulate_standard_phewas_outputs as pegs_accumulate_standard_phewas_outputs,
         finalize_regression_outputs as pegs_finalize_regression_outputs,
         compute_beta_tildes as pegs_compute_beta_tildes,
         compute_logistic_beta_tildes as pegs_compute_logistic_beta_tildes,
@@ -6346,17 +6350,19 @@ class PigeanState(object):
         )
 
     def _append_phewas_metric_block(self, current_beta, current_beta_tilde, current_se, current_z, current_p_value, current_one_sided_p_value, beta, beta_tilde, se, z_score, p_value, one_sided_p_value):
-        if current_beta_tilde is None:
-            return beta, beta_tilde, se, z_score, p_value, one_sided_p_value
-        beta_append = np.hstack((current_beta, beta)) if current_beta is not None else None
-        one_sided_append = np.hstack((current_one_sided_p_value, one_sided_p_value)) if current_one_sided_p_value is not None else None
-        return (
-            beta_append,
-            np.hstack((current_beta_tilde, beta_tilde)),
-            np.hstack((current_se, se)),
-            np.hstack((current_z, z_score)),
-            np.hstack((current_p_value, p_value)),
-            one_sided_append,
+        return pegs_append_phewas_metric_block(
+            current_beta,
+            current_beta_tilde,
+            current_se,
+            current_z,
+            current_p_value,
+            current_one_sided_p_value,
+            beta,
+            beta_tilde,
+            se,
+            z_score,
+            p_value,
+            one_sided_p_value,
         )
 
     def _prepare_phewas_phenos_from_file(self, gene_phewas_bfs_in, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None):
@@ -6396,41 +6402,15 @@ class PigeanState(object):
         )
 
     def _accumulate_phewas_outputs(self, output_prefix, beta, beta_tilde, se, z_score, p_value):
-        input_axes = [
-            ("Y", self.Y is not None, 0),
-            ("combined_prior_Ys", self.combined_prior_Ys is not None, 1),
-            ("priors", self.priors is not None, 2),
-        ]
-        for axis_name, axis_enabled, axis_index in input_axes:
-            if not axis_enabled:
-                continue
-            output_base = "%s_vs_input_%s" % (output_prefix, axis_name)
-            (
-                updated_beta,
-                updated_beta_tilde,
-                updated_se,
-                updated_z,
-                updated_p_value,
-                _,
-            ) = self._append_phewas_metric_block(
-                getattr(self, "%s_beta" % output_base),
-                getattr(self, "%s_beta_tilde" % output_base),
-                getattr(self, "%s_se" % output_base),
-                getattr(self, "%s_Z" % output_base),
-                getattr(self, "%s_p_value" % output_base),
-                None,
-                beta[axis_index, :],
-                beta_tilde[axis_index, :],
-                se[axis_index, :],
-                z_score[axis_index, :],
-                p_value[axis_index, :],
-                None,
-            )
-            setattr(self, "%s_beta" % output_base, updated_beta)
-            setattr(self, "%s_beta_tilde" % output_base, updated_beta_tilde)
-            setattr(self, "%s_se" % output_base, updated_se)
-            setattr(self, "%s_Z" % output_base, updated_z)
-            setattr(self, "%s_p_value" % output_base, updated_p_value)
+        pegs_accumulate_standard_phewas_outputs(
+            self,
+            output_prefix,
+            beta,
+            beta_tilde,
+            se,
+            z_score,
+            p_value,
+        )
 
     def run_phewas(self, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, **kwargs):
 

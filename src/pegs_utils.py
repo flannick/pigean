@@ -1832,6 +1832,105 @@ def read_phewas_file_batch(
     return gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors
 
 
+def append_phewas_metric_block(
+    current_beta,
+    current_beta_tilde,
+    current_se,
+    current_z,
+    current_p_value,
+    current_one_sided_p_value,
+    beta,
+    beta_tilde,
+    se,
+    z_score,
+    p_value,
+    one_sided_p_value,
+):
+    if current_beta_tilde is None:
+        return beta, beta_tilde, se, z_score, p_value, one_sided_p_value
+    beta_append = np.hstack((current_beta, beta)) if current_beta is not None else None
+    one_sided_append = np.hstack((current_one_sided_p_value, one_sided_p_value)) if current_one_sided_p_value is not None else None
+    return (
+        beta_append,
+        np.hstack((current_beta_tilde, beta_tilde)),
+        np.hstack((current_se, se)),
+        np.hstack((current_z, z_score)),
+        np.hstack((current_p_value, p_value)),
+        one_sided_append,
+    )
+
+
+def accumulate_standard_phewas_outputs(runtime, output_prefix, beta, beta_tilde, se, z_score, p_value):
+    input_axes = [
+        ("Y", runtime.Y is not None, 0),
+        ("combined_prior_Ys", runtime.combined_prior_Ys is not None, 1),
+        ("priors", runtime.priors is not None, 2),
+    ]
+    for axis_name, axis_enabled, axis_index in input_axes:
+        if not axis_enabled:
+            continue
+        output_base = "%s_vs_input_%s" % (output_prefix, axis_name)
+        (
+            updated_beta,
+            updated_beta_tilde,
+            updated_se,
+            updated_z,
+            updated_p_value,
+            _,
+        ) = append_phewas_metric_block(
+            getattr(runtime, "%s_beta" % output_base),
+            getattr(runtime, "%s_beta_tilde" % output_base),
+            getattr(runtime, "%s_se" % output_base),
+            getattr(runtime, "%s_Z" % output_base),
+            getattr(runtime, "%s_p_value" % output_base),
+            None,
+            beta[axis_index, :],
+            beta_tilde[axis_index, :],
+            se[axis_index, :],
+            z_score[axis_index, :],
+            p_value[axis_index, :],
+            None,
+        )
+        setattr(runtime, "%s_beta" % output_base, updated_beta)
+        setattr(runtime, "%s_beta_tilde" % output_base, updated_beta_tilde)
+        setattr(runtime, "%s_se" % output_base, updated_se)
+        setattr(runtime, "%s_Z" % output_base, updated_z)
+        setattr(runtime, "%s_p_value" % output_base, updated_p_value)
+
+
+def accumulate_factor_phewas_outputs(runtime, output_prefix, beta_tilde, se, z_score, p_value, one_sided_p_value, *, huber=False):
+    output_base = "factor_phewas_%s" % output_prefix
+    if huber:
+        output_base += "_huber"
+    (
+        updated_beta,
+        updated_beta_tilde,
+        updated_se,
+        updated_z,
+        updated_p_value,
+        updated_one_sided,
+    ) = append_phewas_metric_block(
+        None,
+        getattr(runtime, "%s_betas" % output_base),
+        getattr(runtime, "%s_ses" % output_base),
+        getattr(runtime, "%s_zs" % output_base),
+        getattr(runtime, "%s_p_values" % output_base),
+        getattr(runtime, "%s_one_sided_p_values" % output_base),
+        None,
+        beta_tilde,
+        se,
+        z_score,
+        p_value,
+        one_sided_p_value,
+    )
+    assert updated_beta is None
+    setattr(runtime, "%s_betas" % output_base, updated_beta_tilde)
+    setattr(runtime, "%s_ses" % output_base, updated_se)
+    setattr(runtime, "%s_zs" % output_base, updated_z)
+    setattr(runtime, "%s_p_values" % output_base, updated_p_value)
+    setattr(runtime, "%s_one_sided_p_values" % output_base, updated_one_sided)
+
+
 def parse_gene_phewas_bfs_file(
     gene_phewas_bfs_in,
     *,
