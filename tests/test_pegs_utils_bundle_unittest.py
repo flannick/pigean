@@ -1723,7 +1723,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
         )
         self.assertEqual(rt.read_args, ("cor.tsv", "loc.tsv", 1, 10))
         self.assertIsNotNone(rt.set_y_kwargs)
-        self.assertFalse(rt.set_y_kwargs["store_cholesky"])
+        self.assertNotIn("store_cholesky", rt.set_y_kwargs)
         self.assertTrue(rt.set_y_kwargs["store_corr_sparse"])
         self.assertAlmostEqual(rt.set_y_kwargs["min_correlation"], 0.05)
 

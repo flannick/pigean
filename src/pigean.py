@@ -1007,8 +1007,6 @@ _STATE_FIELDS_Y_SOURCES = (
     "Y",
     "Y_for_regression",
     "Y_uncorrected",
-    "Y_w",
-    "Y_fw",
     "gene_to_huge_score",
     "gene_to_gwas_huge_score",
     "gene_to_gwas_huge_score_uncorrected",
@@ -1612,8 +1610,6 @@ class PigeanState(object):
         self.y_var = 1 #total variance of the Y
         self.Y_orig = None
         self.Y_for_regression_orig = None
-        self.Y_w_orig = None
-        self.Y_fw_orig = None
 
         self.gene_locations = None #this stores sort orders for genes, which is populated when fitting correlation matrix from gene loc file
 
@@ -1664,11 +1660,9 @@ class PigeanState(object):
         #In addition to storing cholesky decomp, this being set to not None triggers everything to operate in full GLS mode
         self.y_corr_cholesky = None #this stores the cholesky decomposition of the (banded) correlation matrix for the Y values
         #these are the "whitened" ys that are multiplied by sigma^{-1/2}
-        self.Y_w = None
         self.y_w_var = 1 #total variance of the whitened Y
         self.y_w_mean = 0 #total mean of the whitened Y
         #these are the "full whitened" ys that are multiplied by sigma^{-1}
-        self.Y_fw = None
         self.y_fw_var = 1 #total variance of the whitened Y
         self.y_fw_mean = 0 #total mean of the whitened Y
 
@@ -5084,7 +5078,7 @@ class PigeanState(object):
 
             #convert X and Y to their new values
             min_correlation = 0.05
-            self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, store_cholesky=False, store_corr_sparse=run_corrected_ols, skip_V=True, skip_scale_factors=True, min_correlation=min_correlation)
+            self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, store_corr_sparse=run_corrected_ols, skip_V=True, skip_scale_factors=True, min_correlation=min_correlation)
 
         #subset gene sets to remove empty ones first
         #number of gene sets in each gene set
@@ -5646,7 +5640,7 @@ class PigeanState(object):
                 #need sorted genes and correlation matrix to batch genes
                 if self.y_corr is None:
                     correlation_m = self._read_correlations(gene_cor_file, gene_loc_file, gene_cor_file_gene_col=gene_cor_file_gene_col, gene_cor_file_cor_start_col=gene_cor_file_cor_start_col)
-                    self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, skip_V=True, store_cholesky=False, skip_scale_factors=True, min_correlation=None)
+                    self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, skip_V=True, skip_scale_factors=True, min_correlation=None)
                 batches = range(num_gene_batches)
 
             gene_batch_size = int(len(self.genes) / float(num_gene_batches) + 1)
@@ -5734,7 +5728,6 @@ class PigeanState(object):
                     #now subset Y
                     Y = copy.copy(self.Y_for_regression)
                     y_corr = None
-                    y_corr_cholesky = None
                     y_corr_sparse = None
     
                     if self.y_corr is not None:
@@ -5746,12 +5739,7 @@ class PigeanState(object):
                         #don't need to zero out anything for include_mask_end because correlations between after end and removed are all stored inside of the removed indices
                         y_corr = y_corr[:,include_mask]
     
-                        if self.y_corr_cholesky is not None:
-                            Y = copy.copy(self.Y_fw)
-                            #this is the correlation matrix we will use this batch
-                            #it is a subsetted version of the self.y_corr but with the correlations with the removed genes zeroed out
-                            y_corr_cholesky = self._get_y_corr_cholesky(y_corr)
-                        elif self.y_corr_sparse is not None:
+                        if self.y_corr_sparse is not None:
                             y_corr_sparse = self.y_corr_sparse[include_mask,:][:,include_mask]
                     
                     Y = Y[include_mask]
@@ -5761,7 +5749,7 @@ class PigeanState(object):
                     #y_mean = np.mean(Y)
                     #Y = Y - y_mean
     
-                    (mean_shifts, scale_factors) = self._calc_X_shift_scale(self.X_orig[include_mask,:], y_corr_cholesky)
+                    (mean_shifts, scale_factors) = self._calc_X_shift_scale(self.X_orig[include_mask,:])
     
                     #if some gene sets became empty!
                     assert(not np.any(np.logical_and(mean_shifts != 0, scale_factors == 0)))
@@ -5862,7 +5850,7 @@ class PigeanState(object):
                         for i,j in zip(range(begin, end),range(end-begin)):
                             include_mask = full_include_mask_m[i,:]
     
-                            V_m[j,:,:] = self._calculate_V_internal(self.X_orig[include_mask,:][:,new_gene_set_mask], y_corr_cholesky, full_mean_shifts_m[i,new_gene_set_mask], full_scale_factors_m[i,new_gene_set_mask])
+                            V_m[j,:,:] = self._calculate_V_internal(self.X_orig[include_mask,:][:,new_gene_set_mask], None, full_mean_shifts_m[i,new_gene_set_mask], full_scale_factors_m[i,new_gene_set_mask])
                     else:
                         V_m = None
     
@@ -8254,7 +8242,7 @@ class PigeanState(object):
 
     #store Y value
     #Y is whitened if Y_corr_m is not null
-    def _set_Y(self, Y, Y_for_regression=None, Y_exomes=None, Y_positive_controls=None, Y_case_counts=None, Y_corr_m=None, store_cholesky=True, store_corr_sparse=False, skip_V=False, skip_scale_factors=False, min_correlation=0):
+    def _set_Y(self, Y, Y_for_regression=None, Y_exomes=None, Y_positive_controls=None, Y_case_counts=None, Y_corr_m=None, store_corr_sparse=False, skip_V=False, skip_scale_factors=False, min_correlation=0):
         log("Setting Y", TRACE)
         self.last_X_block = None
         self.y_state = pegs_set_runtime_y_from_inputs(
@@ -8656,8 +8644,6 @@ class PigeanState(object):
     def _sort_genes(self, sorted_gene_indices, skip_V=False, skip_scale_factors=False):
 
         log("Sorting genes", TRACE)
-        if self.y_corr_cholesky is not None:
-            bail("Sorting genes after setting correlation matrix is not yet implemented")
 
         self.genes = [self.genes[i] for i in sorted_gene_indices]
         self.gene_to_ind = pegs_construct_map_to_ind(self.genes)
@@ -8673,7 +8659,7 @@ class PigeanState(object):
             
             self.X_orig_missing_gene_sets = sparse.csc_matrix((self.X_orig_missing_gene_sets.data, [index_map[x] for x in self.X_orig_missing_gene_sets.indices], self.X_orig_missing_gene_sets.indptr), shape=self.X_orig_missing_gene_sets.shape)
             #need to recompute these
-            (self.mean_shifts_missing, self.scale_factors_missing) = self._calc_X_shift_scale(self.X_orig_missing_gene_sets, self.y_corr_cholesky)
+            (self.mean_shifts_missing, self.scale_factors_missing) = self._calc_X_shift_scale(self.X_orig_missing_gene_sets)
 
         if self.huge_signal_bfs is not None:
             #reset the X matrix and scale factors
@@ -8708,7 +8694,7 @@ class PigeanState(object):
         if self.gene_ignored_N is not None:
             self.gene_ignored_N = self.gene_ignored_N[sorted_gene_indices]
 
-        for x in [self.Y, self.Y_r_hat, self.Y_mcse, self.Y_for_regression, self.Y_uncorrected, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, self.Y_w, self.Y_fw, self.priors, self.priors_r_hat, self.priors_mcse, self.priors_adj, self.combined_prior_Ys, self.combined_prior_Ys_r_hat, self.combined_prior_Ys_mcse, self.combined_prior_Ys_adj, self.combined_Ds, self.Y_orig, self.Y_for_regression_orig, self.Y_w_orig, self.Y_fw_orig, self.priors_orig, self.priors_adj_orig]:
+        for x in [self.Y, self.Y_r_hat, self.Y_mcse, self.Y_for_regression, self.Y_uncorrected, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, self.priors, self.priors_r_hat, self.priors_mcse, self.priors_adj, self.combined_prior_Ys, self.combined_prior_Ys_r_hat, self.combined_prior_Ys_mcse, self.combined_prior_Ys_adj, self.combined_Ds, self.Y_orig, self.Y_for_regression_orig, self.priors_orig, self.priors_adj_orig]:
             if x is not None:
                 x[:] = np.array([x[i] for i in sorted_gene_indices])
 
@@ -8929,7 +8915,7 @@ class PigeanState(object):
 
         if not skip_Y:
             if self.Y is not None:
-                self._set_Y(self.Y[gene_mask], self.Y_for_regression[gene_mask] if self.Y_for_regression is not None else None, self.Y_exomes[gene_mask] if self.Y_exomes is not None else None, self.Y_positive_controls[gene_mask] if self.Y_positive_controls is not None else None, self.Y_case_counts[gene_mask] if self.Y_case_counts is not None else None, Y_corr_m=self.y_corr[:,gene_mask] if self.y_corr is not None else None, store_cholesky=self.y_corr_cholesky is not None, store_corr_sparse=self.y_corr_sparse is not None, skip_V=skip_V)
+                self._set_Y(self.Y[gene_mask], self.Y_for_regression[gene_mask] if self.Y_for_regression is not None else None, self.Y_exomes[gene_mask] if self.Y_exomes is not None else None, self.Y_positive_controls[gene_mask] if self.Y_positive_controls is not None else None, self.Y_case_counts[gene_mask] if self.Y_case_counts is not None else None, Y_corr_m=self.y_corr[:,gene_mask] if self.y_corr is not None else None, store_corr_sparse=self.y_corr_sparse is not None, skip_V=skip_V)
 
             if self.Y_uncorrected is not None:
                 self.Y_uncorrected = self.Y_uncorrected[gene_mask]
@@ -8977,10 +8963,6 @@ class PigeanState(object):
                 self.Y_orig = self.Y_orig[gene_mask]
             if self.Y_for_regression_orig is not None:
                 self.Y_for_regression_orig = self.Y_for_regression_orig[gene_mask]
-            if self.Y_w_orig is not None:
-                self.Y_w_orig = self.Y_w_orig[gene_mask]
-            if self.Y_fw_orig is not None:
-                self.Y_fw_orig = self.Y_fw_orig[gene_mask]
             if self.priors_orig is not None:
                 self.priors_missing_orig = (self.priors_missing_orig if self.priors_missing_orig is not None else []) + [self.priors_orig[i] for i in range(len(self.priors_orig)) if not gene_mask[i]]
                 self.priors_orig = self.priors_orig[gene_mask]
@@ -8996,7 +8978,6 @@ class PigeanState(object):
                 self.gene_pheno_priors = self.gene_pheno_priors[gene_mask,:]
 
 
-        #for x in [self.priors, self.combined_prior_Ys, self.Y_orig, self.Y_w_orig, self.Y_fw_orig, self.priors_orig, self.combined_prior_Ys_orig]:
         #    if x is not None:
         #        x[:] = np.concatenate((x[gene_mask], x[~gene_mask]))
 
@@ -15895,8 +15876,6 @@ def _snapshot_pre_gibbs_state(state):
 
     state.Y_orig = copy.copy(state.Y)
     state.Y_for_regression_orig = copy.copy(state.Y_for_regression)
-    state.Y_w_orig = copy.copy(state.Y_w)
-    state.Y_fw_orig = copy.copy(state.Y_fw)
     state.priors_orig = copy.copy(state.priors)
     state.priors_adj_orig = copy.copy(state.priors_adj)
     state.priors_missing_orig = copy.copy(state.priors_missing)

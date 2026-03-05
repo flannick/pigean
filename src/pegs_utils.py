@@ -3572,7 +3572,6 @@ def maybe_prepare_filtered_correlation(
             runtime.Y_positive_controls,
             runtime.Y_case_counts,
             Y_corr_m=correlation_m,
-            store_cholesky=False,
             store_corr_sparse=run_corrected_ols,
             skip_V=True,
             skip_scale_factors=True,
@@ -6972,10 +6971,6 @@ def write_gene_statistics(runtime, output_file, *, open_text_fn=None, log_fn=Non
             header = "%s\t%s" % (header, "log_bf_regression")
         if runtime.Y_uncorrected is not None:
             header = "%s\t%s" % (header, "log_bf_uncorrected")
-        if runtime.Y_w is not None:
-            header = "%s\t%s" % (header, "log_bf_w")
-        if runtime.Y_fw is not None:
-            header = "%s\t%s" % (header, "log_bf_fw")
         if runtime.priors_orig is not None:
             header = "%s\t%s" % (header, "prior_orig")
         if runtime.priors_adj_orig is not None:
@@ -7066,10 +7061,6 @@ def write_gene_statistics(runtime, output_file, *, open_text_fn=None, log_fn=Non
                 line = "%s\t%.3g" % (line, runtime.Y_for_regression[i])
             if runtime.Y_uncorrected is not None:
                 line = "%s\t%.3g" % (line, runtime.Y_uncorrected[i])
-            if runtime.Y_w is not None:
-                line = "%s\t%.3g" % (line, runtime.Y_w[i])
-            if runtime.Y_fw is not None:
-                line = "%s\t%.3g" % (line, runtime.Y_fw[i])
             if runtime.priors_orig is not None:
                 line = "%s\t%.3g" % (line, runtime.priors_orig[i])
             if runtime.priors_adj_orig is not None:
@@ -7150,10 +7141,6 @@ def write_gene_statistics(runtime, output_file, *, open_text_fn=None, log_fn=Non
                     line = "%s\t%s" % (line, "NA")
                 if runtime.Y_uncorrected is not None:
                     line = "%s\t%s" % (line, "NA")
-                if runtime.Y_w is not None:
-                    line = "%s\t%s" % (line, "NA")
-                if runtime.Y_fw is not None:
-                    line = "%s\t%s" % (line, "NA")
                 if runtime.priors_orig is not None:
                     line = ("%s\t%.3g" % (line, runtime.priors_missing_orig[i])) if runtime.priors_missing_orig is not None else ("%s\t%s" % (line, "NA"))
 
@@ -7229,10 +7216,6 @@ def write_gene_statistics(runtime, output_file, *, open_text_fn=None, log_fn=Non
             if write_regression:
                 line = "%s\t%s" % (line, "NA")
             if runtime.Y_uncorrected is not None:
-                line = "%s\t%s" % (line, "NA")
-            if runtime.Y_w is not None:
-                line = "%s\t%s" % (line, "NA")
-            if runtime.Y_fw is not None:
                 line = "%s\t%s" % (line, "NA")
             if runtime.priors_orig is not None:
                 line = "%s\t%s" % (line, "NA")
