@@ -588,7 +588,9 @@ parser.add_option("","--no-adjust-priors",default=None,action='store_false',dest
 #gibbs parameters
 parser.add_option("","--no-update-huge-scores",default=True,action='store_false',dest="update_huge_scores") #do not use priors to update huge scores (by default, priors affect "competition" for signal by nearby genes")
 parser.add_option("","--top-gene-prior",type=float,default=None) #specify the top prior we are expecting any of the genes to have (after all of the calculations)
-parser.add_option("","--increase-hyper-if-betas-below",type=float,default=None) #increase p if gene sets aren't significant enough
+parser.add_option("","--experimental-hyper-mutation",action="store_true",default=False) #enable legacy experimental Gibbs hyper mutation/restart heuristic
+parser.add_option("","--experimental-increase-hyper-if-betas-below",type=float,default=None) #experimental no-signal threshold for Gibbs hyper mutation/restart heuristic
+parser.add_option("","--increase-hyper-if-betas-below",type=float,default=None) #legacy alias for --experimental-increase-hyper-if-betas-below
 
 # Gene-level phewas statistics input (used by --run-phewas-from-gene-phewas-stats-in).
 parser.add_option("","--gene-phewas-bfs-in",default=None)
@@ -907,6 +909,51 @@ pegs_fail_removed_cli_aliases(
 )
 
 args = pegs_harmonize_cli_mode_args(args, config_mode, early_warn_fn=_early_warn)
+
+
+def _resolve_experimental_gibbs_hyper_options(options_obj, argv_list, config_specified_dests):
+    legacy_value = getattr(options_obj, "increase_hyper_if_betas_below", None)
+    experimental_value = getattr(options_obj, "experimental_increase_hyper_if_betas_below", None)
+
+    if (
+        legacy_value is not None
+        and experimental_value is not None
+        and not np.isclose(legacy_value, experimental_value)
+    ):
+        bail(
+            "Conflicting thresholds: --increase-hyper-if-betas-below=%.6g and --experimental-increase-hyper-if-betas-below=%.6g"
+            % (legacy_value, experimental_value)
+        )
+
+    resolved_value = experimental_value if experimental_value is not None else legacy_value
+    legacy_cli_present = any(
+        token == "--increase-hyper-if-betas-below"
+        or token.startswith("--increase-hyper-if-betas-below=")
+        for token in argv_list
+    )
+    legacy_config_present = (
+        config_specified_dests is not None
+        and "increase_hyper_if_betas_below" in config_specified_dests
+    )
+    if (legacy_cli_present or legacy_config_present) and legacy_value is not None and experimental_value is None:
+        _early_warn(
+            "Option --increase-hyper-if-betas-below is a legacy alias; use --experimental-increase-hyper-if-betas-below with --experimental-hyper-mutation"
+        )
+
+    options_obj.experimental_increase_hyper_if_betas_below = resolved_value
+    options_obj.increase_hyper_if_betas_below = resolved_value
+
+    if resolved_value is not None and not getattr(options_obj, "experimental_hyper_mutation", False):
+        bail(
+            "Option --experimental-increase-hyper-if-betas-below requires --experimental-hyper-mutation; default no-signal behavior is explicit failure without hyper mutation"
+        )
+    if getattr(options_obj, "experimental_hyper_mutation", False) and resolved_value is None:
+        _early_warn(
+            "Option --experimental-hyper-mutation has no effect unless --experimental-increase-hyper-if-betas-below is also set"
+        )
+
+
+_resolve_experimental_gibbs_hyper_options(options, argv_parse, config_specified_dests)
 
 _logging_state = pegs_initialize_cli_logging(options, stderr_stream=sys.stderr, default_debug_level=1)
 NONE = _logging_state["NONE"]
@@ -5954,7 +6001,7 @@ class PigeanState(object):
             if self.priors_adj is not None:
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
-    def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
+    def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
         # ==========================================================================
         # Gibbs Phase 0: Normalize controls and initialize run-level state.
         # ==========================================================================
@@ -6014,6 +6061,8 @@ class PigeanState(object):
             correct_betas_mean=correct_betas_mean,
             correct_betas_var=correct_betas_var,
             adjust_priors=adjust_priors,
+            experimental_hyper_mutation=experimental_hyper_mutation,
+            increase_hyper_if_betas_below=increase_hyper_if_betas_below,
         )
         _record_gibbs_configuration_params(self, run_state, gibbs_record_config)
         _log_gibbs_configuration_summary(gibbs_record_config, run_state)
@@ -6040,6 +6089,7 @@ class PigeanState(object):
                     num_mad=num_mad,
                     adjust_priors=adjust_priors,
                     increase_hyper_if_betas_below=increase_hyper_if_betas_below,
+                    experimental_hyper_mutation=experimental_hyper_mutation,
                     max_num_iter_betas=max_num_iter_betas,
                     min_num_iter_betas=min_num_iter_betas,
                     num_chains_betas=num_chains_betas,
@@ -12890,6 +12940,8 @@ def _build_gibbs_record_config(
     correct_betas_mean,
     correct_betas_var,
     adjust_priors,
+    experimental_hyper_mutation,
+    increase_hyper_if_betas_below,
 ):
     return {
         "num_chains": gibbs_controls.num_chains,
@@ -12938,6 +12990,8 @@ def _build_gibbs_record_config(
         "correct_betas_mean": correct_betas_mean,
         "correct_betas_var": correct_betas_var,
         "adjust_priors": adjust_priors,
+        "experimental_hyper_mutation": experimental_hyper_mutation,
+        "increase_hyper_if_betas_below": increase_hyper_if_betas_below,
     }
 
 
@@ -12992,6 +13046,8 @@ def _record_gibbs_configuration_params(state, run_state, config):
             "correct_betas_mean": config["correct_betas_mean"],
             "correct_betas_var": config["correct_betas_var"],
             "adjust_priors": config["adjust_priors"],
+            "experimental_hyper_mutation": config["experimental_hyper_mutation"],
+            "increase_hyper_if_betas_below": config["increase_hyper_if_betas_below"],
         }
     )
     state._record_param("min_num_post_burn_in_effective", config["first_min_num_post_burn_in"])
@@ -13046,6 +13102,16 @@ def _log_gibbs_configuration_summary(config, run_state):
             ("%.4g" % config["stop_min_gene_d"]) if config["stop_min_gene_d"] is not None else "None",
             config["max_abs_mcse_d"],
             config["diag_every"],
+        ),
+        INFO,
+    )
+    log(
+        "Gibbs experimental hyper mutation: enabled=%s, threshold=%s"
+        % (
+            str(config["experimental_hyper_mutation"]),
+            ("%.4g" % config["increase_hyper_if_betas_below"])
+            if config["increase_hyper_if_betas_below"] is not None
+            else "None",
         ),
         INFO,
     )
@@ -13161,6 +13227,7 @@ class GibbsEpochPhaseConfig:
     min_num_post_burn_in: int
     max_num_post_burn_in: int
     increase_hyper_if_betas_below: float | None
+    experimental_hyper_mutation: bool
 
 
 @dataclass
@@ -13206,6 +13273,7 @@ class GibbsIterationCorrectionConfig:
     num_attempts: int
     max_num_attempt_restarts: int
     increase_hyper_if_betas_below_for_epoch: float | None
+    experimental_hyper_mutation: bool
     num_before_checking_p_increase: int
     p_scale_factor: float
 
@@ -13242,6 +13310,7 @@ class GibbsEpochIterationLoopConfig:
     max_num_attempt_restarts: int
     num_mad: int
     increase_hyper_if_betas_below_for_epoch: float | None
+    experimental_hyper_mutation: bool
     num_before_checking_p_increase: int
     p_scale_factor: float
 
@@ -13355,6 +13424,7 @@ def _prepare_gibbs_epoch_attempt(
         "p_scale_factor": p_scale_factor,
         "min_num_iter_for_epoch": min_num_iter_for_epoch,
         "increase_hyper_if_betas_below_for_epoch": increase_hyper_if_betas_below_for_epoch,
+        "experimental_hyper_mutation": epoch_phase_config.experimental_hyper_mutation,
         "num_before_checking_p_increase": num_before_checking_p_increase,
         "epoch_total_iter_offset": epoch_total_iter_offset,
     }
@@ -15971,6 +16041,7 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
         min_num_post_burn_in=config_inputs["min_num_post_burn_in"],
         max_num_post_burn_in=config_inputs["max_num_post_burn_in"],
         increase_hyper_if_betas_below=config_inputs["increase_hyper_if_betas_below"],
+        experimental_hyper_mutation=config_inputs["experimental_hyper_mutation"],
     )
     inner_beta_kwargs = {
         "passed_in_max_num_burn_in": config_inputs["passed_in_max_num_burn_in"],
@@ -16083,6 +16154,7 @@ def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
         "min_num_post_burn_in": gibbs_controls.min_num_post_burn_in,
         "max_num_post_burn_in": gibbs_controls.max_num_post_burn_in,
         "increase_hyper_if_betas_below": dynamic_inputs["increase_hyper_if_betas_below"],
+        "experimental_hyper_mutation": dynamic_inputs["experimental_hyper_mutation"],
         "warm_start": dynamic_inputs["warm_start"],
         "debug_zero_sparse": dynamic_inputs["debug_zero_sparse"],
         "num_batches_parallel": dynamic_inputs["num_batches_parallel"],
@@ -16143,6 +16215,7 @@ def _build_gibbs_dynamic_runtime_inputs(
     num_mad,
     adjust_priors,
     increase_hyper_if_betas_below,
+    experimental_hyper_mutation,
     max_num_iter_betas,
     min_num_iter_betas,
     num_chains_betas,
@@ -16179,6 +16252,7 @@ def _build_gibbs_dynamic_runtime_inputs(
         "num_mad": num_mad,
         "adjust_priors": adjust_priors,
         "increase_hyper_if_betas_below": increase_hyper_if_betas_below,
+        "experimental_hyper_mutation": experimental_hyper_mutation,
         "max_num_iter_betas": max_num_iter_betas,
         "min_num_iter_betas": min_num_iter_betas,
         "num_chains_betas": num_chains_betas,
@@ -16250,6 +16324,7 @@ def _build_gibbs_epoch_iteration_loop_config(
         max_num_attempt_restarts=run_state.max_num_attempt_restarts,
         num_mad=epoch_phase_config.num_mad,
         increase_hyper_if_betas_below_for_epoch=epoch_context["increase_hyper_if_betas_below_for_epoch"],
+        experimental_hyper_mutation=epoch_context["experimental_hyper_mutation"],
         num_before_checking_p_increase=epoch_context["num_before_checking_p_increase"],
         p_scale_factor=epoch_context["p_scale_factor"],
     )
@@ -16263,6 +16338,7 @@ def _build_gibbs_iteration_runtime_configs(loop_config, epoch_priors, gene_stats
         num_attempts=loop_config.num_attempts,
         max_num_attempt_restarts=loop_config.max_num_attempt_restarts,
         increase_hyper_if_betas_below_for_epoch=loop_config.increase_hyper_if_betas_below_for_epoch,
+        experimental_hyper_mutation=loop_config.experimental_hyper_mutation,
         num_before_checking_p_increase=loop_config.num_before_checking_p_increase,
         p_scale_factor=loop_config.p_scale_factor,
     )
@@ -17069,6 +17145,7 @@ class GibbsLowBetaRestartControls:
     num_attempts: int
     max_num_attempt_restarts: int
     increase_hyper_if_betas_below_for_epoch: float | None
+    experimental_hyper_mutation: bool
     num_before_checking_p_increase: int
     p_scale_factor: float
 
@@ -17097,6 +17174,7 @@ def _build_gibbs_low_beta_restart_controls(correction_config):
         num_attempts=correction_config.num_attempts,
         max_num_attempt_restarts=correction_config.max_num_attempt_restarts,
         increase_hyper_if_betas_below_for_epoch=correction_config.increase_hyper_if_betas_below_for_epoch,
+        experimental_hyper_mutation=correction_config.experimental_hyper_mutation,
         num_before_checking_p_increase=correction_config.num_before_checking_p_increase,
         p_scale_factor=correction_config.p_scale_factor,
     )
@@ -19691,6 +19769,7 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     low_beta_restart_update = _maybe_restart_gibbs_for_low_betas(
         state=state,
         increase_hyper_if_betas_below_for_epoch=restart_controls.increase_hyper_if_betas_below_for_epoch,
+        experimental_hyper_mutation=restart_controls.experimental_hyper_mutation,
         num_before_checking_p_increase=restart_controls.num_before_checking_p_increase,
         p_scale_factor=restart_controls.p_scale_factor,
         epoch_runtime=epoch_runtime,
@@ -20624,7 +20703,8 @@ def _build_main_gibbs_stage_config(options):
             num_mad=options.num_mad,
             r_threshold_burn_in=options.r_threshold_burn_in,
             use_max_r_for_convergence=options.use_max_r_for_convergence,
-            increase_hyper_if_betas_below=options.increase_hyper_if_betas_below,
+            increase_hyper_if_betas_below=options.experimental_increase_hyper_if_betas_below,
+            experimental_hyper_mutation=options.experimental_hyper_mutation,
             update_huge_scores=options.update_huge_scores,
             top_gene_prior=options.top_gene_prior,
             min_num_burn_in=options.min_num_burn_in,
