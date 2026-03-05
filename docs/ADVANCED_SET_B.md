@@ -116,3 +116,12 @@ Primary outputs:
 Notes:
 - Mode defaults are applied in `_apply_mode_and_runtime_defaults(...)`.
 - Use `--print-effective-config` to inspect resolved defaults.
+
+## Removed Legacy GLS Path
+
+The historical full-GLS/whitened-Y path is no longer supported in `src/pigean.py`.
+
+- Removed aliases now hard-fail:
+  - `--run-gls` / `run_gls`
+  - `store_cholesky`
+- Supported linear path is corrected OLS by default; use `--ols` to disable correlation correction.

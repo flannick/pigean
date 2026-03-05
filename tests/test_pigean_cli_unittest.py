@@ -38,6 +38,12 @@ class PigeanCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("option --chisq-threshold has been removed and is no longer supported", err)
 
+    def test_removed_run_gls_flag_has_removed_message(self) -> None:
+        proc = self._run("gibbs", "--run-gls")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("option --run-gls has been removed and is no longer supported", err)
+
     def test_removed_min_post_burn_alias_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--min-post-burn-in", "50")
         self.assertNotEqual(proc.returncode, 0)
@@ -232,6 +238,19 @@ class PigeanCliTest(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             err = (proc.stderr or "") + (proc.stdout or "")
             self.assertIn("Config key 'chisq_threshold' has been removed", err)
+            self.assertIn("is no longer supported", err)
+
+    def test_config_removed_run_gls_key_has_removed_message(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            cfg_path = Path(td) / "cfg.json"
+            cfg_path.write_text(
+                json.dumps({"mode": "gibbs", "options": {"run_gls": True}}),
+                encoding="utf-8",
+            )
+            proc = self._run("--config", str(cfg_path))
+            self.assertNotEqual(proc.returncode, 0)
+            err = (proc.stderr or "") + (proc.stdout or "")
+            self.assertIn("Config key 'run_gls' has been removed", err)
             self.assertIn("is no longer supported", err)
 
     def test_config_removed_min_post_burn_alias_has_replacement_message(self) -> None:

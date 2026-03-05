@@ -824,6 +824,8 @@ REMOVED_OPTION_REPLACEMENTS = {
     "chisq_dynamic": None,
     "desired_intercept_difference": None,
     "chisq_threshold": None,
+    "run_gls": None,
+    "store_cholesky": None,
     "min_num_iter": "--min-num-post-burn-in",
     "stall_min_post_burn_in": "--stall-min-post-burn-samples",
     "burn_in_post_reserve": "--min-num-post-burn-in",
