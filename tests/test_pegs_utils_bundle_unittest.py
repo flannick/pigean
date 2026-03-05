@@ -487,6 +487,72 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertIn("foo", cli_specified_dests)
             self.assertIn("input_file", config_specified_dests)
 
+    def test_collect_cli_specified_dests_handles_repeated_and_equals_forms(self) -> None:
+        parser = optparse.OptionParser()
+        parser.add_option("", "--foo", action="append", dest="foo", default=[])
+        parser.add_option("", "--bar", dest="bar", default=None)
+        parser.add_option("", "--config", dest="config", default=None)
+
+        specified = pegs_utils.collect_cli_specified_dests(
+            ["--foo=one", "--foo", "two", "--bar", "value"],
+            parser,
+        )
+        self.assertIn("foo", specified)
+        self.assertIn("bar", specified)
+
+    def test_apply_cli_config_overrides_cli_equals_form_beats_config(self) -> None:
+        parser = optparse.OptionParser()
+        parser.add_option("", "--config", default=None)
+        parser.add_option("", "--foo", default=None)
+
+        with tempfile.TemporaryDirectory() as td:
+            cfg_path = Path(td) / "config.json"
+            cfg_path.write_text(
+                json.dumps({"mode": "gibbs", "options": {"foo": "from_config"}}),
+                encoding="utf-8",
+            )
+            options, args = parser.parse_args(["--config", str(cfg_path), "--foo=from_cli"])
+            options, args, _mode, cli_specified, config_specified = pegs_utils.apply_cli_config_overrides(
+                options,
+                args,
+                parser,
+                ["--config", str(cfg_path), "--foo=from_cli"],
+                resolve_path_fn=pegs_utils.resolve_config_path_value,
+                is_path_like_dest_fn=pegs_utils.is_path_like_dest,
+                early_warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                removed_option_replacements={},
+                format_removed_option_message_fn=pegs_utils.format_removed_option_message,
+                track_config_specified_dests=True,
+            )
+            self.assertEqual(options.foo, "from_cli")
+            self.assertIn("foo", cli_specified)
+            self.assertNotIn("foo", config_specified)
+
+    def test_build_xin_to_p_noninf_index_map_uses_normalized_input_order(self) -> None:
+        mapping = pegs_utils.build_xin_to_p_noninf_index_map(
+            X_in=["x1", "x2"],
+            X_list=["xl"],
+            Xd_in=["xd1"],
+            Xd_list=["xdl"],
+            p_noninf_values=[0.1, 0.2, 0.3, 0.4, 0.5],
+            warn_fn=lambda _m: None,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+        )
+        self.assertEqual(mapping, {"x1": 0, "x2": 1, "xl": 2, "xd1": 3, "xdl": 4})
+
+    def test_build_xin_to_p_noninf_index_map_bails_on_count_mismatch(self) -> None:
+        with self.assertRaisesRegex(ValueError, "same number of values as --X-\\* inputs"):
+            pegs_utils.build_xin_to_p_noninf_index_map(
+                X_in=["x1", "x2"],
+                X_list=None,
+                Xd_in=None,
+                Xd_list=None,
+                p_noninf_values=[0.1, 0.2, 0.3],
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+
     def test_harmonize_cli_mode_args_prefers_cli_and_fills_from_config(self) -> None:
         warns = []
         self.assertEqual(
