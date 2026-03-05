@@ -73,6 +73,8 @@ try:
         calc_X_shift_scale as pegs_calc_X_shift_scale,
         calculate_V_internal as pegs_calculate_V_internal,
         set_runtime_x_from_inputs as pegs_set_runtime_x_from_inputs,
+        get_num_X_blocks as pegs_get_num_X_blocks,
+        iterate_X_blocks_internal as pegs_iterate_X_blocks_internal,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -179,6 +181,8 @@ except ImportError:
         calc_X_shift_scale as pegs_calc_X_shift_scale,
         calculate_V_internal as pegs_calculate_V_internal,
         set_runtime_x_from_inputs as pegs_set_runtime_x_from_inputs,
+        get_num_X_blocks as pegs_get_num_X_blocks,
+        iterate_X_blocks_internal as pegs_iterate_X_blocks_internal,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -8296,7 +8300,7 @@ class PigeanState(object):
     def _get_num_X_blocks(self, X_orig, batch_size=None):
         if batch_size is None:
             batch_size = self.batch_size
-        return int(np.ceil(X_orig.shape[1] / batch_size))
+        return pegs_get_num_X_blocks(X_orig, batch_size)
 
     def _get_X_size_mb(self, X_orig=None):
         if X_orig is None:
@@ -8304,43 +8308,32 @@ class PigeanState(object):
         return (self.X_orig.data.nbytes + self.X_orig.indptr.nbytes + self.X_orig.indices.nbytes) / 1024 / 1024
 
     def _get_X_blocks_internal(self, X_orig, y_corr_cholesky, whiten=True, full_whiten=False, start_batch=0, mean_shifts=None, scale_factors=None):
-
-        if y_corr_cholesky is None:
-            #explicitly turn these off to help with caching
-            whiten = False
-            full_whiten = False
-
-        num_batches = self._get_num_X_blocks(X_orig)
-
-        consider_cache = X_orig is self.X_orig and num_batches == 1 and mean_shifts is None and scale_factors is None
-
-        for batch in range(start_batch, num_batches):
-            log("Getting X%s block batch %s (%s)" % ("_missing" if X_orig is self.X_orig_missing_gene_sets else "", batch, "fully whitened" if full_whiten else ("whitened" if whiten else "original")), TRACE)
-            begin = batch * self.batch_size
-            end = (batch + 1) * self.batch_size
-            if end > X_orig.shape[1]:
-                end = X_orig.shape[1]
-
-            if self.last_X_block is not None and consider_cache and self.last_X_block[1:] == (whiten, full_whiten, begin, end, batch):
-                log("Using cache!", TRACE)
-                yield (self.last_X_block[0], begin, end, batch)
-            else:
-                X_b = X_orig[:,begin:end].toarray()
-                if mean_shifts is not None:
-                    X_b = X_b - mean_shifts[begin:end]
-                if scale_factors is not None:
-                    X_b = X_b / scale_factors[begin:end]
-
-                if whiten or full_whiten:
-                    X_b = self._whiten(X_b, y_corr_cholesky, whiten=whiten, full_whiten=full_whiten)
-
-                #only cache if we are accessing the original X
-                if consider_cache:
-                    self.last_X_block = (X_b, whiten, full_whiten, begin, end, batch)
-                else:
-                    self.last_X_block = None
-
-                yield (X_b, begin, end, batch)
+        consider_cache = (
+            X_orig is self.X_orig
+            and self._get_num_X_blocks(X_orig) == 1
+            and mean_shifts is None
+            and scale_factors is None
+        )
+        cache_state = {"last_X_block": self.last_X_block}
+        for X_b, begin, end, batch in pegs_iterate_X_blocks_internal(
+            X_orig,
+            y_corr_cholesky,
+            batch_size=self.batch_size,
+            log_fn=log,
+            trace_level=TRACE,
+            is_missing_x=(X_orig is self.X_orig_missing_gene_sets),
+            consider_cache=consider_cache,
+            cache_state=cache_state,
+            whiten_fn=self._whiten,
+            whiten=whiten,
+            full_whiten=full_whiten,
+            start_batch=start_batch,
+            mean_shifts=mean_shifts,
+            scale_factors=scale_factors,
+        ):
+            self.last_X_block = cache_state.get("last_X_block")
+            yield (X_b, begin, end, batch)
+        self.last_X_block = cache_state.get("last_X_block")
 
     def _get_fraction_non_missing(self):
         if self.gene_sets_missing is not None and self.gene_sets is not None:

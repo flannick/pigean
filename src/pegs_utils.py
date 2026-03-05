@@ -2553,6 +2553,77 @@ def set_runtime_x_from_inputs(
     return True
 
 
+def get_num_X_blocks(X_orig, batch_size):
+    return int(np.ceil(X_orig.shape[1] / batch_size))
+
+
+def iterate_X_blocks_internal(
+    X_orig,
+    y_corr_cholesky,
+    *,
+    batch_size,
+    log_fn=None,
+    trace_level=0,
+    is_missing_x=False,
+    consider_cache=False,
+    cache_state=None,
+    whiten_fn=whiten_matrix_with_banded_cholesky,
+    whiten=True,
+    full_whiten=False,
+    start_batch=0,
+    mean_shifts=None,
+    scale_factors=None,
+):
+    if log_fn is None:
+        log_fn = lambda _msg, _lvl=0: None
+
+    if y_corr_cholesky is None:
+        # Explicitly turn these off to help with caching behavior parity.
+        whiten = False
+        full_whiten = False
+
+    num_batches = get_num_X_blocks(X_orig, batch_size)
+    if cache_state is None:
+        cache_state = {}
+
+    for batch in range(start_batch, num_batches):
+        log_fn(
+            "Getting X%s block batch %s (%s)"
+            % (
+                "_missing" if is_missing_x else "",
+                batch,
+                "fully whitened" if full_whiten else ("whitened" if whiten else "original"),
+            ),
+            trace_level,
+        )
+        begin = batch * batch_size
+        end = (batch + 1) * batch_size
+        if end > X_orig.shape[1]:
+            end = X_orig.shape[1]
+
+        last_X_block = cache_state.get("last_X_block")
+        if last_X_block is not None and consider_cache and last_X_block[1:] == (whiten, full_whiten, begin, end, batch):
+            log_fn("Using cache!", trace_level)
+            yield (last_X_block[0], begin, end, batch)
+            continue
+
+        X_b = X_orig[:, begin:end].toarray()
+        if mean_shifts is not None:
+            X_b = X_b - mean_shifts[begin:end]
+        if scale_factors is not None:
+            X_b = X_b / scale_factors[begin:end]
+
+        if whiten or full_whiten:
+            X_b = whiten_fn(X_b, y_corr_cholesky, whiten=whiten, full_whiten=full_whiten)
+
+        if consider_cache:
+            cache_state["last_X_block"] = (X_b, whiten, full_whiten, begin, end, batch)
+        else:
+            cache_state["last_X_block"] = None
+
+        yield (X_b, begin, end, batch)
+
+
 def apply_y_data_to_runtime(runtime, y_data):
     runtime.Y = y_data.Y
     runtime.Y_for_regression = y_data.Y_for_regression
