@@ -43,6 +43,7 @@ class PigeanCliTest(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("option --run-gls has been removed and is no longer supported", err)
+        self.assertNotIn("Traceback", err)
 
     def test_removed_min_post_burn_alias_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--min-post-burn-in", "50")
@@ -83,6 +84,30 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(payload["mode"], "gibbs")
         self.assertTrue(payload["options"]["deterministic"])
         self.assertEqual(payload["options"]["seed"], 123)
+
+    def test_import_does_not_reset_python_random_seed(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        snippet = r'''
+import random
+import sys
+random.seed(12345)
+expected = random.Random(12345).random()
+sys.argv = ["pigean.py", "gibbs"]
+import src.pigean  # noqa: F401
+actual = random.random()
+print(f"{actual:.17f}\t{expected:.17f}")
+'''
+        proc = subprocess.run(
+            [sys.executable, "-c", snippet],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        last_line = (proc.stdout or "").strip().splitlines()[-1]
+        actual, expected = last_line.split("\t")
+        self.assertEqual(actual, expected)
 
     def test_help_usage_uses_pigean_name(self) -> None:
         proc = self._run("gibbs", "--help")
