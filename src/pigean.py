@@ -9916,18 +9916,6 @@ class PigeanState(object):
             matrix = scipy.linalg.solve_banded((corr_cholesky.shape[0]-1, 0), corr_cholesky, matrix, overwrite_ab=True)
         return matrix
 
-    #return an iterator over chunks of X in dense format
-    #useful when want to conduct matrix calculations for which dense arrays are much faster, but don't have enough memory to cast all of X to dense
-    #full_whiten (which multiplies by C^{-1} takes precedence over whiten, which multiplies by C^{1/2}, but whiten defaults to true
-    #if mean_shifts/scale_factors are passed in, then shift/rescale the blocks. This is done *before* any whitening
-    def _get_X_blocks(self, whiten=True, full_whiten=False, get_missing=False, start_batch=0, mean_shifts=None, scale_factors=None):
-        X_orig = self.X_orig
-        if get_missing:
-            X_orig = self.X_orig_missing_gene_sets
-
-        for (X_b, begin, end, batch) in self._get_X_blocks_internal(X_orig, self.y_corr_cholesky, whiten=whiten, full_whiten=full_whiten, start_batch=start_batch, mean_shifts=mean_shifts, scale_factors=scale_factors):
-            yield (X_b, begin, end, batch)
-
     def _get_num_X_blocks(self, X_orig, batch_size=None):
         if batch_size is None:
             batch_size = self.batch_size
@@ -12069,38 +12057,6 @@ def _maybe_append_input_gene_covariates(runtime_state, gene_covs_in=None, **kwar
         runtime_state.gene_covariates = gene_covs
         runtime_state.gene_covariate_names = cov_names
         runtime_state.gene_covariate_directions = cov_dirs
-
-
-def _prepare_read_x_inputs(
-    X_in,
-    X_list,
-    Xd_in,
-    Xd_list,
-    initial_p,
-    xin_to_p_noninf_ind,
-    batch_separator,
-    file_separator,
-):
-    input_plan = pegs_prepare_read_x_inputs(
-        X_in=X_in,
-        X_list=X_list,
-        Xd_in=Xd_in,
-        Xd_list=Xd_list,
-        initial_p=initial_p,
-        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
-        batch_separator=batch_separator,
-        file_separator=file_separator,
-        sparse_list_open_fn=open_gz,
-        dense_list_open_fn=open,
-    )
-    return (
-        input_plan.initial_ps,
-        input_plan.X_ins,
-        input_plan.batches,
-        input_plan.labels,
-        input_plan.orig_files,
-        input_plan.is_dense,
-    )
 
 
 def _normalize_dense_gene_rows(mat_info, genes, gene_label_map):
