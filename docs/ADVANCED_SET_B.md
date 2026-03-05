@@ -78,6 +78,9 @@ Primary outputs:
 
 Notes:
 - This is distinct from factor-based PheWAS (moved to `eaggl`).
+- Runtime now logs one explicit I/O decision for this stage:
+  - `mode=reuse_loaded_matrix` when loaded matrix state can be reused safely.
+  - `mode=re_read_file` when the matrix must be re-read (for example when not preloaded or filtered).
 
 ## 5) Simulation mode (`sim`)
 
