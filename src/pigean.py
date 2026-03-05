@@ -4966,59 +4966,6 @@ class PigeanState(object):
                 if gene in self.gene_to_exomes_huge_score:
                     self.gene_to_huge_score[gene] += self.gene_to_exomes_huge_score[gene]
 
-    def _reread_gene_phewas_bfs(self):
-        if self.cached_gene_phewas_call is not None:
-            log("Rereading gene phewas bfs...")
-            self.read_gene_phewas_bfs(**self.cached_gene_phewas_call)
-
-    def read_gene_phewas_bfs(self, gene_phewas_bfs_in, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, anchor_genes=None, anchor_phenos=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, phewas_gene_to_X_gene_in=None, min_value=None, max_num_entries_at_once=None, **kwargs):
-
-        cached = dict(locals())
-        cached.pop("self", None)
-        cached.pop("kwargs")
-        self.cached_gene_phewas_call = cached
-
-        #require X matrix
-
-        if gene_phewas_bfs_in is None:
-            bail("Require --gene-stats-in or --gene-phewas-bfs-in for this operation")
-
-        log("Reading --gene-phewas-bfs-in file %s" % gene_phewas_bfs_in, INFO)
-
-        if self.genes is None:
-            bail("Need to initialixe --X before reading gene_phewas")
-
-        phewas_gene_to_X_gene = None
-        if phewas_gene_to_X_gene_in is not None:
-            phewas_gene_to_X_gene = pegs_parse_gene_map_file(
-                phewas_gene_to_X_gene_in,
-                allow_multi=True,
-                bail_fn=bail,
-            )
-
-        pegs_load_and_apply_gene_phewas_bfs_to_runtime(
-            self,
-            gene_phewas_bfs_in,
-            gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
-            gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
-            anchor_genes=anchor_genes,
-            anchor_phenos=anchor_phenos,
-            gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
-            gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
-            gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
-            phewas_gene_to_x_gene=phewas_gene_to_X_gene,
-            min_value=min_value,
-            max_num_entries_at_once=max_num_entries_at_once,
-            open_text_fn=open_gz,
-            get_col_fn=_get_col,
-            construct_map_to_ind_fn=pegs_construct_map_to_ind,
-            warn_fn=warn,
-            bail_fn=bail,
-            log_fn=lambda message: log(message, DEBUG),
-        )
-        self.phewas_state = pegs_sync_phewas_runtime_state(self)
-
-
     def calculate_gene_set_statistics(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_gls=False, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
         if self.X_orig is None:
             bail("Error: X is required")
@@ -10052,7 +9999,7 @@ class PigeanState(object):
 
         if self.gene_pheno_Y is not None or self.gene_pheno_combined_prior_Ys is not None or self.gene_pheno_priors is not None:
             if len(self.genes) != self.gene_pheno_Y.shape[0]:
-                self._reread_gene_phewas_bfs()
+                _reread_gene_phewas_bfs(self)
 
         if self.genes is not None:
             self.gene_to_ind = pegs_construct_map_to_ind(self.genes)
@@ -22070,12 +22017,79 @@ def _mode_requires_gene_scores(mode_state):
         or mode_state["run_gibbs"]
     )
 
+
+def _read_gene_phewas_bfs(
+    state,
+    gene_phewas_bfs_in,
+    gene_phewas_bfs_id_col=None,
+    gene_phewas_bfs_pheno_col=None,
+    anchor_genes=None,
+    anchor_phenos=None,
+    gene_phewas_bfs_log_bf_col=None,
+    gene_phewas_bfs_combined_col=None,
+    gene_phewas_bfs_prior_col=None,
+    phewas_gene_to_X_gene_in=None,
+    min_value=None,
+    max_num_entries_at_once=None,
+    **kwargs
+):
+    cached = dict(locals())
+    cached.pop("state", None)
+    cached.pop("kwargs", None)
+    state.cached_gene_phewas_call = cached
+
+    if gene_phewas_bfs_in is None:
+        bail("Require --gene-stats-in or --gene-phewas-bfs-in for this operation")
+
+    log("Reading --gene-phewas-bfs-in file %s" % gene_phewas_bfs_in, INFO)
+    if state.genes is None:
+        bail("Need to initialixe --X before reading gene_phewas")
+
+    phewas_gene_to_X_gene = None
+    if phewas_gene_to_X_gene_in is not None:
+        phewas_gene_to_X_gene = pegs_parse_gene_map_file(
+            phewas_gene_to_X_gene_in,
+            allow_multi=True,
+            bail_fn=bail,
+        )
+
+    pegs_load_and_apply_gene_phewas_bfs_to_runtime(
+        state,
+        gene_phewas_bfs_in,
+        gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+        gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+        anchor_genes=anchor_genes,
+        anchor_phenos=anchor_phenos,
+        gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+        gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+        gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+        phewas_gene_to_x_gene=phewas_gene_to_X_gene,
+        min_value=min_value,
+        max_num_entries_at_once=max_num_entries_at_once,
+        open_text_fn=open_gz,
+        get_col_fn=_get_col,
+        construct_map_to_ind_fn=pegs_construct_map_to_ind,
+        warn_fn=warn,
+        bail_fn=bail,
+        log_fn=lambda message: log(message, DEBUG),
+    )
+    state.phewas_state = pegs_sync_phewas_runtime_state(state)
+
+
+def _reread_gene_phewas_bfs(state):
+    if state.cached_gene_phewas_call is None:
+        return
+    log("Rereading gene phewas bfs...")
+    _read_gene_phewas_bfs(state, **state.cached_gene_phewas_call)
+
+
 def _load_advanced_set_b_y_inputs(state, options):
     if not options.betas_uncorrected_from_phewas:
         return False
     if not options.gene_phewas_bfs_in:
         bail("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-    state.read_gene_phewas_bfs(
+    _read_gene_phewas_bfs(
+        state,
         gene_phewas_bfs_in=options.gene_phewas_bfs_in,
         gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
         gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
