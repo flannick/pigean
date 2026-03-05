@@ -1678,15 +1678,29 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertTrue(any("max-num-gene-sets-initial" in m for m in logs))
 
         rt_adjust = _Runtime([0.01, 0.2], p_values_ignored=[0.5] * 8)
+        adjust_logs = []
         pegs_utils.maybe_adjust_overaggressive_p_filter_after_x_read(
             rt_adjust,
             filter_gene_set_p=0.05,
             increase_filter_gene_set_p=0.1,
             filter_using_phewas=False,
-            log_fn=lambda _m: None,
+            log_fn=lambda m: adjust_logs.append(m),
         )
-        self.assertEqual(rt_adjust.last_record[0], "adjusted_filter_gene_set_p")
-        self.assertTrue(np.array_equal(rt_adjust.last_subset, np.array([True, False])))
+        self.assertIsNone(rt_adjust.last_record)
+        self.assertIsNone(rt_adjust.last_subset)
+        self.assertEqual(adjust_logs, [])
+
+        rt_adjust_low = _Runtime([0.01, 0.2], p_values_ignored=[0.5] * 18)
+        pegs_utils.maybe_adjust_overaggressive_p_filter_after_x_read(
+            rt_adjust_low,
+            filter_gene_set_p=0.05,
+            increase_filter_gene_set_p=0.2,
+            filter_using_phewas=False,
+            log_fn=lambda m: adjust_logs.append(m),
+        )
+        self.assertIsNone(rt_adjust_low.last_record)
+        self.assertIsNone(rt_adjust_low.last_subset)
+        self.assertTrue(any("below requested minimum" in m for m in adjust_logs))
 
     def test_maybe_prepare_filtered_correlation(self) -> None:
         class _Runtime:

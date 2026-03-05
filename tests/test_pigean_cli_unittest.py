@@ -109,6 +109,37 @@ print(f"{actual:.17f}\t{expected:.17f}")
         actual, expected = last_line.split("\t")
         self.assertEqual(actual, expected)
 
+    def test_prefilter_keep_mask_phewas_relax_uses_gene_set_axis(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        snippet = r'''
+import json
+import sys
+import numpy as np
+sys.argv = ["pigean.py", "gibbs"]
+import src.pigean as pigean
+mask = pigean._build_prefilter_keep_mask(
+    p_values=np.array([0.8, 0.9, 1.0], dtype=float),
+    beta_tildes=np.array([1.0, 1.0, 1.0], dtype=float),
+    filter_gene_set_p=0.01,
+    filter_using_phewas=True,
+    p_values_phewas=np.array([[0.95, 0.95, 0.95], [0.95, 0.1, 0.95]], dtype=float),
+    beta_tildes_phewas=np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float),
+    increase_filter_gene_set_p=0.34,
+    filter_negative=False,
+)
+print(json.dumps(mask.tolist()))
+'''
+        proc = subprocess.run(
+            [sys.executable, "-c", snippet],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads((proc.stdout or "").strip().splitlines()[-1])
+        self.assertEqual(payload, [True, True, False])
+
     def test_help_usage_uses_pigean_name(self) -> None:
         proc = self._run("gibbs", "--help")
         self.assertEqual(proc.returncode, 0)
