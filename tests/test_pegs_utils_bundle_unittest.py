@@ -1697,7 +1697,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(rt_adjust.last_record[0], "adjusted_filter_gene_set_p")
         self.assertTrue(np.array_equal(rt_adjust.last_subset, np.array([True, False])))
 
-    def test_maybe_prepare_filtered_gls_correlation(self) -> None:
+    def test_maybe_prepare_filtered_correlation(self) -> None:
         class _Runtime:
             def __init__(self) -> None:
                 self.y_corr = None
@@ -1722,10 +1722,9 @@ class PegsUtilsBundleTest(unittest.TestCase):
                 self.set_y_kwargs = kwargs
 
         rt = _Runtime()
-        pegs_utils.maybe_prepare_filtered_gls_correlation(
+        pegs_utils.maybe_prepare_filtered_correlation(
             runtime=rt,
-            run_gls=True,
-            run_corrected_ols=False,
+            run_corrected_ols=True,
             gene_cor_file="cor.tsv",
             gene_loc_file="loc.tsv",
             gene_cor_file_gene_col=1,
@@ -1733,16 +1732,15 @@ class PegsUtilsBundleTest(unittest.TestCase):
         )
         self.assertEqual(rt.read_args, ("cor.tsv", "loc.tsv", 1, 10))
         self.assertIsNotNone(rt.set_y_kwargs)
-        self.assertTrue(rt.set_y_kwargs["store_cholesky"])
-        self.assertFalse(rt.set_y_kwargs["store_corr_sparse"])
+        self.assertFalse(rt.set_y_kwargs["store_cholesky"])
+        self.assertTrue(rt.set_y_kwargs["store_corr_sparse"])
         self.assertAlmostEqual(rt.set_y_kwargs["min_correlation"], 0.05)
 
         rt2 = _Runtime()
         rt2.y_corr = np.array([[1.0]])
-        pegs_utils.maybe_prepare_filtered_gls_correlation(
+        pegs_utils.maybe_prepare_filtered_correlation(
             runtime=rt2,
-            run_gls=True,
-            run_corrected_ols=False,
+            run_corrected_ols=True,
             gene_cor_file="cor.tsv",
             gene_loc_file="loc.tsv",
             gene_cor_file_gene_col=1,

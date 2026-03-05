@@ -51,7 +51,7 @@ try:
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
-        maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
+        maybe_prepare_filtered_correlation as pegs_maybe_prepare_filtered_correlation,
         resolve_read_x_run_logistic as pegs_resolve_read_x_run_logistic,
         record_read_x_counts as pegs_record_read_x_counts,
         standardize_qc_metrics_after_x_read as pegs_standardize_qc_metrics_after_x_read,
@@ -159,7 +159,7 @@ except ImportError:
         write_huge_statistics_sparse_components as pegs_write_huge_statistics_sparse_components,
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
-        maybe_prepare_filtered_gls_correlation as pegs_maybe_prepare_filtered_gls_correlation,
+        maybe_prepare_filtered_correlation as pegs_maybe_prepare_filtered_correlation,
         resolve_read_x_run_logistic as pegs_resolve_read_x_run_logistic,
         record_read_x_counts as pegs_record_read_x_counts,
         standardize_qc_metrics_after_x_read as pegs_standardize_qc_metrics_after_x_read,
@@ -5046,7 +5046,7 @@ class PigeanState(object):
                 if gene in self.gene_to_exomes_huge_score:
                     self.gene_to_huge_score[gene] += self.gene_to_exomes_huge_score[gene]
 
-    def calculate_gene_set_statistics(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_gls=False, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
+    def calculate_gene_set_statistics(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
         if self.X_orig is None:
             bail("Error: X is required")
         #now calculate the betas and p-values
@@ -5079,15 +5079,12 @@ class PigeanState(object):
             )
             Y = self.Y_for_regression
 
-        if run_gls:
-            run_corrected_ols = False
-
-        if (run_gls or run_corrected_ols) and self.y_corr is None:
+        if run_corrected_ols and self.y_corr is None:
             correlation_m = self._read_correlations(gene_cor_file, gene_loc_file, gene_cor_file_gene_col=gene_cor_file_gene_col, gene_cor_file_cor_start_col=gene_cor_file_cor_start_col)
 
             #convert X and Y to their new values
             min_correlation = 0.05
-            self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, store_cholesky=run_gls, store_corr_sparse=run_corrected_ols, skip_V=True, skip_scale_factors=True, min_correlation=min_correlation)
+            self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, store_cholesky=False, store_corr_sparse=run_corrected_ols, skip_V=True, skip_scale_factors=True, min_correlation=min_correlation)
 
         #subset gene sets to remove empty ones first
         #number of gene sets in each gene set
@@ -5146,24 +5143,18 @@ class PigeanState(object):
             (beta_tildes, ses, z_scores, p_values, se_inflation_factors, alpha_tildes, diverged) = self._compute_logistic_beta_tildes(self.X_orig, Y, self.scale_factors, self.mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
 
         else:
-            if run_gls:
-                #Y has already been whitened
-                y_var = self.y_fw_var
-                Y = self.Y_fw
+            #Technically, we could use the above code for this case, since X_blocks will returned unwhitened matrix
+            #But, probably faster to keep sparse multiplication? Might be worth revisiting later to see if there actually is a performance gain
+            #We can use original X here because whitening support was removed with GLS.
+            assert(not self.scale_is_for_whitened)
+            Y = copy.copy(Y)
+
+            if len(Y.shape) > 1:
+                y_var = np.var(Y, axis=1)
             else:
-                #Technically, we could use the above code for this case, since X_blocks will returned unwhitened matrix
-                #But, probably faster to keep sparse multiplication? Might be worth revisiting later to see if there actually is a performance gain
-                #We can use original X here because we know that whitening will occur only for GLS
-                #assert this to be sure
-                assert(not self.scale_is_for_whitened)
-                Y = copy.copy(Y)
+                y_var = np.var(Y)
 
-                if len(Y.shape) > 1:
-                    y_var = np.var(Y, axis=1)
-                else:
-                    y_var = np.var(Y)
-
-                (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._compute_beta_tildes(self.X_orig, Y, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
+            (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._compute_beta_tildes(self.X_orig, Y, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
 
         if correct_betas_mean or correct_betas_var:
             (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._correct_beta_tildes(beta_tildes, ses, se_inflation_factors, self.total_qc_metrics, self.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, fit=False)
@@ -20111,7 +20102,6 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
             sigma_power=options.sigma_power,
             sigma_soft_threshold_95=options.sigma_soft_threshold_95,
             sigma_soft_threshold_5=options.sigma_soft_threshold_5,
-            run_gls=False,
             run_corrected_ols=not options.ols,
             correct_betas_mean=options.correct_betas_mean,
             correct_betas_var=options.correct_betas_var,
@@ -20178,7 +20168,7 @@ def _run_read_x_stage(runtime, X_in, **read_x_kwargs):
     return _read_x_pipeline(runtime, X_in, **read_x_kwargs)
 
 
-def _read_x_pipeline(runtime, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=None, skip_V=True, force_reread=False, min_gene_set_size=1, max_gene_set_size=30000, only_ids=None, only_inc_genes=None, fraction_inc_genes=None, add_all_genes=False, prune_gene_sets=0.8, weighted_prune_gene_sets=None, prune_deterministically=False, x_sparsify=[50,100,200,500,1000], add_ext=False, add_top=True, add_bottom=True, filter_negative=True, threshold_weights=0.5, cap_weights=True, permute_gene_sets=False, max_gene_set_p=None, filter_gene_set_p=1, filter_using_phewas=False, increase_filter_gene_set_p=0.01, max_num_gene_sets_initial=None, max_num_gene_sets=None, max_num_gene_sets_hyper=None, skip_betas=False, run_logistic=True, max_for_linear=0.95, filter_gene_set_metric_z=2.5, initial_p=0.01, xin_to_p_noninf_ind=None, initial_sigma2=1e-3, initial_sigma2_cond=None, sigma_power=0, sigma_soft_threshold_95=None, sigma_soft_threshold_5=None, run_gls=False, run_corrected_ols=False, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, update_hyper_p=False, update_hyper_sigma=False, batch_all_for_hyper=False, first_for_hyper=False, first_max_p_for_hyper=False, first_for_sigma_cond=False, sigma_num_devs_to_top=2.0, p_noninf_inflate=1, batch_separator="@", ignore_genes=set(["NA"]), file_separator=None, max_num_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=10, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, max_allowed_batch_correlation=None, sparse_solution=False, sparse_frac_betas=None, betas_trace_out=None, show_progress=True, max_num_entries_at_once=None):
+def _read_x_pipeline(runtime, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=None, skip_V=True, force_reread=False, min_gene_set_size=1, max_gene_set_size=30000, only_ids=None, only_inc_genes=None, fraction_inc_genes=None, add_all_genes=False, prune_gene_sets=0.8, weighted_prune_gene_sets=None, prune_deterministically=False, x_sparsify=[50,100,200,500,1000], add_ext=False, add_top=True, add_bottom=True, filter_negative=True, threshold_weights=0.5, cap_weights=True, permute_gene_sets=False, max_gene_set_p=None, filter_gene_set_p=1, filter_using_phewas=False, increase_filter_gene_set_p=0.01, max_num_gene_sets_initial=None, max_num_gene_sets=None, max_num_gene_sets_hyper=None, skip_betas=False, run_logistic=True, max_for_linear=0.95, filter_gene_set_metric_z=2.5, initial_p=0.01, xin_to_p_noninf_ind=None, initial_sigma2=1e-3, initial_sigma2_cond=None, sigma_power=0, sigma_soft_threshold_95=None, sigma_soft_threshold_5=None, run_corrected_ols=False, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, update_hyper_p=False, update_hyper_sigma=False, batch_all_for_hyper=False, first_for_hyper=False, first_max_p_for_hyper=False, first_for_sigma_cond=False, sigma_num_devs_to_top=2.0, p_noninf_inflate=1, batch_separator="@", ignore_genes=set(["NA"]), file_separator=None, max_num_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=10, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, max_allowed_batch_correlation=None, sparse_solution=False, sparse_frac_betas=None, betas_trace_out=None, show_progress=True, max_num_entries_at_once=None):
     if not force_reread and runtime.X_orig is not None:
         return
 
@@ -20555,7 +20545,6 @@ def _run_main_beta_tilde_stage(state, options, mode_state):
     if needs_gene_set_stats:
         max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
         gene_set_stats_kwargs = dict(
-            run_gls=False,
             run_logistic=not options.linear,
             max_for_linear=options.max_for_linear,
             run_corrected_ols=not options.ols,

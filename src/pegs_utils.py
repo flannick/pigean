@@ -116,9 +116,8 @@ class XData:
             and runtime.Y is not None
         ):
             initialize_filtered_gene_set_state(runtime, update_hyper_p=ingestion_options.update_hyper_p)
-            maybe_prepare_filtered_gls_correlation(
+            maybe_prepare_filtered_correlation(
                 runtime=runtime,
-                run_gls=ingestion_options.run_gls,
                 run_corrected_ols=ingestion_options.run_corrected_ols,
                 gene_cor_file=ingestion_options.gene_cor_file,
                 gene_loc_file=ingestion_options.gene_loc_file,
@@ -340,7 +339,6 @@ class XReadIngestionOptions:
     update_hyper_sigma: bool
     update_hyper_p: bool
     first_for_sigma_cond: bool
-    run_gls: bool
     run_corrected_ols: bool
     gene_cor_file: object
     gene_loc_file: object
@@ -3619,9 +3617,8 @@ def initialize_filtered_gene_set_state(runtime, update_hyper_p):
     runtime.ps_missing = None
 
 
-def maybe_prepare_filtered_gls_correlation(
+def maybe_prepare_filtered_correlation(
     runtime,
-    run_gls,
     run_corrected_ols,
     gene_cor_file,
     gene_loc_file,
@@ -3629,7 +3626,7 @@ def maybe_prepare_filtered_gls_correlation(
     gene_cor_file_cor_start_col,
     min_correlation=0.05,
 ):
-    if (run_gls or run_corrected_ols) and runtime.y_corr is None:
+    if run_corrected_ols and runtime.y_corr is None:
         correlation_m = runtime._read_correlations(
             gene_cor_file,
             gene_loc_file,
@@ -3643,7 +3640,7 @@ def maybe_prepare_filtered_gls_correlation(
             runtime.Y_positive_controls,
             runtime.Y_case_counts,
             Y_corr_m=correlation_m,
-            store_cholesky=run_gls,
+            store_cholesky=False,
             store_corr_sparse=run_corrected_ols,
             skip_V=True,
             skip_scale_factors=True,
@@ -4377,7 +4374,6 @@ def build_read_x_ingestion_options(local_vars):
         update_hyper_sigma=local_vars["update_hyper_sigma"],
         update_hyper_p=local_vars["update_hyper_p"],
         first_for_sigma_cond=local_vars["first_for_sigma_cond"],
-        run_gls=local_vars["run_gls"],
         run_corrected_ols=local_vars["run_corrected_ols"],
         gene_cor_file=local_vars["gene_cor_file"],
         gene_loc_file=local_vars["gene_loc_file"],
