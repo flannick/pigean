@@ -1263,7 +1263,7 @@
       "replacement": null,
       "source_line": 507,
       "type": null,
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": null,
@@ -4578,7 +4578,7 @@
       "replacement": null,
       "source_line": 506,
       "type": "int",
-      "usage_references": 13
+      "usage_references": 14
     },
     {
       "action": null,

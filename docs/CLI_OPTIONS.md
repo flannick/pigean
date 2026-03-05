@@ -306,7 +306,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--debug-skip-huber` | `debug_skip_huber` | `-` | `-` | `store_true` | 5 | - |
 | `--debug-skip-phewas-covs` | `debug_skip_phewas_covs` | `-` | `-` | `store_true` | 5 | - |
 | `--debug-zero-sparse` | `debug_zero_sparse` | `-` | `-` | `store_true` | 5 | - |
-| `--deterministic` | `deterministic` | `-` | `False` | `store_true` | 16 | - |
+| `--deterministic` | `deterministic` | `-` | `False` | `store_true` | 17 | - |
 | `--diag-every` | `diag_every` | `int` | `4` | `-` | 5 | - |
 | `--eaggl-bundle-out` | `eaggl_bundle_out` | `-` | `None` | `-` | 18 | - |
 | `--gene-phewas-bfs-log-bf-col` | `gene_phewas_bfs_log_bf_col` | `-` | `None` | `-` | 9 | - |
@@ -325,7 +325,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--print-effective-config` | `print_effective_config` | `-` | `False` | `store_true` | 14 | - |
 | `--priors-num-gene-batches` | `priors_num_gene_batches` | `int` | `20` | `-` | 7 | - |
 | `--prune-deterministically` | `prune_deterministically` | `-` | `-` | `store_true` | 5 | - |
-| `--seed` | `seed` | `int` | `None` | `-` | 13 | - |
+| `--seed` | `seed` | `int` | `None` | `-` | 14 | - |
 | `--signal-max-logp-ratio` | `signal_max_logp_ratio` | `float` | `None` | `-` | 7 | - |
 | `--sim-log-bf-noise-sigma-mult` | `sim_log_bf_noise_sigma_mult` | `float` | `0` | `-` | 7 | - |
 
