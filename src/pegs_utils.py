@@ -487,14 +487,7 @@ class YData:
     Y_case_counts: object = None
     y_var: object = None
     y_corr: object = None
-    y_corr_cholesky: object = None
     y_corr_sparse: object = None
-    Y_w: object = None
-    Y_fw: object = None
-    y_w_var: object = None
-    y_w_mean: object = None
-    y_fw_var: object = None
-    y_fw_mean: object = None
 
 
 @dataclass
@@ -2204,14 +2197,7 @@ def y_data_from_runtime(runtime):
         Y_case_counts=getattr(runtime, "Y_case_counts", None),
         y_var=getattr(runtime, "y_var", None),
         y_corr=getattr(runtime, "y_corr", None),
-        y_corr_cholesky=getattr(runtime, "y_corr_cholesky", None),
         y_corr_sparse=getattr(runtime, "y_corr_sparse", None),
-        Y_w=getattr(runtime, "Y_w", None),
-        Y_fw=getattr(runtime, "Y_fw", None),
-        y_w_var=getattr(runtime, "y_w_var", None),
-        y_w_mean=getattr(runtime, "y_w_mean", None),
-        y_fw_var=getattr(runtime, "y_fw_var", None),
-        y_fw_mean=getattr(runtime, "y_fw_mean", None),
     )
 
 
@@ -2257,35 +2243,6 @@ def build_y_data_from_inputs(
                 list(range(len(y_corr_diags))) + list(range(-1, -len(y_corr_diags), -1)),
             )
         )
-
-        if store_cholesky:
-            if get_y_corr_cholesky_fn is None:
-                _default_bail("Expected get_y_corr_cholesky_fn when store_cholesky is True")
-            y_data.y_corr_cholesky = get_y_corr_cholesky_fn(y_corr_m)
-            y_data.Y_w = scipy.linalg.solve_banded(
-                (y_data.y_corr_cholesky.shape[0] - 1, 0), y_data.y_corr_cholesky, Y
-            )
-            na_mask = ~np.isnan(y_data.Y_w)
-            y_data.y_w_var = np.var(y_data.Y_w[na_mask])
-            y_data.y_w_mean = np.mean(y_data.Y_w[na_mask])
-            y_data.Y_w = y_data.Y_w - y_data.y_w_mean
-
-            y_data.Y_fw = scipy.linalg.cho_solve_banded((y_data.y_corr_cholesky, True), Y)
-            na_mask = ~np.isnan(y_data.Y_fw)
-            y_data.y_fw_var = np.var(y_data.Y_fw[na_mask])
-            y_data.y_fw_mean = np.mean(y_data.Y_fw[na_mask])
-            y_data.Y_fw = y_data.Y_fw - y_data.y_fw_mean
-
-            if set_X_fn is not None:
-                set_X_fn(runtime.X_orig, runtime.genes, runtime.gene_sets, skip_V=skip_V, skip_scale_factors=skip_scale_factors, skip_N=True)
-            if (
-                calc_X_shift_scale_fn is not None
-                and runtime.X_orig_missing_gene_sets is not None
-                and not skip_scale_factors
-            ):
-                runtime.mean_shifts_missing, runtime.scale_factors_missing = calc_X_shift_scale_fn(
-                    runtime.X_orig_missing_gene_sets, y_data.y_corr_cholesky
-                )
 
         if store_corr_sparse:
             y_data.y_corr_sparse = y_corr_sparse
@@ -2630,14 +2587,7 @@ def apply_y_data_to_runtime(runtime, y_data):
     runtime.Y_case_counts = y_data.Y_case_counts
     runtime.y_var = y_data.y_var
     runtime.y_corr = y_data.y_corr
-    runtime.y_corr_cholesky = y_data.y_corr_cholesky
     runtime.y_corr_sparse = y_data.y_corr_sparse
-    runtime.Y_w = y_data.Y_w
-    runtime.Y_fw = y_data.Y_fw
-    runtime.y_w_var = y_data.y_w_var
-    runtime.y_w_mean = y_data.y_w_mean
-    runtime.y_fw_var = y_data.y_fw_var
-    runtime.y_fw_mean = y_data.y_fw_mean
 
 
 def hyperparameter_data_from_runtime(runtime):

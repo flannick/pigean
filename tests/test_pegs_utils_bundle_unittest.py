@@ -1220,25 +1220,16 @@ class PegsUtilsBundleTest(unittest.TestCase):
             Y=Y,
             Y_for_regression=np.array([1.0, 2.0, 3.0]),
             Y_corr_m=Y_corr_m,
-            store_cholesky=True,
             store_corr_sparse=True,
-            get_y_corr_cholesky_fn=lambda _m: np.ones((1, len(Y))),
-            set_X_fn=lambda *args, **kwargs: set_x_calls.append((args, kwargs)),
-            calc_X_shift_scale_fn=lambda *args, **kwargs: (
-                calc_calls.append((args, kwargs)) or (np.array([0.0]), np.array([1.0]))
-            ),
         )
 
         self.assertTrue(np.array_equal(rt.Y, Y, equal_nan=True))
         self.assertAlmostEqual(rt.y_var, np.var(Y))
         self.assertEqual(rt.y_corr.shape[0], 2)
-        self.assertEqual(rt.y_corr_cholesky.shape, (1, 3))
+        self.assertIsNone(rt.y_corr_cholesky)
         self.assertIsNotNone(rt.y_corr_sparse)
-        self.assertEqual(len(set_x_calls), 1)
-        self.assertEqual(len(calc_calls), 1)
-        self.assertTrue(np.array_equal(rt.mean_shifts_missing, np.array([0.0])))
-        self.assertTrue(np.array_equal(rt.scale_factors_missing, np.array([1.0])))
-        self.assertTrue(np.array_equal(y_state.y_corr_cholesky, rt.y_corr_cholesky))
+        self.assertEqual(len(set_x_calls), 0)
+        self.assertEqual(len(calc_calls), 0)
 
     def test_initialize_matrix_and_gene_index_state(self) -> None:
         class _Runtime:
