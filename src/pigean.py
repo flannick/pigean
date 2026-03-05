@@ -62,6 +62,7 @@ try:
         maybe_adjust_overaggressive_p_filter_after_x_read as pegs_maybe_adjust_overaggressive_p_filter_after_x_read,
         apply_post_read_gene_set_size_and_qc_filters as pegs_apply_post_read_gene_set_size_and_qc_filters,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
+        build_read_x_pipeline_config as pegs_build_read_x_pipeline_config,
         build_xin_to_p_noninf_index_map as pegs_build_xin_to_p_noninf_index_map,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -171,6 +172,7 @@ except ImportError:
         maybe_adjust_overaggressive_p_filter_after_x_read as pegs_maybe_adjust_overaggressive_p_filter_after_x_read,
         apply_post_read_gene_set_size_and_qc_filters as pegs_apply_post_read_gene_set_size_and_qc_filters,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
+        build_read_x_pipeline_config as pegs_build_read_x_pipeline_config,
         build_xin_to_p_noninf_index_map as pegs_build_xin_to_p_noninf_index_map,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
@@ -20215,7 +20217,7 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
             sigma_num_devs_to_top=options.sigma_num_devs_to_top,
             p_noninf_inflate=options.p_noninf_inflate,
             batch_separator=options.batch_separator,
-            ignore_genes=set(options.ignore_genes),
+            ignore_genes=options.ignore_genes,
             file_separator=options.file_separator,
             max_num_burn_in=options.max_num_burn_in,
             max_num_iter_betas=options.max_num_iter_betas,
@@ -20262,59 +20264,65 @@ def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
 
 
 def _run_read_x_stage(runtime, X_in, **read_x_kwargs):
-    return _read_x_pipeline(runtime, X_in, **read_x_kwargs)
+    read_x_pipeline_config = pegs_build_read_x_pipeline_config(
+        X_in,
+        read_x_kwargs,
+        bail_fn=bail,
+    )
+    return _read_x_pipeline(runtime, read_x_pipeline_config)
 
 
-def _read_x_pipeline(runtime, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=None, skip_V=True, force_reread=False, min_gene_set_size=1, max_gene_set_size=30000, only_ids=None, only_inc_genes=None, fraction_inc_genes=None, add_all_genes=False, prune_gene_sets=0.8, weighted_prune_gene_sets=None, prune_deterministically=False, x_sparsify=[50,100,200,500,1000], add_ext=False, add_top=True, add_bottom=True, filter_negative=True, threshold_weights=0.5, cap_weights=True, permute_gene_sets=False, max_gene_set_p=None, filter_gene_set_p=1, filter_using_phewas=False, increase_filter_gene_set_p=0.01, max_num_gene_sets_initial=None, max_num_gene_sets=None, max_num_gene_sets_hyper=None, skip_betas=False, run_logistic=True, max_for_linear=0.95, filter_gene_set_metric_z=2.5, initial_p=0.01, xin_to_p_noninf_ind=None, initial_sigma2=1e-3, initial_sigma2_cond=None, sigma_power=0, sigma_soft_threshold_95=None, sigma_soft_threshold_5=None, run_corrected_ols=False, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, update_hyper_p=False, update_hyper_sigma=False, batch_all_for_hyper=False, first_for_hyper=False, first_max_p_for_hyper=False, first_for_sigma_cond=False, sigma_num_devs_to_top=2.0, p_noninf_inflate=1, batch_separator="@", ignore_genes=set(["NA"]), file_separator=None, max_num_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=10, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, max_allowed_batch_correlation=None, sparse_solution=False, sparse_frac_betas=None, betas_trace_out=None, show_progress=True, max_num_entries_at_once=None):
-    if not force_reread and runtime.X_orig is not None:
+def _read_x_pipeline(runtime, read_x_pipeline_config):
+    if not read_x_pipeline_config.force_reread and runtime.X_orig is not None:
         return
 
+    filter_using_phewas = read_x_pipeline_config.filter_using_phewas
     if filter_using_phewas and runtime.gene_pheno_Y is None:
         filter_using_phewas = False
 
     runtime._set_X(None, runtime.genes, None, skip_N=True)
     runtime._record_params({
-        "filter_gene_set_p": filter_gene_set_p,
-        "filter_negative": filter_negative,
-        "threshold_weights": threshold_weights,
-        "cap_weights": cap_weights,
-        "max_num_gene_sets_initial": max_num_gene_sets_initial,
-        "max_num_gene_sets": max_num_gene_sets,
-        "max_num_gene_sets_hyper": max_num_gene_sets_hyper,
-        "filter_gene_set_metric_z": filter_gene_set_metric_z,
-        "num_chains_betas": num_chains_betas,
-        "sigma_num_devs_to_top": sigma_num_devs_to_top,
-        "p_noninf_inflate": p_noninf_inflate,
+        "filter_gene_set_p": read_x_pipeline_config.filter_gene_set_p,
+        "filter_negative": read_x_pipeline_config.filter_negative,
+        "threshold_weights": read_x_pipeline_config.threshold_weights,
+        "cap_weights": read_x_pipeline_config.cap_weights,
+        "max_num_gene_sets_initial": read_x_pipeline_config.max_num_gene_sets_initial,
+        "max_num_gene_sets": read_x_pipeline_config.max_num_gene_sets,
+        "max_num_gene_sets_hyper": read_x_pipeline_config.max_num_gene_sets_hyper,
+        "filter_gene_set_metric_z": read_x_pipeline_config.filter_gene_set_metric_z,
+        "num_chains_betas": read_x_pipeline_config.num_chains_betas,
+        "sigma_num_devs_to_top": read_x_pipeline_config.sigma_num_devs_to_top,
+        "p_noninf_inflate": read_x_pipeline_config.p_noninf_inflate,
     })
 
     x_input_plan = pegs_prepare_read_x_inputs(
-        X_in=X_in,
-        X_list=X_list,
-        Xd_in=Xd_in,
-        Xd_list=Xd_list,
-        initial_p=initial_p,
-        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
-        batch_separator=batch_separator,
-        file_separator=file_separator,
+        X_in=read_x_pipeline_config.X_in,
+        X_list=read_x_pipeline_config.X_list,
+        Xd_in=read_x_pipeline_config.Xd_in,
+        Xd_list=read_x_pipeline_config.Xd_list,
+        initial_p=read_x_pipeline_config.initial_p,
+        xin_to_p_noninf_ind=read_x_pipeline_config.xin_to_p_noninf_ind,
+        batch_separator=read_x_pipeline_config.batch_separator,
+        file_separator=read_x_pipeline_config.file_separator,
         sparse_list_open_fn=open_gz,
         dense_list_open_fn=open,
     )
     xdata_seed = pegs_xdata_from_input_plan(x_input_plan)
 
     read_x_config = PegsXReadConfig(
-        x_sparsify=x_sparsify,
-        min_gene_set_size=min_gene_set_size,
-        add_ext=add_ext,
-        add_top=add_top,
-        add_bottom=add_bottom,
-        threshold_weights=threshold_weights,
-        cap_weights=cap_weights,
-        permute_gene_sets=permute_gene_sets,
-        filter_gene_set_p=filter_gene_set_p,
-        filter_gene_set_metric_z=filter_gene_set_metric_z,
+        x_sparsify=read_x_pipeline_config.x_sparsify,
+        min_gene_set_size=read_x_pipeline_config.min_gene_set_size,
+        add_ext=read_x_pipeline_config.add_ext,
+        add_top=read_x_pipeline_config.add_top,
+        add_bottom=read_x_pipeline_config.add_bottom,
+        threshold_weights=read_x_pipeline_config.threshold_weights,
+        cap_weights=read_x_pipeline_config.cap_weights,
+        permute_gene_sets=read_x_pipeline_config.permute_gene_sets,
+        filter_gene_set_p=read_x_pipeline_config.filter_gene_set_p,
+        filter_gene_set_metric_z=read_x_pipeline_config.filter_gene_set_metric_z,
         filter_using_phewas=filter_using_phewas,
-        increase_filter_gene_set_p=increase_filter_gene_set_p,
-        filter_negative=filter_negative,
+        increase_filter_gene_set_p=read_x_pipeline_config.increase_filter_gene_set_p,
+        filter_negative=read_x_pipeline_config.filter_negative,
     )
     read_x_callbacks = PegsXReadCallbacks(
         sparse_module=sparse,
@@ -20330,7 +20338,9 @@ def _read_x_pipeline(runtime, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=
         finalize_added_x_block_fn=_finalize_added_x_block,
     )
 
-    ingestion_options = pegs_build_read_x_ingestion_options(locals())
+    read_x_locals = dict(vars(read_x_pipeline_config))
+    read_x_locals["filter_using_phewas"] = filter_using_phewas
+    ingestion_options = pegs_build_read_x_ingestion_options(read_x_locals)
     ingestion_state = xdata_seed.run_ingestion_stage(
         runtime,
         input_plan=x_input_plan,
@@ -20346,7 +20356,7 @@ def _read_x_pipeline(runtime, X_in, Xd_in=None, X_list=None, Xd_list=None, V_in=
     )
 
     post_options = pegs_build_read_x_post_options(
-        locals(),
+        read_x_locals,
         batches=ingestion_state["batches"],
         num_ignored_gene_sets=ingestion_state["num_ignored_gene_sets"],
         ignored_for_fraction_inc=ingestion_state["ignored_for_fraction_inc"],
