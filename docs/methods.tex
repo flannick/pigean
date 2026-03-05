@@ -409,7 +409,7 @@ the beginning of running the PIGEAN model.
 \end{itemize}
 
 The second needed quantity is given directly by our model as
-\begin{equation}\frac{\Pr\left(d_i=1|\beta\right)}{1-\Pr\left(d_i=1|\beta\right)} = \sum_jX_{ij}\beta_j + \alpha_i +
+\begin{equation}\log{\frac{\Pr\left(d_i=1|\beta\right)}{1-\Pr\left(d_i=1|\beta\right)}} = \sum_jX_{ij}\beta_j + \alpha_i +
 \log\left(\frac{\pi}{1-\pi}\right)\label{eq:prior}
 \end{equation}
 
@@ -558,245 +558,169 @@ effective sample sizes):
     and convert this into a final posterior probability.
 \end{enumerate}
 
-The mathematical details of this procedure are as follows. Our goal is
-to calculate
-\[\Pr\left(d|\mathcal{D},\beta\right)\]
-where $\mathcal{D}$ is a set of association summary statistics
-across SNPs in the genome. We first decompose these data into a series
-of sets $\mathcal{D}^k, k=1..d$ that consist of independent groups of
-SNPs; practically, we achieve this by (as discussed above) iteratively
-choosing the SNP with the lowest p-value, adding it and all SNPs in LD
-with it as a new dataset $\mathcal{D}^k$, and continuing until all
-SNPs are exhausted. Assuming that the $\mathcal{D}^k$ are independent
-(an approximation, since in general some amount of LD will still span
-SNP clumps), and defining $s(k)$ as the genes linked to SNPs in
-$\mathcal{D}^k$, we have
-\begin{eqnarray*}
-  \Pr\left(d|\mathcal{D},\beta\right) &=&
-  \Pr\left(d|\mathcal{D}^1,\ldots,\mathcal{D}^d,\beta\right) \\
-  &\propto& \frac{\prod_k \Pr\left(d|\mathcal{D}^k,\beta\right)}{\Pr\left(d|\beta\right)} \\
-  &=& \frac{\prod_k
-    \Pr\left(d_{s(k)},d_{-s(k)}|\mathcal{D}^k,\beta\right)}{\Pr\left(d|\beta\right)} \\
-  &=& \frac{\prod_k
-    \Pr\left(d_{s(k)}|\mathcal{D}^k,\beta\right)\Pr\left(d_{-s(k)}|\mathcal{D}^k,\beta\right)}{\Pr\left(d|\beta\right)} \\
-  &=& \frac{\prod_k
-    \Pr\left(d_{s(k)}|\mathcal{D}^k,\beta\right)\Pr\left(d_{-s(k)}|\beta\right)}{\Pr\left(d|\beta\right)} \\
-  &=& \prod_k
-  \frac{\Pr\left(d_{s(k)}|\mathcal{D}^k,\beta\right)}{\Pr\left(d_{s(k)}|\beta\right)} \label{eq:combine_sig}
-\end{eqnarray*}
-where the proportionality follows from Bayes' rule and an assumption
-of conditional independence of the $\mathcal{D}^k$ given the $d$. The
-fourth rearrangment follows from the conditional independence
-assumptions of our model (conditional upon $\beta$, $d_i$ values can
-only influence each other through shared association data).
-Our task therefore simplifies to computing, for each independent set of
-variants $\mathcal{D}^k$ and corresponding genes $s(k)$ linked to SNPs
-within $\mathcal{D}^k$,
-\[  \Pr\left(d_{s(k)}|\mathcal{D}^k,\beta\right)\]
+The mathematical details of this procedure are as follows. In this section,
+we focus on computing marginal probabilities for each gene $i$ rather than the
+full joint distribution over all genes, since the latter is intractable.
 
-We first partition this event into two events: that a disease-associated SNP
-lies within $\mathcal{D}^k$ (event $S$) and is mediated by one of the genes in $s(k)$, and the complement of this event (event $\neg S$). Since these events are disjoint,
-\begin{eqnarray*}
-  \Pr\left(d_{s(k)}|\mathcal{D}^k,\beta\right)
-  & = &
-\Pr\left(d_{s(k)},S|\mathcal{D}^k,\beta\right) +
-\Pr\left(d_{s(k)},\neg S|\mathcal{D}^k,\beta\right)
-  \\
-  & = &
-\Pr\left(d_s(k)|S,\mathcal{D}^k,\beta\right)\Pr\left(S|\mathcal{D}^k,\beta\right)
-\\
-& & +
-\Pr\left(d_{s(k)}|\neg
-S,\mathcal{D}^k,\beta\right)\Pr\left(\neg S|\mathcal{D}^k,\beta\right)
-\\
-  & \approx &
-\Pr\left(d_{s(k)}|S,\mathcal{D}^k,\beta\right)\Pr\left(S|\mathcal{D}^k\right) + 
-\Pr\left(d_{s(k)}|\neg
-S,\mathcal{D}^k,\beta\right)\Pr\left(\neg S|\mathcal{D}^k\right)
-\end{eqnarray*}
-where the approximate equality assumes that, given the summary statistics,
-the probability of a disease-associated SNP lying in the region is not
-further affected by knowledge of gene causal status or its annotations
-(note that this would clearly not hold if the summary statistics were
-not observed).
+We assume the GWAS summary statistics across the genome, $\mathcal{D}$, can be
+partitioned into $K$ approximately independent LD clumps,
+$\mathcal{D} = \{\mathcal{D}^k\}_{k=1}^K$. Practically, we achieve this by
+iteratively choosing the SNP with the lowest p-value, adding it and all SNPs
+in LD with it as a new dataset $\mathcal{D}^k$, and continuing until all SNPs
+are exhausted. This yields clumps that are approximately independent (an
+approximation, since some residual LD can span clumps). For each clump $k$, let
+$s(k)$ denote the genes linked to SNPs in $\mathcal{D}^k$.
 
-We first calculate
-$\Pr\left(S|\mathcal{D}^k\right)$ as the probability that the
-strongest SNP in the region is truly associated with the trait, using
-a previously derived equation for converting association Z-scores to Approximate Bayes Factors\cite{} --
-specifically,
-\[ABF^k = \sqrt{1+K}\exp\left(-\frac{z^2}{2}\frac{K}{\left(1+K\right)}\right)\]
-where $z$ is the Z-score of the the strongest SNP association in $\mathcal{D^k}$ and $K$ is a free parameter. Additionally, to convert these Bayes Factors to a
-posterior probability, we need to specify the prior probability $\phi$
-that a
-SNP is truly associated with the trait, which introduces an additional free parameter. We
-choose these parameters by specifying two Z-score values
-(equivalenetly: two p-value thresholds) and their corresponding
-posterior probabilities. These are more intuitive ways of specifying
-these parameters and are inputs to PIGEAN. Default values are
-a probability of 0.75 for $p=5\times10^{-8}$ and a probability of $0.01$ for
-$p=0.01$. However, it is known\cite{} that this equation for
-converting Z-scores to $ABF$ values implicitly depends on the sample
-size of the GWAS; specifically, its prior over SNP effect
-sizes has a stronger belief in smaller effect sizes as the sample size
-increases. While corrections are possible to this equation that remove
-this dependence (as are
-corrections that use effect sizes and standard
-errors instead), we believed that these corrections would require users of PIGEAN to specify
-too many non-intuitive parameters and impose difficulty in running
-PIGEAN across many traits for which these parameters might
-vary. Therefore, we instead imposed an approximate sample size
-correction where, based on the number of signals that reach
-genome-wide significance, we adjust the mapping between p-value and
-$ABF$; specifically, we empirically reset the p-value threshold at which the
-posterior equals 0.75 to the p-value of the 100th strongest signal
-(rather than fixing it at $p=5\times10^{-8}$). We found empirically
-that this worked well across many traits. It is interesting (if
-perhaps underappreciated) that these same considerations motivate a
-more stringent genome-wide significance threshold for GWAS as sample
-sizes increase, which to our knowledge is not standard practice in the
-genetics community.
+%\paragraph{Latent variables and union across clumps.}
+For each clump $k$, we introduce:
+(i) an event $S_k$ indicating whether clump $k$ contains a true association
+signal; and (ii) per-gene indicator variables $d_{ik}$ for $i \in s(k)$,
+where $d_{ik}=1$ indicates that gene $i$ is the (unique) effector gene for clump $k$.
+We assume \emph{one effector gene per clump} conditional on $S_k=1$, i.e.
+$\sum_{i \in s(k)} d_{ik} = 1$ when $S_k=1$, and $d_{ik}=0$ for all $i$ when $S_k=0$.
+We define a gene-level indicator of GWAS-mediated trait relevance by unioning
+over clumps:
+\[
+d_i \;=\; \bigvee_{k=1}^K (d_{ik}=1),
+\]
+i.e. gene $i$ is trait-relevant (from GWAS evidence) if it is an effector gene
+for at least one clump.
+
+Let
+\[
+q_{ik} \;=\; \Pr(d_{ik}=1 \mid \mathcal{D}^k,\beta),
+\]
+and by convention $q_{ik}=0$ for clumps $k$ where $i \notin s(k)$. Under the
+approximation that clumps are independent conditional on the corresponding
+clump-specific latent variables, the union definition implies
+\begin{equation}
+\Pr(d_i=1 \mid \mathcal{D},\beta)
+\;\approx\;
+1 - \prod_{k=1}^K \left(1 - q_{ik}\right).
+\label{eq:combine_sig}
+\end{equation}
+Therefore, our task reduces to computing $q_{ik}$ for each clump and gene.
+
+%\paragraph{Decomposing $q_{ik}$ into signal existence and effector identity.}
+By the definition of $d_{ik}$, we can write
+\[
+q_{ik}
+=
+\Pr(d_{ik}=1 \mid \mathcal{D}^k,\beta)
+=
+\Pr(S_k=1 \mid \mathcal{D}^k)\Pr(d_{ik}=1 \mid S_k=1,\mathcal{D}^k,\beta),
+\]
+since $d_{ik}=0$ whenever $S_k=0$.
+
+We first calculate $\Pr(S_k=1 \mid \mathcal{D}^k)$ as the probability that the
+strongest SNP in the region is truly associated with the trait, using a
+previously derived equation for converting association Z-scores to Approximate
+Bayes Factors\cite{} -- specifically,
+\[
+ABF^k = \sqrt{1+\kappa}\exp\left(-\frac{z^2}{2}\frac{\kappa}{\left(1+\kappa\right)}\right),
+\]
+where $z$ is the Z-score of the strongest SNP association in $\mathcal{D}^k$
+and $\kappa$ is a free parameter. Additionally, to convert these Bayes Factors
+to a posterior probability, we need to specify the prior probability $\phi$
+that a SNP is truly associated with the trait, which introduces an additional
+free parameter. We choose these parameters by specifying two Z-score values
+(equivalently: two p-value thresholds) and their corresponding posterior
+probabilities. Default values are a probability of 0.75 for
+$p=5\times10^{-8}$ and a probability of 0.01 for $p=0.01$.
+
+However, it is known\cite{} that this equation for converting Z-scores to
+$ABF$ values implicitly depends on the sample size of the GWAS; specifically,
+its prior over SNP effect sizes has a stronger belief in smaller effect sizes
+as the sample size increases. While corrections are possible to this equation
+that remove this dependence (as are corrections that use effect sizes and
+standard errors instead), we believed that these corrections would require
+users of PIGEAN to specify too many non-intuitive parameters and impose
+difficulty in running PIGEAN across many traits for which these parameters
+might vary. Therefore, we instead imposed an approximate sample size
+correction where, based on the number of signals that reach genome-wide
+significance, we adjust the mapping between p-value and $ABF$; specifically,
+we empirically reset the p-value threshold at which the posterior equals 0.75
+to the p-value of the 100th strongest signal (rather than fixing it at
+$p=5\times10^{-8}$). We found empirically that this worked well across many
+traits.
 
 Combined, we have
 \[
-\Pr\left(S|\mathcal{D}^k\right) = \frac{ABF^k * \frac{\phi}{1-\phi}}{1
-  + ABF^k * \frac{\phi}{1-\phi}}
+\Pr(S_k=1 \mid \mathcal{D}^k) = \frac{ABF^k * \frac{\phi}{1-\phi}}{1 + ABF^k * \frac{\phi}{1-\phi}}.
 \]
 
-The other two quantities that we need to calculate are
-\[\Pr\left(d_{s(k)}|S,\mathcal{D}^k,\beta\right)\]
-\[\Pr\left(d_{s(k)}|\neg S,\mathcal{D}^k,\beta\right)\]
-
-For the second quantity, we assume that if there are no significant
-SNPs, then 
-\[\Pr\left(d_{s(k)}|\neg S,\mathcal{D}^k,\beta\right) =
-\Pr\left(d_{s(k)}|\beta\right)\]
-or the prior probability for the gene (given the $\beta$ values),
-which can be calculated as in equation \eqref{eq:prior}.
-
-For the first quantity, we assume that exactly one gene is causal in
-the region. This assumption is equivalent to assuming that SNPs exert
-effects through at most one effector gene, as conditioning on the event $S$
-implies that there is at least one causal gene in the region. This
-assumption likely does not hold for all regions of the genome, but it
-probably holds for many regions of the genome. It is a limitation of
-the HuGER model that could be addressed in a more comprehensive gene
-``fine mapping'' approach as discussed above.
-
-In the context of credible set calculation for SNPs, but under these
-same assumptions (exactly one causal SNP in a set), it has been shown\ref{Maller} that the posterior probability that the causal gene is gene $i$
-is proportional to its Bayes Factor multiplied by the conditional
-prior of $d_i$ -- that is, the prior probability of $d_i$ before any
-SNP statistics are observed but after it is known that exactly one of
-the genes in the region is causal. Specifically:
+%\paragraph{Effector identity within a clump and the role of $\beta$.}
+To compute $\Pr(d_{ik}=1 \mid S_k=1,\mathcal{D}^k,\beta)$, we assume that
+conditional on $S_k=1$ there is exactly one effector gene in the region. Under
+this assumption, the posterior probability that the effector gene is gene $i$
+is proportional to its Bayes Factor multiplied by the \emph{conditional prior}
+probability that gene $i$ is the unique causal gene among the candidates in
+$s(k)$\cite{Maller}. Specifically,
 \begin{eqnarray*}
-\Pr\left(d_i| S,\mathcal{D}^k,\beta\right) & = &
-  \alpha BF_i\Pr\left(d_i|\oplus_{j\in s(k)},\beta\right)
-  \end{eqnarray*}
-where we choose $\alpha$ such that the resulting values to sum to 1
-across all genes in the region of the signal. The notation
-$\oplus_{j\in s(k)}$ indicates the event that exactly one gene linked
-to SNPs in $\mathcal{D}^k$ is causal, and the bayes factor $BF_i$
-incorporates all information contained within $\mathcal{D}^k$. Because of our assumption that exactly one
-gene in the region is causal, calculating $\Pr\left(d_i|
-S,\mathcal{D}^k,\beta\right)$ for each gene $i \in s(k)$ is sufficient
-to calculate the full joint probability of $\Pr\left(d|
-S,\mathcal{D}^k,\beta\right)$.
-
-The event $\oplus_{j\in s(k)}$ is equivalent to $\cup_{i \in s(k)} d_i \and
-\cap_{j \in -i} \neg d_j$, or the union over events in which one gene is causal
-and the rest are not. We can therefore calculate $\Pr\left(d_i|\oplus_{j\in s(i)},\beta\right)$ by
-calculating $\Pr(d_i,\cap_j \neg d_j|\beta)$ and then normalizing these
-values so that they sum to 1. We can approximate this as
-$\Pr(d_i|\beta)\prod_j\left(1-\Pr(d_j|\beta)\right)$ under the simplifying
-assumption that the priors are independent, and we can calculate each
-value $\Pr(d_i|\beta)$ as in equation \eqref{eq:prior}.
-
-To calculate $BF_i$, we would traditionally model
-$\Pr\left(\mathcal{D}^k|d_i\right)$ and
-$\Pr\left(\mathcal{D}^k|\neg d_i\right)$ and then calculate their ratio. However, modeling these quantities is
-non-trivial and warrants its own full investigation, as described
-above. We therefore proceed by directly estimating
-$\Pr\left(d_i|\mathcal{D}^k\right)$, using ideas from the original
-HuGE calculator\cite{}, and then divide the resulting odds by the
-non-informative prior odds (i.e. not conditional upon $\beta$, since
-we are not conditioning on $\beta$ in this scenario). That is, 
-\begin{eqnarray*}
-\frac{\Pr\left(d_i|\mathcal{D}^k\right)}{\Pr\left(\neg d_i|\mathcal{D}^k\right)} & = &
-\frac{\Pr\left(\mathcal{D}^k|d_i\right)}{\Pr\left(\mathcal{D}^k|\neg d_i\right)}\frac{\pi}{1-\pi} \\
-& = & BF_i \frac{\pi}{1-\pi} \\
+\Pr(d_{ik}=1 \mid S_k=1,\mathcal{D}^k,\beta) &\propto&
+BF_{ik}\Pr\left(d_i \mid \oplus_{j\in s(k)},\beta\right),
 \end{eqnarray*}
-And thus
-\[BF_i = \frac{\Pr\left(d_i|\mathcal{D}^k\right)}{\Pr\left(\neg
-  d_i|\mathcal{D}^k\right)} \frac{1-\pi}{\pi}\]
-The reason for this seemingly non-intuitive and indirect way of
-obtaining gene-level Bayes Factors is that, while modeling
-$\Pr\left(\mathcal{D}^k|d_i\right)$ is difficult, it is more
-straightforward to obtain an estimate of 
-$\Pr\left(d_i|\mathcal{D}^k\right)$ under the assumption of a single
-causal variant within $\mathcal{D}^k$.
+where $\oplus_{j\in s(k)}$ denotes the event that exactly one gene in $s(k)$ is
+causal, and the proportionality constant is chosen so that the probabilities
+sum to 1 over $i \in s(k)$.
 
-Specifically, we first obtain a probability
-distribution $p(V)$, where $V$ indicates the event that variant $v
-\in \mathcal{D}^k$ is the causal variant within $\mathcal{D}^k$. We can
-obtain $p(V)$ via any fine mapping approach that produces posterior
-probabilities of association (within PIGEAN, we use a simple approach
-that does not require LD estimates or conditional analysis\cite{}). We
-then combine these with SNP to gene linkage probabilities $p(L^v_i)$, where $L^v_i$
-is the event that variant $v$ is linked to gene $i$ and we assume
-every causal variant is linked to exactly one gene (and thus $p(L^v_i)$
-sums to 1 across all genes for each causal variant $v$). We can obtain
-these values either directly from external sources or calculate these
-as a function of distance as described above. The $p(V)$ and
-$p(L^v_i)$ values then combine as
+We approximate the conditional prior under an independence assumption on the
+gene-level priors:
+\[
+\Pr\left(d_i \mid \oplus_{j\in s(k)},\beta\right)
+\;\propto\;
+\Pr(d_i \mid \beta)\prod_{j\in s(k)\setminus i}\left(1-\Pr(d_j \mid \beta)\right),
+\]
+where $\Pr(d_i \mid \beta)$ is given by equation \eqref{eq:prior}. This is the
+step in which genes \emph{compete} within each clump: the relative prior weight
+of gene $i$ depends not only on $\Pr(d_i\mid\beta)$ but also on the priors of
+all other genes in $s(k)$.
+
+%\paragraph{Estimating $BF_{ik}$ from fine-mapping and SNP-to-gene linkage.}
+To calculate $BF_{ik}$, we would traditionally model
+$\Pr(\mathcal{D}^k \mid d_{ik}=1)$ and $\Pr(\mathcal{D}^k \mid d_{ik}=0)$ and
+then take their ratio. However, modeling these quantities is non-trivial and
+warrants its own full investigation, as described above. We therefore proceed
+by first estimating a baseline posterior probability
+$\tilde{p}_{ik} \equiv \Pr(d_{ik}=1 \mid \mathcal{D}^k)$ under a non-informative
+gene prior, and then converting it to a Bayes Factor by dividing the resulting
+odds by the corresponding prior odds:
+\[
+BF_{ik} \;=\; \frac{\tilde{p}_{ik}}{1-\tilde{p}_{ik}} \frac{1-\pi}{\pi},
+\]
+where $\pi$ is the non-informative prior probability used for this conversion.
+
+We estimate $\tilde{p}_{ik}$ using a fine-mapped probability distribution
+$p(V)$ over causal variants $v\in\mathcal{D}^k$ and SNP-to-gene linkage
+probabilities $p(L_i^v)$ (which sum to 1 across genes for each $v$):
 \begin{eqnarray*}
-\Pr\left(d_i=1|\mathcal{D}^k\right) & = &
-\Pr\left(\bigcup_v d_i=1,V|\mathcal{D}^k\right) \\
-&=& \Pr\left(\bigcup_v d_i=1,V,L^v_i|\mathcal{D}^k\right) \\
-&=& \sum_v \Pr\left(d_i=1,V,L^v_i|\mathcal{D}^k\right) \\
-&=& \sum_v p(V)p(L^v_i) \\
+\tilde{p}_{ik}
+\;=\;
+\Pr(d_{ik}=1 \mid \mathcal{D}^k)
+&=&
+\sum_{v \in \mathcal{D}^k} p(V=v \mid \mathcal{D}^k) p(L_i^v).
 \end{eqnarray*}
-where the second equality follows because $d_i=0$ if gene $i$ is not linked
-to the causal variant, and the last equality follows because of the
-assumptions that there is exactly one causal variant, it is linked
-to exactly one gene, and only variants linked to trait-relevant genes
-can exhibit associations.
 
-Putting all of these steps together, the final HuGER score procedure
-for each independent group of SNPs $\mathcal{D}^k$ is:
-\begin{enumerate}
-  \item For each gene, we calculate the gene-level
-    Bayes Factor
-    \[\sum_{v \in \mathcal{D}^k} p(V) p(L_i^v) \frac{1-\pi}{\pi}\]
-  \item We use these Bayes Factors to calculate the full joint
-      distribution over $d_{s(k)}$ values for each $\mathcal{D}^k$.
+%\paragraph{Putting the steps together (per-clump effector probabilities).}
+Combining the above, the HuGER procedure yields per-clump effector probabilities
 \begin{multline}
-\Pr\left(d_i|\mathcal{D}^k,\beta\right) = \\ 
-  \Pr\left(S|\mathcal{D}^k\right) \alpha \frac{\sum_{v \in \mathcal{D}^k} p(V) p(L_i^v)}{1
-    - \sum_{v \in \mathcal{D}^k} p(V) p(L_i^v)}
-  \frac{1-\pi}{\pi}\Pr(d_i|\beta)\prod_{j\in s(k)-i}\left(1-\Pr(d_j|\beta)\right)
-  \\ + \left(1 - \Pr\left(S|\mathcal{D}^k\right)\right) \Pr\left(d_i\right|\beta)
-  \label{huge}
+q_{ik}
+=
+\Pr(d_{ik}=1 \mid \mathcal{D}^k,\beta)
+=
+\Pr(S_k=1 \mid \mathcal{D}^k)\,
+\frac{BF_{ik}\Pr\left(d_i \mid \oplus_{j\in s(k)},\beta\right)}
+{\sum_{\ell\in s(k)} BF_{\ell k}\Pr\left(d_\ell \mid \oplus_{j\in s(k)},\beta\right)}.
+\label{huge}
 \end{multline}
-\end{enumerate}
-We can then combine these scores to get the full distribution over all
-$d$ using Equation \eqref{eq:combine_sig}.
 
-In practice, since enumerating the full joint distribution across $d$
-is intractable, we marginalize the values across genes within each
-$\mathcal{D}^k$ and then combine the marginals across the the
-$\mathcal{D}^k$. That is, applying Equation \eqref{eq:combine_sig} in
-the case of a single gene, we obtain
-\begin{eqnarray*}
-\frac{\Pr\left(d_i=1|\mathcal{D},\beta\right)}{\Pr\left(d_i=0|\mathcal{D},\beta\right)} &=&
-\prod_k\frac{\Pr\left(d_i=1|\mathcal{D}^k,\beta\right)}{\Pr\left(d_i=0|\mathcal{D}^k,\beta\right)}\frac{\Pr\left(d_i=1|\beta\right)}{\Pr\left(d_i=0|\beta\right)}
-\end{eqnarray*}
-This in effect marginalizes over genes before combining data across
-$\mathcal{D}^k$, as opposed to combining data across $\mathcal{D}^k$
-before marginalizing over genes. We expect this approximation to be
-reasonable since most genes are linked to SNPs in a small number of
-$\mathcal{D}^k$, and most $\mathcal{D}^k$ have SNPs linked to only a
-small number of genes.
+Finally, we aggregate evidence across clumps by unioning over clumps as in
+equation \eqref{eq:combine_sig}. When clumps are only approximately independent
+(e.g. due to residual LD spanning clumps), the union in
+equation \eqref{eq:combine_sig} can over-count evidence; in our implementation
+we therefore optionally use the conservative approximation
+$\Pr(d_i=1 \mid \mathcal{D},\beta) \approx \max_k q_{ik}$.
+
 
 \subsection{Indirect support as a probabilistic justification for
   previous \textit{ad hoc} approaches}
