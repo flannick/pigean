@@ -117,6 +117,15 @@ Notes:
 - Mode defaults are applied in `_apply_mode_and_runtime_defaults(...)`.
 - Use `--print-effective-config` to inspect resolved defaults.
 
+## Filter Relaxation Semantics
+
+`--increase-filter-gene-set-p` is treated as a **minimum kept fraction** target during
+prefiltering. If too few gene sets pass the current `--filter-gene-set-p`, PIGEAN
+relaxes the threshold to keep at least that fraction.
+
+Post-read filtering no longer tightens this threshold, so this option has one
+canonical direction: avoid overly strict filtering.
+
 ## Removed Legacy GLS Path
 
 The historical full-GLS/whitened-Y path is no longer supported in `src/pigean.py`.
