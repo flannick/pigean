@@ -249,6 +249,33 @@ except ImportError:
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 
+try:
+    from .pegs_utils_phewas import (
+        build_phewas_stage_config as pegs_build_phewas_stage_config,
+        resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
+    )
+    from .pegs_utils_bundle import (
+        get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
+        require_existing_nonempty_file as pegs_require_existing_nonempty_file,
+        write_bundle_from_specs as pegs_write_bundle_from_specs,
+        write_prefixed_tar_bundle as pegs_write_prefixed_tar_bundle,
+        read_prefixed_tar_bundle as pegs_read_prefixed_tar_bundle,
+        EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
+    )
+except ImportError:
+    from pegs_utils_phewas import (  # type: ignore
+        build_phewas_stage_config as pegs_build_phewas_stage_config,
+        resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
+    )
+    from pegs_utils_bundle import (  # type: ignore
+        get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
+        require_existing_nonempty_file as pegs_require_existing_nonempty_file,
+        write_bundle_from_specs as pegs_write_bundle_from_specs,
+        write_prefixed_tar_bundle as pegs_write_prefixed_tar_bundle,
+        read_prefixed_tar_bundle as pegs_read_prefixed_tar_bundle,
+        EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
+    )
+
 # Canonical suffix tags used when expanding dense gene-set inputs into
 # sparse derived sets (top/ext/bottom thresholds).
 EXT_TAG = "ext"
