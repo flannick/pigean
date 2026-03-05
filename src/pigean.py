@@ -11417,7 +11417,9 @@ def _build_prefilter_keep_mask(
         )
         p_value_mask = p_values <= p_from_quantile
         if filter_using_phewas:
-            p_value_mask = np.logical_or(p_value_mask, np.any(p_values_phewas <= p_from_quantile, axis=1))
+            # p_values_phewas is shaped (num_phenos, num_gene_sets), so aggregate
+            # across phenotypes to keep any gene set passing in at least one pheno.
+            p_value_mask = np.logical_or(p_value_mask, np.any(p_values_phewas <= p_from_quantile, axis=0))
 
         if np.sum(~p_value_mask) > 0:
             log("Ignoring %d gene sets due to p-value filters" % (np.sum(~p_value_mask)))

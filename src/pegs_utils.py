@@ -3804,19 +3804,20 @@ def maybe_adjust_overaggressive_p_filter_after_x_read(
     if filter_gene_set_p is None or increase_filter_gene_set_p is None or runtime.p_values is None or runtime.p_values_ignored is None:
         return
 
-    if float(len(runtime.p_values)) / (len(runtime.p_values) + len(runtime.p_values_ignored)) > increase_filter_gene_set_p:
-        keep_frac = increase_filter_gene_set_p * float(len(runtime.p_values) + len(runtime.p_values_ignored)) / len(runtime.p_values)
-        p_from_quantile = np.quantile(runtime.p_values, keep_frac)
-        if p_from_quantile > filter_gene_set_p and not filter_using_phewas:
-            overcorrect_ignore = runtime.p_values > p_from_quantile
-            if np.sum(overcorrect_ignore) > 0:
-                overcorrect_mask = ~overcorrect_ignore
-                runtime._record_param("adjusted_filter_gene_set_p", p_from_quantile)
-                log_fn(
-                    "Ignoring %d gene sets due to p > %.3g (overaggressive adjustment of p-value filters; kept %d)"
-                    % (np.sum(overcorrect_ignore), p_from_quantile, np.sum(overcorrect_mask))
-                )
-                runtime.subset_gene_sets(overcorrect_mask, ignore_missing=True, keep_missing=False, skip_V=True)
+    # `increase_filter_gene_set_p` semantics are "minimum kept fraction".
+    # Prefilter logic should relax p-thresholds when too few sets are kept; this
+    # post-read hook must not further tighten filtering.
+    kept = float(len(runtime.p_values))
+    total = kept + float(len(runtime.p_values_ignored))
+    if total <= 0:
+        return
+    kept_fraction = kept / total
+    if kept_fraction < increase_filter_gene_set_p:
+        log_fn(
+            "Kept fraction %.4g is below requested minimum %.4g after read_X; "
+            "post-read adjustment cannot restore filtered sets, so keeping current set"
+            % (kept_fraction, increase_filter_gene_set_p)
+        )
 
 
 def apply_post_read_gene_set_size_and_qc_filters(
