@@ -13968,9 +13968,25 @@ def _update_gibbs_burn_in_state(
     )
 
 
+def _record_gibbs_hyper_mutation_event(state, event):
+    event_json = json.dumps(event, sort_keys=True)
+    state._record_param("gibbs_hyper_mutation_event", event_json)
+
+    prev_count = state.params.get("gibbs_hyper_mutation_event_count", 0)
+    if isinstance(prev_count, list):
+        prev_count = prev_count[-1]
+    try:
+        prev_count = int(prev_count)
+    except (TypeError, ValueError):
+        prev_count = 0
+    state._record_param("gibbs_hyper_mutation_event_count", prev_count + 1, overwrite=True)
+    log("Gibbs hyper mutation event: %s" % event_json, INFO)
+
+
 def _maybe_restart_gibbs_for_low_betas(
     state,
     increase_hyper_if_betas_below_for_epoch,
+    experimental_hyper_mutation,
     num_before_checking_p_increase,
     p_scale_factor,
     epoch_runtime,
@@ -14032,22 +14048,48 @@ def _maybe_restart_gibbs_for_low_betas(
         log("Top gene set %s has outlier value %.3g" % (state.gene_sets[top_gene_set2], (cur_avg_betas_v / state.scale_factors)[top_gene_set2]), TRACE)
 
     if all_low:
+        fraction_above_threshold = float(
+            np.mean(cur_avg_betas_v / state.scale_factors > increase_hyper_if_betas_below_for_epoch)
+        )
         log(
             "Only %.3g of %d (%.3g) are above %.3g"
             % (
                 np.sum(cur_avg_betas_v / state.scale_factors > increase_hyper_if_betas_below_for_epoch),
                 len(cur_avg_betas_v),
-                np.mean(cur_avg_betas_v / state.scale_factors > increase_hyper_if_betas_below_for_epoch),
+                fraction_above_threshold,
                 increase_hyper_if_betas_below_for_epoch,
             )
         )
 
         # At minimum, guarantee that it will restart unless it gets above this.
         gibbs_good = False
+        if not experimental_hyper_mutation:
+            state._record_param("gibbs_no_signal_detected", 1, overwrite=True)
+            state._record_param(
+                "gibbs_no_signal_fraction_above_threshold",
+                fraction_above_threshold,
+                overwrite=True,
+            )
+            state._record_param(
+                "gibbs_no_signal_threshold",
+                increase_hyper_if_betas_below_for_epoch,
+                overwrite=True,
+            )
+            bail(
+                "Detected no-signal Gibbs condition (fraction above threshold %.6g < %.6g at threshold %.6g). "
+                "Default behavior is explicit failure without hyper mutation. "
+                "To enable legacy restart/mutation heuristic, pass --experimental-hyper-mutation with --experimental-increase-hyper-if-betas-below."
+                % (
+                    fraction_above_threshold,
+                    fraction_required,
+                    increase_hyper_if_betas_below_for_epoch,
+                )
+            )
         # Only if above num for checking though that we increase and restart.
         num_p_increases, should_break = _maybe_increase_gibbs_hyper_and_restart(
             state=state,
             increase_hyper_if_betas_below_for_epoch=increase_hyper_if_betas_below_for_epoch,
+            fraction_above_threshold=fraction_above_threshold,
             num_before_checking_p_increase=num_before_checking_p_increase,
             p_scale_factor=p_scale_factor,
             num_p_increases=num_p_increases,
@@ -14093,6 +14135,7 @@ def _evaluate_gibbs_low_beta_condition(
 def _maybe_increase_gibbs_hyper_and_restart(
     state,
     increase_hyper_if_betas_below_for_epoch,
+    fraction_above_threshold,
     num_before_checking_p_increase,
     p_scale_factor,
     num_p_increases,
@@ -14104,8 +14147,10 @@ def _maybe_increase_gibbs_hyper_and_restart(
     if iteration_num <= num_before_checking_p_increase:
         return (num_p_increases, should_break)
 
-    new_p = state.p
-    new_sigma2 = state.sigma2
+    old_p = state.p
+    old_sigma2 = state.sigma2
+    new_p = old_p
+    new_sigma2 = old_sigma2
 
     state._record_param("p_scale_factor", p_scale_factor)
 
@@ -14139,6 +14184,23 @@ def _maybe_increase_gibbs_hyper_and_restart(
         )
         break_loop = True
     if break_loop:
+        _record_gibbs_hyper_mutation_event(
+            state,
+            {
+                "event": "gibbs_hyper_mutation_restart",
+                "trigger": "all_betas_below_threshold",
+                "threshold": float(increase_hyper_if_betas_below_for_epoch),
+                "fraction_above_threshold": float(fraction_above_threshold),
+                "iteration_num": int(iteration_num),
+                "num_attempts": int(num_attempts),
+                "max_num_attempt_restarts": int(max_num_attempt_restarts),
+                "p_scale_factor": float(p_scale_factor),
+                "old_p": float(old_p),
+                "new_p": float(state.p),
+                "old_sigma2": float(old_sigma2),
+                "new_sigma2": float(state.sigma2),
+            },
+        )
         should_break = True
     return (num_p_increases, should_break)
 

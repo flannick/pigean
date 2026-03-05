@@ -85,6 +85,32 @@ class PigeanCliTest(unittest.TestCase):
         self.assertTrue(payload["options"]["deterministic"])
         self.assertEqual(payload["options"]["seed"], 123)
 
+    def test_experimental_hyper_threshold_requires_experimental_mode(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--experimental-increase-hyper-if-betas-below",
+            "0.01",
+            "--print-effective-config",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("requires --experimental-hyper-mutation", err)
+
+    def test_legacy_hyper_threshold_alias_warns_and_maps(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--experimental-hyper-mutation",
+            "--increase-hyper-if-betas-below",
+            "0.02",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["experimental_hyper_mutation"])
+        self.assertEqual(payload["options"]["experimental_increase_hyper_if_betas_below"], 0.02)
+        err = proc.stderr or ""
+        self.assertIn("legacy alias", err)
+
     def test_import_does_not_reset_python_random_seed(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         snippet = r'''
