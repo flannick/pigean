@@ -27,4 +27,5 @@ cd pigean
 - `reports/release_v1/pytest.mody_gibbs.out`
 - `reports/release_v1/pytest.huge_cache.out`
 - `reports/release_v1/pytest.huge_gwas.out`
-- matching `*.time` files with runtime/memory metrics
+- matching `*.metrics.json` files with runtime/memory metrics
+- matching `*.err` files for stderr capture
