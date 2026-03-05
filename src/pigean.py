@@ -67,6 +67,11 @@ try:
         load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
         load_and_apply_gene_set_statistics_to_runtime as pegs_load_and_apply_gene_set_statistics_to_runtime,
         set_runtime_y_from_inputs as pegs_set_runtime_y_from_inputs,
+        compute_banded_y_corr_cholesky as pegs_compute_banded_y_corr_cholesky,
+        whiten_matrix_with_banded_cholesky as pegs_whiten_matrix_with_banded_cholesky,
+        calc_shift_scale_for_dense_block as pegs_calc_shift_scale_for_dense_block,
+        calc_X_shift_scale as pegs_calc_X_shift_scale,
+        calculate_V_internal as pegs_calculate_V_internal,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -167,6 +172,11 @@ except ImportError:
         load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
         load_and_apply_gene_set_statistics_to_runtime as pegs_load_and_apply_gene_set_statistics_to_runtime,
         set_runtime_y_from_inputs as pegs_set_runtime_y_from_inputs,
+        compute_banded_y_corr_cholesky as pegs_compute_banded_y_corr_cholesky,
+        whiten_matrix_with_banded_cholesky as pegs_whiten_matrix_with_banded_cholesky,
+        calc_shift_scale_for_dense_block as pegs_calc_shift_scale_for_dense_block,
+        calc_X_shift_scale as pegs_calc_X_shift_scale,
+        calculate_V_internal as pegs_calculate_V_internal,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -8271,25 +8281,15 @@ class PigeanState(object):
             log("Banded cholesky matrix: shape %s, %s" % (self.y_corr_cholesky.shape[0], self.y_corr_cholesky.shape[1]), DEBUG)
 
     def _get_y_corr_cholesky(self, Y_corr_m):
-        Y_corr_m_copy = copy.copy(Y_corr_m)
-        diag_add = 0.05
-        while True:
-            try:
-                Y_corr_m_copy[0,:] += diag_add
-                Y_corr_m_copy /= (1 + diag_add)
-                y_corr_cholesky = scipy.linalg.cholesky_banded(Y_corr_m_copy, lower=True)
-                return y_corr_cholesky
-            except np.linalg.LinAlgError:
-                pass
+        return pegs_compute_banded_y_corr_cholesky(Y_corr_m, diag_add=0.05)
 
     def _whiten(self, matrix, corr_cholesky, whiten=True, full_whiten=False):
-        if full_whiten:
-            #fully whiten, by sigma^{-1}; useful for optimization
-            matrix = scipy.linalg.cho_solve_banded((corr_cholesky, True), matrix, overwrite_b=True)
-        elif whiten:
-            #whiten X_b by sigma^{-1/2}
-            matrix = scipy.linalg.solve_banded((corr_cholesky.shape[0]-1, 0), corr_cholesky, matrix, overwrite_ab=True)
-        return matrix
+        return pegs_whiten_matrix_with_banded_cholesky(
+            matrix,
+            corr_cholesky,
+            whiten=whiten,
+            full_whiten=full_whiten,
+        )
 
     def _get_num_X_blocks(self, X_orig, batch_size=None):
         if batch_size is None:
@@ -8348,33 +8348,15 @@ class PigeanState(object):
         return fraction_non_missing
     
     def _calc_X_shift_scale(self, X, y_corr_cholesky=None):
-        if y_corr_cholesky is None:
-            if sparse.issparse(X):
-                mean_shifts = X.sum(axis=0).A1 / X.shape[0]
-                scale_factors = np.sqrt(X.power(2).sum(axis=0).A1 / X.shape[0] - np.square(mean_shifts))
-            else:
-                mean_shifts = np.mean(X, axis=0)
-                scale_factors = np.std(X, axis=0)
-        else:
-            scale_factors = np.array([])
-            mean_shifts = np.array([])
-            for X_b, begin, end, batch in self._get_X_blocks_internal(X, y_corr_cholesky):
-                (cur_mean_shifts, cur_scale_factors) = self._calc_shift_scale(X_b)
-                mean_shifts = np.append(mean_shifts, cur_mean_shifts)
-                scale_factors = np.append(scale_factors, cur_scale_factors)
-        return (mean_shifts, scale_factors)
+        return pegs_calc_X_shift_scale(
+            X,
+            y_corr_cholesky=y_corr_cholesky,
+            get_X_blocks_internal_fn=self._get_X_blocks_internal,
+            calc_shift_scale_fn=self._calc_shift_scale,
+        )
 
     def _calc_shift_scale(self, X_b):
-        mean_shifts = []
-        scale_factors = []
-        for i in range(X_b.shape[1]):
-            X_i = X_b[:,i]
-            mean_shifts.append(np.mean(X_i))
-            scale_factor = np.std(X_i)
-            if scale_factor == 0:
-                scale_factor = 1
-            scale_factors.append(scale_factor)
-        return (np.array(mean_shifts), np.array(scale_factors))
+        return pegs_calc_shift_scale_for_dense_block(X_b)
 
     #store a (possibly unnormalized) X matrix
     #the passed in X should be a sparse matrix, with 0/1 values
@@ -8465,45 +8447,16 @@ class PigeanState(object):
 
     def _calculate_V_internal(self, X_orig, y_corr_cholesky, mean_shifts, scale_factors, y_corr_sparse=None):
         log("Calculating V for X with dimensions %d x %d" % (X_orig.shape[0], X_orig.shape[1]), TRACE)
-
-        #TEMP
-        if y_corr_cholesky is not None:
-
-            if self._get_num_X_blocks(X_orig) == 1:
-                whiten1 = True
-                full_whiten1 = False
-                whiten2 = True
-                full_whiten2 = False
-            else:
-                whiten1 = False
-                full_whiten1 = True
-                whiten2 = False
-                full_whiten2 = False
-
-            V = None
-            if X_orig is not None:
-                #X_b is whitened
-
-                for X_b1, begin1, end1, batch1 in self._get_X_blocks_internal(X_orig, y_corr_cholesky, whiten=whiten1, full_whiten=full_whiten1, mean_shifts=mean_shifts, scale_factors=scale_factors):
-                    cur_V = None
-
-                    if y_corr_sparse is not None:
-                        X_b1 = y_corr_sparse.dot(X_b1)
-
-                    for X_b2, begin2, end2, batch2 in self._get_X_blocks_internal(X_orig, y_corr_cholesky, whiten=whiten2, full_whiten=full_whiten2, mean_shifts=mean_shifts, scale_factors=scale_factors):
-                        V_block = self._compute_V(X_b1, 0, 1, X_orig2=X_b2, mean_shifts2=0, scale_factors2=1)
-                        if cur_V is None:
-                            cur_V = V_block
-                        else:
-                            cur_V = np.hstack((cur_V, V_block))
-                    if V is None:
-                        V = cur_V
-                    else:
-                        V = np.vstack((V, cur_V))
-        else:
-            V = self._compute_V(X_orig, mean_shifts, scale_factors)
-
-        return V
+        return pegs_calculate_V_internal(
+            X_orig,
+            y_corr_cholesky,
+            mean_shifts,
+            scale_factors,
+            y_corr_sparse=y_corr_sparse,
+            get_num_X_blocks_fn=self._get_num_X_blocks,
+            get_X_blocks_internal_fn=self._get_X_blocks_internal,
+            compute_V_fn=self._compute_V,
+        )
 
     #calculate V between X_orig and X_orig2
     #X_orig2 can be dense or sparse, but if it is sparse than X_orig must also be sparse

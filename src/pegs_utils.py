@@ -2343,6 +2343,135 @@ def set_runtime_y_from_inputs(
     return y_data
 
 
+def compute_banded_y_corr_cholesky(Y_corr_m, diag_add=0.05):
+    Y_corr_m_copy = copy.copy(Y_corr_m)
+    while True:
+        try:
+            Y_corr_m_copy[0, :] += diag_add
+            Y_corr_m_copy /= (1 + diag_add)
+            return scipy.linalg.cholesky_banded(Y_corr_m_copy, lower=True)
+        except np.linalg.LinAlgError:
+            pass
+
+
+def whiten_matrix_with_banded_cholesky(matrix, corr_cholesky, *, whiten=True, full_whiten=False):
+    if full_whiten:
+        # Fully whiten by sigma^{-1}; useful for optimization.
+        matrix = scipy.linalg.cho_solve_banded((corr_cholesky, True), matrix, overwrite_b=True)
+    elif whiten:
+        # Whiten by sigma^{-1/2}.
+        matrix = scipy.linalg.solve_banded((corr_cholesky.shape[0] - 1, 0), corr_cholesky, matrix, overwrite_ab=True)
+    return matrix
+
+
+def calc_shift_scale_for_dense_block(X_b):
+    mean_shifts = []
+    scale_factors = []
+    for i in range(X_b.shape[1]):
+        X_i = X_b[:, i]
+        mean_shifts.append(np.mean(X_i))
+        scale_factor = np.std(X_i)
+        if scale_factor == 0:
+            scale_factor = 1
+        scale_factors.append(scale_factor)
+    return (np.array(mean_shifts), np.array(scale_factors))
+
+
+def calc_X_shift_scale(
+    X,
+    *,
+    y_corr_cholesky=None,
+    get_X_blocks_internal_fn=None,
+    calc_shift_scale_fn=calc_shift_scale_for_dense_block,
+):
+    if y_corr_cholesky is None:
+        if sparse.issparse(X):
+            mean_shifts = X.sum(axis=0).A1 / X.shape[0]
+            scale_factors = np.sqrt(X.power(2).sum(axis=0).A1 / X.shape[0] - np.square(mean_shifts))
+        else:
+            mean_shifts = np.mean(X, axis=0)
+            scale_factors = np.std(X, axis=0)
+        return (mean_shifts, scale_factors)
+
+    if get_X_blocks_internal_fn is None:
+        _default_bail("Expected get_X_blocks_internal_fn when y_corr_cholesky is provided")
+
+    scale_factors = np.array([])
+    mean_shifts = np.array([])
+    for X_b, _begin, _end, _batch in get_X_blocks_internal_fn(X, y_corr_cholesky):
+        (cur_mean_shifts, cur_scale_factors) = calc_shift_scale_fn(X_b)
+        mean_shifts = np.append(mean_shifts, cur_mean_shifts)
+        scale_factors = np.append(scale_factors, cur_scale_factors)
+    return (mean_shifts, scale_factors)
+
+
+def calculate_V_internal(
+    X_orig,
+    y_corr_cholesky,
+    mean_shifts,
+    scale_factors,
+    *,
+    y_corr_sparse=None,
+    get_num_X_blocks_fn=None,
+    get_X_blocks_internal_fn=None,
+    compute_V_fn=None,
+):
+    if y_corr_cholesky is not None:
+        if get_num_X_blocks_fn is None or get_X_blocks_internal_fn is None or compute_V_fn is None:
+            _default_bail(
+                "calculate_V_internal requires get_num_X_blocks_fn, get_X_blocks_internal_fn, and compute_V_fn when y_corr_cholesky is set"
+            )
+
+        if get_num_X_blocks_fn(X_orig) == 1:
+            whiten1 = True
+            full_whiten1 = False
+            whiten2 = True
+            full_whiten2 = False
+        else:
+            whiten1 = False
+            full_whiten1 = True
+            whiten2 = False
+            full_whiten2 = False
+
+        V = None
+        if X_orig is not None:
+            for X_b1, _begin1, _end1, _batch1 in get_X_blocks_internal_fn(
+                X_orig,
+                y_corr_cholesky,
+                whiten=whiten1,
+                full_whiten=full_whiten1,
+                mean_shifts=mean_shifts,
+                scale_factors=scale_factors,
+            ):
+                cur_V = None
+                if y_corr_sparse is not None:
+                    X_b1 = y_corr_sparse.dot(X_b1)
+
+                for X_b2, _begin2, _end2, _batch2 in get_X_blocks_internal_fn(
+                    X_orig,
+                    y_corr_cholesky,
+                    whiten=whiten2,
+                    full_whiten=full_whiten2,
+                    mean_shifts=mean_shifts,
+                    scale_factors=scale_factors,
+                ):
+                    V_block = compute_V_fn(X_b1, 0, 1, X_orig2=X_b2, mean_shifts2=0, scale_factors2=1)
+                    if cur_V is None:
+                        cur_V = V_block
+                    else:
+                        cur_V = np.hstack((cur_V, V_block))
+                if V is None:
+                    V = cur_V
+                else:
+                    V = np.vstack((V, cur_V))
+    else:
+        if compute_V_fn is None:
+            _default_bail("calculate_V_internal requires compute_V_fn when y_corr_cholesky is not set")
+        V = compute_V_fn(X_orig, mean_shifts, scale_factors)
+
+    return V
+
+
 def apply_y_data_to_runtime(runtime, y_data):
     runtime.Y = y_data.Y
     runtime.Y_for_regression = y_data.Y_for_regression
