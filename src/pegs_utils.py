@@ -2472,6 +2472,87 @@ def calculate_V_internal(
     return V
 
 
+def set_runtime_x_from_inputs(
+    runtime,
+    X_orig,
+    genes,
+    gene_sets,
+    *,
+    skip_scale_factors=False,
+    skip_N=True,
+    reread_gene_phewas_bfs_fn=None,
+    construct_map_to_ind_fn=None,
+    get_col_sums_fn=None,
+    set_scale_factors_fn=None,
+    log_fn=None,
+    trace_level=0,
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if log_fn is None:
+        log_fn = lambda _msg, _lvl=0: None
+    if construct_map_to_ind_fn is None:
+        construct_map_to_ind_fn = construct_map_to_ind
+
+    log_fn("Setting X", trace_level)
+
+    if X_orig is not None:
+        if not len(genes) == X_orig.shape[0]:
+            bail_fn("Dimension mismatch when setting X: %d genes but %d rows in X" % (len(genes), X_orig.shape[0]))
+        if not len(gene_sets) == X_orig.shape[1]:
+            bail_fn("Dimension mismatch when setting X: %d gene sets but %d columns in X" % (len(gene_sets), X_orig.shape[1]))
+
+    if (
+        runtime.X_orig is not None
+        and X_orig is runtime.X_orig
+        and genes is runtime.genes
+        and gene_sets is runtime.gene_sets
+        and (
+            (runtime.y_corr_cholesky is None and not runtime.scale_is_for_whitened)
+            or (runtime.y_corr_cholesky is not None and runtime.scale_is_for_whitened)
+        )
+    ):
+        return False
+
+    runtime.last_X_block = None
+    runtime.genes = genes
+
+    if runtime.gene_pheno_Y is not None or runtime.gene_pheno_combined_prior_Ys is not None or runtime.gene_pheno_priors is not None:
+        if len(runtime.genes) != runtime.gene_pheno_Y.shape[0] and reread_gene_phewas_bfs_fn is not None:
+            reread_gene_phewas_bfs_fn(runtime)
+
+    if runtime.genes is not None:
+        runtime.gene_to_ind = construct_map_to_ind_fn(runtime.genes)
+    else:
+        runtime.gene_to_ind = None
+
+    runtime.gene_sets = gene_sets
+    if runtime.gene_sets is not None:
+        runtime.gene_set_to_ind = construct_map_to_ind_fn(runtime.gene_sets)
+    else:
+        runtime.gene_set_to_ind = None
+
+    runtime.X_orig = X_orig
+    if runtime.X_orig is not None:
+        runtime.X_orig.eliminate_zeros()
+
+    if runtime.X_orig is None:
+        runtime.X_orig_missing_genes = None
+        runtime.X_orig_missing_genes_missing_gene_sets = None
+        runtime.X_orig_missing_gene_sets = None
+        runtime.last_X_block = None
+        return True
+
+    if not skip_N and get_col_sums_fn is not None:
+        runtime.gene_N = get_col_sums_fn(runtime.X_orig, axis=1)
+
+    if not skip_scale_factors and set_scale_factors_fn is not None:
+        set_scale_factors_fn()
+
+    return True
+
+
 def apply_y_data_to_runtime(runtime, y_data):
     runtime.Y = y_data.Y
     runtime.Y_for_regression = y_data.Y_for_regression

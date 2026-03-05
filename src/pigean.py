@@ -72,6 +72,7 @@ try:
         calc_shift_scale_for_dense_block as pegs_calc_shift_scale_for_dense_block,
         calc_X_shift_scale as pegs_calc_X_shift_scale,
         calculate_V_internal as pegs_calculate_V_internal,
+        set_runtime_x_from_inputs as pegs_set_runtime_x_from_inputs,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -177,6 +178,7 @@ except ImportError:
         calc_shift_scale_for_dense_block as pegs_calc_shift_scale_for_dense_block,
         calc_X_shift_scale as pegs_calc_X_shift_scale,
         calculate_V_internal as pegs_calculate_V_internal,
+        set_runtime_x_from_inputs as pegs_set_runtime_x_from_inputs,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
         sync_y_state as pegs_sync_y_state,
@@ -8362,59 +8364,20 @@ class PigeanState(object):
     #the passed in X should be a sparse matrix, with 0/1 values
     #does normalization
     def _set_X(self, X_orig, genes, gene_sets, skip_V=False, skip_scale_factors=False, skip_N=True):
-
-        log("Setting X", TRACE)
-
-        if X_orig is not None:
-            if not len(genes) == X_orig.shape[0]:
-                bail("Dimension mismatch when setting X: %d genes but %d rows in X" % (len(genes), X_orig.shape[0]))
-            if not len(gene_sets) == X_orig.shape[1]:
-                bail("Dimension mismatch when setting X: %d gene sets but %d columns in X" % (len(gene_sets), X_orig.shape[1]))
-
-        if self.X_orig is not None and X_orig is self.X_orig and genes is self.genes and gene_sets is self.gene_sets and ((self.y_corr_cholesky is None and not self.scale_is_for_whitened) or (self.y_corr_cholesky is not None and self.scale_is_for_whitened)):
-            return
-        
-        self.last_X_block = None
-
-        self.genes = genes
-
-        if self.gene_pheno_Y is not None or self.gene_pheno_combined_prior_Ys is not None or self.gene_pheno_priors is not None:
-            if len(self.genes) != self.gene_pheno_Y.shape[0]:
-                _reread_gene_phewas_bfs(self)
-
-        if self.genes is not None:
-            self.gene_to_ind = pegs_construct_map_to_ind(self.genes)
-        else:
-            self.gene_to_ind = None
-
-        self.gene_sets = gene_sets
-        if self.gene_sets is not None:
-            self.gene_set_to_ind = pegs_construct_map_to_ind(self.gene_sets)
-        else:
-            self.gene_set_to_ind = None
-
-        self.X_orig = X_orig
-        if self.X_orig is not None:
-            self.X_orig.eliminate_zeros()
-
-        if self.X_orig is None:
-            self.X_orig_missing_genes = None
-            self.X_orig_missing_genes_missing_gene_sets = None
-            self.X_orig_missing_gene_sets = None
-            self.last_X_block = None
-            return
-
-        if not skip_N:
-            self.gene_N = self.get_col_sums(self.X_orig, axis=1)
-
-        #self.X = self.X_orig.todense().astype(float)
-        if not skip_scale_factors:
-            self._set_scale_factors()
-
-        #X = self.X_orig.todense().astype(float)
-        #for i in range(self.X_orig.shape[1]):
-        #    X[:,i] = (X[:,i] - self.mean_shifts[i]) / self.scale_factors[i]
-        #self.V = X.T.dot(X) / len(self.genes)
+        pegs_set_runtime_x_from_inputs(
+            self,
+            X_orig,
+            genes,
+            gene_sets,
+            skip_scale_factors=skip_scale_factors,
+            skip_N=skip_N,
+            reread_gene_phewas_bfs_fn=_reread_gene_phewas_bfs,
+            get_col_sums_fn=self.get_col_sums,
+            set_scale_factors_fn=self._set_scale_factors,
+            log_fn=log,
+            trace_level=TRACE,
+            bail_fn=bail,
+        )
 
     def _set_scale_factors(self):
 
