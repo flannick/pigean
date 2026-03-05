@@ -505,6 +505,116 @@ class HyperparameterData:
     sigma2s: object = None
     sigma2s_missing: object = None
 
+    @classmethod
+    def from_runtime(cls, runtime):
+        return cls(
+            p=getattr(runtime, "p", None),
+            sigma2=getattr(runtime, "sigma2", None),
+            sigma_power=getattr(runtime, "sigma_power", None),
+            sigma2_osc=getattr(runtime, "sigma2_osc", None),
+            sigma2_se=getattr(runtime, "sigma2_se", None),
+            sigma2_p=getattr(runtime, "sigma2_p", None),
+            sigma2_total_var=getattr(runtime, "sigma2_total_var", None),
+            sigma2_total_var_lower=getattr(runtime, "sigma2_total_var_lower", None),
+            sigma2_total_var_upper=getattr(runtime, "sigma2_total_var_upper", None),
+            ps=getattr(runtime, "ps", None),
+            sigma2s=getattr(runtime, "sigma2s", None),
+            sigma2s_missing=getattr(runtime, "sigma2s_missing", None),
+        )
+
+    def apply_to_runtime(self, runtime):
+        runtime.p = self.p
+        runtime.sigma2 = self.sigma2
+        runtime.sigma_power = self.sigma_power
+        runtime.sigma2_osc = self.sigma2_osc
+        runtime.sigma2_se = self.sigma2_se
+        runtime.sigma2_p = self.sigma2_p
+        runtime.sigma2_total_var = self.sigma2_total_var
+        runtime.sigma2_total_var_lower = self.sigma2_total_var_lower
+        runtime.sigma2_total_var_upper = self.sigma2_total_var_upper
+        runtime.ps = self.ps
+        runtime.sigma2s = self.sigma2s
+        runtime.sigma2s_missing = self.sigma2s_missing
+        runtime.hyperparameter_state = self
+        return self
+
+    def get_p(self):
+        return self.p
+
+    def set_p(self, p):
+        if p is not None:
+            if p > 1:
+                p = 1
+            if p < 0:
+                p = 0
+        self.p = p
+        return self
+
+    def get_sigma2(self):
+        return self.sigma2
+
+    def set_sigma(
+        self,
+        runtime,
+        sigma2,
+        sigma_power,
+        sigma2_osc=None,
+        sigma2_se=None,
+        sigma2_p=None,
+        sigma2_scale_factors=None,
+        convert_sigma_to_internal_units=False,
+    ):
+        self.sigma_power = sigma_power
+        if sigma_power is None:
+            sigma_power = 2
+
+        if convert_sigma_to_internal_units:
+            scale_factors = runtime.scale_factors
+            is_dense_gene_set = runtime.is_dense_gene_set
+            if scale_factors is not None:
+                if is_dense_gene_set is not None and np.sum(~is_dense_gene_set) > 0:
+                    self.sigma2 = sigma2 / np.mean(
+                        np.power(scale_factors[~is_dense_gene_set], self.sigma_power - 2)
+                    )
+                else:
+                    self.sigma2 = sigma2 / np.mean(
+                        np.power(scale_factors, self.sigma_power - 2)
+                    )
+            else:
+                self.sigma2 = sigma2 / np.power(runtime.MEAN_MOUSE_SCALE, self.sigma_power - 2)
+        else:
+            self.sigma2 = sigma2
+
+        if sigma2_osc is not None:
+            self.sigma2_osc = sigma2_osc
+
+        if sigma2_scale_factors is None:
+            sigma2_scale_factors = runtime.scale_factors
+
+        if sigma2_se is not None:
+            self.sigma2_se = sigma2_se
+        if self.sigma2_p is not None:
+            self.sigma2_p = sigma2_p
+
+        if self.sigma2 is None and self.sigma2_osc is None:
+            return self
+
+        sigma2_for_var = self.sigma2_osc if self.sigma2_osc is not None else self.sigma2
+        if sigma2_for_var is not None and sigma2_scale_factors is not None:
+            if self.sigma_power is None:
+                self.sigma2_total_var = sigma2_for_var * len(sigma2_scale_factors)
+            else:
+                self.sigma2_total_var = sigma2_for_var * np.sum(np.square(sigma2_scale_factors))
+
+        if self.sigma2_total_var is not None and self.sigma2_se is not None:
+            self.sigma2_total_var_lower = self.sigma2_total_var * (
+                sigma2_for_var - 1.96 * self.sigma2_se
+            ) / sigma2_for_var
+            self.sigma2_total_var_upper = self.sigma2_total_var * (
+                sigma2_for_var + 1.96 * self.sigma2_se
+            ) / sigma2_for_var
+        return self
+
 
 @dataclass
 class PhewasRuntimeState:
@@ -1931,35 +2041,20 @@ def apply_y_data_to_runtime(runtime, y_data):
 
 
 def hyperparameter_data_from_runtime(runtime):
-    return HyperparameterData(
-        p=getattr(runtime, "p", None),
-        sigma2=getattr(runtime, "sigma2", None),
-        sigma_power=getattr(runtime, "sigma_power", None),
-        sigma2_osc=getattr(runtime, "sigma2_osc", None),
-        sigma2_se=getattr(runtime, "sigma2_se", None),
-        sigma2_p=getattr(runtime, "sigma2_p", None),
-        sigma2_total_var=getattr(runtime, "sigma2_total_var", None),
-        sigma2_total_var_lower=getattr(runtime, "sigma2_total_var_lower", None),
-        sigma2_total_var_upper=getattr(runtime, "sigma2_total_var_upper", None),
-        ps=getattr(runtime, "ps", None),
-        sigma2s=getattr(runtime, "sigma2s", None),
-        sigma2s_missing=getattr(runtime, "sigma2s_missing", None),
-    )
+    return HyperparameterData.from_runtime(runtime)
 
 
 def apply_hyperparameter_data_to_runtime(runtime, hyper_data):
-    runtime.p = hyper_data.p
-    runtime.sigma2 = hyper_data.sigma2
-    runtime.sigma_power = hyper_data.sigma_power
-    runtime.sigma2_osc = hyper_data.sigma2_osc
-    runtime.sigma2_se = hyper_data.sigma2_se
-    runtime.sigma2_p = hyper_data.sigma2_p
-    runtime.sigma2_total_var = hyper_data.sigma2_total_var
-    runtime.sigma2_total_var_lower = hyper_data.sigma2_total_var_lower
-    runtime.sigma2_total_var_upper = hyper_data.sigma2_total_var_upper
-    runtime.ps = hyper_data.ps
-    runtime.sigma2s = hyper_data.sigma2s
-    runtime.sigma2s_missing = hyper_data.sigma2s_missing
+    hyper_data.apply_to_runtime(runtime)
+
+
+def ensure_hyperparameter_state(runtime):
+    hyper_state = getattr(runtime, "hyperparameter_state", None)
+    if isinstance(hyper_state, HyperparameterData):
+        return hyper_state
+    hyper_state = hyperparameter_data_from_runtime(runtime)
+    runtime.hyperparameter_state = hyper_state
+    return hyper_state
 
 
 def phewas_runtime_state_from_runtime(runtime):
@@ -1997,7 +2092,7 @@ def sync_y_state(runtime):
 
 
 def sync_hyperparameter_state(runtime):
-    hyper_state = hyperparameter_data_from_runtime(runtime)
+    hyper_state = ensure_hyperparameter_state(runtime)
     apply_hyperparameter_data_to_runtime(runtime, hyper_state)
     return hyper_state
 
@@ -2096,13 +2191,8 @@ def build_phewas_stage_config(
 
 
 def set_runtime_p(runtime, p):
-    hyper_state = hyperparameter_data_from_runtime(runtime)
-    if p is not None:
-        if p > 1:
-            p = 1
-        if p < 0:
-            p = 0
-    hyper_state.p = p
+    hyper_state = ensure_hyperparameter_state(runtime)
+    hyper_state.set_p(p)
     apply_hyperparameter_data_to_runtime(runtime, hyper_state)
     return hyper_state
 
@@ -2117,59 +2207,17 @@ def set_runtime_sigma(
     sigma2_scale_factors=None,
     convert_sigma_to_internal_units=False,
 ):
-    hyper_state = hyperparameter_data_from_runtime(runtime)
-    hyper_state.sigma_power = sigma_power
-    if sigma_power is None:
-        sigma_power = 2
-
-    if convert_sigma_to_internal_units:
-        scale_factors = runtime.scale_factors
-        is_dense_gene_set = runtime.is_dense_gene_set
-        if scale_factors is not None:
-            if is_dense_gene_set is not None and np.sum(~is_dense_gene_set) > 0:
-                hyper_state.sigma2 = sigma2 / np.mean(
-                    np.power(scale_factors[~is_dense_gene_set], hyper_state.sigma_power - 2)
-                )
-            else:
-                hyper_state.sigma2 = sigma2 / np.mean(
-                    np.power(scale_factors, hyper_state.sigma_power - 2)
-                )
-        else:
-            hyper_state.sigma2 = sigma2 / np.power(runtime.MEAN_MOUSE_SCALE, hyper_state.sigma_power - 2)
-    else:
-        hyper_state.sigma2 = sigma2
-
-    if sigma2_osc is not None:
-        hyper_state.sigma2_osc = sigma2_osc
-
-    if sigma2_scale_factors is None:
-        sigma2_scale_factors = runtime.scale_factors
-
-    if sigma2_se is not None:
-        hyper_state.sigma2_se = sigma2_se
-    if hyper_state.sigma2_p is not None:
-        hyper_state.sigma2_p = sigma2_p
-
-    if hyper_state.sigma2 is None and hyper_state.sigma2_osc is None:
-        apply_hyperparameter_data_to_runtime(runtime, hyper_state)
-        return hyper_state
-
-    sigma2_for_var = hyper_state.sigma2_osc if hyper_state.sigma2_osc is not None else hyper_state.sigma2
-
-    if sigma2_for_var is not None and sigma2_scale_factors is not None:
-        if hyper_state.sigma_power is None:
-            hyper_state.sigma2_total_var = sigma2_for_var * len(sigma2_scale_factors)
-        else:
-            hyper_state.sigma2_total_var = sigma2_for_var * np.sum(np.square(sigma2_scale_factors))
-
-    if hyper_state.sigma2_total_var is not None and hyper_state.sigma2_se is not None:
-        hyper_state.sigma2_total_var_lower = hyper_state.sigma2_total_var * (
-            sigma2_for_var - 1.96 * hyper_state.sigma2_se
-        ) / sigma2_for_var
-        hyper_state.sigma2_total_var_upper = hyper_state.sigma2_total_var * (
-            sigma2_for_var + 1.96 * hyper_state.sigma2_se
-        ) / sigma2_for_var
-
+    hyper_state = ensure_hyperparameter_state(runtime)
+    hyper_state.set_sigma(
+        runtime,
+        sigma2,
+        sigma_power,
+        sigma2_osc=sigma2_osc,
+        sigma2_se=sigma2_se,
+        sigma2_p=sigma2_p,
+        sigma2_scale_factors=sigma2_scale_factors,
+        convert_sigma_to_internal_units=convert_sigma_to_internal_units,
+    )
     apply_hyperparameter_data_to_runtime(runtime, hyper_state)
     return hyper_state
 
