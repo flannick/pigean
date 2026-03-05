@@ -7304,6 +7304,10 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
     with open_text_fn(output_file, 'w') as output_fh:
         if runtime.gene_sets is None:
             return
+        inf_betas = getattr(runtime, "inf_betas", None)
+        inf_betas_orig = getattr(runtime, "inf_betas_orig", None)
+        inf_betas_missing = getattr(runtime, "inf_betas_missing", None)
+        inf_betas_missing_orig = getattr(runtime, "inf_betas_missing_orig", None)
         header = "Gene_Set"
         if runtime.gene_set_labels is not None:
             header = "%s\t%s" % (header, "label")
@@ -7313,7 +7317,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
             header = "%s\t%s" % (header, "scale")
         if runtime.beta_tildes is not None:
             header = "%s\t%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde", "beta_tilde_internal", "P", "Z", "SE")
-        if runtime.inf_betas is not None and not basic:
+        if inf_betas is not None and not basic:
             header = "%s\t%s" % (header, "inf_beta")            
         if runtime.betas is not None:
             header = "%s\t%s\t%s" % (header, "beta", "beta_internal")
@@ -7330,7 +7334,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 header = "%s\t%s" % (header, "avg_postp")            
             if runtime.beta_tildes_orig is not None:
                 header = "%s\t%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde_orig", "beta_tilde_internal_orig", "P_orig", "Z_orig", "SE_orig")
-            if runtime.inf_betas_orig is not None:
+            if inf_betas_orig is not None:
                 header = "%s\t%s" % (header, "inf_beta_orig")            
             if runtime.betas_orig is not None:
                 header = "%s\t%s\t%s" % (header, "beta_orig", "beta_internal_orig")
@@ -7382,8 +7386,8 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
 
             if runtime.beta_tildes is not None:
                 line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes[i] / runtime.scale_factors[i], runtime.beta_tildes[i], runtime.p_values[i], runtime.z_scores[i], runtime.ses[i] / runtime.scale_factors[i])
-            if runtime.inf_betas is not None and not basic:
-                line = "%s\t%.3g" % (line, runtime.inf_betas[i] / runtime.scale_factors[i])            
+            if inf_betas is not None and not basic:
+                line = "%s\t%.3g" % (line, inf_betas[i] / runtime.scale_factors[i])            
             if runtime.betas is not None:
                 line = "%s\t%.3g\t%.3g" % (line, runtime.betas[i] / runtime.scale_factors[i], runtime.betas[i])
                 if runtime.betas_r_hat is not None:
@@ -7399,8 +7403,8 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                     line = "%s\t%.3g" % (line, runtime.non_inf_avg_postps[i])
                 if runtime.beta_tildes_orig is not None:
                     line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_orig[i] / runtime.scale_factors[i], runtime.beta_tildes_orig[i], runtime.p_values_orig[i], runtime.z_scores_orig[i], runtime.ses_orig[i] / runtime.scale_factors[i])
-                if runtime.inf_betas_orig is not None:
-                    line = "%s\t%.3g" % (line, runtime.inf_betas_orig[i] / runtime.scale_factors[i])            
+                if inf_betas_orig is not None:
+                    line = "%s\t%.3g" % (line, inf_betas_orig[i] / runtime.scale_factors[i])            
                 if runtime.betas_orig is not None:
                     line = "%s\t%.3g\t%.3g" % (line, runtime.betas_orig[i] / runtime.scale_factors[i], runtime.betas_orig[i])
                 if runtime.betas_uncorrected_orig is not None:
@@ -7450,8 +7454,8 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
 
                 if runtime.beta_tildes is not None:
                     line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_missing[i] / runtime.scale_factors_missing[i], runtime.beta_tildes_missing[i], runtime.p_values_missing[i], runtime.z_scores_missing[i], runtime.ses_missing[i] / runtime.scale_factors_missing[i])
-                if runtime.inf_betas is not None and not basic:
-                    line = "%s\t%.3g" % (line, runtime.inf_betas_missing[i] / runtime.scale_factors_missing[i])            
+                if inf_betas is not None and not basic:
+                    line = "%s\t%.3g" % (line, inf_betas_missing[i] / runtime.scale_factors_missing[i])            
                 if runtime.betas is not None:
                     line = "%s\t%.3g\t%.3g" % (line, runtime.betas_missing[i] / runtime.scale_factors_missing[i], runtime.betas_missing[i])
                     if runtime.betas_r_hat is not None:
@@ -7467,8 +7471,8 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                         line = "%s\t%.3g" % (line, runtime.non_inf_avg_postps_missing[i])
                     if runtime.beta_tildes_orig is not None:
                         line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_missing_orig[i] / runtime.scale_factors_missing[i], runtime.beta_tildes_missing_orig[i], runtime.p_values_missing_orig[i], runtime.z_scores_missing_orig[i], runtime.ses_missing_orig[i] / runtime.scale_factors_missing[i])
-                    if runtime.inf_betas_orig is not None:
-                        line = "%s\t%.3g" % (line, runtime.inf_betas_missing_orig[i] / runtime.scale_factors_missing[i])            
+                    if inf_betas_orig is not None:
+                        line = "%s\t%.3g" % (line, inf_betas_missing_orig[i] / runtime.scale_factors_missing[i])            
                     if runtime.betas_orig is not None:
                         line = "%s\t%.3g\t%.3g" % (line, runtime.betas_missing_orig[i] / runtime.scale_factors_missing[i], runtime.betas_missing_orig[i])
                     if runtime.betas_uncorrected_orig is not None:
@@ -7528,7 +7532,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                         line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_ignored[i] / scale_factor_denom, runtime.beta_tildes_ignored[i], runtime.p_values_ignored[i], runtime.z_scores_ignored[i], runtime.ses_ignored[i] / scale_factor_denom)
                     else:
                         line = "%s\t%s\t%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA", "NA", "NA")
-                if runtime.inf_betas is not None and not basic:
+                if inf_betas is not None and not basic:
                     line = "%s\t%.3g" % (line, 0)            
                 if runtime.betas is not None:
                     line = "%s\t%.3g\t%.3g" % (line, ignored_beta_value, ignored_beta_value)
@@ -7548,7 +7552,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                             line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_ignored[i] / scale_factor_denom, runtime.beta_tildes_ignored[i], runtime.p_values_ignored[i], runtime.z_scores_ignored[i], runtime.ses_ignored[i] / scale_factor_denom)
                         else:
                             line = "%s\t%s\t%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA", "NA", "NA")
-                    if runtime.inf_betas_orig is not None:
+                    if inf_betas_orig is not None:
                         line = "%s\t%.3g" % (line, 0)
                     if runtime.betas_orig is not None:
                         line = "%s\t%.3g\t%.3g" % (line, 0, 0)
