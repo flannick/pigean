@@ -1888,6 +1888,44 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertEqual(xdata.gene_set_labels.shape[0], 3)
             self.assertEqual(xdata.is_dense_gene_set.dtype, np.bool_)
 
+    def test_build_read_x_pipeline_config_defaults_are_safe(self) -> None:
+        cfg1 = pegs_utils.build_read_x_pipeline_config("x1.tsv")
+        cfg2 = pegs_utils.build_read_x_pipeline_config("x2.tsv")
+
+        cfg1.x_sparsify.append(999)
+        cfg1.ignore_genes.add("GENE_X")
+
+        self.assertNotIn(999, cfg2.x_sparsify)
+        self.assertNotIn("GENE_X", cfg2.ignore_genes)
+        self.assertEqual(cfg2.x_sparsify, [50, 100, 200, 500, 1000])
+        self.assertEqual(cfg2.ignore_genes, set(["NA"]))
+
+    def test_build_read_x_pipeline_config_normalizes_none_inputs(self) -> None:
+        cfg = pegs_utils.build_read_x_pipeline_config(
+            "x.tsv",
+            {"x_sparsify": None, "ignore_genes": None},
+        )
+        self.assertEqual(cfg.x_sparsify, [50, 100, 200, 500, 1000])
+        self.assertEqual(cfg.ignore_genes, set(["NA"]))
+
+    def test_prepare_read_x_inputs_splits_file_separator_with_tag_and_batch(self) -> None:
+        plan = pegs_utils.prepare_read_x_inputs(
+            X_in=["tagA:file1.tsv|file2.tsv@B1"],
+            X_list=None,
+            Xd_in=None,
+            Xd_list=None,
+            initial_p=None,
+            xin_to_p_noninf_ind=None,
+            batch_separator="@",
+            file_separator="|",
+            sparse_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+            dense_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+        )
+        self.assertEqual(plan.X_ins, ["file1.tsv", "file2.tsv"])
+        self.assertEqual(plan.batches, ["B1", "B1"])
+        self.assertEqual(plan.labels, ["tagA", "tagA"])
+        self.assertEqual(plan.is_dense, [False, False])
+
 
 if __name__ == "__main__":
     unittest.main()
