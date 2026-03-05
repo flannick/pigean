@@ -6366,7 +6366,7 @@ class PigeanState(object):
         )
 
     def _prepare_phewas_phenos_from_file(self, gene_phewas_bfs_in, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None):
-        return pegs_prepare_phewas_phenos_from_file(
+        phenos, pheno_to_ind, col_info = pegs_prepare_phewas_phenos_from_file(
             self,
             gene_phewas_bfs_in,
             gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
@@ -6381,6 +6381,13 @@ class PigeanState(object):
             log_fn=log,
             debug_level=DEBUG,
         )
+        return phenos, pheno_to_ind, {
+            "id_col": col_info.id_col,
+            "pheno_col": col_info.pheno_col,
+            "bf_col": col_info.bf_col,
+            "combined_col": col_info.combined_col,
+            "prior_col": col_info.prior_col,
+        }
 
     def _read_phewas_file_batch(self, gene_phewas_bfs_in, begin, cur_batch_size, pheno_to_ind, id_col, pheno_col, bf_col, combined_col, prior_col):
         col_info = {
