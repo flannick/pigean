@@ -3865,6 +3865,57 @@ def _normalize_input_specs(input_specs):
     return ([], [])
 
 
+def build_xin_to_p_noninf_index_map(
+    X_in,
+    X_list,
+    Xd_in,
+    Xd_list,
+    p_noninf_values,
+    *,
+    warn_fn=None,
+    bail_fn=None,
+):
+    if p_noninf_values is None:
+        return None
+
+    if warn_fn is None:
+        warn_fn = lambda _msg: None
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    p_values = p_noninf_values if isinstance(p_noninf_values, list) else [p_noninf_values]
+    ordered_specs = []
+    ordered_specs += _normalize_input_specs(X_in)[0]
+    ordered_specs += _normalize_input_specs(X_list)[0]
+    ordered_specs += _normalize_input_specs(Xd_in)[0]
+    ordered_specs += _normalize_input_specs(Xd_list)[0]
+
+    xin_to_p_noninf_ind = {}
+    if len(p_values) <= 1:
+        for spec in ordered_specs:
+            if spec in xin_to_p_noninf_ind:
+                warn_fn(
+                    "You are passing the same file (%s) for two --X-* inputs; are you sure this is what you want to do?"
+                    % spec
+                )
+            xin_to_p_noninf_ind[spec] = 0
+        return xin_to_p_noninf_ind
+
+    for index, spec in enumerate(ordered_specs):
+        if spec in xin_to_p_noninf_ind:
+            warn_fn(
+                "You are passing the same file (%s) for two --X-* inputs; are you sure this is what you want to do?"
+                % spec
+            )
+        xin_to_p_noninf_ind[spec] = index
+
+    if len(p_values) != len(ordered_specs):
+        bail_fn(
+            "Error: if you pass in more than one --p-noninf, you need to have the same number of values as --X-* inputs"
+        )
+    return xin_to_p_noninf_ind
+
+
 def _append_initial_p_indices(initial_ps, input_specs, xin_to_p_noninf_ind):
     if initial_ps is None:
         return

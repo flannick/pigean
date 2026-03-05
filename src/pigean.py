@@ -62,6 +62,7 @@ try:
         maybe_adjust_overaggressive_p_filter_after_x_read as pegs_maybe_adjust_overaggressive_p_filter_after_x_read,
         apply_post_read_gene_set_size_and_qc_filters as pegs_apply_post_read_gene_set_size_and_qc_filters,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
+        build_xin_to_p_noninf_index_map as pegs_build_xin_to_p_noninf_index_map,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
         load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
@@ -170,6 +171,7 @@ except ImportError:
         maybe_adjust_overaggressive_p_filter_after_x_read as pegs_maybe_adjust_overaggressive_p_filter_after_x_read,
         apply_post_read_gene_set_size_and_qc_filters as pegs_apply_post_read_gene_set_size_and_qc_filters,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
+        build_xin_to_p_noninf_index_map as pegs_build_xin_to_p_noninf_index_map,
         load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
         load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
         load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
@@ -911,7 +913,7 @@ pegs_fail_removed_cli_aliases(
 args = pegs_harmonize_cli_mode_args(args, config_mode, early_warn_fn=_early_warn)
 
 
-def _resolve_experimental_gibbs_hyper_options(options_obj, argv_list, config_specified_dests):
+def _resolve_experimental_gibbs_hyper_options(options_obj, cli_specified_dests, config_specified_dests):
     legacy_value = getattr(options_obj, "increase_hyper_if_betas_below", None)
     experimental_value = getattr(options_obj, "experimental_increase_hyper_if_betas_below", None)
 
@@ -926,10 +928,9 @@ def _resolve_experimental_gibbs_hyper_options(options_obj, argv_list, config_spe
         )
 
     resolved_value = experimental_value if experimental_value is not None else legacy_value
-    legacy_cli_present = any(
-        token == "--increase-hyper-if-betas-below"
-        or token.startswith("--increase-hyper-if-betas-below=")
-        for token in argv_list
+    legacy_cli_present = (
+        cli_specified_dests is not None
+        and "increase_hyper_if_betas_below" in cli_specified_dests
     )
     legacy_config_present = (
         config_specified_dests is not None
@@ -953,7 +954,7 @@ def _resolve_experimental_gibbs_hyper_options(options_obj, argv_list, config_spe
         )
 
 
-_resolve_experimental_gibbs_hyper_options(options, argv_parse, config_specified_dests)
+_resolve_experimental_gibbs_hyper_options(options, cli_specified_dests, config_specified_dests)
 
 _logging_state = pegs_initialize_cli_logging(options, stderr_stream=sys.stderr, default_debug_level=1)
 NONE = _logging_state["NONE"]
@@ -1189,17 +1190,16 @@ _GIBBS_STOPPING_PRESETS = {
 }
 
 
-def _flag_present_in_argv(_argv, *flag_names):
-    for arg in _argv:
-        for flag_name in flag_names:
-            if arg == flag_name or arg.startswith(flag_name + "="):
-                return True
+def _is_option_dest_explicit(dest, cli_dests, config_dests):
+    if cli_dests is not None and dest in cli_dests:
+        return True
+    if config_dests is not None and dest in config_dests:
+        return True
     return False
 
 
-def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_name, implied_max, flag_name):
+def _set_memory_control_with_max_cap(_options, _derived, _clamped, opt_name, implied_max, explicit):
     current = getattr(_options, opt_name)
-    explicit = _flag_present_in_argv(_argv, flag_name)
     if current is None:
         new_value = implied_max
         _derived[opt_name] = new_value
@@ -1212,16 +1212,11 @@ def _set_memory_control_with_max_cap(_options, _argv, _derived, _clamped, opt_na
     setattr(_options, opt_name, int(new_value))
 
 
-def _is_advanced_option_explicit(dest, argv, cli_dests, config_dests, *flags):
-    if dest in cli_dests or dest in config_dests:
-        return True
-    for flag in flags:
-        if _flag_present_in_argv(argv, flag):
-            return True
-    return False
+def _is_advanced_option_explicit(dest, cli_dests, config_dests):
+    return _is_option_dest_explicit(dest, cli_dests, config_dests)
 
 
-def _validate_advanced_option_dispatch(_options, _argv, _cli_dests, _config_dests):
+def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     # HuGE cache read/write dispatch must be explicit.
     if _options.huge_statistics_in is not None and _options.huge_statistics_out is not None:
         bail("Do not pass both --huge-statistics-in and --huge-statistics-out in the same run")
@@ -1240,11 +1235,11 @@ def _validate_advanced_option_dispatch(_options, _argv, _cli_dests, _config_dest
         ("gene_stats_log_bf_col", "--gene-stats-log-bf-col"),
         ("gene_stats_combined_col", "--gene-stats-combined-col"),
         ("gene_stats_prior_col", "--gene-stats-prior-col"),
-        ("gene_stats_prob_col", "--gene-stats-prob-col"),
+            ("gene_stats_prob_col", "--gene-stats-prob-col"),
     )
     if _options.gene_stats_in is None:
         for dest, flag in gene_stats_col_flags:
-            if _is_advanced_option_explicit(dest, _argv, _cli_dests, _config_dests, flag):
+            if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
                 bail("Option %s requires --gene-stats-in" % flag)
 
     gene_set_stats_col_flags = (
@@ -1259,7 +1254,7 @@ def _validate_advanced_option_dispatch(_options, _argv, _cli_dests, _config_dest
     )
     if _options.gene_set_stats_in is None:
         for dest, flag in gene_set_stats_col_flags:
-            if _is_advanced_option_explicit(dest, _argv, _cli_dests, _config_dests, flag):
+            if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
                 bail("Option %s requires --gene-set-stats-in" % flag)
 
     # Optional PheWAS output path should never run silently with no output sink.
@@ -1293,14 +1288,14 @@ def _validate_advanced_option_dispatch(_options, _argv, _cli_dests, _config_dest
         and not _options.betas_from_phewas
     ):
         for dest, flag in gene_phewas_mapping_flags:
-            if _is_advanced_option_explicit(dest, _argv, _cli_dests, _config_dests, flag):
+            if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
                 bail(
                     "Option %s requires --gene-phewas-bfs-in or "
                     "--run-phewas-from-gene-phewas-stats-in" % flag
                 )
 
 
-def _apply_mode_and_runtime_defaults(_options, _mode, _argv):
+def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests):
     # Mode-dependent defaults.
     if _mode in ("pops", "naive_pops"):
         _set_default_option(_options, "correct_betas_mean", False)
@@ -1386,15 +1381,15 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _argv):
     # This is an inverse memory knob: larger values use less memory.
     implied["priors_num_gene_batches_min"] = max(1, int(np.ceil(20.0 / scale)))
 
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "batch_size", implied["batch_size_max"], "--batch-size")
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], "--gibbs-max-mb-X-h")
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], "--max-read-entries-at-once")
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], "--gibbs-num-batches-parallel")
-    _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], "--pre-filter-small-batch-size")
+    _set_memory_control_with_max_cap(_options, derived, clamped, "batch_size", implied["batch_size_max"], _is_option_dest_explicit("batch_size", _cli_dests, _config_dests))
+    _set_memory_control_with_max_cap(_options, derived, clamped, "gibbs_max_mb_X_h", implied["gibbs_max_mb_X_h_max"], _is_option_dest_explicit("gibbs_max_mb_X_h", _cli_dests, _config_dests))
+    _set_memory_control_with_max_cap(_options, derived, clamped, "max_read_entries_at_once", implied["max_read_entries_at_once_max"], _is_option_dest_explicit("max_read_entries_at_once", _cli_dests, _config_dests))
+    _set_memory_control_with_max_cap(_options, derived, clamped, "gibbs_num_batches_parallel", implied["gibbs_num_batches_parallel_max"], _is_option_dest_explicit("gibbs_num_batches_parallel", _cli_dests, _config_dests))
+    _set_memory_control_with_max_cap(_options, derived, clamped, "pre_filter_small_batch_size", implied["pre_filter_small_batch_size_max"], _is_option_dest_explicit("pre_filter_small_batch_size", _cli_dests, _config_dests))
     if _options.pre_filter_batch_size is not None:
-        _set_memory_control_with_max_cap(_options, _argv, derived, clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], "--pre-filter-batch-size")
+        _set_memory_control_with_max_cap(_options, derived, clamped, "pre_filter_batch_size", implied["pre_filter_batch_size_max"], _is_option_dest_explicit("pre_filter_batch_size", _cli_dests, _config_dests))
     current = getattr(_options, "priors_num_gene_batches")
-    explicit = _flag_present_in_argv(_argv, "--priors-num-gene-batches")
+    explicit = _is_option_dest_explicit("priors_num_gene_batches", _cli_dests, _config_dests)
     if current is None:
         new_value = implied["priors_num_gene_batches_min"]
         derived["priors_num_gene_batches"] = new_value
@@ -1413,7 +1408,7 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _argv):
         log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
 
 
-_apply_mode_and_runtime_defaults(options, mode, sys.argv[1:])
+_apply_mode_and_runtime_defaults(options, mode, cli_specified_dests, config_specified_dests)
 
 if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
     warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
@@ -1424,7 +1419,6 @@ if options.betas_from_phewas:
 
 _validate_advanced_option_dispatch(
     options,
-    argv_parse,
     cli_specified_dests,
     config_specified_dests,
 )
@@ -20140,25 +20134,16 @@ def _build_main_y_read_contract(options):
 
 
 def _run_main_adaptive_read_x(state, options, mode_state, sigma2_cond):
-    # 1) Build the CLI-order mapping from each X input to its p_noninf index.
-    xin_to_p_noninf_ind = None
-    if options.p_noninf is not None:
-        # Map each X-like input occurrence to its p_noninf index using CLI order.
-        p_noninf_ind = 0
-        xin_to_p_noninf_ind = {}
-        for i in range(len(sys.argv)):
-            arg = sys.argv[i]
-            if arg in ("--X-in", "--X-list", "--Xd-in", "--Xd-list"):
-                if i + 1 >= len(sys.argv):
-                    raise ValueError(f"Missing value after {arg}")
-                val = sys.argv[i + 1]
-                if val in xin_to_p_noninf_ind:
-                    warn("You are passing the same file (%s) for two --X-in files; are you sure this is what you want to do?" % (val))
-                xin_to_p_noninf_ind[val] = p_noninf_ind
-                if len(options.p_noninf) > 1:
-                    p_noninf_ind += 1
-        if len(options.p_noninf) > 1 and len(options.p_noninf) != p_noninf_ind:
-            bail("Error: if you pass in more than one --p-noninf, you need to have the same number of values as --X-* inputs")
+    # 1) Build parser-normalized mapping from each X input spec to its p_noninf index.
+    xin_to_p_noninf_ind = pegs_build_xin_to_p_noninf_index_map(
+        options.X_in,
+        options.X_list,
+        options.Xd_in,
+        options.Xd_list,
+        options.p_noninf,
+        warn_fn=warn,
+        bail_fn=bail,
+    )
 
     skip_betas = (
         (mode_state["run_huge"] or mode_state["run_beta_tilde"])
