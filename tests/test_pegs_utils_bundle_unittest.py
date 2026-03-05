@@ -1126,6 +1126,36 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertAlmostEqual(rt.sigma2_total_var_lower, 9.02, places=2)
         self.assertAlmostEqual(rt.sigma2_total_var_upper, 10.98, places=2)
 
+    def test_set_runtime_sigma_populates_sigma2_p_when_runtime_field_is_none(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.p = 0.2
+        rt.sigma2 = None
+        rt.sigma_power = 2.0
+        rt.sigma2_osc = None
+        rt.sigma2_se = None
+        rt.sigma2_p = None
+        rt.sigma2_total_var = None
+        rt.sigma2_total_var_lower = None
+        rt.sigma2_total_var_upper = None
+        rt.ps = None
+        rt.sigma2s = None
+        rt.sigma2s_missing = None
+        rt.scale_factors = np.array([1.0, 1.5])
+        rt.is_dense_gene_set = np.array([True, True])
+        rt.MEAN_MOUSE_SCALE = 300.0
+
+        pegs_utils.set_runtime_sigma(
+            rt,
+            sigma2=1.5,
+            sigma_power=2.0,
+            sigma2_p=0.33,
+            convert_sigma_to_internal_units=False,
+        )
+        self.assertAlmostEqual(rt.sigma2_p, 0.33)
+
     def test_sync_runtime_state_helpers(self) -> None:
         class _Runtime:
             pass

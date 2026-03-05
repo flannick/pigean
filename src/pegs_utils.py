@@ -593,7 +593,7 @@ class HyperparameterData:
 
         if sigma2_se is not None:
             self.sigma2_se = sigma2_se
-        if self.sigma2_p is not None:
+        if sigma2_p is not None:
             self.sigma2_p = sigma2_p
 
         if self.sigma2 is None and self.sigma2_osc is None:
