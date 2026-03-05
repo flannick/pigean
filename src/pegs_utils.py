@@ -417,6 +417,84 @@ class XReadPostCallbacks:
     maybe_reduce_gene_sets_to_max_after_x_read_fn: object
     record_read_x_counts_fn: object
 
+
+@dataclass
+class ReadXPipelineConfig:
+    X_in: object = None
+    Xd_in: object = None
+    X_list: object = None
+    Xd_list: object = None
+    V_in: object = None
+    skip_V: bool = True
+    force_reread: bool = False
+    min_gene_set_size: int = 1
+    max_gene_set_size: int = 30000
+    only_ids: object = None
+    only_inc_genes: object = None
+    fraction_inc_genes: object = None
+    add_all_genes: bool = False
+    prune_gene_sets: float = 0.8
+    weighted_prune_gene_sets: object = None
+    prune_deterministically: bool = False
+    x_sparsify: list = field(default_factory=lambda: [50, 100, 200, 500, 1000])
+    add_ext: bool = False
+    add_top: bool = True
+    add_bottom: bool = True
+    filter_negative: bool = True
+    threshold_weights: float = 0.5
+    cap_weights: bool = True
+    permute_gene_sets: bool = False
+    max_gene_set_p: object = None
+    filter_gene_set_p: float = 1
+    filter_using_phewas: bool = False
+    increase_filter_gene_set_p: float = 0.01
+    max_num_gene_sets_initial: object = None
+    max_num_gene_sets: object = None
+    max_num_gene_sets_hyper: object = None
+    skip_betas: bool = False
+    run_logistic: bool = True
+    max_for_linear: float = 0.95
+    filter_gene_set_metric_z: float = 2.5
+    initial_p: object = 0.01
+    xin_to_p_noninf_ind: object = None
+    initial_sigma2: object = 1e-3
+    initial_sigma2_cond: object = None
+    sigma_power: object = 0
+    sigma_soft_threshold_95: object = None
+    sigma_soft_threshold_5: object = None
+    run_corrected_ols: bool = False
+    correct_betas_mean: bool = True
+    correct_betas_var: bool = True
+    gene_loc_file: object = None
+    gene_cor_file: object = None
+    gene_cor_file_gene_col: int = 1
+    gene_cor_file_cor_start_col: int = 10
+    update_hyper_p: bool = False
+    update_hyper_sigma: bool = False
+    batch_all_for_hyper: bool = False
+    first_for_hyper: bool = False
+    first_max_p_for_hyper: bool = False
+    first_for_sigma_cond: bool = False
+    sigma_num_devs_to_top: float = 2.0
+    p_noninf_inflate: float = 1
+    batch_separator: str = "@"
+    ignore_genes: set = field(default_factory=lambda: set(["NA"]))
+    file_separator: object = None
+    max_num_burn_in: object = None
+    max_num_iter_betas: int = 1100
+    min_num_iter_betas: int = 10
+    num_chains_betas: int = 10
+    r_threshold_burn_in_betas: float = 1.01
+    use_max_r_for_convergence_betas: bool = True
+    max_frac_sem_betas: float = 0.01
+    max_allowed_batch_correlation: object = None
+    sparse_solution: bool = False
+    sparse_frac_betas: object = None
+    betas_trace_out: object = None
+    show_progress: bool = True
+    max_num_entries_at_once: object = None
+
+
 @dataclass
 class ParsedGeneSetStats:
     need_to_take_log: bool
@@ -3863,6 +3941,35 @@ def _normalize_input_specs(input_specs):
     if type(input_specs) == list:
         return (input_specs, copy.copy(input_specs))
     return ([], [])
+
+
+def build_read_x_pipeline_config(X_in, overrides=None, *, bail_fn=None):
+    if bail_fn is None:
+        bail_fn = _default_bail
+
+    if isinstance(overrides, ReadXPipelineConfig):
+        config = copy.deepcopy(overrides)
+        if X_in is not None:
+            config.X_in = X_in
+    else:
+        config = ReadXPipelineConfig(X_in=X_in)
+        if overrides is not None:
+            for key, value in overrides.items():
+                if not hasattr(config, key):
+                    bail_fn("Unknown read-X pipeline option '%s'" % key)
+                setattr(config, key, value)
+
+    if config.x_sparsify is None:
+        config.x_sparsify = [50, 100, 200, 500, 1000]
+    else:
+        config.x_sparsify = list(config.x_sparsify)
+
+    if config.ignore_genes is None:
+        config.ignore_genes = set(["NA"])
+    else:
+        config.ignore_genes = set(config.ignore_genes)
+
+    return config
 
 
 def build_xin_to_p_noninf_index_map(
