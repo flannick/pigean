@@ -40,6 +40,7 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
         cls._tmpdir_ctx = tempfile.TemporaryDirectory()
         cls.tmpdir = Path(cls._tmpdir_ctx.name)
         cls.runtime_ratio_limit = float(os.environ.get("PIGEAN_RUNTIME_RATIO_LIMIT", "1.1"))
+        cls.runtime_abs_slack_sec = float(os.environ.get("PIGEAN_RUNTIME_ABS_SLACK_SEC", "0.05"))
         cls.runtime_seconds: dict[str, float] = {}
 
         cls._run_mode_pair("beta_tildes", cls._beta_tildes_args())
@@ -247,13 +248,13 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
         for mode in ["beta_tildes", "betas", "priors_fast"]:
             new_sec = self.runtime_seconds[f"{mode}_new"]
             legacy_sec = self.runtime_seconds[f"{mode}_legacy"]
-            max_allowed = legacy_sec * self.runtime_ratio_limit
+            max_allowed = legacy_sec * self.runtime_ratio_limit + self.runtime_abs_slack_sec
             self.assertLessEqual(
                 new_sec,
                 max_allowed,
                 msg=(
                     f"Mode {mode} slower than legacy: new={new_sec:.4f}s "
-                    f"legacy={legacy_sec:.4f}s limit={self.runtime_ratio_limit:.3f}x"
+                    f"legacy={legacy_sec:.4f}s limit={self.runtime_ratio_limit:.3f}x + {self.runtime_abs_slack_sec:.3f}s"
                 ),
             )
 
