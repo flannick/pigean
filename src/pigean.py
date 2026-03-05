@@ -245,8 +245,6 @@ except ImportError:
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 
-random.seed(0)
-
 # Canonical suffix tags used when expanding dense gene-set inputs into
 # sparse derived sets (top/ext/bottom thresholds).
 EXT_TAG = "ext"
@@ -255,8 +253,6 @@ TOP_TAG = "top"
 
 def bail(message):
     raise ValueError(message)
-    sys.stderr.write("%s\n" % (message))
-    sys.exit(1)
 
 usage = "usage: pigean.py [beta_tildes|betas|priors|naive_priors|gibbs|sim|pops|naive_pops] [options]"
 
