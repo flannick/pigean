@@ -5632,3 +5632,95 @@ def write_huge_statistics_sparse_components(paths, huge_signal_bfs, huge_signal_
     )
     for path_key, values, value_type in sparse_vector_map:
         write_vector_fn(paths[path_key], values, value_type=value_type)
+
+
+def finalize_regression_outputs(beta_tildes, ses, se_inflation_factors, *, log_fn=None, warn_fn=None, trace_level=0):
+    if se_inflation_factors is not None:
+        ses *= se_inflation_factors
+
+    if np.prod(ses.shape) > 0:
+        empty_mask = np.logical_and(beta_tildes == 0, ses <= 0)
+        max_se = np.max(ses)
+
+        if np.sum(empty_mask) > 0 and log_fn is not None:
+            log_fn("Zeroing out %d betas due to negative ses" % (np.sum(empty_mask)), trace_level)
+
+        ses[empty_mask] = max_se * 100 if max_se > 0 else 100
+        beta_tildes[ses <= 0] = 0
+
+    z_scores = np.zeros(beta_tildes.shape)
+    ses_positive_mask = ses > 0
+    z_scores[ses_positive_mask] = beta_tildes[ses_positive_mask] / ses[ses_positive_mask]
+    if np.any(~ses_positive_mask) and warn_fn is not None:
+        warn_fn("There were %d gene sets with negative ses; setting z-scores to 0" % (np.sum(~ses_positive_mask)))
+    p_values = 2 * scipy.stats.norm.cdf(-np.abs(z_scores))
+    return (beta_tildes, ses, z_scores, p_values, se_inflation_factors)
+
+
+def compute_multivariate_beta_tildes(
+    X,
+    Y,
+    *,
+    resid_correlation_matrix=None,
+    add_intercept=True,
+    covs=None,
+    finalize_regression_fn=None,
+):
+    if finalize_regression_fn is None:
+        finalize_regression_fn = finalize_regression_outputs
+
+    if covs is not None:
+        if len(covs.shape) == 1:
+            covs = covs[:, np.newaxis]
+        X_design = np.hstack([X, covs])
+    else:
+        X_design = X
+
+    if add_intercept:
+        ones_col = np.ones((X_design.shape[0], 1))
+        X_design = np.hstack([X_design, ones_col])
+
+    n_obs, n_pred = X_design.shape
+    n_phenos = Y.shape[0]
+    Y_t = Y.T
+
+    XtX = X_design.T @ X_design
+    XtX_inv = np.linalg.inv(XtX)
+    XtY = X_design.T @ Y_t
+    betas = (XtX_inv @ XtY).T
+
+    fitted = X_design @ betas.T
+    residuals = Y_t - fitted
+
+    df = n_obs - n_pred
+    if df <= 0:
+        raise ValueError("Degrees of freedom <= 0. Check the size of your input matrices.")
+
+    sse = np.sum(residuals ** 2, axis=0)
+    sigma2 = sse / df
+
+    diag_xtx_inv = np.diag(XtX_inv)
+    classical_ses = np.sqrt(sigma2[:, None] * diag_xtx_inv[None, :])
+    final_ses = classical_ses.copy()
+
+    if resid_correlation_matrix is not None:
+        if len(resid_correlation_matrix) != n_phenos:
+            raise ValueError("resid_correlation_matrix must be a list of length == n_phenos.")
+
+        for p in range(n_phenos):
+            R_p = resid_correlation_matrix[p]
+            if sparse.issparse(R_p):
+                XR_p = R_p.dot(X_design)
+            else:
+                XR_p = R_p @ X_design
+
+            XtR_pX = X_design.T @ XR_p
+            var_betas_p = XtX_inv @ XtR_pX @ XtX_inv
+            final_ses[p, :] = np.sqrt(np.diag(var_betas_p))
+
+    if covs is not None or add_intercept:
+        n_factors = X.shape[1]
+        betas = betas[:, :n_factors]
+        final_ses = final_ses[:, :n_factors]
+
+    return finalize_regression_fn(betas, final_ses, se_inflation_factors=None)

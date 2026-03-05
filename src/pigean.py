@@ -72,6 +72,8 @@ try:
         sync_y_state as pegs_sync_y_state,
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
+        finalize_regression_outputs as pegs_finalize_regression_outputs,
+        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_for_stage as pegs_resolve_gene_phewas_input_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
@@ -158,6 +160,8 @@ except ImportError:
         sync_y_state as pegs_sync_y_state,
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
+        finalize_regression_outputs as pegs_finalize_regression_outputs,
+        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_for_stage as pegs_resolve_gene_phewas_input_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
@@ -8438,146 +8442,14 @@ class PigeanState(object):
         return self._finalize_regression(beta_tildes, ses, se_inflation_factors)
 
     def _compute_multivariate_beta_tildes(self, X, Y, resid_correlation_matrix=None, add_intercept=True, covs=None):
-        """
-        Perform multivariate OLS regression of Y on X (plus optional covariates),
-        optionally inflating standard errors via a sandwich formula using per-phenotype
-        correlation matrices.
-
-        Parameters
-        ----------
-        X : ndarray of shape (genes, factors)
-            - Predictor matrix where rows are genes and columns are factors.
-
-        Y : ndarray of shape (phenos, genes)
-            - Outcome matrix where rows are phenotypes and columns are genes.
-
-        resid_correlation_matrix : None or list of sparse/dense matrices
-            - If provided, each entry is a (genes x genes) correlation matrix for a phenotype.
-            - Used to inflate standard errors.
-
-        covs : None or ndarray of shape (genes, n_covs)
-            - Optional covariates where rows are covariates and columns are genes.
-
-        Returns
-        -------
-        betas : ndarray of shape (phenos, k)
-            - Regression coefficients for each phenotype and predictor.
-
-        ses : ndarray of shape (phenos, k)
-            - Standard errors for each coefficient.
-
-        pvals : ndarray of shape (phenos, k)
-            - Two-sided p-values for each coefficient.
-
-        zscores : ndarray of shape (phenos, k)
-            - Z-scores for each coefficient.
-        """
-        # ---------------------------
-        # 1) Build the design matrix
-        # ---------------------------
-        # X is genes x factors
-        # Transpose covariates to align with genes (genes x n_covs)
-        if covs is not None:
-            if len(covs.shape) == 1:
-                covs = covs[:,np.newaxis]
-            X_design = np.hstack([X, covs])  # shape (genes, factors + n_covs)
-        else:
-            X_design = X
-
-        if add_intercept:
-            ones_col = np.ones((X_design.shape[0], 1))  # shape (genes, 1)
-            X_design = np.hstack([X_design, ones_col])  # (genes, factors + 1)
-
-
-        n_obs, n_pred = X_design.shape  # genes, total predictors
-        n_phenos = Y.shape[0]  # number of phenotypes (rows of Y)
-
-        # --------------------------
-        # 2) Compute OLS coefficients
-        # --------------------------
-        # Transpose Y to align with X (genes x phenos)
-        Y_t = Y.T  # shape (genes, phenos)
-
-        # Compute (X^T X) and its inverse
-        XtX = X_design.T @ X_design  # shape (n_pred, n_pred)
-        XtX_inv = np.linalg.inv(XtX)  # shape (n_pred, n_pred)
-
-        # Compute (X^T Y)
-        XtY = X_design.T @ Y_t  # shape (n_pred, phenos)
-
-        # Compute beta coefficients
-        betas = XtX_inv @ XtY  # shape (n_pred, phenos)
-        betas = betas.T  # Transpose to (phenos, n_pred)
-
-        # -----------------------------
-        # 3) Compute residuals, SSE, df
-        # -----------------------------
-        # Residuals: Y_t - X_design @ betas.T (back to genes x phenos)
-        fitted = X_design @ betas.T  # shape (genes, phenos)
-        residuals = Y_t - fitted  # shape (genes, phenos)
-
-        df = n_obs - n_pred  # degrees of freedom for classical OLS
-        if df <= 0:
-            raise ValueError("Degrees of freedom <= 0. Check the size of your input matrices.")
-
-        # Sum of squared residuals (SSE) per phenotype
-        sse = np.sum(residuals**2, axis=0)  # shape (phenos,)
-        sigma2 = sse / df  # shape (phenos,)
-
-        # -----------------------------
-        # 4) Compute classical var(betas)
-        # -----------------------------
-        diag_xtx_inv = np.diag(XtX_inv)  # shape (n_pred,)
-
-        # Classical standard errors
-        classical_ses = np.sqrt(sigma2[:, None] * diag_xtx_inv[None, :])  # shape (phenos, n_pred)
-
-        # By default, use classical standard errors
-        final_ses = classical_ses.copy()
-
-        # ---------------------------------------------------------------------
-        # 5) If resid_correlation_matrix is provided, apply "sandwich" inflation
-        # ---------------------------------------------------------------------
-        if resid_correlation_matrix is not None:
-            if len(resid_correlation_matrix) != n_phenos:
-                raise ValueError(
-                    "resid_correlation_matrix must be a list of length == n_phenos."
-                )
-
-            # Loop over phenotypes to apply the sandwich estimator
-            for p in range(n_phenos):
-                R_p = resid_correlation_matrix[p]  # shape (genes, genes)
-
-                # Compute X^T (R_p X)
-                if sparse.issparse(R_p):
-                    XR_p = R_p.dot(X_design)  # shape (genes, n_pred)
-                else:
-                    XR_p = R_p @ X_design  # shape (genes, n_pred)
-
-                XtR_pX = X_design.T @ XR_p  # shape (n_pred, n_pred)
-
-                # Sandwich variance: (X^T X)^(-1) X^T R_p X (X^T X)^(-1)
-                var_betas_p = XtX_inv @ XtR_pX @ XtX_inv  # shape (n_pred, n_pred)
-
-                # Standard errors: sqrt of diagonal
-                sandwich_se_p = np.sqrt(np.diag(var_betas_p))  # shape (n_pred,)
-
-                # Update the final_ses for phenotype p
-                final_ses[p, :] = sandwich_se_p
-
-        # ------------------------------------
-        # 6) Optionally strip out covariate betas
-        # ------------------------------------
-        if covs is not None or add_intercept:
-            n_factors = X.shape[1]  # Number of factors (columns in X)
-            betas = betas[:, :n_factors]  # Only the factor betas
-            final_ses = final_ses[:, :n_factors]  # Corresponding standard errors
-
-        # ------------------------------------
-        # 7) Compute Z-scores and p-values
-        # ------------------------------------
-        #the inflation factors have already been accounted for above
-        return self._finalize_regression(betas, final_ses, se_inflation_factors=None)
+        return pegs_compute_multivariate_beta_tildes(
+            X,
+            Y,
+            resid_correlation_matrix=resid_correlation_matrix,
+            add_intercept=add_intercept,
+            covs=covs,
+            finalize_regression_fn=self._finalize_regression,
+        )
 
     def _compute_logistic_beta_tildes(self, X, Y, scale_factors=None, mean_shifts=None, resid_correlation_matrix=None, convert_to_dichotomous=True, rel_tol=0.01, X_stacked=None, append_pseudo=True, log_fun=log):
 
@@ -8900,31 +8772,14 @@ class PigeanState(object):
 
 
     def _finalize_regression(self, beta_tildes, ses, se_inflation_factors):
-
-        if se_inflation_factors is not None:
-            ses *= se_inflation_factors
-
-        if np.prod(ses.shape) > 0:
-            #empty mask
-            empty_mask = np.logical_and(beta_tildes == 0, ses <= 0)
-            max_se = np.max(ses)
-
-            if np.sum(empty_mask) > 0:
-                log("Zeroing out %d betas due to negative ses" % (np.sum(empty_mask)), TRACE)
-
-            ses[empty_mask] = max_se * 100 if max_se > 0 else 100
-
-            #if no y var, set beta tilde to 0
-
-            beta_tildes[ses <= 0] = 0
-
-        z_scores = np.zeros(beta_tildes.shape)
-        ses_positive_mask = ses > 0
-        z_scores[ses_positive_mask] = beta_tildes[ses_positive_mask] / ses[ses_positive_mask]
-        if np.any(~ses_positive_mask):
-            warn("There were %d gene sets with negative ses; setting z-scores to 0" % (np.sum(~ses_positive_mask)))
-        p_values = 2*scipy.stats.norm.cdf(-np.abs(z_scores))
-        return (beta_tildes, ses, z_scores, p_values, se_inflation_factors)
+        return pegs_finalize_regression_outputs(
+            beta_tildes,
+            ses,
+            se_inflation_factors,
+            log_fn=log,
+            warn_fn=warn,
+            trace_level=TRACE,
+        )
 
     def _correct_beta_tildes(self, beta_tildes, ses, se_inflation_factors, total_qc_metrics, total_qc_metrics_directions, correct_mean=True, correct_var=True, add_missing=True, add_ignored=True, correct_ignored=False, fit=True):
 
