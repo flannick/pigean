@@ -74,6 +74,7 @@ try:
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         finalize_regression_outputs as pegs_finalize_regression_outputs,
         compute_beta_tildes as pegs_compute_beta_tildes,
+        compute_logistic_beta_tildes as pegs_compute_logistic_beta_tildes,
         compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_for_stage as pegs_resolve_gene_phewas_input_for_stage,
@@ -163,6 +164,7 @@ except ImportError:
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         finalize_regression_outputs as pegs_finalize_regression_outputs,
         compute_beta_tildes as pegs_compute_beta_tildes,
+        compute_logistic_beta_tildes as pegs_compute_logistic_beta_tildes,
         compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_for_stage as pegs_resolve_gene_phewas_input_for_stage,
@@ -8370,324 +8372,25 @@ class PigeanState(object):
         )
 
     def _compute_logistic_beta_tildes(self, X, Y, scale_factors=None, mean_shifts=None, resid_correlation_matrix=None, convert_to_dichotomous=True, rel_tol=0.01, X_stacked=None, append_pseudo=True, log_fun=log):
-
-        log_fun("Calculating logistic beta tildes")
-
-        if X.shape[0] == 0 or X.shape[1] == 0:
-            bail("Can't compute beta tildes on no gene sets!")
-
-        if Y is self.Y or Y is self.Y_for_regression:
-            Y = copy.copy(Y)
-
-        if mean_shifts is None or scale_factors is None:
-            (mean_shifts, scale_factors) = self._calc_X_shift_scale(X)            
-
-        #Y can be a matrix with dimensions:
-        #number of parallel runs x number of gene sets
-        if len(Y.shape) == 1:
-            orig_vector = True
-            Y = Y[np.newaxis,:]
-        else:
-            orig_vector = False
-        
-        if convert_to_dichotomous:
-            if np.sum(np.logical_and(Y != 0, Y != 1)) > 0:
-                Y[np.isnan(Y)] = 0
-                mult_sum = 1
-                #log_fun("Multiplying Y sums by %.3g" % mult_sum)
-                Y_sums = np.sum(Y, axis=1).astype(int) * mult_sum
-                Y_sorted = np.sort(Y, axis=1)[:,::-1]
-                Y_cumsum = np.cumsum(Y_sorted, axis=1)
-                threshold_val = np.diag(Y_sorted[:,Y_sums])
-
-                true_mask = (Y.T > threshold_val).T
-                Y[true_mask] = 1
-                Y[~true_mask] = 0
-                log_fun("Converting values to dichotomous outcomes; y=1 for input y > %s" % threshold_val, DEBUG)
-
-        log_fun("Outcomes: %d=1, %d=0; mean=%.3g" % (np.sum(Y==1), np.sum(Y==0), np.mean(Y)), TRACE)
-
-        if np.var(Y) == 0:
-            bail("Error: need at least one sample with a different outcome")
-
-        len_Y = Y.shape[1]
-        num_chains = Y.shape[0]
-
-        if append_pseudo:
-            log_fun("Appending pseudo counts", TRACE)
-            Y_means = np.mean(Y, axis=1)[:,np.newaxis]
-
-            Y = np.hstack((Y, Y_means))
-
-            #X = sparse.csc_matrix(sparse.vstack((X, np.ones(X.shape[1]))))
-            X = sparse.csc_matrix(sparse.vstack((X, sparse.csr_matrix(np.ones((1, X.shape[1]))))))
-
-            if X_stacked is not None:
-                #X_stacked = sparse.csc_matrix(sparse.vstack((X_stacked, np.ones(X_stacked.shape[1]))))
-                X_stacked = sparse.csc_matrix(sparse.vstack((X_stacked, sparse.csr_matrix(np.ones((1, X_stacked.shape[1]))))))
-
-        #treat multiple chains as just additional gene set coefficients
-        if X_stacked is None:
-            if num_chains > 1:
-                X_stacked = sparse.hstack([X] * num_chains)
-            else:
-                X_stacked = X
-
-        num_non_zero = np.tile((X != 0).sum(axis=0).A1, num_chains)
-
-        num_zero = X_stacked.shape[0] - num_non_zero
-
-        #initialize
-        #one per gene set
-        beta_tildes = np.zeros(X.shape[1] * num_chains)
-        #one per gene set
-        alpha_tildes = np.zeros(X.shape[1] * num_chains)
-        it = 0
-
-        compute_mask = np.full(len(beta_tildes), True)
-        diverged_mask = np.full(len(beta_tildes), False)
-
-        def __compute_Y_R(X, beta_tildes, alpha_tildes, max_cap=0.999):
-            exp_X_stacked_beta_alpha = X.multiply(beta_tildes)
-            exp_X_stacked_beta_alpha.data += (X != 0).multiply(alpha_tildes).data
-            max_val = 100
-            overflow_mask = exp_X_stacked_beta_alpha.data > max_val
-            exp_X_stacked_beta_alpha.data[overflow_mask] = max_val
-            np.exp(exp_X_stacked_beta_alpha.data, out=exp_X_stacked_beta_alpha.data)
-            
-            #each gene set corresponds to a 2 feature regression
-            #Y/R_pred have dim (num_genes, num_chains * num_gene_sets)
-            Y_pred = copy.copy(exp_X_stacked_beta_alpha)
-            #add in intercepts
-            Y_pred.data = Y_pred.data / (1 + Y_pred.data)
-            Y_pred.data[Y_pred.data > max_cap] = max_cap
-            R = copy.copy(Y_pred)
-            R.data = Y_pred.data * (1 - Y_pred.data)
-            return (Y_pred, R)
-
-        def __compute_Y_R_zero(alpha_tildes):
-            Y_pred_zero = np.exp(alpha_tildes)
-            Y_pred_zero = Y_pred_zero / (1 + Y_pred_zero)
-            R_zero = Y_pred_zero * (1 - Y_pred_zero)
-            return (Y_pred_zero, R_zero)
-
-        max_it = 100
-
-        log_fun("Performing IRLS...")
-        while True:
-            it += 1
-            prev_beta_tildes = copy.copy(beta_tildes)
-            prev_alpha_tildes = copy.copy(alpha_tildes)
-
-            #we are doing num_chains x X.shape[1] IRLS iterations in parallel.
-            #Each parallel is a univariate regression of one gene set + intercept
-            #first dimension is parallel chains
-            #second dimension is each gene set as a univariate regression
-            #calculate R
-            #X is genesets*chains x genes
-
-            #we are going to do this only for non-zero entries
-            #the other entries are technically incorrect, but okay since we are only ever multiplying these by X (which have 0 at these entries)
-            (Y_pred, R) = __compute_Y_R(X_stacked[:,compute_mask], beta_tildes[compute_mask], alpha_tildes[compute_mask])
-
-            #values for the genes with zero for the gene set
-            #these are constant across all genes (within a gene set/chain)
-            max_val = 100
-            overflow_mask = alpha_tildes > max_val
-            alpha_tildes[overflow_mask] = max_val
-
-            (Y_pred_zero, R_zero) = __compute_Y_R_zero(alpha_tildes[compute_mask])
-
-            Y_sum_per_chain = np.sum(Y, axis=1)
-            Y_sum = np.tile(Y_sum_per_chain, X.shape[1])
-
-            #first term: phi*w in Bishop
-            #This has length (num_chains * num_gene_sets)
-
-            X_r_X_beta = X_stacked[:,compute_mask].power(2).multiply(R).sum(axis=0).A1.ravel()
-            X_r_X_alpha = R.sum(axis=0).A1.ravel() + R_zero * num_zero[compute_mask]
-            X_r_X_beta_alpha = X_stacked[:,compute_mask].multiply(R).sum(axis=0).A1.ravel()
-            #inverse of [[a b] [c d]] is (1 / (ad - bc)) * [[d -b] [-c a]]
-            #a = X_r_X_beta
-            #b = c = X_r_X_beta_alpha
-            #d = X_r_X_alpha
-            denom = X_r_X_beta * X_r_X_alpha - np.square(X_r_X_beta_alpha)
-
-            diverged = np.logical_or(np.logical_or(X_r_X_beta == 0, X_r_X_beta_alpha == 0), denom == 0)
-
-            if np.sum(diverged) > 0:
-                log_fun("%d beta_tildes diverged" % np.sum(diverged), TRACE)
-                not_diverged = ~diverged
-
-                cur_indices = np.where(compute_mask)[0]
-
-                compute_mask[cur_indices[diverged]] = False
-                diverged_mask[cur_indices[diverged]] = True
-
-                #need to convert format in order to support indexing
-                Y_pred = sparse.csc_matrix(Y_pred)
-                R = sparse.csc_matrix(R)
-
-                Y_pred = Y_pred[:,not_diverged]
-                R = R[:,not_diverged]
-                Y_pred_zero = Y_pred_zero[not_diverged]
-                R_zero = R_zero[not_diverged]
-                X_r_X_beta = X_r_X_beta[not_diverged]
-                X_r_X_alpha = X_r_X_alpha[not_diverged]
-                X_r_X_beta_alpha = X_r_X_beta_alpha[not_diverged]
-                denom = denom[not_diverged]
-
-            if np.sum(np.isnan(X_r_X_beta) | np.isnan(X_r_X_alpha) | np.isnan(X_r_X_beta_alpha)) > 0:
-                bail("Error: something went wrong")
-
-            #second term: r_inv * (y-t) in Bishop
-            #for us, X.T.dot(Y_pred - Y)
-
-            R_inv_Y_T_beta = X_stacked[:,compute_mask].multiply(Y_pred).sum(axis=0).A1.ravel() - X.T.dot(Y.T).T.ravel()[compute_mask]
-
-            R_inv_Y_T_alpha = (Y_pred.sum(axis=0).A1.ravel() + Y_pred_zero * num_zero[compute_mask]) - Y_sum[compute_mask]
-
-            beta_tilde_row = (X_r_X_beta * prev_beta_tildes[compute_mask] + X_r_X_beta_alpha * prev_alpha_tildes[compute_mask] - R_inv_Y_T_beta)
-            alpha_tilde_row = (X_r_X_alpha * prev_alpha_tildes[compute_mask] + X_r_X_beta_alpha * prev_beta_tildes[compute_mask] - R_inv_Y_T_alpha)
-
-
-            beta_tildes[compute_mask] = (X_r_X_alpha * beta_tilde_row - X_r_X_beta_alpha * alpha_tilde_row) / denom
-            alpha_tildes[compute_mask] = (X_r_X_beta * alpha_tilde_row - X_r_X_beta_alpha * beta_tilde_row) / denom
-
-            diff = np.abs(beta_tildes - prev_beta_tildes)
-            diff_denom = np.abs(beta_tildes + prev_beta_tildes)
-            diff_denom[diff_denom == 0] = 1
-            rel_diff = diff / diff_denom
-
-            #log_fun("%d left to compute; max diff=%.4g" % (np.sum(compute_mask), np.max(rel_diff)))
-               
-            compute_mask[np.logical_or(rel_diff < rel_tol, beta_tildes == 0)] = False
-            if np.sum(compute_mask) == 0:
-                log_fun("Converged after %d iterations" % it, TRACE)
-                break
-            if it == max_it:
-                log_fun("Stopping with %d still not converged" % np.sum(compute_mask), TRACE)
-                diverged_mask[compute_mask] = True
-                break
-
-        
-        while True:
-            #handle diverged
-            if np.sum(diverged_mask) > 0:
-                beta_tildes[diverged_mask] = 0
-                alpha_tildes[diverged_mask] = Y_sum[diverged_mask] / len_Y
-
-            max_coeff = 100            
-
-            #genes x num_coeffs
-            (Y_pred, V) = __compute_Y_R(X_stacked, beta_tildes, alpha_tildes)
-
-            #this is supposed to calculate (X^t * V * X)-1
-            #where X is the n x 2 matrix of genes x (1/0, 1)
-            #d / (ad - bc) is inverse formula
-            #a = X.multiply(V).multiply(X)
-            #b = c = sum(X.multiply(V)
-            #d = V.sum() + constant values for all zero X (since those aren't in V)
-            #also need to add in enough p*(1-p) values for all of the X=0 entries; this is where the p_const * number of zero X comes in
-
-            params_too_large_mask = np.logical_or(np.abs(alpha_tildes) > max_coeff, np.abs(beta_tildes) > max_coeff)
-            #to prevent overflow
-            alpha_tildes[np.abs(alpha_tildes) > max_coeff] = max_coeff
-
-            p_const = np.exp(alpha_tildes) / (1 + np.exp(alpha_tildes))
-
-            variance_denom = (V.sum(axis=0).A1 + p_const * (1 - p_const) * (len_Y - (X_stacked != 0).sum(axis=0).A1))
-            denom_zero = variance_denom == 0
-            variance_denom[denom_zero] = 1
-
-            variances = X_stacked.power(2).multiply(V).sum(axis=0).A1 - np.power(X_stacked.multiply(V).sum(axis=0).A1, 2) / variance_denom
-            variances[denom_zero] = 100
-
-            #set them to diverged also if variances are negative or variance denom is 0 or if params are too large
-            additional_diverged_mask = np.logical_and(~diverged_mask, np.logical_or(np.logical_or(variances < 0, denom_zero), params_too_large_mask))
-
-            #get the likelihoods for the LRT
-            #null_alpha = np.mean(Y, axis=1)
-            #(Y_null_pred, V_null) = __compute_Y_R(X_stacked, 0, null_alpha)
-            #null_likelihood = Y 
-            #bail("")
-
-            if np.sum(additional_diverged_mask) > 0:
-                #additional divergences
-                diverged_mask = np.logical_or(diverged_mask, additional_diverged_mask)
-            else:
-                break
-
-        se_inflation_factors = None
-        if resid_correlation_matrix is not None:
-            if type(resid_correlation_matrix) is list:
-                raise NotImplementedError("Vectorized correlations not yet implemented for logistic regression")
-
-            log("Adjusting standard errors for correlations", DEBUG)
-            #need to multiply by inflation factors: (X * sigma * X) / variances
-
-            if append_pseudo:
-                resid_correlation_matrix = sparse.hstack((resid_correlation_matrix, np.zeros(resid_correlation_matrix.shape[0])[:,np.newaxis]))
-                new_bottom_row = np.zeros((1, resid_correlation_matrix.shape[1]))
-
-                new_bottom_row[0,-1] = 1
-                resid_correlation_matrix = sparse.vstack((resid_correlation_matrix, new_bottom_row)).tocsc()
-
-            cor_variances = copy.copy(variances)
-
-            r_X = resid_correlation_matrix.dot(X)
-            #we will only be using this to multiply matrices that are non-zero only when X is
-            r_X = (X != 0).multiply(r_X)
-
-            cor_variances = sparse.hstack([r_X.multiply(X)] * num_chains).multiply(V).sum(axis=0).A1 - sparse.hstack([r_X] * num_chains).multiply(V).sum(axis=0).A1 / (V.sum(axis=0).A1 + p_const * (1 - p_const) * (len_Y - (X_stacked != 0).sum(axis=0).A1))
-
-            #both cor_variances and variances are in units of unscaled X
-            variances[variances == 0] = 1
-            se_inflation_factors = np.sqrt(cor_variances / variances)
-
-        
-        #now unpack the chains
-
-        if num_chains > 1:
-            beta_tildes = beta_tildes.reshape(num_chains, X.shape[1])
-            alpha_tildes = alpha_tildes.reshape(num_chains, X.shape[1])
-            variances = variances.reshape(num_chains, X.shape[1])
-            diverged_mask = diverged_mask.reshape(num_chains, X.shape[1])
-            if se_inflation_factors is not None:
-                se_inflation_factors = se_inflation_factors.reshape(num_chains, X.shape[1])
-        else:
-            beta_tildes = beta_tildes[np.newaxis,:]
-            alpha_tildes = alpha_tildes[np.newaxis,:]
-            variances = variances[np.newaxis,:]
-            diverged_mask = diverged_mask[np.newaxis,:]
-            if se_inflation_factors is not None:
-                se_inflation_factors = se_inflation_factors[np.newaxis,:]
-
-        variances[:,scale_factors == 0] = 1
-
-        #not necessary
-        #if inflate_se:
-        #    inflate_mask = scale_factors > np.mean(scale_factors)
-        #    variances[:,inflate_mask] *= np.mean(np.power(scale_factors, 2)) / np.power(scale_factors[inflate_mask], 2)  
-
-        #multiply by scale factors because we store beta_tilde in units of scaled X
-        beta_tildes = scale_factors * beta_tildes
-
-        variances[variances == 0] = 1e-10
-        ses = scale_factors / np.sqrt(variances) 
-
-        if orig_vector:
-            beta_tildes = np.squeeze(beta_tildes, axis=0)
-            alpha_tildes = np.squeeze(alpha_tildes, axis=0)
-            variances = np.squeeze(variances, axis=0)
-            ses = np.squeeze(ses, axis=0)
-            diverged_mask = np.squeeze(diverged_mask, axis=0)
-
-            if se_inflation_factors is not None:
-                se_inflation_factors = np.squeeze(se_inflation_factors, axis=0)
-
-        return self._finalize_regression(beta_tildes, ses, se_inflation_factors) + (alpha_tildes, diverged_mask)
-
+        return pegs_compute_logistic_beta_tildes(
+            X,
+            Y,
+            scale_factors=scale_factors,
+            mean_shifts=mean_shifts,
+            resid_correlation_matrix=resid_correlation_matrix,
+            convert_to_dichotomous=convert_to_dichotomous,
+            rel_tol=rel_tol,
+            X_stacked=X_stacked,
+            append_pseudo=append_pseudo,
+            calc_x_shift_scale_fn=self._calc_X_shift_scale,
+            finalize_regression_fn=self._finalize_regression,
+            bail_fn=bail,
+            log_fun=log_fun,
+            debug_level=DEBUG,
+            trace_level=TRACE,
+            runtime_Y=self.Y,
+            runtime_Y_for_regression=self.Y_for_regression,
+        )
 
     def _finalize_regression(self, beta_tildes, ses, se_inflation_factors):
         return pegs_finalize_regression_outputs(
