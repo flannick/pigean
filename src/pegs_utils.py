@@ -6028,6 +6028,208 @@ def compute_logistic_beta_tildes(
     return finalize_regression_fn(beta_tildes, ses, se_inflation_factors) + (alpha_tildes, diverged_mask)
 
 
+def correct_beta_tildes(
+    runtime,
+    beta_tildes,
+    ses,
+    se_inflation_factors,
+    total_qc_metrics,
+    total_qc_metrics_directions,
+    *,
+    correct_mean=True,
+    correct_var=True,
+    add_missing=True,
+    add_ignored=True,
+    correct_ignored=False,
+    fit=True,
+    compute_beta_tildes_fn=None,
+    log_fn=None,
+    warn_fn=None,
+    trace_level=0,
+    debug_level=0,
+):
+    if compute_beta_tildes_fn is None:
+        compute_beta_tildes_fn = runtime._compute_beta_tildes
+    if log_fn is None:
+        log_fn = lambda *args, **kwargs: None
+    if warn_fn is None:
+        warn_fn = lambda *args, **kwargs: None
+
+    if len(beta_tildes.shape) == 1:
+        beta_tildes = beta_tildes[np.newaxis, :]
+    if len(ses.shape) == 1:
+        ses = ses[np.newaxis, :]
+    if se_inflation_factors is not None and len(se_inflation_factors.shape) == 1:
+        se_inflation_factors = se_inflation_factors[np.newaxis, :]
+
+    remove_mask = np.full(beta_tildes.shape[1], False)
+
+    if total_qc_metrics is None:
+        if runtime.gene_covariates is None:
+            warn_fn("--correct-huge was not used, so skipping correction")
+    else:
+        if fit or runtime.total_qc_metric_betas is None:
+            if add_missing and runtime.beta_tildes_missing is not None:
+                beta_tildes = np.hstack((beta_tildes, np.tile(runtime.beta_tildes_missing, beta_tildes.shape[0]).reshape(beta_tildes.shape[0], len(runtime.beta_tildes_missing))))
+                ses = np.hstack((ses, np.tile(runtime.ses_missing, ses.shape[0]).reshape(ses.shape[0], len(runtime.ses_missing))))
+                if se_inflation_factors is not None:
+                    se_inflation_factors = np.hstack((se_inflation_factors, np.tile(runtime.se_inflation_factors_missing, se_inflation_factors.shape[0]).reshape(se_inflation_factors.shape[0], len(runtime.se_inflation_factors_missing))))
+
+                total_qc_metrics = np.vstack((total_qc_metrics, runtime.total_qc_metrics_missing))
+                remove_mask = np.append(remove_mask, np.full(len(runtime.beta_tildes_missing), True))
+
+            if add_ignored and runtime.beta_tildes_ignored is not None:
+                beta_tildes = np.hstack((beta_tildes, np.tile(runtime.beta_tildes_ignored, beta_tildes.shape[0]).reshape(beta_tildes.shape[0], len(runtime.beta_tildes_ignored))))
+                ses = np.hstack((ses, np.tile(runtime.ses_ignored, ses.shape[0]).reshape(ses.shape[0], len(runtime.ses_ignored))))
+                if se_inflation_factors is not None:
+                    se_inflation_factors = np.hstack((se_inflation_factors, np.tile(runtime.se_inflation_factors_ignored, se_inflation_factors.shape[0]).reshape(se_inflation_factors.shape[0], len(runtime.se_inflation_factors_ignored))))
+
+                total_qc_metrics = np.vstack((total_qc_metrics, runtime.total_qc_metrics_ignored))
+                remove_mask = np.append(remove_mask, np.full(len(runtime.beta_tildes_ignored), True))
+
+            z_scores = np.zeros(beta_tildes.shape)
+            z_scores[ses != 0] = np.abs(beta_tildes[ses != 0]) / ses[ses != 0]
+
+            if runtime.huge_sparse_mode:
+                log_fn("Too few genes from HuGE: using pre-computed correct betas", debug_level)
+                runtime.total_qc_metric_intercept = runtime.total_qc_metric_intercept_defaults
+                runtime.total_qc_metric2_intercept = runtime.total_qc_metric2_intercept_defaults
+                runtime.total_qc_metric_betas = runtime.total_qc_metric_betas_defaults
+                runtime.total_qc_metric2_betas = runtime.total_qc_metric2_betas_defaults
+            else:
+                z_scores_mask = np.all(np.logical_and(np.abs(z_scores - np.mean(z_scores)) <= 5 * np.std(z_scores), ses != 0), axis=0)
+                metrics_mask = np.all(np.abs(total_qc_metrics - np.mean(total_qc_metrics, axis=0)) <= 5 * np.std(total_qc_metrics, axis=0), axis=1)
+                pred_mask = np.logical_and(z_scores_mask, metrics_mask)
+
+                intercept_mask = (np.std(total_qc_metrics, axis=0) == 0)
+                if np.sum(intercept_mask) == 0:
+                    total_qc_metrics = np.hstack((total_qc_metrics, np.ones((total_qc_metrics.shape[0], 1))))
+                    if total_qc_metrics_directions is not None:
+                        total_qc_metrics_directions = np.append(total_qc_metrics_directions, 0)
+                    intercept_mask = np.append(intercept_mask, True)
+
+                runtime.total_qc_metric_betas = np.zeros(len(intercept_mask))
+                runtime.total_qc_metric2_betas = np.zeros(len(intercept_mask))
+
+                (metric_beta_tildes_m, _metric_ses_m, _metric_z_scores_m, metric_p_values_m, _metric_se_inflation_factors_m) = compute_beta_tildes_fn(total_qc_metrics[pred_mask, :], z_scores[:, pred_mask], np.var(z_scores[:, pred_mask], axis=1), np.std(total_qc_metrics[pred_mask, :], axis=0), np.mean(total_qc_metrics[pred_mask, :], axis=0), resid_correlation_matrix=None, log_fun=lambda x, y=0: 1)
+
+                log_fn("Mean marginal slopes are %s" % np.mean(metric_beta_tildes_m, axis=0), trace_level)
+
+                keep_metrics = np.full(total_qc_metrics.shape[1], False)
+                keep_metric_inds = np.where(np.any(metric_p_values_m < 0.05, axis=0))[0]
+                keep_metrics[keep_metric_inds] = True
+                keep_metrics = np.logical_or(keep_metrics, intercept_mask)
+                if np.sum(keep_metrics) < total_qc_metrics.shape[1]:
+                    log_fn("Not using %d non-significant metrics" % (total_qc_metrics.shape[1] - np.sum(keep_metrics)))
+
+                if total_qc_metrics_directions is not None:
+                    keep_metrics_dir = np.full(total_qc_metrics.shape[1], True)
+                    keep_metric_dir_inds = np.where(np.any((metric_beta_tildes_m * total_qc_metrics_directions) < 0, axis=0))[0]
+                    keep_metrics_dir[keep_metric_dir_inds] = False
+                    if np.sum(keep_metrics_dir) < total_qc_metrics.shape[1]:
+                        log_fn("Not using %d metrics with wrong sign" % (total_qc_metrics.shape[1] - np.sum(keep_metrics_dir)))
+                    keep_metrics = np.logical_and(keep_metrics, keep_metrics_dir)
+
+                total_qc_metrics_for_reg = total_qc_metrics
+                if np.sum(keep_metrics) < total_qc_metrics.shape[1]:
+                    total_qc_metrics_for_reg = total_qc_metrics[:, keep_metrics]
+
+                total_qc_metrics_mat_inv = np.linalg.inv(total_qc_metrics_for_reg.T.dot(total_qc_metrics_for_reg))
+
+                pred_slopes = total_qc_metrics_mat_inv.dot(total_qc_metrics_for_reg[pred_mask, :].T).dot(z_scores[:, pred_mask].T)
+                pred2_slopes = total_qc_metrics_mat_inv.dot(total_qc_metrics_for_reg[pred_mask, :].T).dot(np.power(z_scores[:, pred_mask], 2).T)
+
+                runtime.total_qc_metric_betas[keep_metrics] = np.mean(pred_slopes, axis=1)
+                runtime.total_qc_metric2_betas[keep_metrics] = np.mean(pred2_slopes, axis=1)
+
+                runtime.total_qc_metric_intercept = runtime.total_qc_metric_betas[intercept_mask]
+                runtime.total_qc_metric2_intercept = runtime.total_qc_metric2_betas[intercept_mask]
+                runtime.total_qc_metric_betas = runtime.total_qc_metric_betas[~intercept_mask]
+                runtime.total_qc_metric2_betas = runtime.total_qc_metric2_betas[~intercept_mask]
+
+                log_fn("Ran regression for %d gene sets" % np.sum(pred_mask), trace_level)
+
+            desired_var = np.var(z_scores, axis=1)
+            runtime.total_qc_metric_desired_var = desired_var
+
+            log_fn("Mean slopes for mean are %s (+ %s)" % (runtime.total_qc_metric_betas, runtime.total_qc_metric_intercept), trace_level)
+            if correct_var:
+                log_fn("Mean slopes for square are %s (+ %s) " % (runtime.total_qc_metric2_betas, runtime.total_qc_metric2_intercept), trace_level)
+
+            if runtime.gene_covariate_names is not None:
+                param_names = ["%s_beta" % runtime.gene_covariate_names[i] for i in range(len(runtime.gene_covariate_names)) if i != runtime.gene_covariate_intercept_index] + ["%s2_beta" % runtime.gene_covariate_names[i] for i in range(len(runtime.gene_covariate_names)) if i != runtime.gene_covariate_intercept_index]
+                param_values = np.append(runtime.total_qc_metric_betas, runtime.total_qc_metric2_betas)
+                runtime._record_params(dict(zip(param_names, param_values)), record_only_first_time=True)
+
+        else:
+            z_scores = np.zeros(beta_tildes.shape)
+            z_scores[ses != 0] = np.abs(beta_tildes[ses != 0]) / ses[ses != 0]
+
+        intercept_mask = (np.std(total_qc_metrics, axis=0) == 0)
+        pred_means = (total_qc_metrics[:, ~intercept_mask].dot(runtime.total_qc_metric_betas) + runtime.total_qc_metric_intercept).T
+        pred_means2 = (total_qc_metrics[:, ~intercept_mask].dot(runtime.total_qc_metric2_betas) + runtime.total_qc_metric2_intercept).T
+        pred_var = pred_means2 - np.square(pred_means)
+        if len(pred_var.shape) == 1:
+            pred_var = np.tile(pred_var, z_scores.shape[0]).reshape(z_scores.shape[0], len(pred_var))
+
+        if correct_mean:
+            pred_adjusted = ((z_scores - pred_means).T + runtime.total_qc_metric_intercept).T
+        else:
+            pred_adjusted = z_scores
+
+        if correct_var:
+            high_var_mask = np.logical_and(pred_var.T > runtime.total_qc_metric_desired_var, pred_var.T > 0).T
+            pred_var[pred_var == 0] = 1
+            variance_factors = (runtime.total_qc_metric_desired_var / pred_var.T).T
+            pred_adjusted[high_var_mask] *= variance_factors[high_var_mask]
+
+        inflate_mask = np.logical_and(np.abs(pred_adjusted) < np.abs(z_scores), beta_tildes != 0)
+
+        new_ses = copy.copy(ses)
+        if np.sum(inflate_mask) > 0:
+            log_fn("Inflating %d standard errors" % (np.sum(inflate_mask)))
+
+        new_ses[inflate_mask] = np.abs(beta_tildes[inflate_mask]) / np.abs(pred_adjusted[inflate_mask])
+
+        if se_inflation_factors is not None:
+            se_inflation_factors[inflate_mask] *= new_ses[inflate_mask] / ses[inflate_mask]
+
+        ses = new_ses
+
+    zero_se_mask = ses == 0
+    assert np.sum(np.logical_and(zero_se_mask, beta_tildes != 0)) == 0
+    z_scores = np.zeros(beta_tildes.shape)
+    z_scores[~zero_se_mask] = beta_tildes[~zero_se_mask] / ses[~zero_se_mask]
+    p_values = 2 * scipy.stats.norm.cdf(-np.abs(z_scores))
+
+    if np.sum(remove_mask) > 0:
+        if correct_ignored:
+            runtime.beta_tildes_ignored = beta_tildes[0, remove_mask]
+            runtime.ses_ignored = ses[0, remove_mask]
+            runtime.z_scores_ignored = z_scores[0, remove_mask]
+            runtime.p_values_ignored = p_values[0, remove_mask]
+            if se_inflation_factors is not None:
+                runtime.se_inflation_factors_ignored = se_inflation_factors[0, remove_mask]
+
+        beta_tildes = beta_tildes[:, ~remove_mask]
+        ses = ses[:, ~remove_mask]
+        z_scores = z_scores[:, ~remove_mask]
+        p_values = p_values[:, ~remove_mask]
+        if se_inflation_factors is not None:
+            se_inflation_factors = se_inflation_factors[:, ~remove_mask]
+
+    if beta_tildes.shape[0] == 1:
+        beta_tildes = np.squeeze(beta_tildes, axis=0)
+        ses = np.squeeze(ses, axis=0)
+        p_values = np.squeeze(p_values, axis=0)
+        z_scores = np.squeeze(z_scores, axis=0)
+
+        if se_inflation_factors is not None:
+            se_inflation_factors = np.squeeze(se_inflation_factors, axis=0)
+
+    return (beta_tildes, ses, z_scores, p_values, se_inflation_factors)
+
+
 def compute_multivariate_beta_tildes(
     X,
     Y,
