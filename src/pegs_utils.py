@@ -2209,14 +2209,8 @@ def build_y_data_from_inputs(
     Y_positive_controls=None,
     Y_case_counts=None,
     Y_corr_m=None,
-    store_cholesky=True,
     store_corr_sparse=False,
-    skip_V=False,
-    skip_scale_factors=False,
     min_correlation=0,
-    get_y_corr_cholesky_fn=None,
-    set_X_fn=None,
-    calc_X_shift_scale_fn=None,
 ):
     y_data = y_data_from_runtime(runtime)
     if Y_corr_m is not None:
@@ -2268,14 +2262,8 @@ def set_runtime_y_from_inputs(
     Y_positive_controls=None,
     Y_case_counts=None,
     Y_corr_m=None,
-    store_cholesky=True,
     store_corr_sparse=False,
-    skip_V=False,
-    skip_scale_factors=False,
     min_correlation=0,
-    get_y_corr_cholesky_fn=None,
-    set_X_fn=None,
-    calc_X_shift_scale_fn=None,
 ):
     y_data = build_y_data_from_inputs(
         runtime=runtime,
@@ -2285,14 +2273,8 @@ def set_runtime_y_from_inputs(
         Y_positive_controls=Y_positive_controls,
         Y_case_counts=Y_case_counts,
         Y_corr_m=Y_corr_m,
-        store_cholesky=store_cholesky,
         store_corr_sparse=store_corr_sparse,
-        skip_V=skip_V,
-        skip_scale_factors=skip_scale_factors,
         min_correlation=min_correlation,
-        get_y_corr_cholesky_fn=get_y_corr_cholesky_fn,
-        set_X_fn=set_X_fn,
-        calc_X_shift_scale_fn=calc_X_shift_scale_fn,
     )
     apply_y_data_to_runtime(runtime, y_data)
     return y_data

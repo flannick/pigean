@@ -8265,17 +8265,9 @@ class PigeanState(object):
             Y_positive_controls=Y_positive_controls,
             Y_case_counts=Y_case_counts,
             Y_corr_m=Y_corr_m,
-            store_cholesky=store_cholesky,
             store_corr_sparse=store_corr_sparse,
-            skip_V=skip_V,
-            skip_scale_factors=skip_scale_factors,
             min_correlation=min_correlation,
-            get_y_corr_cholesky_fn=self._get_y_corr_cholesky,
-            set_X_fn=self._set_X,
-            calc_X_shift_scale_fn=self._calc_X_shift_scale,
         )
-        if store_cholesky and self.y_corr_cholesky is not None:
-            log("Banded cholesky matrix: shape %s, %s" % (self.y_corr_cholesky.shape[0], self.y_corr_cholesky.shape[1]), DEBUG)
 
     def _get_y_corr_cholesky(self, Y_corr_m):
         return pegs_compute_banded_y_corr_cholesky(Y_corr_m, diag_add=0.05)
