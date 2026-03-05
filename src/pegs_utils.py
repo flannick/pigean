@@ -765,6 +765,22 @@ class PhewasStageConfig:
         return run_kwargs
 
 
+@dataclass
+class PhewasInputResolution:
+    requested_input: object = None
+    resolved_input: object = None
+    mode: str = "skip"
+    reason: str = "no_input_requested"
+
+    @property
+    def should_reuse_loaded_matrix(self):
+        return self.mode == "reuse_loaded_matrix"
+
+    @property
+    def should_reread_file(self):
+        return self.mode == "re_read_file"
+
+
 def _default_bail(message):
     raise ValueError(message)
 
@@ -2743,16 +2759,68 @@ def resolve_gene_phewas_input_for_stage(
     read_gene_phewas,
     num_gene_phewas_filtered,
 ):
-    if requested_input is None:
+    decision = resolve_gene_phewas_input_decision_for_stage(
+        requested_input=requested_input,
+        reusable_inputs=reusable_inputs,
+        read_gene_phewas=read_gene_phewas,
+        num_gene_phewas_filtered=num_gene_phewas_filtered,
+    )
+    return decision.resolved_input
+
+
+def _normalize_optional_path(path):
+    if path is None:
         return None
+    return os.path.realpath(os.path.abspath(path))
+
+
+def _paths_match(a, b):
+    if a is None or b is None:
+        return False
+    return _normalize_optional_path(a) == _normalize_optional_path(b)
+
+
+def resolve_gene_phewas_input_decision_for_stage(
+    requested_input,
+    reusable_inputs,
+    *,
+    read_gene_phewas,
+    num_gene_phewas_filtered,
+):
+    if requested_input is None:
+        return PhewasInputResolution()
+
     if not read_gene_phewas:
-        return requested_input
+        return PhewasInputResolution(
+            requested_input=requested_input,
+            resolved_input=requested_input,
+            mode="re_read_file",
+            reason="matrix_not_loaded",
+        )
+
     if num_gene_phewas_filtered != 0:
-        return requested_input
+        return PhewasInputResolution(
+            requested_input=requested_input,
+            resolved_input=requested_input,
+            mode="re_read_file",
+            reason="loaded_matrix_filtered",
+        )
+
     for candidate in reusable_inputs:
-        if candidate is not None and requested_input == candidate:
-            return None
-    return requested_input
+        if _paths_match(requested_input, candidate):
+            return PhewasInputResolution(
+                requested_input=requested_input,
+                resolved_input=None,
+                mode="reuse_loaded_matrix",
+                reason="requested_input_matches_loaded_source",
+            )
+
+    return PhewasInputResolution(
+        requested_input=requested_input,
+        resolved_input=requested_input,
+        mode="re_read_file",
+        reason="requested_input_not_reusable",
+    )
 
 
 def build_phewas_stage_config(

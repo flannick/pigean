@@ -1926,6 +1926,81 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(plan.labels, ["tagA", "tagA"])
         self.assertEqual(plan.is_dense, [False, False])
 
+    def test_resolve_gene_phewas_input_decision_skip_when_no_requested_input(self) -> None:
+        decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+            requested_input=None,
+            reusable_inputs=["/tmp/a.tsv"],
+            read_gene_phewas=True,
+            num_gene_phewas_filtered=0,
+        )
+        self.assertEqual(decision.mode, "skip")
+        self.assertEqual(decision.reason, "no_input_requested")
+        self.assertIsNone(decision.resolved_input)
+
+    def test_resolve_gene_phewas_input_decision_requires_reread_when_not_loaded(self) -> None:
+        decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+            requested_input="/tmp/a.tsv",
+            reusable_inputs=["/tmp/a.tsv"],
+            read_gene_phewas=False,
+            num_gene_phewas_filtered=0,
+        )
+        self.assertEqual(decision.mode, "re_read_file")
+        self.assertEqual(decision.reason, "matrix_not_loaded")
+        self.assertEqual(decision.resolved_input, "/tmp/a.tsv")
+
+    def test_resolve_gene_phewas_input_decision_requires_reread_when_filtered(self) -> None:
+        decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+            requested_input="/tmp/a.tsv",
+            reusable_inputs=["/tmp/a.tsv"],
+            read_gene_phewas=True,
+            num_gene_phewas_filtered=2,
+        )
+        self.assertEqual(decision.mode, "re_read_file")
+        self.assertEqual(decision.reason, "loaded_matrix_filtered")
+        self.assertEqual(decision.resolved_input, "/tmp/a.tsv")
+
+    def test_resolve_gene_phewas_input_decision_reuses_loaded_input(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text("Gene\tPheno\tlog_bf\n", encoding="utf-8")
+            decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+                requested_input=str(path),
+                reusable_inputs=[str(path)],
+                read_gene_phewas=True,
+                num_gene_phewas_filtered=0,
+            )
+            self.assertEqual(decision.mode, "reuse_loaded_matrix")
+            self.assertEqual(decision.reason, "requested_input_matches_loaded_source")
+            self.assertIsNone(decision.resolved_input)
+            self.assertTrue(decision.should_reuse_loaded_matrix)
+            self.assertFalse(decision.should_reread_file)
+
+    def test_resolve_gene_phewas_input_decision_reuses_after_path_normalization(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text("Gene\tPheno\tlog_bf\n", encoding="utf-8")
+            relative = str(path.parent / "." / path.name)
+            decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+                requested_input=relative,
+                reusable_inputs=[str(path.resolve())],
+                read_gene_phewas=True,
+                num_gene_phewas_filtered=0,
+            )
+            self.assertEqual(decision.mode, "reuse_loaded_matrix")
+            self.assertIsNone(decision.resolved_input)
+
+    def test_resolve_gene_phewas_input_legacy_wrapper_matches_decision(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text("Gene\tPheno\tlog_bf\n", encoding="utf-8")
+            resolved = pegs_utils.resolve_gene_phewas_input_for_stage(
+                requested_input=str(path),
+                reusable_inputs=[str(path)],
+                read_gene_phewas=True,
+                num_gene_phewas_filtered=0,
+            )
+            self.assertIsNone(resolved)
+
 
 if __name__ == "__main__":
     unittest.main()
