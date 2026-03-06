@@ -11288,7 +11288,13 @@ def _needs_gwas_column_detection(
     gwas_n_col,
     gwas_n,
 ):
-    return pegs_needs_gwas_column_detection(
+    try:
+        from . import pigean_huge as _pigean_huge
+    except ImportError:
+        import pigean_huge as _pigean_huge
+
+    return _pigean_huge.needs_gwas_column_detection(
+        sys.modules[__name__],
         gwas_pos_col,
         gwas_chrom_col,
         gwas_locus_col,
@@ -11313,7 +11319,13 @@ def _autodetect_gwas_columns(
     gwas_n,
     debug_just_check_header=False,
 ):
-    return pegs_autodetect_gwas_columns(
+    try:
+        from . import pigean_huge as _pigean_huge
+    except ImportError:
+        import pigean_huge as _pigean_huge
+
+    return _pigean_huge.autodetect_gwas_columns(
+        sys.modules[__name__],
         gwas_in,
         gwas_pos_col,
         gwas_chrom_col,
@@ -11324,146 +11336,50 @@ def _autodetect_gwas_columns(
         gwas_freq_col,
         gwas_n_col,
         gwas_n,
-        infer_columns_fn=_determine_columns_from_file,
-        log_fn=log,
-        bail_fn=bail,
         debug_just_check_header=debug_just_check_header,
     )
 
 
 class _IntervalTree(object):
-    __slots__ = ('interval_starts', 'interval_stops', 'left', 'right', 'center')
+    def __new__(cls, *args, **kwargs):
+        try:
+            from . import pigean_huge as _pigean_huge
+        except ImportError:
+            import pigean_huge as _pigean_huge
 
-    def __init__(self, intervals, depth=16, minbucket=96, _extent=None, maxbucket=4096):
-        depth -= 1
-        if (depth == 0 or len(intervals) < minbucket) and len(intervals) > maxbucket:
-            self.interval_starts, self.interval_stops = zip(*intervals)
-            self.left = self.right = None
-            return
-
-        left, right = _extent or (min(i[0] for i in intervals), max(i[1] for i in intervals))
-        center = (left + right) / 2.0
-
-        self.interval_starts = []
-        self.interval_stops = []
-        lefts, rights  = [], []
-
-        for interval in intervals:
-            if interval[1] < center:
-                lefts.append(interval)
-            elif interval[0] > center:
-                rights.append(interval)
-            else: # overlapping.
-                self.interval_starts.append(interval[0])
-                self.interval_stops.append(interval[1])
-
-        self.interval_starts = np.array(self.interval_starts)
-        self.interval_stops = np.array(self.interval_stops)
-        self.left = lefts and _IntervalTree(lefts, depth, minbucket, (left, center)) or None
-        self.right = rights and _IntervalTree(rights, depth, minbucket, (center, right)) or None
-        self.center = center
-
-    def find(self, start, stop, index_map=None):
-        #find overlapping intervals for set of (start, stop) pairs
-        #start is array of starting points
-        #stop is array of corresponding stopping points
-        #return list of two np arrays. First of passed in indices for which there is an overlap (indices can be repeated)
-        #second a list of intervals that overlap
-        """find all elements between (or overlapping) start and stop"""
-        #array with rows equal to intervals length, columns equal to stop, true if intervals less than or equal to stop
-        less_mask = np.less(self.interval_starts, stop[:,np.newaxis] + 1)
-        #array with rows equal to intervals length, columns equal to stop, true if intervals greater than or equal to stop
-        greater_mask = np.greater(self.interval_stops, start[:,np.newaxis] - 1)
-        #interval x variant pos array with the intervals that overlap each variant pos
-        overlapping_mask = np.logical_and(less_mask, greater_mask)
-
-        #tuple of (overlapping interval indices, passed in start/stop index with the overlap)
-        overlapping_where = np.where(overlapping_mask)
-
-        overlapping_indices = (overlapping_where[0], self.interval_starts[overlapping_where[1]], self.interval_stops[overlapping_where[1]])
-        #overlapping = [i for i in self.intervals if i[1] >= start and i[0] <= stop]
-
-        start_less_mask = start <= self.center
-        if self.left and np.any(start_less_mask):
-            left_overlapping_indices = self.left.find(start[start_less_mask], stop[start_less_mask], index_map=np.where(start_less_mask)[0])
-            overlapping_indices = (np.append(overlapping_indices[0], left_overlapping_indices[0]), np.append(overlapping_indices[1], left_overlapping_indices[1]), np.append(overlapping_indices[2], left_overlapping_indices[2]))
-
-        stop_greater_mask = stop >= self.center
-        if self.right and np.any(stop_greater_mask):
-            right_overlapping_indices = self.right.find(start[stop_greater_mask], stop[stop_greater_mask], index_map=np.where(stop_greater_mask)[0])
-            overlapping_indices = (np.append(overlapping_indices[0], right_overlapping_indices[0]), np.append(overlapping_indices[1], right_overlapping_indices[1]), np.append(overlapping_indices[2], right_overlapping_indices[2]))
-
-        if index_map is not None and len(overlapping_indices[0]) > 0:
-            overlapping_indices = (index_map[overlapping_indices[0]], overlapping_indices[1], overlapping_indices[2])
-
-        return overlapping_indices
+        _pigean_huge.configure_numpy(np)
+        return _pigean_huge.IntervalTree(*args, **kwargs)
 
 
 def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_chrom=None, exons_loc_file=None):
-    # Store per-chromosome gene endpoints used by nearby-gene and window lookups.
-    log("Reading gene locations")
-    (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = pegs_read_loc_file_with_gene_map(
+    try:
+        from . import pigean_huge as _pigean_huge
+    except ImportError:
+        import pigean_huge as _pigean_huge
+
+    _pigean_huge.configure_numpy(np)
+    return _pigean_huge.load_huge_gene_and_exon_locations(
+        sys.modules[__name__],
         gene_loc_file,
-        gene_label_map=gene_label_map,
+        gene_label_map,
         hold_out_chrom=hold_out_chrom,
-        clean_chrom_fn=pegs_clean_chrom_name,
-        warn_fn=warn,
-        bail_fn=bail,
+        exons_loc_file=exons_loc_file,
     )
-
-    for chrom in gene_chrom_name_pos:
-        serialized_gene_info = []
-        for gene in gene_chrom_name_pos[chrom]:
-            for pos in gene_chrom_name_pos[chrom][gene]:
-                serialized_gene_info.append((gene,pos))
-        gene_chrom_name_pos[chrom] = serialized_gene_info
-
-    chrom_to_interval_tree = None
-    if exons_loc_file is not None:
-        log("Reading exon locations")
-
-        chrom_interval_to_gene = pegs_read_loc_file_with_gene_map(
-            exons_loc_file,
-            gene_label_map=gene_label_map,
-            return_intervals=True,
-            clean_chrom_fn=pegs_clean_chrom_name,
-            warn_fn=warn,
-            bail_fn=bail,
-        )
-        chrom_to_interval_tree = {}
-        for chrom in chrom_interval_to_gene:
-            chrom_to_interval_tree[chrom] = _IntervalTree(chrom_interval_to_gene[chrom].keys())
-
-    return {
-        "gene_chrom_name_pos": gene_chrom_name_pos,
-        "gene_to_chrom": gene_to_chrom,
-        "gene_to_pos": gene_to_pos,
-        "chrom_to_interval_tree": chrom_to_interval_tree,
-    }
 
 
 def _compute_huge_variant_thresholds(min_var_posterior, gwas_high_p_posterior, allelic_var_k, gwas_prior_odds):
-    var_z_threshold = None
-    var_p_threshold = None
+    try:
+        from . import pigean_huge as _pigean_huge
+    except ImportError:
+        import pigean_huge as _pigean_huge
 
-    if min_var_posterior is not None and min_var_posterior > gwas_high_p_posterior:
-        #var_log_bf + np.log(gwas_prior_odds) > np.log(min_var_posterior / (1 - min_var_posterior))
-        #var_log_bf > np.log(min_var_posterior / (1 - min_var_posterior)) - np.log(gwas_prior_odds) = threshold
-        #-np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > threshold
-        #0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > threshold + np.log(np.sqrt(1 + allelic_var_k))
-        #np.square(var_z) * allelic_var_k / (1 + allelic_var_k) > 2 * (threshold + np.log(np.sqrt(1 + allelic_var_k)))
-        #np.square(var_z) * allelic_var_k > 2 * (1 + allelic_var_k) * (threshold + np.log(np.sqrt(1 + allelic_var_k)))
-        log_bf_threshold = np.log(min_var_posterior / (1 - min_var_posterior)) - np.log(gwas_prior_odds) + np.log(np.sqrt(1 + allelic_var_k))
-
-        if log_bf_threshold > 0:
-            var_z_threshold = np.sqrt(2 * (1 + allelic_var_k) * (log_bf_threshold) / allelic_var_k)
-            var_p_threshold = 2*scipy.stats.norm.cdf(-np.abs(var_z_threshold))
-            log("Keeping only variants with p < %.4g" % var_p_threshold)
-    else:
-        var_p_threshold = gwas_high_p_posterior
-        var_z_threshold = np.abs(scipy.stats.norm.ppf(var_p_threshold / 2))
-
-    return (var_z_threshold, var_p_threshold)
+    return _pigean_huge.compute_huge_variant_thresholds(
+        sys.modules[__name__],
+        min_var_posterior,
+        gwas_high_p_posterior,
+        allelic_var_k,
+        gwas_prior_odds,
+    )
 
 
 def _validate_and_normalize_huge_gwas_inputs(
@@ -11476,162 +11392,53 @@ def _validate_and_normalize_huge_gwas_inputs(
     signal_min_sep=100000,
     signal_max_logp_ratio=None,
 ):
-    if gwas_in is None:
-        bail("Require --gwas-in for this operation")
-    if gene_loc_file is None:
-        bail("Require --gene-loc-file for this operation")
+    try:
+        from . import pigean_huge as _pigean_huge
+    except ImportError:
+        import pigean_huge as _pigean_huge
 
-    if credible_sets_in is not None:
-        if credible_sets_chrom_col is None or credible_sets_pos_col is None:
-            bail("Need --credible-set-chrom-col and --credible-set-pos-col")
-
-    if signal_window_size < 2 * signal_min_sep:
-        signal_window_size = 2 * signal_min_sep
-
-    if signal_max_logp_ratio is not None and signal_max_logp_ratio > 1:
-        warn("Thresholding --signal-max-logp-ratio at 1")
-        signal_max_logp_ratio = 1
-
-    return (signal_window_size, signal_max_logp_ratio)
+    return _pigean_huge.validate_and_normalize_huge_gwas_inputs(
+        sys.modules[__name__],
+        gwas_in,
+        gene_loc_file,
+        credible_sets_in=credible_sets_in,
+        credible_sets_chrom_col=credible_sets_chrom_col,
+        credible_sets_pos_col=credible_sets_pos_col,
+        signal_window_size=signal_window_size,
+        signal_min_sep=signal_min_sep,
+        signal_max_logp_ratio=signal_max_logp_ratio,
+    )
 
 
 def _write_huge_statistics_bundle(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-    runtime_state = pegs_coerce_runtime_state_dict(runtime_state, bail_fn=bail)
-    paths = pegs_get_huge_statistics_paths_for_prefix(prefix)
+    try:
+        from . import pigean_huge as _pigean_huge
+    except ImportError:
+        import pigean_huge as _pigean_huge
 
-    cache_genes = list(runtime_state["genes"]) if runtime_state.get("genes") is not None else []
-    extra_genes = list(extra_genes)
-
-    huge_signal_bfs = runtime_state.get("huge_signal_bfs")
-    if huge_signal_bfs is None:
-        huge_signal_bfs = sparse.csc_matrix((0, 0))
-    huge_signal_bfs_for_regression = runtime_state.get("huge_signal_bfs_for_regression")
-    if huge_signal_bfs_for_regression is None:
-        huge_signal_bfs_for_regression = sparse.csc_matrix((0, 0))
-
-    matrix_row_genes = pegs_build_huge_statistics_matrix_row_genes(
-        cache_genes,
-        extra_genes,
-        huge_signal_bfs.shape[0],
-        bail_fn=bail,
-    )
-    (gene_to_score, gene_to_score_uncorrected, gene_to_score_for_regression) = pegs_build_huge_statistics_score_maps(
+    return _pigean_huge.write_huge_statistics_bundle(
+        sys.modules[__name__],
         runtime_state,
-        cache_genes,
-        extra_genes,
+        prefix,
         gene_bf,
+        extra_genes,
         extra_gene_bf,
         gene_bf_for_regression,
         extra_gene_bf_for_regression,
     )
-    meta = pegs_build_huge_statistics_meta(
-        runtime_state,
-        huge_signal_bfs,
-        huge_signal_bfs_for_regression,
-        json_safe_fn=_json_safe,
-    )
-
-    with open_gz(paths["meta"], 'w') as out_fh:
-        json.dump(meta, out_fh, sort_keys=True)
-        out_fh.write("\n")
-
-    pegs_write_huge_statistics_text_tables(
-        paths,
-        runtime_state,
-        cache_genes,
-        extra_genes,
-        extra_gene_bf,
-        extra_gene_bf_for_regression,
-        matrix_row_genes,
-        gene_to_score,
-        gene_to_score_uncorrected,
-        gene_to_score_for_regression,
-        open_text_fn=open_gz,
-        bail_fn=bail,
-    )
-
-    pegs_write_huge_statistics_runtime_vectors(
-        paths,
-        runtime_state,
-        write_vector_fn=lambda out_file, values, value_type=float: pegs_write_numeric_vector_file(
-            out_file,
-            values,
-            open_text_fn=open_gz,
-            value_type=value_type,
-        ),
-    )
-    pegs_write_huge_statistics_sparse_components(
-        paths,
-        huge_signal_bfs,
-        huge_signal_bfs_for_regression,
-        write_vector_fn=lambda out_file, values, value_type=float: pegs_write_numeric_vector_file(
-            out_file,
-            values,
-            open_text_fn=open_gz,
-            value_type=value_type,
-        ),
-    )
 
 
 def _read_huge_statistics_bundle(runtime_state, prefix):
-    runtime_state = pegs_coerce_runtime_state_dict(runtime_state, bail_fn=bail)
-    paths = pegs_get_huge_statistics_paths_for_prefix(prefix)
-    if not os.path.exists(paths["meta"]):
-        bail("Could not find HuGE statistics cache file %s" % paths["meta"])
+    try:
+        from . import pigean_huge as _pigean_huge
+    except ImportError:
+        import pigean_huge as _pigean_huge
 
-    with open_gz(paths["meta"]) as in_fh:
-        meta = json.load(in_fh)
-
-    if meta.get("recorded_params") is not None:
-        runtime_state["params"] = meta["recorded_params"]
-    if meta.get("recorded_param_keys") is not None:
-        runtime_state["param_keys"] = list(meta["recorded_param_keys"])
-
-    (
-        cache_genes,
-        extra_genes,
-        extra_gene_bf,
-        extra_gene_bf_for_regression,
-        matrix_row_genes,
-        gene_to_score,
-        gene_to_score_uncorrected,
-        gene_to_score_for_regression,
-    ) = pegs_read_huge_statistics_text_tables(paths, open_text_fn=open_gz)
-
-    (gene_bf, gene_bf_for_regression) = pegs_resolve_huge_statistics_gene_vectors(
+    return _pigean_huge.read_huge_statistics_bundle(
+        sys.modules[__name__],
         runtime_state,
-        cache_genes,
-        extra_genes,
-        matrix_row_genes,
-        gene_to_score,
-        gene_to_score_for_regression,
-        bail_fn=bail,
+        prefix,
     )
-
-    pegs_load_huge_statistics_sparse_and_vectors(
-        runtime_state,
-        paths,
-        meta,
-        read_vector_fn=lambda in_file, value_type=float: pegs_read_numeric_vector_file(
-            in_file,
-            open_text_fn=open_gz,
-            value_type=value_type,
-        ),
-    )
-    pegs_apply_huge_statistics_meta_to_runtime(runtime_state, meta)
-    pegs_read_huge_statistics_covariates_if_present(
-        runtime_state,
-        paths,
-        open_text_fn=open_gz,
-        exists_fn=os.path.exists,
-    )
-
-    runtime_state["gene_to_gwas_huge_score"] = gene_to_score
-    runtime_state["gene_to_gwas_huge_score_uncorrected"] = gene_to_score_uncorrected
-    pegs_combine_runtime_huge_scores(runtime_state)
-    pegs_validate_huge_statistics_loaded_shapes(runtime_state, matrix_row_genes, bail_fn=bail)
-
-    return (gene_bf, extra_genes, np.array(extra_gene_bf), gene_bf_for_regression, np.array(extra_gene_bf_for_regression))
 
 # ==========================================================================
 # Gibbs epoch aggregation helpers.
