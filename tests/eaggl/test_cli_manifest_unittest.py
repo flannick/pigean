@@ -8,8 +8,8 @@ from pathlib import Path
 
 class CliManifestTest(unittest.TestCase):
     def test_cli_manifest_and_docs_are_current(self) -> None:
-        repo_root = Path(__file__).resolve().parents[1]
-        cmd = [sys.executable, "scripts/generate_cli_manifest.py", "--check"]
+        repo_root = Path(__file__).resolve().parents[2]
+        cmd = [sys.executable, "scripts/eaggl/generate_cli_manifest.py", "--check"]
         proc = subprocess.run(
             cmd,
             cwd=repo_root,

@@ -1,7 +1,7 @@
 # PIGEAN
 
 PIGEAN codebase split into:
-- `src/`: new cleaned implementation (`pigean.py` and future modules)
+- `src/`: current implementation plus canonical in-repo EAGGL snapshot
 - `legacy/`: frozen legacy script(s)
 - `config/profiles/`: default run profiles
 - `scripts/`: bundle download/packaging helpers
@@ -64,6 +64,11 @@ For required inputs and expected outputs per retained advanced workflow, see:
 
 For PIGEAN -> EAGGL handoff bundle usage, see:
 - `docs/EAGGL_INTEROP.md`
+
+For the canonical in-repo EAGGL snapshot and transition notes, see:
+- `docs/CANONICAL_SOURCE.md`
+- `docs/eaggl/README.md`
+- `docs/eaggl/TRANSITION.md`
 
 For curated CLI surface and category inventory (auto-generated):
 - `docs/CLI_OPTIONS.md`

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tarfile
@@ -10,10 +11,27 @@ from pathlib import Path
 
 
 class EagglCliTest(unittest.TestCase):
+    def _repo_root(self) -> Path:
+        return Path(__file__).resolve().parents[2]
+
+    def _env(self, repo_root: Path) -> dict[str, str]:
+        env = os.environ.copy()
+        src_root = str(repo_root / "src")
+        existing = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = src_root if not existing else src_root + os.pathsep + existing
+        return env
+
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
-        repo_root = Path(__file__).resolve().parents[1]
-        cmd = [sys.executable, "src/eaggl.py", *args]
-        return subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, check=False)
+        repo_root = self._repo_root()
+        cmd = [sys.executable, "-m", "eaggl", *args]
+        return subprocess.run(
+            cmd,
+            cwd=repo_root,
+            env=self._env(repo_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
     def _write_minimal_eaggl_bundle(self, root: Path) -> Path:
         manifest = {
@@ -78,20 +96,21 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["seed"], 123)
 
     def test_import_does_not_reset_python_random_seed(self) -> None:
-        repo_root = Path(__file__).resolve().parents[1]
+        repo_root = self._repo_root()
         snippet = r'''
 import random
 import sys
 random.seed(12345)
 expected = random.Random(12345).random()
 sys.argv = ["eaggl.py", "factor"]
-import src.eaggl  # noqa: F401
+import eaggl  # noqa: F401
 actual = random.random()
 print(f"{actual:.17f}\t{expected:.17f}")
 '''
         proc = subprocess.run(
             [sys.executable, "-c", snippet],
             cwd=repo_root,
+            env=self._env(repo_root),
             capture_output=True,
             text=True,
             check=False,
@@ -230,12 +249,12 @@ print(f"{actual:.17f}\t{expected:.17f}")
             self.assertTrue(options["gene_set_stats_in"].endswith("gene_set_stats.tsv.gz"))
 
     def test_read_correlations_fails_fast_when_gls_cholesky_is_initialized(self) -> None:
-        repo_root = Path(__file__).resolve().parents[1]
+        repo_root = self._repo_root()
         snippet = r"""
 import sys
 import numpy as np
 sys.argv = ["eaggl.py", "factor", "--ols"]
-import src.eaggl as eaggl
+import eaggl as eaggl
 g = eaggl.GeneSetData()
 g.y_corr_cholesky = np.array([[1.0]])
 g.genes = ["GENE1"]
@@ -252,6 +271,7 @@ raise SystemExit("expected _read_correlations to fail fast before file IO")
         proc = subprocess.run(
             [sys.executable, "-c", snippet],
             cwd=repo_root,
+            env=self._env(repo_root),
             capture_output=True,
             text=True,
             check=False,

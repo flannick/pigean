@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
 
@@ -40,9 +40,9 @@ class PegsSyncGuardTest(unittest.TestCase):
             self.assertEqual(result.missing_in_right, [rel])
 
     def test_compare_shared_files_with_sibling_repo_if_present(self) -> None:
-        sibling = REPO_ROOT.parent / "pigean"
+        sibling = REPO_ROOT.parent / "eaggl"
         if not sibling.exists():
-            self.skipTest("sibling pigean repo not present")
+            self.skipTest("sibling standalone eaggl repo not present")
         result = pegs_sync_guard.compare_shared_files(
             REPO_ROOT,
             sibling,

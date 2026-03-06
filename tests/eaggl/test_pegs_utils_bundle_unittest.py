@@ -12,8 +12,9 @@ import numpy as np
 import scipy.sparse as sparse
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "src"))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "src"))
 import pegs_utils  # noqa: E402
 
 
