@@ -245,6 +245,8 @@ usage = _eaggl_cli.usage
 parser = _eaggl_cli.parser
 REMOVED_OPTION_REPLACEMENTS = _eaggl_cli.REMOVED_OPTION_REPLACEMENTS
 query_lmm = _eaggl_cli.query_lmm
+_classify_factor_workflow = _eaggl_cli._classify_factor_workflow
+_FACTOR_WORKFLOW_STRATEGY_META = _eaggl_cli._FACTOR_WORKFLOW_STRATEGY_META
 
 options = None
 args = []
@@ -7807,48 +7809,12 @@ GeneSetData = EagglState
 
 
 def run_main_pipeline(options):
+    try:
+        from . import dispatch as _eaggl_dispatch
+    except ImportError:
+        import dispatch as _eaggl_dispatch
 
-    mode_state = _build_main_mode_state()
-    _enforce_factor_only_input_boundary(options, mode_state)
-    _log_runtime_environment_if_requested(options)
-
-    g = EagglState(background_prior=options.background_prior, batch_size=options.batch_size)
-    _initialize_main_mappings(g, options)
-    factor_input_state = _run_main_factor_only_pipeline(g, options, mode_state)
-    factor_only_stage_result = FactorOnlyStageResult(
-        ran=True,
-        num_gene_sets=len(g.gene_sets) if g.gene_sets is not None else 0,
-        factor_input_state=factor_input_state,
-    )
-
-    _write_main_primary_outputs(g, options)
-
-    phewas_stage_result = PhewasStageResult(ran=False, output_path=options.phewas_stats_out)
-    if mode_state["run_phewas"]:
-        phewas_stage_result = _run_main_phewas_stage(g, options)
-
-    factor_model_stage_result = FactorStageResult(ran=False, workflow_id=None)
-    if mode_state["run_factor"]:
-        factor_model_stage_result = _run_main_factor_stage(g, options, mode_state, factor_input_state)
-
-    _write_main_factor_outputs(g, options)
-
-    factor_phewas_stage_result = PhewasStageResult(ran=False, output_path=options.factor_phewas_stats_out)
-    if _should_run_main_factor_phewas_stage(mode_state):
-        factor_phewas_stage_result = _run_main_factor_phewas_stage(g, options)
-
-
-    if options.params_out:
-        g.write_params(options.params_out)
-
-    return MainPipelineResult(
-        state=g,
-        mode_state=mode_state,
-        factor_only=factor_only_stage_result,
-        phewas=phewas_stage_result,
-        factor=factor_model_stage_result,
-        factor_phewas=factor_phewas_stage_result,
-    )
+    return _eaggl_dispatch.run_main_pipeline(sys.modules[__name__], options)
 
 
 def main(argv=None):

@@ -19983,42 +19983,12 @@ def _write_main_outputs_and_optional_phewas(state, options, mode_state, mode):
 
 
 def run_main_pipeline(options, mode):
-    # Phase A: runtime setup and global option echo.
-    if not options.hide_opts:
-        log("Python version: %s" % sys.version)
-        log("Numpy version: %s" % np.__version__)
-        log("Scipy version: %s" % scipy.__version__)
-        log("Options: %s" % options)
-    state = _build_runtime_state(options)
-    mode_state = _build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
+    try:
+        from . import pigean_dispatch as _pigean_dispatch
+    except ImportError:
+        import pigean_dispatch as _pigean_dispatch
 
-    # Phase B: hyperparameter configuration.
-    sigma2_cond = _configure_hyperparameters_for_main(state, options)
-
-    # Phase C: input loading.
-    y_not_loaded = _load_main_Y_inputs(state, options, mode_state)
-
-    # Phase D: core inference.
-    non_huge_result = None
-    if not mode_state["run_huge"]:
-        non_huge_result = _run_main_non_huge_pipeline(
-            state=state,
-            options=options,
-            mode_state=mode_state,
-            sigma2_cond=sigma2_cond,
-            Y_not_loaded=y_not_loaded,
-        )
-
-    # Phase E: outputs.
-    _write_main_outputs_and_optional_phewas(state, options, mode_state, mode)
-
-    return MainPipelineResult(
-        state=state,
-        mode_state=mode_state,
-        sigma2_cond=sigma2_cond,
-        y_not_loaded=y_not_loaded,
-        non_huge=non_huge_result,
-    )
+    return _pigean_dispatch.run_main_pipeline(sys.modules[__name__], options, mode)
 
 
 def main(argv=None):
