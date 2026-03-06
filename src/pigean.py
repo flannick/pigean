@@ -29,6 +29,11 @@ import gzip
 import random
 
 try:
+    from .pegs_types import (
+        XReadConfig as PegsXReadConfig,
+        XReadCallbacks as PegsXReadCallbacks,
+        XReadPostCallbacks as PegsXReadPostCallbacks,
+    )
     from .pegs_utils import (
         configure_random_seed as pegs_configure_random_seed,
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
@@ -99,9 +104,6 @@ try:
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
-        XReadConfig as PegsXReadConfig,
-        XReadCallbacks as PegsXReadCallbacks,
-        XReadPostCallbacks as PegsXReadPostCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
         build_read_x_post_options as pegs_build_read_x_post_options,
@@ -139,6 +141,11 @@ try:
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 except ImportError:
+    from pegs_types import (
+        XReadConfig as PegsXReadConfig,
+        XReadCallbacks as PegsXReadCallbacks,
+        XReadPostCallbacks as PegsXReadPostCallbacks,
+    )
     from pegs_utils import (
         configure_random_seed as pegs_configure_random_seed,
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
@@ -209,9 +216,6 @@ except ImportError:
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
-        XReadConfig as PegsXReadConfig,
-        XReadCallbacks as PegsXReadCallbacks,
-        XReadPostCallbacks as PegsXReadPostCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
         build_read_x_post_options as pegs_build_read_x_post_options,

@@ -28,6 +28,11 @@ import gzip
 import random
 
 try:
+    from pegs_types import (
+        XReadConfig as PegsXReadConfig,
+        XReadCallbacks as PegsXReadCallbacks,
+        XReadPostCallbacks as PegsXReadPostCallbacks,
+    )
     from .pegs_utils import (
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_set as pegs_callback_set_comma_separated_args_as_set,
@@ -82,9 +87,6 @@ try:
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         remove_tag_from_input as pegs_remove_tag_from_input,
-        XReadConfig as PegsXReadConfig,
-        XReadCallbacks as PegsXReadCallbacks,
-        XReadPostCallbacks as PegsXReadPostCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
         build_read_x_post_options as pegs_build_read_x_post_options,
@@ -116,6 +118,11 @@ try:
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 except ImportError:
+    from pegs_types import (
+        XReadConfig as PegsXReadConfig,
+        XReadCallbacks as PegsXReadCallbacks,
+        XReadPostCallbacks as PegsXReadPostCallbacks,
+    )
     from pegs_utils import (
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_set as pegs_callback_set_comma_separated_args_as_set,
@@ -170,9 +177,6 @@ except ImportError:
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         remove_tag_from_input as pegs_remove_tag_from_input,
-        XReadConfig as PegsXReadConfig,
-        XReadCallbacks as PegsXReadCallbacks,
-        XReadPostCallbacks as PegsXReadPostCallbacks,
         xdata_from_input_plan as pegs_xdata_from_input_plan,
         build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
         build_read_x_post_options as pegs_build_read_x_post_options,
