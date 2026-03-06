@@ -763,11 +763,18 @@ def _build_cli_manifest_metadata():
     return _metadata
 
 
-CLI_MANIFEST_METADATA = _build_cli_manifest_metadata()
+CLI_MANIFEST_METADATA = None
 
 
 def get_cli_manifest_metadata():
-    return pegs_json_safe(CLI_MANIFEST_METADATA)
+    return pegs_json_safe(_get_cli_manifest_metadata())
+
+
+def _get_cli_manifest_metadata():
+    global CLI_MANIFEST_METADATA
+    if CLI_MANIFEST_METADATA is None:
+        CLI_MANIFEST_METADATA = _build_cli_manifest_metadata()
+    return CLI_MANIFEST_METADATA
 
 
 def _option_help_for_display(_primary_flag, _meta):
@@ -790,7 +797,7 @@ def _apply_cli_help_layout(_parser, show_expert=False):
     )
     for _opt in _iter_parser_options(_parser):
         _primary_flag = _primary_flag_for_option(_opt)
-        _meta = CLI_MANIFEST_METADATA.get(_primary_flag)
+        _meta = _get_cli_manifest_metadata().get(_primary_flag)
         if _meta is None:
             continue
         if _meta["public_visibility"] == "hidden":
@@ -830,7 +837,7 @@ def _apply_cli_option_groups(_parser):
     for _opt in list(_parser.option_list):
         if _opt.dest is None:
             continue
-        _meta = CLI_MANIFEST_METADATA.get(_primary_flag_for_option(_opt))
+        _meta = _get_cli_manifest_metadata().get(_primary_flag_for_option(_opt))
         if _meta is None:
             target_group = core_group
         elif _meta["help_group"] == "runtime":
@@ -934,9 +941,6 @@ REMOVED_OPTION_REPLACEMENTS = {
     "add_gene_sets_by_gibbs": "__MOVED_TO_EAGGL__",
     "max_no_write_gene_pheno": "__MOVED_TO_EAGGL__",
 }
-
-_apply_cli_help_layout(parser)
-_apply_cli_option_groups(parser)
 
 options = None
 args = []
@@ -1320,10 +1324,12 @@ def _bootstrap_cli(argv=None):
 
     argv_parse = sys.argv[1:] if argv is None else list(argv)
     if "--help" in argv_parse or "-h" in argv_parse:
+        _apply_cli_option_groups(parser)
         _apply_cli_help_layout(parser, show_expert=False)
         parser.print_help()
         raise SystemExit(0)
     if "--help-expert" in argv_parse:
+        _apply_cli_option_groups(parser)
         _apply_cli_help_layout(parser, show_expert=True)
         parser.print_help()
         raise SystemExit(0)

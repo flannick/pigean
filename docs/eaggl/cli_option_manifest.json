@@ -1,350 +1,391 @@
 {
   "categories": {
-    "core_model": 158,
-    "engineering": 26
+    "debug_only": 6,
+    "engineering": 18,
+    "method_optional": 142,
+    "method_required": 17
   },
   "entrypoint": "src/eaggl/cli.py",
-  "num_options": 184,
+  "module": "eaggl.cli",
+  "num_options": 183,
   "options": [
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "V_in",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--V-in"
       ],
       "help": null,
       "primary_flag": "--V-in",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 101,
+      "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 7
     },
     {
       "action": "append",
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "X_in",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--X-in"
       ],
       "help": null,
       "primary_flag": "--X-in",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 79,
+      "summary": null,
       "type": null,
-      "usage_references": 48
+      "usage_references": 46
     },
     {
       "action": "append",
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "X_list",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--X-list"
       ],
       "help": null,
       "primary_flag": "--X-list",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 80,
+      "summary": null,
       "type": null,
-      "usage_references": 22
+      "usage_references": 20
     },
     {
       "action": "append",
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "Xd_in",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--Xd-in"
       ],
       "help": null,
       "primary_flag": "--Xd-in",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 81,
+      "summary": null,
       "type": null,
-      "usage_references": 17
+      "usage_references": 15
     },
     {
       "action": "append",
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "Xd_list",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--Xd-list"
       ],
       "help": null,
       "primary_flag": "--Xd-list",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 82,
+      "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 9
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "add_all_genes",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--add-all-genes"
       ],
       "help": null,
       "primary_flag": "--add-all-genes",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 240,
+      "scientific_semantic_impact": "yes",
+      "source_line": 241,
+      "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 6
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "add_ext",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--add-ext"
       ],
       "help": null,
       "primary_flag": "--add-ext",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 233,
+      "scientific_semantic_impact": "yes",
+      "source_line": 234,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "add_gene_sets_by_enrichment_p",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--add-gene-sets-by-enrichment-p"
       ],
       "help": null,
       "primary_flag": "--add-gene-sets-by-enrichment-p",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 370,
+      "scientific_semantic_impact": "yes",
+      "source_line": 369,
+      "summary": null,
       "type": "float",
-      "usage_references": 8
+      "usage_references": 5
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "add_gene_sets_by_fraction",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--add-gene-sets-by-fraction"
       ],
       "help": null,
       "primary_flag": "--add-gene-sets-by-fraction",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 371,
+      "scientific_semantic_impact": "yes",
+      "source_line": 370,
+      "summary": null,
       "type": "float",
-      "usage_references": 8
+      "usage_references": 5
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "adjust_priors",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--adjust-priors"
       ],
       "help": null,
       "primary_flag": "--adjust-priors",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 266,
+      "scientific_semantic_impact": "yes",
+      "source_line": 267,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "10",
       "deprecation_timeline": null,
       "dest": "alpha0",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--alpha0"
       ],
       "help": null,
       "primary_flag": "--alpha0",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 280,
+      "scientific_semantic_impact": "yes",
+      "source_line": 281,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_required",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "anchor_any_gene",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--anchor-any-gene"
       ],
       "help": null,
       "primary_flag": "--anchor-any-gene",
+      "public_visibility": "normal",
       "replacement": null,
-      "source_line": 359,
+      "scientific_semantic_impact": "yes",
+      "source_line": 358,
+      "summary": "anchor factorization to any gene in the loaded gene-phewas inputs",
       "type": null,
       "usage_references": 11
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_required",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "anchor_any_pheno",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--anchor-any-pheno"
       ],
       "help": null,
       "primary_flag": "--anchor-any-pheno",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 356,
+      "summary": "anchor factorization to any phenotype in the loaded phewas inputs",
       "type": null,
       "usage_references": 27
     },
     {
-      "action": "callback",
-      "category": "core_model",
-      "default": "None",
-      "deprecation_timeline": null,
-      "dest": "anchor_genes",
-      "flags": [
-        "",
-        "--anchor-gene"
-      ],
-      "help": null,
-      "primary_flag": "--anchor-gene",
-      "replacement": null,
-      "source_line": 358,
-      "type": "string",
-      "usage_references": 39
-    },
-    {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_required",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "anchor_gene_set",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--anchor-gene-set"
       ],
       "help": null,
       "primary_flag": "--anchor-gene-set",
+      "public_visibility": "normal",
       "replacement": null,
-      "source_line": 360,
+      "scientific_semantic_impact": "yes",
+      "source_line": 359,
+      "summary": "run gene-set anchoring using the loaded phenotype evidence",
       "type": null,
       "usage_references": 11
     },
     {
       "action": "callback",
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "anchor_genes",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--anchor-genes"
       ],
       "help": null,
       "primary_flag": "--anchor-genes",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 357,
+      "summary": "anchor factorization to one or more genes",
       "type": "string",
-      "usage_references": 16
+      "usage_references": 22
     },
     {
       "action": "callback",
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "anchor_phenos",
-      "flags": [
-        "",
-        "--anchor-pheno"
-      ],
-      "help": null,
-      "primary_flag": "--anchor-pheno",
-      "replacement": null,
-      "source_line": 355,
-      "type": "string",
-      "usage_references": 20
-    },
-    {
-      "action": "callback",
-      "category": "core_model",
-      "default": "None",
-      "deprecation_timeline": null,
-      "dest": "anchor_phenos",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--anchor-phenos"
       ],
       "help": null,
       "primary_flag": "--anchor-phenos",
+      "public_visibility": "normal",
       "replacement": null,
-      "source_line": 354,
+      "scientific_semantic_impact": "yes",
+      "source_line": 355,
+      "summary": "anchor factorization to one or more phenotypes",
       "type": "string",
-      "usage_references": 15
+      "usage_references": 17
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.05",
       "deprecation_timeline": null,
       "dest": "background_prior",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--background-prior"
       ],
       "help": null,
       "primary_flag": "--background-prior",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 98,
+      "summary": null,
       "type": "float",
-      "usage_references": 12
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "engineering",
+      "category": "method_optional",
       "default": "@",
       "deprecation_timeline": null,
       "dest": "batch_separator",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--batch-separator"
       ],
       "help": null,
       "primary_flag": "--batch-separator",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 84,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
@@ -352,67 +393,83 @@
       "default": "5000",
       "deprecation_timeline": null,
       "dest": "batch_size",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--batch-size"
       ],
       "help": null,
       "primary_flag": "--batch-size",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 216,
+      "scientific_semantic_impact": "no",
+      "source_line": 217,
+      "summary": null,
       "type": "int",
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1",
       "deprecation_timeline": null,
       "dest": "beta0",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--beta0"
       ],
       "help": null,
       "primary_flag": "--beta0",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 281,
+      "scientific_semantic_impact": "yes",
+      "source_line": 282,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "betas_from_phewas",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--betas-from-phewas"
       ],
       "help": null,
       "primary_flag": "--betas-from-phewas",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 163,
+      "summary": null,
       "type": null,
-      "usage_references": 14
+      "usage_references": 10
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "betas_uncorrected_from_phewas",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--betas-uncorrected-from-phewas"
       ],
       "help": null,
       "primary_flag": "--betas-uncorrected-from-phewas",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 164,
+      "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 9
     },
     {
       "action": null,
@@ -420,50 +477,62 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "config",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--config"
       ],
       "help": null,
       "primary_flag": "--config",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 195,
+      "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 40
+      "usage_references": 38
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "correct_betas_mean",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--correct-betas-mean"
       ],
       "help": null,
       "primary_flag": "--correct-betas-mean",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 253,
+      "scientific_semantic_impact": "yes",
+      "source_line": 254,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "engineering",
+      "category": "debug_only",
       "default": null,
       "deprecation_timeline": null,
       "dest": "debug_just_check_header",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--debug-just-check-header"
       ],
       "help": null,
       "primary_flag": "--debug-just-check-header",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 392,
+      "scientific_semantic_impact": "no",
+      "source_line": 391,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 5
     },
     {
       "action": null,
@@ -471,101 +540,125 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "debug_level",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--debug-level"
       ],
       "help": null,
       "primary_flag": "--debug-level",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 190,
+      "summary": "set logging verbosity for progress and diagnostic output",
       "type": "int",
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": "store_true",
-      "category": "engineering",
+      "category": "debug_only",
       "default": null,
       "deprecation_timeline": null,
       "dest": "debug_old_batch",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--debug-old-batch"
       ],
       "help": null,
       "primary_flag": "--debug-old-batch",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 388,
+      "scientific_semantic_impact": "no",
+      "source_line": 387,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 5
     },
     {
       "action": "store_true",
-      "category": "engineering",
+      "category": "debug_only",
       "default": null,
       "deprecation_timeline": null,
       "dest": "debug_only_avg_huge",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--debug-only-avg-huge"
       ],
       "help": null,
       "primary_flag": "--debug-only-avg-huge",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 393,
+      "scientific_semantic_impact": "no",
+      "source_line": 392,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 5
     },
     {
       "action": "store_true",
-      "category": "engineering",
+      "category": "debug_only",
       "default": null,
       "deprecation_timeline": null,
       "dest": "debug_skip_correlation",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--debug-skip-correlation"
       ],
       "help": null,
       "primary_flag": "--debug-skip-correlation",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 391,
+      "scientific_semantic_impact": "no",
+      "source_line": 390,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 5
     },
     {
       "action": "store_true",
-      "category": "engineering",
+      "category": "debug_only",
       "default": null,
       "deprecation_timeline": null,
       "dest": "debug_skip_huber",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--debug-skip-huber"
       ],
       "help": null,
       "primary_flag": "--debug-skip-huber",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 390,
+      "scientific_semantic_impact": "no",
+      "source_line": 389,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 5
     },
     {
       "action": "store_true",
-      "category": "engineering",
+      "category": "debug_only",
       "default": null,
       "deprecation_timeline": null,
       "dest": "debug_skip_phewas_covs",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--debug-skip-phewas-covs"
       ],
       "help": null,
       "primary_flag": "--debug-skip-phewas-covs",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 389,
+      "scientific_semantic_impact": "no",
+      "source_line": 388,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -573,1172 +666,1448 @@
       "default": "False",
       "deprecation_timeline": null,
       "dest": "deterministic",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--deterministic"
       ],
       "help": null,
       "primary_flag": "--deterministic",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 194,
+      "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 27
+      "usage_references": 24
     },
     {
       "action": null,
-      "category": "engineering",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "eaggl_bundle_in",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--eaggl-bundle-in"
       ],
       "help": null,
       "primary_flag": "--eaggl-bundle-in",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 133,
+      "summary": "load bundled PIGEAN outputs as default EAGGL inputs",
       "type": null,
-      "usage_references": 30
+      "usage_references": 31
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factor_phewas_from_gene_phewas_stats_in",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--factor-phewas-from-gene-phewas-stats-in"
       ],
       "help": null,
       "primary_flag": "--factor-phewas-from-gene-phewas-stats-in",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 174,
+      "summary": "run factor-level phewas from precomputed gene-phewas statistics",
       "type": null,
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.01",
       "deprecation_timeline": null,
       "dest": "factor_phewas_min_gene_factor_weight",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--factor-phewas-min-gene-factor-weight"
       ],
       "help": null,
       "primary_flag": "--factor-phewas-min-gene-factor-weight",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 175,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factor_phewas_stats_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--factor-phewas-stats-out"
       ],
       "help": null,
       "primary_flag": "--factor-phewas-stats-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 160,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factor_prune_gene_sets_num",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--factor-prune-gene-sets-num"
       ],
       "help": null,
       "primary_flag": "--factor-prune-gene-sets-num",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 366,
+      "scientific_semantic_impact": "yes",
+      "source_line": 365,
+      "summary": null,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factor_prune_gene_sets_val",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--factor-prune-gene-sets-val"
       ],
       "help": null,
       "primary_flag": "--factor-prune-gene-sets-val",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 367,
+      "scientific_semantic_impact": "yes",
+      "source_line": 366,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factor_prune_genes_num",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--factor-prune-genes-num"
       ],
       "help": null,
       "primary_flag": "--factor-prune-genes-num",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 364,
+      "scientific_semantic_impact": "yes",
+      "source_line": 363,
+      "summary": null,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factor_prune_genes_val",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--factor-prune-genes-val"
       ],
       "help": null,
       "primary_flag": "--factor-prune-genes-val",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 365,
+      "scientific_semantic_impact": "yes",
+      "source_line": 364,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factor_prune_phenos_num",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--factor-prune-phenos-num"
       ],
       "help": null,
       "primary_flag": "--factor-prune-phenos-num",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 362,
+      "scientific_semantic_impact": "yes",
+      "source_line": 361,
+      "summary": null,
       "type": "int",
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factor_prune_phenos_val",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--factor-prune-phenos-val"
       ],
       "help": null,
       "primary_flag": "--factor-prune-phenos-val",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 363,
+      "scientific_semantic_impact": "yes",
+      "source_line": 362,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factors_anchor_out",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--factors-anchor-out"
       ],
       "help": null,
       "primary_flag": "--factors-anchor-out",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 153,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 4
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "factors_out",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--factors-out"
       ],
       "help": null,
       "primary_flag": "--factors-out",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 152,
+      "summary": null,
       "type": null,
       "usage_references": 23
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "file_separator",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--file-separator"
       ],
       "help": null,
       "primary_flag": "--file-separator",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 85,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "filter_gene_set_p",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--filter-gene-set-p"
       ],
       "help": null,
       "primary_flag": "--filter-gene-set-p",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 222,
+      "scientific_semantic_impact": "yes",
+      "source_line": 223,
+      "summary": null,
       "type": "float",
-      "usage_references": 14
+      "usage_references": 8
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "filter_negative",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--filter-negative"
       ],
       "help": null,
       "primary_flag": "--filter-negative",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 223,
+      "scientific_semantic_impact": "yes",
+      "source_line": 224,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": null,
       "deprecation_timeline": null,
       "dest": "gauss_seidel_betas",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gauss-seidel-betas"
       ],
       "help": null,
       "primary_flag": "--gauss-seidel-betas",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 382,
+      "scientific_semantic_impact": "yes",
+      "source_line": 381,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_anchor_clusters_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-anchor-clusters-out"
       ],
       "help": null,
       "primary_flag": "--gene-anchor-clusters-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 158,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_clusters_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-clusters-out"
       ],
       "help": null,
       "primary_flag": "--gene-clusters-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 155,
+      "summary": null,
       "type": null,
-      "usage_references": 8
+      "usage_references": 5
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_cor_file",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-cor-file"
       ],
       "help": null,
       "primary_flag": "--gene-cor-file",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 138,
+      "summary": null,
       "type": null,
-      "usage_references": 31
+      "usage_references": 19
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_covs_in",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-covs-in"
       ],
       "help": null,
       "primary_flag": "--gene-covs-in",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 141,
+      "summary": null,
       "type": null,
-      "usage_references": 16
+      "usage_references": 11
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_covs_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-covs-out"
       ],
       "help": null,
       "primary_flag": "--gene-covs-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 149,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_effectors_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-effectors-out"
       ],
       "help": null,
       "primary_flag": "--gene-effectors-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 150,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1",
       "deprecation_timeline": null,
       "dest": "gene_filter_value",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-filter-value"
       ],
       "help": null,
       "primary_flag": "--gene-filter-value",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 283,
+      "scientific_semantic_impact": "yes",
+      "source_line": 284,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_gene_set_stats_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-gene-set-stats-out"
       ],
       "help": null,
       "primary_flag": "--gene-gene-set-stats-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 147,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_loc_file",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-loc-file"
       ],
       "help": null,
       "primary_flag": "--gene-loc-file",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 137,
+      "summary": null,
       "type": null,
-      "usage_references": 41
+      "usage_references": 37
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_map_in",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-map-in"
       ],
       "help": null,
       "primary_flag": "--gene-map-in",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 104,
+      "summary": null,
       "type": null,
-      "usage_references": 14
+      "usage_references": 9
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1",
       "deprecation_timeline": null,
       "dest": "gene_map_orig_gene_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-map-orig-gene-col"
       ],
       "help": null,
       "primary_flag": "--gene-map-orig-gene-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 105,
+      "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 5
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_pheno_stats_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-pheno-stats-out"
       ],
       "help": null,
       "primary_flag": "--gene-pheno-stats-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 168,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_combined_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-bfs-combined-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-bfs-combined-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 344,
+      "scientific_semantic_impact": "yes",
+      "source_line": 345,
+      "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 8
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_id_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-bfs-id-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-bfs-id-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 340,
+      "scientific_semantic_impact": "yes",
+      "source_line": 341,
+      "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 9
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_in",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-bfs-in"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-bfs-in",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 338,
+      "scientific_semantic_impact": "yes",
+      "source_line": 339,
+      "summary": "load gene-phewas statistics for projection and anchor workflows",
       "type": null,
-      "usage_references": 25
+      "usage_references": 22
     },
     {
       "action": null,
-      "category": "engineering",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_log_bf_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-bfs-log-bf-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-bfs-log-bf-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 342,
+      "scientific_semantic_impact": "yes",
+      "source_line": 343,
+      "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 9
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_pheno_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-bfs-pheno-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-bfs-pheno-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 348,
+      "scientific_semantic_impact": "yes",
+      "source_line": 349,
+      "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 9
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_prior_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-bfs-prior-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-bfs-prior-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 346,
+      "scientific_semantic_impact": "yes",
+      "source_line": 347,
+      "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 8
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_id_to_X_id",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-id-to-X-id"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-id-to-X-id",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 351,
+      "scientific_semantic_impact": "yes",
+      "source_line": 352,
+      "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_combined_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-stats-combined-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-stats-combined-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 345,
+      "scientific_semantic_impact": "yes",
+      "source_line": 346,
+      "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_id_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-stats-id-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-stats-id-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 341,
+      "scientific_semantic_impact": "yes",
+      "source_line": 342,
+      "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_in",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-stats-in"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-stats-in",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 339,
+      "scientific_semantic_impact": "yes",
+      "source_line": 340,
+      "summary": null,
       "type": null,
-      "usage_references": 65
+      "usage_references": 60
     },
     {
       "action": null,
-      "category": "engineering",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_log_bf_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-stats-log-bf-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-stats-log-bf-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 343,
+      "scientific_semantic_impact": "yes",
+      "source_line": 344,
+      "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_pheno_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-stats-pheno-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-stats-pheno-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 349,
+      "scientific_semantic_impact": "yes",
+      "source_line": 350,
+      "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_prior_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-phewas-stats-prior-col"
       ],
       "help": null,
       "primary_flag": "--gene-phewas-stats-prior-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 347,
+      "scientific_semantic_impact": "yes",
+      "source_line": 348,
+      "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_anchor_clusters_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-anchor-clusters-out"
       ],
       "help": null,
       "primary_flag": "--gene-set-anchor-clusters-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 157,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_clusters_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-clusters-out"
       ],
       "help": null,
       "primary_flag": "--gene-set-clusters-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 154,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.01",
       "deprecation_timeline": null,
       "dest": "gene_set_filter_value",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-filter-value"
       ],
       "help": null,
       "primary_flag": "--gene-set-filter-value",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 282,
+      "scientific_semantic_impact": "yes",
+      "source_line": 283,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_overlap_stats_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-overlap-stats-out"
       ],
       "help": null,
       "primary_flag": "--gene-set-overlap-stats-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 148,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.01",
       "deprecation_timeline": null,
       "dest": "gene_set_pheno_filter_value",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-pheno-filter-value"
       ],
       "help": null,
       "primary_flag": "--gene-set-pheno-filter-value",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 285,
+      "scientific_semantic_impact": "yes",
+      "source_line": 286,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_phewas_stats_beta_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-set-phewas-stats-beta-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-phewas-stats-beta-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 334,
+      "scientific_semantic_impact": "yes",
+      "source_line": 335,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_phewas_stats_beta_uncorrected_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-set-phewas-stats-beta-uncorrected-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-phewas-stats-beta-uncorrected-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 335,
+      "scientific_semantic_impact": "yes",
+      "source_line": 336,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "Gene_Set",
       "deprecation_timeline": null,
       "dest": "gene_set_phewas_stats_id_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-set-phewas-stats-id-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-phewas-stats-id-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 333,
+      "scientific_semantic_impact": "yes",
+      "source_line": 334,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_phewas_stats_in",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-set-phewas-stats-in"
       ],
       "help": null,
       "primary_flag": "--gene-set-phewas-stats-in",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 332,
+      "scientific_semantic_impact": "yes",
+      "source_line": 333,
+      "summary": "load gene-set phewas statistics for projection and anchor workflows",
       "type": null,
       "usage_references": 61
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_phewas_stats_pheno_col",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--gene-set-phewas-stats-pheno-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-phewas-stats-pheno-col",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 336,
+      "scientific_semantic_impact": "yes",
+      "source_line": 337,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_beta_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-beta-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-beta-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 118,
+      "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 10
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_beta_tilde_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-beta-tilde-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-beta-tilde-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 117,
+      "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 10
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_beta_uncorrected_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-beta-uncorrected-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-beta-uncorrected-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 119,
+      "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_exp_beta_tilde_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-exp-beta-tilde-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-exp-beta-tilde-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 116,
+      "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "Gene_Set",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_id_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-id-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-id-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 115,
+      "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 10
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_in",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--gene-set-stats-in"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-in",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 114,
+      "summary": null,
       "type": null,
-      "usage_references": 35
+      "usage_references": 32
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-out"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 144,
+      "summary": null,
       "type": null,
-      "usage_references": 20
+      "usage_references": 17
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_p_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-p-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-p-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 121,
+      "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_se_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-se-col"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-se-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 120,
+      "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_combined_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-combined-col"
       ],
       "help": null,
       "primary_flag": "--gene-stats-combined-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 130,
+      "summary": null,
       "type": null,
-      "usage_references": 16
+      "usage_references": 11
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_id_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-id-col"
       ],
       "help": null,
       "primary_flag": "--gene-stats-id-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 128,
+      "summary": null,
       "type": null,
-      "usage_references": 16
+      "usage_references": 11
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_in",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--gene-stats-in"
       ],
       "help": null,
       "primary_flag": "--gene-stats-in",
+      "public_visibility": "normal",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 127,
+      "summary": null,
       "type": null,
-      "usage_references": 49
+      "usage_references": 46
     },
     {
       "action": null,
-      "category": "engineering",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_log_bf_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-log-bf-col"
       ],
       "help": null,
       "primary_flag": "--gene-stats-log-bf-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 129,
+      "summary": null,
       "type": null,
-      "usage_references": 19
+      "usage_references": 14
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_required",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-out"
       ],
       "help": null,
       "primary_flag": "--gene-stats-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 146,
+      "summary": null,
       "type": null,
-      "usage_references": 22
+      "usage_references": 19
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_prior_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-prior-col"
       ],
       "help": null,
       "primary_flag": "--gene-stats-prior-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 131,
+      "summary": null,
       "type": null,
-      "usage_references": 16
+      "usage_references": 11
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_prob_col",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-prob-col"
       ],
       "help": null,
       "primary_flag": "--gene-stats-prob-col",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 132,
+      "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 10
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "engineering",
       "default": "100",
       "deprecation_timeline": null,
       "dest": "gibbs_max_mb_X_h",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gibbs-max-mb-X-h"
       ],
       "help": null,
       "primary_flag": "--gibbs-max-mb-X-h",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 213,
+      "scientific_semantic_impact": "no",
+      "source_line": 214,
+      "summary": null,
       "type": "int",
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1746,16 +2115,41 @@
       "default": "10",
       "deprecation_timeline": null,
       "dest": "gibbs_num_batches_parallel",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gibbs-num-batches-parallel"
       ],
       "help": null,
       "primary_flag": "--gibbs-num-batches-parallel",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 212,
+      "scientific_semantic_impact": "no",
+      "source_line": 213,
+      "summary": null,
       "type": "int",
-      "usage_references": 10
+      "usage_references": 6
+    },
+    {
+      "action": "store_true",
+      "category": "engineering",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "help_expert",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--help-expert"
+      ],
+      "help": null,
+      "primary_flag": "--help-expert",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 197,
+      "summary": "show expert workflow, projection, and debug flags in addition to the normal public interface",
+      "type": null,
+      "usage_references": 16
     },
     {
       "action": "store_true",
@@ -1763,201 +2157,249 @@
       "default": "False",
       "deprecation_timeline": null,
       "dest": "hide_opts",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--hide-opts"
       ],
       "help": null,
       "primary_flag": "--hide-opts",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 192,
+      "summary": "suppress printing resolved options at startup",
       "type": null,
-      "usage_references": 15
+      "usage_references": 13
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "engineering",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "hide_progress",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--hide-progress"
       ],
       "help": null,
       "primary_flag": "--hide-progress",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 191,
+      "summary": "reduce progress logging noise during long runs",
       "type": null,
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "hold_out_chrom",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--hold-out-chrom"
       ],
       "help": null,
       "primary_flag": "--hold-out-chrom",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 206,
+      "scientific_semantic_impact": "yes",
+      "source_line": 207,
+      "summary": null,
       "type": "string",
-      "usage_references": 10
+      "usage_references": 4
     },
     {
       "action": "append",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "[\"NA\"]",
       "deprecation_timeline": null,
       "dest": "ignore_genes",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--ignore-genes"
       ],
       "help": null,
       "primary_flag": "--ignore-genes",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 83,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": null,
       "deprecation_timeline": null,
       "dest": "ignore_negative_exp_beta",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--ignore-negative-exp-beta"
       ],
       "help": null,
       "primary_flag": "--ignore-negative-exp-beta",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 122,
+      "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 6
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "label_gene_sets_only",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--label-gene-sets-only"
       ],
       "help": null,
       "primary_flag": "--label-gene-sets-only",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 275,
+      "scientific_semantic_impact": "yes",
+      "source_line": 276,
+      "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 5
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "label_include_phenos",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--label-include-phenos"
       ],
       "help": null,
       "primary_flag": "--label-include-phenos",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 276,
+      "scientific_semantic_impact": "yes",
+      "source_line": 277,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "label_individually",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--label-individually"
       ],
       "help": null,
       "primary_flag": "--label-individually",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 277,
+      "scientific_semantic_impact": "yes",
+      "source_line": 278,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "linear",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--linear"
       ],
       "help": null,
       "primary_flag": "--linear",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 200,
+      "scientific_semantic_impact": "yes",
+      "source_line": 201,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "lmm_auth_key",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--lmm-auth-key"
       ],
       "help": null,
       "primary_flag": "--lmm-auth-key",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 272,
+      "scientific_semantic_impact": "yes",
+      "source_line": 273,
+      "summary": "enable optional LLM-based factor labeling",
       "type": "str",
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "gpt-4o-mini",
       "deprecation_timeline": null,
       "dest": "lmm_model",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--lmm-model"
       ],
       "help": null,
       "primary_flag": "--lmm-model",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 274,
+      "scientific_semantic_impact": "yes",
+      "source_line": 275,
+      "summary": "choose the LLM model used for optional labeling",
       "type": "str",
-      "usage_references": 5
+      "usage_references": 4
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "openai",
       "deprecation_timeline": null,
       "dest": "lmm_provider",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--lmm-provider"
       ],
       "help": null,
       "primary_flag": "--lmm-provider",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 273,
+      "scientific_semantic_impact": "yes",
+      "source_line": 274,
+      "summary": "choose the LLM provider used for optional labeling",
       "type": "str",
       "usage_references": 7
     },
@@ -1967,50 +2409,62 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "log_file",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--log-file"
       ],
       "help": null,
       "primary_flag": "--log-file",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 188,
+      "summary": "write structured run logs to this file",
       "type": null,
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "max_for_linear",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-for-linear"
       ],
       "help": null,
       "primary_flag": "--max-for-linear",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 202,
+      "scientific_semantic_impact": "yes",
+      "source_line": 203,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.01",
       "deprecation_timeline": null,
       "dest": "max_frac_sem_betas",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-frac-sem-betas"
       ],
       "help": null,
       "primary_flag": "--max-frac-sem-betas",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 383,
+      "scientific_semantic_impact": "yes",
+      "source_line": 382,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
@@ -2018,220 +2472,272 @@
       "default": "2.0",
       "deprecation_timeline": null,
       "dest": "max_gb",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-gb"
       ],
       "help": null,
       "primary_flag": "--max-gb",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 214,
+      "scientific_semantic_impact": "no",
+      "source_line": 215,
+      "summary": null,
       "type": "float",
-      "usage_references": 21
+      "usage_references": 17
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.05",
       "deprecation_timeline": null,
       "dest": "max_gene_set_read_p",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-gene-set-read-p"
       ],
       "help": null,
       "primary_flag": "--max-gene-set-read-p",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 229,
+      "scientific_semantic_impact": "yes",
+      "source_line": 230,
+      "summary": null,
       "type": "float",
-      "usage_references": 11
+      "usage_references": 5
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "30000",
       "deprecation_timeline": null,
       "dest": "max_gene_set_size",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-gene-set-size"
       ],
       "help": null,
       "primary_flag": "--max-gene-set-size",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 239,
+      "scientific_semantic_impact": "yes",
+      "source_line": 240,
+      "summary": null,
       "type": "int",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0",
       "deprecation_timeline": null,
       "dest": "max_no_write_gene_gene_set_beta",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-no-write-gene-gene-set-beta"
       ],
       "help": null,
       "primary_flag": "--max-no-write-gene-gene-set-beta",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 179,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0",
       "deprecation_timeline": null,
       "dest": "max_no_write_gene_pheno",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-no-write-gene-pheno"
       ],
       "help": null,
       "primary_flag": "--max-no-write-gene-pheno",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 182,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "max_no_write_gene_set_beta",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-no-write-gene-set-beta"
       ],
       "help": null,
       "primary_flag": "--max-no-write-gene-set-beta",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 178,
+      "summary": null,
       "type": "float",
-      "usage_references": 18
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "max_no_write_gene_set_beta_uncorrected",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-no-write-gene-set-beta-uncorrected"
       ],
       "help": null,
       "primary_flag": "--max-no-write-gene-set-beta-uncorrected",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 181,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "max_num_burn_in",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-num-burn-in"
       ],
       "help": null,
       "primary_flag": "--max-num-burn-in",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 258,
+      "scientific_semantic_impact": "yes",
+      "source_line": 259,
+      "summary": null,
       "type": "int",
-      "usage_references": 11
+      "usage_references": 5
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "30",
       "deprecation_timeline": null,
       "dest": "max_num_factors",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--max-num-factors"
       ],
       "help": null,
       "primary_flag": "--max-num-factors",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 278,
+      "scientific_semantic_impact": "yes",
+      "source_line": 279,
+      "summary": null,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "5000",
       "deprecation_timeline": null,
       "dest": "max_num_gene_sets",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-num-gene-sets"
       ],
       "help": null,
       "primary_flag": "--max-num-gene-sets",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 228,
+      "scientific_semantic_impact": "yes",
+      "source_line": 229,
+      "summary": null,
       "type": "int",
-      "usage_references": 41
+      "usage_references": 23
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "5000",
       "deprecation_timeline": null,
       "dest": "max_num_gene_sets_hyper",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-num-gene-sets-hyper"
       ],
       "help": null,
       "primary_flag": "--max-num-gene-sets-hyper",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 227,
+      "scientific_semantic_impact": "yes",
+      "source_line": 228,
+      "summary": null,
       "type": "int",
-      "usage_references": 13
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "max_num_gene_sets_initial",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-num-gene-sets-initial"
       ],
       "help": null,
       "primary_flag": "--max-num-gene-sets-initial",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 226,
+      "scientific_semantic_impact": "yes",
+      "source_line": 227,
+      "summary": null,
       "type": "int",
-      "usage_references": 15
+      "usage_references": 9
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1100",
       "deprecation_timeline": null,
       "dest": "max_num_iter_betas",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-num-iter-betas"
       ],
       "help": null,
       "primary_flag": "--max-num-iter-betas",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 379,
+      "scientific_semantic_impact": "yes",
+      "source_line": 378,
+      "summary": null,
       "type": "int",
-      "usage_references": 11
+      "usage_references": 5
     },
     {
       "action": null,
@@ -2239,543 +2745,671 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "max_read_entries_at_once",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--max-read-entries-at-once"
       ],
       "help": null,
       "primary_flag": "--max-read-entries-at-once",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 215,
+      "scientific_semantic_impact": "no",
+      "source_line": 216,
+      "summary": null,
       "type": "int",
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1",
       "deprecation_timeline": null,
       "dest": "min_gene_phewas_read_value",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--min-gene-phewas-read-value"
       ],
       "help": null,
       "primary_flag": "--min-gene-phewas-read-value",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 350,
+      "scientific_semantic_impact": "yes",
+      "source_line": 351,
+      "summary": null,
       "type": "float",
-      "usage_references": 12
+      "usage_references": 8
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1e-20",
       "deprecation_timeline": null,
       "dest": "min_gene_set_read_beta",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--min-gene-set-read-beta"
       ],
       "help": null,
       "primary_flag": "--min-gene-set-read-beta",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 230,
+      "scientific_semantic_impact": "yes",
+      "source_line": 231,
+      "summary": null,
       "type": "float",
-      "usage_references": 18
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1e-20",
       "deprecation_timeline": null,
       "dest": "min_gene_set_read_beta_uncorrected",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--min-gene-set-read-beta-uncorrected"
       ],
       "help": null,
       "primary_flag": "--min-gene-set-read-beta-uncorrected",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 231,
+      "scientific_semantic_impact": "yes",
+      "source_line": 232,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "min_gene_set_size",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--min-gene-set-size"
       ],
       "help": null,
       "primary_flag": "--min-gene-set-size",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 221,
+      "scientific_semantic_impact": "yes",
+      "source_line": 222,
+      "summary": null,
       "type": "int",
-      "usage_references": 11
+      "usage_references": 5
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.001",
       "deprecation_timeline": null,
       "dest": "min_lambda_threshold",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--min-lambda-threshold"
       ],
       "help": null,
       "primary_flag": "--min-lambda-threshold",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 287,
+      "scientific_semantic_impact": "yes",
+      "source_line": 288,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "10",
       "deprecation_timeline": null,
       "dest": "min_num_iter_betas",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--min-num-iter-betas"
       ],
       "help": null,
       "primary_flag": "--min-num-iter-betas",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 378,
+      "scientific_semantic_impact": "yes",
+      "source_line": 377,
+      "summary": null,
       "type": "int",
-      "usage_references": 11
+      "usage_references": 5
     },
     {
       "action": "store_false",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "True",
       "deprecation_timeline": null,
       "dest": "add_bottom",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-add-bottom"
       ],
       "help": null,
       "primary_flag": "--no-add-bottom",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 235,
+      "scientific_semantic_impact": "yes",
+      "source_line": 236,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_false",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "True",
       "deprecation_timeline": null,
       "dest": "add_top",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-add-top"
       ],
       "help": null,
       "primary_flag": "--no-add-top",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 234,
+      "scientific_semantic_impact": "yes",
+      "source_line": 235,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_false",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "adjust_priors",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-adjust-priors"
       ],
       "help": null,
       "primary_flag": "--no-adjust-priors",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 267,
+      "scientific_semantic_impact": "yes",
+      "source_line": 268,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_false",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "True",
       "deprecation_timeline": null,
       "dest": "cap_weights",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-cap-weights"
       ],
       "help": null,
       "primary_flag": "--no-cap-weights",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 238,
+      "scientific_semantic_impact": "yes",
+      "source_line": 239,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_false",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "correct_betas_mean",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-correct-betas-mean"
       ],
       "help": null,
       "primary_flag": "--no-correct-betas-mean",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 254,
+      "scientific_semantic_impact": "yes",
+      "source_line": 255,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_false",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "filter_negative",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-filter-negative"
       ],
       "help": null,
       "primary_flag": "--no-filter-negative",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 224,
+      "scientific_semantic_impact": "yes",
+      "source_line": 225,
+      "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 5
     },
     {
       "action": "store_false",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "linear",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-linear"
       ],
       "help": null,
       "primary_flag": "--no-linear",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 201,
+      "scientific_semantic_impact": "yes",
+      "source_line": 202,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_false",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "sparse_solution",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-sparse-solution"
       ],
       "help": null,
       "primary_flag": "--no-sparse-solution",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 262,
+      "scientific_semantic_impact": "yes",
+      "source_line": 263,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": null,
       "deprecation_timeline": null,
       "dest": "no_transpose",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--no-transpose"
       ],
       "help": null,
       "primary_flag": "--no-transpose",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 286,
+      "scientific_semantic_impact": "yes",
+      "source_line": 287,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "10",
       "deprecation_timeline": null,
       "dest": "num_chains",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--num-chains"
       ],
       "help": null,
       "primary_flag": "--num-chains",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 375,
+      "scientific_semantic_impact": "yes",
+      "source_line": 374,
+      "summary": null,
       "type": "int",
-      "usage_references": 22
+      "usage_references": 11
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "4",
       "deprecation_timeline": null,
       "dest": "num_chains_betas",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--num-chains-betas"
       ],
       "help": null,
       "primary_flag": "--num-chains-betas",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 380,
+      "scientific_semantic_impact": "yes",
+      "source_line": 379,
+      "summary": null,
       "type": "int",
-      "usage_references": 12
+      "usage_references": 6
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "num_gene_sets_for_prior",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--num-gene-sets-for-prior"
       ],
       "help": null,
       "primary_flag": "--num-gene-sets-for-prior",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 90,
+      "summary": null,
       "type": "int",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": null,
       "deprecation_timeline": null,
       "dest": "ols",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--ols"
       ],
       "help": null,
       "primary_flag": "--ols",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 199,
+      "scientific_semantic_impact": "yes",
+      "source_line": 200,
+      "summary": null,
       "type": null,
-      "usage_references": 14
+      "usage_references": 8
     },
     {
       "action": "append",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "p_noninf",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--p-noninf"
       ],
       "help": null,
       "primary_flag": "--p-noninf",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 88,
+      "summary": null,
       "type": "float",
-      "usage_references": 24
+      "usage_references": 15
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "params_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--params-out"
       ],
       "help": null,
       "primary_flag": "--params-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 185,
+      "summary": null,
       "type": null,
-      "usage_references": 20
+      "usage_references": 16
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "permute_gene_sets",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--permute-gene-sets"
       ],
       "help": null,
       "primary_flag": "--permute-gene-sets",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 207,
+      "scientific_semantic_impact": "yes",
+      "source_line": 208,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "pheno_anchor_clusters_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--pheno-anchor-clusters-out"
       ],
       "help": null,
       "primary_flag": "--pheno-anchor-clusters-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 159,
+      "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "pheno_clusters_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--pheno-clusters-out"
       ],
       "help": null,
       "primary_flag": "--pheno-clusters-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 156,
+      "summary": null,
       "type": null,
-      "usage_references": 8
+      "usage_references": 5
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1",
       "deprecation_timeline": null,
       "dest": "pheno_filter_value",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--pheno-filter-value"
       ],
       "help": null,
       "primary_flag": "--pheno-filter-value",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 284,
+      "scientific_semantic_impact": "yes",
+      "source_line": 285,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 2
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "phewas_gene_set_stats_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--phewas-gene-set-stats-out"
       ],
       "help": null,
       "primary_flag": "--phewas-gene-set-stats-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 145,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "phewas_stats_out",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--phewas-stats-out"
       ],
       "help": null,
       "primary_flag": "--phewas-stats-out",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 151,
+      "summary": null,
       "type": null,
-      "usage_references": 17
+      "usage_references": 12
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.05",
       "deprecation_timeline": null,
       "dest": "phi",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--phi"
       ],
       "help": null,
       "primary_flag": "--phi",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 279,
+      "scientific_semantic_impact": "yes",
+      "source_line": 280,
+      "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_all_in",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--positive-controls-all-in"
       ],
       "help": null,
       "primary_flag": "--positive-controls-all-in",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 110,
+      "summary": null,
       "type": null,
-      "usage_references": 14
+      "usage_references": 10
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_in",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--positive-controls-in"
       ],
       "help": null,
       "primary_flag": "--positive-controls-in",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 108,
+      "summary": null,
       "type": null,
-      "usage_references": 20
+      "usage_references": 16
     },
     {
       "action": "callback",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_list",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--positive-controls-list"
       ],
       "help": null,
       "primary_flag": "--positive-controls-list",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 109,
+      "summary": null,
       "type": "string",
-      "usage_references": 26
+      "usage_references": 22
     },
     {
       "action": null,
@@ -2783,16 +3417,20 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "pre_filter_batch_size",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--pre-filter-batch-size"
       ],
       "help": null,
       "primary_flag": "--pre-filter-batch-size",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 217,
+      "scientific_semantic_impact": "no",
+      "source_line": 218,
+      "summary": null,
       "type": "int",
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2800,16 +3438,20 @@
       "default": "500",
       "deprecation_timeline": null,
       "dest": "pre_filter_small_batch_size",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--pre-filter-small-batch-size"
       ],
       "help": null,
       "primary_flag": "--pre-filter-small-batch-size",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 218,
+      "scientific_semantic_impact": "no",
+      "source_line": 219,
+      "summary": null,
       "type": "int",
-      "usage_references": 10
+      "usage_references": 6
     },
     {
       "action": "store_true",
@@ -2817,16 +3459,20 @@
       "default": "False",
       "deprecation_timeline": null,
       "dest": "print_effective_config",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--print-effective-config"
       ],
       "help": null,
       "primary_flag": "--print-effective-config",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 196,
+      "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 32
+      "usage_references": 30
     },
     {
       "action": null,
@@ -2834,101 +3480,125 @@
       "default": "20",
       "deprecation_timeline": null,
       "dest": "priors_num_gene_batches",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--priors-num-gene-batches"
       ],
       "help": null,
       "primary_flag": "--priors-num-gene-batches",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 211,
+      "scientific_semantic_impact": "no",
+      "source_line": 212,
+      "summary": null,
       "type": "int",
-      "usage_references": 11
+      "usage_references": 7
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "project_phenos_from_gene_sets",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--project-phenos-from-gene-sets"
       ],
       "help": null,
       "primary_flag": "--project-phenos-from-gene-sets",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 352,
+      "scientific_semantic_impact": "yes",
+      "source_line": 353,
+      "summary": "project phenotype loadings from gene-set scores instead of gene scores",
       "type": null,
-      "usage_references": 5
+      "usage_references": 4
     },
     {
       "action": "store_true",
-      "category": "engineering",
+      "category": "method_optional",
       "default": null,
       "deprecation_timeline": null,
       "dest": "prune_deterministically",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--prune-deterministically"
       ],
       "help": null,
       "primary_flag": "--prune-deterministically",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 243,
+      "scientific_semantic_impact": "yes",
+      "source_line": 244,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "prune_gene_sets",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--prune-gene-sets"
       ],
       "help": null,
       "primary_flag": "--prune-gene-sets",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 241,
+      "scientific_semantic_impact": "yes",
+      "source_line": 242,
+      "summary": null,
       "type": "float",
-      "usage_references": 21
+      "usage_references": 15
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "1.01",
       "deprecation_timeline": null,
       "dest": "r_threshold_burn_in_betas",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--r-threshold-burn-in-betas"
       ],
       "help": null,
       "primary_flag": "--r-threshold-burn-in-betas",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 381,
+      "scientific_semantic_impact": "yes",
+      "source_line": 380,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "run_phewas_from_gene_phewas_stats_in",
+      "documentation_target": "advanced_workflows",
       "flags": [
         "",
         "--run-phewas-from-gene-phewas-stats-in"
       ],
       "help": null,
       "primary_flag": "--run-phewas-from-gene-phewas-stats-in",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 171,
+      "summary": "run gene-level phewas output stage from precomputed gene-phewas statistics",
       "type": null,
-      "usage_references": 29
+      "usage_references": 28
     },
     {
       "action": null,
@@ -2936,203 +3606,255 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "seed",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--seed"
       ],
       "help": null,
       "primary_flag": "--seed",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 193,
+      "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 21
+      "usage_references": 19
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "sigma_power",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--sigma-power"
       ],
       "help": null,
       "primary_flag": "--sigma-power",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 91,
+      "summary": null,
       "type": "float",
-      "usage_references": 13
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "sparse_frac_betas",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--sparse-frac-betas"
       ],
       "help": null,
       "primary_flag": "--sparse-frac-betas",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 263,
+      "scientific_semantic_impact": "yes",
+      "source_line": 264,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "sparse_solution",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--sparse-solution"
       ],
       "help": null,
       "primary_flag": "--sparse-solution",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 261,
+      "scientific_semantic_impact": "yes",
+      "source_line": 262,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "0.5",
       "deprecation_timeline": null,
       "dest": "threshold_weights",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--threshold-weights"
       ],
       "help": null,
       "primary_flag": "--threshold-weights",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 237,
+      "scientific_semantic_impact": "yes",
+      "source_line": 238,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "top_gene_set_prior",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--top-gene-set-prior"
       ],
       "help": null,
       "primary_flag": "--top-gene-set-prior",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 89,
+      "summary": null,
       "type": "float",
-      "usage_references": 11
+      "usage_references": 5
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "update_hyper",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--update-hyper"
       ],
       "help": null,
       "primary_flag": "--update-hyper",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 95,
+      "summary": null,
       "type": "string",
-      "usage_references": 15
+      "usage_references": 10
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "use_beta_uncorrected_for_gene_gene_set_write_filter",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--use-beta-uncorrected-for-gene-gene-set-write-filter"
       ],
       "help": null,
       "primary_flag": "--use-beta-uncorrected-for-gene-gene-set-write-filter",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "yes",
       "source_line": 180,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "store_true",
-      "category": "core_model",
+      "category": "method_optional",
       "default": null,
       "deprecation_timeline": null,
       "dest": "use_max_r_for_convergence_betas",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--use-max-r-for-convergence-betas"
       ],
       "help": null,
       "primary_flag": "--use-max-r-for-convergence-betas",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 384,
+      "scientific_semantic_impact": "yes",
+      "source_line": 383,
+      "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "warnings_file",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--warnings-file"
       ],
       "help": null,
       "primary_flag": "--warnings-file",
+      "public_visibility": "expert",
       "replacement": null,
+      "scientific_semantic_impact": "no",
       "source_line": 189,
+      "summary": "write warning messages to this file",
       "type": null,
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "core_model",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "weighted_prune_gene_sets",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--weighted-prune-gene-sets"
       ],
       "help": null,
       "primary_flag": "--weighted-prune-gene-sets",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 242,
+      "scientific_semantic_impact": "yes",
+      "source_line": 243,
+      "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 3
     },
     {
       "action": "callback",
-      "category": "core_model",
+      "category": "method_optional",
       "default": "[50,100,250,1000]",
       "deprecation_timeline": null,
       "dest": "x_sparsify",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--x-sparsify"
       ],
       "help": null,
       "primary_flag": "--x-sparsify",
+      "public_visibility": "expert",
       "replacement": null,
-      "source_line": 232,
+      "scientific_semantic_impact": "yes",
+      "source_line": 233,
+      "summary": null,
       "type": "string",
-      "usage_references": 12
+      "usage_references": 6
     }
-  ]
+  ],
+  "visibilities": {
+    "expert": 169,
+    "normal": 14
+  }
 }

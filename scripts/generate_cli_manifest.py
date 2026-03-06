@@ -145,10 +145,13 @@ def _extract_help(kwargs):
 
 def _iter_text_files(repo_root: Path):
     skip_dirs = {".git", ".pytest_cache", "__pycache__", "dist", ".tmp"}
+    skip_files = {"CLI_OPTIONS.md", "cli_option_manifest.json"}
     for path in repo_root.rglob("*"):
         if not path.is_file():
             continue
         if any(part in skip_dirs for part in path.parts):
+            continue
+        if path.name in skip_files:
             continue
         if path.suffix.lower() in {".py", ".md", ".txt", ".json", ".sh", ".toml", ".tsv"}:
             yield path

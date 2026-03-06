@@ -1,205 +1,218 @@
 # CLI Option Inventory
 
-This document is generated from parser definitions in `src/eaggl/cli.py`.
-Do not edit manually; run `scripts/generate_cli_manifest.py`.
+This document is generated from parser definitions in `src/eaggl/cli.py` and CLI metadata in `eaggl.cli`.
+Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `184`
-- `core_model`: `158`
-- `engineering`: `26`
+- Total options: `183`
+- `method_required`: `17`
+- `method_optional`: `142`
+- `engineering`: `18`
+- `debug_only`: `6`
+- visibility `expert`: `169`
+- visibility `normal`: `14`
 
-## Core Model
+## Method Required
 
-| Flag | Dest | Type | Default | Action | Usage refs | Notes |
-|---|---|---|---|---|---:|---|
-| `--V-in` | `V_in` | `-` | `None` | `-` | 13 | - |
-| `--X-in` | `X_in` | `-` | `None` | `append` | 48 | - |
-| `--X-list` | `X_list` | `-` | `None` | `append` | 22 | - |
-| `--Xd-in` | `Xd_in` | `-` | `None` | `append` | 17 | - |
-| `--Xd-list` | `Xd_list` | `-` | `None` | `append` | 11 | - |
-| `--add-all-genes` | `add_all_genes` | `-` | `False` | `store_true` | 11 | - |
-| `--add-ext` | `add_ext` | `-` | `False` | `store_true` | 9 | - |
-| `--add-gene-sets-by-enrichment-p` | `add_gene_sets_by_enrichment_p` | `float` | `None` | `-` | 8 | - |
-| `--add-gene-sets-by-fraction` | `add_gene_sets_by_fraction` | `float` | `None` | `-` | 8 | - |
-| `--adjust-priors` | `adjust_priors` | `-` | `None` | `store_true` | 9 | - |
-| `--alpha0` | `alpha0` | `float` | `10` | `-` | 5 | - |
-| `--anchor-any-gene` | `anchor_any_gene` | `-` | `False` | `store_true` | 11 | - |
-| `--anchor-any-pheno` | `anchor_any_pheno` | `-` | `False` | `store_true` | 27 | - |
-| `--anchor-gene` | `anchor_genes` | `string` | `None` | `callback` | 39 | - |
-| `--anchor-gene-set` | `anchor_gene_set` | `-` | `False` | `store_true` | 11 | - |
-| `--anchor-genes` | `anchor_genes` | `string` | `None` | `callback` | 16 | - |
-| `--anchor-pheno` | `anchor_phenos` | `string` | `None` | `callback` | 20 | - |
-| `--anchor-phenos` | `anchor_phenos` | `string` | `None` | `callback` | 15 | - |
-| `--background-prior` | `background_prior` | `float` | `0.05` | `-` | 12 | - |
-| `--beta0` | `beta0` | `float` | `1` | `-` | 5 | - |
-| `--betas-from-phewas` | `betas_from_phewas` | `-` | `False` | `store_true` | 14 | - |
-| `--betas-uncorrected-from-phewas` | `betas_uncorrected_from_phewas` | `-` | `False` | `store_true` | 13 | - |
-| `--correct-betas-mean` | `correct_betas_mean` | `-` | `None` | `store_true` | 9 | - |
-| `--factor-phewas-from-gene-phewas-stats-in` | `factor_phewas_from_gene_phewas_stats_in` | `-` | `None` | `-` | 8 | - |
-| `--factor-phewas-min-gene-factor-weight` | `factor_phewas_min_gene_factor_weight` | `float` | `0.01` | `-` | 5 | - |
-| `--factor-phewas-stats-out` | `factor_phewas_stats_out` | `-` | `None` | `-` | 5 | - |
-| `--factor-prune-gene-sets-num` | `factor_prune_gene_sets_num` | `int` | `None` | `-` | 5 | - |
-| `--factor-prune-gene-sets-val` | `factor_prune_gene_sets_val` | `float` | `None` | `-` | 5 | - |
-| `--factor-prune-genes-num` | `factor_prune_genes_num` | `int` | `None` | `-` | 5 | - |
-| `--factor-prune-genes-val` | `factor_prune_genes_val` | `float` | `None` | `-` | 5 | - |
-| `--factor-prune-phenos-num` | `factor_prune_phenos_num` | `int` | `None` | `-` | 9 | - |
-| `--factor-prune-phenos-val` | `factor_prune_phenos_val` | `float` | `None` | `-` | 9 | - |
-| `--factors-anchor-out` | `factors_anchor_out` | `-` | `None` | `-` | 5 | - |
-| `--factors-out` | `factors_out` | `-` | `None` | `-` | 23 | - |
-| `--file-separator` | `file_separator` | `-` | `None` | `-` | 9 | - |
-| `--filter-gene-set-p` | `filter_gene_set_p` | `float` | `None` | `-` | 14 | - |
-| `--filter-negative` | `filter_negative` | `-` | `None` | `store_true` | 9 | - |
-| `--gauss-seidel-betas` | `gauss_seidel_betas` | `-` | `-` | `store_true` | 9 | - |
-| `--gene-anchor-clusters-out` | `gene_anchor_clusters_out` | `-` | `None` | `-` | 5 | - |
-| `--gene-clusters-out` | `gene_clusters_out` | `-` | `None` | `-` | 8 | - |
-| `--gene-cor-file` | `gene_cor_file` | `-` | `None` | `-` | 31 | - |
-| `--gene-covs-in` | `gene_covs_in` | `-` | `None` | `-` | 16 | - |
-| `--gene-covs-out` | `gene_covs_out` | `-` | `None` | `-` | 9 | - |
-| `--gene-effectors-out` | `gene_effectors_out` | `-` | `None` | `-` | 9 | - |
-| `--gene-filter-value` | `gene_filter_value` | `float` | `1` | `-` | 5 | - |
-| `--gene-gene-set-stats-out` | `gene_gene_set_stats_out` | `-` | `None` | `-` | 9 | - |
-| `--gene-loc-file` | `gene_loc_file` | `-` | `None` | `-` | 41 | - |
-| `--gene-map-in` | `gene_map_in` | `-` | `None` | `-` | 14 | - |
-| `--gene-map-orig-gene-col` | `gene_map_orig_gene_col` | `-` | `1` | `-` | 11 | - |
-| `--gene-pheno-stats-out` | `gene_pheno_stats_out` | `-` | `None` | `-` | 5 | - |
-| `--gene-phewas-bfs-combined-col` | `gene_phewas_bfs_combined_col` | `-` | `None` | `-` | 12 | - |
-| `--gene-phewas-bfs-id-col` | `gene_phewas_bfs_id_col` | `-` | `None` | `-` | 13 | - |
-| `--gene-phewas-bfs-in` | `gene_phewas_bfs_in` | `-` | `None` | `-` | 25 | - |
-| `--gene-phewas-bfs-pheno-col` | `gene_phewas_bfs_pheno_col` | `-` | `None` | `-` | 13 | - |
-| `--gene-phewas-bfs-prior-col` | `gene_phewas_bfs_prior_col` | `-` | `None` | `-` | 12 | - |
-| `--gene-phewas-id-to-X-id` | `gene_phewas_id_to_X_id` | `-` | `None` | `-` | 11 | - |
-| `--gene-phewas-stats-combined-col` | `gene_phewas_bfs_combined_col` | `-` | `None` | `-` | 10 | - |
-| `--gene-phewas-stats-id-col` | `gene_phewas_bfs_id_col` | `-` | `None` | `-` | 10 | - |
-| `--gene-phewas-stats-in` | `gene_phewas_bfs_in` | `-` | `None` | `-` | 65 | - |
-| `--gene-phewas-stats-pheno-col` | `gene_phewas_bfs_pheno_col` | `-` | `None` | `-` | 10 | - |
-| `--gene-phewas-stats-prior-col` | `gene_phewas_bfs_prior_col` | `-` | `None` | `-` | 10 | - |
-| `--gene-set-anchor-clusters-out` | `gene_set_anchor_clusters_out` | `-` | `None` | `-` | 5 | - |
-| `--gene-set-clusters-out` | `gene_set_clusters_out` | `-` | `None` | `-` | 9 | - |
-| `--gene-set-filter-value` | `gene_set_filter_value` | `float` | `0.01` | `-` | 5 | - |
-| `--gene-set-overlap-stats-out` | `gene_set_overlap_stats_out` | `-` | `None` | `-` | 9 | - |
-| `--gene-set-pheno-filter-value` | `gene_set_pheno_filter_value` | `float` | `0.01` | `-` | 5 | - |
-| `--gene-set-phewas-stats-beta-col` | `gene_set_phewas_stats_beta_col` | `-` | `None` | `-` | 5 | - |
-| `--gene-set-phewas-stats-beta-uncorrected-col` | `gene_set_phewas_stats_beta_uncorrected_col` | `-` | `None` | `-` | 5 | - |
-| `--gene-set-phewas-stats-id-col` | `gene_set_phewas_stats_id_col` | `-` | `Gene_Set` | `-` | 5 | - |
-| `--gene-set-phewas-stats-in` | `gene_set_phewas_stats_in` | `-` | `None` | `-` | 61 | - |
-| `--gene-set-phewas-stats-pheno-col` | `gene_set_phewas_stats_pheno_col` | `-` | `None` | `-` | 5 | - |
-| `--gene-set-stats-beta-col` | `gene_set_stats_beta_col` | `-` | `None` | `-` | 15 | - |
-| `--gene-set-stats-beta-tilde-col` | `gene_set_stats_beta_tilde_col` | `-` | `None` | `-` | 15 | - |
-| `--gene-set-stats-beta-uncorrected-col` | `gene_set_stats_beta_uncorrected_col` | `-` | `None` | `-` | 12 | - |
-| `--gene-set-stats-exp-beta-tilde-col` | `gene_set_stats_exp_beta_tilde_col` | `-` | `None` | `-` | 11 | - |
-| `--gene-set-stats-id-col` | `gene_set_stats_id_col` | `-` | `Gene_Set` | `-` | 15 | - |
-| `--gene-set-stats-in` | `gene_set_stats_in` | `-` | `None` | `-` | 35 | - |
-| `--gene-set-stats-out` | `gene_set_stats_out` | `-` | `None` | `-` | 20 | - |
-| `--gene-set-stats-p-col` | `gene_set_stats_p_col` | `-` | `None` | `-` | 12 | - |
-| `--gene-set-stats-se-col` | `gene_set_stats_se_col` | `-` | `None` | `-` | 12 | - |
-| `--gene-stats-combined-col` | `gene_stats_combined_col` | `-` | `None` | `-` | 16 | - |
-| `--gene-stats-id-col` | `gene_stats_id_col` | `-` | `None` | `-` | 16 | - |
-| `--gene-stats-in` | `gene_stats_in` | `-` | `None` | `-` | 49 | - |
-| `--gene-stats-out` | `gene_stats_out` | `-` | `None` | `-` | 22 | - |
-| `--gene-stats-prior-col` | `gene_stats_prior_col` | `-` | `None` | `-` | 16 | - |
-| `--gene-stats-prob-col` | `gene_stats_prob_col` | `-` | `None` | `-` | 15 | - |
-| `--gibbs-max-mb-X-h` | `gibbs_max_mb_X_h` | `int` | `100` | `-` | 10 | - |
-| `--hide-progress` | `hide_progress` | `-` | `False` | `store_true` | 9 | - |
-| `--hold-out-chrom` | `hold_out_chrom` | `string` | `None` | `-` | 10 | - |
-| `--ignore-genes` | `ignore_genes` | `-` | `["NA"]` | `append` | 9 | - |
-| `--ignore-negative-exp-beta` | `ignore_negative_exp_beta` | `-` | `-` | `store_true` | 12 | - |
-| `--label-gene-sets-only` | `label_gene_sets_only` | `-` | `False` | `store_true` | 7 | - |
-| `--label-include-phenos` | `label_include_phenos` | `-` | `False` | `store_true` | 5 | - |
-| `--label-individually` | `label_individually` | `-` | `False` | `store_true` | 5 | - |
-| `--linear` | `linear` | `-` | `None` | `store_true` | 9 | - |
-| `--lmm-auth-key` | `lmm_auth_key` | `str` | `None` | `-` | 8 | - |
-| `--lmm-model` | `lmm_model` | `str` | `gpt-4o-mini` | `-` | 5 | - |
-| `--lmm-provider` | `lmm_provider` | `str` | `openai` | `-` | 7 | - |
-| `--max-for-linear` | `max_for_linear` | `float` | `None` | `-` | 9 | - |
-| `--max-frac-sem-betas` | `max_frac_sem_betas` | `float` | `0.01` | `-` | 9 | - |
-| `--max-gene-set-read-p` | `max_gene_set_read_p` | `float` | `0.05` | `-` | 11 | - |
-| `--max-gene-set-size` | `max_gene_set_size` | `int` | `30000` | `-` | 9 | - |
-| `--max-no-write-gene-gene-set-beta` | `max_no_write_gene_gene_set_beta` | `float` | `0` | `-` | 9 | - |
-| `--max-no-write-gene-pheno` | `max_no_write_gene_pheno` | `float` | `0` | `-` | 5 | - |
-| `--max-no-write-gene-set-beta` | `max_no_write_gene_set_beta` | `float` | `None` | `-` | 18 | - |
-| `--max-no-write-gene-set-beta-uncorrected` | `max_no_write_gene_set_beta_uncorrected` | `float` | `None` | `-` | 9 | - |
-| `--max-num-burn-in` | `max_num_burn_in` | `int` | `None` | `-` | 11 | - |
-| `--max-num-factors` | `max_num_factors` | `int` | `30` | `-` | 5 | - |
-| `--max-num-gene-sets` | `max_num_gene_sets` | `int` | `5000` | `-` | 41 | - |
-| `--max-num-gene-sets-hyper` | `max_num_gene_sets_hyper` | `int` | `5000` | `-` | 13 | - |
-| `--max-num-gene-sets-initial` | `max_num_gene_sets_initial` | `int` | `None` | `-` | 15 | - |
-| `--max-num-iter-betas` | `max_num_iter_betas` | `int` | `1100` | `-` | 11 | - |
-| `--min-gene-phewas-read-value` | `min_gene_phewas_read_value` | `float` | `1` | `-` | 12 | - |
-| `--min-gene-set-read-beta` | `min_gene_set_read_beta` | `float` | `1e-20` | `-` | 18 | - |
-| `--min-gene-set-read-beta-uncorrected` | `min_gene_set_read_beta_uncorrected` | `float` | `1e-20` | `-` | 9 | - |
-| `--min-gene-set-size` | `min_gene_set_size` | `int` | `None` | `-` | 11 | - |
-| `--min-lambda-threshold` | `min_lambda_threshold` | `float` | `0.001` | `-` | 5 | - |
-| `--min-num-iter-betas` | `min_num_iter_betas` | `int` | `10` | `-` | 11 | - |
-| `--no-add-bottom` | `add_bottom` | `-` | `True` | `store_false` | 9 | - |
-| `--no-add-top` | `add_top` | `-` | `True` | `store_false` | 9 | - |
-| `--no-adjust-priors` | `adjust_priors` | `-` | `None` | `store_false` | 9 | - |
-| `--no-cap-weights` | `cap_weights` | `-` | `True` | `store_false` | 9 | - |
-| `--no-correct-betas-mean` | `correct_betas_mean` | `-` | `None` | `store_false` | 9 | - |
-| `--no-filter-negative` | `filter_negative` | `-` | `None` | `store_false` | 11 | - |
-| `--no-linear` | `linear` | `-` | `None` | `store_false` | 9 | - |
-| `--no-sparse-solution` | `sparse_solution` | `-` | `None` | `store_false` | 9 | - |
-| `--no-transpose` | `no_transpose` | `-` | `-` | `store_true` | 5 | - |
-| `--num-chains` | `num_chains` | `int` | `10` | `-` | 22 | - |
-| `--num-chains-betas` | `num_chains_betas` | `int` | `4` | `-` | 12 | - |
-| `--num-gene-sets-for-prior` | `num_gene_sets_for_prior` | `int` | `None` | `-` | 9 | - |
-| `--ols` | `ols` | `-` | `-` | `store_true` | 14 | - |
-| `--p-noninf` | `p_noninf` | `float` | `None` | `append` | 24 | - |
-| `--params-out` | `params_out` | `-` | `None` | `-` | 20 | - |
-| `--permute-gene-sets` | `permute_gene_sets` | `-` | `None` | `store_true` | 9 | - |
-| `--pheno-anchor-clusters-out` | `pheno_anchor_clusters_out` | `-` | `None` | `-` | 5 | - |
-| `--pheno-clusters-out` | `pheno_clusters_out` | `-` | `None` | `-` | 8 | - |
-| `--pheno-filter-value` | `pheno_filter_value` | `float` | `1` | `-` | 5 | - |
-| `--phewas-gene-set-stats-out` | `phewas_gene_set_stats_out` | `-` | `None` | `-` | 9 | - |
-| `--phewas-stats-out` | `phewas_stats_out` | `-` | `None` | `-` | 17 | - |
-| `--phi` | `phi` | `float` | `0.05` | `-` | 5 | - |
-| `--positive-controls-all-in` | `positive_controls_all_in` | `-` | `None` | `-` | 14 | - |
-| `--positive-controls-in` | `positive_controls_in` | `-` | `None` | `-` | 20 | - |
-| `--positive-controls-list` | `positive_controls_list` | `string` | `None` | `callback` | 26 | - |
-| `--project-phenos-from-gene-sets` | `project_phenos_from_gene_sets` | `-` | `False` | `store_true` | 5 | - |
-| `--prune-gene-sets` | `prune_gene_sets` | `float` | `None` | `-` | 21 | - |
-| `--r-threshold-burn-in-betas` | `r_threshold_burn_in_betas` | `float` | `1.01` | `-` | 9 | - |
-| `--run-phewas-from-gene-phewas-stats-in` | `run_phewas_from_gene_phewas_stats_in` | `-` | `None` | `-` | 29 | - |
-| `--sigma-power` | `sigma_power` | `float` | `None` | `-` | 13 | - |
-| `--sparse-frac-betas` | `sparse_frac_betas` | `float` | `None` | `-` | 9 | - |
-| `--sparse-solution` | `sparse_solution` | `-` | `None` | `store_true` | 9 | - |
-| `--threshold-weights` | `threshold_weights` | `float` | `0.5` | `-` | 9 | - |
-| `--top-gene-set-prior` | `top_gene_set_prior` | `float` | `None` | `-` | 11 | - |
-| `--update-hyper` | `update_hyper` | `string` | `None` | `-` | 15 | - |
-| `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `-` | `False` | `store_true` | 9 | - |
-| `--use-max-r-for-convergence-betas` | `use_max_r_for_convergence_betas` | `-` | `-` | `store_true` | 9 | - |
-| `--warnings-file` | `warnings_file` | `-` | `None` | `-` | 9 | - |
-| `--weighted-prune-gene-sets` | `weighted_prune_gene_sets` | `float` | `None` | `-` | 9 | - |
-| `--x-sparsify` | `x_sparsify` | `string` | `[50,100,250,1000]` | `callback` | 12 | - |
+| Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
+|---|---|---|---|---|---|---|
+| `--X-in` | `normal` | `yes` | `core_help` | `X_in` | `None` | - |
+| `--X-list` | `normal` | `yes` | `core_help` | `X_list` | `None` | - |
+| `--Xd-in` | `normal` | `yes` | `core_help` | `Xd_in` | `None` | - |
+| `--Xd-list` | `normal` | `yes` | `core_help` | `Xd_list` | `None` | - |
+| `--anchor-any-gene` | `normal` | `yes` | `core_help` | `anchor_any_gene` | `False` | anchor factorization to any gene in the loaded gene-phewas inputs |
+| `--anchor-any-pheno` | `normal` | `yes` | `core_help` | `anchor_any_pheno` | `False` | anchor factorization to any phenotype in the loaded phewas inputs |
+| `--anchor-gene-set` | `normal` | `yes` | `core_help` | `anchor_gene_set` | `False` | run gene-set anchoring using the loaded phenotype evidence |
+| `--anchor-genes` | `normal` | `yes` | `core_help` | `anchor_genes` | `None` | anchor factorization to one or more genes |
+| `--anchor-phenos` | `normal` | `yes` | `core_help` | `anchor_phenos` | `None` | anchor factorization to one or more phenotypes |
+| `--eaggl-bundle-in` | `normal` | `yes` | `core_help` | `eaggl_bundle_in` | `None` | load bundled PIGEAN outputs as default EAGGL inputs |
+| `--factors-anchor-out` | `normal` | `yes` | `core_help` | `factors_anchor_out` | `None` | - |
+| `--factors-out` | `normal` | `yes` | `core_help` | `factors_out` | `None` | - |
+| `--gene-loc-file` | `expert` | `yes` | `expert_help` | `gene_loc_file` | `None` | - |
+| `--gene-set-stats-in` | `normal` | `yes` | `core_help` | `gene_set_stats_in` | `None` | - |
+| `--gene-set-stats-out` | `expert` | `yes` | `expert_help` | `gene_set_stats_out` | `None` | - |
+| `--gene-stats-in` | `normal` | `yes` | `core_help` | `gene_stats_in` | `None` | - |
+| `--gene-stats-out` | `expert` | `yes` | `expert_help` | `gene_stats_out` | `None` | - |
+
+## Method Optional
+
+| Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
+|---|---|---|---|---|---|---|
+| `--V-in` | `expert` | `yes` | `expert_help` | `V_in` | `None` | - |
+| `--add-all-genes` | `expert` | `yes` | `expert_help` | `add_all_genes` | `False` | - |
+| `--add-ext` | `expert` | `yes` | `expert_help` | `add_ext` | `False` | - |
+| `--add-gene-sets-by-enrichment-p` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_enrichment_p` | `None` | - |
+| `--add-gene-sets-by-fraction` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_fraction` | `None` | - |
+| `--adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
+| `--alpha0` | `expert` | `yes` | `expert_help` | `alpha0` | `10` | - |
+| `--background-prior` | `expert` | `yes` | `expert_help` | `background_prior` | `0.05` | - |
+| `--batch-separator` | `expert` | `yes` | `expert_help` | `batch_separator` | `@` | - |
+| `--beta0` | `expert` | `yes` | `expert_help` | `beta0` | `1` | - |
+| `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
+| `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | - |
+| `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--factor-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_from_gene_phewas_stats_in` | `None` | run factor-level phewas from precomputed gene-phewas statistics |
+| `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.01` | - |
+| `--factor-phewas-stats-out` | `expert` | `yes` | `expert_help` | `factor_phewas_stats_out` | `None` | - |
+| `--factor-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_num` | `None` | - |
+| `--factor-prune-gene-sets-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_val` | `None` | - |
+| `--factor-prune-genes-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_genes_num` | `None` | - |
+| `--factor-prune-genes-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_genes_val` | `None` | - |
+| `--factor-prune-phenos-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_num` | `None` | - |
+| `--factor-prune-phenos-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_val` | `None` | - |
+| `--file-separator` | `expert` | `yes` | `expert_help` | `file_separator` | `None` | - |
+| `--filter-gene-set-p` | `expert` | `yes` | `expert_help` | `filter_gene_set_p` | `None` | - |
+| `--filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
+| `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
+| `--gene-anchor-clusters-out` | `expert` | `yes` | `expert_help` | `gene_anchor_clusters_out` | `None` | - |
+| `--gene-clusters-out` | `expert` | `yes` | `expert_help` | `gene_clusters_out` | `None` | - |
+| `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
+| `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
+| `--gene-covs-out` | `expert` | `yes` | `expert_help` | `gene_covs_out` | `None` | - |
+| `--gene-effectors-out` | `expert` | `yes` | `expert_help` | `gene_effectors_out` | `None` | - |
+| `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `1` | - |
+| `--gene-gene-set-stats-out` | `expert` | `yes` | `expert_help` | `gene_gene_set_stats_out` | `None` | - |
+| `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
+| `--gene-map-orig-gene-col` | `expert` | `yes` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
+| `--gene-pheno-stats-out` | `expert` | `yes` | `expert_help` | `gene_pheno_stats_out` | `None` | - |
+| `--gene-phewas-bfs-combined-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_combined_col` | `None` | - |
+| `--gene-phewas-bfs-id-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_id_col` | `None` | - |
+| `--gene-phewas-bfs-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and anchor workflows |
+| `--gene-phewas-bfs-log-bf-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_log_bf_col` | `None` | - |
+| `--gene-phewas-bfs-pheno-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_pheno_col` | `None` | - |
+| `--gene-phewas-bfs-prior-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_prior_col` | `None` | - |
+| `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
+| `--gene-phewas-stats-combined-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_combined_col` | `None` | - |
+| `--gene-phewas-stats-id-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_id_col` | `None` | - |
+| `--gene-phewas-stats-in` | `expert` | `yes` | `expert_help` | `gene_phewas_bfs_in` | `None` | - |
+| `--gene-phewas-stats-log-bf-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_log_bf_col` | `None` | - |
+| `--gene-phewas-stats-pheno-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_pheno_col` | `None` | - |
+| `--gene-phewas-stats-prior-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_prior_col` | `None` | - |
+| `--gene-set-anchor-clusters-out` | `expert` | `yes` | `expert_help` | `gene_set_anchor_clusters_out` | `None` | - |
+| `--gene-set-clusters-out` | `expert` | `yes` | `expert_help` | `gene_set_clusters_out` | `None` | - |
+| `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
+| `--gene-set-overlap-stats-out` | `expert` | `yes` | `expert_help` | `gene_set_overlap_stats_out` | `None` | - |
+| `--gene-set-pheno-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_pheno_filter_value` | `0.01` | - |
+| `--gene-set-phewas-stats-beta-col` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_beta_col` | `None` | - |
+| `--gene-set-phewas-stats-beta-uncorrected-col` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_beta_uncorrected_col` | `None` | - |
+| `--gene-set-phewas-stats-id-col` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_id_col` | `Gene_Set` | - |
+| `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and anchor workflows |
+| `--gene-set-phewas-stats-pheno-col` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_pheno_col` | `None` | - |
+| `--gene-set-stats-beta-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_beta_col` | `None` | - |
+| `--gene-set-stats-beta-tilde-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_beta_tilde_col` | `None` | - |
+| `--gene-set-stats-beta-uncorrected-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_beta_uncorrected_col` | `None` | - |
+| `--gene-set-stats-exp-beta-tilde-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_exp_beta_tilde_col` | `None` | - |
+| `--gene-set-stats-id-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_id_col` | `Gene_Set` | - |
+| `--gene-set-stats-p-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_p_col` | `None` | - |
+| `--gene-set-stats-se-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_se_col` | `None` | - |
+| `--gene-stats-combined-col` | `expert` | `yes` | `expert_help` | `gene_stats_combined_col` | `None` | - |
+| `--gene-stats-id-col` | `expert` | `yes` | `expert_help` | `gene_stats_id_col` | `None` | - |
+| `--gene-stats-log-bf-col` | `expert` | `yes` | `expert_help` | `gene_stats_log_bf_col` | `None` | - |
+| `--gene-stats-prior-col` | `expert` | `yes` | `expert_help` | `gene_stats_prior_col` | `None` | - |
+| `--gene-stats-prob-col` | `expert` | `yes` | `expert_help` | `gene_stats_prob_col` | `None` | - |
+| `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
+| `--ignore-genes` | `expert` | `yes` | `expert_help` | `ignore_genes` | `["NA"]` | - |
+| `--ignore-negative-exp-beta` | `expert` | `yes` | `expert_help` | `ignore_negative_exp_beta` | `-` | - |
+| `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
+| `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
+| `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
+| `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
+| `--lmm-auth-key` | `expert` | `yes` | `advanced_workflows` | `lmm_auth_key` | `None` | enable optional LLM-based factor labeling |
+| `--lmm-model` | `expert` | `yes` | `advanced_workflows` | `lmm_model` | `gpt-4o-mini` | choose the LLM model used for optional labeling |
+| `--lmm-provider` | `expert` | `yes` | `advanced_workflows` | `lmm_provider` | `openai` | choose the LLM provider used for optional labeling |
+| `--max-for-linear` | `expert` | `yes` | `expert_help` | `max_for_linear` | `None` | - |
+| `--max-frac-sem-betas` | `expert` | `yes` | `expert_help` | `max_frac_sem_betas` | `0.01` | - |
+| `--max-gene-set-read-p` | `expert` | `yes` | `expert_help` | `max_gene_set_read_p` | `0.05` | - |
+| `--max-gene-set-size` | `expert` | `yes` | `expert_help` | `max_gene_set_size` | `30000` | - |
+| `--max-no-write-gene-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_gene_set_beta` | `0` | - |
+| `--max-no-write-gene-pheno` | `expert` | `yes` | `expert_help` | `max_no_write_gene_pheno` | `0` | - |
+| `--max-no-write-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta` | `None` | - |
+| `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
+| `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
+| `--max-num-factors` | `expert` | `yes` | `advanced_workflows` | `max_num_factors` | `30` | - |
+| `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `5000` | - |
+| `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `5000` | - |
+| `--max-num-gene-sets-initial` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_initial` | `None` | - |
+| `--max-num-iter-betas` | `expert` | `yes` | `expert_help` | `max_num_iter_betas` | `1100` | - |
+| `--min-gene-phewas-read-value` | `expert` | `yes` | `advanced_workflows` | `min_gene_phewas_read_value` | `1` | - |
+| `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `1e-20` | - |
+| `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `1e-20` | - |
+| `--min-gene-set-size` | `expert` | `yes` | `expert_help` | `min_gene_set_size` | `None` | - |
+| `--min-lambda-threshold` | `expert` | `yes` | `expert_help` | `min_lambda_threshold` | `0.001` | - |
+| `--min-num-iter-betas` | `expert` | `yes` | `expert_help` | `min_num_iter_betas` | `10` | - |
+| `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
+| `--no-add-top` | `expert` | `yes` | `expert_help` | `add_top` | `True` | - |
+| `--no-adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
+| `--no-cap-weights` | `expert` | `yes` | `expert_help` | `cap_weights` | `True` | - |
+| `--no-correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
+| `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
+| `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
+| `--no-transpose` | `expert` | `yes` | `expert_help` | `no_transpose` | `-` | - |
+| `--num-chains` | `expert` | `yes` | `expert_help` | `num_chains` | `10` | - |
+| `--num-chains-betas` | `expert` | `yes` | `expert_help` | `num_chains_betas` | `4` | - |
+| `--num-gene-sets-for-prior` | `expert` | `yes` | `expert_help` | `num_gene_sets_for_prior` | `None` | - |
+| `--ols` | `expert` | `yes` | `expert_help` | `ols` | `-` | - |
+| `--p-noninf` | `expert` | `yes` | `expert_help` | `p_noninf` | `None` | - |
+| `--params-out` | `expert` | `yes` | `expert_help` | `params_out` | `None` | - |
+| `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
+| `--pheno-anchor-clusters-out` | `expert` | `yes` | `expert_help` | `pheno_anchor_clusters_out` | `None` | - |
+| `--pheno-clusters-out` | `expert` | `yes` | `expert_help` | `pheno_clusters_out` | `None` | - |
+| `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
+| `--phewas-gene-set-stats-out` | `expert` | `yes` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
+| `--phewas-stats-out` | `expert` | `yes` | `expert_help` | `phewas_stats_out` | `None` | - |
+| `--phi` | `expert` | `yes` | `advanced_workflows` | `phi` | `0.05` | - |
+| `--positive-controls-all-in` | `expert` | `yes` | `expert_help` | `positive_controls_all_in` | `None` | - |
+| `--positive-controls-in` | `expert` | `yes` | `expert_help` | `positive_controls_in` | `None` | - |
+| `--positive-controls-list` | `expert` | `yes` | `expert_help` | `positive_controls_list` | `None` | - |
+| `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project phenotype loadings from gene-set scores instead of gene scores |
+| `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
+| `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
+| `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
+| `--run-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `run_phewas_from_gene_phewas_stats_in` | `None` | run gene-level phewas output stage from precomputed gene-phewas statistics |
+| `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
+| `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
+| `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
+| `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
+| `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
+| `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |
+| `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
+| `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |
+| `--weighted-prune-gene-sets` | `expert` | `yes` | `expert_help` | `weighted_prune_gene_sets` | `None` | - |
+| `--x-sparsify` | `expert` | `yes` | `expert_help` | `x_sparsify` | `[50,100,250,1000]` | - |
 
 ## Engineering
 
-| Flag | Dest | Type | Default | Action | Usage refs | Notes |
-|---|---|---|---|---|---:|---|
-| `--batch-separator` | `batch_separator` | `-` | `@` | `-` | 9 | - |
-| `--batch-size` | `batch_size` | `int` | `5000` | `-` | 10 | - |
-| `--config` | `config` | `-` | `None` | `-` | 40 | - |
-| `--debug-just-check-header` | `debug_just_check_header` | `-` | `-` | `store_true` | 9 | - |
-| `--debug-level` | `debug_level` | `int` | `None` | `-` | 9 | - |
-| `--debug-old-batch` | `debug_old_batch` | `-` | `-` | `store_true` | 9 | - |
-| `--debug-only-avg-huge` | `debug_only_avg_huge` | `-` | `-` | `store_true` | 9 | - |
-| `--debug-skip-correlation` | `debug_skip_correlation` | `-` | `-` | `store_true` | 9 | - |
-| `--debug-skip-huber` | `debug_skip_huber` | `-` | `-` | `store_true` | 9 | - |
-| `--debug-skip-phewas-covs` | `debug_skip_phewas_covs` | `-` | `-` | `store_true` | 9 | - |
-| `--deterministic` | `deterministic` | `-` | `False` | `store_true` | 27 | - |
-| `--eaggl-bundle-in` | `eaggl_bundle_in` | `-` | `None` | `-` | 30 | - |
-| `--gene-phewas-bfs-log-bf-col` | `gene_phewas_bfs_log_bf_col` | `-` | `None` | `-` | 13 | - |
-| `--gene-phewas-stats-log-bf-col` | `gene_phewas_bfs_log_bf_col` | `-` | `None` | `-` | 10 | - |
-| `--gene-stats-log-bf-col` | `gene_stats_log_bf_col` | `-` | `None` | `-` | 19 | - |
-| `--gibbs-num-batches-parallel` | `gibbs_num_batches_parallel` | `int` | `10` | `-` | 10 | - |
-| `--hide-opts` | `hide_opts` | `-` | `False` | `store_true` | 15 | - |
-| `--log-file` | `log_file` | `-` | `None` | `-` | 9 | - |
-| `--max-gb` | `max_gb` | `float` | `2.0` | `-` | 21 | - |
-| `--max-read-entries-at-once` | `max_read_entries_at_once` | `int` | `None` | `-` | 10 | - |
-| `--pre-filter-batch-size` | `pre_filter_batch_size` | `int` | `None` | `-` | 10 | - |
-| `--pre-filter-small-batch-size` | `pre_filter_small_batch_size` | `int` | `500` | `-` | 10 | - |
-| `--print-effective-config` | `print_effective_config` | `-` | `False` | `store_true` | 32 | - |
-| `--priors-num-gene-batches` | `priors_num_gene_batches` | `int` | `20` | `-` | 11 | - |
-| `--prune-deterministically` | `prune_deterministically` | `-` | `-` | `store_true` | 9 | - |
-| `--seed` | `seed` | `int` | `None` | `-` | 21 | - |
+| Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
+|---|---|---|---|---|---|---|
+| `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
+| `--config` | `expert` | `no` | `core_help` | `config` | `None` | load a JSON config file; explicit CLI flags override config values |
+| `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
+| `--deterministic` | `expert` | `no` | `core_help` | `deterministic` | `False` | force deterministic random seed behavior (seed=0 unless --seed is set) |
+| `--gibbs-max-mb-X-h` | `expert` | `no` | `expert_help` | `gibbs_max_mb_X_h` | `100` | - |
+| `--gibbs-num-batches-parallel` | `expert` | `no` | `expert_help` | `gibbs_num_batches_parallel` | `10` | - |
+| `--help-expert` | `expert` | `no` | `expert_help` | `help_expert` | `False` | show expert workflow, projection, and debug flags in addition to the normal public interface |
+| `--hide-opts` | `expert` | `no` | `core_help` | `hide_opts` | `False` | suppress printing resolved options at startup |
+| `--hide-progress` | `expert` | `no` | `core_help` | `hide_progress` | `False` | reduce progress logging noise during long runs |
+| `--log-file` | `expert` | `no` | `core_help` | `log_file` | `None` | write structured run logs to this file |
+| `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
+| `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |
+| `--pre-filter-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_batch_size` | `None` | - |
+| `--pre-filter-small-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_small_batch_size` | `500` | - |
+| `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |
+| `--priors-num-gene-batches` | `expert` | `no` | `expert_help` | `priors_num_gene_batches` | `20` | - |
+| `--seed` | `expert` | `no` | `core_help` | `seed` | `None` | set explicit random seed for deterministic reproducibility checks |
+| `--warnings-file` | `expert` | `no` | `core_help` | `warnings_file` | `None` | write warning messages to this file |
+
+## Debug Only
+
+| Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
+|---|---|---|---|---|---|---|
+| `--debug-just-check-header` | `expert` | `no` | `internal_only` | `debug_just_check_header` | `-` | - |
+| `--debug-old-batch` | `expert` | `no` | `internal_only` | `debug_old_batch` | `-` | - |
+| `--debug-only-avg-huge` | `expert` | `no` | `internal_only` | `debug_only_avg_huge` | `-` | - |
+| `--debug-skip-correlation` | `expert` | `no` | `internal_only` | `debug_skip_correlation` | `-` | - |
+| `--debug-skip-huber` | `expert` | `no` | `internal_only` | `debug_skip_huber` | `-` | - |
+| `--debug-skip-phewas-covs` | `expert` | `no` | `internal_only` | `debug_skip_phewas_covs` | `-` | - |
 
