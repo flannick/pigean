@@ -4,8 +4,6 @@ import json
 import optparse
 import random
 import sys
-import urllib.error
-import urllib.request
 
 import numpy as np
 
@@ -13,6 +11,10 @@ try:
     from . import workflows as _eaggl_workflows
 except ImportError:
     import workflows as _eaggl_workflows
+try:
+    from . import labeling as _eaggl_labeling
+except ImportError:
+    import labeling as _eaggl_labeling
 
 try:
     from pegs_utils import (
@@ -818,62 +820,15 @@ def _apply_eaggl_bundle_inputs(_options):
         bail_fn=bail,
     )
 
-def _query_openai_chat_completion(query, auth_key=None, lmm_model=None):
-    if auth_key is None:
-        bail("Need --lmm-auth-key to use LLM labeling")
-
-    model = lmm_model if lmm_model is not None else "gpt-4o-mini"
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": query}],
-        "temperature": 0,
-    }
-    request = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer %s" % auth_key,
-        },
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response_fh:
-            response_payload = json.loads(response_fh.read().decode("utf-8"))
-        choices = response_payload.get("choices", [])
-        if len(choices) == 0:
-            warn("OpenAI response missing choices; skipping LLM labels")
-            return None
-        message = choices[0].get("message", {})
-        content = message.get("content")
-        if content is None:
-            warn("OpenAI response missing message content; skipping LLM labels")
-            return None
-        return content
-    except urllib.error.HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")
-        except Exception:
-            body = str(e)
-        warn("OpenAI labeling request failed: HTTP %s %s" % (e.code, body))
-        return None
-    except urllib.error.URLError as e:
-        warn("OpenAI labeling request failed: %s" % e)
-        return None
-    except Exception as e:
-        warn("OpenAI labeling request failed: %s" % e)
-        return None
-
-
 def query_lmm(query, auth_key=None, lmm_model=None, lmm_provider="openai"):
-    provider = (lmm_provider if lmm_provider is not None else "openai").strip().lower()
-    if provider == "openai":
-        return _query_openai_chat_completion(query, auth_key=auth_key, lmm_model=lmm_model)
-    if provider == "gemini":
-        bail("LLM provider 'gemini' is not implemented yet; use --lmm-provider openai")
-    if provider == "claude":
-        bail("LLM provider 'claude' is not implemented yet; use --lmm-provider openai")
-    bail("Unsupported --lmm-provider '%s'; expected one of: openai, gemini, claude" % provider)
+    return _eaggl_labeling.query_lmm(
+        query,
+        auth_key=auth_key,
+        lmm_model=lmm_model,
+        lmm_provider=lmm_provider,
+        bail_fn=bail,
+        warn_fn=warn,
+    )
 
 
 def _is_option_dest_explicit(dest):

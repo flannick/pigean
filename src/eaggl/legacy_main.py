@@ -259,6 +259,10 @@ try:
     from . import outputs as _eaggl_outputs
 except ImportError:
     import outputs as _eaggl_outputs
+try:
+    from . import labeling as _eaggl_labeling
+except ImportError:
+    import labeling as _eaggl_labeling
 
 options = None
 args = []
@@ -1815,99 +1819,24 @@ class EagglState(object):
 
         top_gene_set_inds = np.swapaxes(np.argsort(-(1 - np.prod(1 - (exp_gene_set_factors_for_top.T[:,:,np.newaxis] * self.gene_set_prob_factor_vector[np.newaxis,:,:]), axis=2)), axis=1)[:,:num_top], 0, 1)
 
-        self.factor_labels = []
-        self.factor_top_gene_sets = []
-        top_genes_or_phenos = []
-        top_phenos_or_genes = [] if top_pheno_or_gene_inds is not None else None
-
-        self.factor_anchor_top_gene_sets = []
-        anchor_top_genes_or_phenos = []
-        anchor_top_phenos_or_genes = [] if top_anchor_pheno_or_gene_inds is not None else None
-
-        factor_prompts = []
-        for i in range(self.num_factors()):
-            self.factor_top_gene_sets.append([self.gene_sets[j] for j in top_gene_set_inds[:,i]])
-
-            self.factor_anchor_top_gene_sets.append([[self.gene_sets[j] for j in top_anchor_gene_set_inds[:,i,k]] for k in range(top_anchor_gene_set_inds.shape[2])])
-
-            if factor_gene_set_x_pheno:
-                genes_or_phenos = self.phenos
-                phenos_or_genes = self.genes
-            else:
-                genes_or_phenos = self.genes
-                phenos_or_genes = self.phenos
-
-            top_genes_or_phenos.append([genes_or_phenos[j] for j in top_gene_or_pheno_inds[:,i] if not factor_gene_set_x_pheno or genes_or_phenos[j] != self.default_pheno])
-            anchor_top_genes_or_phenos.append([[genes_or_phenos[j] for j in top_anchor_gene_or_pheno_inds[:,i,k] if not factor_gene_set_x_pheno or genes_or_phenos[j] != self.default_pheno] for k in range(top_anchor_gene_or_pheno_inds.shape[2])])
-
-            if top_pheno_or_gene_inds is not None:
-                top_phenos_or_genes.append([phenos_or_genes[j] for j in top_pheno_or_gene_inds[:,i] if factor_gene_set_x_pheno or phenos_or_genes[j] != self.default_pheno])
-            if top_anchor_pheno_or_gene_inds is not None:
-                anchor_top_phenos_or_genes.append([[phenos_or_genes[j] for j in top_anchor_pheno_or_gene_inds[:,i,k] if factor_gene_set_x_pheno or phenos_or_genes[j] != self.default_pheno]] for k in range(top_anchor_gene_or_pheno_inds.shape[2]) )
-                
-
-            self.factor_labels.append(self.factor_top_gene_sets[i][0] if len(self.factor_top_gene_sets[i]) > 0 else "")
-            factor_prompts.append(",".join(self.factor_top_gene_sets[i]))
-
-        if lmm_auth_key is not None and self.num_factors() > 0:
-            labels = " ".join(["%d. %s" % (j+1, ",".join(self.factor_top_gene_sets[j] + (top_genes_or_phenos[j] if not label_gene_sets_only else []) + (top_phenos_or_genes[j] if label_include_phenos and top_phenos_or_genes is not None else []))) for j in range(self.num_factors())])
-
-            def _set_factor_labels(factor_labels, num_factors, labels):
-                if labels is None or factor_labels is None:
-                    return
-
-                if len(labels) == 0:
-                    prompt = "Print a label, five words maximum and no quotes, for: %s." % (labels)
-                else:
-                    prompt = "Print a label, five words maximum, for each group. Print only labels, one per line, label number folowed by text: %s" % (labels)
-                log("Querying LMM with prompt: %s" % prompt)
-                response = query_lmm(prompt, lmm_auth_key, lmm_model=lmm_model, lmm_provider=lmm_provider)
-                if response is not None:
-                    try:
-                        responses = response.strip('\n').split("\n")
-                        responses = [x for x in responses if len(x) > 0]
-
-                        if len(responses) == num_factors:
-                            for i in range(num_factors):
-                                cur_response = responses[i]
-                                cur_response_tokens = cur_response.split()
-                                if len(cur_response_tokens) > 1 and cur_response_tokens[0][-1] == ".":
-                                    try:
-                                        number = int(cur_response_tokens[0][:-1])
-                                        cur_response = " ".join(cur_response_tokens[1:])
-                                    except ValueError:
-                                        pass
-                                factor_labels[i] = cur_response
-                        else:
-                            raise Exception
-                    except Exception:
-                        log("Couldn't decode LMM response %s; using simple label" % response)
-                        pass
-
-            _set_factor_labels(self.factor_labels, self.num_factors(), labels)
-
-            if label_individually:
-                self.factor_labels_gene_sets = ["%d. %s" % (j+1, ",".join(self.factor_top_gene_sets[j])) for j in range(self.num_factors())]
-                labels_gene_sets = " ".join(self.factor_labels_gene_sets)
-                _set_factor_labels(self.factor_labels_gene_sets, self.num_factors(), labels_gene_sets)
-
-                self.factor_labels_genes = ["%d. %s" % (j+1, ",".join(top_genes_or_phenos[j])) for j in range(self.num_factors())]
-                labels_genes = " ".join(self.factor_labels_genes)
-                _set_factor_labels(self.factor_labels_genes, self.num_factors(), labels_genes)
-
-                self.factor_labels_phenos = ["%d. %s" % (j+1, ",".join(top_phenos_or_genes[j])) for j in range(self.num_factors())] if top_phenos_or_genes is not None else None
-                if self.factor_labels_phenos is not None:
-                    labels_phenos = " ".join(self.factor_labels_phenos) 
-                    _set_factor_labels(self.factor_labels_phenos, self.num_factors(), labels_phenos)
-
-        if factor_gene_set_x_pheno:
-            self.factor_top_phenos = top_genes_or_phenos
-            self.factor_top_genes = top_phenos_or_genes
-            self.factor_anchor_top_phenos = anchor_top_genes_or_phenos
-        else:
-            self.factor_top_genes = top_genes_or_phenos
-            self.factor_top_phenos = top_phenos_or_genes
-            self.factor_anchor_top_genes = anchor_top_genes_or_phenos
+        _eaggl_labeling.populate_factor_labels(
+            self,
+            factor_gene_set_x_pheno=factor_gene_set_x_pheno,
+            top_gene_set_inds=top_gene_set_inds,
+            top_anchor_gene_set_inds=top_anchor_gene_set_inds,
+            top_gene_or_pheno_inds=top_gene_or_pheno_inds,
+            top_anchor_gene_or_pheno_inds=top_anchor_gene_or_pheno_inds,
+            top_pheno_or_gene_inds=top_pheno_or_gene_inds,
+            lmm_auth_key=lmm_auth_key,
+            lmm_model=lmm_model,
+            lmm_provider=lmm_provider,
+            label_gene_sets_only=label_gene_sets_only,
+            label_include_phenos=label_include_phenos,
+            label_individually=label_individually,
+            log_fn=log,
+            bail_fn=bail,
+            warn_fn=warn,
+        )
 
         log("Found %d factors" % self.num_factors(), INFO)
 
