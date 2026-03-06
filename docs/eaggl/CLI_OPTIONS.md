@@ -1,6 +1,6 @@
 # CLI Option Inventory
 
-This document is generated from parser definitions in `src/eaggl/legacy_main.py`.
+This document is generated from parser definitions in `src/eaggl/cli.py`.
 Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary

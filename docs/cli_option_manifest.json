@@ -4,7 +4,7 @@
     "engineering": 36,
     "experimental": 2
   },
-  "entrypoint": "src/pigean.py",
+  "entrypoint": "src/pigean_cli.py",
   "num_options": 311,
   "options": [
     {
@@ -20,7 +20,7 @@
       "help": null,
       "primary_flag": "--V-in",
       "replacement": null,
-      "source_line": 343,
+      "source_line": 109,
       "type": null,
       "usage_references": 13
     },
@@ -37,7 +37,7 @@
       "help": null,
       "primary_flag": "--V-out",
       "replacement": null,
-      "source_line": 344,
+      "source_line": 110,
       "type": null,
       "usage_references": 5
     },
@@ -54,7 +54,7 @@
       "help": null,
       "primary_flag": "--X-in",
       "replacement": null,
-      "source_line": 301,
+      "source_line": 67,
       "type": null,
       "usage_references": 48
     },
@@ -71,7 +71,7 @@
       "help": null,
       "primary_flag": "--X-list",
       "replacement": null,
-      "source_line": 302,
+      "source_line": 68,
       "type": null,
       "usage_references": 22
     },
@@ -88,7 +88,7 @@
       "help": null,
       "primary_flag": "--X-out",
       "replacement": null,
-      "source_line": 305,
+      "source_line": 71,
       "type": null,
       "usage_references": 5
     },
@@ -105,7 +105,7 @@
       "help": null,
       "primary_flag": "--Xd-in",
       "replacement": null,
-      "source_line": 303,
+      "source_line": 69,
       "type": null,
       "usage_references": 17
     },
@@ -122,7 +122,7 @@
       "help": null,
       "primary_flag": "--Xd-list",
       "replacement": null,
-      "source_line": 304,
+      "source_line": 70,
       "type": null,
       "usage_references": 11
     },
@@ -139,7 +139,7 @@
       "help": null,
       "primary_flag": "--Xd-out",
       "replacement": null,
-      "source_line": 306,
+      "source_line": 72,
       "type": null,
       "usage_references": 5
     },
@@ -156,7 +156,7 @@
       "help": null,
       "primary_flag": "--active-beta-min-abs",
       "replacement": null,
-      "source_line": 678,
+      "source_line": 444,
       "type": "float",
       "usage_references": 5
     },
@@ -173,7 +173,7 @@
       "help": null,
       "primary_flag": "--active-beta-top-k",
       "replacement": null,
-      "source_line": 677,
+      "source_line": 443,
       "type": "int",
       "usage_references": 5
     },
@@ -190,7 +190,7 @@
       "help": null,
       "primary_flag": "--add-all-genes",
       "replacement": null,
-      "source_line": 559,
+      "source_line": 325,
       "type": null,
       "usage_references": 11
     },
@@ -207,7 +207,7 @@
       "help": null,
       "primary_flag": "--add-ext",
       "replacement": null,
-      "source_line": 552,
+      "source_line": 318,
       "type": null,
       "usage_references": 9
     },
@@ -224,7 +224,7 @@
       "help": null,
       "primary_flag": "--adjust-priors",
       "replacement": null,
-      "source_line": 616,
+      "source_line": 382,
       "type": null,
       "usage_references": 9
     },
@@ -241,7 +241,7 @@
       "help": null,
       "primary_flag": "--allow-evidence-of-absence",
       "replacement": null,
-      "source_line": 594,
+      "source_line": 360,
       "type": null,
       "usage_references": 5
     },
@@ -258,7 +258,7 @@
       "help": null,
       "primary_flag": "--background-prior",
       "replacement": null,
-      "source_line": 340,
+      "source_line": 106,
       "type": "float",
       "usage_references": 12
     },
@@ -275,7 +275,7 @@
       "help": null,
       "primary_flag": "--batch-all-for-hyper",
       "replacement": null,
-      "source_line": 335,
+      "source_line": 101,
       "type": null,
       "usage_references": 5
     },
@@ -292,7 +292,7 @@
       "help": null,
       "primary_flag": "--batch-separator",
       "replacement": null,
-      "source_line": 308,
+      "source_line": 74,
       "type": null,
       "usage_references": 9
     },
@@ -309,7 +309,7 @@
       "help": null,
       "primary_flag": "--batch-size",
       "replacement": null,
-      "source_line": 530,
+      "source_line": 296,
       "type": "int",
       "usage_references": 10
     },
@@ -326,7 +326,7 @@
       "help": null,
       "primary_flag": "--beta-rel-mcse-denom-floor",
       "replacement": null,
-      "source_line": 681,
+      "source_line": 447,
       "type": "float",
       "usage_references": 5
     },
@@ -343,7 +343,7 @@
       "help": null,
       "primary_flag": "--betas-from-phewas",
       "replacement": null,
-      "source_line": 484,
+      "source_line": 250,
       "type": null,
       "usage_references": 14
     },
@@ -360,7 +360,7 @@
       "help": null,
       "primary_flag": "--betas-trace-out",
       "replacement": null,
-      "source_line": 473,
+      "source_line": 239,
       "type": null,
       "usage_references": 5
     },
@@ -377,7 +377,7 @@
       "help": null,
       "primary_flag": "--betas-uncorrected-from-phewas",
       "replacement": null,
-      "source_line": 485,
+      "source_line": 251,
       "type": null,
       "usage_references": 13
     },
@@ -394,7 +394,7 @@
       "help": null,
       "primary_flag": "--burn-in-patience",
       "replacement": null,
-      "source_line": 674,
+      "source_line": 440,
       "type": "int",
       "usage_references": 5
     },
@@ -411,7 +411,7 @@
       "help": null,
       "primary_flag": "--burn-in-rhat-quantile",
       "replacement": null,
-      "source_line": 673,
+      "source_line": 439,
       "type": "float",
       "usage_references": 7
     },
@@ -428,7 +428,7 @@
       "help": null,
       "primary_flag": "--burn-in-stall-delta",
       "replacement": null,
-      "source_line": 676,
+      "source_line": 442,
       "type": "float",
       "usage_references": 5
     },
@@ -445,7 +445,7 @@
       "help": null,
       "primary_flag": "--burn-in-stall-window",
       "replacement": null,
-      "source_line": 675,
+      "source_line": 441,
       "type": "int",
       "usage_references": 5
     },
@@ -462,7 +462,7 @@
       "help": null,
       "primary_flag": "--cap-raw-closest-gene",
       "replacement": null,
-      "source_line": 587,
+      "source_line": 353,
       "type": null,
       "usage_references": 5
     },
@@ -479,7 +479,7 @@
       "help": null,
       "primary_flag": "--case-counts-count-col",
       "replacement": null,
-      "source_line": 413,
+      "source_line": 179,
       "type": null,
       "usage_references": 5
     },
@@ -496,7 +496,7 @@
       "help": null,
       "primary_flag": "--case-counts-gene-col",
       "replacement": null,
-      "source_line": 411,
+      "source_line": 177,
       "type": null,
       "usage_references": 5
     },
@@ -513,7 +513,7 @@
       "help": null,
       "primary_flag": "--case-counts-in",
       "replacement": null,
-      "source_line": 410,
+      "source_line": 176,
       "type": null,
       "usage_references": 8
     },
@@ -530,7 +530,7 @@
       "help": null,
       "primary_flag": "--case-counts-max-freq-col",
       "replacement": null,
-      "source_line": 415,
+      "source_line": 181,
       "type": null,
       "usage_references": 5
     },
@@ -547,7 +547,7 @@
       "help": null,
       "primary_flag": "--case-counts-revel-col",
       "replacement": null,
-      "source_line": 412,
+      "source_line": 178,
       "type": null,
       "usage_references": 5
     },
@@ -564,7 +564,7 @@
       "help": null,
       "primary_flag": "--case-counts-tot-col",
       "replacement": null,
-      "source_line": 414,
+      "source_line": 180,
       "type": null,
       "usage_references": 5
     },
@@ -581,7 +581,7 @@
       "help": null,
       "primary_flag": "--closest-gene-prob",
       "replacement": null,
-      "source_line": 584,
+      "source_line": 350,
       "type": "float",
       "usage_references": 7
     },
@@ -598,7 +598,7 @@
       "help": null,
       "primary_flag": "--config",
       "replacement": null,
-      "source_line": 508,
+      "source_line": 274,
       "type": null,
       "usage_references": 40
     },
@@ -615,7 +615,7 @@
       "help": null,
       "primary_flag": "--const-gene-Y",
       "replacement": null,
-      "source_line": 446,
+      "source_line": 212,
       "type": "float",
       "usage_references": 5
     },
@@ -632,7 +632,7 @@
       "help": null,
       "primary_flag": "--const-gene-set-beta",
       "replacement": null,
-      "source_line": 445,
+      "source_line": 211,
       "type": "float",
       "usage_references": 5
     },
@@ -649,7 +649,7 @@
       "help": null,
       "primary_flag": "--const-sigma",
       "replacement": null,
-      "source_line": 324,
+      "source_line": 90,
       "type": null,
       "usage_references": 5
     },
@@ -666,7 +666,7 @@
       "help": null,
       "primary_flag": "--correct-betas-mean",
       "replacement": null,
-      "source_line": 595,
+      "source_line": 361,
       "type": null,
       "usage_references": 9
     },
@@ -683,7 +683,7 @@
       "help": null,
       "primary_flag": "--correct-betas-var",
       "replacement": null,
-      "source_line": 597,
+      "source_line": 363,
       "type": null,
       "usage_references": 5
     },
@@ -700,7 +700,7 @@
       "help": null,
       "primary_flag": "--counts-beta",
       "replacement": null,
-      "source_line": 429,
+      "source_line": 195,
       "type": "float",
       "usage_references": 5
     },
@@ -717,7 +717,7 @@
       "help": null,
       "primary_flag": "--counts-max-case-freq",
       "replacement": null,
-      "source_line": 424,
+      "source_line": 190,
       "type": "float",
       "usage_references": 5
     },
@@ -734,7 +734,7 @@
       "help": null,
       "primary_flag": "--counts-max-ctrl-freq",
       "replacement": null,
-      "source_line": 425,
+      "source_line": 191,
       "type": "float",
       "usage_references": 5
     },
@@ -751,7 +751,7 @@
       "help": null,
       "primary_flag": "--counts-mean-rrs",
       "replacement": null,
-      "source_line": 423,
+      "source_line": 189,
       "type": "string",
       "usage_references": 7
     },
@@ -768,7 +768,7 @@
       "help": null,
       "primary_flag": "--counts-min-revels",
       "replacement": null,
-      "source_line": 422,
+      "source_line": 188,
       "type": "string",
       "usage_references": 9
     },
@@ -785,7 +785,7 @@
       "help": null,
       "primary_flag": "--counts-nu",
       "replacement": null,
-      "source_line": 428,
+      "source_line": 194,
       "type": "float",
       "usage_references": 5
     },
@@ -802,7 +802,7 @@
       "help": null,
       "primary_flag": "--counts-syn-fisher-p",
       "replacement": null,
-      "source_line": 427,
+      "source_line": 193,
       "type": "float",
       "usage_references": 5
     },
@@ -819,7 +819,7 @@
       "help": null,
       "primary_flag": "--counts-syn-revel",
       "replacement": null,
-      "source_line": 426,
+      "source_line": 192,
       "type": "float",
       "usage_references": 5
     },
@@ -836,7 +836,7 @@
       "help": null,
       "primary_flag": "--credible-set-span",
       "replacement": null,
-      "source_line": 375,
+      "source_line": 141,
       "type": "float",
       "usage_references": 5
     },
@@ -853,7 +853,7 @@
       "help": null,
       "primary_flag": "--credible-sets-chrom-col",
       "replacement": null,
-      "source_line": 372,
+      "source_line": 138,
       "type": null,
       "usage_references": 9
     },
@@ -870,7 +870,7 @@
       "help": null,
       "primary_flag": "--credible-sets-id-col",
       "replacement": null,
-      "source_line": 371,
+      "source_line": 137,
       "type": null,
       "usage_references": 5
     },
@@ -887,7 +887,7 @@
       "help": null,
       "primary_flag": "--credible-sets-in",
       "replacement": null,
-      "source_line": 370,
+      "source_line": 136,
       "type": null,
       "usage_references": 7
     },
@@ -904,7 +904,7 @@
       "help": null,
       "primary_flag": "--credible-sets-pos-col",
       "replacement": null,
-      "source_line": 373,
+      "source_line": 139,
       "type": null,
       "usage_references": 9
     },
@@ -921,7 +921,7 @@
       "help": null,
       "primary_flag": "--credible-sets-ppa-col",
       "replacement": null,
-      "source_line": 374,
+      "source_line": 140,
       "type": null,
       "usage_references": 5
     },
@@ -938,7 +938,7 @@
       "help": null,
       "primary_flag": "--cross-val",
       "replacement": null,
-      "source_line": 327,
+      "source_line": 93,
       "type": null,
       "usage_references": 24
     },
@@ -955,7 +955,7 @@
       "help": null,
       "primary_flag": "--cross-val-folds",
       "replacement": null,
-      "source_line": 331,
+      "source_line": 97,
       "type": "int",
       "usage_references": 6
     },
@@ -972,7 +972,7 @@
       "help": null,
       "primary_flag": "--cross-val-max-num-tries",
       "replacement": null,
-      "source_line": 330,
+      "source_line": 96,
       "type": "int",
       "usage_references": 6
     },
@@ -989,7 +989,7 @@
       "help": null,
       "primary_flag": "--cross-val-num-explore-each-direction",
       "replacement": null,
-      "source_line": 329,
+      "source_line": 95,
       "type": "int",
       "usage_references": 6
     },
@@ -1006,7 +1006,7 @@
       "help": null,
       "primary_flag": "--ctrl-counts-count-col",
       "replacement": null,
-      "source_line": 419,
+      "source_line": 185,
       "type": null,
       "usage_references": 5
     },
@@ -1023,7 +1023,7 @@
       "help": null,
       "primary_flag": "--ctrl-counts-gene-col",
       "replacement": null,
-      "source_line": 417,
+      "source_line": 183,
       "type": null,
       "usage_references": 5
     },
@@ -1040,7 +1040,7 @@
       "help": null,
       "primary_flag": "--ctrl-counts-in",
       "replacement": null,
-      "source_line": 416,
+      "source_line": 182,
       "type": null,
       "usage_references": 8
     },
@@ -1057,7 +1057,7 @@
       "help": null,
       "primary_flag": "--ctrl-counts-max-freq-col",
       "replacement": null,
-      "source_line": 421,
+      "source_line": 187,
       "type": null,
       "usage_references": 5
     },
@@ -1074,7 +1074,7 @@
       "help": null,
       "primary_flag": "--ctrl-counts-revel-col",
       "replacement": null,
-      "source_line": 418,
+      "source_line": 184,
       "type": null,
       "usage_references": 5
     },
@@ -1091,7 +1091,7 @@
       "help": null,
       "primary_flag": "--ctrl-counts-tot-col",
       "replacement": null,
-      "source_line": 420,
+      "source_line": 186,
       "type": null,
       "usage_references": 5
     },
@@ -1108,7 +1108,7 @@
       "help": null,
       "primary_flag": "--debug-just-check-header",
       "replacement": null,
-      "source_line": 708,
+      "source_line": 474,
       "type": null,
       "usage_references": 9
     },
@@ -1125,7 +1125,7 @@
       "help": null,
       "primary_flag": "--debug-level",
       "replacement": null,
-      "source_line": 503,
+      "source_line": 269,
       "type": "int",
       "usage_references": 9
     },
@@ -1142,7 +1142,7 @@
       "help": null,
       "primary_flag": "--debug-max-gene-sets-for-hyper",
       "replacement": null,
-      "source_line": 703,
+      "source_line": 469,
       "type": null,
       "usage_references": 5
     },
@@ -1159,7 +1159,7 @@
       "help": null,
       "primary_flag": "--debug-old-batch",
       "replacement": null,
-      "source_line": 702,
+      "source_line": 468,
       "type": null,
       "usage_references": 9
     },
@@ -1176,7 +1176,7 @@
       "help": null,
       "primary_flag": "--debug-only-avg-huge",
       "replacement": null,
-      "source_line": 709,
+      "source_line": 475,
       "type": null,
       "usage_references": 9
     },
@@ -1193,7 +1193,7 @@
       "help": null,
       "primary_flag": "--debug-skip-correlation",
       "replacement": null,
-      "source_line": 706,
+      "source_line": 472,
       "type": null,
       "usage_references": 9
     },
@@ -1210,7 +1210,7 @@
       "help": null,
       "primary_flag": "--debug-skip-huber",
       "replacement": null,
-      "source_line": 705,
+      "source_line": 471,
       "type": null,
       "usage_references": 9
     },
@@ -1227,7 +1227,7 @@
       "help": null,
       "primary_flag": "--debug-skip-phewas-covs",
       "replacement": null,
-      "source_line": 704,
+      "source_line": 470,
       "type": null,
       "usage_references": 9
     },
@@ -1244,7 +1244,7 @@
       "help": null,
       "primary_flag": "--debug-zero-sparse",
       "replacement": null,
-      "source_line": 707,
+      "source_line": 473,
       "type": null,
       "usage_references": 5
     },
@@ -1261,7 +1261,7 @@
       "help": null,
       "primary_flag": "--deterministic",
       "replacement": null,
-      "source_line": 507,
+      "source_line": 273,
       "type": null,
       "usage_references": 27
     },
@@ -1278,7 +1278,7 @@
       "help": null,
       "primary_flag": "--diag-every",
       "replacement": null,
-      "source_line": 689,
+      "source_line": 455,
       "type": "int",
       "usage_references": 5
     },
@@ -1295,7 +1295,7 @@
       "help": null,
       "primary_flag": "--disable-stall-detection",
       "replacement": null,
-      "source_line": 688,
+      "source_line": 454,
       "type": null,
       "usage_references": 5
     },
@@ -1312,7 +1312,7 @@
       "help": null,
       "primary_flag": "--eaggl-bundle-out",
       "replacement": null,
-      "source_line": 481,
+      "source_line": 247,
       "type": null,
       "usage_references": 21
     },
@@ -1329,7 +1329,7 @@
       "help": null,
       "primary_flag": "--exomes-beta-col",
       "replacement": null,
-      "source_line": 390,
+      "source_line": 156,
       "type": null,
       "usage_references": 11
     },
@@ -1346,7 +1346,7 @@
       "help": null,
       "primary_flag": "--exomes-gene-col",
       "replacement": null,
-      "source_line": 388,
+      "source_line": 154,
       "type": null,
       "usage_references": 9
     },
@@ -1363,7 +1363,7 @@
       "help": null,
       "primary_flag": "--exomes-high-p",
       "replacement": null,
-      "source_line": 569,
+      "source_line": 335,
       "type": "float",
       "usage_references": 10
     },
@@ -1380,7 +1380,7 @@
       "help": null,
       "primary_flag": "--exomes-high-p-posterior",
       "replacement": null,
-      "source_line": 570,
+      "source_line": 336,
       "type": "float",
       "usage_references": 5
     },
@@ -1397,7 +1397,7 @@
       "help": null,
       "primary_flag": "--exomes-in",
       "replacement": null,
-      "source_line": 387,
+      "source_line": 153,
       "type": null,
       "usage_references": 26
     },
@@ -1414,7 +1414,7 @@
       "help": null,
       "primary_flag": "--exomes-low-p",
       "replacement": null,
-      "source_line": 571,
+      "source_line": 337,
       "type": "float",
       "usage_references": 10
     },
@@ -1431,7 +1431,7 @@
       "help": null,
       "primary_flag": "--exomes-low-p-posterior",
       "replacement": null,
-      "source_line": 572,
+      "source_line": 338,
       "type": "float",
       "usage_references": 5
     },
@@ -1448,7 +1448,7 @@
       "help": null,
       "primary_flag": "--exomes-n",
       "replacement": null,
-      "source_line": 394,
+      "source_line": 160,
       "type": "float",
       "usage_references": 14
     },
@@ -1465,7 +1465,7 @@
       "help": null,
       "primary_flag": "--exomes-n-col",
       "replacement": null,
-      "source_line": 393,
+      "source_line": 159,
       "type": null,
       "usage_references": 9
     },
@@ -1482,7 +1482,7 @@
       "help": null,
       "primary_flag": "--exomes-p-col",
       "replacement": null,
-      "source_line": 389,
+      "source_line": 155,
       "type": null,
       "usage_references": 11
     },
@@ -1499,7 +1499,7 @@
       "help": null,
       "primary_flag": "--exomes-se-col",
       "replacement": null,
-      "source_line": 391,
+      "source_line": 157,
       "type": null,
       "usage_references": 11
     },
@@ -1516,7 +1516,7 @@
       "help": null,
       "primary_flag": "--exomes-units",
       "replacement": null,
-      "source_line": 392,
+      "source_line": 158,
       "type": "float",
       "usage_references": 5
     },
@@ -1533,7 +1533,7 @@
       "help": null,
       "primary_flag": "--exons-loc-file-huge",
       "replacement": null,
-      "source_line": 460,
+      "source_line": 226,
       "type": null,
       "usage_references": 5
     },
@@ -1550,7 +1550,7 @@
       "help": null,
       "primary_flag": "--experimental-hyper-mutation",
       "replacement": null,
-      "source_line": 622,
+      "source_line": 388,
       "type": null,
       "usage_references": 12
     },
@@ -1567,7 +1567,7 @@
       "help": null,
       "primary_flag": "--experimental-increase-hyper-if-betas-below",
       "replacement": null,
-      "source_line": 623,
+      "source_line": 389,
       "type": "float",
       "usage_references": 11
     },
@@ -1584,7 +1584,7 @@
       "help": null,
       "primary_flag": "--file-separator",
       "replacement": null,
-      "source_line": 309,
+      "source_line": 75,
       "type": null,
       "usage_references": 9
     },
@@ -1601,7 +1601,7 @@
       "help": null,
       "primary_flag": "--filter-gene-set-metric-z",
       "replacement": null,
-      "source_line": 547,
+      "source_line": 313,
       "type": "float",
       "usage_references": 5
     },
@@ -1618,7 +1618,7 @@
       "help": null,
       "primary_flag": "--filter-gene-set-p",
       "replacement": null,
-      "source_line": 538,
+      "source_line": 304,
       "type": "float",
       "usage_references": 14
     },
@@ -1635,7 +1635,7 @@
       "help": null,
       "primary_flag": "--filter-negative",
       "replacement": null,
-      "source_line": 539,
+      "source_line": 305,
       "type": null,
       "usage_references": 9
     },
@@ -1652,7 +1652,7 @@
       "help": null,
       "primary_flag": "--first-for-hyper",
       "replacement": null,
-      "source_line": 336,
+      "source_line": 102,
       "type": null,
       "usage_references": 10
     },
@@ -1669,7 +1669,7 @@
       "help": null,
       "primary_flag": "--first-for-sigma-cond",
       "replacement": null,
-      "source_line": 337,
+      "source_line": 103,
       "type": null,
       "usage_references": 5
     },
@@ -1686,7 +1686,7 @@
       "help": null,
       "primary_flag": "--first-max-p-for-hyper",
       "replacement": null,
-      "source_line": 338,
+      "source_line": 104,
       "type": null,
       "usage_references": 5
     },
@@ -1703,7 +1703,7 @@
       "help": null,
       "primary_flag": "--frac-gene-sets-for-prior",
       "replacement": null,
-      "source_line": 318,
+      "source_line": 84,
       "type": "float",
       "usage_references": 10
     },
@@ -1720,7 +1720,7 @@
       "help": null,
       "primary_flag": "--gauss-seidel",
       "replacement": null,
-      "source_line": 654,
+      "source_line": 420,
       "type": null,
       "usage_references": 14
     },
@@ -1737,7 +1737,7 @@
       "help": null,
       "primary_flag": "--gauss-seidel-betas",
       "replacement": null,
-      "source_line": 696,
+      "source_line": 462,
       "type": null,
       "usage_references": 9
     },
@@ -1754,7 +1754,7 @@
       "help": null,
       "primary_flag": "--gene-cor-file",
       "replacement": null,
-      "source_line": 461,
+      "source_line": 227,
       "type": null,
       "usage_references": 31
     },
@@ -1771,7 +1771,7 @@
       "help": null,
       "primary_flag": "--gene-cor-file-cor-start-col",
       "replacement": null,
-      "source_line": 463,
+      "source_line": 229,
       "type": "int",
       "usage_references": 5
     },
@@ -1788,7 +1788,7 @@
       "help": null,
       "primary_flag": "--gene-cor-file-gene-col",
       "replacement": null,
-      "source_line": 462,
+      "source_line": 228,
       "type": "int",
       "usage_references": 5
     },
@@ -1805,7 +1805,7 @@
       "help": null,
       "primary_flag": "--gene-covs-in",
       "replacement": null,
-      "source_line": 467,
+      "source_line": 233,
       "type": null,
       "usage_references": 16
     },
@@ -1822,7 +1822,7 @@
       "help": null,
       "primary_flag": "--gene-covs-out",
       "replacement": null,
-      "source_line": 478,
+      "source_line": 244,
       "type": null,
       "usage_references": 9
     },
@@ -1839,7 +1839,7 @@
       "help": null,
       "primary_flag": "--gene-effectors-out",
       "replacement": null,
-      "source_line": 479,
+      "source_line": 245,
       "type": null,
       "usage_references": 9
     },
@@ -1856,7 +1856,7 @@
       "help": null,
       "primary_flag": "--gene-gene-set-stats-out",
       "replacement": null,
-      "source_line": 476,
+      "source_line": 242,
       "type": null,
       "usage_references": 9
     },
@@ -1873,7 +1873,7 @@
       "help": null,
       "primary_flag": "--gene-loc-file",
       "replacement": null,
-      "source_line": 458,
+      "source_line": 224,
       "type": null,
       "usage_references": 41
     },
@@ -1890,7 +1890,7 @@
       "help": null,
       "primary_flag": "--gene-loc-file-huge",
       "replacement": null,
-      "source_line": 459,
+      "source_line": 225,
       "type": null,
       "usage_references": 8
     },
@@ -1907,7 +1907,7 @@
       "help": null,
       "primary_flag": "--gene-map-in",
       "replacement": null,
-      "source_line": 347,
+      "source_line": 113,
       "type": null,
       "usage_references": 14
     },
@@ -1924,7 +1924,7 @@
       "help": null,
       "primary_flag": "--gene-map-new-gene-col",
       "replacement": null,
-      "source_line": 349,
+      "source_line": 115,
       "type": null,
       "usage_references": 7
     },
@@ -1941,7 +1941,7 @@
       "help": null,
       "primary_flag": "--gene-map-orig-gene-col",
       "replacement": null,
-      "source_line": 348,
+      "source_line": 114,
       "type": null,
       "usage_references": 11
     },
@@ -1958,7 +1958,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-bfs-combined-col",
       "replacement": null,
-      "source_line": 633,
+      "source_line": 399,
       "type": null,
       "usage_references": 12
     },
@@ -1975,7 +1975,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-bfs-id-col",
       "replacement": null,
-      "source_line": 629,
+      "source_line": 395,
       "type": null,
       "usage_references": 13
     },
@@ -1992,7 +1992,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-bfs-in",
       "replacement": null,
-      "source_line": 627,
+      "source_line": 393,
       "type": null,
       "usage_references": 25
     },
@@ -2009,7 +2009,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-bfs-log-bf-col",
       "replacement": null,
-      "source_line": 631,
+      "source_line": 397,
       "type": null,
       "usage_references": 13
     },
@@ -2026,7 +2026,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-bfs-pheno-col",
       "replacement": null,
-      "source_line": 637,
+      "source_line": 403,
       "type": null,
       "usage_references": 13
     },
@@ -2043,7 +2043,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-bfs-prior-col",
       "replacement": null,
-      "source_line": 635,
+      "source_line": 401,
       "type": null,
       "usage_references": 12
     },
@@ -2060,7 +2060,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-id-to-X-id",
       "replacement": null,
-      "source_line": 640,
+      "source_line": 406,
       "type": null,
       "usage_references": 11
     },
@@ -2077,7 +2077,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-stats-combined-col",
       "replacement": null,
-      "source_line": 634,
+      "source_line": 400,
       "type": null,
       "usage_references": 10
     },
@@ -2094,7 +2094,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-stats-id-col",
       "replacement": null,
-      "source_line": 630,
+      "source_line": 396,
       "type": null,
       "usage_references": 10
     },
@@ -2111,7 +2111,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-stats-in",
       "replacement": null,
-      "source_line": 628,
+      "source_line": 394,
       "type": null,
       "usage_references": 65
     },
@@ -2128,7 +2128,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-stats-log-bf-col",
       "replacement": null,
-      "source_line": 632,
+      "source_line": 398,
       "type": null,
       "usage_references": 10
     },
@@ -2145,7 +2145,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-stats-pheno-col",
       "replacement": null,
-      "source_line": 638,
+      "source_line": 404,
       "type": null,
       "usage_references": 10
     },
@@ -2162,7 +2162,7 @@
       "help": null,
       "primary_flag": "--gene-phewas-stats-prior-col",
       "replacement": null,
-      "source_line": 636,
+      "source_line": 402,
       "type": null,
       "usage_references": 10
     },
@@ -2179,7 +2179,7 @@
       "help": null,
       "primary_flag": "--gene-set-betas-in",
       "replacement": null,
-      "source_line": 444,
+      "source_line": 210,
       "type": null,
       "usage_references": 5
     },
@@ -2196,7 +2196,7 @@
       "help": null,
       "primary_flag": "--gene-set-overlap-stats-out",
       "replacement": null,
-      "source_line": 477,
+      "source_line": 243,
       "type": null,
       "usage_references": 9
     },
@@ -2213,7 +2213,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-beta-col",
       "replacement": null,
-      "source_line": 437,
+      "source_line": 203,
       "type": null,
       "usage_references": 15
     },
@@ -2230,7 +2230,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-beta-tilde-col",
       "replacement": null,
-      "source_line": 436,
+      "source_line": 202,
       "type": null,
       "usage_references": 15
     },
@@ -2247,7 +2247,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-beta-uncorrected-col",
       "replacement": null,
-      "source_line": 438,
+      "source_line": 204,
       "type": null,
       "usage_references": 12
     },
@@ -2264,7 +2264,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-exp-beta-tilde-col",
       "replacement": null,
-      "source_line": 435,
+      "source_line": 201,
       "type": null,
       "usage_references": 11
     },
@@ -2281,7 +2281,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-id-col",
       "replacement": null,
-      "source_line": 434,
+      "source_line": 200,
       "type": null,
       "usage_references": 15
     },
@@ -2298,7 +2298,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-in",
       "replacement": null,
-      "source_line": 433,
+      "source_line": 199,
       "type": null,
       "usage_references": 35
     },
@@ -2315,7 +2315,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-out",
       "replacement": null,
-      "source_line": 470,
+      "source_line": 236,
       "type": null,
       "usage_references": 20
     },
@@ -2332,7 +2332,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-p-col",
       "replacement": null,
-      "source_line": 440,
+      "source_line": 206,
       "type": null,
       "usage_references": 12
     },
@@ -2349,7 +2349,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-se-col",
       "replacement": null,
-      "source_line": 439,
+      "source_line": 205,
       "type": null,
       "usage_references": 12
     },
@@ -2366,7 +2366,7 @@
       "help": null,
       "primary_flag": "--gene-set-stats-trace-out",
       "replacement": null,
-      "source_line": 472,
+      "source_line": 238,
       "type": null,
       "usage_references": 5
     },
@@ -2383,7 +2383,7 @@
       "help": null,
       "primary_flag": "--gene-stats-combined-col",
       "replacement": null,
-      "source_line": 452,
+      "source_line": 218,
       "type": null,
       "usage_references": 16
     },
@@ -2400,7 +2400,7 @@
       "help": null,
       "primary_flag": "--gene-stats-id-col",
       "replacement": null,
-      "source_line": 450,
+      "source_line": 216,
       "type": null,
       "usage_references": 16
     },
@@ -2417,7 +2417,7 @@
       "help": null,
       "primary_flag": "--gene-stats-in",
       "replacement": null,
-      "source_line": 449,
+      "source_line": 215,
       "type": null,
       "usage_references": 49
     },
@@ -2434,7 +2434,7 @@
       "help": null,
       "primary_flag": "--gene-stats-log-bf-col",
       "replacement": null,
-      "source_line": 451,
+      "source_line": 217,
       "type": null,
       "usage_references": 19
     },
@@ -2451,7 +2451,7 @@
       "help": null,
       "primary_flag": "--gene-stats-out",
       "replacement": null,
-      "source_line": 474,
+      "source_line": 240,
       "type": null,
       "usage_references": 22
     },
@@ -2468,7 +2468,7 @@
       "help": null,
       "primary_flag": "--gene-stats-prior-col",
       "replacement": null,
-      "source_line": 453,
+      "source_line": 219,
       "type": null,
       "usage_references": 16
     },
@@ -2485,7 +2485,7 @@
       "help": null,
       "primary_flag": "--gene-stats-prob-col",
       "replacement": null,
-      "source_line": 454,
+      "source_line": 220,
       "type": null,
       "usage_references": 15
     },
@@ -2502,7 +2502,7 @@
       "help": null,
       "primary_flag": "--gene-stats-trace-out",
       "replacement": null,
-      "source_line": 475,
+      "source_line": 241,
       "type": null,
       "usage_references": 5
     },
@@ -2519,7 +2519,7 @@
       "help": null,
       "primary_flag": "--gene-zs-gws-prob-true",
       "replacement": null,
-      "source_line": 566,
+      "source_line": 332,
       "type": "float",
       "usage_references": 5
     },
@@ -2536,7 +2536,7 @@
       "help": null,
       "primary_flag": "--gibbs-max-mb-X-h",
       "replacement": null,
-      "source_line": 527,
+      "source_line": 293,
       "type": "int",
       "usage_references": 10
     },
@@ -2553,7 +2553,7 @@
       "help": null,
       "primary_flag": "--gibbs-num-batches-parallel",
       "replacement": null,
-      "source_line": 526,
+      "source_line": 292,
       "type": "int",
       "usage_references": 10
     },
@@ -2570,7 +2570,7 @@
       "help": null,
       "primary_flag": "--gwas-beta-col",
       "replacement": null,
-      "source_line": 359,
+      "source_line": 125,
       "type": null,
       "usage_references": 12
     },
@@ -2587,7 +2587,7 @@
       "help": null,
       "primary_flag": "--gwas-chrom-col",
       "replacement": null,
-      "source_line": 356,
+      "source_line": 122,
       "type": null,
       "usage_references": 15
     },
@@ -2604,7 +2604,7 @@
       "help": null,
       "primary_flag": "--gwas-detect-high-power",
       "replacement": null,
-      "source_line": 580,
+      "source_line": 346,
       "type": "int",
       "usage_references": 5
     },
@@ -2621,7 +2621,7 @@
       "help": null,
       "primary_flag": "--gwas-detect-low-power",
       "replacement": null,
-      "source_line": 579,
+      "source_line": 345,
       "type": "int",
       "usage_references": 5
     },
@@ -2638,7 +2638,7 @@
       "help": null,
       "primary_flag": "--gwas-detect-no-adjust-huge",
       "replacement": null,
-      "source_line": 581,
+      "source_line": 347,
       "type": null,
       "usage_references": 5
     },
@@ -2655,7 +2655,7 @@
       "help": null,
       "primary_flag": "--gwas-filter-col",
       "replacement": null,
-      "source_line": 365,
+      "source_line": 131,
       "type": null,
       "usage_references": 7
     },
@@ -2672,7 +2672,7 @@
       "help": null,
       "primary_flag": "--gwas-filter-value",
       "replacement": null,
-      "source_line": 366,
+      "source_line": 132,
       "type": null,
       "usage_references": 5
     },
@@ -2689,7 +2689,7 @@
       "help": null,
       "primary_flag": "--gwas-freq-col",
       "replacement": null,
-      "source_line": 364,
+      "source_line": 130,
       "type": null,
       "usage_references": 7
     },
@@ -2706,7 +2706,7 @@
       "help": null,
       "primary_flag": "--gwas-high-p",
       "replacement": null,
-      "source_line": 575,
+      "source_line": 341,
       "type": "float",
       "usage_references": 10
     },
@@ -2723,7 +2723,7 @@
       "help": null,
       "primary_flag": "--gwas-high-p-posterior",
       "replacement": null,
-      "source_line": 576,
+      "source_line": 342,
       "type": "float",
       "usage_references": 5
     },
@@ -2740,7 +2740,7 @@
       "help": null,
       "primary_flag": "--gwas-ignore-p-threshold",
       "replacement": null,
-      "source_line": 367,
+      "source_line": 133,
       "type": "float",
       "usage_references": 5
     },
@@ -2757,7 +2757,7 @@
       "help": null,
       "primary_flag": "--gwas-in",
       "replacement": null,
-      "source_line": 352,
+      "source_line": 118,
       "type": null,
       "usage_references": 39
     },
@@ -2774,7 +2774,7 @@
       "help": null,
       "primary_flag": "--gwas-locus-col",
       "replacement": null,
-      "source_line": 355,
+      "source_line": 121,
       "type": null,
       "usage_references": 11
     },
@@ -2791,7 +2791,7 @@
       "help": null,
       "primary_flag": "--gwas-low-p",
       "replacement": null,
-      "source_line": 577,
+      "source_line": 343,
       "type": "float",
       "usage_references": 16
     },
@@ -2808,7 +2808,7 @@
       "help": null,
       "primary_flag": "--gwas-low-p-posterior",
       "replacement": null,
-      "source_line": 578,
+      "source_line": 344,
       "type": "float",
       "usage_references": 5
     },
@@ -2825,7 +2825,7 @@
       "help": null,
       "primary_flag": "--gwas-n",
       "replacement": null,
-      "source_line": 363,
+      "source_line": 129,
       "type": "float",
       "usage_references": 18
     },
@@ -2842,7 +2842,7 @@
       "help": null,
       "primary_flag": "--gwas-n-col",
       "replacement": null,
-      "source_line": 362,
+      "source_line": 128,
       "type": null,
       "usage_references": 13
     },
@@ -2859,7 +2859,7 @@
       "help": null,
       "primary_flag": "--gwas-p-col",
       "replacement": null,
-      "source_line": 358,
+      "source_line": 124,
       "type": null,
       "usage_references": 13
     },
@@ -2876,7 +2876,7 @@
       "help": null,
       "primary_flag": "--gwas-pos-col",
       "replacement": null,
-      "source_line": 357,
+      "source_line": 123,
       "type": null,
       "usage_references": 15
     },
@@ -2893,7 +2893,7 @@
       "help": null,
       "primary_flag": "--gwas-se-col",
       "replacement": null,
-      "source_line": 360,
+      "source_line": 126,
       "type": null,
       "usage_references": 11
     },
@@ -2910,7 +2910,7 @@
       "help": null,
       "primary_flag": "--gwas-units",
       "replacement": null,
-      "source_line": 361,
+      "source_line": 127,
       "type": "float",
       "usage_references": 5
     },
@@ -2927,7 +2927,7 @@
       "help": null,
       "primary_flag": "--hide-opts",
       "replacement": null,
-      "source_line": 505,
+      "source_line": 271,
       "type": null,
       "usage_references": 15
     },
@@ -2944,7 +2944,7 @@
       "help": null,
       "primary_flag": "--hide-progress",
       "replacement": null,
-      "source_line": 504,
+      "source_line": 270,
       "type": null,
       "usage_references": 9
     },
@@ -2961,7 +2961,7 @@
       "help": null,
       "primary_flag": "--hold-out-chrom",
       "replacement": null,
-      "source_line": 520,
+      "source_line": 286,
       "type": "string",
       "usage_references": 10
     },
@@ -2978,7 +2978,7 @@
       "help": null,
       "primary_flag": "--huge-statistics-in",
       "replacement": null,
-      "source_line": 353,
+      "source_line": 119,
       "type": null,
       "usage_references": 24
     },
@@ -2995,7 +2995,7 @@
       "help": null,
       "primary_flag": "--huge-statistics-out",
       "replacement": null,
-      "source_line": 354,
+      "source_line": 120,
       "type": null,
       "usage_references": 23
     },
@@ -3012,7 +3012,7 @@
       "help": null,
       "primary_flag": "--ignore-genes",
       "replacement": null,
-      "source_line": 307,
+      "source_line": 73,
       "type": null,
       "usage_references": 9
     },
@@ -3029,7 +3029,7 @@
       "help": null,
       "primary_flag": "--ignore-negative-exp-beta",
       "replacement": null,
-      "source_line": 441,
+      "source_line": 207,
       "type": null,
       "usage_references": 12
     },
@@ -3046,7 +3046,7 @@
       "help": null,
       "primary_flag": "--increase-filter-gene-set-p",
       "replacement": null,
-      "source_line": 542,
+      "source_line": 308,
       "type": "float",
       "usage_references": 7
     },
@@ -3063,7 +3063,7 @@
       "help": null,
       "primary_flag": "--increase-hyper-if-betas-below",
       "replacement": null,
-      "source_line": 624,
+      "source_line": 390,
       "type": "float",
       "usage_references": 10
     },
@@ -3080,7 +3080,7 @@
       "help": null,
       "primary_flag": "--learn-window",
       "replacement": null,
-      "source_line": 582,
+      "source_line": 348,
       "type": null,
       "usage_references": 5
     },
@@ -3097,7 +3097,7 @@
       "help": null,
       "primary_flag": "--linear",
       "replacement": null,
-      "source_line": 513,
+      "source_line": 279,
       "type": null,
       "usage_references": 9
     },
@@ -3114,7 +3114,7 @@
       "help": null,
       "primary_flag": "--log-file",
       "replacement": null,
-      "source_line": 501,
+      "source_line": 267,
       "type": null,
       "usage_references": 9
     },
@@ -3131,7 +3131,7 @@
       "help": null,
       "primary_flag": "--max-abs-mcse-d",
       "replacement": null,
-      "source_line": 660,
+      "source_line": 426,
       "type": "float",
       "usage_references": 5
     },
@@ -3148,7 +3148,7 @@
       "help": null,
       "primary_flag": "--max-allowed-batch-correlation",
       "replacement": null,
-      "source_line": 533,
+      "source_line": 299,
       "type": "float",
       "usage_references": 5
     },
@@ -3165,7 +3165,7 @@
       "help": null,
       "primary_flag": "--max-closest-gene-dist",
       "replacement": null,
-      "source_line": 589,
+      "source_line": 355,
       "type": "float",
       "usage_references": 5
     },
@@ -3182,7 +3182,7 @@
       "help": null,
       "primary_flag": "--max-closest-gene-prob",
       "replacement": null,
-      "source_line": 588,
+      "source_line": 354,
       "type": "float",
       "usage_references": 5
     },
@@ -3199,7 +3199,7 @@
       "help": null,
       "primary_flag": "--max-clump-ld",
       "replacement": null,
-      "source_line": 600,
+      "source_line": 366,
       "type": "float",
       "usage_references": 5
     },
@@ -3216,7 +3216,7 @@
       "help": null,
       "primary_flag": "--max-for-linear",
       "replacement": null,
-      "source_line": 515,
+      "source_line": 281,
       "type": "float",
       "usage_references": 9
     },
@@ -3233,7 +3233,7 @@
       "help": null,
       "primary_flag": "--max-frac-sem-betas",
       "replacement": null,
-      "source_line": 697,
+      "source_line": 463,
       "type": "float",
       "usage_references": 9
     },
@@ -3250,7 +3250,7 @@
       "help": null,
       "primary_flag": "--max-gb",
       "replacement": null,
-      "source_line": 528,
+      "source_line": 294,
       "type": "float",
       "usage_references": 21
     },
@@ -3267,7 +3267,7 @@
       "help": null,
       "primary_flag": "--max-gene-set-read-p",
       "replacement": null,
-      "source_line": 548,
+      "source_line": 314,
       "type": "float",
       "usage_references": 11
     },
@@ -3284,7 +3284,7 @@
       "help": null,
       "primary_flag": "--max-gene-set-size",
       "replacement": null,
-      "source_line": 558,
+      "source_line": 324,
       "type": "int",
       "usage_references": 9
     },
@@ -3301,7 +3301,7 @@
       "help": null,
       "primary_flag": "--max-no-write-gene-gene-set-beta",
       "replacement": null,
-      "source_line": 493,
+      "source_line": 259,
       "type": "float",
       "usage_references": 9
     },
@@ -3318,7 +3318,7 @@
       "help": null,
       "primary_flag": "--max-no-write-gene-set-beta",
       "replacement": null,
-      "source_line": 492,
+      "source_line": 258,
       "type": "float",
       "usage_references": 18
     },
@@ -3335,7 +3335,7 @@
       "help": null,
       "primary_flag": "--max-no-write-gene-set-beta-uncorrected",
       "replacement": null,
-      "source_line": 495,
+      "source_line": 261,
       "type": "float",
       "usage_references": 9
     },
@@ -3352,7 +3352,7 @@
       "help": null,
       "primary_flag": "--max-num-burn-in",
       "replacement": null,
-      "source_line": 606,
+      "source_line": 372,
       "type": "int",
       "usage_references": 11
     },
@@ -3369,7 +3369,7 @@
       "help": null,
       "primary_flag": "--max-num-gene-sets",
       "replacement": null,
-      "source_line": 545,
+      "source_line": 311,
       "type": "int",
       "usage_references": 41
     },
@@ -3386,7 +3386,7 @@
       "help": null,
       "primary_flag": "--max-num-gene-sets-hyper",
       "replacement": null,
-      "source_line": 544,
+      "source_line": 310,
       "type": "int",
       "usage_references": 13
     },
@@ -3403,7 +3403,7 @@
       "help": null,
       "primary_flag": "--max-num-gene-sets-initial",
       "replacement": null,
-      "source_line": 543,
+      "source_line": 309,
       "type": "int",
       "usage_references": 15
     },
@@ -3420,7 +3420,7 @@
       "help": null,
       "primary_flag": "--max-num-iter",
       "replacement": null,
-      "source_line": 651,
+      "source_line": 417,
       "type": "int",
       "usage_references": 24
     },
@@ -3437,7 +3437,7 @@
       "help": null,
       "primary_flag": "--max-num-iter-betas",
       "replacement": null,
-      "source_line": 693,
+      "source_line": 459,
       "type": "int",
       "usage_references": 11
     },
@@ -3454,7 +3454,7 @@
       "help": null,
       "primary_flag": "--max-num-post-burn-in",
       "replacement": null,
-      "source_line": 650,
+      "source_line": 416,
       "type": "int",
       "usage_references": 5
     },
@@ -3471,7 +3471,7 @@
       "help": null,
       "primary_flag": "--max-num-restarts",
       "replacement": null,
-      "source_line": 663,
+      "source_line": 429,
       "type": "int",
       "usage_references": 8
     },
@@ -3488,7 +3488,7 @@
       "help": null,
       "primary_flag": "--max-read-entries-at-once",
       "replacement": null,
-      "source_line": 529,
+      "source_line": 295,
       "type": "int",
       "usage_references": 10
     },
@@ -3505,7 +3505,7 @@
       "help": null,
       "primary_flag": "--max-rel-mcse-beta",
       "replacement": null,
-      "source_line": 661,
+      "source_line": 427,
       "type": "float",
       "usage_references": 5
     },
@@ -3522,7 +3522,7 @@
       "help": null,
       "primary_flag": "--min-gene-phewas-read-value",
       "replacement": null,
-      "source_line": 639,
+      "source_line": 405,
       "type": "float",
       "usage_references": 12
     },
@@ -3539,7 +3539,7 @@
       "help": null,
       "primary_flag": "--min-gene-set-read-beta",
       "replacement": null,
-      "source_line": 549,
+      "source_line": 315,
       "type": "float",
       "usage_references": 18
     },
@@ -3556,7 +3556,7 @@
       "help": null,
       "primary_flag": "--min-gene-set-read-beta-uncorrected",
       "replacement": null,
-      "source_line": 550,
+      "source_line": 316,
       "type": "float",
       "usage_references": 9
     },
@@ -3573,7 +3573,7 @@
       "help": null,
       "primary_flag": "--min-gene-set-size",
       "replacement": null,
-      "source_line": 537,
+      "source_line": 303,
       "type": "int",
       "usage_references": 11
     },
@@ -3590,7 +3590,7 @@
       "help": null,
       "primary_flag": "--min-n-ratio",
       "replacement": null,
-      "source_line": 599,
+      "source_line": 365,
       "type": "float",
       "usage_references": 5
     },
@@ -3607,7 +3607,7 @@
       "help": null,
       "primary_flag": "--min-num-burn-in",
       "replacement": null,
-      "source_line": 648,
+      "source_line": 414,
       "type": "int",
       "usage_references": 6
     },
@@ -3624,7 +3624,7 @@
       "help": null,
       "primary_flag": "--min-num-gene-sets",
       "replacement": null,
-      "source_line": 546,
+      "source_line": 312,
       "type": "int",
       "usage_references": 5
     },
@@ -3641,7 +3641,7 @@
       "help": null,
       "primary_flag": "--min-num-iter-betas",
       "replacement": null,
-      "source_line": 692,
+      "source_line": 458,
       "type": "int",
       "usage_references": 11
     },
@@ -3658,7 +3658,7 @@
       "help": null,
       "primary_flag": "--min-num-post-burn-in",
       "replacement": null,
-      "source_line": 649,
+      "source_line": 415,
       "type": "int",
       "usage_references": 19
     },
@@ -3675,7 +3675,7 @@
       "help": null,
       "primary_flag": "--min-var-posterior",
       "replacement": null,
-      "source_line": 583,
+      "source_line": 349,
       "type": "float",
       "usage_references": 5
     },
@@ -3692,7 +3692,7 @@
       "help": null,
       "primary_flag": "--no-add-bottom",
       "replacement": null,
-      "source_line": 554,
+      "source_line": 320,
       "type": null,
       "usage_references": 9
     },
@@ -3709,7 +3709,7 @@
       "help": null,
       "primary_flag": "--no-add-top",
       "replacement": null,
-      "source_line": 553,
+      "source_line": 319,
       "type": null,
       "usage_references": 9
     },
@@ -3726,7 +3726,7 @@
       "help": null,
       "primary_flag": "--no-adjust-priors",
       "replacement": null,
-      "source_line": 617,
+      "source_line": 383,
       "type": null,
       "usage_references": 9
     },
@@ -3743,7 +3743,7 @@
       "help": null,
       "primary_flag": "--no-cap-region-posterior",
       "replacement": null,
-      "source_line": 591,
+      "source_line": 357,
       "type": null,
       "usage_references": 5
     },
@@ -3760,7 +3760,7 @@
       "help": null,
       "primary_flag": "--no-cap-weights",
       "replacement": null,
-      "source_line": 557,
+      "source_line": 323,
       "type": null,
       "usage_references": 9
     },
@@ -3777,7 +3777,7 @@
       "help": null,
       "primary_flag": "--no-correct-betas-mean",
       "replacement": null,
-      "source_line": 596,
+      "source_line": 362,
       "type": null,
       "usage_references": 9
     },
@@ -3794,7 +3794,7 @@
       "help": null,
       "primary_flag": "--no-correct-huge",
       "replacement": null,
-      "source_line": 466,
+      "source_line": 232,
       "type": null,
       "usage_references": 7
     },
@@ -3811,7 +3811,7 @@
       "help": null,
       "primary_flag": "--no-cross-val",
       "replacement": null,
-      "source_line": 328,
+      "source_line": 94,
       "type": null,
       "usage_references": 6
     },
@@ -3828,7 +3828,7 @@
       "help": null,
       "primary_flag": "--no-filter-negative",
       "replacement": null,
-      "source_line": 540,
+      "source_line": 306,
       "type": null,
       "usage_references": 11
     },
@@ -3845,7 +3845,7 @@
       "help": null,
       "primary_flag": "--no-initial-linear-filter",
       "replacement": null,
-      "source_line": 534,
+      "source_line": 300,
       "type": null,
       "usage_references": 5
     },
@@ -3862,7 +3862,7 @@
       "help": null,
       "primary_flag": "--no-linear",
       "replacement": null,
-      "source_line": 514,
+      "source_line": 280,
       "type": null,
       "usage_references": 9
     },
@@ -3879,7 +3879,7 @@
       "help": null,
       "primary_flag": "--no-scale-raw-closest-gene",
       "replacement": null,
-      "source_line": 586,
+      "source_line": 352,
       "type": null,
       "usage_references": 5
     },
@@ -3896,7 +3896,7 @@
       "help": null,
       "primary_flag": "--no-sparse-solution",
       "replacement": null,
-      "source_line": 610,
+      "source_line": 376,
       "type": null,
       "usage_references": 9
     },
@@ -3913,7 +3913,7 @@
       "help": null,
       "primary_flag": "--no-update-huge-scores",
       "replacement": null,
-      "source_line": 620,
+      "source_line": 386,
       "type": null,
       "usage_references": 5
     },
@@ -3930,7 +3930,7 @@
       "help": null,
       "primary_flag": "--no-warm-start",
       "replacement": null,
-      "source_line": 657,
+      "source_line": 423,
       "type": null,
       "usage_references": 5
     },
@@ -3947,7 +3947,7 @@
       "help": null,
       "primary_flag": "--num-chains",
       "replacement": null,
-      "source_line": 662,
+      "source_line": 428,
       "type": "int",
       "usage_references": 22
     },
@@ -3964,7 +3964,7 @@
       "help": null,
       "primary_flag": "--num-chains-betas",
       "replacement": null,
-      "source_line": 694,
+      "source_line": 460,
       "type": "int",
       "usage_references": 12
     },
@@ -3981,7 +3981,7 @@
       "help": null,
       "primary_flag": "--num-gene-sets-for-prior",
       "replacement": null,
-      "source_line": 317,
+      "source_line": 83,
       "type": "int",
       "usage_references": 9
     },
@@ -3998,7 +3998,7 @@
       "help": null,
       "primary_flag": "--num-mad",
       "replacement": null,
-      "source_line": 647,
+      "source_line": 413,
       "type": "int",
       "usage_references": 5
     },
@@ -4015,7 +4015,7 @@
       "help": null,
       "primary_flag": "--ols",
       "replacement": null,
-      "source_line": 512,
+      "source_line": 278,
       "type": null,
       "usage_references": 14
     },
@@ -4032,7 +4032,7 @@
       "help": null,
       "primary_flag": "--p-noninf",
       "replacement": null,
-      "source_line": 312,
+      "source_line": 78,
       "type": "float",
       "usage_references": 24
     },
@@ -4049,7 +4049,7 @@
       "help": null,
       "primary_flag": "--p-noninf-inflate",
       "replacement": null,
-      "source_line": 333,
+      "source_line": 99,
       "type": "float",
       "usage_references": 5
     },
@@ -4066,7 +4066,7 @@
       "help": null,
       "primary_flag": "--params-out",
       "replacement": null,
-      "source_line": 498,
+      "source_line": 264,
       "type": null,
       "usage_references": 20
     },
@@ -4083,7 +4083,7 @@
       "help": null,
       "primary_flag": "--permute-gene-sets",
       "replacement": null,
-      "source_line": 521,
+      "source_line": 287,
       "type": null,
       "usage_references": 9
     },
@@ -4100,7 +4100,7 @@
       "help": null,
       "primary_flag": "--phantom-region-posterior",
       "replacement": null,
-      "source_line": 593,
+      "source_line": 359,
       "type": null,
       "usage_references": 5
     },
@@ -4117,7 +4117,7 @@
       "help": null,
       "primary_flag": "--phewas-gene-set-stats-out",
       "replacement": null,
-      "source_line": 471,
+      "source_line": 237,
       "type": null,
       "usage_references": 9
     },
@@ -4134,7 +4134,7 @@
       "help": null,
       "primary_flag": "--phewas-stats-out",
       "replacement": null,
-      "source_line": 480,
+      "source_line": 246,
       "type": null,
       "usage_references": 17
     },
@@ -4151,7 +4151,7 @@
       "help": null,
       "primary_flag": "--positive-controls-all-id-col",
       "replacement": null,
-      "source_line": 404,
+      "source_line": 170,
       "type": null,
       "usage_references": 7
     },
@@ -4168,7 +4168,7 @@
       "help": null,
       "primary_flag": "--positive-controls-all-in",
       "replacement": null,
-      "source_line": 403,
+      "source_line": 169,
       "type": null,
       "usage_references": 14
     },
@@ -4185,7 +4185,7 @@
       "help": null,
       "primary_flag": "--positive-controls-all-no-header",
       "replacement": null,
-      "source_line": 405,
+      "source_line": 171,
       "type": null,
       "usage_references": 7
     },
@@ -4202,7 +4202,7 @@
       "help": null,
       "primary_flag": "--positive-controls-default-prob",
       "replacement": null,
-      "source_line": 401,
+      "source_line": 167,
       "type": "float",
       "usage_references": 5
     },
@@ -4219,7 +4219,7 @@
       "help": null,
       "primary_flag": "--positive-controls-id-col",
       "replacement": null,
-      "source_line": 398,
+      "source_line": 164,
       "type": null,
       "usage_references": 7
     },
@@ -4236,7 +4236,7 @@
       "help": null,
       "primary_flag": "--positive-controls-in",
       "replacement": null,
-      "source_line": 397,
+      "source_line": 163,
       "type": null,
       "usage_references": 20
     },
@@ -4253,7 +4253,7 @@
       "help": null,
       "primary_flag": "--positive-controls-list",
       "replacement": null,
-      "source_line": 400,
+      "source_line": 166,
       "type": "string",
       "usage_references": 26
     },
@@ -4270,7 +4270,7 @@
       "help": null,
       "primary_flag": "--positive-controls-no-header",
       "replacement": null,
-      "source_line": 402,
+      "source_line": 168,
       "type": null,
       "usage_references": 5
     },
@@ -4287,7 +4287,7 @@
       "help": null,
       "primary_flag": "--positive-controls-prob-col",
       "replacement": null,
-      "source_line": 399,
+      "source_line": 165,
       "type": null,
       "usage_references": 5
     },
@@ -4304,7 +4304,7 @@
       "help": null,
       "primary_flag": "--pre-filter-batch-size",
       "replacement": null,
-      "source_line": 531,
+      "source_line": 297,
       "type": "int",
       "usage_references": 10
     },
@@ -4321,7 +4321,7 @@
       "help": null,
       "primary_flag": "--pre-filter-small-batch-size",
       "replacement": null,
-      "source_line": 532,
+      "source_line": 298,
       "type": "int",
       "usage_references": 10
     },
@@ -4338,7 +4338,7 @@
       "help": null,
       "primary_flag": "--print-effective-config",
       "replacement": null,
-      "source_line": 509,
+      "source_line": 275,
       "type": null,
       "usage_references": 32
     },
@@ -4355,7 +4355,7 @@
       "help": null,
       "primary_flag": "--priors-num-gene-batches",
       "replacement": null,
-      "source_line": 525,
+      "source_line": 291,
       "type": "int",
       "usage_references": 11
     },
@@ -4372,7 +4372,7 @@
       "help": null,
       "primary_flag": "--prune-deterministically",
       "replacement": null,
-      "source_line": 562,
+      "source_line": 328,
       "type": null,
       "usage_references": 9
     },
@@ -4389,7 +4389,7 @@
       "help": null,
       "primary_flag": "--prune-gene-sets",
       "replacement": null,
-      "source_line": 560,
+      "source_line": 326,
       "type": "float",
       "usage_references": 21
     },
@@ -4406,7 +4406,7 @@
       "help": null,
       "primary_flag": "--r-threshold-burn-in",
       "replacement": null,
-      "source_line": 653,
+      "source_line": 419,
       "type": "float",
       "usage_references": 14
     },
@@ -4423,7 +4423,7 @@
       "help": null,
       "primary_flag": "--r-threshold-burn-in-betas",
       "replacement": null,
-      "source_line": 695,
+      "source_line": 461,
       "type": "float",
       "usage_references": 9
     },
@@ -4440,7 +4440,7 @@
       "help": null,
       "primary_flag": "--run-phewas-from-gene-phewas-stats-in",
       "replacement": null,
-      "source_line": 489,
+      "source_line": 255,
       "type": null,
       "usage_references": 29
     },
@@ -4457,7 +4457,7 @@
       "help": null,
       "primary_flag": "--s2g-chrom-col",
       "replacement": null,
-      "source_line": 380,
+      "source_line": 146,
       "type": null,
       "usage_references": 9
     },
@@ -4474,7 +4474,7 @@
       "help": null,
       "primary_flag": "--s2g-gene-col",
       "replacement": null,
-      "source_line": 382,
+      "source_line": 148,
       "type": null,
       "usage_references": 9
     },
@@ -4491,7 +4491,7 @@
       "help": null,
       "primary_flag": "--s2g-in",
       "replacement": null,
-      "source_line": 379,
+      "source_line": 145,
       "type": null,
       "usage_references": 7
     },
@@ -4508,7 +4508,7 @@
       "help": null,
       "primary_flag": "--s2g-normalize-values",
       "replacement": null,
-      "source_line": 384,
+      "source_line": 150,
       "type": "float",
       "usage_references": 5
     },
@@ -4525,7 +4525,7 @@
       "help": null,
       "primary_flag": "--s2g-pos-col",
       "replacement": null,
-      "source_line": 381,
+      "source_line": 147,
       "type": null,
       "usage_references": 9
     },
@@ -4542,7 +4542,7 @@
       "help": null,
       "primary_flag": "--s2g-prob-col",
       "replacement": null,
-      "source_line": 383,
+      "source_line": 149,
       "type": null,
       "usage_references": 5
     },
@@ -4559,7 +4559,7 @@
       "help": null,
       "primary_flag": "--scale-region-posterior",
       "replacement": null,
-      "source_line": 592,
+      "source_line": 358,
       "type": null,
       "usage_references": 5
     },
@@ -4576,7 +4576,7 @@
       "help": null,
       "primary_flag": "--seed",
       "replacement": null,
-      "source_line": 506,
+      "source_line": 272,
       "type": "int",
       "usage_references": 21
     },
@@ -4593,7 +4593,7 @@
       "help": null,
       "primary_flag": "--sigma-num-devs-to-top",
       "replacement": null,
-      "source_line": 332,
+      "source_line": 98,
       "type": "float",
       "usage_references": 5
     },
@@ -4610,7 +4610,7 @@
       "help": null,
       "primary_flag": "--sigma-power",
       "replacement": null,
-      "source_line": 319,
+      "source_line": 85,
       "type": "float",
       "usage_references": 13
     },
@@ -4627,7 +4627,7 @@
       "help": null,
       "primary_flag": "--sigma-soft-threshold-5",
       "replacement": null,
-      "source_line": 321,
+      "source_line": 87,
       "type": "float",
       "usage_references": 5
     },
@@ -4644,7 +4644,7 @@
       "help": null,
       "primary_flag": "--sigma-soft-threshold-95",
       "replacement": null,
-      "source_line": 320,
+      "source_line": 86,
       "type": "float",
       "usage_references": 5
     },
@@ -4661,7 +4661,7 @@
       "help": null,
       "primary_flag": "--sigma2",
       "replacement": null,
-      "source_line": 315,
+      "source_line": 81,
       "type": "float",
       "usage_references": 34
     },
@@ -4678,7 +4678,7 @@
       "help": null,
       "primary_flag": "--sigma2-cond",
       "replacement": null,
-      "source_line": 313,
+      "source_line": 79,
       "type": "float",
       "usage_references": 6
     },
@@ -4695,7 +4695,7 @@
       "help": null,
       "primary_flag": "--sigma2-ext",
       "replacement": null,
-      "source_line": 314,
+      "source_line": 80,
       "type": "float",
       "usage_references": 6
     },
@@ -4712,7 +4712,7 @@
       "help": null,
       "primary_flag": "--signal-max-logp-ratio",
       "replacement": null,
-      "source_line": 603,
+      "source_line": 369,
       "type": "float",
       "usage_references": 7
     },
@@ -4729,7 +4729,7 @@
       "help": null,
       "primary_flag": "--signal-min-sep",
       "replacement": null,
-      "source_line": 602,
+      "source_line": 368,
       "type": "float",
       "usage_references": 5
     },
@@ -4746,7 +4746,7 @@
       "help": null,
       "primary_flag": "--signal-window-size",
       "replacement": null,
-      "source_line": 601,
+      "source_line": 367,
       "type": "float",
       "usage_references": 5
     },
@@ -4763,7 +4763,7 @@
       "help": null,
       "primary_flag": "--sim-log-bf-noise-sigma-mult",
       "replacement": null,
-      "source_line": 643,
+      "source_line": 409,
       "type": "float",
       "usage_references": 7
     },
@@ -4780,7 +4780,7 @@
       "help": null,
       "primary_flag": "--sim-only-positive",
       "replacement": null,
-      "source_line": 644,
+      "source_line": 410,
       "type": null,
       "usage_references": 7
     },
@@ -4797,7 +4797,7 @@
       "help": null,
       "primary_flag": "--sparse-frac-betas",
       "replacement": null,
-      "source_line": 613,
+      "source_line": 379,
       "type": "float",
       "usage_references": 9
     },
@@ -4814,7 +4814,7 @@
       "help": null,
       "primary_flag": "--sparse-frac-gibbs",
       "replacement": null,
-      "source_line": 611,
+      "source_line": 377,
       "type": "float",
       "usage_references": 5
     },
@@ -4831,7 +4831,7 @@
       "help": null,
       "primary_flag": "--sparse-max-gibbs",
       "replacement": null,
-      "source_line": 612,
+      "source_line": 378,
       "type": "float",
       "usage_references": 5
     },
@@ -4848,7 +4848,7 @@
       "help": null,
       "primary_flag": "--sparse-solution",
       "replacement": null,
-      "source_line": 609,
+      "source_line": 375,
       "type": null,
       "usage_references": 9
     },
@@ -4865,7 +4865,7 @@
       "help": null,
       "primary_flag": "--stall-delta-mcse",
       "replacement": null,
-      "source_line": 685,
+      "source_line": 451,
       "type": "float",
       "usage_references": 5
     },
@@ -4882,7 +4882,7 @@
       "help": null,
       "primary_flag": "--stall-delta-rhat",
       "replacement": null,
-      "source_line": 684,
+      "source_line": 450,
       "type": "float",
       "usage_references": 5
     },
@@ -4899,7 +4899,7 @@
       "help": null,
       "primary_flag": "--stall-min-burn-in",
       "replacement": null,
-      "source_line": 683,
+      "source_line": 449,
       "type": "int",
       "usage_references": 5
     },
@@ -4916,7 +4916,7 @@
       "help": null,
       "primary_flag": "--stall-min-post-burn-samples",
       "replacement": null,
-      "source_line": 666,
+      "source_line": 432,
       "type": "int",
       "usage_references": 9
     },
@@ -4933,7 +4933,7 @@
       "help": null,
       "primary_flag": "--stall-recent-eps",
       "replacement": null,
-      "source_line": 687,
+      "source_line": 453,
       "type": "float",
       "usage_references": 5
     },
@@ -4950,7 +4950,7 @@
       "help": null,
       "primary_flag": "--stall-recent-window",
       "replacement": null,
-      "source_line": 686,
+      "source_line": 452,
       "type": "int",
       "usage_references": 5
     },
@@ -4967,7 +4967,7 @@
       "help": null,
       "primary_flag": "--stall-window",
       "replacement": null,
-      "source_line": 682,
+      "source_line": 448,
       "type": "int",
       "usage_references": 5
     },
@@ -4984,7 +4984,7 @@
       "help": null,
       "primary_flag": "--stop-mcse-quantile",
       "replacement": null,
-      "source_line": 667,
+      "source_line": 433,
       "type": "float",
       "usage_references": 5
     },
@@ -5001,7 +5001,7 @@
       "help": null,
       "primary_flag": "--stop-min-gene-d",
       "replacement": null,
-      "source_line": 680,
+      "source_line": 446,
       "type": "float",
       "usage_references": 5
     },
@@ -5018,7 +5018,7 @@
       "help": null,
       "primary_flag": "--stop-patience",
       "replacement": null,
-      "source_line": 668,
+      "source_line": 434,
       "type": "int",
       "usage_references": 5
     },
@@ -5035,7 +5035,7 @@
       "help": null,
       "primary_flag": "--stop-top-gene-k",
       "replacement": null,
-      "source_line": 679,
+      "source_line": 445,
       "type": "int",
       "usage_references": 5
     },
@@ -5052,7 +5052,7 @@
       "help": null,
       "primary_flag": "--strict-stopping",
       "replacement": null,
-      "source_line": 671,
+      "source_line": 437,
       "type": null,
       "usage_references": 5
     },
@@ -5069,7 +5069,7 @@
       "help": null,
       "primary_flag": "--threshold-weights",
       "replacement": null,
-      "source_line": 556,
+      "source_line": 322,
       "type": "float",
       "usage_references": 9
     },
@@ -5086,7 +5086,7 @@
       "help": null,
       "primary_flag": "--top-gene-prior",
       "replacement": null,
-      "source_line": 621,
+      "source_line": 387,
       "type": "float",
       "usage_references": 7
     },
@@ -5103,7 +5103,7 @@
       "help": null,
       "primary_flag": "--top-gene-set-prior",
       "replacement": null,
-      "source_line": 316,
+      "source_line": 82,
       "type": "float",
       "usage_references": 11
     },
@@ -5120,7 +5120,7 @@
       "help": null,
       "primary_flag": "--total-num-iter-gibbs",
       "replacement": null,
-      "source_line": 652,
+      "source_line": 418,
       "type": "int",
       "usage_references": 8
     },
@@ -5137,7 +5137,7 @@
       "help": null,
       "primary_flag": "--update-hyper",
       "replacement": null,
-      "source_line": 326,
+      "source_line": 92,
       "type": "string",
       "usage_references": 15
     },
@@ -5154,7 +5154,7 @@
       "help": null,
       "primary_flag": "--use-beta-uncorrected-for-gene-gene-set-write-filter",
       "replacement": null,
-      "source_line": 494,
+      "source_line": 260,
       "type": null,
       "usage_references": 9
     },
@@ -5171,7 +5171,7 @@
       "help": null,
       "primary_flag": "--use-max-r-for-convergence",
       "replacement": null,
-      "source_line": 672,
+      "source_line": 438,
       "type": null,
       "usage_references": 15
     },
@@ -5188,7 +5188,7 @@
       "help": null,
       "primary_flag": "--use-max-r-for-convergence-betas",
       "replacement": null,
-      "source_line": 698,
+      "source_line": 464,
       "type": null,
       "usage_references": 9
     },
@@ -5205,7 +5205,7 @@
       "help": null,
       "primary_flag": "--use-sampled-betas-in-gibbs",
       "replacement": null,
-      "source_line": 655,
+      "source_line": 421,
       "type": null,
       "usage_references": 5
     },
@@ -5222,7 +5222,7 @@
       "help": null,
       "primary_flag": "--use-sampling-for-betas",
       "replacement": null,
-      "source_line": 516,
+      "source_line": 282,
       "type": "int",
       "usage_references": 5
     },
@@ -5239,7 +5239,7 @@
       "help": null,
       "primary_flag": "--warm-start",
       "replacement": null,
-      "source_line": 656,
+      "source_line": 422,
       "type": null,
       "usage_references": 5
     },
@@ -5256,7 +5256,7 @@
       "help": null,
       "primary_flag": "--warnings-file",
       "replacement": null,
-      "source_line": 502,
+      "source_line": 268,
       "type": null,
       "usage_references": 9
     },
@@ -5273,7 +5273,7 @@
       "help": null,
       "primary_flag": "--weighted-prune-gene-sets",
       "replacement": null,
-      "source_line": 561,
+      "source_line": 327,
       "type": "float",
       "usage_references": 9
     },
@@ -5290,7 +5290,7 @@
       "help": null,
       "primary_flag": "--x-sparsify",
       "replacement": null,
-      "source_line": 551,
+      "source_line": 317,
       "type": "string",
       "usage_references": 12
     }

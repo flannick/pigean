@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-DEFAULT_ENTRYPOINT = "src/eaggl/legacy_main.py"
+DEFAULT_ENTRYPOINT = "src/eaggl/cli.py"
 DEFAULT_MANIFEST = "docs/eaggl/cli_option_manifest.json"
 DEFAULT_DOC = "docs/eaggl/CLI_OPTIONS.md"
 

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-DEFAULT_ENTRYPOINT = "src/pigean.py"
+DEFAULT_ENTRYPOINT = "src/pigean_cli.py"
 DEFAULT_MANIFEST = "docs/cli_option_manifest.json"
 DEFAULT_DOC = "docs/CLI_OPTIONS.md"
 
