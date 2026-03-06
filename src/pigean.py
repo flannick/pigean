@@ -19570,108 +19570,43 @@ def _load_main_Y_inputs(state, options, mode_state):
     return True
 
 def _run_advanced_set_b_phewas_beta_sampling_if_requested(state, options, beta_sampling_kwargs):
-    if not options.betas_uncorrected_from_phewas:
-        return
-    phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
-    phewas_beta_sampling_kwargs.update({
-        "run_betas_using_phewas": options.betas_from_phewas,
-        "run_uncorrected_using_phewas": True,
-    })
-    state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
+    try:
+        from . import pigean_phewas as _pigean_phewas
+    except ImportError:
+        import pigean_phewas as _pigean_phewas
+
+    return _pigean_phewas.run_advanced_set_b_phewas_beta_sampling_if_requested(
+        sys.modules[__name__],
+        state,
+        options,
+        beta_sampling_kwargs,
+    )
 
 def _run_advanced_set_b_output_phewas_if_requested(state, options):
-    if not options.run_phewas_from_gene_phewas_stats_in:
-        return
-    decision = pegs_resolve_gene_phewas_input_decision_for_stage(
-        requested_input=options.run_phewas_from_gene_phewas_stats_in,
-        reusable_inputs=[options.gene_phewas_bfs_in],
-        read_gene_phewas=state.read_gene_phewas(),
-        num_gene_phewas_filtered=state.num_gene_phewas_filtered,
-    )
-    log(
-        "PheWAS stage 'output_phewas': mode=%s reason=%s" % (decision.mode, decision.reason),
-        INFO,
-    )
-    bfs_to_use = decision.resolved_input
+    try:
+        from . import pigean_phewas as _pigean_phewas
+    except ImportError:
+        import pigean_phewas as _pigean_phewas
 
-    phewas_config = pegs_build_phewas_stage_config(
-        gene_phewas_bfs_in=bfs_to_use,
-        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-        max_num_burn_in=options.max_num_burn_in,
-        max_num_iter=options.max_num_iter_betas,
-        min_num_iter=options.min_num_iter_betas,
-        num_chains=options.num_chains_betas,
-        r_threshold_burn_in=options.r_threshold_burn_in_betas,
-        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
-        max_frac_sem=options.max_frac_sem_betas,
-        gauss_seidel=options.gauss_seidel_betas,
-        sparse_solution=options.sparse_solution,
-        sparse_frac_betas=options.sparse_frac_betas,
+    return _pigean_phewas.run_advanced_set_b_output_phewas_if_requested(
+        sys.modules[__name__],
+        state,
+        options,
     )
-    run_kwargs = phewas_config.to_run_kwargs()
-    run_kwargs["batch_size"] = 1500
-    state.run_phewas(**run_kwargs)
-
-    if options.phewas_stats_out:
-        state.write_phewas_statistics(options.phewas_stats_out)
 
 
 def _write_eaggl_bundle_if_requested(state, options, mode):
-    if options.eaggl_bundle_out is None:
-        return
+    try:
+        from . import pigean_outputs as _pigean_outputs
+    except ImportError:
+        import pigean_outputs as _pigean_outputs
 
-    out_path = options.eaggl_bundle_out
-    log("Writing EAGGL handoff bundle to %s" % out_path, INFO)
-    generated_file_specs = [
-        (
-            "X_in",
-            "X.tsv.gz",
-            lambda path: state.write_X(path),
-            "X matrix",
-            "run with --X-in/--X-list and ensure gene sets were loaded",
-        ),
-        (
-            "gene_stats_in",
-            "gene_stats.tsv.gz",
-            lambda path: state.write_gene_statistics(path),
-            "gene statistics",
-            "run a mode that computes/loads gene scores",
-        ),
-        (
-            "gene_set_stats_in",
-            "gene_set_stats.tsv.gz",
-            lambda path: state.write_gene_set_statistics(
-                path,
-                max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
-                max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
-            ),
-            "gene-set statistics",
-            "run a mode that computes/loads gene-set statistics",
-        ),
-    ]
-    optional_existing_files = [
-        ("gene_phewas_bfs_in", options.phewas_stats_out, "gene_phewas_stats.tsv.gz"),
-        ("gene_set_phewas_stats_in", options.phewas_gene_set_stats_out, "gene_set_phewas_stats.tsv.gz"),
-    ]
-    pegs_write_bundle_from_specs(
-        out_path,
-        schema=PEGS_EAGGL_BUNDLE_SCHEMA,
-        source_tool="pigean.py",
-        source_mode=mode,
-        source_argv=sys.argv,
-        generated_file_specs=generated_file_specs,
-        optional_existing_files=optional_existing_files,
-        option_name="--eaggl-bundle-out",
-        temp_prefix="pigean_eaggl_bundle_",
-        manifest_name="manifest.json",
-        bail_fn=bail,
+    return _pigean_outputs.write_eaggl_bundle_if_requested(
+        sys.modules[__name__],
+        state,
+        options,
+        mode,
     )
-
-    log("Finished writing EAGGL handoff bundle %s" % out_path, INFO)
 
 
 def _run_main_beta_tilde_stage(state, options, mode_state):
@@ -19947,40 +19882,18 @@ def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_l
 
 
 def _write_main_outputs_and_optional_phewas(state, options, mode_state, mode):
-    if options.gene_set_stats_out:
-        state.write_gene_set_statistics(
-            options.gene_set_stats_out,
-            max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
-            max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
-        )
-    if options.phewas_gene_set_stats_out:
-        state.write_phewas_gene_set_statistics(
-            options.phewas_gene_set_stats_out,
-            max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
-            max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
-        )
-    if options.gene_set_overlap_stats_out:
-        state.write_gene_set_overlap_statistics(options.gene_set_overlap_stats_out)
+    try:
+        from . import pigean_outputs as _pigean_outputs
+    except ImportError:
+        import pigean_outputs as _pigean_outputs
 
-    if options.gene_stats_out:
-        state.write_gene_statistics(options.gene_stats_out)
-    if options.gene_gene_set_stats_out:
-        state.write_gene_gene_set_statistics(
-            options.gene_gene_set_stats_out,
-            max_no_write_gene_gene_set_beta=options.max_no_write_gene_gene_set_beta,
-            write_filter_beta_uncorrected=options.use_beta_uncorrected_for_gene_gene_set_write_filter,
-        )
-    if options.gene_covs_out:
-        state.write_gene_covariates(options.gene_covs_out)
-    if options.gene_effectors_out:
-        state.write_gene_effectors(options.gene_effectors_out)
-
-    if mode_state["run_phewas"]:
-        _run_advanced_set_b_output_phewas_if_requested(state=state, options=options)
-
-    if options.params_out:
-        state.write_params(options.params_out)
-    _write_eaggl_bundle_if_requested(state=state, options=options, mode=mode)
+    return _pigean_outputs.write_main_outputs_and_optional_phewas(
+        sys.modules[__name__],
+        state,
+        options,
+        mode_state,
+        mode,
+    )
 
 
 def run_main_pipeline(options, mode):
