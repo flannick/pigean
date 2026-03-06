@@ -2275,7 +2275,7 @@
       "source_line": 288,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 6
     },
     {
       "action": "store_true",
@@ -2296,7 +2296,7 @@
       "source_line": 289,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": "store_true",
@@ -2317,7 +2317,7 @@
       "source_line": 290,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": "store_true",
@@ -2359,7 +2359,7 @@
       "source_line": 285,
       "summary": "enable optional LLM-based factor labeling",
       "type": "str",
-      "usage_references": 7
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2380,7 +2380,7 @@
       "source_line": 287,
       "summary": "choose the LLM model used for optional labeling",
       "type": "str",
-      "usage_references": 4
+      "usage_references": 5
     },
     {
       "action": null,
@@ -2401,7 +2401,7 @@
       "source_line": 286,
       "summary": "choose the LLM provider used for optional labeling",
       "type": "str",
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
