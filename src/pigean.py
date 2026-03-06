@@ -294,6 +294,7 @@ usage = _pigean_cli.usage
 parser = _pigean_cli.parser
 REMOVED_OPTION_REPLACEMENTS = _pigean_cli.REMOVED_OPTION_REPLACEMENTS
 _build_mode_state = _pigean_cli._build_mode_state
+_json_safe = _pigean_cli._json_safe
 
 options = None
 args = []
