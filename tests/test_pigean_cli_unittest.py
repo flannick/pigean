@@ -135,6 +135,51 @@ print(f"{actual:.17f}\t{expected:.17f}")
         actual, expected = last_line.split("\t")
         self.assertEqual(actual, expected)
 
+    def test_import_does_not_parse_invalid_argv(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        snippet = r'''
+import sys
+sys.argv = ["pigean.py", "--definitely-invalid-option"]
+import src.pigean  # noqa: F401
+print("ok")
+'''
+        proc = subprocess.run(
+            [sys.executable, "-c", snippet],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        self.assertEqual((proc.stdout or "").strip().splitlines()[-1], "ok")
+
+    def test_main_accepts_argv_directly(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        snippet = r'''
+import contextlib
+import io
+import json
+import sys
+import src.pigean as pigean
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    rc = pigean.main(["gibbs", "--deterministic", "--print-effective-config"])
+payload = json.loads(buf.getvalue())
+print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"]["seed"]}, sort_keys=True))
+'''
+        proc = subprocess.run(
+            [sys.executable, "-c", snippet],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads((proc.stdout or "").strip().splitlines()[-1])
+        self.assertEqual(payload["rc"], 0)
+        self.assertEqual(payload["mode"], "gibbs")
+        self.assertEqual(payload["seed"], 0)
+
     def test_prefilter_keep_mask_phewas_relax_uses_gene_set_axis(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         snippet = r'''
