@@ -615,6 +615,36 @@ REMOVED_OPTION_REPLACEMENTS = {
     "store_cholesky": None,
 }
 
+options = None
+args = []
+mode = None
+config_mode = None
+cli_specified_dests = set()
+config_specified_dests = set()
+eaggl_bundle_info = None
+run_factor = False
+run_phewas = False
+run_naive_factor = False
+use_phewas_for_factoring = False
+factor_gene_set_x_pheno = False
+expand_gene_sets = False
+factor_workflow = None
+NONE = 0
+INFO = 1
+DEBUG = 2
+TRACE = 3
+debug_level = 1
+log_fh = None
+warnings_fh = None
+
+
+def _noop_log(*_args, **_kwargs):
+    return None
+
+
+log = _noop_log
+warn = _noop_log
+
 def _enforce_eaggl_mode_ownership(_mode):
     factor_modes = set(["factor", "naive_factor"])
     if _mode not in factor_modes:
@@ -831,42 +861,6 @@ def _apply_eaggl_bundle_inputs(_options):
         bail_fn=bail,
     )
 
-argv_parse = sys.argv[1:]
-pegs_fail_removed_cli_aliases(
-    argv_parse,
-    REMOVED_OPTION_REPLACEMENTS,
-    format_removed_option_message_fn=pegs_format_removed_option_message,
-)
-
-(options, args) = parser.parse_args(argv_parse)
-(options, args, config_mode, cli_specified_dests, config_specified_dests) = pegs_apply_cli_config_overrides(
-    options,
-    args,
-    parser,
-    argv_parse,
-    resolve_path_fn=_resolve_config_path_value,
-    is_path_like_dest_fn=_is_path_like_dest,
-    early_warn_fn=_early_warn,
-    bail_fn=bail,
-    removed_option_replacements=REMOVED_OPTION_REPLACEMENTS,
-    format_removed_option_message_fn=pegs_format_removed_option_message,
-    track_config_specified_dests=True,
-)
-
-args = pegs_harmonize_cli_mode_args(args, config_mode, early_warn_fn=_early_warn)
-
-_logging_state = pegs_initialize_cli_logging(options, stderr_stream=sys.stderr, default_debug_level=1)
-NONE = _logging_state["NONE"]
-INFO = _logging_state["INFO"]
-DEBUG = _logging_state["DEBUG"]
-TRACE = _logging_state["TRACE"]
-debug_level = _logging_state["debug_level"]
-log_fh = _logging_state["log_fh"]
-warnings_fh = _logging_state["warnings_fh"]
-log = _logging_state["log"]
-warn = _logging_state["warn"]
-
-
 def _query_openai_chat_completion(query, auth_key=None, lmm_model=None):
     if auth_key is None:
         bail("Need --lmm-auth-key to use LLM labeling")
@@ -924,90 +918,6 @@ def query_lmm(query, auth_key=None, lmm_model=None, lmm_provider="openai"):
         bail("LLM provider 'claude' is not implemented yet; use --lmm-provider openai")
     bail("Unsupported --lmm-provider '%s'; expected one of: openai, gemini, claude" % provider)
 
-
-eaggl_bundle_info = _apply_eaggl_bundle_inputs(options)
-if eaggl_bundle_info is not None:
-    applied = eaggl_bundle_info.applied_defaults
-    if len(applied) == 0:
-        log("Loaded --eaggl-bundle-in bundle %s (no defaults applied; explicit CLI/config inputs took precedence)" % options.eaggl_bundle_in, INFO)
-    else:
-        applied_text = ", ".join(["%s=%s" % (k, applied[k]) for k in sorted(applied.keys())])
-        log("Loaded --eaggl-bundle-in bundle %s and applied defaults: %s" % (options.eaggl_bundle_in, applied_text), INFO)
-
-pegs_configure_random_seed(options, random, np, log_fn=log, info_level=INFO)
-
-options.x_sparsify = pegs_coerce_option_int_list(options.x_sparsify, "--x-sparsify", bail)
-
-if len(args) < 1:
-    bail(usage)
-
-mode = args[0]
-_enforce_eaggl_mode_ownership(mode)
-
-run_factor = False
-run_phewas = False
-
-run_naive_factor = False
-use_phewas_for_factoring = False
-factor_gene_set_x_pheno = False
-expand_gene_sets = False
-factor_workflow = None
-
-if mode == "factor" or mode == "naive_factor": #run factoring, phewas factoring, or pheno factoring
-    run_factor = True
-    if mode == "naive_factor":
-        run_naive_factor = True
-
-    factor_workflow = _classify_factor_workflow(options)
-    factor_type = factor_workflow["label"]
-    error = factor_workflow["error"]
-    factor_gene_set_x_pheno = factor_workflow["factor_gene_set_x_pheno"]
-    use_phewas_for_factoring = factor_workflow["use_phewas_for_factoring"]
-    expand_gene_sets = factor_workflow["expand_gene_sets"]
-
-    if error is not None:
-        bail("Cannot run factoring type: %s. %s" % (factor_type, error))
-    else:
-        log("Running factoring type: %s [workflow=%s]" % (factor_type, factor_workflow["id"]))
-        _warn_for_factor_workflow_inputs(options, factor_workflow)
-else:
-    bail("Unrecognized mode %s" % mode)
-
-if options.run_phewas_from_gene_phewas_stats_in is not None:
-    run_phewas = True
-
-#set defaults (EAGGL supports only factor/naive_factor modes)
-options.correct_betas_mean = options.correct_betas_mean if options.correct_betas_mean is not None else True
-options.adjust_priors = options.adjust_priors if options.adjust_priors is not None else True
-options.p_noninf = options.p_noninf if options.p_noninf is not None else [0.001]
-options.sigma_power = options.sigma_power if options.sigma_power is not None else -2
-options.update_hyper = options.update_hyper if options.update_hyper is not None else "p"
-options.filter_negative = options.filter_negative if options.filter_negative is not None else True
-if options.prune_gene_sets is None:
-    if run_factor and factor_gene_set_x_pheno:
-        options.prune_gene_sets = 0.5
-    else:
-        options.prune_gene_sets = 0.8
-
-if options.weighted_prune_gene_sets is None:
-    if run_factor and factor_gene_set_x_pheno:
-        options.weighted_prune_gene_sets = 0.5
-    else:
-        options.weighted_prune_gene_sets = 0.8
-
-options.top_gene_set_prior = options.top_gene_set_prior if options.top_gene_set_prior is not None else 0.8
-options.num_gene_sets_for_prior = options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else 50
-options.filter_gene_set_p = options.filter_gene_set_p if options.filter_gene_set_p is not None else 0.01
-options.linear = options.linear if options.linear is not None else False
-options.max_for_linear = options.max_for_linear if options.max_for_linear is not None else 0.95
-options.min_gene_set_size = options.min_gene_set_size if options.min_gene_set_size is not None else 10
-
-if run_factor and factor_gene_set_x_pheno is not None:
-    if options.add_gene_sets_by_enrichment_p is not None:
-        options.filter_gene_set_p = options.add_gene_sets_by_enrichment_p
-
-options.sparse_frac_betas = options.sparse_frac_betas if options.sparse_frac_betas is not None else 0.001
-options.sparse_solution = options.sparse_solution if options.sparse_solution is not None else True
 
 def _is_option_dest_explicit(dest):
     if cli_specified_dests is not None and dest in cli_specified_dests:
@@ -1088,27 +998,171 @@ def _derive_memory_controls_from_max_gb():
     if len(clamped) > 0:
         log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
 
-_derive_memory_controls_from_max_gb()
-
-if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
-    warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
-    options.ols = True
-
-if options.betas_from_phewas:
-    options.betas_uncorrected_from_phewas = True
-
-if options.print_effective_config:
+def _build_effective_config_payload(_mode, _options, _factor_workflow, _eaggl_bundle_info):
     effective_config = {
-        "mode": mode,
-        "config": options.config,
-        "options": _json_safe(vars(options)),
+        "mode": _mode,
+        "config": _options.config,
+        "options": _json_safe(vars(_options)),
     }
-    if factor_workflow is not None:
-        effective_config["factor_workflow"] = _json_safe(factor_workflow)
-    if eaggl_bundle_info is not None:
-        effective_config["eaggl_bundle"] = _json_safe(eaggl_bundle_info.as_dict())
-    sys.stdout.write("%s\n" % json.dumps(effective_config, indent=2, sort_keys=True))
-    sys.exit(0)
+    if _factor_workflow is not None:
+        effective_config["factor_workflow"] = _json_safe(_factor_workflow)
+    if _eaggl_bundle_info is not None:
+        effective_config["eaggl_bundle"] = _json_safe(_eaggl_bundle_info.as_dict())
+    return effective_config
+
+
+def _bootstrap_cli(argv=None):
+    global options, args, mode, config_mode, cli_specified_dests, config_specified_dests
+    global eaggl_bundle_info, run_factor, run_phewas, run_naive_factor
+    global use_phewas_for_factoring, factor_gene_set_x_pheno, expand_gene_sets, factor_workflow
+    global NONE, INFO, DEBUG, TRACE, debug_level, log_fh, warnings_fh, log, warn
+
+    argv_parse = sys.argv[1:] if argv is None else list(argv)
+    pegs_fail_removed_cli_aliases(
+        argv_parse,
+        REMOVED_OPTION_REPLACEMENTS,
+        format_removed_option_message_fn=pegs_format_removed_option_message,
+    )
+
+    parsed_options, parsed_args = parser.parse_args(argv_parse)
+    (
+        parsed_options,
+        parsed_args,
+        parsed_config_mode,
+        parsed_cli_specified_dests,
+        parsed_config_specified_dests,
+    ) = pegs_apply_cli_config_overrides(
+        parsed_options,
+        parsed_args,
+        parser,
+        argv_parse,
+        resolve_path_fn=_resolve_config_path_value,
+        is_path_like_dest_fn=_is_path_like_dest,
+        early_warn_fn=_early_warn,
+        bail_fn=bail,
+        removed_option_replacements=REMOVED_OPTION_REPLACEMENTS,
+        format_removed_option_message_fn=pegs_format_removed_option_message,
+        track_config_specified_dests=True,
+    )
+
+    parsed_args = pegs_harmonize_cli_mode_args(parsed_args, parsed_config_mode, early_warn_fn=_early_warn)
+
+    _logging_state = pegs_initialize_cli_logging(parsed_options, stderr_stream=sys.stderr, default_debug_level=1)
+    NONE = _logging_state["NONE"]
+    INFO = _logging_state["INFO"]
+    DEBUG = _logging_state["DEBUG"]
+    TRACE = _logging_state["TRACE"]
+    debug_level = _logging_state["debug_level"]
+    log_fh = _logging_state["log_fh"]
+    warnings_fh = _logging_state["warnings_fh"]
+    log = _logging_state["log"]
+    warn = _logging_state["warn"]
+
+    parsed_eaggl_bundle_info = _apply_eaggl_bundle_inputs(parsed_options)
+    if parsed_eaggl_bundle_info is not None:
+        applied = parsed_eaggl_bundle_info.applied_defaults
+        if len(applied) == 0:
+            log("Loaded --eaggl-bundle-in bundle %s (no defaults applied; explicit CLI/config inputs took precedence)" % parsed_options.eaggl_bundle_in, INFO)
+        else:
+            applied_text = ", ".join(["%s=%s" % (k, applied[k]) for k in sorted(applied.keys())])
+            log("Loaded --eaggl-bundle-in bundle %s and applied defaults: %s" % (parsed_options.eaggl_bundle_in, applied_text), INFO)
+
+    pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
+    parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
+
+    if len(parsed_args) < 1:
+        bail(usage)
+
+    parsed_mode = parsed_args[0]
+    _enforce_eaggl_mode_ownership(parsed_mode)
+
+    parsed_run_factor = False
+    parsed_run_phewas = False
+    parsed_run_naive_factor = False
+    parsed_use_phewas_for_factoring = False
+    parsed_factor_gene_set_x_pheno = False
+    parsed_expand_gene_sets = False
+    parsed_factor_workflow = None
+
+    if parsed_mode == "factor" or parsed_mode == "naive_factor":
+        parsed_run_factor = True
+        if parsed_mode == "naive_factor":
+            parsed_run_naive_factor = True
+
+        parsed_factor_workflow = _classify_factor_workflow(parsed_options)
+        factor_type = parsed_factor_workflow["label"]
+        error = parsed_factor_workflow["error"]
+        parsed_factor_gene_set_x_pheno = parsed_factor_workflow["factor_gene_set_x_pheno"]
+        parsed_use_phewas_for_factoring = parsed_factor_workflow["use_phewas_for_factoring"]
+        parsed_expand_gene_sets = parsed_factor_workflow["expand_gene_sets"]
+
+        if error is not None:
+            bail("Cannot run factoring type: %s. %s" % (factor_type, error))
+        log("Running factoring type: %s [workflow=%s]" % (factor_type, parsed_factor_workflow["id"]))
+        _warn_for_factor_workflow_inputs(parsed_options, parsed_factor_workflow)
+    else:
+        bail("Unrecognized mode %s" % parsed_mode)
+
+    if parsed_options.run_phewas_from_gene_phewas_stats_in is not None:
+        parsed_run_phewas = True
+
+    parsed_options.correct_betas_mean = parsed_options.correct_betas_mean if parsed_options.correct_betas_mean is not None else True
+    parsed_options.adjust_priors = parsed_options.adjust_priors if parsed_options.adjust_priors is not None else True
+    parsed_options.p_noninf = parsed_options.p_noninf if parsed_options.p_noninf is not None else [0.001]
+    parsed_options.sigma_power = parsed_options.sigma_power if parsed_options.sigma_power is not None else -2
+    parsed_options.update_hyper = parsed_options.update_hyper if parsed_options.update_hyper is not None else "p"
+    parsed_options.filter_negative = parsed_options.filter_negative if parsed_options.filter_negative is not None else True
+    if parsed_options.prune_gene_sets is None:
+        parsed_options.prune_gene_sets = 0.5 if parsed_run_factor and parsed_factor_gene_set_x_pheno else 0.8
+    if parsed_options.weighted_prune_gene_sets is None:
+        parsed_options.weighted_prune_gene_sets = 0.5 if parsed_run_factor and parsed_factor_gene_set_x_pheno else 0.8
+
+    parsed_options.top_gene_set_prior = parsed_options.top_gene_set_prior if parsed_options.top_gene_set_prior is not None else 0.8
+    parsed_options.num_gene_sets_for_prior = parsed_options.num_gene_sets_for_prior if parsed_options.num_gene_sets_for_prior is not None else 50
+    parsed_options.filter_gene_set_p = parsed_options.filter_gene_set_p if parsed_options.filter_gene_set_p is not None else 0.01
+    parsed_options.linear = parsed_options.linear if parsed_options.linear is not None else False
+    parsed_options.max_for_linear = parsed_options.max_for_linear if parsed_options.max_for_linear is not None else 0.95
+    parsed_options.min_gene_set_size = parsed_options.min_gene_set_size if parsed_options.min_gene_set_size is not None else 10
+    if parsed_run_factor and parsed_factor_gene_set_x_pheno and parsed_options.add_gene_sets_by_enrichment_p is not None:
+        parsed_options.filter_gene_set_p = parsed_options.add_gene_sets_by_enrichment_p
+    parsed_options.sparse_frac_betas = parsed_options.sparse_frac_betas if parsed_options.sparse_frac_betas is not None else 0.001
+    parsed_options.sparse_solution = parsed_options.sparse_solution if parsed_options.sparse_solution is not None else True
+
+    options = parsed_options
+    args = parsed_args
+    mode = parsed_mode
+    config_mode = parsed_config_mode
+    cli_specified_dests = parsed_cli_specified_dests
+    config_specified_dests = parsed_config_specified_dests
+    eaggl_bundle_info = parsed_eaggl_bundle_info
+    run_factor = parsed_run_factor
+    run_phewas = parsed_run_phewas
+    run_naive_factor = parsed_run_naive_factor
+    use_phewas_for_factoring = parsed_use_phewas_for_factoring
+    factor_gene_set_x_pheno = parsed_factor_gene_set_x_pheno
+    expand_gene_sets = parsed_expand_gene_sets
+    factor_workflow = parsed_factor_workflow
+
+    _derive_memory_controls_from_max_gb()
+
+    if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
+        warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
+        options.ols = True
+
+    if options.betas_from_phewas:
+        options.betas_uncorrected_from_phewas = True
+
+    if options.print_effective_config:
+        sys.stdout.write(
+            "%s\n"
+            % json.dumps(
+                _build_effective_config_payload(mode, options, factor_workflow, eaggl_bundle_info),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return False
+    return True
 
 def open_gz(file, flag=None):
     return pegs_open_text_with_retry(
@@ -8651,8 +8705,13 @@ def run_main_pipeline(options):
     )
 
 
-def main():
+def main(argv=None):
+    should_continue = _bootstrap_cli(argv)
+    if not should_continue:
+        return 0
     run_main_pipeline(options)
+    return 0
+
 
 if __name__ == '__main__':
 
@@ -8660,7 +8719,7 @@ if __name__ == '__main__':
     #profiler.enable()
 
     #cProfile.run('main()')
-    main()
+    raise SystemExit(main())
 
     #profiler.disable()
     #profiler.dump_stats('output.prof')

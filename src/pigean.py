@@ -916,30 +916,27 @@ REMOVED_OPTION_REPLACEMENTS = {
 _apply_cli_help_layout(parser)
 _apply_cli_option_groups(parser)
 
+options = None
+args = []
+mode = None
+config_mode = None
+cli_specified_dests = set()
+config_specified_dests = set()
+NONE = 0
+INFO = 1
+DEBUG = 2
+TRACE = 3
+debug_level = 1
+log_fh = None
+warnings_fh = None
 
-argv_parse = sys.argv[1:]
-pegs_fail_removed_cli_aliases(
-    argv_parse,
-    REMOVED_OPTION_REPLACEMENTS,
-    format_removed_option_message_fn=pegs_format_removed_option_message,
-)
 
-(options, args) = parser.parse_args(argv_parse)
-(options, args, config_mode, cli_specified_dests, config_specified_dests) = pegs_apply_cli_config_overrides(
-    options,
-    args,
-    parser,
-    argv_parse,
-    resolve_path_fn=_resolve_config_path_value,
-    is_path_like_dest_fn=_is_path_like_dest,
-    early_warn_fn=_early_warn,
-    bail_fn=bail,
-    removed_option_replacements=REMOVED_OPTION_REPLACEMENTS,
-    format_removed_option_message_fn=pegs_format_removed_option_message,
-    track_config_specified_dests=True,
-)
+def _noop_log(*_args, **_kwargs):
+    return None
 
-args = pegs_harmonize_cli_mode_args(args, config_mode, early_warn_fn=_early_warn)
+
+log = _noop_log
+warn = _noop_log
 
 
 def _resolve_experimental_gibbs_hyper_options(options_obj, cli_specified_dests, config_specified_dests):
@@ -982,30 +979,6 @@ def _resolve_experimental_gibbs_hyper_options(options_obj, cli_specified_dests, 
             "Option --experimental-hyper-mutation has no effect unless --experimental-increase-hyper-if-betas-below is also set"
         )
 
-
-_resolve_experimental_gibbs_hyper_options(options, cli_specified_dests, config_specified_dests)
-
-_logging_state = pegs_initialize_cli_logging(options, stderr_stream=sys.stderr, default_debug_level=1)
-NONE = _logging_state["NONE"]
-INFO = _logging_state["INFO"]
-DEBUG = _logging_state["DEBUG"]
-TRACE = _logging_state["TRACE"]
-debug_level = _logging_state["debug_level"]
-log_fh = _logging_state["log_fh"]
-warnings_fh = _logging_state["warnings_fh"]
-log = _logging_state["log"]
-warn = _logging_state["warn"]
-
-pegs_configure_random_seed(options, random, np, log_fn=log, info_level=INFO)
-options.x_sparsify = pegs_coerce_option_int_list(options.x_sparsify, "--x-sparsify", bail)
-
-if len(args) < 1:
-    bail(usage)
-mode = args[0]
-
-factor_modes = set(["factor", "naive_factor"])
-if mode in factor_modes:
-    bail("Mode '%s' is not available in pigean.py after repository split; run this in the eaggl repository" % mode)
 
 # ==========================================================================
 # CLI Phase C: Mode resolution and mode-specific defaults.
@@ -1437,29 +1410,104 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
         log("Clamped by --max-gb: %s" % ", ".join(["%s:%s->%s(%s)" % (k, clamped[k][0], clamped[k][1], clamped[k][2]) for k in sorted(clamped.keys())]), INFO)
 
 
-_apply_mode_and_runtime_defaults(options, mode, cli_specified_dests, config_specified_dests)
-
-if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
-    warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
-    options.ols = True
-if options.betas_from_phewas:
-    _early_warn("Enabling --betas-uncorrected-from-phewas because --betas-from-phewas was passed")
-    options.betas_uncorrected_from_phewas = True
-
-_validate_advanced_option_dispatch(
-    options,
-    cli_specified_dests,
-    config_specified_dests,
-)
-
-if options.print_effective_config:
-    effective_config = {
-        "mode": mode,
-        "config": options.config,
-        "options": _json_safe(vars(options)),
+def _build_effective_config_payload(_mode, _options):
+    return {
+        "mode": _mode,
+        "config": _options.config,
+        "options": _json_safe(vars(_options)),
     }
-    sys.stdout.write("%s\n" % json.dumps(effective_config, indent=2, sort_keys=True))
-    sys.exit(0)
+
+
+def _bootstrap_cli(argv=None):
+    global options, args, mode, config_mode, cli_specified_dests, config_specified_dests
+    global NONE, INFO, DEBUG, TRACE, debug_level, log_fh, warnings_fh, log, warn
+
+    argv_parse = sys.argv[1:] if argv is None else list(argv)
+    pegs_fail_removed_cli_aliases(
+        argv_parse,
+        REMOVED_OPTION_REPLACEMENTS,
+        format_removed_option_message_fn=pegs_format_removed_option_message,
+    )
+
+    parsed_options, parsed_args = parser.parse_args(argv_parse)
+    (
+        parsed_options,
+        parsed_args,
+        parsed_config_mode,
+        parsed_cli_specified_dests,
+        parsed_config_specified_dests,
+    ) = pegs_apply_cli_config_overrides(
+        parsed_options,
+        parsed_args,
+        parser,
+        argv_parse,
+        resolve_path_fn=_resolve_config_path_value,
+        is_path_like_dest_fn=_is_path_like_dest,
+        early_warn_fn=_early_warn,
+        bail_fn=bail,
+        removed_option_replacements=REMOVED_OPTION_REPLACEMENTS,
+        format_removed_option_message_fn=pegs_format_removed_option_message,
+        track_config_specified_dests=True,
+    )
+
+    parsed_args = pegs_harmonize_cli_mode_args(parsed_args, parsed_config_mode, early_warn_fn=_early_warn)
+    _resolve_experimental_gibbs_hyper_options(
+        parsed_options,
+        parsed_cli_specified_dests,
+        parsed_config_specified_dests,
+    )
+
+    _logging_state = pegs_initialize_cli_logging(parsed_options, stderr_stream=sys.stderr, default_debug_level=1)
+    NONE = _logging_state["NONE"]
+    INFO = _logging_state["INFO"]
+    DEBUG = _logging_state["DEBUG"]
+    TRACE = _logging_state["TRACE"]
+    debug_level = _logging_state["debug_level"]
+    log_fh = _logging_state["log_fh"]
+    warnings_fh = _logging_state["warnings_fh"]
+    log = _logging_state["log"]
+    warn = _logging_state["warn"]
+
+    pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
+    parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
+
+    if len(parsed_args) < 1:
+        bail(usage)
+    parsed_mode = parsed_args[0]
+    if parsed_mode in set(["factor", "naive_factor"]):
+        bail("Mode '%s' is not available in pigean.py after repository split; run this in the eaggl repository" % parsed_mode)
+
+    _apply_mode_and_runtime_defaults(
+        parsed_options,
+        parsed_mode,
+        parsed_cli_specified_dests,
+        parsed_config_specified_dests,
+    )
+
+    if parsed_options.gene_cor_file is None and parsed_options.gene_loc_file is None and not parsed_options.ols:
+        warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
+        parsed_options.ols = True
+    if parsed_options.betas_from_phewas:
+        _early_warn("Enabling --betas-uncorrected-from-phewas because --betas-from-phewas was passed")
+        parsed_options.betas_uncorrected_from_phewas = True
+
+    _validate_advanced_option_dispatch(
+        parsed_options,
+        parsed_cli_specified_dests,
+        parsed_config_specified_dests,
+    )
+
+    options = parsed_options
+    args = parsed_args
+    mode = parsed_mode
+    config_mode = parsed_config_mode
+    cli_specified_dests = parsed_cli_specified_dests
+    config_specified_dests = parsed_config_specified_dests
+
+    if options.print_effective_config:
+        sys.stdout.write("%s\n" % json.dumps(_build_effective_config_payload(mode, options), indent=2, sort_keys=True))
+        return False
+    return True
 
 def open_gz(file, flag=None):
     return pegs_open_text_with_retry(
@@ -20993,8 +21041,13 @@ def run_main_pipeline(options, mode):
     )
 
 
-def main():
+def main(argv=None):
+    should_continue = _bootstrap_cli(argv)
+    if not should_continue:
+        return 0
     run_main_pipeline(options, mode)
+    return 0
+
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())
