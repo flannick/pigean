@@ -1,0 +1,2006 @@
+from __future__ import annotations
+
+import json
+import optparse
+import shutil
+import sys
+import tarfile
+import tempfile
+import unittest
+from pathlib import Path
+import numpy as np
+import scipy.sparse as sparse
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
+import pegs_utils  # noqa: E402
+
+
+class PegsUtilsBundleTest(unittest.TestCase):
+    def test_get_tar_write_mode_for_bundle_path(self) -> None:
+        self.assertEqual(
+            pegs_utils.get_tar_write_mode_for_bundle_path("handoff.tar.gz"),
+            "w:gz",
+        )
+        self.assertEqual(
+            pegs_utils.get_tar_write_mode_for_bundle_path("handoff.tgz"),
+            "w:gz",
+        )
+        self.assertEqual(
+            pegs_utils.get_tar_write_mode_for_bundle_path("handoff.tar"),
+            "w",
+        )
+        with self.assertRaisesRegex(ValueError, "must end with .tar, .tar.gz, or .tgz"):
+            pegs_utils.get_tar_write_mode_for_bundle_path("handoff.zip")
+
+    def test_write_and_read_prefixed_tar_bundle_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+
+            def _write(prefix: str) -> None:
+                Path(prefix + ".huge.meta.json.gz").write_text("{\"ok\": 1}\n", encoding="utf-8")
+                Path(prefix + ".huge.genes.tsv.gz").write_text("GENE1\n", encoding="utf-8")
+
+            plain_prefix = root / "huge_cache"
+            pegs_utils.write_prefixed_tar_bundle(
+                str(plain_prefix),
+                prefix_basename="huge_stats",
+                write_prefix_fn=_write,
+                option_name="--huge-statistics-out",
+            )
+            self.assertTrue((root / "huge_cache.huge.meta.json.gz").exists())
+            plain_read = pegs_utils.read_prefixed_tar_bundle(
+                str(plain_prefix),
+                required_suffix=".huge.meta.json.gz",
+                read_prefix_fn=lambda prefix: Path(prefix + ".huge.genes.tsv.gz").read_text(encoding="utf-8"),
+                bundle_flag_name="HuGE cache",
+            )
+            self.assertEqual(plain_read.strip(), "GENE1")
+
+            bundle_path = root / "huge_cache.tar.gz"
+            pegs_utils.write_prefixed_tar_bundle(
+                str(bundle_path),
+                prefix_basename="huge_stats",
+                write_prefix_fn=_write,
+                option_name="--huge-statistics-out",
+            )
+            self.assertTrue(bundle_path.exists())
+            with tarfile.open(bundle_path, "r:*") as tar_fh:
+                members = set(tar_fh.getnames())
+                self.assertIn("huge_stats.huge.meta.json.gz", members)
+                self.assertIn("huge_stats.huge.genes.tsv.gz", members)
+            bundle_read = pegs_utils.read_prefixed_tar_bundle(
+                str(bundle_path),
+                required_suffix=".huge.meta.json.gz",
+                read_prefix_fn=lambda prefix: Path(prefix + ".huge.genes.tsv.gz").read_text(encoding="utf-8"),
+                bundle_flag_name="HuGE cache",
+            )
+            self.assertEqual(bundle_read.strip(), "GENE1")
+
+    def test_load_bundle_manifest_and_defaults_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "X.tsv.gz").write_text("SET_A\tGENE1\n", encoding="utf-8")
+            manifest = {
+                "schema": pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                "default_inputs": {"X_in": "X.tsv.gz"},
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            bundle_path = root / "handoff.tar.gz"
+            with tarfile.open(bundle_path, "w:gz") as tar_fh:
+                tar_fh.add(root / "manifest.json", arcname="manifest.json")
+                tar_fh.add(root / "X.tsv.gz", arcname="X.tsv.gz")
+
+            extract_dir, loaded_manifest = pegs_utils.load_bundle_manifest(
+                str(bundle_path),
+                pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                bundle_flag_name="--eaggl-bundle-in",
+            )
+            try:
+                self.assertEqual(loaded_manifest["schema"], pegs_utils.EAGGL_BUNDLE_SCHEMA)
+                resolved = pegs_utils.resolve_bundle_default_inputs(
+                    loaded_manifest["default_inputs"],
+                    extract_dir,
+                    pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+                    bundle_flag_name="--eaggl-bundle-in",
+                )
+                self.assertIn("X_in", resolved)
+                self.assertTrue(Path(resolved["X_in"]).exists())
+            finally:
+                shutil.rmtree(extract_dir, ignore_errors=True)
+
+    def test_bundle_manifest_contract_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "X.tsv.gz").write_text("SET_A\tGENE1\n", encoding="utf-8")
+            manifest = {
+                "schema": pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                "default_inputs": {"X_in": "X.tsv.gz"},
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            bundle_path = root / "handoff.tar.gz"
+            with tarfile.open(bundle_path, "w:gz") as tar_fh:
+                tar_fh.add(root / "manifest.json", arcname="manifest.json")
+                tar_fh.add(root / "X.tsv.gz", arcname="X.tsv.gz")
+
+            bundle = pegs_utils.BundleManifest.load_defaults(
+                bundle_path=str(bundle_path),
+                expected_schema=pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                allowed_default_inputs=pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+                bundle_flag_name="--eaggl-bundle-in",
+            )
+            try:
+                self.assertEqual(bundle.manifest["schema"], pegs_utils.EAGGL_BUNDLE_SCHEMA)
+                self.assertIn("X_in", bundle.default_inputs)
+                self.assertTrue(Path(bundle.default_inputs["X_in"]).exists())
+            finally:
+                shutil.rmtree(bundle.extract_dir, ignore_errors=True)
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            staged_file = root / "X.tsv.gz"
+            staged_file.write_text("SET_A\tGENE1\n", encoding="utf-8")
+            out_path = root / "out.tar.gz"
+            manifest_contract = pegs_utils.BundleManifest.build(
+                schema=pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                source_tool="pigean.py",
+                source_mode="gibbs",
+                source_argv=["gibbs", "--x-in", "X.tsv.gz"],
+                default_inputs={"X_in": "X.tsv.gz"},
+                files_metadata={"X.tsv.gz": pegs_utils.collect_file_metadata(str(staged_file))},
+            )
+            manifest_contract.write_manifest(str(root), manifest_name="manifest.json")
+            manifest_contract.write_archive(
+                str(out_path),
+                "w:gz",
+                str(root),
+                ["X.tsv.gz"],
+                manifest_name="manifest.json",
+            )
+            self.assertTrue(out_path.exists())
+
+    def test_write_bundle_from_specs_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            out_path = root / "handoff.tar.gz"
+            optional_path = root / "gene_phewas.tsv.gz"
+            optional_path.write_text("gene\ttrait\tbf\nGENE1\tT2D\t1.2\n", encoding="utf-8")
+
+            pegs_utils.write_bundle_from_specs(
+                str(out_path),
+                schema=pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                source_tool="pigean.py",
+                source_mode="gibbs",
+                source_argv=["gibbs", "--eaggl-bundle-out", str(out_path)],
+                generated_file_specs=[
+                    (
+                        "X_in",
+                        "X.tsv.gz",
+                        lambda p: Path(p).write_text("SET_A\tGENE1\n", encoding="utf-8"),
+                        "X matrix",
+                        "run with --X-in/--X-list",
+                    ),
+                    (
+                        "gene_stats_in",
+                        "gene_stats.tsv.gz",
+                        lambda p: Path(p).write_text("Gene\tprior\nGENE1\t0.1\n", encoding="utf-8"),
+                        "gene statistics",
+                        "run priors/gibbs first",
+                    ),
+                ],
+                optional_existing_files=[
+                    ("gene_phewas_bfs_in", str(optional_path), "gene_phewas_stats.tsv.gz"),
+                    ("gene_set_phewas_stats_in", str(root / "missing.tsv.gz"), "gene_set_phewas_stats.tsv.gz"),
+                ],
+                option_name="--eaggl-bundle-out",
+                temp_prefix="bundle_contract_",
+                manifest_name="manifest.json",
+            )
+
+            self.assertTrue(out_path.exists())
+            with tarfile.open(out_path, "r:*") as tar_fh:
+                members = set(tar_fh.getnames())
+                self.assertIn("manifest.json", members)
+                self.assertIn("X.tsv.gz", members)
+                self.assertIn("gene_stats.tsv.gz", members)
+                self.assertIn("gene_phewas_stats.tsv.gz", members)
+                self.assertNotIn("gene_set_phewas_stats.tsv.gz", members)
+                manifest = json.load(tar_fh.extractfile("manifest.json"))
+            defaults = manifest.get("default_inputs", {})
+            self.assertEqual(defaults.get("X_in"), "X.tsv.gz")
+            self.assertEqual(defaults.get("gene_stats_in"), "gene_stats.tsv.gz")
+            self.assertEqual(defaults.get("gene_phewas_bfs_in"), "gene_phewas_stats.tsv.gz")
+
+    def test_apply_bundle_defaults_to_options_respects_existing_values(self) -> None:
+        class _Options:
+            X_in = None
+            X_list = None
+            Xd_in = None
+            Xd_list = None
+            gene_stats_in = None
+            gene_set_stats_in = "already_set.tsv"
+            gene_phewas_bfs_in = None
+            gene_set_phewas_stats_in = None
+
+        bundle = pegs_utils.BundleManifest(
+            manifest={"schema": pegs_utils.EAGGL_BUNDLE_SCHEMA},
+            bundle_path="bundle.tar.gz",
+            extract_dir="/tmp/example",
+            default_inputs={
+                "X_in": "/tmp/example/X.tsv.gz",
+                "gene_stats_in": "/tmp/example/gene_stats.tsv.gz",
+                "gene_set_stats_in": "/tmp/example/gene_set_stats.tsv.gz",
+            },
+        )
+
+        options = _Options()
+        applied = pegs_utils.apply_bundle_defaults_to_options(
+            options,
+            bundle,
+            x_source_option_names=["X_in", "X_list", "Xd_in", "Xd_list"],
+            x_default_key="X_in",
+            x_target_option_name="X_in",
+            scalar_default_option_names=["gene_stats_in", "gene_set_stats_in", "gene_phewas_bfs_in", "gene_set_phewas_stats_in"],
+        )
+        self.assertEqual(options.X_in, ["/tmp/example/X.tsv.gz"])
+        self.assertEqual(options.gene_stats_in, "/tmp/example/gene_stats.tsv.gz")
+        self.assertEqual(options.gene_set_stats_in, "already_set.tsv")
+        self.assertEqual(applied.applied_defaults["X_in"], "/tmp/example/X.tsv.gz")
+        self.assertEqual(applied.applied_defaults["gene_stats_in"], "/tmp/example/gene_stats.tsv.gz")
+        self.assertNotIn("gene_set_stats_in", applied.applied_defaults)
+
+    def test_load_and_apply_bundle_defaults_contract(self) -> None:
+        class _Options:
+            X_in = None
+            X_list = None
+            Xd_in = None
+            Xd_list = None
+            gene_stats_in = None
+            gene_set_stats_in = None
+            gene_phewas_bfs_in = None
+            gene_set_phewas_stats_in = None
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "X.tsv.gz").write_text("SET_A\tGENE1\n", encoding="utf-8")
+            (root / "gene_stats.tsv.gz").write_text("Gene\tprior\nGENE1\t0.1\n", encoding="utf-8")
+            manifest = {
+                "schema": pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                "default_inputs": {
+                    "X_in": "X.tsv.gz",
+                    "gene_stats_in": "gene_stats.tsv.gz",
+                },
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            bundle_path = root / "handoff.tar.gz"
+            with tarfile.open(bundle_path, "w:gz") as tar_fh:
+                tar_fh.add(root / "manifest.json", arcname="manifest.json")
+                tar_fh.add(root / "X.tsv.gz", arcname="X.tsv.gz")
+                tar_fh.add(root / "gene_stats.tsv.gz", arcname="gene_stats.tsv.gz")
+
+            options = _Options()
+            applied = pegs_utils.load_and_apply_bundle_defaults(
+                options,
+                bundle_path=str(bundle_path),
+                expected_schema=pegs_utils.EAGGL_BUNDLE_SCHEMA,
+                allowed_default_inputs=pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+                bundle_flag_name="--eaggl-bundle-in",
+                manifest_name="manifest.json",
+                temp_prefix="eaggl_bundle_in_",
+                x_source_option_names=["X_in", "X_list", "Xd_in", "Xd_list"],
+                x_default_key="X_in",
+                x_target_option_name="X_in",
+                scalar_default_option_names=["gene_stats_in", "gene_set_stats_in", "gene_phewas_bfs_in", "gene_set_phewas_stats_in"],
+            )
+            try:
+                self.assertEqual(options.X_in, [str(Path(applied.bundle.extract_dir) / "X.tsv.gz")])
+                self.assertTrue(options.gene_stats_in.endswith("gene_stats.tsv.gz"))
+                self.assertIn("X_in", applied.applied_defaults)
+                self.assertIn("gene_stats_in", applied.applied_defaults)
+            finally:
+                shutil.rmtree(applied.bundle.extract_dir, ignore_errors=True)
+
+    def test_resolve_bundle_default_inputs_rejects_parent_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            with self.assertRaisesRegex(ValueError, "Refusing to resolve path outside"):
+                pegs_utils.resolve_bundle_default_inputs(
+                    {"X_in": "../outside.tsv"},
+                    str(root),
+                    pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+                    bundle_flag_name="--eaggl-bundle-in",
+                )
+
+    def test_collect_file_metadata_includes_size_and_sha256(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "value.txt"
+            path.write_text("abc\n", encoding="utf-8")
+            meta = pegs_utils.collect_file_metadata(str(path))
+            self.assertEqual(meta["size_bytes"], path.stat().st_size)
+            self.assertRegex(meta["sha256"], r"^[0-9a-f]{64}$")
+
+    def test_resolve_column_index_supports_name_and_1_based_index(self) -> None:
+        header = ["gene", "log_bf", "prior"]
+        self.assertEqual(pegs_utils.resolve_column_index("log_bf", header), 1)
+        self.assertEqual(pegs_utils.resolve_column_index(3, header), 2)
+        self.assertEqual(pegs_utils.resolve_column_index("3", header), 2)
+        self.assertIsNone(pegs_utils.resolve_column_index("missing", header, require_match=False))
+        with self.assertRaisesRegex(ValueError, "Could not find match for column"):
+            pegs_utils.resolve_column_index("missing", header)
+        with self.assertRaisesRegex(ValueError, "1-based"):
+            pegs_utils.resolve_column_index(0, header)
+
+    def test_construct_map_to_ind(self) -> None:
+        mapping = pegs_utils.construct_map_to_ind(["A", "B", "C"])
+        self.assertEqual(mapping, {"A": 0, "B": 1, "C": 2})
+
+    def test_clean_chrom_name(self) -> None:
+        self.assertEqual(pegs_utils.clean_chrom_name("chr1"), "1")
+        self.assertEqual(pegs_utils.clean_chrom_name("1"), "1")
+        self.assertEqual(pegs_utils.clean_chrom_name("chrX"), "X")
+        self.assertIsNone(pegs_utils.clean_chrom_name(None))
+
+    def test_parse_gene_map_file_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_map.tsv"
+            path.write_text("A B\nC D\nA E\n", encoding="utf-8")
+            parsed = pegs_utils.parse_gene_map_file(str(path))
+            self.assertEqual(parsed, {"A": "E", "C": "D"})
+
+            parsed_multi = pegs_utils.parse_gene_map_file(str(path), allow_multi=True)
+            self.assertEqual(parsed_multi["A"], {"B", "E"})
+            self.assertEqual(parsed_multi["C"], {"D"})
+
+    def test_read_loc_file_with_gene_map_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene.loc"
+            path.write_text(
+                "id1 chr1 100 200 + GENE1\n"
+                "id2 chr1 300 400 + GENE2\n",
+                encoding="utf-8",
+            )
+            gene_label_map = {"GENE1": "GENE1_MAPPED"}
+            (gene_chrom_name_pos, gene_to_chrom, gene_to_pos) = pegs_utils.read_loc_file_with_gene_map(
+                str(path),
+                gene_label_map=gene_label_map,
+                clean_chrom_fn=pegs_utils.clean_chrom_name,
+            )
+            self.assertIn("1", gene_chrom_name_pos)
+            self.assertIn("GENE1_MAPPED", gene_to_pos)
+            self.assertEqual(gene_to_chrom["GENE1_MAPPED"], "1")
+            self.assertEqual(gene_to_pos["GENE2"], (300, 400))
+
+            intervals = pegs_utils.read_loc_file_with_gene_map(
+                str(path),
+                return_intervals=True,
+                clean_chrom_fn=pegs_utils.clean_chrom_name,
+            )
+            self.assertIn("1", intervals)
+            self.assertIn((100, 200), intervals["1"])
+
+    def test_comma_callback_helpers(self) -> None:
+        class _Opt:
+            dest = "value"
+
+        class _Parser:
+            class _Vals:
+                value = None
+            values = _Vals()
+
+        parser = _Parser()
+        pegs_utils.callback_set_comma_separated_args(_Opt(), None, "a,b,c", parser)
+        self.assertEqual(parser.values.value, ["a", "b", "c"])
+
+        pegs_utils.callback_set_comma_separated_args_as_float(_Opt(), None, "1,2.5,3", parser)
+        self.assertEqual(parser.values.value, [1.0, 2.5, 3.0])
+
+        pegs_utils.callback_set_comma_separated_args_as_set(_Opt(), None, "x,y,x", parser)
+        self.assertEqual(parser.values.value, {"x", "y"})
+
+    def test_open_optional_log_handle(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "log.txt"
+            fh = pegs_utils.open_optional_log_handle(str(path), default_stream=sys.stderr, mode="w")
+            try:
+                fh.write("hello\n")
+            finally:
+                fh.close()
+            self.assertTrue(path.exists())
+            self.assertEqual(path.read_text(encoding="utf-8"), "hello\n")
+
+        self.assertIs(
+            pegs_utils.open_optional_log_handle(None, default_stream=sys.stderr, mode="w"),
+            sys.stderr,
+        )
+
+    def test_fail_removed_cli_aliases_uses_formatter_and_exit(self) -> None:
+        writes: list[str] = []
+        exits: list[int] = []
+
+        def _write(msg: str) -> None:
+            writes.append(msg)
+
+        def _exit(code: int) -> None:
+            exits.append(code)
+            raise RuntimeError("stop")
+
+        def _fmt(flag: str, replacement, context: str, config_path=None) -> str:
+            return "MSG %s %s %s" % (flag, replacement, context)
+
+        with self.assertRaisesRegex(RuntimeError, "stop"):
+            pegs_utils.fail_removed_cli_aliases(
+                ["--old-flag", "--other"],
+                {"old_flag": "--new-flag"},
+                format_removed_option_message_fn=_fmt,
+                stderr_write_fn=_write,
+                exit_fn=_exit,
+            )
+
+        self.assertEqual(exits, [2])
+        self.assertEqual(writes, ["MSG --old-flag --new-flag cli\n"])
+
+    def test_apply_cli_config_overrides_applies_mode_and_options(self) -> None:
+        parser = optparse.OptionParser()
+        parser.add_option("", "--config", default=None)
+        parser.add_option("", "--foo", default=None)
+        parser.add_option("", "--input-file", dest="input_file", default=None)
+
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            cfg_path = td_path / "config.json"
+            cfg = {
+                "mode": "gibbs",
+                "options": {
+                    "foo": "from_config",
+                    "input_file": "relative.tsv",
+                },
+            }
+            cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+            options, args = parser.parse_args(
+                ["--config", str(cfg_path), "--foo", "from_cli"]
+            )
+            (
+                options,
+                args,
+                config_mode,
+                cli_specified_dests,
+                config_specified_dests,
+            ) = pegs_utils.apply_cli_config_overrides(
+                options,
+                args,
+                parser,
+                ["--config", str(cfg_path), "--foo", "from_cli"],
+                resolve_path_fn=pegs_utils.resolve_config_path_value,
+                is_path_like_dest_fn=pegs_utils.is_path_like_dest,
+                early_warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                removed_option_replacements={},
+                format_removed_option_message_fn=pegs_utils.format_removed_option_message,
+                track_config_specified_dests=True,
+            )
+
+            self.assertEqual(config_mode, "gibbs")
+            self.assertEqual(options.foo, "from_cli")
+            self.assertTrue(options.input_file.endswith("relative.tsv"))
+            self.assertIn("foo", cli_specified_dests)
+            self.assertIn("input_file", config_specified_dests)
+
+    def test_collect_cli_specified_dests_handles_repeated_and_equals_forms(self) -> None:
+        parser = optparse.OptionParser()
+        parser.add_option("", "--foo", action="append", dest="foo", default=[])
+        parser.add_option("", "--bar", dest="bar", default=None)
+        parser.add_option("", "--config", dest="config", default=None)
+
+        specified = pegs_utils.collect_cli_specified_dests(
+            ["--foo=one", "--foo", "two", "--bar", "value"],
+            parser,
+        )
+        self.assertIn("foo", specified)
+        self.assertIn("bar", specified)
+
+    def test_apply_cli_config_overrides_cli_equals_form_beats_config(self) -> None:
+        parser = optparse.OptionParser()
+        parser.add_option("", "--config", default=None)
+        parser.add_option("", "--foo", default=None)
+
+        with tempfile.TemporaryDirectory() as td:
+            cfg_path = Path(td) / "config.json"
+            cfg_path.write_text(
+                json.dumps({"mode": "gibbs", "options": {"foo": "from_config"}}),
+                encoding="utf-8",
+            )
+            options, args = parser.parse_args(["--config", str(cfg_path), "--foo=from_cli"])
+            options, args, _mode, cli_specified, config_specified = pegs_utils.apply_cli_config_overrides(
+                options,
+                args,
+                parser,
+                ["--config", str(cfg_path), "--foo=from_cli"],
+                resolve_path_fn=pegs_utils.resolve_config_path_value,
+                is_path_like_dest_fn=pegs_utils.is_path_like_dest,
+                early_warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                removed_option_replacements={},
+                format_removed_option_message_fn=pegs_utils.format_removed_option_message,
+                track_config_specified_dests=True,
+            )
+            self.assertEqual(options.foo, "from_cli")
+            self.assertIn("foo", cli_specified)
+            self.assertNotIn("foo", config_specified)
+
+    def test_build_xin_to_p_noninf_index_map_uses_normalized_input_order(self) -> None:
+        mapping = pegs_utils.build_xin_to_p_noninf_index_map(
+            X_in=["x1", "x2"],
+            X_list=["xl"],
+            Xd_in=["xd1"],
+            Xd_list=["xdl"],
+            p_noninf_values=[0.1, 0.2, 0.3, 0.4, 0.5],
+            warn_fn=lambda _m: None,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+        )
+        self.assertEqual(mapping, {"x1": 0, "x2": 1, "xl": 2, "xd1": 3, "xdl": 4})
+
+    def test_build_xin_to_p_noninf_index_map_bails_on_count_mismatch(self) -> None:
+        with self.assertRaisesRegex(ValueError, "same number of values as --X-\\* inputs"):
+            pegs_utils.build_xin_to_p_noninf_index_map(
+                X_in=["x1", "x2"],
+                X_list=None,
+                Xd_in=None,
+                Xd_list=None,
+                p_noninf_values=[0.1, 0.2, 0.3],
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+
+    def test_harmonize_cli_mode_args_prefers_cli_and_fills_from_config(self) -> None:
+        warns = []
+        self.assertEqual(
+            pegs_utils.harmonize_cli_mode_args([], "gibbs", early_warn_fn=warns.append),
+            ["gibbs"],
+        )
+        self.assertEqual(
+            pegs_utils.harmonize_cli_mode_args(["priors"], "gibbs", early_warn_fn=warns.append),
+            ["priors"],
+        )
+        self.assertEqual(len(warns), 1)
+        self.assertIn("Config mode 'gibbs' differs from CLI mode 'priors'", warns[0])
+
+    def test_coerce_option_int_list(self) -> None:
+        self.assertEqual(pegs_utils.coerce_option_int_list(["1", "2", 3], "--x", self.fail), [1, 2, 3])
+        with self.assertRaisesRegex(ValueError, "invalid integer list"):
+            pegs_utils.coerce_option_int_list(
+                ["1", "bad"],
+                "--x",
+                lambda message: (_ for _ in ()).throw(ValueError(message)),
+            )
+
+    def test_initialize_cli_logging(self) -> None:
+        class _Options:
+            log_file = None
+            warnings_file = None
+            debug_level = None
+
+        class _Capture:
+            def __init__(self):
+                self.items = []
+
+            def write(self, message):
+                self.items.append(message)
+
+            def flush(self):
+                return None
+
+        stream = _Capture()
+        state = pegs_utils.initialize_cli_logging(_Options(), stderr_stream=stream, default_debug_level=1)
+        state["log"]("info message", level=state["INFO"])
+        state["warn"]("warn message")
+        text = "".join(stream.items)
+        self.assertIn("info message", text)
+        self.assertIn("Warning: warn message", text)
+
+    def test_infer_columns_from_table_file(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gwas.tsv"
+            path.write_text(
+                "CHROM\tPOS\tP\tBETA\tSE\tN\n1\t12345\t0.02\t0.1\t0.03\t10000\n",
+                encoding="utf-8",
+            )
+
+            result = pegs_utils.infer_columns_from_table_file(
+                str(path),
+                lambda p: open(p, "rt", encoding="utf-8"),
+            )
+            self.assertIn("CHROM", set(result[2]))
+            self.assertIn("POS", set(result[3]))
+            self.assertIn("P", set(result[5]))
+            self.assertIn("BETA", set(result[6]))
+            self.assertIn("SE", set(result[7]))
+            self.assertIn("N", set(result[9]))
+
+    def test_needs_gwas_column_detection(self) -> None:
+        self.assertTrue(
+            pegs_utils.needs_gwas_column_detection(
+                None, None, None, "P", None, "SE", "N", None
+            )
+        )
+        self.assertFalse(
+            pegs_utils.needs_gwas_column_detection(
+                "POS", "CHROM", None, "P", None, "SE", "N", None
+            )
+        )
+
+    def test_autodetect_gwas_columns(self) -> None:
+        inferred = (
+            np.array([]),  # gene id
+            np.array([]),  # var id
+            np.array(["CHROM"]),
+            np.array(["POS"]),
+            np.array([]),  # locus
+            np.array(["P"]),
+            np.array(["BETA"]),
+            np.array(["SE"]),
+            np.array(["AF"]),
+            np.array(["N"]),
+            "CHROM POS P BETA SE AF N",
+        )
+        out = pegs_utils.autodetect_gwas_columns(
+            "dummy",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            infer_columns_fn=lambda _gwas: inferred,
+            log_fn=lambda _m: None,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            debug_just_check_header=False,
+        )
+        self.assertEqual(out[0], "POS")
+        self.assertEqual(out[1], "CHROM")
+        self.assertEqual(out[3], "P")
+        self.assertEqual(out[4], "BETA")
+        self.assertEqual(out[5], "SE")
+        self.assertEqual(out[6], "AF")
+        self.assertEqual(out[7], "N")
+
+    def test_huge_statistics_path_and_bundle_helpers(self) -> None:
+        self.assertTrue(pegs_utils.is_huge_statistics_bundle_path("x.tar.gz"))
+        self.assertTrue(pegs_utils.is_huge_statistics_bundle_path("x.tgz"))
+        self.assertTrue(pegs_utils.is_huge_statistics_bundle_path("x.tar"))
+        self.assertFalse(pegs_utils.is_huge_statistics_bundle_path("x.txt"))
+
+        paths = pegs_utils.get_huge_statistics_paths_for_prefix("/tmp/demo")
+        self.assertIn("meta", paths)
+        self.assertTrue(paths["meta"].endswith(".huge.meta.json.gz"))
+
+    def test_huge_statistics_numeric_vector_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            out_file = Path(td) / "vals.txt"
+            pegs_utils.write_numeric_vector_file(
+                str(out_file),
+                [1.0, 2.5, 3.0],
+                open_text_fn=lambda p, mode=None: open(p, mode or "rt", encoding="utf-8"),
+                value_type=float,
+            )
+            vals = pegs_utils.read_numeric_vector_file(
+                str(out_file),
+                open_text_fn=lambda p, mode=None: open(p, mode or "rt", encoding="utf-8"),
+                value_type=float,
+            )
+            np.testing.assert_allclose(vals, np.array([1.0, 2.5, 3.0]))
+
+    def test_build_huge_statistics_matrix_row_genes(self) -> None:
+        self.assertEqual(
+            pegs_utils.build_huge_statistics_matrix_row_genes(["G1"], ["E1", "E2"], 2, bail_fn=self.fail),
+            ["G1", "E1"],
+        )
+        with self.assertRaisesRegex(ValueError, "matrix rows"):
+            pegs_utils.build_huge_statistics_matrix_row_genes(
+                ["G1", "G2"],
+                [],
+                1,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+
+    def test_coerce_runtime_state_dict(self) -> None:
+        class _State:
+            def __init__(self):
+                self.value = 1
+
+        self.assertEqual(pegs_utils.coerce_runtime_state_dict({"x": 1}, bail_fn=self.fail), {"x": 1})
+        self.assertEqual(pegs_utils.coerce_runtime_state_dict(_State(), bail_fn=self.fail)["value"], 1)
+
+    def test_huge_meta_apply_combine_and_validate_helpers(self) -> None:
+        runtime = {}
+        meta = {
+            "huge_signal_max_closest_gene_prob": 0.9,
+            "huge_cap_region_posterior": True,
+            "huge_scale_region_posterior": False,
+            "huge_phantom_region_posterior": False,
+            "huge_allow_evidence_of_absence": False,
+            "huge_sparse_mode": False,
+            "huge_signals": [["1", 100, 1.0, None]],
+            "gene_covariate_names": ["c1"],
+            "gene_covariate_directions": [1.0],
+            "gene_covariate_intercept_index": 0,
+            "gene_covariate_slope_defaults": [0.1],
+            "total_qc_metric_betas_defaults": [0.2],
+            "total_qc_metric_intercept_defaults": 0.3,
+            "total_qc_metric2_betas_defaults": [0.4],
+            "total_qc_metric2_intercept_defaults": 0.5,
+        }
+        pegs_utils.apply_huge_statistics_meta_to_runtime(runtime, meta)
+        self.assertEqual(runtime["huge_signal_max_closest_gene_prob"], 0.9)
+        self.assertEqual(len(runtime["huge_signals"]), 1)
+
+        runtime["gene_to_gwas_huge_score"] = {"G1": 1.0}
+        runtime["gene_to_exomes_huge_score"] = {"G1": 0.5, "G2": 1.5}
+        pegs_utils.combine_runtime_huge_scores(runtime)
+        self.assertEqual(runtime["gene_to_huge_score"]["G1"], 1.5)
+        self.assertEqual(runtime["gene_to_huge_score"]["G2"], 1.5)
+
+        runtime["huge_signal_bfs"] = sparse.csc_matrix(np.zeros((2, 1)))
+        pegs_utils.validate_huge_statistics_loaded_shapes(runtime, ["G1", "G2"], bail_fn=self.fail)
+        with self.assertRaisesRegex(ValueError, "inconsistent"):
+            pegs_utils.validate_huge_statistics_loaded_shapes(
+                runtime,
+                ["G1"],
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+
+    def test_huge_sparse_vector_helpers_roundtrip_with_callbacks(self) -> None:
+        values_map = {
+            "bfs_data": np.array([1.0, 2.0]),
+            "bfs_indices": np.array([0, 1], dtype=int),
+            "bfs_indptr": np.array([0, 1, 2], dtype=int),
+            "bfs_reg_data": np.array([1.5, 2.5]),
+            "bfs_reg_indices": np.array([0, 1], dtype=int),
+            "bfs_reg_indptr": np.array([0, 1, 2], dtype=int),
+            "signal_posteriors": np.array([0.1, 0.2]),
+            "signal_posteriors_for_regression": np.array([0.1, 0.2]),
+            "signal_sum_gene_cond_probabilities": np.array([0.3, 0.4]),
+            "signal_sum_gene_cond_probabilities_for_regression": np.array([0.3, 0.4]),
+            "signal_mean_gene_pos": np.array([10.0, 20.0]),
+            "signal_mean_gene_pos_for_regression": np.array([10.0, 20.0]),
+        }
+        paths = {k: k for k in values_map.keys()}
+        runtime = {}
+        meta = {
+            "huge_signal_bfs_shape": [2, 2],
+            "huge_signal_bfs_for_regression_shape": [2, 2],
+        }
+
+        def _reader(path, value_type=float):
+            arr = values_map[path]
+            if value_type == int:
+                return arr.astype(int)
+            return arr.astype(float)
+
+        pegs_utils.load_huge_statistics_sparse_and_vectors(runtime, paths, meta, read_vector_fn=_reader)
+        self.assertEqual(runtime["huge_signal_bfs"].shape, (2, 2))
+        self.assertEqual(runtime["huge_signal_posteriors"].shape[0], 2)
+
+        written = {}
+
+        def _writer(path, values, value_type=float):
+            written[path] = np.array(values)
+
+        pegs_utils.write_huge_statistics_runtime_vectors(paths, runtime, write_vector_fn=_writer)
+        pegs_utils.write_huge_statistics_sparse_components(
+            paths,
+            runtime["huge_signal_bfs"],
+            runtime["huge_signal_bfs_for_regression"],
+            write_vector_fn=_writer,
+        )
+        self.assertIn("signal_posteriors", written)
+        self.assertIn("bfs_data", written)
+
+    def test_complete_p_beta_se_fills_missing_values(self) -> None:
+        p = np.array([np.nan, 0.05, 0.2], dtype=float)
+        beta = np.array([np.nan, np.nan, 0.2], dtype=float)
+        se = np.array([np.nan, 0.1, 0.0], dtype=float)
+        warnings = []
+
+        out_p, out_beta, out_se = pegs_utils.complete_p_beta_se(
+            p,
+            beta,
+            se,
+            warn_fn=warnings.append,
+        )
+        self.assertEqual(out_p.shape, (3,))
+        self.assertEqual(out_beta.shape, (3,))
+        self.assertEqual(out_se.shape, (3,))
+        self.assertFalse(np.any(np.isnan(out_p)))
+        self.assertFalse(np.any(np.isnan(out_beta)))
+        self.assertFalse(np.any(np.isnan(out_se)))
+        self.assertTrue(np.any(out_se == 1.0))
+        self.assertGreaterEqual(len(warnings), 1)
+
+    def test_parse_gene_bfs_file_from_log_bf(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_stats.tsv"
+            path.write_text(
+                "Gene\tlog_bf\tcombined\tprior\nGENE_A\t1.5\t0.2\t0.1\nGENE_B\tNA\t0.3\t0.2\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_bfs_file(
+                str(path),
+                gene_bfs_id_col="Gene",
+                gene_bfs_log_bf_col=None,
+                gene_bfs_combined_col=None,
+                gene_bfs_prob_col=None,
+                gene_bfs_prior_col=None,
+                background_log_bf=0.0,
+                gene_label_map={"GENE_A": "GENE_A_ALIAS"},
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertIn("GENE_A_ALIAS", parsed.gene_in_bfs)
+            self.assertNotIn("GENE_B", parsed.gene_in_bfs)
+            self.assertAlmostEqual(parsed.gene_in_combined["GENE_A_ALIAS"], 0.2)
+            self.assertAlmostEqual(parsed.gene_in_priors["GENE_A_ALIAS"], 0.1)
+
+    def test_parse_gene_bfs_file_from_prob(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_probs.tsv"
+            path.write_text("Gene\tprob\nGENE_A\t0.8\n", encoding="utf-8")
+            parsed = pegs_utils.parse_gene_bfs_file(
+                str(path),
+                gene_bfs_id_col="Gene",
+                gene_bfs_log_bf_col=None,
+                gene_bfs_combined_col=None,
+                gene_bfs_prob_col="prob",
+                gene_bfs_prior_col=None,
+                background_log_bf=0.0,
+                gene_label_map=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            expected = np.log(0.8 / 0.2)
+            self.assertAlmostEqual(parsed.gene_in_bfs["GENE_A"], expected)
+            self.assertIsInstance(parsed.gene_in_combined, dict)
+            self.assertEqual(len(parsed.gene_in_combined), 0)
+
+    def test_parse_gene_covariates_file_and_align_helpers(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_covs.tsv"
+            path.write_text(
+                "Gene\tC1\tC2\nGENE_A\t1.0\t2.0\nGENE_X\t3.0\t4.0\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_covariates_file(
+                str(path),
+                gene_covs_id_col="Gene",
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                log_fn=lambda _m: None,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertEqual(parsed.cov_names, ["C1", "C2"])
+            self.assertIn("GENE_A", parsed.gene_to_covs)
+
+            gene_bfs, extra_genes, extra_bfs = pegs_utils.align_gene_scalar_map(
+                {"GENE_A": 1.5, "GENE_X": 2.5},
+                genes=["GENE_A", "GENE_B"],
+                gene_to_ind={"GENE_A": 0, "GENE_B": 1},
+            )
+            np.testing.assert_allclose(gene_bfs[:1], np.array([1.5]))
+            self.assertTrue(np.isnan(gene_bfs[1]))
+            self.assertEqual(extra_genes, ["GENE_X"])
+            np.testing.assert_allclose(extra_bfs, np.array([2.5]))
+
+            gene_covs, extra_cov_genes, extra_covs = pegs_utils.align_gene_vector_map(
+                parsed.gene_to_covs,
+                num_values=2,
+                genes=["GENE_A", "GENE_B"],
+                gene_to_ind={"GENE_A": 0, "GENE_B": 1},
+            )
+            np.testing.assert_allclose(gene_covs[0, :], np.array([1.0, 2.0]))
+            self.assertTrue(np.isnan(gene_covs[1, 0]))
+            self.assertEqual(extra_cov_genes, ["GENE_X"])
+            self.assertEqual(extra_covs.shape, (1, 2))
+
+    def test_load_aligned_gene_bfs_and_covariates(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            gene_bfs_path = Path(td) / "gene_stats.tsv"
+            gene_bfs_path.write_text(
+                "Gene\tlog_bf\tcombined\tprior\nGENE_A\t1.2\t0.4\t0.2\nGENE_X\t2.2\t0.7\t0.6\n",
+                encoding="utf-8",
+            )
+            aligned_bfs = pegs_utils.load_aligned_gene_bfs(
+                str(gene_bfs_path),
+                genes=["GENE_A", "GENE_B"],
+                gene_to_ind={"GENE_A": 0, "GENE_B": 1},
+                gene_bfs_id_col="Gene",
+                gene_bfs_log_bf_col="log_bf",
+                gene_bfs_combined_col="combined",
+                gene_bfs_prob_col=None,
+                gene_bfs_prior_col="prior",
+                background_log_bf=0.0,
+                gene_label_map=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                log_fn=lambda _m: None,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertAlmostEqual(aligned_bfs.gene_bfs[0], 1.2)
+            self.assertTrue(np.isnan(aligned_bfs.gene_bfs[1]))
+            self.assertEqual(aligned_bfs.extra_genes, ["GENE_X"])
+            np.testing.assert_allclose(aligned_bfs.extra_gene_bfs, np.array([2.2]))
+            self.assertAlmostEqual(aligned_bfs.gene_in_combined["GENE_A"], 0.4)
+            self.assertAlmostEqual(aligned_bfs.gene_in_priors["GENE_A"], 0.2)
+
+            gene_cov_path = Path(td) / "gene_covs.tsv"
+            gene_cov_path.write_text(
+                "Gene\tC1\tC2\nGENE_A\t1.0\t2.0\nGENE_X\t3.0\t4.0\n",
+                encoding="utf-8",
+            )
+            aligned_covs = pegs_utils.load_aligned_gene_covariates(
+                str(gene_cov_path),
+                genes=["GENE_A", "GENE_B"],
+                gene_to_ind={"GENE_A": 0, "GENE_B": 1},
+                gene_covs_id_col="Gene",
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                log_fn=lambda _m: None,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertEqual(aligned_covs.cov_names, ["C1", "C2"])
+            np.testing.assert_allclose(aligned_covs.gene_covs[0, :], np.array([1.0, 2.0]))
+            self.assertTrue(np.isnan(aligned_covs.gene_covs[1, 0]))
+            self.assertEqual(aligned_covs.extra_genes, ["GENE_X"])
+            self.assertEqual(aligned_covs.extra_gene_covs.shape, (1, 2))
+
+    def test_parse_gene_set_statistics_file(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_set_stats.tsv"
+            path.write_text(
+                "Gene_Set\texp_beta\tp\tbeta_uncorrected\nSET_A\t2.0\t0.05\t0.4\nSET_A\t2.5\t0.05\t0.5\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_set_statistics_file(
+                str(path),
+                stats_id_col="Gene_Set",
+                stats_exp_beta_tilde_col="exp_beta",
+                stats_beta_tilde_col=None,
+                stats_p_col="p",
+                stats_se_col=None,
+                stats_beta_col=None,
+                stats_beta_uncorrected_col="beta_uncorrected",
+                ignore_negative_exp_beta=False,
+                max_gene_set_p=None,
+                min_gene_set_beta=None,
+                min_gene_set_beta_uncorrected=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                log_fn=lambda _m: None,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+            self.assertTrue(parsed.need_to_take_log)
+            self.assertTrue(parsed.has_beta_tilde)
+            self.assertTrue(parsed.has_p_or_se)
+            self.assertFalse(parsed.has_beta)
+            self.assertTrue(parsed.has_beta_uncorrected)
+            self.assertEqual(len(parsed.records), 1)
+            beta_tilde, p, _se, z, _beta, beta_uncorrected = parsed.records["SET_A"]
+            self.assertAlmostEqual(beta_tilde, np.log(2.0))
+            self.assertAlmostEqual(p, 0.05)
+            self.assertTrue(np.isfinite(z))
+            self.assertAlmostEqual(beta_uncorrected, 0.4)
+
+    def test_parse_gene_phewas_bfs_file_deduplicates_and_maps(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text(
+                "Gene\tPheno\tlog_bf\tcombined\tprior\n"
+                "GENE_A\tP1\t1.0\t0.2\t0.1\n"
+                "GENE_A\tP1\t2.0\t0.3\t0.2\n"
+                "GENE_B\tP2\t3.0\t0.4\t0.3\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_phewas_bfs_file(
+                str(path),
+                gene_phewas_bfs_id_col="Gene",
+                gene_phewas_bfs_pheno_col="Pheno",
+                gene_phewas_bfs_log_bf_col=None,
+                gene_phewas_bfs_combined_col=None,
+                gene_phewas_bfs_prior_col=None,
+                min_value=None,
+                max_num_entries_at_once=2,
+                existing_phenos=["P0"],
+                existing_pheno_to_ind={"P0": 0},
+                gene_to_ind={"GENE_A_ALIAS": 0, "GENE_B": 1},
+                gene_label_map={"GENE_A": "GENE_A_ALIAS"},
+                phewas_gene_to_x_gene=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                warn_fn=lambda _m: None,
+            )
+
+            self.assertEqual(parsed.phenos, ["P0", "P1", "P2"])
+            self.assertEqual(parsed.pheno_to_ind["P1"], 1)
+            self.assertEqual(parsed.pheno_to_ind["P2"], 2)
+            self.assertEqual(parsed.row.shape[0], 2)
+            self.assertEqual(parsed.col.shape[0], 2)
+            np.testing.assert_allclose(parsed.Ys, np.array([1.0, 3.0]))
+            np.testing.assert_allclose(parsed.combineds, np.array([0.2, 0.4]))
+            np.testing.assert_allclose(parsed.priors, np.array([0.1, 0.3]))
+
+    def test_parse_gene_phewas_bfs_file_fallbacks_to_tab_delim(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas_tab.tsv"
+            path.write_text(
+                "Gene\tPheno\tcombined\n"
+                "GENE_A\tType 2 diabetes\t0.7\n",
+                encoding="utf-8",
+            )
+            parsed = pegs_utils.parse_gene_phewas_bfs_file(
+                str(path),
+                gene_phewas_bfs_id_col="Gene",
+                gene_phewas_bfs_pheno_col="Pheno",
+                gene_phewas_bfs_log_bf_col=None,
+                gene_phewas_bfs_combined_col="combined",
+                gene_phewas_bfs_prior_col=None,
+                min_value=0.5,
+                max_num_entries_at_once=100,
+                existing_phenos=None,
+                existing_pheno_to_ind=None,
+                gene_to_ind={"GENE_A": 0},
+                gene_label_map=None,
+                phewas_gene_to_x_gene=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                warn_fn=lambda _m: None,
+            )
+            self.assertEqual(parsed.phenos, ["Type 2 diabetes"])
+            self.assertEqual(parsed.row.tolist(), [0])
+            self.assertEqual(parsed.col.tolist(), [0])
+            self.assertIsNone(parsed.Ys)
+            np.testing.assert_allclose(parsed.combineds, np.array([0.7]))
+
+    def test_runtime_state_dataclass_roundtrip_helpers(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.Y = np.array([1.0, 2.0])
+        rt.Y_for_regression = np.array([0.5, 1.5])
+        rt.Y_exomes = None
+        rt.Y_positive_controls = None
+        rt.Y_case_counts = None
+        rt.y_var = 1.2
+        rt.y_corr = None
+        rt.y_corr_cholesky = None
+        rt.y_corr_sparse = None
+        rt.Y_w = None
+        rt.Y_fw = None
+        rt.y_w_var = None
+        rt.y_w_mean = None
+        rt.y_fw_var = None
+        rt.y_fw_mean = None
+
+        rt.p = 0.1
+        rt.sigma2 = 0.2
+        rt.sigma_power = 2.0
+        rt.sigma2_osc = None
+        rt.sigma2_se = 0.01
+        rt.sigma2_p = 0.5
+        rt.sigma2_total_var = 1.0
+        rt.sigma2_total_var_lower = 0.9
+        rt.sigma2_total_var_upper = 1.1
+        rt.ps = np.array([0.1, 0.2])
+        rt.sigma2s = np.array([0.2, 0.3])
+        rt.sigma2s_missing = None
+
+        rt.phenos = ["P1"]
+        rt.pheno_to_ind = {"P1": 0}
+        rt.gene_pheno_Y = sparse.csc_matrix(([1.0], ([0], [0])), shape=(1, 1))
+        rt.gene_pheno_combined_prior_Ys = None
+        rt.gene_pheno_priors = None
+        rt.X_phewas_beta = None
+        rt.X_phewas_beta_uncorrected = None
+        rt.num_gene_phewas_filtered = 3
+        rt.anchor_gene_mask = np.array([True])
+        rt.anchor_pheno_mask = np.array([True])
+
+        y_state = pegs_utils.y_data_from_runtime(rt)
+        hyper_state = pegs_utils.hyperparameter_data_from_runtime(rt)
+        phewas_state = pegs_utils.phewas_runtime_state_from_runtime(rt)
+
+        y_state.y_var = 2.5
+        hyper_state.p = 0.25
+        phewas_state.num_gene_phewas_filtered = 7
+
+        pegs_utils.apply_y_data_to_runtime(rt, y_state)
+        pegs_utils.apply_hyperparameter_data_to_runtime(rt, hyper_state)
+        pegs_utils.apply_phewas_runtime_state_to_runtime(rt, phewas_state)
+
+        self.assertAlmostEqual(rt.y_var, 2.5)
+        self.assertAlmostEqual(rt.p, 0.25)
+        self.assertEqual(rt.num_gene_phewas_filtered, 7)
+
+    def test_set_runtime_hyper_helpers(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.p = 0.2
+        rt.sigma2 = None
+        rt.sigma_power = 2.0
+        rt.sigma2_osc = None
+        rt.sigma2_se = None
+        rt.sigma2_p = 0.1
+        rt.sigma2_total_var = None
+        rt.sigma2_total_var_lower = None
+        rt.sigma2_total_var_upper = None
+        rt.ps = None
+        rt.sigma2s = None
+        rt.sigma2s_missing = None
+        rt.scale_factors = np.array([1.0, 2.0])
+        rt.is_dense_gene_set = np.array([True, True])
+        rt.MEAN_MOUSE_SCALE = 300.0
+
+        state_p = pegs_utils.set_runtime_p(rt, 1.5)
+        self.assertAlmostEqual(state_p.p, 1.0)
+        self.assertAlmostEqual(rt.p, 1.0)
+
+        state_sigma = pegs_utils.set_runtime_sigma(
+            rt,
+            sigma2=2.0,
+            sigma_power=2.0,
+            sigma2_osc=None,
+            sigma2_se=0.1,
+            sigma2_p=0.25,
+            sigma2_scale_factors=np.array([1.0, 2.0]),
+            convert_sigma_to_internal_units=False,
+        )
+        self.assertAlmostEqual(state_sigma.sigma2, 2.0)
+        self.assertAlmostEqual(rt.sigma2, 2.0)
+        self.assertAlmostEqual(rt.sigma2_p, 0.25)
+        self.assertAlmostEqual(rt.sigma2_total_var, 10.0)
+        self.assertAlmostEqual(rt.sigma2_total_var_lower, 9.02, places=2)
+        self.assertAlmostEqual(rt.sigma2_total_var_upper, 10.98, places=2)
+
+    def test_set_runtime_sigma_populates_sigma2_p_when_runtime_field_is_none(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.p = 0.2
+        rt.sigma2 = None
+        rt.sigma_power = 2.0
+        rt.sigma2_osc = None
+        rt.sigma2_se = None
+        rt.sigma2_p = None
+        rt.sigma2_total_var = None
+        rt.sigma2_total_var_lower = None
+        rt.sigma2_total_var_upper = None
+        rt.ps = None
+        rt.sigma2s = None
+        rt.sigma2s_missing = None
+        rt.scale_factors = np.array([1.0, 1.5])
+        rt.is_dense_gene_set = np.array([True, True])
+        rt.MEAN_MOUSE_SCALE = 300.0
+
+        pegs_utils.set_runtime_sigma(
+            rt,
+            sigma2=1.5,
+            sigma_power=2.0,
+            sigma2_p=0.33,
+            convert_sigma_to_internal_units=False,
+        )
+        self.assertAlmostEqual(rt.sigma2_p, 0.33)
+
+    def test_sync_runtime_state_helpers(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.Y = np.array([1.0])
+        rt.Y_for_regression = np.array([1.0])
+        rt.Y_exomes = None
+        rt.Y_positive_controls = None
+        rt.Y_case_counts = None
+        rt.y_var = 1.0
+        rt.y_corr = None
+        rt.y_corr_cholesky = None
+        rt.y_corr_sparse = None
+        rt.Y_w = None
+        rt.Y_fw = None
+        rt.y_w_var = None
+        rt.y_w_mean = None
+        rt.y_fw_var = None
+        rt.y_fw_mean = None
+        rt.p = 0.1
+        rt.sigma2 = 0.2
+        rt.sigma_power = 2.0
+        rt.sigma2_osc = None
+        rt.sigma2_se = None
+        rt.sigma2_p = None
+        rt.sigma2_total_var = None
+        rt.sigma2_total_var_lower = None
+        rt.sigma2_total_var_upper = None
+        rt.ps = None
+        rt.sigma2s = None
+        rt.sigma2s_missing = None
+        rt.phenos = ["P1"]
+        rt.pheno_to_ind = {"P1": 0}
+        rt.gene_pheno_Y = None
+        rt.gene_pheno_combined_prior_Ys = None
+        rt.gene_pheno_priors = None
+        rt.X_phewas_beta = None
+        rt.X_phewas_beta_uncorrected = None
+        rt.num_gene_phewas_filtered = 0
+        rt.anchor_gene_mask = None
+        rt.anchor_pheno_mask = None
+
+        y_state = pegs_utils.sync_y_state(rt)
+        hyper_state = pegs_utils.sync_hyperparameter_state(rt)
+        phewas_state = pegs_utils.sync_phewas_runtime_state(rt)
+
+        self.assertTrue(np.array_equal(y_state.Y, rt.Y))
+        self.assertAlmostEqual(hyper_state.p, rt.p)
+        self.assertEqual(phewas_state.phenos, rt.phenos)
+
+    def test_set_runtime_y_from_inputs_helper(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.Y = None
+                self.Y_for_regression = None
+                self.Y_exomes = None
+                self.Y_positive_controls = None
+                self.Y_case_counts = None
+                self.y_var = None
+                self.y_corr = None
+                self.y_corr_cholesky = None
+                self.y_corr_sparse = None
+                self.Y_w = None
+                self.Y_fw = None
+                self.y_w_var = None
+                self.y_w_mean = None
+                self.y_fw_var = None
+                self.y_fw_mean = None
+                self.X_orig = np.array([[1.0], [2.0], [3.0]])
+                self.genes = ["G1", "G2", "G3"]
+                self.gene_sets = ["S1"]
+                self.X_orig_missing_gene_sets = np.array([[1.0], [0.0], [1.0]])
+                self.mean_shifts_missing = None
+                self.scale_factors_missing = None
+
+        rt = _Runtime()
+        set_x_calls = []
+        calc_calls = []
+        Y = np.array([1.0, 2.0, 3.0])
+        Y_corr_m = np.array(
+            [
+                [1.0, 0.1, 0.1],
+                [0.5, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+
+        y_state = pegs_utils.set_runtime_y_from_inputs(
+            runtime=rt,
+            Y=Y,
+            Y_for_regression=np.array([1.0, 2.0, 3.0]),
+            Y_corr_m=Y_corr_m,
+            store_corr_sparse=True,
+        )
+
+        self.assertTrue(np.array_equal(rt.Y, Y, equal_nan=True))
+        self.assertAlmostEqual(rt.y_var, np.var(Y))
+        self.assertEqual(rt.y_corr.shape[0], 2)
+        self.assertIsNone(rt.y_corr_cholesky)
+        self.assertIsNotNone(rt.y_corr_sparse)
+        self.assertEqual(len(set_x_calls), 0)
+        self.assertEqual(len(calc_calls), 0)
+
+    def test_initialize_matrix_and_gene_index_state(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.X_orig = "X"
+        rt.batch_size = 1
+        rt.scale_factors = np.array([1.0])
+        rt.gene_set_labels = np.array(["A"])
+        rt.genes = ["G1"]
+        rt.gene_to_huge_score = {"G1": 1.0}
+
+        pegs_utils.initialize_matrix_and_gene_index_state(rt, batch_size=777)
+
+        self.assertIsNone(rt.X_orig)
+        self.assertEqual(rt.batch_size, 777)
+        self.assertIsNone(rt.scale_factors)
+        self.assertIsNone(rt.gene_set_labels)
+        self.assertIsNone(rt.genes)
+        self.assertIsNone(rt.gene_to_huge_score)
+
+    def test_apply_parsed_gene_set_statistics_to_runtime(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.gene_sets = ["SET_A", "SET_B"]
+                self.gene_set_to_ind = {"SET_A": 0, "SET_B": 1}
+                self.scale_factors = np.array([2.0, 3.0])
+                self.X_orig = np.zeros((2, 2))
+                self.genes = ["G1", "G2"]
+                self.subset_calls = []
+                self.set_x_calls = []
+
+            def subset_gene_sets(self, subset_mask, keep_missing=True):
+                self.subset_calls.append((subset_mask.copy(), keep_missing))
+
+            def _set_X(self, X_orig, genes, gene_sets, skip_N=True):
+                self.set_x_calls.append((X_orig.shape, tuple(genes), tuple(gene_sets), skip_N))
+
+        parsed = pegs_utils.ParsedGeneSetStats(
+            need_to_take_log=False,
+            has_beta_tilde=True,
+            has_p_or_se=True,
+            has_beta=True,
+            has_beta_uncorrected=True,
+            records={"SET_A": (1.0, 0.05, 2.0, 3.0, 4.0, 5.0)},
+        )
+        rt = _Runtime()
+        pegs_utils.apply_parsed_gene_set_statistics_to_runtime(
+            rt,
+            parsed,
+            return_only_ids=False,
+            stats_beta_col="beta",
+            warn_fn=lambda _m: None,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            log_fn=lambda _m: None,
+        )
+
+        self.assertAlmostEqual(rt.beta_tildes[0], 2.0)
+        self.assertAlmostEqual(rt.p_values[0], 0.05)
+        self.assertAlmostEqual(rt.ses[0], 4.0)
+        self.assertAlmostEqual(rt.betas[0], 8.0)
+        self.assertAlmostEqual(rt.betas_uncorrected[0], 10.0)
+        self.assertEqual(len(rt.subset_calls), 1)
+        np.testing.assert_array_equal(rt.subset_calls[0][0], np.array([True, False]))
+        self.assertEqual(len(rt.set_x_calls), 1)
+
+    def test_apply_parsed_gene_phewas_bfs_to_runtime(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.genes = ["GENE_A", "GENE_B"]
+                self.phenos = None
+                self.pheno_to_ind = None
+                self.gene_pheno_Y = None
+                self.gene_pheno_combined_prior_Ys = None
+                self.gene_pheno_priors = None
+                self.X_phewas_beta = None
+                self.X_phewas_beta_uncorrected = None
+                self.num_gene_phewas_filtered = 0
+                self.anchor_gene_mask = None
+                self.anchor_pheno_mask = None
+
+        parsed = pegs_utils.ParsedGenePhewasBfs(
+            phenos=["P1"],
+            pheno_to_ind={"P1": 0},
+            row=np.array([0], dtype=np.int32),
+            col=np.array([0], dtype=np.int32),
+            Ys=np.array([1.5]),
+            combineds=np.array([0.5]),
+            priors=np.array([0.2]),
+            num_filtered=3,
+        )
+        rt = _Runtime()
+        pegs_utils.apply_parsed_gene_phewas_bfs_to_runtime(
+            rt,
+            parsed,
+            anchor_genes={"GENE_A"},
+            anchor_phenos={"P1"},
+            construct_map_to_ind_fn=pegs_utils.construct_map_to_ind,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            log_fn=lambda _m: None,
+        )
+
+        self.assertEqual(rt.num_gene_phewas_filtered, 3)
+        self.assertEqual(rt.phenos, ["P1"])
+        self.assertEqual(rt.pheno_to_ind, {"P1": 0})
+        self.assertEqual(rt.gene_pheno_Y.shape, (2, 1))
+        self.assertEqual(rt.gene_pheno_combined_prior_Ys.shape, (2, 1))
+        self.assertEqual(rt.gene_pheno_priors.shape, (2, 1))
+        np.testing.assert_array_equal(rt.anchor_gene_mask, np.array([True, False]))
+        np.testing.assert_array_equal(rt.anchor_pheno_mask, np.array([True]))
+
+    def test_load_and_apply_gene_set_statistics_to_runtime(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.gene_sets = ["SET_A", "SET_B"]
+                self.gene_set_to_ind = {"SET_A": 0, "SET_B": 1}
+                self.scale_factors = np.array([2.0, 2.0])
+                self.X_orig = np.zeros((2, 2))
+                self.genes = ["G1", "G2"]
+                self.beta_tildes = None
+                self.betas = None
+
+            def subset_gene_sets(self, subset_mask, keep_missing=True):
+                self.subset_mask = subset_mask
+                self.keep_missing = keep_missing
+
+            def _set_X(self, X_orig, genes, gene_sets, skip_N=True):
+                self.last_set_x = (X_orig, genes, gene_sets, skip_N)
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_set_stats.tsv"
+            path.write_text("Gene_Set\tbeta\nSET_A\t1.5\n", encoding="utf-8")
+            rt = _Runtime()
+            pegs_utils.load_and_apply_gene_set_statistics_to_runtime(
+                rt,
+                str(path),
+                stats_id_col="Gene_Set",
+                stats_beta_col="beta",
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                parse_log_fn=lambda _m: None,
+                apply_log_fn=lambda _m: None,
+            )
+
+        self.assertAlmostEqual(rt.betas[0], 3.0)
+        self.assertAlmostEqual(rt.betas[1], 0.0)
+        np.testing.assert_array_equal(rt.subset_mask, np.array([True, False]))
+
+    def test_load_and_apply_gene_phewas_bfs_to_runtime(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.genes = ["GENE_A", "GENE_B"]
+                self.phenos = None
+                self.pheno_to_ind = None
+                self.gene_to_ind = {"GENE_A": 0, "GENE_B": 1}
+                self.gene_label_map = None
+                self.gene_pheno_Y = None
+                self.gene_pheno_combined_prior_Ys = None
+                self.gene_pheno_priors = None
+                self.X_phewas_beta = None
+                self.X_phewas_beta_uncorrected = None
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text(
+                "Gene\tPheno\tlog_bf\tcombined\tprior\nGENE_A\tP1\t1.1\t0.5\t0.3\n",
+                encoding="utf-8",
+            )
+            rt = _Runtime()
+            parsed = pegs_utils.load_and_apply_gene_phewas_bfs_to_runtime(
+                rt,
+                str(path),
+                gene_phewas_bfs_id_col="Gene",
+                gene_phewas_bfs_pheno_col="Pheno",
+                gene_phewas_bfs_log_bf_col="log_bf",
+                gene_phewas_bfs_combined_col="combined",
+                gene_phewas_bfs_prior_col="prior",
+                anchor_genes={"GENE_A"},
+                anchor_phenos={"P1"},
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                construct_map_to_ind_fn=pegs_utils.construct_map_to_ind,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                log_fn=lambda _m: None,
+            )
+
+        self.assertEqual(parsed.phenos, ["P1"])
+        self.assertEqual(rt.phenos, ["P1"])
+        self.assertEqual(rt.pheno_to_ind, {"P1": 0})
+        self.assertEqual(rt.gene_pheno_Y.shape, (2, 1))
+        np.testing.assert_array_equal(rt.anchor_gene_mask, np.array([True, False]))
+        np.testing.assert_array_equal(rt.anchor_pheno_mask, np.array([True]))
+
+    def test_load_and_apply_gene_set_phewas_statistics_to_runtime(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.gene_sets = ["SET_A", "SET_B"]
+                self.gene_set_to_ind = {"SET_A": 0, "SET_B": 1}
+                self.X_orig = np.zeros((2, 2))
+                self.genes = ["G1", "G2"]
+                self.phenos = None
+                self.pheno_to_ind = None
+                self.X_phewas_beta = None
+                self.X_phewas_beta_uncorrected = None
+
+            def subset_gene_sets(self, subset_mask, keep_missing=True):
+                self.subset_mask = subset_mask
+                self.keep_missing = keep_missing
+
+            def _set_X(self, X_orig, genes, gene_sets, skip_N=True):
+                self.last_set_x = (X_orig, genes, gene_sets, skip_N)
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_set_phewas.tsv"
+            path.write_text(
+                "Gene_Set\tPheno\tbeta\tbeta_uncorrected\n"
+                "SET_A\tP1\t1.0\t1.1\n"
+                "SET_A\tP1\t1.2\t1.3\n"
+                "SET_B\tP2\t0.5\t0.6\n",
+                encoding="utf-8",
+            )
+            rt = _Runtime()
+            pegs_utils.load_and_apply_gene_set_phewas_statistics_to_runtime(
+                rt,
+                str(path),
+                stats_id_col="Gene_Set",
+                stats_pheno_col="Pheno",
+                stats_beta_col="beta",
+                stats_beta_uncorrected_col="beta_uncorrected",
+                update_X=True,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                construct_map_to_ind_fn=pegs_utils.construct_map_to_ind,
+                warn_fn=lambda _m: None,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                log_fn=lambda _m: None,
+            )
+
+        self.assertEqual(rt.phenos, ["P1", "P2"])
+        self.assertEqual(rt.pheno_to_ind, {"P1": 0, "P2": 1})
+        self.assertEqual(rt.X_phewas_beta.shape, (2, 2))
+        self.assertEqual(rt.X_phewas_beta_uncorrected.shape, (2, 2))
+        self.assertAlmostEqual(rt.X_phewas_beta[0, 0], 1.0)
+        self.assertAlmostEqual(rt.X_phewas_beta_uncorrected[0, 0], 1.1)
+        self.assertTrue(hasattr(rt, "last_set_x"))
+
+    def test_remove_tag_from_input(self) -> None:
+        path, tag = pegs_utils.remove_tag_from_input("mouse:data.tsv")
+        self.assertEqual(path, "data.tsv")
+        self.assertEqual(tag, "mouse")
+        path, tag = pegs_utils.remove_tag_from_input("data.tsv")
+        self.assertEqual(path, "data.tsv")
+        self.assertIsNone(tag)
+
+    def test_assign_default_batches(self) -> None:
+        batches = [None, None, "X", None]
+        orig_files = ["a", "a", "b", "c"]
+        out = pegs_utils.assign_default_batches(
+            batches=batches,
+            orig_files=orig_files,
+            batch_all_for_hyper=False,
+            first_for_hyper=False,
+        )
+        self.assertEqual(out[0], out[1])
+        self.assertEqual(out[2], "X")
+        self.assertIsNotNone(out[3])
+
+        out_first = pegs_utils.assign_default_batches(
+            batches=[None, None, "Y"],
+            orig_files=["a", "b", "c"],
+            batch_all_for_hyper=False,
+            first_for_hyper=True,
+        )
+        self.assertIsNotNone(out_first[0])
+        self.assertIsNone(out_first[1])
+        self.assertIsNone(out_first[2])
+
+    def test_initialize_read_x_batch_seed_state(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        xdata_seed = pegs_utils.XData(
+            gene_set_batches=np.array(["B0", "B1"]),
+            gene_set_labels=np.array(["L0", "L1"]),
+            is_dense_gene_set=np.array([False, True], dtype=bool),
+        )
+        logs = []
+        params = []
+        batches, ignored = pegs_utils.initialize_read_x_batch_seed_state(
+            runtime=rt,
+            xdata_seed=xdata_seed,
+            batches=[None, None],
+            orig_files=["a", "b"],
+            batch_all_for_hyper=False,
+            first_for_hyper=False,
+            update_hyper_sigma=True,
+            update_hyper_p=False,
+            first_for_sigma_cond=True,
+            record_params_fn=lambda d: params.append(d),
+            log_fn=lambda m: logs.append(m),
+        )
+
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(ignored.shape[0], 2)
+        self.assertEqual(rt.gene_set_batches.shape[0], 0)
+        self.assertEqual(rt.gene_set_labels.shape[0], 0)
+        self.assertEqual(rt.is_dense_gene_set.shape[0], 0)
+        self.assertEqual(rt.gene_sets, [])
+        self.assertTrue(any("Will learn parameters" in m for m in logs))
+        self.assertTrue(any("Will fix conditional sigma" in m for m in logs))
+        self.assertTrue(any(d.get("num_X_batches") == 2 for d in params))
+
+    def test_initialize_filtered_gene_set_state(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.gene_set_labels = np.array(["L1"])
+        pegs_utils.initialize_filtered_gene_set_state(rt, update_hyper_p=True)
+        self.assertEqual(rt.gene_sets_ignored, [])
+        self.assertEqual(rt.gene_set_labels_ignored.shape[0], 0)
+        self.assertEqual(rt.beta_tildes.shape[0], 0)
+        self.assertIsNone(rt.se_inflation_factors)
+        self.assertEqual(rt.ps.shape[0], 0)
+        self.assertIsNone(rt.ps_missing)
+
+        rt2 = _Runtime()
+        rt2.gene_set_labels = None
+        pegs_utils.initialize_filtered_gene_set_state(rt2, update_hyper_p=None)
+        self.assertIsNone(rt2.ps)
+
+    def test_resolve_read_x_run_logistic(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.Y_for_regression = np.array([100.0, 120.0])
+        recorded = []
+        logs = []
+        out = pegs_utils.resolve_read_x_run_logistic(
+            runtime=rt,
+            run_logistic=False,
+            max_for_linear=0.95,
+            background_log_bf=0.0,
+            record_param_fn=lambda k, v: recorded.append((k, v)),
+            log_fn=lambda m: logs.append(m),
+        )
+        self.assertTrue(out)
+        self.assertTrue(any("Switching to logistic sampling" in m for m in logs))
+        self.assertIn(("read_X_run_logistic", True), recorded)
+
+    def test_record_read_x_counts(self) -> None:
+        class _Runtime:
+            pass
+
+        rt = _Runtime()
+        rt.gene_sets = ["S1", "S2"]
+        rt.genes = ["G1", "G2", "G3"]
+        recorded = []
+        logs = []
+        pegs_utils.record_read_x_counts(
+            rt,
+            record_param_fn=lambda k, v: recorded.append((k, v)),
+            log_fn=lambda m: logs.append(m),
+        )
+        self.assertIn(("num_gene_sets_read", 2), recorded)
+        self.assertIn(("num_genes_read", 3), recorded)
+        self.assertTrue(any("Read 2 gene sets and 3 genes" in m for m in logs))
+
+    def test_initialize_hyper_defaults_after_x_read(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.p = None
+                self.ps = np.array([0.1])
+                self.sigma2 = None
+                self.sigma_power = None
+                self.genes = ["G1", "G2", "G3", "G4", "G5"] * 20
+                self.Y = np.array([0.0, 0.0])
+                self.sigma_threshold_k = None
+                self.sigma_threshold_xo = None
+
+            def set_p(self, p):
+                self.p = p
+
+            def set_sigma(self, sigma2, sigma_power):
+                self.sigma2 = sigma2
+                self.sigma_power = sigma_power
+
+        warns = []
+        logs = []
+        rt = _Runtime()
+        fixed = pegs_utils.initialize_hyper_defaults_after_x_read(
+            rt,
+            initial_p=[0.1, 0.2],
+            update_hyper_p=True,
+            sigma_power=0.0,
+            initial_sigma2_cond=0.5,
+            update_hyper_sigma=False,
+            initial_sigma2=1e-3,
+            sigma_soft_threshold_95=80,
+            sigma_soft_threshold_5=10,
+            warn_fn=lambda m: warns.append(m),
+            log_fn=lambda m: logs.append(m),
+        )
+        self.assertTrue(fixed)
+        self.assertAlmostEqual(rt.p, 0.15)
+        self.assertAlmostEqual(rt.sigma2, 0.075)
+        self.assertIsNotNone(rt.sigma_threshold_k)
+        self.assertIsNotNone(rt.sigma_threshold_xo)
+        self.assertTrue(any("Thresholding sigma" in m for m in logs))
+        self.assertTrue(any("--update-hyper-p" in m for m in warns))
+
+    def test_limit_and_adjust_p_filters_after_x_read(self) -> None:
+        class _Runtime:
+            def __init__(self, p_values, p_values_ignored=None):
+                self.p_values = np.array(p_values, dtype=float)
+                self.p_values_ignored = None if p_values_ignored is None else np.array(p_values_ignored, dtype=float)
+                self.last_subset = None
+                self.last_record = None
+
+            def subset_gene_sets(self, mask, **_kwargs):
+                self.last_subset = np.array(mask)
+
+            def _record_param(self, key, value):
+                self.last_record = (key, value)
+
+        logs = []
+        rt_limit = _Runtime([0.1, 0.01, 0.2])
+        pegs_utils.maybe_limit_initial_gene_sets_by_p(
+            rt_limit,
+            max_num_gene_sets_initial=2,
+            log_fn=lambda m: logs.append(m),
+        )
+        self.assertTrue(np.array_equal(rt_limit.last_subset, np.array([True, True, False])))
+        self.assertTrue(any("max-num-gene-sets-initial" in m for m in logs))
+
+        rt_adjust = _Runtime([0.01, 0.2], p_values_ignored=[0.5] * 8)
+        adjust_logs = []
+        pegs_utils.maybe_adjust_overaggressive_p_filter_after_x_read(
+            rt_adjust,
+            filter_gene_set_p=0.05,
+            increase_filter_gene_set_p=0.1,
+            filter_using_phewas=False,
+            log_fn=lambda m: adjust_logs.append(m),
+        )
+        self.assertIsNone(rt_adjust.last_record)
+        self.assertIsNone(rt_adjust.last_subset)
+        self.assertEqual(adjust_logs, [])
+
+        rt_adjust_low = _Runtime([0.01, 0.2], p_values_ignored=[0.5] * 18)
+        pegs_utils.maybe_adjust_overaggressive_p_filter_after_x_read(
+            rt_adjust_low,
+            filter_gene_set_p=0.05,
+            increase_filter_gene_set_p=0.2,
+            filter_using_phewas=False,
+            log_fn=lambda m: adjust_logs.append(m),
+        )
+        self.assertIsNone(rt_adjust_low.last_record)
+        self.assertIsNone(rt_adjust_low.last_subset)
+        self.assertTrue(any("below requested minimum" in m for m in adjust_logs))
+
+    def test_maybe_prepare_filtered_correlation(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.y_corr = None
+                self.Y = np.array([1.0, 2.0])
+                self.Y_for_regression = np.array([1.0, 2.0])
+                self.Y_exomes = np.array([0.0, 0.0])
+                self.Y_positive_controls = np.array([0.0, 0.0])
+                self.Y_case_counts = np.array([0.0, 0.0])
+                self.read_args = None
+                self.set_y_kwargs = None
+
+            def _read_correlations(self, gene_cor_file, gene_loc_file, gene_cor_file_gene_col=None, gene_cor_file_cor_start_col=None):
+                self.read_args = (
+                    gene_cor_file,
+                    gene_loc_file,
+                    gene_cor_file_gene_col,
+                    gene_cor_file_cor_start_col,
+                )
+                return np.array([[1.0, 0.1], [0.0, 0.0]])
+
+            def _set_Y(self, *args, **kwargs):
+                self.set_y_kwargs = kwargs
+
+        rt = _Runtime()
+        pegs_utils.maybe_prepare_filtered_correlation(
+            runtime=rt,
+            run_corrected_ols=True,
+            gene_cor_file="cor.tsv",
+            gene_loc_file="loc.tsv",
+            gene_cor_file_gene_col=1,
+            gene_cor_file_cor_start_col=10,
+        )
+        self.assertEqual(rt.read_args, ("cor.tsv", "loc.tsv", 1, 10))
+        self.assertIsNotNone(rt.set_y_kwargs)
+        self.assertNotIn("store_cholesky", rt.set_y_kwargs)
+        self.assertTrue(rt.set_y_kwargs["store_corr_sparse"])
+        self.assertAlmostEqual(rt.set_y_kwargs["min_correlation"], 0.05)
+
+        rt2 = _Runtime()
+        rt2.y_corr = np.array([[1.0]])
+        pegs_utils.maybe_prepare_filtered_correlation(
+            runtime=rt2,
+            run_corrected_ols=True,
+            gene_cor_file="cor.tsv",
+            gene_loc_file="loc.tsv",
+            gene_cor_file_gene_col=1,
+            gene_cor_file_cor_start_col=10,
+        )
+        self.assertIsNone(rt2.read_args)
+        self.assertIsNone(rt2.set_y_kwargs)
+
+    def test_prepare_read_x_inputs_and_xdata_from_input_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            sparse_list = root / "x_list.txt"
+            dense_list = root / "xd_list.txt"
+            (root / "rel_sparse.tsv").write_text("SET1 GENE1\n", encoding="utf-8")
+            dense_member = root / "dense.tsv"
+            dense_member.write_text("SET2\tGENE2\n", encoding="utf-8")
+
+            sparse_list.write_text("tagS:rel_sparse.tsv\n", encoding="utf-8")
+            dense_list.write_text(str(dense_member) + "\n", encoding="utf-8")
+
+            plan = pegs_utils.prepare_read_x_inputs(
+                X_in=["tagA:fileA.tsv@B0"],
+                X_list=[str(sparse_list) + "@BL"],
+                Xd_in=None,
+                Xd_list=[str(dense_list)],
+                initial_p=None,
+                xin_to_p_noninf_ind=None,
+                batch_separator="@",
+                file_separator=None,
+                sparse_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                dense_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+            )
+
+            self.assertEqual(len(plan.X_ins), 3)
+            self.assertTrue(any("rel_sparse.tsv" in x for x in plan.X_ins))
+            self.assertEqual(plan.batches[0], "B0")
+            self.assertEqual(plan.batches[1], "BL")
+            self.assertFalse(plan.is_dense[0])
+            self.assertFalse(plan.is_dense[1])
+            self.assertTrue(plan.is_dense[2])
+
+            xdata = pegs_utils.xdata_from_input_plan(plan)
+            self.assertEqual(xdata.gene_set_batches.shape[0], 3)
+            self.assertEqual(xdata.gene_set_labels.shape[0], 3)
+            self.assertEqual(xdata.is_dense_gene_set.dtype, np.bool_)
+
+    def test_build_read_x_pipeline_config_defaults_are_safe(self) -> None:
+        cfg1 = pegs_utils.build_read_x_pipeline_config("x1.tsv")
+        cfg2 = pegs_utils.build_read_x_pipeline_config("x2.tsv")
+
+        cfg1.x_sparsify.append(999)
+        cfg1.ignore_genes.add("GENE_X")
+
+        self.assertNotIn(999, cfg2.x_sparsify)
+        self.assertNotIn("GENE_X", cfg2.ignore_genes)
+        self.assertEqual(cfg2.x_sparsify, [50, 100, 200, 500, 1000])
+        self.assertEqual(cfg2.ignore_genes, set(["NA"]))
+
+    def test_build_read_x_pipeline_config_normalizes_none_inputs(self) -> None:
+        cfg = pegs_utils.build_read_x_pipeline_config(
+            "x.tsv",
+            {"x_sparsify": None, "ignore_genes": None},
+        )
+        self.assertEqual(cfg.x_sparsify, [50, 100, 200, 500, 1000])
+        self.assertEqual(cfg.ignore_genes, set(["NA"]))
+
+    def test_prepare_read_x_inputs_splits_file_separator_with_tag_and_batch(self) -> None:
+        plan = pegs_utils.prepare_read_x_inputs(
+            X_in=["tagA:file1.tsv|file2.tsv@B1"],
+            X_list=None,
+            Xd_in=None,
+            Xd_list=None,
+            initial_p=None,
+            xin_to_p_noninf_ind=None,
+            batch_separator="@",
+            file_separator="|",
+            sparse_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+            dense_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+        )
+        self.assertEqual(plan.X_ins, ["file1.tsv", "file2.tsv"])
+        self.assertEqual(plan.batches, ["B1", "B1"])
+        self.assertEqual(plan.labels, ["tagA", "tagA"])
+        self.assertEqual(plan.is_dense, [False, False])
+
+    def test_resolve_gene_phewas_input_decision_skip_when_no_requested_input(self) -> None:
+        decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+            requested_input=None,
+            reusable_inputs=["/tmp/a.tsv"],
+            read_gene_phewas=True,
+            num_gene_phewas_filtered=0,
+        )
+        self.assertEqual(decision.mode, "skip")
+        self.assertEqual(decision.reason, "no_input_requested")
+        self.assertIsNone(decision.resolved_input)
+
+    def test_resolve_gene_phewas_input_decision_requires_reread_when_not_loaded(self) -> None:
+        decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+            requested_input="/tmp/a.tsv",
+            reusable_inputs=["/tmp/a.tsv"],
+            read_gene_phewas=False,
+            num_gene_phewas_filtered=0,
+        )
+        self.assertEqual(decision.mode, "re_read_file")
+        self.assertEqual(decision.reason, "matrix_not_loaded")
+        self.assertEqual(decision.resolved_input, "/tmp/a.tsv")
+
+    def test_resolve_gene_phewas_input_decision_requires_reread_when_filtered(self) -> None:
+        decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+            requested_input="/tmp/a.tsv",
+            reusable_inputs=["/tmp/a.tsv"],
+            read_gene_phewas=True,
+            num_gene_phewas_filtered=2,
+        )
+        self.assertEqual(decision.mode, "re_read_file")
+        self.assertEqual(decision.reason, "loaded_matrix_filtered")
+        self.assertEqual(decision.resolved_input, "/tmp/a.tsv")
+
+    def test_resolve_gene_phewas_input_decision_reuses_loaded_input(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text("Gene\tPheno\tlog_bf\n", encoding="utf-8")
+            decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+                requested_input=str(path),
+                reusable_inputs=[str(path)],
+                read_gene_phewas=True,
+                num_gene_phewas_filtered=0,
+            )
+            self.assertEqual(decision.mode, "reuse_loaded_matrix")
+            self.assertEqual(decision.reason, "requested_input_matches_loaded_source")
+            self.assertIsNone(decision.resolved_input)
+            self.assertTrue(decision.should_reuse_loaded_matrix)
+            self.assertFalse(decision.should_reread_file)
+
+    def test_resolve_gene_phewas_input_decision_reuses_after_path_normalization(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text("Gene\tPheno\tlog_bf\n", encoding="utf-8")
+            relative = str(path.parent / "." / path.name)
+            decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
+                requested_input=relative,
+                reusable_inputs=[str(path.resolve())],
+                read_gene_phewas=True,
+                num_gene_phewas_filtered=0,
+            )
+            self.assertEqual(decision.mode, "reuse_loaded_matrix")
+            self.assertIsNone(decision.resolved_input)
+
+    def test_resolve_gene_phewas_input_legacy_wrapper_matches_decision(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_phewas.tsv"
+            path.write_text("Gene\tPheno\tlog_bf\n", encoding="utf-8")
+            resolved = pegs_utils.resolve_gene_phewas_input_for_stage(
+                requested_input=str(path),
+                reusable_inputs=[str(path)],
+                read_gene_phewas=True,
+                num_gene_phewas_filtered=0,
+            )
+            self.assertIsNone(resolved)
+
+
+if __name__ == "__main__":
+    unittest.main()

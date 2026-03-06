@@ -1,0 +1,391 @@
+\documentclass[11pt]{article}
+
+\usepackage[paperwidth=8.5in,paperheight=11in,margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{bm}
+
+% Minimal macros (kept close in style to pigean/docs/methods.tex)
+\DeclareMathOperator{\EX}{\mathrm{E}}
+\DeclareMathOperator{\Var}{\mathrm{Var}}
+\DeclareMathOperator{\Cov}{\mathrm{Cov}}
+\DeclareMathOperator{\logit}{logit}
+\DeclareMathOperator{\sigmoid}{sigmoid}
+
+\newcommand{\1}{\mathbf{1}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{EAGGL Methods (draft)}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Methods}
+
+\subsection{Overview: a mechanistic model for a single trait anchor}
+
+EAGGL (Enrichment Analysis Gene Grouping and LLMs) aims to infer latent molecular mechanisms for a single anchored trait, starting from:
+(i) a gene-by-annotation matrix (typically gene sets) describing functional context, and
+(ii) PIGEAN outputs that quantify genetic support for genes and annotation effects for the anchor trait.
+
+\paragraph{Observed quantities.}
+Let genes be indexed by $i \in \{1,\ldots,G\}$ and gene annotations (including gene sets) by $j \in \{1,\ldots,A\}$.
+Let $X_{ij} \ge 0$ denote the value of annotation $j$ for gene $i$.
+In the most common case, $X_{ij} \in \{0,1\}$ indicates membership of gene $i$ in gene set $j$, but EAGGL supports non-binary weights (e.g. continuous annotations that are thresholded/capped upstream).
+
+For the anchor trait, PIGEAN provides gene-level and annotation-level evidence summaries.
+EAGGL consumes gene-level evidence summaries (e.g. combined support and related quantities from PIGEAN) and annotation/gene-set summaries (e.g. gene-set effects such as \texttt{betas} or \texttt{betas\_uncorrected} in the EAGGL runtime state).
+To obtain non-negative weights for factorization, the current code maps these real-valued summaries to $[0,1]$ via a logistic transform with a background prior $\pi_0 \in (0,1)$:
+\begin{align}
+y_i &:= \text{gene evidence summary for gene $i$} \\
+b_j &:= \text{gene-set/annotation summary for annotation $j$} \\
+p_i &:= \sigmoid\!\left(y_i + \logit(\pi_0)\right) \\
+q_j &:= \sigmoid\!\left(b_j + \logit(\pi_0)\right),
+\end{align}
+where $p_i$ and $q_j$ are used as \emph{anchor weights} throughout EAGGL (including matrix weighting, filtering, and post-processing).
+where $d_i$ is a binary indicator that gene $i$ is trait-relevant, $a_j$ is an analogous indicator that annotation $j$ is trait-relevant, and $D$ denotes the genetic evidence. In the current codebase, $\pi_0$ is set via \texttt{--background-prior}, and the logistic transformation is applied to whichever gene and gene-set evidence quantities are available at runtime.
+
+\paragraph{Latent mechanisms.}
+We assume $K$ latent molecular mechanisms indexed by $k \in \{1,\ldots,K\}$.
+Each mechanism is represented by two non-negative loading matrices:
+\begin{align}
+f^g_{ik} &\in [0,1] \quad\text{(gene $i$ participates in mechanism $k$)}\\
+f^a_{jk} &\in [0,1] \quad\text{(annotation $j$ captures mechanism $k$)}.
+\end{align}
+Under simplifying assumptions (including independence approximations and the interpretation of $p_i$ and $q_j$ as posterior probabilities), the model used to motivate EAGGL asserts that a weighted gene-by-annotation matrix is approximately low-rank:
+\begin{equation}
+p_i \, q_j \, X_{ij} \;\approx\; \sum_{k=1}^{K} f^g_{ik} f^a_{jk} \;+\; \epsilon_{ij},
+\label{eq:model_single_anchor}
+\end{equation}
+where $\epsilon_{ij}$ is a residual term. Because all terms are non-negative, Eq.~\ref{eq:model_single_anchor} suggests non-negative matrix factorization as a natural approximation to the mechanistic decomposition.
+
+\subsection{Bayesian NMF approximation to the single-anchor model}
+
+\paragraph{Matrix orientation and weights.}
+In the EAGGL implementation, the factorization is performed on a gene-set-by-gene matrix
+\begin{equation}
+V \in \R_+^{N \times M}, \qquad V_{j i} := X_{i j},
+\end{equation}
+where $N=A$ gene sets/annotations and $M=G$ genes.
+The anchor trait induces non-negative weights on rows and columns:
+\begin{equation}
+\bm{q} \in [0,1]^N,\quad q_j \equiv q_j(\text{anchor}), \qquad
+\bm{p} \in [0,1]^M,\quad p_i \equiv p_i(\text{anchor}).
+\end{equation}
+
+For multiple anchors (used in several workflows below), EAGGL generalizes $\bm{q}$ and $\bm{p}$ to matrices
+$Q \in [0,1]^{N\times U}$ and $P \in [0,1]^{M\times U}$ with one column per anchor index $u$.
+Internally, EAGGL appends an additional ``union'' (any-anchor) column to each of $Q$ and $P$:
+\begin{equation}
+Q_{\bullet, \mathrm{any}} := 1 - \prod_{u=1}^{U} \left(1 - Q_{\bullet u}\right), \qquad
+P_{\bullet, \mathrm{any}} := 1 - \prod_{u=1}^{U} \left(1 - P_{\bullet u}\right),
+\end{equation}
+and uses the augmented anchor set $U' = U+1$ when constructing weights.
+
+The weight matrix used by the bNMF objective is then
+\begin{equation}
+S \;:=\; Q P^\top \;\in\; \R_+^{N\times M}, \qquad
+S_{ji} \;=\; \sum_{u=1}^{U'} Q_{ju} P_{iu}.
+\label{eq:weight_matrix}
+\end{equation}
+In the single-anchor setting ($U=1$), Eq.~\ref{eq:weight_matrix} reduces to a scaled outer product $S_{ji}\propto q_j p_i$.
+This weighting emphasizes reconstruction accuracy for matrix entries corresponding to genes and gene sets with high anchor relevance.
+
+\paragraph{Gaussian likelihood and ARD prior.}
+EAGGL uses a Bayesian NMF with a weighted Gaussian (L2) reconstruction term and an automatic relevance determination (ARD) prior to prune the effective number of factors.
+The factorization seeks non-negative matrices
+\begin{equation}
+W \in \R_+^{N\times K}, \qquad H \in \R_+^{K\times M}, \qquad V \approx WH.
+\end{equation}
+The negative log likelihood term implemented in EAGGL is
+\begin{equation}
+\mathcal{L}_{\mathrm{like}}(W,H) \;=\; \frac{1}{2}\sum_{j=1}^{N}\sum_{i=1}^{M} S_{ji}\left(V_{ji} - (WH)_{ji}\right)^2.
+\label{eq:like}
+\end{equation}
+ARD introduces per-factor shrinkage weights $\lambda_k>0$ that penalize the squared norms of $W_{\bullet k}$ and $H_{k\bullet}$:
+\begin{equation}
+\mathcal{L}_{\mathrm{ARD}}(W,H,\bm{\lambda}) \;=\;
+\phi \sum_{k=1}^{K}\left[
+\frac{ \tfrac{1}{2}\left(\|W_{\bullet k}\|_2^2 + \|H_{k\bullet}\|_2^2\right) + b_0 }{\lambda_k}
++ C \log \lambda_k
+\right],
+\label{eq:ard}
+\end{equation}
+where $\phi>0$ controls overall shrinkage strength and $(b_0,C)$ are scalars derived from the matrix dimensions and an ARD hyperparameter $a_0$.
+In the current implementation:
+\begin{align}
+\phi &\leftarrow \phi_{\mathrm{CLI}} \cdot \mathrm{sd}(V)^2, \\
+C &:= \frac{N+M}{2} + a_0 + 1, \\
+b_0 &:= \frac{3.14\,(a_0-1)\,\EX[V]}{2K_0},
+\end{align}
+where $K_0$ is set to the initial requested $K$.
+
+The total objective reported as ``evidence'' in the code is
+\begin{equation}
+\mathcal{L}(W,H,\bm{\lambda}) \;=\; \mathcal{L}_{\mathrm{like}}(W,H) + \mathcal{L}_{\mathrm{ARD}}(W,H,\bm{\lambda}).
+\end{equation}
+
+\paragraph{Non-negativity and preprocessing.}
+EAGGL enforces non-negativity by construction (multiplicative updates) and by preprocessing $V$ as
+\begin{equation}
+V \leftarrow V - \min(V),
+\end{equation}
+and by zeroing negative entries before factorization (for inputs that may contain signed values).
+During factorization, EAGGL additionally caps entries of $W$ and $H$ to lie in $[0,1]$ (without requiring row or column sums to equal 1).
+
+\paragraph{Multiplicative updates.}
+EAGGL uses multiplicative updates consistent with weighted NMF and L2-ARD regularization.
+Let $V_{\mathrm{ap}} := WH$ and let $\varepsilon$ be a small constant.
+Then the updates implemented are:
+\begin{align}
+H_{k i} &\leftarrow H_{k i}\cdot
+\frac{\left(W^\top (V \odot S)\right)_{k i}}
+{\left(W^\top (V_{\mathrm{ap}} \odot S)\right)_{k i} + \phi\, H_{k i} \lambda_k^{-1} + \varepsilon},
+\label{eq:update_H}\\
+W_{j k} &\leftarrow W_{j k}\cdot
+\frac{\left((V \odot S) H^\top\right)_{j k}}
+{\left((V_{\mathrm{ap}} \odot S) H^\top\right)_{j k} + \phi\, W_{j k} \lambda_k^{-1} + \varepsilon},
+\label{eq:update_W}
+\end{align}
+where $\odot$ denotes elementwise multiplication.
+After each update, values are clipped to be non-negative (and, in EAGGL's default factoring path, clipped to be at most 1).
+
+The ARD weights are updated as
+\begin{equation}
+\lambda_k \leftarrow
+\frac{\tfrac{1}{2}\left(\|W_{\bullet k}\|_2^2 + \|H_{k\bullet}\|_2^2\right) + b_0}{C}.
+\label{eq:update_lambda}
+\end{equation}
+Iterations continue until the relative change in $\bm{\lambda}$ drops below a tolerance or a maximum iteration count is reached.
+
+\paragraph{Factor filtering.}
+After convergence, EAGGL filters out weak factors using a combination of thresholds:
+(i) $\lambda_k$ must exceed a minimum (set via \texttt{--min-lambda-threshold}),
+(ii) the total mass of gene and gene-set loadings in factor $k$ must exceed the same threshold,
+and (iii) factors with extremely small peak gene-set loading relative to the overall maximum are dropped.
+The remaining factors are later reordered by a post-hoc relevance score (Section~\ref{subsec:post}).
+
+\subsection{Post-processing: trait relevance and projection}
+\label{subsec:post}
+
+EAGGL performs two post-processing operations after learning a factorization on a subset of genes and gene sets:
+(i) it computes trait relevance quantities for each factor, and
+(ii) it projects factor loadings to additional entities (genes, gene sets, and traits/phenotypes) when corresponding PIGEAN data are available.
+
+\subsubsection{Anchor-specific and any-trait relevance scores}
+
+Let $F \in \R_+^{M\times K}$ denote the gene-by-factor loading matrix after factorization and projection (in code: \texttt{exp\_gene\_factors} when factoring gene sets by genes, or \texttt{exp\_pheno\_factors} when factoring gene sets by phenotypes).
+Let $P \in [0,1]^{M\times U}$ be the matrix of gene (or phenotype) relevance probabilities for the $U$ anchors.
+
+\paragraph{Anchor relevance.}
+For each anchor $u$, EAGGL computes a non-negative coefficient vector $\bm{r}^{(u)} \in \R_+^{K}$ by solving a non-negative least squares (NNLS) projection:
+\begin{equation}
+\bm{r}^{(u)} \;=\; \arg\min_{\bm{r}\ge 0} \left\| P_{\bullet u} - F\bm{r}\right\|_2^2,
+\label{eq:nnls_anchor}
+\end{equation}
+implemented via multiplicative updates for NNLS.
+The resulting matrix $R_{\mathrm{anchor}} \in \R_+^{K\times U}$ is written as the per-anchor \texttt{relevance} column in anchor-specific outputs.
+
+\paragraph{Any-anchor relevance.}
+EAGGL additionally defines an ``any'' relevance vector across anchors as the probability that a gene (or phenotype) is relevant to \emph{at least one} anchor:
+\begin{equation}
+P_{\bullet,\mathrm{any}} := 1 - \prod_{u=1}^{U}\left(1 - P_{\bullet u}\right).
+\label{eq:any_prob}
+\end{equation}
+It then computes an NNLS projection analogous to Eq.~\ref{eq:nnls_anchor},
+\begin{equation}
+\bm{r}^{(\mathrm{any})} \;=\; \arg\min_{\bm{r}\ge 0} \left\| P_{\bullet,\mathrm{any}} - F\bm{r}\right\|_2^2,
+\end{equation}
+and uses the resulting coefficients as \texttt{any\_relevance} (in \texttt{factors.out}).
+
+\subsubsection{Projection of loadings to all genes, gene sets, and traits}
+
+Factorization is typically run on a filtered subset of genes and gene sets (based on thresholds on $p_i$ and $q_j$, and optional pruning for correlation/size).
+EAGGL then imputes factor loadings for the remaining entities by holding one side of the factorization fixed and updating the other with multiplicative updates that mirror Eq.~\ref{eq:update_H}.
+
+\paragraph{Projection with fixed $W$.}
+Given a learned basis $W \in \R_+^{N\times K}$ and a new matrix $V_{\mathrm{new}} \in \R_+^{N\times M_{\mathrm{new}}}$ (same row entities, new columns), EAGGL estimates loadings $H_{\mathrm{new}}\in\R_+^{K\times M_{\mathrm{new}}}$ by minimizing the weighted L2 objective with fixed $W$:
+\begin{equation}
+\min_{H_{\mathrm{new}}\ge 0}\;
+\frac{1}{2}\left\| \left(V_{\mathrm{new}} - WH_{\mathrm{new}}\right)\odot S_{\mathrm{new}} \right\|_F^2
+\;+\; \phi \sum_{k=1}^{K} \lambda_k^{-1}\left\| (H_{\mathrm{new}})_{k\bullet}\right\|_2^2,
+\label{eq:proj_fixedW_obj}
+\end{equation}
+where $S_{\mathrm{new}}$ is constructed from the corresponding row and column probability matrices exactly as in Eq.~\ref{eq:weight_matrix}.
+The update rule matches Eq.~\ref{eq:update_H} with $W$ fixed.
+
+\paragraph{Genes.}
+After factoring gene sets by genes (the default single-phenotype anchoring case), EAGGL projects gene loadings to all genes using
+$W \leftarrow$ learned gene-set factors and $V_{\mathrm{new}} \leftarrow$ the full gene-set-by-gene matrix derived from \texttt{X}.
+
+\paragraph{Traits/phenotypes.}
+If PIGEAN PheWAS outputs are available (either gene PheWAS and/or gene-set PheWAS), EAGGL constructs a gene-set-by-phenotype matrix from those statistics and projects phenotype loadings using Eq.~\ref{eq:proj_fixedW_obj}.
+This produces factor loadings for all phenotypes with available PIGEAN data, enabling interpretation of mechanisms beyond the anchor trait.
+
+\paragraph{Gene sets.}
+EAGGL also projects gene-set loadings to all gene sets by swapping roles of rows and columns (effectively using a fixed gene- or phenotype-factor matrix) and projecting gene sets onto the learned factors.
+
+\paragraph{Factor ordering and sparsification.}
+After relevance computation and projection, factors are sorted by decreasing any-anchor relevance, and very small entries in the loading matrices are set to zero (relative to the global maximum loading).
+
+\subsection{Alternative factor workflows and implicit models}
+
+EAGGL supports a family of related workflows that differ in the choice of anchor, the matrix being factored, and the probability weights used to emphasize anchor-relevant entries.
+We describe these workflows as F1--F9 following the repository documentation; F1 is the default single-phenotype anchoring described above, and F2--F9 are alternative matrix constructions.
+
+\subsubsection{F2: Gene-list-as-phenotype anchoring}
+
+\paragraph{Implicit biological model.}
+A gene list (e.g. positive controls for a disease or pathway) is treated as an observable proxy for trait relevance, analogous to the binary $d_i$ in the single-anchor model.
+Mechanisms are assumed to explain co-membership patterns between the gene list and gene-set annotations.
+
+\paragraph{Calculation.}
+EAGGL first obtains gene-level probabilities and gene-set effect summaries for predicting membership in the input list (via the same upstream pipeline used to obtain anchor probabilities for a phenotype).
+It then runs the same gene-set-by-gene factorization as in F1, with the gene list acting as the anchor used to define $p_i$ and $q_j$.
+
+\paragraph{Approximation and limitations.}
+Because the anchor is not a phenotype with genetic association evidence but an input set, the meaning of $p_i$ becomes ``probability gene belongs to the list'' rather than ``probability gene is trait-relevant''.
+Downstream projections to phenotypes remain possible if PheWAS summaries are available, but interpretation depends on how faithfully the gene list represents a coherent biological process.
+
+\subsubsection{F3: Single phenotype anchoring with projection from PheWAS}
+
+\paragraph{Implicit biological model.}
+This workflow assumes the same mechanism structure as the single-anchor model, but additionally assumes that the inferred mechanisms can be re-used to explain gene and gene-set associations for other phenotypes.
+
+\paragraph{Calculation.}
+EAGGL runs F1 to learn gene-set and gene loadings.
+Given external PIGEAN PheWAS summaries, it projects phenotypes onto the learned factors using Eq.~\ref{eq:proj_fixedW_obj}, producing phenotype-by-factor loadings for all phenotypes in the PheWAS files.
+
+\paragraph{Approximation and limitations.}
+Projection assumes that the factor basis learned from the anchor trait is adequate for other phenotypes; phenotypes whose mechanism structure differs substantially may be poorly represented.
+
+\subsubsection{F4: Multi-phenotype anchoring}
+
+\paragraph{Implicit biological model.}
+Multiple anchor phenotypes $\{t_u\}_{u=1}^U$ are assumed to share some subset of mechanisms.
+Genes and gene sets that are relevant to multiple anchors are treated as stronger evidence for shared mechanisms.
+
+\paragraph{Calculation.}
+Using gene and gene-set PheWAS statistics, EAGGL constructs $P\in[0,1]^{M\times U}$ and $Q\in[0,1]^{N\times U}$ for the selected anchor phenotypes, and factors the same gene-set-by-gene matrix $V$ as in F1.
+The anchors enter through the weight matrix $S=QP^\top$ (Eq.~\ref{eq:weight_matrix}), which aggregates anchor-specific outer products and an additional union column.
+
+\paragraph{Approximation and limitations.}
+Compared to an explicit tensor factorization that preserves a separate slice per phenotype, the implemented weight aggregation compresses multi-phenotype information into a single weighted objective.
+This can blur anchor-specific differences: mechanisms that are strong for one anchor but weak for others can still influence the weights through $S$.
+
+\subsubsection{F5: Any-phenotype anchoring}
+
+\paragraph{Implicit biological model.}
+An ``uber'' phenotype is defined as relevance to \emph{any} phenotype in a provided PheWAS panel.
+Mechanisms are inferred to explain gene and gene-set patterns that are collectively associated with at least one phenotype.
+
+\paragraph{Calculation.}
+EAGGL sets the anchor phenotype mask to include all phenotypes in the PheWAS input, then collapses probabilities to a single column using Eq.~\ref{eq:any_prob} (applied to both genes and gene sets).
+It then runs the F1-style factorization on $V=X^\top$ using the collapsed probabilities.
+
+\paragraph{Approximation and limitations.}
+If many phenotypes are provided, the any-phenotype probability can saturate for broadly associated genes or annotations, reducing contrast in the weighting scheme.
+Optional pruning of genes, gene sets, and phenotypes is used to control matrix size and correlation structure.
+
+\subsubsection{F6: Single-gene anchoring}
+
+\paragraph{Implicit biological model.}
+A single gene is treated as the anchor, and mechanisms are defined by patterns of phenotypes that co-associate with that gene and with gene sets.
+This can be interpreted as learning phenotype modules connected to the anchor gene through latent mechanisms.
+
+\paragraph{Calculation.}
+EAGGL factors a gene-set-by-phenotype matrix constructed from gene-set PheWAS statistics (using uncorrected betas when available).
+Column weights are derived from the anchor gene's PheWAS association probabilities across phenotypes.
+Gene-set weights are not required in this workflow and default to uniform.
+
+\paragraph{Approximation and limitations.}
+Because the factored matrix is gene-set-by-phenotype rather than gene-set-by-gene, the gene loading side becomes a phenotype loading side.
+Interpretation of $f^g$ is therefore replaced by phenotype loadings, and gene-level loadings are obtained only through downstream projection steps.
+
+\subsubsection{F7: Multi-gene anchoring}
+
+\paragraph{Implicit biological model.}
+Multiple anchor genes are assumed to implicate a shared set of latent mechanisms, which in turn connect to phenotypes and gene sets.
+Phenotypes associated with any of the anchor genes provide evidence for these shared mechanisms.
+
+\paragraph{Calculation.}
+EAGGL uses gene PheWAS summaries to construct phenotype probabilities for each anchor gene, then aggregates these through the weight matrix $S=QP^\top$ as in Eq.~\ref{eq:weight_matrix} (with uniform gene-set weights by default).
+The factored matrix is again gene-set-by-phenotype (as in F6).
+
+Optional expansion heuristics can add gene sets to the matrix based on enrichment or overlap with the anchor gene set (e.g. by enrichment $p$-value or fraction overlap), increasing coverage before factorization.
+
+\paragraph{Approximation and limitations.}
+Multi-gene anchoring compresses a potentially heterogeneous set of anchors into a single weighted objective.
+If anchor genes reflect distinct biology, the resulting factors can blend mechanisms.
+Expansion heuristics increase sensitivity but can also introduce redundancy or off-target gene sets.
+
+\subsubsection{F8: Any-gene anchoring}
+
+\paragraph{Implicit biological model.}
+An ``uber'' gene anchor is defined as association to \emph{any} gene in the provided gene panel (typically all genes with PheWAS summaries).
+This workflow aims to capture broad phenotype--gene-set structure driven by genetic associations.
+
+\paragraph{Calculation.}
+EAGGL sets the anchor gene mask to include all genes, constructs phenotype probabilities for each gene, and then collapses to a single probability per phenotype using Eq.~\ref{eq:any_prob} across genes.
+It then factors the gene-set-by-phenotype matrix as in F6.
+
+\paragraph{Approximation and limitations.}
+As in any-phenotype anchoring, union probabilities can saturate when many genes are included, reducing effective weighting contrast.
+Pruning controls are typically required to make the matrix tractable and to reduce correlation.
+
+\subsubsection{F9: Gene-set anchoring}
+
+\paragraph{Implicit biological model.}
+A gene set is treated as the anchor object.
+Phenotypes are weighted by their association to the anchor gene set, and other gene sets are weighted by their relevance under the anchor gene set model.
+Mechanisms are then inferred as latent modules that explain gene-set-by-phenotype association structure near the anchor.
+
+\paragraph{Calculation.}
+EAGGL factors a gene-set-by-phenotype matrix built from gene-set PheWAS statistics.
+Phenotype weights are derived from a PheWAS run that evaluates association between phenotypes and input gene scores (producing a phenotype-level evidence vector used as the anchor column weights).
+Gene-set weights are derived from the available gene-set evidence summaries.
+The weighted bNMF proceeds as in Section~\ref{subsec:post}, with $S$ built from these gene-set and phenotype weights.
+
+\paragraph{Approximation and limitations.}
+This workflow depends on the quality and calibration of phenotype weights produced by the gene-set-to-phenotype PheWAS step.
+If those weights are noisy or biased, they can dominate the factorization and lead to unstable or hard-to-interpret mechanisms.
+
+\subsection{Future directions}
+
+The draft above documents the models and equations as implemented in the current EAGGL codebase.
+Several modeling and implementation issues are known and suggest concrete future work:
+
+\begin{itemize}
+\item \textbf{Explicit probabilistic linkage to the single-anchor model.}
+Eq.~\ref{eq:model_single_anchor} motivates factoring a weighted matrix $p_i q_j X_{ij}$.
+The current implementation instead emphasizes anchor-relevant entries through a weighted loss (Eq.~\ref{eq:like}) built from $S$.
+A useful extension would be to derive and implement a generative model in which the observed matrix is \emph{explicitly} $p_i q_j X_{ij}$ (or an empirically calibrated transform thereof), and to evaluate whether this improves interpretability.
+
+\item \textbf{Multi-anchor tensor or collective factorization.}
+Multi-phenotype and multi-gene workflows currently aggregate anchors through $S=QP^\top$.
+An extension would preserve per-anchor structure explicitly (e.g. a tensor factorization with a shared gene-set-by-gene basis and anchor-specific factor weights) to better capture anchor-specific mechanisms.
+
+\item \textbf{Multi-start optimization and stability diagnostics.}
+The bNMF optimization is non-convex; repeated random initializations and stability-based model selection would improve robustness.
+The current CLI encourages re-running, but multi-start selection is not implemented as a first-class feature.
+
+\item \textbf{Hyperparameter surface and unused knobs.}
+The bNMF implementation uses $\phi$ and $a_0$ (via \texttt{--phi} and \texttt{--alpha0}) in the ARD objective, while other CLI knobs (e.g. \texttt{--beta0}) are currently not consumed by the factorization routine.
+Auditing and aligning the exposed parameterization with the implemented objective would reduce confusion and enable principled tuning.
+
+\item \textbf{Calibration of probability transforms.}
+Gene and gene-set probabilities are computed via a logistic transform with a shared background prior.
+A more principled calibration could propagate uncertainty from PIGEAN, use trait-specific priors, or learn monotone calibrations that improve downstream interpretability.
+
+\item \textbf{Signed or antagonistic effects.}
+Some annotation and PheWAS inputs can be signed.
+EAGGL currently enforces non-negativity by zeroing negatives and shifting matrices; extending to signed factorizations (or separate positive/negative channels) could capture antagonistic mechanisms.
+
+\item \textbf{Improved relevance scoring.}
+Factor relevance is computed via NNLS projection of gene (or phenotype) probabilities onto factor loadings.
+Alternative definitions (e.g. probabilistic relevance models, enrichment-based scores, or Bayesian regression) could better align relevance with the mechanistic model and provide uncertainty estimates.
+\end{itemize}
+
+\end{document}
