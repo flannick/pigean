@@ -32,8 +32,13 @@ def load_json_config(config_path, bail_fn=None, seen_paths=None):
         bail_fn("Detected circular config include at %s" % abs_path)
     seen_paths.add(abs_path)
 
-    with open(abs_path) as cfg_fh:
-        cfg = json.load(cfg_fh)
+    try:
+        with open(abs_path) as cfg_fh:
+            cfg = json.load(cfg_fh)
+    except OSError as exc:
+        bail_fn("Could not read config file %s: %s" % (abs_path, exc))
+    except json.JSONDecodeError as exc:
+        bail_fn("Could not parse config file %s: %s" % (abs_path, exc))
 
     if not isinstance(cfg, dict):
         bail_fn("Config file must contain a JSON object: %s" % abs_path)

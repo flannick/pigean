@@ -34,6 +34,12 @@ try:
         XReadCallbacks as PegsXReadCallbacks,
         XReadPostCallbacks as PegsXReadPostCallbacks,
     )
+    from .pegs_cli_errors import (
+        DataValidationError,
+        PegsCliError,
+        handle_cli_exception as pegs_handle_cli_exception,
+        handle_unexpected_exception as pegs_handle_unexpected_exception,
+    )
     from .pegs_cli_utils import (
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
@@ -147,6 +153,12 @@ except ImportError:
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         XReadPostCallbacks as PegsXReadPostCallbacks,
+    )
+    from pegs_cli_errors import (
+        DataValidationError,
+        PegsCliError,
+        handle_cli_exception as pegs_handle_cli_exception,
+        handle_unexpected_exception as pegs_handle_unexpected_exception,
     )
     from pegs_cli_utils import (
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
@@ -291,7 +303,7 @@ BOT_TAG = "bot"
 TOP_TAG = "top"
 
 def bail(message):
-    raise ValueError(message)
+    raise DataValidationError(message)
 
 try:
     from . import pigean_cli as _pigean_cli
@@ -5227,7 +5239,7 @@ class PigeanState(object):
         # Handle Y as an optional argument
         if Y is not None:
             if beta.shape[0] != Y.shape[0] or X_sparse.shape[0] != Y.shape[1]:
-                raise ValueError("Y must have shape (k, n) where k matches beta's rows and n matches X's rows.")
+                raise DataValidationError("Y must have shape (k, n) where k matches beta's rows and n matches X's rows.")
             Y = np.square(Y.flatten())
 
         # Ensure beta is 2D
@@ -19471,11 +19483,16 @@ def run_main_pipeline(options, mode):
 
 
 def main(argv=None):
-    should_continue = _bootstrap_cli(argv)
-    if not should_continue:
+    try:
+        should_continue = _bootstrap_cli(argv)
+        if not should_continue:
+            return 0
+        run_main_pipeline(options, mode)
         return 0
-    run_main_pipeline(options, mode)
-    return 0
+    except PegsCliError as exc:
+        return pegs_handle_cli_exception(exc, argv=argv, debug_level=debug_level)
+    except Exception as exc:
+        return pegs_handle_unexpected_exception(exc, argv=argv, debug_level=debug_level)
 
 
 if __name__ == '__main__':

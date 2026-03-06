@@ -94,6 +94,20 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("option --run-gls has been removed and is no longer supported", err)
         self.assertNotIn("Traceback", err)
 
+    def test_invalid_option_returns_usage_error_without_traceback(self) -> None:
+        proc = self._run("factor", "--definitely-invalid-option")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("no such option", err)
+        self.assertNotIn("Traceback", err)
+
+    def test_missing_config_returns_config_error_without_traceback(self) -> None:
+        proc = self._run("factor", "--config", "definitely_missing_config.json")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Could not read config file", err)
+        self.assertNotIn("Traceback", err)
+
     def test_removed_anchor_gene_alias_has_replacement_message(self) -> None:
         proc = self._run("factor", "--anchor-gene", "INS")
         self.assertNotEqual(proc.returncode, 0)

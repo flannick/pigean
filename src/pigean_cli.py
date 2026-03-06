@@ -8,6 +8,11 @@ import sys
 import numpy as np
 
 try:
+    from .pegs_cli_errors import CliConfigError, CliOptionParser, CliUsageError
+except ImportError:
+    from pegs_cli_errors import CliConfigError, CliOptionParser, CliUsageError  # type: ignore
+
+try:
     from .pegs_cli_utils import (
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -48,7 +53,7 @@ except ImportError:
 
 
 def bail(message):
-    raise ValueError(message)
+    raise CliUsageError(message)
 
 
 usage = "usage: pigean.py [beta_tildes|betas|priors|naive_priors|gibbs|sim|pops|naive_pops] [options]"
@@ -56,7 +61,7 @@ usage = "usage: pigean.py [beta_tildes|betas|priors|naive_priors|gibbs|sim|pops|
 get_comma_separated_args_as_float = pegs_callback_set_comma_separated_args_as_float
 get_comma_separated_args = pegs_callback_set_comma_separated_args
 
-parser = optparse.OptionParser(usage)
+parser = CliOptionParser(usage)
 #gene x gene_set matrix
 #each specification of these files is a different batch
 #can use "," to group multiple files or lists within each --X
@@ -1333,11 +1338,24 @@ def _bootstrap_cli(argv=None):
         _apply_cli_help_layout(parser, show_expert=True)
         parser.print_help()
         raise SystemExit(0)
+    removed_option_message = {"value": None}
+
+    def _capture_removed_option_message(message):
+        removed_option_message["value"] = message.strip()
+
+    def _raise_removed_option(_status):
+        raise CliUsageError(removed_option_message["value"] or "Invalid removed option")
+
     pegs_fail_removed_cli_aliases(
         argv_parse,
         REMOVED_OPTION_REPLACEMENTS,
         format_removed_option_message_fn=pegs_format_removed_option_message,
+        stderr_write_fn=_capture_removed_option_message,
+        exit_fn=_raise_removed_option,
     )
+
+    def config_bail(message):
+        raise CliConfigError(message)
 
     parsed_options, parsed_args = parser.parse_args(argv_parse)
     (
@@ -1354,7 +1372,7 @@ def _bootstrap_cli(argv=None):
         resolve_path_fn=_resolve_config_path_value,
         is_path_like_dest_fn=_is_path_like_dest,
         early_warn_fn=_early_warn,
-        bail_fn=bail,
+        bail_fn=config_bail,
         removed_option_replacements=REMOVED_OPTION_REPLACEMENTS,
         format_removed_option_message_fn=pegs_format_removed_option_message,
         track_config_specified_dests=True,
