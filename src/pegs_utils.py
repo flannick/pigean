@@ -49,6 +49,7 @@ from pegs_cli_utils import (
     callback_set_comma_separated_args,
     callback_set_comma_separated_args_as_float,
     callback_set_comma_separated_args_as_set,
+    collect_cli_specified_dests,
     coerce_option_int_list,
     configure_random_seed,
     emit_stderr_warning,

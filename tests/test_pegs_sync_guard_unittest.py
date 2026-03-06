@@ -43,6 +43,8 @@ class PegsSyncGuardTest(unittest.TestCase):
         sibling = REPO_ROOT.parent / "eaggl"
         if not sibling.exists():
             self.skipTest("sibling eaggl repo not present")
+        if pegs_sync_guard.should_skip_sibling_sync_check(REPO_ROOT, sibling):
+            self.skipTest("sibling eaggl repo is downstream during canonical migration")
         result = pegs_sync_guard.compare_shared_files(
             REPO_ROOT,
             sibling,

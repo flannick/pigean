@@ -13,6 +13,10 @@ DEFAULT_SHARED_FILES = (
 )
 
 
+TRANSITION_CANONICAL_SOURCE_DOC = "docs/CANONICAL_SOURCE.md"
+TRANSITION_DOWNSTREAM_PHRASE = "standalone local `eaggl/` checkout remains untouched during the migration"
+
+
 @dataclass
 class SyncComparisonResult:
     checked_files: list[str] = field(default_factory=list)
@@ -50,6 +54,19 @@ def _hash_file(path: Path):
                 break
             sha.update(chunk)
     return sha.hexdigest()
+
+
+def should_skip_sibling_sync_check(left_repo_root, right_repo_root):
+    left_root = Path(left_repo_root)
+    right_root = Path(right_repo_root)
+    canonical_doc = left_root / TRANSITION_CANONICAL_SOURCE_DOC
+    if right_root.name != "eaggl" or not canonical_doc.exists():
+        return False
+    try:
+        doc_text = canonical_doc.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return TRANSITION_DOWNSTREAM_PHRASE in doc_text
 
 
 def compare_shared_files(left_repo_root, right_repo_root, files=None):
