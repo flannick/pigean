@@ -147,7 +147,7 @@ $PYTHON src/eaggl.py factor \
 
 Required:
 
-1. `--anchor-gene <GENE>` (or `--anchor-genes <single_gene>`)
+1. `--anchor-genes <GENE>`
 2. `--gene-phewas-stats-in`
 3. `--gene-set-phewas-stats-in`
 
@@ -156,7 +156,7 @@ Command:
 ```bash
 $PYTHON src/eaggl.py factor \
   --X-in /path/to/X.tsv.gz \
-  --anchor-gene INS \
+  --anchor-genes INS \
   --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
   --gene-set-phewas-stats-in /path/to/gene_set_phewas_stats.out \
   --factors-out results/F6.factors.out

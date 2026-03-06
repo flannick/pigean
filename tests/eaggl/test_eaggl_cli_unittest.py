@@ -60,6 +60,21 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Usage: eaggl.py", proc.stdout)
 
+    def test_default_help_uses_canonical_anchor_flags(self) -> None:
+        proc = self._run("factor", "--help")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("--anchor-genes", proc.stdout)
+        self.assertIn("--anchor-phenos", proc.stdout)
+        self.assertNotIn("--anchor-gene ", proc.stdout)
+        self.assertNotIn("--anchor-pheno ", proc.stdout)
+
+    def test_help_expert_includes_projection_and_labeling_flags(self) -> None:
+        proc = self._run("factor", "--help-expert")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("--gene-set-phewas-stats-in", proc.stdout)
+        self.assertIn("--lmm-provider", proc.stdout)
+        self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
+
     def test_non_factor_modes_fail_with_routing_message(self) -> None:
         proc = self._run("gibbs")
         self.assertNotEqual(proc.returncode, 0)
@@ -78,6 +93,12 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("option --run-gls has been removed and is no longer supported", err)
         self.assertNotIn("Traceback", err)
+
+    def test_removed_anchor_gene_alias_has_replacement_message(self) -> None:
+        proc = self._run("factor", "--anchor-gene", "INS")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("option --anchor-gene has been removed; use --anchor-genes instead", err)
 
     def test_deterministic_sets_seed_zero(self) -> None:
         proc = self._run("factor", "--deterministic", "--print-effective-config")
@@ -195,7 +216,7 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
             (
                 "F6",
                 [
-                    "--anchor-gene",
+                    "--anchor-genes",
                     "INS",
                     "--gene-phewas-stats-in",
                     "dummy_gene_phewas.tsv",
@@ -255,7 +276,7 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
                     )
 
     def test_factor_workflow_missing_inputs_fails_fast(self) -> None:
-        proc = self._run("factor", "--anchor-gene", "INS")
+        proc = self._run("factor", "--anchor-genes", "INS")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("Require --gene-set-phewas-stats-in and --gene-phewas-stats-in", err)

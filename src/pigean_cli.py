@@ -273,6 +273,7 @@ parser.add_option("","--seed",type='int',default=None) #seed both python random 
 parser.add_option("","--deterministic",default=False,action='store_true') #convenience flag for deterministic runs (equivalent to --seed 0 if --seed not set)
 parser.add_option("","--config",default=None) #JSON config file. Values from CLI override config values.
 parser.add_option("","--print-effective-config",default=False,action='store_true') #print resolved mode/options JSON and exit
+parser.add_option("","--help-expert",default=False,action='store_true')
 
 #behavior of regression
 parser.add_option("","--ols",action='store_true') #run ordinary least squares rather than corrected ordinary least squares
@@ -474,7 +475,9 @@ parser.add_option("","--debug-zero-sparse",action="store_true") #
 parser.add_option("","--debug-just-check-header",action="store_true") #
 parser.add_option("","--debug-only-avg-huge",action="store_true")
 
-_ADVANCED_OPTION_HELP_BY_FLAG = {
+_OPTION_SUMMARY_BY_FLAG = {
+    "--config": "load a JSON config file; explicit CLI flags override config values",
+    "--debug-level": "set logging verbosity for progress and diagnostic output",
     "--gene-stats-in": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
     "--gene-stats-id-col": "column mapping for advanced --gene-stats-in ingestion",
     "--gene-stats-log-bf-col": "log BF column mapping for advanced --gene-stats-in ingestion",
@@ -517,16 +520,264 @@ _ADVANCED_OPTION_HELP_BY_FLAG = {
     "--gene-phewas-stats-pheno-col": "phenotype column for advanced gene-phewas input",
     "--gene-phewas-id-to-X-id": "gene ID remapping table for advanced gene-phewas ingestion",
     "--min-gene-phewas-read-value": "minimum value filter for advanced gene-phewas ingestion",
+    "--hide-opts": "suppress printing resolved options at startup",
+    "--hide-progress": "reduce progress logging noise during long runs",
+    "--log-file": "write structured run logs to this file",
+    "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--deterministic": "force deterministic random seed behavior (seed=0 unless --seed is set)",
     "--seed": "set explicit random seed for deterministic reproducibility checks",
+    "--help-expert": "show expert, advanced, and debug flags in addition to the normal public interface",
+    "--warnings-file": "write warning messages to this file",
 }
 
 _CORE_OPTION_GROUP_TITLE = "Core options"
-_ADVANCED_OPTION_GROUP_TITLE = "Advanced options (Set B and expert tuning)"
+_RUNTIME_OPTION_GROUP_TITLE = "Runtime and reproducibility"
+_EXPERT_OPTION_GROUP_TITLE = "Expert options"
 
 _iter_parser_options = pegs_iter_parser_options
 
-def _apply_cli_help_layout(_parser):
+_NORMAL_ENGINEERING_FLAGS = {
+    "--config",
+    "--debug-level",
+    "--deterministic",
+    "--hide-opts",
+    "--hide-progress",
+    "--log-file",
+    "--print-effective-config",
+    "--seed",
+    "--warnings-file",
+}
+
+_EXPERT_ENGINEERING_FLAGS = {
+    "--batch-size",
+    "--betas-trace-out",
+    "--diag-every",
+    "--eaggl-bundle-out",
+    "--gene-set-stats-trace-out",
+    "--gene-stats-trace-out",
+    "--gibbs-max-mb-X-h",
+    "--gibbs-num-batches-parallel",
+    "--huge-statistics-in",
+    "--huge-statistics-out",
+    "--max-gb",
+    "--max-read-entries-at-once",
+    "--pre-filter-batch-size",
+    "--pre-filter-small-batch-size",
+    "--priors-num-gene-batches",
+}
+
+_SET_B_METHOD_FLAGS = {
+    "--betas-from-phewas",
+    "--betas-uncorrected-from-phewas",
+    "--cross-val",
+    "--cross-val-folds",
+    "--cross-val-max-num-tries",
+    "--cross-val-num-explore-each-direction",
+    "--gene-phewas-bfs-combined-col",
+    "--gene-phewas-bfs-id-col",
+    "--gene-phewas-bfs-in",
+    "--gene-phewas-bfs-log-bf-col",
+    "--gene-phewas-bfs-pheno-col",
+    "--gene-phewas-bfs-prior-col",
+    "--gene-phewas-id-to-X-id",
+    "--gene-phewas-stats-combined-col",
+    "--gene-phewas-stats-id-col",
+    "--gene-phewas-stats-in",
+    "--gene-phewas-stats-log-bf-col",
+    "--gene-phewas-stats-pheno-col",
+    "--gene-phewas-stats-prior-col",
+    "--gene-set-stats-beta-col",
+    "--gene-set-stats-beta-tilde-col",
+    "--gene-set-stats-beta-uncorrected-col",
+    "--gene-set-stats-exp-beta-tilde-col",
+    "--gene-set-stats-id-col",
+    "--gene-set-stats-in",
+    "--gene-set-stats-p-col",
+    "--gene-set-stats-se-col",
+    "--gene-stats-combined-col",
+    "--gene-stats-id-col",
+    "--gene-stats-in",
+    "--gene-stats-log-bf-col",
+    "--gene-stats-prior-col",
+    "--gene-stats-prob-col",
+    "--min-gene-phewas-read-value",
+    "--no-cross-val",
+    "--phewas-stats-out",
+    "--run-phewas-from-gene-phewas-stats-in",
+    "--sim-log-bf-noise-sigma-mult",
+    "--sim-only-positive",
+}
+
+_METHOD_REQUIRED_FLAGS = {
+    "--X-in",
+    "--X-list",
+    "--Xd-in",
+    "--Xd-list",
+    "--add-all-genes",
+    "--case-counts-in",
+    "--credible-sets-in",
+    "--ctrl-counts-in",
+    "--exomes-in",
+    "--exons-loc-file-huge",
+    "--gene-covs-in",
+    "--gene-loc-file",
+    "--gene-loc-file-huge",
+    "--gene-map-in",
+    "--gene-set-stats-out",
+    "--gene-stats-out",
+    "--gwas-in",
+    "--params-out",
+    "--positive-controls-all-in",
+    "--positive-controls-in",
+    "--positive-controls-list",
+    "--s2g-in",
+}
+
+_CORE_VISIBLE_METHOD_FLAGS = {
+    "--case-counts-in",
+    "--ctrl-counts-in",
+    "--exomes-in",
+    "--gene-loc-file",
+    "--gene-loc-file-huge",
+    "--gene-set-stats-in",
+    "--gene-set-stats-out",
+    "--gene-stats-in",
+    "--gene-stats-out",
+    "--gwas-in",
+    "--max-abs-mcse-d",
+    "--max-num-iter",
+    "--max-rel-mcse-beta",
+    "--num-chains",
+    "--params-out",
+    "--positive-controls-all-in",
+    "--positive-controls-in",
+    "--positive-controls-list",
+    "--s2g-in",
+    "--strict-stopping",
+    "--total-num-iter-gibbs",
+    "--update-hyper",
+    "--warm-start",
+    "--no-warm-start",
+    "--X-in",
+    "--X-list",
+    "--Xd-in",
+    "--Xd-list",
+}
+
+_EXPERIMENTAL_FLAGS = {
+    "--experimental-hyper-mutation",
+    "--experimental-increase-hyper-if-betas-below",
+    "--increase-hyper-if-betas-below",
+}
+
+_DEBUG_ONLY_FLAGS = {
+    "--debug-just-check-header",
+    "--debug-max-gene-sets-for-hyper",
+    "--debug-old-batch",
+    "--debug-only-avg-huge",
+    "--debug-skip-correlation",
+    "--debug-skip-huber",
+    "--debug-skip-phewas-covs",
+    "--debug-zero-sparse",
+}
+
+
+def _primary_flag_for_option(_opt):
+    if len(_opt._long_opts) > 0:
+        return _opt._long_opts[0]
+    if len(_opt._short_opts) > 0:
+        return _opt._short_opts[0]
+    return _opt.dest
+
+
+def _build_cli_manifest_metadata():
+    _metadata = {}
+    for _opt in _iter_parser_options(parser):
+        if _opt.dest is None:
+            continue
+        _primary_flag = _primary_flag_for_option(_opt)
+        _summary = _OPTION_SUMMARY_BY_FLAG.get(_primary_flag)
+        if _summary is None and _opt.help not in (None, optparse.SUPPRESS_HELP):
+            _summary = _opt.help
+        _category = "method_optional"
+        _visibility = "expert"
+        _doc_target = "expert_help"
+        _help_group = "expert"
+        _semantic = True
+
+        if _primary_flag == "--help-expert":
+            _category = "engineering"
+            _doc_target = "expert_help"
+            _help_group = "expert"
+            _semantic = False
+        elif _primary_flag in _DEBUG_ONLY_FLAGS:
+            _category = "debug_only"
+            _visibility = "expert"
+            _doc_target = "internal_only"
+            _help_group = "expert"
+            _semantic = False
+        elif _primary_flag in _EXPERIMENTAL_FLAGS:
+            _category = "experimental"
+            _visibility = "expert"
+            _doc_target = "expert_help"
+            _help_group = "expert"
+        elif _primary_flag in _NORMAL_ENGINEERING_FLAGS:
+            _category = "engineering"
+            _doc_target = "core_help"
+            _help_group = "runtime"
+            _semantic = False
+        elif _primary_flag in _EXPERT_ENGINEERING_FLAGS:
+            _category = "engineering"
+            _visibility = "expert"
+            _doc_target = "expert_help"
+            _help_group = "expert"
+            _semantic = False
+        elif _primary_flag in _SET_B_METHOD_FLAGS:
+            _category = "method_optional"
+            _visibility = "expert"
+            _doc_target = "advanced_workflows"
+            _help_group = "expert"
+        elif _primary_flag in _METHOD_REQUIRED_FLAGS:
+            _category = "method_required"
+            if _primary_flag in _CORE_VISIBLE_METHOD_FLAGS:
+                _visibility = "normal"
+                _doc_target = "core_help"
+                _help_group = "core"
+            else:
+                _visibility = "expert"
+                _doc_target = "expert_help"
+                _help_group = "expert"
+
+        _metadata[_primary_flag] = {
+            "primary_flag": _primary_flag,
+            "flags": list(_opt._short_opts) + list(_opt._long_opts),
+            "dest": _opt.dest,
+            "category": _category,
+            "scientific_semantic_impact": "yes" if _semantic else "no",
+            "public_visibility": _visibility,
+            "documentation_target": _doc_target,
+            "help_group": _help_group,
+            "summary": _summary,
+            "raw_help": _summary,
+        }
+    return _metadata
+
+
+CLI_MANIFEST_METADATA = _build_cli_manifest_metadata()
+
+
+def get_cli_manifest_metadata():
+    return pegs_json_safe(CLI_MANIFEST_METADATA)
+
+
+def _option_help_for_display(_primary_flag, _meta):
+    _summary = _meta.get("summary")
+    if _summary is None:
+        return None
+    return _summary
+
+
+def _apply_cli_help_layout(_parser, show_expert=False):
     _parser.description = (
         "PIGEAN core workflow: load gene-level evidence, read/filter gene sets, "
         "estimate betas/priors, then run outer Gibbs."
@@ -534,29 +785,22 @@ def _apply_cli_help_layout(_parser):
     _parser.epilog = (
         "Core quickstart:\n"
         "  pigean.py gibbs --config /path/to/config.json --gwas-in /path/to/sumstats.gz\n\n"
-        "Advanced workflows (Set B): simulation (`sim` mode), PoPS-style priors (`pops`/`naive_pops`), "
-        "precomputed input ingestion (`--gene-stats-in`/`--gene-set-stats-in`), "
-        "optional PheWAS output, and HuGE cache I/O. "
-        "Advanced flags are tagged with '[advanced]' in --help."
+        "Use --help-expert to show advanced Set B workflows, cache I/O, "
+        "expert tuning, and debug flags."
     )
-
-    long_opt_to_option = {}
     for _opt in _iter_parser_options(_parser):
-        for _long_opt in _opt._long_opts:
-            long_opt_to_option[_long_opt] = _opt
-
-    for _flag, _help_text in _ADVANCED_OPTION_HELP_BY_FLAG.items():
-        _opt = long_opt_to_option.get(_flag)
-        if _opt is None:
+        _primary_flag = _primary_flag_for_option(_opt)
+        _meta = CLI_MANIFEST_METADATA.get(_primary_flag)
+        if _meta is None:
             continue
-        _opt.help = "[advanced] %s" % _help_text
-
-
-def _is_advanced_cli_option(_opt):
-    for _long_opt in _opt._long_opts:
-        if _long_opt in _ADVANCED_OPTION_HELP_BY_FLAG:
-            return True
-    return _opt.help is not None and _opt.help.startswith("[advanced]")
+        if _meta["public_visibility"] == "hidden":
+            _opt.help = optparse.SUPPRESS_HELP
+            continue
+        if not show_expert and _meta["public_visibility"] != "normal":
+            _opt.help = optparse.SUPPRESS_HELP
+            continue
+        _help_text = _option_help_for_display(_primary_flag, _meta)
+        _opt.help = _help_text if _help_text is not None else ""
 
 
 def _move_option_to_group(_parser, _opt, _group):
@@ -567,27 +811,39 @@ def _move_option_to_group(_parser, _opt, _group):
 
 
 def _apply_cli_option_groups(_parser):
-    # Keep parser-level meta options (for example --help), and move the rest
-    # into explicit core vs advanced groups for clearer --help output.
     core_group = optparse.OptionGroup(
         _parser,
         _CORE_OPTION_GROUP_TITLE,
         "Default PIGEAN workflow inputs, outputs, and inference controls.",
     )
-    advanced_group = optparse.OptionGroup(
+    runtime_group = optparse.OptionGroup(
         _parser,
-        _ADVANCED_OPTION_GROUP_TITLE,
-        "Set B workflows, expert tuning, and cache/repro options.",
+        _RUNTIME_OPTION_GROUP_TITLE,
+        "Config, reproducibility, and operational controls that do not change model semantics.",
+    )
+    expert_group = optparse.OptionGroup(
+        _parser,
+        _EXPERT_OPTION_GROUP_TITLE,
+        "Advanced Set B workflows, expert tuning, and debug flags. Use --help-expert to show them.",
     )
 
     for _opt in list(_parser.option_list):
         if _opt.dest is None:
             continue
-        target_group = advanced_group if _is_advanced_cli_option(_opt) else core_group
+        _meta = CLI_MANIFEST_METADATA.get(_primary_flag_for_option(_opt))
+        if _meta is None:
+            target_group = core_group
+        elif _meta["help_group"] == "runtime":
+            target_group = runtime_group
+        elif _meta["help_group"] == "expert":
+            target_group = expert_group
+        else:
+            target_group = core_group
         _move_option_to_group(_parser, _opt, target_group)
 
     _parser.add_option_group(core_group)
-    _parser.add_option_group(advanced_group)
+    _parser.add_option_group(runtime_group)
+    _parser.add_option_group(expert_group)
 
 _merge_dicts = pegs_merge_dicts
 
@@ -1063,6 +1319,14 @@ def _bootstrap_cli(argv=None):
     global NONE, INFO, DEBUG, TRACE, debug_level, log_fh, warnings_fh, log, warn
 
     argv_parse = sys.argv[1:] if argv is None else list(argv)
+    if "--help" in argv_parse or "-h" in argv_parse:
+        _apply_cli_help_layout(parser, show_expert=False)
+        parser.print_help()
+        raise SystemExit(0)
+    if "--help-expert" in argv_parse:
+        _apply_cli_help_layout(parser, show_expert=True)
+        parser.print_help()
+        raise SystemExit(0)
     pegs_fail_removed_cli_aliases(
         argv_parse,
         REMOVED_OPTION_REPLACEMENTS,
@@ -1148,4 +1412,3 @@ def _bootstrap_cli(argv=None):
         sys.stdout.write("%s\n" % json.dumps(_build_effective_config_payload(mode, options), indent=2, sort_keys=True))
         return False
     return True
-

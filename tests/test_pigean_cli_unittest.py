@@ -216,23 +216,29 @@ print(json.dumps(mask.tolist()))
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Usage: pigean.py", proc.stdout)
 
-    def test_help_includes_core_and_advanced_sections(self) -> None:
+    def test_help_includes_core_and_expert_sections(self) -> None:
         proc = self._run("gibbs", "--help")
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Core quickstart:", proc.stdout)
-        self.assertIn("Advanced workflows (Set B)", proc.stdout)
+        self.assertIn("Use --help-expert", proc.stdout)
         self.assertIn("Core options:", proc.stdout)
-        self.assertIn("Advanced options (Set B and expert tuning):", proc.stdout)
+        self.assertIn("Expert options:", proc.stdout)
 
-    def test_help_marks_set_b_flags_as_advanced(self) -> None:
+    def test_default_help_hides_expert_flags(self) -> None:
         proc = self._run("gibbs", "--help")
         self.assertEqual(proc.returncode, 0)
+        self.assertNotIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
+        self.assertNotIn("--huge-statistics-in", proc.stdout)
+
+    def test_help_expert_includes_set_b_flags(self) -> None:
+        proc = self._run("gibbs", "--help-expert")
+        self.assertEqual(proc.returncode, 0)
         self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
-        self.assertIn("[advanced] run gene-level phewas output stage", proc.stdout)
+        self.assertIn("run gene-level phewas output stage", proc.stdout)
         self.assertIn("--gene-stats-in", proc.stdout)
-        self.assertIn("[advanced] use precomputed gene-level statistics", proc.stdout)
+        self.assertIn("use precomputed gene-level statistics", proc.stdout)
         self.assertIn("--huge-statistics-in", proc.stdout)
-        self.assertIn("[advanced] read precomputed HuGE statistics cache", proc.stdout)
+        self.assertIn("read precomputed HuGE statistics cache", proc.stdout)
 
     def test_huge_statistics_out_requires_gwas_in(self) -> None:
         proc = self._run("gibbs", "--huge-statistics-out", "cache_prefix")

@@ -194,6 +194,7 @@ parser.add_option("","--seed",type='int',default=None) #seed both python random 
 parser.add_option("","--deterministic",default=False,action='store_true') #convenience flag for deterministic runs (equivalent to --seed 0 if --seed not set)
 parser.add_option("","--config",default=None) #JSON config file. Values from CLI override config values.
 parser.add_option("","--print-effective-config",default=False,action='store_true') #print resolved mode/options JSON and exit
+parser.add_option("","--help-expert",default=False,action='store_true')
 
 #behavior of regression
 parser.add_option("","--ols",action='store_true') #run ordinary least squares rather than corrected ordinary least squares
@@ -352,10 +353,8 @@ parser.add_option("","--gene-phewas-id-to-X-id",default=None) #mapping from gene
 parser.add_option("","--project-phenos-from-gene-sets",action='store_true',default=False) #use gene set scores to project pheno loadings rather than gene scores. Note that this will also have the side effect of conditioning the regression only on the gene sets in the model rather than all gene sets
 
 parser.add_option("","--anchor-phenos",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple pheno anchoring
-parser.add_option("","--anchor-pheno",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None,dest="anchor_phenos") #run single or multiple pheno anchoring
 parser.add_option("","--anchor-any-pheno",action="store_true",default=False) #flatten all phenotypes into an uber weight
 parser.add_option("","--anchor-genes",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple gene anchoring
-parser.add_option("","--anchor-gene",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None,dest="anchor_genes") #run single or multiple gene anchoring
 parser.add_option("","--anchor-any-gene",action="store_true",default=False) #update phenotype associations to essentially be uniformly 1
 parser.add_option("","--anchor-gene-set",action="store_true",default=False) #run gene set anchoring
 
@@ -393,6 +392,306 @@ parser.add_option("","--debug-just-check-header",action="store_true") #
 parser.add_option("","--debug-only-avg-huge",action="store_true")
 
 _iter_parser_options = pegs_iter_parser_options
+
+_OPTION_SUMMARY_BY_FLAG = {
+    "--anchor-any-gene": "anchor factorization to any gene in the loaded gene-phewas inputs",
+    "--anchor-any-pheno": "anchor factorization to any phenotype in the loaded phewas inputs",
+    "--anchor-gene-set": "run gene-set anchoring using the loaded phenotype evidence",
+    "--anchor-genes": "anchor factorization to one or more genes",
+    "--anchor-phenos": "anchor factorization to one or more phenotypes",
+    "--config": "load a JSON config file; explicit CLI flags override config values",
+    "--debug-level": "set logging verbosity for progress and diagnostic output",
+    "--deterministic": "force deterministic random seed behavior (seed=0 unless --seed is set)",
+    "--eaggl-bundle-in": "load bundled PIGEAN outputs as default EAGGL inputs",
+    "--factor-phewas-from-gene-phewas-stats-in": "run factor-level phewas from precomputed gene-phewas statistics",
+    "--gene-phewas-bfs-in": "load gene-phewas statistics for projection and anchor workflows",
+    "--gene-set-phewas-stats-in": "load gene-set phewas statistics for projection and anchor workflows",
+    "--help-expert": "show expert workflow, projection, and debug flags in addition to the normal public interface",
+    "--hide-opts": "suppress printing resolved options at startup",
+    "--hide-progress": "reduce progress logging noise during long runs",
+    "--lmm-auth-key": "enable optional LLM-based factor labeling",
+    "--lmm-model": "choose the LLM model used for optional labeling",
+    "--lmm-provider": "choose the LLM provider used for optional labeling",
+    "--log-file": "write structured run logs to this file",
+    "--print-effective-config": "print the fully resolved mode/options JSON and exit",
+    "--project-phenos-from-gene-sets": "project phenotype loadings from gene-set scores instead of gene scores",
+    "--run-phewas-from-gene-phewas-stats-in": "run gene-level phewas output stage from precomputed gene-phewas statistics",
+    "--seed": "set explicit random seed for deterministic reproducibility checks",
+    "--warnings-file": "write warning messages to this file",
+}
+
+_CORE_OPTION_GROUP_TITLE = "Core options"
+_RUNTIME_OPTION_GROUP_TITLE = "Runtime and reproducibility"
+_EXPERT_OPTION_GROUP_TITLE = "Expert options"
+
+_NORMAL_ENGINEERING_FLAGS = {
+    "--config",
+    "--debug-level",
+    "--deterministic",
+    "--hide-opts",
+    "--hide-progress",
+    "--log-file",
+    "--print-effective-config",
+    "--seed",
+    "--warnings-file",
+}
+
+_EXPERT_ENGINEERING_FLAGS = {
+    "--batch-size",
+    "--gibbs-max-mb-X-h",
+    "--gibbs-num-batches-parallel",
+    "--max-gb",
+    "--max-read-entries-at-once",
+    "--pre-filter-batch-size",
+    "--pre-filter-small-batch-size",
+    "--priors-num-gene-batches",
+}
+
+_EXPERT_METHOD_FLAGS = {
+    "--betas-from-phewas",
+    "--betas-uncorrected-from-phewas",
+    "--factor-phewas-from-gene-phewas-stats-in",
+    "--factor-phewas-min-gene-factor-weight",
+    "--factor-prune-gene-sets-num",
+    "--factor-prune-gene-sets-val",
+    "--factor-prune-genes-num",
+    "--factor-prune-genes-val",
+    "--factor-prune-phenos-num",
+    "--factor-prune-phenos-val",
+    "--gene-phewas-bfs-combined-col",
+    "--gene-phewas-bfs-id-col",
+    "--gene-phewas-bfs-in",
+    "--gene-phewas-bfs-log-bf-col",
+    "--gene-phewas-bfs-pheno-col",
+    "--gene-phewas-bfs-prior-col",
+    "--gene-phewas-id-to-X-id",
+    "--gene-phewas-stats-combined-col",
+    "--gene-phewas-stats-id-col",
+    "--gene-phewas-stats-log-bf-col",
+    "--gene-phewas-stats-pheno-col",
+    "--gene-phewas-stats-prior-col",
+    "--gene-set-phewas-stats-beta-col",
+    "--gene-set-phewas-stats-beta-uncorrected-col",
+    "--gene-set-phewas-stats-id-col",
+    "--gene-set-phewas-stats-in",
+    "--gene-set-phewas-stats-pheno-col",
+    "--label-gene-sets-only",
+    "--label-include-phenos",
+    "--label-individually",
+    "--lmm-auth-key",
+    "--lmm-model",
+    "--lmm-provider",
+    "--max-num-factors",
+    "--min-gene-phewas-read-value",
+    "--phi",
+    "--project-phenos-from-gene-sets",
+    "--run-phewas-from-gene-phewas-stats-in",
+}
+
+_METHOD_REQUIRED_FLAGS = {
+    "--eaggl-bundle-in",
+    "--X-in",
+    "--X-list",
+    "--Xd-in",
+    "--Xd-list",
+    "--anchor-any-gene",
+    "--anchor-any-pheno",
+    "--anchor-gene-set",
+    "--anchor-genes",
+    "--anchor-phenos",
+    "--factors-anchor-out",
+    "--factors-out",
+    "--gene-loc-file",
+    "--gene-set-stats-in",
+    "--gene-set-stats-out",
+    "--gene-stats-in",
+    "--gene-stats-out",
+}
+
+_CORE_VISIBLE_METHOD_FLAGS = {
+    "--anchor-any-gene",
+    "--anchor-any-pheno",
+    "--anchor-gene-set",
+    "--anchor-genes",
+    "--anchor-phenos",
+    "--eaggl-bundle-in",
+    "--factors-anchor-out",
+    "--factors-out",
+    "--gene-set-stats-in",
+    "--gene-stats-in",
+    "--X-in",
+    "--X-list",
+    "--Xd-in",
+    "--Xd-list",
+}
+
+_DEBUG_ONLY_FLAGS = {
+    "--debug-just-check-header",
+    "--debug-old-batch",
+    "--debug-only-avg-huge",
+    "--debug-skip-correlation",
+    "--debug-skip-huber",
+    "--debug-skip-phewas-covs",
+}
+
+
+def _primary_flag_for_option(_opt):
+    if len(_opt._long_opts) > 0:
+        return _opt._long_opts[0]
+    if len(_opt._short_opts) > 0:
+        return _opt._short_opts[0]
+    return _opt.dest
+
+
+def _build_cli_manifest_metadata():
+    _metadata = {}
+    for _opt in _iter_parser_options(parser):
+        if _opt.dest is None:
+            continue
+        _primary_flag = _primary_flag_for_option(_opt)
+        _summary = _OPTION_SUMMARY_BY_FLAG.get(_primary_flag)
+        if _summary is None and _opt.help not in (None, optparse.SUPPRESS_HELP):
+            _summary = _opt.help
+        _category = "method_optional"
+        _visibility = "expert"
+        _doc_target = "expert_help"
+        _help_group = "expert"
+        _semantic = True
+
+        if _primary_flag == "--help-expert":
+            _category = "engineering"
+            _doc_target = "expert_help"
+            _help_group = "expert"
+            _semantic = False
+        elif _primary_flag in _DEBUG_ONLY_FLAGS:
+            _category = "debug_only"
+            _visibility = "expert"
+            _doc_target = "internal_only"
+            _help_group = "expert"
+            _semantic = False
+        elif _primary_flag in _NORMAL_ENGINEERING_FLAGS:
+            _category = "engineering"
+            _doc_target = "core_help"
+            _help_group = "runtime"
+            _semantic = False
+        elif _primary_flag in _EXPERT_ENGINEERING_FLAGS:
+            _category = "engineering"
+            _visibility = "expert"
+            _doc_target = "expert_help"
+            _help_group = "expert"
+            _semantic = False
+        elif _primary_flag in _EXPERT_METHOD_FLAGS:
+            _category = "method_optional"
+            _visibility = "expert"
+            _doc_target = "advanced_workflows"
+            _help_group = "expert"
+        elif _primary_flag in _METHOD_REQUIRED_FLAGS:
+            _category = "method_required"
+            if _primary_flag in _CORE_VISIBLE_METHOD_FLAGS:
+                _visibility = "normal"
+                _doc_target = "core_help"
+                _help_group = "core"
+            else:
+                _visibility = "expert"
+                _doc_target = "expert_help"
+                _help_group = "expert"
+
+        _metadata[_primary_flag] = {
+            "primary_flag": _primary_flag,
+            "flags": list(_opt._short_opts) + list(_opt._long_opts),
+            "dest": _opt.dest,
+            "category": _category,
+            "scientific_semantic_impact": "yes" if _semantic else "no",
+            "public_visibility": _visibility,
+            "documentation_target": _doc_target,
+            "help_group": _help_group,
+            "summary": _summary,
+            "raw_help": _summary,
+        }
+    return _metadata
+
+
+CLI_MANIFEST_METADATA = _build_cli_manifest_metadata()
+
+
+def get_cli_manifest_metadata():
+    return pegs_json_safe(CLI_MANIFEST_METADATA)
+
+
+def _option_help_for_display(_primary_flag, _meta):
+    _summary = _meta.get("summary")
+    if _summary is None:
+        return None
+    return _summary
+
+
+def _apply_cli_help_layout(_parser, show_expert=False):
+    _parser.description = (
+        "EAGGL factor workflow: load PIGEAN outputs, choose an anchor strategy, "
+        "then factor pathways, genes, and optional phenotype projections."
+    )
+    _parser.epilog = (
+        "Core quickstart:\n"
+        "  python -m eaggl factor --eaggl-bundle-in /path/to/bundle.tar.gz --factors-out factors.tsv\n\n"
+        "Use --help-expert to show projection workflows, optional labeling, "
+        "expert tuning, and debug flags."
+    )
+    for _opt in _iter_parser_options(_parser):
+        _primary_flag = _primary_flag_for_option(_opt)
+        _meta = CLI_MANIFEST_METADATA.get(_primary_flag)
+        if _meta is None:
+            continue
+        if _meta["public_visibility"] == "hidden":
+            _opt.help = optparse.SUPPRESS_HELP
+            continue
+        if not show_expert and _meta["public_visibility"] != "normal":
+            _opt.help = optparse.SUPPRESS_HELP
+            continue
+        _help_text = _option_help_for_display(_primary_flag, _meta)
+        _opt.help = _help_text if _help_text is not None else ""
+
+
+def _move_option_to_group(_parser, _opt, _group):
+    if _opt in _parser.option_list:
+        _parser.option_list.remove(_opt)
+    if _opt not in _group.option_list:
+        _group.option_list.append(_opt)
+
+
+def _apply_cli_option_groups(_parser):
+    core_group = optparse.OptionGroup(
+        _parser,
+        _CORE_OPTION_GROUP_TITLE,
+        "Canonical EAGGL workflows, core inputs, and output files.",
+    )
+    runtime_group = optparse.OptionGroup(
+        _parser,
+        _RUNTIME_OPTION_GROUP_TITLE,
+        "Config, reproducibility, and operational controls that do not change model semantics.",
+    )
+    expert_group = optparse.OptionGroup(
+        _parser,
+        _EXPERT_OPTION_GROUP_TITLE,
+        "Projection workflows, optional labeling, expert tuning, and debug flags. Use --help-expert to show them.",
+    )
+
+    for _opt in list(_parser.option_list):
+        if _opt.dest is None:
+            continue
+        _meta = CLI_MANIFEST_METADATA.get(_primary_flag_for_option(_opt))
+        if _meta is None:
+            target_group = core_group
+        elif _meta["help_group"] == "runtime":
+            target_group = runtime_group
+        elif _meta["help_group"] == "expert":
+            target_group = expert_group
+        else:
+            target_group = core_group
+        _move_option_to_group(_parser, _opt, target_group)
+
+    _parser.add_option_group(core_group)
+    _parser.add_option_group(runtime_group)
+    _parser.add_option_group(expert_group)
 
 _merge_dicts = pegs_merge_dicts
 
@@ -440,7 +739,12 @@ REMOVED_OPTION_REPLACEMENTS = {
     "chisq_threshold": None,
     "run_gls": None,
     "store_cholesky": None,
+    "anchor_pheno": "--anchor-phenos",
+    "anchor_gene": "--anchor-genes",
 }
+
+_apply_cli_help_layout(parser)
+_apply_cli_option_groups(parser)
 
 options = None
 args = []
@@ -845,6 +1149,14 @@ def _bootstrap_cli(argv=None):
     global NONE, INFO, DEBUG, TRACE, debug_level, log_fh, warnings_fh, log, warn
 
     argv_parse = sys.argv[1:] if argv is None else list(argv)
+    if "--help" in argv_parse or "-h" in argv_parse:
+        _apply_cli_help_layout(parser, show_expert=False)
+        parser.print_help()
+        raise SystemExit(0)
+    if "--help-expert" in argv_parse:
+        _apply_cli_help_layout(parser, show_expert=True)
+        parser.print_help()
+        raise SystemExit(0)
     pegs_fail_removed_cli_aliases(
         argv_parse,
         REMOVED_OPTION_REPLACEMENTS,
@@ -990,4 +1302,3 @@ def _bootstrap_cli(argv=None):
         )
         return False
     return True
-

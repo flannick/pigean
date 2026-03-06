@@ -3,16 +3,28 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib
 import json
-import re
+import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
 
 DEFAULT_ENTRYPOINT = "src/eaggl/cli.py"
+DEFAULT_MODULE = "eaggl.cli"
 DEFAULT_MANIFEST = "docs/eaggl/cli_option_manifest.json"
 DEFAULT_DOC = "docs/eaggl/CLI_OPTIONS.md"
+CATEGORY_ORDER = [
+    "method_required",
+    "method_optional",
+    "engineering",
+    "experimental",
+    "compat_alias",
+    "deprecated",
+    "moved_to_other_repo",
+    "debug_only",
+]
 
 
 @dataclass
@@ -24,7 +36,11 @@ class OptionSpec:
     action: str | None
     default_repr: str | None
     help_text: str | None
+    summary: str | None
     category: str
+    public_visibility: str
+    scientific_semantic_impact: str
+    documentation_target: str
     source_line: int
     usage_references: int
     replacement: str | None = None
@@ -39,45 +55,16 @@ class OptionSpec:
             "action": self.action,
             "default": self.default_repr,
             "help": self.help_text,
+            "summary": self.summary,
             "category": self.category,
+            "public_visibility": self.public_visibility,
+            "scientific_semantic_impact": self.scientific_semantic_impact,
+            "documentation_target": self.documentation_target,
             "source_line": self.source_line,
             "usage_references": self.usage_references,
             "replacement": self.replacement,
             "deprecation_timeline": self.deprecation_timeline,
         }
-
-
-ENGINEERING_FLAG_PATTERNS = (
-    "config",
-    "debug",
-    "deterministic",
-    "seed",
-    "hide-opts",
-    "help",
-    "version",
-    "threads",
-    "batch",
-    "max-read-entries",
-    "max-gb",
-    "diag",
-    "profile",
-    "memory",
-    "time",
-    "trace",
-    "print-effective-config",
-    "bundle",
-    "manifest",
-    "log",
-)
-
-ADVANCED_HINT_PATTERNS = ("[advanced]", "set b", "advanced workflow")
-
-EXPERIMENTAL_FLAGS = {
-    "--increase-hyper-if-betas-below",
-    "--experimental-hyper-mutation",
-}
-
-DEPRECATED_REPLACEMENTS = {}
 
 
 def _source_text_for_node(src_text: str, node):
@@ -156,20 +143,6 @@ def _extract_help(kwargs):
     return None
 
 
-def _category_for_option(primary_flag: str, help_text: str | None):
-    help_lower = (help_text or "").lower()
-    if "deprecated" in help_lower or "legacy" in help_lower:
-        return "deprecated"
-    if primary_flag in EXPERIMENTAL_FLAGS or "experimental" in help_lower:
-        return "experimental"
-    if any(pat in help_lower for pat in ADVANCED_HINT_PATTERNS):
-        return "advanced"
-    flag_lower = primary_flag.lower()
-    if any(pat in flag_lower for pat in ENGINEERING_FLAG_PATTERNS):
-        return "engineering"
-    return "core_model"
-
-
 def _iter_text_files(repo_root: Path):
     skip_dirs = {".git", ".pytest_cache", "__pycache__", "dist", ".tmp"}
     for path in repo_root.rglob("*"):
@@ -203,14 +176,23 @@ def _load_overrides(path: Path):
     return data
 
 
-def build_manifest(repo_root: Path, entrypoint: Path, overrides: dict):
+def _load_cli_metadata(repo_root: Path, module_name: str):
+    sys.path.insert(0, str(repo_root / "src"))
+    module = importlib.import_module(module_name)
+    metadata = module.get_cli_manifest_metadata()
+    if not isinstance(metadata, dict):
+        raise ValueError("CLI metadata must be a dict: %s" % module_name)
+    return metadata
+
+
+def build_manifest(repo_root: Path, entrypoint: Path, module_name: str, overrides: dict):
+    metadata_map = _load_cli_metadata(repo_root, module_name)
     src_text = entrypoint.read_text(encoding="utf-8")
     calls = _collect_option_calls(src_text)
     option_rows = []
     for lineno, flags, kwargs in calls:
         long_flags = [f for f in flags if f.startswith("--")]
         primary_flag = long_flags[0] if len(long_flags) > 0 else flags[0]
-        help_text = _extract_help(kwargs)
         row = {
             "source_line": lineno,
             "flags": flags,
@@ -219,18 +201,20 @@ def build_manifest(repo_root: Path, entrypoint: Path, overrides: dict):
             "type": _extract_kw_repr(kwargs, "type", src_text),
             "action": _extract_kw_repr(kwargs, "action", src_text),
             "default": _extract_kw_repr(kwargs, "default", src_text),
-            "help": help_text,
+            "help": _extract_help(kwargs),
         }
         option_rows.append(row)
 
     usage_refs = _count_usage_references(repo_root, [r["primary_flag"] for r in option_rows])
     specs = []
+    missing_metadata = []
     for row in option_rows:
         primary = row["primary_flag"]
+        meta = metadata_map.get(primary)
+        if meta is None:
+            missing_metadata.append(primary)
+            continue
         override = overrides.get(primary, {})
-        category = override.get("category") or _category_for_option(primary, row["help"])
-        replacement = override.get("replacement") or DEPRECATED_REPLACEMENTS.get(primary)
-        timeline = override.get("deprecation_timeline")
         spec = OptionSpec(
             primary_flag=primary,
             flags=row["flags"],
@@ -239,20 +223,33 @@ def build_manifest(repo_root: Path, entrypoint: Path, overrides: dict):
             action=row["action"],
             default_repr=row["default"],
             help_text=row["help"],
-            category=category,
+            summary=meta.get("summary"),
+            category=override.get("category", meta["category"]),
+            public_visibility=override.get("public_visibility", meta["public_visibility"]),
+            scientific_semantic_impact=override.get(
+                "scientific_semantic_impact",
+                meta["scientific_semantic_impact"],
+            ),
+            documentation_target=override.get("documentation_target", meta["documentation_target"]),
             source_line=row["source_line"],
             usage_references=int(usage_refs[primary]),
-            replacement=replacement,
-            deprecation_timeline=timeline,
+            replacement=override.get("replacement"),
+            deprecation_timeline=override.get("deprecation_timeline"),
         )
         specs.append(spec)
 
+    if len(missing_metadata) > 0:
+        raise ValueError("Missing CLI metadata for: %s" % ", ".join(sorted(missing_metadata)))
+
     specs.sort(key=lambda s: s.primary_flag)
     categories = Counter(s.category for s in specs)
+    visibilities = Counter(s.public_visibility for s in specs)
     manifest = {
         "entrypoint": str(entrypoint.relative_to(repo_root)),
+        "module": module_name,
         "num_options": len(specs),
-        "categories": dict(sorted(categories.items())),
+        "categories": {k: categories[k] for k in CATEGORY_ORDER if k in categories},
+        "visibilities": dict(sorted(visibilities.items())),
         "options": [s.as_dict() for s in specs],
     }
     return manifest
@@ -262,57 +259,47 @@ def render_doc(manifest: dict):
     lines = []
     lines.append("# CLI Option Inventory")
     lines.append("")
-    lines.append("This document is generated from parser definitions in `%s`." % manifest["entrypoint"])
-    lines.append("Do not edit manually; run `scripts/generate_cli_manifest.py`.")
+    lines.append(
+        "This document is generated from parser definitions in `%s` and CLI metadata in `%s`."
+        % (manifest["entrypoint"], manifest["module"])
+    )
+    lines.append("Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.")
     lines.append("")
     lines.append("## Summary")
     lines.append("")
     lines.append("- Total options: `%d`" % manifest["num_options"])
     for category, count in manifest["categories"].items():
         lines.append("- `%s`: `%d`" % (category, count))
+    for visibility, count in manifest.get("visibilities", {}).items():
+        lines.append("- visibility `%s`: `%d`" % (visibility, count))
     lines.append("")
 
     grouped = defaultdict(list)
     for row in manifest["options"]:
         grouped[row["category"]].append(row)
 
-    category_order = ["core_model", "engineering", "advanced", "experimental", "deprecated"]
-    for category in category_order:
+    for category in CATEGORY_ORDER:
         rows = grouped.get(category, [])
         if len(rows) == 0:
             continue
         lines.append("## %s" % category.replace("_", " ").title())
         lines.append("")
-        lines.append("| Flag | Dest | Type | Default | Action | Usage refs | Notes |")
-        lines.append("|---|---|---|---|---|---:|---|")
+        lines.append("| Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |")
+        lines.append("|---|---|---|---|---|---|---|")
         for row in rows:
-            help_text = (row.get("help") or "").replace("\n", " ").replace("|", "\\|")
-            if len(help_text) == 0:
-                help_text = "-"
+            note = row.get("summary") or row.get("help") or "-"
+            note = note.replace("\n", " ").replace("|", "\\|")
             lines.append(
-                "| `%s` | `%s` | `%s` | `%s` | `%s` | %d | %s |"
+                "| `%s` | `%s` | `%s` | `%s` | `%s` | `%s` | %s |"
                 % (
                     row["primary_flag"],
+                    row["public_visibility"],
+                    row["scientific_semantic_impact"],
+                    row["documentation_target"],
                     row["dest"],
-                    row.get("type") or "-",
                     row.get("default") or "-",
-                    row.get("action") or "-",
-                    int(row.get("usage_references") or 0),
-                    help_text,
+                    note,
                 )
-            )
-        lines.append("")
-
-    deprecated_rows = grouped.get("deprecated", [])
-    if len(deprecated_rows) > 0:
-        lines.append("## Deprecated Migration")
-        lines.append("")
-        for row in deprecated_rows:
-            replacement = row.get("replacement") or "TBD"
-            timeline = row.get("deprecation_timeline") or "TBD"
-            lines.append(
-                "- `%s` -> `%s` (timeline: %s)"
-                % (row["primary_flag"], replacement, timeline)
             )
         lines.append("")
 
@@ -324,19 +311,22 @@ def _load_json(path: Path):
         return json.load(fh)
 
 
-def _check_deprecated_metadata(manifest: dict):
+def _check_manifest_metadata(manifest: dict):
     for row in manifest.get("options", []):
-        if row.get("category") != "deprecated":
-            continue
-        if not row.get("replacement"):
-            raise ValueError("Deprecated option missing replacement: %s" % row["primary_flag"])
-        if not row.get("deprecation_timeline"):
-            raise ValueError("Deprecated option missing deprecation_timeline: %s" % row["primary_flag"])
+        for key in (
+            "category",
+            "public_visibility",
+            "scientific_semantic_impact",
+            "documentation_target",
+        ):
+            if not row.get(key):
+                raise ValueError("Option missing %s metadata: %s" % (key, row["primary_flag"]))
 
 
 def main():
     parser = argparse.ArgumentParser(description="Generate/check CLI option manifest + docs.")
     parser.add_argument("--entrypoint", default=DEFAULT_ENTRYPOINT)
+    parser.add_argument("--module", default=DEFAULT_MODULE)
     parser.add_argument("--manifest-out", default=DEFAULT_MANIFEST)
     parser.add_argument("--doc-out", default=DEFAULT_DOC)
     parser.add_argument("--overrides", default="config/cli_manifest_overrides.json")
@@ -350,8 +340,8 @@ def main():
     overrides_path = repo_root / args.overrides
 
     overrides = _load_overrides(overrides_path)
-    manifest = build_manifest(repo_root, entrypoint, overrides)
-    _check_deprecated_metadata(manifest)
+    manifest = build_manifest(repo_root, entrypoint, args.module, overrides)
+    _check_manifest_metadata(manifest)
     doc_text = render_doc(manifest)
 
     if args.check:
