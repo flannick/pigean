@@ -1,77 +1,65 @@
 from __future__ import annotations
 
-import json
-import urllib.error
-import urllib.request
+from dataclasses import dataclass
 
 
-def query_openai_chat_completion(query, auth_key=None, lmm_model=None, bail_fn=None, warn_fn=None):
+@dataclass(frozen=True)
+class LabelingClient:
+    provider_name: str
+    auth_key: str
+    model: str
+    provider: object
+
+    def query(self, prompt, warn_fn=None):
+        try:
+            from .labeling_providers import LabelingRequest
+        except ImportError:
+            from labeling_providers import LabelingRequest  # type: ignore
+
+        return self.provider.query(
+            LabelingRequest(
+                prompt=prompt,
+                auth_key=self.auth_key,
+                model=self.model,
+            ),
+            warn_fn=warn_fn,
+        )
+
+
+def build_labeling_client(auth_key=None, lmm_model=None, lmm_provider="openai", bail_fn=None):
     if auth_key is None:
         bail_fn("Need --lmm-auth-key to use LLM labeling")
 
-    model = lmm_model if lmm_model is not None else "gpt-4o-mini"
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": query}],
-        "temperature": 0,
-    }
-    request = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer %s" % auth_key,
-        },
-    )
     try:
-        with urllib.request.urlopen(request, timeout=60) as response_fh:
-            response_payload = json.loads(response_fh.read().decode("utf-8"))
-        choices = response_payload.get("choices", [])
-        if len(choices) == 0:
-            warn_fn("OpenAI response missing choices; skipping LLM labels")
-            return None
-        message = choices[0].get("message", {})
-        content = message.get("content")
-        if content is None:
-            warn_fn("OpenAI response missing message content; skipping LLM labels")
-            return None
-        return content
-    except urllib.error.HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")
-        except Exception:
-            body = str(e)
-        warn_fn("OpenAI labeling request failed: HTTP %s %s" % (e.code, body))
-        return None
-    except urllib.error.URLError as e:
-        warn_fn("OpenAI labeling request failed: %s" % e)
-        return None
-    except Exception as e:
-        warn_fn("OpenAI labeling request failed: %s" % e)
-        return None
+        from .labeling_providers import resolve_labeling_provider
+    except ImportError:
+        from labeling_providers import resolve_labeling_provider  # type: ignore
+
+    model = lmm_model if lmm_model is not None else "gpt-4o-mini"
+    return LabelingClient(
+        provider_name=(lmm_provider if lmm_provider is not None else "openai").strip().lower(),
+        auth_key=auth_key,
+        model=model,
+        provider=resolve_labeling_provider(lmm_provider, bail_fn=bail_fn),
+    )
 
 
 def query_lmm(query, auth_key=None, lmm_model=None, lmm_provider="openai", bail_fn=None, warn_fn=None):
-    provider = (lmm_provider if lmm_provider is not None else "openai").strip().lower()
-    if provider == "openai":
-        return query_openai_chat_completion(query, auth_key=auth_key, lmm_model=lmm_model, bail_fn=bail_fn, warn_fn=warn_fn)
-    if provider == "gemini":
-        bail_fn("LLM provider 'gemini' is not implemented yet; use --lmm-provider openai")
-    if provider == "claude":
-        bail_fn("LLM provider 'claude' is not implemented yet; use --lmm-provider openai")
-    bail_fn("Unsupported --lmm-provider '%s'; expected one of: openai, gemini, claude" % provider)
+    client = build_labeling_client(
+        auth_key=auth_key,
+        lmm_model=lmm_model,
+        lmm_provider=lmm_provider,
+        bail_fn=bail_fn,
+    )
+    return client.query(query, warn_fn=warn_fn)
 
 
 def _set_factor_labels_with_llm(
     factor_labels,
     num_factors,
     labels,
-    auth_key,
-    lmm_model,
-    lmm_provider,
+    labeling_client,
     log_fn,
-    bail_fn,
     warn_fn,
 ):
     if labels is None or factor_labels is None:
@@ -82,14 +70,7 @@ def _set_factor_labels_with_llm(
     else:
         prompt = "Print a label, five words maximum, for each group. Print only labels, one per line, label number folowed by text: %s" % (labels)
     log_fn("Querying LMM with prompt: %s" % prompt)
-    response = query_lmm(
-        prompt,
-        auth_key=auth_key,
-        lmm_model=lmm_model,
-        lmm_provider=lmm_provider,
-        bail_fn=bail_fn,
-        warn_fn=warn_fn,
-    )
+    response = labeling_client.query(prompt, warn_fn=warn_fn)
     if response is None:
         return
     try:
@@ -142,6 +123,7 @@ def populate_factor_labels(
 
     runtime_state.factor_anchor_top_gene_sets = []
     anchor_top_genes_or_phenos = []
+    labeling_client = None
 
     for i in range(runtime_state.num_factors()):
         runtime_state.factor_top_gene_sets.append([runtime_state.gene_sets[j] for j in top_gene_set_inds[:, i]])
@@ -176,6 +158,12 @@ def populate_factor_labels(
         )
 
     if lmm_auth_key is not None and runtime_state.num_factors() > 0:
+        labeling_client = build_labeling_client(
+            auth_key=lmm_auth_key,
+            lmm_model=lmm_model,
+            lmm_provider=lmm_provider,
+            bail_fn=bail_fn,
+        )
         labels = " ".join(
             [
                 "%d. %s" % (
@@ -194,11 +182,8 @@ def populate_factor_labels(
             runtime_state.factor_labels,
             runtime_state.num_factors(),
             labels,
-            lmm_auth_key,
-            lmm_model,
-            lmm_provider,
+            labeling_client,
             log_fn,
-            bail_fn,
             warn_fn,
         )
 
@@ -211,11 +196,8 @@ def populate_factor_labels(
                 runtime_state.factor_labels_gene_sets,
                 runtime_state.num_factors(),
                 " ".join(runtime_state.factor_labels_gene_sets),
-                lmm_auth_key,
-                lmm_model,
-                lmm_provider,
+                labeling_client,
                 log_fn,
-                bail_fn,
                 warn_fn,
             )
 
@@ -227,11 +209,8 @@ def populate_factor_labels(
                 runtime_state.factor_labels_genes,
                 runtime_state.num_factors(),
                 " ".join(runtime_state.factor_labels_genes),
-                lmm_auth_key,
-                lmm_model,
-                lmm_provider,
+                labeling_client,
                 log_fn,
-                bail_fn,
                 warn_fn,
             )
 
@@ -245,11 +224,8 @@ def populate_factor_labels(
                     runtime_state.factor_labels_phenos,
                     runtime_state.num_factors(),
                     " ".join(runtime_state.factor_labels_phenos),
-                    lmm_auth_key,
-                    lmm_model,
-                    lmm_provider,
+                    labeling_client,
                     log_fn,
-                    bail_fn,
                     warn_fn,
                 )
 

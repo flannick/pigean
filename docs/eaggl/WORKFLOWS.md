@@ -8,6 +8,8 @@ This document maps each supported factoring workflow to:
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
 
+Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
+
 ## Common Setup
 
 Use the local venv from the analysis workspace:

@@ -31,6 +31,10 @@ class _RuntimeStub:
 
 
 class LabelingTest(unittest.TestCase):
+    def tearDown(self) -> None:
+        sys.modules.pop("eaggl.labeling_providers", None)
+        sys.modules.pop("labeling_providers", None)
+
     def test_query_lmm_rejects_unknown_provider(self) -> None:
         with self.assertRaises(ValueError):
             labeling.query_lmm(
@@ -41,8 +45,24 @@ class LabelingTest(unittest.TestCase):
                 warn_fn=lambda _message: None,
             )
 
+    def test_query_lmm_imports_provider_module_only_on_demand(self) -> None:
+        sys.modules.pop("eaggl.labeling_providers", None)
+        sys.modules.pop("labeling_providers", None)
+        self.assertNotIn("eaggl.labeling_providers", sys.modules)
+        with self.assertRaises(ValueError):
+            labeling.query_lmm(
+                "prompt",
+                auth_key="x",
+                lmm_provider="bogus",
+                bail_fn=lambda message: (_ for _ in ()).throw(ValueError(message)),
+                warn_fn=lambda _message: None,
+            )
+        self.assertIn("eaggl.labeling_providers", sys.modules)
+
     def test_populate_factor_labels_sets_defaults_without_llm(self) -> None:
         runtime = _RuntimeStub()
+        sys.modules.pop("eaggl.labeling_providers", None)
+        sys.modules.pop("labeling_providers", None)
         labeling.populate_factor_labels(
             runtime,
             factor_gene_set_x_pheno=False,
@@ -65,6 +85,7 @@ class LabelingTest(unittest.TestCase):
         self.assertEqual(runtime.factor_top_gene_sets[0], ["GS1", "GS2"])
         self.assertEqual(runtime.factor_top_genes[0], ["G1", "G2"])
         self.assertEqual(runtime.factor_top_phenos[0], ["P1", "P2"])
+        self.assertNotIn("eaggl.labeling_providers", sys.modules)
 
 
 if __name__ == "__main__":
