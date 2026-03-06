@@ -10,6 +10,11 @@ import urllib.request
 import numpy as np
 
 try:
+    from . import workflows as _eaggl_workflows
+except ImportError:
+    import workflows as _eaggl_workflows
+
+try:
     from pegs_utils import (
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_set as pegs_callback_set_comma_separated_args_as_set,
@@ -785,196 +790,13 @@ def _enforce_eaggl_mode_ownership(_mode):
     if _mode not in factor_modes:
         bail("Mode '%s' belongs to pigean.py; run with pigean.py instead of eaggl.py" % _mode)
 
-_FACTOR_WORKFLOW_STRATEGY_META = {
-    "F1": {
-        "required_inputs": [],
-        "factor_gene_set_x_pheno": False,
-        "use_phewas_for_factoring": False,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": None,
-    },
-    "F2": {
-        "required_inputs": [],
-        "factor_gene_set_x_pheno": False,
-        "use_phewas_for_factoring": False,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": None,
-    },
-    "F3": {
-        "required_inputs": [],
-        "factor_gene_set_x_pheno": False,
-        "use_phewas_for_factoring": False,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": None,
-    },
-    "F4": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": False,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": "anchor_phenos",
-    },
-    "F5": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": False,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": "anchor_phenos",
-    },
-    "F6": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": True,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": "anchor_genes",
-    },
-    "F7": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": True,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": True,
-        "warn_ignored_y_inputs_mode": "anchor_genes",
-    },
-    "F8": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": True,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": "anchor_genes",
-    },
-    "F9": {
-        "required_inputs": ["--run-phewas-from-gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": True,
-        "use_phewas_for_factoring": False,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": None,
-    },
-}
-
-
-def _workflow_required_inputs_satisfied(_workflow_id, _options):
-    required_inputs = _FACTOR_WORKFLOW_STRATEGY_META[_workflow_id]["required_inputs"]
-    missing_inputs = []
-    for flag in required_inputs:
-        if flag == "--gene-set-phewas-stats-in":
-            if _options.gene_set_phewas_stats_in is None:
-                missing_inputs.append(flag)
-        elif flag == "--gene-phewas-stats-in":
-            if _options.gene_phewas_bfs_in is None:
-                missing_inputs.append(flag)
-        elif flag == "--run-phewas-from-gene-phewas-stats-in":
-            if _options.run_phewas_from_gene_phewas_stats_in is None:
-                missing_inputs.append(flag)
-    return missing_inputs
-
-
-def _build_factor_workflow_error(_workflow_id, _missing_inputs):
-    if len(_missing_inputs) == 0:
-        return None
-    if _workflow_id in ("F4", "F5", "F6", "F7", "F8"):
-        return "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    if _workflow_id == "F9":
-        return "Require --run-phewas-from-gene-phewas-stats"
-    return "Missing required inputs: %s" % ", ".join(_missing_inputs)
-
-
-def _has_potentially_ignored_factor_inputs(_options):
-    return bool(
-        _options.gene_set_stats_in
-        or _options.positive_controls_in
-        or _options.positive_controls_list is not None
-    )
-
-
-def _warn_for_factor_workflow_inputs(_options, _workflow):
-    add_gene_set_flags_present = (
-        _options.add_gene_sets_by_enrichment_p is not None
-        or _options.add_gene_sets_by_fraction is not None
-    )
-    if add_gene_set_flags_present and not _workflow["expand_gene_sets"]:
-        warn("Ignoring options to add gene sets based on association with anchor genes because only 1 anchor gene was specified")
-
-    if _options.anchor_gene_set:
-        return
-    if not _has_potentially_ignored_factor_inputs(_options):
-        return
-
-    warning_mode = _workflow.get("warn_ignored_y_inputs_mode")
-    if warning_mode == "anchor_phenos":
-        warn("Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode")
-    elif warning_mode == "anchor_genes":
-        warn("Ignoring all arguments for reading Y or reading betas in --anchor-genes mode")
-
-
-def _format_anchor_values_for_label(values):
-    if values is None:
-        return "None"
-    if isinstance(values, set):
-        values = sorted(list(values))
-    elif isinstance(values, (tuple, list)):
-        values = list(values)
-    else:
-        return str(values)
-    return "{%s}" % ", ".join(["'%s'" % x for x in values])
-
-
-def _classify_factor_workflow(_options):
-    has_gene_set_phewas = _options.gene_set_phewas_stats_in is not None
-    has_gene_phewas = _options.gene_phewas_bfs_in is not None
-    projection_source = _options.gene_set_phewas_stats_in if has_gene_set_phewas else _options.gene_phewas_bfs_in
-
-    workflow_id = None
-    workflow_label = None
-
-    if _options.anchor_genes is not None and len(_options.anchor_genes) == 1:
-        workflow_id = "F6"
-        workflow_label = "single gene anchoring (to %s)" % _format_anchor_values_for_label(_options.anchor_genes)
-    elif _options.anchor_genes is not None and len(_options.anchor_genes) > 1:
-        workflow_id = "F7"
-        workflow_label = "multiple gene anchoring (to %s)" % _format_anchor_values_for_label(_options.anchor_genes)
-    elif _options.anchor_any_gene:
-        workflow_id = "F8"
-        workflow_label = "any gene anchoring"
-    elif _options.anchor_gene_set:
-        workflow_id = "F9"
-        workflow_label = "gene set anchoring (to input phenotype/gene set)"
-    elif _options.anchor_phenos is not None and len(_options.anchor_phenos) == 1:
-        workflow_id = "F4"
-        workflow_label = "single phenotype anchoring (to %s) but with phewas statistics used" % _format_anchor_values_for_label(_options.anchor_phenos)
-    elif _options.anchor_phenos is not None and len(_options.anchor_phenos) > 1:
-        workflow_id = "F4"
-        workflow_label = "multiple phenotype anchoring (to %s)" % _format_anchor_values_for_label(_options.anchor_phenos)
-    elif _options.anchor_any_pheno:
-        workflow_id = "F5"
-        workflow_label = "any phenotype anchoring"
-    else:
-        workflow_label = "single phenotype anchoring (to %s) using default statistics" % _options.anchor_phenos
-        if projection_source is not None:
-            workflow_id = "F3"
-            workflow_label = "%s. Will project using %s" % (workflow_label, projection_source)
-        elif _options.positive_controls_in is not None or _options.positive_controls_list is not None:
-            workflow_id = "F2"
-        else:
-            workflow_id = "F1"
-
-    strategy = _FACTOR_WORKFLOW_STRATEGY_META[workflow_id]
-    missing_inputs = _workflow_required_inputs_satisfied(workflow_id, _options)
-
-    workflow = {
-        "id": workflow_id,
-        "label": workflow_label,
-        "error": _build_factor_workflow_error(workflow_id, missing_inputs),
-        "required_inputs": list(strategy["required_inputs"]),
-        "missing_required_inputs": missing_inputs,
-        "factor_gene_set_x_pheno": bool(strategy["factor_gene_set_x_pheno"]),
-        "use_phewas_for_factoring": bool(strategy["use_phewas_for_factoring"]),
-        "expand_gene_sets": bool(strategy["expand_gene_sets"]),
-        "warn_ignored_y_inputs_mode": strategy["warn_ignored_y_inputs_mode"],
-        "has_gene_set_phewas": has_gene_set_phewas,
-        "has_gene_phewas": has_gene_phewas,
-    }
-
-    return workflow
+_FACTOR_WORKFLOW_STRATEGY_META = _eaggl_workflows.FACTOR_WORKFLOW_STRATEGY_META
+_workflow_required_inputs_satisfied = _eaggl_workflows.workflow_required_inputs_satisfied
+_build_factor_workflow_error = _eaggl_workflows.build_factor_workflow_error
+_has_potentially_ignored_factor_inputs = _eaggl_workflows.has_potentially_ignored_factor_inputs
+_warn_for_factor_workflow_inputs = lambda _options, _workflow: _eaggl_workflows.warn_for_factor_workflow_inputs(_options, _workflow, warn)
+_format_anchor_values_for_label = _eaggl_workflows.format_anchor_values_for_label
+_classify_factor_workflow = _eaggl_workflows.classify_factor_workflow
 
 
 def _apply_eaggl_bundle_inputs(_options):

@@ -247,6 +247,10 @@ REMOVED_OPTION_REPLACEMENTS = _eaggl_cli.REMOVED_OPTION_REPLACEMENTS
 query_lmm = _eaggl_cli.query_lmm
 _classify_factor_workflow = _eaggl_cli._classify_factor_workflow
 _FACTOR_WORKFLOW_STRATEGY_META = _eaggl_cli._FACTOR_WORKFLOW_STRATEGY_META
+try:
+    from . import workflows as _eaggl_workflows
+except ImportError:
+    import workflows as _eaggl_workflows
 
 options = None
 args = []
@@ -5872,32 +5876,7 @@ class MainPipelineResult:
 
 
 def _enforce_factor_only_input_boundary(options, mode_state):
-    if not mode_state.get("run_factor"):
-        return
-
-    has_x_source = any(
-        x is not None
-        for x in [options.X_in, options.X_list, options.Xd_in, options.Xd_list]
-    )
-    if not has_x_source:
-        bail(
-            "EAGGL requires an X matrix input. Provide --X-in/--X-list/--Xd-in/--Xd-list "
-            "(or use --eaggl-bundle-in with an X default)."
-        )
-
-    workflow = mode_state.get("factor_workflow")
-    use_phewas_for_factoring = bool(workflow and workflow.get("use_phewas_for_factoring"))
-    if not use_phewas_for_factoring:
-        missing = []
-        if options.gene_stats_in is None:
-            missing.append("--gene-stats-in")
-        if options.gene_set_stats_in is None:
-            missing.append("--gene-set-stats-in")
-        if len(missing) > 0:
-            bail(
-                "EAGGL factor workflows require precomputed PIGEAN stats: missing %s "
-                "(or provide them in --eaggl-bundle-in)." % ", ".join(missing)
-            )
+    return _eaggl_workflows.enforce_factor_only_input_boundary(options, mode_state, bail)
 
 
 def _run_main_factor_only_pipeline(g, options, mode_state):
