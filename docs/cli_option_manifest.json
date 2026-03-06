@@ -22,7 +22,7 @@
       "replacement": null,
       "source_line": 343,
       "type": null,
-      "usage_references": 9
+      "usage_references": 13
     },
     {
       "action": null,
@@ -56,7 +56,7 @@
       "replacement": null,
       "source_line": 301,
       "type": null,
-      "usage_references": 30
+      "usage_references": 48
     },
     {
       "action": "append",
@@ -73,7 +73,7 @@
       "replacement": null,
       "source_line": 302,
       "type": null,
-      "usage_references": 15
+      "usage_references": 22
     },
     {
       "action": null,
@@ -107,7 +107,7 @@
       "replacement": null,
       "source_line": 303,
       "type": null,
-      "usage_references": 10
+      "usage_references": 17
     },
     {
       "action": "append",
@@ -124,7 +124,7 @@
       "replacement": null,
       "source_line": 304,
       "type": null,
-      "usage_references": 6
+      "usage_references": 11
     },
     {
       "action": null,
@@ -192,7 +192,7 @@
       "replacement": null,
       "source_line": 559,
       "type": null,
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": "store_true",
@@ -209,7 +209,7 @@
       "replacement": null,
       "source_line": 552,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -226,7 +226,7 @@
       "replacement": null,
       "source_line": 616,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -260,7 +260,7 @@
       "replacement": null,
       "source_line": 340,
       "type": "float",
-      "usage_references": 7
+      "usage_references": 12
     },
     {
       "action": "store_true",
@@ -294,7 +294,7 @@
       "replacement": null,
       "source_line": 308,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -311,7 +311,7 @@
       "replacement": null,
       "source_line": 530,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -345,7 +345,7 @@
       "replacement": null,
       "source_line": 484,
       "type": null,
-      "usage_references": 10
+      "usage_references": 14
     },
     {
       "action": null,
@@ -379,7 +379,7 @@
       "replacement": null,
       "source_line": 485,
       "type": null,
-      "usage_references": 9
+      "usage_references": 13
     },
     {
       "action": null,
@@ -515,7 +515,7 @@
       "replacement": null,
       "source_line": 410,
       "type": null,
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
@@ -600,7 +600,7 @@
       "replacement": null,
       "source_line": 508,
       "type": null,
-      "usage_references": 28
+      "usage_references": 40
     },
     {
       "action": null,
@@ -668,7 +668,7 @@
       "replacement": null,
       "source_line": 595,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -1042,7 +1042,7 @@
       "replacement": null,
       "source_line": 416,
       "type": null,
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
@@ -1110,7 +1110,7 @@
       "replacement": null,
       "source_line": 708,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1127,7 +1127,7 @@
       "replacement": null,
       "source_line": 503,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -1161,7 +1161,7 @@
       "replacement": null,
       "source_line": 702,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -1178,7 +1178,7 @@
       "replacement": null,
       "source_line": 709,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -1195,7 +1195,7 @@
       "replacement": null,
       "source_line": 706,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -1212,7 +1212,7 @@
       "replacement": null,
       "source_line": 705,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -1229,7 +1229,7 @@
       "replacement": null,
       "source_line": 704,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -1263,7 +1263,7 @@
       "replacement": null,
       "source_line": 507,
       "type": null,
-      "usage_references": 17
+      "usage_references": 27
     },
     {
       "action": null,
@@ -1314,7 +1314,7 @@
       "replacement": null,
       "source_line": 481,
       "type": null,
-      "usage_references": 18
+      "usage_references": 21
     },
     {
       "action": null,
@@ -1399,7 +1399,7 @@
       "replacement": null,
       "source_line": 387,
       "type": null,
-      "usage_references": 23
+      "usage_references": 26
     },
     {
       "action": null,
@@ -1552,7 +1552,7 @@
       "replacement": null,
       "source_line": 622,
       "type": null,
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": null,
@@ -1586,7 +1586,7 @@
       "replacement": null,
       "source_line": 309,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1620,7 +1620,7 @@
       "replacement": null,
       "source_line": 538,
       "type": "float",
-      "usage_references": 10
+      "usage_references": 14
     },
     {
       "action": "store_true",
@@ -1637,7 +1637,7 @@
       "replacement": null,
       "source_line": 539,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -1654,7 +1654,7 @@
       "replacement": null,
       "source_line": 336,
       "type": null,
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": "store_true",
@@ -1705,7 +1705,7 @@
       "replacement": null,
       "source_line": 318,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": "store_true",
@@ -1722,7 +1722,7 @@
       "replacement": null,
       "source_line": 654,
       "type": null,
-      "usage_references": 10
+      "usage_references": 14
     },
     {
       "action": "store_true",
@@ -1739,7 +1739,7 @@
       "replacement": null,
       "source_line": 696,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1756,7 +1756,7 @@
       "replacement": null,
       "source_line": 461,
       "type": null,
-      "usage_references": 23
+      "usage_references": 31
     },
     {
       "action": null,
@@ -1807,7 +1807,7 @@
       "replacement": null,
       "source_line": 467,
       "type": null,
-      "usage_references": 10
+      "usage_references": 16
     },
     {
       "action": null,
@@ -1824,7 +1824,7 @@
       "replacement": null,
       "source_line": 478,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1841,7 +1841,7 @@
       "replacement": null,
       "source_line": 479,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1858,7 +1858,7 @@
       "replacement": null,
       "source_line": 476,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1875,7 +1875,7 @@
       "replacement": null,
       "source_line": 458,
       "type": null,
-      "usage_references": 32
+      "usage_references": 41
     },
     {
       "action": null,
@@ -1909,7 +1909,7 @@
       "replacement": null,
       "source_line": 347,
       "type": null,
-      "usage_references": 10
+      "usage_references": 14
     },
     {
       "action": null,
@@ -1943,7 +1943,7 @@
       "replacement": null,
       "source_line": 348,
       "type": null,
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -1960,7 +1960,7 @@
       "replacement": null,
       "source_line": 633,
       "type": null,
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -1977,7 +1977,7 @@
       "replacement": null,
       "source_line": 629,
       "type": null,
-      "usage_references": 9
+      "usage_references": 13
     },
     {
       "action": null,
@@ -1994,7 +1994,7 @@
       "replacement": null,
       "source_line": 627,
       "type": null,
-      "usage_references": 18
+      "usage_references": 25
     },
     {
       "action": null,
@@ -2011,7 +2011,7 @@
       "replacement": null,
       "source_line": 631,
       "type": null,
-      "usage_references": 9
+      "usage_references": 13
     },
     {
       "action": null,
@@ -2028,7 +2028,7 @@
       "replacement": null,
       "source_line": 637,
       "type": null,
-      "usage_references": 9
+      "usage_references": 13
     },
     {
       "action": null,
@@ -2045,7 +2045,7 @@
       "replacement": null,
       "source_line": 635,
       "type": null,
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -2062,7 +2062,7 @@
       "replacement": null,
       "source_line": 640,
       "type": null,
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -2079,7 +2079,7 @@
       "replacement": null,
       "source_line": 634,
       "type": null,
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2096,7 +2096,7 @@
       "replacement": null,
       "source_line": 630,
       "type": null,
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2113,7 +2113,7 @@
       "replacement": null,
       "source_line": 628,
       "type": null,
-      "usage_references": 17
+      "usage_references": 65
     },
     {
       "action": null,
@@ -2130,7 +2130,7 @@
       "replacement": null,
       "source_line": 632,
       "type": null,
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2147,7 +2147,7 @@
       "replacement": null,
       "source_line": 638,
       "type": null,
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2164,7 +2164,7 @@
       "replacement": null,
       "source_line": 636,
       "type": null,
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2198,7 +2198,7 @@
       "replacement": null,
       "source_line": 477,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2215,7 +2215,7 @@
       "replacement": null,
       "source_line": 437,
       "type": null,
-      "usage_references": 11
+      "usage_references": 15
     },
     {
       "action": null,
@@ -2232,7 +2232,7 @@
       "replacement": null,
       "source_line": 436,
       "type": null,
-      "usage_references": 11
+      "usage_references": 15
     },
     {
       "action": null,
@@ -2249,7 +2249,7 @@
       "replacement": null,
       "source_line": 438,
       "type": null,
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -2266,7 +2266,7 @@
       "replacement": null,
       "source_line": 435,
       "type": null,
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -2283,7 +2283,7 @@
       "replacement": null,
       "source_line": 434,
       "type": null,
-      "usage_references": 11
+      "usage_references": 15
     },
     {
       "action": null,
@@ -2300,7 +2300,7 @@
       "replacement": null,
       "source_line": 433,
       "type": null,
-      "usage_references": 24
+      "usage_references": 35
     },
     {
       "action": null,
@@ -2317,7 +2317,7 @@
       "replacement": null,
       "source_line": 470,
       "type": null,
-      "usage_references": 14
+      "usage_references": 20
     },
     {
       "action": null,
@@ -2334,7 +2334,7 @@
       "replacement": null,
       "source_line": 440,
       "type": null,
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -2351,7 +2351,7 @@
       "replacement": null,
       "source_line": 439,
       "type": null,
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -2385,7 +2385,7 @@
       "replacement": null,
       "source_line": 452,
       "type": null,
-      "usage_references": 11
+      "usage_references": 16
     },
     {
       "action": null,
@@ -2402,7 +2402,7 @@
       "replacement": null,
       "source_line": 450,
       "type": null,
-      "usage_references": 11
+      "usage_references": 16
     },
     {
       "action": null,
@@ -2419,7 +2419,7 @@
       "replacement": null,
       "source_line": 449,
       "type": null,
-      "usage_references": 30
+      "usage_references": 49
     },
     {
       "action": null,
@@ -2436,7 +2436,7 @@
       "replacement": null,
       "source_line": 451,
       "type": null,
-      "usage_references": 14
+      "usage_references": 19
     },
     {
       "action": null,
@@ -2453,7 +2453,7 @@
       "replacement": null,
       "source_line": 474,
       "type": null,
-      "usage_references": 16
+      "usage_references": 22
     },
     {
       "action": null,
@@ -2470,7 +2470,7 @@
       "replacement": null,
       "source_line": 453,
       "type": null,
-      "usage_references": 11
+      "usage_references": 16
     },
     {
       "action": null,
@@ -2487,7 +2487,7 @@
       "replacement": null,
       "source_line": 454,
       "type": null,
-      "usage_references": 10
+      "usage_references": 15
     },
     {
       "action": null,
@@ -2538,7 +2538,7 @@
       "replacement": null,
       "source_line": 527,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2555,7 +2555,7 @@
       "replacement": null,
       "source_line": 526,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2759,7 +2759,7 @@
       "replacement": null,
       "source_line": 352,
       "type": null,
-      "usage_references": 35
+      "usage_references": 39
     },
     {
       "action": null,
@@ -2929,7 +2929,7 @@
       "replacement": null,
       "source_line": 505,
       "type": null,
-      "usage_references": 10
+      "usage_references": 15
     },
     {
       "action": "store_true",
@@ -2946,7 +2946,7 @@
       "replacement": null,
       "source_line": 504,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2963,7 +2963,7 @@
       "replacement": null,
       "source_line": 520,
       "type": "string",
-      "usage_references": 5
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2980,7 +2980,7 @@
       "replacement": null,
       "source_line": 353,
       "type": null,
-      "usage_references": 23
+      "usage_references": 24
     },
     {
       "action": null,
@@ -2997,7 +2997,7 @@
       "replacement": null,
       "source_line": 354,
       "type": null,
-      "usage_references": 20
+      "usage_references": 23
     },
     {
       "action": "append",
@@ -3014,7 +3014,7 @@
       "replacement": null,
       "source_line": 307,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -3031,7 +3031,7 @@
       "replacement": null,
       "source_line": 441,
       "type": null,
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -3048,7 +3048,7 @@
       "replacement": null,
       "source_line": 542,
       "type": "float",
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -3065,7 +3065,7 @@
       "replacement": null,
       "source_line": 624,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": "store_true",
@@ -3099,7 +3099,7 @@
       "replacement": null,
       "source_line": 513,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3116,7 +3116,7 @@
       "replacement": null,
       "source_line": 501,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3218,7 +3218,7 @@
       "replacement": null,
       "source_line": 515,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3235,7 +3235,7 @@
       "replacement": null,
       "source_line": 697,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3252,7 +3252,7 @@
       "replacement": null,
       "source_line": 528,
       "type": "float",
-      "usage_references": 13
+      "usage_references": 21
     },
     {
       "action": null,
@@ -3269,7 +3269,7 @@
       "replacement": null,
       "source_line": 548,
       "type": "float",
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3286,7 +3286,7 @@
       "replacement": null,
       "source_line": 558,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3303,7 +3303,7 @@
       "replacement": null,
       "source_line": 493,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3320,7 +3320,7 @@
       "replacement": null,
       "source_line": 492,
       "type": "float",
-      "usage_references": 10
+      "usage_references": 18
     },
     {
       "action": null,
@@ -3337,7 +3337,7 @@
       "replacement": null,
       "source_line": 495,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3354,7 +3354,7 @@
       "replacement": null,
       "source_line": 606,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3371,7 +3371,7 @@
       "replacement": null,
       "source_line": 545,
       "type": "int",
-      "usage_references": 29
+      "usage_references": 41
     },
     {
       "action": null,
@@ -3388,7 +3388,7 @@
       "replacement": null,
       "source_line": 544,
       "type": "int",
-      "usage_references": 9
+      "usage_references": 13
     },
     {
       "action": null,
@@ -3405,7 +3405,7 @@
       "replacement": null,
       "source_line": 543,
       "type": "int",
-      "usage_references": 11
+      "usage_references": 15
     },
     {
       "action": null,
@@ -3422,7 +3422,7 @@
       "replacement": null,
       "source_line": 651,
       "type": "int",
-      "usage_references": 19
+      "usage_references": 24
     },
     {
       "action": null,
@@ -3439,7 +3439,7 @@
       "replacement": null,
       "source_line": 693,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3490,7 +3490,7 @@
       "replacement": null,
       "source_line": 529,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -3524,7 +3524,7 @@
       "replacement": null,
       "source_line": 639,
       "type": "float",
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -3541,7 +3541,7 @@
       "replacement": null,
       "source_line": 549,
       "type": "float",
-      "usage_references": 10
+      "usage_references": 18
     },
     {
       "action": null,
@@ -3558,7 +3558,7 @@
       "replacement": null,
       "source_line": 550,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3575,7 +3575,7 @@
       "replacement": null,
       "source_line": 537,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3643,7 +3643,7 @@
       "replacement": null,
       "source_line": 692,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3694,7 +3694,7 @@
       "replacement": null,
       "source_line": 554,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_false",
@@ -3711,7 +3711,7 @@
       "replacement": null,
       "source_line": 553,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_false",
@@ -3728,7 +3728,7 @@
       "replacement": null,
       "source_line": 617,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_false",
@@ -3762,7 +3762,7 @@
       "replacement": null,
       "source_line": 557,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_false",
@@ -3779,7 +3779,7 @@
       "replacement": null,
       "source_line": 596,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_false",
@@ -3830,7 +3830,7 @@
       "replacement": null,
       "source_line": 540,
       "type": null,
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": "store_false",
@@ -3864,7 +3864,7 @@
       "replacement": null,
       "source_line": 514,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_false",
@@ -3898,7 +3898,7 @@
       "replacement": null,
       "source_line": 610,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_false",
@@ -3949,7 +3949,7 @@
       "replacement": null,
       "source_line": 662,
       "type": "int",
-      "usage_references": 14
+      "usage_references": 22
     },
     {
       "action": null,
@@ -3966,7 +3966,7 @@
       "replacement": null,
       "source_line": 694,
       "type": "int",
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -3983,7 +3983,7 @@
       "replacement": null,
       "source_line": 317,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -4017,7 +4017,7 @@
       "replacement": null,
       "source_line": 512,
       "type": null,
-      "usage_references": 8
+      "usage_references": 14
     },
     {
       "action": "append",
@@ -4034,7 +4034,7 @@
       "replacement": null,
       "source_line": 312,
       "type": "float",
-      "usage_references": 20
+      "usage_references": 24
     },
     {
       "action": null,
@@ -4068,7 +4068,7 @@
       "replacement": null,
       "source_line": 498,
       "type": null,
-      "usage_references": 15
+      "usage_references": 20
     },
     {
       "action": "store_true",
@@ -4085,7 +4085,7 @@
       "replacement": null,
       "source_line": 521,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -4119,7 +4119,7 @@
       "replacement": null,
       "source_line": 471,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -4136,7 +4136,7 @@
       "replacement": null,
       "source_line": 480,
       "type": null,
-      "usage_references": 13
+      "usage_references": 17
     },
     {
       "action": null,
@@ -4170,7 +4170,7 @@
       "replacement": null,
       "source_line": 403,
       "type": null,
-      "usage_references": 10
+      "usage_references": 14
     },
     {
       "action": "store_false",
@@ -4238,7 +4238,7 @@
       "replacement": null,
       "source_line": 397,
       "type": null,
-      "usage_references": 13
+      "usage_references": 20
     },
     {
       "action": "callback",
@@ -4255,7 +4255,7 @@
       "replacement": null,
       "source_line": 400,
       "type": "string",
-      "usage_references": 16
+      "usage_references": 26
     },
     {
       "action": "store_false",
@@ -4306,7 +4306,7 @@
       "replacement": null,
       "source_line": 531,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": null,
@@ -4323,7 +4323,7 @@
       "replacement": null,
       "source_line": 532,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 10
     },
     {
       "action": "store_true",
@@ -4340,7 +4340,7 @@
       "replacement": null,
       "source_line": 509,
       "type": null,
-      "usage_references": 14
+      "usage_references": 32
     },
     {
       "action": null,
@@ -4357,7 +4357,7 @@
       "replacement": null,
       "source_line": 525,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": "store_true",
@@ -4374,7 +4374,7 @@
       "replacement": null,
       "source_line": 562,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -4391,7 +4391,7 @@
       "replacement": null,
       "source_line": 560,
       "type": "float",
-      "usage_references": 13
+      "usage_references": 21
     },
     {
       "action": null,
@@ -4408,7 +4408,7 @@
       "replacement": null,
       "source_line": 653,
       "type": "float",
-      "usage_references": 10
+      "usage_references": 14
     },
     {
       "action": null,
@@ -4425,7 +4425,7 @@
       "replacement": null,
       "source_line": 695,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -4442,7 +4442,7 @@
       "replacement": null,
       "source_line": 489,
       "type": null,
-      "usage_references": 17
+      "usage_references": 29
     },
     {
       "action": null,
@@ -4578,7 +4578,7 @@
       "replacement": null,
       "source_line": 506,
       "type": "int",
-      "usage_references": 14
+      "usage_references": 21
     },
     {
       "action": null,
@@ -4612,7 +4612,7 @@
       "replacement": null,
       "source_line": 319,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 13
     },
     {
       "action": null,
@@ -4663,7 +4663,7 @@
       "replacement": null,
       "source_line": 315,
       "type": "float",
-      "usage_references": 30
+      "usage_references": 34
     },
     {
       "action": null,
@@ -4799,7 +4799,7 @@
       "replacement": null,
       "source_line": 613,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -4850,7 +4850,7 @@
       "replacement": null,
       "source_line": 609,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -5071,7 +5071,7 @@
       "replacement": null,
       "source_line": 556,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -5105,7 +5105,7 @@
       "replacement": null,
       "source_line": 316,
       "type": "float",
-      "usage_references": 7
+      "usage_references": 11
     },
     {
       "action": null,
@@ -5139,7 +5139,7 @@
       "replacement": null,
       "source_line": 326,
       "type": "string",
-      "usage_references": 10
+      "usage_references": 15
     },
     {
       "action": "store_true",
@@ -5156,7 +5156,7 @@
       "replacement": null,
       "source_line": 494,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -5173,7 +5173,7 @@
       "replacement": null,
       "source_line": 672,
       "type": null,
-      "usage_references": 11
+      "usage_references": 15
     },
     {
       "action": "store_true",
@@ -5190,7 +5190,7 @@
       "replacement": null,
       "source_line": 698,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -5258,7 +5258,7 @@
       "replacement": null,
       "source_line": 502,
       "type": null,
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": null,
@@ -5275,7 +5275,7 @@
       "replacement": null,
       "source_line": 561,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 9
     },
     {
       "action": "callback",
@@ -5292,7 +5292,7 @@
       "replacement": null,
       "source_line": 551,
       "type": "string",
-      "usage_references": 7
+      "usage_references": 12
     }
   ]
 }

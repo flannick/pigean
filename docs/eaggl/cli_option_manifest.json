@@ -582,7 +582,7 @@
       "replacement": null,
       "source_line": 367,
       "type": null,
-      "usage_references": 25
+      "usage_references": 27
     },
     {
       "action": null,
@@ -2826,7 +2826,7 @@
       "replacement": null,
       "source_line": 369,
       "type": null,
-      "usage_references": 30
+      "usage_references": 32
     },
     {
       "action": null,

@@ -186,7 +186,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--debug-skip-correlation` | `debug_skip_correlation` | `-` | `-` | `store_true` | 9 | - |
 | `--debug-skip-huber` | `debug_skip_huber` | `-` | `-` | `store_true` | 9 | - |
 | `--debug-skip-phewas-covs` | `debug_skip_phewas_covs` | `-` | `-` | `store_true` | 9 | - |
-| `--deterministic` | `deterministic` | `-` | `False` | `store_true` | 25 | - |
+| `--deterministic` | `deterministic` | `-` | `False` | `store_true` | 27 | - |
 | `--eaggl-bundle-in` | `eaggl_bundle_in` | `-` | `None` | `-` | 30 | - |
 | `--gene-phewas-bfs-log-bf-col` | `gene_phewas_bfs_log_bf_col` | `-` | `None` | `-` | 13 | - |
 | `--gene-phewas-stats-log-bf-col` | `gene_phewas_bfs_log_bf_col` | `-` | `None` | `-` | 10 | - |
@@ -198,7 +198,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--max-read-entries-at-once` | `max_read_entries_at_once` | `int` | `None` | `-` | 10 | - |
 | `--pre-filter-batch-size` | `pre_filter_batch_size` | `int` | `None` | `-` | 10 | - |
 | `--pre-filter-small-batch-size` | `pre_filter_small_batch_size` | `int` | `500` | `-` | 10 | - |
-| `--print-effective-config` | `print_effective_config` | `-` | `False` | `store_true` | 30 | - |
+| `--print-effective-config` | `print_effective_config` | `-` | `False` | `store_true` | 32 | - |
 | `--priors-num-gene-batches` | `priors_num_gene_batches` | `int` | `20` | `-` | 11 | - |
 | `--prune-deterministically` | `prune_deterministically` | `-` | `-` | `store_true` | 9 | - |
 | `--seed` | `seed` | `int` | `None` | `-` | 21 | - |
