@@ -1,22 +1,8 @@
-import copy
-
-import numpy as np
-import scipy.sparse as sparse
-
-from pegs_shared.types import HyperparameterData, PhewasRuntimeState, YData
+from pegs_shared.types import HyperparameterData, PhewasRuntimeState, RuntimeStateBundle, YData
 
 
 def y_data_from_runtime(runtime):
-    return YData(
-        Y=getattr(runtime, "Y", None),
-        Y_for_regression=getattr(runtime, "Y_for_regression", None),
-        Y_exomes=getattr(runtime, "Y_exomes", None),
-        Y_positive_controls=getattr(runtime, "Y_positive_controls", None),
-        Y_case_counts=getattr(runtime, "Y_case_counts", None),
-        y_var=getattr(runtime, "y_var", None),
-        y_corr=getattr(runtime, "y_corr", None),
-        y_corr_sparse=getattr(runtime, "y_corr_sparse", None),
-    )
+    return YData.from_runtime(runtime)
 
 
 def build_y_data_from_inputs(
@@ -30,56 +16,21 @@ def build_y_data_from_inputs(
     store_corr_sparse=False,
     min_correlation=0,
 ):
-    y_data = y_data_from_runtime(runtime)
-    if Y_corr_m is not None:
-        y_corr_m = copy.copy(Y_corr_m)
-        if min_correlation is not None:
-            y_corr_m[y_corr_m <= 0] = 0
-
-        keep_mask = np.array([True] * len(y_corr_m))
-        for i in range(len(y_corr_m) - 1, -1, -1):
-            if np.sum(y_corr_m[i] != 0) == 0:
-                keep_mask[i] = False
-            else:
-                break
-        if np.sum(keep_mask) > 0:
-            y_corr_m = y_corr_m[keep_mask]
-
-        y_data.y_corr = copy.copy(y_corr_m)
-
-        y_corr_diags = [y_data.y_corr[i, :(len(y_data.y_corr[i, :]) - i)] for i in range(len(y_data.y_corr))]
-        y_corr_sparse = sparse.csc_matrix(
-            sparse.diags(
-                y_corr_diags + y_corr_diags[1:],
-                list(range(len(y_corr_diags))) + list(range(-1, -len(y_corr_diags), -1)),
-            )
-        )
-
-        if store_corr_sparse:
-            y_data.y_corr_sparse = y_corr_sparse
-
-    if Y is not None:
-        na_mask = ~np.isnan(Y)
-        y_data.y_var = np.var(Y[na_mask])
-    else:
-        y_data.y_var = None
-    y_data.Y = Y
-    y_data.Y_for_regression = Y_for_regression
-    y_data.Y_exomes = Y_exomes
-    y_data.Y_positive_controls = Y_positive_controls
-    y_data.Y_case_counts = Y_case_counts
-    return y_data
+    return YData.from_inputs(
+        runtime,
+        Y,
+        Y_for_regression=Y_for_regression,
+        Y_exomes=Y_exomes,
+        Y_positive_controls=Y_positive_controls,
+        Y_case_counts=Y_case_counts,
+        Y_corr_m=Y_corr_m,
+        store_corr_sparse=store_corr_sparse,
+        min_correlation=min_correlation,
+    )
 
 
 def apply_y_data_to_runtime(runtime, y_data):
-    runtime.Y = y_data.Y
-    runtime.Y_for_regression = y_data.Y_for_regression
-    runtime.Y_exomes = y_data.Y_exomes
-    runtime.Y_positive_controls = y_data.Y_positive_controls
-    runtime.Y_case_counts = y_data.Y_case_counts
-    runtime.y_var = y_data.y_var
-    runtime.y_corr = y_data.y_corr
-    runtime.y_corr_sparse = y_data.y_corr_sparse
+    y_data.apply_to_runtime(runtime)
 
 
 def set_runtime_y_from_inputs(
@@ -126,31 +77,11 @@ def ensure_hyperparameter_state(runtime):
 
 
 def phewas_runtime_state_from_runtime(runtime):
-    return PhewasRuntimeState(
-        phenos=getattr(runtime, "phenos", None),
-        pheno_to_ind=getattr(runtime, "pheno_to_ind", None),
-        gene_pheno_Y=getattr(runtime, "gene_pheno_Y", None),
-        gene_pheno_combined_prior_Ys=getattr(runtime, "gene_pheno_combined_prior_Ys", None),
-        gene_pheno_priors=getattr(runtime, "gene_pheno_priors", None),
-        X_phewas_beta=getattr(runtime, "X_phewas_beta", None),
-        X_phewas_beta_uncorrected=getattr(runtime, "X_phewas_beta_uncorrected", None),
-        num_gene_phewas_filtered=getattr(runtime, "num_gene_phewas_filtered", 0),
-        anchor_gene_mask=getattr(runtime, "anchor_gene_mask", None),
-        anchor_pheno_mask=getattr(runtime, "anchor_pheno_mask", None),
-    )
+    return PhewasRuntimeState.from_runtime(runtime)
 
 
 def apply_phewas_runtime_state_to_runtime(runtime, phewas_state):
-    runtime.phenos = phewas_state.phenos
-    runtime.pheno_to_ind = phewas_state.pheno_to_ind
-    runtime.gene_pheno_Y = phewas_state.gene_pheno_Y
-    runtime.gene_pheno_combined_prior_Ys = phewas_state.gene_pheno_combined_prior_Ys
-    runtime.gene_pheno_priors = phewas_state.gene_pheno_priors
-    runtime.X_phewas_beta = phewas_state.X_phewas_beta
-    runtime.X_phewas_beta_uncorrected = phewas_state.X_phewas_beta_uncorrected
-    runtime.num_gene_phewas_filtered = phewas_state.num_gene_phewas_filtered
-    runtime.anchor_gene_mask = phewas_state.anchor_gene_mask
-    runtime.anchor_pheno_mask = phewas_state.anchor_pheno_mask
+    phewas_state.apply_to_runtime(runtime)
 
 
 def sync_y_state(runtime):
@@ -169,3 +100,18 @@ def sync_phewas_runtime_state(runtime):
     phewas_state = phewas_runtime_state_from_runtime(runtime)
     apply_phewas_runtime_state_to_runtime(runtime, phewas_state)
     return phewas_state
+
+
+def runtime_state_bundle_from_runtime(runtime):
+    return RuntimeStateBundle.from_runtime(runtime)
+
+
+def apply_runtime_state_bundle_to_runtime(runtime, runtime_state_bundle):
+    runtime_state_bundle.apply_to_runtime(runtime)
+    return runtime_state_bundle
+
+
+def sync_runtime_state_bundle(runtime):
+    runtime_state_bundle = runtime_state_bundle_from_runtime(runtime)
+    apply_runtime_state_bundle_to_runtime(runtime, runtime_state_bundle)
+    return runtime_state_bundle

@@ -79,38 +79,4 @@ def build_read_x_post_options(local_vars, *, batches, num_ignored_gene_sets, ign
 
 
 def initialize_matrix_and_gene_index_state(runtime, batch_size):
-    runtime.X_orig = None
-    runtime.X_binary_packed = None
-    runtime.X_orig_missing_genes = None
-    runtime.X_orig_missing_genes_missing_gene_sets = None
-    runtime.X_orig_missing_gene_sets = None
-    runtime.last_X_block = None
-
-    runtime.batch_size = batch_size
-    runtime.scale_is_for_whitened = False
-    runtime.scale_factors = None
-    runtime.mean_shifts = None
-    runtime.scale_factors_missing = None
-    runtime.mean_shifts_missing = None
-    runtime.scale_factors_ignored = None
-    runtime.mean_shifts_ignored = None
-
-    runtime.is_dense_gene_set = None
-    runtime.is_dense_gene_set_missing = None
-    runtime.gene_set_batches = None
-    runtime.gene_set_batches_missing = None
-    runtime.gene_set_labels = None
-    runtime.gene_set_labels_missing = None
-    runtime.gene_set_labels_ignored = None
-
-    runtime.genes = None
-    runtime.genes_missing = None
-    runtime.gene_to_ind = None
-    runtime.gene_missing_to_ind = None
-    runtime.gene_chrom_name_pos = None
-    runtime.gene_to_chrom = None
-    runtime.gene_to_pos = None
-    runtime.gene_to_gwas_huge_score = None
-    runtime.gene_to_gwas_huge_score_uncorrected = None
-    runtime.gene_to_exomes_huge_score = None
-    runtime.gene_to_huge_score = None
+    XData.initialized_runtime_state(batch_size).apply_to_runtime(runtime)

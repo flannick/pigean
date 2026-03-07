@@ -77,14 +77,17 @@ from pegs_shared.xdata import (
 from pegs_shared.ydata import (
     apply_hyperparameter_data_to_runtime,
     apply_phewas_runtime_state_to_runtime,
+    apply_runtime_state_bundle_to_runtime,
     apply_y_data_to_runtime,
     build_y_data_from_inputs,
     ensure_hyperparameter_state,
     hyperparameter_data_from_runtime,
     phewas_runtime_state_from_runtime,
+    runtime_state_bundle_from_runtime,
     set_runtime_y_from_inputs,
     sync_hyperparameter_state,
     sync_phewas_runtime_state,
+    sync_runtime_state_bundle,
     sync_y_state,
     y_data_from_runtime,
 )

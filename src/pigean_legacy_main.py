@@ -69,6 +69,7 @@ try:
         sync_y_state as pegs_sync_y_state,
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
+        sync_runtime_state_bundle as pegs_sync_runtime_state_bundle,
     )
     from .pegs_utils import (
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
@@ -193,6 +194,7 @@ except ImportError:
         sync_y_state as pegs_sync_y_state,
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
+        sync_runtime_state_bundle as pegs_sync_runtime_state_bundle,
     )
     from pegs_utils import (
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
@@ -588,9 +590,10 @@ class PigeanState(object):
         self._init_gene_set_regression_state()
         self._init_gene_signal_and_huge_state()
         self._init_model_summary_state()
-        self.y_state = pegs_sync_y_state(self)
-        self.hyperparameter_state = pegs_sync_hyperparameter_state(self)
-        self.phewas_state = pegs_sync_phewas_runtime_state(self)
+        self.runtime_state_bundle = pegs_sync_runtime_state_bundle(self)
+        self.y_state = self.runtime_state_bundle.y_state
+        self.hyperparameter_state = self.runtime_state_bundle.hyperparameter_state
+        self.phewas_state = self.runtime_state_bundle.phewas_state
 
     def _init_phewas_and_label_state(self):
         self.anchor_pheno_mask = None
@@ -811,7 +814,8 @@ class PigeanState(object):
         self.mean_qc_metrics_ignored = None
 
         self.total_qc_metrics_directions = None
-        self.y_state = pegs_sync_y_state(self)
+        self.runtime_state_bundle = pegs_sync_runtime_state_bundle(self)
+        self.y_state = self.runtime_state_bundle.y_state
 
     def _init_model_summary_state(self):
         self.p = None
@@ -848,7 +852,8 @@ class PigeanState(object):
         self.betas_mcse_missing = None
         self.betas_uncorrected_r_hat_missing = None
         self.betas_uncorrected_mcse_missing = None
-        self.hyperparameter_state = pegs_sync_hyperparameter_state(self)
+        self.runtime_state_bundle = pegs_sync_runtime_state_bundle(self)
+        self.hyperparameter_state = self.runtime_state_bundle.hyperparameter_state
         self.non_inf_avg_cond_betas_missing = None
         self.non_inf_avg_postps_missing = None
 

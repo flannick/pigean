@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field, fields
 from typing import Any, Callable
 
 import numpy as np
@@ -14,22 +14,42 @@ Callback = Callable[..., Any]
 
 @dataclass
 class XData:
+    batch_size: int | None = None
     X_orig: MatrixLike | None = None
+    X_binary_packed: MatrixLike | None = None
     X_orig_missing_genes: MatrixLike | None = None
     X_orig_missing_gene_sets: MatrixLike | None = None
     X_orig_missing_genes_missing_gene_sets: MatrixLike | None = None
+    last_X_block: Any = None
     genes: list[str] = field(default_factory=list)
     genes_missing: list[str] = field(default_factory=list)
     gene_sets: list[str] = field(default_factory=list)
     gene_sets_missing: list[str] = field(default_factory=list)
     gene_sets_ignored: list[str] = field(default_factory=list)
     gene_to_ind: dict[str, int] = field(default_factory=dict)
+    gene_missing_to_ind: dict[str, int] = field(default_factory=dict)
     gene_set_to_ind: dict[str, int] = field(default_factory=dict)
+    scale_is_for_whitened: bool = False
     scale_factors: VectorLike | None = None
     mean_shifts: VectorLike | None = None
+    scale_factors_missing: VectorLike | None = None
+    mean_shifts_missing: VectorLike | None = None
+    scale_factors_ignored: VectorLike | None = None
+    mean_shifts_ignored: VectorLike | None = None
     gene_set_batches: VectorLike | None = None
+    gene_set_batches_missing: VectorLike | None = None
     gene_set_labels: VectorLike | None = None
+    gene_set_labels_missing: VectorLike | None = None
+    gene_set_labels_ignored: VectorLike | None = None
     is_dense_gene_set: VectorLike | None = None
+    is_dense_gene_set_missing: VectorLike | None = None
+    gene_chrom_name_pos: Any = None
+    gene_to_chrom: dict[str, Any] | None = None
+    gene_to_pos: dict[str, Any] | None = None
+    gene_to_gwas_huge_score: dict[str, Any] | None = None
+    gene_to_gwas_huge_score_uncorrected: dict[str, Any] | None = None
+    gene_to_exomes_huge_score: dict[str, Any] | None = None
+    gene_to_huge_score: dict[str, Any] | None = None
 
     @classmethod
     def from_input_plan(cls, input_plan):
@@ -37,6 +57,35 @@ class XData:
             gene_set_batches=np.array(input_plan.batches),
             gene_set_labels=np.array(input_plan.labels),
             is_dense_gene_set=np.array(input_plan.is_dense, dtype=bool),
+        )
+
+    @classmethod
+    def from_runtime(cls, runtime):
+        payload = {}
+        for data_field in fields(cls):
+            if hasattr(runtime, data_field.name):
+                payload[data_field.name] = getattr(runtime, data_field.name)
+            elif data_field.default is not MISSING:
+                payload[data_field.name] = data_field.default
+            elif data_field.default_factory is not MISSING:
+                payload[data_field.name] = data_field.default_factory()
+            else:
+                payload[data_field.name] = None
+        return cls(**payload)
+
+    @classmethod
+    def initialized_runtime_state(cls, batch_size):
+        return cls(
+            batch_size=batch_size,
+            scale_is_for_whitened=False,
+            genes=None,
+            genes_missing=None,
+            gene_sets=None,
+            gene_sets_missing=None,
+            gene_sets_ignored=None,
+            gene_to_ind=None,
+            gene_missing_to_ind=None,
+            gene_set_to_ind=None,
         )
 
     def has_gene_sets(self):
@@ -53,6 +102,12 @@ class XData:
         runtime.gene_set_labels = self.gene_set_labels[:0]
         runtime.gene_sets = []
         runtime.is_dense_gene_set = self.is_dense_gene_set[:0]
+
+    def apply_to_runtime(self, runtime):
+        for data_field in fields(type(self)):
+            setattr(runtime, data_field.name, getattr(self, data_field.name))
+        runtime.x_state = self
+        return self
 
     def run_ingestion_stage(
         self,
@@ -554,6 +609,86 @@ class YData:
     y_corr: Any = None
     y_corr_sparse: Any = None
 
+    @classmethod
+    def from_runtime(cls, runtime):
+        return cls(
+            Y=getattr(runtime, "Y", None),
+            Y_for_regression=getattr(runtime, "Y_for_regression", None),
+            Y_exomes=getattr(runtime, "Y_exomes", None),
+            Y_positive_controls=getattr(runtime, "Y_positive_controls", None),
+            Y_case_counts=getattr(runtime, "Y_case_counts", None),
+            y_var=getattr(runtime, "y_var", None),
+            y_corr=getattr(runtime, "y_corr", None),
+            y_corr_sparse=getattr(runtime, "y_corr_sparse", None),
+        )
+
+    @classmethod
+    def from_inputs(
+        cls,
+        runtime,
+        Y,
+        Y_for_regression=None,
+        Y_exomes=None,
+        Y_positive_controls=None,
+        Y_case_counts=None,
+        Y_corr_m=None,
+        store_corr_sparse=False,
+        min_correlation=0,
+    ):
+        y_data = cls.from_runtime(runtime)
+        if Y_corr_m is not None:
+            y_corr_m = np.array(Y_corr_m, copy=True)
+            if min_correlation is not None:
+                y_corr_m[y_corr_m <= 0] = 0
+
+            keep_mask = np.array([True] * len(y_corr_m))
+            for i in range(len(y_corr_m) - 1, -1, -1):
+                if np.sum(y_corr_m[i] != 0) == 0:
+                    keep_mask[i] = False
+                else:
+                    break
+            if np.sum(keep_mask) > 0:
+                y_corr_m = y_corr_m[keep_mask]
+
+            y_data.y_corr = np.array(y_corr_m, copy=True)
+
+            y_corr_diags = [y_data.y_corr[i, :(len(y_data.y_corr[i, :]) - i)] for i in range(len(y_data.y_corr))]
+            y_corr_sparse = sparse.csc_matrix(
+                sparse.diags(
+                    y_corr_diags + y_corr_diags[1:],
+                    list(range(len(y_corr_diags))) + list(range(-1, -len(y_corr_diags), -1)),
+                )
+            )
+
+            if store_corr_sparse:
+                y_data.y_corr_sparse = y_corr_sparse
+
+        if Y is not None:
+            na_mask = ~np.isnan(Y)
+            y_data.y_var = np.var(Y[na_mask])
+        else:
+            y_data.y_var = None
+        y_data.Y = Y
+        y_data.Y_for_regression = Y_for_regression
+        y_data.Y_exomes = Y_exomes
+        y_data.Y_positive_controls = Y_positive_controls
+        y_data.Y_case_counts = Y_case_counts
+        return y_data
+
+    def apply_to_runtime(self, runtime):
+        runtime.Y = self.Y
+        runtime.Y_for_regression = self.Y_for_regression
+        runtime.Y_exomes = self.Y_exomes
+        runtime.Y_positive_controls = self.Y_positive_controls
+        runtime.Y_case_counts = self.Y_case_counts
+        runtime.y_var = self.y_var
+        runtime.y_corr = self.y_corr
+        runtime.y_corr_sparse = self.y_corr_sparse
+        if getattr(runtime, "runtime_state_bundle", None) is not None:
+            runtime.runtime_state_bundle.y_state = self
+        runtime.y_state = self
+        return self
+
 
 @dataclass
 class HyperparameterData:
@@ -601,6 +736,8 @@ class HyperparameterData:
         runtime.sigma2s = self.sigma2s
         runtime.sigma2s_missing = self.sigma2s_missing
         runtime.hyperparameter_state = self
+        if getattr(runtime, "runtime_state_bundle", None) is not None:
+            runtime.runtime_state_bundle.hyperparameter_state = self
         return self
 
     def get_p(self):
@@ -693,6 +830,62 @@ class PhewasRuntimeState:
     num_gene_phewas_filtered: int = 0
     anchor_gene_mask: Any = None
     anchor_pheno_mask: Any = None
+
+    @classmethod
+    def from_runtime(cls, runtime):
+        return cls(
+            phenos=getattr(runtime, "phenos", None),
+            pheno_to_ind=getattr(runtime, "pheno_to_ind", None),
+            gene_pheno_Y=getattr(runtime, "gene_pheno_Y", None),
+            gene_pheno_combined_prior_Ys=getattr(runtime, "gene_pheno_combined_prior_Ys", None),
+            gene_pheno_priors=getattr(runtime, "gene_pheno_priors", None),
+            X_phewas_beta=getattr(runtime, "X_phewas_beta", None),
+            X_phewas_beta_uncorrected=getattr(runtime, "X_phewas_beta_uncorrected", None),
+            num_gene_phewas_filtered=getattr(runtime, "num_gene_phewas_filtered", 0),
+            anchor_gene_mask=getattr(runtime, "anchor_gene_mask", None),
+            anchor_pheno_mask=getattr(runtime, "anchor_pheno_mask", None),
+        )
+
+    def apply_to_runtime(self, runtime):
+        runtime.phenos = self.phenos
+        runtime.pheno_to_ind = self.pheno_to_ind
+        runtime.gene_pheno_Y = self.gene_pheno_Y
+        runtime.gene_pheno_combined_prior_Ys = self.gene_pheno_combined_prior_Ys
+        runtime.gene_pheno_priors = self.gene_pheno_priors
+        runtime.X_phewas_beta = self.X_phewas_beta
+        runtime.X_phewas_beta_uncorrected = self.X_phewas_beta_uncorrected
+        runtime.num_gene_phewas_filtered = self.num_gene_phewas_filtered
+        runtime.anchor_gene_mask = self.anchor_gene_mask
+        runtime.anchor_pheno_mask = self.anchor_pheno_mask
+        if getattr(runtime, "runtime_state_bundle", None) is not None:
+            runtime.runtime_state_bundle.phewas_state = self
+        runtime.phewas_state = self
+        return self
+
+
+@dataclass
+class RuntimeStateBundle:
+    y_state: YData
+    hyperparameter_state: HyperparameterData
+    phewas_state: PhewasRuntimeState
+
+    @classmethod
+    def from_runtime(cls, runtime):
+        return cls(
+            y_state=YData.from_runtime(runtime),
+            hyperparameter_state=HyperparameterData.from_runtime(runtime),
+            phewas_state=PhewasRuntimeState.from_runtime(runtime),
+        )
+
+    def apply_to_runtime(self, runtime):
+        self.y_state.apply_to_runtime(runtime)
+        self.hyperparameter_state.apply_to_runtime(runtime)
+        self.phewas_state.apply_to_runtime(runtime)
+        runtime.y_state = self.y_state
+        runtime.hyperparameter_state = self.hyperparameter_state
+        runtime.phewas_state = self.phewas_state
+        runtime.runtime_state_bundle = self
+        return self
 
 
 @dataclass

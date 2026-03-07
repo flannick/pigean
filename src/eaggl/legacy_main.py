@@ -68,6 +68,7 @@ try:
         sync_y_state as pegs_sync_y_state,
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
+        sync_runtime_state_bundle as pegs_sync_runtime_state_bundle,
     )
     from pegs_utils import (
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
@@ -170,6 +171,7 @@ except ImportError:
         sync_y_state as pegs_sync_y_state,
         sync_hyperparameter_state as pegs_sync_hyperparameter_state,
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
+        sync_runtime_state_bundle as pegs_sync_runtime_state_bundle,
     )
     from pegs_utils import (
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
@@ -806,9 +808,10 @@ class EagglState(object):
         self.factor_phewas_combined_prior_Ys_huber_p_values = None #phewas statistics
         self.factor_phewas_combined_prior_Ys_huber_one_sided_p_values = None #phewas statistics
 
-        self.y_state = pegs_sync_y_state(self)
-        self.hyperparameter_state = pegs_sync_hyperparameter_state(self)
-        self.phewas_state = pegs_sync_phewas_runtime_state(self)
+        self.runtime_state_bundle = pegs_sync_runtime_state_bundle(self)
+        self.y_state = self.runtime_state_bundle.y_state
+        self.hyperparameter_state = self.runtime_state_bundle.hyperparameter_state
+        self.phewas_state = self.runtime_state_bundle.phewas_state
 
     def has_gene_sets(self):
         return self.X_orig is not None and self.X_orig.shape[1] > 0
