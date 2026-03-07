@@ -75,11 +75,12 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         io_source = (REPO_ROOT / "src" / "eaggl" / "io.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.io_common import", io_source)
         self.assertIn("from pegs_shared.xdata import", io_source)
-        self.assertNotIn("build_read_x_pipeline_config,", io_source.split("from pegs_utils import", 1)[-1])
-        self.assertNotIn("clean_chrom_name,", io_source.split("from pegs_utils import", 1)[-1])
-        self.assertNotIn("construct_map_to_ind,", io_source.split("from pegs_utils import", 1)[-1])
-        self.assertNotIn("parse_gene_map_file,", io_source.split("from pegs_utils import", 1)[-1])
-        self.assertNotIn("read_loc_file_with_gene_map,", io_source.split("from pegs_utils import", 1)[-1])
+        pegs_utils_import_block = io_source.split("from pegs_utils import", 1)[1].split(")\n", 1)[0]
+        self.assertNotIn("build_read_x_pipeline_config", pegs_utils_import_block)
+        self.assertNotIn("clean_chrom_name", pegs_utils_import_block)
+        self.assertNotIn("construct_map_to_ind", pegs_utils_import_block)
+        self.assertNotIn("parse_gene_map_file", pegs_utils_import_block)
+        self.assertNotIn("read_loc_file_with_gene_map", pegs_utils_import_block)
 
 
 if __name__ == "__main__":
