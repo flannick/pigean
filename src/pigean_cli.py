@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import json
-import optparse
 import random
 import sys
 
 import numpy as np
 
 try:
-    from .pegs_cli_errors import CliConfigError, CliOptionParser, CliUsageError
+    from .pegs_cli_errors import CliConfigError, CliOptionGroup, CliOptionParser, CliUsageError, SUPPRESS_HELP
 except ImportError:
-    from pegs_cli_errors import CliConfigError, CliOptionParser, CliUsageError  # type: ignore
+    from pegs_cli_errors import CliConfigError, CliOptionGroup, CliOptionParser, CliUsageError, SUPPRESS_HELP  # type: ignore
 
 try:
     from pegs_shared.cli import (
@@ -702,7 +701,7 @@ def _build_cli_manifest_metadata():
             continue
         _primary_flag = _primary_flag_for_option(_opt)
         _summary = _OPTION_SUMMARY_BY_FLAG.get(_primary_flag)
-        if _summary is None and _opt.help not in (None, optparse.SUPPRESS_HELP):
+        if _summary is None and _opt.help not in (None, SUPPRESS_HELP):
             _summary = _opt.help
         _category = "method_optional"
         _visibility = "expert"
@@ -806,10 +805,10 @@ def _apply_cli_help_layout(_parser, show_expert=False):
         if _meta is None:
             continue
         if _meta["public_visibility"] == "hidden":
-            _opt.help = optparse.SUPPRESS_HELP
+            _opt.help = SUPPRESS_HELP
             continue
         if not show_expert and _meta["public_visibility"] != "normal":
-            _opt.help = optparse.SUPPRESS_HELP
+            _opt.help = SUPPRESS_HELP
             continue
         _help_text = _option_help_for_display(_primary_flag, _meta)
         _opt.help = _help_text if _help_text is not None else ""
@@ -823,17 +822,17 @@ def _move_option_to_group(_parser, _opt, _group):
 
 
 def _apply_cli_option_groups(_parser):
-    core_group = optparse.OptionGroup(
+    core_group = CliOptionGroup(
         _parser,
         _CORE_OPTION_GROUP_TITLE,
         "Default PIGEAN workflow inputs, outputs, and inference controls.",
     )
-    runtime_group = optparse.OptionGroup(
+    runtime_group = CliOptionGroup(
         _parser,
         _RUNTIME_OPTION_GROUP_TITLE,
         "Config, reproducibility, and operational controls that do not change model semantics.",
     )
-    expert_group = optparse.OptionGroup(
+    expert_group = CliOptionGroup(
         _parser,
         _EXPERT_OPTION_GROUP_TITLE,
         "Advanced Set B workflows, expert tuning, and debug flags. Use --help-expert to show them.",

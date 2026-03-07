@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import optparse
+import argparse
 import sys
 import traceback
+from types import SimpleNamespace
 
 
 class PegsCliError(Exception):
@@ -26,9 +27,166 @@ class DataValidationError(PegsCliError):
     exit_code = 1
 
 
-class CliOptionParser(optparse.OptionParser):
-    def error(self, msg):
-        raise CliUsageError(msg)
+SUPPRESS_HELP = argparse.SUPPRESS
+
+
+def _normalize_usage(usage):
+    if usage is None:
+        return None
+    if usage.lower().startswith("usage: "):
+        return usage.split(": ", 1)[1]
+    return usage
+
+
+def _normalize_option_type(option_type):
+    if option_type in (None, "string", str):
+        return "string"
+    if option_type in ("int", int):
+        return "int"
+    if option_type in ("float", float):
+        return "float"
+    return option_type
+
+
+def _argparse_type_for_option(option_type):
+    if option_type == "int":
+        return int
+    if option_type == "float":
+        return float
+    return str
+
+
+class CliOption:
+    def __init__(self, *flags, **kwargs):
+        clean_flags = [flag for flag in flags if isinstance(flag, str) and len(flag) > 0]
+        if len(clean_flags) == 0:
+            raise ValueError("CliOption requires at least one flag")
+        self._short_opts = [flag for flag in clean_flags if flag.startswith("-") and not flag.startswith("--")]
+        self._long_opts = [flag for flag in clean_flags if flag.startswith("--")]
+        self.dest = kwargs.get("dest")
+        if self.dest is None:
+            fallback = self._long_opts[0] if len(self._long_opts) > 0 else clean_flags[0]
+            self.dest = fallback.lstrip("-").replace("-", "_")
+        self.action = kwargs.get("action")
+        self.default = kwargs.get("default")
+        self.help = kwargs.get("help")
+        self.type = _normalize_option_type(kwargs.get("type"))
+        self.callback = kwargs.get("callback")
+
+    def takes_value(self):
+        return self.action not in ("store_true", "store_false")
+
+    def _build_callback_action(self, parser_wrapper):
+        option = self
+
+        class _CallbackAction(argparse.Action):
+            def __call__(self, parser, namespace, values, option_string=None):
+                parser_wrapper.values = namespace
+                parser_proxy = SimpleNamespace(values=namespace)
+                option.callback(option, option_string, values, parser_proxy)
+                parser_wrapper.values = namespace
+
+        return _CallbackAction
+
+    def add_to_argparse(self, parser_wrapper, argparse_target):
+        flags = list(self._short_opts) + list(self._long_opts)
+        kwargs = {
+            "dest": self.dest,
+            "default": self.default,
+        }
+        if self.help is not None:
+            kwargs["help"] = self.help
+        if self.action == "store_true":
+            kwargs["action"] = "store_true"
+        elif self.action == "store_false":
+            kwargs["action"] = "store_false"
+        elif self.action == "append":
+            kwargs["action"] = "append"
+            kwargs["type"] = _argparse_type_for_option(self.type)
+        elif self.action == "callback":
+            kwargs["action"] = self._build_callback_action(parser_wrapper)
+            if self.takes_value():
+                kwargs["type"] = _argparse_type_for_option(self.type)
+        else:
+            kwargs["action"] = "store"
+            if self.takes_value():
+                kwargs["type"] = _argparse_type_for_option(self.type)
+        argparse_target.add_argument(*flags, **kwargs)
+
+
+class CliOptionGroup:
+    def __init__(self, parser, title, description=None):
+        self.parser = parser
+        self.title = title
+        self.description = description
+        self.option_list = []
+
+    def add_option(self, *flags, **kwargs):
+        option = CliOption(*flags, **kwargs)
+        if option not in self.option_list:
+            self.option_list.append(option)
+        return option
+
+
+class _CliArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise CliUsageError(message)
+
+
+class CliOptionParser:
+    def __init__(self, usage=None):
+        self.usage = usage
+        self.description = None
+        self.epilog = None
+        self.option_list = []
+        self.option_groups = []
+        self.values = None
+
+    def add_option(self, *flags, **kwargs):
+        option = CliOption(*flags, **kwargs)
+        self.option_list.append(option)
+        return option
+
+    def add_option_group(self, group):
+        if group not in self.option_groups:
+            self.option_groups.append(group)
+        return group
+
+    def _build_argument_parser(self):
+        parser = _CliArgumentParser(
+            usage=_normalize_usage(self.usage),
+            description=self.description,
+            epilog=self.epilog,
+            add_help=True,
+            formatter_class=argparse.RawTextHelpFormatter,
+        )
+        for option in self.option_list:
+            option.add_to_argparse(self, parser)
+        for group in self.option_groups:
+            argparse_group = parser.add_argument_group(group.title, group.description)
+            for option in group.option_list:
+                option.add_to_argparse(self, argparse_group)
+        return parser
+
+    def format_help(self):
+        text = self._build_argument_parser().format_help()
+        if text.startswith("usage:"):
+            text = "Usage:" + text[len("usage:"):]
+        return text
+
+    def print_help(self, file=None):
+        if file is None:
+            file = sys.stdout
+        file.write(self.format_help())
+
+    def parse_args(self, args=None):
+        parser = self._build_argument_parser()
+        namespace, extras = parser.parse_known_args(args)
+        for arg in extras:
+            if isinstance(arg, str) and arg.startswith("-"):
+                raise CliUsageError("no such option: %s" % arg)
+        self.values = namespace
+        return namespace, extras
 
 
 def _coerce_argv(argv):
