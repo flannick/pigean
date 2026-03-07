@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import phewas as pigean_phewas
+
 
 @dataclass
 class BetaStageResult:
@@ -148,7 +150,8 @@ def run_main_beta_stage(domain, state, options, mode_state):
             "betas_trace_out": options.betas_trace_out,
         })
         state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
-        domain._run_advanced_set_b_phewas_beta_sampling_if_requested(
+        pigean_phewas.run_advanced_set_b_phewas_beta_sampling_if_requested(
+            domain=domain,
             state=state,
             options=options,
             beta_sampling_kwargs=beta_sampling_kwargs,

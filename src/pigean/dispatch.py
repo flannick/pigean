@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from . import outputs as pigean_outputs
+from . import pipeline as pigean_pipeline
+
+
 def run_main_pipeline(domain, options, mode):
     if not options.hide_opts:
         domain.log("Python version: %s" % domain.sys.version)
@@ -14,17 +18,24 @@ def run_main_pipeline(domain, options, mode):
 
     non_huge_result = None
     if not mode_state["run_huge"]:
-        non_huge_result = domain._run_main_non_huge_pipeline(
+        non_huge_result = pigean_pipeline.run_main_non_huge_pipeline(
+            domain=domain,
             state=state,
             options=options,
             mode_state=mode_state,
             sigma2_cond=sigma2_cond,
-            Y_not_loaded=y_not_loaded,
+            y_not_loaded=y_not_loaded,
         )
 
-    domain._write_main_outputs_and_optional_phewas(state, options, mode_state, mode)
+    pigean_outputs.write_main_outputs_and_optional_phewas(
+        domain=domain,
+        state=state,
+        options=options,
+        mode_state=mode_state,
+        mode=mode,
+    )
 
-    return domain.MainPipelineResult(
+    return pigean_pipeline.MainPipelineResult(
         state=state,
         mode_state=mode_state,
         sigma2_cond=sigma2_cond,

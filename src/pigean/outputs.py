@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from . import phewas as pigean_phewas
+
+
 def write_eaggl_bundle_if_requested(domain, state, options, mode):
     if options.eaggl_bundle_out is None:
         return
@@ -84,7 +87,11 @@ def write_main_outputs_and_optional_phewas(domain, state, options, mode_state, m
         state.write_gene_effectors(options.gene_effectors_out)
 
     if mode_state["run_phewas"]:
-        domain._run_advanced_set_b_output_phewas_if_requested(state=state, options=options)
+        pigean_phewas.run_advanced_set_b_output_phewas_if_requested(
+            domain=domain,
+            state=state,
+            options=options,
+        )
 
     if options.params_out:
         state.write_params(options.params_out)

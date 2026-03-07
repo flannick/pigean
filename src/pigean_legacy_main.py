@@ -18874,21 +18874,6 @@ class YReadContract:
     def to_read_kwargs(self) -> dict:
         return dict(self.read_kwargs)
 
-
-try:
-    from . import pigean_pipeline as _pigean_pipeline
-except ImportError:
-    import pigean_pipeline as _pigean_pipeline
-
-
-BetaStageResult = _pigean_pipeline.BetaStageResult
-PriorsStageResult = _pigean_pipeline.PriorsStageResult
-GibbsStageResult = _pigean_pipeline.GibbsStageResult
-GibbsStageConfig = _pigean_pipeline.GibbsStageConfig
-NonHugePipelineResult = _pigean_pipeline.NonHugePipelineResult
-MainPipelineResult = _pigean_pipeline.MainPipelineResult
-
-
 def _build_main_y_read_contract(options):
     primary_inputs = YPrimaryInputsContract(
         gwas_in=options.gwas_in,
@@ -19379,20 +19364,6 @@ def _load_main_Y_inputs(state, options, mode_state):
         return False
 
     return True
-
-def _run_advanced_set_b_phewas_beta_sampling_if_requested(state, options, beta_sampling_kwargs):
-    try:
-        from . import pigean_phewas as _pigean_phewas
-    except ImportError:
-        import pigean_phewas as _pigean_phewas
-
-    return _pigean_phewas.run_advanced_set_b_phewas_beta_sampling_if_requested(
-        sys.modules[__name__],
-        state,
-        options,
-        beta_sampling_kwargs,
-    )
-
 def _run_advanced_set_b_output_phewas_if_requested(state, options):
     try:
         from . import pigean_phewas as _pigean_phewas
@@ -19406,101 +19377,16 @@ def _run_advanced_set_b_output_phewas_if_requested(state, options):
     )
 
 
-def _write_eaggl_bundle_if_requested(state, options, mode):
-    try:
-        from . import pigean_outputs as _pigean_outputs
-    except ImportError:
-        import pigean_outputs as _pigean_outputs
-
-    return _pigean_outputs.write_eaggl_bundle_if_requested(
-        sys.modules[__name__],
-        state,
-        options,
-        mode,
-    )
-
-
-def _run_main_beta_tilde_stage(state, options, mode_state):
-    return _pigean_pipeline.run_main_beta_tilde_stage(
-        sys.modules[__name__],
-        state,
-        options,
-        mode_state,
-    )
-
-
-def _run_main_beta_stage(state, options, mode_state):
-    return _pigean_pipeline.run_main_beta_stage(
-        sys.modules[__name__],
-        state,
-        options,
-        mode_state,
-    )
-
-
-def _run_main_priors_stage(state, options, mode_state):
-    return _pigean_pipeline.run_main_priors_stage(
-        sys.modules[__name__],
-        state,
-        options,
-        mode_state,
-    )
-
-
-def _build_main_gibbs_stage_config(options):
-    return _pigean_pipeline.build_main_gibbs_stage_config(options)
-
-
-def _run_main_gibbs_stage(state, options, mode_state):
-    return _pigean_pipeline.run_main_gibbs_stage(
-        sys.modules[__name__],
-        state,
-        options,
-        mode_state,
-    )
-
-
-def _run_main_non_huge_pipeline(state, options, mode_state, sigma2_cond, Y_not_loaded):
-    return _pigean_pipeline.run_main_non_huge_pipeline(
-        sys.modules[__name__],
-        state,
-        options,
-        mode_state,
-        sigma2_cond,
-        Y_not_loaded,
-    )
-
-
-def _write_main_outputs_and_optional_phewas(state, options, mode_state, mode):
-    try:
-        from . import pigean_outputs as _pigean_outputs
-    except ImportError:
-        import pigean_outputs as _pigean_outputs
-
-    return _pigean_outputs.write_main_outputs_and_optional_phewas(
-        sys.modules[__name__],
-        state,
-        options,
-        mode_state,
-        mode,
-    )
-
-
-def run_main_pipeline(options, mode):
-    try:
-        from . import pigean_dispatch as _pigean_dispatch
-    except ImportError:
-        import pigean_dispatch as _pigean_dispatch
-
-    return _pigean_dispatch.run_main_pipeline(sys.modules[__name__], options, mode)
-
-
 def main(argv=None):
     try:
         should_continue = _bootstrap_cli(argv)
         if not should_continue:
             return 0
-        run_main_pipeline(options, mode)
+        try:
+            from . import pigean_dispatch as _pigean_dispatch
+        except ImportError:
+            import pigean_dispatch as _pigean_dispatch
+        _pigean_dispatch.run_main_pipeline(sys.modules[__name__], options, mode)
         return 0
     except PegsCliError as exc:
         return pegs_handle_cli_exception(exc, argv=argv, debug_level=debug_level)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import pathlib
+import sys
 import unittest
 
 
@@ -17,12 +18,24 @@ class SharedModuleBoundaryTest(unittest.TestCase):
             ("pigean.huge", "pigean_huge", "read_huge_statistics_bundle"),
             ("pigean.phewas", "pigean_phewas", "run_advanced_set_b_output_phewas_if_requested"),
         )
+        src_root = str(REPO_ROOT / "src")
+        if src_root not in sys.path:
+            sys.path.insert(0, src_root)
         for package_module_name, flat_module_name, symbol_name in seam_expectations:
             with self.subTest(module=package_module_name, symbol=symbol_name):
                 package_module = importlib.import_module(package_module_name)
                 flat_module = importlib.import_module(flat_module_name)
                 self.assertIs(getattr(package_module, symbol_name), getattr(flat_module, symbol_name))
                 self.assertEqual(getattr(package_module, symbol_name).__module__, package_module_name)
+
+    def test_pigean_package_legacy_entrypoint_owns_main_dispatch(self) -> None:
+        legacy_source = (REPO_ROOT / "src" / "pigean" / "legacy_main.py").read_text(encoding="utf-8")
+        flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
+        self.assertIn("from . import dispatch as pigean_dispatch", legacy_source)
+        self.assertIn("def run_main_pipeline(options, mode):", legacy_source)
+        self.assertIn("return pigean_dispatch.run_main_pipeline(_legacy_main, options, mode)", legacy_source)
+        self.assertNotIn("def _run_main_non_huge_pipeline", flat_source)
+        self.assertNotIn("def _write_main_outputs_and_optional_phewas", flat_source)
 
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean_cli.py").read_text(encoding="utf-8")
