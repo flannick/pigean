@@ -58,22 +58,22 @@ def _iter_module_files(src_root: Path, profile_name: str) -> list[tuple[str, str
         if not source_path.exists():
             raise FileNotFoundError("Missing source file for stitched artifact: %s" % source_path)
         module_name = rel_path[:-3]
-        module_entries.append((module_name, rel_path, False, source_path.read_text(encoding="utf-8")))
+        module_entries.append((module_name, "src/%s" % rel_path, False, source_path.read_text(encoding="utf-8")))
     for package_name in profile["packages"]:
         package_root = src_root / package_name
         if not package_root.exists():
             raise FileNotFoundError("Missing package directory for stitched artifact: %s" % package_root)
         init_path = package_root / "__init__.py"
         if init_path.exists():
-            module_entries.append((package_name, str(init_path.relative_to(src_root)), True, init_path.read_text(encoding="utf-8")))
+            module_entries.append((package_name, "src/%s" % str(init_path.relative_to(src_root)), True, init_path.read_text(encoding="utf-8")))
         else:
-            module_entries.append((package_name, "%s/__init__.py" % package_name, True, ""))
+            module_entries.append((package_name, "src/%s/__init__.py" % package_name, True, ""))
         for source_path in sorted(package_root.rglob("*.py")):
             if source_path.name == "__init__.py":
                 continue
             rel_path = str(source_path.relative_to(src_root))
             module_name = rel_path[:-3].replace("/", ".")
-            module_entries.append((module_name, rel_path, False, source_path.read_text(encoding="utf-8")))
+            module_entries.append((module_name, "src/%s" % rel_path, False, source_path.read_text(encoding="utf-8")))
     return module_entries
 
 
