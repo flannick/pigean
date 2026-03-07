@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-from . import legacy_main as _legacy_main
+import importlib
 
 
-for _name, _value in vars(_legacy_main).items():
-    if _name.startswith("__"):
-        continue
-    globals()[_name] = _value
+def _legacy_module():
+    return importlib.import_module(__name__ + ".legacy_main")
 
-main = _legacy_main.main
 
-__all__ = [name for name in globals() if not name.startswith("__")]
+def main(argv=None):
+    return _legacy_module().main(argv)
+
+
+def __getattr__(name):
+    return getattr(_legacy_module(), name)
+
+
+def __dir__():
+    return sorted(set(globals().keys()) | set(dir(_legacy_module())))
