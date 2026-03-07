@@ -13,7 +13,7 @@ except ImportError:
     from pegs_cli_errors import CliConfigError, CliOptionParser, CliUsageError  # type: ignore
 
 try:
-    from .pegs_cli_utils import (
+    from pegs_shared.cli import (
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
@@ -32,7 +32,7 @@ try:
         resolve_config_path_value as pegs_resolve_config_path_value,
     )
 except ImportError:
-    from pegs_cli_utils import (  # type: ignore
+    from pegs_shared.cli import (  # type: ignore
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,

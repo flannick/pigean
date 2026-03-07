@@ -10,13 +10,20 @@ if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import pegs_utils  # noqa: E402
+from pegs_shared import bundle as pegs_shared_bundle  # noqa: E402
+from pegs_shared import phewas as pegs_shared_phewas  # noqa: E402
 import pegs_utils_bundle  # noqa: E402
 import pegs_utils_phewas  # noqa: E402
 
 
 class PegsUtilsDomainsTest(unittest.TestCase):
     def test_bundle_constants_match_compat_shim(self) -> None:
+        self.assertEqual(pegs_shared_bundle.EAGGL_BUNDLE_SCHEMA, pegs_utils_bundle.EAGGL_BUNDLE_SCHEMA)
         self.assertEqual(pegs_utils_bundle.EAGGL_BUNDLE_SCHEMA, pegs_utils.EAGGL_BUNDLE_SCHEMA)
+        self.assertEqual(
+            pegs_shared_bundle.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+            pegs_utils_bundle.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
+        )
         self.assertEqual(
             pegs_utils_bundle.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
             pegs_utils.EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
@@ -29,16 +36,28 @@ class PegsUtilsDomainsTest(unittest.TestCase):
             read_gene_phewas=True,
             num_gene_phewas_filtered=0,
         )
-        new_decision = pegs_utils_phewas.resolve_gene_phewas_input_decision_for_stage(**kwargs)
+        new_decision = pegs_shared_phewas.resolve_gene_phewas_input_decision_for_stage(**kwargs)
+        shim_decision_2 = pegs_utils_phewas.resolve_gene_phewas_input_decision_for_stage(**kwargs)
         shim_decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(**kwargs)
         self.assertEqual(new_decision.mode, shim_decision.mode)
         self.assertEqual(new_decision.reason, shim_decision.reason)
         self.assertEqual(new_decision.resolved_input, shim_decision.resolved_input)
+        self.assertEqual(new_decision.mode, shim_decision_2.mode)
+        self.assertEqual(new_decision.reason, shim_decision_2.reason)
+        self.assertEqual(new_decision.resolved_input, shim_decision_2.resolved_input)
 
     def test_bundle_tar_mode_matches_compat_shim(self) -> None:
         self.assertEqual(
+            pegs_shared_bundle.get_tar_write_mode_for_bundle_path("a.tar.gz"),
+            pegs_utils_bundle.get_tar_write_mode_for_bundle_path("a.tar.gz"),
+        )
+        self.assertEqual(
             pegs_utils_bundle.get_tar_write_mode_for_bundle_path("a.tar.gz"),
             pegs_utils.get_tar_write_mode_for_bundle_path("a.tar.gz"),
+        )
+        self.assertEqual(
+            pegs_shared_bundle.get_tar_write_mode_for_bundle_path("a.tar"),
+            pegs_utils_bundle.get_tar_write_mode_for_bundle_path("a.tar"),
         )
         self.assertEqual(
             pegs_utils_bundle.get_tar_write_mode_for_bundle_path("a.tar"),

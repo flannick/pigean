@@ -22,7 +22,7 @@ except ImportError:
     import labeling as _eaggl_labeling
 
 try:
-    from pegs_cli_utils import (
+    from pegs_shared.cli import (
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_set as pegs_callback_set_comma_separated_args_as_set,
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
@@ -40,13 +40,13 @@ try:
         merge_dicts as pegs_merge_dicts,
         resolve_config_path_value as pegs_resolve_config_path_value,
     )
-    from pegs_utils_bundle import (
+    from pegs_shared.bundle import (
         EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS as PEGS_EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
         load_and_apply_bundle_defaults as pegs_load_and_apply_bundle_defaults,
     )
 except ImportError:
-    from pegs_cli_utils import (  # type: ignore
+    from pegs_shared.cli import (  # type: ignore
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_set as pegs_callback_set_comma_separated_args_as_set,
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
@@ -64,7 +64,7 @@ except ImportError:
         merge_dicts as pegs_merge_dicts,
         resolve_config_path_value as pegs_resolve_config_path_value,
     )
-    from pegs_utils_bundle import (  # type: ignore
+    from pegs_shared.bundle import (  # type: ignore
         EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS as PEGS_EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS,
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
         load_and_apply_bundle_defaults as pegs_load_and_apply_bundle_defaults,
