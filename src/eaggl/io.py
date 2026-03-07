@@ -6,22 +6,24 @@ import numpy as np
 import scipy
 import scipy.sparse as sparse
 
+from pegs_shared.io_common import (
+    clean_chrom_name,
+    construct_map_to_ind,
+    parse_gene_map_file,
+    read_loc_file_with_gene_map,
+)
 from pegs_shared.types import XReadCallbacks, XReadConfig, XReadPostCallbacks
 from pegs_shared.xdata import (
+    build_read_x_pipeline_config,
     build_read_x_ingestion_options,
     build_read_x_post_options,
     xdata_from_input_plan,
 )
 from pegs_shared.ydata import sync_phewas_runtime_state
 from pegs_utils import (
-    build_read_x_pipeline_config,
-    clean_chrom_name,
-    construct_map_to_ind,
     load_and_apply_gene_phewas_bfs_to_runtime,
     load_and_apply_gene_set_phewas_statistics_to_runtime,
     load_and_apply_gene_set_statistics_to_runtime,
-    parse_gene_map_file,
-    read_loc_file_with_gene_map,
     record_read_x_counts,
 )
 

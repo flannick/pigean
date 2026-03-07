@@ -67,11 +67,30 @@ from pegs_shared.cli import (
     open_optional_log_handle,
     resolve_config_path_value,
 )
-from pegs_shared.io_common import GeneSetStatsTable, GeneStatsTable, TsvTable, read_tsv, write_tsv
+from pegs_shared.io_common import (
+    GeneSetStatsTable,
+    GeneStatsTable,
+    TsvTable,
+    clean_chrom_name,
+    construct_map_to_ind,
+    open_dig_open_data,
+    open_text_auto,
+    open_text_with_retry,
+    parse_gene_map_file,
+    read_loc_file_with_gene_map,
+    read_tsv,
+    resolve_column_index,
+    urlopen_with_retry,
+    write_tsv,
+    is_dig_open_data_uri,
+    is_gz_file,
+)
 from pegs_shared.xdata import (
+    build_read_x_pipeline_config,
     build_read_x_ingestion_options,
     build_read_x_post_options,
     initialize_matrix_and_gene_index_state,
+    prepare_read_x_inputs,
     xdata_from_input_plan,
 )
 from pegs_shared.ydata import (
@@ -101,40 +120,7 @@ EAGGL_BUNDLE_ALLOWED_DEFAULT_INPUTS = set([
     "gene_set_phewas_stats_in",
 ])
 
-DIG_OPEN_DATA_PREFIX = "dig-open-data:"
 DIG_OPEN_DATA_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
-
-
-def urlopen_with_retry(
-    file,
-    flag=None,
-    tries=5,
-    delay=60,
-    backoff=2,
-    *,
-    log_fn=None,
-    bail_fn=None,
-):
-    if bail_fn is None:
-        bail_fn = _default_bail
-
-    while tries > 1:
-        try:
-            if flag is not None:
-                return urllib.request.urlopen(file, flag)
-            return urllib.request.urlopen(file)
-        except urllib.error.URLError as e:
-            if log_fn is not None:
-                log_fn("%s, Retrying in %d seconds..." % (str(e), delay))
-            time.sleep(delay)
-            tries -= 1
-            delay *= backoff
-    bail_fn("Couldn't open file after too many retries")
-
-
-def is_dig_open_data_uri(filepath):
-    return isinstance(filepath, str) and filepath.startswith(DIG_OPEN_DATA_PREFIX)
-
 
 def is_dig_open_data_ancestry_trait_spec(spec):
     if not isinstance(spec, str):
@@ -151,152 +137,6 @@ def is_dig_open_data_ancestry_trait_spec(spec):
     if not DIG_OPEN_DATA_TOKEN_RE.match(trait):
         return False
     return True
-
-
-def open_dig_open_data(uri, flag=None, *, log_fn=None, bail_fn=None):
-    if bail_fn is None:
-        bail_fn = _default_bail
-
-    if flag is not None and "w" in flag:
-        bail_fn("dig-open-data sources are read-only and cannot be opened for writing")
-
-    spec = uri[len(DIG_OPEN_DATA_PREFIX):]
-    if len(spec.strip()) == 0:
-        bail_fn("Invalid dig-open-data source '%s'; expected dig-open-data:<ancestry>:<trait>" % uri)
-
-    try:
-        from dig_open_data import open_text, open_trait
-    except ImportError:
-        bail_fn("dig_open_data is required to read '%s'. Install https://github.com/flannick/dig-open-data/" % uri)
-
-    if is_dig_open_data_ancestry_trait_spec(spec):
-        ancestry, trait = spec.split(":", 1)
-        if log_fn is not None:
-            log_fn("Reading dig-open-data trait ancestry=%s trait=%s" % (ancestry, trait))
-        return open_trait(ancestry, trait)
-
-    if log_fn is not None:
-        log_fn("Reading dig-open-data source %s" % spec)
-    return open_text(spec)
-
-
-def is_gz_file(filepath, is_remote, flag=None, *, urlopen_with_retry_fn=None):
-    open_url_fn = urlopen_with_retry if urlopen_with_retry_fn is None else urlopen_with_retry_fn
-
-    if len(filepath) >= 3 and (filepath[-3:] == ".gz" or filepath[-4:] == ".bgz") and (flag is None or "w" not in flag):
-        try:
-            if is_remote:
-                test_fh = open_url_fn(filepath)
-            else:
-                test_fh = gzip.open(filepath, "rb")
-
-            try:
-                test_fh.readline()
-                test_fh.close()
-                return True
-            except Exception:
-                return False
-        except FileNotFoundError:
-            return True
-
-    elif flag is None or "w" not in flag:
-        test_flag = "rb"
-        if is_remote:
-            test_fh = open_url_fn(filepath, test_flag)
-        else:
-            test_fh = open(filepath, test_flag)
-
-        gz_magic = test_fh.read(2) == b"\x1f\x8b"
-        test_fh.close()
-        return gz_magic
-
-    return filepath[-3:] == ".gz" or filepath[-4:] == ".bgz"
-
-
-def open_text_auto(
-    file,
-    flag=None,
-    *,
-    log_fn=None,
-    bail_fn=None,
-    urlopen_with_retry_fn=None,
-    is_gz_file_fn=None,
-):
-    if bail_fn is None:
-        bail_fn = _default_bail
-    open_url_fn = urlopen_with_retry if urlopen_with_retry_fn is None else urlopen_with_retry_fn
-    detect_gz_fn = is_gz_file if is_gz_file_fn is None else is_gz_file_fn
-
-    if is_dig_open_data_uri(file):
-        return open_dig_open_data(file, flag=flag, log_fn=log_fn, bail_fn=bail_fn)
-
-    is_remote = is_remote_path(file)
-
-    try:
-        is_gz = detect_gz_fn(
-            file,
-            is_remote,
-            flag=flag,
-            urlopen_with_retry_fn=open_url_fn,
-        )
-    except TypeError:
-        # Backward-compatible path for legacy wrapper call signatures.
-        is_gz = detect_gz_fn(file, is_remote, flag=flag)
-
-    if is_gz:
-        open_fun = gzip.open
-        if flag is not None and len(flag) > 0 and not flag.endswith("t"):
-            flag = "%st" % flag
-        elif flag is None:
-            flag = "rt"
-    else:
-        open_fun = open
-
-    if is_remote:
-        if flag is not None:
-            if open_fun is open:
-                fh = io.TextIOWrapper(open_url_fn(file, flag))
-            else:
-                fh = open_fun(open_url_fn(file), flag)
-        else:
-            if open_fun is open:
-                fh = io.TextIOWrapper(open_url_fn(file))
-            else:
-                fh = open_fun(open_url_fn(file))
-    else:
-        if flag is not None:
-            try:
-                fh = open_fun(file, flag, encoding="utf-8")
-            except LookupError:
-                fh = open_fun(file, flag)
-        else:
-            try:
-                fh = open_fun(file, encoding="utf-8")
-            except LookupError:
-                fh = open_fun(file)
-
-    return fh
-
-
-def open_text_with_retry(filepath, flag=None, *, log_fn=None, bail_fn=None):
-    if bail_fn is None:
-        bail_fn = _default_bail
-    if log_fn is None:
-        log_fn = lambda _msg: None
-
-    open_url_with_retry_fn = lambda _file, _flag=None: urlopen_with_retry(
-        _file,
-        flag=_flag,
-        log_fn=log_fn,
-        bail_fn=bail_fn,
-    )
-    return open_text_auto(
-        filepath,
-        flag=flag,
-        log_fn=log_fn,
-        bail_fn=bail_fn,
-        urlopen_with_retry_fn=open_url_with_retry_fn,
-    )
 
 
 def parse_gene_set_statistics_file(
@@ -2473,31 +2313,6 @@ def read_factor_phewas_stats(path, *, bail_fn=None):
     return read_tsv(path, required_columns=[], bail_fn=bail_fn)
 
 
-def resolve_column_index(col_name_or_index, header_cols, require_match=True, *, bail_fn=None):
-    if bail_fn is None:
-        bail_fn = _default_bail
-
-    try:
-        col_ind = int(col_name_or_index)
-    except (TypeError, ValueError):
-        col_ind = None
-
-    if col_ind is not None:
-        if col_ind <= 0:
-            bail_fn("All column ids specified as indices are 1-based")
-        return col_ind - 1
-
-    matching_cols = [i for i in range(0, len(header_cols)) if header_cols[i] == col_name_or_index]
-    if len(matching_cols) == 0:
-        if require_match:
-            bail_fn("Could not find match for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
-        else:
-            return None
-    if len(matching_cols) > 1:
-        bail_fn("Found two matches for column %s in header: %s" % (col_name_or_index, "\t".join(header_cols)))
-    return matching_cols[0]
-
-
 def remove_tag_from_input(x_in, tag_separator=":"):
     tag = None
     if tag_separator in x_in:
@@ -2947,35 +2762,6 @@ def _normalize_input_specs(input_specs):
     return ([], [])
 
 
-def build_read_x_pipeline_config(X_in, overrides=None, *, bail_fn=None):
-    if bail_fn is None:
-        bail_fn = _default_bail
-
-    if isinstance(overrides, ReadXPipelineConfig):
-        config = copy.deepcopy(overrides)
-        if X_in is not None:
-            config.X_in = X_in
-    else:
-        config = ReadXPipelineConfig(X_in=X_in)
-        if overrides is not None:
-            for key, value in overrides.items():
-                if not hasattr(config, key):
-                    bail_fn("Unknown read-X pipeline option '%s'" % key)
-                setattr(config, key, value)
-
-    if config.x_sparsify is None:
-        config.x_sparsify = [50, 100, 200, 500, 1000]
-    else:
-        config.x_sparsify = list(config.x_sparsify)
-
-    if config.ignore_genes is None:
-        config.ignore_genes = set(["NA"])
-    else:
-        config.ignore_genes = set(config.ignore_genes)
-
-    return config
-
-
 def build_xin_to_p_noninf_index_map(
     X_in,
     X_list,
@@ -3025,183 +2811,6 @@ def build_xin_to_p_noninf_index_map(
             "Error: if you pass in more than one --p-noninf, you need to have the same number of values as --X-* inputs"
         )
     return xin_to_p_noninf_ind
-
-
-def _append_initial_p_indices(initial_ps, input_specs, xin_to_p_noninf_ind):
-    if initial_ps is None:
-        return
-    for input_spec in input_specs:
-        assert(input_spec in xin_to_p_noninf_ind)
-        initial_ps.append(xin_to_p_noninf_ind[input_spec])
-
-
-def _map_initial_p_indices_to_values(initial_ps, initial_p):
-    if initial_ps is None:
-        return
-    assert(type(initial_p) is list)
-    for i in range(len(initial_ps)):
-        assert(initial_ps[i]) >= 0 and initial_ps[i] < len(initial_p)
-        initial_ps[i] = initial_p[initial_ps[i]]
-
-
-def _expand_x_inputs(x_inputs, orig_files, batch_separator="@", file_separator=None):
-    expanded_inputs = []
-    batches = []
-    labels = []
-    expanded_orig_files = []
-    for i in range(len(x_inputs)):
-        x_input = x_inputs[i]
-        orig_file = orig_files[i]
-        batch = None
-        label = os.path.basename(orig_file)
-        if "." in label:
-            label = ".".join(label.split(".")[:-1])
-        if batch_separator in x_input:
-            batch = x_input.split(batch_separator)[-1]
-            label = batch
-            x_input = batch_separator.join(x_input.split(batch_separator)[:-1])
-
-        (x_input, tag) = remove_tag_from_input(x_input)
-        if tag is not None:
-            label = tag
-
-        if file_separator is not None:
-            x_to_add = x_input.split(file_separator)
-        else:
-            x_to_add = [x_input]
-
-        expanded_inputs += x_to_add
-        batches += [batch] * len(x_to_add)
-        labels += [label] * len(x_to_add)
-        expanded_orig_files += [orig_file] * len(x_to_add)
-    return (expanded_inputs, batches, labels, expanded_orig_files)
-
-
-def _append_inputs_from_list_files(
-    list_specs,
-    dest_inputs,
-    dest_orig_files,
-    list_open_fn,
-    strip_fn,
-    resolve_relative_paths=False,
-    skip_empty_lines=True,
-    initial_ps=None,
-    xin_to_p_noninf_ind=None,
-    batch_separator="@",
-):
-    if list_specs is None:
-        return
-
-    if type(list_specs) == str:
-        list_specs = [list_specs]
-
-    for list_spec in list_specs:
-        batch = None
-        if batch_separator in list_spec:
-            batch = list_spec.split(batch_separator)[-1]
-            list_spec = batch_separator.join(list_spec.split(batch_separator)[:-1])
-
-        list_dir = os.path.dirname(os.path.abspath(list_spec))
-        with list_open_fn(list_spec) as list_fh:
-            for raw_line in list_fh:
-                line = strip_fn(raw_line)
-                if skip_empty_lines and len(line) == 0:
-                    continue
-
-                if resolve_relative_paths:
-                    (path, label) = remove_tag_from_input(line)
-                    if path and not os.path.isabs(path):
-                        path = os.path.normpath(os.path.join(list_dir, path))
-                    line = add_tag_to_input(path, label)
-
-                if batch is not None and batch_separator not in line:
-                    line = "%s%s%s" % (line, batch_separator, batch)
-
-                dest_inputs.append(line)
-                if initial_ps is not None:
-                    assert(list_spec in xin_to_p_noninf_ind)
-                    initial_ps.append(xin_to_p_noninf_ind[list_spec])
-                dest_orig_files.append(list_spec)
-
-
-def prepare_read_x_inputs(
-    X_in,
-    X_list,
-    Xd_in,
-    Xd_list,
-    initial_p,
-    xin_to_p_noninf_ind,
-    batch_separator,
-    file_separator,
-    *,
-    sparse_list_open_fn,
-    dense_list_open_fn,
-):
-    initial_ps = None
-    if initial_p is not None:
-        if type(initial_p) is not list:
-            initial_p = [initial_p]
-        initial_ps = []
-        assert(xin_to_p_noninf_ind is not None)
-
-    (X_ins, orig_files) = _normalize_input_specs(X_in)
-    _append_initial_p_indices(initial_ps, X_ins, xin_to_p_noninf_ind)
-    _append_inputs_from_list_files(
-        list_specs=X_list,
-        dest_inputs=X_ins,
-        dest_orig_files=orig_files,
-        list_open_fn=sparse_list_open_fn,
-        strip_fn=lambda line: line.strip(),
-        resolve_relative_paths=True,
-        skip_empty_lines=True,
-        initial_ps=initial_ps,
-        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
-        batch_separator=batch_separator,
-    )
-    X_ins, batches, labels, orig_files = _expand_x_inputs(
-        X_ins,
-        orig_files,
-        batch_separator=batch_separator,
-        file_separator=file_separator,
-    )
-    is_dense = [False for _ in X_ins]
-
-    (Xd_ins, orig_dfiles) = _normalize_input_specs(Xd_in)
-    _append_initial_p_indices(initial_ps, Xd_ins, xin_to_p_noninf_ind)
-    _append_inputs_from_list_files(
-        list_specs=Xd_list,
-        dest_inputs=Xd_ins,
-        dest_orig_files=orig_dfiles,
-        list_open_fn=dense_list_open_fn,
-        strip_fn=lambda line: line.strip("\n"),
-        resolve_relative_paths=False,
-        skip_empty_lines=False,
-        initial_ps=initial_ps,
-        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
-        batch_separator=batch_separator,
-    )
-    Xd_ins, batches2, labels2, orig_dfiles = _expand_x_inputs(
-        Xd_ins,
-        orig_dfiles,
-        batch_separator=batch_separator,
-        file_separator=file_separator,
-    )
-
-    _map_initial_p_indices_to_values(initial_ps, initial_p)
-
-    X_ins += Xd_ins
-    batches += batches2
-    labels += labels2
-    orig_files += orig_dfiles
-    is_dense += [True for _ in Xd_ins]
-    return XInputPlan(
-        initial_ps=initial_ps,
-        X_ins=X_ins,
-        batches=batches,
-        labels=labels,
-        orig_files=orig_files,
-        is_dense=is_dense,
-    )
 
 
 def make_add_to_x_handler(runtime, read_config, read_callbacks, *, run_logistic):
@@ -3792,133 +3401,6 @@ def autodetect_gwas_columns(
         gwas_freq_col,
         gwas_n_col,
     )
-
-
-def clean_chrom_name(chrom):
-    if chrom is None:
-        return chrom
-    if len(chrom) >= 3 and chrom[:3] == "chr":
-        return chrom[3:]
-    return chrom
-
-
-def parse_gene_map_file(
-    gene_map_in,
-    *,
-    gene_map_orig_gene_col=1,
-    gene_map_new_gene_col=2,
-    allow_multi=False,
-    bail_fn=None,
-):
-    if bail_fn is None:
-        bail_fn = _default_bail
-
-    gene_label_map = {}
-    gene_map_orig_gene_col -= 1
-    if gene_map_orig_gene_col < 0:
-        bail_fn("--gene-map-orig-gene-col must be greater than 1")
-    gene_map_new_gene_col -= 1
-    if gene_map_new_gene_col < 0:
-        bail_fn("--gene-map-new-gene-col must be greater than 1")
-
-    with open(gene_map_in) as map_fh:
-        for line in map_fh:
-            cols = line.strip('\n').split()
-            if len(cols) <= gene_map_orig_gene_col or len(cols) <= gene_map_new_gene_col:
-                bail_fn("Not enough columns in --gene-map-in:\n\t%s" % line)
-
-            # Preserve legacy semantics: currently the parser always consumes
-            # columns 1 and 2 after validating requested column indices.
-            orig_gene = cols[0]
-            new_gene = cols[1]
-            if allow_multi:
-                if orig_gene not in gene_label_map:
-                    gene_label_map[orig_gene] = set()
-                gene_label_map[orig_gene].add(new_gene)
-            else:
-                gene_label_map[orig_gene] = new_gene
-    return gene_label_map
-
-
-def read_loc_file_with_gene_map(
-    loc_file,
-    *,
-    gene_label_map=None,
-    return_intervals=False,
-    hold_out_chrom=None,
-    clean_chrom_fn=None,
-    warn_fn=None,
-    bail_fn=None,
-    split_gene_length=1000000,
-):
-    if clean_chrom_fn is None:
-        clean_chrom_fn = clean_chrom_name
-    if warn_fn is None:
-        warn_fn = lambda _msg: None
-    if bail_fn is None:
-        bail_fn = _default_bail
-
-    gene_to_chrom = {}
-    gene_to_pos = {}
-    gene_chrom_name_pos = {}
-    chrom_interval_to_gene = {}
-
-    with open(loc_file) as loc_fh:
-        for line in loc_fh:
-            cols = line.strip('\n').split()
-            if len(cols) != 6:
-                bail_fn(
-                    "Format for --gene-loc-file is:\n\tgene_id\tchrom\tstart\tstop\tstrand\tgene_name\nOffending line:\n\t%s"
-                    % line
-                )
-            gene = cols[5]
-            if gene_label_map is not None and gene in gene_label_map:
-                gene = gene_label_map[gene]
-            chrom = clean_chrom_fn(cols[1])
-            if hold_out_chrom is not None and chrom == hold_out_chrom:
-                continue
-            pos1 = int(cols[2])
-            pos2 = int(cols[3])
-
-            if gene in gene_to_chrom and gene_to_chrom[gene] != chrom:
-                warn_fn("Gene %s appears multiple times with different chromosomes; keeping only first" % gene)
-                continue
-
-            if gene in gene_to_pos and np.abs(np.mean(gene_to_pos[gene]) - np.mean((pos1, pos2))) > 1e7:
-                warn_fn("Gene %s appears multiple times with far away positions; keeping only first" % gene)
-                continue
-
-            gene_to_chrom[gene] = chrom
-            gene_to_pos[gene] = (pos1, pos2)
-
-            if chrom not in gene_chrom_name_pos:
-                gene_chrom_name_pos[chrom] = {}
-            if gene not in gene_chrom_name_pos[chrom]:
-                gene_chrom_name_pos[chrom][gene] = set()
-            gene_chrom_name_pos[chrom][gene].add(pos1)
-            gene_chrom_name_pos[chrom][gene].add(pos2)
-
-            if pos2 < pos1:
-                pos1, pos2 = pos2, pos1
-
-            if return_intervals:
-                if chrom not in chrom_interval_to_gene:
-                    chrom_interval_to_gene[chrom] = {}
-                if (pos1, pos2) not in chrom_interval_to_gene[chrom]:
-                    chrom_interval_to_gene[chrom][(pos1, pos2)] = []
-                chrom_interval_to_gene[chrom][(pos1, pos2)].append(gene)
-
-            if pos2 > pos1:
-                for posm in range(pos1, pos2, split_gene_length)[1:]:
-                    gene_chrom_name_pos[chrom][gene].add(posm)
-
-    if return_intervals:
-        return chrom_interval_to_gene
-    return (gene_chrom_name_pos, gene_to_chrom, gene_to_pos)
-
-
-def construct_map_to_ind(values):
-    return dict([(values[i], i) for i in range(len(values))])
 
 
 def complete_p_beta_se(p, beta, se, *, warn_fn=None):
