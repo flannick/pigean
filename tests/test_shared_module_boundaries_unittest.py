@@ -36,6 +36,12 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("from pegs_shared.bundle import", eaggl_source)
         self.assertIn("from pegs_shared.phewas import", eaggl_source)
 
+    def test_eaggl_legacy_main_uses_package_domain_and_io_layers(self) -> None:
+        eaggl_source = (REPO_ROOT / "src" / "eaggl" / "legacy_main.py").read_text(encoding="utf-8")
+        self.assertIn("from . import domain as _eaggl_domain", eaggl_source)
+        self.assertIn("from . import io as _eaggl_io", eaggl_source)
+        self.assertIn("return _eaggl_dispatch.run_main_pipeline(_build_main_domain(), options)", eaggl_source)
+
 
 if __name__ == "__main__":
     unittest.main()

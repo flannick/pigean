@@ -268,6 +268,14 @@ try:
     from . import cli as _eaggl_cli
 except ImportError:
     import cli as _eaggl_cli
+try:
+    from . import domain as _eaggl_domain
+except ImportError:
+    import domain as _eaggl_domain
+try:
+    from . import io as _eaggl_io
+except ImportError:
+    import io as _eaggl_io
 
 usage = _eaggl_cli.usage
 parser = _eaggl_cli.parser
@@ -5708,8 +5716,8 @@ class EagglState(object):
 
     # inverse_matrix calculations
 
-def _build_main_mode_state():
-    return _eaggl_factor.build_main_mode_state(sys.modules[__name__])
+def _build_main_domain():
+    return _eaggl_domain.build_main_domain(sys.modules[__name__])
 
 
 FactorOnlyStageResult = _eaggl_factor.FactorOnlyStageResult
@@ -5722,662 +5730,52 @@ FactorOutputPlan = _eaggl_outputs.FactorOutputPlan
 MainPipelineResult = _eaggl_factor.MainPipelineResult
 
 
-def _enforce_factor_only_input_boundary(options, mode_state):
-    return _eaggl_workflows.enforce_factor_only_input_boundary(options, mode_state, bail)
-
-
-def _run_main_factor_only_pipeline(g, options, mode_state):
-    return _eaggl_factor.run_main_factor_only_pipeline(sys.modules[__name__], g, options, mode_state)
-
-
 _bind_hyperparameter_properties(EagglState)
 
 
-def _run_read_y_stage(runtime, **read_kwargs):
-    return _read_y_pipeline(runtime, **read_kwargs)
-
-
-def _read_y_pipeline(runtime, gwas_in=None, huge_statistics_in=None, huge_statistics_out=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, gene_loc_file=None, gene_covs_in=None, hold_out_chrom=None, **kwargs):
-    unsupported_flags = []
-    if gwas_in is not None:
-        unsupported_flags.append("--gwas-in")
-    if huge_statistics_in is not None:
-        unsupported_flags.append("--huge-statistics-in")
-    if huge_statistics_out is not None:
-        unsupported_flags.append("--huge-statistics-out")
-    if exomes_in is not None:
-        unsupported_flags.append("--exomes-in")
-    if case_counts_in is not None:
-        unsupported_flags.append("--case-counts-in")
-    if ctrl_counts_in is not None:
-        unsupported_flags.append("--ctrl-counts-in")
-
-    if len(unsupported_flags) > 0:
-        bail(
-            "These inputs belong to pigean.py and are not supported in eaggl.py: %s. "
-            "Run pigean.py first and pass outputs via --eaggl-bundle-in or --gene-stats-in/--gene-set-stats-in."
-            % ", ".join(sorted(unsupported_flags))
-        )
-
-    if positive_controls_in is not None or positive_controls_list is not None:
-        warn("Ignoring positive-control inputs in eaggl.py read_Y; using --gene-stats-in values")
-
-    if gene_bfs_in is None:
-        bail("Require --gene-stats-in for this operation")
-
-    (Y1, extra_genes, extra_Y, gene_combined_map, gene_prior_map) = runtime._read_gene_bfs(gene_bfs_in, **kwargs)
-
-    def _apply_hold_out_chrom(Y_values, extra_gene_names, extra_Y_values):
-        if hold_out_chrom is None:
-            return (Y_values, extra_gene_names, extra_Y_values)
-
-        if runtime.gene_to_chrom is None:
-            if gene_loc_file is None:
-                bail("Option --hold-out-chrom requires --gene-loc-file")
-            (
-                runtime.gene_chrom_name_pos,
-                runtime.gene_to_chrom,
-                runtime.gene_to_pos,
-            ) = pegs_read_loc_file_with_gene_map(
-                gene_loc_file,
-                gene_label_map=runtime.gene_label_map,
-                clean_chrom_fn=pegs_clean_chrom_name,
-                warn_fn=warn,
-                bail_fn=bail,
-            )
-
-        Y_values = np.array(Y_values, dtype=float)
-        extra_gene_names = list(extra_gene_names)
-        extra_Y_values = np.array(extra_Y_values, dtype=float)
-
-        if runtime.genes is not None:
-            Y_nan_mask = np.full(len(Y_values), False)
-            for i, gene in enumerate(runtime.genes):
-                if gene in runtime.gene_to_chrom and runtime.gene_to_chrom[gene] == hold_out_chrom:
-                    Y_nan_mask[i] = True
-            if np.sum(Y_nan_mask) > 0:
-                Y_values[Y_nan_mask] = np.nan
-
-        if len(extra_gene_names) > 0:
-            keep_mask = np.full(len(extra_gene_names), True)
-            for i, gene in enumerate(extra_gene_names):
-                if gene in runtime.gene_to_chrom and runtime.gene_to_chrom[gene] == hold_out_chrom:
-                    keep_mask[i] = False
-            if np.sum(~keep_mask) > 0:
-                extra_gene_names = [extra_gene_names[i] for i in range(len(extra_gene_names)) if keep_mask[i]]
-                extra_Y_values = extra_Y_values[keep_mask]
-
-        return (Y_values, extra_gene_names, extra_Y_values)
-
-    (Y1, extra_genes, extra_Y) = _apply_hold_out_chrom(Y1, extra_genes, extra_Y)
-    Y1_for_regression = copy.copy(Y1)
-    extra_Y_for_regression = copy.copy(extra_Y)
-
-    if runtime.genes is None:
-        genes_union = []
-        seen = set()
-        for gene in extra_genes:
-            if gene not in seen:
-                genes_union.append(gene)
-                seen.add(gene)
-
-        runtime._set_X(runtime.X_orig, genes_union, runtime.gene_sets, skip_N=False)
-        Y = np.array(extra_Y, dtype=float)
-        Y_for_regression = np.array(extra_Y_for_regression, dtype=float)
-        extra_genes = []
-        extra_Y = np.array([])
-        extra_Y_for_regression = np.array([])
-    else:
-        missing_value = np.nanmean(Y1) if len(Y1) > 0 else 0.0
-        Y = np.array(Y1, dtype=float)
-        Y[np.isnan(Y)] = missing_value
-        Y_for_regression = np.array(Y1_for_regression, dtype=float)
-        Y_for_regression[np.isnan(Y_for_regression)] = missing_value
-
-    if len(extra_Y) > 0:
-        Y = np.concatenate((Y, extra_Y))
-        Y_for_regression = np.concatenate((Y_for_regression, extra_Y_for_regression))
-
-        if runtime.X_orig is not None:
-            runtime._set_X(
-                sparse.csc_matrix(
-                    (runtime.X_orig.data, runtime.X_orig.indices, runtime.X_orig.indptr),
-                    shape=(runtime.X_orig.shape[0] + len(extra_Y), runtime.X_orig.shape[1]),
-                ),
-                runtime.genes,
-                runtime.gene_sets,
-                skip_V=True,
-                skip_scale_factors=True,
-                skip_N=False,
-            )
-
-        if runtime.genes is not None:
-            runtime._set_X(runtime.X_orig, runtime.genes + extra_genes, runtime.gene_sets, skip_N=False)
-
-    runtime._set_Y(Y, Y_for_regression, skip_V=True, skip_scale_factors=True)
-
-    if gene_combined_map is not None:
-        runtime.combined_prior_Ys = copy.copy(runtime.Y)
-        for i, gene in enumerate(runtime.genes):
-            if gene in gene_combined_map:
-                runtime.combined_prior_Ys[i] = gene_combined_map[gene]
-
-    if gene_prior_map is not None:
-        runtime.priors = np.zeros(len(runtime.genes))
-        for i, gene in enumerate(runtime.genes):
-            if gene in gene_prior_map:
-                runtime.priors[i] = gene_prior_map[gene]
-
-    if gene_covs_in is not None:
-        (cov_names, gene_covs, _, _) = runtime._read_gene_covs(gene_covs_in, **kwargs)
-        cov_dirs = np.array([0] * len(cov_names))
-
-        col_means = np.nanmean(gene_covs, axis=0)
-        nan_indices = np.where(np.isnan(gene_covs))
-        gene_covs[nan_indices] = np.take(col_means, nan_indices[1])
-
-        if runtime.gene_covariates is not None:
-            assert(gene_covs.shape[0] == runtime.gene_covariates.shape[0])
-            runtime.gene_covariates = np.hstack((runtime.gene_covariates, gene_covs))
-            runtime.gene_covariate_names = runtime.gene_covariate_names + cov_names
-            runtime.gene_covariate_directions = np.append(runtime.gene_covariate_directions, cov_dirs)
-        else:
-            runtime.gene_covariates = gene_covs
-            runtime.gene_covariate_names = cov_names
-            runtime.gene_covariate_directions = cov_dirs
-
-    if runtime.gene_covariates is not None:
-        constant_features = np.isclose(np.var(runtime.gene_covariates, axis=0), 0)
-        if np.sum(constant_features) > 0:
-            runtime.gene_covariates = runtime.gene_covariates[:, ~constant_features]
-            runtime.gene_covariate_names = [runtime.gene_covariate_names[i] for i in np.where(~constant_features)[0]]
-            runtime.gene_covariate_directions = np.array([runtime.gene_covariate_directions[i] for i in np.where(~constant_features)[0]])
-
-        prune_threshold = 0.95
-        cor_mat = np.abs(np.corrcoef(runtime.gene_covariates.T))
-        np.fill_diagonal(cor_mat, 0)
-
-        while True:
-            if np.max(cor_mat) < prune_threshold:
-                try:
-                    np.linalg.inv(runtime.gene_covariates.T.dot(runtime.gene_covariates))
-                    break
-                except np.linalg.LinAlgError:
-                    pass
-
-            max_index = np.unravel_index(np.argmax(cor_mat), cor_mat.shape)
-            if np.max(max_index) == runtime.gene_covariate_intercept_index:
-                max_index = np.min(max_index)
-            else:
-                max_index = np.max(max_index)
-
-            log("Removing feature %s" % runtime.gene_covariate_names[max_index], TRACE)
-            runtime.gene_covariates = np.delete(runtime.gene_covariates, max_index, axis=1)
-            del runtime.gene_covariate_names[max_index]
-            runtime.gene_covariate_directions = np.delete(runtime.gene_covariate_directions, max_index)
-            cor_mat = np.delete(np.delete(cor_mat, max_index, axis=1), max_index, axis=0)
-            if len(runtime.gene_covariates) == 0:
-                bail("Error: something went wrong with matrix inversion. Still couldn't invert after removing all but one column")
-
-        runtime.gene_covariate_intercept_index = np.where(np.isclose(np.var(runtime.gene_covariates, axis=0), 0))[0]
-        if len(runtime.gene_covariate_intercept_index) == 0:
-            runtime.gene_covariates = np.hstack((runtime.gene_covariates, np.ones(runtime.gene_covariates.shape[0])[:, np.newaxis]))
-            runtime.gene_covariate_names.append("intercept")
-            runtime.gene_covariate_directions = np.append(runtime.gene_covariate_directions, 0)
-            runtime.gene_covariate_intercept_index = len(runtime.gene_covariate_names) - 1
-        else:
-            runtime.gene_covariate_intercept_index = runtime.gene_covariate_intercept_index[0]
-
-        covariate_means = np.mean(runtime.gene_covariates, axis=0)
-        covariate_sds = np.std(runtime.gene_covariates, axis=0)
-        covariate_sds[covariate_sds == 0] = 1
-
-        runtime.gene_covariates_mask = np.all(runtime.gene_covariates < covariate_means + 5 * covariate_sds, axis=1)
-        runtime.gene_covariates_mat_inv = np.linalg.inv(runtime.gene_covariates[runtime.gene_covariates_mask, :].T.dot(runtime.gene_covariates[runtime.gene_covariates_mask, :]))
-        gene_covariate_sds = np.std(runtime.gene_covariates, axis=0)
-        gene_covariate_sds[gene_covariate_sds == 0] = 1
-        runtime.gene_covariate_zs = (runtime.gene_covariates - np.mean(runtime.gene_covariates, axis=0)) / gene_covariate_sds
-
-        Y_for_regression = runtime.Y_for_regression
-        if runtime.Y_for_regression is not None:
-            (Y_for_regression, _, _) = runtime._correct_huge(
-                runtime.Y_for_regression,
-                runtime.gene_covariates,
-                runtime.gene_covariates_mask,
-                runtime.gene_covariates_mat_inv,
-                runtime.gene_covariate_names,
-                runtime.gene_covariate_intercept_index,
-            )
-
-        (Y, runtime.Y_uncorrected, _) = runtime._correct_huge(
-            runtime.Y,
-            runtime.gene_covariates,
-            runtime.gene_covariates_mask,
-            runtime.gene_covariates_mat_inv,
-            runtime.gene_covariate_names,
-            runtime.gene_covariate_intercept_index,
-        )
-
-        runtime._set_Y(Y, Y_for_regression, runtime.Y_exomes, runtime.Y_positive_controls, runtime.Y_case_counts)
-        runtime.gene_covariate_adjustments = runtime.Y_for_regression - runtime.Y_uncorrected
-
-
-def _run_read_x_stage(runtime, X_in, **read_x_kwargs):
-    read_x_pipeline_config = pegs_build_read_x_pipeline_config(
-        X_in,
-        read_x_kwargs,
-        bail_fn=bail,
-    )
-    return _read_x_pipeline(runtime, read_x_pipeline_config)
-
-
-def _read_x_pipeline(runtime, read_x_pipeline_config):
-    if not read_x_pipeline_config.force_reread and runtime.X_orig is not None:
-        return
-
-    filter_using_phewas = read_x_pipeline_config.filter_using_phewas
-    if filter_using_phewas and runtime.gene_pheno_Y is None:
-        filter_using_phewas = False
-
-    runtime._set_X(None, runtime.genes, None, skip_N=True)
-    runtime._record_params({
-        "filter_gene_set_p": read_x_pipeline_config.filter_gene_set_p,
-        "filter_negative": read_x_pipeline_config.filter_negative,
-        "threshold_weights": read_x_pipeline_config.threshold_weights,
-        "cap_weights": read_x_pipeline_config.cap_weights,
-        "max_num_gene_sets_initial": read_x_pipeline_config.max_num_gene_sets_initial,
-        "max_num_gene_sets": read_x_pipeline_config.max_num_gene_sets,
-        "max_num_gene_sets_hyper": read_x_pipeline_config.max_num_gene_sets_hyper,
-        "filter_gene_set_metric_z": read_x_pipeline_config.filter_gene_set_metric_z,
-        "num_chains_betas": read_x_pipeline_config.num_chains_betas,
-        "sigma_num_devs_to_top": read_x_pipeline_config.sigma_num_devs_to_top,
-        "p_noninf_inflate": read_x_pipeline_config.p_noninf_inflate,
-    })
-
-    x_input_plan = pegs_prepare_read_x_inputs(
-        X_in=read_x_pipeline_config.X_in,
-        X_list=read_x_pipeline_config.X_list,
-        Xd_in=read_x_pipeline_config.Xd_in,
-        Xd_list=read_x_pipeline_config.Xd_list,
-        initial_p=read_x_pipeline_config.initial_p,
-        xin_to_p_noninf_ind=read_x_pipeline_config.xin_to_p_noninf_ind,
-        batch_separator=read_x_pipeline_config.batch_separator,
-        file_separator=read_x_pipeline_config.file_separator,
-        sparse_list_open_fn=open_gz,
-        dense_list_open_fn=open,
-    )
-    xdata_seed = pegs_xdata_from_input_plan(x_input_plan)
-
-    read_x_config = PegsXReadConfig(
-        x_sparsify=read_x_pipeline_config.x_sparsify,
-        min_gene_set_size=read_x_pipeline_config.min_gene_set_size,
-        add_ext=read_x_pipeline_config.add_ext,
-        add_top=read_x_pipeline_config.add_top,
-        add_bottom=read_x_pipeline_config.add_bottom,
-        threshold_weights=read_x_pipeline_config.threshold_weights,
-        cap_weights=read_x_pipeline_config.cap_weights,
-        permute_gene_sets=read_x_pipeline_config.permute_gene_sets,
-        filter_gene_set_p=read_x_pipeline_config.filter_gene_set_p,
-        filter_gene_set_metric_z=read_x_pipeline_config.filter_gene_set_metric_z,
-        filter_using_phewas=filter_using_phewas,
-        increase_filter_gene_set_p=read_x_pipeline_config.increase_filter_gene_set_p,
-        filter_negative=read_x_pipeline_config.filter_negative,
-    )
-    read_x_callbacks = PegsXReadCallbacks(
-        sparse_module=sparse,
-        np_module=np,
-        normalize_dense_gene_rows_fn=_normalize_dense_gene_rows,
-        build_sparse_x_from_dense_input_fn=_build_sparse_x_from_dense_input,
-        reindex_x_rows_to_current_genes_fn=_reindex_x_rows_to_current_genes,
-        normalize_gene_set_weights_fn=_normalize_gene_set_weights,
-        partition_missing_gene_rows_fn=_partition_missing_gene_rows,
-        maybe_permute_gene_set_rows_fn=_maybe_permute_gene_set_rows,
-        maybe_prefilter_x_block_fn=_maybe_prefilter_x_block,
-        merge_missing_gene_rows_fn=_merge_missing_gene_rows,
-        finalize_added_x_block_fn=_finalize_added_x_block,
-    )
-
-    read_x_locals = dict(vars(read_x_pipeline_config))
-    read_x_locals["filter_using_phewas"] = filter_using_phewas
-    ingestion_options = pegs_build_read_x_ingestion_options(read_x_locals)
-    ingestion_state = xdata_seed.run_ingestion_stage(
-        runtime,
-        input_plan=x_input_plan,
-        read_config=read_x_config,
-        read_callbacks=read_x_callbacks,
-        ingestion_options=ingestion_options,
-        ensure_gene_universe_fn=_ensure_gene_universe_for_x,
-        process_x_input_file_fn=_process_x_input_file,
-        remove_tag_from_input_fn=pegs_remove_tag_from_input,
-        log_fn=log,
-        info_level=INFO,
-        debug_level=DEBUG,
-    )
-
-    post_options = pegs_build_read_x_post_options(
-        read_x_locals,
-        batches=ingestion_state["batches"],
-        num_ignored_gene_sets=ingestion_state["num_ignored_gene_sets"],
-        ignored_for_fraction_inc=ingestion_state["ignored_for_fraction_inc"],
-    )
-    post_callbacks = PegsXReadPostCallbacks(
-        standardize_qc_metrics_after_x_read_fn=_standardize_qc_metrics_after_x_read,
-        maybe_correct_gene_set_betas_after_x_read_fn=_maybe_correct_gene_set_betas_after_x_read,
-        maybe_limit_initial_gene_sets_by_p_fn=_maybe_limit_initial_gene_sets_by_p,
-        maybe_prune_gene_sets_after_x_read_fn=_maybe_prune_gene_sets_after_x_read,
-        initialize_hyper_defaults_after_x_read_fn=_initialize_hyper_defaults_after_x_read,
-        maybe_learn_batch_hyper_after_x_read_fn=_maybe_learn_batch_hyper_after_x_read,
-        maybe_adjust_overaggressive_p_filter_after_x_read_fn=_maybe_adjust_overaggressive_p_filter_after_x_read,
-        apply_post_read_gene_set_size_and_qc_filters_fn=_apply_post_read_gene_set_size_and_qc_filters,
-        maybe_filter_zero_uncorrected_betas_after_x_read_fn=_maybe_filter_zero_uncorrected_betas_after_x_read,
-        maybe_reduce_gene_sets_to_max_after_x_read_fn=_maybe_reduce_gene_sets_to_max_after_x_read,
-        record_read_x_counts_fn=pegs_record_read_x_counts,
-    )
-    xdata_seed.run_post_stage(
-        runtime,
-        post_options=post_options,
-        post_callbacks=post_callbacks,
-        log_fn=log,
-        debug_level=DEBUG,
-    )
-
-
-def _log_runtime_environment_if_requested(options):
-    if options.hide_opts:
-        return
-    log("Python version: %s" % sys.version)
-    log("Numpy version: %s" % np.__version__)
-    log("Scipy version: %s" % scipy.__version__)
-    log("Options: %s" % options)
-
-
-def _read_gene_map(runtime_state, gene_map_in, gene_map_orig_gene_col=1, gene_map_new_gene_col=2, allow_multi=False):
-    runtime_state.gene_label_map = pegs_parse_gene_map_file(
-        gene_map_in,
-        gene_map_orig_gene_col=gene_map_orig_gene_col,
-        gene_map_new_gene_col=gene_map_new_gene_col,
-        allow_multi=allow_multi,
-        bail_fn=bail,
-    )
-
-
-def _init_gene_locs(runtime_state, gene_loc_file):
-    log("Reading --gene-loc-file %s" % gene_loc_file)
-    (
-        runtime_state.gene_chrom_name_pos,
-        runtime_state.gene_to_chrom,
-        runtime_state.gene_to_pos,
-    ) = pegs_read_loc_file_with_gene_map(
-        gene_loc_file,
-        gene_label_map=runtime_state.gene_label_map,
-        clean_chrom_fn=pegs_clean_chrom_name,
-        warn_fn=warn,
-        bail_fn=bail,
-    )
-
-
-def _initialize_main_mappings(g, options):
-    if options.gene_map_in:
-        _read_gene_map(
-            g,
-            options.gene_map_in,
-            options.gene_map_orig_gene_col,
-            options.gene_map_new_gene_col,
-        )
-    if options.gene_loc_file:
-        _init_gene_locs(g, options.gene_loc_file)
-
-
-def _read_gene_set_statistics(
-    runtime_state,
-    stats_in,
-    *,
-    stats_id_col=None,
-    stats_exp_beta_tilde_col=None,
-    stats_beta_tilde_col=None,
-    stats_p_col=None,
-    stats_se_col=None,
-    stats_beta_col=None,
-    stats_beta_uncorrected_col=None,
-    ignore_negative_exp_beta=False,
-    max_gene_set_p=None,
-    min_gene_set_beta=None,
-    min_gene_set_beta_uncorrected=None,
-    return_only_ids=False,
-):
-    return pegs_load_and_apply_gene_set_statistics_to_runtime(
-        runtime_state,
-        stats_in,
-        stats_id_col=stats_id_col,
-        stats_exp_beta_tilde_col=stats_exp_beta_tilde_col,
-        stats_beta_tilde_col=stats_beta_tilde_col,
-        stats_p_col=stats_p_col,
-        stats_se_col=stats_se_col,
-        stats_beta_col=stats_beta_col,
-        stats_beta_uncorrected_col=stats_beta_uncorrected_col,
-        ignore_negative_exp_beta=ignore_negative_exp_beta,
-        max_gene_set_p=max_gene_set_p,
-        min_gene_set_beta=min_gene_set_beta,
-        min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
-        return_only_ids=return_only_ids,
-        open_text_fn=open_gz,
-        get_col_fn=runtime_state._get_col,
-        parse_log_fn=lambda message: log(message, INFO),
-        apply_log_fn=lambda message: log(message, DEBUG),
-        warn_fn=warn,
-        bail_fn=bail,
-    )
-
-
-def _read_gene_set_phewas_statistics(
-    runtime_state,
-    stats_in,
-    *,
-    stats_id_col=None,
-    stats_pheno_col=None,
-    stats_beta_col=None,
-    stats_beta_uncorrected_col=None,
-    min_gene_set_beta=None,
-    min_gene_set_beta_uncorrected=None,
-    update_X=False,
-    phenos_to_match=None,
-    return_only_ids=False,
-    max_num_entries_at_once=None,
-):
-    return pegs_load_and_apply_gene_set_phewas_statistics_to_runtime(
-        runtime_state,
-        stats_in,
-        stats_id_col=stats_id_col,
-        stats_pheno_col=stats_pheno_col,
-        stats_beta_col=stats_beta_col,
-        stats_beta_uncorrected_col=stats_beta_uncorrected_col,
-        min_gene_set_beta=min_gene_set_beta,
-        min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
-        update_X=update_X,
-        phenos_to_match=phenos_to_match,
-        return_only_ids=return_only_ids,
-        max_num_entries_at_once=max_num_entries_at_once,
-        open_text_fn=open_gz,
-        get_col_fn=runtime_state._get_col,
-        construct_map_to_ind_fn=pegs_construct_map_to_ind,
-        warn_fn=warn,
-        bail_fn=bail,
-        log_fn=lambda message: log(message, DEBUG),
-    )
-
-
-def _derive_factor_anchor_masks(g, options):
-    return pegs_derive_factor_anchor_masks(
-        genes=g.genes,
-        phenos=g.phenos,
-        anchor_genes=options.anchor_genes,
-        anchor_phenos=options.anchor_phenos,
-        bail_fn=bail,
-    )
-
-
-def _read_gene_phewas_bfs(
-    state,
-    gene_phewas_bfs_in,
-    gene_phewas_bfs_id_col=None,
-    gene_phewas_bfs_pheno_col=None,
-    anchor_genes=None,
-    anchor_phenos=None,
-    gene_phewas_bfs_log_bf_col=None,
-    gene_phewas_bfs_combined_col=None,
-    gene_phewas_bfs_prior_col=None,
-    phewas_gene_to_X_gene_in=None,
-    min_value=None,
-    max_num_entries_at_once=None,
-    **kwargs
-):
-    cached = dict(locals())
-    cached.pop("state", None)
-    cached.pop("kwargs", None)
-    state.cached_gene_phewas_call = cached
-
-    if gene_phewas_bfs_in is None:
-        bail("Require --gene-stats-in or --gene-phewas-bfs-in for this operation")
-
-    log("Reading --gene-phewas-bfs-in file %s" % gene_phewas_bfs_in, INFO)
-    if state.genes is None:
-        bail("Need to initialixe --X before reading gene_phewas")
-
-    phewas_gene_to_X_gene = None
-    if phewas_gene_to_X_gene_in is not None:
-        phewas_gene_to_X_gene = pegs_parse_gene_map_file(
-            phewas_gene_to_X_gene_in,
-            allow_multi=True,
-            bail_fn=bail,
-        )
-
-    pegs_load_and_apply_gene_phewas_bfs_to_runtime(
-        state,
-        gene_phewas_bfs_in,
-        gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
-        anchor_genes=anchor_genes,
-        anchor_phenos=anchor_phenos,
-        gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
-        phewas_gene_to_x_gene=phewas_gene_to_X_gene,
-        min_value=min_value,
-        max_num_entries_at_once=max_num_entries_at_once,
-        open_text_fn=open_gz,
-        get_col_fn=state._get_col,
-        construct_map_to_ind_fn=pegs_construct_map_to_ind,
-        warn_fn=warn,
-        bail_fn=bail,
-        log_fn=lambda message: log(message, DEBUG),
-    )
-    state.phewas_state = pegs_sync_phewas_runtime_state(state)
-
-
-def _has_loaded_gene_phewas(runtime):
-    return (
-        runtime.gene_pheno_Y is not None
-        or runtime.gene_pheno_combined_prior_Ys is not None
-        and runtime.gene_pheno_priors is not None
-    )
-
-
-def _reread_gene_phewas_bfs(state):
-    if state.cached_gene_phewas_call is None:
-        return
-    log("Rereading gene phewas bfs...")
-    _read_gene_phewas_bfs(state, **state.cached_gene_phewas_call)
-
-
-def _load_factor_phewas_inputs(g, options):
-    return _eaggl_factor.load_factor_phewas_inputs(sys.modules[__name__], g, options)
-
-
-def _write_main_primary_outputs(g, options):
-    return _eaggl_outputs.write_main_primary_outputs(g, options)
-
-
-def _resolve_gene_phewas_stage_decision(g, requested_input, reusable_inputs):
-    return pegs_resolve_gene_phewas_input_decision_for_stage(
-        requested_input=requested_input,
-        reusable_inputs=reusable_inputs,
-        read_gene_phewas=_has_loaded_gene_phewas(g),
-        num_gene_phewas_filtered=g.num_gene_phewas_filtered,
-    )
-
-
-def _run_phewas_with_common_args(g, options, gene_phewas_bfs_in, run_for_factors=False, min_gene_factor_weight=0):
-    phewas_config = pegs_build_phewas_stage_config(
-        gene_phewas_bfs_in=gene_phewas_bfs_in,
-        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-        max_num_burn_in=options.max_num_burn_in,
-        max_num_iter=options.max_num_iter_betas,
-        min_num_iter=options.min_num_iter_betas,
-        num_chains=options.num_chains_betas,
-        r_threshold_burn_in=options.r_threshold_burn_in_betas,
-        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
-        max_frac_sem=options.max_frac_sem_betas,
-        gauss_seidel=options.gauss_seidel_betas,
-        sparse_solution=options.sparse_solution,
-        sparse_frac_betas=options.sparse_frac_betas,
-        run_for_factors=run_for_factors,
-        batch_size=300 if run_for_factors else None,
-        min_gene_factor_weight=min_gene_factor_weight,
-    )
-    run_kwargs = phewas_config.to_run_kwargs()
-    g.run_phewas(**run_kwargs)
-
-
-def _run_main_phewas_stage(g, options):
-    return _eaggl_factor.run_main_phewas_stage(sys.modules[__name__], g, options)
-
-
-def _extract_factor_workflow(mode_state):
-    return _eaggl_factor.extract_factor_workflow(mode_state)
-
-
-def _extract_factor_inputs(factor_input_state):
-    return _eaggl_factor.extract_factor_inputs(factor_input_state)
-
-
-def _resolve_factor_gene_or_pheno_filter_value(options, workflow):
-    return _eaggl_factor.resolve_factor_gene_or_pheno_filter_value(options, workflow)
-
-
-def _build_factor_execution_config(options, workflow, factor_inputs):
-    return _eaggl_factor.build_factor_execution_config(options, workflow, factor_inputs)
-
-
-def _run_factor_model(g, factor_config):
-    return _eaggl_factor.run_factor_model(g, factor_config)
-
-
+_read_y_pipeline = _eaggl_io.read_y_pipeline
+_run_read_y_stage = _eaggl_io.run_read_y_stage
+_read_x_pipeline = _eaggl_io.read_x_pipeline
+_run_read_x_stage = _eaggl_io.run_read_x_stage
+_log_runtime_environment_if_requested = _eaggl_io.log_runtime_environment_if_requested
+_read_gene_map = _eaggl_io.read_gene_map
+_init_gene_locs = _eaggl_io.init_gene_locs
+_initialize_main_mappings = _eaggl_io.initialize_main_mappings
+_read_gene_set_statistics = _eaggl_io.read_gene_set_statistics
+_read_gene_set_phewas_statistics = _eaggl_io.read_gene_set_phewas_statistics
+_derive_factor_anchor_masks = _eaggl_io.derive_factor_anchor_masks
+_read_gene_phewas_bfs = _eaggl_io.read_gene_phewas_bfs
+_has_loaded_gene_phewas = _eaggl_io.has_loaded_gene_phewas
+
+
+_extract_factor_workflow = _eaggl_factor.extract_factor_workflow
+_extract_factor_inputs = _eaggl_factor.extract_factor_inputs
+_resolve_factor_gene_or_pheno_filter_value = _eaggl_factor.resolve_factor_gene_or_pheno_filter_value
+_build_factor_execution_config = _eaggl_factor.build_factor_execution_config
+_run_factor_model = _eaggl_factor.run_factor_model
+_build_factor_output_plan = _eaggl_outputs.build_factor_output_plan
+_write_factor_outputs_for_plan = _eaggl_outputs.write_factor_outputs_for_plan
+
+
+# Compatibility wrappers preserved for existing tests and direct imports.
 def _run_main_factor_stage(g, options, mode_state, factor_input_state):
-    return _eaggl_factor.run_main_factor_stage(sys.modules[__name__], g, options, mode_state, factor_input_state)
-
-
-def _build_factor_output_plan(options):
-    return _eaggl_outputs.build_factor_output_plan(options)
-
-
-def _write_factor_outputs_for_plan(g, output_plan):
-    return _eaggl_outputs.write_factor_outputs_for_plan(g, output_plan)
+    return _eaggl_factor.run_main_factor_stage(_build_main_domain(), g, options, mode_state, factor_input_state)
 
 
 def _write_main_factor_outputs(g, options):
     return _eaggl_outputs.write_main_factor_outputs(g, options)
 
 
+def _reread_gene_phewas_bfs(state):
+    return _eaggl_io.reread_gene_phewas_bfs(_build_main_domain(), state)
+
+
+def _run_main_phewas_stage(g, options):
+    return _eaggl_factor.run_main_phewas_stage(_build_main_domain(), g, options)
+
+
 def _run_main_factor_phewas_stage(g, options):
-    return _eaggl_factor.run_main_factor_phewas_stage(sys.modules[__name__], g, options)
-
-
-def _should_run_main_factor_phewas_stage(mode_state):
-    return _eaggl_factor.should_run_main_factor_phewas_stage(mode_state)
+    return _eaggl_factor.run_main_factor_phewas_stage(_build_main_domain(), g, options)
 
 
 def _normalize_dense_gene_rows(mat_info, genes, gene_label_map):
@@ -7343,7 +6741,7 @@ def run_main_pipeline(options):
     except ImportError:
         import dispatch as _eaggl_dispatch
 
-    return _eaggl_dispatch.run_main_pipeline(sys.modules[__name__], options)
+    return _eaggl_dispatch.run_main_pipeline(_build_main_domain(), options)
 
 
 def main(argv=None):
