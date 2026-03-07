@@ -1,12 +1,12 @@
-# EAGGL Canonical Transition
+# EAGGL Canonical Source And Export Policy
 
 This directory is the canonical documentation home for EAGGL inside the `pigean/` repository.
 
-Current transition state:
-- canonical source snapshot: `src/eaggl/`
-- canonical scripts snapshot: `scripts/eaggl/`
-- canonical tests snapshot: `tests/eaggl/`
-- standalone `../eaggl/` remains untouched and is treated as downstream during this migration
+Canonical source state:
+- canonical source: `src/eaggl/`
+- canonical scripts: `scripts/eaggl/`
+- canonical tests: `tests/eaggl/`
+- standalone `../eaggl/` is a downstream export target only
 
 Temporary in-repo launcher strategy:
 
@@ -18,3 +18,10 @@ Why this is temporary:
 - `src/pigean.py` still exists as a flat script and blocks the final package-based `src/pigean/` layout
 - EAGGL can use `python -m eaggl` already because its canonical code is now under `src/eaggl/`
 - PIGEAN will follow once the next entrypoint/module-safety milestone converts it to the same package pattern
+
+If the standalone `../eaggl/` checkout still needs to be published separately, refresh it from the canonical tree with:
+
+```bash
+cd pigean
+../.venv/bin/python scripts/eaggl/export_standalone_eaggl.py ../eaggl
+```

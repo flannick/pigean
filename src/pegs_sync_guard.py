@@ -14,7 +14,7 @@ DEFAULT_SHARED_FILES = (
 
 
 TRANSITION_CANONICAL_SOURCE_DOC = "docs/CANONICAL_SOURCE.md"
-TRANSITION_DOWNSTREAM_PHRASE = "standalone local `eaggl/` checkout remains untouched during the migration"
+DOWNSTREAM_EXPORT_ONLY_PHRASE = "standalone local `eaggl/` checkout is a downstream export target only"
 
 
 @dataclass
@@ -66,7 +66,7 @@ def should_skip_sibling_sync_check(left_repo_root, right_repo_root):
         doc_text = canonical_doc.read_text(encoding="utf-8")
     except OSError:
         return False
-    return TRANSITION_DOWNSTREAM_PHRASE in doc_text
+    return DOWNSTREAM_EXPORT_ONLY_PHRASE in doc_text
 
 
 def compare_shared_files(left_repo_root, right_repo_root, files=None):

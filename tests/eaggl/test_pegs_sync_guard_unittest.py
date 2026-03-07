@@ -44,7 +44,7 @@ class PegsSyncGuardTest(unittest.TestCase):
         if not sibling.exists():
             self.skipTest("sibling standalone eaggl repo not present")
         if pegs_sync_guard.should_skip_sibling_sync_check(REPO_ROOT, sibling):
-            self.skipTest("sibling eaggl repo is downstream during canonical migration")
+            self.skipTest("sibling eaggl repo is a downstream export target only")
         result = pegs_sync_guard.compare_shared_files(
             REPO_ROOT,
             sibling,

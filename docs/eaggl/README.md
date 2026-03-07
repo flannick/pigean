@@ -2,7 +2,7 @@
 
 This directory is the canonical in-repo home for EAGGL documentation inside the `pigean/` repository.
 
-During transition:
-- the standalone `eaggl/` repo remains unchanged
-- docs copied here are the canonical source for future refactors
-- the standalone repo can later be refreshed from this tree if a separate distribution is still needed
+Canonical ownership:
+- docs here are the source of truth for EAGGL
+- the standalone `eaggl/` repo is downstream only
+- if a separate standalone distribution is still needed, refresh it from this tree rather than editing it directly
