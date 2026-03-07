@@ -19,11 +19,7 @@ cd pigean
 ```
 
 Current state:
-- PIGEAN runtime entrypoint remains `src/pigean.py`
+- PIGEAN runtime entrypoint is `python -m pigean`
 - canonical in-repo EAGGL sources live under `src/eaggl/`
 - canonical docs are being organized under `docs/pigean/` and `docs/eaggl/`
 - canonical tests are being organized under `tests/pigean/` and `tests/eaggl/`
-
-Important constraint:
-- `src/pigean.py` currently blocks creation of a sibling `src/pigean/` package directory with the same name
-- that move is deferred to the next entrypoint/module-safety milestone, where the script entrypoint will be converted into a package-based launcher

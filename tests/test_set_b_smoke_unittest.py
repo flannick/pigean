@@ -37,9 +37,11 @@ class SetBSmokeTest(unittest.TestCase):
             cls._tmpdir_ctx.cleanup()
 
     def _run(self, mode: str, *args: str) -> subprocess.CompletedProcess[str]:
-        cmd = [sys.executable, "src/pigean.py", mode, *args]
+        cmd = [sys.executable, "-m", "pigean", mode, *args]
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
+        src_root = str(self.repo_root / "src")
+        env["PYTHONPATH"] = src_root if not env.get("PYTHONPATH") else src_root + os.pathsep + env["PYTHONPATH"]
         return subprocess.run(
             cmd,
             cwd=self.repo_root,

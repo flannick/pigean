@@ -11,7 +11,7 @@ In the `pigean` repo:
 ```bash
 PYTHON=../../.venv/bin/python
 
-$PYTHON src/pigean.py gibbs \
+$PYTHON -m pigean gibbs \
   --config config/profiles/gene_list.default.json \
   --positive-controls-list INS,GCK,HNF1A \
   --gene-stats-out results/pigean.gene_stats.out \

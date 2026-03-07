@@ -128,7 +128,7 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
             cls.tmpdir / f"{mode}_legacy",
         )
         cls.runtime_seconds[f"{mode}_new"] = cls._run_single(
-            "src/pigean.py",
+            "module:pigean",
             mode,
             mode_args,
             cls.tmpdir / f"{mode}_new",
@@ -137,9 +137,7 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
     @classmethod
     def _run_single(cls, entrypoint: str, mode: str, mode_args: list[str], out_prefix: Path) -> float:
         effective_mode = mode if mode != "priors_fast" else "priors"
-        cmd = [
-            sys.executable,
-            entrypoint,
+        cmd = cls._build_entrypoint_cmd(entrypoint) + [
             effective_mode,
             *mode_args,
             "--gene-stats-out",
@@ -151,6 +149,8 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
         ]
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
+        src_root = str(cls.repo_root / "src")
+        env["PYTHONPATH"] = src_root if not env.get("PYTHONPATH") else src_root + os.pathsep + env["PYTHONPATH"]
         start = time.perf_counter()
         proc = subprocess.run(cmd, cwd=cls.repo_root, env=env, capture_output=True, text=True, check=False)
         elapsed = time.perf_counter() - start
@@ -159,6 +159,12 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
                 f"Command failed ({entrypoint} {effective_mode}): {' '.join(cmd)}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
             )
         return elapsed
+
+    @staticmethod
+    def _build_entrypoint_cmd(entrypoint: str) -> list[str]:
+        if entrypoint.startswith("module:"):
+            return [sys.executable, "-m", entrypoint.split(":", 1)[1]]
+        return [sys.executable, entrypoint]
 
     @staticmethod
     def _load_metric(path: Path, key_col: str, value_cols: list[str]) -> dict[str, tuple[float, ...]]:

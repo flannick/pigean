@@ -43,7 +43,7 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
             out_prefix=cls.legacy_direct_prefix,
         )
         cls.new_direct_runtime_sec = cls._run_huge(
-            entrypoint="src/pigean.py",
+            entrypoint="module:pigean",
             extra_args=cls._common_gwas_args(),
             out_prefix=cls.new_direct_prefix,
         )
@@ -53,12 +53,12 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         cls.tar_direct_prefix = cls.tmpdir / "tar_direct"
         cls.tar_cached_prefix = cls.tmpdir / "tar_cached"
         cls._run_huge(
-            entrypoint="src/pigean.py",
+            entrypoint="module:pigean",
             extra_args=cls._common_gwas_args() + ["--huge-statistics-out", str(cls.cache_tar)],
             out_prefix=cls.tar_direct_prefix,
         )
         cls._run_huge(
-            entrypoint="src/pigean.py",
+            entrypoint="module:pigean",
             extra_args=["--huge-statistics-in", str(cls.cache_tar)],
             out_prefix=cls.tar_cached_prefix,
         )
@@ -68,12 +68,12 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         cls.prefix_direct_prefix = cls.tmpdir / "prefix_direct"
         cls.prefix_cached_prefix = cls.tmpdir / "prefix_cached"
         cls._run_huge(
-            entrypoint="src/pigean.py",
+            entrypoint="module:pigean",
             extra_args=cls._common_gwas_args() + ["--huge-statistics-out", str(cls.cache_prefix)],
             out_prefix=cls.prefix_direct_prefix,
         )
         cls._run_huge(
-            entrypoint="src/pigean.py",
+            entrypoint="module:pigean",
             extra_args=["--huge-statistics-in", str(cls.cache_prefix)],
             out_prefix=cls.prefix_cached_prefix,
         )
@@ -81,7 +81,7 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         # Deterministic repeatability check for the direct path.
         cls.new_direct_repeat_prefix = cls.tmpdir / "new_direct_repeat"
         cls._run_huge(
-            entrypoint="src/pigean.py",
+            entrypoint="module:pigean",
             extra_args=cls._common_gwas_args(),
             out_prefix=cls.new_direct_repeat_prefix,
         )
@@ -140,9 +140,7 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
 
     @classmethod
     def _run_huge(cls, entrypoint: str, extra_args: list[str], out_prefix: Path) -> float:
-        cmd = [
-            sys.executable,
-            entrypoint,
+        cmd = cls._build_entrypoint_cmd(entrypoint) + [
             "huge",
             "--deterministic",
             "--hide-opts",
@@ -154,6 +152,8 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         ]
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
+        src_root = str(cls.repo_root / "src")
+        env["PYTHONPATH"] = src_root if not env.get("PYTHONPATH") else src_root + os.pathsep + env["PYTHONPATH"]
         start = time.perf_counter()
         proc = subprocess.run(cmd, cwd=cls.repo_root, env=env, capture_output=True, text=True, check=False)
         elapsed = time.perf_counter() - start
@@ -162,6 +162,12 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
                 f"Command failed ({entrypoint}): {' '.join(cmd)}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
             )
         return elapsed
+
+    @staticmethod
+    def _build_entrypoint_cmd(entrypoint: str) -> list[str]:
+        if entrypoint.startswith("module:"):
+            return [sys.executable, "-m", entrypoint.split(":", 1)[1]]
+        return [sys.executable, entrypoint]
 
     @staticmethod
     def _load_gene_stats(path: Path, value_cols: list[str]) -> dict[str, tuple[float, ...]]:

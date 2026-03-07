@@ -40,7 +40,7 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
         cls.new_prefix = cls.tmpdir / "new_real_gwas"
         cls.legacy_prefix = cls.tmpdir / "legacy_real_gwas"
         cls.legacy_runtime_sec = cls._run_huge(entrypoint="legacy/priors.py", out_prefix=cls.legacy_prefix)
-        cls.new_runtime_sec = cls._run_huge(entrypoint="src/pigean.py", out_prefix=cls.new_prefix)
+        cls.new_runtime_sec = cls._run_huge(entrypoint="module:pigean", out_prefix=cls.new_prefix)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -67,9 +67,7 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
 
     @classmethod
     def _run_huge(cls, entrypoint: str, out_prefix: Path) -> float:
-        cmd = [
-            sys.executable,
-            entrypoint,
+        cmd = cls._build_entrypoint_cmd(entrypoint) + [
             "huge",
             "--deterministic",
             "--hide-opts",
@@ -81,6 +79,8 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
         ]
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
+        src_root = str(cls.repo_root / "src")
+        env["PYTHONPATH"] = src_root if not env.get("PYTHONPATH") else src_root + os.pathsep + env["PYTHONPATH"]
         start = time.perf_counter()
         proc = subprocess.run(cmd, cwd=cls.repo_root, env=env, capture_output=True, text=True, check=False)
         elapsed = time.perf_counter() - start
@@ -89,6 +89,12 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
                 f"Command failed ({entrypoint}): {' '.join(cmd)}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
             )
         return elapsed
+
+    @staticmethod
+    def _build_entrypoint_cmd(entrypoint: str) -> list[str]:
+        if entrypoint.startswith("module:"):
+            return [sys.executable, "-m", entrypoint.split(":", 1)[1]]
+        return [sys.executable, entrypoint]
 
     @staticmethod
     def _load_gene_stats(path: Path, value_cols: list[str]) -> dict[str, tuple[float, ...]]:

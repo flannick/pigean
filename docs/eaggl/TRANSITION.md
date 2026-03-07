@@ -15,9 +15,9 @@ PYTHONPATH=src ../../.venv/bin/python -m eaggl factor --help
 ```
 
 Why this is temporary:
-- `src/pigean.py` still exists as a flat script and blocks the final package-based `src/pigean/` layout
+- PIGEAN now has a package entrypoint via `python -m pigean`, but some flat compatibility modules still exist and will be retired in later cleanup milestones
 - EAGGL can use `python -m eaggl` already because its canonical code is now under `src/eaggl/`
-- PIGEAN will follow once the next entrypoint/module-safety milestone converts it to the same package pattern
+- later milestones will move more flat shared and compatibility modules under package namespaces
 
 If the standalone `../eaggl/` checkout still needs to be published separately, refresh it from the canonical tree with:
 

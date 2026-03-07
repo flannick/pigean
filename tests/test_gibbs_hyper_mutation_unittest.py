@@ -8,11 +8,12 @@ from pathlib import Path
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 sys.argv = ["pigean.py", "gibbs"]
-import src.pigean as pigean  # noqa: E402
+import pigean_legacy_main as pigean  # noqa: E402
 
 
 class _StubState:

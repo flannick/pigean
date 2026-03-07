@@ -1,6 +1,6 @@
 # Advanced Set B Workflows
 
-This page documents the retained advanced workflows in `src/pigean.py`.
+This page documents the retained advanced workflows in `python -m pigean`.
 Each block lists required inputs and expected outputs.
 
 ## 1) Precomputed gene statistics input (`--gene-stats-in`)
@@ -131,7 +131,7 @@ canonical direction: avoid overly strict filtering.
 
 ## Removed Legacy GLS Path
 
-The historical full-GLS/whitened-Y path is no longer supported in `src/pigean.py`.
+The historical full-GLS/whitened-Y path is no longer supported in `python -m pigean`.
 
 - Removed aliases now hard-fail:
   - `--run-gls` / `run_gls`

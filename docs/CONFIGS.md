@@ -21,7 +21,7 @@ msigdb:/path/gene_set_list_msigdb_nohp.txt@msigdb
 
 ## Core vs advanced options
 
-`src/pigean.py --help` shows the curated default interface. Use `src/pigean.py --help-expert` to show Set B workflows, cache I/O, and expert tuning flags.
+`python -m pigean --help` shows the curated default interface. Use `python -m pigean --help-expert` to show Set B workflows, cache I/O, and expert tuning flags.
 
 Core configs should target the main path:
 

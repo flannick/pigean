@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -9,10 +10,23 @@ from pathlib import Path
 
 
 class PigeanCliTest(unittest.TestCase):
+    def _base_env(self, repo_root: Path) -> dict[str, str]:
+        env = dict(os.environ)
+        src_root = str(repo_root / "src")
+        env["PYTHONPATH"] = src_root if not env.get("PYTHONPATH") else src_root + os.pathsep + env["PYTHONPATH"]
+        return env
+
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
         repo_root = Path(__file__).resolve().parents[1]
-        cmd = [sys.executable, "src/pigean.py", *args]
-        return subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, check=False)
+        cmd = [sys.executable, "-m", "pigean", *args]
+        return subprocess.run(
+            cmd,
+            cwd=repo_root,
+            env=self._base_env(repo_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
     def test_removed_gene_bfs_flag_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--gene-bfs-in", "dummy.txt")
@@ -133,13 +147,14 @@ import sys
 random.seed(12345)
 expected = random.Random(12345).random()
 sys.argv = ["pigean.py", "gibbs"]
-import src.pigean  # noqa: F401
+import pigean  # noqa: F401
 actual = random.random()
 print(f"{actual:.17f}\t{expected:.17f}")
 '''
         proc = subprocess.run(
             [sys.executable, "-c", snippet],
             cwd=repo_root,
+            env=self._base_env(repo_root),
             capture_output=True,
             text=True,
             check=False,
@@ -154,12 +169,13 @@ print(f"{actual:.17f}\t{expected:.17f}")
         snippet = r'''
 import sys
 sys.argv = ["pigean.py", "--definitely-invalid-option"]
-import src.pigean  # noqa: F401
+import pigean  # noqa: F401
 print("ok")
 '''
         proc = subprocess.run(
             [sys.executable, "-c", snippet],
             cwd=repo_root,
+            env=self._base_env(repo_root),
             capture_output=True,
             text=True,
             check=False,
@@ -174,7 +190,7 @@ import contextlib
 import io
 import json
 import sys
-import src.pigean as pigean
+import pigean as pigean
 buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
     rc = pigean.main(["gibbs", "--deterministic", "--print-effective-config"])
@@ -184,6 +200,7 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
         proc = subprocess.run(
             [sys.executable, "-c", snippet],
             cwd=repo_root,
+            env=self._base_env(repo_root),
             capture_output=True,
             text=True,
             check=False,
@@ -201,7 +218,7 @@ import json
 import sys
 import numpy as np
 sys.argv = ["pigean.py", "gibbs"]
-import src.pigean as pigean
+import pigean as pigean
 mask = pigean._build_prefilter_keep_mask(
     p_values=np.array([0.8, 0.9, 1.0], dtype=float),
     beta_tildes=np.array([1.0, 1.0, 1.0], dtype=float),
@@ -217,6 +234,7 @@ print(json.dumps(mask.tolist()))
         proc = subprocess.run(
             [sys.executable, "-c", snippet],
             cwd=repo_root,
+            env=self._base_env(repo_root),
             capture_output=True,
             text=True,
             check=False,

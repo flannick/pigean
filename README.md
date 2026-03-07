@@ -20,12 +20,12 @@ python scripts/fetch_bundles.py --catalog catalog/bundles.json --profile minimal
 
 3. Edit `config/profiles/common.factor.json` and replace `__BUNDLE_ROOT__` with your bundle root (printed by fetch script, usually `<repo>/bundles/current`).
 
-4. Run core workflow (`src/pigean.py`) with config + runtime input:
+4. Run core workflow (`python -m pigean`) with config + runtime input:
 
 ```bash
 GENE_CSV=$(awk 'NF && $1 !~ /^#/ {print $1}' data/mody.gene.list | awk '!seen[$1]++' | paste -sd ',' -)
 
-python src/pigean.py gibbs \
+PYTHONPATH=src python -m pigean gibbs \
   --config config/profiles/gene_list.default.json \
   --positive-controls-list "$GENE_CSV" \
   --gene-stats-out results/MODY.gene_stats.out \
@@ -74,6 +74,6 @@ For curated CLI surface and category inventory (auto-generated):
 - `docs/CLI_OPTIONS.md`
 - `docs/cli_option_manifest.json`
 
-Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `src/pigean.py`.
+Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `python -m pigean`.
 
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.
