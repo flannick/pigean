@@ -15,6 +15,7 @@ bundles/current/
 bundles/*.tar
 bundles/*.tar.gz
 dist/bundles/
+dist/stitched/
 
 # Local overrides
 catalog/bundles.json
