@@ -65,6 +65,9 @@ For required inputs and expected outputs per retained advanced workflow, see:
 For PIGEAN -> EAGGL handoff bundle usage, see:
 - `docs/EAGGL_INTEROP.md`
 
+For optional single-file stitched artifacts built from the modular source tree, see:
+- `docs/STITCHED_ARTIFACTS.md`
+
 For the canonical in-repo EAGGL snapshot and transition notes, see:
 - `docs/CANONICAL_SOURCE.md`
 - `docs/eaggl/README.md`

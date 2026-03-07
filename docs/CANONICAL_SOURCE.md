@@ -23,3 +23,13 @@ Current state:
 - canonical in-repo EAGGL sources live under `src/eaggl/`
 - canonical docs are being organized under `docs/pigean/` and `docs/eaggl/`
 - canonical tests are being organized under `tests/pigean/` and `tests/eaggl/`
+- optional stitched single-file artifacts are generated on demand from modular source and are not checked in
+
+Stitched artifact build command:
+
+```bash
+cd pigean
+../.venv/bin/python scripts/build_stitched_artifacts.py
+```
+
+See `docs/STITCHED_ARTIFACTS.md` for the generated outputs and limitations.
