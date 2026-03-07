@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import pathlib
 import unittest
 
@@ -8,6 +9,21 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class SharedModuleBoundaryTest(unittest.TestCase):
+    def test_flat_pigean_modules_are_compatibility_shims_for_package_modules(self) -> None:
+        seam_expectations = (
+            ("pigean.pipeline", "pigean_pipeline", "run_main_non_huge_pipeline"),
+            ("pigean.dispatch", "pigean_dispatch", "run_main_pipeline"),
+            ("pigean.outputs", "pigean_outputs", "write_main_outputs_and_optional_phewas"),
+            ("pigean.huge", "pigean_huge", "read_huge_statistics_bundle"),
+            ("pigean.phewas", "pigean_phewas", "run_advanced_set_b_output_phewas_if_requested"),
+        )
+        for package_module_name, flat_module_name, symbol_name in seam_expectations:
+            with self.subTest(module=package_module_name, symbol=symbol_name):
+                package_module = importlib.import_module(package_module_name)
+                flat_module = importlib.import_module(flat_module_name)
+                self.assertIs(getattr(package_module, symbol_name), getattr(flat_module, symbol_name))
+                self.assertEqual(getattr(package_module, symbol_name).__module__, package_module_name)
+
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean_cli.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.cli import", cli_source)
