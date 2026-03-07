@@ -29,7 +29,7 @@ import gzip
 import random
 
 try:
-    from .pegs_types import (
+    from pegs_shared.types import (
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         XReadPostCallbacks as PegsXReadPostCallbacks,
@@ -40,7 +40,7 @@ try:
         handle_cli_exception as pegs_handle_cli_exception,
         handle_unexpected_exception as pegs_handle_unexpected_exception,
     )
-    from .pegs_cli_utils import (
+    from pegs_shared.cli import (
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -58,6 +58,17 @@ try:
         load_json_config as pegs_load_json_config,
         merge_dicts as pegs_merge_dicts,
         resolve_config_path_value as pegs_resolve_config_path_value,
+    )
+    from pegs_shared.xdata import (
+        xdata_from_input_plan as pegs_xdata_from_input_plan,
+        build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
+        build_read_x_post_options as pegs_build_read_x_post_options,
+        initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
+    )
+    from pegs_shared.ydata import (
+        sync_y_state as pegs_sync_y_state,
+        sync_hyperparameter_state as pegs_sync_hyperparameter_state,
+        sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
     )
     from .pegs_utils import (
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
@@ -108,9 +119,6 @@ try:
         iterate_X_blocks_internal as pegs_iterate_X_blocks_internal,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
-        sync_y_state as pegs_sync_y_state,
-        sync_hyperparameter_state as pegs_sync_hyperparameter_state,
-        sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
         read_phewas_file_batch as pegs_read_phewas_file_batch,
         append_phewas_metric_block as pegs_append_phewas_metric_block,
@@ -128,10 +136,6 @@ try:
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
-        xdata_from_input_plan as pegs_xdata_from_input_plan,
-        build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
-        build_read_x_post_options as pegs_build_read_x_post_options,
-        initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
         clean_chrom_name as pegs_clean_chrom_name,
         parse_gene_map_file as pegs_parse_gene_map_file,
         read_loc_file_with_gene_map as pegs_read_loc_file_with_gene_map,
@@ -149,7 +153,7 @@ try:
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 except ImportError:
-    from pegs_types import (
+    from pegs_shared.types import (
         XReadConfig as PegsXReadConfig,
         XReadCallbacks as PegsXReadCallbacks,
         XReadPostCallbacks as PegsXReadPostCallbacks,
@@ -160,7 +164,7 @@ except ImportError:
         handle_cli_exception as pegs_handle_cli_exception,
         handle_unexpected_exception as pegs_handle_unexpected_exception,
     )
-    from pegs_cli_utils import (
+    from pegs_shared.cli import (
         apply_cli_config_overrides as pegs_apply_cli_config_overrides,
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -178,6 +182,17 @@ except ImportError:
         load_json_config as pegs_load_json_config,
         merge_dicts as pegs_merge_dicts,
         resolve_config_path_value as pegs_resolve_config_path_value,
+    )
+    from pegs_shared.xdata import (
+        xdata_from_input_plan as pegs_xdata_from_input_plan,
+        build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
+        build_read_x_post_options as pegs_build_read_x_post_options,
+        initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
+    )
+    from pegs_shared.ydata import (
+        sync_y_state as pegs_sync_y_state,
+        sync_hyperparameter_state as pegs_sync_hyperparameter_state,
+        sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
     )
     from pegs_utils import (
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
@@ -228,9 +243,6 @@ except ImportError:
         iterate_X_blocks_internal as pegs_iterate_X_blocks_internal,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
-        sync_y_state as pegs_sync_y_state,
-        sync_hyperparameter_state as pegs_sync_hyperparameter_state,
-        sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
         read_phewas_file_batch as pegs_read_phewas_file_batch,
         append_phewas_metric_block as pegs_append_phewas_metric_block,
@@ -248,10 +260,6 @@ except ImportError:
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
-        xdata_from_input_plan as pegs_xdata_from_input_plan,
-        build_read_x_ingestion_options as pegs_build_read_x_ingestion_options,
-        build_read_x_post_options as pegs_build_read_x_post_options,
-        initialize_matrix_and_gene_index_state as pegs_initialize_matrix_and_gene_index_state,
         clean_chrom_name as pegs_clean_chrom_name,
         parse_gene_map_file as pegs_parse_gene_map_file,
         read_loc_file_with_gene_map as pegs_read_loc_file_with_gene_map,
@@ -270,11 +278,11 @@ except ImportError:
     )
 
 try:
-    from .pegs_utils_phewas import (
+    from pegs_shared.phewas import (
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
     )
-    from .pegs_utils_bundle import (
+    from pegs_shared.bundle import (
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
         require_existing_nonempty_file as pegs_require_existing_nonempty_file,
         write_bundle_from_specs as pegs_write_bundle_from_specs,
@@ -283,11 +291,11 @@ try:
         EAGGL_BUNDLE_SCHEMA as PEGS_EAGGL_BUNDLE_SCHEMA,
     )
 except ImportError:
-    from pegs_utils_phewas import (  # type: ignore
+    from pegs_shared.phewas import (  # type: ignore
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
     )
-    from pegs_utils_bundle import (  # type: ignore
+    from pegs_shared.bundle import (  # type: ignore
         get_tar_write_mode_for_bundle_path as pegs_get_tar_write_mode_for_bundle_path,
         require_existing_nonempty_file as pegs_require_existing_nonempty_file,
         write_bundle_from_specs as pegs_write_bundle_from_specs,

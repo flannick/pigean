@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
 import pegs_utils  # noqa: E402
+from pegs_shared import io_common as pegs_shared_io  # noqa: E402
 
 
 class SharedIoTest(unittest.TestCase):
@@ -25,6 +26,8 @@ class SharedIoTest(unittest.TestCase):
             self.assertIsInstance(table, pegs_utils.GeneStatsTable)
             self.assertEqual(len(table.rows), 2)
             self.assertEqual(table.by_key["INS"]["prior"], "2.3")
+            shared_table = pegs_shared_io.GeneStatsTable.read(path)
+            self.assertEqual(shared_table.by_key["INS"]["prior"], "2.3")
 
     def test_read_gene_set_stats_gz(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -37,6 +40,8 @@ class SharedIoTest(unittest.TestCase):
             table = pegs_utils.GeneSetStatsTable.read(path)
             self.assertIsInstance(table, pegs_utils.GeneSetStatsTable)
             self.assertEqual(table.by_key["set_b"]["beta_uncorrected"], "0.2")
+            shared_table = pegs_shared_io.GeneSetStatsTable.read(path)
+            self.assertEqual(shared_table.by_key["set_b"]["beta_uncorrected"], "0.2")
 
 
 if __name__ == "__main__":

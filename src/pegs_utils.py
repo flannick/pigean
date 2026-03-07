@@ -20,7 +20,7 @@ import scipy.stats
 import scipy.linalg
 import scipy.sparse as sparse
 
-from pegs_types import (
+from pegs_shared.types import (
     AlignedGeneBfs,
     AlignedGeneCovariates,
     FactorInputData,
@@ -43,7 +43,7 @@ from pegs_types import (
     XReadPostOptions,
     YData,
 )
-from pegs_cli_utils import (
+from pegs_shared.cli import (
     _default_bail,
     apply_cli_config_overrides,
     callback_set_comma_separated_args,
@@ -66,6 +66,27 @@ from pegs_cli_utils import (
     merge_dicts,
     open_optional_log_handle,
     resolve_config_path_value,
+)
+from pegs_shared.io_common import GeneSetStatsTable, GeneStatsTable, TsvTable, read_tsv, write_tsv
+from pegs_shared.xdata import (
+    build_read_x_ingestion_options,
+    build_read_x_post_options,
+    initialize_matrix_and_gene_index_state,
+    xdata_from_input_plan,
+)
+from pegs_shared.ydata import (
+    apply_hyperparameter_data_to_runtime,
+    apply_phewas_runtime_state_to_runtime,
+    apply_y_data_to_runtime,
+    build_y_data_from_inputs,
+    ensure_hyperparameter_state,
+    hyperparameter_data_from_runtime,
+    phewas_runtime_state_from_runtime,
+    set_runtime_y_from_inputs,
+    sync_hyperparameter_state,
+    sync_phewas_runtime_state,
+    sync_y_state,
+    y_data_from_runtime,
 )
 
 EAGGL_BUNDLE_SCHEMA = "pigean_eaggl_bundle/v1"
@@ -273,100 +294,6 @@ def open_text_with_retry(filepath, flag=None, *, log_fn=None, bail_fn=None):
         bail_fn=bail_fn,
         urlopen_with_retry_fn=open_url_with_retry_fn,
     )
-
-
-class TsvTable(object):
-    def __init__(self, columns, rows, key_column=None, by_key=None):
-        self.columns = columns
-        self.rows = rows
-        self.key_column = key_column
-        self.by_key = by_key
-
-
-class GeneStatsTable(TsvTable):
-    KEY_COLUMN = "Gene"
-    REQUIRED_COLUMNS = ["Gene"]
-
-    @classmethod
-    def read(cls, path, *, bail_fn=None):
-        table = read_tsv(
-            path,
-            key_column=cls.KEY_COLUMN,
-            required_columns=cls.REQUIRED_COLUMNS,
-            bail_fn=bail_fn,
-        )
-        return cls(
-            columns=table.columns,
-            rows=table.rows,
-            key_column=table.key_column,
-            by_key=table.by_key,
-        )
-
-
-class GeneSetStatsTable(TsvTable):
-    KEY_COLUMN = "Gene_Set"
-    REQUIRED_COLUMNS = ["Gene_Set"]
-
-    @classmethod
-    def read(cls, path, *, bail_fn=None):
-        table = read_tsv(
-            path,
-            key_column=cls.KEY_COLUMN,
-            required_columns=cls.REQUIRED_COLUMNS,
-            bail_fn=bail_fn,
-        )
-        return cls(
-            columns=table.columns,
-            rows=table.rows,
-            key_column=table.key_column,
-            by_key=table.by_key,
-        )
-
-
-def read_tsv(path, key_column=None, required_columns=None, *, bail_fn=None):
-    if bail_fn is None:
-        bail_fn = _default_bail
-    required = set(required_columns or [])
-
-    with open_text_auto(str(path), "rt", bail_fn=bail_fn) as fh:
-        reader = csv.DictReader(fh, delimiter="\t")
-        if reader.fieldnames is None:
-            bail_fn("No header found in TSV: %s" % path)
-
-        missing = required.difference(reader.fieldnames)
-        if missing:
-            missing_fmt = ", ".join(sorted(missing))
-            bail_fn("Missing required columns (%s) in %s" % (missing_fmt, path))
-
-        rows = []
-        by_key = {} if key_column else None
-        for row in reader:
-            rows.append(row)
-            if key_column:
-                key = row.get(key_column, "")
-                if key in by_key:
-                    bail_fn("Duplicate key '%s' in %s (%s)" % (key, path, key_column))
-                by_key[key] = row
-
-    return TsvTable(columns=list(reader.fieldnames), rows=rows, key_column=key_column, by_key=by_key)
-
-
-def write_tsv(path, columns, rows):
-    path = str(path)
-    ensure_parent_dir_for_file(path)
-    cols = list(columns)
-    if path.endswith(".gz"):
-        with gzip.open(path, "wt", newline="") as fh:
-            writer = csv.DictWriter(fh, fieldnames=cols, delimiter="\t", extrasaction="ignore")
-            writer.writeheader()
-            for row in rows:
-                writer.writerow(row)
-    else:
-        with open(path, "w", newline="") as fh:
-            writer = csv.DictWriter(fh, fieldnames=cols, delimiter="\t", extrasaction="ignore")
-            writer.writeheader()
-            for row in rows:
-                writer.writerow(row)
 
 
 def parse_gene_set_statistics_file(
@@ -1470,98 +1397,6 @@ def parse_gene_phewas_bfs_file(
     )
 
 
-def y_data_from_runtime(runtime):
-    return YData(
-        Y=getattr(runtime, "Y", None),
-        Y_for_regression=getattr(runtime, "Y_for_regression", None),
-        Y_exomes=getattr(runtime, "Y_exomes", None),
-        Y_positive_controls=getattr(runtime, "Y_positive_controls", None),
-        Y_case_counts=getattr(runtime, "Y_case_counts", None),
-        y_var=getattr(runtime, "y_var", None),
-        y_corr=getattr(runtime, "y_corr", None),
-        y_corr_sparse=getattr(runtime, "y_corr_sparse", None),
-    )
-
-
-def build_y_data_from_inputs(
-    runtime,
-    Y,
-    Y_for_regression=None,
-    Y_exomes=None,
-    Y_positive_controls=None,
-    Y_case_counts=None,
-    Y_corr_m=None,
-    store_corr_sparse=False,
-    min_correlation=0,
-):
-    y_data = y_data_from_runtime(runtime)
-    if Y_corr_m is not None:
-        y_corr_m = copy.copy(Y_corr_m)
-        if min_correlation is not None:
-            # preserve existing behavior: zero-out non-positive correlations
-            y_corr_m[y_corr_m <= 0] = 0
-
-        keep_mask = np.array([True] * len(y_corr_m))
-        for i in range(len(y_corr_m) - 1, -1, -1):
-            if np.sum(y_corr_m[i] != 0) == 0:
-                keep_mask[i] = False
-            else:
-                break
-        if np.sum(keep_mask) > 0:
-            y_corr_m = y_corr_m[keep_mask]
-
-        y_data.y_corr = copy.copy(y_corr_m)
-
-        y_corr_diags = [y_data.y_corr[i, :(len(y_data.y_corr[i, :]) - i)] for i in range(len(y_data.y_corr))]
-        y_corr_sparse = sparse.csc_matrix(
-            sparse.diags(
-                y_corr_diags + y_corr_diags[1:],
-                list(range(len(y_corr_diags))) + list(range(-1, -len(y_corr_diags), -1)),
-            )
-        )
-
-        if store_corr_sparse:
-            y_data.y_corr_sparse = y_corr_sparse
-
-    if Y is not None:
-        na_mask = ~np.isnan(Y)
-        y_data.y_var = np.var(Y[na_mask])
-    else:
-        y_data.y_var = None
-    y_data.Y = Y
-    y_data.Y_for_regression = Y_for_regression
-    y_data.Y_exomes = Y_exomes
-    y_data.Y_positive_controls = Y_positive_controls
-    y_data.Y_case_counts = Y_case_counts
-    return y_data
-
-
-def set_runtime_y_from_inputs(
-    runtime,
-    Y,
-    Y_for_regression=None,
-    Y_exomes=None,
-    Y_positive_controls=None,
-    Y_case_counts=None,
-    Y_corr_m=None,
-    store_corr_sparse=False,
-    min_correlation=0,
-):
-    y_data = build_y_data_from_inputs(
-        runtime=runtime,
-        Y=Y,
-        Y_for_regression=Y_for_regression,
-        Y_exomes=Y_exomes,
-        Y_positive_controls=Y_positive_controls,
-        Y_case_counts=Y_case_counts,
-        Y_corr_m=Y_corr_m,
-        store_corr_sparse=store_corr_sparse,
-        min_correlation=min_correlation,
-    )
-    apply_y_data_to_runtime(runtime, y_data)
-    return y_data
-
-
 def compute_banded_y_corr_cholesky(Y_corr_m, diag_add=0.05):
     Y_corr_m_copy = copy.copy(Y_corr_m)
     while True:
@@ -1841,80 +1676,6 @@ def iterate_X_blocks_internal(
             cache_state["last_X_block"] = None
 
         yield (X_b, begin, end, batch)
-
-
-def apply_y_data_to_runtime(runtime, y_data):
-    runtime.Y = y_data.Y
-    runtime.Y_for_regression = y_data.Y_for_regression
-    runtime.Y_exomes = y_data.Y_exomes
-    runtime.Y_positive_controls = y_data.Y_positive_controls
-    runtime.Y_case_counts = y_data.Y_case_counts
-    runtime.y_var = y_data.y_var
-    runtime.y_corr = y_data.y_corr
-    runtime.y_corr_sparse = y_data.y_corr_sparse
-
-
-def hyperparameter_data_from_runtime(runtime):
-    return HyperparameterData.from_runtime(runtime)
-
-
-def apply_hyperparameter_data_to_runtime(runtime, hyper_data):
-    hyper_data.apply_to_runtime(runtime)
-
-
-def ensure_hyperparameter_state(runtime):
-    hyper_state = getattr(runtime, "hyperparameter_state", None)
-    if isinstance(hyper_state, HyperparameterData):
-        return hyper_state
-    hyper_state = hyperparameter_data_from_runtime(runtime)
-    runtime.hyperparameter_state = hyper_state
-    return hyper_state
-
-
-def phewas_runtime_state_from_runtime(runtime):
-    return PhewasRuntimeState(
-        phenos=getattr(runtime, "phenos", None),
-        pheno_to_ind=getattr(runtime, "pheno_to_ind", None),
-        gene_pheno_Y=getattr(runtime, "gene_pheno_Y", None),
-        gene_pheno_combined_prior_Ys=getattr(runtime, "gene_pheno_combined_prior_Ys", None),
-        gene_pheno_priors=getattr(runtime, "gene_pheno_priors", None),
-        X_phewas_beta=getattr(runtime, "X_phewas_beta", None),
-        X_phewas_beta_uncorrected=getattr(runtime, "X_phewas_beta_uncorrected", None),
-        num_gene_phewas_filtered=getattr(runtime, "num_gene_phewas_filtered", 0),
-        anchor_gene_mask=getattr(runtime, "anchor_gene_mask", None),
-        anchor_pheno_mask=getattr(runtime, "anchor_pheno_mask", None),
-    )
-
-
-def apply_phewas_runtime_state_to_runtime(runtime, phewas_state):
-    runtime.phenos = phewas_state.phenos
-    runtime.pheno_to_ind = phewas_state.pheno_to_ind
-    runtime.gene_pheno_Y = phewas_state.gene_pheno_Y
-    runtime.gene_pheno_combined_prior_Ys = phewas_state.gene_pheno_combined_prior_Ys
-    runtime.gene_pheno_priors = phewas_state.gene_pheno_priors
-    runtime.X_phewas_beta = phewas_state.X_phewas_beta
-    runtime.X_phewas_beta_uncorrected = phewas_state.X_phewas_beta_uncorrected
-    runtime.num_gene_phewas_filtered = phewas_state.num_gene_phewas_filtered
-    runtime.anchor_gene_mask = phewas_state.anchor_gene_mask
-    runtime.anchor_pheno_mask = phewas_state.anchor_pheno_mask
-
-
-def sync_y_state(runtime):
-    y_state = y_data_from_runtime(runtime)
-    apply_y_data_to_runtime(runtime, y_state)
-    return y_state
-
-
-def sync_hyperparameter_state(runtime):
-    hyper_state = ensure_hyperparameter_state(runtime)
-    apply_hyperparameter_data_to_runtime(runtime, hyper_state)
-    return hyper_state
-
-
-def sync_phewas_runtime_state(runtime):
-    phewas_state = phewas_runtime_state_from_runtime(runtime)
-    apply_phewas_runtime_state_to_runtime(runtime, phewas_state)
-    return phewas_state
 
 
 def derive_factor_anchor_masks(genes, phenos, anchor_genes=None, anchor_phenos=None, *, bail_fn=None):
@@ -3440,10 +3201,6 @@ def prepare_read_x_inputs(
     )
 
 
-def xdata_from_input_plan(input_plan):
-    return XData.from_input_plan(input_plan)
-
-
 def make_add_to_x_handler(runtime, read_config, read_callbacks, *, run_logistic):
     def _add_to_x(mat_info, genes, gene_sets, tag=None, skip_scale_factors=False, fname=None):
         if tag is not None:
@@ -3695,121 +3452,6 @@ def run_read_x_ingestion(
         info_level=info_level,
         debug_level=debug_level,
     )
-
-
-def build_read_x_ingestion_options(local_vars):
-    return XReadIngestionOptions(
-        batch_all_for_hyper=local_vars["batch_all_for_hyper"],
-        first_for_hyper=local_vars["first_for_hyper"],
-        update_hyper_sigma=local_vars["update_hyper_sigma"],
-        update_hyper_p=local_vars["update_hyper_p"],
-        first_for_sigma_cond=local_vars["first_for_sigma_cond"],
-        run_corrected_ols=local_vars["run_corrected_ols"],
-        gene_cor_file=local_vars["gene_cor_file"],
-        gene_loc_file=local_vars["gene_loc_file"],
-        gene_cor_file_gene_col=local_vars["gene_cor_file_gene_col"],
-        gene_cor_file_cor_start_col=local_vars["gene_cor_file_cor_start_col"],
-        run_logistic=local_vars["run_logistic"],
-        max_for_linear=local_vars["max_for_linear"],
-        only_ids=local_vars["only_ids"],
-        add_all_genes=local_vars["add_all_genes"],
-        only_inc_genes=local_vars["only_inc_genes"],
-        fraction_inc_genes=local_vars["fraction_inc_genes"],
-        ignore_genes=local_vars["ignore_genes"],
-        max_num_entries_at_once=local_vars["max_num_entries_at_once"],
-        filter_gene_set_p=local_vars["filter_gene_set_p"],
-        filter_gene_set_metric_z=local_vars["filter_gene_set_metric_z"],
-        filter_using_phewas=local_vars["filter_using_phewas"],
-    )
-
-
-def build_read_x_post_options(local_vars, *, batches, num_ignored_gene_sets, ignored_for_fraction_inc):
-    return XReadPostOptions(
-        ignored_for_fraction_inc=ignored_for_fraction_inc,
-        filter_gene_set_p=local_vars["filter_gene_set_p"],
-        correct_betas_mean=local_vars["correct_betas_mean"],
-        correct_betas_var=local_vars["correct_betas_var"],
-        filter_using_phewas=local_vars["filter_using_phewas"],
-        prune_gene_sets=local_vars["prune_gene_sets"],
-        weighted_prune_gene_sets=local_vars["weighted_prune_gene_sets"],
-        prune_deterministically=local_vars["prune_deterministically"],
-        max_num_gene_sets_initial=local_vars["max_num_gene_sets_initial"],
-        skip_betas=local_vars["skip_betas"],
-        initial_p=local_vars["initial_p"],
-        update_hyper_p=local_vars["update_hyper_p"],
-        sigma_power=local_vars["sigma_power"],
-        initial_sigma2_cond=local_vars["initial_sigma2_cond"],
-        update_hyper_sigma=local_vars["update_hyper_sigma"],
-        initial_sigma2=local_vars["initial_sigma2"],
-        sigma_soft_threshold_95=local_vars["sigma_soft_threshold_95"],
-        sigma_soft_threshold_5=local_vars["sigma_soft_threshold_5"],
-        batches=batches,
-        num_ignored_gene_sets=num_ignored_gene_sets,
-        first_for_hyper=local_vars["first_for_hyper"],
-        max_num_gene_sets_hyper=local_vars["max_num_gene_sets_hyper"],
-        first_for_sigma_cond=local_vars["first_for_sigma_cond"],
-        first_max_p_for_hyper=local_vars["first_max_p_for_hyper"],
-        max_num_burn_in=local_vars["max_num_burn_in"],
-        max_num_iter_betas=local_vars["max_num_iter_betas"],
-        min_num_iter_betas=local_vars["min_num_iter_betas"],
-        num_chains_betas=local_vars["num_chains_betas"],
-        r_threshold_burn_in_betas=local_vars["r_threshold_burn_in_betas"],
-        use_max_r_for_convergence_betas=local_vars["use_max_r_for_convergence_betas"],
-        max_frac_sem_betas=local_vars["max_frac_sem_betas"],
-        max_allowed_batch_correlation=local_vars["max_allowed_batch_correlation"],
-        sigma_num_devs_to_top=local_vars["sigma_num_devs_to_top"],
-        p_noninf_inflate=local_vars["p_noninf_inflate"],
-        sparse_solution=local_vars["sparse_solution"],
-        sparse_frac_betas=local_vars["sparse_frac_betas"],
-        betas_trace_out=local_vars["betas_trace_out"],
-        increase_filter_gene_set_p=local_vars["increase_filter_gene_set_p"],
-        min_gene_set_size=local_vars["min_gene_set_size"],
-        max_gene_set_size=local_vars["max_gene_set_size"],
-        filter_gene_set_metric_z=local_vars["filter_gene_set_metric_z"],
-        max_num_gene_sets=local_vars["max_num_gene_sets"],
-    )
-
-
-def initialize_matrix_and_gene_index_state(runtime, batch_size):
-    # genes x gene-set indicator matrices (sparse, unscaled storage)
-    runtime.X_orig = None
-    runtime.X_binary_packed = None
-    runtime.X_orig_missing_genes = None
-    runtime.X_orig_missing_genes_missing_gene_sets = None
-    runtime.X_orig_missing_gene_sets = None
-    runtime.last_X_block = None
-
-    # block and scaling metadata
-    runtime.batch_size = batch_size
-    runtime.scale_is_for_whitened = False
-    runtime.scale_factors = None
-    runtime.mean_shifts = None
-    runtime.scale_factors_missing = None
-    runtime.mean_shifts_missing = None
-    runtime.scale_factors_ignored = None
-    runtime.mean_shifts_ignored = None
-
-    # gene-set metadata
-    runtime.is_dense_gene_set = None
-    runtime.is_dense_gene_set_missing = None
-    runtime.gene_set_batches = None
-    runtime.gene_set_batches_missing = None
-    runtime.gene_set_labels = None
-    runtime.gene_set_labels_missing = None
-    runtime.gene_set_labels_ignored = None
-
-    # gene metadata
-    runtime.genes = None
-    runtime.genes_missing = None
-    runtime.gene_to_ind = None
-    runtime.gene_missing_to_ind = None
-    runtime.gene_chrom_name_pos = None
-    runtime.gene_to_chrom = None
-    runtime.gene_to_pos = None
-    runtime.gene_to_gwas_huge_score = None
-    runtime.gene_to_gwas_huge_score_uncorrected = None
-    runtime.gene_to_exomes_huge_score = None
-    runtime.gene_to_huge_score = None
 
 
 def infer_columns_from_table_file(filename, open_text_fn, *, log_fn=None, bail_fn=None):

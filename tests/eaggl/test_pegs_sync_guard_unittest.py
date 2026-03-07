@@ -18,9 +18,9 @@ class PegsSyncGuardTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             left = Path(td) / "left"
             right = Path(td) / "right"
-            (left / "src").mkdir(parents=True, exist_ok=True)
-            (right / "src").mkdir(parents=True, exist_ok=True)
-            rel = "src/pegs_utils_phewas.py"
+            (left / "src" / "pegs_shared").mkdir(parents=True, exist_ok=True)
+            (right / "src" / "pegs_shared").mkdir(parents=True, exist_ok=True)
+            rel = "src/pegs_shared/phewas.py"
             (left / rel).write_text("a\n", encoding="utf-8")
             (right / rel).write_text("b\n", encoding="utf-8")
             result = pegs_sync_guard.compare_shared_files(left, right, files=[rel])
@@ -31,9 +31,9 @@ class PegsSyncGuardTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             left = Path(td) / "left"
             right = Path(td) / "right"
-            (left / "src").mkdir(parents=True, exist_ok=True)
-            (right / "src").mkdir(parents=True, exist_ok=True)
-            rel = "src/pegs_utils_bundle.py"
+            (left / "src" / "pegs_shared").mkdir(parents=True, exist_ok=True)
+            (right / "src" / "pegs_shared").mkdir(parents=True, exist_ok=True)
+            rel = "src/pegs_shared/bundle.py"
             (left / rel).write_text("x\n", encoding="utf-8")
             result = pegs_sync_guard.compare_shared_files(left, right, files=[rel])
             self.assertFalse(result.ok)

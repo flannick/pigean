@@ -7,8 +7,13 @@ from pathlib import Path
 
 DEFAULT_SHARED_FILES = (
     "src/pegs_utils.py",
-    "src/pegs_utils_bundle.py",
-    "src/pegs_utils_phewas.py",
+    "src/pegs_shared/bundle.py",
+    "src/pegs_shared/phewas.py",
+    "src/pegs_shared/types.py",
+    "src/pegs_shared/cli.py",
+    "src/pegs_shared/io_common.py",
+    "src/pegs_shared/xdata.py",
+    "src/pegs_shared/ydata.py",
     "src/pegs_sync_guard.py",
 )
 
