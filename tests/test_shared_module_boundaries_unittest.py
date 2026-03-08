@@ -80,14 +80,27 @@ class SharedModuleBoundaryTest(unittest.TestCase):
 
     def test_pigean_x_input_orchestration_lives_in_package_module(self) -> None:
         x_source = (REPO_ROOT / "src" / "pigean" / "x_inputs.py").read_text(encoding="utf-8")
+        x_core_source = (REPO_ROOT / "src" / "pigean" / "x_inputs_core.py").read_text(encoding="utf-8")
         flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
         self.assertIn("def run_main_adaptive_read_x(", x_source)
         self.assertIn("def run_read_x_stage(", x_source)
         self.assertIn("def read_x_pipeline(", x_source)
+        self.assertIn("def process_x_input_file(", x_core_source)
+        self.assertIn("def maybe_prefilter_x_block(", x_core_source)
+        self.assertIn("def ensure_gene_universe_for_x(", x_core_source)
         self.assertIn("from pigean import x_inputs as pigean_x_inputs", flat_source)
+        self.assertIn("from pigean import x_inputs_core as pigean_x_inputs_core", flat_source)
         self.assertIn("return pigean_x_inputs.run_main_adaptive_read_x(", flat_source)
         self.assertIn("return pigean_x_inputs.run_read_x_stage(", flat_source)
         self.assertIn("return pigean_x_inputs.read_x_pipeline(", flat_source)
+        self.assertIn("_process_x_input_file = functools.partial(", flat_source)
+        self.assertIn("pigean_x_inputs_core.process_x_input_file", flat_source)
+        self.assertNotIn("def _process_x_input_file(", flat_source)
+        self.assertNotIn("def _normalize_dense_gene_rows(", flat_source)
+        self.assertNotIn("def _build_sparse_x_from_dense_input(", flat_source)
+        self.assertNotIn("def _normalize_gene_set_weights(", flat_source)
+        self.assertNotIn("def _maybe_prefilter_x_block(", flat_source)
+        self.assertNotIn("def _ensure_gene_universe_for_x(", flat_source)
 
     def test_pigean_gibbs_orchestration_lives_in_package_module(self) -> None:
         gibbs_source = (REPO_ROOT / "src" / "pigean" / "gibbs.py").read_text(encoding="utf-8")
