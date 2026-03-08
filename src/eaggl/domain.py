@@ -10,6 +10,7 @@ from . import factor as eaggl_factor
 from . import io as eaggl_io
 from . import outputs as eaggl_outputs
 from . import workflows as eaggl_workflows
+from . import y_inputs as eaggl_y_inputs
 
 
 class EagglMainDomain(object):
@@ -41,7 +42,7 @@ class EagglMainDomain(object):
         return eaggl_factor.run_main_factor_only_pipeline(self, runtime, options, mode_state)
 
     def _run_read_y_stage(self, runtime, **read_kwargs):
-        return eaggl_io.run_read_y_stage(self, runtime, **read_kwargs)
+        return eaggl_y_inputs.run_read_y_stage(self, runtime, **read_kwargs)
 
     def _run_read_x_stage(self, runtime, X_in, **read_x_kwargs):
         return eaggl_io.run_read_x_stage(self, runtime, X_in, **read_x_kwargs)

@@ -278,6 +278,10 @@ try:
     from . import io as _eaggl_io
 except ImportError:
     import io as _eaggl_io
+try:
+    from . import y_inputs as _eaggl_y_inputs
+except ImportError:
+    import y_inputs as _eaggl_y_inputs
 
 usage = _eaggl_cli.usage
 parser = _eaggl_cli.parser
@@ -5736,8 +5740,8 @@ MainPipelineResult = _eaggl_factor.MainPipelineResult
 _bind_hyperparameter_properties(EagglState)
 
 
-_read_y_pipeline = _eaggl_io.read_y_pipeline
-_run_read_y_stage = _eaggl_io.run_read_y_stage
+_read_y_pipeline = _eaggl_y_inputs.read_y_pipeline
+_run_read_y_stage = _eaggl_y_inputs.run_read_y_stage
 _read_x_pipeline = _eaggl_io.read_x_pipeline
 _run_read_x_stage = _eaggl_io.run_read_x_stage
 _log_runtime_environment_if_requested = _eaggl_io.log_runtime_environment_if_requested

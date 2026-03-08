@@ -123,18 +123,31 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         eaggl_source = (REPO_ROOT / "src" / "eaggl" / "legacy_main.py").read_text(encoding="utf-8")
         self.assertIn("from . import domain as _eaggl_domain", eaggl_source)
         self.assertIn("from . import io as _eaggl_io", eaggl_source)
+        self.assertIn("from . import y_inputs as _eaggl_y_inputs", eaggl_source)
         self.assertIn("return _eaggl_dispatch.run_main_pipeline(_build_main_domain(), options)", eaggl_source)
 
     def test_eaggl_io_uses_pegs_shared_for_extracted_read_helpers(self) -> None:
         io_source = (REPO_ROOT / "src" / "eaggl" / "io.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.io_common import", io_source)
         self.assertIn("from pegs_shared.xdata import", io_source)
+        self.assertIn("from . import y_inputs as eaggl_y_inputs", io_source)
         pegs_utils_import_block = io_source.split("from pegs_utils import", 1)[1].split(")\n", 1)[0]
         self.assertNotIn("build_read_x_pipeline_config", pegs_utils_import_block)
         self.assertNotIn("clean_chrom_name", pegs_utils_import_block)
         self.assertNotIn("construct_map_to_ind", pegs_utils_import_block)
         self.assertNotIn("parse_gene_map_file", pegs_utils_import_block)
         self.assertNotIn("read_loc_file_with_gene_map", pegs_utils_import_block)
+
+    def test_eaggl_y_inputs_and_covariates_own_dense_read_y_logic(self) -> None:
+        y_source = (REPO_ROOT / "src" / "eaggl" / "y_inputs.py").read_text(encoding="utf-8")
+        cov_source = (REPO_ROOT / "src" / "eaggl" / "covariates.py").read_text(encoding="utf-8")
+        io_source = (REPO_ROOT / "src" / "eaggl" / "io.py").read_text(encoding="utf-8")
+        domain_source = (REPO_ROOT / "src" / "eaggl" / "domain.py").read_text(encoding="utf-8")
+        self.assertIn("def read_y_pipeline(", y_source)
+        self.assertIn("def _apply_hold_out_chrom(", y_source)
+        self.assertIn("def apply_loaded_gene_covariates(", cov_source)
+        self.assertIn("return eaggl_y_inputs.read_y_pipeline(", io_source)
+        self.assertIn("return eaggl_y_inputs.run_read_y_stage(self, runtime, **read_kwargs)", domain_source)
 
 
 if __name__ == "__main__":
