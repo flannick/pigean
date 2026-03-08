@@ -1,6 +1,6 @@
 # CLI Option Inventory
 
-This document is generated from parser definitions in `src/pigean_cli.py` and CLI metadata in `pigean_cli`.
+This document is generated from parser definitions in `src/pigean/cli.py` and CLI metadata in `pigean.cli`.
 Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary

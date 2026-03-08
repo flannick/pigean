@@ -6,8 +6,8 @@
     "method_optional": 254,
     "method_required": 22
   },
-  "entrypoint": "src/pigean_cli.py",
-  "module": "pigean_cli",
+  "entrypoint": "src/pigean/cli.py",
+  "module": "pigean.cli",
   "num_options": 312,
   "options": [
     {
