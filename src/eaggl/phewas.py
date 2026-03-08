@@ -5,12 +5,12 @@ import copy
 import numpy as np
 import scipy.sparse as sparse
 
+from pegs_shared.io_common import construct_map_to_ind as pegs_construct_map_to_ind
 from pegs_shared.io_common import open_text_with_retry
-from pegs_utils import (
+from pegs_shared.phewas import (
     accumulate_factor_phewas_outputs as pegs_accumulate_factor_phewas_outputs,
     accumulate_standard_phewas_outputs as pegs_accumulate_standard_phewas_outputs,
     append_phewas_metric_block as pegs_append_phewas_metric_block,
-    construct_map_to_ind as pegs_construct_map_to_ind,
     prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
     read_phewas_file_batch as pegs_read_phewas_file_batch,
 )

@@ -70,6 +70,17 @@ try:
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         sync_runtime_state_bundle as pegs_sync_runtime_state_bundle,
     )
+    from pegs_shared.gene_io import (
+        load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
+        load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
+    )
+    from pegs_shared.phewas import (
+        accumulate_factor_phewas_outputs as pegs_accumulate_factor_phewas_outputs,
+        accumulate_standard_phewas_outputs as pegs_accumulate_standard_phewas_outputs,
+        append_phewas_metric_block as pegs_append_phewas_metric_block,
+        prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
+        read_phewas_file_batch as pegs_read_phewas_file_batch,
+    )
     from pegs_utils import (
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
@@ -85,8 +96,6 @@ try:
         apply_post_read_gene_set_size_and_qc_filters as pegs_apply_post_read_gene_set_size_and_qc_filters,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         build_read_x_pipeline_config as pegs_build_read_x_pipeline_config,
-        load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
-        load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
         load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
         load_and_apply_gene_set_statistics_to_runtime as pegs_load_and_apply_gene_set_statistics_to_runtime,
         load_and_apply_gene_set_phewas_statistics_to_runtime as pegs_load_and_apply_gene_set_phewas_statistics_to_runtime,
@@ -101,11 +110,6 @@ try:
         iterate_X_blocks_internal as pegs_iterate_X_blocks_internal,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
-        prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
-        read_phewas_file_batch as pegs_read_phewas_file_batch,
-        append_phewas_metric_block as pegs_append_phewas_metric_block,
-        accumulate_standard_phewas_outputs as pegs_accumulate_standard_phewas_outputs,
-        accumulate_factor_phewas_outputs as pegs_accumulate_factor_phewas_outputs,
         write_gene_set_statistics as pegs_write_gene_set_statistics,
         write_phewas_gene_set_statistics as pegs_write_phewas_gene_set_statistics,
         write_gene_statistics as pegs_write_gene_statistics,
@@ -173,6 +177,17 @@ except ImportError:
         sync_phewas_runtime_state as pegs_sync_phewas_runtime_state,
         sync_runtime_state_bundle as pegs_sync_runtime_state_bundle,
     )
+    from pegs_shared.gene_io import (
+        load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
+        load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
+    )
+    from pegs_shared.phewas import (
+        accumulate_factor_phewas_outputs as pegs_accumulate_factor_phewas_outputs,
+        accumulate_standard_phewas_outputs as pegs_accumulate_standard_phewas_outputs,
+        append_phewas_metric_block as pegs_append_phewas_metric_block,
+        prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
+        read_phewas_file_batch as pegs_read_phewas_file_batch,
+    )
     from pegs_utils import (
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
@@ -188,8 +203,6 @@ except ImportError:
         apply_post_read_gene_set_size_and_qc_filters as pegs_apply_post_read_gene_set_size_and_qc_filters,
         prepare_read_x_inputs as pegs_prepare_read_x_inputs,
         build_read_x_pipeline_config as pegs_build_read_x_pipeline_config,
-        load_aligned_gene_bfs as pegs_load_aligned_gene_bfs,
-        load_aligned_gene_covariates as pegs_load_aligned_gene_covariates,
         load_and_apply_gene_phewas_bfs_to_runtime as pegs_load_and_apply_gene_phewas_bfs_to_runtime,
         load_and_apply_gene_set_statistics_to_runtime as pegs_load_and_apply_gene_set_statistics_to_runtime,
         load_and_apply_gene_set_phewas_statistics_to_runtime as pegs_load_and_apply_gene_set_phewas_statistics_to_runtime,
@@ -204,11 +217,6 @@ except ImportError:
         iterate_X_blocks_internal as pegs_iterate_X_blocks_internal,
         set_runtime_p as pegs_set_runtime_p,
         set_runtime_sigma as pegs_set_runtime_sigma,
-        prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
-        read_phewas_file_batch as pegs_read_phewas_file_batch,
-        append_phewas_metric_block as pegs_append_phewas_metric_block,
-        accumulate_standard_phewas_outputs as pegs_accumulate_standard_phewas_outputs,
-        accumulate_factor_phewas_outputs as pegs_accumulate_factor_phewas_outputs,
         write_gene_set_statistics as pegs_write_gene_set_statistics,
         write_phewas_gene_set_statistics as pegs_write_phewas_gene_set_statistics,
         write_gene_statistics as pegs_write_gene_statistics,
