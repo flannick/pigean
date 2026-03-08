@@ -93,6 +93,12 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn("def _prepare_gibbs_run_inputs(", flat_source)
         self.assertNotIn("def _new_gibbs_epoch_aggregates(", flat_source)
         self.assertNotIn("def _reset_gibbs_diagnostics(", flat_source)
+        self.assertNotIn("def _start_gibbs_epoch(", flat_source)
+        self.assertNotIn("def _build_gibbs_epoch_finalize_context(", flat_source)
+        self.assertNotIn("def _finalize_gibbs_epoch_attempt(", flat_source)
+        self.assertNotIn("def _prepare_gibbs_iteration_state(", flat_source)
+        self.assertNotIn("def _run_gibbs_iteration_correction_and_updates(", flat_source)
+        self.assertNotIn("def _advance_gibbs_iteration_progress(", flat_source)
 
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean" / "cli.py").read_text(encoding="utf-8")
