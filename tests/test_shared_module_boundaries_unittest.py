@@ -14,6 +14,7 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         seam_expectations = (
             ("pigean.pipeline", "pigean_pipeline", "run_main_non_huge_pipeline"),
             ("pigean.dispatch", "pigean_dispatch", "run_main_pipeline"),
+            ("pigean.gibbs", "pigean_gibbs", "run_outer_gibbs"),
             ("pigean.outputs", "pigean_outputs", "write_main_outputs_and_optional_phewas"),
             ("pigean.huge", "pigean_huge", "read_huge_statistics_bundle"),
             ("pigean.phewas", "pigean_phewas", "run_advanced_set_b_output_phewas_if_requested"),
@@ -75,6 +76,16 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("return pigean_x_inputs.run_main_adaptive_read_x(", flat_source)
         self.assertIn("return pigean_x_inputs.run_read_x_stage(", flat_source)
         self.assertIn("return pigean_x_inputs.read_x_pipeline(", flat_source)
+
+    def test_pigean_gibbs_orchestration_lives_in_package_module(self) -> None:
+        gibbs_source = (REPO_ROOT / "src" / "pigean" / "gibbs.py").read_text(encoding="utf-8")
+        flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
+        shim_source = (REPO_ROOT / "src" / "pigean_gibbs.py").read_text(encoding="utf-8")
+        self.assertIn("class GibbsOrchestrationCallbacks:", gibbs_source)
+        self.assertIn("def run_outer_gibbs(", gibbs_source)
+        self.assertIn("from pigean import gibbs as pigean_gibbs", flat_source)
+        self.assertIn("return pigean_gibbs.run_outer_gibbs(", flat_source)
+        self.assertIn("from pigean.gibbs import *", shim_source)
 
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean" / "cli.py").read_text(encoding="utf-8")

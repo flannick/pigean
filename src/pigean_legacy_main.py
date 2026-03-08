@@ -4944,25 +4944,59 @@ class PigeanState(object):
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
     def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
-        # ==========================================================================
-        # Gibbs Phase 0: Normalize controls and initialize run-level state.
-        # ==========================================================================
-        gibbs_controls = _normalize_gibbs_run_controls(
+        from pigean import gibbs as pigean_gibbs
+
+        callbacks = pigean_gibbs.GibbsOrchestrationCallbacks(
+            prepare_gibbs_run_inputs_fn=_prepare_gibbs_run_inputs,
+            new_gibbs_epoch_aggregates_fn=_new_gibbs_epoch_aggregates,
+            reset_gibbs_diagnostics_fn=_reset_gibbs_diagnostics,
+            start_gibbs_epoch_fn=_start_gibbs_epoch,
+            build_gibbs_epoch_finalize_context_fn=_build_gibbs_epoch_finalize_context,
+            finalize_gibbs_epoch_attempt_fn=_finalize_gibbs_epoch_attempt,
+            prepare_gibbs_iteration_state_fn=_prepare_gibbs_iteration_state,
+            run_gibbs_iteration_correction_and_updates_fn=_run_gibbs_iteration_correction_and_updates,
+            advance_gibbs_iteration_progress_fn=_advance_gibbs_iteration_progress,
+            open_gz_fn=open_gz,
+            log_fn=log,
+            bail_fn=bail,
+            info_level=INFO,
+        )
+        return pigean_gibbs.run_outer_gibbs(
+            self,
+            callbacks,
             max_num_iter=max_num_iter,
             total_num_iter=total_num_iter,
             max_num_restarts=max_num_restarts,
             num_chains=num_chains,
+            num_mad=num_mad,
+            r_threshold_burn_in=r_threshold_burn_in,
+            use_max_r_for_convergence=use_max_r_for_convergence,
+            increase_hyper_if_betas_below=increase_hyper_if_betas_below,
+            experimental_hyper_mutation=experimental_hyper_mutation,
+            update_huge_scores=update_huge_scores,
+            top_gene_prior=top_gene_prior,
             min_num_burn_in=min_num_burn_in,
             max_num_burn_in=max_num_burn_in,
             min_num_post_burn_in=min_num_post_burn_in,
             max_num_post_burn_in=max_num_post_burn_in,
-            diag_every=diag_every,
+            max_num_iter_betas=max_num_iter_betas,
+            min_num_iter_betas=min_num_iter_betas,
+            num_chains_betas=num_chains_betas,
+            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+            max_frac_sem_betas=max_frac_sem_betas,
+            use_mean_betas=use_mean_betas,
+            warm_start=warm_start,
+            burn_in_rhat_quantile=burn_in_rhat_quantile,
             burn_in_patience=burn_in_patience,
             burn_in_stall_window=burn_in_stall_window,
             burn_in_stall_delta=burn_in_stall_delta,
+            stop_mcse_quantile=stop_mcse_quantile,
             stop_patience=stop_patience,
             stop_top_gene_k=stop_top_gene_k,
             stop_min_gene_d=stop_min_gene_d,
+            max_abs_mcse_d=max_abs_mcse_d,
+            max_rel_mcse_beta=max_rel_mcse_beta,
             active_beta_top_k=active_beta_top_k,
             active_beta_min_abs=active_beta_min_abs,
             beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
@@ -4973,122 +5007,28 @@ class PigeanState(object):
             stall_delta_mcse=stall_delta_mcse,
             stall_recent_window=stall_recent_window,
             stall_recent_eps=stall_recent_eps,
-            burn_in_rhat_quantile=burn_in_rhat_quantile,
-            use_max_r_for_convergence=use_max_r_for_convergence,
-        )
-        run_state = gibbs_controls.run_state
-        num_chains = gibbs_controls.num_chains
-
-        # ==========================================================================
-        # Gibbs Phase 1: Record configuration and reset diagnostics.
-        # ==========================================================================
-        gibbs_record_config = _build_gibbs_record_config(
-            gibbs_controls=gibbs_controls,
-            num_chains_betas=num_chains_betas,
-            max_num_iter=max_num_iter,
-            use_mean_betas=use_mean_betas,
-            warm_start=warm_start,
             stopping_preset_name=stopping_preset_name,
-            r_threshold_burn_in=r_threshold_burn_in,
-            stop_mcse_quantile=stop_mcse_quantile,
-            max_abs_mcse_d=max_abs_mcse_d,
-            max_rel_mcse_beta=max_rel_mcse_beta,
-            sparse_solution=sparse_solution,
+            diag_every=diag_every,
             sparse_frac_gibbs=sparse_frac_gibbs,
             sparse_max_gibbs=sparse_max_gibbs,
+            sparse_solution=sparse_solution,
             sparse_frac_betas=sparse_frac_betas,
             pre_filter_batch_size=pre_filter_batch_size,
+            pre_filter_small_batch_size=pre_filter_small_batch_size,
             max_allowed_batch_correlation=max_allowed_batch_correlation,
+            gauss_seidel_betas=gauss_seidel_betas,
+            gauss_seidel=gauss_seidel,
+            num_batches_parallel=num_batches_parallel,
+            max_mb_X_h=max_mb_X_h,
             initial_linear_filter=initial_linear_filter,
             correct_betas_mean=correct_betas_mean,
             correct_betas_var=correct_betas_var,
             adjust_priors=adjust_priors,
-            experimental_hyper_mutation=experimental_hyper_mutation,
-            increase_hyper_if_betas_below=increase_hyper_if_betas_below,
-        )
-        _record_gibbs_configuration_params(self, run_state, gibbs_record_config)
-        _log_gibbs_configuration_summary(gibbs_record_config, run_state)
-
-        _reset_gibbs_diagnostics(self)
-
-        # ==========================================================================
-        # Gibbs Phase 2: Build static inputs and epoch runtime configs.
-        # ==========================================================================
-        gibbs_inputs = _prepare_gibbs_run_inputs(
-            state=self,
-            num_chains=num_chains,
-            top_gene_prior=top_gene_prior,
-        )
-
-        epoch_aggregates = _new_gibbs_epoch_aggregates()
-        epoch_runtime_configs = _build_gibbs_epoch_runtime_configs(
-            _build_gibbs_epoch_runtime_config_inputs(
-                gibbs_controls,
-                _build_gibbs_dynamic_runtime_inputs(
-                    gibbs_inputs=gibbs_inputs,
-                    use_mean_betas=use_mean_betas,
-                    max_mb_X_h=max_mb_X_h,
-                    num_mad=num_mad,
-                    adjust_priors=adjust_priors,
-                    increase_hyper_if_betas_below=increase_hyper_if_betas_below,
-                    experimental_hyper_mutation=experimental_hyper_mutation,
-                    max_num_iter_betas=max_num_iter_betas,
-                    min_num_iter_betas=min_num_iter_betas,
-                    num_chains_betas=num_chains_betas,
-                    r_threshold_burn_in_betas=r_threshold_burn_in_betas,
-                    use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
-                    max_frac_sem_betas=max_frac_sem_betas,
-                    max_allowed_batch_correlation=max_allowed_batch_correlation,
-                    gauss_seidel_betas=gauss_seidel_betas,
-                    sparse_solution=sparse_solution,
-                    sparse_frac_betas=sparse_frac_betas,
-                    warm_start=warm_start,
-                    debug_zero_sparse=debug_zero_sparse,
-                    num_batches_parallel=num_batches_parallel,
-                    betas_trace_out=betas_trace_out,
-                    update_huge_scores=update_huge_scores,
-                    sparse_frac_gibbs=sparse_frac_gibbs,
-                    sparse_max_gibbs=sparse_max_gibbs,
-                    pre_filter_batch_size=pre_filter_batch_size,
-                    pre_filter_small_batch_size=pre_filter_small_batch_size,
-                    r_threshold_burn_in=r_threshold_burn_in,
-                    gauss_seidel=gauss_seidel,
-                    eps=eps,
-                    stop_mcse_quantile=stop_mcse_quantile,
-                    max_rel_mcse_beta=max_rel_mcse_beta,
-                    max_abs_mcse_d=max_abs_mcse_d,
-                    initial_linear_filter=initial_linear_filter,
-                    correct_betas_mean=correct_betas_mean,
-                    correct_betas_var=correct_betas_var,
-                ),
-            )
-        )
-        epoch_phase_config = epoch_runtime_configs.epoch_phase_config
-        epoch_iteration_static_config = epoch_runtime_configs.epoch_iteration_static_config
-
-        # ==========================================================================
-        # Gibbs Phase 3: Execute epoch attempts (with optional trace writers).
-        # ==========================================================================
-        _run_gibbs_epochs_with_optional_traces(
-            state=self,
-            run_state=run_state,
-            epoch_aggregates=epoch_aggregates,
-            epoch_phase_config=epoch_phase_config,
-            epoch_iteration_static_config=epoch_iteration_static_config,
             gene_set_stats_trace_out=gene_set_stats_trace_out,
             gene_stats_trace_out=gene_stats_trace_out,
-            gibbs_inputs=gibbs_inputs,
-        )
-
-        # ==========================================================================
-        # Gibbs Phase 4: Finalize run-level completion checks.
-        # ==========================================================================
-        if run_state.num_completed_epochs == 0:
-            bail("Gibbs failed to complete any successful epochs within restart/iteration limits")
-        log(
-            "Aggregated %d Gibbs epoch(s) into %d effective chains"
-            % (run_state.num_completed_epochs, run_state.num_completed_epochs * num_chains),
-            INFO,
+            betas_trace_out=betas_trace_out,
+            debug_zero_sparse=debug_zero_sparse,
+            eps=eps,
         )
 
     def _sparse_correlation_with_dot_product_threshold(self, X_sparse, beta, dot_product_threshold=0.01, Y=None):

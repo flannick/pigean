@@ -25,6 +25,7 @@ PIGEAN_PROFILE = {
     "entry_callable": "main",
     "modules": COMMON_MODULES
     + (
+        "pigean_gibbs.py",
         "pigean_legacy_main.py",
     ),
     "packages": COMMON_PACKAGES + ("pigean",),
