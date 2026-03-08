@@ -12,3 +12,6 @@ During transition, existing top-level docs such as:
 - `docs/CLI_OPTIONS.md`
 
 remain authoritative until they are moved or regenerated in the namespaced layout.
+
+Developer-facing methods ownership map:
+- `docs/pigean/METHODS_TO_CODE.md`

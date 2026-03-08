@@ -27,6 +27,9 @@ Current state:
 - canonical tests are being organized under `tests/pigean/` and `tests/eaggl/`
 - optional stitched single-file artifacts are generated on demand from modular source and are not checked in
 
+For a concise developer map from `docs/methods.tex` to the owning package modules, see:
+- `docs/pigean/METHODS_TO_CODE.md`
+
 Stitched artifact build command:
 
 ```bash

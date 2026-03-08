@@ -149,6 +149,16 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("return eaggl_y_inputs.read_y_pipeline(", io_source)
         self.assertIn("return eaggl_y_inputs.run_read_y_stage(self, runtime, **read_kwargs)", domain_source)
 
+    def test_pigean_methods_to_code_doc_points_at_package_modules(self) -> None:
+        doc_source = (REPO_ROOT / "docs" / "pigean" / "METHODS_TO_CODE.md").read_text(encoding="utf-8")
+        self.assertIn("docs/methods.tex", doc_source)
+        self.assertIn("src/pigean/y_inputs.py", doc_source)
+        self.assertIn("src/pigean/x_inputs.py", doc_source)
+        self.assertIn("src/pigean/pipeline.py", doc_source)
+        self.assertIn("src/pigean/gibbs.py", doc_source)
+        self.assertIn("src/pigean/huge.py", doc_source)
+        self.assertIn("src/pigean/outputs.py", doc_source)
+
 
 if __name__ == "__main__":
     unittest.main()
