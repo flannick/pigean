@@ -25,12 +25,7 @@ PIGEAN_PROFILE = {
     "entry_callable": "main",
     "modules": COMMON_MODULES
     + (
-        "pigean_dispatch.py",
-        "pigean_huge.py",
         "pigean_legacy_main.py",
-        "pigean_outputs.py",
-        "pigean_phewas.py",
-        "pigean_pipeline.py",
     ),
     "packages": COMMON_PACKAGES + ("pigean",),
 }

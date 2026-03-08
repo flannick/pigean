@@ -79,4 +79,6 @@ For curated CLI surface and category inventory (auto-generated):
 
 Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `python -m pigean`.
 
+For current architecture, the package modules under `src/pigean/` are the primary edit locations for the CLI and stage-level flow. The main remaining flat-file exception is the deeper legacy core in `src/pigean_legacy_main.py`.
+
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.

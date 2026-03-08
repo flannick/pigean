@@ -11322,7 +11322,7 @@ def _needs_gwas_column_detection(
     gwas_n,
 ):
     try:
-        from . import pigean_huge as _pigean_huge
+        from pigean import huge as _pigean_huge
     except ImportError:
         import pigean_huge as _pigean_huge
 
@@ -11353,7 +11353,7 @@ def _autodetect_gwas_columns(
     debug_just_check_header=False,
 ):
     try:
-        from . import pigean_huge as _pigean_huge
+        from pigean import huge as _pigean_huge
     except ImportError:
         import pigean_huge as _pigean_huge
 
@@ -11376,7 +11376,7 @@ def _autodetect_gwas_columns(
 class _IntervalTree(object):
     def __new__(cls, *args, **kwargs):
         try:
-            from . import pigean_huge as _pigean_huge
+            from pigean import huge as _pigean_huge
         except ImportError:
             import pigean_huge as _pigean_huge
 
@@ -11386,7 +11386,7 @@ class _IntervalTree(object):
 
 def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_chrom=None, exons_loc_file=None):
     try:
-        from . import pigean_huge as _pigean_huge
+        from pigean import huge as _pigean_huge
     except ImportError:
         import pigean_huge as _pigean_huge
 
@@ -11402,7 +11402,7 @@ def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_c
 
 def _compute_huge_variant_thresholds(min_var_posterior, gwas_high_p_posterior, allelic_var_k, gwas_prior_odds):
     try:
-        from . import pigean_huge as _pigean_huge
+        from pigean import huge as _pigean_huge
     except ImportError:
         import pigean_huge as _pigean_huge
 
@@ -11426,7 +11426,7 @@ def _validate_and_normalize_huge_gwas_inputs(
     signal_max_logp_ratio=None,
 ):
     try:
-        from . import pigean_huge as _pigean_huge
+        from pigean import huge as _pigean_huge
     except ImportError:
         import pigean_huge as _pigean_huge
 
@@ -11445,7 +11445,7 @@ def _validate_and_normalize_huge_gwas_inputs(
 
 def _write_huge_statistics_bundle(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
     try:
-        from . import pigean_huge as _pigean_huge
+        from pigean import huge as _pigean_huge
     except ImportError:
         import pigean_huge as _pigean_huge
 
@@ -11463,7 +11463,7 @@ def _write_huge_statistics_bundle(runtime_state, prefix, gene_bf, extra_genes, e
 
 def _read_huge_statistics_bundle(runtime_state, prefix):
     try:
-        from . import pigean_huge as _pigean_huge
+        from pigean import huge as _pigean_huge
     except ImportError:
         import pigean_huge as _pigean_huge
 
@@ -19366,7 +19366,7 @@ def _load_main_Y_inputs(state, options, mode_state):
     return True
 def _run_advanced_set_b_output_phewas_if_requested(state, options):
     try:
-        from . import pigean_phewas as _pigean_phewas
+        from pigean import phewas as _pigean_phewas
     except ImportError:
         import pigean_phewas as _pigean_phewas
 
@@ -19383,7 +19383,7 @@ def main(argv=None):
         if not should_continue:
             return 0
         try:
-            from . import pigean_dispatch as _pigean_dispatch
+            from pigean import dispatch as _pigean_dispatch
         except ImportError:
             import pigean_dispatch as _pigean_dispatch
         _pigean_dispatch.run_main_pipeline(sys.modules[__name__], options, mode)

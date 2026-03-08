@@ -34,6 +34,9 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("from . import dispatch as pigean_dispatch", legacy_source)
         self.assertIn("def run_main_pipeline(options, mode):", legacy_source)
         self.assertIn("return pigean_dispatch.run_main_pipeline(_legacy_main, options, mode)", legacy_source)
+        self.assertIn("from pigean import dispatch as _pigean_dispatch", flat_source)
+        self.assertIn("from pigean import huge as _pigean_huge", flat_source)
+        self.assertIn("from pigean import phewas as _pigean_phewas", flat_source)
         self.assertNotIn("def _run_main_non_huge_pipeline", flat_source)
         self.assertNotIn("def _write_main_outputs_and_optional_phewas", flat_source)
 

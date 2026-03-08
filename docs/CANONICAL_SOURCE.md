@@ -20,6 +20,8 @@ cd pigean
 
 Current state:
 - PIGEAN runtime entrypoint is `python -m pigean`
+- package modules under `src/pigean/` own the CLI and stage-level orchestration/edit path
+- flat `src/pigean_*.py` modules are compatibility shims except for the remaining legacy core in `src/pigean_legacy_main.py`
 - canonical in-repo EAGGL sources live under `src/eaggl/`
 - canonical docs are being organized under `docs/pigean/` and `docs/eaggl/`
 - canonical tests are being organized under `tests/pigean/` and `tests/eaggl/`
