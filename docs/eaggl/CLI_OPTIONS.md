@@ -17,22 +17,22 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
-| `--X-in` | `normal` | `yes` | `core_help` | `X_in` | `None` | - |
-| `--X-list` | `normal` | `yes` | `core_help` | `X_list` | `None` | - |
-| `--Xd-in` | `normal` | `yes` | `core_help` | `Xd_in` | `None` | - |
-| `--Xd-list` | `normal` | `yes` | `core_help` | `Xd_list` | `None` | - |
+| `--X-in` | `normal` | `yes` | `core_help` | `X_in` | `None` | load one or more sparse gene-set matrix files directly |
+| `--X-list` | `normal` | `yes` | `core_help` | `X_list` | `None` | load a file listing sparse gene-set matrix inputs |
+| `--Xd-in` | `normal` | `yes` | `core_help` | `Xd_in` | `None` | load one or more dense gene-set matrix files directly |
+| `--Xd-list` | `normal` | `yes` | `core_help` | `Xd_list` | `None` | load a file listing dense gene-set matrix inputs |
 | `--anchor-any-gene` | `normal` | `yes` | `core_help` | `anchor_any_gene` | `False` | anchor factorization to any gene in the loaded gene-phewas inputs |
 | `--anchor-any-pheno` | `normal` | `yes` | `core_help` | `anchor_any_pheno` | `False` | anchor factorization to any phenotype in the loaded phewas inputs |
 | `--anchor-gene-set` | `normal` | `yes` | `core_help` | `anchor_gene_set` | `False` | run gene-set anchoring using the loaded phenotype evidence |
 | `--anchor-genes` | `normal` | `yes` | `core_help` | `anchor_genes` | `None` | anchor factorization to one or more genes |
 | `--anchor-phenos` | `normal` | `yes` | `core_help` | `anchor_phenos` | `None` | anchor factorization to one or more phenotypes |
 | `--eaggl-bundle-in` | `normal` | `yes` | `core_help` | `eaggl_bundle_in` | `None` | load bundled PIGEAN outputs as default EAGGL inputs |
-| `--factors-anchor-out` | `normal` | `yes` | `core_help` | `factors_anchor_out` | `None` | - |
-| `--factors-out` | `normal` | `yes` | `core_help` | `factors_out` | `None` | - |
+| `--factors-anchor-out` | `normal` | `yes` | `core_help` | `factors_anchor_out` | `None` | write anchor-specific factorization outputs |
+| `--factors-out` | `normal` | `yes` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
 | `--gene-loc-file` | `expert` | `yes` | `expert_help` | `gene_loc_file` | `None` | - |
-| `--gene-set-stats-in` | `normal` | `yes` | `core_help` | `gene_set_stats_in` | `None` | - |
+| `--gene-set-stats-in` | `normal` | `yes` | `core_help` | `gene_set_stats_in` | `None` | load gene-set statistics exported from PIGEAN |
 | `--gene-set-stats-out` | `expert` | `yes` | `expert_help` | `gene_set_stats_out` | `None` | - |
-| `--gene-stats-in` | `normal` | `yes` | `core_help` | `gene_stats_in` | `None` | - |
+| `--gene-stats-in` | `normal` | `yes` | `core_help` | `gene_stats_in` | `None` | load gene-level statistics exported from PIGEAN |
 | `--gene-stats-out` | `expert` | `yes` | `expert_help` | `gene_stats_out` | `None` | - |
 
 ## Method Optional

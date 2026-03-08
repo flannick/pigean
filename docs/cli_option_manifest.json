@@ -69,9 +69,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 71,
-      "summary": null,
+      "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 46
+      "usage_references": 48
     },
     {
       "action": "append",
@@ -90,9 +90,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 72,
-      "summary": null,
+      "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 20
+      "usage_references": 22
     },
     {
       "action": null,
@@ -132,9 +132,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 73,
-      "summary": null,
+      "summary": "load one or more dense gene-set matrix files directly",
       "type": null,
-      "usage_references": 15
+      "usage_references": 17
     },
     {
       "action": "append",
@@ -153,9 +153,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 74,
-      "summary": null,
+      "summary": "load a file listing dense gene-set matrix inputs",
       "type": null,
-      "usage_references": 9
+      "usage_references": 11
     },
     {
       "action": null,
@@ -636,9 +636,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 180,
-      "summary": null,
+      "summary": "load case variant-count evidence for gene-level support",
       "type": null,
-      "usage_references": 7
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1287,9 +1287,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 186,
-      "summary": null,
+      "summary": "load control variant-count evidence paired with --case-counts-in",
       "type": null,
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
@@ -1728,9 +1728,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 157,
-      "summary": null,
+      "summary": "load exome burden statistics as an additional HuGE evidence source",
       "type": null,
-      "usage_references": 25
+      "usage_references": 26
     },
     {
       "action": null,
@@ -2316,9 +2316,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 228,
-      "summary": null,
+      "summary": "gene location table used for correlation and locus-aware operations",
       "type": null,
-      "usage_references": 37
+      "usage_references": 39
     },
     {
       "action": null,
@@ -2337,9 +2337,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 229,
-      "summary": null,
+      "summary": "gene location table used during HuGE score construction",
       "type": null,
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
@@ -2843,7 +2843,7 @@
       "source_line": 203,
       "summary": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
       "type": null,
-      "usage_references": 32
+      "usage_references": 33
     },
     {
       "action": null,
@@ -2862,9 +2862,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 240,
-      "summary": null,
+      "summary": "write the final gene-set statistics table",
       "type": null,
-      "usage_references": 17
+      "usage_references": 18
     },
     {
       "action": null,
@@ -2990,7 +2990,7 @@
       "source_line": 219,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 46
+      "usage_references": 47
     },
     {
       "action": null,
@@ -3030,9 +3030,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 244,
-      "summary": null,
+      "summary": "write the final gene-level statistics table",
       "type": null,
-      "usage_references": 19
+      "usage_references": 20
     },
     {
       "action": null,
@@ -3408,9 +3408,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 122,
-      "summary": null,
+      "summary": "load GWAS summary statistics as the primary HuGE input",
       "type": null,
-      "usage_references": 38
+      "usage_references": 39
     },
     {
       "action": null,
@@ -5046,9 +5046,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 268,
-      "summary": null,
+      "summary": "write learned hyperparameters and runtime settings",
       "type": null,
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": "store_true",
@@ -5172,9 +5172,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 173,
-      "summary": null,
+      "summary": "load the full positive-control background gene universe",
       "type": null,
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": "store_false",
@@ -5256,9 +5256,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 167,
-      "summary": null,
+      "summary": "load positive-control genes with optional probabilities",
       "type": null,
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": "callback",
@@ -5277,9 +5277,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 170,
-      "summary": null,
+      "summary": "specify positive-control genes directly on the command line",
       "type": "string",
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": "store_false",
@@ -5571,9 +5571,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 149,
-      "summary": null,
+      "summary": "load SNP-to-gene mappings used during HuGE score construction",
       "type": null,
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,

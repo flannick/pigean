@@ -47,9 +47,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 90,
-      "summary": null,
+      "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 46
+      "usage_references": 48
     },
     {
       "action": "append",
@@ -68,9 +68,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 91,
-      "summary": null,
+      "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 20
+      "usage_references": 22
     },
     {
       "action": "append",
@@ -89,9 +89,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 92,
-      "summary": null,
+      "summary": "load one or more dense gene-set matrix files directly",
       "type": null,
-      "usage_references": 15
+      "usage_references": 17
     },
     {
       "action": "append",
@@ -110,9 +110,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 93,
-      "summary": null,
+      "summary": "load a file listing dense gene-set matrix inputs",
       "type": null,
-      "usage_references": 9
+      "usage_references": 11
     },
     {
       "action": "store_true",
@@ -908,9 +908,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 164,
-      "summary": null,
+      "summary": "write anchor-specific factorization outputs",
       "type": null,
-      "usage_references": 4
+      "usage_references": 5
     },
     {
       "action": null,
@@ -929,9 +929,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 163,
-      "summary": null,
+      "summary": "write the main factor loading output table",
       "type": null,
-      "usage_references": 23
+      "usage_references": 24
     },
     {
       "action": null,
@@ -1204,7 +1204,7 @@
       "source_line": 148,
       "summary": null,
       "type": null,
-      "usage_references": 37
+      "usage_references": 39
     },
     {
       "action": null,
@@ -1874,9 +1874,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 125,
-      "summary": null,
+      "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 32
+      "usage_references": 33
     },
     {
       "action": null,
@@ -1897,7 +1897,7 @@
       "source_line": 155,
       "summary": null,
       "type": null,
-      "usage_references": 17
+      "usage_references": 18
     },
     {
       "action": null,
@@ -2000,9 +2000,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 138,
-      "summary": null,
+      "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 46
+      "usage_references": 47
     },
     {
       "action": null,
@@ -2044,7 +2044,7 @@
       "source_line": 157,
       "summary": null,
       "type": null,
-      "usage_references": 19
+      "usage_references": 20
     },
     {
       "action": null,
@@ -3199,7 +3199,7 @@
       "source_line": 196,
       "summary": null,
       "type": null,
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": "store_true",
@@ -3367,7 +3367,7 @@
       "source_line": 121,
       "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3388,7 +3388,7 @@
       "source_line": 119,
       "summary": null,
       "type": null,
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": "callback",
@@ -3409,7 +3409,7 @@
       "source_line": 120,
       "summary": null,
       "type": "string",
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": null,

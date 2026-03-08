@@ -18,28 +18,28 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
-| `--X-in` | `normal` | `yes` | `core_help` | `X_in` | `None` | - |
-| `--X-list` | `normal` | `yes` | `core_help` | `X_list` | `None` | - |
-| `--Xd-in` | `normal` | `yes` | `core_help` | `Xd_in` | `None` | - |
-| `--Xd-list` | `normal` | `yes` | `core_help` | `Xd_list` | `None` | - |
+| `--X-in` | `normal` | `yes` | `core_help` | `X_in` | `None` | load one or more sparse gene-set matrix files directly |
+| `--X-list` | `normal` | `yes` | `core_help` | `X_list` | `None` | load a file listing sparse gene-set matrix inputs |
+| `--Xd-in` | `normal` | `yes` | `core_help` | `Xd_in` | `None` | load one or more dense gene-set matrix files directly |
+| `--Xd-list` | `normal` | `yes` | `core_help` | `Xd_list` | `None` | load a file listing dense gene-set matrix inputs |
 | `--add-all-genes` | `expert` | `yes` | `expert_help` | `add_all_genes` | `False` | - |
-| `--case-counts-in` | `normal` | `yes` | `core_help` | `case_counts_in` | `None` | - |
+| `--case-counts-in` | `normal` | `yes` | `core_help` | `case_counts_in` | `None` | load case variant-count evidence for gene-level support |
 | `--credible-sets-in` | `expert` | `yes` | `expert_help` | `credible_sets_in` | `None` | - |
-| `--ctrl-counts-in` | `normal` | `yes` | `core_help` | `ctrl_counts_in` | `None` | - |
-| `--exomes-in` | `normal` | `yes` | `core_help` | `exomes_in` | `None` | - |
+| `--ctrl-counts-in` | `normal` | `yes` | `core_help` | `ctrl_counts_in` | `None` | load control variant-count evidence paired with --case-counts-in |
+| `--exomes-in` | `normal` | `yes` | `core_help` | `exomes_in` | `None` | load exome burden statistics as an additional HuGE evidence source |
 | `--exons-loc-file-huge` | `expert` | `yes` | `expert_help` | `exons_loc_file_huge` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
-| `--gene-loc-file` | `normal` | `yes` | `core_help` | `gene_loc_file` | `None` | - |
-| `--gene-loc-file-huge` | `normal` | `yes` | `core_help` | `gene_loc_file_huge` | `None` | - |
+| `--gene-loc-file` | `normal` | `yes` | `core_help` | `gene_loc_file` | `None` | gene location table used for correlation and locus-aware operations |
+| `--gene-loc-file-huge` | `normal` | `yes` | `core_help` | `gene_loc_file_huge` | `None` | gene location table used during HuGE score construction |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
-| `--gene-set-stats-out` | `normal` | `yes` | `core_help` | `gene_set_stats_out` | `None` | - |
-| `--gene-stats-out` | `normal` | `yes` | `core_help` | `gene_stats_out` | `None` | - |
-| `--gwas-in` | `normal` | `yes` | `core_help` | `gwas_in` | `None` | - |
-| `--params-out` | `normal` | `yes` | `core_help` | `params_out` | `None` | - |
-| `--positive-controls-all-in` | `normal` | `yes` | `core_help` | `positive_controls_all_in` | `None` | - |
-| `--positive-controls-in` | `normal` | `yes` | `core_help` | `positive_controls_in` | `None` | - |
-| `--positive-controls-list` | `normal` | `yes` | `core_help` | `positive_controls_list` | `None` | - |
-| `--s2g-in` | `normal` | `yes` | `core_help` | `s2g_in` | `None` | - |
+| `--gene-set-stats-out` | `normal` | `yes` | `core_help` | `gene_set_stats_out` | `None` | write the final gene-set statistics table |
+| `--gene-stats-out` | `normal` | `yes` | `core_help` | `gene_stats_out` | `None` | write the final gene-level statistics table |
+| `--gwas-in` | `normal` | `yes` | `core_help` | `gwas_in` | `None` | load GWAS summary statistics as the primary HuGE input |
+| `--params-out` | `normal` | `yes` | `core_help` | `params_out` | `None` | write learned hyperparameters and runtime settings |
+| `--positive-controls-all-in` | `normal` | `yes` | `core_help` | `positive_controls_all_in` | `None` | load the full positive-control background gene universe |
+| `--positive-controls-in` | `normal` | `yes` | `core_help` | `positive_controls_in` | `None` | load positive-control genes with optional probabilities |
+| `--positive-controls-list` | `normal` | `yes` | `core_help` | `positive_controls_list` | `None` | specify positive-control genes directly on the command line |
+| `--s2g-in` | `normal` | `yes` | `core_help` | `s2g_in` | `None` | load SNP-to-gene mappings used during HuGE score construction |
 
 ## Method Optional
 

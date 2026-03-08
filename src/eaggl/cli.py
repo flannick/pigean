@@ -405,6 +405,10 @@ parser.add_option("","--debug-only-avg-huge",action="store_true")
 _iter_parser_options = pegs_iter_parser_options
 
 _OPTION_SUMMARY_BY_FLAG = {
+    "--X-in": "load one or more sparse gene-set matrix files directly",
+    "--X-list": "load a file listing sparse gene-set matrix inputs",
+    "--Xd-in": "load one or more dense gene-set matrix files directly",
+    "--Xd-list": "load a file listing dense gene-set matrix inputs",
     "--anchor-any-gene": "anchor factorization to any gene in the loaded gene-phewas inputs",
     "--anchor-any-pheno": "anchor factorization to any phenotype in the loaded phewas inputs",
     "--anchor-gene-set": "run gene-set anchoring using the loaded phenotype evidence",
@@ -415,6 +419,10 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--deterministic": "force deterministic random seed behavior (seed=0 unless --seed is set)",
     "--eaggl-bundle-in": "load bundled PIGEAN outputs as default EAGGL inputs",
     "--factor-phewas-from-gene-phewas-stats-in": "run factor-level phewas from precomputed gene-phewas statistics",
+    "--factors-anchor-out": "write anchor-specific factorization outputs",
+    "--factors-out": "write the main factor loading output table",
+    "--gene-set-stats-in": "load gene-set statistics exported from PIGEAN",
+    "--gene-stats-in": "load gene-level statistics exported from PIGEAN",
     "--gene-phewas-bfs-in": "load gene-phewas statistics for projection and anchor workflows",
     "--gene-set-phewas-stats-in": "load gene-set phewas statistics for projection and anchor workflows",
     "--help-expert": "show expert workflow, projection, and debug flags in addition to the normal public interface",

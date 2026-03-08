@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import pathlib
 import sys
 import unittest
@@ -278,6 +279,16 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("_PUBLIC_SUBMODULES = frozenset(", eaggl_init)
         self.assertIn("_COMPAT_EXPORTS = {", eaggl_init)
         self.assertNotIn("from .legacy_main import *", eaggl_init)
+
+    def test_manifest_normal_visibility_options_have_summaries(self) -> None:
+        for rel_path in ("docs/cli_option_manifest.json", "docs/eaggl/cli_option_manifest.json"):
+            manifest = json.loads((REPO_ROOT / rel_path).read_text(encoding="utf-8"))
+            missing = [
+                row["primary_flag"]
+                for row in manifest["options"]
+                if row.get("public_visibility") == "normal" and not (row.get("summary") or "").strip()
+            ]
+            self.assertEqual(missing, [], msg="%s missing summaries for: %s" % (rel_path, ", ".join(missing)))
 
 
 if __name__ == "__main__":
