@@ -16136,6 +16136,11 @@ _process_x_input_file = functools.partial(
 )
 _normalize_gene_set_weights = pigean_x_inputs_core.normalize_gene_set_weights
 _maybe_permute_gene_set_rows = pigean_x_inputs_core.maybe_permute_gene_set_rows
+_build_prefilter_keep_mask = functools.partial(
+    pigean_x_inputs_core.build_prefilter_keep_mask,
+    log_fn=log,
+    debug_level=DEBUG,
+)
 _maybe_prefilter_x_block = functools.partial(
     pigean_x_inputs_core.maybe_prefilter_x_block,
     log_fn=log,
