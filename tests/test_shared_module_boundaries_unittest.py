@@ -52,6 +52,19 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn("def _restore_state_fields(", flat_source)
         self.assertNotIn("def _temporary_state_fields(", flat_source)
 
+    def test_pigean_y_input_contract_and_dispatch_live_in_package_module(self) -> None:
+        y_source = (REPO_ROOT / "src" / "pigean" / "y_inputs.py").read_text(encoding="utf-8")
+        flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
+        self.assertIn("class YPrimaryInputsContract:", y_source)
+        self.assertIn("class YReadContract:", y_source)
+        self.assertIn("def build_main_y_read_contract(options):", y_source)
+        self.assertIn("def load_main_y_inputs(", y_source)
+        self.assertIn("from pigean import y_inputs as pigean_y_inputs", flat_source)
+        self.assertIn("YPrimaryInputsContract = pigean_y_inputs.YPrimaryInputsContract", flat_source)
+        self.assertIn("return pigean_y_inputs.load_main_y_inputs(", flat_source)
+        self.assertNotIn("class YPrimaryInputsContract:", flat_source)
+        self.assertNotIn("class YReadContract:", flat_source)
+
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean" / "cli.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.cli import", cli_source)
