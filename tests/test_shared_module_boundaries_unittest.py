@@ -55,16 +55,28 @@ class SharedModuleBoundaryTest(unittest.TestCase):
 
     def test_pigean_y_input_contract_and_dispatch_live_in_package_module(self) -> None:
         y_source = (REPO_ROOT / "src" / "pigean" / "y_inputs.py").read_text(encoding="utf-8")
+        y_core_source = (REPO_ROOT / "src" / "pigean" / "y_inputs_core.py").read_text(encoding="utf-8")
         flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
         self.assertIn("class YPrimaryInputsContract:", y_source)
         self.assertIn("class YReadContract:", y_source)
         self.assertIn("def build_main_y_read_contract(options):", y_source)
         self.assertIn("def load_main_y_inputs(", y_source)
+        self.assertIn("def read_y_pipeline(", y_core_source)
+        self.assertIn("def read_primary_y_source(", y_core_source)
+        self.assertIn("def materialize_y_on_gene_universe(", y_core_source)
         self.assertIn("from pigean import y_inputs as pigean_y_inputs", flat_source)
+        self.assertIn("from pigean import y_inputs_core as pigean_y_inputs_core", flat_source)
         self.assertIn("YPrimaryInputsContract = pigean_y_inputs.YPrimaryInputsContract", flat_source)
+        self.assertIn("_read_Y = functools.partial(", flat_source)
+        self.assertIn("pigean_y_inputs_core.read_y_pipeline", flat_source)
         self.assertIn("return pigean_y_inputs.load_main_y_inputs(", flat_source)
         self.assertNotIn("class YPrimaryInputsContract:", flat_source)
         self.assertNotIn("class YReadContract:", flat_source)
+        self.assertNotIn("def _read_Y(", flat_source)
+        self.assertNotIn("def _read_primary_y_source(", flat_source)
+        self.assertNotIn("def _materialize_y_on_gene_universe(", flat_source)
+        self.assertNotIn("def _initialize_y_from_new_gene_universe(", flat_source)
+        self.assertNotIn("def _merge_y_into_existing_gene_universe(", flat_source)
 
     def test_pigean_x_input_orchestration_lives_in_package_module(self) -> None:
         x_source = (REPO_ROOT / "src" / "pigean" / "x_inputs.py").read_text(encoding="utf-8")
