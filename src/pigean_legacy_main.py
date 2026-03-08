@@ -316,7 +316,7 @@ def bail(message):
     raise DataValidationError(message)
 
 try:
-    from . import pigean_cli as _pigean_cli
+    from pigean import cli as _pigean_cli
 except ImportError:
     import pigean_cli as _pigean_cli
 

@@ -38,10 +38,14 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn("def _write_main_outputs_and_optional_phewas", flat_source)
 
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
-        cli_source = (REPO_ROOT / "src" / "pigean_cli.py").read_text(encoding="utf-8")
+        cli_source = (REPO_ROOT / "src" / "pigean" / "cli.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.cli import", cli_source)
         self.assertNotIn("from .pegs_utils import", cli_source)
         self.assertNotIn("from pegs_utils import", cli_source)
+
+    def test_flat_pigean_cli_module_is_a_package_shim(self) -> None:
+        cli_source = (REPO_ROOT / "src" / "pigean_cli.py").read_text(encoding="utf-8")
+        self.assertIn("from pigean.cli import *", cli_source)
 
     def test_eaggl_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "eaggl" / "cli.py").read_text(encoding="utf-8")

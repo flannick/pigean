@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-DEFAULT_ENTRYPOINT = "src/pigean_cli.py"
-DEFAULT_MODULE = "pigean_cli"
+DEFAULT_ENTRYPOINT = "src/pigean/cli.py"
+DEFAULT_MODULE = "pigean.cli"
 DEFAULT_MANIFEST = "docs/cli_option_manifest.json"
 DEFAULT_DOC = "docs/CLI_OPTIONS.md"
 CATEGORY_ORDER = [
