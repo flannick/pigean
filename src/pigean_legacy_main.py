@@ -27,6 +27,7 @@ import numpy as np
 import itertools
 import gzip
 import random
+from pigean import runtime as pigean_runtime
 
 try:
     from pegs_shared.types import (
@@ -349,152 +350,37 @@ log = _noop_log
 warn = _noop_log
 
 def _build_runtime_state(_options):
-    state = PigeanState(background_prior=_options.background_prior, batch_size=_options.batch_size)
-    state.debug_old_batch = _options.debug_old_batch
-    state.debug_skip_correlation = _options.debug_skip_correlation
-    state.debug_skip_phewas_covs = _options.debug_skip_phewas_covs
-    state.debug_only_avg_huge = _options.debug_only_avg_huge
-    state.debug_just_check_header = _options.debug_just_check_header
-    return state
+    return pigean_runtime.build_runtime_state(PigeanState, _options)
 
 
-# State-field groups used to make temporary overrides explicit in hot paths.
-_STATE_FIELDS_X_INDEXING = (
-    "X_orig",
-    "X_orig_missing_genes",
-    "X_orig_missing_gene_sets",
-    "genes",
-    "genes_missing",
-    "gene_sets",
-    "gene_sets_missing",
-    "scale_factors",
-    "mean_shifts",
-)
-_STATE_FIELDS_Y_SOURCES = (
-    "Y",
-    "Y_for_regression",
-    "Y_uncorrected",
-    "gene_to_huge_score",
-    "gene_to_gwas_huge_score",
-    "gene_to_gwas_huge_score_uncorrected",
-    "gene_to_exomes_huge_score",
-)
-_STATE_FIELDS_COVARIATE_CORRECTION = (
-    "gene_covariates",
-    "gene_covariates_mask",
-    "gene_covariate_names",
-    "gene_covariate_directions",
-    "gene_covariate_intercept_index",
-    "gene_covariates_mat_inv",
-    "gene_covariate_zs",
-    "gene_covariate_adjustments",
-)
-_STATE_FIELDS_SAMPLER_HYPER = (
-    "p",
-    "ps",
-    "sigma2",
-    "sigma2s",
-    "sigma_power",
-)
-
-
-def _snapshot_state_fields(state, field_names):
-    return {field_name: getattr(state, field_name) for field_name in field_names}
-
-
-def _restore_state_fields(state, snapshot):
-    for field_name, field_value in snapshot.items():
-        setattr(state, field_name, field_value)
-
-
-@contextlib.contextmanager
-def _temporary_state_fields(state, overrides, restore_fields):
-    snapshot = _snapshot_state_fields(state, restore_fields)
-    for field_name, field_value in overrides.items():
-        setattr(state, field_name, field_value)
-    try:
-        yield snapshot
-    finally:
-        _restore_state_fields(state, snapshot)
+_STATE_FIELDS_X_INDEXING = pigean_runtime.STATE_FIELDS_X_INDEXING
+_STATE_FIELDS_Y_SOURCES = pigean_runtime.STATE_FIELDS_Y_SOURCES
+_STATE_FIELDS_COVARIATE_CORRECTION = pigean_runtime.STATE_FIELDS_COVARIATE_CORRECTION
+_STATE_FIELDS_SAMPLER_HYPER = pigean_runtime.STATE_FIELDS_SAMPLER_HYPER
+_snapshot_state_fields = pigean_runtime.snapshot_state_fields
+_restore_state_fields = pigean_runtime.restore_state_fields
+_temporary_state_fields = pigean_runtime.temporary_state_fields
 
 
 @contextlib.contextmanager
 def _open_optional_gibbs_trace_files(gene_set_stats_trace_out, gene_stats_trace_out):
-    with contextlib.ExitStack() as stack:
-        gene_set_stats_trace_fh = None
-        gene_stats_trace_fh = None
-        if gene_set_stats_trace_out is not None:
-            gene_set_stats_trace_fh = stack.enter_context(open_gz(gene_set_stats_trace_out, "w"))
-            gene_set_stats_trace_fh.write(
-                "It\tChain\tGene_Set\tbeta_tilde\tP\tZ\tSE\tbeta_uncorrected\tbeta\tpostp\tbeta_tilde_outlier_z\tR\tSEM\n"
-            )
-        if gene_stats_trace_out is not None:
-            gene_stats_trace_fh = stack.enter_context(open_gz(gene_stats_trace_out, "w"))
-            gene_stats_trace_fh.write("It\tChain\tGene\tprior\tcombined\tlog_bf\tD\tpercent_top\tadjust\n")
-        yield (gene_set_stats_trace_fh, gene_stats_trace_fh)
+    with pigean_runtime.open_optional_gibbs_trace_files(
+        gene_set_stats_trace_out,
+        gene_stats_trace_out,
+        open_gz=open_gz,
+    ) as trace_handles:
+        yield trace_handles
 
 
 def _open_optional_inner_betas_trace_file(betas_trace_out):
-    if betas_trace_out is None:
-        return None
-    betas_trace_fh = open_gz(betas_trace_out, "w")
-    betas_trace_fh.write(
-        "It\tParallel\tChain\tGene_Set\tbeta_post\tbeta\tpostp\tres_beta_hat\tbeta_tilde\tbeta_internal\tres_beta_hat_internal\tbeta_tilde_internal\tse_internal\tsigma2\tp\tR\tR_weighted\tSEM\n"
-    )
-    return betas_trace_fh
+    return pigean_runtime.open_optional_inner_betas_trace_file(betas_trace_out, open_gz=open_gz)
 
 
-def _close_optional_inner_betas_trace_file(betas_trace_fh):
-    if betas_trace_fh is not None:
-        betas_trace_fh.close()
-
-
-def _return_inner_betas_result(betas_trace_fh, result):
-    _close_optional_inner_betas_trace_file(betas_trace_fh)
-    return result
-
-
-def _maybe_unsubset_gene_sets(state, enabled, skip_V=False, skip_scale_factors=False):
-    if not enabled:
-        return None
-    return state._unsubset_gene_sets(skip_V=skip_V, skip_scale_factors=skip_scale_factors)
-
-
-def _restore_subset_gene_sets(state, subset_mask, keep_missing=True, skip_V=False, skip_scale_factors=False):
-    if subset_mask is None:
-        return
-    state.subset_gene_sets(
-        subset_mask,
-        keep_missing=keep_missing,
-        skip_V=skip_V,
-        skip_scale_factors=skip_scale_factors,
-    )
-
-
-@contextlib.contextmanager
-def _temporary_unsubset_gene_sets(
-    state,
-    enabled,
-    keep_missing=True,
-    skip_V=False,
-    skip_scale_factors=False,
-):
-    subset_mask = _maybe_unsubset_gene_sets(
-        state,
-        enabled,
-        skip_V=skip_V,
-        skip_scale_factors=skip_scale_factors,
-    )
-    try:
-        yield subset_mask
-    finally:
-        _restore_subset_gene_sets(
-            state,
-            subset_mask,
-            keep_missing=keep_missing,
-            skip_V=skip_V,
-            skip_scale_factors=skip_scale_factors,
-        )
+_close_optional_inner_betas_trace_file = pigean_runtime.close_optional_inner_betas_trace_file
+_return_inner_betas_result = pigean_runtime.return_inner_betas_result
+_maybe_unsubset_gene_sets = pigean_runtime.maybe_unsubset_gene_sets
+_restore_subset_gene_sets = pigean_runtime.restore_subset_gene_sets
+_temporary_unsubset_gene_sets = pigean_runtime.temporary_unsubset_gene_sets
 
 
 def _bootstrap_cli(argv=None):
@@ -529,39 +415,8 @@ def open_gz(file, flag=None):
     )
 
 
-_HYPERPARAMETER_PROXY_FIELDS = (
-    "p",
-    "sigma2",
-    "sigma_power",
-    "sigma2_osc",
-    "sigma2_se",
-    "sigma2_p",
-    "sigma2_total_var",
-    "sigma2_total_var_lower",
-    "sigma2_total_var_upper",
-    "ps",
-    "sigma2s",
-    "sigma2s_missing",
-)
-
-
-def _bind_hyperparameter_properties(state_cls):
-    for field_name in _HYPERPARAMETER_PROXY_FIELDS:
-        private_name = "_%s" % field_name
-
-        def _getter(self, _field=field_name, _private=private_name):
-            hyper_state = self.__dict__.get("hyperparameter_state")
-            if hyper_state is not None:
-                return getattr(hyper_state, _field)
-            return self.__dict__.get(_private, None)
-
-        def _setter(self, value, _field=field_name, _private=private_name):
-            self.__dict__[_private] = value
-            hyper_state = self.__dict__.get("hyperparameter_state")
-            if hyper_state is not None:
-                setattr(hyper_state, _field, value)
-
-        setattr(state_cls, field_name, property(_getter, _setter))
+_HYPERPARAMETER_PROXY_FIELDS = pigean_runtime.HYPERPARAMETER_PROXY_FIELDS
+_bind_hyperparameter_properties = pigean_runtime.bind_hyperparameter_properties
 
 
 class PigeanState(object):

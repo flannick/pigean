@@ -40,6 +40,18 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn("def _run_main_non_huge_pipeline", flat_source)
         self.assertNotIn("def _write_main_outputs_and_optional_phewas", flat_source)
 
+    def test_pigean_runtime_helpers_live_in_package_runtime_module(self) -> None:
+        runtime_source = (REPO_ROOT / "src" / "pigean" / "runtime.py").read_text(encoding="utf-8")
+        flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
+        self.assertIn("def build_runtime_state(state_cls, options):", runtime_source)
+        self.assertIn("def temporary_state_fields(state, overrides, restore_fields):", runtime_source)
+        self.assertIn("from pigean import runtime as pigean_runtime", flat_source)
+        self.assertIn("return pigean_runtime.build_runtime_state(PigeanState, _options)", flat_source)
+        self.assertIn("_temporary_state_fields = pigean_runtime.temporary_state_fields", flat_source)
+        self.assertNotIn("def _snapshot_state_fields(", flat_source)
+        self.assertNotIn("def _restore_state_fields(", flat_source)
+        self.assertNotIn("def _temporary_state_fields(", flat_source)
+
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean" / "cli.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.cli import", cli_source)
