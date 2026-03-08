@@ -268,6 +268,17 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("src/pigean/huge.py", doc_source)
         self.assertIn("src/pigean/outputs.py", doc_source)
 
+    def test_package_roots_export_only_bounded_surface(self) -> None:
+        pigean_init = (REPO_ROOT / "src" / "pigean" / "__init__.py").read_text(encoding="utf-8")
+        eaggl_init = (REPO_ROOT / "src" / "eaggl" / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("_PUBLIC_SUBMODULES = frozenset(", pigean_init)
+        self.assertIn("_COMPAT_EXPORTS = {", pigean_init)
+        self.assertNotIn("return getattr(_legacy_module(), name)", pigean_init)
+        self.assertNotIn("sorted(set(globals().keys()) | set(dir(_legacy_module())))", pigean_init)
+        self.assertIn("_PUBLIC_SUBMODULES = frozenset(", eaggl_init)
+        self.assertIn("_COMPAT_EXPORTS = {", eaggl_init)
+        self.assertNotIn("from .legacy_main import *", eaggl_init)
+
 
 if __name__ == "__main__":
     unittest.main()
