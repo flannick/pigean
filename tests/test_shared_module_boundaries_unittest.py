@@ -201,6 +201,24 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("return eaggl_y_inputs.read_y_pipeline(", io_source)
         self.assertIn("return eaggl_y_inputs.run_read_y_stage(self, runtime, **read_kwargs)", domain_source)
 
+    def test_eaggl_factor_and_phewas_runtime_methods_live_in_package_modules(self) -> None:
+        factor_runtime_source = (REPO_ROOT / "src" / "eaggl" / "factor_runtime.py").read_text(encoding="utf-8")
+        phewas_source = (REPO_ROOT / "src" / "eaggl" / "phewas.py").read_text(encoding="utf-8")
+        flat_source = (REPO_ROOT / "src" / "eaggl" / "legacy_main.py").read_text(encoding="utf-8")
+        self.assertIn("def run_factor(", factor_runtime_source)
+        self.assertIn("def build_phewas_input_values(", phewas_source)
+        self.assertIn("def calculate_phewas_block(", phewas_source)
+        self.assertIn("def run_phewas(", phewas_source)
+        self.assertIn("from . import factor_runtime as _eaggl_factor_runtime", flat_source)
+        self.assertIn("from . import phewas as _eaggl_phewas", flat_source)
+        self.assertIn("return _eaggl_factor_runtime.run_factor(", flat_source)
+        self.assertIn("return _eaggl_phewas.build_phewas_input_values(", flat_source)
+        self.assertIn("return _eaggl_phewas.calculate_phewas_block(", flat_source)
+        self.assertIn("return _eaggl_phewas.prepare_phewas_phenos_from_file(", flat_source)
+        self.assertIn("return _eaggl_phewas.run_phewas(", flat_source)
+        self.assertIn("return _eaggl_phewas.run_factor_phewas_batch(", flat_source)
+        self.assertIn("return _eaggl_phewas.run_standard_phewas_batch(", flat_source)
+
     def test_pigean_methods_to_code_doc_points_at_package_modules(self) -> None:
         doc_source = (REPO_ROOT / "docs" / "pigean" / "METHODS_TO_CODE.md").read_text(encoding="utf-8")
         self.assertIn("docs/methods.tex", doc_source)
