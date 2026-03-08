@@ -65,6 +65,17 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn("class YPrimaryInputsContract:", flat_source)
         self.assertNotIn("class YReadContract:", flat_source)
 
+    def test_pigean_x_input_orchestration_lives_in_package_module(self) -> None:
+        x_source = (REPO_ROOT / "src" / "pigean" / "x_inputs.py").read_text(encoding="utf-8")
+        flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
+        self.assertIn("def run_main_adaptive_read_x(", x_source)
+        self.assertIn("def run_read_x_stage(", x_source)
+        self.assertIn("def read_x_pipeline(", x_source)
+        self.assertIn("from pigean import x_inputs as pigean_x_inputs", flat_source)
+        self.assertIn("return pigean_x_inputs.run_main_adaptive_read_x(", flat_source)
+        self.assertIn("return pigean_x_inputs.run_read_x_stage(", flat_source)
+        self.assertIn("return pigean_x_inputs.read_x_pipeline(", flat_source)
+
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean" / "cli.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.cli import", cli_source)
