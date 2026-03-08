@@ -79,13 +79,20 @@ class SharedModuleBoundaryTest(unittest.TestCase):
 
     def test_pigean_gibbs_orchestration_lives_in_package_module(self) -> None:
         gibbs_source = (REPO_ROOT / "src" / "pigean" / "gibbs.py").read_text(encoding="utf-8")
+        callback_source = (REPO_ROOT / "src" / "pigean" / "gibbs_callbacks.py").read_text(encoding="utf-8")
         flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
         shim_source = (REPO_ROOT / "src" / "pigean_gibbs.py").read_text(encoding="utf-8")
         self.assertIn("class GibbsOrchestrationCallbacks:", gibbs_source)
         self.assertIn("def run_outer_gibbs(", gibbs_source)
+        self.assertIn("def build_gibbs_callbacks(", callback_source)
         self.assertIn("from pigean import gibbs as pigean_gibbs", flat_source)
+        self.assertIn("from pigean import gibbs_callbacks as pigean_gibbs_callbacks", flat_source)
+        self.assertIn("callbacks = pigean_gibbs_callbacks.build_gibbs_callbacks(", flat_source)
         self.assertIn("return pigean_gibbs.run_outer_gibbs(", flat_source)
         self.assertIn("from pigean.gibbs import *", shim_source)
+        self.assertNotIn("def _prepare_gibbs_run_inputs(", flat_source)
+        self.assertNotIn("def _new_gibbs_epoch_aggregates(", flat_source)
+        self.assertNotIn("def _reset_gibbs_diagnostics(", flat_source)
 
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean" / "cli.py").read_text(encoding="utf-8")

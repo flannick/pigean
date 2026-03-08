@@ -4945,17 +4945,10 @@ class PigeanState(object):
 
     def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
         from pigean import gibbs as pigean_gibbs
+        from pigean import gibbs_callbacks as pigean_gibbs_callbacks
 
-        callbacks = pigean_gibbs.GibbsOrchestrationCallbacks(
-            prepare_gibbs_run_inputs_fn=_prepare_gibbs_run_inputs,
-            new_gibbs_epoch_aggregates_fn=_new_gibbs_epoch_aggregates,
-            reset_gibbs_diagnostics_fn=_reset_gibbs_diagnostics,
-            start_gibbs_epoch_fn=_start_gibbs_epoch,
-            build_gibbs_epoch_finalize_context_fn=_build_gibbs_epoch_finalize_context,
-            finalize_gibbs_epoch_attempt_fn=_finalize_gibbs_epoch_attempt,
-            prepare_gibbs_iteration_state_fn=_prepare_gibbs_iteration_state,
-            run_gibbs_iteration_correction_and_updates_fn=_run_gibbs_iteration_correction_and_updates,
-            advance_gibbs_iteration_progress_fn=_advance_gibbs_iteration_progress,
+        callbacks = pigean_gibbs_callbacks.build_gibbs_callbacks(
+            sys.modules[__name__],
             open_gz_fn=open_gz,
             log_fn=log,
             bail_fn=bail,
@@ -11310,13 +11303,6 @@ _GIBBS_EPOCH_RUNTIME_SUM_KEYS = (
 )
 
 
-def _new_gibbs_epoch_aggregates():
-    epoch_aggregates = {}
-    for key in _GIBBS_EPOCH_SUM_KEYS + _GIBBS_EPOCH_MISSING_SUM_KEYS:
-        epoch_aggregates[key] = []
-    return epoch_aggregates
-
-
 def _has_gibbs_epoch_aggregates(epoch_aggregates):
     return len(epoch_aggregates["sum_betas_m"]) > 0
 
@@ -14722,58 +14708,6 @@ def _maybe_log_gibbs_conditional_variance(state, top_gene_prior):
 
 
 # ========================= Outer Gibbs Input Snapshot + Prep =========================
-def _prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
-    _snapshot_pre_gibbs_state(state)
-
-    # We always update correlation relative to the original Y variance.
-    y_var_orig = np.var(state.Y_for_regression)
-
-    _maybe_log_gibbs_conditional_variance(state, top_gene_prior)
-    bf_orig = np.exp(state.Y_for_regression_orig)
-    bf_orig_raw = np.exp(state.Y_orig)
-
-    bf_orig_m = np.tile(bf_orig, num_chains).reshape(num_chains, len(bf_orig))
-    log_bf_m = np.log(bf_orig_m)
-    log_bf_uncorrected_m = np.log(bf_orig_m)
-
-    bf_orig_raw_m = np.tile(bf_orig_raw, num_chains).reshape(num_chains, len(bf_orig_raw))
-    log_bf_raw_m = np.log(bf_orig_raw_m)
-    compute_Y_raw = np.any(~np.isclose(log_bf_m, log_bf_raw_m))
-    cur_background_log_bf_v = np.tile(state.background_log_bf, num_chains)
-
-    if state.y_corr_cholesky is not None:
-        bail("GLS not implemented yet for Gibbs sampling!")
-
-    num_full_gene_sets = len(state.gene_sets)
-    if state.gene_sets_missing is not None:
-        num_full_gene_sets += len(state.gene_sets_missing)
-
-    return {
-        "y_var_orig": y_var_orig,
-        "log_bf_m": log_bf_m,
-        "log_bf_uncorrected_m": log_bf_uncorrected_m,
-        "log_bf_raw_m": log_bf_raw_m,
-        "compute_Y_raw": compute_Y_raw,
-        "cur_background_log_bf_v": cur_background_log_bf_v,
-        "num_full_gene_sets": num_full_gene_sets,
-    }
-
-
-def _reset_gibbs_diagnostics(state):
-    # Reset diagnostics that are specific to this Gibbs run.
-    state.betas_r_hat = None
-    state.betas_mcse = None
-    state.betas_uncorrected_r_hat = None
-    state.betas_uncorrected_mcse = None
-    state.priors_r_hat = None
-    state.priors_mcse = None
-    state.combined_prior_Ys_r_hat = None
-    state.combined_prior_Ys_mcse = None
-    state.Y_r_hat = None
-    state.Y_mcse = None
-
-
-# ========================= Outer Gibbs Runtime Config Builders =========================
 def _build_gibbs_epoch_runtime_configs(config_inputs):
     # Group per-epoch and per-iteration static knobs so run_gibbs can focus on
     # control flow.
