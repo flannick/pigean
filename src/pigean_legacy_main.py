@@ -29,6 +29,7 @@ import itertools
 import gzip
 import random
 from pigean import runtime as pigean_runtime
+from pigean import model as pigean_model
 from pigean import x_inputs as pigean_x_inputs
 from pigean import x_inputs_core as pigean_x_inputs_core
 from pigean import y_inputs as pigean_y_inputs
@@ -4031,157 +4032,39 @@ class PigeanState(object):
                     self.gene_to_huge_score[gene] += self.gene_to_exomes_huge_score[gene]
 
     def calculate_gene_set_statistics(self, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, **kwargs):
-        if self.X_orig is None:
-            bail("Error: X is required")
-        #now calculate the betas and p-values
-
-        log("Calculating gene set statistics", INFO)
-
-        if run_using_phewas:
-            Y = self.gene_pheno_Y.T.toarray()
-            if Y is None:
-                bail("Need --gene-phewas-bfs in order to run beta calculation with phewas")
-
-        if Y is None:
-            Y = self.Y_for_regression
-
-        if Y is None:
-            if gwas_in is None and exomes_in is None and gene_bfs_in is None and positive_controls_in is None and positive_controls_list is None and case_counts_in is None and ctrl_counts_in is None:
-                bail("Need --gwas-in or --exomes-in or --gene-stats-in or --positive-controls-in or --case-counts_in")
-
-            log("Reading Y within calculate_gene_set_statistics; parameters may not be honored")
-            _run_read_y_stage(
-                self,
-                gwas_in=gwas_in,
-                exomes_in=exomes_in,
-                positive_controls_in=positive_controls_in,
-                positive_controls_list=positive_controls_list,
-                case_counts_in=case_counts_in,
-                ctrl_counts_in=ctrl_counts_in,
-                gene_bfs_in=gene_bfs_in,
-                **kwargs
-            )
-            Y = self.Y_for_regression
-
-        if run_corrected_ols and self.y_corr is None:
-            correlation_m = self._read_correlations(gene_cor_file, gene_loc_file, gene_cor_file_gene_col=gene_cor_file_gene_col, gene_cor_file_cor_start_col=gene_cor_file_cor_start_col)
-
-            #convert X and Y to their new values
-            min_correlation = 0.05
-            self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, store_corr_sparse=run_corrected_ols, skip_V=True, skip_scale_factors=True, min_correlation=min_correlation)
-
-        #subset gene sets to remove empty ones first
-        #number of gene sets in each gene set
-        col_sums = self.get_col_sums(self.X_orig, num_nonzero=True)
-        self.subset_gene_sets(col_sums > 0, keep_missing=False, skip_V=True, skip_scale_factors=True)
-
-        self._set_scale_factors()
-
-        #self.is_logistic = run_logistic
-
-        #if the maximum Y is large, switch to logistic regression (to avoid being too strong)
-        Y_to_use = Y
-        Y = np.exp(Y_to_use + self.background_log_bf) / (1 + np.exp(Y_to_use + self.background_log_bf))
-
-        if not run_logistic and np.max(Y) > max_for_linear and (use_sampling_for_betas is None or use_sampling_for_betas < 1):
-            log("Switching to logistic sampling due to high Y values", DEBUG)
-            run_logistic = True
-            use_sampling_for_betas = 1
-
-        if use_sampling_for_betas is not None:
-            self._record_param("sampling_for_betas", use_sampling_for_betas)
-
-        if use_sampling_for_betas is not None and use_sampling_for_betas > 0:
-
-            #handy option in case we want to see what sampling looks like outside of gibbs
-            if run_using_phewas:
-                avg_beta_tildes = np.zeros((self.gene_pheno_Y.shape[1],len(self.gene_sets)))
-                avg_z_scores = np.zeros((self.gene_pheno_Y.shape[1],len(self.gene_sets)))
-            else:
-                avg_beta_tildes = np.zeros(len(self.gene_sets))
-                avg_z_scores = np.zeros(len(self.gene_sets))
-            tot_its = 0
-            for iteration_num in range(use_sampling_for_betas):
-                log("Sampling iteration %d..." % (iteration_num+1))
-                p_sample_m = np.zeros(Y.shape)
-                p_sample_m[np.random.random(Y.shape) < Y] = 1
-                Y_sample_m = p_sample_m
-
-                (beta_tildes, ses, z_scores, p_values, se_inflation_factors, alpha_tildes, diverged) = self._compute_logistic_beta_tildes(self.X_orig, Y_sample_m, self.scale_factors, self.mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
-
-                avg_beta_tildes += beta_tildes
-                avg_z_scores += z_scores
-                tot_its += 1
-
-            beta_tildes = avg_beta_tildes / tot_its
-
-            z_scores = avg_z_scores / tot_its
-
-            p_values = 2*scipy.stats.norm.cdf(-np.abs(z_scores))
-            ses = np.full(beta_tildes.shape, 100.0)
-            ses[z_scores != 0] = np.abs(beta_tildes[z_scores != 0] / z_scores[z_scores != 0])
-
-            se_inflation_factors = None
-
-        elif run_logistic:
-            (beta_tildes, ses, z_scores, p_values, se_inflation_factors, alpha_tildes, diverged) = self._compute_logistic_beta_tildes(self.X_orig, Y, self.scale_factors, self.mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
-
-        else:
-            #Technically, we could use the above code for this case, since X_blocks will returned unwhitened matrix
-            #But, probably faster to keep sparse multiplication? Might be worth revisiting later to see if there actually is a performance gain
-            #We can use original X here because whitening support was removed with GLS.
-            assert(not self.scale_is_for_whitened)
-            Y = copy.copy(Y)
-
-            if len(Y.shape) > 1:
-                y_var = np.var(Y, axis=1)
-            else:
-                y_var = np.var(Y)
-
-            (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._compute_beta_tildes(self.X_orig, Y, y_var, self.scale_factors, self.mean_shifts, resid_correlation_matrix=self.y_corr_sparse)
-
-        if correct_betas_mean or correct_betas_var:
-            (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._correct_beta_tildes(beta_tildes, ses, se_inflation_factors, self.total_qc_metrics, self.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, fit=False)
-
-        if run_using_phewas:
-            (self.beta_tildes_phewas, self.z_scores_phewas, self.p_values_phewas, self.ses_phewas, self.se_inflation_factors_phewas) = (beta_tildes, z_scores, p_values, ses, se_inflation_factors)
-            if len(self.beta_tildes_phewas.shape) == 1:
-                self.beta_tildes_phewas = self.beta_tildes_phewas[np.newaxis,:]
-                self.ses_phewas = self.ses_phewas[np.newaxis,:]
-                self.z_scores_phewas = self.z_scores_phewas[np.newaxis,:]
-                self.p_values_phewas = self.p_values_phewas[np.newaxis,:]
-                if self.se_inflation_factors_phewas is not None:
-                    self.se_inflation_factors_phewas = self.se_inflation_factors_phewas[np.newaxis,:]
-        else:
-            (self.beta_tildes, self.z_scores, self.p_values, self.ses, self.se_inflation_factors) = (beta_tildes, z_scores, p_values, ses, se_inflation_factors)
-
-            self.X_orig_missing_gene_sets = None
-            self.mean_shifts_missing = None
-            self.scale_factors_missing = None
-            self.is_dense_gene_set_missing = None
-            self.ps_missing = None
-            self.sigma2s_missing = None
-
-            self.beta_tildes_missing = None
-            self.p_values_missing = None
-            self.ses_missing = None
-            self.z_scores_missing = None
-
-            self.total_qc_metrics_missing = None
-            self.mean_qc_metrics_missing = None
-
-            if max_gene_set_p is not None:
-                gene_set_mask = self.p_values <= max_gene_set_p
-                if np.sum(gene_set_mask) == 0 and len(self.p_values) > 0:
-                    gene_set_mask = self.p_values == np.min(self.p_values)
-                log("Keeping %d gene sets that passed threshold of p<%.3g" % (np.sum(gene_set_mask), max_gene_set_p))
-                self.subset_gene_sets(gene_set_mask, keep_missing=True, skip_V=True)
-
-                if len(self.gene_sets) < 1:
-                    log("No gene sets left!")
-                    return
-
-        #self.max_gene_set_p = max_gene_set_p
+        return pigean_model.calculate_gene_set_statistics(
+            self,
+            gwas_in=gwas_in,
+            exomes_in=exomes_in,
+            positive_controls_in=positive_controls_in,
+            positive_controls_list=positive_controls_list,
+            case_counts_in=case_counts_in,
+            ctrl_counts_in=ctrl_counts_in,
+            gene_bfs_in=gene_bfs_in,
+            Y=Y,
+            show_progress=show_progress,
+            max_gene_set_p=max_gene_set_p,
+            run_logistic=run_logistic,
+            max_for_linear=max_for_linear,
+            run_corrected_ols=run_corrected_ols,
+            use_sampling_for_betas=use_sampling_for_betas,
+            correct_betas_mean=correct_betas_mean,
+            correct_betas_var=correct_betas_var,
+            gene_loc_file=gene_loc_file,
+            gene_cor_file=gene_cor_file,
+            gene_cor_file_gene_col=gene_cor_file_gene_col,
+            gene_cor_file_cor_start_col=gene_cor_file_cor_start_col,
+            skip_V=skip_V,
+            run_using_phewas=run_using_phewas,
+            bail_fn=bail,
+            warn_fn=warn,
+            log_fn=log,
+            info_level=INFO,
+            debug_level=DEBUG,
+            trace_level=TRACE,
+            run_read_y_stage_fn=_run_read_y_stage,
+            **kwargs
+        )
 
     def has_gene_sets(self):
         return self.X_orig is not None and self.X_orig.shape[1] > 0
@@ -4439,454 +4322,62 @@ class PigeanState(object):
                 break
         
     def calculate_non_inf_betas(self, p, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, sparse_solution=False, pre_filter_batch_size=None, pre_filter_small_batch_size=500, sparse_frac_betas=None, betas_trace_out=None, run_betas_using_phewas=False, run_uncorrected_using_phewas=False, **kwargs):
-
-        run_using_phewas = run_betas_using_phewas or run_uncorrected_using_phewas
-
-        log("Calculating betas")
-        if run_using_phewas:
-            (beta_tildes_to_use, ses_to_use) = (self.beta_tildes_phewas, self.ses_phewas)
-        else:
-            (beta_tildes_to_use, ses_to_use) = (self.beta_tildes, self.ses)
-
-        if not run_using_phewas or run_uncorrected_using_phewas:
-            result_uncorrected = self._calculate_non_inf_betas(p, beta_tildes=beta_tildes_to_use, ses=ses_to_use, max_num_burn_in=max_num_burn_in, max_num_iter=max_num_iter, min_num_iter=min_num_iter, num_chains=num_chains, r_threshold_burn_in=r_threshold_burn_in, use_max_r_for_convergence=use_max_r_for_convergence, max_frac_sem=max_frac_sem, gauss_seidel=gauss_seidel, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, assume_independent=True, V=None, **kwargs)
-
-        avg_betas_v = np.zeros(len(self.gene_sets))
-        avg_postp_v = np.zeros(len(self.gene_sets))
-
-        if run_using_phewas:
-            initial_run_mask = np.full(len(self.gene_sets), True)
-        else:
-            (avg_betas_uncorrected_v, avg_postp_uncorrected_v) = result_uncorrected
-            initial_run_mask = avg_betas_uncorrected_v != 0
-
-        run_mask = copy.copy(initial_run_mask)
-
-        if pre_filter_batch_size is not None and np.sum(initial_run_mask) > pre_filter_batch_size:
-            self._record_param("pre_filter_batch_size_orig", pre_filter_batch_size)
-
-            num_batches = self._get_num_X_blocks(self.X_orig[:,initial_run_mask], batch_size=pre_filter_small_batch_size)
-            if num_batches > 1:
-                #try to run with small batches to see if we can zero out more
-                gene_set_masks = self._compute_gene_set_batches(V=None, X_orig=self.X_orig[:,initial_run_mask], mean_shifts=self.mean_shifts[initial_run_mask], scale_factors=self.scale_factors[initial_run_mask], find_correlated_instead=pre_filter_small_batch_size)
-                if len(gene_set_masks) > 0:
-                    if np.sum(gene_set_masks[-1]) == 1 and len(gene_set_masks) > 1:
-                        #merge singletons at the end into the one before
-                        gene_set_masks[-2][gene_set_masks[-1]] = True
-                        gene_set_masks = gene_set_masks[:-1]
-                    if np.sum(gene_set_masks[0]) > 1:
-                        V_data = []
-                        V_rows = []
-                        V_cols = []
-                        for gene_set_mask in gene_set_masks:
-                            V_block = self._calculate_V_internal(self.X_orig[:,initial_run_mask][:,gene_set_mask], self.y_corr_cholesky, self.mean_shifts[initial_run_mask][gene_set_mask], self.scale_factors[initial_run_mask][gene_set_mask])
-                            orig_indices = np.where(gene_set_mask)[0]
-                            V_rows += list(np.repeat(orig_indices, V_block.shape[0]))
-                            V_cols += list(np.tile(orig_indices, V_block.shape[0]))
-                            V_data += list(V_block.ravel())
-                            
-                        V_sparse = sparse.csc_matrix((V_data, (V_rows, V_cols)), shape=(np.sum(initial_run_mask), np.sum(initial_run_mask)))
-
-                        log("Running %d blocks to check for zeros..." % len(gene_set_masks), DEBUG)
-                        (avg_betas_half_corrected_v, avg_postp_half_corrected_v) = self._calculate_non_inf_betas(p, V=V_sparse, X_orig=None, scale_factors=self.scale_factors[initial_run_mask], mean_shifts=self.mean_shifts[initial_run_mask], is_dense_gene_set=self.is_dense_gene_set[initial_run_mask], ps=self.ps[initial_run_mask], sigma2s=self.sigma2s[initial_run_mask], max_num_burn_in=max_num_burn_in, max_num_iter=max_num_iter, min_num_iter=min_num_iter, num_chains=num_chains, r_threshold_burn_in=r_threshold_burn_in, use_max_r_for_convergence=use_max_r_for_convergence, max_frac_sem=max_frac_sem, gauss_seidel=gauss_seidel, update_hyper_sigma=update_hyper_sigma, update_hyper_p=update_hyper_p, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, **kwargs)
-
-                        add_zero_mask = avg_betas_half_corrected_v == 0
-
-                        if np.any(add_zero_mask):
-                            #need to convert these to the original gene sets
-                            map_to_full = np.where(initial_run_mask)[0]
-                            #get rows and then columns in subsetted
-                            set_to_zero_full = np.where(add_zero_mask)
-                            #map columns in subsetted to original
-                            set_to_zero_full = map_to_full[set_to_zero_full]
-                            orig_zero = np.sum(run_mask)
-                            run_mask[set_to_zero_full] = False
-                            new_zero = np.sum(run_mask)
-                            log("Found %d additional zero gene sets" % (orig_zero - new_zero),DEBUG)
-
-        if np.sum(~run_mask) > 0:
-            log("Set additional %d gene sets to zero based on uncorrected betas" % np.sum(~run_mask))
-
-        if np.sum(run_mask) == 0 and self.p_values is not None:
-            run_mask[np.argmax(self.p_values)] = True
-
-        if run_using_phewas:
-            (beta_tildes_to_use, ses_to_use) = (self.beta_tildes_phewas[:,run_mask], self.ses_phewas[:,run_mask])
-        else:
-            (beta_tildes_to_use, ses_to_use) = (self.beta_tildes[run_mask], self.ses[run_mask])
-
-        if not run_using_phewas or run_betas_using_phewas:
-            result = self._calculate_non_inf_betas(p, beta_tildes=beta_tildes_to_use, ses=ses_to_use, X_orig=self.X_orig[:,run_mask], scale_factors=self.scale_factors[run_mask], mean_shifts=self.mean_shifts[run_mask], V=None, ps=self.ps[run_mask] if self.ps is not None else None, sigma2s=self.sigma2s[run_mask] if self.sigma2s is not None else None, is_dense_gene_set=self.is_dense_gene_set[run_mask], max_num_burn_in=max_num_burn_in, max_num_iter=max_num_iter, min_num_iter=min_num_iter, num_chains=num_chains, r_threshold_burn_in=r_threshold_burn_in, use_max_r_for_convergence=use_max_r_for_convergence, max_frac_sem=max_frac_sem, gauss_seidel=gauss_seidel, update_hyper_sigma=update_hyper_sigma, update_hyper_p=update_hyper_p, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, betas_trace_out=betas_trace_out, betas_trace_gene_sets=[self.gene_sets[i] for i in range(len(self.gene_sets)) if run_mask[i]], debug_gene_sets=[self.gene_sets[i] for i in range(len(self.gene_sets)) if run_mask[i]], **kwargs)
-
-        if run_using_phewas:
-            if run_betas_using_phewas:
-                self.betas_phewas = copy.copy(result[0])
-                if len(self.betas_phewas.shape) == 1:
-                    self.betas_phewas = self.betas[np.newaxis,:]
-            if run_uncorrected_using_phewas:
-                self.betas_uncorrected_phewas = copy.copy(result_uncorrected[0])
-                if len(self.betas_uncorrected_phewas.shape) == 1:
-                    self.betas_uncorrected_phewas = self.betas_uncorrected_phewas[np.newaxis,:]
-
-        else:
-            (avg_betas_v[run_mask], avg_postp_v[run_mask]) = result
-
-            if len(avg_betas_v.shape) == 2:
-                avg_betas_v = np.mean(avg_betas_v, axis=0)
-                avg_postp_v = np.mean(avg_postp_v, axis=0)
-
-            self.betas = copy.copy(avg_betas_v)
-            self.betas_uncorrected = copy.copy(avg_betas_uncorrected_v)
-
-            self.non_inf_avg_postps = copy.copy(avg_postp_v)
-            self.non_inf_avg_cond_betas = copy.copy(avg_betas_v)
-            self.non_inf_avg_cond_betas[avg_postp_v > 0] /= avg_postp_v[avg_postp_v > 0]
-
-            if self.gene_sets_missing is not None:
-                self.betas_missing = np.zeros(len(self.gene_sets_missing))
-                self.betas_uncorrected_missing = np.zeros(len(self.gene_sets_missing))
-                self.non_inf_avg_postps_missing = np.zeros(len(self.gene_sets_missing))
-                self.non_inf_avg_cond_betas_missing = np.zeros(len(self.gene_sets_missing))
+        return pigean_model.calculate_non_inf_betas(
+            self,
+            p,
+            max_num_burn_in=max_num_burn_in,
+            max_num_iter=max_num_iter,
+            min_num_iter=min_num_iter,
+            num_chains=num_chains,
+            r_threshold_burn_in=r_threshold_burn_in,
+            use_max_r_for_convergence=use_max_r_for_convergence,
+            max_frac_sem=max_frac_sem,
+            gauss_seidel=gauss_seidel,
+            update_hyper_sigma=update_hyper_sigma,
+            update_hyper_p=update_hyper_p,
+            sparse_solution=sparse_solution,
+            pre_filter_batch_size=pre_filter_batch_size,
+            pre_filter_small_batch_size=pre_filter_small_batch_size,
+            sparse_frac_betas=sparse_frac_betas,
+            betas_trace_out=betas_trace_out,
+            run_betas_using_phewas=run_betas_using_phewas,
+            run_uncorrected_using_phewas=run_uncorrected_using_phewas,
+            bail_fn=bail,
+            warn_fn=warn,
+            log_fn=log,
+            info_level=INFO,
+            debug_level=DEBUG,
+            trace_level=TRACE,
+            **kwargs
+        )
 
     # ==========================================================================
     # Section: Core Inference Orchestration (priors + outer Gibbs).
     # ==========================================================================
     def calculate_priors(self, max_gene_set_p=None, num_gene_batches=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, p_noninf=None, run_logistic=True, max_for_linear=0.95, adjust_priors=False, tag="", **kwargs):
-        # ==========================================================================
-        # Prior Phase 0: Validate prerequisites and choose batching strategy.
-        # ==========================================================================
-        if self.X_orig is None:
-            bail("X is required for this operation")
-        if self.betas is None:
-            bail("betas are required for this operation")
-
-        use_X = False
-
-        assert(self.gene_sets is not None)
-        max_num_gene_batches_together = 10000
-        #if 0, don't use any V
-        num_gene_batches_parallel = int(max_num_gene_batches_together / len(self.gene_sets))
-        if num_gene_batches_parallel == 0:
-            use_X = True
-            log("Using low memory X instead of V in priors", TRACE)
-            num_gene_batches_parallel = 1
-
-        loco = False
-        if num_gene_batches is None:
-            log("Doing leave-one-chromosome-out cross validation for priors computation")
-            loco = True
-
-        if num_gene_batches is not None and num_gene_batches < 2:
-            # ==========================================================================
-            # Prior Phase 1a: Single-pass projection from betas to priors.
-            # ==========================================================================
-            #this calculates the values for the non missing genes
-            #use original X matrix here because we are rescaling betas back to those units
-            priors = np.array(self.X_orig.dot(self.betas / self.scale_factors) - np.sum(self.mean_shifts * self.betas / self.scale_factors)).flatten()
-            self.combined_prior_Ys = None
-            self.combined_prior_Ys_for_regression = None
-            self.combined_prior_Ys_adj = None
-            self.combined_prior_Y_ses = None
-            self.combined_Ds = None
-            self.batches = None
-        else:
-            # ==========================================================================
-            # Prior Phase 1b: Build batch metadata (LOCO or correlation-aware batches).
-            # ==========================================================================
-
-            if loco:
-                if gene_loc_file is None:
-                    bail("Need --gene-loc-file for --loco")
-
-                gene_chromosomes = {}
-                batches = set()
-                log("Reading gene locations")
-                if self.gene_to_chrom is None:
-                    self.gene_to_chrom = {}
-                if self.gene_to_pos is None:
-                    self.gene_to_pos = {}
-
-                with open_gz(gene_loc_file) as gene_loc_fh:
-                    for line in gene_loc_fh:
-                        cols = line.strip('\n').split()
-                        if len(cols) != 6:
-                            bail("Format for --gene-loc-file is:\n\tgene_id\tchrom\tstart\tstop\tstrand\tgene_name\nOffending line:\n\t%s" % line)
-                        gene_name = cols[5]
-                        if gene_name not in self.gene_to_ind:
-                            continue
-
-                        chrom = pegs_clean_chrom_name(cols[1])
-                        pos1 = int(cols[2])
-                        pos2 = int(cols[3])
-
-                        self.gene_to_chrom[gene_name] = chrom
-                        self.gene_to_pos[gene_name] = (pos1,pos2)
-
-                        batches.add(chrom)
-                        gene_chromosomes[gene_name] = chrom
-                batches = sorted(batches)
-                num_gene_batches = len(batches)
-            else:
-                #need sorted genes and correlation matrix to batch genes
-                if self.y_corr is None:
-                    correlation_m = self._read_correlations(gene_cor_file, gene_loc_file, gene_cor_file_gene_col=gene_cor_file_gene_col, gene_cor_file_cor_start_col=gene_cor_file_cor_start_col)
-                    self._set_Y(self.Y, self.Y_for_regression, self.Y_exomes, self.Y_positive_controls, self.Y_case_counts, Y_corr_m=correlation_m, skip_V=True, skip_scale_factors=True, min_correlation=None)
-                batches = range(num_gene_batches)
-
-            gene_batch_size = int(len(self.genes) / float(num_gene_batches) + 1)
-            self.batches = [None] * len(self.genes)
-            priors = np.zeros(len(self.genes))
-
-            #store a matrix of all beta_tildes across all batches
-            full_matrix_shape = (len(batches), len(self.gene_sets) + (len(self.gene_sets_missing) if self.gene_sets_missing is not None else 0))
-            full_beta_tildes_m = np.zeros(full_matrix_shape)
-            full_ses_m = np.zeros(full_matrix_shape)
-            full_z_scores_m = np.zeros(full_matrix_shape)
-            full_se_inflation_factors_m = np.zeros(full_matrix_shape)
-            full_p_values_m = np.zeros(full_matrix_shape)
-            full_scale_factors_m = np.zeros(full_matrix_shape)
-            full_ps_m = None
-            if self.ps is not None:
-                full_ps_m = np.zeros(full_matrix_shape)                
-            full_sigma2s_m = None
-            if self.sigma2s is not None:
-                full_sigma2s_m = np.zeros(full_matrix_shape)                
-
-            full_is_dense_gene_set_m = np.zeros(full_matrix_shape, dtype=bool)
-            full_mean_shifts_m = np.zeros(full_matrix_shape)
-            full_include_mask_m = np.zeros((len(batches), len(self.genes)), dtype=bool)
-            full_priors_mask_m = np.zeros((len(batches), len(self.genes)), dtype=bool)
-
-            # ==========================================================================
-            # Prior Phase 2: Per-batch beta-tilde estimation on subsetted genes.
-            # ==========================================================================
-            # combine X_orig and X_orig_missing for batched prior calculations.
-            with _temporary_unsubset_gene_sets(self, self.gene_sets_missing is not None, keep_missing=True, skip_V=True):
-
-                for batch_ind in range(len(batches)):
-                    batch = batches[batch_ind]
-    
-                    #specify:
-                    # (a) include_mask: the genes that are used for calculating beta tildes and betas for this batch
-                    # (b) priors_mask: the genes that we will calculate priors for
-                    #these are not exact complements because we may need to exlude some genes for both (i.e. a buffer)
-                    if loco:
-                        include_mask = np.array([True] * len(self.genes))
-                        priors_mask = np.array([False] * len(self.genes))
-                        for i in range(len(self.genes)):
-                            if self.genes[i] not in gene_chromosomes:
-                                include_mask[i] = False
-                                priors_mask[i] = True
-                            elif gene_chromosomes[self.genes[i]] == batch:
-                                include_mask[i] = False
-                                priors_mask[i] = True
-                            else:
-                                include_mask[i] = True
-                                priors_mask[i] = False
-                        log("Batch %s: %d genes" % (batch, np.sum(priors_mask)))
-                    else:
-                        begin = batch * gene_batch_size
-                        end = (batch + 1) * gene_batch_size
-                        if end > len(self.genes):
-                            end = len(self.genes)
-                        end = end - 1
-                        log("Batch %d: genes %d - %d" % (batch+1, begin, end))
-    
-    
-                        #include only genes not correlated with any in the current batch
-                        include_mask = np.array([True] * len(self.genes))
-    
-                        include_mask_begin = begin - 1
-                        while include_mask_begin > 0 and (begin - include_mask_begin) < len(self.y_corr) and self.y_corr[begin - include_mask_begin][include_mask_begin] > 0:
-                            include_mask_begin -= 1
-                        include_mask_begin += 1
-    
-                        include_mask_end = end + 1
-                        while (include_mask_end - end) < len(self.y_corr) and self.y_corr[include_mask_end - end][end] > 0:
-                            include_mask_end += 1
-                        include_mask[include_mask_begin:include_mask_end] = False
-                        include_mask_end -= 1
-    
-                        priors_mask = np.array([False] * len(self.genes))
-                        priors_mask[begin:(end+1)] = True
-    
-    
-                    for i in range(len(self.genes)):
-                        if priors_mask[i]:
-                            self.batches[i] = batch
-    
-                    #now subset Y
-                    Y = copy.copy(self.Y_for_regression)
-                    y_corr = None
-                    y_corr_sparse = None
-    
-                    if self.y_corr is not None:
-                        y_corr = copy.copy(self.y_corr)
-                        if not loco:
-                            #we cannot rely on chromosome boundaries to zero out correlations, so manually do this
-                            for i in range(include_mask_begin - 1, include_mask_begin - y_corr.shape[0], -1):
-                                y_corr[include_mask_begin - i:,i] = 0
-                        #don't need to zero out anything for include_mask_end because correlations between after end and removed are all stored inside of the removed indices
-                        y_corr = y_corr[:,include_mask]
-    
-                        if self.y_corr_sparse is not None:
-                            y_corr_sparse = self.y_corr_sparse[include_mask,:][:,include_mask]
-                    
-                    Y = Y[include_mask]
-                    y_var = np.var(Y)
-    
-                    #DO WE NEED THIS??
-                    #y_mean = np.mean(Y)
-                    #Y = Y - y_mean
-    
-                    (mean_shifts, scale_factors) = self._calc_X_shift_scale(self.X_orig[include_mask,:])
-    
-                    #if some gene sets became empty!
-                    assert(not np.any(np.logical_and(mean_shifts != 0, scale_factors == 0)))
-                    mean_shifts[mean_shifts == 0] = 0
-                    scale_factors[scale_factors == 0] = 1
-    
-                    ps = self.ps
-                    sigma2s = self.sigma2s
-                    is_dense_gene_set = self.is_dense_gene_set
-    
-                    #max_gene_set_p = self.max_gene_set_p if self.max_gene_set_p is not None else 1
-    
-                    Y_to_use = Y
-                    D = np.exp(Y_to_use + self.background_log_bf) / (1 + np.exp(Y_to_use + self.background_log_bf))
-                    if np.max(D) > max_for_linear:
-                        run_logistic = True
-    
-                    #compute special beta tildes here
-                    if run_logistic:
-                        (beta_tildes, ses, z_scores, p_values, se_inflation_factors, alpha_tildes, diverged) = self._compute_logistic_beta_tildes(self.X_orig[include_mask,:], D, scale_factors, mean_shifts, resid_correlation_matrix=y_corr_sparse)
-                    else:
-                        (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._compute_beta_tildes(self.X_orig[include_mask,:], Y, y_var, scale_factors, mean_shifts, resid_correlation_matrix=y_corr_sparse)
-    
-                    if correct_betas_mean or correct_betas_var:
-                        (beta_tildes, ses, z_scores, p_values, se_inflation_factors) = self._correct_beta_tildes(beta_tildes, ses, se_inflation_factors, self.total_qc_metrics, self.total_qc_metrics_directions, correct_mean=correct_betas_mean, correct_var=correct_betas_var, fit=False)
-    
-                    #now determine those that have too many genes removed to be accurate
-                    mean_reduction = float(num_gene_batches - 1) / float(num_gene_batches)
-                    sd_reduction = np.sqrt(mean_reduction * (1 - mean_reduction))
-                    reduction = mean_shifts / self.mean_shifts
-                    ignore_mask = reduction < mean_reduction - 3 * sd_reduction
-                    if sum(ignore_mask) > 0:
-                        log("Ignoring %d gene sets because there are too many genes are missing from this batch" % sum(ignore_mask))
-                        for ind in np.array(range(len(ignore_mask)))[ignore_mask]:
-                            log("%s: %.4g remaining (vs. %.4g +/- %.4g expected)" % (self.gene_sets[ind], reduction[ind], mean_reduction, sd_reduction), TRACE)
-                    #also zero out anything above the p-value threshold; this is a convenience for below
-                    #note that p-values are still preserved though for below
-                    ignore_mask = np.logical_or(ignore_mask, p_values > max_gene_set_p)
-    
-                    beta_tildes[ignore_mask] = 0
-                    ses[ignore_mask] = max(self.ses) * 100
-    
-                    full_beta_tildes_m[batch_ind,:] = beta_tildes
-                    full_ses_m[batch_ind,:] = ses
-                    full_z_scores_m[batch_ind,:] = z_scores
-                    full_se_inflation_factors_m[batch_ind,:] = se_inflation_factors
-                    full_p_values_m[batch_ind,:] = p_values
-                    full_scale_factors_m[batch_ind,:] = scale_factors
-                    full_mean_shifts_m[batch_ind,:] = mean_shifts
-                    if full_ps_m is not None:
-                        full_ps_m[batch_ind,:] = ps
-                    if full_sigma2s_m is not None:
-                        full_sigma2s_m[batch_ind,:] = sigma2s
-    
-                    full_is_dense_gene_set_m[batch_ind,:] = is_dense_gene_set
-                    full_include_mask_m[batch_ind,:] = include_mask
-                    full_priors_mask_m[batch_ind,:] = priors_mask
-
-                # ==========================================================================
-                # Prior Phase 3: Fit non-inf betas per batch window and back-project priors.
-                # ==========================================================================
-                #now calculate everything
-                if p_noninf is None or p_noninf >= 1:
-                    num_gene_batches_parallel = 1
-                num_calculations = int(np.ceil(num_gene_batches / num_gene_batches_parallel))
-                for calc in range(num_calculations):
-                    begin = calc * num_gene_batches_parallel
-                    end = (calc + 1) * num_gene_batches_parallel
-                    if end > num_gene_batches:
-                        end = num_gene_batches
-                    
-                    log("Running calculations for batches %d-%d" % (begin, end))
-    
-                    #ensure there is at least one gene set remaining
-                    max_gene_set_p_v = np.min(full_p_values_m[begin:end,:], axis=1)
-                    #max_gene_set_p_v[max_gene_set_p_v < (self.max_gene_set_p if self.max_gene_set_p is not None else 1)] = (self.max_gene_set_p if self.max_gene_set_p is not None else 1)
-                    max_gene_set_p_v[max_gene_set_p_v < (max_gene_set_p if max_gene_set_p is not None else 1)] = (max_gene_set_p if max_gene_set_p is not None else 1)
-    
-                    #get the include mask; any batch has p <= threshold
-                    new_gene_set_mask = np.max(full_p_values_m[begin:end,:].T <= max_gene_set_p_v, axis=1)
-                    num_gene_set_mask = np.sum(new_gene_set_mask)
-    
-                    #we unsubset genes to aid in batching; this caused sigma and p to be affected
-                    fraction_non_missing = np.mean(new_gene_set_mask)
-                    missing_scale_factor = self._get_fraction_non_missing() / fraction_non_missing
-                    if missing_scale_factor > 1 / self.p:
-                        #threshold this here. otherwise set_p will cap p but set_sigma won't cap sigma
-                        missing_scale_factor = 1 / self.p
-                    
-                    #orig_sigma2 = self.sigma2
-                    #orig_p = self.p
-                    #self.set_sigma(self.sigma2 * missing_scale_factor, self.sigma_power, sigma2_osc=self.sigma2_osc)
-                    #self.set_p(self.p * missing_scale_factor)
-    
-                    #construct the V matrix
-                    if not use_X:
-                        V_m = np.zeros((end-begin, num_gene_set_mask, num_gene_set_mask))
-                        for i,j in zip(range(begin, end),range(end-begin)):
-                            include_mask = full_include_mask_m[i,:]
-    
-                            V_m[j,:,:] = self._calculate_V_internal(self.X_orig[include_mask,:][:,new_gene_set_mask], None, full_mean_shifts_m[i,new_gene_set_mask], full_scale_factors_m[i,new_gene_set_mask])
-                    else:
-                        V_m = None
-    
-                    cur_beta_tildes = full_beta_tildes_m[begin:end,:][:,new_gene_set_mask]
-                    cur_ses = full_ses_m[begin:end,:][:,new_gene_set_mask]
-                    cur_se_inflation_factors = full_se_inflation_factors_m[begin:end,:][:,new_gene_set_mask]
-                    cur_scale_factors = full_scale_factors_m[begin:end,:][:,new_gene_set_mask]
-                    cur_mean_shifts = full_mean_shifts_m[begin:end,:][:,new_gene_set_mask]
-                    cur_is_dense_gene_set = full_is_dense_gene_set_m[begin:end,:][:,new_gene_set_mask]
-                    cur_ps = None
-                    if full_ps_m is not None:
-                        cur_ps = full_ps_m[begin:end,:][:,new_gene_set_mask]
-                    cur_sigma2s = None
-                    if full_sigma2s_m is not None:
-                        cur_sigma2s = full_sigma2s_m[begin:end,:][:,new_gene_set_mask]
-    
-                    #only non inf now
-                    (betas, avg_postp) = self._calculate_non_inf_betas(None, beta_tildes=cur_beta_tildes, ses=cur_ses, V=V_m, X_orig=self.X_orig[include_mask,:][:,new_gene_set_mask], scale_factors=cur_scale_factors, mean_shifts=cur_mean_shifts, is_dense_gene_set=cur_is_dense_gene_set, ps=cur_ps, sigma2s=cur_sigma2s, update_hyper_sigma=False, update_hyper_p=False, num_missing_gene_sets=int((1 - fraction_non_missing) * len(self.gene_sets)), **kwargs)
-                    if len(betas.shape) == 1:
-                        betas = betas[np.newaxis,:]
-    
-    
-                    for i,j in zip(range(begin, end),range(end-begin)):
-    
-                        priors[full_priors_mask_m[i,:]] = np.array(self.X_orig[full_priors_mask_m[i,:],:][:,new_gene_set_mask].dot(betas[j,:] / cur_scale_factors[j,:]))
-
-                    #now restore the p and sigma
-                    #self.set_sigma(orig_sigma2, self.sigma_power, sigma2_osc=self.sigma2_osc)
-                    #self.set_p(orig_p)
-
-        # ==========================================================================
-        # Prior Phase 4: Merge missing-gene priors, center values, and finalize.
-        # ==========================================================================
-        #now for the genes that were not included in X
-        if self.X_orig_missing_genes is not None:
-            #these can use the original betas because they were never included
-            self.priors_missing = np.array(self.X_orig_missing_genes.dot(self.betas / self.scale_factors) - np.sum(self.mean_shifts * self.betas / self.scale_factors))
-        else:
-            self.priors_missing = np.array([])
-
-        #store in member variable
-        total_mean = np.mean(np.concatenate((priors, self.priors_missing)))
-        self.priors = priors - total_mean
-        self.priors_missing -= total_mean
-
-        self.calculate_priors_adj(overwrite_priors=adjust_priors)
+        return pigean_model.calculate_priors(
+            self,
+            max_gene_set_p=max_gene_set_p,
+            num_gene_batches=num_gene_batches,
+            correct_betas_mean=correct_betas_mean,
+            correct_betas_var=correct_betas_var,
+            gene_loc_file=gene_loc_file,
+            gene_cor_file=gene_cor_file,
+            gene_cor_file_gene_col=gene_cor_file_gene_col,
+            gene_cor_file_cor_start_col=gene_cor_file_cor_start_col,
+            p_noninf=p_noninf,
+            run_logistic=run_logistic,
+            max_for_linear=max_for_linear,
+            adjust_priors=adjust_priors,
+            tag=tag,
+            bail_fn=bail,
+            warn_fn=warn,
+            log_fn=log,
+            info_level=INFO,
+            debug_level=DEBUG,
+            trace_level=TRACE,
+            **kwargs
+        )
 
     def calculate_priors_adj(self, overwrite_priors=False):
         if self.priors is None:

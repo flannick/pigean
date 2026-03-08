@@ -125,6 +125,20 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn("def _run_gibbs_iteration_correction_and_updates(", flat_source)
         self.assertNotIn("def _advance_gibbs_iteration_progress(", flat_source)
 
+    def test_pigean_beta_and_prior_math_live_in_package_model_module(self) -> None:
+        model_source = (REPO_ROOT / "src" / "pigean" / "model.py").read_text(encoding="utf-8")
+        flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
+        self.assertIn("def calculate_gene_set_statistics(", model_source)
+        self.assertIn("def calculate_non_inf_betas(", model_source)
+        self.assertIn("def calculate_priors(", model_source)
+        self.assertIn("from pigean import model as pigean_model", flat_source)
+        self.assertIn("return pigean_model.calculate_gene_set_statistics(", flat_source)
+        self.assertIn("return pigean_model.calculate_non_inf_betas(", flat_source)
+        self.assertIn("return pigean_model.calculate_priors(", flat_source)
+        self.assertNotIn("def calculate_gene_set_statistics(self", flat_source.split("return pigean_model.calculate_gene_set_statistics(", 1)[1])
+        self.assertNotIn("def calculate_non_inf_betas(self", flat_source.split("return pigean_model.calculate_non_inf_betas(", 1)[1])
+        self.assertNotIn("def calculate_priors(self", flat_source.split("return pigean_model.calculate_priors(", 1)[1])
+
     def test_pigean_cli_uses_narrow_cli_helper_module(self) -> None:
         cli_source = (REPO_ROOT / "src" / "pigean" / "cli.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.cli import", cli_source)
