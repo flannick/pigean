@@ -1,103 +1,22 @@
 import copy
 import os
-from dataclasses import dataclass
 
 import numpy as np
 import scipy.sparse as sparse
 
 from pegs_shared.io_common import construct_map_to_ind, resolve_column_index
-from pegs_shared.types import ParsedGenePhewasBfs, PhewasFileColumnInfo
+from pegs_shared.types import (
+    FactorInputData,
+    ParsedGenePhewasBfs,
+    PhewasFileColumnInfo,
+    PhewasInputResolution,
+    PhewasRuntimeState,
+    PhewasStageConfig,
+)
 
 
 def _default_bail(message):
     raise ValueError(message)
-
-
-@dataclass
-class PhewasRuntimeState:
-    phenos: object = None
-    pheno_to_ind: object = None
-    gene_pheno_Y: object = None
-    gene_pheno_combined_prior_Ys: object = None
-    gene_pheno_priors: object = None
-    X_phewas_beta: object = None
-    X_phewas_beta_uncorrected: object = None
-    num_gene_phewas_filtered: int = 0
-    anchor_gene_mask: object = None
-    anchor_pheno_mask: object = None
-
-
-@dataclass
-class FactorInputData:
-    anchor_gene_mask: object = None
-    anchor_pheno_mask: object = None
-    loaded_gene_set_phewas_stats: bool = False
-    loaded_gene_phewas_bfs: bool = False
-
-
-@dataclass
-class PhewasStageConfig:
-    gene_phewas_bfs_in: object = None
-    gene_phewas_bfs_id_col: object = None
-    gene_phewas_bfs_pheno_col: object = None
-    gene_phewas_bfs_log_bf_col: object = None
-    gene_phewas_bfs_combined_col: object = None
-    gene_phewas_bfs_prior_col: object = None
-    max_num_burn_in: int = 1000
-    max_num_iter: int = 1100
-    min_num_iter: int = 10
-    num_chains: int = 10
-    r_threshold_burn_in: float = 1.01
-    use_max_r_for_convergence: bool = True
-    max_frac_sem: float = 0.01
-    gauss_seidel: bool = False
-    sparse_solution: bool = False
-    sparse_frac_betas: object = None
-    run_for_factors: bool = False
-    batch_size: int | None = None
-    min_gene_factor_weight: float = 0.0
-
-    def to_run_kwargs(self):
-        run_kwargs = {
-            "gene_phewas_bfs_in": self.gene_phewas_bfs_in,
-            "gene_phewas_bfs_id_col": self.gene_phewas_bfs_id_col,
-            "gene_phewas_bfs_pheno_col": self.gene_phewas_bfs_pheno_col,
-            "gene_phewas_bfs_log_bf_col": self.gene_phewas_bfs_log_bf_col,
-            "gene_phewas_bfs_combined_col": self.gene_phewas_bfs_combined_col,
-            "gene_phewas_bfs_prior_col": self.gene_phewas_bfs_prior_col,
-            "max_num_burn_in": self.max_num_burn_in,
-            "max_num_iter": self.max_num_iter,
-            "min_num_iter": self.min_num_iter,
-            "num_chains": self.num_chains,
-            "r_threshold_burn_in": self.r_threshold_burn_in,
-            "use_max_r_for_convergence": self.use_max_r_for_convergence,
-            "max_frac_sem": self.max_frac_sem,
-            "gauss_seidel": self.gauss_seidel,
-            "sparse_solution": self.sparse_solution,
-            "sparse_frac_betas": self.sparse_frac_betas,
-        }
-        if self.run_for_factors:
-            run_kwargs["run_for_factors"] = True
-            if self.batch_size is not None:
-                run_kwargs["batch_size"] = self.batch_size
-            run_kwargs["min_gene_factor_weight"] = self.min_gene_factor_weight
-        return run_kwargs
-
-
-@dataclass
-class PhewasInputResolution:
-    requested_input: object = None
-    resolved_input: object = None
-    mode: str = "skip"
-    reason: str = "no_input_requested"
-
-    @property
-    def should_reuse_loaded_matrix(self):
-        return self.mode == "reuse_loaded_matrix"
-
-    @property
-    def should_reread_file(self):
-        return self.mode == "re_read_file"
 
 
 def derive_factor_anchor_masks(genes, phenos, anchor_genes=None, anchor_phenos=None, *, bail_fn=None):

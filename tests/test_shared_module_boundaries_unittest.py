@@ -5,6 +5,7 @@ import json
 import pathlib
 import sys
 import unittest
+from typing import Any, get_type_hints
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -373,6 +374,33 @@ class SharedModuleBoundaryTest(unittest.TestCase):
                 if row.get("public_visibility") == "normal" and not (row.get("summary") or "").strip()
             ]
             self.assertEqual(missing, [], msg="%s missing summaries for: %s" % (rel_path, ", ".join(missing)))
+
+    def test_shared_types_use_concrete_runtime_annotations(self) -> None:
+        src_root = str(REPO_ROOT / "src")
+        if src_root not in sys.path:
+            sys.path.insert(0, src_root)
+        pegs_types = importlib.import_module("pegs_shared.types")
+        pegs_phewas = importlib.import_module("pegs_shared.phewas")
+
+        x_hints = get_type_hints(pegs_types.XData)
+        y_hints = get_type_hints(pegs_types.YData)
+        hyper_hints = get_type_hints(pegs_types.HyperparameterData)
+        stage_hints = get_type_hints(pegs_types.PhewasStageConfig)
+
+        self.assertNotEqual(x_hints["gene_to_chrom"], Any)
+        self.assertNotEqual(x_hints["gene_to_pos"], Any)
+        self.assertNotEqual(x_hints["gene_to_huge_score"], Any)
+        self.assertNotEqual(y_hints["Y"], Any)
+        self.assertNotEqual(y_hints["y_corr_sparse"], Any)
+        self.assertNotEqual(hyper_hints["sigma2"], Any)
+        self.assertNotEqual(hyper_hints["ps"], Any)
+        self.assertNotEqual(stage_hints["gene_phewas_bfs_in"], Any)
+        self.assertNotEqual(stage_hints["sparse_frac_betas"], Any)
+
+        self.assertIs(pegs_phewas.PhewasRuntimeState, pegs_types.PhewasRuntimeState)
+        self.assertIs(pegs_phewas.FactorInputData, pegs_types.FactorInputData)
+        self.assertIs(pegs_phewas.PhewasStageConfig, pegs_types.PhewasStageConfig)
+        self.assertIs(pegs_phewas.PhewasInputResolution, pegs_types.PhewasInputResolution)
 
 
 if __name__ == "__main__":

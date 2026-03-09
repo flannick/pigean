@@ -1,55 +1,73 @@
 from __future__ import annotations
 
 from dataclasses import MISSING, dataclass, field, fields
-from typing import Any, Callable
+from os import PathLike
+from types import ModuleType
+from typing import Any, Callable, TypeAlias
 
 import numpy as np
 import scipy.sparse as sparse
 
 
-MatrixLike = np.ndarray | sparse.spmatrix
-VectorLike = np.ndarray
+MatrixLike: TypeAlias = np.ndarray | sparse.spmatrix
+VectorLike: TypeAlias = np.ndarray
+PathLikeStr: TypeAlias = str | PathLike[str]
+ColumnSpec: TypeAlias = int | str | None
+StringList: TypeAlias = list[str]
+OptionalStringList: TypeAlias = list[str] | None
+BatchList: TypeAlias = list[str | None]
+BoolList: TypeAlias = list[bool]
+IndexMap: TypeAlias = dict[str, int]
+FloatMap: TypeAlias = dict[str, float]
+ChromMap: TypeAlias = dict[str, str]
+PositionMap: TypeAlias = dict[str, tuple[int, int]]
+ChromGenePosMap: TypeAlias = dict[str, dict[str, set[int]]]
+DenseBlockCache: TypeAlias = tuple[MatrixLike, bool, bool, int | None, int | None, str | None]
+OptionalVectorLike: TypeAlias = VectorLike | None
+OptionalMatrixLike: TypeAlias = MatrixLike | None
+OptionalPathLikeStr: TypeAlias = PathLikeStr | None
+NumericScalar: TypeAlias = int | float
 Callback = Callable[..., Any]
 
 
 @dataclass
 class XData:
     batch_size: int | None = None
-    X_orig: MatrixLike | None = None
-    X_binary_packed: MatrixLike | None = None
-    X_orig_missing_genes: MatrixLike | None = None
-    X_orig_missing_gene_sets: MatrixLike | None = None
-    X_orig_missing_genes_missing_gene_sets: MatrixLike | None = None
-    last_X_block: Any = None
-    genes: list[str] = field(default_factory=list)
-    genes_missing: list[str] = field(default_factory=list)
-    gene_sets: list[str] = field(default_factory=list)
-    gene_sets_missing: list[str] = field(default_factory=list)
-    gene_sets_ignored: list[str] = field(default_factory=list)
-    gene_to_ind: dict[str, int] = field(default_factory=dict)
-    gene_missing_to_ind: dict[str, int] = field(default_factory=dict)
-    gene_set_to_ind: dict[str, int] = field(default_factory=dict)
+    X_orig: OptionalMatrixLike = None
+    X_binary_packed: OptionalMatrixLike = None
+    X_orig_missing_genes: OptionalMatrixLike = None
+    X_orig_missing_gene_sets: OptionalMatrixLike = None
+    X_orig_missing_genes_missing_gene_sets: OptionalMatrixLike = None
+    last_X_block: DenseBlockCache | None = None
+    genes: OptionalStringList = field(default_factory=list)
+    genes_missing: OptionalStringList = field(default_factory=list)
+    gene_sets: OptionalStringList = field(default_factory=list)
+    gene_sets_missing: OptionalStringList = field(default_factory=list)
+    gene_sets_ignored: OptionalStringList = field(default_factory=list)
+    gene_to_ind: IndexMap | None = field(default_factory=dict)
+    gene_missing_to_ind: IndexMap | None = field(default_factory=dict)
+    gene_set_to_ind: IndexMap | None = field(default_factory=dict)
     scale_is_for_whitened: bool = False
-    scale_factors: VectorLike | None = None
-    mean_shifts: VectorLike | None = None
-    scale_factors_missing: VectorLike | None = None
-    mean_shifts_missing: VectorLike | None = None
-    scale_factors_ignored: VectorLike | None = None
-    mean_shifts_ignored: VectorLike | None = None
-    gene_set_batches: VectorLike | None = None
-    gene_set_batches_missing: VectorLike | None = None
-    gene_set_labels: VectorLike | None = None
-    gene_set_labels_missing: VectorLike | None = None
-    gene_set_labels_ignored: VectorLike | None = None
-    is_dense_gene_set: VectorLike | None = None
-    is_dense_gene_set_missing: VectorLike | None = None
-    gene_chrom_name_pos: Any = None
-    gene_to_chrom: dict[str, Any] | None = None
-    gene_to_pos: dict[str, Any] | None = None
-    gene_to_gwas_huge_score: dict[str, Any] | None = None
-    gene_to_gwas_huge_score_uncorrected: dict[str, Any] | None = None
-    gene_to_exomes_huge_score: dict[str, Any] | None = None
-    gene_to_huge_score: dict[str, Any] | None = None
+    scale_factors: OptionalVectorLike = None
+    mean_shifts: OptionalVectorLike = None
+    scale_factors_missing: OptionalVectorLike = None
+    mean_shifts_missing: OptionalVectorLike = None
+    scale_factors_ignored: OptionalVectorLike = None
+    mean_shifts_ignored: OptionalVectorLike = None
+    gene_set_batches: OptionalVectorLike = None
+    gene_set_batches_missing: OptionalVectorLike = None
+    gene_set_labels: OptionalVectorLike = None
+    gene_set_labels_missing: OptionalVectorLike = None
+    gene_set_labels_ignored: OptionalVectorLike = None
+    is_dense_gene_set: OptionalVectorLike = None
+    is_dense_gene_set_missing: OptionalVectorLike = None
+    gene_chrom_name_pos: ChromGenePosMap | None = None
+    gene_to_chrom: ChromMap | None = None
+    gene_to_pos: PositionMap | None = None
+    gene_to_gwas_huge_score: FloatMap | None = None
+    gene_to_gwas_huge_score_uncorrected: FloatMap | None = None
+    gene_to_exomes_huge_score: FloatMap | None = None
+    gene_to_huge_score: FloatMap | None = None
 
     @classmethod
     def from_input_plan(cls, input_plan):
@@ -334,17 +352,17 @@ class XData:
 
 @dataclass
 class XInputPlan:
-    initial_ps: Any
-    X_ins: list
-    batches: list
-    labels: list
-    orig_files: list
-    is_dense: list
+    initial_ps: list[float] | None
+    X_ins: StringList
+    batches: BatchList
+    labels: StringList
+    orig_files: StringList
+    is_dense: BoolList
 
 
 @dataclass
 class XReadConfig:
-    x_sparsify: Any
+    x_sparsify: list[int]
     min_gene_set_size: int
     add_ext: bool
     add_top: bool
@@ -361,8 +379,8 @@ class XReadConfig:
 
 @dataclass
 class XReadCallbacks:
-    sparse_module: Any
-    np_module: Any
+    sparse_module: ModuleType
+    np_module: ModuleType
     normalize_dense_gene_rows_fn: Callback
     build_sparse_x_from_dense_input_fn: Callback
     reindex_x_rows_to_current_genes_fn: Callback
@@ -382,18 +400,18 @@ class XReadIngestionOptions:
     update_hyper_p: bool
     first_for_sigma_cond: bool
     run_corrected_ols: bool
-    gene_cor_file: Any
-    gene_loc_file: Any
-    gene_cor_file_gene_col: Any
-    gene_cor_file_cor_start_col: Any
+    gene_cor_file: OptionalPathLikeStr
+    gene_loc_file: OptionalPathLikeStr
+    gene_cor_file_gene_col: int
+    gene_cor_file_cor_start_col: int
     run_logistic: bool
     max_for_linear: float
-    only_ids: Any
+    only_ids: set[str] | None
     add_all_genes: bool
-    only_inc_genes: Any
-    fraction_inc_genes: Any
-    ignore_genes: Any
-    max_num_entries_at_once: Any
+    only_inc_genes: set[str] | None
+    fraction_inc_genes: float | None
+    ignore_genes: set[str]
+    max_num_entries_at_once: int | None
     filter_gene_set_p: float
     filter_gene_set_metric_z: float
     filter_using_phewas: bool
@@ -407,42 +425,42 @@ class XReadPostOptions:
     correct_betas_var: bool
     filter_using_phewas: bool
     prune_gene_sets: float
-    weighted_prune_gene_sets: Any
+    weighted_prune_gene_sets: float | None
     prune_deterministically: bool
-    max_num_gene_sets_initial: Any
+    max_num_gene_sets_initial: int | None
     skip_betas: bool
     initial_p: float
     update_hyper_p: bool
-    sigma_power: Any
-    initial_sigma2_cond: Any
+    sigma_power: float | None
+    initial_sigma2_cond: float | None
     update_hyper_sigma: bool
-    initial_sigma2: Any
-    sigma_soft_threshold_95: Any
-    sigma_soft_threshold_5: Any
-    batches: list
-    num_ignored_gene_sets: Any
+    initial_sigma2: float | None
+    sigma_soft_threshold_95: float | None
+    sigma_soft_threshold_5: float | None
+    batches: BatchList
+    num_ignored_gene_sets: int
     first_for_hyper: bool
-    max_num_gene_sets_hyper: Any
+    max_num_gene_sets_hyper: int | None
     first_for_sigma_cond: bool
     first_max_p_for_hyper: bool
-    max_num_burn_in: Any
+    max_num_burn_in: int | None
     max_num_iter_betas: int
     min_num_iter_betas: int
     num_chains_betas: int
     r_threshold_burn_in_betas: float
     use_max_r_for_convergence_betas: bool
     max_frac_sem_betas: float
-    max_allowed_batch_correlation: Any
+    max_allowed_batch_correlation: float | None
     sigma_num_devs_to_top: float
     p_noninf_inflate: float
     sparse_solution: bool
-    sparse_frac_betas: Any
-    betas_trace_out: Any
+    sparse_frac_betas: float | None
+    betas_trace_out: OptionalPathLikeStr
     increase_filter_gene_set_p: float
     min_gene_set_size: int
     max_gene_set_size: int
     filter_gene_set_metric_z: float
-    max_num_gene_sets: Any
+    max_num_gene_sets: int | None
 
 
 @dataclass
@@ -462,21 +480,21 @@ class XReadPostCallbacks:
 
 @dataclass
 class ReadXPipelineConfig:
-    X_in: Any = None
-    Xd_in: Any = None
-    X_list: Any = None
-    Xd_list: Any = None
-    V_in: Any = None
+    X_in: StringList | str | None = None
+    Xd_in: StringList | str | None = None
+    X_list: StringList | str | None = None
+    Xd_list: StringList | str | None = None
+    V_in: OptionalPathLikeStr = None
     skip_V: bool = True
     force_reread: bool = False
     min_gene_set_size: int = 1
     max_gene_set_size: int = 30000
-    only_ids: Any = None
-    only_inc_genes: Any = None
-    fraction_inc_genes: Any = None
+    only_ids: set[str] | None = None
+    only_inc_genes: set[str] | None = None
+    fraction_inc_genes: float | None = None
     add_all_genes: bool = False
     prune_gene_sets: float = 0.8
-    weighted_prune_gene_sets: Any = None
+    weighted_prune_gene_sets: float | None = None
     prune_deterministically: bool = False
     x_sparsify: list = field(default_factory=lambda: [50, 100, 200, 500, 1000])
     add_ext: bool = False
@@ -486,29 +504,29 @@ class ReadXPipelineConfig:
     threshold_weights: float = 0.5
     cap_weights: bool = True
     permute_gene_sets: bool = False
-    max_gene_set_p: Any = None
+    max_gene_set_p: float | None = None
     filter_gene_set_p: float = 1
     filter_using_phewas: bool = False
     increase_filter_gene_set_p: float = 0.01
-    max_num_gene_sets_initial: Any = None
-    max_num_gene_sets: Any = None
-    max_num_gene_sets_hyper: Any = None
+    max_num_gene_sets_initial: int | None = None
+    max_num_gene_sets: int | None = None
+    max_num_gene_sets_hyper: int | None = None
     skip_betas: bool = False
     run_logistic: bool = True
     max_for_linear: float = 0.95
     filter_gene_set_metric_z: float = 2.5
-    initial_p: Any = 0.01
-    xin_to_p_noninf_ind: Any = None
-    initial_sigma2: Any = 1e-3
-    initial_sigma2_cond: Any = None
-    sigma_power: Any = 0
-    sigma_soft_threshold_95: Any = None
-    sigma_soft_threshold_5: Any = None
+    initial_p: float | list[float] | None = 0.01
+    xin_to_p_noninf_ind: dict[str, int] | None = None
+    initial_sigma2: float | None = 1e-3
+    initial_sigma2_cond: float | None = None
+    sigma_power: float | None = 0
+    sigma_soft_threshold_95: float | None = None
+    sigma_soft_threshold_5: float | None = None
     run_corrected_ols: bool = False
     correct_betas_mean: bool = True
     correct_betas_var: bool = True
-    gene_loc_file: Any = None
-    gene_cor_file: Any = None
+    gene_loc_file: OptionalPathLikeStr = None
+    gene_cor_file: OptionalPathLikeStr = None
     gene_cor_file_gene_col: int = 1
     gene_cor_file_cor_start_col: int = 10
     update_hyper_p: bool = False
@@ -520,21 +538,21 @@ class ReadXPipelineConfig:
     sigma_num_devs_to_top: float = 2.0
     p_noninf_inflate: float = 1
     batch_separator: str = "@"
-    ignore_genes: set = field(default_factory=lambda: set(["NA"]))
-    file_separator: Any = None
-    max_num_burn_in: Any = None
+    ignore_genes: set[str] = field(default_factory=lambda: set(["NA"]))
+    file_separator: str | None = None
+    max_num_burn_in: int | None = None
     max_num_iter_betas: int = 1100
     min_num_iter_betas: int = 10
     num_chains_betas: int = 10
     r_threshold_burn_in_betas: float = 1.01
     use_max_r_for_convergence_betas: bool = True
     max_frac_sem_betas: float = 0.01
-    max_allowed_batch_correlation: Any = None
+    max_allowed_batch_correlation: float | None = None
     sparse_solution: bool = False
-    sparse_frac_betas: Any = None
-    betas_trace_out: Any = None
+    sparse_frac_betas: float | None = None
+    betas_trace_out: OptionalPathLikeStr = None
     show_progress: bool = True
-    max_num_entries_at_once: Any = None
+    max_num_entries_at_once: int | None = None
 
 
 @dataclass
@@ -544,48 +562,48 @@ class ParsedGeneSetStats:
     has_p_or_se: bool
     has_beta: bool
     has_beta_uncorrected: bool
-    records: dict
+    records: dict[str, dict[str, float]]
 
 
 @dataclass
 class ParsedGeneBfs:
-    gene_in_bfs: dict
-    gene_in_combined: Any
-    gene_in_priors: Any
+    gene_in_bfs: FloatMap
+    gene_in_combined: FloatMap | None
+    gene_in_priors: FloatMap | None
 
 
 @dataclass
 class ParsedGeneCovariates:
-    cov_names: list
-    gene_to_covs: dict
+    cov_names: StringList
+    gene_to_covs: dict[str, list[float]]
 
 
 @dataclass
 class AlignedGeneBfs:
-    gene_bfs: Any
-    extra_genes: list
-    extra_gene_bfs: Any
-    gene_in_combined: Any
-    gene_in_priors: Any
+    gene_bfs: VectorLike
+    extra_genes: StringList
+    extra_gene_bfs: VectorLike | None
+    gene_in_combined: VectorLike | None
+    gene_in_priors: VectorLike | None
 
 
 @dataclass
 class AlignedGeneCovariates:
-    cov_names: list
-    gene_covs: Any
-    extra_genes: list
-    extra_gene_covs: Any
+    cov_names: StringList
+    gene_covs: MatrixLike
+    extra_genes: StringList
+    extra_gene_covs: MatrixLike | None
 
 
 @dataclass
 class ParsedGenePhewasBfs:
-    phenos: list
-    pheno_to_ind: dict
-    row: Any
-    col: Any
-    Ys: Any
-    combineds: Any
-    priors: Any
+    phenos: StringList
+    pheno_to_ind: IndexMap
+    row: list[int]
+    col: list[int]
+    Ys: list[float]
+    combineds: list[float] | None
+    priors: list[float] | None
     num_filtered: int
 
 
@@ -593,21 +611,21 @@ class ParsedGenePhewasBfs:
 class PhewasFileColumnInfo:
     id_col: int
     pheno_col: int
-    bf_col: Any
-    combined_col: Any
-    prior_col: Any
+    bf_col: ColumnSpec
+    combined_col: ColumnSpec
+    prior_col: ColumnSpec
 
 
 @dataclass
 class YData:
-    Y: Any = None
-    Y_for_regression: Any = None
-    Y_exomes: Any = None
-    Y_positive_controls: Any = None
-    Y_case_counts: Any = None
-    y_var: Any = None
-    y_corr: Any = None
-    y_corr_sparse: Any = None
+    Y: VectorLike | None = None
+    Y_for_regression: VectorLike | None = None
+    Y_exomes: VectorLike | None = None
+    Y_positive_controls: VectorLike | None = None
+    Y_case_counts: VectorLike | None = None
+    y_var: float | None = None
+    y_corr: MatrixLike | None = None
+    y_corr_sparse: sparse.spmatrix | None = None
 
     @classmethod
     def from_runtime(cls, runtime):
@@ -692,18 +710,18 @@ class YData:
 
 @dataclass
 class HyperparameterData:
-    p: Any = None
-    sigma2: Any = None
-    sigma_power: Any = None
-    sigma2_osc: Any = None
-    sigma2_se: Any = None
-    sigma2_p: Any = None
-    sigma2_total_var: Any = None
-    sigma2_total_var_lower: Any = None
-    sigma2_total_var_upper: Any = None
-    ps: Any = None
-    sigma2s: Any = None
-    sigma2s_missing: Any = None
+    p: float | None = None
+    sigma2: float | None = None
+    sigma_power: float | None = None
+    sigma2_osc: float | None = None
+    sigma2_se: float | None = None
+    sigma2_p: float | None = None
+    sigma2_total_var: float | None = None
+    sigma2_total_var_lower: float | None = None
+    sigma2_total_var_upper: float | None = None
+    ps: VectorLike | None = None
+    sigma2s: VectorLike | None = None
+    sigma2s_missing: VectorLike | None = None
 
     @classmethod
     def from_runtime(cls, runtime):
@@ -820,16 +838,16 @@ class HyperparameterData:
 
 @dataclass
 class PhewasRuntimeState:
-    phenos: Any = None
-    pheno_to_ind: Any = None
-    gene_pheno_Y: Any = None
-    gene_pheno_combined_prior_Ys: Any = None
-    gene_pheno_priors: Any = None
-    X_phewas_beta: Any = None
-    X_phewas_beta_uncorrected: Any = None
+    phenos: OptionalStringList = None
+    pheno_to_ind: IndexMap | None = None
+    gene_pheno_Y: MatrixLike | None = None
+    gene_pheno_combined_prior_Ys: MatrixLike | None = None
+    gene_pheno_priors: MatrixLike | None = None
+    X_phewas_beta: MatrixLike | None = None
+    X_phewas_beta_uncorrected: MatrixLike | None = None
     num_gene_phewas_filtered: int = 0
-    anchor_gene_mask: Any = None
-    anchor_pheno_mask: Any = None
+    anchor_gene_mask: VectorLike | None = None
+    anchor_pheno_mask: VectorLike | None = None
 
     @classmethod
     def from_runtime(cls, runtime):
@@ -890,20 +908,20 @@ class RuntimeStateBundle:
 
 @dataclass
 class FactorInputData:
-    anchor_gene_mask: Any = None
-    anchor_pheno_mask: Any = None
+    anchor_gene_mask: VectorLike | None = None
+    anchor_pheno_mask: VectorLike | None = None
     loaded_gene_set_phewas_stats: bool = False
     loaded_gene_phewas_bfs: bool = False
 
 
 @dataclass
 class PhewasStageConfig:
-    gene_phewas_bfs_in: Any = None
-    gene_phewas_bfs_id_col: Any = None
-    gene_phewas_bfs_pheno_col: Any = None
-    gene_phewas_bfs_log_bf_col: Any = None
-    gene_phewas_bfs_combined_col: Any = None
-    gene_phewas_bfs_prior_col: Any = None
+    gene_phewas_bfs_in: OptionalPathLikeStr = None
+    gene_phewas_bfs_id_col: ColumnSpec = None
+    gene_phewas_bfs_pheno_col: ColumnSpec = None
+    gene_phewas_bfs_log_bf_col: ColumnSpec = None
+    gene_phewas_bfs_combined_col: ColumnSpec = None
+    gene_phewas_bfs_prior_col: ColumnSpec = None
     max_num_burn_in: int = 1000
     max_num_iter: int = 1100
     min_num_iter: int = 10
@@ -913,7 +931,7 @@ class PhewasStageConfig:
     max_frac_sem: float = 0.01
     gauss_seidel: bool = False
     sparse_solution: bool = False
-    sparse_frac_betas: Any = None
+    sparse_frac_betas: float | None = None
     run_for_factors: bool = False
     batch_size: int | None = None
     min_gene_factor_weight: float = 0.0
@@ -947,8 +965,8 @@ class PhewasStageConfig:
 
 @dataclass
 class PhewasInputResolution:
-    requested_input: Any = None
-    resolved_input: Any = None
+    requested_input: OptionalPathLikeStr = None
+    resolved_input: OptionalPathLikeStr = None
     mode: str = "skip"
     reason: str = "no_input_requested"
 
