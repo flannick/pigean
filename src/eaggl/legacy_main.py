@@ -81,6 +81,11 @@ try:
         prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
         read_phewas_file_batch as pegs_read_phewas_file_batch,
     )
+    from pegs_shared.regression import (
+        finalize_regression_outputs as pegs_finalize_regression_outputs,
+        compute_beta_tildes as pegs_compute_beta_tildes,
+        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
+    )
     from pegs_utils import (
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
         initialize_filtered_gene_set_state as pegs_initialize_filtered_gene_set_state,
@@ -184,6 +189,11 @@ except ImportError:
         append_phewas_metric_block as pegs_append_phewas_metric_block,
         prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
         read_phewas_file_batch as pegs_read_phewas_file_batch,
+    )
+    from pegs_shared.regression import (
+        finalize_regression_outputs as pegs_finalize_regression_outputs,
+        compute_beta_tildes as pegs_compute_beta_tildes,
+        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
     )
     from pegs_utils import (
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,

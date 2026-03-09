@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse as sparse
 
 from pegs_cli_errors import DataValidationError
-from pegs_utils import (
+from pegs_shared.regression import (
     compute_beta_tildes as pegs_compute_beta_tildes,
     compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
     finalize_regression_outputs as pegs_finalize_regression_outputs,

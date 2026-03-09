@@ -108,6 +108,13 @@ try:
         prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
         read_phewas_file_batch as pegs_read_phewas_file_batch,
     )
+    from pegs_shared.regression import (
+        finalize_regression_outputs as pegs_finalize_regression_outputs,
+        compute_beta_tildes as pegs_compute_beta_tildes,
+        compute_logistic_beta_tildes as pegs_compute_logistic_beta_tildes,
+        correct_beta_tildes as pegs_correct_beta_tildes,
+        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
+    )
     from .pegs_utils import (
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
@@ -143,11 +150,6 @@ try:
         write_gene_statistics as pegs_write_gene_statistics,
         write_gene_gene_set_statistics as pegs_write_gene_gene_set_statistics,
         write_phewas_statistics as pegs_write_phewas_statistics,
-        finalize_regression_outputs as pegs_finalize_regression_outputs,
-        compute_beta_tildes as pegs_compute_beta_tildes,
-        compute_logistic_beta_tildes as pegs_compute_logistic_beta_tildes,
-        correct_beta_tildes as pegs_correct_beta_tildes,
-        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
@@ -239,6 +241,13 @@ except ImportError:
         prepare_phewas_phenos_from_file as pegs_prepare_phewas_phenos_from_file,
         read_phewas_file_batch as pegs_read_phewas_file_batch,
     )
+    from pegs_shared.regression import (
+        finalize_regression_outputs as pegs_finalize_regression_outputs,
+        compute_beta_tildes as pegs_compute_beta_tildes,
+        compute_logistic_beta_tildes as pegs_compute_logistic_beta_tildes,
+        correct_beta_tildes as pegs_correct_beta_tildes,
+        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
+    )
     from pegs_utils import (
         is_huge_statistics_bundle_path as pegs_is_huge_statistics_bundle_path,
         initialize_read_x_batch_seed_state as pegs_initialize_read_x_batch_seed_state,
@@ -274,11 +283,6 @@ except ImportError:
         write_gene_statistics as pegs_write_gene_statistics,
         write_gene_gene_set_statistics as pegs_write_gene_gene_set_statistics,
         write_phewas_statistics as pegs_write_phewas_statistics,
-        finalize_regression_outputs as pegs_finalize_regression_outputs,
-        compute_beta_tildes as pegs_compute_beta_tildes,
-        compute_logistic_beta_tildes as pegs_compute_logistic_beta_tildes,
-        correct_beta_tildes as pegs_correct_beta_tildes,
-        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         remove_tag_from_input as pegs_remove_tag_from_input,
