@@ -388,6 +388,19 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("src/pigean/huge.py", doc_source)
         self.assertIn("src/pigean/outputs.py", doc_source)
 
+    def test_advanced_set_b_doc_covers_phewas_reuse_decision_modes(self) -> None:
+        doc_source = (REPO_ROOT / "docs" / "ADVANCED_SET_B.md").read_text(encoding="utf-8")
+        self.assertIn("Decision table:", doc_source)
+        self.assertIn("`skip`", doc_source)
+        self.assertIn("`re_read_file`", doc_source)
+        self.assertIn("`reuse_loaded_matrix`", doc_source)
+        self.assertIn("`no_input_requested`", doc_source)
+        self.assertIn("`matrix_not_loaded`", doc_source)
+        self.assertIn("`loaded_matrix_filtered`", doc_source)
+        self.assertIn("`requested_input_matches_loaded_source`", doc_source)
+        self.assertIn("tests/test_phewas_stage_reuse_unittest.py", doc_source)
+        self.assertIn("tests/test_pegs_utils_bundle_unittest.py", doc_source)
+
     def test_package_roots_export_only_bounded_surface(self) -> None:
         pigean_init = (REPO_ROOT / "src" / "pigean" / "__init__.py").read_text(encoding="utf-8")
         eaggl_init = (REPO_ROOT / "src" / "eaggl" / "__init__.py").read_text(encoding="utf-8")

@@ -78,9 +78,28 @@ Primary outputs:
 
 Notes:
 - This is distinct from factor-based PheWAS (moved to `eaggl`).
-- Runtime now logs one explicit I/O decision for this stage:
-  - `mode=reuse_loaded_matrix` when loaded matrix state can be reused safely.
-  - `mode=re_read_file` when the matrix must be re-read (for example when not preloaded or filtered).
+- Runtime logs one explicit I/O decision for this stage before running the output step.
+
+Decision table:
+
+| Requested input | Loaded gene-PheWAS matrix | Filtered after load | Runtime mode | Reason | File is re-read |
+| --- | --- | --- | --- | --- | --- |
+| no | yes or no | yes or no | `skip` | `no_input_requested` | no |
+| yes | no | no | `re_read_file` | `matrix_not_loaded` | yes |
+| yes | yes | yes | `re_read_file` | `loaded_matrix_filtered` | yes |
+| yes, same normalized path as loaded source | yes | no | `reuse_loaded_matrix` | `requested_input_matches_loaded_source` | no |
+| yes, different source from loaded matrix | yes | no | `re_read_file` | requested input differs from loaded source | yes |
+
+Operational notes:
+- Reuse happens only when the requested file resolves to the same normalized path as one of the reusable loaded sources.
+- Any post-load filtering of the loaded matrix disables reuse, because the output PheWAS stage expects the full requested matrix.
+- The logging marker is the decision source of truth for debugging:
+  - `mode=skip`
+  - `mode=re_read_file`
+  - `mode=reuse_loaded_matrix`
+- The current regression coverage for this behavior lives in:
+  - `tests/test_phewas_stage_reuse_unittest.py`
+  - `tests/test_pegs_utils_bundle_unittest.py`
 
 ## 5) Simulation mode (`sim`)
 
