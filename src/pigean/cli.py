@@ -543,10 +543,19 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--hide-opts": "suppress printing resolved options at startup",
     "--hide-progress": "reduce progress logging noise during long runs",
     "--log-file": "write structured run logs to this file",
+    "--max-abs-mcse-d": "stop Gibbs once monitored gene-probability MCSE is below this absolute threshold",
+    "--max-num-iter": "legacy per-epoch outer Gibbs iteration cap used when phase-specific bounds are not set",
+    "--max-rel-mcse-beta": "stop Gibbs once active beta MCSE is below this relative threshold",
+    "--num-chains": "number of parallel outer Gibbs chains to run",
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
+    "--strict-stopping": "tighten Gibbs stopping thresholds relative to the default lenient preset",
     "--deterministic": "force deterministic random seed behavior (seed=0 unless --seed is set)",
     "--seed": "set explicit random seed for deterministic reproducibility checks",
     "--s2g-in": "load SNP-to-gene mappings used during HuGE score construction",
+    "--total-num-iter-gibbs": "total outer Gibbs iteration budget across all restart epochs",
+    "--update-hyper": "choose whether outer Gibbs updates p, sigma, both, or neither during adaptation",
+    "--warm-start": "reuse previous-iteration beta state when warm-starting outer Gibbs updates",
+    "--no-warm-start": "disable warm-starting and restart outer Gibbs updates from default initialization each iteration",
     "--help-expert": "show expert, advanced, and debug flags in addition to the normal public interface",
     "--warnings-file": "write warning messages to this file",
 }
@@ -688,7 +697,14 @@ _CORE_VISIBLE_METHOD_FLAGS = {
 _EXPERIMENTAL_FLAGS = {
     "--experimental-hyper-mutation",
     "--experimental-increase-hyper-if-betas-below",
+}
+
+_COMPAT_ALIAS_FLAGS = {
     "--increase-hyper-if-betas-below",
+}
+
+_ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
+    "--phewas-stats-out",
 }
 
 _DEBUG_ONLY_FLAGS = {
@@ -709,6 +725,33 @@ def _primary_flag_for_option(_opt):
     if len(_opt._short_opts) > 0:
         return _opt._short_opts[0]
     return _opt.dest
+
+
+def _is_column_selector_flag(_primary_flag):
+    return _primary_flag.endswith("-col")
+
+
+def _is_output_path_flag(_primary_flag):
+    return _primary_flag.endswith("-out")
+
+
+def _is_engineering_selector_flag(_primary_flag):
+    return (
+        _is_column_selector_flag(_primary_flag)
+        or _primary_flag.endswith("-no-header")
+        or _primary_flag in {
+            "--batch-separator",
+            "--file-separator",
+            "--ignore-genes",
+            "--ignore-negative-exp-beta",
+        }
+    )
+
+
+def _apply_core_surface_defaults(_primary_flag, _visibility, _doc_target, _help_group):
+    if _primary_flag in _CORE_VISIBLE_METHOD_FLAGS:
+        return "normal", "core_help", "core"
+    return _visibility, _doc_target, _help_group
 
 
 def _build_cli_manifest_metadata():
@@ -737,11 +780,28 @@ def _build_cli_manifest_metadata():
             _doc_target = "internal_only"
             _help_group = "expert"
             _semantic = False
+        elif _primary_flag in _COMPAT_ALIAS_FLAGS:
+            _category = "compat_alias"
+            _visibility = "expert"
+            _doc_target = "expert_help"
+            _help_group = "expert"
+            _semantic = False
         elif _primary_flag in _EXPERIMENTAL_FLAGS:
             _category = "experimental"
             _visibility = "expert"
             _doc_target = "expert_help"
             _help_group = "expert"
+        elif _is_output_path_flag(_primary_flag):
+            _category = "engineering"
+            _semantic = False
+            if _primary_flag in _ADVANCED_WORKFLOW_OUTPUT_FLAGS:
+                _doc_target = "advanced_workflows"
+        elif _is_engineering_selector_flag(_primary_flag):
+            _category = "engineering"
+            _visibility = "expert"
+            _doc_target = "expert_help"
+            _help_group = "expert"
+            _semantic = False
         elif _primary_flag in _NORMAL_ENGINEERING_FLAGS:
             _category = "engineering"
             _doc_target = "core_help"
@@ -768,6 +828,13 @@ def _build_cli_manifest_metadata():
                 _visibility = "expert"
                 _doc_target = "expert_help"
                 _help_group = "expert"
+
+        _visibility, _doc_target, _help_group = _apply_core_surface_defaults(
+            _primary_flag,
+            _visibility,
+            _doc_target,
+            _help_group,
+        )
 
         _metadata[_primary_flag] = {
             "primary_flag": _primary_flag,

@@ -413,6 +413,32 @@ class SharedModuleBoundaryTest(unittest.TestCase):
             ]
             self.assertEqual(missing, [], msg="%s missing summaries for: %s" % (rel_path, ", ".join(missing)))
 
+    def test_cli_taxonomy_classifies_core_alias_and_selector_flags(self) -> None:
+        src_root = str(REPO_ROOT / "src")
+        if src_root not in sys.path:
+            sys.path.insert(0, src_root)
+        pigean_cli = importlib.import_module("pigean.cli")
+        eaggl_cli = importlib.import_module("eaggl.cli")
+
+        pigean_meta = pigean_cli.get_cli_manifest_metadata()
+        eaggl_meta = eaggl_cli.get_cli_manifest_metadata()
+
+        self.assertEqual(pigean_meta["--gene-stats-in"]["category"], "method_optional")
+        self.assertEqual(pigean_meta["--gene-stats-in"]["public_visibility"], "normal")
+        self.assertEqual(pigean_meta["--gene-stats-in"]["documentation_target"], "core_help")
+        self.assertEqual(pigean_meta["--num-chains"]["public_visibility"], "normal")
+        self.assertEqual(pigean_meta["--params-out"]["category"], "engineering")
+        self.assertEqual(pigean_meta["--gene-stats-id-col"]["category"], "engineering")
+        self.assertEqual(pigean_meta["--increase-hyper-if-betas-below"]["category"], "compat_alias")
+        self.assertEqual(pigean_meta["--gene-phewas-stats-in"]["documentation_target"], "advanced_workflows")
+
+        self.assertEqual(eaggl_meta["--anchor-genes"]["category"], "method_required")
+        self.assertEqual(eaggl_meta["--anchor-genes"]["public_visibility"], "normal")
+        self.assertEqual(eaggl_meta["--gene-set-stats-id-col"]["category"], "engineering")
+        self.assertEqual(eaggl_meta["--gene-phewas-stats-in"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(eaggl_meta["--factor-phewas-stats-out"]["category"], "engineering")
+        self.assertEqual(eaggl_meta["--factor-phewas-stats-out"]["documentation_target"], "advanced_workflows")
+
     def test_shared_types_use_concrete_runtime_annotations(self) -> None:
         src_root = str(REPO_ROOT / "src")
         if src_root not in sys.path:

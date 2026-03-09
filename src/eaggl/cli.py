@@ -484,6 +484,7 @@ _EXPERT_METHOD_FLAGS = {
     "--gene-phewas-bfs-pheno-col",
     "--gene-phewas-bfs-prior-col",
     "--gene-phewas-id-to-X-id",
+    "--gene-phewas-stats-in",
     "--gene-phewas-stats-combined-col",
     "--gene-phewas-stats-id-col",
     "--gene-phewas-stats-log-bf-col",
@@ -505,6 +506,18 @@ _EXPERT_METHOD_FLAGS = {
     "--phi",
     "--project-phenos-from-gene-sets",
     "--run-phewas-from-gene-phewas-stats-in",
+}
+
+_ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
+    "--factor-phewas-stats-out",
+    "--gene-anchor-clusters-out",
+    "--gene-clusters-out",
+    "--gene-pheno-stats-out",
+    "--gene-set-anchor-clusters-out",
+    "--gene-set-clusters-out",
+    "--pheno-anchor-clusters-out",
+    "--pheno-clusters-out",
+    "--phewas-stats-out",
 }
 
 _METHOD_REQUIRED_FLAGS = {
@@ -562,6 +575,32 @@ def _primary_flag_for_option(_opt):
     return _opt.dest
 
 
+def _is_column_selector_flag(_primary_flag):
+    return _primary_flag.endswith("-col")
+
+
+def _is_output_path_flag(_primary_flag):
+    return _primary_flag.endswith("-out")
+
+
+def _is_engineering_selector_flag(_primary_flag):
+    return (
+        _is_column_selector_flag(_primary_flag)
+        or _primary_flag in {
+            "--batch-separator",
+            "--file-separator",
+            "--ignore-genes",
+            "--ignore-negative-exp-beta",
+        }
+    )
+
+
+def _apply_core_surface_defaults(_primary_flag, _visibility, _doc_target, _help_group):
+    if _primary_flag in _CORE_VISIBLE_METHOD_FLAGS:
+        return "normal", "core_help", "core"
+    return _visibility, _doc_target, _help_group
+
+
 def _build_cli_manifest_metadata():
     _metadata = {}
     for _opt in _iter_parser_options(parser):
@@ -586,6 +625,17 @@ def _build_cli_manifest_metadata():
             _category = "debug_only"
             _visibility = "expert"
             _doc_target = "internal_only"
+            _help_group = "expert"
+            _semantic = False
+        elif _is_output_path_flag(_primary_flag):
+            _category = "engineering"
+            _semantic = False
+            if _primary_flag in _ADVANCED_WORKFLOW_OUTPUT_FLAGS:
+                _doc_target = "advanced_workflows"
+        elif _is_engineering_selector_flag(_primary_flag):
+            _category = "engineering"
+            _visibility = "expert"
+            _doc_target = "expert_help"
             _help_group = "expert"
             _semantic = False
         elif _primary_flag in _NORMAL_ENGINEERING_FLAGS:
@@ -614,6 +664,13 @@ def _build_cli_manifest_metadata():
                 _visibility = "expert"
                 _doc_target = "expert_help"
                 _help_group = "expert"
+
+        _visibility, _doc_target, _help_group = _apply_core_surface_defaults(
+            _primary_flag,
+            _visibility,
+            _doc_target,
+            _help_group,
+        )
 
         _metadata[_primary_flag] = {
             "primary_flag": _primary_flag,

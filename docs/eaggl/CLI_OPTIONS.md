@@ -6,9 +6,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 ## Summary
 
 - Total options: `183`
-- `method_required`: `17`
-- `method_optional`: `142`
-- `engineering`: `18`
+- `method_required`: `13`
+- `method_optional`: `96`
+- `engineering`: `68`
 - `debug_only`: `6`
 - visibility `expert`: `169`
 - visibility `normal`: `14`
@@ -27,13 +27,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--anchor-genes` | `normal` | `yes` | `core_help` | `anchor_genes` | `None` | anchor factorization to one or more genes |
 | `--anchor-phenos` | `normal` | `yes` | `core_help` | `anchor_phenos` | `None` | anchor factorization to one or more phenotypes |
 | `--eaggl-bundle-in` | `normal` | `yes` | `core_help` | `eaggl_bundle_in` | `None` | load bundled PIGEAN outputs as default EAGGL inputs |
-| `--factors-anchor-out` | `normal` | `yes` | `core_help` | `factors_anchor_out` | `None` | write anchor-specific factorization outputs |
-| `--factors-out` | `normal` | `yes` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
 | `--gene-loc-file` | `expert` | `yes` | `expert_help` | `gene_loc_file` | `None` | - |
 | `--gene-set-stats-in` | `normal` | `yes` | `core_help` | `gene_set_stats_in` | `None` | load gene-set statistics exported from PIGEAN |
-| `--gene-set-stats-out` | `expert` | `yes` | `expert_help` | `gene_set_stats_out` | `None` | - |
 | `--gene-stats-in` | `normal` | `yes` | `core_help` | `gene_stats_in` | `None` | load gene-level statistics exported from PIGEAN |
-| `--gene-stats-out` | `expert` | `yes` | `expert_help` | `gene_stats_out` | `None` | - |
 
 ## Method Optional
 
@@ -47,73 +43,32 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
 | `--alpha0` | `expert` | `yes` | `expert_help` | `alpha0` | `10` | - |
 | `--background-prior` | `expert` | `yes` | `expert_help` | `background_prior` | `0.05` | - |
-| `--batch-separator` | `expert` | `yes` | `expert_help` | `batch_separator` | `@` | - |
 | `--beta0` | `expert` | `yes` | `expert_help` | `beta0` | `1` | - |
 | `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
 | `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | - |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--factor-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_from_gene_phewas_stats_in` | `None` | run factor-level phewas from precomputed gene-phewas statistics |
 | `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.01` | - |
-| `--factor-phewas-stats-out` | `expert` | `yes` | `expert_help` | `factor_phewas_stats_out` | `None` | - |
 | `--factor-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_num` | `None` | - |
 | `--factor-prune-gene-sets-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_val` | `None` | - |
 | `--factor-prune-genes-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_genes_num` | `None` | - |
 | `--factor-prune-genes-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_genes_val` | `None` | - |
 | `--factor-prune-phenos-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_num` | `None` | - |
 | `--factor-prune-phenos-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_val` | `None` | - |
-| `--file-separator` | `expert` | `yes` | `expert_help` | `file_separator` | `None` | - |
 | `--filter-gene-set-p` | `expert` | `yes` | `expert_help` | `filter_gene_set_p` | `None` | - |
 | `--filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
-| `--gene-anchor-clusters-out` | `expert` | `yes` | `expert_help` | `gene_anchor_clusters_out` | `None` | - |
-| `--gene-clusters-out` | `expert` | `yes` | `expert_help` | `gene_clusters_out` | `None` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
-| `--gene-covs-out` | `expert` | `yes` | `expert_help` | `gene_covs_out` | `None` | - |
-| `--gene-effectors-out` | `expert` | `yes` | `expert_help` | `gene_effectors_out` | `None` | - |
 | `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `1` | - |
-| `--gene-gene-set-stats-out` | `expert` | `yes` | `expert_help` | `gene_gene_set_stats_out` | `None` | - |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
-| `--gene-map-orig-gene-col` | `expert` | `yes` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
-| `--gene-pheno-stats-out` | `expert` | `yes` | `expert_help` | `gene_pheno_stats_out` | `None` | - |
-| `--gene-phewas-bfs-combined-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_combined_col` | `None` | - |
-| `--gene-phewas-bfs-id-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_id_col` | `None` | - |
 | `--gene-phewas-bfs-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and anchor workflows |
-| `--gene-phewas-bfs-log-bf-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_log_bf_col` | `None` | - |
-| `--gene-phewas-bfs-pheno-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_pheno_col` | `None` | - |
-| `--gene-phewas-bfs-prior-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_prior_col` | `None` | - |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
-| `--gene-phewas-stats-combined-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_combined_col` | `None` | - |
-| `--gene-phewas-stats-id-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_id_col` | `None` | - |
-| `--gene-phewas-stats-in` | `expert` | `yes` | `expert_help` | `gene_phewas_bfs_in` | `None` | - |
-| `--gene-phewas-stats-log-bf-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_log_bf_col` | `None` | - |
-| `--gene-phewas-stats-pheno-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_pheno_col` | `None` | - |
-| `--gene-phewas-stats-prior-col` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_prior_col` | `None` | - |
-| `--gene-set-anchor-clusters-out` | `expert` | `yes` | `expert_help` | `gene_set_anchor_clusters_out` | `None` | - |
-| `--gene-set-clusters-out` | `expert` | `yes` | `expert_help` | `gene_set_clusters_out` | `None` | - |
+| `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | - |
 | `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
-| `--gene-set-overlap-stats-out` | `expert` | `yes` | `expert_help` | `gene_set_overlap_stats_out` | `None` | - |
 | `--gene-set-pheno-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_pheno_filter_value` | `0.01` | - |
-| `--gene-set-phewas-stats-beta-col` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_beta_col` | `None` | - |
-| `--gene-set-phewas-stats-beta-uncorrected-col` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_beta_uncorrected_col` | `None` | - |
-| `--gene-set-phewas-stats-id-col` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_id_col` | `Gene_Set` | - |
 | `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and anchor workflows |
-| `--gene-set-phewas-stats-pheno-col` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_pheno_col` | `None` | - |
-| `--gene-set-stats-beta-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_beta_col` | `None` | - |
-| `--gene-set-stats-beta-tilde-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_beta_tilde_col` | `None` | - |
-| `--gene-set-stats-beta-uncorrected-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_beta_uncorrected_col` | `None` | - |
-| `--gene-set-stats-exp-beta-tilde-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_exp_beta_tilde_col` | `None` | - |
-| `--gene-set-stats-id-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_id_col` | `Gene_Set` | - |
-| `--gene-set-stats-p-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_p_col` | `None` | - |
-| `--gene-set-stats-se-col` | `expert` | `yes` | `expert_help` | `gene_set_stats_se_col` | `None` | - |
-| `--gene-stats-combined-col` | `expert` | `yes` | `expert_help` | `gene_stats_combined_col` | `None` | - |
-| `--gene-stats-id-col` | `expert` | `yes` | `expert_help` | `gene_stats_id_col` | `None` | - |
-| `--gene-stats-log-bf-col` | `expert` | `yes` | `expert_help` | `gene_stats_log_bf_col` | `None` | - |
-| `--gene-stats-prior-col` | `expert` | `yes` | `expert_help` | `gene_stats_prior_col` | `None` | - |
-| `--gene-stats-prob-col` | `expert` | `yes` | `expert_help` | `gene_stats_prob_col` | `None` | - |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
-| `--ignore-genes` | `expert` | `yes` | `expert_help` | `ignore_genes` | `["NA"]` | - |
-| `--ignore-negative-exp-beta` | `expert` | `yes` | `expert_help` | `ignore_negative_exp_beta` | `-` | - |
 | `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
@@ -155,13 +110,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--num-gene-sets-for-prior` | `expert` | `yes` | `expert_help` | `num_gene_sets_for_prior` | `None` | - |
 | `--ols` | `expert` | `yes` | `expert_help` | `ols` | `-` | - |
 | `--p-noninf` | `expert` | `yes` | `expert_help` | `p_noninf` | `None` | - |
-| `--params-out` | `expert` | `yes` | `expert_help` | `params_out` | `None` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
-| `--pheno-anchor-clusters-out` | `expert` | `yes` | `expert_help` | `pheno_anchor_clusters_out` | `None` | - |
-| `--pheno-clusters-out` | `expert` | `yes` | `expert_help` | `pheno_clusters_out` | `None` | - |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
-| `--phewas-gene-set-stats-out` | `expert` | `yes` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
-| `--phewas-stats-out` | `expert` | `yes` | `expert_help` | `phewas_stats_out` | `None` | - |
 | `--phi` | `expert` | `yes` | `advanced_workflows` | `phi` | `0.05` | - |
 | `--positive-controls-all-in` | `expert` | `yes` | `expert_help` | `positive_controls_all_in` | `None` | - |
 | `--positive-controls-in` | `expert` | `yes` | `expert_help` | `positive_controls_in` | `None` | - |
@@ -186,18 +136,68 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
+| `--batch-separator` | `expert` | `no` | `expert_help` | `batch_separator` | `@` | - |
 | `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
 | `--config` | `expert` | `no` | `core_help` | `config` | `None` | load a JSON config file; explicit CLI flags override config values |
 | `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
 | `--deterministic` | `expert` | `no` | `core_help` | `deterministic` | `False` | force deterministic random seed behavior (seed=0 unless --seed is set) |
+| `--factor-phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `factor_phewas_stats_out` | `None` | - |
+| `--factors-anchor-out` | `normal` | `no` | `core_help` | `factors_anchor_out` | `None` | write anchor-specific factorization outputs |
+| `--factors-out` | `normal` | `no` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
+| `--file-separator` | `expert` | `no` | `expert_help` | `file_separator` | `None` | - |
+| `--gene-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_anchor_clusters_out` | `None` | - |
+| `--gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_out` | `None` | - |
+| `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
+| `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |
+| `--gene-gene-set-stats-out` | `expert` | `no` | `expert_help` | `gene_gene_set_stats_out` | `None` | - |
+| `--gene-map-orig-gene-col` | `expert` | `no` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
+| `--gene-pheno-stats-out` | `expert` | `no` | `advanced_workflows` | `gene_pheno_stats_out` | `None` | - |
+| `--gene-phewas-bfs-combined-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_combined_col` | `None` | - |
+| `--gene-phewas-bfs-id-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_id_col` | `None` | - |
+| `--gene-phewas-bfs-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | - |
+| `--gene-phewas-bfs-pheno-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_pheno_col` | `None` | - |
+| `--gene-phewas-bfs-prior-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_prior_col` | `None` | - |
+| `--gene-phewas-stats-combined-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_combined_col` | `None` | - |
+| `--gene-phewas-stats-id-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_id_col` | `None` | - |
+| `--gene-phewas-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | - |
+| `--gene-phewas-stats-pheno-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_pheno_col` | `None` | - |
+| `--gene-phewas-stats-prior-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_prior_col` | `None` | - |
+| `--gene-set-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_set_anchor_clusters_out` | `None` | - |
+| `--gene-set-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_set_clusters_out` | `None` | - |
+| `--gene-set-overlap-stats-out` | `expert` | `no` | `expert_help` | `gene_set_overlap_stats_out` | `None` | - |
+| `--gene-set-phewas-stats-beta-col` | `expert` | `no` | `expert_help` | `gene_set_phewas_stats_beta_col` | `None` | - |
+| `--gene-set-phewas-stats-beta-uncorrected-col` | `expert` | `no` | `expert_help` | `gene_set_phewas_stats_beta_uncorrected_col` | `None` | - |
+| `--gene-set-phewas-stats-id-col` | `expert` | `no` | `expert_help` | `gene_set_phewas_stats_id_col` | `Gene_Set` | - |
+| `--gene-set-phewas-stats-pheno-col` | `expert` | `no` | `expert_help` | `gene_set_phewas_stats_pheno_col` | `None` | - |
+| `--gene-set-stats-beta-col` | `expert` | `no` | `expert_help` | `gene_set_stats_beta_col` | `None` | - |
+| `--gene-set-stats-beta-tilde-col` | `expert` | `no` | `expert_help` | `gene_set_stats_beta_tilde_col` | `None` | - |
+| `--gene-set-stats-beta-uncorrected-col` | `expert` | `no` | `expert_help` | `gene_set_stats_beta_uncorrected_col` | `None` | - |
+| `--gene-set-stats-exp-beta-tilde-col` | `expert` | `no` | `expert_help` | `gene_set_stats_exp_beta_tilde_col` | `None` | - |
+| `--gene-set-stats-id-col` | `expert` | `no` | `expert_help` | `gene_set_stats_id_col` | `Gene_Set` | - |
+| `--gene-set-stats-out` | `expert` | `no` | `expert_help` | `gene_set_stats_out` | `None` | - |
+| `--gene-set-stats-p-col` | `expert` | `no` | `expert_help` | `gene_set_stats_p_col` | `None` | - |
+| `--gene-set-stats-se-col` | `expert` | `no` | `expert_help` | `gene_set_stats_se_col` | `None` | - |
+| `--gene-stats-combined-col` | `expert` | `no` | `expert_help` | `gene_stats_combined_col` | `None` | - |
+| `--gene-stats-id-col` | `expert` | `no` | `expert_help` | `gene_stats_id_col` | `None` | - |
+| `--gene-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_stats_log_bf_col` | `None` | - |
+| `--gene-stats-out` | `expert` | `no` | `expert_help` | `gene_stats_out` | `None` | - |
+| `--gene-stats-prior-col` | `expert` | `no` | `expert_help` | `gene_stats_prior_col` | `None` | - |
+| `--gene-stats-prob-col` | `expert` | `no` | `expert_help` | `gene_stats_prob_col` | `None` | - |
 | `--gibbs-max-mb-X-h` | `expert` | `no` | `expert_help` | `gibbs_max_mb_X_h` | `100` | - |
 | `--gibbs-num-batches-parallel` | `expert` | `no` | `expert_help` | `gibbs_num_batches_parallel` | `10` | - |
 | `--help-expert` | `expert` | `no` | `expert_help` | `help_expert` | `False` | show expert workflow, projection, and debug flags in addition to the normal public interface |
 | `--hide-opts` | `expert` | `no` | `core_help` | `hide_opts` | `False` | suppress printing resolved options at startup |
 | `--hide-progress` | `expert` | `no` | `core_help` | `hide_progress` | `False` | reduce progress logging noise during long runs |
+| `--ignore-genes` | `expert` | `no` | `expert_help` | `ignore_genes` | `["NA"]` | - |
+| `--ignore-negative-exp-beta` | `expert` | `no` | `expert_help` | `ignore_negative_exp_beta` | `-` | - |
 | `--log-file` | `expert` | `no` | `core_help` | `log_file` | `None` | write structured run logs to this file |
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
 | `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |
+| `--params-out` | `expert` | `no` | `expert_help` | `params_out` | `None` | - |
+| `--pheno-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `pheno_anchor_clusters_out` | `None` | - |
+| `--pheno-clusters-out` | `expert` | `no` | `advanced_workflows` | `pheno_clusters_out` | `None` | - |
+| `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
+| `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | - |
 | `--pre-filter-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_batch_size` | `None` | - |
 | `--pre-filter-small-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_small_batch_size` | `500` | - |
 | `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |

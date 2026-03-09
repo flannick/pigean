@@ -1,10 +1,11 @@
 {
   "categories": {
+    "compat_alias": 1,
     "debug_only": 8,
-    "engineering": 25,
-    "experimental": 3,
-    "method_optional": 254,
-    "method_required": 22
+    "engineering": 104,
+    "experimental": 2,
+    "method_optional": 178,
+    "method_required": 19
   },
   "entrypoint": "src/pigean/cli.py",
   "module": "pigean.cli",
@@ -33,7 +34,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "V_out",
@@ -46,7 +47,7 @@
       "primary_flag": "--V-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 114,
       "summary": null,
       "type": null,
@@ -96,7 +97,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "X_out",
@@ -109,7 +110,7 @@
       "primary_flag": "--X-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 75,
       "summary": null,
       "type": null,
@@ -159,7 +160,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "Xd_out",
@@ -172,7 +173,7 @@
       "primary_flag": "--Xd-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 76,
       "summary": null,
       "type": null,
@@ -348,7 +349,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "@",
       "deprecation_timeline": null,
       "dest": "batch_separator",
@@ -361,11 +362,11 @@
       "primary_flag": "--batch-separator",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 78,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 5
     },
     {
       "action": null,
@@ -579,7 +580,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "case_counts_count_col",
@@ -592,7 +593,7 @@
       "primary_flag": "--case-counts-count-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 183,
       "summary": null,
       "type": null,
@@ -600,7 +601,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "case_counts_gene_col",
@@ -613,7 +614,7 @@
       "primary_flag": "--case-counts-gene-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 181,
       "summary": null,
       "type": null,
@@ -642,7 +643,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "case_counts_max_freq_col",
@@ -655,7 +656,7 @@
       "primary_flag": "--case-counts-max-freq-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 185,
       "summary": null,
       "type": null,
@@ -663,7 +664,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "case_counts_revel_col",
@@ -676,7 +677,7 @@
       "primary_flag": "--case-counts-revel-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 182,
       "summary": null,
       "type": null,
@@ -684,7 +685,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "case_counts_tot_col",
@@ -697,7 +698,7 @@
       "primary_flag": "--case-counts-tot-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 184,
       "summary": null,
       "type": null,
@@ -1041,7 +1042,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "credible_sets_chrom_col",
@@ -1054,7 +1055,7 @@
       "primary_flag": "--credible-sets-chrom-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 142,
       "summary": null,
       "type": null,
@@ -1062,7 +1063,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "credible_sets_id_col",
@@ -1075,7 +1076,7 @@
       "primary_flag": "--credible-sets-id-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 141,
       "summary": null,
       "type": null,
@@ -1104,7 +1105,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "credible_sets_pos_col",
@@ -1117,7 +1118,7 @@
       "primary_flag": "--credible-sets-pos-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 143,
       "summary": null,
       "type": null,
@@ -1125,7 +1126,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "credible_sets_ppa_col",
@@ -1138,7 +1139,7 @@
       "primary_flag": "--credible-sets-ppa-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 144,
       "summary": null,
       "type": null,
@@ -1230,7 +1231,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "ctrl_counts_count_col",
@@ -1243,7 +1244,7 @@
       "primary_flag": "--ctrl-counts-count-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 189,
       "summary": null,
       "type": null,
@@ -1251,7 +1252,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "ctrl_counts_gene_col",
@@ -1264,7 +1265,7 @@
       "primary_flag": "--ctrl-counts-gene-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 187,
       "summary": null,
       "type": null,
@@ -1293,7 +1294,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "ctrl_counts_max_freq_col",
@@ -1306,7 +1307,7 @@
       "primary_flag": "--ctrl-counts-max-freq-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 191,
       "summary": null,
       "type": null,
@@ -1314,7 +1315,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "ctrl_counts_revel_col",
@@ -1327,7 +1328,7 @@
       "primary_flag": "--ctrl-counts-revel-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 188,
       "summary": null,
       "type": null,
@@ -1335,7 +1336,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "ctrl_counts_tot_col",
@@ -1348,7 +1349,7 @@
       "primary_flag": "--ctrl-counts-tot-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 190,
       "summary": null,
       "type": null,
@@ -1629,7 +1630,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "exomes_beta_col",
@@ -1642,7 +1643,7 @@
       "primary_flag": "--exomes-beta-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 160,
       "summary": null,
       "type": null,
@@ -1650,7 +1651,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "exomes_gene_col",
@@ -1663,7 +1664,7 @@
       "primary_flag": "--exomes-gene-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 158,
       "summary": null,
       "type": null,
@@ -1797,7 +1798,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "exomes_n_col",
@@ -1810,7 +1811,7 @@
       "primary_flag": "--exomes-n-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 163,
       "summary": null,
       "type": null,
@@ -1818,7 +1819,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "exomes_p_col",
@@ -1831,7 +1832,7 @@
       "primary_flag": "--exomes-p-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 159,
       "summary": null,
       "type": null,
@@ -1839,7 +1840,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "exomes_se_col",
@@ -1852,7 +1853,7 @@
       "primary_flag": "--exomes-se-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 161,
       "summary": null,
       "type": null,
@@ -1944,7 +1945,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "file_separator",
@@ -1957,11 +1958,11 @@
       "primary_flag": "--file-separator",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 79,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 5
     },
     {
       "action": null,
@@ -2175,7 +2176,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "10",
       "deprecation_timeline": null,
       "dest": "gene_cor_file_cor_start_col",
@@ -2188,7 +2189,7 @@
       "primary_flag": "--gene-cor-file-cor-start-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 233,
       "summary": null,
       "type": "int",
@@ -2196,7 +2197,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "1",
       "deprecation_timeline": null,
       "dest": "gene_cor_file_gene_col",
@@ -2209,7 +2210,7 @@
       "primary_flag": "--gene-cor-file-gene-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 232,
       "summary": null,
       "type": "int",
@@ -2238,7 +2239,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_covs_out",
@@ -2251,7 +2252,7 @@
       "primary_flag": "--gene-covs-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 248,
       "summary": null,
       "type": null,
@@ -2259,7 +2260,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_effectors_out",
@@ -2272,7 +2273,7 @@
       "primary_flag": "--gene-effectors-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 249,
       "summary": null,
       "type": null,
@@ -2280,7 +2281,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_gene_set_stats_out",
@@ -2293,7 +2294,7 @@
       "primary_flag": "--gene-gene-set-stats-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 246,
       "summary": null,
       "type": null,
@@ -2364,7 +2365,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "2",
       "deprecation_timeline": null,
       "dest": "gene_map_new_gene_col",
@@ -2377,7 +2378,7 @@
       "primary_flag": "--gene-map-new-gene-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 119,
       "summary": null,
       "type": null,
@@ -2385,7 +2386,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "1",
       "deprecation_timeline": null,
       "dest": "gene_map_orig_gene_col",
@@ -2398,7 +2399,7 @@
       "primary_flag": "--gene-map-orig-gene-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 118,
       "summary": null,
       "type": null,
@@ -2406,11 +2407,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_combined_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-bfs-combined-col"
@@ -2419,7 +2420,7 @@
       "primary_flag": "--gene-phewas-bfs-combined-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 404,
       "summary": "combined column for advanced gene-phewas input",
       "type": null,
@@ -2427,11 +2428,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_id_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-bfs-id-col"
@@ -2440,7 +2441,7 @@
       "primary_flag": "--gene-phewas-bfs-id-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 400,
       "summary": "gene ID column for advanced gene-phewas input",
       "type": null,
@@ -2469,11 +2470,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_log_bf_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-bfs-log-bf-col"
@@ -2482,7 +2483,7 @@
       "primary_flag": "--gene-phewas-bfs-log-bf-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 402,
       "summary": "log BF column for advanced gene-phewas input",
       "type": null,
@@ -2490,11 +2491,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_pheno_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-bfs-pheno-col"
@@ -2503,7 +2504,7 @@
       "primary_flag": "--gene-phewas-bfs-pheno-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 408,
       "summary": "phenotype column for advanced gene-phewas input",
       "type": null,
@@ -2511,11 +2512,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_prior_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-bfs-prior-col"
@@ -2524,7 +2525,7 @@
       "primary_flag": "--gene-phewas-bfs-prior-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 406,
       "summary": "prior column for advanced gene-phewas input",
       "type": null,
@@ -2553,11 +2554,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_combined_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-stats-combined-col"
@@ -2566,7 +2567,7 @@
       "primary_flag": "--gene-phewas-stats-combined-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 405,
       "summary": "combined column for advanced gene-phewas input",
       "type": null,
@@ -2574,11 +2575,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_id_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-stats-id-col"
@@ -2587,7 +2588,7 @@
       "primary_flag": "--gene-phewas-stats-id-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 401,
       "summary": "gene ID column for advanced gene-phewas input",
       "type": null,
@@ -2612,15 +2613,15 @@
       "source_line": 399,
       "summary": "input gene-phewas statistics table for advanced phewas workflows",
       "type": null,
-      "usage_references": 61
+      "usage_references": 64
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_log_bf_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-stats-log-bf-col"
@@ -2629,7 +2630,7 @@
       "primary_flag": "--gene-phewas-stats-log-bf-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 403,
       "summary": "log BF column for advanced gene-phewas input",
       "type": null,
@@ -2637,11 +2638,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_pheno_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-stats-pheno-col"
@@ -2650,7 +2651,7 @@
       "primary_flag": "--gene-phewas-stats-pheno-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 409,
       "summary": "phenotype column for advanced gene-phewas input",
       "type": null,
@@ -2658,11 +2659,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_phewas_bfs_prior_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-phewas-stats-prior-col"
@@ -2671,7 +2672,7 @@
       "primary_flag": "--gene-phewas-stats-prior-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 407,
       "summary": "prior column for advanced gene-phewas input",
       "type": null,
@@ -2700,7 +2701,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_overlap_stats_out",
@@ -2713,7 +2714,7 @@
       "primary_flag": "--gene-set-overlap-stats-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 247,
       "summary": null,
       "type": null,
@@ -2721,11 +2722,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_beta_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-beta-col"
@@ -2734,7 +2735,7 @@
       "primary_flag": "--gene-set-stats-beta-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 207,
       "summary": "beta column mapping for advanced gene-set stats ingestion",
       "type": null,
@@ -2742,11 +2743,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_beta_tilde_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-beta-tilde-col"
@@ -2755,7 +2756,7 @@
       "primary_flag": "--gene-set-stats-beta-tilde-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 206,
       "summary": "beta-tilde column mapping for advanced gene-set stats ingestion",
       "type": null,
@@ -2763,11 +2764,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_beta_uncorrected_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-beta-uncorrected-col"
@@ -2776,7 +2777,7 @@
       "primary_flag": "--gene-set-stats-beta-uncorrected-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 208,
       "summary": "uncorrected beta column mapping for advanced gene-set stats ingestion",
       "type": null,
@@ -2784,11 +2785,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_exp_beta_tilde_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-exp-beta-tilde-col"
@@ -2797,7 +2798,7 @@
       "primary_flag": "--gene-set-stats-exp-beta-tilde-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 205,
       "summary": "exp(beta-tilde) column mapping for advanced gene-set stats ingestion",
       "type": null,
@@ -2805,11 +2806,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "Gene_Set",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_id_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-id-col"
@@ -2818,11 +2819,11 @@
       "primary_flag": "--gene-set-stats-id-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 204,
       "summary": "column mapping for advanced --gene-set-stats-in ingestion",
       "type": null,
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": null,
@@ -2830,14 +2831,14 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_in",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--gene-set-stats-in"
       ],
       "help": null,
       "primary_flag": "--gene-set-stats-in",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 203,
@@ -2847,7 +2848,7 @@
     },
     {
       "action": null,
-      "category": "method_required",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_out",
@@ -2860,7 +2861,7 @@
       "primary_flag": "--gene-set-stats-out",
       "public_visibility": "normal",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 240,
       "summary": "write the final gene-set statistics table",
       "type": null,
@@ -2868,11 +2869,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_p_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-p-col"
@@ -2881,7 +2882,7 @@
       "primary_flag": "--gene-set-stats-p-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 210,
       "summary": "p-value column mapping for advanced gene-set stats ingestion",
       "type": null,
@@ -2889,11 +2890,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_set_stats_se_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-set-stats-se-col"
@@ -2902,7 +2903,7 @@
       "primary_flag": "--gene-set-stats-se-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 209,
       "summary": "SE column mapping for advanced gene-set stats ingestion",
       "type": null,
@@ -2931,11 +2932,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_combined_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-combined-col"
@@ -2944,7 +2945,7 @@
       "primary_flag": "--gene-stats-combined-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 222,
       "summary": "combined column mapping for advanced --gene-stats-in ingestion",
       "type": null,
@@ -2952,11 +2953,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_id_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-id-col"
@@ -2965,11 +2966,11 @@
       "primary_flag": "--gene-stats-id-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 220,
       "summary": "column mapping for advanced --gene-stats-in ingestion",
       "type": null,
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": null,
@@ -2977,28 +2978,28 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_in",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--gene-stats-in"
       ],
       "help": null,
       "primary_flag": "--gene-stats-in",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 219,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 48
+      "usage_references": 51
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_log_bf_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-log-bf-col"
@@ -3007,7 +3008,7 @@
       "primary_flag": "--gene-stats-log-bf-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 221,
       "summary": "log BF column mapping for advanced --gene-stats-in ingestion",
       "type": null,
@@ -3015,7 +3016,7 @@
     },
     {
       "action": null,
-      "category": "method_required",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_out",
@@ -3028,7 +3029,7 @@
       "primary_flag": "--gene-stats-out",
       "public_visibility": "normal",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 244,
       "summary": "write the final gene-level statistics table",
       "type": null,
@@ -3036,11 +3037,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_prior_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-prior-col"
@@ -3049,7 +3050,7 @@
       "primary_flag": "--gene-stats-prior-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 223,
       "summary": "prior column mapping for advanced --gene-stats-in ingestion",
       "type": null,
@@ -3057,11 +3058,11 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gene_stats_prob_col",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-stats-prob-col"
@@ -3070,7 +3071,7 @@
       "primary_flag": "--gene-stats-prob-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 224,
       "summary": "probability column mapping for advanced --gene-stats-in ingestion",
       "type": null,
@@ -3162,7 +3163,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_beta_col",
@@ -3175,7 +3176,7 @@
       "primary_flag": "--gwas-beta-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 129,
       "summary": null,
       "type": null,
@@ -3183,7 +3184,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_chrom_col",
@@ -3196,7 +3197,7 @@
       "primary_flag": "--gwas-chrom-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 126,
       "summary": null,
       "type": null,
@@ -3267,7 +3268,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_filter_col",
@@ -3280,7 +3281,7 @@
       "primary_flag": "--gwas-filter-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 135,
       "summary": null,
       "type": null,
@@ -3309,7 +3310,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_freq_col",
@@ -3322,7 +3323,7 @@
       "primary_flag": "--gwas-freq-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 134,
       "summary": null,
       "type": null,
@@ -3414,7 +3415,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_locus_col",
@@ -3427,7 +3428,7 @@
       "primary_flag": "--gwas-locus-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 125,
       "summary": null,
       "type": null,
@@ -3498,7 +3499,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_n_col",
@@ -3511,7 +3512,7 @@
       "primary_flag": "--gwas-n-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 132,
       "summary": null,
       "type": null,
@@ -3519,7 +3520,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_p_col",
@@ -3532,7 +3533,7 @@
       "primary_flag": "--gwas-p-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 128,
       "summary": null,
       "type": null,
@@ -3540,7 +3541,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_pos_col",
@@ -3553,7 +3554,7 @@
       "primary_flag": "--gwas-pos-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 127,
       "summary": null,
       "type": null,
@@ -3561,7 +3562,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "gwas_se_col",
@@ -3574,7 +3575,7 @@
       "primary_flag": "--gwas-se-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 130,
       "summary": null,
       "type": null,
@@ -3729,7 +3730,7 @@
     },
     {
       "action": "append",
-      "category": "method_optional",
+      "category": "engineering",
       "default": "[\"NA\"]",
       "deprecation_timeline": null,
       "dest": "ignore_genes",
@@ -3742,15 +3743,15 @@
       "primary_flag": "--ignore-genes",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 77,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 5
     },
     {
       "action": "store_true",
-      "category": "method_optional",
+      "category": "engineering",
       "default": null,
       "deprecation_timeline": null,
       "dest": "ignore_negative_exp_beta",
@@ -3763,11 +3764,11 @@
       "primary_flag": "--ignore-negative-exp-beta",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 211,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 8
     },
     {
       "action": null,
@@ -3792,7 +3793,7 @@
     },
     {
       "action": null,
-      "category": "experimental",
+      "category": "compat_alias",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "increase_hyper_if_betas_below",
@@ -3805,11 +3806,11 @@
       "primary_flag": "--increase-hyper-if-betas-below",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 395,
       "summary": null,
       "type": "float",
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": "store_true",
@@ -3880,20 +3881,20 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "max_abs_mcse_d",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--max-abs-mcse-d"
       ],
       "help": null,
       "primary_flag": "--max-abs-mcse-d",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 431,
-      "summary": null,
+      "summary": "stop Gibbs once monitored gene-probability MCSE is below this absolute threshold",
       "type": "float",
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": null,
@@ -4237,20 +4238,20 @@
       "default": "500",
       "deprecation_timeline": null,
       "dest": "max_num_iter",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--max-num-iter"
       ],
       "help": null,
       "primary_flag": "--max-num-iter",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 422,
-      "summary": null,
+      "summary": "legacy per-epoch outer Gibbs iteration cap used when phase-specific bounds are not set",
       "type": "int",
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": null,
@@ -4342,20 +4343,20 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "max_rel_mcse_beta",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--max-rel-mcse-beta"
       ],
       "help": null,
       "primary_flag": "--max-rel-mcse-beta",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 432,
-      "summary": null,
+      "summary": "stop Gibbs once active beta MCSE is below this relative threshold",
       "type": "float",
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": null,
@@ -4867,20 +4868,20 @@
       "default": null,
       "deprecation_timeline": null,
       "dest": "warm_start",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--no-warm-start"
       ],
       "help": null,
       "primary_flag": "--no-warm-start",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 428,
-      "summary": null,
+      "summary": "disable warm-starting and restart outer Gibbs updates from default initialization each iteration",
       "type": null,
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": null,
@@ -4888,20 +4889,20 @@
       "default": "10",
       "deprecation_timeline": null,
       "dest": "num_chains",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--num-chains"
       ],
       "help": null,
       "primary_flag": "--num-chains",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 433,
-      "summary": null,
+      "summary": "number of parallel outer Gibbs chains to run",
       "type": "int",
-      "usage_references": 11
+      "usage_references": 13
     },
     {
       "action": null,
@@ -5031,7 +5032,7 @@
     },
     {
       "action": null,
-      "category": "method_required",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "params_out",
@@ -5044,11 +5045,11 @@
       "primary_flag": "--params-out",
       "public_visibility": "normal",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 268,
       "summary": "write learned hyperparameters and runtime settings",
       "type": null,
-      "usage_references": 17
+      "usage_references": 18
     },
     {
       "action": "store_true",
@@ -5094,7 +5095,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "phewas_gene_set_stats_out",
@@ -5107,7 +5108,7 @@
       "primary_flag": "--phewas-gene-set-stats-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 241,
       "summary": null,
       "type": null,
@@ -5115,7 +5116,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "phewas_stats_out",
@@ -5128,15 +5129,15 @@
       "primary_flag": "--phewas-stats-out",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 250,
       "summary": "write optional advanced gene-level phewas output table",
       "type": null,
-      "usage_references": 12
+      "usage_references": 14
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_all_id_col",
@@ -5149,7 +5150,7 @@
       "primary_flag": "--positive-controls-all-id-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 174,
       "summary": null,
       "type": null,
@@ -5178,7 +5179,7 @@
     },
     {
       "action": "store_false",
-      "category": "method_optional",
+      "category": "engineering",
       "default": "True",
       "deprecation_timeline": null,
       "dest": "positive_controls_all_has_header",
@@ -5191,7 +5192,7 @@
       "primary_flag": "--positive-controls-all-no-header",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 175,
       "summary": null,
       "type": null,
@@ -5220,7 +5221,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_id_col",
@@ -5233,7 +5234,7 @@
       "primary_flag": "--positive-controls-id-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 168,
       "summary": null,
       "type": null,
@@ -5283,7 +5284,7 @@
     },
     {
       "action": "store_false",
-      "category": "method_optional",
+      "category": "engineering",
       "default": "True",
       "deprecation_timeline": null,
       "dest": "positive_controls_has_header",
@@ -5296,7 +5297,7 @@
       "primary_flag": "--positive-controls-no-header",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 172,
       "summary": null,
       "type": null,
@@ -5304,7 +5305,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_prob_col",
@@ -5317,7 +5318,7 @@
       "primary_flag": "--positive-controls-prob-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 169,
       "summary": null,
       "type": null,
@@ -5514,7 +5515,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "s2g_chrom_col",
@@ -5527,7 +5528,7 @@
       "primary_flag": "--s2g-chrom-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 150,
       "summary": null,
       "type": null,
@@ -5535,7 +5536,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "s2g_gene_col",
@@ -5548,7 +5549,7 @@
       "primary_flag": "--s2g-gene-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 152,
       "summary": null,
       "type": null,
@@ -5598,7 +5599,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "s2g_pos_col",
@@ -5611,7 +5612,7 @@
       "primary_flag": "--s2g-pos-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 151,
       "summary": null,
       "type": null,
@@ -5619,7 +5620,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "s2g_prob_col",
@@ -5632,7 +5633,7 @@
       "primary_flag": "--s2g-prob-col",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 153,
       "summary": null,
       "type": null,
@@ -6253,20 +6254,20 @@
       "default": "False",
       "deprecation_timeline": null,
       "dest": "strict_stopping",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--strict-stopping"
       ],
       "help": null,
       "primary_flag": "--strict-stopping",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 442,
-      "summary": null,
+      "summary": "tighten Gibbs stopping thresholds relative to the default lenient preset",
       "type": null,
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": null,
@@ -6337,20 +6338,20 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "total_num_iter_gibbs",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--total-num-iter-gibbs"
       ],
       "help": null,
       "primary_flag": "--total-num-iter-gibbs",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 423,
-      "summary": null,
+      "summary": "total outer Gibbs iteration budget across all restart epochs",
       "type": "int",
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -6358,20 +6359,20 @@
       "default": "None",
       "deprecation_timeline": null,
       "dest": "update_hyper",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--update-hyper"
       ],
       "help": null,
       "primary_flag": "--update-hyper",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 96,
-      "summary": null,
+      "summary": "choose whether outer Gibbs updates p, sigma, both, or neither during adaptation",
       "type": "string",
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": "store_true",
@@ -6484,20 +6485,20 @@
       "default": "True",
       "deprecation_timeline": null,
       "dest": "warm_start",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--warm-start"
       ],
       "help": null,
       "primary_flag": "--warm-start",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 427,
-      "summary": null,
+      "summary": "reuse previous-iteration beta state when warm-starting outer Gibbs updates",
       "type": null,
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": null,
@@ -6564,7 +6565,7 @@
     }
   ],
   "visibilities": {
-    "expert": 295,
-    "normal": 17
+    "expert": 284,
+    "normal": 28
   }
 }
