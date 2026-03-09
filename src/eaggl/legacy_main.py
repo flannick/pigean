@@ -116,9 +116,6 @@ try:
         write_gene_gene_set_statistics as pegs_write_gene_gene_set_statistics,
         write_phewas_statistics as pegs_write_phewas_statistics,
         write_factor_phewas_statistics as pegs_write_factor_phewas_statistics,
-        finalize_regression_outputs as pegs_finalize_regression_outputs,
-        compute_beta_tildes as pegs_compute_beta_tildes,
-        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         derive_factor_anchor_masks as pegs_derive_factor_anchor_masks,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
@@ -223,9 +220,6 @@ except ImportError:
         write_gene_gene_set_statistics as pegs_write_gene_gene_set_statistics,
         write_phewas_statistics as pegs_write_phewas_statistics,
         write_factor_phewas_statistics as pegs_write_factor_phewas_statistics,
-        finalize_regression_outputs as pegs_finalize_regression_outputs,
-        compute_beta_tildes as pegs_compute_beta_tildes,
-        compute_multivariate_beta_tildes as pegs_compute_multivariate_beta_tildes,
         derive_factor_anchor_masks as pegs_derive_factor_anchor_masks,
         resolve_gene_phewas_input_decision_for_stage as pegs_resolve_gene_phewas_input_decision_for_stage,
         build_phewas_stage_config as pegs_build_phewas_stage_config,
@@ -298,6 +292,10 @@ try:
     from . import phewas as _eaggl_phewas
 except ImportError:
     import phewas as _eaggl_phewas
+try:
+    from . import regression as _eaggl_regression
+except ImportError:
+    import regression as _eaggl_regression
 
 usage = _eaggl_cli.usage
 parser = _eaggl_cli.parser
@@ -2622,14 +2620,14 @@ class EagglState(object):
             
 
     def _compute_beta_tildes(self, X, Y, y_var=None, scale_factors=None, mean_shifts=None, resid_correlation_matrix=None, log_fun=log):
-        return pegs_compute_beta_tildes(
+        return _eaggl_regression.compute_beta_tildes(
+            self,
             X,
             Y,
             y_var=y_var,
             scale_factors=scale_factors,
             mean_shifts=mean_shifts,
             resid_correlation_matrix=resid_correlation_matrix,
-            calc_x_shift_scale_fn=self._calc_X_shift_scale,
             finalize_regression_fn=self._finalize_regression,
             bail_fn=bail,
             log_fun=log_fun,
@@ -2637,7 +2635,8 @@ class EagglState(object):
         )
 
     def _compute_multivariate_beta_tildes(self, X, Y, resid_correlation_matrix=None, add_intercept=True, covs=None):
-        return pegs_compute_multivariate_beta_tildes(
+        return _eaggl_regression.compute_multivariate_beta_tildes(
+            self,
             X,
             Y,
             resid_correlation_matrix=resid_correlation_matrix,
@@ -2647,153 +2646,26 @@ class EagglState(object):
         )
 
     def _compute_robust_betas(self, X, Y, resid_correlation_matrix=None, covs=None, add_intercept=True, delta=1.0, max_iter=100, tol=1e-6, rel_tol=0.01):
-
-        log("Calculating robust beta tildes", DEBUG)
-
-        Y = Y.T
-        if len(Y.shape) == 1:
-            Y = Y[:,np.newaxis]
-
-        n_phenos = Y.shape[1]
-
-        #x is gene x factor
-        n_factors = X.shape[1]  # Number of factors (columns in X)
-
-        if add_intercept:
-            X = np.hstack((X, np.ones((X.shape[0],1))))
-
-        if covs is not None:
-            if len(covs.shape) == 1:
-                covs = covs[:,np.newaxis]
-            X = np.hstack((X, covs))
-
-        def _huber_loss(residuals, delta):
-            return np.where(np.abs(residuals) <= delta, 0.5 * residuals ** 2, delta * (np.abs(residuals) - 0.5 * delta))
-
-        def _huber_weight(residuals, delta):
-            residuals[residuals == 0] = delta
-            return np.where((np.abs(residuals) > 0) & (np.abs(residuals) <= delta), 1, delta / np.abs(residuals))
-
-        # Initial coefficients
-        W = np.linalg.lstsq(X, Y, rcond=None)[0]
-
-        #pheno x gene x factor
-        X_x_pheno = np.repeat(X[np.newaxis,:,:], Y.shape[1], axis=0)
-
-        # Iteratively Reweighted Least Squares
-        for iteration in range(max_iter):
-
-            Y_pred = np.dot(X, W)
-            residuals = Y - Y_pred
-            weights = _huber_weight(residuals, delta)
-
-            #unvectorized code for reference
-            #W_new = np.zeros_like(W)
-            #for i in range(Y.shape[1]):
-            #    W_i = weights[:, i]
-            #    XTWX = np.dot(X.T, np.multiply(X.T, W_i).T)
-            #    XTWY = np.dot(X.T, np.multiply(W_i, Y[:, i]))
-            #    W_new[:, i] = np.linalg.solve(XTWX, XTWY)
-
-
-            #W is factor x phenos
-            #weights is gene x phenos
-            #Y is gene x phenos
-            #X is gene x factor
-            #X_x_pheno is pheno x gene x factor
-            #X_x_pheno.T is factor x gene x pheno
-            #weights are gene x factor
-
-            #per pheno
-
-            #pheno x gene x factor
-            X_x_pheno_w = np.multiply(X_x_pheno.T, weights).T
-            #X is factor x gene
-
-            #pheno x factor x factor
-            XTwX = np.einsum('pgf,gh->pfh', X_x_pheno_w, X)
-
-            #gene x pheno 
-            wY = np.multiply(weights, Y)
-            #X_x_pheno is pheno x gene x factor
-
-            XTwY = np.einsum('pgf,gp->fp', X_x_pheno, wY)
-
-            #W_new = np.linalg.solve(XTwX, XTwY)
-
-            #pheno x factor x factor
-            XTwX_inv = np.linalg.inv(XTwX)
-            W_new = np.einsum("phf,fp->hp", XTwX_inv, XTwY)
-
-            if np.linalg.norm(W_new - W, ord='fro') < tol:
-                break
-
-            if np.max(np.abs(W_new - W) / (np.abs(W_new) + np.abs(W) + 1e-20)) < rel_tol:
-                break
-
-
-            W = W_new
-
-        Y_pred = np.dot(X, W)
-        residuals = Y - Y_pred
-        betas = W.T
-
-        # Calculate the variance of the residuals
-        n = X.shape[0]
-        p = X.shape[1]
-        sse = np.sum(_huber_loss(residuals, delta), axis=0)
-        #length equal to phenos
-        sigma2 = sse / (n - p)
-
-
-        # We'll also need (X^T X)^{-1} for a quasi-variance approach
-        XtX = X.T @ X
-        XtX_inv = np.linalg.inv(XtX)
-
-        # 2) "Base" robust standard errors ignoring correlation
-        diag_inv = np.diag(XtX_inv)  # (n_pred,)
-        base_ses = np.sqrt(sigma2[:, None] * diag_inv[None, :])  # (phenos, n_pred)
-
-        if resid_correlation_matrix is None:
-            ses = base_ses
-        else:
-            if len(resid_correlation_matrix) != n_phenos:
-                raise DataValidationError("resid_correlation_matrix must match number of phenotypes.")
-
-            ses = np.zeros_like(base_ses)  # shape (phenos, n_pred)
-
-            # We'll reuse weights for the final sandwich step, which is shape (genes, phenos)
-            for p in range(n_phenos):
-                R_p = resid_correlation_matrix[p]  # (genes, genes)
-                # robust weights for phenotype p => weights[:, p] => shape (genes,)
-                w_vec = np.sqrt(weights[:, p])
-
-                # WeightedX => multiply each row i by w_vec[i]
-                WeightedX = X * w_vec[:, None]  # shape (genes, n_pred)
-
-                # Then multiply by R_p => shape => (genes, n_pred)
-                if sparse.issparse(R_p):
-                    WeightedX_R = R_p.dot(WeightedX)
-                else:
-                    WeightedX_R = R_p @ WeightedX
-
-                # WeightedX^T * WeightedX_R => (n_pred, n_pred)
-                XtRprimeX = WeightedX.T @ WeightedX_R
-
-                var_betas_p = XtX_inv @ XtRprimeX @ XtX_inv
-                se_p = np.sqrt(np.diag(var_betas_p))
-                ses[p, :] = se_p
-
-        if covs is not None or add_intercept:
-            betas = betas[:, :n_factors]  # Only the factor betas
-            ses = ses[:, :n_factors]  # Corresponding standard errors
-
-        return self._finalize_regression(betas, ses, se_inflation_factors=None)
+        return _eaggl_regression.compute_robust_betas(
+            self,
+            X,
+            Y,
+            resid_correlation_matrix=resid_correlation_matrix,
+            covs=covs,
+            add_intercept=add_intercept,
+            delta=delta,
+            max_iter=max_iter,
+            tol=tol,
+            rel_tol=rel_tol,
+            finalize_regression_fn=self._finalize_regression,
+            log_fn=log,
+            debug_level=DEBUG,
+        )
 
 
 
     def _finalize_regression(self, beta_tildes, ses, se_inflation_factors):
-        return pegs_finalize_regression_outputs(
+        return _eaggl_regression.finalize_regression(
             beta_tildes,
             ses,
             se_inflation_factors,

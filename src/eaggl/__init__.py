@@ -17,6 +17,7 @@ _PUBLIC_SUBMODULES = frozenset(
         "legacy_main",
         "outputs",
         "phewas",
+        "regression",
         "workflows",
         "y_inputs",
     ]
