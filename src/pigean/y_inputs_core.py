@@ -8,6 +8,7 @@ import scipy.sparse as sparse
 from pegs_shared.io_common import (
     clean_chrom_name,
     construct_map_to_ind,
+    parse_gene_map_file,
     read_loc_file_with_gene_map,
 )
 
@@ -15,6 +16,192 @@ from pegs_shared.io_common import (
 def set_const_Y(runtime_state, value):
     const_Y = np.full(len(runtime_state.genes), value)
     runtime_state._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
+
+
+def init_gene_locs(runtime_state, gene_loc_file, *, warn_fn, bail_fn, log_fn):
+    log_fn("Reading --gene-loc-file %s" % gene_loc_file)
+    (
+        runtime_state.gene_chrom_name_pos,
+        runtime_state.gene_to_chrom,
+        runtime_state.gene_to_pos,
+    ) = read_loc_file_with_gene_map(
+        gene_loc_file,
+        gene_label_map=runtime_state.gene_label_map,
+        clean_chrom_fn=clean_chrom_name,
+        warn_fn=warn_fn,
+        bail_fn=bail_fn,
+    )
+
+
+def read_gene_map(
+    runtime_state,
+    gene_map_in,
+    gene_map_orig_gene_col=1,
+    gene_map_new_gene_col=2,
+    allow_multi=False,
+    *,
+    bail_fn,
+):
+    runtime_state.gene_label_map = parse_gene_map_file(
+        gene_map_in,
+        gene_map_orig_gene_col=gene_map_orig_gene_col,
+        gene_map_new_gene_col=gene_map_new_gene_col,
+        allow_multi=allow_multi,
+        bail_fn=bail_fn,
+    )
+
+
+def apply_gene_covariates_and_correct_huge(
+    runtime_state,
+    gene_covs_in=None,
+    *,
+    log_fn,
+    trace_level,
+    bail_fn,
+    **kwargs,
+):
+    maybe_append_input_gene_covariates(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
+
+    if runtime_state.gene_covariates is None:
+        return
+
+    prepare_gene_covariate_regression_state(
+        runtime_state,
+        log_fn=log_fn,
+        trace_level=trace_level,
+        bail_fn=bail_fn,
+    )
+    apply_huge_correction_with_covariates(runtime_state)
+
+
+def apply_huge_correction_with_covariates(runtime_state):
+    # Recompute corrected HuGE scores.
+    Y_for_regression = runtime_state.Y_for_regression
+    if runtime_state.Y_for_regression is not None:
+        (Y_for_regression, _, _) = runtime_state._correct_huge(
+            runtime_state.Y_for_regression,
+            runtime_state.gene_covariates,
+            runtime_state.gene_covariates_mask,
+            runtime_state.gene_covariates_mat_inv,
+            runtime_state.gene_covariate_names,
+            runtime_state.gene_covariate_intercept_index,
+        )
+
+    (Y, runtime_state.Y_uncorrected, _) = runtime_state._correct_huge(
+        runtime_state.Y,
+        runtime_state.gene_covariates,
+        runtime_state.gene_covariates_mask,
+        runtime_state.gene_covariates_mat_inv,
+        runtime_state.gene_covariate_names,
+        runtime_state.gene_covariate_intercept_index,
+    )
+
+    runtime_state._set_Y(Y, Y_for_regression, runtime_state.Y_exomes, runtime_state.Y_positive_controls, runtime_state.Y_case_counts)
+    runtime_state.gene_covariate_adjustments = runtime_state.Y_for_regression - runtime_state.Y_uncorrected
+
+    if runtime_state.gene_to_gwas_huge_score is not None:
+        Y_huge = np.zeros(len(runtime_state.Y_for_regression))
+        assert len(Y_huge) == len(runtime_state.genes)
+        for i in range(len(runtime_state.genes)):
+            if runtime_state.genes[i] in runtime_state.gene_to_gwas_huge_score:
+                Y_huge[i] = runtime_state.gene_to_gwas_huge_score[runtime_state.genes[i]]
+
+        (Y_huge, _, _) = runtime_state._correct_huge(
+            Y_huge,
+            runtime_state.gene_covariates,
+            runtime_state.gene_covariates_mask,
+            runtime_state.gene_covariates_mat_inv,
+            runtime_state.gene_covariate_names,
+            runtime_state.gene_covariate_intercept_index,
+        )
+
+        for i in range(len(runtime_state.genes)):
+            if runtime_state.genes[i] in runtime_state.gene_to_gwas_huge_score:
+                runtime_state.gene_to_gwas_huge_score[runtime_state.genes[i]] = Y_huge[i]
+
+        runtime_state.combine_huge_scores()
+
+
+def prepare_gene_covariate_regression_state(runtime_state, *, log_fn, trace_level, bail_fn):
+    # Remove degenerate / highly collinear columns before linear correction.
+    constant_features = np.isclose(np.var(runtime_state.gene_covariates, axis=0), 0)
+    if np.sum(constant_features) > 0:
+        runtime_state.gene_covariates = runtime_state.gene_covariates[:, ~constant_features]
+        runtime_state.gene_covariate_names = [runtime_state.gene_covariate_names[i] for i in np.where(~constant_features)[0]]
+        runtime_state.gene_covariate_directions = np.array([runtime_state.gene_covariate_directions[i] for i in np.where(~constant_features)[0]])
+
+    prune_threshold = 0.95
+    cor_mat = np.abs(np.corrcoef(runtime_state.gene_covariates.T))
+    np.fill_diagonal(cor_mat, 0)
+
+    while True:
+        if np.max(cor_mat) < prune_threshold:
+            try:
+                np.linalg.inv(runtime_state.gene_covariates.T.dot(runtime_state.gene_covariates))
+                break
+            except np.linalg.LinAlgError:
+                pass
+
+        max_index = np.unravel_index(np.argmax(cor_mat), cor_mat.shape)
+        if np.max(max_index) == runtime_state.gene_covariate_intercept_index:
+            max_index = np.min(max_index)
+        else:
+            max_index = np.max(max_index)
+        log_fn("Removing feature %s" % runtime_state.gene_covariate_names[max_index], trace_level)
+        runtime_state.gene_covariates = np.delete(runtime_state.gene_covariates, max_index, axis=1)
+        del runtime_state.gene_covariate_names[max_index]
+        runtime_state.gene_covariate_directions = np.delete(runtime_state.gene_covariate_directions, max_index)
+
+        cor_mat = np.delete(np.delete(cor_mat, max_index, axis=1), max_index, axis=0)
+        if len(runtime_state.gene_covariates) == 0:
+            bail_fn("Error: something went wrong with matrix inversion. Still couldn't invert after removing all but one column")
+
+    # Ensure a single intercept is present.
+    runtime_state.gene_covariate_intercept_index = np.where(np.isclose(np.var(runtime_state.gene_covariates, axis=0), 0))[0]
+    if len(runtime_state.gene_covariate_intercept_index) == 0:
+        runtime_state.gene_covariates = np.hstack((runtime_state.gene_covariates, np.ones(runtime_state.gene_covariates.shape[0])[:, np.newaxis]))
+        runtime_state.gene_covariate_names.append("intercept")
+        runtime_state.gene_covariate_directions = np.append(runtime_state.gene_covariate_directions, 0)
+        runtime_state.gene_covariate_intercept_index = len(runtime_state.gene_covariate_names) - 1
+    else:
+        runtime_state.gene_covariate_intercept_index = runtime_state.gene_covariate_intercept_index[0]
+
+    covariate_means = np.mean(runtime_state.gene_covariates, axis=0)
+    covariate_sds = np.std(runtime_state.gene_covariates, axis=0)
+    covariate_sds[covariate_sds == 0] = 1
+
+    runtime_state.gene_covariates_mask = np.all(runtime_state.gene_covariates < covariate_means + 5 * covariate_sds, axis=1)
+    runtime_state.gene_covariates_mat_inv = np.linalg.inv(
+        runtime_state.gene_covariates[runtime_state.gene_covariates_mask, :].T.dot(
+            runtime_state.gene_covariates[runtime_state.gene_covariates_mask, :]
+        )
+    )
+    gene_covariate_sds = np.std(runtime_state.gene_covariates, axis=0)
+    gene_covariate_sds[gene_covariate_sds == 0] = 1
+    runtime_state.gene_covariate_zs = (runtime_state.gene_covariates - np.mean(runtime_state.gene_covariates, axis=0)) / gene_covariate_sds
+
+
+def maybe_append_input_gene_covariates(runtime_state, gene_covs_in=None, **kwargs):
+    # Load optional covariates and append to any existing covariate matrix.
+    if gene_covs_in is None:
+        return
+
+    (cov_names, gene_covs, _, _) = runtime_state.read_gene_covs(gene_covs_in, **kwargs)
+    cov_dirs = np.array([0] * len(cov_names))
+
+    col_means = np.nanmean(gene_covs, axis=0)
+    nan_indices = np.where(np.isnan(gene_covs))
+    gene_covs[nan_indices] = np.take(col_means, nan_indices[1])
+
+    if runtime_state.gene_covariates is not None:
+        assert gene_covs.shape[0] == runtime_state.gene_covariates.shape[0]
+        runtime_state.gene_covariates = np.hstack((runtime_state.gene_covariates, gene_covs))
+        runtime_state.gene_covariate_names = runtime_state.gene_covariate_names + cov_names
+        runtime_state.gene_covariate_directions = np.append(runtime_state.gene_covariate_directions, cov_dirs)
+    else:
+        runtime_state.gene_covariates = gene_covs
+        runtime_state.gene_covariate_names = cov_names
+        runtime_state.gene_covariate_directions = cov_dirs
 
 
 def read_y_from_contract(runtime_state, y_read_contract, *, read_y_fn, bail_fn):
