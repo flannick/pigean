@@ -14,6 +14,7 @@ DEFAULT_SHARED_FILES = (
     "src/pegs_shared/gene_io.py",
     "src/pegs_shared/huge_cache.py",
     "src/pegs_shared/io_common.py",
+    "src/pegs_shared/runtime_matrix.py",
     "src/pegs_shared/xdata.py",
     "src/pegs_shared/ydata.py",
     "src/pegs_sync_guard.py",

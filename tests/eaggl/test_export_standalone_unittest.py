@@ -33,6 +33,7 @@ class ExportStandaloneEagglTest(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
 
             self.assertTrue((target / "src" / "eaggl" / "__main__.py").exists())
+            self.assertTrue((target / "src" / "pegs_shared" / "runtime_matrix.py").exists())
             self.assertTrue((target / "src" / "pegs_utils.py").exists())
             self.assertTrue((target / "docs" / "WORKFLOWS.md").exists())
             self.assertTrue((target / "tests" / "eaggl" / "test_labeling_unittest.py").exists())

@@ -8,6 +8,7 @@ from pathlib import Path
 
 COPY_PATHS = (
     ("src/eaggl", "src/eaggl"),
+    ("src/pegs_shared", "src/pegs_shared"),
     ("src/pegs_cli_errors.py", "src/pegs_cli_errors.py"),
     ("src/pegs_cli_utils.py", "src/pegs_cli_utils.py"),
     ("src/pegs_sync_guard.py", "src/pegs_sync_guard.py"),
