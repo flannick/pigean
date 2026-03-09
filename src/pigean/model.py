@@ -28,6 +28,212 @@ def build_inner_beta_sampler_common_kwargs(options):
         sparse_frac_betas=options.sparse_frac_betas,
     )
 
+
+def calc_priors_from_betas(X, betas_m, mean_shifts, scale_factors):
+    # Compute per-chain log-prior odds (relative to background) from betas.
+    return np.array(
+        X.dot((betas_m / scale_factors).T)
+        - np.sum(mean_shifts * betas_m / scale_factors, axis=1).T
+    ).T
+
+
+def finalize_gibbs_priors_for_sampling(
+    state,
+    priors_sample_m,
+    priors_mean_m,
+    priors_missing_sample_m,
+    priors_missing_mean_m,
+    adjust_priors,
+    use_mean_betas,
+    priors_percentage_max_sample_m,
+    priors_percentage_max_mean_m,
+    priors_adjustment_sample_m,
+    priors_adjustment_mean_m,
+    *,
+    log_fn,
+    trace_level,
+):
+    # Regress out gene-length trend from priors (when requested), then choose
+    # mean/sample priors used for the next iteration's Y sampling.
+    total_priors_m = np.hstack((priors_sample_m, priors_missing_sample_m))
+    gene_N = state.get_gene_N()
+    gene_N_missing = state.get_gene_N(get_missing=True)
+
+    all_gene_N = gene_N
+    if state.genes_missing is not None:
+        assert gene_N_missing is not None
+        all_gene_N = np.concatenate((all_gene_N, gene_N_missing))
+
+    priors_slope = total_priors_m.dot(all_gene_N) / (total_priors_m.shape[1] * np.var(all_gene_N))
+
+    if adjust_priors:
+        log_fn(
+            "Adjusting priors with slopes ranging from %.4g-%.4g"
+            % (np.min(priors_slope), np.max(priors_slope)),
+            trace_level,
+        )
+        priors_sample_m = priors_sample_m - np.outer(priors_slope, gene_N)
+        priors_mean_m = priors_mean_m - np.outer(priors_slope, gene_N)
+
+        if state.genes_missing is not None:
+            priors_missing_sample_m = priors_missing_sample_m - np.outer(priors_slope, gene_N_missing)
+            priors_missing_mean_m = priors_missing_mean_m - np.outer(priors_slope, gene_N_missing)
+
+    priors_for_Y_m = priors_sample_m
+    priors_percentage_max_for_Y_m = priors_percentage_max_sample_m
+    priors_adjustment_for_Y_m = priors_adjustment_sample_m
+    if use_mean_betas:
+        priors_for_Y_m = priors_mean_m
+        priors_percentage_max_for_Y_m = priors_percentage_max_mean_m
+        priors_adjustment_for_Y_m = priors_adjustment_mean_m
+
+    return {
+        "priors_sample_m": priors_sample_m,
+        "priors_mean_m": priors_mean_m,
+        "priors_missing_sample_m": priors_missing_sample_m,
+        "priors_missing_mean_m": priors_missing_mean_m,
+        "priors_for_Y_m": priors_for_Y_m,
+        "priors_percentage_max_for_Y_m": priors_percentage_max_for_Y_m,
+        "priors_adjustment_for_Y_m": priors_adjustment_for_Y_m,
+    }
+
+
+def compute_gibbs_uncorrected_betas_and_defaults(
+    state,
+    full_beta_tildes_m,
+    full_ses_m,
+    full_scale_factors_m,
+    full_mean_shifts_m,
+    full_is_dense_gene_set_m,
+    full_ps_m,
+    full_sigma2s_m,
+    passed_in_max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    gauss_seidel_betas,
+    sparse_solution,
+    sparse_frac_betas,
+):
+    # Independent run provides sparse screening inputs and fallback values for
+    # gene sets later filtered out from corrected-beta updates.
+    (
+        uncorrected_betas_sample_m,
+        uncorrected_postp_sample_m,
+        uncorrected_betas_mean_m,
+        uncorrected_postp_mean_m,
+    ) = state._calculate_non_inf_betas(
+        assume_independent=True,
+        initial_p=None,
+        beta_tildes=full_beta_tildes_m,
+        ses=full_ses_m,
+        V=None,
+        X_orig=None,
+        scale_factors=full_scale_factors_m,
+        mean_shifts=full_mean_shifts_m,
+        is_dense_gene_set=full_is_dense_gene_set_m,
+        ps=full_ps_m,
+        sigma2s=full_sigma2s_m,
+        return_sample=True,
+        max_num_burn_in=passed_in_max_num_burn_in,
+        max_num_iter=max_num_iter_betas,
+        min_num_iter=min_num_iter_betas,
+        num_chains=num_chains_betas,
+        r_threshold_burn_in=r_threshold_burn_in_betas,
+        use_max_r_for_convergence=use_max_r_for_convergence_betas,
+        max_frac_sem=max_frac_sem_betas,
+        max_allowed_batch_correlation=max_allowed_batch_correlation,
+        gauss_seidel=gauss_seidel_betas,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        sparse_solution=sparse_solution,
+        sparse_frac_betas=sparse_frac_betas,
+        debug_gene_sets=state.gene_sets,
+    )
+
+    (
+        default_betas_sample_m,
+        default_postp_sample_m,
+        default_betas_mean_m,
+        default_postp_mean_m,
+    ) = (
+        copy.copy(uncorrected_betas_sample_m),
+        copy.copy(uncorrected_postp_sample_m),
+        copy.copy(uncorrected_betas_mean_m),
+        copy.copy(uncorrected_postp_mean_m),
+    )
+    return {
+        "uncorrected_betas_sample_m": uncorrected_betas_sample_m,
+        "uncorrected_postp_sample_m": uncorrected_postp_sample_m,
+        "uncorrected_betas_mean_m": uncorrected_betas_mean_m,
+        "uncorrected_postp_mean_m": uncorrected_postp_mean_m,
+        "default_betas_sample_m": default_betas_sample_m,
+        "default_postp_sample_m": default_postp_sample_m,
+        "default_betas_mean_m": default_betas_mean_m,
+        "default_postp_mean_m": default_postp_mean_m,
+    }
+
+
+def build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
+    return {
+        "max_num_burn_in": inner_beta_kwargs["passed_in_max_num_burn_in"],
+        "max_num_iter": inner_beta_kwargs["max_num_iter_betas"],
+        "min_num_iter": inner_beta_kwargs["min_num_iter_betas"],
+        "num_chains": inner_beta_kwargs["num_chains_betas"],
+        "r_threshold_burn_in": inner_beta_kwargs["r_threshold_burn_in_betas"],
+        "use_max_r_for_convergence": inner_beta_kwargs["use_max_r_for_convergence_betas"],
+        "max_frac_sem": inner_beta_kwargs["max_frac_sem_betas"],
+        "max_allowed_batch_correlation": inner_beta_kwargs["max_allowed_batch_correlation"],
+        "gauss_seidel": inner_beta_kwargs["gauss_seidel_betas"],
+        "sparse_solution": inner_beta_kwargs["sparse_solution"],
+        "sparse_frac_betas": inner_beta_kwargs["sparse_frac_betas"],
+    }
+
+
+def compute_gibbs_iteration_priors_from_betas(
+    state,
+    full_betas_sample_m,
+    full_betas_mean_m,
+    priors_missing_sample_m,
+    priors_missing_mean_m,
+):
+    priors_sample_m = calc_priors_from_betas(
+        state.X_orig,
+        full_betas_sample_m,
+        state.mean_shifts,
+        state.scale_factors,
+    )
+    priors_mean_m = calc_priors_from_betas(
+        state.X_orig,
+        full_betas_mean_m,
+        state.mean_shifts,
+        state.scale_factors,
+    )
+    if state.genes_missing is not None:
+        priors_missing_sample_m = calc_priors_from_betas(
+            state.X_orig_missing_genes,
+            full_betas_sample_m,
+            state.mean_shifts,
+            state.scale_factors,
+        )
+        priors_missing_mean_m = calc_priors_from_betas(
+            state.X_orig_missing_genes,
+            full_betas_mean_m,
+            state.mean_shifts,
+            state.scale_factors,
+        )
+    return (
+        priors_sample_m,
+        priors_mean_m,
+        priors_missing_sample_m,
+        priors_missing_mean_m,
+    )
+
+
 def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, run_read_y_stage_fn, **kwargs):
     bail = bail_fn
     warn = warn_fn
