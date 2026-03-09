@@ -7,6 +7,7 @@ This document maps each supported factoring workflow to:
 3. a minimal runnable command pattern
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
+Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
 

@@ -682,6 +682,7 @@ def _apply_cli_help_layout(_parser, show_expert=False):
         "Projection quickstart:\n"
         "  python -m eaggl factor --eaggl-bundle-in /path/to/bundle.tar.gz "
         "--gene-phewas-stats-in /path/to/gene_phewas.tsv --factor-phewas-stats-out factor_phewas.tsv\n\n"
+        "Optional labeling remains part of the factor command; there is no separate label mode.\n\n"
         "Use --help-expert to show projection workflows, optional labeling, "
         "expert tuning, and debug flags."
     )

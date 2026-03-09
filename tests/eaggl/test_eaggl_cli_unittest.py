@@ -59,6 +59,12 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--help")
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Usage: python -m eaggl", proc.stdout)
+        self.assertNotIn("[factor|naive_factor|label]", proc.stdout)
+
+    def test_help_states_labeling_has_no_separate_mode(self) -> None:
+        proc = self._run("factor", "--help")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("there is no separate label mode", proc.stdout)
 
     def test_default_help_uses_canonical_anchor_flags(self) -> None:
         proc = self._run("factor", "--help")

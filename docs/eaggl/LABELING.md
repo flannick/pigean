@@ -2,6 +2,24 @@
 
 Optional factor labeling is intentionally separate from core factorization.
 
+## Command Boundary Decision
+
+EAGGL does not expose a separate `label` command.
+
+Labeling remains an optional post-factor step inside `python -m eaggl factor`
+because:
+
+1. labels depend on the factor outputs already produced in the same run
+2. provider adapters are already isolated and lazy-loaded
+3. non-LLM runs avoid provider imports entirely
+4. splitting to a separate command would add command-surface complexity without removing meaningful runtime coupling
+
+This means the canonical usage remains:
+
+1. run `python -m eaggl factor ...`
+2. optionally add labeling flags to that same factor command
+3. inspect labeled factor outputs from the normal factor output files
+
 ## Default Behavior
 
 If `--lmm-auth-key` is not provided, EAGGL does not call any external labeling provider.

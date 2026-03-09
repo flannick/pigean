@@ -410,6 +410,14 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("### F1: Single Phenotype Anchoring", workflow_doc)
         self.assertIn("### F9: Gene-set Anchoring", workflow_doc)
 
+    def test_eaggl_labeling_docs_and_cli_make_integrated_command_boundary_explicit(self) -> None:
+        cli_source = (REPO_ROOT / "src" / "eaggl" / "cli.py").read_text(encoding="utf-8")
+        labeling_doc = (REPO_ROOT / "docs" / "eaggl" / "LABELING.md").read_text(encoding="utf-8")
+        workflow_doc = (REPO_ROOT / "docs" / "eaggl" / "WORKFLOWS.md").read_text(encoding="utf-8")
+        self.assertIn("there is no separate label mode", cli_source)
+        self.assertIn("EAGGL does not expose a separate `label` command.", labeling_doc)
+        self.assertIn("Optional labeling stays attached to the same factor command", workflow_doc)
+
     def test_package_roots_export_only_bounded_surface(self) -> None:
         pigean_init = (REPO_ROOT / "src" / "pigean" / "__init__.py").read_text(encoding="utf-8")
         eaggl_init = (REPO_ROOT / "src" / "eaggl" / "__init__.py").read_text(encoding="utf-8")
