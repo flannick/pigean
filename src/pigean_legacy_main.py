@@ -1,3 +1,15 @@
+"""Active transitional PIGEAN inner core.
+
+This file is still on the runtime path and still owns unextracted inner
+sampler/reader behavior. The name is historical, but the current policy is:
+
+1. keep stage orchestration, CLI surface, and new shared helpers in package
+   modules under `src/pigean/`
+2. do not add new feature logic here unless the same change also extracts or
+   shrinks existing inner-core ownership
+3. treat this file as active technical debt to drain, not as dead ballast
+"""
+
 #Usage: python calc.py
 #
 #This script...

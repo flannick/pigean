@@ -1,3 +1,15 @@
+"""Active transitional EAGGL inner core.
+
+This file still owns deeper matrix/state behavior that has not yet been
+drained into package modules. The current policy is:
+
+1. keep workflow selection, factor/PheWAS orchestration, and new helpers in
+   package modules under `src/eaggl/`
+2. do not add new feature logic here unless the same change also extracts or
+   shrinks existing inner-core ownership
+3. treat this file as active technical debt to drain, not as dead ballast
+"""
+
 #Usage: python calc.py
 #
 #This script...

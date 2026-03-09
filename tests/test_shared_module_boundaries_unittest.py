@@ -418,6 +418,17 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("EAGGL does not expose a separate `label` command.", labeling_doc)
         self.assertIn("Optional labeling stays attached to the same factor command", workflow_doc)
 
+    def test_legacy_core_naming_policy_is_explicit(self) -> None:
+        pigean_legacy = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
+        eaggl_legacy = (REPO_ROOT / "src" / "eaggl" / "legacy_main.py").read_text(encoding="utf-8")
+        canonical_doc = (REPO_ROOT / "docs" / "CANONICAL_SOURCE.md").read_text(encoding="utf-8")
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Active transitional PIGEAN inner core.", pigean_legacy)
+        self.assertIn("Active transitional EAGGL inner core.", eaggl_legacy)
+        self.assertIn("Legacy-core naming policy:", canonical_doc)
+        self.assertIn("rename is deferred until the remaining inner-core ownership is materially smaller", canonical_doc)
+        self.assertIn("new logic should go there only when the same change is extracting or shrinking existing ownership", readme)
+
     def test_package_roots_export_only_bounded_surface(self) -> None:
         pigean_init = (REPO_ROOT / "src" / "pigean" / "__init__.py").read_text(encoding="utf-8")
         eaggl_init = (REPO_ROOT / "src" / "eaggl" / "__init__.py").read_text(encoding="utf-8")

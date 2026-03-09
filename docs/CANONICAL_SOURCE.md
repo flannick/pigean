@@ -27,6 +27,12 @@ Current state:
 - canonical tests are being organized under `tests/pigean/` and `tests/eaggl/`
 - optional stitched single-file artifacts are generated on demand from modular source and are not checked in
 
+Legacy-core naming policy:
+- `src/pigean_legacy_main.py` and `src/eaggl/legacy_main.py` remain intentionally named as transitional inner cores for now
+- they are still live runtime files, not dead historical copies
+- new logic should land in package modules first; changes in these files should normally accompany extraction or shrinkage work
+- rename is deferred until the remaining inner-core ownership is materially smaller
+
 For a concise developer map from `docs/methods.tex` to the owning package modules, see:
 - `docs/pigean/METHODS_TO_CODE.md`
 
