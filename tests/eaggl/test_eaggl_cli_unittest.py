@@ -58,7 +58,7 @@ class EagglCliTest(unittest.TestCase):
     def test_help_usage_uses_eaggl_name(self) -> None:
         proc = self._run("factor", "--help")
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("Usage: eaggl.py", proc.stdout)
+        self.assertIn("Usage: python -m eaggl", proc.stdout)
 
     def test_default_help_uses_canonical_anchor_flags(self) -> None:
         proc = self._run("factor", "--help")
@@ -71,6 +71,7 @@ class EagglCliTest(unittest.TestCase):
     def test_help_expert_includes_projection_and_labeling_flags(self) -> None:
         proc = self._run("factor", "--help-expert")
         self.assertEqual(proc.returncode, 0)
+        self.assertIn("Projection quickstart:", proc.stdout)
         self.assertIn("--gene-set-phewas-stats-in", proc.stdout)
         self.assertIn("--lmm-provider", proc.stdout)
         self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)

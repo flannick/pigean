@@ -490,7 +490,7 @@
       "source_line": 206,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 40
+      "usage_references": 41
     },
     {
       "action": "store_true",
@@ -700,7 +700,7 @@
       "source_line": 144,
       "summary": "load bundled PIGEAN outputs as default EAGGL inputs",
       "type": null,
-      "usage_references": 31
+      "usage_references": 32
     },
     {
       "action": null,
@@ -763,7 +763,7 @@
       "source_line": 171,
       "summary": null,
       "type": null,
-      "usage_references": 2
+      "usage_references": 3
     },
     {
       "action": null,
@@ -1477,7 +1477,7 @@
       "source_line": 351,
       "summary": null,
       "type": null,
-      "usage_references": 60
+      "usage_references": 61
     },
     {
       "action": null,
@@ -2002,7 +2002,7 @@
       "source_line": 138,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 47
+      "usage_references": 48
     },
     {
       "action": null,

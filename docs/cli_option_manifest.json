@@ -743,7 +743,7 @@
       "source_line": 278,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 40
+      "usage_references": 41
     },
     {
       "action": null,
@@ -2612,7 +2612,7 @@
       "source_line": 399,
       "summary": "input gene-phewas statistics table for advanced phewas workflows",
       "type": null,
-      "usage_references": 60
+      "usage_references": 61
     },
     {
       "action": null,
@@ -2990,7 +2990,7 @@
       "source_line": 219,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 47
+      "usage_references": 48
     },
     {
       "action": null,

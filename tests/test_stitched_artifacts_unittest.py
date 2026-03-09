@@ -69,7 +69,7 @@ class StitchedArtifactsTest(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(pigean_proc.returncode, 0, msg=(pigean_proc.stderr or "") + (pigean_proc.stdout or ""))
-            self.assertIn("Usage: pigean.py", pigean_proc.stdout)
+            self.assertIn("Usage: python -m pigean", pigean_proc.stdout)
 
             eaggl_proc = subprocess.run(
                 [sys.executable, str(out_dir / "eaggl_stitched.py"), "factor", "--help"],
@@ -79,4 +79,4 @@ class StitchedArtifactsTest(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(eaggl_proc.returncode, 0, msg=(eaggl_proc.stderr or "") + (eaggl_proc.stdout or ""))
-            self.assertIn("Usage: eaggl.py", eaggl_proc.stdout)
+            self.assertIn("Usage: python -m eaggl", eaggl_proc.stdout)

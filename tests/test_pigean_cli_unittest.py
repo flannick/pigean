@@ -246,12 +246,13 @@ print(json.dumps(mask.tolist()))
     def test_help_usage_uses_pigean_name(self) -> None:
         proc = self._run("gibbs", "--help")
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("Usage: pigean.py", proc.stdout)
+        self.assertIn("Usage: python -m pigean", proc.stdout)
 
     def test_help_includes_core_and_expert_sections(self) -> None:
         proc = self._run("gibbs", "--help")
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Core quickstart:", proc.stdout)
+        self.assertIn("Alternative quickstart:", proc.stdout)
         self.assertIn("Use --help-expert", proc.stdout)
         self.assertIn("Core options:", proc.stdout)
         self.assertIn("Expert options:", proc.stdout)

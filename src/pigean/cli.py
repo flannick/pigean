@@ -55,7 +55,7 @@ def bail(message):
     raise CliUsageError(message)
 
 
-usage = "usage: pigean.py [beta_tildes|betas|priors|naive_priors|gibbs|sim|pops|naive_pops] [options]"
+usage = "usage: python -m pigean [beta_tildes|betas|priors|naive_priors|gibbs|sim|pops|naive_pops] [options]"
 
 get_comma_separated_args_as_float = pegs_callback_set_comma_separated_args_as_float
 get_comma_separated_args = pegs_callback_set_comma_separated_args
@@ -807,12 +807,15 @@ def _option_help_for_display(_primary_flag, _meta):
 
 def _apply_cli_help_layout(_parser, show_expert=False):
     _parser.description = (
-        "PIGEAN core workflow: load gene-level evidence, read/filter gene sets, "
-        "estimate betas/priors, then run outer Gibbs."
+        "PIGEAN core workflows: load gene-level evidence from GWAS/HuGE, "
+        "precomputed gene statistics, or positive-control style inputs; "
+        "read and filter gene sets; estimate betas and priors; then run outer Gibbs."
     )
     _parser.epilog = (
         "Core quickstart:\n"
-        "  pigean.py gibbs --config /path/to/config.json --gwas-in /path/to/sumstats.gz\n\n"
+        "  python -m pigean gibbs --config /path/to/config.json --gwas-in /path/to/sumstats.gz\n\n"
+        "Alternative quickstart:\n"
+        "  python -m pigean gibbs --config /path/to/config.json --gene-stats-in /path/to/gene_stats.tsv\n\n"
         "Use --help-expert to show advanced Set B workflows, cache I/O, "
         "expert tuning, and debug flags."
     )

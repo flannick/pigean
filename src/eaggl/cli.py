@@ -74,7 +74,7 @@ def bail(message):
     raise CliUsageError(message)
 
 
-usage = "usage: eaggl.py [factor|naive_factor] [options]"
+usage = "usage: python -m eaggl [factor|naive_factor] [options]"
 
 get_comma_separated_args = pegs_callback_set_comma_separated_args
 get_comma_separated_args_as_set = pegs_callback_set_comma_separated_args_as_set
@@ -653,12 +653,15 @@ def _option_help_for_display(_primary_flag, _meta):
 
 def _apply_cli_help_layout(_parser, show_expert=False):
     _parser.description = (
-        "EAGGL factor workflow: load PIGEAN outputs, choose an anchor strategy, "
-        "then factor pathways, genes, and optional phenotype projections."
+        "EAGGL factor workflows: load PIGEAN handoff outputs, choose an anchor "
+        "strategy, then factor pathways, genes, and optional phenotype projections."
     )
     _parser.epilog = (
         "Core quickstart:\n"
         "  python -m eaggl factor --eaggl-bundle-in /path/to/bundle.tar.gz --factors-out factors.tsv\n\n"
+        "Projection quickstart:\n"
+        "  python -m eaggl factor --eaggl-bundle-in /path/to/bundle.tar.gz "
+        "--gene-phewas-stats-in /path/to/gene_phewas.tsv --factor-phewas-stats-out factor_phewas.tsv\n\n"
         "Use --help-expert to show projection workflows, optional labeling, "
         "expert tuning, and debug flags."
     )
