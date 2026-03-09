@@ -298,47 +298,10 @@ parser.add_option("","--gene-set-pheno-filter-value",type=float,default=0.01) #c
 parser.add_option("","--no-transpose",action='store_true') #factor original X rather than tranpose
 parser.add_option("","--min-lambda-threshold",type=float,default=1e-3) #remove factors with lambdak values below this threshold, or sum(gene loadings) below this threshold, or sum(gene set loadings) below this threshold
 
-#options for controlling factoring behavior
-#Factoring decomposes the gene set x gene matrix or gene set x phenotype matrix while weighting matrix entries specific to an "anchor". An "anchor" can be either a single or set of phenotypes, or a single or set of genes
-#
-#Options for phenotype-based anchoring of factoring
-#1. By default, factoring will be performed across the gene set x gene matrix and weighted by the gene combined scores or the gene set beta scores. We refer to this as "single phenotype anchoring" since the weights are based on associations of the genes and gene sets with the phenotype.
-#   These will be computed as in a normal PIGEAN run, using --gwas-in or --positive-controls-in or --exomes-in or --gene-stats-in etc.
-#   To specify this behavior, simply run factor (or factor_naive to generate betas and combined scores using the incorrect but faster naive approach)
-#   Matrix to be factored is (probability gene relevant to anchor phenotype) * (probability gene set contains gene) * (probability that gene set is relevant to anchor phenotype)
-#   Gene anchor loadings are (probability gene relevant to anchor phenotype) * (probability pathway contains gene) and gene set anchor loadings (probability that gene set interrogates pathway) * (probability that pathway is relevant to anchor phenotype)
-#   Factor relevance scores are probability factor is relevant to anchor phenotype
-#2. A special case of number 1 is to factor an input gene list. In this case, the gene list is treated like a "phenotype" and gene/gene set scores are determined that predict membership in it. So even though it is a gene list, it is *unrelated* to the gene sets used to construct the matrix. Semantically, it is equivalent to single phenotype anchoring
-#   This is a way to decompose the gene set into distinct mechanisms and then (potentially) project it onto more phenotypes
-#   To run this, use the --positive-controls-in (which allows weighting of genes in the set) or the --positive-controls-list options
-#3. You can project the results of the "single phenotype anchoring" onto other phenotypes for which gene phewas or gene set phewas results are available. This will create factor loadings for all phenotypes in the file
-#   To run this, use the --gene-set-phewas-stats-in option or the --gene-phewas-stats-in options alongside the factor command. If both --gene-set-phewas-stats-in and --gene-phewas-stats-in are specified, --gene-phewas-stats-in will be ignored and --gene-set-phewas-in will be used.
-#   The factor command must include a way to obtain betas (e.g. as in a normal PIGEAN run) or you will get different behavior.
-#   The interpretation of phenotype anchor loadings file is (probability phenotype associated with pathway) under this setting
-#4. You can run a "multiple phenotype anchoring" factoring in which case the factorization will maximize the similarity of the approximated matrix to an input tensor, which is the input gene set x gene matrix projected along a third dimension (of length equal to the number of anchor phenotypes). Each matrix slice is obtained by the gene set x gene matrix (with entries equal to gene set weights) multiplied by the gene probabilities and gene set probabilities for the corresponding anchor phenotype.
-#   There will be multiple loadings for each gene, gene set, and factor per anchor phenotype (interpretable identically to the single phenotype anchoring case), each sharing a core indicator loading multiplied by the gene or gene set probability. All phenotypes will be automatically projected as well as a part of this
-#   To specify this behavior, run by passing in both --gene-phewas-stats-in and --gene-set-phewas-stats-in alongside factor model. Any other arguments to compute betas will be ignored here. You must also specify --anchor-phenos to determine the subset of phenotypes in the --phewas-stats-in to anchor on
-#5. If you want to factor the entire gene by gene set matrix across all phenotypes in the --phewas-stats-in files, you specify the same flags as in the multiple phenotype anchoring case but replace --anchor-phenos with --anchor-any-pheno. This will not actually compute loadings for each phenotype, but rather will construct an "uber" phenotype that represents the probability that the gene or gene set is associated with any of the phenotypes.
-#   The interpretation is as above, but instead of terms for (probability that X is relevant to the anchor phenotype) there are terms for (probability that X is relevant to any of the phenotypes)
-#   You can use the flags --factor-prune-phenos-num or --factor-prune-phenos-val to reduce the number of phenotypes going into this analysis. --factor-prune-genes and --factor-prune-gene-sets are also important for limiting run time
-#
-#Options for gene-based anchoring of factoring
-#6. To factor a gene set x phenotype matrix, you must anchor to a gene to determine the phenotype relevance scores and which gene sets to include. This is called "single gene anchoring"
-#   You specify this behavior by passing in --gene-phewas-stats-in and --gene-set-phewas-stats-in (any flags for computing betas will be ignored) and then specifying --anchor-genes.
-#   The entries in the input matrix represent (probability that gene is associated with phenotype) * (probability that gene set is associated with phenotype)
-#   The anchor loadings files are, for phenotypes the (probability that the anchor gene is associated with phenotype) * (probability that phenotype is associated with the pathway) and, for gene sets, the (probability that the gene set interrogates the pathway)
-#7. You can pass multiple comma separated values to --anchor-genes to run "multiple gene anchoring" factoring which behaves analogously to the mulitple phenotype anchoring. In this case, you can choose how gene sets are included in the matrix (either --add-gene-sets-by-enrichment-p, --add-gene-sets-by-fraction, --add-gene-sets-by-naive, or --add-gene-sets-by-gibbs)
-#8. Finally, you can anchor across all genes using --anchor-any-gene. Just as for --anchor-any-pheno, this doesn't actually produce loadings for every anchor gene but instead uses weights for phenotypes corresponding to the probability that they are associated with any gene (these will usually be very close to 1)
-#   To reduce the size of the matrix going into the factoring, you can use --factor-prune-phenos-num or --factor-prune-phenos-val which will remove phenotypes just as in the case of --anchor-any-pheno
-#
-#Options for gene-set-based anchoring of factoring
-#9. You can factor the gene set x phenotype matrix if you specify --anchor-gene-set and pass in enough information to run a pheWAS
-#   You need to pass in either positive controls, a GWAS, exomes, or gene-bfs, and then specify --run-phewas-from-gene-phewas-stats-in. This will then load the phewas statistics, which will then be used as weights in the factoring.
-#   This will produce a single weight for the entire gene set, which is distinct from --anchor-gene [gene set] which will produce weights for each gene in the gene set as part of the factoring.
-#   The entries in the input matrix represent (probability input gene set is associated with phenotype) * (probability that the input gene set is associated with gene set).
-#   The anchor loadings will be (probability input gene set is associated with phenotype) * (probability that the phenotype is associated with the pathway) and (probability that the gene set interrogates the gene) * (probability that the gene set is associated with the input gene set)
-
-#Note that the signle pheno anchoring with a gene list (option 2) and the multiple gene anchoring with the same gene list (option 7) both take a gene set as input, produce factors, and loadings across genes, phenos, and gene sets. The difference is in the interpretation of the factors. In the former case (option 2), the pathways are chosen to explain why each gene is in each gene set, with genes and gene sets weighted by similarity to the gene list. In the latter case (option 7), the pathways are chosen to explain why each pathway is associated with each phenotype, with phenotypes weighted according to how associated they are with each gene in the gene list
+# Options for controlling factoring behavior.
+# Detailed workflow semantics, examples, and the F1-F9 mapping live in
+# docs/eaggl/WORKFLOWS.md. Keep only workflow-selection metadata and
+# validation logic in code; keep narrative explanations in the docs.
 
 
 parser.add_option("","--gene-set-phewas-stats-in",default=None)

@@ -1731,7 +1731,7 @@
       "source_line": 157,
       "summary": "load exome burden statistics as an additional HuGE evidence source",
       "type": null,
-      "usage_references": 26
+      "usage_references": 25
     },
     {
       "action": null,
@@ -2613,7 +2613,7 @@
       "source_line": 399,
       "summary": "input gene-phewas statistics table for advanced phewas workflows",
       "type": null,
-      "usage_references": 64
+      "usage_references": 59
     },
     {
       "action": null,
@@ -2991,7 +2991,7 @@
       "source_line": 219,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 51
+      "usage_references": 50
     },
     {
       "action": null,
@@ -3411,7 +3411,7 @@
       "source_line": 122,
       "summary": "load GWAS summary statistics as the primary HuGE input",
       "type": null,
-      "usage_references": 39
+      "usage_references": 38
     },
     {
       "action": null,
@@ -5259,7 +5259,7 @@
       "source_line": 167,
       "summary": "load positive-control genes with optional probabilities",
       "type": null,
-      "usage_references": 17
+      "usage_references": 15
     },
     {
       "action": "callback",
@@ -5280,7 +5280,7 @@
       "source_line": 170,
       "summary": "specify positive-control genes directly on the command line",
       "type": "string",
-      "usage_references": 23
+      "usage_references": 22
     },
     {
       "action": "store_false",
@@ -5511,7 +5511,7 @@
       "source_line": 259,
       "summary": "run gene-level phewas output stage from precomputed gene-phewas stats",
       "type": null,
-      "usage_references": 28
+      "usage_references": 27
     },
     {
       "action": null,

@@ -401,6 +401,15 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("tests/test_phewas_stage_reuse_unittest.py", doc_source)
         self.assertIn("tests/test_pegs_utils_bundle_unittest.py", doc_source)
 
+    def test_eaggl_cli_defers_workflow_narrative_to_docs(self) -> None:
+        cli_source = (REPO_ROOT / "src" / "eaggl" / "cli.py").read_text(encoding="utf-8")
+        workflow_doc = (REPO_ROOT / "docs" / "eaggl" / "WORKFLOWS.md").read_text(encoding="utf-8")
+        self.assertIn("docs/eaggl/WORKFLOWS.md", cli_source)
+        self.assertNotIn('### F1: Single Phenotype Anchoring', cli_source)
+        self.assertNotIn('Options for phenotype-based anchoring of factoring', cli_source)
+        self.assertIn("### F1: Single Phenotype Anchoring", workflow_doc)
+        self.assertIn("### F9: Gene-set Anchoring", workflow_doc)
+
     def test_package_roots_export_only_bounded_surface(self) -> None:
         pigean_init = (REPO_ROOT / "src" / "pigean" / "__init__.py").read_text(encoding="utf-8")
         eaggl_init = (REPO_ROOT / "src" / "eaggl" / "__init__.py").read_text(encoding="utf-8")
