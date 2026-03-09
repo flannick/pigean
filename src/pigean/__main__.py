@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from .legacy_main import main
+from . import main
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

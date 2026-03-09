@@ -33,9 +33,15 @@ class SharedModuleBoundaryTest(unittest.TestCase):
     def test_pigean_package_legacy_entrypoint_owns_main_dispatch(self) -> None:
         legacy_source = (REPO_ROOT / "src" / "pigean" / "legacy_main.py").read_text(encoding="utf-8")
         flat_source = (REPO_ROOT / "src" / "pigean_legacy_main.py").read_text(encoding="utf-8")
+        package_main_source = (REPO_ROOT / "src" / "pigean" / "__main__.py").read_text(encoding="utf-8")
         self.assertIn("from . import dispatch as pigean_dispatch", legacy_source)
         self.assertIn("def run_main_pipeline(options, mode):", legacy_source)
         self.assertIn("return pigean_dispatch.run_main_pipeline(_legacy_main, options, mode)", legacy_source)
+        self.assertIn("from . import main", package_main_source)
+        self.assertNotIn("from .legacy_main import main", package_main_source)
+        self.assertIn("_COMPAT_EXPORTS = {", legacy_source)
+        self.assertIn("\"_build_prefilter_keep_mask\": \"_build_prefilter_keep_mask\"", legacy_source)
+        self.assertNotIn("return getattr(_legacy_main, name)", legacy_source)
         self.assertIn("from pigean import dispatch as _pigean_dispatch", flat_source)
         self.assertIn("from pigean import huge as _pigean_huge", flat_source)
         self.assertIn("from pigean import phewas as _pigean_phewas", flat_source)
@@ -348,10 +354,14 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         eaggl_init = (REPO_ROOT / "src" / "eaggl" / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("_PUBLIC_SUBMODULES = frozenset(", pigean_init)
         self.assertIn("_COMPAT_EXPORTS = {", pigean_init)
+        pigean_public_block = pigean_init.split("_PUBLIC_SUBMODULES = frozenset(", 1)[1].split(")\n\n_COMPAT_EXPORTS", 1)[0]
+        self.assertNotIn('"legacy_main"', pigean_public_block)
         self.assertNotIn("return getattr(_legacy_module(), name)", pigean_init)
         self.assertNotIn("sorted(set(globals().keys()) | set(dir(_legacy_module())))", pigean_init)
         self.assertIn("_PUBLIC_SUBMODULES = frozenset(", eaggl_init)
         self.assertIn("_COMPAT_EXPORTS = {", eaggl_init)
+        eaggl_public_block = eaggl_init.split("_PUBLIC_SUBMODULES = frozenset(", 1)[1].split(")\n\n_COMPAT_EXPORTS", 1)[0]
+        self.assertNotIn('"legacy_main"', eaggl_public_block)
         self.assertNotIn("from .legacy_main import *", eaggl_init)
 
     def test_manifest_normal_visibility_options_have_summaries(self) -> None:

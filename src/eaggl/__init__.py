@@ -14,7 +14,6 @@ _PUBLIC_SUBMODULES = frozenset(
         "io",
         "labeling",
         "labeling_providers",
-        "legacy_main",
         "outputs",
         "phewas",
         "regression",
@@ -39,7 +38,7 @@ def _load_compat_attr(name):
     if name not in _COMPAT_EXPORTS:
         raise AttributeError("module %r has no attribute %r" % (__name__, name))
     module_name, attr_name = _COMPAT_EXPORTS[name]
-    module = _load_submodule(module_name)
+    module = importlib.import_module("." + module_name, __name__)
     return getattr(module, attr_name)
 
 

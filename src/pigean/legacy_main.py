@@ -15,6 +15,10 @@ GibbsStageConfig = pigean_pipeline.GibbsStageConfig
 NonHugePipelineResult = pigean_pipeline.NonHugePipelineResult
 MainPipelineResult = pigean_pipeline.MainPipelineResult
 
+_COMPAT_EXPORTS = {
+    "_build_prefilter_keep_mask": "_build_prefilter_keep_mask",
+}
+
 
 def run_main_pipeline(options, mode):
     return pigean_dispatch.run_main_pipeline(_legacy_main, options, mode)
@@ -33,12 +37,18 @@ def main(argv=None):
         return _legacy_main.pegs_handle_unexpected_exception(exc, argv=argv, debug_level=_legacy_main.debug_level)
 
 
+def _build_prefilter_keep_mask(*args, **kwargs):
+    return _legacy_main._build_prefilter_keep_mask(*args, **kwargs)
+
+
 def __getattr__(name):
-    return getattr(_legacy_main, name)
+    if name not in _COMPAT_EXPORTS:
+        raise AttributeError("module %r has no attribute %r" % (__name__, name))
+    return getattr(_legacy_main, _COMPAT_EXPORTS[name])
 
 
 def __dir__():
-    return sorted(set(globals().keys()) | set(dir(_legacy_main)))
+    return sorted(set(globals().keys()) | set(_COMPAT_EXPORTS.keys()))
 
 
 __all__ = [
@@ -50,4 +60,5 @@ __all__ = [
     "MainPipelineResult",
     "run_main_pipeline",
     "main",
-] + [name for name in vars(_legacy_main) if not name.startswith("__")]
+    "_build_prefilter_keep_mask",
+]
