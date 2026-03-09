@@ -13,6 +13,21 @@ from . import runtime as pigean_runtime
 def open_gz(file, flag=None):
     return open_text_with_retry(file, flag=flag)
 
+
+def build_inner_beta_sampler_common_kwargs(options):
+    return dict(
+        max_num_burn_in=options.max_num_burn_in,
+        max_num_iter=options.max_num_iter_betas,
+        min_num_iter=options.min_num_iter_betas,
+        num_chains=options.num_chains_betas,
+        r_threshold_burn_in=options.r_threshold_burn_in_betas,
+        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
+        max_frac_sem=options.max_frac_sem_betas,
+        gauss_seidel=options.gauss_seidel_betas,
+        sparse_solution=options.sparse_solution,
+        sparse_frac_betas=options.sparse_frac_betas,
+    )
+
 def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_controls_in=None, positive_controls_list=None, case_counts_in=None, ctrl_counts_in=None, gene_bfs_in=None, Y=None, show_progress=True, max_gene_set_p=None, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, use_sampling_for_betas=None, correct_betas_mean=True, correct_betas_var=True, gene_loc_file=None, gene_cor_file=None, gene_cor_file_gene_col=1, gene_cor_file_cor_start_col=10, skip_V=False, run_using_phewas=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, run_read_y_stage_fn, **kwargs):
     bail = bail_fn
     warn = warn_fn
@@ -637,4 +652,3 @@ def calculate_priors(state, max_gene_set_p=None, num_gene_batches=None, correct_
     state.priors_missing -= total_mean
 
     state.calculate_priors_adj(overwrite_priors=adjust_priors)
-

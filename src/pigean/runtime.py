@@ -187,3 +187,91 @@ def bind_hyperparameter_properties(state_cls, field_names=HYPERPARAMETER_PROXY_F
                 setattr(hyper_state, _field, value)
 
         setattr(state_cls, field_name, property(_getter, _setter))
+
+
+def configure_hyperparameters_for_main(
+    state,
+    options,
+    *,
+    read_gene_map_fn,
+    init_gene_locs_fn,
+    bail_fn,
+    log_fn,
+):
+    sigma2_cond = options.sigma2_cond
+
+    if sigma2_cond is not None:
+        state.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=False)
+        sigma2_cond = state.get_sigma2()
+        state.set_sigma(None, state.sigma_power)
+    elif options.sigma2_ext is not None:
+        state.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=True)
+        log_fn(
+            "Setting sigma=%.4g (given external=%.4g) "
+            % (state.get_sigma2(), state.get_sigma2(convert_sigma_to_external_units=True))
+        )
+    elif options.sigma2 is not None:
+        state.set_sigma(options.sigma2, options.sigma_power, convert_sigma_to_internal_units=False)
+    elif options.top_gene_set_prior:
+        state.set_sigma(
+            state.convert_prior_to_var(
+                options.top_gene_set_prior,
+                options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else len(state.gene_sets),
+                options.frac_gene_sets_for_prior,
+            ),
+            options.sigma_power,
+            convert_sigma_to_internal_units=True,
+        )
+        if options.frac_gene_sets_for_prior == 1:
+            sigma2_cond = state.get_sigma2()
+            log_fn(
+                "Setting sigma_cond=%.4g (external=%.4g) given top of %d gene sets prior of %.4g"
+                % (
+                    state.get_sigma2(),
+                    state.get_sigma2(convert_sigma_to_external_units=True),
+                    options.num_gene_sets_for_prior,
+                    options.top_gene_set_prior,
+                )
+            )
+            state.set_sigma(None, state.sigma_power)
+        else:
+            log_fn(
+                "Setting sigma=%.4g (external=%.4g) given top of %d gene sets prior of %.4g"
+                % (
+                    state.get_sigma2(),
+                    state.get_sigma2(convert_sigma_to_external_units=True),
+                    options.num_gene_sets_for_prior,
+                    options.top_gene_set_prior,
+                )
+            )
+
+    if options.const_sigma:
+        options.sigma_power = 2
+
+    update_hyper_mode = options.update_hyper.lower()
+    if update_hyper_mode == "both":
+        options.update_hyper_p = True
+        options.update_hyper_sigma = True
+    elif update_hyper_mode == "p":
+        options.update_hyper_p = True
+        options.update_hyper_sigma = False
+    elif update_hyper_mode == "sigma2" or update_hyper_mode == "sigma":
+        options.update_hyper_p = False
+        options.update_hyper_sigma = True
+    elif update_hyper_mode == "none":
+        options.update_hyper_p = False
+        options.update_hyper_sigma = False
+    else:
+        bail_fn("Invalid value for --update-hyper (both, p, sigma2, or none)")
+
+    if options.gene_map_in:
+        read_gene_map_fn(
+            state,
+            gene_map_in=options.gene_map_in,
+            gene_map_orig_gene_col=options.gene_map_orig_gene_col,
+            gene_map_new_gene_col=options.gene_map_new_gene_col,
+        )
+    if options.gene_loc_file:
+        init_gene_locs_fn(state, options.gene_loc_file)
+
+    return sigma2_cond

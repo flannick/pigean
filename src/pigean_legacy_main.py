@@ -7818,9 +7818,7 @@ def _read_gene_map(runtime_state, gene_map_in, gene_map_orig_gene_col=1, gene_ma
     )
 
 
-def _set_const_Y(runtime_state, value):
-    const_Y = np.full(len(runtime_state.genes), value)
-    runtime_state._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
+_set_const_Y = pigean_y_inputs_core.set_const_Y
 
 def _apply_gene_covariates_and_correct_huge(runtime_state, gene_covs_in=None, **kwargs):
     _maybe_append_input_gene_covariates(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
@@ -15457,83 +15455,16 @@ def _update_gibbs_all_sums_and_maybe_restart_low_betas(
     )
 
 
-def _build_inner_beta_sampler_common_kwargs(options):
-    return dict(
-        max_num_burn_in=options.max_num_burn_in,
-        max_num_iter=options.max_num_iter_betas,
-        min_num_iter=options.min_num_iter_betas,
-        num_chains=options.num_chains_betas,
-        r_threshold_burn_in=options.r_threshold_burn_in_betas,
-        use_max_r_for_convergence=options.use_max_r_for_convergence_betas,
-        max_frac_sem=options.max_frac_sem_betas,
-        gauss_seidel=options.gauss_seidel_betas,
-        sparse_solution=options.sparse_solution,
-        sparse_frac_betas=options.sparse_frac_betas,
-    )
+_build_inner_beta_sampler_common_kwargs = pigean_model.build_inner_beta_sampler_common_kwargs
 
 
-def _configure_hyperparameters_for_main(state, options):
-    sigma2_cond = options.sigma2_cond
-
-    if sigma2_cond is not None:
-        # map it with the scale factor
-        state.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=False)
-        sigma2_cond = state.get_sigma2()
-        state.set_sigma(None, state.sigma_power)
-    elif options.sigma2_ext is not None:
-        state.set_sigma(options.sigma2_ext, options.sigma_power, convert_sigma_to_internal_units=True)
-        log("Setting sigma=%.4g (given external=%.4g) " % (state.get_sigma2(), state.get_sigma2(convert_sigma_to_external_units=True)))
-    elif options.sigma2 is not None:
-        state.set_sigma(options.sigma2, options.sigma_power, convert_sigma_to_internal_units=False)
-    elif options.top_gene_set_prior:
-        state.set_sigma(
-            state.convert_prior_to_var(
-                options.top_gene_set_prior,
-                options.num_gene_sets_for_prior if options.num_gene_sets_for_prior is not None else len(state.gene_sets),
-                options.frac_gene_sets_for_prior,
-            ),
-            options.sigma_power,
-            convert_sigma_to_internal_units=True,
-        )
-        if options.frac_gene_sets_for_prior == 1:
-            # in this case sigma2_cond was specified, not sigma2
-            sigma2_cond = state.get_sigma2()
-            log("Setting sigma_cond=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (state.get_sigma2(), state.get_sigma2(convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
-            state.set_sigma(None, state.sigma_power)
-        else:
-            log("Setting sigma=%.4g (external=%.4g) given top of %d gene sets prior of %.4g" % (state.get_sigma2(), state.get_sigma2(convert_sigma_to_external_units=True), options.num_gene_sets_for_prior, options.top_gene_set_prior))
-
-    # Legacy behavior: force sigma-power to 2 when sigma is fixed.
-    if options.const_sigma:
-        options.sigma_power = 2
-
-    update_hyper_mode = options.update_hyper.lower()
-    if update_hyper_mode == "both":
-        options.update_hyper_p = True
-        options.update_hyper_sigma = True
-    elif update_hyper_mode == "p":
-        options.update_hyper_p = True
-        options.update_hyper_sigma = False
-    elif update_hyper_mode == "sigma2" or update_hyper_mode == "sigma":
-        options.update_hyper_p = False
-        options.update_hyper_sigma = True
-    elif update_hyper_mode == "none":
-        options.update_hyper_p = False
-        options.update_hyper_sigma = False
-    else:
-        bail("Invalid value for --update-hyper (both, p, sigma2, or none)")
-
-    if options.gene_map_in:
-        _read_gene_map(
-            state,
-            gene_map_in=options.gene_map_in,
-            gene_map_orig_gene_col=options.gene_map_orig_gene_col,
-            gene_map_new_gene_col=options.gene_map_new_gene_col,
-        )
-    if options.gene_loc_file:
-        _init_gene_locs(state, options.gene_loc_file)
-
-    return sigma2_cond
+_configure_hyperparameters_for_main = functools.partial(
+    pigean_runtime.configure_hyperparameters_for_main,
+    read_gene_map_fn=_read_gene_map,
+    init_gene_locs_fn=_init_gene_locs,
+    bail_fn=bail,
+    log_fn=log,
+)
 
 YPrimaryInputsContract = pigean_y_inputs.YPrimaryInputsContract
 YReadContract = pigean_y_inputs.YReadContract

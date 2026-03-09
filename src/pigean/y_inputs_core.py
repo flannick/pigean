@@ -12,6 +12,11 @@ from pegs_shared.io_common import (
 )
 
 
+def set_const_Y(runtime_state, value):
+    const_Y = np.full(len(runtime_state.genes), value)
+    runtime_state._set_Y(const_Y, const_Y, None, None, None, skip_V=True, skip_scale_factors=True)
+
+
 def read_y_from_contract(runtime_state, y_read_contract, *, read_y_fn, bail_fn):
     if y_read_contract is None:
         bail_fn("Bug in code: y_read_contract must be non-None")
