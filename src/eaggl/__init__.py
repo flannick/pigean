@@ -5,6 +5,7 @@ import importlib
 
 _PUBLIC_SUBMODULES = frozenset(
     [
+        "app",
         "cli",
         "covariates",
         "dispatch",
@@ -14,6 +15,7 @@ _PUBLIC_SUBMODULES = frozenset(
         "io",
         "labeling",
         "labeling_providers",
+        "main_support",
         "outputs",
         "phewas",
         "regression",
@@ -23,7 +25,7 @@ _PUBLIC_SUBMODULES = frozenset(
 )
 
 _COMPAT_EXPORTS = {
-    "main": ("legacy_main", "main"),
+    "main": ("app", "main"),
     "GeneSetData": ("legacy_main", "GeneSetData"),
 }
 

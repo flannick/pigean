@@ -187,7 +187,7 @@ print("ok")
 import contextlib
 import io
 import json
-import eaggl.legacy_main as eaggl
+import eaggl
 buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
     rc = eaggl.main(["factor", "--deterministic", "--print-effective-config"])

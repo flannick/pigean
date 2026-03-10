@@ -300,6 +300,17 @@ class SharedModuleBoundaryTest(unittest.TestCase):
 
     def test_eaggl_legacy_main_uses_package_domain_and_io_layers(self) -> None:
         eaggl_source = (REPO_ROOT / "src" / "eaggl" / "legacy_main.py").read_text(encoding="utf-8")
+        app_source = (REPO_ROOT / "src" / "eaggl" / "app.py").read_text(encoding="utf-8")
+        support_source = (REPO_ROOT / "src" / "eaggl" / "main_support.py").read_text(encoding="utf-8")
+        package_init_source = (REPO_ROOT / "src" / "eaggl" / "__init__.py").read_text(encoding="utf-8")
+        package_main_source = (REPO_ROOT / "src" / "eaggl" / "__main__.py").read_text(encoding="utf-8")
+        self.assertIn("from . import main_support as eaggl_main_support", app_source)
+        self.assertIn("def run_main_pipeline(options):", app_source)
+        self.assertIn("return eaggl_dispatch.run_main_pipeline(eaggl_main_support.build_main_domain(), options)", app_source)
+        self.assertIn('importlib.import_module("eaggl.legacy_main")', support_source)
+        self.assertIn("return eaggl_domain.build_main_domain(load_legacy_core())", support_source)
+        self.assertIn('"main": ("app", "main")', package_init_source)
+        self.assertIn("from .app import main", package_main_source)
         self.assertIn("from . import domain as _eaggl_domain", eaggl_source)
         self.assertIn("from . import io as _eaggl_io", eaggl_source)
         self.assertIn("from . import y_inputs as _eaggl_y_inputs", eaggl_source)
@@ -420,6 +431,7 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         eaggl_public_block = eaggl_init.split("_PUBLIC_SUBMODULES = frozenset(", 1)[1].split(")\n\n_COMPAT_EXPORTS", 1)[0]
         self.assertNotIn('"legacy_main"', eaggl_public_block)
         self.assertNotIn("from .legacy_main import *", eaggl_init)
+        self.assertIn('"main": ("app", "main")', eaggl_init)
 
     def test_manifest_normal_visibility_options_have_summaries(self) -> None:
         for rel_path in ("docs/cli_option_manifest.json", "docs/eaggl/cli_option_manifest.json"):

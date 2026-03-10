@@ -16,6 +16,9 @@ MAX_EAGGL_LEGACY_LINES = 5693
 
 ALLOWED_PIGEAN_LEGACY_IMPORTERS = set()
 ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS = set()
+ALLOWED_EAGGL_LEGACY_DYNAMIC_IMPORTERS = {
+    "src/eaggl/main_support.py",
+}
 
 ALLOWED_EAGGL_LEGACY_IMPORTERS = {
     "tests/eaggl/test_factor_stage_unittest.py",
@@ -51,7 +54,10 @@ class LegacyRetirementGuardrailsTest(unittest.TestCase):
             self._collect_dynamic_import_sites("pigean_legacy_main"),
             sorted(ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS),
         )
-        self.assertEqual(self._collect_dynamic_import_sites("eaggl.legacy_main"), [])
+        self.assertEqual(
+            self._collect_dynamic_import_sites("eaggl.legacy_main"),
+            sorted(ALLOWED_EAGGL_LEGACY_DYNAMIC_IMPORTERS),
+        )
 
     def test_normal_entrypoints_do_not_import_pigean_legacy_main_directly(self) -> None:
         package_main = (REPO_ROOT / "src" / "pigean" / "__main__.py").read_text(encoding="utf-8")
@@ -59,6 +65,15 @@ class LegacyRetirementGuardrailsTest(unittest.TestCase):
         self.assertNotIn("pigean_legacy_main", package_main)
         self.assertNotIn("pigean_legacy_main", package_init)
         self.assertNotIn("from .legacy_main import main", package_main)
+
+    def test_normal_entrypoints_do_not_import_eaggl_legacy_main_directly(self) -> None:
+        package_main = (REPO_ROOT / "src" / "eaggl" / "__main__.py").read_text(encoding="utf-8")
+        package_init = (REPO_ROOT / "src" / "eaggl" / "__init__.py").read_text(encoding="utf-8")
+        package_app = (REPO_ROOT / "src" / "eaggl" / "app.py").read_text(encoding="utf-8")
+        self.assertNotIn("legacy_main", package_main)
+        self.assertNotIn('"main": ("legacy_main", "main")', package_init)
+        self.assertIn("from . import main_support as eaggl_main_support", package_app)
+        self.assertIn("return eaggl_dispatch.run_main_pipeline(eaggl_main_support.build_main_domain(), options)", package_app)
 
     def test_module_object_dispatch_counts_do_not_grow(self) -> None:
         report = self._run_legacy_symbol_report()
@@ -91,7 +106,10 @@ class LegacyRetirementGuardrailsTest(unittest.TestCase):
             report["legacy_dynamic_import_sites"]["pigean_legacy_main"],
             sorted(ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS),
         )
-        self.assertEqual(report["legacy_dynamic_import_sites"]["eaggl.legacy_main"], [])
+        self.assertEqual(
+            report["legacy_dynamic_import_sites"]["eaggl.legacy_main"],
+            sorted(ALLOWED_EAGGL_LEGACY_DYNAMIC_IMPORTERS),
+        )
 
     def _run_legacy_symbol_report(self) -> dict[str, object]:
         proc = subprocess.run(

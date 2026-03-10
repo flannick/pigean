@@ -20,8 +20,11 @@ cd pigean
 
 Current state:
 - PIGEAN runtime entrypoint is `python -m pigean`
+- EAGGL runtime entrypoint is `python -m eaggl`
 - package modules under `src/pigean/` own the CLI and stage-level orchestration/edit path
 - `src/pigean/app.py` is the package-owned entry module for the normal PIGEAN runtime path
+- package modules under `src/eaggl/` own the CLI and stage-level orchestration/edit path
+- `src/eaggl/app.py` is the package-owned entry module for the normal EAGGL runtime path
 - `src/pigean_legacy_main.py` has been retired
 - flat `src/pigean_*.py` modules are compatibility shims around package-owned code
 - canonical in-repo EAGGL sources live under `src/eaggl/`

@@ -33,7 +33,7 @@ PIGEAN_PROFILE = {
 
 EAGGL_PROFILE = {
     "output_name": "eaggl_stitched.py",
-    "entry_module": "eaggl.legacy_main",
+    "entry_module": "eaggl.app",
     "entry_callable": "main",
     "modules": COMMON_MODULES,
     "packages": COMMON_PACKAGES + ("eaggl",),

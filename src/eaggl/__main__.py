@@ -1,6 +1,4 @@
-"""Temporary package entrypoint for the canonical in-repo EAGGL snapshot."""
-
-from . import main
+from .app import main
 
 
 if __name__ == "__main__":
