@@ -33,6 +33,7 @@ import pegs_shared.ydata as pegs_ydata
 import pegs_utils as pegs_utils_mod
 
 from . import cli as pigean_cli
+from . import huge as pigean_huge
 from . import model as pigean_model
 from . import phewas as pigean_phewas
 from . import runtime as pigean_runtime
@@ -293,11 +294,17 @@ def _open_optional_inner_betas_trace_file(betas_trace_out):
 
 
 def get_col(*args, **kwargs):
-    return pigean_state._get_col(*args, **kwargs)
+    return pigean_huge.get_col(*args, bail_fn=bail, **kwargs)
 
 
 def _determine_columns_from_file(*args, **kwargs):
-    return pigean_state._determine_columns_from_file(*args, **kwargs)
+    return pigean_huge.determine_columns_from_file(
+        *args,
+        open_gz_fn=open_gz,
+        log_fn=lambda message: log(message),
+        bail_fn=bail,
+        **kwargs,
+    )
 
 
 YPrimaryInputsContract = pigean_y_inputs.YPrimaryInputsContract

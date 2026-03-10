@@ -103,6 +103,7 @@ class SharedModuleBoundaryTest(unittest.TestCase):
     def test_pigean_y_input_contract_and_dispatch_live_in_package_module(self) -> None:
         y_source = (REPO_ROOT / "src" / "pigean" / "y_inputs.py").read_text(encoding="utf-8")
         y_core_source = (REPO_ROOT / "src" / "pigean" / "y_inputs_core.py").read_text(encoding="utf-8")
+        huge_source = (REPO_ROOT / "src" / "pigean" / "huge.py").read_text(encoding="utf-8")
         state_source = (REPO_ROOT / "src" / "pigean" / "state.py").read_text(encoding="utf-8")
         support_source = (REPO_ROOT / "src" / "pigean" / "main_support.py").read_text(encoding="utf-8")
         self.assertFalse((REPO_ROOT / "src" / "pigean_legacy_main.py").exists())
@@ -119,6 +120,11 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("def set_const_Y(", y_core_source)
         self.assertIn("def read_primary_y_source(", y_core_source)
         self.assertIn("def materialize_y_on_gene_universe(", y_core_source)
+        self.assertIn("def get_col(", huge_source)
+        self.assertIn("def determine_columns_from_file(", huge_source)
+        self.assertIn("def validate_and_normalize_huge_gwas_inputs_explicit(", huge_source)
+        self.assertIn("def write_huge_statistics_bundle_explicit(", huge_source)
+        self.assertIn("def read_huge_statistics_bundle_explicit(", huge_source)
         self.assertIn("YPrimaryInputsContract = pigean_y_inputs.YPrimaryInputsContract", support_source)
         self.assertIn("_read_Y = functools.partial(", state_source)
         self.assertIn("_set_const_Y = pigean_y_inputs_core.set_const_Y", support_source)
@@ -126,6 +132,13 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("pigean_y_inputs_core.init_gene_locs", state_source)
         self.assertIn("pigean_y_inputs_core.apply_gene_covariates_and_correct_huge", state_source)
         self.assertIn("pigean_y_inputs_core.read_y_pipeline", state_source)
+        self.assertIn("return pigean_huge.get_col(*args, bail_fn=bail, **kwargs)", support_source)
+        self.assertIn("return pigean_huge.determine_columns_from_file(", support_source)
+        self.assertIn("def _pigean_huge_module(", state_source)
+        self.assertIn("return _pigean_huge_module().get_col(", state_source)
+        self.assertIn("return _pigean_huge_module().determine_columns_from_file(", state_source)
+        self.assertIn("return _pigean_huge_module().write_huge_statistics_bundle_explicit(", state_source)
+        self.assertIn("return _pigean_huge_module().read_huge_statistics_bundle_explicit(", state_source)
         self.assertIn("return pigean_y_inputs.load_main_y_inputs(", support_source)
 
     def test_pigean_x_input_orchestration_lives_in_package_module(self) -> None:
@@ -332,6 +345,8 @@ class SharedModuleBoundaryTest(unittest.TestCase):
 
     def test_eaggl_io_uses_pegs_shared_for_extracted_read_helpers(self) -> None:
         io_source = (REPO_ROOT / "src" / "eaggl" / "io.py").read_text(encoding="utf-8")
+        state_source = (REPO_ROOT / "src" / "eaggl" / "state.py").read_text(encoding="utf-8")
+        support_source = (REPO_ROOT / "src" / "eaggl" / "main_support.py").read_text(encoding="utf-8")
         self.assertIn("from pegs_shared.io_common import", io_source)
         self.assertIn("from pegs_shared.xdata import", io_source)
         self.assertIn("from . import y_inputs as eaggl_y_inputs", io_source)
@@ -341,6 +356,18 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn("construct_map_to_ind", pegs_utils_import_block)
         self.assertNotIn("parse_gene_map_file", pegs_utils_import_block)
         self.assertNotIn("read_loc_file_with_gene_map", pegs_utils_import_block)
+        self.assertIn("def standardize_qc_metrics_after_x_read_for_runtime(", io_source)
+        self.assertIn("def maybe_correct_gene_set_betas_after_x_read_for_runtime(", io_source)
+        self.assertIn("def initialize_hyper_defaults_after_x_read_for_runtime(", io_source)
+        self.assertIn("def apply_post_read_gene_set_size_and_qc_filters_for_runtime(", io_source)
+        self.assertIn("_standardize_qc_metrics_after_x_read = eaggl_io.standardize_qc_metrics_after_x_read_for_runtime", support_source)
+        self.assertIn("_maybe_correct_gene_set_betas_after_x_read = eaggl_io.maybe_correct_gene_set_betas_after_x_read_for_runtime", support_source)
+        self.assertIn("_initialize_hyper_defaults_after_x_read = eaggl_io.initialize_hyper_defaults_after_x_read_for_runtime", support_source)
+        self.assertIn("_apply_post_read_gene_set_size_and_qc_filters = eaggl_io.apply_post_read_gene_set_size_and_qc_filters_for_runtime", support_source)
+        self.assertNotIn("def _standardize_qc_metrics_after_x_read(", state_source)
+        self.assertNotIn("def _maybe_correct_gene_set_betas_after_x_read(", state_source)
+        self.assertNotIn("def _initialize_hyper_defaults_after_x_read(", state_source)
+        self.assertNotIn("def _apply_post_read_gene_set_size_and_qc_filters(", state_source)
 
     def test_eaggl_y_inputs_and_covariates_own_dense_read_y_logic(self) -> None:
         y_source = (REPO_ROOT / "src" / "eaggl" / "y_inputs.py").read_text(encoding="utf-8")

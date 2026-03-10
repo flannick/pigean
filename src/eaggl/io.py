@@ -19,10 +19,17 @@ from pegs_shared.xdata import (
 )
 from pegs_shared.ydata import sync_phewas_runtime_state
 from pegs_utils import (
+    apply_post_read_gene_set_size_and_qc_filters,
+    initialize_hyper_defaults_after_x_read,
     load_and_apply_gene_phewas_bfs_to_runtime,
     load_and_apply_gene_set_phewas_statistics_to_runtime,
     load_and_apply_gene_set_statistics_to_runtime,
+    maybe_adjust_overaggressive_p_filter_after_x_read,
+    maybe_correct_gene_set_betas_after_x_read,
+    maybe_limit_initial_gene_sets_by_p,
+    maybe_prune_gene_sets_after_x_read,
     record_read_x_counts,
+    standardize_qc_metrics_after_x_read,
 )
 from . import y_inputs as eaggl_y_inputs
 
@@ -157,14 +164,14 @@ def read_x_pipeline(domain, runtime, read_x_pipeline_config):
         ignored_for_fraction_inc=ingestion_state["ignored_for_fraction_inc"],
     )
     post_callbacks = XReadPostCallbacks(
-        standardize_qc_metrics_after_x_read_fn=domain._standardize_qc_metrics_after_x_read,
-        maybe_correct_gene_set_betas_after_x_read_fn=domain._maybe_correct_gene_set_betas_after_x_read,
-        maybe_limit_initial_gene_sets_by_p_fn=domain._maybe_limit_initial_gene_sets_by_p,
-        maybe_prune_gene_sets_after_x_read_fn=domain._maybe_prune_gene_sets_after_x_read,
-        initialize_hyper_defaults_after_x_read_fn=domain._initialize_hyper_defaults_after_x_read,
+        standardize_qc_metrics_after_x_read_fn=standardize_qc_metrics_after_x_read_for_runtime,
+        maybe_correct_gene_set_betas_after_x_read_fn=maybe_correct_gene_set_betas_after_x_read_for_runtime,
+        maybe_limit_initial_gene_sets_by_p_fn=maybe_limit_initial_gene_sets_by_p_for_runtime,
+        maybe_prune_gene_sets_after_x_read_fn=maybe_prune_gene_sets_after_x_read_for_runtime,
+        initialize_hyper_defaults_after_x_read_fn=initialize_hyper_defaults_after_x_read_for_runtime,
         maybe_learn_batch_hyper_after_x_read_fn=domain._maybe_learn_batch_hyper_after_x_read,
-        maybe_adjust_overaggressive_p_filter_after_x_read_fn=domain._maybe_adjust_overaggressive_p_filter_after_x_read,
-        apply_post_read_gene_set_size_and_qc_filters_fn=domain._apply_post_read_gene_set_size_and_qc_filters,
+        maybe_adjust_overaggressive_p_filter_after_x_read_fn=maybe_adjust_overaggressive_p_filter_after_x_read_for_runtime,
+        apply_post_read_gene_set_size_and_qc_filters_fn=apply_post_read_gene_set_size_and_qc_filters_for_runtime,
         maybe_filter_zero_uncorrected_betas_after_x_read_fn=domain._maybe_filter_zero_uncorrected_betas_after_x_read,
         maybe_reduce_gene_sets_to_max_after_x_read_fn=domain._maybe_reduce_gene_sets_to_max_after_x_read,
         record_read_x_counts_fn=record_read_x_counts,
@@ -175,6 +182,107 @@ def read_x_pipeline(domain, runtime, read_x_pipeline_config):
         post_callbacks=post_callbacks,
         log_fn=domain.log,
         debug_level=domain.DEBUG,
+    )
+
+
+def standardize_qc_metrics_after_x_read_for_runtime(runtime_state):
+    standardize_qc_metrics_after_x_read(runtime_state)
+
+
+def maybe_correct_gene_set_betas_after_x_read_for_runtime(
+    runtime_state,
+    filter_gene_set_p,
+    correct_betas_mean,
+    correct_betas_var,
+    filter_using_phewas,
+):
+    maybe_correct_gene_set_betas_after_x_read(
+        runtime_state,
+        filter_gene_set_p=filter_gene_set_p,
+        correct_betas_mean=correct_betas_mean,
+        correct_betas_var=correct_betas_var,
+        filter_using_phewas=filter_using_phewas,
+        log_fn=lambda message: None,
+    )
+
+
+def maybe_limit_initial_gene_sets_by_p_for_runtime(runtime_state, max_num_gene_sets_initial):
+    maybe_limit_initial_gene_sets_by_p(
+        runtime_state,
+        max_num_gene_sets_initial=max_num_gene_sets_initial,
+        log_fn=lambda message: None,
+    )
+
+
+def maybe_prune_gene_sets_after_x_read_for_runtime(
+    runtime_state,
+    skip_betas,
+    prune_gene_sets,
+    prune_deterministically,
+    weighted_prune_gene_sets,
+):
+    maybe_prune_gene_sets_after_x_read(
+        runtime_state,
+        skip_betas=skip_betas,
+        prune_gene_sets=prune_gene_sets,
+        prune_deterministically=prune_deterministically,
+        weighted_prune_gene_sets=weighted_prune_gene_sets,
+    )
+
+
+def initialize_hyper_defaults_after_x_read_for_runtime(
+    runtime_state,
+    initial_p,
+    update_hyper_p,
+    sigma_power,
+    initial_sigma2_cond,
+    update_hyper_sigma,
+    initial_sigma2,
+    sigma_soft_threshold_95,
+    sigma_soft_threshold_5,
+):
+    return initialize_hyper_defaults_after_x_read(
+        runtime_state,
+        initial_p=initial_p,
+        update_hyper_p=update_hyper_p,
+        sigma_power=sigma_power,
+        initial_sigma2_cond=initial_sigma2_cond,
+        update_hyper_sigma=update_hyper_sigma,
+        initial_sigma2=initial_sigma2,
+        sigma_soft_threshold_95=sigma_soft_threshold_95,
+        sigma_soft_threshold_5=sigma_soft_threshold_5,
+        warn_fn=lambda message: None,
+        log_fn=lambda message: None,
+    )
+
+
+def maybe_adjust_overaggressive_p_filter_after_x_read_for_runtime(
+    runtime_state,
+    filter_gene_set_p,
+    increase_filter_gene_set_p,
+    filter_using_phewas,
+):
+    maybe_adjust_overaggressive_p_filter_after_x_read(
+        runtime_state,
+        filter_gene_set_p=filter_gene_set_p,
+        increase_filter_gene_set_p=increase_filter_gene_set_p,
+        filter_using_phewas=filter_using_phewas,
+        log_fn=lambda message: None,
+    )
+
+
+def apply_post_read_gene_set_size_and_qc_filters_for_runtime(
+    runtime_state,
+    min_gene_set_size,
+    max_gene_set_size,
+    filter_gene_set_metric_z,
+):
+    apply_post_read_gene_set_size_and_qc_filters(
+        runtime_state,
+        min_gene_set_size=min_gene_set_size,
+        max_gene_set_size=max_gene_set_size,
+        filter_gene_set_metric_z=filter_gene_set_metric_z,
+        log_fn=lambda message: None,
     )
 
 

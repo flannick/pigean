@@ -5126,77 +5126,6 @@ def _process_x_input_file(
     return (num_too_small, ignored_for_fraction_inc, True)
 
 
-def _standardize_qc_metrics_after_x_read(runtime_state):
-    pegs_standardize_qc_metrics_after_x_read(runtime_state)
-
-
-def _maybe_correct_gene_set_betas_after_x_read(
-    runtime_state,
-    filter_gene_set_p,
-    correct_betas_mean,
-    correct_betas_var,
-    filter_using_phewas,
-):
-    pegs_maybe_correct_gene_set_betas_after_x_read(
-        runtime_state,
-        filter_gene_set_p=filter_gene_set_p,
-        correct_betas_mean=correct_betas_mean,
-        correct_betas_var=correct_betas_var,
-        filter_using_phewas=filter_using_phewas,
-        log_fn=lambda message: log(message),
-    )
-
-
-def _maybe_limit_initial_gene_sets_by_p(runtime_state, max_num_gene_sets_initial):
-    pegs_maybe_limit_initial_gene_sets_by_p(
-        runtime_state,
-        max_num_gene_sets_initial=max_num_gene_sets_initial,
-        log_fn=lambda message: log(message),
-    )
-
-
-def _maybe_prune_gene_sets_after_x_read(
-    runtime_state,
-    skip_betas,
-    prune_gene_sets,
-    prune_deterministically,
-    weighted_prune_gene_sets,
-):
-    pegs_maybe_prune_gene_sets_after_x_read(
-        runtime_state,
-        skip_betas=skip_betas,
-        prune_gene_sets=prune_gene_sets,
-        prune_deterministically=prune_deterministically,
-        weighted_prune_gene_sets=weighted_prune_gene_sets,
-    )
-
-
-def _initialize_hyper_defaults_after_x_read(
-    runtime_state,
-    initial_p,
-    update_hyper_p,
-    sigma_power,
-    initial_sigma2_cond,
-    update_hyper_sigma,
-    initial_sigma2,
-    sigma_soft_threshold_95,
-    sigma_soft_threshold_5,
-):
-    return pegs_initialize_hyper_defaults_after_x_read(
-        runtime_state,
-        initial_p=initial_p,
-        update_hyper_p=update_hyper_p,
-        sigma_power=sigma_power,
-        initial_sigma2_cond=initial_sigma2_cond,
-        update_hyper_sigma=update_hyper_sigma,
-        initial_sigma2=initial_sigma2,
-        sigma_soft_threshold_95=sigma_soft_threshold_95,
-        sigma_soft_threshold_5=sigma_soft_threshold_5,
-        warn_fn=lambda message: warn(message),
-        log_fn=lambda message: log(message),
-    )
-
-
 def _learn_hyper_for_gene_set_batch(
     runtime_state,
     gene_sets_for_hyper_mask,
@@ -5448,36 +5377,6 @@ def _maybe_learn_batch_hyper_after_x_read(
         )
 
     _finalize_batch_hyper_vectors(runtime_state=runtime_state, first_for_hyper=first_for_hyper)
-
-
-def _maybe_adjust_overaggressive_p_filter_after_x_read(
-    runtime_state,
-    filter_gene_set_p,
-    increase_filter_gene_set_p,
-    filter_using_phewas,
-):
-    pegs_maybe_adjust_overaggressive_p_filter_after_x_read(
-        runtime_state,
-        filter_gene_set_p=filter_gene_set_p,
-        increase_filter_gene_set_p=increase_filter_gene_set_p,
-        filter_using_phewas=filter_using_phewas,
-        log_fn=lambda message: log(message),
-    )
-
-
-def _apply_post_read_gene_set_size_and_qc_filters(
-    runtime_state,
-    min_gene_set_size,
-    max_gene_set_size,
-    filter_gene_set_metric_z,
-):
-    pegs_apply_post_read_gene_set_size_and_qc_filters(
-        runtime_state,
-        min_gene_set_size=min_gene_set_size,
-        max_gene_set_size=max_gene_set_size,
-        filter_gene_set_metric_z=filter_gene_set_metric_z,
-        log_fn=lambda message: log(message),
-    )
 
 
 def _maybe_filter_zero_uncorrected_betas_after_x_read(

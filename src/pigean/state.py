@@ -176,6 +176,118 @@ _open_optional_inner_betas_trace_file = functools.partial(
 )
 
 
+@functools.lru_cache(maxsize=1)
+def _pigean_huge_module():
+    from pigean import huge as pigean_huge
+
+    pigean_huge.configure_numpy(np)
+    return pigean_huge
+
+
+def _get_col(*args, **kwargs):
+    return _pigean_huge_module().get_col(*args, bail_fn=bail, **kwargs)
+
+
+def _determine_columns_from_file(*args, **kwargs):
+    return _pigean_huge_module().determine_columns_from_file(
+        *args,
+        open_gz_fn=open_gz,
+        log_fn=lambda message: log(message),
+        bail_fn=bail,
+        **kwargs,
+    )
+
+
+def _needs_gwas_column_detection(*args, **kwargs):
+    return _pigean_huge_module().needs_gwas_column_detection_explicit(
+        *args,
+        pegs_needs_gwas_column_detection=pegs_needs_gwas_column_detection,
+        **kwargs,
+    )
+
+
+def _autodetect_gwas_columns(*args, **kwargs):
+    return _pigean_huge_module().autodetect_gwas_columns_explicit(
+        *args,
+        pegs_autodetect_gwas_columns=pegs_autodetect_gwas_columns,
+        infer_columns_fn=_determine_columns_from_file,
+        log_fn=log,
+        bail_fn=bail,
+        **kwargs,
+    )
+
+
+def _load_huge_gene_and_exon_locations(*args, **kwargs):
+    return _pigean_huge_module().load_huge_gene_and_exon_locations_explicit(
+        *args,
+        np_module=np,
+        read_loc_file_with_gene_map_fn=pegs_read_loc_file_with_gene_map,
+        clean_chrom_fn=pegs_clean_chrom_name,
+        log_fn=log,
+        warn_fn=warn,
+        bail_fn=bail,
+        **kwargs,
+    )
+
+
+def _compute_huge_variant_thresholds(*args, **kwargs):
+    return _pigean_huge_module().compute_huge_variant_thresholds_explicit(
+        *args,
+        np_module=np,
+        scipy_module=scipy,
+        log_fn=log,
+        **kwargs,
+    )
+
+
+def _validate_and_normalize_huge_gwas_inputs(*args, **kwargs):
+    return _pigean_huge_module().validate_and_normalize_huge_gwas_inputs_explicit(
+        *args,
+        warn_fn=warn,
+        bail_fn=bail,
+        **kwargs,
+    )
+
+
+def _write_huge_statistics_bundle(*args, **kwargs):
+    return _pigean_huge_module().write_huge_statistics_bundle_explicit(
+        *args,
+        pegs_coerce_runtime_state_dict=pegs_coerce_runtime_state_dict,
+        pegs_get_huge_statistics_paths_for_prefix=pegs_get_huge_statistics_paths_for_prefix,
+        pegs_build_huge_statistics_matrix_row_genes=pegs_build_huge_statistics_matrix_row_genes,
+        pegs_build_huge_statistics_score_maps=pegs_build_huge_statistics_score_maps,
+        pegs_build_huge_statistics_meta=pegs_build_huge_statistics_meta,
+        pegs_write_huge_statistics_text_tables=pegs_write_huge_statistics_text_tables,
+        pegs_write_huge_statistics_runtime_vectors=pegs_write_huge_statistics_runtime_vectors,
+        pegs_write_huge_statistics_sparse_components=pegs_write_huge_statistics_sparse_components,
+        pegs_write_numeric_vector_file=pegs_write_numeric_vector_file,
+        open_gz_fn=open_gz,
+        json_safe_fn=lambda value: _json_safe(value),
+        bail_fn=bail,
+        **kwargs,
+    )
+
+
+def _read_huge_statistics_bundle(*args, **kwargs):
+    return _pigean_huge_module().read_huge_statistics_bundle_explicit(
+        *args,
+        np_module=np,
+        pegs_coerce_runtime_state_dict=pegs_coerce_runtime_state_dict,
+        pegs_get_huge_statistics_paths_for_prefix=pegs_get_huge_statistics_paths_for_prefix,
+        pegs_read_huge_statistics_text_tables=pegs_read_huge_statistics_text_tables,
+        pegs_resolve_huge_statistics_gene_vectors=pegs_resolve_huge_statistics_gene_vectors,
+        pegs_load_huge_statistics_sparse_and_vectors=pegs_load_huge_statistics_sparse_and_vectors,
+        pegs_apply_huge_statistics_meta_to_runtime=pegs_apply_huge_statistics_meta_to_runtime,
+        pegs_read_huge_statistics_covariates_if_present=pegs_read_huge_statistics_covariates_if_present,
+        pegs_combine_runtime_huge_scores=pegs_combine_runtime_huge_scores,
+        pegs_validate_huge_statistics_loaded_shapes=pegs_validate_huge_statistics_loaded_shapes,
+        pegs_read_numeric_vector_file=pegs_read_numeric_vector_file,
+        open_gz_fn=open_gz,
+        bail_fn=bail,
+        **kwargs,
+    )
+
+
 def _read_gene_phewas_bfs(
     state,
     gene_phewas_bfs_in,
@@ -1678,7 +1790,7 @@ class PigeanState(object):
             cur_ps = np.array(list(zip(*index_var_chrom_pos_ps[chrom]))[1])
 
             indep_window = 1e6
-            tree = _IntervalTree([(x - indep_window, x + indep_window) for x in cur_pos])
+            tree = _pigean_huge_module().IntervalTree([(x - indep_window, x + indep_window) for x in cur_pos])
             start_to_index = dict([(cur_pos[i] - indep_window, i) for i in range(len(cur_pos))])
             (ind_with_overlap_inds, overlapping_interval_starts, overlapping_interval_stops) = tree.find(cur_pos, cur_pos)
             assert(
@@ -8051,186 +8163,6 @@ def _maybe_reduce_gene_sets_to_max_after_x_read(
     if np.sum(~keep_mask) > 0:
         runtime_state.subset_gene_sets(keep_mask, keep_missing=False, ignore_missing=True, skip_V=True)
 
-
-def _get_col(col_name_or_index, header_cols, require_match=True):
-    return pegs_resolve_column_index(
-        col_name_or_index,
-        header_cols,
-        require_match=require_match,
-        bail_fn=bail,
-    )
-
-
-def _determine_columns_from_file(filename):
-    return pegs_infer_columns_from_table_file(
-        filename,
-        open_gz,
-        log_fn=lambda message: log(message),
-        bail_fn=bail,
-    )
-
-
-def _needs_gwas_column_detection(
-    gwas_pos_col,
-    gwas_chrom_col,
-    gwas_locus_col,
-    gwas_p_col,
-    gwas_beta_col,
-    gwas_se_col,
-    gwas_n_col,
-    gwas_n,
-):
-    try:
-        from pigean import huge as _pigean_huge
-    except ImportError:
-        import pigean_huge as _pigean_huge
-
-    return _pigean_huge.needs_gwas_column_detection(
-        sys.modules[__name__],
-        gwas_pos_col,
-        gwas_chrom_col,
-        gwas_locus_col,
-        gwas_p_col,
-        gwas_beta_col,
-        gwas_se_col,
-        gwas_n_col,
-        gwas_n,
-    )
-
-
-def _autodetect_gwas_columns(
-    gwas_in,
-    gwas_pos_col,
-    gwas_chrom_col,
-    gwas_locus_col,
-    gwas_p_col,
-    gwas_beta_col,
-    gwas_se_col,
-    gwas_freq_col,
-    gwas_n_col,
-    gwas_n,
-    debug_just_check_header=False,
-):
-    try:
-        from pigean import huge as _pigean_huge
-    except ImportError:
-        import pigean_huge as _pigean_huge
-
-    return _pigean_huge.autodetect_gwas_columns(
-        sys.modules[__name__],
-        gwas_in,
-        gwas_pos_col,
-        gwas_chrom_col,
-        gwas_locus_col,
-        gwas_p_col,
-        gwas_beta_col,
-        gwas_se_col,
-        gwas_freq_col,
-        gwas_n_col,
-        gwas_n,
-        debug_just_check_header=debug_just_check_header,
-    )
-
-
-class _IntervalTree(object):
-    def __new__(cls, *args, **kwargs):
-        try:
-            from pigean import huge as _pigean_huge
-        except ImportError:
-            import pigean_huge as _pigean_huge
-
-        _pigean_huge.configure_numpy(np)
-        return _pigean_huge.IntervalTree(*args, **kwargs)
-
-
-def _load_huge_gene_and_exon_locations(gene_loc_file, gene_label_map, hold_out_chrom=None, exons_loc_file=None):
-    try:
-        from pigean import huge as _pigean_huge
-    except ImportError:
-        import pigean_huge as _pigean_huge
-
-    _pigean_huge.configure_numpy(np)
-    return _pigean_huge.load_huge_gene_and_exon_locations(
-        sys.modules[__name__],
-        gene_loc_file,
-        gene_label_map,
-        hold_out_chrom=hold_out_chrom,
-        exons_loc_file=exons_loc_file,
-    )
-
-
-def _compute_huge_variant_thresholds(min_var_posterior, gwas_high_p_posterior, allelic_var_k, gwas_prior_odds):
-    try:
-        from pigean import huge as _pigean_huge
-    except ImportError:
-        import pigean_huge as _pigean_huge
-
-    return _pigean_huge.compute_huge_variant_thresholds(
-        sys.modules[__name__],
-        min_var_posterior,
-        gwas_high_p_posterior,
-        allelic_var_k,
-        gwas_prior_odds,
-    )
-
-
-def _validate_and_normalize_huge_gwas_inputs(
-    gwas_in,
-    gene_loc_file,
-    credible_sets_in=None,
-    credible_sets_chrom_col=None,
-    credible_sets_pos_col=None,
-    signal_window_size=250000,
-    signal_min_sep=100000,
-    signal_max_logp_ratio=None,
-):
-    try:
-        from pigean import huge as _pigean_huge
-    except ImportError:
-        import pigean_huge as _pigean_huge
-
-    return _pigean_huge.validate_and_normalize_huge_gwas_inputs(
-        sys.modules[__name__],
-        gwas_in,
-        gene_loc_file,
-        credible_sets_in=credible_sets_in,
-        credible_sets_chrom_col=credible_sets_chrom_col,
-        credible_sets_pos_col=credible_sets_pos_col,
-        signal_window_size=signal_window_size,
-        signal_min_sep=signal_min_sep,
-        signal_max_logp_ratio=signal_max_logp_ratio,
-    )
-
-
-def _write_huge_statistics_bundle(runtime_state, prefix, gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression):
-    try:
-        from pigean import huge as _pigean_huge
-    except ImportError:
-        import pigean_huge as _pigean_huge
-
-    return _pigean_huge.write_huge_statistics_bundle(
-        sys.modules[__name__],
-        runtime_state,
-        prefix,
-        gene_bf,
-        extra_genes,
-        extra_gene_bf,
-        gene_bf_for_regression,
-        extra_gene_bf_for_regression,
-    )
-
-
-def _read_huge_statistics_bundle(runtime_state, prefix):
-    try:
-        from pigean import huge as _pigean_huge
-    except ImportError:
-        import pigean_huge as _pigean_huge
-
-    return _pigean_huge.read_huge_statistics_bundle(
-        sys.modules[__name__],
-        runtime_state,
-        prefix,
-    )
 
 # ==========================================================================
 # Gibbs epoch aggregation helpers.

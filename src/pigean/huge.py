@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+import json
+import os
+from types import SimpleNamespace
+
+import scipy.sparse as sparse
+
+from pegs_shared.io_common import resolve_column_index
+from pegs_utils import infer_columns_from_table_file
+
+
 class IntervalTree(object):
     __slots__ = ('interval_starts', 'interval_stops', 'left', 'right', 'center')
 
@@ -127,6 +137,268 @@ def domain_np_append(a, b):
 
 def domain_np_newaxis():
     return _NUMPY_FNS["newaxis"]
+
+
+def get_col(col_name_or_index, header_cols, require_match=True, *, bail_fn):
+    return resolve_column_index(
+        col_name_or_index,
+        header_cols,
+        require_match=require_match,
+        bail_fn=bail_fn,
+    )
+
+
+def determine_columns_from_file(filename, *, open_gz_fn, log_fn, bail_fn):
+    return infer_columns_from_table_file(
+        filename,
+        open_gz_fn,
+        log_fn=log_fn,
+        bail_fn=bail_fn,
+    )
+
+
+def _build_support_domain(**kwargs):
+    return SimpleNamespace(**kwargs)
+
+
+def needs_gwas_column_detection_explicit(
+    *,
+    pegs_needs_gwas_column_detection,
+    gwas_pos_col,
+    gwas_chrom_col,
+    gwas_locus_col,
+    gwas_p_col,
+    gwas_beta_col,
+    gwas_se_col,
+    gwas_n_col,
+    gwas_n,
+):
+    domain = _build_support_domain(
+        pegs_needs_gwas_column_detection=pegs_needs_gwas_column_detection,
+    )
+    return needs_gwas_column_detection(
+        domain,
+        gwas_pos_col,
+        gwas_chrom_col,
+        gwas_locus_col,
+        gwas_p_col,
+        gwas_beta_col,
+        gwas_se_col,
+        gwas_n_col,
+        gwas_n,
+    )
+
+
+def autodetect_gwas_columns_explicit(
+    *,
+    pegs_autodetect_gwas_columns,
+    gwas_in,
+    gwas_pos_col,
+    gwas_chrom_col,
+    gwas_locus_col,
+    gwas_p_col,
+    gwas_beta_col,
+    gwas_se_col,
+    gwas_freq_col,
+    gwas_n_col,
+    gwas_n,
+    debug_just_check_header=False,
+    infer_columns_fn,
+    log_fn,
+    bail_fn,
+):
+    domain = _build_support_domain(
+        pegs_autodetect_gwas_columns=pegs_autodetect_gwas_columns,
+        _determine_columns_from_file=infer_columns_fn,
+        log=log_fn,
+        bail=bail_fn,
+    )
+    return autodetect_gwas_columns(
+        domain,
+        gwas_in,
+        gwas_pos_col,
+        gwas_chrom_col,
+        gwas_locus_col,
+        gwas_p_col,
+        gwas_beta_col,
+        gwas_se_col,
+        gwas_freq_col,
+        gwas_n_col,
+        gwas_n,
+        debug_just_check_header=debug_just_check_header,
+    )
+
+
+def load_huge_gene_and_exon_locations_explicit(
+    *,
+    np_module,
+    gene_loc_file,
+    gene_label_map,
+    hold_out_chrom=None,
+    exons_loc_file=None,
+    read_loc_file_with_gene_map_fn,
+    clean_chrom_fn,
+    log_fn,
+    warn_fn,
+    bail_fn,
+):
+    configure_numpy(np_module)
+    domain = _build_support_domain(
+        pegs_read_loc_file_with_gene_map=read_loc_file_with_gene_map_fn,
+        pegs_clean_chrom_name=clean_chrom_fn,
+        log=log_fn,
+        warn=warn_fn,
+        bail=bail_fn,
+    )
+    return load_huge_gene_and_exon_locations(
+        domain,
+        gene_loc_file,
+        gene_label_map,
+        hold_out_chrom=hold_out_chrom,
+        exons_loc_file=exons_loc_file,
+    )
+
+
+def compute_huge_variant_thresholds_explicit(
+    min_var_posterior,
+    gwas_high_p_posterior,
+    allelic_var_k,
+    gwas_prior_odds,
+    *,
+    np_module,
+    scipy_module,
+    log_fn,
+):
+    domain = _build_support_domain(
+        np=np_module,
+        scipy=scipy_module,
+        log=log_fn,
+    )
+    return compute_huge_variant_thresholds(
+        domain,
+        min_var_posterior,
+        gwas_high_p_posterior,
+        allelic_var_k,
+        gwas_prior_odds,
+    )
+
+
+def validate_and_normalize_huge_gwas_inputs_explicit(
+    gwas_in,
+    gene_loc_file,
+    credible_sets_in=None,
+    credible_sets_chrom_col=None,
+    credible_sets_pos_col=None,
+    signal_window_size=250000,
+    signal_min_sep=100000,
+    signal_max_logp_ratio=None,
+    *,
+    warn_fn,
+    bail_fn,
+):
+    domain = _build_support_domain(
+        warn=warn_fn,
+        bail=bail_fn,
+    )
+    return validate_and_normalize_huge_gwas_inputs(
+        domain,
+        gwas_in,
+        gene_loc_file,
+        credible_sets_in=credible_sets_in,
+        credible_sets_chrom_col=credible_sets_chrom_col,
+        credible_sets_pos_col=credible_sets_pos_col,
+        signal_window_size=signal_window_size,
+        signal_min_sep=signal_min_sep,
+        signal_max_logp_ratio=signal_max_logp_ratio,
+    )
+
+
+def write_huge_statistics_bundle_explicit(
+    runtime_state,
+    prefix,
+    gene_bf,
+    extra_genes,
+    extra_gene_bf,
+    gene_bf_for_regression,
+    extra_gene_bf_for_regression,
+    *,
+    pegs_coerce_runtime_state_dict,
+    pegs_get_huge_statistics_paths_for_prefix,
+    pegs_build_huge_statistics_matrix_row_genes,
+    pegs_build_huge_statistics_score_maps,
+    pegs_build_huge_statistics_meta,
+    pegs_write_huge_statistics_text_tables,
+    pegs_write_huge_statistics_runtime_vectors,
+    pegs_write_huge_statistics_sparse_components,
+    pegs_write_numeric_vector_file,
+    open_gz_fn,
+    json_safe_fn,
+    bail_fn,
+):
+    domain = _build_support_domain(
+        pegs_coerce_runtime_state_dict=pegs_coerce_runtime_state_dict,
+        pegs_get_huge_statistics_paths_for_prefix=pegs_get_huge_statistics_paths_for_prefix,
+        pegs_build_huge_statistics_matrix_row_genes=pegs_build_huge_statistics_matrix_row_genes,
+        pegs_build_huge_statistics_score_maps=pegs_build_huge_statistics_score_maps,
+        pegs_build_huge_statistics_meta=pegs_build_huge_statistics_meta,
+        pegs_write_huge_statistics_text_tables=pegs_write_huge_statistics_text_tables,
+        pegs_write_huge_statistics_runtime_vectors=pegs_write_huge_statistics_runtime_vectors,
+        pegs_write_huge_statistics_sparse_components=pegs_write_huge_statistics_sparse_components,
+        pegs_write_numeric_vector_file=pegs_write_numeric_vector_file,
+        open_gz=open_gz_fn,
+        _json_safe=json_safe_fn,
+        bail=bail_fn,
+        json=json,
+        sparse=sparse,
+    )
+    return write_huge_statistics_bundle(
+        domain,
+        runtime_state,
+        prefix,
+        gene_bf,
+        extra_genes,
+        extra_gene_bf,
+        gene_bf_for_regression,
+        extra_gene_bf_for_regression,
+    )
+
+
+def read_huge_statistics_bundle_explicit(
+    runtime_state,
+    prefix,
+    *,
+    np_module,
+    pegs_coerce_runtime_state_dict,
+    pegs_get_huge_statistics_paths_for_prefix,
+    pegs_read_huge_statistics_text_tables,
+    pegs_resolve_huge_statistics_gene_vectors,
+    pegs_load_huge_statistics_sparse_and_vectors,
+    pegs_apply_huge_statistics_meta_to_runtime,
+    pegs_read_huge_statistics_covariates_if_present,
+    pegs_combine_runtime_huge_scores,
+    pegs_validate_huge_statistics_loaded_shapes,
+    pegs_read_numeric_vector_file,
+    open_gz_fn,
+    bail_fn,
+):
+    domain = _build_support_domain(
+        np=np_module,
+        pegs_coerce_runtime_state_dict=pegs_coerce_runtime_state_dict,
+        pegs_get_huge_statistics_paths_for_prefix=pegs_get_huge_statistics_paths_for_prefix,
+        pegs_read_huge_statistics_text_tables=pegs_read_huge_statistics_text_tables,
+        pegs_resolve_huge_statistics_gene_vectors=pegs_resolve_huge_statistics_gene_vectors,
+        pegs_load_huge_statistics_sparse_and_vectors=pegs_load_huge_statistics_sparse_and_vectors,
+        pegs_apply_huge_statistics_meta_to_runtime=pegs_apply_huge_statistics_meta_to_runtime,
+        pegs_read_huge_statistics_covariates_if_present=pegs_read_huge_statistics_covariates_if_present,
+        pegs_combine_runtime_huge_scores=pegs_combine_runtime_huge_scores,
+        pegs_validate_huge_statistics_loaded_shapes=pegs_validate_huge_statistics_loaded_shapes,
+        pegs_read_numeric_vector_file=pegs_read_numeric_vector_file,
+        open_gz=open_gz_fn,
+        bail=bail_fn,
+        json=json,
+        os=os,
+    )
+    return read_huge_statistics_bundle(domain, runtime_state, prefix)
 
 
 def needs_gwas_column_detection(domain, *args):
