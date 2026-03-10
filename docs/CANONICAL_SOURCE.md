@@ -26,17 +26,18 @@ Current state:
 - package modules under `src/eaggl/` own the CLI and stage-level orchestration/edit path
 - `src/eaggl/app.py` is the package-owned entry module for the normal EAGGL runtime path
 - `src/pigean_legacy_main.py` has been retired
+- `src/eaggl/legacy_main.py` has been retired
 - flat `src/pigean_*.py` modules are compatibility shims around package-owned code
 - canonical in-repo EAGGL sources live under `src/eaggl/`
 - canonical docs are being organized under `docs/pigean/` and `docs/eaggl/`
 - canonical tests are being organized under `tests/pigean/` and `tests/eaggl/`
 - optional stitched single-file artifacts are generated on demand from modular source and are not checked in
 
-Legacy-core naming policy:
+Legacy-core retirement policy:
 - `src/pigean_legacy_main.py` has been retired
-- `src/eaggl/legacy_main.py` remains intentionally named as a transitional inner core for now
-- it is still a live runtime file, not a dead historical copy
-- new logic should land in package modules first; changes in `src/eaggl/legacy_main.py` should normally accompany extraction or shrinkage work
+- `src/eaggl/legacy_main.py` has been retired
+- `src/pigean/main_support.py` and `src/eaggl/main_support.py` are package-owned support layers, not flat legacy runtimes
+- new logic should land in package modules first; support-layer changes should stay narrow and should not reintroduce flat catch-all runtime files
 
 For a concise developer map from `docs/methods.tex` to the owning package modules, see:
 - `docs/pigean/METHODS_TO_CODE.md`

@@ -15,8 +15,8 @@ from . import y_inputs as eaggl_y_inputs
 
 
 class EagglMainDomain(object):
-    def __init__(self, legacy_module):
-        self._legacy = legacy_module
+    def __init__(self, support_module):
+        self._support = support_module
         self.EagglState = eaggl_state.EagglState
         self.FactorOnlyStageResult = eaggl_factor.FactorOnlyStageResult
         self.PhewasStageResult = eaggl_factor.PhewasStageResult
@@ -31,7 +31,7 @@ class EagglMainDomain(object):
         self.pegs_derive_factor_anchor_masks = pegs_derive_factor_anchor_masks
 
     def __getattr__(self, name):
-        return getattr(self._legacy, name)
+        return getattr(self._support, name)
 
     def _build_main_mode_state(self):
         return eaggl_factor.build_main_mode_state(self)
@@ -94,5 +94,5 @@ class EagglMainDomain(object):
         return eaggl_factor.should_run_main_factor_phewas_stage(mode_state)
 
 
-def build_main_domain(legacy_module):
-    return EagglMainDomain(legacy_module)
+def build_main_domain(support_module):
+    return EagglMainDomain(support_module)

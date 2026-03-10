@@ -12,7 +12,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 sys.argv = ["eaggl.py", "factor"]
-import eaggl.legacy_main as eaggl  # noqa: E402
+import eaggl.main_support as eaggl  # noqa: E402
 
 
 def _options(**overrides):

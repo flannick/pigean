@@ -82,6 +82,6 @@ For developer-facing methods-to-code ownership:
 
 Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `python -m pigean`.
 
-For current architecture, `src/pigean/app.py` and `src/eaggl/app.py` are the package-owned entry paths and the package modules under `src/pigean/` and `src/eaggl/` are the primary edit locations for CLI and stage-level flow. `src/pigean_legacy_main.py` has been retired; the remaining active transitional inner core is `src/eaggl/legacy_main.py`, and new logic should go there only when the same change is extracting or shrinking existing ownership.
+For current architecture, `src/pigean/app.py` and `src/eaggl/app.py` are the package-owned entry paths and the package modules under `src/pigean/` and `src/eaggl/` are the primary edit locations for CLI, stage-level flow, and runtime state. Both flat legacy runtime files have been retired; the remaining package-owned support surfaces are `src/pigean/main_support.py` and `src/eaggl/main_support.py`.
 
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.

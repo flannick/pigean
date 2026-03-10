@@ -12,32 +12,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PIGEAN_LEGACY = REPO_ROOT / "src" / "pigean_legacy_main.py"
 EAGGL_LEGACY = REPO_ROOT / "src" / "eaggl" / "legacy_main.py"
 
-MAX_EAGGL_LEGACY_LINES = 434
-
 ALLOWED_PIGEAN_LEGACY_IMPORTERS = set()
 ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS = set()
-ALLOWED_EAGGL_LEGACY_DYNAMIC_IMPORTERS = {
-    "src/eaggl/main_support.py",
-}
-
-ALLOWED_EAGGL_LEGACY_IMPORTERS = {
-    "tests/eaggl/test_factor_stage_unittest.py",
-    "tests/eaggl/test_phewas_stage_reuse_unittest.py",
-}
+ALLOWED_EAGGL_LEGACY_DYNAMIC_IMPORTERS = set()
+ALLOWED_EAGGL_LEGACY_IMPORTERS = set()
 
 
 class LegacyRetirementGuardrailsTest(unittest.TestCase):
     def test_legacy_file_line_counts_do_not_grow(self) -> None:
         self.assertFalse(PIGEAN_LEGACY.exists(), msg="src/pigean_legacy_main.py should be deleted")
-        eaggl_lines = len(EAGGL_LEGACY.read_text(encoding="utf-8").splitlines())
-        self.assertLessEqual(
-            eaggl_lines,
-            MAX_EAGGL_LEGACY_LINES,
-            msg="src/eaggl/legacy_main.py grew from baseline %d to %d lines" % (
-                MAX_EAGGL_LEGACY_LINES,
-                eaggl_lines,
-            ),
-        )
+        self.assertFalse(EAGGL_LEGACY.exists(), msg="src/eaggl/legacy_main.py should be deleted")
 
     def test_only_allowed_python_files_import_legacy_runtime_modules(self) -> None:
         self.assertEqual(
@@ -80,7 +64,7 @@ class LegacyRetirementGuardrailsTest(unittest.TestCase):
         counts = report["module_object_dispatch_counts"]
         self.assertEqual(counts["dispatch.run_main_pipeline(_legacy_main"], 0)
         self.assertEqual(counts["dispatch.run_main_pipeline(sys.modules[__name__]"], 0)
-        self.assertLessEqual(counts["_eaggl_dispatch.run_main_pipeline(_build_main_domain()"], 1)
+        self.assertEqual(counts["_eaggl_dispatch.run_main_pipeline(_build_main_domain()"], 0)
 
     def test_legacy_symbol_report_script_runs(self) -> None:
         report = self._run_legacy_symbol_report()
@@ -94,6 +78,7 @@ class LegacyRetirementGuardrailsTest(unittest.TestCase):
         self.assertIsInstance(report["pigean_legacy_top_level_defs"], list)
         self.assertIsInstance(report["eaggl_legacy_top_level_defs"], list)
         self.assertIsNone(report["line_counts"]["src/pigean_legacy_main.py"])
+        self.assertIsNone(report["line_counts"]["src/eaggl/legacy_main.py"])
         self.assertEqual(
             report["legacy_import_sites"]["pigean_legacy_main"],
             sorted(ALLOWED_PIGEAN_LEGACY_IMPORTERS),

@@ -111,7 +111,7 @@ def build_report() -> dict[str, object]:
         "repo_root": str(REPO_ROOT),
         "line_counts": {
             "src/pigean_legacy_main.py": len(_read_text(PIGEAN_LEGACY_PATH).splitlines()) if PIGEAN_LEGACY_PATH.exists() else None,
-            "src/eaggl/legacy_main.py": len(_read_text(EAGGL_LEGACY_PATH).splitlines()),
+            "src/eaggl/legacy_main.py": len(_read_text(EAGGL_LEGACY_PATH).splitlines()) if EAGGL_LEGACY_PATH.exists() else None,
         },
         "legacy_import_sites": {
             "pigean_legacy_main": _collect_import_sites("pigean_legacy_main"),

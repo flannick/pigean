@@ -33,8 +33,6 @@ import pegs_shared.xdata as pegs_xdata
 import pegs_shared.ydata as pegs_ydata
 import pegs_utils as pegs_utils_mod
 
-from pigean import x_inputs_core as pigean_x_inputs_core
-
 DataValidationError = pegs_cli_errors.DataValidationError
 PegsCliError = pegs_cli_errors.PegsCliError
 pegs_handle_cli_exception = pegs_cli_errors.handle_cli_exception
@@ -201,7 +199,7 @@ def bind_runtime_namespace(runtime_module=None):
     if runtime_module is None:
         from . import main_support as eaggl_main_support
 
-        runtime_module = eaggl_main_support.load_legacy_core()
+        runtime_module = eaggl_main_support
     for name, value in vars(runtime_module).items():
         if name.startswith('__') or name == 'EagglState' or name == 'GeneSetData':
             continue
@@ -211,19 +209,50 @@ def bind_runtime_namespace(runtime_module=None):
 
 
 def _init_sparse_x_batch_state(runtime_state):
-    return pigean_x_inputs_core.init_sparse_x_batch_state(runtime_state)
+    genes = []
+    gene_to_ind = None
+    if runtime_state.genes is not None:
+        genes = copy.copy(runtime_state.genes)
+        if runtime_state.genes_missing is not None:
+            genes += runtime_state.genes_missing
+        gene_to_ind = pegs_construct_map_to_ind(genes)
+
+    return (
+        genes,
+        gene_to_ind,
+        {},
+        [],
+        [],
+        [],
+        [],
+        0,
+        0,
+    )
 
 
 def _filter_dense_chunk_gene_set_indices(gene_sets, chunk_indices, only_ids, x_sparsify):
-    return pigean_x_inputs_core.filter_dense_chunk_gene_set_indices(
-        gene_sets,
-        chunk_indices,
-        only_ids,
-        x_sparsify,
-        ext_tag=EXT_TAG,
-        top_tag=TOP_TAG,
-        bot_tag=BOT_TAG,
-    )
+    if only_ids is None:
+        return chunk_indices
+
+    keep_mask = np.full(len(chunk_indices), False)
+    for k in range(len(keep_mask)):
+        gs = gene_sets[chunk_indices[k]]
+        if gs in only_ids:
+            keep_mask[k] = True
+        elif x_sparsify is not None:
+            for top_number in x_sparsify:
+                matched = False
+                for sparse_tag in [EXT_TAG, TOP_TAG, BOT_TAG]:
+                    if "%s_%s%d" % (gs, sparse_tag, top_number) in only_ids:
+                        keep_mask[k] = True
+                        matched = True
+                        break
+                if matched:
+                    break
+
+    if np.any(keep_mask):
+        return [chunk_indices[i] for i in range(len(keep_mask)) if keep_mask[i]]
+    return []
 
 
 def _bind_hyperparameter_properties(state_cls):
