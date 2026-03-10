@@ -19,6 +19,7 @@ _PUBLIC_SUBMODULES = frozenset(
         "outputs",
         "phewas",
         "regression",
+        "state",
         "workflows",
         "y_inputs",
     ]
@@ -26,7 +27,7 @@ _PUBLIC_SUBMODULES = frozenset(
 
 _COMPAT_EXPORTS = {
     "main": ("app", "main"),
-    "GeneSetData": ("legacy_main", "GeneSetData"),
+    "GeneSetData": ("state", "GeneSetData"),
 }
 
 

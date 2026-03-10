@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 
 from . import domain as eaggl_domain
+from . import state as eaggl_state
 
 
 _LEGACY_CORE = None
@@ -16,4 +17,6 @@ def load_legacy_core():
 
 
 def build_main_domain():
-    return eaggl_domain.build_main_domain(load_legacy_core())
+    legacy_core = load_legacy_core()
+    eaggl_state.bind_runtime_namespace(legacy_core)
+    return eaggl_domain.build_main_domain(legacy_core)

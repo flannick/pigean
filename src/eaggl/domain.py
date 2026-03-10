@@ -6,6 +6,7 @@ from pegs_shared.phewas import (
     resolve_gene_phewas_input_decision_for_stage,
 )
 
+from . import state as eaggl_state
 from . import factor as eaggl_factor
 from . import io as eaggl_io
 from . import outputs as eaggl_outputs
@@ -16,7 +17,7 @@ from . import y_inputs as eaggl_y_inputs
 class EagglMainDomain(object):
     def __init__(self, legacy_module):
         self._legacy = legacy_module
-        self.EagglState = legacy_module.EagglState
+        self.EagglState = eaggl_state.EagglState
         self.FactorOnlyStageResult = eaggl_factor.FactorOnlyStageResult
         self.PhewasStageResult = eaggl_factor.PhewasStageResult
         self.FactorStageResult = eaggl_factor.FactorStageResult
