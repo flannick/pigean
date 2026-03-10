@@ -82,7 +82,7 @@ For developer-facing methods-to-code ownership:
 
 Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `python -m pigean`.
 
-For current architecture, the package modules under `src/pigean/` are the primary edit locations for the CLI and stage-level flow. The main remaining flat-file exception is the deeper legacy core in `src/pigean_legacy_main.py`.
+For current architecture, `src/pigean/app.py` is the package-owned entry path and the package modules under `src/pigean/` are the primary edit locations for the CLI and stage-level flow. The main remaining flat-file exception is the deeper legacy core in `src/pigean_legacy_main.py`.
 That name is still transitional but intentional: it remains a live inner core, and new logic should go there only when the same change is extracting or shrinking existing ownership.
 
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.

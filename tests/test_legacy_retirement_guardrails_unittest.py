@@ -20,7 +20,7 @@ ALLOWED_PIGEAN_LEGACY_IMPORTERS = {
     "tests/test_phewas_stage_reuse_unittest.py",
 }
 ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS = {
-    "src/pigean/legacy_main.py",
+    "src/pigean/app.py",
 }
 
 ALLOWED_EAGGL_LEGACY_IMPORTERS = {

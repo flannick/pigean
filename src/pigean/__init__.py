@@ -5,6 +5,7 @@ import importlib
 
 _PUBLIC_SUBMODULES = frozenset(
     [
+        "app",
         "cli",
         "dispatch",
         "gibbs",
@@ -23,8 +24,8 @@ _PUBLIC_SUBMODULES = frozenset(
 )
 
 _COMPAT_EXPORTS = {
-    "main": ("legacy_main", "main"),
-    "_build_prefilter_keep_mask": ("legacy_main", "_build_prefilter_keep_mask"),
+    "main": ("app", "main"),
+    "_build_prefilter_keep_mask": ("app", "_build_prefilter_keep_mask"),
 }
 
 

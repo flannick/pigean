@@ -21,7 +21,7 @@ COMMON_PACKAGES = (
 
 PIGEAN_PROFILE = {
     "output_name": "pigean_stitched.py",
-    "entry_module": "pigean.legacy_main",
+    "entry_module": "pigean.app",
     "entry_callable": "main",
     "modules": COMMON_MODULES
     + (
