@@ -156,14 +156,19 @@ try:
 except ImportError:
     import regression as _eaggl_regression
 
-_LEGACY_NAMESPACE_BOUND = False
-
 options = None
+args = []
+mode = None
+config_mode = None
+cli_specified_dests = set()
+config_specified_dests = set()
 NONE = 0
 INFO = 1
 DEBUG = 2
 TRACE = 3
 debug_level = 1
+log_fh = None
+warnings_fh = None
 
 
 def _noop_log(*_args, **_kwargs):
@@ -194,18 +199,39 @@ _HYPERPARAMETER_PROXY_FIELDS = (
 )
 
 
-def bind_runtime_namespace(runtime_module=None):
-    global _LEGACY_NAMESPACE_BOUND
-    if runtime_module is None:
-        from . import main_support as eaggl_main_support
+def configure_runtime_context(*, cli_module=None):
+    global options, args, mode, config_mode, cli_specified_dests, config_specified_dests
+    global NONE, INFO, DEBUG, TRACE, debug_level, log_fh, warnings_fh, log, warn
 
-        runtime_module = eaggl_main_support
-    for name, value in vars(runtime_module).items():
-        if name.startswith('__') or name == 'EagglState' or name == 'GeneSetData':
-            continue
-        globals()[name] = value
-    _LEGACY_NAMESPACE_BOUND = True
-    return runtime_module
+    if cli_module is None:
+        from . import cli as eaggl_cli
+
+        cli_module = eaggl_cli
+
+    options = cli_module.options
+    args = cli_module.args
+    mode = cli_module.mode
+    config_mode = cli_module.config_mode
+    cli_specified_dests = cli_module.cli_specified_dests
+    config_specified_dests = cli_module.config_specified_dests
+    NONE = cli_module.NONE
+    INFO = cli_module.INFO
+    DEBUG = cli_module.DEBUG
+    TRACE = cli_module.TRACE
+    debug_level = cli_module.debug_level
+    log_fh = cli_module.log_fh
+    warnings_fh = cli_module.warnings_fh
+    log = cli_module.log
+    warn = cli_module.warn
+
+
+def open_gz(file, flag=None):
+    return pegs_open_text_with_retry(
+        file,
+        flag=flag,
+        log_fn=lambda message: log(message, INFO),
+        bail_fn=bail,
+    )
 
 
 def _init_sparse_x_batch_state(runtime_state):

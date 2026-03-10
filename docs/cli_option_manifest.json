@@ -2466,7 +2466,7 @@
       "source_line": 398,
       "summary": "input gene-phewas BFS table for advanced phewas workflows",
       "type": null,
-      "usage_references": 22
+      "usage_references": 24
     },
     {
       "action": null,
@@ -2991,7 +2991,7 @@
       "source_line": 219,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 50
+      "usage_references": 51
     },
     {
       "action": null,

@@ -77,13 +77,13 @@ def _sync_cli_exports():
 def _bootstrap_cli(argv=None):
     should_continue = eaggl_cli._bootstrap_cli(argv)
     _sync_cli_exports()
-    eaggl_state.bind_runtime_namespace(sys.modules[__name__])
+    eaggl_state.configure_runtime_context(cli_module=eaggl_cli)
     return should_continue
 
 
 def build_main_domain():
     _sync_cli_exports()
-    eaggl_state.bind_runtime_namespace(sys.modules[__name__])
+    eaggl_state.configure_runtime_context(cli_module=eaggl_cli)
     return eaggl_domain.build_main_domain(sys.modules[__name__])
 
 
@@ -157,7 +157,7 @@ _bind_hyperparameter_properties(EagglState)
 
 
 def _build_main_domain():
-    eaggl_state.bind_runtime_namespace(sys.modules[__name__])
+    eaggl_state.configure_runtime_context(cli_module=eaggl_cli)
     return eaggl_domain.build_main_domain(sys.modules[__name__])
 
 

@@ -1,20 +1,125 @@
 from __future__ import annotations
 
+import copy
 import functools
+import gzip
+import itertools
+import json
+import os
+import random
+import re
+import sys
+import time
 from dataclasses import dataclass
+import numpy as np
+import scipy
+import scipy.sparse as sparse
+
+from pegs_cli_errors import DataValidationError
+
+import pegs_shared.bundle as pegs_bundle
+import pegs_shared.gene_io as pegs_gene_io
+import pegs_shared.huge_cache as pegs_huge_cache
+import pegs_shared.io_common as pegs_io_common
+import pegs_shared.phewas as pegs_phewas
+import pegs_shared.regression as pegs_regression
+import pegs_shared.runtime_matrix as pegs_runtime_matrix
+import pegs_shared.xdata as pegs_xdata
+import pegs_shared.ydata as pegs_ydata
+import pegs_utils as pegs_utils_mod
+
 from pigean import gibbs as pigean_gibbs
 from pigean import model as pigean_model
 from pigean import runtime as pigean_runtime
 from pigean import y_inputs as pigean_y_inputs
 from pigean import y_inputs_core as pigean_y_inputs_core
 
-
-_LEGACY_NAMESPACE_BOUND = False
+pegs_initialize_matrix_and_gene_index_state = pegs_xdata.initialize_matrix_and_gene_index_state
+pegs_sync_runtime_state_bundle = pegs_ydata.sync_runtime_state_bundle
+pegs_sync_phewas_runtime_state = pegs_ydata.sync_phewas_runtime_state
+pegs_apply_post_read_gene_set_size_and_qc_filters = pegs_utils_mod.apply_post_read_gene_set_size_and_qc_filters
+pegs_calc_X_shift_scale = pegs_runtime_matrix.calc_X_shift_scale
+pegs_calc_shift_scale_for_dense_block = pegs_runtime_matrix.calc_shift_scale_for_dense_block
+pegs_calculate_V_internal = pegs_runtime_matrix.calculate_V_internal
+pegs_clean_chrom_name = pegs_io_common.clean_chrom_name
+pegs_complete_p_beta_se = pegs_utils_mod.complete_p_beta_se
+pegs_coerce_runtime_state_dict = pegs_huge_cache.coerce_runtime_state_dict
+pegs_compute_banded_y_corr_cholesky = pegs_runtime_matrix.compute_banded_y_corr_cholesky
+pegs_compute_beta_tildes = pegs_regression.compute_beta_tildes
+pegs_compute_logistic_beta_tildes = pegs_regression.compute_logistic_beta_tildes
+pegs_compute_multivariate_beta_tildes = pegs_regression.compute_multivariate_beta_tildes
+pegs_construct_map_to_ind = pegs_utils_mod.construct_map_to_ind
+pegs_correct_beta_tildes = pegs_regression.correct_beta_tildes
+pegs_finalize_regression_outputs = pegs_regression.finalize_regression_outputs
+pegs_get_num_X_blocks = pegs_runtime_matrix.get_num_X_blocks
+pegs_apply_huge_statistics_meta_to_runtime = pegs_huge_cache.apply_huge_statistics_meta_to_runtime
+pegs_build_huge_statistics_matrix_row_genes = pegs_huge_cache.build_huge_statistics_matrix_row_genes
+pegs_build_huge_statistics_meta = pegs_huge_cache.build_huge_statistics_meta
+pegs_build_huge_statistics_score_maps = pegs_huge_cache.build_huge_statistics_score_maps
+pegs_combine_runtime_huge_scores = pegs_huge_cache.combine_runtime_huge_scores
+pegs_get_huge_statistics_paths_for_prefix = pegs_huge_cache.get_huge_statistics_paths_for_prefix
+pegs_infer_columns_from_table_file = pegs_utils_mod.infer_columns_from_table_file
+pegs_initialize_hyper_defaults_after_x_read = pegs_utils_mod.initialize_hyper_defaults_after_x_read
+pegs_is_huge_statistics_bundle_path = pegs_bundle.is_huge_statistics_bundle_path
+pegs_iterate_X_blocks_internal = pegs_runtime_matrix.iterate_X_blocks_internal
+pegs_load_aligned_gene_bfs = pegs_gene_io.load_aligned_gene_bfs
+pegs_load_aligned_gene_covariates = pegs_gene_io.load_aligned_gene_covariates
+pegs_load_huge_statistics_sparse_and_vectors = pegs_huge_cache.load_huge_statistics_sparse_and_vectors
+pegs_maybe_adjust_overaggressive_p_filter_after_x_read = pegs_utils_mod.maybe_adjust_overaggressive_p_filter_after_x_read
+pegs_maybe_correct_gene_set_betas_after_x_read = pegs_utils_mod.maybe_correct_gene_set_betas_after_x_read
+pegs_maybe_limit_initial_gene_sets_by_p = pegs_utils_mod.maybe_limit_initial_gene_sets_by_p
+pegs_maybe_prune_gene_sets_after_x_read = pegs_utils_mod.maybe_prune_gene_sets_after_x_read
+pegs_prepare_phewas_phenos_from_file = pegs_phewas.prepare_phewas_phenos_from_file
+pegs_read_huge_statistics_covariates_if_present = pegs_huge_cache.read_huge_statistics_covariates_if_present
+pegs_read_huge_statistics_text_tables = pegs_huge_cache.read_huge_statistics_text_tables
+pegs_parse_gene_map_file = pegs_io_common.parse_gene_map_file
+pegs_read_loc_file_with_gene_map = pegs_utils_mod.read_loc_file_with_gene_map
+pegs_read_numeric_vector_file = pegs_huge_cache.read_numeric_vector_file
+pegs_read_phewas_file_batch = pegs_phewas.read_phewas_file_batch
+pegs_read_prefixed_tar_bundle = pegs_bundle.read_prefixed_tar_bundle
+pegs_autodetect_gwas_columns = pegs_utils_mod.autodetect_gwas_columns
+pegs_needs_gwas_column_detection = pegs_utils_mod.needs_gwas_column_detection
+pegs_resolve_huge_statistics_gene_vectors = pegs_huge_cache.resolve_huge_statistics_gene_vectors
+pegs_resolve_column_index = pegs_utils_mod.resolve_column_index
+pegs_set_runtime_p = pegs_runtime_matrix.set_runtime_p
+pegs_set_runtime_sigma = pegs_runtime_matrix.set_runtime_sigma
+pegs_set_runtime_x_from_inputs = pegs_runtime_matrix.set_runtime_x_from_inputs
+pegs_set_runtime_y_from_inputs = pegs_utils_mod.set_runtime_y_from_inputs
+pegs_standardize_qc_metrics_after_x_read = pegs_utils_mod.standardize_qc_metrics_after_x_read
+pegs_validate_huge_statistics_loaded_shapes = pegs_huge_cache.validate_huge_statistics_loaded_shapes
+pegs_whiten_matrix_with_banded_cholesky = pegs_runtime_matrix.whiten_matrix_with_banded_cholesky
+pegs_write_gene_gene_set_statistics = pegs_utils_mod.write_gene_gene_set_statistics
+pegs_write_gene_set_statistics = pegs_utils_mod.write_gene_set_statistics
+pegs_write_gene_statistics = pegs_utils_mod.write_gene_statistics
+pegs_write_huge_statistics_runtime_vectors = pegs_huge_cache.write_huge_statistics_runtime_vectors
+pegs_write_huge_statistics_sparse_components = pegs_huge_cache.write_huge_statistics_sparse_components
+pegs_write_huge_statistics_text_tables = pegs_huge_cache.write_huge_statistics_text_tables
+pegs_write_numeric_vector_file = pegs_huge_cache.write_numeric_vector_file
+pegs_write_phewas_gene_set_statistics = pegs_utils_mod.write_phewas_gene_set_statistics
+pegs_write_phewas_statistics = pegs_utils_mod.write_phewas_statistics
+pegs_write_prefixed_tar_bundle = pegs_bundle.write_prefixed_tar_bundle
+pegs_accumulate_standard_phewas_outputs = pegs_phewas.accumulate_standard_phewas_outputs
+pegs_append_phewas_metric_block = pegs_phewas.append_phewas_metric_block
+_temporary_state_fields = pigean_runtime.temporary_state_fields
+_STATE_FIELDS_SAMPLER_HYPER = pigean_runtime.STATE_FIELDS_SAMPLER_HYPER
+_open_optional_inner_betas_trace_file = None
+_return_inner_betas_result = pigean_runtime.return_inner_betas_result
+_maybe_unsubset_gene_sets = pigean_runtime.maybe_unsubset_gene_sets
 
 NONE = 0
 INFO = 1
 DEBUG = 2
 TRACE = 3
+options = None
+args = []
+mode = None
+config_mode = None
+cli_specified_dests = set()
+config_specified_dests = set()
+debug_level = 1
+log_fh = None
+warnings_fh = None
+_json_safe = pegs_utils_mod.json_safe
 
 
 def log(*_args, **_kwargs):
@@ -26,22 +131,114 @@ def warn(*_args, **_kwargs):
 
 
 def bail(message):
-    raise ValueError(message)
+    raise DataValidationError(message)
 
 
-def bind_legacy_namespace(legacy_module=None):
-    global _LEGACY_NAMESPACE_BOUND
-    if legacy_module is None:
-        from . import main_support as pigean_main_support
+def configure_runtime_context(*, cli_module=None):
+    global options, args, mode, config_mode, cli_specified_dests, config_specified_dests
+    global NONE, INFO, DEBUG, TRACE, debug_level, log_fh, warnings_fh, log, warn, _json_safe
 
-        pigean_main_support._sync_cli_state()
-        legacy_module = pigean_main_support
-    for name, value in vars(legacy_module).items():
-        if name.startswith("__") or name == "PigeanState":
-            continue
-        globals()[name] = value
-    _LEGACY_NAMESPACE_BOUND = True
-    return legacy_module
+    if cli_module is None:
+        from . import cli as pigean_cli
+
+        cli_module = pigean_cli
+
+    options = cli_module.options
+    args = cli_module.args
+    mode = cli_module.mode
+    config_mode = cli_module.config_mode
+    cli_specified_dests = cli_module.cli_specified_dests
+    config_specified_dests = cli_module.config_specified_dests
+    NONE = cli_module.NONE
+    INFO = cli_module.INFO
+    DEBUG = cli_module.DEBUG
+    TRACE = cli_module.TRACE
+    debug_level = cli_module.debug_level
+    log_fh = cli_module.log_fh
+    warnings_fh = cli_module.warnings_fh
+    log = cli_module.log
+    warn = cli_module.warn
+    _json_safe = cli_module._json_safe
+
+
+def open_gz(file, flag=None):
+    return pegs_utils_mod.open_text_with_retry(
+        file,
+        flag=flag,
+        log_fn=lambda message: log(message, INFO),
+        bail_fn=bail,
+    )
+
+
+_open_optional_inner_betas_trace_file = functools.partial(
+    pigean_runtime.open_optional_inner_betas_trace_file,
+    open_gz=open_gz,
+)
+
+
+def _read_gene_phewas_bfs(
+    state,
+    gene_phewas_bfs_in,
+    gene_phewas_bfs_id_col=None,
+    gene_phewas_bfs_pheno_col=None,
+    anchor_genes=None,
+    anchor_phenos=None,
+    gene_phewas_bfs_log_bf_col=None,
+    gene_phewas_bfs_combined_col=None,
+    gene_phewas_bfs_prior_col=None,
+    phewas_gene_to_X_gene_in=None,
+    min_value=None,
+    max_num_entries_at_once=None,
+    **kwargs
+):
+    cached = dict(locals())
+    cached.pop("state", None)
+    cached.pop("kwargs", None)
+    state.cached_gene_phewas_call = cached
+
+    if gene_phewas_bfs_in is None:
+        bail("Require --gene-stats-in or --gene-phewas-bfs-in for this operation")
+
+    log("Reading --gene-phewas-bfs-in file %s" % gene_phewas_bfs_in, INFO)
+    if state.genes is None:
+        bail("Need to initialixe --X before reading gene_phewas")
+
+    phewas_gene_to_X_gene = None
+    if phewas_gene_to_X_gene_in is not None:
+        phewas_gene_to_X_gene = pegs_parse_gene_map_file(
+            phewas_gene_to_X_gene_in,
+            allow_multi=True,
+            bail_fn=bail,
+        )
+
+    pegs_utils_mod.load_and_apply_gene_phewas_bfs_to_runtime(
+        state,
+        gene_phewas_bfs_in,
+        gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+        gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+        anchor_genes=anchor_genes,
+        anchor_phenos=anchor_phenos,
+        gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+        gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+        gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+        phewas_gene_to_x_gene=phewas_gene_to_X_gene,
+        min_value=min_value,
+        max_num_entries_at_once=max_num_entries_at_once,
+        open_text_fn=open_gz,
+        get_col_fn=get_col,
+        construct_map_to_ind_fn=pegs_construct_map_to_ind,
+        warn_fn=warn,
+        bail_fn=bail,
+        log_fn=lambda message: log(message, DEBUG),
+    )
+    state.phewas_state = pegs_sync_phewas_runtime_state(state)
+
+
+def _reread_gene_phewas_bfs(state):
+    cached_call = getattr(state, "cached_gene_phewas_call", None)
+    if cached_call is None:
+        return
+    _read_gene_phewas_bfs(state, **cached_call)
 
 
 class PigeanState(object):

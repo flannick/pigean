@@ -249,7 +249,7 @@ def build_mode_state(mode, run_phewas_from_gene_phewas_stats_in):
 
 def build_runtime_state(options):
     _sync_cli_state()
-    pigean_state.bind_legacy_namespace(sys.modules[__name__])
+    pigean_state.configure_runtime_context(cli_module=pigean_cli)
     return pigean_runtime.build_runtime_state(pigean_state.PigeanState, options)
 
 

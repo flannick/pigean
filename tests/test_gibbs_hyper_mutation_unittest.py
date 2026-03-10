@@ -16,7 +16,7 @@ sys.argv = ["pigean.py", "gibbs"]
 from pigean import main_support as pigean_main_support  # noqa: E402
 from pigean import state as pigean  # noqa: E402
 
-pigean.bind_legacy_namespace(pigean_main_support)
+pigean.configure_runtime_context(cli_module=pigean_main_support.pigean_cli)
 
 
 class _StubState:
