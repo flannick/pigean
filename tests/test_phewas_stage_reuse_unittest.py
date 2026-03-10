@@ -12,7 +12,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 sys.argv = ["pigean.py", "beta_tildes"]
-import pigean_legacy_main as pigean  # noqa: E402
+from pigean import phewas as pigean_phewas  # noqa: E402
 
 
 class _StubState:
@@ -60,12 +60,8 @@ class PhewasStageReuseTest(unittest.TestCase):
         state = _StubState(loaded_gene_phewas=False, num_filtered=0)
         options = _make_options(run_input="gene_phewas.tsv", loaded_input=None)
         logs: list[str] = []
-        orig_log = pigean.log
-        try:
-            pigean.log = lambda message, *args, **kwargs: logs.append(message)
-            pigean._run_advanced_set_b_output_phewas_if_requested(state, options)
-        finally:
-            pigean.log = orig_log
+        services = SimpleNamespace(log=lambda message, *args, **kwargs: logs.append(message), INFO=1)
+        pigean_phewas.run_advanced_set_b_output_phewas_if_requested(services, state, options)
 
         self.assertEqual(len(state.run_phewas_calls), 1)
         self.assertEqual(state.run_phewas_calls[0]["gene_phewas_bfs_in"], "gene_phewas.tsv")
@@ -76,12 +72,8 @@ class PhewasStageReuseTest(unittest.TestCase):
         state = _StubState(loaded_gene_phewas=True, num_filtered=0)
         options = _make_options(run_input="gene_phewas.tsv", loaded_input="gene_phewas.tsv")
         logs: list[str] = []
-        orig_log = pigean.log
-        try:
-            pigean.log = lambda message, *args, **kwargs: logs.append(message)
-            pigean._run_advanced_set_b_output_phewas_if_requested(state, options)
-        finally:
-            pigean.log = orig_log
+        services = SimpleNamespace(log=lambda message, *args, **kwargs: logs.append(message), INFO=1)
+        pigean_phewas.run_advanced_set_b_output_phewas_if_requested(services, state, options)
 
         self.assertEqual(len(state.run_phewas_calls), 1)
         self.assertIsNone(state.run_phewas_calls[0]["gene_phewas_bfs_in"])

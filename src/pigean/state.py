@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import functools
-import importlib
 from dataclasses import dataclass
 from pigean import gibbs as pigean_gibbs
 from pigean import model as pigean_model
@@ -33,19 +32,16 @@ def bail(message):
 def bind_legacy_namespace(legacy_module=None):
     global _LEGACY_NAMESPACE_BOUND
     if legacy_module is None:
-        legacy_module = importlib.import_module("pigean_legacy_main")
+        from . import main_support as pigean_main_support
+
+        pigean_main_support._sync_cli_state()
+        legacy_module = pigean_main_support
     for name, value in vars(legacy_module).items():
         if name.startswith("__") or name == "PigeanState":
             continue
         globals()[name] = value
     _LEGACY_NAMESPACE_BOUND = True
     return legacy_module
-
-
-try:
-    bind_legacy_namespace(importlib.import_module("pigean_legacy_main"))
-except Exception:
-    pass
 
 
 class PigeanState(object):
@@ -7590,6 +7586,15 @@ def _apply_learned_batch_hyper_values(
 
 
 def _finalize_batch_hyper_vectors(runtime_state, first_for_hyper):
+    runtime_state.ps = np.array(
+        [np.nan if value is None else value for value in runtime_state.ps],
+        dtype=float,
+    )
+    runtime_state.sigma2s = np.array(
+        [np.nan if value is None else value for value in runtime_state.sigma2s],
+        dtype=float,
+    )
+
     assert(len(runtime_state.ps) > 0 and not np.isnan(runtime_state.ps[0]))
     assert(len(runtime_state.sigma2s) > 0 and not np.isnan(runtime_state.sigma2s[0]))
 
@@ -13858,3 +13863,6 @@ _read_Y_from_contract = functools.partial(
 )
 _run_read_y_stage = _read_Y
 _run_read_y_contract_stage = _read_Y_from_contract
+
+
+pigean_runtime.bind_hyperparameter_properties(PigeanState)

@@ -1285,7 +1285,9 @@ def initialize_hyper_defaults_after_x_read(
             if update_hyper_p:
                 warn_fn("Since --update-hyper-p was passed, using average --p-noninf (%.3g) as initial condition" % runtime.p)
             if runtime.Y is not None:
-                assert(runtime.ps is not None)
+                if runtime.ps is None:
+                    num_gene_sets = len(runtime.gene_sets) if runtime.gene_sets is not None else 0
+                    runtime.ps = np.full(num_gene_sets, runtime.p, dtype=float)
         else:
             runtime.set_p(initial_p)
     if runtime.sigma_power is None:

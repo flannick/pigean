@@ -12,7 +12,7 @@ This is intentionally short. It is a stage-level ownership map, not a function-b
 1. Read the relevant section in `docs/methods.tex`.
 2. Find the matching method area below.
 3. Edit the package module listed under `Primary module` first.
-4. Only drop into `src/pigean_legacy_main.py` if the change reaches low-level sampler math or older reader internals.
+4. Only drop below the package modules if the change reaches still-unextracted inner state logic in `src/pigean/state.py`.
 5. Run the listed regression tests before widening to the full suite.
 
 ## Primary Edit Order
@@ -29,7 +29,7 @@ For most PIGEAN changes, start here in order:
    - `src/pigean/outputs.py`
    - `src/pigean/phewas.py`
 4. `src/pegs_shared/types.py` / related shared modules if the data contract changes
-5. `src/pigean_legacy_main.py` only for the still-unextracted inner logic
+5. `src/pigean/state.py` only for the still-unextracted inner logic
 
 ## Methods Crosswalk
 
@@ -44,8 +44,8 @@ Primary module:
 - `src/pigean/y_inputs.py`
 
 Related lower-level module:
-- `src/pigean_legacy_main.py`
-  - low-level readers still live here
+- `src/pigean/state.py`
+  - low-level readers and inner runtime helpers still live here
 
 Key state/contracts:
 - `src/pegs_shared/types.py`
@@ -68,7 +68,7 @@ Primary module:
 - `src/pigean/x_inputs.py`
 
 Related lower-level module:
-- `src/pigean_legacy_main.py`
+- `src/pigean/state.py`
   - matrix callbacks and older filtering internals still live here
 
 Key state/contracts:
@@ -92,7 +92,7 @@ Primary module:
 - `src/pigean/pipeline.py`
 
 Related lower-level module:
-- `src/pigean_legacy_main.py`
+- `src/pigean/state.py`
   - low-level beta estimation math still lives here
 
 Primary regressions:
@@ -111,7 +111,7 @@ Primary module:
 - `src/pigean/gibbs.py`
 
 Related lower-level module:
-- `src/pigean_legacy_main.py`
+- `src/pigean/state.py`
   - inner beta update math and sampler internals still live here
 
 Primary regressions:
@@ -130,7 +130,7 @@ Primary module:
 - `src/pigean/huge.py`
 
 Related lower-level module:
-- `src/pigean_legacy_main.py`
+- `src/pigean/state.py`
   - lower-level score generation details still live here
 
 Primary regressions:
@@ -157,7 +157,7 @@ Primary regressions:
 The package layout is now truthful for stage-level ownership.
 
 The main remaining deep implementation file is:
-- `src/pigean_legacy_main.py`
+- `src/pigean/state.py`
 
 Use it when a change touches:
 - low-level sampler math
@@ -172,6 +172,6 @@ When a methods-level change is made:
 
 1. Update `docs/methods.tex` if the scientific method changed.
 2. Update the owning package module first.
-3. Update `src/pigean_legacy_main.py` only if the change reaches still-unextracted internals.
+3. Update `src/pigean/state.py` only if the change reaches still-unextracted internals.
 4. Run the narrow regression tests for the touched stage.
 5. Run the full suite before merge.

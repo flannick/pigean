@@ -13,7 +13,10 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 sys.argv = ["pigean.py", "gibbs"]
-import pigean_legacy_main as pigean  # noqa: E402
+from pigean import main_support as pigean_main_support  # noqa: E402
+from pigean import state as pigean  # noqa: E402
+
+pigean.bind_legacy_namespace(pigean_main_support)
 
 
 class _StubState:

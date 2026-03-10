@@ -12,17 +12,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PIGEAN_LEGACY = REPO_ROOT / "src" / "pigean_legacy_main.py"
 EAGGL_LEGACY = REPO_ROOT / "src" / "eaggl" / "legacy_main.py"
 
-MAX_PIGEAN_LEGACY_LINES = 753
 MAX_EAGGL_LEGACY_LINES = 5693
 
-ALLOWED_PIGEAN_LEGACY_IMPORTERS = {
-    "tests/test_gibbs_hyper_mutation_unittest.py",
-    "tests/test_phewas_stage_reuse_unittest.py",
-}
-ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS = {
-    "src/pigean/main_support.py",
-    "src/pigean/state.py",
-}
+ALLOWED_PIGEAN_LEGACY_IMPORTERS = set()
+ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS = set()
 
 ALLOWED_EAGGL_LEGACY_IMPORTERS = {
     "tests/eaggl/test_factor_stage_unittest.py",
@@ -32,16 +25,8 @@ ALLOWED_EAGGL_LEGACY_IMPORTERS = {
 
 class LegacyRetirementGuardrailsTest(unittest.TestCase):
     def test_legacy_file_line_counts_do_not_grow(self) -> None:
-        pigean_lines = len(PIGEAN_LEGACY.read_text(encoding="utf-8").splitlines())
+        self.assertFalse(PIGEAN_LEGACY.exists(), msg="src/pigean_legacy_main.py should be deleted")
         eaggl_lines = len(EAGGL_LEGACY.read_text(encoding="utf-8").splitlines())
-        self.assertLessEqual(
-            pigean_lines,
-            MAX_PIGEAN_LEGACY_LINES,
-            msg="src/pigean_legacy_main.py grew from baseline %d to %d lines" % (
-                MAX_PIGEAN_LEGACY_LINES,
-                pigean_lines,
-            ),
-        )
         self.assertLessEqual(
             eaggl_lines,
             MAX_EAGGL_LEGACY_LINES,
@@ -93,6 +78,7 @@ class LegacyRetirementGuardrailsTest(unittest.TestCase):
         self.assertIn("eaggl_legacy_top_level_defs", report)
         self.assertIsInstance(report["pigean_legacy_top_level_defs"], list)
         self.assertIsInstance(report["eaggl_legacy_top_level_defs"], list)
+        self.assertIsNone(report["line_counts"]["src/pigean_legacy_main.py"])
         self.assertEqual(
             report["legacy_import_sites"]["pigean_legacy_main"],
             sorted(ALLOWED_PIGEAN_LEGACY_IMPORTERS),

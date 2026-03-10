@@ -27,7 +27,6 @@ PIGEAN_PROFILE = {
     + (
         "pigean_gibbs.py",
         "pigean/gibbs_callbacks.py",
-        "pigean_legacy_main.py",
     ),
     "packages": COMMON_PACKAGES + ("pigean",),
 }

@@ -5,6 +5,7 @@ from pegs_cli_errors import PegsCliError, handle_cli_exception, handle_unexpecte
 from . import cli as pigean_cli
 from . import dispatch as pigean_dispatch
 from . import main_support as pigean_main_support
+from . import x_inputs_core as pigean_x_inputs_core
 
 
 def run_main_pipeline(options, mode, services=None):
@@ -27,7 +28,12 @@ def main(argv=None):
 
 
 def _build_prefilter_keep_mask(*args, **kwargs):
-    return pigean_main_support.load_legacy_core()._build_prefilter_keep_mask(*args, **kwargs)
+    return pigean_x_inputs_core.build_prefilter_keep_mask(
+        *args,
+        log_fn=pigean_cli.log,
+        debug_level=pigean_cli.DEBUG,
+        **kwargs,
+    )
 
 
 __all__ = [

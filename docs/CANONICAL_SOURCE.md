@@ -22,17 +22,18 @@ Current state:
 - PIGEAN runtime entrypoint is `python -m pigean`
 - package modules under `src/pigean/` own the CLI and stage-level orchestration/edit path
 - `src/pigean/app.py` is the package-owned entry module for the normal PIGEAN runtime path
-- flat `src/pigean_*.py` modules are compatibility shims except for the remaining legacy core in `src/pigean_legacy_main.py`
+- `src/pigean_legacy_main.py` has been retired
+- flat `src/pigean_*.py` modules are compatibility shims around package-owned code
 - canonical in-repo EAGGL sources live under `src/eaggl/`
 - canonical docs are being organized under `docs/pigean/` and `docs/eaggl/`
 - canonical tests are being organized under `tests/pigean/` and `tests/eaggl/`
 - optional stitched single-file artifacts are generated on demand from modular source and are not checked in
 
 Legacy-core naming policy:
-- `src/pigean_legacy_main.py` and `src/eaggl/legacy_main.py` remain intentionally named as transitional inner cores for now
-- they are still live runtime files, not dead historical copies
-- new logic should land in package modules first; changes in these files should normally accompany extraction or shrinkage work
-- rename is deferred until the remaining inner-core ownership is materially smaller
+- `src/pigean_legacy_main.py` has been retired
+- `src/eaggl/legacy_main.py` remains intentionally named as a transitional inner core for now
+- it is still a live runtime file, not a dead historical copy
+- new logic should land in package modules first; changes in `src/eaggl/legacy_main.py` should normally accompany extraction or shrinkage work
 
 For a concise developer map from `docs/methods.tex` to the owning package modules, see:
 - `docs/pigean/METHODS_TO_CODE.md`
