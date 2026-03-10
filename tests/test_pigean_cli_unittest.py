@@ -218,8 +218,8 @@ import json
 import sys
 import numpy as np
 sys.argv = ["pigean.py", "gibbs"]
-import pigean as pigean
-mask = pigean._build_prefilter_keep_mask(
+from pigean import app as pigean_app
+mask = pigean_app._build_prefilter_keep_mask(
     p_values=np.array([0.8, 0.9, 1.0], dtype=float),
     beta_tildes=np.array([1.0, 1.0, 1.0], dtype=float),
     filter_gene_set_p=0.01,

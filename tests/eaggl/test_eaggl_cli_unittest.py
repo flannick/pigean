@@ -342,8 +342,8 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
 import sys
 import numpy as np
 sys.argv = ["eaggl.py", "factor", "--ols"]
-import eaggl as eaggl
-g = eaggl.GeneSetData()
+from eaggl import state as eaggl_state
+g = eaggl_state.GeneSetData()
 g.y_corr_cholesky = np.array([[1.0]])
 g.genes = ["GENE1"]
 g.gene_to_ind = {"GENE1": 0}

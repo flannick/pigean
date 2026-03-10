@@ -33,6 +33,15 @@ class EntryPathLegacyImportsTest(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 0)
         self.assertNotIn("eaggl.legacy_main", sys.modules)
 
+    def test_package_roots_do_not_expose_removed_compat_attrs(self) -> None:
+        self._clear_modules("pigean", "eaggl")
+        pigean = importlib.import_module("pigean")
+        eaggl = importlib.import_module("eaggl")
+        with self.assertRaises(AttributeError):
+            getattr(pigean, "_build_prefilter_keep_mask")
+        with self.assertRaises(AttributeError):
+            getattr(eaggl, "GeneSetData")
+
 
 if __name__ == "__main__":
     unittest.main()

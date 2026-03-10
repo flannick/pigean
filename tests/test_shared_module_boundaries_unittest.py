@@ -457,12 +457,17 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn('"legacy_main"', pigean_public_block)
         self.assertNotIn("return getattr(_legacy_module(), name)", pigean_init)
         self.assertNotIn("sorted(set(globals().keys()) | set(dir(_legacy_module())))", pigean_init)
+        self.assertIn('"main": ("app", "main")', pigean_init)
+        self.assertNotIn('_build_prefilter_keep_mask', pigean_init)
+        self.assertIn('__all__ = ["main"] + sorted(_PUBLIC_SUBMODULES)', pigean_init)
         self.assertIn("_PUBLIC_SUBMODULES = frozenset(", eaggl_init)
         self.assertIn("_COMPAT_EXPORTS = {", eaggl_init)
         eaggl_public_block = eaggl_init.split("_PUBLIC_SUBMODULES = frozenset(", 1)[1].split(")\n\n_COMPAT_EXPORTS", 1)[0]
         self.assertNotIn('"legacy_main"', eaggl_public_block)
         self.assertNotIn("from .legacy_main import *", eaggl_init)
         self.assertIn('"main": ("app", "main")', eaggl_init)
+        self.assertNotIn('"GeneSetData":', eaggl_init)
+        self.assertIn('__all__ = ["main"] + sorted(_PUBLIC_SUBMODULES)', eaggl_init)
 
     def test_manifest_normal_visibility_options_have_summaries(self) -> None:
         for rel_path in ("docs/cli_option_manifest.json", "docs/eaggl/cli_option_manifest.json"):

@@ -27,7 +27,6 @@ _PUBLIC_SUBMODULES = frozenset(
 
 _COMPAT_EXPORTS = {
     "main": ("app", "main"),
-    "GeneSetData": ("state", "GeneSetData"),
 }
 
 
@@ -59,4 +58,4 @@ def __dir__():
     return sorted(set(globals().keys()) | set(_PUBLIC_SUBMODULES) | set(_COMPAT_EXPORTS.keys()))
 
 
-__all__ = ["main", "GeneSetData"] + sorted(_PUBLIC_SUBMODULES)
+__all__ = ["main"] + sorted(_PUBLIC_SUBMODULES)
