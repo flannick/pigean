@@ -17,6 +17,7 @@ _PUBLIC_SUBMODULES = frozenset(
         "phewas",
         "pipeline",
         "runtime",
+        "state",
         "x_inputs",
         "x_inputs_core",
         "y_inputs",

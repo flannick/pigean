@@ -13,6 +13,8 @@ import pegs_shared.phewas as pegs_phewas
 import pegs_utils as pegs_utils_mod
 
 from . import cli as pigean_cli
+from . import runtime as pigean_runtime
+from . import state as pigean_state
 
 
 _LEGACY_STATE_FIELDS = (
@@ -109,7 +111,9 @@ def build_mode_state(mode, run_phewas_from_gene_phewas_stats_in):
 
 
 def build_runtime_state(options):
-    return load_legacy_core()._build_runtime_state(options)
+    legacy_core = load_legacy_core()
+    pigean_state.bind_legacy_namespace(legacy_core)
+    return pigean_runtime.build_runtime_state(pigean_state.PigeanState, options)
 
 
 def configure_hyperparameters_for_main(state, options):

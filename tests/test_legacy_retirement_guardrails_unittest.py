@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PIGEAN_LEGACY = REPO_ROOT / "src" / "pigean_legacy_main.py"
 EAGGL_LEGACY = REPO_ROOT / "src" / "eaggl" / "legacy_main.py"
 
-MAX_PIGEAN_LEGACY_LINES = 14364
+MAX_PIGEAN_LEGACY_LINES = 7018
 MAX_EAGGL_LEGACY_LINES = 5693
 
 ALLOWED_PIGEAN_LEGACY_IMPORTERS = {
@@ -21,6 +21,7 @@ ALLOWED_PIGEAN_LEGACY_IMPORTERS = {
 }
 ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS = {
     "src/pigean/main_support.py",
+    "src/pigean/state.py",
 }
 
 ALLOWED_EAGGL_LEGACY_IMPORTERS = {
