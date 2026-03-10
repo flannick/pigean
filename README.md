@@ -80,6 +80,9 @@ For curated CLI surface and category inventory (auto-generated):
 For developer-facing methods-to-code ownership:
 - `docs/pigean/METHODS_TO_CODE.md`
 
+For the retired-runtime cleanup summary:
+- `docs/LEGACY_RETIREMENT_REPORT.md`
+
 Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `python -m pigean`.
 
 For current architecture, `src/pigean/app.py` and `src/eaggl/app.py` are the package-owned entry paths and the package modules under `src/pigean/` and `src/eaggl/` are the primary edit locations for CLI, stage-level flow, and runtime state. Both flat legacy runtime files have been retired; the remaining package-owned support surfaces are `src/pigean/main_support.py` and `src/eaggl/main_support.py`.

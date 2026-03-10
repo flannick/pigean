@@ -50,3 +50,6 @@ cd pigean
 ```
 
 See `docs/STITCHED_ARTIFACTS.md` for the generated outputs and limitations.
+
+For a concise summary of the retired runtime references and their package-owned replacements, see:
+- `docs/LEGACY_RETIREMENT_REPORT.md`
