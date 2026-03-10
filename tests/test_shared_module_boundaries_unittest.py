@@ -447,6 +447,24 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("`src/pigean_legacy_main.py` has been retired", canonical_doc)
         self.assertIn("`src/eaggl/legacy_main.py` has been retired", canonical_doc)
         self.assertIn("Both flat legacy runtime files have been retired", readme)
+        self.assertIn("`src/pigean/main_support.py` is the package-owned runtime wiring/support layer for PIGEAN", canonical_doc)
+        self.assertIn("`src/pigean/state.py` is the remaining deep runtime-coupled PIGEAN module", canonical_doc)
+        self.assertIn("`src/eaggl/main_support.py` is the package-owned runtime wiring/support layer for EAGGL", canonical_doc)
+        self.assertIn("`src/eaggl/state.py` is the remaining deep runtime-coupled EAGGL module", canonical_doc)
+
+    def test_readme_and_methods_doc_match_final_runtime_structure(self) -> None:
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        methods_doc = (REPO_ROOT / "docs" / "pigean" / "METHODS_TO_CODE.md").read_text(encoding="utf-8")
+        transition_doc = (REPO_ROOT / "docs" / "eaggl" / "TRANSITION.md").read_text(encoding="utf-8")
+        pigean_docs_readme = (REPO_ROOT / "docs" / "pigean" / "README.md").read_text(encoding="utf-8")
+        self.assertIn("`src/pigean/main_support.py` and `src/eaggl/main_support.py` are narrow package-owned support layers", readme)
+        self.assertIn("`src/pigean/state.py` and `src/eaggl/state.py` are the remaining deep runtime-coupled modules", readme)
+        self.assertIn("The main remaining runtime wiring/support module is:", methods_doc)
+        self.assertIn("Use `src/pigean/main_support.py` when a change only affects:", methods_doc)
+        self.assertNotIn("still-unextracted inner state logic", methods_doc)
+        self.assertIn("both flat legacy runtime files have been retired", transition_doc)
+        self.assertNotIn("will be retired in later cleanup milestones", transition_doc)
+        self.assertIn("Current package-owned PIGEAN runtime structure:", pigean_docs_readme)
 
     def test_package_roots_export_only_bounded_surface(self) -> None:
         pigean_init = (REPO_ROOT / "src" / "pigean" / "__init__.py").read_text(encoding="utf-8")

@@ -21,10 +21,14 @@ cd pigean
 Current state:
 - PIGEAN runtime entrypoint is `python -m pigean`
 - EAGGL runtime entrypoint is `python -m eaggl`
-- package modules under `src/pigean/` own the CLI and stage-level orchestration/edit path
+- package modules under `src/pigean/` own the CLI, stage-level orchestration, and runtime edit path
 - `src/pigean/app.py` is the package-owned entry module for the normal PIGEAN runtime path
-- package modules under `src/eaggl/` own the CLI and stage-level orchestration/edit path
+- `src/pigean/main_support.py` is the package-owned runtime wiring/support layer for PIGEAN
+- `src/pigean/state.py` is the remaining deep runtime-coupled PIGEAN module
+- package modules under `src/eaggl/` own the CLI, stage-level orchestration, and runtime edit path
 - `src/eaggl/app.py` is the package-owned entry module for the normal EAGGL runtime path
+- `src/eaggl/main_support.py` is the package-owned runtime wiring/support layer for EAGGL
+- `src/eaggl/state.py` is the remaining deep runtime-coupled EAGGL module
 - `src/pigean_legacy_main.py` has been retired
 - `src/eaggl/legacy_main.py` has been retired
 - flat `src/pigean_*.py` modules are compatibility shims around package-owned code
@@ -37,7 +41,8 @@ Legacy-core retirement policy:
 - `src/pigean_legacy_main.py` has been retired
 - `src/eaggl/legacy_main.py` has been retired
 - `src/pigean/main_support.py` and `src/eaggl/main_support.py` are package-owned support layers, not flat legacy runtimes
-- new logic should land in package modules first; support-layer changes should stay narrow and should not reintroduce flat catch-all runtime files
+- `src/pigean/state.py` and `src/eaggl/state.py` are active package modules and remain the deepest runtime-coupled code paths
+- new logic should land in package modules first; support-layer or state-layer changes should stay narrow and should not reintroduce flat catch-all runtime files
 
 For a concise developer map from `docs/methods.tex` to the owning package modules, see:
 - `docs/pigean/METHODS_TO_CODE.md`

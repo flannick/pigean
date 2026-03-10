@@ -83,8 +83,16 @@ For developer-facing methods-to-code ownership:
 For the retired-runtime cleanup summary:
 - `docs/LEGACY_RETIREMENT_REPORT.md`
 
-Legacy script is retained in `legacy/priors.py` for historical reference, but active refactor/testing targets `python -m pigean`.
+Legacy script is retained in `legacy/priors.py` for historical reference, but active development and testing target:
+- `python -m pigean`
+- `python -m eaggl`
 
-For current architecture, `src/pigean/app.py` and `src/eaggl/app.py` are the package-owned entry paths and the package modules under `src/pigean/` and `src/eaggl/` are the primary edit locations for CLI, stage-level flow, and runtime state. Both flat legacy runtime files have been retired; the remaining package-owned support surfaces are `src/pigean/main_support.py` and `src/eaggl/main_support.py`.
+Current architecture:
+- `src/pigean/app.py` and `src/eaggl/app.py` are the package-owned runtime entry modules
+- `src/pigean/dispatch.py`, `src/pigean/pipeline.py`, `src/pigean/gibbs.py`, `src/pigean/huge.py`, and `src/pigean/model.py` own the stage-level PIGEAN flow
+- `src/eaggl/dispatch.py`, `src/eaggl/factor.py`, `src/eaggl/phewas.py`, `src/eaggl/regression.py`, and `src/eaggl/io.py` own the stage-level EAGGL flow
+- `src/pigean/main_support.py` and `src/eaggl/main_support.py` are narrow package-owned support layers for entry/runtime wiring
+- `src/pigean/state.py` and `src/eaggl/state.py` are the remaining deep runtime-coupled modules
+- Both flat legacy runtime files have been retired
 
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.

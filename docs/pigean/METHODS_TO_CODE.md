@@ -12,7 +12,7 @@ This is intentionally short. It is a stage-level ownership map, not a function-b
 1. Read the relevant section in `docs/methods.tex`.
 2. Find the matching method area below.
 3. Edit the package module listed under `Primary module` first.
-4. Only drop below the package modules if the change reaches still-unextracted inner state logic in `src/pigean/state.py`.
+4. Only drop below the stage modules if the change reaches deeper runtime-coupled logic in `src/pigean/state.py`.
 5. Run the listed regression tests before widening to the full suite.
 
 ## Primary Edit Order
@@ -28,8 +28,9 @@ For most PIGEAN changes, start here in order:
    - `src/pigean/huge.py`
    - `src/pigean/outputs.py`
    - `src/pigean/phewas.py`
-4. `src/pegs_shared/types.py` / related shared modules if the data contract changes
-5. `src/pigean/state.py` only for the still-unextracted inner logic
+4. `src/pigean/main_support.py` if the change is strictly entry/runtime wiring
+5. `src/pegs_shared/types.py` / related shared modules if the data contract changes
+6. `src/pigean/state.py` only for deeper runtime-coupled logic
 
 ## Methods Crosswalk
 
@@ -45,7 +46,7 @@ Primary module:
 
 Related lower-level module:
 - `src/pigean/state.py`
-  - low-level readers and inner runtime helpers still live here
+  - deeper runtime-coupled readers and inner helpers still live here
 
 Key state/contracts:
 - `src/pegs_shared/types.py`
@@ -69,7 +70,7 @@ Primary module:
 
 Related lower-level module:
 - `src/pigean/state.py`
-  - matrix callbacks and older filtering internals still live here
+  - matrix callbacks and deeper filtering internals still live here
 
 Key state/contracts:
 - `src/pegs_shared/types.py`
@@ -93,7 +94,7 @@ Primary module:
 
 Related lower-level module:
 - `src/pigean/state.py`
-  - low-level beta estimation math still lives here
+  - lower-level beta estimation math still lives here
 
 Primary regressions:
 - `tests/test_mody_core_modes_regression_unittest.py`
@@ -159,10 +160,19 @@ The package layout is now truthful for stage-level ownership.
 The main remaining deep implementation file is:
 - `src/pigean/state.py`
 
+The main remaining runtime wiring/support module is:
+- `src/pigean/main_support.py`
+
 Use it when a change touches:
 - low-level sampler math
-- old reader internals not yet extracted
+- deep reader internals
 - matrix callbacks still shared by the extracted orchestration modules
+- runtime-owned helper methods on `PigeanState`
+
+Use `src/pigean/main_support.py` when a change only affects:
+- entry/runtime wiring
+- CLI-to-runtime service setup
+- package-level helper routing between stage modules and `PigeanState`
 
 If a change only alters stage wiring, stopping policy, input contracts, or output routing, it should usually land in the package modules above instead.
 
@@ -172,6 +182,7 @@ When a methods-level change is made:
 
 1. Update `docs/methods.tex` if the scientific method changed.
 2. Update the owning package module first.
-3. Update `src/pigean/state.py` only if the change reaches still-unextracted internals.
-4. Run the narrow regression tests for the touched stage.
-5. Run the full suite before merge.
+3. Update `src/pigean/main_support.py` only if runtime wiring changes.
+4. Update `src/pigean/state.py` only if the change reaches deeper runtime-coupled internals.
+5. Run the narrow regression tests for the touched stage.
+6. Run the full suite before merge.
