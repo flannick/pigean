@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-def run_advanced_set_b_phewas_beta_sampling_if_requested(domain, state, options, beta_sampling_kwargs):
+from . import main_support as pigean_main_support
+
+
+def run_advanced_set_b_phewas_beta_sampling_if_requested(services, state, options, beta_sampling_kwargs):
     if not options.betas_uncorrected_from_phewas:
         return
     phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
@@ -11,22 +14,22 @@ def run_advanced_set_b_phewas_beta_sampling_if_requested(domain, state, options,
     state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
 
 
-def run_advanced_set_b_output_phewas_if_requested(domain, state, options):
+def run_advanced_set_b_output_phewas_if_requested(services, state, options):
     if not options.run_phewas_from_gene_phewas_stats_in:
         return
-    decision = domain.pegs_resolve_gene_phewas_input_decision_for_stage(
+    decision = pigean_main_support.resolve_gene_phewas_input_decision_for_stage(
         requested_input=options.run_phewas_from_gene_phewas_stats_in,
         reusable_inputs=[options.gene_phewas_bfs_in],
         read_gene_phewas=state.read_gene_phewas(),
         num_gene_phewas_filtered=state.num_gene_phewas_filtered,
     )
-    domain.log(
+    services.log(
         "PheWAS stage 'output_phewas': mode=%s reason=%s" % (decision.mode, decision.reason),
-        domain.INFO,
+        services.INFO,
     )
     bfs_to_use = decision.resolved_input
 
-    phewas_config = domain.pegs_build_phewas_stage_config(
+    phewas_config = pigean_main_support.build_phewas_stage_config(
         gene_phewas_bfs_in=bfs_to_use,
         gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
         gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,

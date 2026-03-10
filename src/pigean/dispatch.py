@@ -1,25 +1,28 @@
 from __future__ import annotations
 
+from . import main_support as pigean_main_support
 from . import outputs as pigean_outputs
 from . import pipeline as pigean_pipeline
 
 
-def run_main_pipeline(domain, options, mode):
+def run_main_pipeline(options, mode, services=None):
+    if services is None:
+        services = pigean_main_support.build_cli_services()
     if not options.hide_opts:
-        domain.log("Python version: %s" % domain.sys.version)
-        domain.log("Numpy version: %s" % domain.np.__version__)
-        domain.log("Scipy version: %s" % domain.scipy.__version__)
-        domain.log("Options: %s" % options)
-    state = domain._build_runtime_state(options)
-    mode_state = domain._build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
+        services.log("Python version: %s" % services.sys.version)
+        services.log("Numpy version: %s" % services.np.__version__)
+        services.log("Scipy version: %s" % services.scipy.__version__)
+        services.log("Options: %s" % options)
+    state = pigean_main_support.build_runtime_state(options)
+    mode_state = pigean_main_support.build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 
-    sigma2_cond = domain._configure_hyperparameters_for_main(state, options)
-    y_not_loaded = domain._load_main_Y_inputs(state, options, mode_state)
+    sigma2_cond = pigean_main_support.configure_hyperparameters_for_main(state, options)
+    y_not_loaded = pigean_main_support.load_main_y_inputs(state, options, mode_state)
 
     non_huge_result = None
     if not mode_state["run_huge"]:
         non_huge_result = pigean_pipeline.run_main_non_huge_pipeline(
-            domain=domain,
+            services=services,
             state=state,
             options=options,
             mode_state=mode_state,
@@ -28,7 +31,7 @@ def run_main_pipeline(domain, options, mode):
         )
 
     pigean_outputs.write_main_outputs_and_optional_phewas(
-        domain=domain,
+        services=services,
         state=state,
         options=options,
         mode_state=mode_state,

@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PIGEAN_LEGACY = REPO_ROOT / "src" / "pigean_legacy_main.py"
 EAGGL_LEGACY = REPO_ROOT / "src" / "eaggl" / "legacy_main.py"
 
-MAX_PIGEAN_LEGACY_LINES = 14359
+MAX_PIGEAN_LEGACY_LINES = 14364
 MAX_EAGGL_LEGACY_LINES = 5693
 
 ALLOWED_PIGEAN_LEGACY_IMPORTERS = {
@@ -20,7 +20,7 @@ ALLOWED_PIGEAN_LEGACY_IMPORTERS = {
     "tests/test_phewas_stage_reuse_unittest.py",
 }
 ALLOWED_PIGEAN_LEGACY_DYNAMIC_IMPORTERS = {
-    "src/pigean/app.py",
+    "src/pigean/main_support.py",
 }
 
 ALLOWED_EAGGL_LEGACY_IMPORTERS = {
@@ -77,8 +77,8 @@ class LegacyRetirementGuardrailsTest(unittest.TestCase):
     def test_module_object_dispatch_counts_do_not_grow(self) -> None:
         report = self._run_legacy_symbol_report()
         counts = report["module_object_dispatch_counts"]
-        self.assertLessEqual(counts["dispatch.run_main_pipeline(_legacy_main"], 1)
-        self.assertLessEqual(counts["dispatch.run_main_pipeline(sys.modules[__name__]"], 1)
+        self.assertEqual(counts["dispatch.run_main_pipeline(_legacy_main"], 0)
+        self.assertEqual(counts["dispatch.run_main_pipeline(sys.modules[__name__]"], 0)
         self.assertLessEqual(counts["_eaggl_dispatch.run_main_pipeline(_build_main_domain()"], 1)
 
     def test_legacy_symbol_report_script_runs(self) -> None:

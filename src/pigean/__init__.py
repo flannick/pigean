@@ -11,6 +11,7 @@ _PUBLIC_SUBMODULES = frozenset(
         "gibbs",
         "gibbs_callbacks",
         "huge",
+        "main_support",
         "model",
         "outputs",
         "phewas",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import main_support as pigean_main_support
 from . import phewas as pigean_phewas
 
 
@@ -48,7 +49,7 @@ class MainPipelineResult:
     non_huge: NonHugePipelineResult | None = None
 
 
-def run_main_beta_tilde_stage(domain, state, options, mode_state):
+def run_main_beta_tilde_stage(services, state, options, mode_state):
     needs_gene_set_stats = (
         mode_state["run_beta_tilde"]
         or mode_state["run_beta"]
@@ -58,10 +59,10 @@ def run_main_beta_tilde_stage(domain, state, options, mode_state):
         or mode_state["run_sim"]
     )
     if options.const_gene_set_beta is not None:
-        state.beta_tildes = domain.np.full(len(state.gene_sets), options.const_gene_set_beta)
+        state.beta_tildes = services.np.full(len(state.gene_sets), options.const_gene_set_beta)
         return BetaStageResult(ran=True, source="const_gene_set_beta")
     if options.gene_set_stats_in is not None:
-        domain.pegs_load_and_apply_gene_set_statistics_to_runtime(
+        pigean_main_support.load_and_apply_gene_set_statistics_to_runtime(
             state,
             options.gene_set_stats_in,
             stats_id_col=options.gene_set_stats_id_col,
@@ -76,12 +77,12 @@ def run_main_beta_tilde_stage(domain, state, options, mode_state):
             min_gene_set_beta=options.min_gene_set_read_beta,
             min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
             return_only_ids=False,
-            open_text_fn=domain.open_gz,
-            get_col_fn=domain._get_col,
-            parse_log_fn=lambda message: domain.log(message, domain.INFO),
-            apply_log_fn=lambda message: domain.log(message, domain.DEBUG),
-            warn_fn=domain.warn,
-            bail_fn=domain.bail,
+            open_text_fn=pigean_main_support.open_gz,
+            get_col_fn=pigean_main_support.get_col,
+            parse_log_fn=lambda message: services.log(message, services.INFO),
+            apply_log_fn=lambda message: services.log(message, services.DEBUG),
+            warn_fn=services.warn,
+            bail_fn=services.bail,
         )
         return BetaStageResult(ran=True, source="gene_set_stats_in")
     if needs_gene_set_stats:
@@ -110,7 +111,7 @@ def run_main_beta_tilde_stage(domain, state, options, mode_state):
     return BetaStageResult(ran=False, source="skipped")
 
 
-def run_main_beta_stage(domain, state, options, mode_state):
+def run_main_beta_stage(services, state, options, mode_state):
     needs_gene_set_betas = (
         mode_state["run_beta"]
         or mode_state["run_priors"]
@@ -118,7 +119,7 @@ def run_main_beta_stage(domain, state, options, mode_state):
         or mode_state["run_gibbs"]
     )
     if needs_gene_set_betas and state.sigma2 is None:
-        domain.bail("Sigma2 was not initialized; provide --sigma2 explicitly")
+        services.bail("Sigma2 was not initialized; provide --sigma2 explicitly")
 
     if options.cross_val:
         cross_val_kwargs = dict(
@@ -129,18 +130,18 @@ def run_main_beta_stage(domain, state, options, mode_state):
             max_for_linear=options.max_for_linear,
             run_corrected_ols=not options.ols,
         )
-        cross_val_kwargs.update(domain._build_inner_beta_sampler_common_kwargs(options))
+        cross_val_kwargs.update(pigean_main_support.build_inner_beta_sampler_common_kwargs(options))
         state.run_cross_val(options.cross_val_num_explore_each_direction, **cross_val_kwargs)
 
     if options.const_gene_set_beta is not None:
-        state.betas = domain.np.full(len(state.gene_sets), options.const_gene_set_beta)
-        state.betas_uncorrected = domain.np.full(len(state.gene_sets), options.const_gene_set_beta)
+        state.betas = services.np.full(len(state.gene_sets), options.const_gene_set_beta)
+        state.betas_uncorrected = services.np.full(len(state.gene_sets), options.const_gene_set_beta)
         return BetaStageResult(ran=True, source="const_gene_set_beta")
     if options.gene_set_betas_in:
         state.read_betas(options.gene_set_betas_in)
         return BetaStageResult(ran=True, source="gene_set_betas_in")
     if needs_gene_set_betas:
-        beta_sampling_kwargs = domain._build_inner_beta_sampler_common_kwargs(options)
+        beta_sampling_kwargs = pigean_main_support.build_inner_beta_sampler_common_kwargs(options)
         beta_sampling_kwargs.update({
             "max_allowed_batch_correlation": options.max_allowed_batch_correlation,
             "update_hyper_sigma": False,
@@ -151,7 +152,7 @@ def run_main_beta_stage(domain, state, options, mode_state):
         })
         state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
         pigean_phewas.run_advanced_set_b_phewas_beta_sampling_if_requested(
-            domain=domain,
+            services=services,
             state=state,
             options=options,
             beta_sampling_kwargs=beta_sampling_kwargs,
@@ -160,9 +161,9 @@ def run_main_beta_stage(domain, state, options, mode_state):
     return BetaStageResult(ran=False, source="skipped")
 
 
-def run_main_priors_stage(domain, state, options, mode_state):
+def run_main_priors_stage(services, state, options, mode_state):
     if mode_state["run_priors"]:
-        priors_kwargs = domain._build_inner_beta_sampler_common_kwargs(options)
+        priors_kwargs = pigean_main_support.build_inner_beta_sampler_common_kwargs(options)
         priors_kwargs.update({
             "max_gene_set_p": options.filter_gene_set_p,
             "num_gene_batches": options.priors_num_gene_batches,
@@ -259,7 +260,7 @@ def build_main_gibbs_stage_config(options):
     )
 
 
-def run_main_gibbs_stage(domain, state, options, mode_state):
+def run_main_gibbs_stage(services, state, options, mode_state):
     if not mode_state["run_gibbs"]:
         return GibbsStageResult(ran=False, num_chains=None, total_num_iter=None)
     gibbs_config = build_main_gibbs_stage_config(options)
@@ -271,24 +272,24 @@ def run_main_gibbs_stage(domain, state, options, mode_state):
     )
 
 
-def run_main_non_huge_pipeline(domain, state, options, mode_state, sigma2_cond, y_not_loaded):
+def run_main_non_huge_pipeline(services, state, options, mode_state, sigma2_cond, y_not_loaded):
     stage_result = NonHugePipelineResult()
 
     if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
-        domain._run_main_adaptive_read_x(state, options, mode_state, sigma2_cond)
+        pigean_main_support.run_main_adaptive_read_x(state, options, mode_state, sigma2_cond)
     elif options.p_noninf is not None:
         if len(options.p_noninf) == 1:
             state.set_p(options.p_noninf[0])
         else:
-            domain.bail("Multiple --p-noninf is not supported without --X-in inputs")
+            services.bail("Multiple --p-noninf is not supported without --X-in inputs")
 
     if not state.has_gene_sets():
-        domain.log("No gene sets survived the input filters; stopping")
-        domain.sys.exit(0)
+        services.log("No gene sets survived the input filters; stopping")
+        services.sys.exit(0)
     assert state.p is not None
 
     if y_not_loaded and options.const_gene_Y:
-        domain._set_const_Y(state, options.const_gene_Y)
+        pigean_main_support.set_const_Y(state, options.const_gene_Y)
     if options.X_out:
         state.write_X(options.X_out)
     if options.Xd_out:
@@ -306,8 +307,8 @@ def run_main_non_huge_pipeline(domain, state, options, mode_state, sigma2_cond, 
             only_positive=options.sim_only_positive,
         )
 
-    stage_result.beta_tilde = run_main_beta_tilde_stage(domain, state, options, mode_state)
-    stage_result.beta = run_main_beta_stage(domain, state, options, mode_state)
-    stage_result.priors = run_main_priors_stage(domain, state, options, mode_state)
-    stage_result.gibbs = run_main_gibbs_stage(domain, state, options, mode_state)
+    stage_result.beta_tilde = run_main_beta_tilde_stage(services, state, options, mode_state)
+    stage_result.beta = run_main_beta_stage(services, state, options, mode_state)
+    stage_result.priors = run_main_priors_stage(services, state, options, mode_state)
+    stage_result.gibbs = run_main_gibbs_stage(services, state, options, mode_state)
     return stage_result

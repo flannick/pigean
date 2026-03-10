@@ -42,6 +42,7 @@ import gzip
 import random
 from pigean import runtime as pigean_runtime
 from pigean import model as pigean_model
+from pigean import main_support as pigean_main_support
 from pigean import x_inputs as pigean_x_inputs
 from pigean import x_inputs_core as pigean_x_inputs_core
 from pigean import y_inputs as pigean_y_inputs
@@ -14332,7 +14333,7 @@ def _run_advanced_set_b_output_phewas_if_requested(state, options):
         import pigean_phewas as _pigean_phewas
 
     return _pigean_phewas.run_advanced_set_b_output_phewas_if_requested(
-        sys.modules[__name__],
+        pigean_main_support.build_legacy_services(sys.modules[__name__]),
         state,
         options,
     )
@@ -14344,10 +14345,14 @@ def main(argv=None):
         if not should_continue:
             return 0
         try:
-            from pigean import dispatch as _pigean_dispatch
+            from pigean import app as _pigean_app
         except ImportError:
-            import pigean_dispatch as _pigean_dispatch
-        _pigean_dispatch.run_main_pipeline(sys.modules[__name__], options, mode)
+            import pigean_app as _pigean_app
+        _pigean_app.run_main_pipeline(
+            options,
+            mode,
+            services=pigean_main_support.build_legacy_services(sys.modules[__name__]),
+        )
         return 0
     except PegsCliError as exc:
         return pegs_handle_cli_exception(exc, argv=argv, debug_level=debug_level)

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from . import main_support as pigean_main_support
 from . import phewas as pigean_phewas
 
 
-def write_eaggl_bundle_if_requested(domain, state, options, mode):
+def write_eaggl_bundle_if_requested(services, state, options, mode):
     if options.eaggl_bundle_out is None:
         return
 
     out_path = options.eaggl_bundle_out
-    domain.log("Writing EAGGL handoff bundle to %s" % out_path, domain.INFO)
+    services.log("Writing EAGGL handoff bundle to %s" % out_path, services.INFO)
     generated_file_specs = [
         (
             "X_in",
@@ -40,24 +41,24 @@ def write_eaggl_bundle_if_requested(domain, state, options, mode):
         ("gene_phewas_bfs_in", options.phewas_stats_out, "gene_phewas_stats.tsv.gz"),
         ("gene_set_phewas_stats_in", options.phewas_gene_set_stats_out, "gene_set_phewas_stats.tsv.gz"),
     ]
-    domain.pegs_write_bundle_from_specs(
+    pigean_main_support.write_bundle_from_specs(
         out_path,
-        schema=domain.PEGS_EAGGL_BUNDLE_SCHEMA,
+        schema=pigean_main_support.EAGGL_BUNDLE_SCHEMA,
         source_tool="pigean.py",
         source_mode=mode,
-        source_argv=domain.sys.argv,
+        source_argv=services.sys.argv,
         generated_file_specs=generated_file_specs,
         optional_existing_files=optional_existing_files,
         option_name="--eaggl-bundle-out",
         temp_prefix="pigean_eaggl_bundle_",
         manifest_name="manifest.json",
-        bail_fn=domain.bail,
+        bail_fn=services.bail,
     )
 
-    domain.log("Finished writing EAGGL handoff bundle %s" % out_path, domain.INFO)
+    services.log("Finished writing EAGGL handoff bundle %s" % out_path, services.INFO)
 
 
-def write_main_outputs_and_optional_phewas(domain, state, options, mode_state, mode):
+def write_main_outputs_and_optional_phewas(services, state, options, mode_state, mode):
     if options.gene_set_stats_out:
         state.write_gene_set_statistics(
             options.gene_set_stats_out,
@@ -88,11 +89,11 @@ def write_main_outputs_and_optional_phewas(domain, state, options, mode_state, m
 
     if mode_state["run_phewas"]:
         pigean_phewas.run_advanced_set_b_output_phewas_if_requested(
-            domain=domain,
+            services=services,
             state=state,
             options=options,
         )
 
     if options.params_out:
         state.write_params(options.params_out)
-    write_eaggl_bundle_if_requested(domain=domain, state=state, options=options, mode=mode)
+    write_eaggl_bundle_if_requested(services=services, state=state, options=options, mode=mode)
