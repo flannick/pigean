@@ -16,6 +16,7 @@ from pegs_shared.phewas import (
 )
 
 from .io import has_loaded_gene_phewas
+from . import regression as eaggl_regression
 
 
 def open_gz(file, flag=None):
@@ -134,11 +135,20 @@ def calculate_phewas_block(
                     z_scores[begin:end, :],
                     p_values[begin:end, :],
                     se_inflation_factors[begin:end, :],
-                ) = state._compute_robust_betas(
+                ) = eaggl_regression.compute_robust_betas(state, 
                     X_mat,
                     Y_mat[begin:end, :],
                     resid_correlation_matrix=cor_matrices,
                     covs=covs if not options.debug_skip_phewas_covs else None,
+                    finalize_regression_fn=lambda *args, **kwargs: eaggl_regression.finalize_regression(
+                        *args,
+                        log_fn=log,
+                        warn_fn=warn_fn,
+                        trace_level=TRACE,
+                        **kwargs,
+                    ),
+                    log_fn=log,
+                    debug_level=DEBUG,
                 )
             else:
                 (
@@ -147,11 +157,18 @@ def calculate_phewas_block(
                     z_scores[begin:end, :],
                     p_values[begin:end, :],
                     se_inflation_factors[begin:end, :],
-                ) = state._compute_multivariate_beta_tildes(
+                ) = eaggl_regression.compute_multivariate_beta_tildes(state, 
                     X_mat,
                     Y_mat[begin:end, :],
                     resid_correlation_matrix=cor_matrices,
                     covs=covs if not options.debug_skip_phewas_covs else None,
+                    finalize_regression_fn=lambda *args, **kwargs: eaggl_regression.finalize_regression(
+                        *args,
+                        log_fn=log,
+                        warn_fn=warn_fn,
+                        trace_level=TRACE,
+                        **kwargs,
+                    ),
                 )
         else:
             (
@@ -160,12 +177,22 @@ def calculate_phewas_block(
                 z_scores[begin:end, :],
                 p_values[begin:end, :],
                 se_inflation_factors[begin:end, :],
-            ) = state._compute_beta_tildes(
+            ) = eaggl_regression.compute_beta_tildes(state, 
                 X_mat,
                 Y_mat[begin:end, :],
                 scale_factors=scale_factors,
                 mean_shifts=mean_shifts,
                 resid_correlation_matrix=cor_matrices,
+                finalize_regression_fn=lambda *args, **kwargs: eaggl_regression.finalize_regression(
+                    *args,
+                    log_fn=log,
+                    warn_fn=warn_fn,
+                    trace_level=TRACE,
+                    **kwargs,
+                ),
+                bail_fn=bail,
+                log_fun=log,
+                debug_level=DEBUG,
             )
 
     one_sided_p_values = copy.copy(p_values)
@@ -319,17 +346,17 @@ def accumulate_factor_phewas_outputs(state, output_prefix, beta_tilde, se, z_sco
 
 def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
     if gene_pheno_Y is not None:
-        _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = state._calculate_phewas_block(
+        _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = calculate_phewas_block(
             input_values[factor_keep_mask, :],
             gene_pheno_Y[factor_keep_mask, :].T,
             multivariate=True,
             covs=state.Y[factor_keep_mask],
             **phewas_beta_kwargs
         )
-        state._accumulate_factor_phewas_outputs("Y", beta_tilde, se, z_score, p_value, one_sided_p_value)
+        accumulate_factor_phewas_outputs(state, "Y", beta_tilde, se, z_score, p_value, one_sided_p_value)
 
         if not options.debug_skip_huber:
-            _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = state._calculate_phewas_block(
+            _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = calculate_phewas_block(
                 input_values[factor_keep_mask, :],
                 gene_pheno_Y[factor_keep_mask, :].T,
                 multivariate=True,
@@ -337,10 +364,10 @@ def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y,
                 huber=True,
                 **phewas_beta_kwargs
             )
-            state._accumulate_factor_phewas_outputs("Y", beta_tilde, se, z_score, p_value, one_sided_p_value, huber=True)
+            accumulate_factor_phewas_outputs(state, "Y", beta_tilde, se, z_score, p_value, one_sided_p_value, huber=True)
 
     if gene_pheno_combined_prior_Ys is not None and not options.debug_skip_correlation:
-        _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = state._calculate_phewas_block(
+        _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = calculate_phewas_block(
             input_values[factor_keep_mask, :],
             gene_pheno_combined_prior_Ys[factor_keep_mask, :].T,
             X_orig=state.X_orig[factor_keep_mask, :],
@@ -350,10 +377,10 @@ def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y,
             covs=state.combined_prior_Ys[factor_keep_mask] if state.combined_prior_Ys is not None else state.Y[factor_keep_mask],
             **phewas_beta_kwargs
         )
-        state._accumulate_factor_phewas_outputs("combined_prior_Ys", beta_tilde, se, z_score, p_value, one_sided_p_value)
+        accumulate_factor_phewas_outputs(state, "combined_prior_Ys", beta_tilde, se, z_score, p_value, one_sided_p_value)
 
         if not options.debug_skip_huber:
-            _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = state._calculate_phewas_block(
+            _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = calculate_phewas_block(
                 input_values[factor_keep_mask, :],
                 gene_pheno_combined_prior_Ys[factor_keep_mask, :].T,
                 X_orig=state.X_orig[factor_keep_mask, :],
@@ -364,21 +391,21 @@ def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y,
                 huber=True,
                 **phewas_beta_kwargs
             )
-            state._accumulate_factor_phewas_outputs("combined_prior_Ys", beta_tilde, se, z_score, p_value, one_sided_p_value, huber=True)
+            accumulate_factor_phewas_outputs(state, "combined_prior_Ys", beta_tilde, se, z_score, p_value, one_sided_p_value, huber=True)
 
 
 def run_standard_phewas_batch(state, input_values, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
     if gene_pheno_Y is not None:
-        beta, _, beta_tilde, se, z_score, p_value, _ = state._calculate_phewas_block(
+        beta, _, beta_tilde, se, z_score, p_value, _ = calculate_phewas_block(
             input_values,
             gene_pheno_Y.T,
             **phewas_beta_kwargs
         )
         assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
-        state._accumulate_standard_phewas_outputs("pheno_Y", beta, beta_tilde, se, z_score, p_value)
+        accumulate_standard_phewas_outputs(state, "pheno_Y", beta, beta_tilde, se, z_score, p_value)
 
     if gene_pheno_combined_prior_Ys is not None and not options.debug_skip_correlation:
-        beta, _, beta_tilde, se, z_score, p_value, _ = state._calculate_phewas_block(
+        beta, _, beta_tilde, se, z_score, p_value, _ = calculate_phewas_block(
             input_values,
             gene_pheno_combined_prior_Ys.T,
             X_orig=state.X_orig,
@@ -387,7 +414,7 @@ def run_standard_phewas_batch(state, input_values, gene_pheno_Y, gene_pheno_comb
             **phewas_beta_kwargs
         )
         assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
-        state._accumulate_standard_phewas_outputs("pheno_combined_prior_Ys", beta, beta_tilde, se, z_score, p_value)
+        accumulate_standard_phewas_outputs(state, "pheno_combined_prior_Ys", beta, beta_tilde, se, z_score, p_value)
 
 
 def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, run_for_factors=False, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, min_gene_factor_weight=0, *, options, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, **kwargs):
@@ -418,19 +445,23 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
     col_info = None
 
     if read_file:
-        phenos, pheno_to_ind, col_info = state._prepare_phewas_phenos_from_file(
+        phenos, pheno_to_ind, col_info = prepare_phewas_phenos_from_file(state, 
             gene_phewas_bfs_in=gene_phewas_bfs_in,
             gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
             gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
             gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
             gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
             gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+            get_col_fn=state._get_col,
+            warn_fn=warn_fn,
+            log_fn=log_fn,
+            debug_level=debug_level,
         )
     else:
         phenos = state.phenos
 
     num_batches = int(np.ceil(len(phenos) / batch_size))
-    input_values, factor_keep_mask = state._build_phewas_input_values(
+    input_values, factor_keep_mask = build_phewas_input_values(state, 
         run_for_factors=run_for_factors,
         min_gene_factor_weight=min_gene_factor_weight,
     )
@@ -467,7 +498,7 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
         log("Processing phenos %d-%d" % (begin + 1, end))
 
         if read_file:
-            gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors = state._read_phewas_file_batch(
+            gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors = read_phewas_file_batch(state, 
                 gene_phewas_bfs_in=gene_phewas_bfs_in,
                 begin=begin,
                 cur_batch_size=cur_batch_size,
@@ -477,6 +508,7 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
                 bf_col=col_info["bf_col"],
                 combined_col=col_info["combined_col"],
                 prior_col=col_info["prior_col"],
+                warn_fn=warn_fn,
             )
         else:
             gene_pheno_Y = state.gene_pheno_Y[:, begin:end].toarray() if state.gene_pheno_Y is not None else None
@@ -487,7 +519,7 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
             )
 
         if run_for_factors:
-            state._run_factor_phewas_batch(
+            run_factor_phewas_batch(state, 
                 input_values=input_values,
                 factor_keep_mask=factor_keep_mask,
                 gene_pheno_Y=gene_pheno_Y,
@@ -495,13 +527,15 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
                 begin=begin,
                 end=end,
                 phewas_beta_kwargs=phewas_beta_kwargs,
+                options=options,
             )
         else:
-            state._run_standard_phewas_batch(
+            run_standard_phewas_batch(state, 
                 input_values=input_values,
                 gene_pheno_Y=gene_pheno_Y,
                 gene_pheno_combined_prior_Ys=gene_pheno_combined_prior_Ys,
                 begin=begin,
                 end=end,
                 phewas_beta_kwargs=phewas_beta_kwargs,
+                options=options,
             )
