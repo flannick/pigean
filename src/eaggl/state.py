@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-"""Package-owned EAGGL runtime state and inner helpers."""
+"""Package-owned EAGGL deep runtime engine.
+
+This module is the honest deep owner for runtime-coupled EAGGL behavior.
+Prefer editing stage modules first and only split this file further when a
+concrete seam is clear enough to remove real mixed ownership.
+"""
 
 import functools
 import urllib.request

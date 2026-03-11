@@ -42,6 +42,8 @@ Legacy-core retirement policy:
 - `src/eaggl/legacy_main.py` has been retired
 - `src/pigean/main_support.py` and `src/eaggl/main_support.py` are package-owned support layers, not flat legacy runtimes
 - `src/pigean/state.py` and `src/eaggl/state.py` are active package modules and remain the deepest runtime-coupled code paths
+- `src/pigean/state.py` and `src/eaggl/state.py` are the canonical deep engines for now; do not split them further without a concrete ownership seam
+- `src/pegs_utils.py` is no longer the catch-all deep owner and should continue to shrink only by moving stable helpers into explicit shared modules
 - new logic should land in package modules first; support-layer or state-layer changes should stay narrow and should not reintroduce flat catch-all runtime files
 
 For a concise developer map from `docs/methods.tex` to the owning package modules, see:

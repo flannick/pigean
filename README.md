@@ -93,6 +93,8 @@ Current architecture:
 - `src/eaggl/dispatch.py`, `src/eaggl/factor.py`, `src/eaggl/phewas.py`, `src/eaggl/regression.py`, and `src/eaggl/io.py` own the stage-level EAGGL flow
 - `src/pigean/main_support.py` and `src/eaggl/main_support.py` are narrow package-owned support layers for entry/runtime wiring
 - `src/pigean/state.py` and `src/eaggl/state.py` are the remaining deep runtime-coupled modules
+- `src/pigean/state.py` and `src/eaggl/state.py` are now the canonical deep engines; further splitting should be seam-driven, not cosmetic
+- `src/pegs_utils.py` is no longer the catch-all owner for shared runtime behavior and continues to shrink toward a narrow transitional shim
 - Both flat legacy runtime files have been retired
 
 See `docs/REPO_BOOTSTRAP.md` for full setup and release steps.

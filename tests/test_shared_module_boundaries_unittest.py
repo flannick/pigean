@@ -544,6 +544,8 @@ class SharedModuleBoundaryTest(unittest.TestCase):
     def test_legacy_core_naming_policy_is_explicit(self) -> None:
         canonical_doc = (REPO_ROOT / "docs" / "CANONICAL_SOURCE.md").read_text(encoding="utf-8")
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        pigean_state = (REPO_ROOT / "src" / "pigean" / "state.py").read_text(encoding="utf-8")
+        eaggl_state = (REPO_ROOT / "src" / "eaggl" / "state.py").read_text(encoding="utf-8")
         self.assertFalse((REPO_ROOT / "src" / "pigean_legacy_main.py").exists())
         self.assertFalse((REPO_ROOT / "src" / "eaggl" / "legacy_main.py").exists())
         self.assertIn("Legacy-core retirement policy:", canonical_doc)
@@ -554,6 +556,12 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("`src/pigean/state.py` is the remaining deep runtime-coupled PIGEAN module", canonical_doc)
         self.assertIn("`src/eaggl/main_support.py` is the package-owned runtime wiring/support layer for EAGGL", canonical_doc)
         self.assertIn("`src/eaggl/state.py` is the remaining deep runtime-coupled EAGGL module", canonical_doc)
+        self.assertIn("are the canonical deep engines for now", canonical_doc)
+        self.assertIn("no longer the catch-all deep owner", canonical_doc)
+        self.assertIn("canonical deep engines; further splitting should be seam-driven", readme)
+        self.assertIn("no longer the catch-all owner", readme)
+        self.assertIn("Package-owned PIGEAN deep runtime engine.", pigean_state)
+        self.assertIn("Package-owned EAGGL deep runtime engine.", eaggl_state)
 
     def test_readme_and_methods_doc_match_final_runtime_structure(self) -> None:
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
@@ -564,6 +572,8 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("`src/pigean/state.py` and `src/eaggl/state.py` are the remaining deep runtime-coupled modules", readme)
         self.assertIn("The main remaining runtime wiring/support module is:", methods_doc)
         self.assertIn("Use `src/pigean/main_support.py` when a change only affects:", methods_doc)
+        self.assertIn("Current deep-engine policy:", methods_doc)
+        self.assertIn("Do not split it further just to create more files.", methods_doc)
         self.assertNotIn("still-unextracted inner state logic", methods_doc)
         self.assertIn("both flat legacy runtime files have been retired", transition_doc)
         self.assertNotIn("will be retired in later cleanup milestones", transition_doc)

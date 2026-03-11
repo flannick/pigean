@@ -15,6 +15,11 @@ This is intentionally short. It is a stage-level ownership map, not a function-b
 4. Only drop below the stage modules if the change reaches deeper runtime-coupled logic in `src/pigean/state.py`.
 5. Run the listed regression tests before widening to the full suite.
 
+Current deep-engine policy:
+- `src/pigean/state.py` is the canonical deep owner for runtime-coupled PIGEAN behavior.
+- Keep it until a concrete seam is obvious enough to remove real mixed ownership.
+- Do not split it further just to create more files.
+
 ## Primary Edit Order
 
 For most PIGEAN changes, start here in order:
