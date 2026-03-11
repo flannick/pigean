@@ -26,6 +26,7 @@ import pegs_shared.bundle as pegs_bundle
 import pegs_shared.cli as pegs_cli
 import pegs_shared.gene_io as pegs_gene_io
 import pegs_shared.phewas as pegs_phewas
+import pegs_shared.output_tables as pegs_output_tables
 import pegs_shared.regression as pegs_regression
 import pegs_shared.runtime_matrix as pegs_runtime_matrix
 import pegs_shared.types as pegs_types
@@ -114,12 +115,12 @@ pegs_get_num_X_blocks = pegs_runtime_matrix.get_num_X_blocks
 pegs_iterate_X_blocks_internal = pegs_runtime_matrix.iterate_X_blocks_internal
 pegs_set_runtime_p = pegs_runtime_matrix.set_runtime_p
 pegs_set_runtime_sigma = pegs_runtime_matrix.set_runtime_sigma
-pegs_write_gene_set_statistics = pegs_utils_mod.write_gene_set_statistics
-pegs_write_phewas_gene_set_statistics = pegs_utils_mod.write_phewas_gene_set_statistics
-pegs_write_gene_statistics = pegs_utils_mod.write_gene_statistics
-pegs_write_gene_gene_set_statistics = pegs_utils_mod.write_gene_gene_set_statistics
-pegs_write_phewas_statistics = pegs_utils_mod.write_phewas_statistics
-pegs_write_factor_phewas_statistics = pegs_utils_mod.write_factor_phewas_statistics
+pegs_write_gene_set_statistics = pegs_output_tables.write_gene_set_statistics
+pegs_write_phewas_gene_set_statistics = pegs_output_tables.write_phewas_gene_set_statistics
+pegs_write_gene_statistics = pegs_output_tables.write_gene_statistics
+pegs_write_gene_gene_set_statistics = pegs_output_tables.write_gene_gene_set_statistics
+pegs_write_phewas_statistics = pegs_output_tables.write_phewas_statistics
+pegs_write_factor_phewas_statistics = pegs_output_tables.write_factor_phewas_statistics
 pegs_remove_tag_from_input = pegs_utils_mod.remove_tag_from_input
 pegs_clean_chrom_name = pegs_utils_mod.clean_chrom_name
 pegs_parse_gene_map_file = pegs_utils_mod.parse_gene_map_file
