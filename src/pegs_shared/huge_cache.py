@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import MutableMapping
 
 import numpy as np
 import scipy.sparse as sparse
@@ -10,13 +11,46 @@ from pegs_shared.bundle import is_huge_statistics_bundle_path
 from pegs_shared.cli import _default_bail, json_safe
 
 
+class RuntimeStateMapping(MutableMapping):
+    def __init__(self, runtime_state):
+        self.runtime_state = runtime_state
+
+    def _key_view(self):
+        if hasattr(self.runtime_state, "to_runtime_state_dict"):
+            return self.runtime_state.to_runtime_state_dict()
+        return self.runtime_state.__dict__
+
+    def __getitem__(self, key):
+        try:
+            return getattr(self.runtime_state, key)
+        except AttributeError as exc:
+            raise KeyError(key) from exc
+
+    def __setitem__(self, key, value):
+        setattr(self.runtime_state, key, value)
+
+    def __delitem__(self, key):
+        if not hasattr(self.runtime_state, key):
+            raise KeyError(key)
+        delattr(self.runtime_state, key)
+
+    def __iter__(self):
+        return iter(self._key_view())
+
+    def __len__(self):
+        return len(self._key_view())
+
+    def get(self, key, default=None):
+        return getattr(self.runtime_state, key, default)
+
+
 def coerce_runtime_state_dict(runtime_state, *, bail_fn=None):
     if bail_fn is None:
         bail_fn = _default_bail
     if isinstance(runtime_state, dict):
         return runtime_state
     if hasattr(runtime_state, "__dict__"):
-        return runtime_state.__dict__
+        return RuntimeStateMapping(runtime_state)
     bail_fn("Internal error: unsupported runtime state container for HuGE cache IO")
 
 
