@@ -153,6 +153,8 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("def validate_and_normalize_huge_gwas_inputs_explicit(", huge_source)
         self.assertIn("def write_huge_statistics_bundle_explicit(", huge_source)
         self.assertIn("def read_huge_statistics_bundle_explicit(", huge_source)
+        self.assertIn("def read_huge_s2g_probabilities(", huge_source)
+        self.assertIn("def read_huge_input_credible_sets(", huge_source)
         self.assertIn("YPrimaryInputsContract = pigean_y_inputs.YPrimaryInputsContract", support_source)
         self.assertIn("_read_Y = functools.partial(", state_source)
         self.assertIn("_set_const_Y = pigean_y_inputs_core.set_const_Y", support_source)
@@ -167,6 +169,8 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("return _pigean_huge_module().determine_columns_from_file(", state_source)
         self.assertIn("return _pigean_huge_module().write_huge_statistics_bundle_explicit(", state_source)
         self.assertIn("return _pigean_huge_module().read_huge_statistics_bundle_explicit(", state_source)
+        self.assertIn("return _pigean_huge_module().read_huge_s2g_probabilities(", state_source)
+        self.assertIn("return _pigean_huge_module().read_huge_input_credible_sets(", state_source)
         self.assertIn("return pigean_y_inputs.load_main_y_inputs(", support_source)
 
     def test_pigean_x_input_orchestration_lives_in_package_module(self) -> None:
