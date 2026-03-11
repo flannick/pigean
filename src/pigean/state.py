@@ -38,6 +38,7 @@ import pegs_utils as pegs_utils_mod
 
 from pigean import gibbs as pigean_gibbs
 from pigean import model as pigean_model
+from pigean import outputs as pigean_outputs
 from pigean import phewas as pigean_phewas
 from pigean import phewas_io as pigean_phewas_io
 from pigean import runtime as pigean_runtime
@@ -4091,46 +4092,41 @@ class PigeanState(object):
                 return self.gene_N + (self.gene_ignored_N if self.gene_ignored_N is not None else 0)
 
     def write_gene_set_statistics(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
-        return pegs_write_gene_set_statistics(
+        return pigean_outputs.write_gene_set_statistics(
             self,
             output_file,
             max_no_write_gene_set_beta=max_no_write_gene_set_beta,
             max_no_write_gene_set_beta_uncorrected=max_no_write_gene_set_beta_uncorrected,
             basic=basic,
-            open_text_fn=open_gz,
             log_fn=log,
             info_level=INFO,
-            debug_only_avg_huge=self.debug_only_avg_huge,
         )
 
     def write_phewas_gene_set_statistics(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
-        return pegs_write_phewas_gene_set_statistics(
+        return pigean_outputs.write_phewas_gene_set_statistics(
             self,
             output_file,
             max_no_write_gene_set_beta=max_no_write_gene_set_beta,
             max_no_write_gene_set_beta_uncorrected=max_no_write_gene_set_beta_uncorrected,
             basic=basic,
-            open_text_fn=open_gz,
             log_fn=log,
             info_level=INFO,
         )
 
     def write_gene_statistics(self, output_file):
-        return pegs_write_gene_statistics(
+        return pigean_outputs.write_gene_statistics(
             self,
             output_file,
-            open_text_fn=open_gz,
             log_fn=log,
             info_level=INFO,
         )
 
     def write_gene_gene_set_statistics(self, output_file, max_no_write_gene_gene_set_beta=0.0001, write_filter_beta_uncorrected=False):
-        return pegs_write_gene_gene_set_statistics(
+        return pigean_outputs.write_gene_gene_set_statistics(
             self,
             output_file,
             max_no_write_gene_gene_set_beta=max_no_write_gene_gene_set_beta,
             write_filter_beta_uncorrected=write_filter_beta_uncorrected,
-            open_text_fn=open_gz,
             log_fn=log,
             info_level=INFO,
         )
@@ -4294,10 +4290,9 @@ class PigeanState(object):
 
 
     def write_phewas_statistics(self, output_file):
-        return pegs_write_phewas_statistics(
+        return pigean_outputs.write_phewas_statistics(
             self,
             output_file,
-            open_text_fn=open_gz,
             log_fn=log,
             info_level=INFO,
         )
@@ -4941,7 +4936,8 @@ class PigeanState(object):
             
 
     def _compute_beta_tildes(self, X, Y, y_var=None, scale_factors=None, mean_shifts=None, resid_correlation_matrix=None, log_fun=log):
-        return pegs_compute_beta_tildes(
+        return pigean_model.compute_beta_tildes(
+            self,
             X,
             Y,
             y_var=y_var,
@@ -4949,24 +4945,24 @@ class PigeanState(object):
             mean_shifts=mean_shifts,
             resid_correlation_matrix=resid_correlation_matrix,
             calc_x_shift_scale_fn=self._calc_X_shift_scale,
-            finalize_regression_fn=self._finalize_regression,
             bail_fn=bail,
             log_fun=log_fun,
             debug_level=DEBUG,
         )
 
     def _compute_multivariate_beta_tildes(self, X, Y, resid_correlation_matrix=None, add_intercept=True, covs=None):
-        return pegs_compute_multivariate_beta_tildes(
+        return pigean_model.compute_multivariate_beta_tildes(
+            self,
             X,
             Y,
             resid_correlation_matrix=resid_correlation_matrix,
             add_intercept=add_intercept,
             covs=covs,
-            finalize_regression_fn=self._finalize_regression,
         )
 
     def _compute_logistic_beta_tildes(self, X, Y, scale_factors=None, mean_shifts=None, resid_correlation_matrix=None, convert_to_dichotomous=True, rel_tol=0.01, X_stacked=None, append_pseudo=True, log_fun=log):
-        return pegs_compute_logistic_beta_tildes(
+        return pigean_model.compute_logistic_beta_tildes(
+            self,
             X,
             Y,
             scale_factors=scale_factors,
@@ -4977,17 +4973,15 @@ class PigeanState(object):
             X_stacked=X_stacked,
             append_pseudo=append_pseudo,
             calc_x_shift_scale_fn=self._calc_X_shift_scale,
-            finalize_regression_fn=self._finalize_regression,
             bail_fn=bail,
             log_fun=log_fun,
             debug_level=DEBUG,
             trace_level=TRACE,
-            runtime_Y=self.Y,
-            runtime_Y_for_regression=self.Y_for_regression,
         )
 
     def _finalize_regression(self, beta_tildes, ses, se_inflation_factors):
-        return pegs_finalize_regression_outputs(
+        return pigean_model.finalize_regression(
+            self,
             beta_tildes,
             ses,
             se_inflation_factors,
@@ -4997,7 +4991,7 @@ class PigeanState(object):
         )
 
     def _correct_beta_tildes(self, beta_tildes, ses, se_inflation_factors, total_qc_metrics, total_qc_metrics_directions, correct_mean=True, correct_var=True, add_missing=True, add_ignored=True, correct_ignored=False, fit=True):
-        return pegs_correct_beta_tildes(
+        return pigean_model.correct_beta_tildes(
             self,
             beta_tildes,
             ses,
@@ -5010,7 +5004,6 @@ class PigeanState(object):
             add_ignored=add_ignored,
             correct_ignored=correct_ignored,
             fit=fit,
-            compute_beta_tildes_fn=self._compute_beta_tildes,
             log_fn=log,
             warn_fn=warn,
             trace_level=TRACE,

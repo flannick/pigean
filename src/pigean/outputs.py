@@ -1,7 +1,105 @@
 from __future__ import annotations
 
+from pegs_shared.io_common import open_text_with_retry
+from pegs_shared.output_tables import (
+    write_gene_gene_set_statistics as pegs_write_gene_gene_set_statistics,
+    write_gene_set_statistics as pegs_write_gene_set_statistics,
+    write_gene_statistics as pegs_write_gene_statistics,
+    write_phewas_gene_set_statistics as pegs_write_phewas_gene_set_statistics,
+    write_phewas_statistics as pegs_write_phewas_statistics,
+)
+
 from . import main_support as pigean_main_support
 from . import phewas as pigean_phewas
+
+
+def open_gz(file, flag=None):
+    return open_text_with_retry(file, flag=flag)
+
+
+def write_gene_set_statistics(
+    runtime,
+    output_file,
+    max_no_write_gene_set_beta=None,
+    max_no_write_gene_set_beta_uncorrected=None,
+    basic=False,
+    *,
+    log_fn,
+    info_level,
+):
+    return pegs_write_gene_set_statistics(
+        runtime,
+        output_file,
+        max_no_write_gene_set_beta=max_no_write_gene_set_beta,
+        max_no_write_gene_set_beta_uncorrected=max_no_write_gene_set_beta_uncorrected,
+        basic=basic,
+        open_text_fn=open_gz,
+        log_fn=log_fn,
+        info_level=info_level,
+        debug_only_avg_huge=runtime.debug_only_avg_huge,
+    )
+
+
+def write_phewas_gene_set_statistics(
+    runtime,
+    output_file,
+    max_no_write_gene_set_beta=None,
+    max_no_write_gene_set_beta_uncorrected=None,
+    basic=False,
+    *,
+    log_fn,
+    info_level,
+):
+    return pegs_write_phewas_gene_set_statistics(
+        runtime,
+        output_file,
+        max_no_write_gene_set_beta=max_no_write_gene_set_beta,
+        max_no_write_gene_set_beta_uncorrected=max_no_write_gene_set_beta_uncorrected,
+        basic=basic,
+        open_text_fn=open_gz,
+        log_fn=log_fn,
+        info_level=info_level,
+    )
+
+
+def write_gene_statistics(runtime, output_file, *, log_fn, info_level):
+    return pegs_write_gene_statistics(
+        runtime,
+        output_file,
+        open_text_fn=open_gz,
+        log_fn=log_fn,
+        info_level=info_level,
+    )
+
+
+def write_gene_gene_set_statistics(
+    runtime,
+    output_file,
+    max_no_write_gene_gene_set_beta=0.0001,
+    write_filter_beta_uncorrected=False,
+    *,
+    log_fn,
+    info_level,
+):
+    return pegs_write_gene_gene_set_statistics(
+        runtime,
+        output_file,
+        max_no_write_gene_gene_set_beta=max_no_write_gene_gene_set_beta,
+        write_filter_beta_uncorrected=write_filter_beta_uncorrected,
+        open_text_fn=open_gz,
+        log_fn=log_fn,
+        info_level=info_level,
+    )
+
+
+def write_phewas_statistics(runtime, output_file, *, log_fn, info_level):
+    return pegs_write_phewas_statistics(
+        runtime,
+        output_file,
+        open_text_fn=open_gz,
+        log_fn=log_fn,
+        info_level=info_level,
+    )
 
 
 def write_eaggl_bundle_if_requested(services, state, options, mode):

@@ -7,11 +7,149 @@ import scipy
 import scipy.sparse as sparse
 
 from pegs_shared.io_common import clean_chrom_name, open_text_with_retry
+import pegs_shared.regression as pegs_regression
 from . import runtime as pigean_runtime
 
 
 def open_gz(file, flag=None):
     return open_text_with_retry(file, flag=flag)
+
+
+def compute_beta_tildes(
+    runtime,
+    X,
+    Y,
+    y_var=None,
+    scale_factors=None,
+    mean_shifts=None,
+    resid_correlation_matrix=None,
+    *,
+    calc_x_shift_scale_fn,
+    bail_fn,
+    log_fun,
+    debug_level,
+):
+    return pegs_regression.compute_beta_tildes(
+        X,
+        Y,
+        y_var=y_var,
+        scale_factors=scale_factors,
+        mean_shifts=mean_shifts,
+        resid_correlation_matrix=resid_correlation_matrix,
+        calc_x_shift_scale_fn=calc_x_shift_scale_fn,
+        finalize_regression_fn=runtime._finalize_regression,
+        bail_fn=bail_fn,
+        log_fun=log_fun,
+        debug_level=debug_level,
+    )
+
+
+def compute_multivariate_beta_tildes(
+    runtime,
+    X,
+    Y,
+    resid_correlation_matrix=None,
+    add_intercept=True,
+    covs=None,
+):
+    return pegs_regression.compute_multivariate_beta_tildes(
+        X,
+        Y,
+        resid_correlation_matrix=resid_correlation_matrix,
+        add_intercept=add_intercept,
+        covs=covs,
+        finalize_regression_fn=runtime._finalize_regression,
+    )
+
+
+def compute_logistic_beta_tildes(
+    runtime,
+    X,
+    Y,
+    scale_factors=None,
+    mean_shifts=None,
+    resid_correlation_matrix=None,
+    convert_to_dichotomous=True,
+    rel_tol=0.01,
+    X_stacked=None,
+    append_pseudo=True,
+    *,
+    calc_x_shift_scale_fn,
+    bail_fn,
+    log_fun,
+    debug_level,
+    trace_level,
+):
+    return pegs_regression.compute_logistic_beta_tildes(
+        X,
+        Y,
+        scale_factors=scale_factors,
+        mean_shifts=mean_shifts,
+        resid_correlation_matrix=resid_correlation_matrix,
+        convert_to_dichotomous=convert_to_dichotomous,
+        rel_tol=rel_tol,
+        X_stacked=X_stacked,
+        append_pseudo=append_pseudo,
+        calc_x_shift_scale_fn=calc_x_shift_scale_fn,
+        finalize_regression_fn=runtime._finalize_regression,
+        bail_fn=bail_fn,
+        log_fun=log_fun,
+        debug_level=debug_level,
+        trace_level=trace_level,
+        runtime_Y=runtime.Y,
+        runtime_Y_for_regression=runtime.Y_for_regression,
+    )
+
+
+def finalize_regression(runtime, beta_tildes, ses, se_inflation_factors, *, log_fn, warn_fn, trace_level):
+    return pegs_regression.finalize_regression_outputs(
+        beta_tildes,
+        ses,
+        se_inflation_factors,
+        log_fn=log_fn,
+        warn_fn=warn_fn,
+        trace_level=trace_level,
+    )
+
+
+def correct_beta_tildes(
+    runtime,
+    beta_tildes,
+    ses,
+    se_inflation_factors,
+    total_qc_metrics,
+    total_qc_metrics_directions,
+    correct_mean=True,
+    correct_var=True,
+    add_missing=True,
+    add_ignored=True,
+    correct_ignored=False,
+    fit=True,
+    *,
+    log_fn,
+    warn_fn,
+    trace_level,
+    debug_level,
+):
+    return pegs_regression.correct_beta_tildes(
+        runtime,
+        beta_tildes,
+        ses,
+        se_inflation_factors,
+        total_qc_metrics,
+        total_qc_metrics_directions,
+        correct_mean=correct_mean,
+        correct_var=correct_var,
+        add_missing=add_missing,
+        add_ignored=add_ignored,
+        correct_ignored=correct_ignored,
+        fit=fit,
+        compute_beta_tildes_fn=runtime._compute_beta_tildes,
+        log_fn=log_fn,
+        warn_fn=warn_fn,
+        trace_level=trace_level,
+        debug_level=debug_level,
+    )
 
 
 def build_inner_beta_sampler_common_kwargs(options):
