@@ -81,6 +81,8 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("def prepare_phewas_phenos_from_file(", phewas_source)
         self.assertIn("def read_phewas_file_batch(", phewas_source)
         self.assertIn("def accumulate_phewas_outputs(", phewas_source)
+        self.assertIn("def build_phewas_input_values(", phewas_source)
+        self.assertIn("def calculate_phewas_block(", phewas_source)
         self.assertIn("def run_phewas(", phewas_source)
         self.assertIn("pigean_main_support.resolve_gene_phewas_input_decision_for_stage(", phewas_source)
         self.assertIn("def run_cross_val(", model_source)
@@ -88,6 +90,12 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("return pigean_model.run_cross_val(", state_source)
         self.assertIn("return pigean_model.calculate_priors_adj(", state_source)
         self.assertNotIn('log("Running cross validation", DEBUG)', state_source)
+        self.assertNotIn("def _build_phewas_input_values(", state_source)
+        self.assertNotIn("def _calculate_phewas_block(", state_source)
+        self.assertNotIn("def _append_phewas_metric_block(", state_source)
+        self.assertNotIn("def _prepare_phewas_phenos_from_file(", state_source)
+        self.assertNotIn("def _read_phewas_file_batch(", state_source)
+        self.assertNotIn("def _accumulate_phewas_outputs(", state_source)
 
     def test_pigean_phewas_io_owns_gene_phewas_reader_and_cache_logic(self) -> None:
         phewas_io_source = (REPO_ROOT / "src" / "pigean" / "phewas_io.py").read_text(encoding="utf-8")

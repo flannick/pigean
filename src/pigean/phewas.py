@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import copy
 import numpy as np
 import pegs_shared.phewas as pegs_phewas
 
 from . import main_support as pigean_main_support
+from . import runtime as pigean_runtime
+
+
+_temporary_state_fields = pigean_runtime.temporary_state_fields
+_STATE_FIELDS_SAMPLER_HYPER = pigean_runtime.STATE_FIELDS_SAMPLER_HYPER
 
 
 def run_advanced_set_b_phewas_beta_sampling_if_requested(services, state, options, beta_sampling_kwargs):
@@ -135,6 +141,187 @@ def accumulate_phewas_outputs(state, output_prefix, beta, beta_tilde, se, z_scor
     return pegs_phewas.accumulate_standard_phewas_outputs(state, output_prefix, beta, beta_tilde, se, z_score, p_value)
 
 
+def build_phewas_input_values(state):
+    default_value = (
+        state.Y[:, np.newaxis]
+        if state.Y is not None
+        else state.combined_prior_Ys[:, np.newaxis]
+        if state.combined_prior_Ys is not None
+        else state.priors[:, np.newaxis]
+    )
+    input_values = np.hstack(
+        (
+            state.Y[:, np.newaxis] if state.Y is not None else default_value,
+            state.combined_prior_Ys[:, np.newaxis] if state.combined_prior_Ys is not None else default_value,
+            state.priors[:, np.newaxis] if state.priors is not None else default_value,
+        )
+    )
+    return np.exp(input_values + state.background_bf) / (1 + np.exp(input_values + state.background_bf))
+
+
+def calculate_phewas_block(
+    state,
+    X_mat,
+    Y_mat,
+    *,
+    max_num_burn_in,
+    max_num_iter,
+    min_num_iter,
+    num_chains,
+    r_threshold_burn_in,
+    use_max_r_for_convergence,
+    max_frac_sem,
+    gauss_seidel,
+    sparse_solution,
+    sparse_frac_betas,
+    non_inf_kwargs,
+    X_orig=None,
+    X_phewas_beta=None,
+    Y_resid=None,
+    multivariate=False,
+    covs=None,
+    huber=False,
+):
+    (mean_shifts, scale_factors) = state._calc_X_shift_scale(X_mat)
+
+    cor_matrices = None
+
+    beta_tildes = np.zeros((Y_mat.shape[0], X_mat.shape[1]))
+    ses = np.zeros((Y_mat.shape[0], X_mat.shape[1]))
+    z_scores = np.zeros((Y_mat.shape[0], X_mat.shape[1]))
+    p_values = np.zeros((Y_mat.shape[0], X_mat.shape[1]))
+    se_inflation_factors = np.zeros((Y_mat.shape[0], X_mat.shape[1]))
+
+    cor_batch_size = int(np.ceil(beta_tildes.shape[0] / 4) if X_phewas_beta is not None and X_orig is not None else beta_tildes.shape[0])
+    num_cor_batches = int(np.ceil(beta_tildes.shape[0] / cor_batch_size))
+    for batch in range(num_cor_batches):
+        pigean_main_support.log("Processing block batch %s" % (batch), pigean_main_support.TRACE)
+        begin = batch * cor_batch_size
+        end = min((batch + 1) * cor_batch_size, beta_tildes.shape[0])
+
+        if X_phewas_beta is not None and X_orig is not None and not state.debug_skip_correlation:
+            if X_phewas_beta.shape[0] != Y_mat.shape[0]:
+                pigean_main_support.bail(
+                    "When calling this, the phewas_betas must have same number of phenos as Y_mat: shapes are X_phewas=(%d,%d) vs. Y_mat=(%d,%d)"
+                    % (X_phewas_beta.shape[0], X_phewas_beta.shape[1], Y_mat.shape[0], Y_mat.shape[1])
+                )
+            dot_threshold = 0.01 * 0.01
+            pigean_main_support.log("Calculating correlation matrix for use in residuals", pigean_main_support.DEBUG)
+            cor_matrices = state._sparse_correlation_with_dot_product_threshold(
+                X_orig,
+                X_phewas_beta[begin:end, :],
+                dot_product_threshold=dot_threshold,
+                Y=Y_resid[begin:end, :],
+            )
+
+            total = 0
+            nnz = 0
+            for cor_matrix in cor_matrices if type(cor_matrices) is list else [cor_matrices]:
+                total += np.prod(cor_matrix.shape)
+                nnz += cor_matrix.nnz
+            pigean_main_support.log(
+                "Sparsity of correlation matrix is %d/%d=%.3g (size %.3gMb)" % (nnz, total, float(nnz) / total, nnz * 8 / (1024 * 1024)),
+                pigean_main_support.DEBUG,
+            )
+
+        if multivariate:
+            if huber:
+                (
+                    beta_tildes[begin:end, :],
+                    ses[begin:end, :],
+                    z_scores[begin:end, :],
+                    p_values[begin:end, :],
+                    se_inflation_factors[begin:end, :],
+                ) = state._compute_robust_betas(
+                    X_mat,
+                    Y_mat[begin:end, :],
+                    resid_correlation_matrix=cor_matrices,
+                    covs=covs if not state.debug_skip_phewas_covs else None,
+                )
+            else:
+                (
+                    beta_tildes[begin:end, :],
+                    ses[begin:end, :],
+                    z_scores[begin:end, :],
+                    p_values[begin:end, :],
+                    se_inflation_factors[begin:end, :],
+                ) = state._compute_multivariate_beta_tildes(
+                    X_mat,
+                    Y_mat[begin:end, :],
+                    resid_correlation_matrix=cor_matrices,
+                    covs=covs if not state.debug_skip_phewas_covs else None,
+                )
+        else:
+            (
+                beta_tildes[begin:end, :],
+                ses[begin:end, :],
+                z_scores[begin:end, :],
+                p_values[begin:end, :],
+                se_inflation_factors[begin:end, :],
+            ) = state._compute_beta_tildes(
+                X_mat,
+                Y_mat[begin:end, :],
+                scale_factors=scale_factors,
+                mean_shifts=mean_shifts,
+                resid_correlation_matrix=cor_matrices,
+            )
+
+    one_sided_p_values = copy.copy(p_values)
+    one_sided_p_values[z_scores < 0] = 1 - p_values[z_scores < 0] / 2.0
+    one_sided_p_values[z_scores > 0] = p_values[z_scores > 0] / 2.0
+
+    if multivariate:
+        return (None, None, beta_tildes.T, ses.T, z_scores.T, p_values.T, one_sided_p_values.T)
+
+    with _temporary_state_fields(
+        state,
+        overrides={"ps": None, "sigma2s": None},
+        restore_fields=_STATE_FIELDS_SAMPLER_HYPER,
+    ) as hyper_snapshot:
+        orig_p = hyper_snapshot["p"]
+        orig_sigma2_internal = hyper_snapshot["sigma2"]
+        orig_sigma_power = hyper_snapshot["sigma_power"]
+
+        new_p = 0.5
+        new_sigma2_internal = orig_sigma2_internal * (new_p / orig_p)
+        state.set_p(new_p)
+        state.set_sigma(new_sigma2_internal, orig_sigma_power, convert_sigma_to_internal_units=False)
+
+        (betas_uncorrected, postp_uncorrected) = state._calculate_non_inf_betas(
+            initial_p=state.p,
+            assume_independent=True,
+            beta_tildes=beta_tildes,
+            ses=ses,
+            V=None,
+            X_orig=None,
+            scale_factors=scale_factors,
+            mean_shifts=mean_shifts,
+            max_num_burn_in=max_num_burn_in,
+            max_num_iter=max_num_iter,
+            min_num_iter=min_num_iter,
+            num_chains=num_chains,
+            r_threshold_burn_in=r_threshold_burn_in,
+            use_max_r_for_convergence=use_max_r_for_convergence,
+            max_frac_sem=max_frac_sem,
+            gauss_seidel=gauss_seidel,
+            update_hyper_sigma=False,
+            update_hyper_p=False,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            **non_inf_kwargs,
+        )
+
+    return (
+        (betas_uncorrected / scale_factors).T,
+        postp_uncorrected.T,
+        (beta_tildes / scale_factors).T,
+        (ses / scale_factors).T,
+        z_scores.T,
+        p_values.T,
+        one_sided_p_values.T,
+    )
+
+
 def run_phewas(
     state,
     gene_phewas_bfs_in=None,
@@ -206,7 +393,7 @@ def run_phewas(
         phenos = state.phenos
 
     num_batches = int(np.ceil(len(phenos) / batch_size))
-    input_values = state._build_phewas_input_values()
+    input_values = build_phewas_input_values(state)
     phewas_beta_kwargs = {
         'max_num_burn_in': max_num_burn_in,
         'max_num_iter': max_num_iter,
@@ -251,12 +438,13 @@ def run_phewas(
             gene_pheno_combined_prior_Ys = state.gene_pheno_combined_prior_Ys[:,begin:end].toarray() if state.gene_pheno_combined_prior_Ys is not None else None
 
         if gene_pheno_Y is not None:
-            beta, _, beta_tilde, se, Z, p_value, _ = state._calculate_phewas_block(input_values, gene_pheno_Y.T, **phewas_beta_kwargs)
+            beta, _, beta_tilde, se, Z, p_value, _ = calculate_phewas_block(state, input_values, gene_pheno_Y.T, **phewas_beta_kwargs)
             assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
             accumulate_phewas_outputs(state, 'pheno_Y', beta, beta_tilde, se, Z, p_value)
 
         if gene_pheno_combined_prior_Ys is not None and not state.debug_skip_correlation:
-            beta, _, beta_tilde, se, Z, p_value, _ = state._calculate_phewas_block(
+            beta, _, beta_tilde, se, Z, p_value, _ = calculate_phewas_block(
+                state,
                 input_values,
                 gene_pheno_combined_prior_Ys.T,
                 X_orig=state.X_orig,
