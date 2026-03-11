@@ -685,256 +685,6 @@ class PigeanState(object):
 
                 output_fh.write("%s\n" % line)
 
-    def _initialize_huge_gwas_state(self):
-        # Track per-signal HuGE matrices and per-gene covariates for this GWAS run.
-        self.huge_signals = []
-        self.huge_signal_posteriors = []
-        self.huge_signal_posteriors_for_regression = []
-        self.huge_signal_sum_gene_cond_probabilities = []
-        self.huge_signal_sum_gene_cond_probabilities_for_regression = []
-        self.huge_signal_mean_gene_pos = []
-        self.huge_signal_mean_gene_pos_for_regression = []
-        self.gene_covariates = None
-        self.gene_covariates_mask = None
-        self.gene_covariate_names = None
-        self.gene_covariate_directions = None
-        self.gene_covariate_intercept_index = None
-        self.gene_covariate_adjustments = None
-
-        return {
-            "closest_dist_X": np.array([]),
-            "closest_dist_Y": np.array([]),
-            "var_all_p": np.array([]),
-            "gene_bf_data": [],
-            "gene_bf_data_detect": [],
-            "gene_prob_rows": [],
-            "gene_prob_rows_detect": [],
-            "gene_prob_cols": [],
-            "gene_prob_cols_detect": [],
-            "gene_prob_genes": [],
-            "gene_prob_col_num": 0,
-            "gene_covariate_genes": [],
-        }
-
-    def _remap_huge_gene_probability_rows(self, gene_to_chrom, gene_prob_genes, gene_prob_rows, gene_prob_rows_detect):
-        if self.genes is not None:
-            genes = self.genes
-            gene_to_ind = self.gene_to_ind
-        else:
-            genes = list(gene_to_chrom.keys())
-            gene_to_ind = pegs_construct_map_to_ind(genes)
-
-        # Remap sparse matrix row indices into the final gene ordering.
-        extra_genes = []
-        extra_gene_to_ind = {}
-        for gene_prob_rows_to_process in [gene_prob_rows, gene_prob_rows_detect]:
-            for i in range(len(gene_prob_rows_to_process)):
-                cur_gene = gene_prob_genes[gene_prob_rows_to_process[i]]
-
-                if cur_gene in gene_to_ind:
-                    new_ind = gene_to_ind[cur_gene]
-                elif cur_gene in extra_gene_to_ind:
-                    new_ind = extra_gene_to_ind[cur_gene]
-                else:
-                    new_ind = len(extra_genes) + len(genes)
-                    extra_genes.append(cur_gene)
-                    extra_gene_to_ind[cur_gene] = new_ind
-                gene_prob_rows_to_process[i] = new_ind
-
-        # Ensure genes with no retained signal rows still exist in final output vectors.
-        for cur_gene in list(gene_to_chrom.keys()) + gene_prob_genes:
-            if cur_gene not in gene_to_ind and cur_gene not in extra_gene_to_ind:
-                new_ind = len(extra_genes) + len(genes)
-                extra_genes.append(cur_gene)
-                extra_gene_to_ind[cur_gene] = new_ind
-
-        gene_prob_gene_list = genes + extra_genes
-        return (genes, gene_to_ind, extra_genes, extra_gene_to_ind, gene_prob_gene_list)
-
-    def _align_huge_gene_covariates_to_gene_list(self, gene_prob_gene_list, gene_covariate_genes, gene_to_ind, extra_gene_to_ind):
-        if self.gene_covariates is None:
-            return
-
-        # Sort covariates into the final gene order, filling missing genes with column means.
-        sorted_gene_covariates = np.tile(
-            np.nanmean(self.gene_covariates, axis=0),
-            len(gene_prob_gene_list),
-        ).reshape((len(gene_prob_gene_list), self.gene_covariates.shape[1]))
-
-        for i in range(len(gene_covariate_genes)):
-            cur_gene = gene_covariate_genes[i]
-            assert(cur_gene in gene_to_ind or cur_gene in extra_gene_to_ind)
-
-            if cur_gene in gene_to_ind:
-                new_ind = gene_to_ind[cur_gene]
-            else:
-                new_ind = extra_gene_to_ind[cur_gene]
-            noninf_mask = ~np.isnan(self.gene_covariates[i,:])
-            sorted_gene_covariates[new_ind,noninf_mask] = self.gene_covariates[i,noninf_mask]
-
-        self.gene_covariates = sorted_gene_covariates
-
-    def _read_huge_s2g_probabilities(
-        self,
-        s2g_in,
-        seen_chrom_pos,
-        hold_out_chrom=None,
-        s2g_chrom_col=None,
-        s2g_pos_col=None,
-        s2g_gene_col=None,
-        s2g_prob_col=None,
-        s2g_normalize_values=None,
-    ):
-        return _pigean_huge_module().read_huge_s2g_probabilities(
-            self,
-            s2g_in,
-            seen_chrom_pos,
-            hold_out_chrom=hold_out_chrom,
-            s2g_chrom_col=s2g_chrom_col,
-            s2g_pos_col=s2g_pos_col,
-            s2g_gene_col=s2g_gene_col,
-            s2g_prob_col=s2g_prob_col,
-            s2g_normalize_values=s2g_normalize_values,
-            determine_columns_fn=_determine_columns_from_file,
-            open_text_fn=open_gz,
-            get_col_fn=_get_col,
-            clean_chrom_fn=pegs_clean_chrom_name,
-            log_fn=log,
-            warn_fn=warn,
-            bail_fn=bail,
-            info_level=INFO,
-        )
-
-    def _read_huge_input_credible_sets(
-        self,
-        credible_sets_in,
-        seen_chrom_pos,
-        chrom_pos_p_beta_se_freq,
-        var_p_threshold,
-        hold_out_chrom=None,
-        credible_sets_id_col=None,
-        credible_sets_chrom_col=None,
-        credible_sets_pos_col=None,
-        credible_sets_ppa_col=None,
-    ):
-        return _pigean_huge_module().read_huge_input_credible_sets(
-            self,
-            credible_sets_in,
-            seen_chrom_pos,
-            chrom_pos_p_beta_se_freq,
-            var_p_threshold,
-            hold_out_chrom=hold_out_chrom,
-            credible_sets_id_col=credible_sets_id_col,
-            credible_sets_chrom_col=credible_sets_chrom_col,
-            credible_sets_pos_col=credible_sets_pos_col,
-            credible_sets_ppa_col=credible_sets_ppa_col,
-            determine_columns_fn=_determine_columns_from_file,
-            open_text_fn=open_gz,
-            get_col_fn=_get_col,
-            clean_chrom_fn=pegs_clean_chrom_name,
-            log_fn=log,
-            warn_fn=warn,
-            bail_fn=bail,
-            info_level=INFO,
-        )
-
-    def _compute_huge_variant_logbf_and_posteriors(
-        self,
-        var_z,
-        allelic_var_k,
-        gwas_prior_odds,
-        separate_detect=False,
-        allelic_var_k_detect=None,
-        gwas_prior_odds_detect=None,
-    ):
-        var_log_bf = -np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k)
-
-        if separate_detect:
-            var_log_bf_detect = -np.log(np.sqrt(1 + allelic_var_k_detect)) + 0.5 * np.square(var_z) * allelic_var_k_detect / (1 + allelic_var_k_detect)
-        else:
-            var_log_bf_detect = copy.copy(var_log_bf)
-
-        # Convert log-odds to probabilities with a numerical cap for very large values.
-        var_posterior = var_log_bf + np.log(gwas_prior_odds)
-        if separate_detect:
-            var_posterior_detect = var_log_bf_detect + np.log(gwas_prior_odds_detect)
-            update_posterior = [var_posterior, var_posterior_detect]
-        else:
-            var_posterior_detect = copy.copy(var_posterior)
-            update_posterior = [var_posterior]
-
-        max_log = 15
-        for cur_var_posterior in update_posterior:
-            max_mask = cur_var_posterior < max_log
-            cur_var_posterior[~max_mask] = 1
-            cur_var_posterior[max_mask] = np.exp(cur_var_posterior[max_mask])
-            cur_var_posterior[max_mask] = cur_var_posterior[max_mask] / (1 + cur_var_posterior[max_mask])
-
-        if not separate_detect:
-            var_posterior_detect = copy.copy(var_posterior)
-
-        return (var_log_bf, var_log_bf_detect, var_posterior, var_posterior_detect)
-
-    def _filter_huge_variants_for_signal_search(
-        self,
-        var_pos,
-        var_p,
-        var_beta,
-        var_se,
-        var_se2,
-        var_log_bf,
-        var_log_bf_detect,
-        var_posterior,
-        var_posterior_detect,
-        vars_zipped,
-        freq_col,
-        min_n_ratio,
-        mean_n,
-        learn_params,
-        chrom,
-        added_chrom_pos,
-    ):
-        variants_keep = np.full(len(var_pos), True)
-        qc_fail = 1 / var_se2 < min_n_ratio * mean_n
-        variants_keep[qc_fail] = False
-
-        # Make sure to add in additional credible set ids.
-        if not learn_params and chrom in added_chrom_pos:
-            for cur_pos in added_chrom_pos[chrom]:
-                variants_keep[var_pos == cur_pos] = True
-
-        # Filter down for efficiency.
-        var_pos = var_pos[variants_keep]
-        var_p = var_p[variants_keep]
-        var_beta = var_beta[variants_keep]
-        var_se = var_se[variants_keep]
-        var_se2 = var_se2[variants_keep]
-        var_log_bf = var_log_bf[variants_keep]
-        var_log_bf_detect = var_log_bf_detect[variants_keep]
-        var_posterior = var_posterior[variants_keep]
-        var_posterior_detect = var_posterior_detect[variants_keep]
-
-        var_logp = -np.log(var_p) / np.log(10)
-
-        var_freq = None
-        if freq_col is not None:
-            var_freq = np.array(vars_zipped[4], dtype=float)[variants_keep]
-            var_freq[var_freq > 0.5] = 1 - var_freq[var_freq > 0.5]
-
-        return (
-            var_pos,
-            var_p,
-            var_beta,
-            var_se,
-            var_se2,
-            var_log_bf,
-            var_log_bf_detect,
-            var_posterior,
-            var_posterior_detect,
-            var_logp,
-            var_freq,
-        )
-
     def _get_huge_closest_gene_indices(self, gene_pos, region_pos):
         gene_indices = np.searchsorted(gene_pos, region_pos)
         gene_indices[gene_indices == len(gene_pos)] -= 1
@@ -2409,7 +2159,8 @@ class PigeanState(object):
                 warn("Skipped %d variants due to not enough information" % (not_enough_info))
 
             log("Read in %d variants" % total_num_vars)
-            chrom_pos_to_gene_prob = self._read_huge_s2g_probabilities(
+            chrom_pos_to_gene_prob = _pigean_huge_module().read_huge_s2g_probabilities(
+                self,
                 s2g_in=s2g_in,
                 seen_chrom_pos=seen_chrom_pos,
                 hold_out_chrom=hold_out_chrom,
@@ -2418,9 +2169,18 @@ class PigeanState(object):
                 s2g_gene_col=s2g_gene_col,
                 s2g_prob_col=s2g_prob_col,
                 s2g_normalize_values=s2g_normalize_values,
+                determine_columns_fn=_determine_columns_from_file,
+                open_text_fn=open_gz,
+                get_col_fn=_get_col,
+                clean_chrom_fn=pegs_clean_chrom_name,
+                log_fn=log,
+                warn_fn=warn,
+                bail_fn=bail,
+                info_level=INFO,
             )
 
-            (added_chrom_pos, input_credible_set_info) = self._read_huge_input_credible_sets(
+            (added_chrom_pos, input_credible_set_info) = _pigean_huge_module().read_huge_input_credible_sets(
+                self,
                 credible_sets_in=credible_sets_in,
                 seen_chrom_pos=seen_chrom_pos,
                 chrom_pos_p_beta_se_freq=chrom_pos_p_beta_se_freq,
@@ -2430,6 +2190,14 @@ class PigeanState(object):
                 credible_sets_chrom_col=credible_sets_chrom_col,
                 credible_sets_pos_col=credible_sets_pos_col,
                 credible_sets_ppa_col=credible_sets_ppa_col,
+                determine_columns_fn=_determine_columns_from_file,
+                open_text_fn=open_gz,
+                get_col_fn=_get_col,
+                clean_chrom_fn=pegs_clean_chrom_name,
+                log_fn=log,
+                warn_fn=warn,
+                bail_fn=bail,
+                info_level=INFO,
             )
 
             if total_num_vars == 0:
@@ -2439,7 +2207,7 @@ class PigeanState(object):
             total_prob_causal = 0
 
             # Run through twice: first pass learns the window function, second computes scores.
-            huge_buffers = self._initialize_huge_gwas_state()
+            huge_buffers = _pigean_huge_module().initialize_huge_gwas_state(self)
             closest_dist_Y = huge_buffers["closest_dist_Y"]
             closest_dist_X = huge_buffers["closest_dist_X"]
             var_all_p = huge_buffers["var_all_p"]
@@ -2567,7 +2335,8 @@ class PigeanState(object):
                     #np.sqrt(1 + var_n * K) * np.exp(-np.square(var_z) / 2 * (var_n * K) / (1 + var_n * K))
 
                     # var_log_bf = np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k)
-                    (var_log_bf, var_log_bf_detect, var_posterior, var_posterior_detect) = self._compute_huge_variant_logbf_and_posteriors(
+                    (var_log_bf, var_log_bf_detect, var_posterior, var_posterior_detect) = _pigean_huge_module().compute_huge_variant_logbf_and_posteriors(
+                        self,
                         var_z=var_z,
                         allelic_var_k=allelic_var_k,
                         gwas_prior_odds=gwas_prior_odds,
@@ -2589,7 +2358,8 @@ class PigeanState(object):
                         var_posterior_detect,
                         var_logp,
                         var_freq,
-                    ) = self._filter_huge_variants_for_signal_search(
+                    ) = _pigean_huge_module().filter_huge_variants_for_signal_search(
+                        self,
                         var_pos=var_pos,
                         var_p=var_p,
                         var_beta=var_beta,
@@ -2790,13 +2560,16 @@ class PigeanState(object):
                  bail("Didn't read in any SNPs for HuGE scores")
 
 
-            (genes, gene_to_ind, extra_genes, extra_gene_to_ind, gene_prob_gene_list) = self._remap_huge_gene_probability_rows(
+            (genes, gene_to_ind, extra_genes, extra_gene_to_ind, gene_prob_gene_list) = _pigean_huge_module().remap_huge_gene_probability_rows(
+                self,
                 gene_to_chrom=gene_to_chrom,
                 gene_prob_genes=gene_prob_genes,
                 gene_prob_rows=gene_prob_rows,
                 gene_prob_rows_detect=gene_prob_rows_detect,
+                construct_map_to_ind_fn=pegs_construct_map_to_ind,
             )
-            self._align_huge_gene_covariates_to_gene_list(
+            _pigean_huge_module().align_huge_gene_covariates_to_gene_list(
+                self,
                 gene_prob_gene_list=gene_prob_gene_list,
                 gene_covariate_genes=gene_covariate_genes,
                 gene_to_ind=gene_to_ind,

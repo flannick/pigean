@@ -4,6 +4,7 @@ import json
 import os
 from types import SimpleNamespace
 
+import numpy as np
 import scipy.sparse as sparse
 
 from pegs_shared.io_common import resolve_column_index
@@ -857,4 +858,190 @@ def read_huge_statistics_bundle(domain, runtime_state, prefix):
         domain.np.array(extra_gene_bf),
         gene_bf_for_regression,
         domain.np.array(extra_gene_bf_for_regression),
+    )
+
+
+def initialize_huge_gwas_state(domain):
+    domain.huge_signals = []
+    domain.huge_signal_posteriors = []
+    domain.huge_signal_posteriors_for_regression = []
+    domain.huge_signal_sum_gene_cond_probabilities = []
+    domain.huge_signal_sum_gene_cond_probabilities_for_regression = []
+    domain.huge_signal_mean_gene_pos = []
+    domain.huge_signal_mean_gene_pos_for_regression = []
+    domain.gene_covariates = None
+    domain.gene_covariates_mask = None
+    domain.gene_covariate_names = None
+    domain.gene_covariate_directions = None
+    domain.gene_covariate_intercept_index = None
+    domain.gene_covariate_adjustments = None
+
+    return {
+        "closest_dist_X": np.array([]),
+        "closest_dist_Y": np.array([]),
+        "var_all_p": np.array([]),
+        "gene_bf_data": [],
+        "gene_bf_data_detect": [],
+        "gene_prob_rows": [],
+        "gene_prob_rows_detect": [],
+        "gene_prob_cols": [],
+        "gene_prob_cols_detect": [],
+        "gene_prob_genes": [],
+        "gene_prob_col_num": 0,
+        "gene_covariate_genes": [],
+    }
+
+
+def remap_huge_gene_probability_rows(domain, gene_to_chrom, gene_prob_genes, gene_prob_rows, gene_prob_rows_detect, *, construct_map_to_ind_fn):
+    if domain.genes is not None:
+        genes = domain.genes
+        gene_to_ind = domain.gene_to_ind
+    else:
+        genes = list(gene_to_chrom.keys())
+        gene_to_ind = construct_map_to_ind_fn(genes)
+
+    extra_genes = []
+    extra_gene_to_ind = {}
+    for gene_prob_rows_to_process in [gene_prob_rows, gene_prob_rows_detect]:
+        for i in range(len(gene_prob_rows_to_process)):
+            cur_gene = gene_prob_genes[gene_prob_rows_to_process[i]]
+
+            if cur_gene in gene_to_ind:
+                new_ind = gene_to_ind[cur_gene]
+            elif cur_gene in extra_gene_to_ind:
+                new_ind = extra_gene_to_ind[cur_gene]
+            else:
+                new_ind = len(extra_genes) + len(genes)
+                extra_genes.append(cur_gene)
+                extra_gene_to_ind[cur_gene] = new_ind
+            gene_prob_rows_to_process[i] = new_ind
+
+    for cur_gene in list(gene_to_chrom.keys()) + gene_prob_genes:
+        if cur_gene not in gene_to_ind and cur_gene not in extra_gene_to_ind:
+            new_ind = len(extra_genes) + len(genes)
+            extra_genes.append(cur_gene)
+            extra_gene_to_ind[cur_gene] = new_ind
+
+    gene_prob_gene_list = genes + extra_genes
+    return (genes, gene_to_ind, extra_genes, extra_gene_to_ind, gene_prob_gene_list)
+
+
+def align_huge_gene_covariates_to_gene_list(domain, gene_prob_gene_list, gene_covariate_genes, gene_to_ind, extra_gene_to_ind):
+    if domain.gene_covariates is None:
+        return
+
+    sorted_gene_covariates = np.tile(
+        np.nanmean(domain.gene_covariates, axis=0),
+        len(gene_prob_gene_list),
+    ).reshape((len(gene_prob_gene_list), domain.gene_covariates.shape[1]))
+
+    for i in range(len(gene_covariate_genes)):
+        cur_gene = gene_covariate_genes[i]
+        assert cur_gene in gene_to_ind or cur_gene in extra_gene_to_ind
+
+        if cur_gene in gene_to_ind:
+            new_ind = gene_to_ind[cur_gene]
+        else:
+            new_ind = extra_gene_to_ind[cur_gene]
+        noninf_mask = ~np.isnan(domain.gene_covariates[i, :])
+        sorted_gene_covariates[new_ind, noninf_mask] = domain.gene_covariates[i, noninf_mask]
+
+    domain.gene_covariates = sorted_gene_covariates
+
+
+def compute_huge_variant_logbf_and_posteriors(
+    domain,
+    var_z,
+    allelic_var_k,
+    gwas_prior_odds,
+    *,
+    separate_detect=False,
+    allelic_var_k_detect=None,
+    gwas_prior_odds_detect=None,
+):
+    var_log_bf = -np.log(np.sqrt(1 + allelic_var_k)) + 0.5 * np.square(var_z) * allelic_var_k / (1 + allelic_var_k)
+
+    if separate_detect:
+        var_log_bf_detect = -np.log(np.sqrt(1 + allelic_var_k_detect)) + 0.5 * np.square(var_z) * allelic_var_k_detect / (1 + allelic_var_k_detect)
+    else:
+        var_log_bf_detect = var_log_bf.copy()
+
+    var_posterior = var_log_bf + np.log(gwas_prior_odds)
+    if separate_detect:
+        var_posterior_detect = var_log_bf_detect + np.log(gwas_prior_odds_detect)
+        update_posterior = [var_posterior, var_posterior_detect]
+    else:
+        var_posterior_detect = var_posterior.copy()
+        update_posterior = [var_posterior]
+
+    max_log = 15
+    for cur_var_posterior in update_posterior:
+        max_mask = cur_var_posterior < max_log
+        cur_var_posterior[~max_mask] = 1
+        cur_var_posterior[max_mask] = np.exp(cur_var_posterior[max_mask])
+        cur_var_posterior[max_mask] = cur_var_posterior[max_mask] / (1 + cur_var_posterior[max_mask])
+
+    if not separate_detect:
+        var_posterior_detect = var_posterior.copy()
+
+    return (var_log_bf, var_log_bf_detect, var_posterior, var_posterior_detect)
+
+
+def filter_huge_variants_for_signal_search(
+    domain,
+    var_pos,
+    var_p,
+    var_beta,
+    var_se,
+    var_se2,
+    var_log_bf,
+    var_log_bf_detect,
+    var_posterior,
+    var_posterior_detect,
+    vars_zipped,
+    *,
+    freq_col,
+    min_n_ratio,
+    mean_n,
+    learn_params,
+    chrom,
+    added_chrom_pos,
+):
+    variants_keep = np.full(len(var_pos), True)
+    qc_fail = 1 / var_se2 < min_n_ratio * mean_n
+    variants_keep[qc_fail] = False
+
+    if not learn_params and chrom in added_chrom_pos:
+        for cur_pos in added_chrom_pos[chrom]:
+            variants_keep[var_pos == cur_pos] = True
+
+    var_pos = var_pos[variants_keep]
+    var_p = var_p[variants_keep]
+    var_beta = var_beta[variants_keep]
+    var_se = var_se[variants_keep]
+    var_se2 = var_se2[variants_keep]
+    var_log_bf = var_log_bf[variants_keep]
+    var_log_bf_detect = var_log_bf_detect[variants_keep]
+    var_posterior = var_posterior[variants_keep]
+    var_posterior_detect = var_posterior_detect[variants_keep]
+
+    var_logp = -np.log(var_p) / np.log(10)
+
+    var_freq = None
+    if freq_col is not None:
+        var_freq = np.array(vars_zipped[4], dtype=float)[variants_keep]
+        var_freq[var_freq > 0.5] = 1 - var_freq[var_freq > 0.5]
+
+    return (
+        var_pos,
+        var_p,
+        var_beta,
+        var_se,
+        var_se2,
+        var_log_bf,
+        var_log_bf_detect,
+        var_posterior,
+        var_posterior_detect,
+        var_logp,
+        var_freq,
     )
