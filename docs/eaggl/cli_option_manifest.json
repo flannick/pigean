@@ -1330,7 +1330,7 @@
       "source_line": 313,
       "summary": "load gene-phewas statistics for projection and anchor workflows",
       "type": null,
-      "usage_references": 24
+      "usage_references": 22
     },
     {
       "action": null,
@@ -2002,7 +2002,7 @@
       "source_line": 138,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 51
+      "usage_references": 50
     },
     {
       "action": null,
