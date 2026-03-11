@@ -26,3 +26,4 @@ catalog/bundles.json
 # Intermediate doc files
 docs/*.aux
 docs/*.log
+docs/methods.old.pdf
