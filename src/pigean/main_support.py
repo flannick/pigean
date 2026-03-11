@@ -94,7 +94,6 @@ pegs_build_read_x_pipeline_config = pegs_xdata.build_read_x_pipeline_config
 pegs_build_xin_to_p_noninf_index_map = pegs_utils_mod.build_xin_to_p_noninf_index_map
 pegs_remove_tag_from_input = pegs_utils_mod.remove_tag_from_input
 pegs_record_read_x_counts = pegs_utils_mod.record_read_x_counts
-pegs_maybe_learn_batch_hyper_after_x_read = pigean_state._maybe_learn_batch_hyper_after_x_read
 pegs_load_and_apply_gene_phewas_bfs_to_runtime = pegs_utils_mod.load_and_apply_gene_phewas_bfs_to_runtime
 pegs_load_and_apply_gene_set_statistics_to_runtime = pegs_utils_mod.load_and_apply_gene_set_statistics_to_runtime
 pegs_set_runtime_y_from_inputs = pegs_utils_mod.set_runtime_y_from_inputs
@@ -402,7 +401,11 @@ def _read_x_pipeline(runtime, read_x_pipeline_config):
             warn_fn=lambda message: warn(message),
             log_fn=lambda message: log(message),
         ),
-        maybe_learn_batch_hyper_after_x_read_fn=pegs_maybe_learn_batch_hyper_after_x_read,
+        maybe_learn_batch_hyper_after_x_read_fn=functools.partial(
+            pigean_x_inputs_core.maybe_learn_batch_hyper_after_x_read_for_runtime,
+            log_fn=log,
+            debug_level=DEBUG,
+        ),
         maybe_adjust_overaggressive_p_filter_after_x_read_fn=functools.partial(
             pigean_x_inputs_core.maybe_adjust_overaggressive_p_filter_after_x_read_for_runtime,
             log_fn=lambda message: log(message),
@@ -411,8 +414,16 @@ def _read_x_pipeline(runtime, read_x_pipeline_config):
             pigean_x_inputs_core.apply_post_read_gene_set_size_and_qc_filters_for_runtime,
             log_fn=lambda message: log(message),
         ),
-        maybe_filter_zero_uncorrected_betas_after_x_read_fn=pigean_state._maybe_filter_zero_uncorrected_betas_after_x_read,
-        maybe_reduce_gene_sets_to_max_after_x_read_fn=pigean_state._maybe_reduce_gene_sets_to_max_after_x_read,
+        maybe_filter_zero_uncorrected_betas_after_x_read_fn=functools.partial(
+            pigean_x_inputs_core.maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime,
+            log_fn=lambda message: log(message),
+        ),
+        maybe_reduce_gene_sets_to_max_after_x_read_fn=functools.partial(
+            pigean_x_inputs_core.maybe_reduce_gene_sets_to_max_after_x_read_for_runtime,
+            log_fn=log,
+            debug_level=DEBUG,
+            trace_level=TRACE,
+        ),
     )
 
 

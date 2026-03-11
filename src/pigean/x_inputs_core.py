@@ -8,6 +8,7 @@ import scipy.sparse as sparse
 
 from pegs_shared.io_common import construct_map_to_ind
 import pegs_utils as pegs_utils_mod
+from . import runtime as pigean_runtime
 
 
 def normalize_dense_gene_rows(mat_info, genes, gene_label_map):
@@ -282,6 +283,371 @@ def apply_post_read_gene_set_size_and_qc_filters_for_runtime(
         filter_gene_set_metric_z=filter_gene_set_metric_z,
         log_fn=log_fn,
     )
+
+
+def learn_hyper_for_gene_set_batch(
+    runtime_state,
+    gene_sets_for_hyper_mask,
+    num_missing_gene_sets,
+    update_hyper_p,
+    update_hyper_sigma,
+    first_for_sigma_cond,
+    fixed_sigma_cond,
+    ordered_batch_ind,
+    max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    sigma_num_devs_to_top,
+    p_noninf_inflate,
+    sparse_solution,
+    sparse_frac_betas,
+    betas_trace_out,
+):
+    with pigean_runtime.temporary_state_fields(
+        runtime_state,
+        overrides={"ps": None, "sigma2s": None},
+        restore_fields=("ps", "sigma2s"),
+    ):
+        if np.sum(gene_sets_for_hyper_mask) > runtime_state.batch_size:
+            V = None
+        else:
+            V = runtime_state._calculate_V_internal(
+                runtime_state.X_orig[:, gene_sets_for_hyper_mask],
+                runtime_state.y_corr_cholesky,
+                runtime_state.mean_shifts[gene_sets_for_hyper_mask],
+                runtime_state.scale_factors[gene_sets_for_hyper_mask],
+            )
+
+        num_p_pseudo = min(1, np.sum(gene_sets_for_hyper_mask) / 1000)
+
+        cur_update_hyper_p = update_hyper_p
+        cur_update_hyper_sigma = update_hyper_sigma
+        adjust_hyper_sigma_p = False
+        if (first_for_sigma_cond and ordered_batch_ind > 0) or fixed_sigma_cond:
+            adjust_hyper_sigma_p = True
+            if cur_update_hyper_p:
+                cur_update_hyper_sigma = False
+
+        runtime_state._calculate_non_inf_betas(
+            initial_p=None,
+            beta_tildes=runtime_state.beta_tildes[gene_sets_for_hyper_mask],
+            ses=runtime_state.ses[gene_sets_for_hyper_mask],
+            V=V,
+            X_orig=runtime_state.X_orig[:, gene_sets_for_hyper_mask],
+            scale_factors=runtime_state.scale_factors[gene_sets_for_hyper_mask],
+            mean_shifts=runtime_state.mean_shifts[gene_sets_for_hyper_mask],
+            is_dense_gene_set=runtime_state.is_dense_gene_set[gene_sets_for_hyper_mask],
+            ps=None,
+            max_num_burn_in=max_num_burn_in,
+            max_num_iter=max_num_iter_betas,
+            min_num_iter=min_num_iter_betas,
+            num_chains=num_chains_betas,
+            r_threshold_burn_in=r_threshold_burn_in_betas,
+            use_max_r_for_convergence=use_max_r_for_convergence_betas,
+            max_frac_sem=max_frac_sem_betas,
+            max_allowed_batch_correlation=max_allowed_batch_correlation,
+            gauss_seidel=False,
+            update_hyper_sigma=cur_update_hyper_sigma,
+            update_hyper_p=cur_update_hyper_p,
+            only_update_hyper=True,
+            adjust_hyper_sigma_p=adjust_hyper_sigma_p,
+            sigma_num_devs_to_top=sigma_num_devs_to_top,
+            p_noninf_inflate=p_noninf_inflate,
+            num_p_pseudo=num_p_pseudo,
+            num_missing_gene_sets=num_missing_gene_sets,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            betas_trace_out=betas_trace_out,
+            betas_trace_gene_sets=[
+                runtime_state.gene_sets[j]
+                for j in range(len(runtime_state.gene_sets))
+                if gene_sets_for_hyper_mask[j]
+            ],
+        )
+
+        return {
+            "computed_p": runtime_state.p,
+            "computed_sigma2": runtime_state.sigma2,
+            "computed_sigma_power": runtime_state.sigma_power,
+        }
+
+
+def apply_learned_batch_hyper_values(
+    runtime_state,
+    gene_sets_in_batch_mask,
+    computed_p,
+    computed_sigma2,
+    first_p,
+    first_max_p_for_hyper,
+):
+    updated_first_p = first_p
+    adjusted_p = computed_p
+    adjusted_sigma2 = computed_sigma2
+
+    if updated_first_p is None:
+        updated_first_p = adjusted_p
+    elif first_max_p_for_hyper and adjusted_p > updated_first_p:
+        adjusted_sigma2 = adjusted_sigma2 / adjusted_p * updated_first_p
+        adjusted_p = updated_first_p
+
+    runtime_state.ps[gene_sets_in_batch_mask] = adjusted_p
+    runtime_state.sigma2s[gene_sets_in_batch_mask] = adjusted_sigma2
+    return updated_first_p
+
+
+def finalize_batch_hyper_vectors(runtime_state, first_for_hyper):
+    runtime_state.ps = np.array(
+        [np.nan if value is None else value for value in runtime_state.ps],
+        dtype=float,
+    )
+    runtime_state.sigma2s = np.array(
+        [np.nan if value is None else value for value in runtime_state.sigma2s],
+        dtype=float,
+    )
+
+    assert len(runtime_state.ps) > 0 and not np.isnan(runtime_state.ps[0])
+    assert len(runtime_state.sigma2s) > 0 and not np.isnan(runtime_state.sigma2s[0])
+
+    if first_for_hyper:
+        runtime_state.ps[np.isnan(runtime_state.ps)] = runtime_state.ps[0]
+        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = runtime_state.sigma2s[0]
+    else:
+        runtime_state.ps[np.isnan(runtime_state.ps)] = np.mean(runtime_state.ps[~np.isnan(runtime_state.ps)])
+        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = np.mean(runtime_state.sigma2s[~np.isnan(runtime_state.sigma2s)])
+
+    runtime_state.set_p(np.mean(runtime_state.ps))
+    runtime_state.set_sigma(np.mean(runtime_state.sigma2s), runtime_state.sigma_power)
+
+
+def maybe_learn_batch_hyper_after_x_read_for_runtime(
+    runtime_state,
+    skip_betas,
+    update_hyper_p,
+    update_hyper_sigma,
+    batches,
+    num_ignored_gene_sets,
+    first_for_hyper,
+    max_num_gene_sets_hyper,
+    first_for_sigma_cond,
+    fixed_sigma_cond,
+    first_max_p_for_hyper,
+    max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    sigma_num_devs_to_top,
+    p_noninf_inflate,
+    sparse_solution,
+    sparse_frac_betas,
+    betas_trace_out,
+    *,
+    log_fn,
+    debug_level,
+):
+    if skip_betas or runtime_state.p_values is None or (not update_hyper_p and not update_hyper_sigma) or len(runtime_state.gene_set_batches) == 0:
+        return
+
+    assert runtime_state.gene_set_batches[0] is not None
+    ordered_batches = [runtime_state.gene_set_batches[0]] + list(set([x for x in runtime_state.gene_set_batches if x != runtime_state.gene_set_batches[0]]))
+    batches_num_ignored = {}
+    for i in range(len(batches)):
+        if batches[i] not in batches_num_ignored:
+            batches_num_ignored[batches[i]] = 0
+        batches_num_ignored[batches[i]] += num_ignored_gene_sets[i]
+
+    if update_hyper_p:
+        runtime_state.ps = np.full(len(runtime_state.gene_set_batches), np.nan)
+    runtime_state.sigma2s = np.full(len(runtime_state.gene_set_batches), np.nan)
+
+    first_p = None
+    for ordered_batch_ind in range(len(ordered_batches)):
+        if ordered_batches[ordered_batch_ind] is None:
+            assert first_for_hyper
+            continue
+
+        gene_sets_in_batch_mask = runtime_state.gene_set_batches == ordered_batches[ordered_batch_ind]
+        gene_sets_for_hyper_mask = gene_sets_in_batch_mask.copy()
+
+        if max_num_gene_sets_hyper is not None and np.sum(gene_sets_for_hyper_mask) > max_num_gene_sets_hyper:
+            drop_mask = np.random.default_rng().choice(
+                np.where(gene_sets_for_hyper_mask)[0],
+                size=np.sum(gene_sets_for_hyper_mask) - runtime_state.batch_size,
+                replace=False,
+            )
+            log_fn(
+                "Dropping %d gene sets to reduce gene sets used for hyper parameters to %d"
+                % (len(drop_mask), max_num_gene_sets_hyper),
+                debug_level,
+            )
+            gene_sets_for_hyper_mask[drop_mask] = False
+
+        if ordered_batch_ind > 0 and np.sum(gene_sets_for_hyper_mask) + batches_num_ignored[ordered_batches[ordered_batch_ind]] < 100:
+            log_fn("Skipping learning hyper for batch %s since not enough gene sets" % (ordered_batches[ordered_batch_ind]))
+            continue
+
+        hyper_fit = learn_hyper_for_gene_set_batch(
+            runtime_state=runtime_state,
+            gene_sets_for_hyper_mask=gene_sets_for_hyper_mask,
+            num_missing_gene_sets=batches_num_ignored[ordered_batches[ordered_batch_ind]],
+            update_hyper_p=update_hyper_p,
+            update_hyper_sigma=update_hyper_sigma,
+            first_for_sigma_cond=first_for_sigma_cond,
+            fixed_sigma_cond=fixed_sigma_cond,
+            ordered_batch_ind=ordered_batch_ind,
+            max_num_burn_in=max_num_burn_in,
+            max_num_iter_betas=max_num_iter_betas,
+            min_num_iter_betas=min_num_iter_betas,
+            num_chains_betas=num_chains_betas,
+            r_threshold_burn_in_betas=r_threshold_burn_in_betas,
+            use_max_r_for_convergence_betas=use_max_r_for_convergence_betas,
+            max_frac_sem_betas=max_frac_sem_betas,
+            max_allowed_batch_correlation=max_allowed_batch_correlation,
+            sigma_num_devs_to_top=sigma_num_devs_to_top,
+            p_noninf_inflate=p_noninf_inflate,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            betas_trace_out=betas_trace_out,
+        )
+        computed_p = hyper_fit["computed_p"]
+        computed_sigma2 = hyper_fit["computed_sigma2"]
+        computed_sigma_power = hyper_fit["computed_sigma_power"]
+
+        log_fn("Learned p=%.4g, sigma2=%.4g (sigma2/p=%.4g)" % (computed_p, computed_sigma2, computed_sigma2 / computed_p))
+        runtime_state._record_params(
+            {
+                "p": computed_p,
+                "sigma2": computed_sigma2,
+                "sigma2_cond": computed_sigma2 / computed_p,
+                "sigma_power": computed_sigma_power,
+                "sigma_threshold_k": runtime_state.sigma_threshold_k,
+                "sigma_threshold_xo": runtime_state.sigma_threshold_xo,
+            }
+        )
+
+        first_p = apply_learned_batch_hyper_values(
+            runtime_state=runtime_state,
+            gene_sets_in_batch_mask=gene_sets_in_batch_mask,
+            computed_p=computed_p,
+            computed_sigma2=computed_sigma2,
+            first_p=first_p,
+            first_max_p_for_hyper=first_max_p_for_hyper,
+        )
+
+    finalize_batch_hyper_vectors(runtime_state=runtime_state, first_for_hyper=first_for_hyper)
+
+
+def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
+    runtime_state,
+    sort_rank,
+    skip_betas,
+    filter_gene_set_p,
+    filter_using_phewas,
+    max_num_burn_in,
+    max_num_iter_betas,
+    min_num_iter_betas,
+    num_chains_betas,
+    r_threshold_burn_in_betas,
+    use_max_r_for_convergence_betas,
+    max_frac_sem_betas,
+    max_allowed_batch_correlation,
+    sparse_solution,
+    sparse_frac_betas,
+    *,
+    log_fn,
+):
+    if skip_betas or runtime_state.p_values is None or filter_gene_set_p >= 1 or filter_using_phewas:
+        return sort_rank
+
+    betas, _avg_postp = runtime_state._calculate_non_inf_betas(
+        initial_p=None,
+        assume_independent=True,
+        max_num_burn_in=max_num_burn_in,
+        max_num_iter=max_num_iter_betas,
+        min_num_iter=min_num_iter_betas,
+        num_chains=num_chains_betas,
+        r_threshold_burn_in=r_threshold_burn_in_betas,
+        use_max_r_for_convergence=use_max_r_for_convergence_betas,
+        max_frac_sem=max_frac_sem_betas,
+        max_allowed_batch_correlation=max_allowed_batch_correlation,
+        gauss_seidel=False,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        adjust_hyper_sigma_p=False,
+        sparse_solution=sparse_solution,
+        sparse_frac_betas=sparse_frac_betas,
+    )
+
+    log_fn("%d have betas uncorrected equal 0" % np.sum(betas == 0))
+    log_fn("%d have betas uncorrected below 0.001" % np.sum(betas < 0.001))
+    log_fn("%d have betas uncorrected below 0.01" % np.sum(betas < 0.01))
+
+    beta_ignore = betas == 0
+    beta_mask = ~beta_ignore
+    if np.sum(beta_mask) > 0:
+        log_fn("Ignoring %d gene sets due to zero uncorrected betas (kept %d)" % (np.sum(beta_ignore), np.sum(beta_mask)))
+        runtime_state.subset_gene_sets(beta_mask, keep_missing=False, ignore_missing=True, skip_V=True)
+    else:
+        log_fn("Keeping %d gene sets with zero uncorrected betas to avoid having none" % (np.sum(beta_ignore)))
+
+    return -np.abs(betas[beta_mask])
+
+
+def maybe_reduce_gene_sets_to_max_after_x_read_for_runtime(
+    runtime_state,
+    skip_betas,
+    max_num_gene_sets,
+    sort_rank,
+    *,
+    log_fn,
+    debug_level,
+    trace_level,
+):
+    if skip_betas or max_num_gene_sets is None or max_num_gene_sets <= 0:
+        return
+    if len(runtime_state.gene_sets) <= max_num_gene_sets:
+        return
+
+    log_fn(
+        "Current %d gene sets is greater than the maximum specified %d; reducing using pruning + small beta removal"
+        % (len(runtime_state.gene_sets), max_num_gene_sets),
+        debug_level,
+    )
+    gene_set_masks = runtime_state._compute_gene_set_batches(
+        V=None,
+        X_orig=runtime_state.X_orig,
+        mean_shifts=runtime_state.mean_shifts,
+        scale_factors=runtime_state.scale_factors,
+        sort_values=sort_rank,
+        resort_as_added=True,
+        stop_at=max_num_gene_sets,
+    )
+    keep_mask = np.full(len(runtime_state.gene_sets), False)
+    for gene_set_mask in gene_set_masks:
+        keep_mask[gene_set_mask] = True
+        log_fn(
+            "Adding %d relatively uncorrelated gene sets (total now %d)" % (np.sum(gene_set_mask), np.sum(keep_mask)),
+            trace_level,
+        )
+        if np.sum(keep_mask) > max_num_gene_sets:
+            break
+    if np.sum(keep_mask) > max_num_gene_sets:
+        keep_indices = np.where(keep_mask)[0]
+        if sort_rank is not None:
+            keep_indices = keep_indices[np.argsort(sort_rank[keep_indices], kind="stable")]
+        trimmed_keep_mask = np.full(len(runtime_state.gene_sets), False)
+        trimmed_keep_mask[keep_indices[:max_num_gene_sets]] = True
+        keep_mask = trimmed_keep_mask
+    if np.sum(~keep_mask) > 0:
+        runtime_state.subset_gene_sets(keep_mask, keep_missing=False, ignore_missing=True, skip_V=True)
 
 
 def estimate_dense_chunk_size(gene_set_count, only_ids, default_chunk_size=500):
