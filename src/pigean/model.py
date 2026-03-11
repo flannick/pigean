@@ -858,3 +858,168 @@ def calculate_priors(state, max_gene_set_p=None, num_gene_batches=None, correct_
     state.priors_missing -= total_mean
 
     state.calculate_priors_adj(overwrite_priors=adjust_priors)
+
+
+
+def run_cross_val(
+    state,
+    cross_val_num_explore_each_direction,
+    folds=4,
+    cross_val_max_num_tries=2,
+    p=None,
+    max_num_burn_in=1000,
+    max_num_iter=1100,
+    min_num_iter=10,
+    num_chains=4,
+    run_logistic=True,
+    max_for_linear=0.95,
+    run_corrected_ols=False,
+    r_threshold_burn_in=1.01,
+    use_max_r_for_convergence=True,
+    max_frac_sem=0.01,
+    gauss_seidel=False,
+    sparse_solution=False,
+    sparse_frac_betas=None,
+    *,
+    bail_fn,
+    log_fn,
+    debug_level,
+    trace_level,
+    **kwargs,
+):
+    bail = bail_fn
+    log = log_fn
+    DEBUG = debug_level
+    TRACE = trace_level
+
+    log("Running cross validation", DEBUG)
+
+    if state.sigma2s is not None:
+        candidate_sigma2s = state.sigma2s
+    elif state.sigma2 is not None:
+        candidate_sigma2s = np.array(state.sigma2).reshape((1,))
+    else:
+        bail("Need to have sigma set before running cross validation")
+
+    if p is None:
+        bail("Need to have p set before running cross validation")
+    if state.X_orig is None:
+        bail("Need to have X_orig set before running cross validation")
+
+    Y_to_use = state.Y_for_regression
+    if Y_to_use is None:
+        Y_to_use = state.Y
+
+    if Y_to_use is None:
+        bail("Need to have Y set before running cross validation")
+
+    D = np.exp(Y_to_use + state.background_log_bf) / (1 + np.exp(Y_to_use + state.background_log_bf))
+    if not run_logistic and np.max(D) > max_for_linear:
+        log("Switching to logistic sampling due to high Y values (max(D) = %.3g" % np.max(D), DEBUG)
+        run_logistic = True
+
+    beta_tildes_cv = np.zeros((folds, len(state.gene_sets)))
+    alpha_tildes_cv = np.zeros((folds, len(state.gene_sets)))
+    ses_cv = np.zeros((folds, len(state.gene_sets)))
+    cv_val_masks = np.full((folds, len(Y_to_use)), False)
+    for fold in range(folds):
+        cv_mask = np.arange(len(Y_to_use)) % folds != fold
+        cv_val_masks[fold,:] = ~cv_mask
+        X_to_use = state.X_orig[cv_mask,:]
+        if run_logistic:
+            Y_cv = D[cv_mask]
+            (beta_tildes_cv[fold,:], ses_cv[fold,:], _, _, _, alpha_tildes_cv[fold,:], _) = state._compute_logistic_beta_tildes(X_to_use, Y_cv, resid_correlation_matrix=state.y_corr_sparse[cv_mask,:][:,cv_mask])
+        else:
+            Y_cv = Y_to_use[cv_mask]
+            (beta_tildes_cv[fold,:], ses_cv[fold,:], _, _, _) = state._compute_beta_tildes(X_to_use, Y_cv, resid_correlation_matrix=state.y_corr_sparse[cv_mask,:][:,cv_mask])
+
+    cross_val_num_explore = cross_val_num_explore_each_direction * 2 + 1
+    cross_val_num_explore_with_fold = cross_val_num_explore * folds
+
+    candidate_sigma2s_m = np.tile(candidate_sigma2s, cross_val_num_explore).reshape(cross_val_num_explore, candidate_sigma2s.shape[0])
+    candidate_sigma2s_m = (candidate_sigma2s_m.T * np.power(10.0, np.arange(-cross_val_num_explore_each_direction,cross_val_num_explore_each_direction+1))).T
+    orig_index = cross_val_num_explore_each_direction
+
+    for try_num in range(cross_val_max_num_tries):
+        log("Sigmas to try: %s" % np.mean(candidate_sigma2s_m, axis=1), TRACE)
+        candidate_sigma2s_m = np.tile(candidate_sigma2s_m, (folds, 1))
+
+        beta_tildes_m = np.repeat(beta_tildes_cv, cross_val_num_explore, axis=0)
+        ses_m = np.repeat(ses_cv, cross_val_num_explore, axis=0)
+        scale_factors_m = np.tile(state.scale_factors, cross_val_num_explore_with_fold).reshape(cross_val_num_explore_with_fold, len(state.scale_factors))
+        mean_shifts_m = np.tile(state.mean_shifts, cross_val_num_explore_with_fold).reshape(cross_val_num_explore_with_fold, len(state.mean_shifts))
+
+        (betas_m, _postp_m) = state._calculate_non_inf_betas(initial_p=state.p, beta_tildes=beta_tildes_m, ses=ses_m, scale_factors=scale_factors_m, mean_shifts=mean_shifts_m, sigma2s=candidate_sigma2s_m, max_num_burn_in=max_num_burn_in, max_num_iter=max_num_iter, min_num_iter=min_num_iter, num_chains=num_chains, r_threshold_burn_in=r_threshold_burn_in, use_max_r_for_convergence=use_max_r_for_convergence, max_frac_sem=max_frac_sem, gauss_seidel=gauss_seidel, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, V=state._get_V(), **kwargs)
+
+        rss = np.zeros(cross_val_num_explore)
+        num_Y = 0
+        Y_val = Y_to_use - np.mean(Y_to_use)
+
+        for fold in range(folds):
+            output_cv_mask = np.floor(np.arange(betas_m.shape[0]) / cross_val_num_explore) == fold
+            cur_pred = state.X_orig[cv_val_masks[fold,:],:].dot((betas_m[output_cv_mask,:] / state.scale_factors).T).T
+            rss += np.sum(np.square(cur_pred - Y_val[cv_val_masks[fold,:]]), axis=1)
+            num_Y += np.sum(cv_val_masks[fold,:])
+
+        rss /= num_Y
+        best_result = np.argmin(rss)
+        best_sigma2s = candidate_sigma2s_m[best_result,:]
+        log("Got RSS values: %s" % (rss), TRACE)
+        log("Best sigma is %.3g" % np.mean(best_sigma2s))
+        log("Updating sigma from %.3g to %.3g" % (state.sigma2, np.mean(best_sigma2s)))
+        if state.sigma2s is not None:
+            state.sigma2s = best_sigma2s
+            state.set_sigma(np.mean(best_sigma2s), state.sigma_power)
+        else:
+            assert(len(best_sigma2s.shape) == 1 and best_sigma2s.shape[0] == 1)
+            state.set_sigma(best_sigma2s[0], state.sigma_power)
+
+        if try_num + 1 < cross_val_max_num_tries and (best_result == 0 or best_result == (len(rss) - 1)) and best_result != orig_index:
+            log("Expanding search further since best cross validation result was at boundary of search space", DEBUG)
+            assert(state.sigma2s is not None or state.sigma2 is not None)
+            if state.sigma2s is not None:
+                candidate_sigma2s = state.sigma2s
+            else:
+                candidate_sigma2s = np.array(state.sigma2).reshape((1,))
+            candidate_sigma2s_m = np.tile(candidate_sigma2s, cross_val_num_explore).reshape(cross_val_num_explore, candidate_sigma2s.shape[0])
+            if best_result == 0:
+                candidate_sigma2s_m = (candidate_sigma2s_m.T * np.power(10.0, np.arange(-cross_val_num_explore+1,1))).T
+                orig_index = cross_val_num_explore - 1
+            else:
+                candidate_sigma2s_m = (candidate_sigma2s_m.T * np.power(10.0, np.arange(cross_val_num_explore))).T
+                orig_index = 0
+        else:
+            break
+
+
+def calculate_priors_adj(state, overwrite_priors=False, *, log_fn):
+    if state.priors is None:
+        return
+
+    gene_N = state.get_gene_N()
+    gene_N_missing = state.get_gene_N(get_missing=True)
+    all_gene_N = gene_N
+    if state.genes_missing is not None:
+        assert(gene_N_missing is not None)
+        all_gene_N = np.concatenate((all_gene_N, gene_N_missing))
+
+    if state.genes_missing is not None:
+        total_priors = np.concatenate((state.priors, state.priors_missing))
+    else:
+        total_priors = state.priors
+
+    priors_slope = np.cov(total_priors, all_gene_N)[0,1] / np.var(all_gene_N)
+    priors_intercept = np.mean(total_priors - all_gene_N * priors_slope)
+
+    log_fn("Adjusting priors with slope %.4g" % priors_slope)
+    priors_adj = state.priors - priors_slope * gene_N - priors_intercept
+    if overwrite_priors:
+        state.priors = priors_adj
+    else:
+        state.priors_adj = priors_adj
+    if state.genes_missing is not None:
+        priors_adj_missing = state.priors_missing - priors_slope * gene_N_missing
+        if overwrite_priors:
+            state.priors_missing = priors_adj_missing
+        else:
+            state.priors_adj_missing = priors_adj_missing

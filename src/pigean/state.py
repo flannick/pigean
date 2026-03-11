@@ -30,6 +30,7 @@ import pegs_utils as pegs_utils_mod
 
 from pigean import gibbs as pigean_gibbs
 from pigean import model as pigean_model
+from pigean import phewas as pigean_phewas
 from pigean import phewas_io as pigean_phewas_io
 from pigean import runtime as pigean_runtime
 from pigean import y_inputs as pigean_y_inputs
@@ -3950,119 +3951,33 @@ class PigeanState(object):
             if self.normalize_betas:
                 self.betas -= np.mean(self.betas)
 
+
     def run_cross_val(self, cross_val_num_explore_each_direction, folds=4, cross_val_max_num_tries=2, p=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=4, run_logistic=True, max_for_linear=0.95, run_corrected_ols=False, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, **kwargs):
-
-        log("Running cross validation", DEBUG)
-
-        if self.sigma2s is not None:
-            candidate_sigma2s = self.sigma2s
-        elif self.sigma2 is not None:
-            candidate_sigma2s = np.array(self.sigma2).reshape((1,))
-        else:
-           bail("Need to have sigma set before running cross validation")
-
-        if p is None:
-           bail("Need to have p set before running cross validation")
-        if self.X_orig is None:
-           bail("Need to have X_orig set before running cross validation")
-
-        Y_to_use = self.Y_for_regression
-        if Y_to_use is None:
-            Y_to_use = self.Y
-
-        if Y_to_use is None:
-           bail("Need to have Y set before running cross validation")
-
-        
-        D = np.exp(Y_to_use + self.background_log_bf) / (1 + np.exp(Y_to_use + self.background_log_bf))
-        if not run_logistic and np.max(D) > max_for_linear:
-            log("Switching to logistic sampling due to high Y values (max(D) = %.3g" % np.max(D), DEBUG)
-            run_logistic = True
-
-        beta_tildes_cv = np.zeros((folds, len(self.gene_sets)))
-        alpha_tildes_cv = np.zeros((folds, len(self.gene_sets)))
-        ses_cv = np.zeros((folds, len(self.gene_sets)))
-        cv_val_masks = np.full((folds, len(Y_to_use)), False)
-        for fold in range(folds):
-            cv_mask = np.arange(len(Y_to_use)) % folds != fold
-            cv_val_masks[fold,:] = ~cv_mask
-            X_to_use = self.X_orig[cv_mask,:]
-            if run_logistic:
-                Y_cv = D[cv_mask]
-                (beta_tildes_cv[fold,:], ses_cv[fold,:], _, _, _, alpha_tildes_cv[fold,:], _) = self._compute_logistic_beta_tildes(X_to_use, Y_cv, resid_correlation_matrix=self.y_corr_sparse[cv_mask,:][:,cv_mask])
-            else:
-                Y_cv = Y_to_use[cv_mask]
-                (beta_tildes_cv[fold,:], ses_cv[fold,:], _, _, _) = self._compute_beta_tildes(X_to_use, Y_cv, resid_correlation_matrix=self.y_corr_sparse[cv_mask,:][:,cv_mask])
-
-        #one parallel per sigma value to test
-        cross_val_num_explore = cross_val_num_explore_each_direction * 2 + 1
-        #for each parallel, need to do it with the different set of Y values
-        cross_val_num_explore_with_fold = cross_val_num_explore * folds
-
-        candidate_sigma2s_m = np.tile(candidate_sigma2s, cross_val_num_explore).reshape(cross_val_num_explore, candidate_sigma2s.shape[0])
-        candidate_sigma2s_m = (candidate_sigma2s_m.T * np.power(10.0, np.arange(-cross_val_num_explore_each_direction,cross_val_num_explore_each_direction+1))).T
-        orig_index = cross_val_num_explore_each_direction
-
-        for try_num in range(cross_val_max_num_tries):
-
-            log("Sigmas to try: %s" % np.mean(candidate_sigma2s_m, axis=1), TRACE)
-
-            #order of parallel is first by explore and then by fold
-
-            #repeat the candidates for each fold
-            candidate_sigma2s_m = np.tile(candidate_sigma2s_m, (folds, 1))
-
-            beta_tildes_m = np.repeat(beta_tildes_cv, cross_val_num_explore, axis=0)
-            ses_m = np.repeat(ses_cv, cross_val_num_explore, axis=0)
-            scale_factors_m = np.tile(self.scale_factors, cross_val_num_explore_with_fold).reshape(cross_val_num_explore_with_fold, len(self.scale_factors))
-            mean_shifts_m = np.tile(self.mean_shifts, cross_val_num_explore_with_fold).reshape(cross_val_num_explore_with_fold, len(self.mean_shifts))
-
-            (betas_m, postp_m) = self._calculate_non_inf_betas(initial_p=self.p, beta_tildes=beta_tildes_m, ses=ses_m, scale_factors=scale_factors_m, mean_shifts=mean_shifts_m, sigma2s=candidate_sigma2s_m, max_num_burn_in=max_num_burn_in, max_num_iter=max_num_iter, min_num_iter=min_num_iter, num_chains=num_chains, r_threshold_burn_in=r_threshold_burn_in, use_max_r_for_convergence=use_max_r_for_convergence, max_frac_sem=max_frac_sem, gauss_seidel=gauss_seidel, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, V=self._get_V(), **kwargs)
-
-            rss = np.zeros(cross_val_num_explore)
-            num_Y = 0
-            #different values for logistic and linear
-            Y_val = Y_to_use - np.mean(Y_to_use)
-
-            for fold in range(folds):
-                #result is parallel x genes
-                output_cv_mask = np.floor(np.arange(betas_m.shape[0]) / cross_val_num_explore) == fold
-                cur_pred = self.X_orig[cv_val_masks[fold,:],:].dot((betas_m[output_cv_mask,:] / self.scale_factors).T).T
-                rss += np.sum(np.square(cur_pred - Y_val[cv_val_masks[fold,:]]), axis=1)
-                num_Y += np.sum(cv_val_masks[fold,:])
-
-            rss /= num_Y
-            best_result = np.argmin(rss)
-            best_sigma2s = candidate_sigma2s_m[best_result,:]
-            log("Got RSS values: %s" % (rss), TRACE)
-            log("Best sigma is %.3g" % np.mean(best_sigma2s))
-            log("Updating sigma from %.3g to %.3g" % (self.sigma2, np.mean(best_sigma2s)))
-            if self.sigma2s is not None:
-                self.sigma2s = best_sigma2s
-                self.set_sigma(np.mean(best_sigma2s), self.sigma_power)
-            else:
-                assert(len(best_sigma2s.shape) == 1 and best_sigma2s.shape[0] == 1)
-                self.set_sigma(best_sigma2s[0], self.sigma_power)
-
-            if try_num + 1 < cross_val_max_num_tries and (best_result == 0 or best_result == (len(rss) - 1)) and best_result != orig_index:
-                log("Expanding search further since best cross validation result was at boundary of search space", DEBUG)
-                assert(self.sigma2s is not None or self.sigma2 is not None)
-                if self.sigma2s is not None:
-                    candidate_sigma2s = self.sigma2s
-                else: 
-                    candidate_sigma2s = np.array(self.sigma2).reshape((1,))
-                candidate_sigma2s_m = np.tile(candidate_sigma2s, cross_val_num_explore).reshape(cross_val_num_explore, candidate_sigma2s.shape[0])
-                if best_result == 0:
-                    #extend lower
-                    candidate_sigma2s_m = (candidate_sigma2s_m.T * np.power(10.0, np.arange(-cross_val_num_explore+1,1))).T
-                    orig_index = cross_val_num_explore - 1
-                else:
-                    #extend higher
-                    candidate_sigma2s_m = (candidate_sigma2s_m.T * np.power(10.0, np.arange(cross_val_num_explore))).T
-                    orig_index = 0
-            else:
-                break
-        
+        return pigean_model.run_cross_val(
+            self,
+            cross_val_num_explore_each_direction,
+            folds=folds,
+            cross_val_max_num_tries=cross_val_max_num_tries,
+            p=p,
+            max_num_burn_in=max_num_burn_in,
+            max_num_iter=max_num_iter,
+            min_num_iter=min_num_iter,
+            num_chains=num_chains,
+            run_logistic=run_logistic,
+            max_for_linear=max_for_linear,
+            run_corrected_ols=run_corrected_ols,
+            r_threshold_burn_in=r_threshold_burn_in,
+            use_max_r_for_convergence=use_max_r_for_convergence,
+            max_frac_sem=max_frac_sem,
+            gauss_seidel=gauss_seidel,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            bail_fn=bail,
+            log_fn=log,
+            debug_level=DEBUG,
+            trace_level=TRACE,
+            **kwargs,
+        )
     def calculate_non_inf_betas(self, p, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, sparse_solution=False, pre_filter_batch_size=None, pre_filter_small_batch_size=500, sparse_frac_betas=None, betas_trace_out=None, run_betas_using_phewas=False, run_uncorrected_using_phewas=False, **kwargs):
         return pigean_model.calculate_non_inf_betas(
             self,
@@ -4121,39 +4036,9 @@ class PigeanState(object):
             **kwargs
         )
 
+
     def calculate_priors_adj(self, overwrite_priors=False):
-        if self.priors is None:
-            return
-        
-        #do the regression
-        gene_N = self.get_gene_N()
-        gene_N_missing = self.get_gene_N(get_missing=True)
-        all_gene_N = gene_N
-        if self.genes_missing is not None:
-            assert(gene_N_missing is not None)
-            all_gene_N = np.concatenate((all_gene_N, gene_N_missing))
-
-        if self.genes_missing is not None:
-            total_priors = np.concatenate((self.priors, self.priors_missing))
-        else:
-            total_priors = self.priors
-
-        priors_slope = np.cov(total_priors, all_gene_N)[0,1] / np.var(all_gene_N)
-        priors_intercept = np.mean(total_priors - all_gene_N * priors_slope)
-
-        log("Adjusting priors with slope %.4g" % priors_slope)
-        priors_adj = self.priors - priors_slope * gene_N - priors_intercept
-        if overwrite_priors:
-            self.priors = priors_adj
-        else:
-            self.priors_adj = priors_adj
-        if self.genes_missing is not None:
-            priors_adj_missing = self.priors_missing - priors_slope * gene_N_missing
-            if overwrite_priors:
-                self.priors_missing = priors_adj_missing
-            else:
-                self.priors_adj_missing = priors_adj_missing
-
+        return pigean_model.calculate_priors_adj(self, overwrite_priors=overwrite_priors, log_fn=log)
     def calculate_naive_priors(self, adjust_priors=False):
         if self.X_orig is None:
             bail("X is required for this operation")
@@ -4529,8 +4414,9 @@ class PigeanState(object):
             one_sided_p_value,
         )
 
+
     def _prepare_phewas_phenos_from_file(self, gene_phewas_bfs_in, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None):
-        phenos, pheno_to_ind, col_info = pegs_prepare_phewas_phenos_from_file(
+        return pigean_phewas.prepare_phewas_phenos_from_file(
             self,
             gene_phewas_bfs_in,
             gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
@@ -4545,35 +4431,25 @@ class PigeanState(object):
             log_fn=log,
             debug_level=DEBUG,
         )
-        return phenos, pheno_to_ind, {
-            "id_col": col_info.id_col,
-            "pheno_col": col_info.pheno_col,
-            "bf_col": col_info.bf_col,
-            "combined_col": col_info.combined_col,
-            "prior_col": col_info.prior_col,
-        }
 
     def _read_phewas_file_batch(self, gene_phewas_bfs_in, begin, cur_batch_size, pheno_to_ind, id_col, pheno_col, bf_col, combined_col, prior_col):
-        col_info = {
-            "id_col": id_col,
-            "pheno_col": pheno_col,
-            "bf_col": bf_col,
-            "combined_col": combined_col,
-            "prior_col": prior_col,
-        }
-        return pegs_read_phewas_file_batch(
+        return pigean_phewas.read_phewas_file_batch(
             self,
             gene_phewas_bfs_in,
             begin=begin,
             cur_batch_size=cur_batch_size,
             pheno_to_ind=pheno_to_ind,
-            col_info=col_info,
+            id_col=id_col,
+            pheno_col=pheno_col,
+            bf_col=bf_col,
+            combined_col=combined_col,
+            prior_col=prior_col,
             open_text_fn=open_gz,
             warn_fn=warn,
         )
 
     def _accumulate_phewas_outputs(self, output_prefix, beta, beta_tilde, se, z_score, p_value):
-        pegs_accumulate_standard_phewas_outputs(
+        return pigean_phewas.accumulate_phewas_outputs(
             self,
             output_prefix,
             beta,
@@ -4584,101 +4460,36 @@ class PigeanState(object):
         )
 
     def run_phewas(self, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene_phewas_bfs_pheno_col=None, gene_phewas_bfs_log_bf_col=None, gene_phewas_bfs_combined_col=None, gene_phewas_bfs_prior_col=None, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, sparse_solution=False, sparse_frac_betas=None, batch_size=1500, **kwargs):
-
-        #require X matrix
-        if gene_phewas_bfs_in is None and not self.read_gene_phewas():
-            bail("Require --gene-stats-in or --gene-phewas-bfs-in with a column for log_bf/Y in this operation")
-
-        if self.genes is None:
-            warn("Cannot run phewas without X matrix; skipping")
-            return
-        if self.Y is None and self.combined_prior_Ys is None and self.priors is None:
-            warn("Cannot run phewas without Y values; skipping")
-            return
-
-        log("Running phewas", INFO)
-
-        #first get the list of phenotypes
-        read_file = gene_phewas_bfs_in is not None
-
-        col_info = None
-
-        if read_file:
-            phenos, pheno_to_ind, col_info = self._prepare_phewas_phenos_from_file(
-                gene_phewas_bfs_in=gene_phewas_bfs_in,
-                gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
-                gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
-                gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
-                gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
-                gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
-            )
-        else:
-            phenos = self.phenos
-
-        #do phewas in batches to save memory
-        num_batches = int(np.ceil(len(phenos) / batch_size))
-        input_values = self._build_phewas_input_values()
-        phewas_beta_kwargs = {
-            "max_num_burn_in": max_num_burn_in,
-            "max_num_iter": max_num_iter,
-            "min_num_iter": min_num_iter,
-            "num_chains": num_chains,
-            "r_threshold_burn_in": r_threshold_burn_in,
-            "use_max_r_for_convergence": use_max_r_for_convergence,
-            "max_frac_sem": max_frac_sem,
-            "gauss_seidel": gauss_seidel,
-            "sparse_solution": sparse_solution,
-            "sparse_frac_betas": sparse_frac_betas,
-            "non_inf_kwargs": kwargs,
-        }
-
-        for batch in range(num_batches):
-            log("Getting phenos block batch %s" % (batch), TRACE)
-
-            begin = batch * batch_size
-            end = (batch + 1) * batch_size
-            if end > len(phenos):
-                end = len(phenos)
-
-            cur_batch_size = end - begin
-            log("Processing phenos %d-%d" % (begin + 1, end))
-
-            if read_file:
-                gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors = self._read_phewas_file_batch(
-                    gene_phewas_bfs_in=gene_phewas_bfs_in,
-                    begin=begin,
-                    cur_batch_size=cur_batch_size,
-                    pheno_to_ind=pheno_to_ind,
-                    id_col=col_info["id_col"],
-                    pheno_col=col_info["pheno_col"],
-                    bf_col=col_info["bf_col"],
-                    combined_col=col_info["combined_col"],
-                    prior_col=col_info["prior_col"],
-                )
-
-            else:
-                gene_pheno_Y = self.gene_pheno_Y[:,begin:end].toarray() if self.gene_pheno_Y is not None else None
-                gene_pheno_combined_prior_Ys = self.gene_pheno_combined_prior_Ys[:,begin:end].toarray() if self.gene_pheno_combined_prior_Ys is not None else None
-
-
-            if gene_pheno_Y is not None:
-                beta, _, beta_tilde, se, Z, p_value, _ = self._calculate_phewas_block(input_values, gene_pheno_Y.T, **phewas_beta_kwargs)
-                assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
-                self._accumulate_phewas_outputs("pheno_Y", beta, beta_tilde, se, Z, p_value)
-
-            if gene_pheno_combined_prior_Ys is not None and not self.debug_skip_correlation:
-                #we have to use the correlations here
-                beta, _, beta_tilde, se, Z, p_value, _ = self._calculate_phewas_block(
-                    input_values,
-                    gene_pheno_combined_prior_Ys.T,
-                    X_orig=self.X_orig,
-                    X_phewas_beta=self.X_phewas_beta[begin:end,:] if self.X_phewas_beta is not None else None,
-                    Y_resid=gene_pheno_Y.T,
-                    **phewas_beta_kwargs
-                )
-                assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
-                self._accumulate_phewas_outputs("pheno_combined_prior_Ys", beta, beta_tilde, se, Z, p_value)
-
+        return pigean_phewas.run_phewas(
+            self,
+            gene_phewas_bfs_in=gene_phewas_bfs_in,
+            gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+            gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+            gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+            gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+            gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+            max_num_burn_in=max_num_burn_in,
+            max_num_iter=max_num_iter,
+            min_num_iter=min_num_iter,
+            num_chains=num_chains,
+            r_threshold_burn_in=r_threshold_burn_in,
+            use_max_r_for_convergence=use_max_r_for_convergence,
+            max_frac_sem=max_frac_sem,
+            gauss_seidel=gauss_seidel,
+            sparse_solution=sparse_solution,
+            sparse_frac_betas=sparse_frac_betas,
+            batch_size=batch_size,
+            bail_fn=bail,
+            warn_fn=warn,
+            log_fn=log,
+            info_level=INFO,
+            debug_level=DEBUG,
+            trace_level=TRACE,
+            open_text_fn=open_gz,
+            get_col_fn=_get_col,
+            construct_map_to_ind_fn=pegs_construct_map_to_ind,
+            **kwargs,
+        )
     def run_sim(self, sigma2, p, sigma_power, log_bf_noise_sigma_mult=0, treat_sigma2_as_sigma2_cond=True, only_positive=False):
 
         if sigma2 is None or sigma2 <= 0:
