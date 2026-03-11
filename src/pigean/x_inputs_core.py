@@ -7,6 +7,7 @@ import numpy as np
 import scipy.sparse as sparse
 
 from pegs_shared.io_common import construct_map_to_ind
+import pegs_utils as pegs_utils_mod
 
 
 def normalize_dense_gene_rows(mat_info, genes, gene_label_map):
@@ -171,6 +172,116 @@ def build_sparse_x_from_dense_input(
             return (None, None, True)
 
     return (cur_X, gene_sets, False)
+
+
+def standardize_qc_metrics_after_x_read_for_runtime(runtime_state):
+    pegs_utils_mod.standardize_qc_metrics_after_x_read(runtime_state)
+
+
+def maybe_correct_gene_set_betas_after_x_read_for_runtime(
+    runtime_state,
+    filter_gene_set_p,
+    correct_betas_mean,
+    correct_betas_var,
+    filter_using_phewas,
+    *,
+    log_fn,
+):
+    pegs_utils_mod.maybe_correct_gene_set_betas_after_x_read(
+        runtime_state,
+        filter_gene_set_p=filter_gene_set_p,
+        correct_betas_mean=correct_betas_mean,
+        correct_betas_var=correct_betas_var,
+        filter_using_phewas=filter_using_phewas,
+        log_fn=log_fn,
+    )
+
+
+def maybe_limit_initial_gene_sets_by_p_for_runtime(runtime_state, max_num_gene_sets_initial, *, log_fn):
+    pegs_utils_mod.maybe_limit_initial_gene_sets_by_p(
+        runtime_state,
+        max_num_gene_sets_initial=max_num_gene_sets_initial,
+        log_fn=log_fn,
+    )
+
+
+def maybe_prune_gene_sets_after_x_read_for_runtime(
+    runtime_state,
+    skip_betas,
+    prune_gene_sets,
+    prune_deterministically,
+    weighted_prune_gene_sets,
+):
+    pegs_utils_mod.maybe_prune_gene_sets_after_x_read(
+        runtime_state,
+        skip_betas=skip_betas,
+        prune_gene_sets=prune_gene_sets,
+        prune_deterministically=prune_deterministically,
+        weighted_prune_gene_sets=weighted_prune_gene_sets,
+    )
+
+
+def initialize_hyper_defaults_after_x_read_for_runtime(
+    runtime_state,
+    initial_p,
+    update_hyper_p,
+    sigma_power,
+    initial_sigma2_cond,
+    update_hyper_sigma,
+    initial_sigma2,
+    sigma_soft_threshold_95,
+    sigma_soft_threshold_5,
+    *,
+    warn_fn,
+    log_fn,
+):
+    return pegs_utils_mod.initialize_hyper_defaults_after_x_read(
+        runtime_state,
+        initial_p=initial_p,
+        update_hyper_p=update_hyper_p,
+        sigma_power=sigma_power,
+        initial_sigma2_cond=initial_sigma2_cond,
+        update_hyper_sigma=update_hyper_sigma,
+        initial_sigma2=initial_sigma2,
+        sigma_soft_threshold_95=sigma_soft_threshold_95,
+        sigma_soft_threshold_5=sigma_soft_threshold_5,
+        warn_fn=warn_fn,
+        log_fn=log_fn,
+    )
+
+
+def maybe_adjust_overaggressive_p_filter_after_x_read_for_runtime(
+    runtime_state,
+    filter_gene_set_p,
+    increase_filter_gene_set_p,
+    filter_using_phewas,
+    *,
+    log_fn,
+):
+    pegs_utils_mod.maybe_adjust_overaggressive_p_filter_after_x_read(
+        runtime_state,
+        filter_gene_set_p=filter_gene_set_p,
+        increase_filter_gene_set_p=increase_filter_gene_set_p,
+        filter_using_phewas=filter_using_phewas,
+        log_fn=log_fn,
+    )
+
+
+def apply_post_read_gene_set_size_and_qc_filters_for_runtime(
+    runtime_state,
+    min_gene_set_size,
+    max_gene_set_size,
+    filter_gene_set_metric_z,
+    *,
+    log_fn,
+):
+    pegs_utils_mod.apply_post_read_gene_set_size_and_qc_filters(
+        runtime_state,
+        min_gene_set_size=min_gene_set_size,
+        max_gene_set_size=max_gene_set_size,
+        filter_gene_set_metric_z=filter_gene_set_metric_z,
+        log_fn=log_fn,
+    )
 
 
 def estimate_dense_chunk_size(gene_set_count, only_ids, default_chunk_size=500):

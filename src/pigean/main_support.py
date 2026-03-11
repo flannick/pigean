@@ -94,14 +94,7 @@ pegs_build_read_x_pipeline_config = pegs_xdata.build_read_x_pipeline_config
 pegs_build_xin_to_p_noninf_index_map = pegs_utils_mod.build_xin_to_p_noninf_index_map
 pegs_remove_tag_from_input = pegs_utils_mod.remove_tag_from_input
 pegs_record_read_x_counts = pegs_utils_mod.record_read_x_counts
-pegs_standardize_qc_metrics_after_x_read = pegs_utils_mod.standardize_qc_metrics_after_x_read
-pegs_maybe_correct_gene_set_betas_after_x_read = pegs_utils_mod.maybe_correct_gene_set_betas_after_x_read
-pegs_maybe_limit_initial_gene_sets_by_p = pegs_utils_mod.maybe_limit_initial_gene_sets_by_p
-pegs_maybe_prune_gene_sets_after_x_read = pegs_utils_mod.maybe_prune_gene_sets_after_x_read
-pegs_initialize_hyper_defaults_after_x_read = pegs_utils_mod.initialize_hyper_defaults_after_x_read
 pegs_maybe_learn_batch_hyper_after_x_read = pigean_state._maybe_learn_batch_hyper_after_x_read
-pegs_maybe_adjust_overaggressive_p_filter_after_x_read = pegs_utils_mod.maybe_adjust_overaggressive_p_filter_after_x_read
-pegs_apply_post_read_gene_set_size_and_qc_filters = pegs_utils_mod.apply_post_read_gene_set_size_and_qc_filters
 pegs_load_and_apply_gene_phewas_bfs_to_runtime = pegs_utils_mod.load_and_apply_gene_phewas_bfs_to_runtime
 pegs_load_and_apply_gene_set_statistics_to_runtime = pegs_utils_mod.load_and_apply_gene_set_statistics_to_runtime
 pegs_set_runtime_y_from_inputs = pegs_utils_mod.set_runtime_y_from_inputs
@@ -394,14 +387,30 @@ def _read_x_pipeline(runtime, read_x_pipeline_config):
         maybe_prefilter_x_block_fn=_maybe_prefilter_x_block,
         merge_missing_gene_rows_fn=_merge_missing_gene_rows,
         finalize_added_x_block_fn=_finalize_added_x_block,
-        standardize_qc_metrics_after_x_read_fn=pegs_standardize_qc_metrics_after_x_read,
-        maybe_correct_gene_set_betas_after_x_read_fn=pegs_maybe_correct_gene_set_betas_after_x_read,
-        maybe_limit_initial_gene_sets_by_p_fn=pegs_maybe_limit_initial_gene_sets_by_p,
-        maybe_prune_gene_sets_after_x_read_fn=pegs_maybe_prune_gene_sets_after_x_read,
-        initialize_hyper_defaults_after_x_read_fn=pegs_initialize_hyper_defaults_after_x_read,
+        standardize_qc_metrics_after_x_read_fn=pigean_x_inputs_core.standardize_qc_metrics_after_x_read_for_runtime,
+        maybe_correct_gene_set_betas_after_x_read_fn=functools.partial(
+            pigean_x_inputs_core.maybe_correct_gene_set_betas_after_x_read_for_runtime,
+            log_fn=lambda message: log(message),
+        ),
+        maybe_limit_initial_gene_sets_by_p_fn=functools.partial(
+            pigean_x_inputs_core.maybe_limit_initial_gene_sets_by_p_for_runtime,
+            log_fn=lambda message: log(message),
+        ),
+        maybe_prune_gene_sets_after_x_read_fn=pigean_x_inputs_core.maybe_prune_gene_sets_after_x_read_for_runtime,
+        initialize_hyper_defaults_after_x_read_fn=functools.partial(
+            pigean_x_inputs_core.initialize_hyper_defaults_after_x_read_for_runtime,
+            warn_fn=lambda message: warn(message),
+            log_fn=lambda message: log(message),
+        ),
         maybe_learn_batch_hyper_after_x_read_fn=pegs_maybe_learn_batch_hyper_after_x_read,
-        maybe_adjust_overaggressive_p_filter_after_x_read_fn=pegs_maybe_adjust_overaggressive_p_filter_after_x_read,
-        apply_post_read_gene_set_size_and_qc_filters_fn=pegs_apply_post_read_gene_set_size_and_qc_filters,
+        maybe_adjust_overaggressive_p_filter_after_x_read_fn=functools.partial(
+            pigean_x_inputs_core.maybe_adjust_overaggressive_p_filter_after_x_read_for_runtime,
+            log_fn=lambda message: log(message),
+        ),
+        apply_post_read_gene_set_size_and_qc_filters_fn=functools.partial(
+            pigean_x_inputs_core.apply_post_read_gene_set_size_and_qc_filters_for_runtime,
+            log_fn=lambda message: log(message),
+        ),
         maybe_filter_zero_uncorrected_betas_after_x_read_fn=pigean_state._maybe_filter_zero_uncorrected_betas_after_x_read,
         maybe_reduce_gene_sets_to_max_after_x_read_fn=pigean_state._maybe_reduce_gene_sets_to_max_after_x_read,
     )
@@ -493,13 +502,6 @@ pegs_build_read_x_pipeline_config = pegs_xdata.build_read_x_pipeline_config
 pegs_build_xin_to_p_noninf_index_map = pegs_utils_mod.build_xin_to_p_noninf_index_map
 pegs_remove_tag_from_input = pegs_utils_mod.remove_tag_from_input
 pegs_record_read_x_counts = pegs_utils_mod.record_read_x_counts
-pegs_standardize_qc_metrics_after_x_read = pegs_utils_mod.standardize_qc_metrics_after_x_read
-pegs_maybe_correct_gene_set_betas_after_x_read = pegs_utils_mod.maybe_correct_gene_set_betas_after_x_read
-pegs_maybe_limit_initial_gene_sets_by_p = pegs_utils_mod.maybe_limit_initial_gene_sets_by_p
-pegs_maybe_prune_gene_sets_after_x_read = pegs_utils_mod.maybe_prune_gene_sets_after_x_read
-pegs_initialize_hyper_defaults_after_x_read = pegs_utils_mod.initialize_hyper_defaults_after_x_read
-pegs_maybe_adjust_overaggressive_p_filter_after_x_read = pegs_utils_mod.maybe_adjust_overaggressive_p_filter_after_x_read
-pegs_apply_post_read_gene_set_size_and_qc_filters = pegs_utils_mod.apply_post_read_gene_set_size_and_qc_filters
 pegs_load_and_apply_gene_phewas_bfs_to_runtime = pegs_utils_mod.load_and_apply_gene_phewas_bfs_to_runtime
 pegs_load_and_apply_gene_set_statistics_to_runtime = pegs_utils_mod.load_and_apply_gene_set_statistics_to_runtime
 pegs_set_runtime_y_from_inputs = pegs_utils_mod.set_runtime_y_from_inputs
