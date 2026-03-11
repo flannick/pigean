@@ -36,6 +36,7 @@ from . import cli as pigean_cli
 from . import huge as pigean_huge
 from . import model as pigean_model
 from . import phewas as pigean_phewas
+from . import phewas_io as pigean_phewas_io
 from . import runtime as pigean_runtime
 from . import state as pigean_state
 from . import x_inputs as pigean_x_inputs
@@ -456,70 +457,25 @@ _ensure_gene_universe_for_x = functools.partial(
     bail_fn=bail,
 )
 
+read_gene_phewas_bfs = functools.partial(
+    pigean_phewas_io.read_gene_phewas_bfs,
+    parse_gene_map_file_fn=pegs_parse_gene_map_file,
+    load_and_apply_gene_phewas_bfs_fn=pegs_load_and_apply_gene_phewas_bfs_to_runtime,
+    sync_phewas_runtime_state_fn=pegs_sync_phewas_runtime_state,
+    construct_map_to_ind_fn=pegs_construct_map_to_ind,
+    open_text_fn=open_gz,
+    get_col_fn=get_col,
+    warn_fn=warn,
+    bail_fn=bail,
+    log_fn=log,
+    info_level=INFO,
+    debug_level=DEBUG,
+)
 
-def read_gene_phewas_bfs(
-    state,
-    gene_phewas_bfs_in,
-    gene_phewas_bfs_id_col=None,
-    gene_phewas_bfs_pheno_col=None,
-    anchor_genes=None,
-    anchor_phenos=None,
-    gene_phewas_bfs_log_bf_col=None,
-    gene_phewas_bfs_combined_col=None,
-    gene_phewas_bfs_prior_col=None,
-    phewas_gene_to_X_gene_in=None,
-    min_value=None,
-    max_num_entries_at_once=None,
-    **kwargs
-):
-    cached = dict(locals())
-    cached.pop("state", None)
-    cached.pop("kwargs", None)
-    state.cached_gene_phewas_call = cached
-
-    if gene_phewas_bfs_in is None:
-        bail("Require --gene-stats-in or --gene-phewas-bfs-in for this operation")
-
-    log("Reading --gene-phewas-bfs-in file %s" % gene_phewas_bfs_in, INFO)
-    if state.genes is None:
-        bail("Need to initialixe --X before reading gene_phewas")
-
-    phewas_gene_to_X_gene = None
-    if phewas_gene_to_X_gene_in is not None:
-        phewas_gene_to_X_gene = pegs_parse_gene_map_file(
-            phewas_gene_to_X_gene_in,
-            allow_multi=True,
-            bail_fn=bail,
-        )
-
-    pegs_load_and_apply_gene_phewas_bfs_to_runtime(
-        state,
-        gene_phewas_bfs_in,
-        gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
-        anchor_genes=anchor_genes,
-        anchor_phenos=anchor_phenos,
-        gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
-        phewas_gene_to_x_gene=phewas_gene_to_X_gene,
-        min_value=min_value,
-        max_num_entries_at_once=max_num_entries_at_once,
-        open_text_fn=open_gz,
-        get_col_fn=get_col,
-        construct_map_to_ind_fn=pegs_construct_map_to_ind,
-        warn_fn=warn,
-        bail_fn=bail,
-        log_fn=lambda message: log(message, DEBUG),
-    )
-    state.phewas_state = pegs_sync_phewas_runtime_state(state)
-
-
-def _reread_gene_phewas_bfs(state):
-    cached_call = getattr(state, "cached_gene_phewas_call", None)
-    if cached_call is None:
-        return
-    read_gene_phewas_bfs(state, **cached_call)
+_reread_gene_phewas_bfs = functools.partial(
+    pigean_phewas_io.reread_gene_phewas_bfs,
+    read_gene_phewas_bfs_fn=read_gene_phewas_bfs,
+)
 
 
 def run_advanced_set_b_output_phewas_if_requested(state, options):
