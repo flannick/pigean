@@ -81,6 +81,7 @@ class SharedModuleBoundaryTest(unittest.TestCase):
     def test_pigean_phewas_io_owns_gene_phewas_reader_and_cache_logic(self) -> None:
         phewas_io_source = (REPO_ROOT / "src" / "pigean" / "phewas_io.py").read_text(encoding="utf-8")
         phewas_source = (REPO_ROOT / "src" / "pigean" / "phewas.py").read_text(encoding="utf-8")
+        state_source = (REPO_ROOT / "src" / "pigean" / "state.py").read_text(encoding="utf-8")
         support_source = (REPO_ROOT / "src" / "pigean" / "main_support.py").read_text(encoding="utf-8")
         package_init_source = (REPO_ROOT / "src" / "pigean" / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("def read_gene_phewas_bfs(", phewas_io_source)
@@ -93,8 +94,15 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("pigean_phewas_io.read_gene_phewas_bfs", support_source)
         self.assertIn("_reread_gene_phewas_bfs = functools.partial(", support_source)
         self.assertIn("pigean_phewas_io.reread_gene_phewas_bfs", support_source)
+        self.assertIn("from pigean import phewas_io as pigean_phewas_io", state_source)
+        self.assertIn("_read_gene_phewas_bfs = functools.partial(", state_source)
+        self.assertIn("pigean_phewas_io.read_gene_phewas_bfs", state_source)
+        self.assertIn("_reread_gene_phewas_bfs = functools.partial(", state_source)
+        self.assertIn("pigean_phewas_io.reread_gene_phewas_bfs", state_source)
         self.assertNotIn("def read_gene_phewas_bfs(", support_source)
         self.assertNotIn("def _reread_gene_phewas_bfs(", support_source)
+        self.assertNotIn("def _read_gene_phewas_bfs(", state_source)
+        self.assertNotIn("def _reread_gene_phewas_bfs(", state_source)
         self.assertIn('"phewas_io"', package_init_source)
         self.assertIn("def run_advanced_set_b_output_phewas_if_requested(", phewas_source)
 
