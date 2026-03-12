@@ -496,7 +496,7 @@ class ReadXPipelineConfig:
     prune_gene_sets: float = 0.8
     weighted_prune_gene_sets: float | None = None
     prune_deterministically: bool = False
-    x_sparsify: list = field(default_factory=lambda: [50, 100, 200, 500, 1000])
+    x_sparsify: list[int] = field(default_factory=lambda: [50, 100, 200, 500, 1000])
     add_ext: bool = False
     add_top: bool = True
     add_bottom: bool = True
@@ -582,9 +582,9 @@ class ParsedGeneCovariates:
 class AlignedGeneBfs:
     gene_bfs: VectorLike
     extra_genes: StringList
-    extra_gene_bfs: VectorLike | None
-    gene_in_combined: VectorLike | None
-    gene_in_priors: VectorLike | None
+    extra_gene_bfs: OptionalVectorLike
+    gene_in_combined: OptionalVectorLike
+    gene_in_priors: OptionalVectorLike
 
 
 @dataclass
@@ -592,7 +592,7 @@ class AlignedGeneCovariates:
     cov_names: StringList
     gene_covs: MatrixLike
     extra_genes: StringList
-    extra_gene_covs: MatrixLike | None
+    extra_gene_covs: OptionalMatrixLike
 
 
 @dataclass
@@ -618,13 +618,13 @@ class PhewasFileColumnInfo:
 
 @dataclass
 class YData:
-    Y: VectorLike | None = None
-    Y_for_regression: VectorLike | None = None
-    Y_exomes: VectorLike | None = None
-    Y_positive_controls: VectorLike | None = None
-    Y_case_counts: VectorLike | None = None
-    y_var: float | None = None
-    y_corr: MatrixLike | None = None
+    Y: OptionalVectorLike = None
+    Y_for_regression: OptionalVectorLike = None
+    Y_exomes: OptionalVectorLike = None
+    Y_positive_controls: OptionalVectorLike = None
+    Y_case_counts: OptionalVectorLike = None
+    y_var: NumericScalar | None = None
+    y_corr: OptionalMatrixLike = None
     y_corr_sparse: sparse.spmatrix | None = None
 
     @classmethod
@@ -710,18 +710,18 @@ class YData:
 
 @dataclass
 class HyperparameterData:
-    p: float | None = None
-    sigma2: float | None = None
-    sigma_power: float | None = None
-    sigma2_osc: float | None = None
-    sigma2_se: float | None = None
-    sigma2_p: float | None = None
-    sigma2_total_var: float | None = None
-    sigma2_total_var_lower: float | None = None
-    sigma2_total_var_upper: float | None = None
-    ps: VectorLike | None = None
-    sigma2s: VectorLike | None = None
-    sigma2s_missing: VectorLike | None = None
+    p: NumericScalar | None = None
+    sigma2: NumericScalar | None = None
+    sigma_power: NumericScalar | None = None
+    sigma2_osc: NumericScalar | None = None
+    sigma2_se: NumericScalar | None = None
+    sigma2_p: NumericScalar | None = None
+    sigma2_total_var: NumericScalar | None = None
+    sigma2_total_var_lower: NumericScalar | None = None
+    sigma2_total_var_upper: NumericScalar | None = None
+    ps: OptionalVectorLike = None
+    sigma2s: OptionalVectorLike = None
+    sigma2s_missing: OptionalVectorLike = None
 
     @classmethod
     def from_runtime(cls, runtime):
@@ -840,14 +840,14 @@ class HyperparameterData:
 class PhewasRuntimeState:
     phenos: OptionalStringList = None
     pheno_to_ind: IndexMap | None = None
-    gene_pheno_Y: MatrixLike | None = None
-    gene_pheno_combined_prior_Ys: MatrixLike | None = None
-    gene_pheno_priors: MatrixLike | None = None
-    X_phewas_beta: MatrixLike | None = None
-    X_phewas_beta_uncorrected: MatrixLike | None = None
+    gene_pheno_Y: OptionalMatrixLike = None
+    gene_pheno_combined_prior_Ys: OptionalMatrixLike = None
+    gene_pheno_priors: OptionalMatrixLike = None
+    X_phewas_beta: OptionalMatrixLike = None
+    X_phewas_beta_uncorrected: OptionalMatrixLike = None
     num_gene_phewas_filtered: int = 0
-    anchor_gene_mask: VectorLike | None = None
-    anchor_pheno_mask: VectorLike | None = None
+    anchor_gene_mask: OptionalVectorLike = None
+    anchor_pheno_mask: OptionalVectorLike = None
 
     @classmethod
     def from_runtime(cls, runtime):
@@ -908,8 +908,8 @@ class RuntimeStateBundle:
 
 @dataclass
 class FactorInputData:
-    anchor_gene_mask: VectorLike | None = None
-    anchor_pheno_mask: VectorLike | None = None
+    anchor_gene_mask: OptionalVectorLike = None
+    anchor_pheno_mask: OptionalVectorLike = None
     loaded_gene_set_phewas_stats: bool = False
     loaded_gene_phewas_bfs: bool = False
 
