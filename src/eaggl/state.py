@@ -54,6 +54,12 @@ pegs_handle_unexpected_exception = pegs_cli_errors.handle_unexpected_exception
 PegsXReadConfig = pegs_types.XReadConfig
 PegsXReadCallbacks = pegs_types.XReadCallbacks
 PegsXReadPostCallbacks = pegs_types.XReadPostCallbacks
+OptionalMatrixLike = pegs_types.OptionalMatrixLike
+OptionalStringList = pegs_types.OptionalStringList
+OptionalVectorLike = pegs_types.OptionalVectorLike
+IndexMap = pegs_types.IndexMap
+NumericScalar = pegs_types.NumericScalar
+StringList = pegs_types.StringList
 
 pegs_apply_cli_config_overrides = pegs_cli.apply_cli_config_overrides
 pegs_callback_set_comma_separated_args = pegs_cli.callback_set_comma_separated_args
@@ -323,13 +329,13 @@ def _append_with_any_user(P):
 
 @dataclass
 class PhewasPhenoState:
-    anchor_pheno_mask: object | None = None
-    anchor_gene_mask: object | None = None
-    default_pheno_mask: object | None = None
+    anchor_pheno_mask: OptionalVectorLike = None
+    anchor_gene_mask: OptionalVectorLike = None
+    default_pheno_mask: OptionalVectorLike = None
     cached_gene_phewas_call: object | None = None
-    gene_pheno_combined_prior_Ys: object | None = None
-    gene_pheno_Y: object | None = None
-    gene_pheno_priors: object | None = None
+    gene_pheno_combined_prior_Ys: OptionalMatrixLike = None
+    gene_pheno_Y: OptionalMatrixLike = None
+    gene_pheno_priors: OptionalMatrixLike = None
     num_gene_phewas_filtered: int = 0
     pheno_Y_vs_input_Y_beta: object | None = None
     pheno_Y_vs_input_Y_beta_tilde: object | None = None
@@ -362,22 +368,22 @@ class PhewasPhenoState:
     pheno_combined_prior_Ys_vs_input_priors_Z: object | None = None
     pheno_combined_prior_Ys_vs_input_priors_p_value: object | None = None
     default_pheno: str = "__default__"
-    phenos: object | None = None
-    pheno_to_ind: object | None = None
-    X_phewas_beta_uncorrected: object | None = None
-    X_phewas_beta: object | None = None
+    phenos: OptionalStringList = None
+    pheno_to_ind: IndexMap | None = None
+    X_phewas_beta_uncorrected: OptionalMatrixLike = None
+    X_phewas_beta: OptionalMatrixLike = None
 
 
 @dataclass
 class GeneSetRegressionState:
-    gene_sets: object | None = None
-    gene_sets_missing: object | None = None
-    gene_sets_ignored: object | None = None
-    gene_set_to_ind: object | None = None
-    beta_tildes: object | None = None
-    p_values: object | None = None
-    ses: object | None = None
-    z_scores: object | None = None
+    gene_sets: OptionalStringList = None
+    gene_sets_missing: OptionalStringList = None
+    gene_sets_ignored: OptionalStringList = None
+    gene_set_to_ind: IndexMap | None = None
+    beta_tildes: OptionalVectorLike = None
+    p_values: OptionalVectorLike = None
+    ses: OptionalVectorLike = None
+    z_scores: OptionalVectorLike = None
     beta_tildes_phewas: object | None = None
     p_values_phewas: object | None = None
     ses_phewas: object | None = None
@@ -416,21 +422,21 @@ class GeneSetRegressionState:
     total_qc_metrics_ignored: object | None = None
     mean_qc_metrics_ignored: object | None = None
     total_qc_metrics_directions: object | None = None
-    p: object | None = None
-    ps: object | None = None
-    ps_missing: object | None = None
-    sigma2: object | None = None
-    sigma2s: object | None = None
-    sigma2s_missing: object | None = None
-    sigma2_osc: object | None = None
-    sigma2_se: object | None = None
-    intercept: object | None = None
-    sigma2_p: object | None = None
-    sigma2_total_var: object | None = None
-    sigma2_total_var_lower: object | None = None
-    sigma2_total_var_upper: object | None = None
-    betas: object | None = None
-    betas_uncorrected: object | None = None
+    p: NumericScalar | None = None
+    ps: OptionalVectorLike = None
+    ps_missing: OptionalVectorLike = None
+    sigma2: NumericScalar | None = None
+    sigma2s: OptionalVectorLike = None
+    sigma2s_missing: OptionalVectorLike = None
+    sigma2_osc: NumericScalar | None = None
+    sigma2_se: NumericScalar | None = None
+    intercept: NumericScalar | None = None
+    sigma2_p: NumericScalar | None = None
+    sigma2_total_var: NumericScalar | None = None
+    sigma2_total_var_lower: NumericScalar | None = None
+    sigma2_total_var_upper: NumericScalar | None = None
+    betas: OptionalVectorLike = None
+    betas_uncorrected: OptionalVectorLike = None
     betas_r_hat: object | None = None
     betas_mcse: object | None = None
     betas_uncorrected_r_hat: object | None = None
@@ -488,8 +494,8 @@ class GeneSetRegressionState:
     sigma_power: object | None = None
     sigma_threshold_k: object | None = None
     sigma_threshold_xo: object | None = None
-    params: object = None
-    param_keys: object = None
+    params: dict[str, object] | None = None
+    param_keys: StringList | None = None
 
     def __post_init__(self):
         if self.params is None:
@@ -503,25 +509,25 @@ class GeneSignalHugeState:
     gene_to_positive_controls: object | None = None
     gene_to_case_count_logbf: object | None = None
     gene_label_map: object | None = None
-    Y: object | None = None
-    Y_exomes: object | None = None
-    Y_positive_controls: object | None = None
-    Y_case_counts: object | None = None
-    Y_for_regression: object | None = None
-    Y_uncorrected: object | None = None
-    y_var: object | None = 1
-    Y_orig: object | None = None
-    Y_for_regression_orig: object | None = None
+    Y: OptionalVectorLike = None
+    Y_exomes: OptionalVectorLike = None
+    Y_positive_controls: OptionalVectorLike = None
+    Y_case_counts: OptionalVectorLike = None
+    Y_for_regression: OptionalVectorLike = None
+    Y_uncorrected: OptionalVectorLike = None
+    y_var: NumericScalar | None = 1
+    Y_orig: OptionalVectorLike = None
+    Y_for_regression_orig: OptionalVectorLike = None
     gene_locations: object | None = None
     huge_signal_bfs: object | None = None
     huge_signal_bfs_for_regression: object | None = None
-    gene_covariates: object | None = None
-    gene_covariates_mask: object | None = None
-    gene_covariate_names: object | None = None
-    gene_covariate_directions: object | None = None
-    gene_covariate_intercept_index: object | None = None
-    gene_covariates_mat_inv: object | None = None
-    gene_covariate_zs: object | None = None
+    gene_covariates: OptionalMatrixLike = None
+    gene_covariates_mask: OptionalVectorLike = None
+    gene_covariate_names: OptionalStringList = None
+    gene_covariate_directions: OptionalVectorLike = None
+    gene_covariate_intercept_index: int | None = None
+    gene_covariates_mat_inv: OptionalMatrixLike = None
+    gene_covariate_zs: OptionalVectorLike = None
     gene_covariate_adjustments: object | None = None
     huge_sparse_mode: bool = False
     gene_covariate_slope_defaults: object | None = None
@@ -546,13 +552,13 @@ class GeneSignalHugeState:
     huge_scale_region_posterior: bool = False
     huge_phantom_region_posterior: bool = False
     huge_allow_evidence_of_absence: bool = False
-    y_corr: object | None = None
-    y_corr_sparse: object | None = None
-    y_corr_cholesky: object | None = None
-    y_w_var: object | None = 1
-    y_w_mean: object | None = 0
-    y_fw_var: object | None = 1
-    y_fw_mean: object | None = 0
+    y_corr: OptionalMatrixLike = None
+    y_corr_sparse: OptionalMatrixLike = None
+    y_corr_cholesky: OptionalMatrixLike = None
+    y_w_var: NumericScalar | None = 1
+    y_w_mean: NumericScalar | None = 0
+    y_fw_var: NumericScalar | None = 1
+    y_fw_mean: NumericScalar | None = 0
 
 
 @dataclass
