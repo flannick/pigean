@@ -5,7 +5,7 @@ import json
 import pathlib
 import sys
 import unittest
-from typing import Any, get_type_hints
+from typing import Callable, get_type_hints
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -751,6 +751,7 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         y_hints = get_type_hints(pegs_types.YData)
         hyper_hints = get_type_hints(pegs_types.HyperparameterData)
         stage_hints = get_type_hints(pegs_types.PhewasStageConfig)
+        resolution_hints = get_type_hints(pegs_types.PhewasInputResolution)
         pigean_phewas_hints = get_type_hints(pigean_state.PhewasLabelState)
         pigean_reg_hints = get_type_hints(pigean_state.GeneSetRegressionState)
         pigean_signal_hints = get_type_hints(pigean_state.GeneSignalHugeState)
@@ -759,15 +760,6 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         eaggl_reg_hints = get_type_hints(eaggl_state.GeneSetRegressionState)
         eaggl_signal_hints = get_type_hints(eaggl_state.GeneSignalHugeState)
 
-        self.assertNotEqual(x_hints["gene_to_chrom"], Any)
-        self.assertNotEqual(x_hints["gene_to_pos"], Any)
-        self.assertNotEqual(x_hints["gene_to_huge_score"], Any)
-        self.assertNotEqual(y_hints["Y"], Any)
-        self.assertNotEqual(y_hints["y_corr_sparse"], Any)
-        self.assertNotEqual(hyper_hints["sigma2"], Any)
-        self.assertNotEqual(hyper_hints["ps"], Any)
-        self.assertNotEqual(stage_hints["gene_phewas_bfs_in"], Any)
-        self.assertNotEqual(stage_hints["sparse_frac_betas"], Any)
         self.assertEqual(y_hints["Y"], pegs_types.OptionalVectorLike)
         self.assertEqual(y_hints["y_corr"], pegs_types.OptionalMatrixLike)
         self.assertEqual(hyper_hints["sigma2"], pegs_types.NumericScalar | None)
@@ -785,6 +777,9 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertEqual(get_type_hints(pegs_types.PhewasRuntimeState)["anchor_gene_mask"], pegs_types.OptionalVectorLike)
         self.assertEqual(get_type_hints(pegs_types.FactorInputData)["anchor_pheno_mask"], pegs_types.OptionalVectorLike)
         self.assertEqual(get_type_hints(pegs_types.ReadXPipelineConfig)["x_sparsify"], list[int])
+        self.assertEqual(pegs_types.Callback, Callable[..., object])
+        self.assertEqual(resolution_hints["mode"], pegs_types.PhewasInputMode)
+        self.assertEqual(resolution_hints["reason"], pegs_types.PhewasInputReason)
 
         self.assertIs(pegs_phewas.PhewasRuntimeState, pegs_types.PhewasRuntimeState)
         self.assertIs(pegs_phewas.FactorInputData, pegs_types.FactorInputData)

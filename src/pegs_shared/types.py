@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import MISSING, dataclass, field, fields
 from os import PathLike
 from types import ModuleType
-from typing import Any, Callable, TypeAlias
+from typing import Callable, Literal, TypeAlias
 
 import numpy as np
 import scipy.sparse as sparse
@@ -35,7 +35,15 @@ OptionalVectorLike: TypeAlias = VectorLike | None
 OptionalMatrixLike: TypeAlias = MatrixLike | None
 OptionalPathLikeStr: TypeAlias = PathLikeStr | None
 NumericScalar: TypeAlias = int | float
-Callback = Callable[..., Any]
+Callback = Callable[..., object]
+PhewasInputMode: TypeAlias = Literal["skip", "reuse_loaded_matrix", "re_read_file"]
+PhewasInputReason: TypeAlias = Literal[
+    "no_input_requested",
+    "matrix_not_loaded",
+    "loaded_matrix_filtered",
+    "requested_input_matches_loaded_source",
+    "requested_input_not_reusable",
+]
 
 
 @dataclass
@@ -967,13 +975,13 @@ class PhewasStageConfig:
 class PhewasInputResolution:
     requested_input: OptionalPathLikeStr = None
     resolved_input: OptionalPathLikeStr = None
-    mode: str = "skip"
-    reason: str = "no_input_requested"
+    mode: PhewasInputMode = "skip"
+    reason: PhewasInputReason = "no_input_requested"
 
     @property
-    def should_reuse_loaded_matrix(self):
+    def should_reuse_loaded_matrix(self) -> bool:
         return self.mode == "reuse_loaded_matrix"
 
     @property
-    def should_reread_file(self):
+    def should_reread_file(self) -> bool:
         return self.mode == "re_read_file"
