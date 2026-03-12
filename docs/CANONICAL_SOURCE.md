@@ -48,6 +48,11 @@ Legacy-core retirement policy:
   - `GeneSetRegressionState`
   - `GeneSignalHugeState`
   - `ModelSummaryState`
+- `src/eaggl/state.py` is now intentionally structured around four explicit deep-engine slices:
+  - `PhewasPhenoState`
+  - `GeneSetRegressionState`
+  - `GeneSignalHugeState`
+  - `FactorModelState`
 - `src/pegs_utils.py` is no longer the catch-all deep owner and should continue to shrink only by moving stable helpers into explicit shared modules
 - new logic should land in package modules first; support-layer or state-layer changes should stay narrow and should not reintroduce flat catch-all runtime files
 

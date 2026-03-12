@@ -5,6 +5,12 @@ from __future__ import annotations
 This module is the honest deep owner for runtime-coupled EAGGL behavior.
 Prefer editing stage modules first and only split this file further when a
 concrete seam is clear enough to remove real mixed ownership.
+
+Current stable deep-engine slices:
+- `PhewasPhenoState`: PheWAS, phenotype, and anchor-mask runtime state
+- `GeneSetRegressionState`: gene-set regression, beta, and prior runtime state
+- `GeneSignalHugeState`: Y, HuGE, covariate, and gene-signal runtime state
+- `FactorModelState`: factorization outputs, labels, and factor-PheWAS runtime state
 """
 
 import functools
@@ -314,6 +320,294 @@ def _append_with_any_user(P):
     return np.hstack((P, 1 - np.prod(1 - P, axis=1)[:, np.newaxis]))
 
 
+@dataclass
+class PhewasPhenoState:
+    anchor_pheno_mask: object | None = None
+    anchor_gene_mask: object | None = None
+    default_pheno_mask: object | None = None
+    cached_gene_phewas_call: object | None = None
+    gene_pheno_combined_prior_Ys: object | None = None
+    gene_pheno_Y: object | None = None
+    gene_pheno_priors: object | None = None
+    num_gene_phewas_filtered: int = 0
+    pheno_Y_vs_input_Y_beta: object | None = None
+    pheno_Y_vs_input_Y_beta_tilde: object | None = None
+    pheno_Y_vs_input_Y_se: object | None = None
+    pheno_Y_vs_input_Y_Z: object | None = None
+    pheno_Y_vs_input_Y_p_value: object | None = None
+    pheno_combined_prior_Ys_vs_input_Y_beta: object | None = None
+    pheno_combined_prior_Ys_vs_input_Y_beta_tilde: object | None = None
+    pheno_combined_prior_Ys_vs_input_Y_se: object | None = None
+    pheno_combined_prior_Ys_vs_input_Y_Z: object | None = None
+    pheno_combined_prior_Ys_vs_input_Y_p_value: object | None = None
+    pheno_Y_vs_input_combined_prior_Ys_beta: object | None = None
+    pheno_Y_vs_input_combined_prior_Ys_beta_tilde: object | None = None
+    pheno_Y_vs_input_combined_prior_Ys_se: object | None = None
+    pheno_Y_vs_input_combined_prior_Ys_Z: object | None = None
+    pheno_Y_vs_input_combined_prior_Ys_p_value: object | None = None
+    pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta: object | None = None
+    pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta_tilde: object | None = None
+    pheno_combined_prior_Ys_vs_input_combined_prior_Ys_se: object | None = None
+    pheno_combined_prior_Ys_vs_input_combined_prior_Ys_Z: object | None = None
+    pheno_combined_prior_Ys_vs_input_combined_prior_Ys_p_value: object | None = None
+    pheno_Y_vs_input_priors_beta: object | None = None
+    pheno_Y_vs_input_priors_beta_tilde: object | None = None
+    pheno_Y_vs_input_priors_se: object | None = None
+    pheno_Y_vs_input_priors_Z: object | None = None
+    pheno_Y_vs_input_priors_p_value: object | None = None
+    pheno_combined_prior_Ys_vs_input_priors_beta: object | None = None
+    pheno_combined_prior_Ys_vs_input_priors_beta_tilde: object | None = None
+    pheno_combined_prior_Ys_vs_input_priors_se: object | None = None
+    pheno_combined_prior_Ys_vs_input_priors_Z: object | None = None
+    pheno_combined_prior_Ys_vs_input_priors_p_value: object | None = None
+    default_pheno: str = "__default__"
+    phenos: object | None = None
+    pheno_to_ind: object | None = None
+    X_phewas_beta_uncorrected: object | None = None
+    X_phewas_beta: object | None = None
+
+
+@dataclass
+class GeneSetRegressionState:
+    gene_sets: object | None = None
+    gene_sets_missing: object | None = None
+    gene_sets_ignored: object | None = None
+    gene_set_to_ind: object | None = None
+    beta_tildes: object | None = None
+    p_values: object | None = None
+    ses: object | None = None
+    z_scores: object | None = None
+    beta_tildes_phewas: object | None = None
+    p_values_phewas: object | None = None
+    ses_phewas: object | None = None
+    z_scores_phewas: object | None = None
+    beta_tildes_orig: object | None = None
+    p_values_orig: object | None = None
+    ses_orig: object | None = None
+    z_scores_orig: object | None = None
+    se_inflation_factors: object | None = None
+    se_inflation_factors_phewas: object | None = None
+    beta_tildes_missing: object | None = None
+    p_values_missing: object | None = None
+    ses_missing: object | None = None
+    z_scores_missing: object | None = None
+    se_inflation_factors_missing: object | None = None
+    col_sums_ignored: object | None = None
+    beta_tildes_ignored: object | None = None
+    p_values_ignored: object | None = None
+    ses_ignored: object | None = None
+    z_scores_ignored: object | None = None
+    se_inflation_factors_ignored: object | None = None
+    beta_tildes_missing_orig: object | None = None
+    p_values_missing_orig: object | None = None
+    ses_missing_orig: object | None = None
+    z_scores_missing_orig: object | None = None
+    osc: object | None = None
+    X_osc: object | None = None
+    osc_weights: object | None = None
+    osc_missing: object | None = None
+    X_osc_missing: object | None = None
+    osc_weights_missing: object | None = None
+    total_qc_metrics: object | None = None
+    mean_qc_metrics: object | None = None
+    total_qc_metrics_missing: object | None = None
+    mean_qc_metrics_missing: object | None = None
+    total_qc_metrics_ignored: object | None = None
+    mean_qc_metrics_ignored: object | None = None
+    total_qc_metrics_directions: object | None = None
+    p: object | None = None
+    ps: object | None = None
+    ps_missing: object | None = None
+    sigma2: object | None = None
+    sigma2s: object | None = None
+    sigma2s_missing: object | None = None
+    sigma2_osc: object | None = None
+    sigma2_se: object | None = None
+    intercept: object | None = None
+    sigma2_p: object | None = None
+    sigma2_total_var: object | None = None
+    sigma2_total_var_lower: object | None = None
+    sigma2_total_var_upper: object | None = None
+    betas: object | None = None
+    betas_uncorrected: object | None = None
+    betas_r_hat: object | None = None
+    betas_mcse: object | None = None
+    betas_uncorrected_r_hat: object | None = None
+    betas_uncorrected_mcse: object | None = None
+    inf_betas: object | None = None
+    non_inf_avg_cond_betas: object | None = None
+    non_inf_avg_postps: object | None = None
+    betas_phewas: object | None = None
+    betas_uncorrected_phewas: object | None = None
+    betas_missing: object | None = None
+    betas_uncorrected_missing: object | None = None
+    betas_r_hat_missing: object | None = None
+    betas_mcse_missing: object | None = None
+    betas_uncorrected_r_hat_missing: object | None = None
+    betas_uncorrected_mcse_missing: object | None = None
+    inf_betas_missing: object | None = None
+    non_inf_avg_cond_betas_missing: object | None = None
+    non_inf_avg_postps_missing: object | None = None
+    betas_orig: object | None = None
+    betas_uncorrected_orig: object | None = None
+    inf_betas_orig: object | None = None
+    non_inf_avg_cond_betas_orig: object | None = None
+    non_inf_avg_postps_orig: object | None = None
+    betas_missing_orig: object | None = None
+    betas_uncorrected_missing_orig: object | None = None
+    inf_betas_missing_orig: object | None = None
+    non_inf_avg_cond_betas_missing_orig: object | None = None
+    non_inf_avg_postps_missing_orig: object | None = None
+    priors: object | None = None
+    priors_r_hat: object | None = None
+    priors_mcse: object | None = None
+    priors_adj: object | None = None
+    combined_prior_Ys: object | None = None
+    combined_prior_Ys_r_hat: object | None = None
+    combined_prior_Ys_mcse: object | None = None
+    combined_prior_Ys_for_regression: object | None = None
+    combined_prior_Ys_adj: object | None = None
+    combined_prior_Y_ses: object | None = None
+    combined_Ds: object | None = None
+    combined_Ds_for_regression: object | None = None
+    combined_Ds_missing: object | None = None
+    Y_r_hat: object | None = None
+    Y_mcse: object | None = None
+    priors_missing: object | None = None
+    priors_adj_missing: object | None = None
+    gene_N: object | None = None
+    gene_ignored_N: object | None = None
+    gene_N_missing: object | None = None
+    gene_ignored_N_missing: object | None = None
+    batches: object | None = None
+    priors_orig: object | None = None
+    priors_adj_orig: object | None = None
+    priors_missing_orig: object | None = None
+    priors_adj_missing_orig: object | None = None
+    sigma_power: object | None = None
+    sigma_threshold_k: object | None = None
+    sigma_threshold_xo: object | None = None
+    params: object = None
+    param_keys: object = None
+
+    def __post_init__(self):
+        if self.params is None:
+            self.params = {}
+        if self.param_keys is None:
+            self.param_keys = []
+
+
+@dataclass
+class GeneSignalHugeState:
+    gene_to_positive_controls: object | None = None
+    gene_to_case_count_logbf: object | None = None
+    gene_label_map: object | None = None
+    Y: object | None = None
+    Y_exomes: object | None = None
+    Y_positive_controls: object | None = None
+    Y_case_counts: object | None = None
+    Y_for_regression: object | None = None
+    Y_uncorrected: object | None = None
+    y_var: object | None = 1
+    Y_orig: object | None = None
+    Y_for_regression_orig: object | None = None
+    gene_locations: object | None = None
+    huge_signal_bfs: object | None = None
+    huge_signal_bfs_for_regression: object | None = None
+    gene_covariates: object | None = None
+    gene_covariates_mask: object | None = None
+    gene_covariate_names: object | None = None
+    gene_covariate_directions: object | None = None
+    gene_covariate_intercept_index: object | None = None
+    gene_covariates_mat_inv: object | None = None
+    gene_covariate_zs: object | None = None
+    gene_covariate_adjustments: object | None = None
+    huge_sparse_mode: bool = False
+    gene_covariate_slope_defaults: object | None = None
+    total_qc_metric_betas_defaults: object | None = None
+    total_qc_metric_intercept_defaults: object | None = None
+    total_qc_metric2_betas_defaults: object | None = None
+    total_qc_metric2_intercept_defaults: object | None = None
+    total_qc_metric_betas: object | None = None
+    total_qc_metric_intercept: object | None = None
+    total_qc_metric2_betas: object | None = None
+    total_qc_metric2_intercept: object | None = None
+    total_qc_metric_desired_var: object | None = None
+    huge_signals: object | None = None
+    huge_signal_posteriors: object | None = None
+    huge_signal_posteriors_for_regression: object | None = None
+    huge_signal_sum_gene_cond_probabilities: object | None = None
+    huge_signal_sum_gene_cond_probabilities_for_regression: object | None = None
+    huge_signal_mean_gene_pos: object | None = None
+    huge_signal_mean_gene_pos_for_regression: object | None = None
+    huge_signal_max_closest_gene_prob: object | None = None
+    huge_cap_region_posterior: bool = True
+    huge_scale_region_posterior: bool = False
+    huge_phantom_region_posterior: bool = False
+    huge_allow_evidence_of_absence: bool = False
+    y_corr: object | None = None
+    y_corr_sparse: object | None = None
+    y_corr_cholesky: object | None = None
+    y_w_var: object | None = 1
+    y_w_mean: object | None = 0
+    y_fw_var: object | None = 1
+    y_fw_mean: object | None = 0
+
+
+@dataclass
+class FactorModelState:
+    exp_lambdak: object | None = None
+    factor_anchor_relevance: object | None = None
+    factor_relevance: object | None = None
+    factor_labels: object | None = None
+    factor_labels_gene_sets: object | None = None
+    factor_labels_genes: object | None = None
+    factor_labels_phenos: object | None = None
+    factor_top_gene_sets: object | None = None
+    factor_top_genes: object | None = None
+    factor_top_phenos: object | None = None
+    factor_anchor_top_gene_sets: object | None = None
+    factor_anchor_top_genes: object | None = None
+    factor_anchor_top_phenos: object | None = None
+    gene_factor_gene_mask: object | None = None
+    gene_set_factor_gene_set_mask: object | None = None
+    pheno_factor_pheno_mask: object | None = None
+    exp_gene_factors: object | None = None
+    gene_prob_factor_vector: object | None = None
+    exp_gene_set_factors: object | None = None
+    gene_set_prob_factor_vector: object | None = None
+    exp_pheno_factors: object | None = None
+    pheno_prob_factor_vector: object | None = None
+    factor_phewas_Y_betas: object | None = None
+    factor_phewas_Y_ses: object | None = None
+    factor_phewas_Y_zs: object | None = None
+    factor_phewas_Y_p_values: object | None = None
+    factor_phewas_Y_one_sided_p_values: object | None = None
+    factor_phewas_Y_huber_betas: object | None = None
+    factor_phewas_Y_huber_ses: object | None = None
+    factor_phewas_Y_huber_zs: object | None = None
+    factor_phewas_Y_huber_p_values: object | None = None
+    factor_phewas_Y_huber_one_sided_p_values: object | None = None
+    factor_phewas_combined_prior_Ys_betas: object | None = None
+    factor_phewas_combined_prior_Ys_ses: object | None = None
+    factor_phewas_combined_prior_Ys_zs: object | None = None
+    factor_phewas_combined_prior_Ys_p_values: object | None = None
+    factor_phewas_combined_prior_Ys_one_sided_p_values: object | None = None
+    factor_phewas_combined_prior_Ys_huber_betas: object | None = None
+    factor_phewas_combined_prior_Ys_huber_ses: object | None = None
+    factor_phewas_combined_prior_Ys_huber_zs: object | None = None
+    factor_phewas_combined_prior_Ys_huber_p_values: object | None = None
+    factor_phewas_combined_prior_Ys_huber_one_sided_p_values: object | None = None
+
+
+_EAGGL_STATE_SLICES = (
+    ("_phewas_pheno_state", PhewasPhenoState),
+    ("_gene_set_regression_state", GeneSetRegressionState),
+    ("_gene_signal_huge_state", GeneSignalHugeState),
+    ("_factor_model_state", FactorModelState),
+)
+
+
 class EagglState(object):
     '''
     Stores gene and gene set annotations and derived matrices
@@ -323,6 +617,11 @@ class EagglState(object):
 
         #empirical mean scale factor from mice
         self.MEAN_MOUSE_SCALE = 0.0448373
+        object.__setattr__(self, "_phewas_pheno_state", PhewasPhenoState())
+        object.__setattr__(self, "_gene_set_regression_state", GeneSetRegressionState())
+        object.__setattr__(self, "_gene_signal_huge_state", GeneSignalHugeState())
+        object.__setattr__(self, "_factor_model_state", FactorModelState())
+        self._initialize_state_slice_defaults()
 
         if background_prior <= 0 or background_prior >= 1:
             bail("--background-prior must be in (0,1)")
@@ -704,10 +1003,56 @@ class EagglState(object):
         self.factor_phewas_combined_prior_Ys_huber_p_values = None #phewas statistics
         self.factor_phewas_combined_prior_Ys_huber_one_sided_p_values = None #phewas statistics
 
+        self._init_phewas_and_pheno_state()
+        self._init_gene_set_regression_state()
+        self._init_gene_signal_and_huge_state()
+        self._init_factor_model_state()
         self.runtime_state_bundle = pegs_sync_runtime_state_bundle(self)
         self.y_state = self.runtime_state_bundle.y_state
         self.hyperparameter_state = self.runtime_state_bundle.hyperparameter_state
         self.phewas_state = self.runtime_state_bundle.phewas_state
+
+    def _init_phewas_and_pheno_state(self):
+        self.phewas_state = pegs_sync_phewas_runtime_state(self)
+
+    def _init_gene_set_regression_state(self):
+        self.runtime_state_bundle = pegs_sync_runtime_state_bundle(self)
+        self.hyperparameter_state = self.runtime_state_bundle.hyperparameter_state
+
+    def _init_gene_signal_and_huge_state(self):
+        self.runtime_state_bundle = pegs_sync_runtime_state_bundle(self)
+        self.y_state = self.runtime_state_bundle.y_state
+
+    def _init_factor_model_state(self):
+        return None
+
+    def _initialize_state_slice_defaults(self):
+        for slice_name, slice_type in _EAGGL_STATE_SLICES:
+            slice_obj = object.__getattribute__(self, slice_name)
+            for field_name in slice_type.__dataclass_fields__:
+                object.__setattr__(self, field_name, getattr(slice_obj, field_name))
+
+    def _refresh_state_slice(self, slice_name, slice_type):
+        slice_obj = object.__getattribute__(self, slice_name)
+        for field_name in slice_type.__dataclass_fields__:
+            setattr(slice_obj, field_name, getattr(self, field_name))
+        return slice_obj
+
+    @property
+    def phewas_pheno_state(self):
+        return self._refresh_state_slice("_phewas_pheno_state", PhewasPhenoState)
+
+    @property
+    def gene_set_regression_state(self):
+        return self._refresh_state_slice("_gene_set_regression_state", GeneSetRegressionState)
+
+    @property
+    def gene_signal_huge_state(self):
+        return self._refresh_state_slice("_gene_signal_huge_state", GeneSignalHugeState)
+
+    @property
+    def factor_model_state(self):
+        return self._refresh_state_slice("_factor_model_state", FactorModelState)
 
     def has_gene_sets(self):
         return self.X_orig is not None and self.X_orig.shape[1] > 0

@@ -99,6 +99,11 @@ Current architecture:
   - `GeneSetRegressionState`
   - `GeneSignalHugeState`
   - `ModelSummaryState`
+- `src/eaggl/state.py` is organized around four explicit deep-engine slices:
+  - `PhewasPhenoState`
+  - `GeneSetRegressionState`
+  - `GeneSignalHugeState`
+  - `FactorModelState`
 - `src/pegs_utils.py` is no longer the catch-all owner for shared runtime behavior and continues to shrink toward a narrow transitional shim
 - Both flat legacy runtime files have been retired
 
