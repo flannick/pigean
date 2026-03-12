@@ -73,6 +73,14 @@ class PigeanCliTest(unittest.TestCase):
         self.assertIn("Could not read config file", err)
         self.assertNotIn("Traceback", err)
 
+    def test_positive_controls_list_rejects_file_paths(self) -> None:
+        proc = self._run("gibbs", "--positive-controls-list", "tests/data/mody.gene.list")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("expects a comma-separated list of gene symbols", err)
+        self.assertIn("--positive-controls-in", err)
+        self.assertNotIn("Traceback", err)
+
     def test_removed_min_post_burn_alias_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--min-post-burn-in", "50")
         self.assertNotEqual(proc.returncode, 0)

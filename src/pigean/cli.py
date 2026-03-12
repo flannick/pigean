@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import sys
 
@@ -1288,6 +1289,20 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
                 )
 
 
+def _validate_positive_control_inputs(_options):
+    values = _options.positive_controls_list
+    if not values or len(values) != 1:
+        return
+    candidate = values[0]
+    if candidate is None:
+        return
+    if os.path.exists(candidate) or "/" in candidate or "\\" in candidate:
+        bail(
+            "Option --positive-controls-list expects a comma-separated list of gene symbols; "
+            "to read positive controls from a file, use --positive-controls-in instead"
+        )
+
+
 def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests):
     # Mode-dependent defaults.
     if _mode in ("pops", "naive_pops"):
@@ -1510,6 +1525,7 @@ def _bootstrap_cli(argv=None):
         parsed_cli_specified_dests,
         parsed_config_specified_dests,
     )
+    _validate_positive_control_inputs(parsed_options)
 
     options = parsed_options
     args = parsed_args
