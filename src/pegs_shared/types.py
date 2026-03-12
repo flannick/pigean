@@ -8,6 +8,14 @@ from typing import Any, Callable, TypeAlias
 import numpy as np
 import scipy.sparse as sparse
 
+from pegs_shared.x_runtime import (
+    initialize_filtered_gene_set_state,
+    initialize_read_x_batch_seed_state,
+    maybe_prepare_filtered_correlation,
+    resolve_read_x_run_logistic,
+    run_read_x_ingestion,
+)
+
 
 MatrixLike: TypeAlias = np.ndarray | sparse.spmatrix
 VectorLike: TypeAlias = np.ndarray
@@ -142,14 +150,6 @@ class XData:
         info_level,
         debug_level,
     ):
-        from pegs_utils import (
-            initialize_filtered_gene_set_state,
-            initialize_read_x_batch_seed_state,
-            maybe_prepare_filtered_correlation,
-            resolve_read_x_run_logistic,
-            run_read_x_ingestion,
-        )
-
         initial_ps = input_plan.initial_ps
         X_ins = input_plan.X_ins
         batches = input_plan.batches

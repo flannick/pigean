@@ -29,6 +29,7 @@ import pegs_shared.phewas as pegs_phewas
 import pegs_shared.regression as pegs_regression
 import pegs_shared.runtime_matrix as pegs_runtime_matrix
 import pegs_shared.types as pegs_types
+import pegs_shared.x_runtime as pegs_x_runtime
 import pegs_shared.xdata as pegs_xdata
 import pegs_shared.ydata as pegs_ydata
 import pegs_utils as pegs_utils_mod
@@ -94,7 +95,7 @@ pegs_sync_phewas_runtime_state = pegs_ydata.sync_phewas_runtime_state
 pegs_build_read_x_pipeline_config = pegs_xdata.build_read_x_pipeline_config
 pegs_build_xin_to_p_noninf_index_map = pegs_utils_mod.build_xin_to_p_noninf_index_map
 pegs_remove_tag_from_input = pegs_utils_mod.remove_tag_from_input
-pegs_record_read_x_counts = pegs_utils_mod.record_read_x_counts
+pegs_record_read_x_counts = pegs_x_runtime.record_read_x_counts
 pegs_load_and_apply_gene_phewas_bfs_to_runtime = pegs_utils_mod.load_and_apply_gene_phewas_bfs_to_runtime
 pegs_load_and_apply_gene_set_statistics_to_runtime = pegs_utils_mod.load_and_apply_gene_set_statistics_to_runtime
 pegs_set_runtime_y_from_inputs = pegs_utils_mod.set_runtime_y_from_inputs
@@ -513,7 +514,7 @@ pegs_sync_phewas_runtime_state = pegs_ydata.sync_phewas_runtime_state
 pegs_build_read_x_pipeline_config = pegs_xdata.build_read_x_pipeline_config
 pegs_build_xin_to_p_noninf_index_map = pegs_utils_mod.build_xin_to_p_noninf_index_map
 pegs_remove_tag_from_input = pegs_utils_mod.remove_tag_from_input
-pegs_record_read_x_counts = pegs_utils_mod.record_read_x_counts
+pegs_record_read_x_counts = pegs_x_runtime.record_read_x_counts
 pegs_load_and_apply_gene_phewas_bfs_to_runtime = pegs_utils_mod.load_and_apply_gene_phewas_bfs_to_runtime
 pegs_load_and_apply_gene_set_statistics_to_runtime = pegs_utils_mod.load_and_apply_gene_set_statistics_to_runtime
 pegs_set_runtime_y_from_inputs = pegs_utils_mod.set_runtime_y_from_inputs

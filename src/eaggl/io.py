@@ -10,6 +10,16 @@ from pegs_shared.io_common import (
     parse_gene_map_file,
     read_loc_file_with_gene_map,
 )
+from pegs_shared.x_runtime import (
+    apply_post_read_gene_set_size_and_qc_filters,
+    initialize_hyper_defaults_after_x_read,
+    maybe_adjust_overaggressive_p_filter_after_x_read,
+    maybe_correct_gene_set_betas_after_x_read,
+    maybe_limit_initial_gene_sets_by_p,
+    maybe_prune_gene_sets_after_x_read,
+    record_read_x_counts,
+    standardize_qc_metrics_after_x_read,
+)
 from pegs_shared.types import XReadCallbacks, XReadConfig, XReadPostCallbacks
 from pegs_shared.xdata import (
     build_read_x_pipeline_config,
@@ -19,17 +29,9 @@ from pegs_shared.xdata import (
 )
 from pegs_shared.ydata import sync_phewas_runtime_state
 from pegs_utils import (
-    apply_post_read_gene_set_size_and_qc_filters,
-    initialize_hyper_defaults_after_x_read,
     load_and_apply_gene_phewas_bfs_to_runtime,
     load_and_apply_gene_set_phewas_statistics_to_runtime,
     load_and_apply_gene_set_statistics_to_runtime,
-    maybe_adjust_overaggressive_p_filter_after_x_read,
-    maybe_correct_gene_set_betas_after_x_read,
-    maybe_limit_initial_gene_sets_by_p,
-    maybe_prune_gene_sets_after_x_read,
-    record_read_x_counts,
-    standardize_qc_metrics_after_x_read,
 )
 from . import y_inputs as eaggl_y_inputs
 
