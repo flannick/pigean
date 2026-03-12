@@ -19,6 +19,11 @@ Current deep-engine policy:
 - `src/pigean/state.py` is the canonical deep owner for runtime-coupled PIGEAN behavior.
 - Keep it until a concrete seam is obvious enough to remove real mixed ownership.
 - Do not split it further just to create more files.
+- Treat these four state slices as the current deep ownership map inside `state.py`:
+  - `PhewasLabelState`
+  - `GeneSetRegressionState`
+  - `GeneSignalHugeState`
+  - `ModelSummaryState`
 
 ## Primary Edit Order
 

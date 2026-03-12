@@ -94,6 +94,11 @@ Current architecture:
 - `src/pigean/main_support.py` and `src/eaggl/main_support.py` are narrow package-owned support layers for entry/runtime wiring
 - `src/pigean/state.py` and `src/eaggl/state.py` are the remaining deep runtime-coupled modules
 - `src/pigean/state.py` and `src/eaggl/state.py` are now the canonical deep engines; further splitting should be seam-driven, not cosmetic
+- `src/pigean/state.py` is organized around four explicit deep-engine slices:
+  - `PhewasLabelState`
+  - `GeneSetRegressionState`
+  - `GeneSignalHugeState`
+  - `ModelSummaryState`
 - `src/pegs_utils.py` is no longer the catch-all owner for shared runtime behavior and continues to shrink toward a narrow transitional shim
 - Both flat legacy runtime files have been retired
 

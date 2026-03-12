@@ -5,6 +5,12 @@ from __future__ import annotations
 This module is the honest deep owner for runtime-coupled PIGEAN behavior.
 Prefer editing stage modules first and only split this file further when a
 concrete seam is clear enough to remove real mixed ownership.
+
+Current stable deep-engine slices:
+- `PhewasLabelState`: PheWAS and label-adjacent runtime state
+- `GeneSetRegressionState`: gene-set regression and beta-estimation runtime state
+- `GeneSignalHugeState`: HuGE, gene-signal, and gene-level evidence runtime state
+- `ModelSummaryState`: model summary, output-adjacent, and reporting runtime state
 """
 
 import copy

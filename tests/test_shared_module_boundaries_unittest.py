@@ -162,6 +162,7 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("class GeneSetRegressionState:", state_source)
         self.assertIn("class GeneSignalHugeState:", state_source)
         self.assertIn("class ModelSummaryState:", state_source)
+        self.assertIn("Current stable deep-engine slices:", state_source)
         self.assertIn("def _initialize_state_slice_defaults(self):", state_source)
         self.assertIn("def _refresh_state_slice(self, slice_name, slice_type):", state_source)
         self.assertIn("def phewas_label_state(self):", state_source)
@@ -563,6 +564,19 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertIn("src/pigean/gibbs.py", doc_source)
         self.assertIn("src/pigean/huge.py", doc_source)
         self.assertIn("src/pigean/outputs.py", doc_source)
+        self.assertIn("PhewasLabelState", doc_source)
+        self.assertIn("GeneSetRegressionState", doc_source)
+        self.assertIn("GeneSignalHugeState", doc_source)
+        self.assertIn("ModelSummaryState", doc_source)
+
+    def test_canonical_docs_describe_pigean_state_slices_as_deep_engine_map(self) -> None:
+        readme_source = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        canonical_source = (REPO_ROOT / "docs" / "CANONICAL_SOURCE.md").read_text(encoding="utf-8")
+        for source in (readme_source, canonical_source):
+            self.assertIn("PhewasLabelState", source)
+            self.assertIn("GeneSetRegressionState", source)
+            self.assertIn("GeneSignalHugeState", source)
+            self.assertIn("ModelSummaryState", source)
 
     def test_advanced_set_b_doc_covers_phewas_reuse_decision_modes(self) -> None:
         doc_source = (REPO_ROOT / "docs" / "ADVANCED_SET_B.md").read_text(encoding="utf-8")
