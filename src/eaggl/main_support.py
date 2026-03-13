@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import functools
 import sys
+
+from pigean import x_inputs_core as pigean_x_inputs_core
 
 from . import cli as eaggl_cli
 from . import domain as eaggl_domain
@@ -41,13 +44,14 @@ log_fh = eaggl_cli.log_fh
 warnings_fh = eaggl_cli.warnings_fh
 log = eaggl_cli.log
 warn = eaggl_cli.warn
+bail = eaggl_state.bail
 
 
 def _sync_cli_exports():
     global options, args, mode, config_mode, cli_specified_dests, config_specified_dests
     global eaggl_bundle_info, run_factor, run_phewas, run_naive_factor
     global use_phewas_for_factoring, factor_gene_set_x_pheno, expand_gene_sets, factor_workflow
-    global NONE, INFO, DEBUG, TRACE, debug_level, log_fh, warnings_fh, log, warn
+    global NONE, INFO, DEBUG, TRACE, debug_level, log_fh, warnings_fh, log, warn, bail
 
     options = eaggl_cli.options
     args = eaggl_cli.args
@@ -72,6 +76,7 @@ def _sync_cli_exports():
     warnings_fh = eaggl_cli.warnings_fh
     log = eaggl_cli.log
     warn = eaggl_cli.warn
+    bail = eaggl_state.bail
 
 
 def _bootstrap_cli(argv=None):
@@ -100,6 +105,8 @@ _bind_hyperparameter_properties = eaggl_state._bind_hyperparameter_properties
 _append_with_any_user = eaggl_state._append_with_any_user
 EagglState = eaggl_state.EagglState
 GeneSetData = eaggl_state.GeneSetData
+pegs_prepare_read_x_inputs = eaggl_state.pegs_prepare_read_x_inputs
+pegs_remove_tag_from_input = eaggl_state.pegs_remove_tag_from_input
 
 FactorOnlyStageResult = eaggl_factor.FactorOnlyStageResult
 PhewasStageResult = eaggl_factor.PhewasStageResult
@@ -139,6 +146,28 @@ _record_x_addition = eaggl_state._record_x_addition
 _process_dense_x_file = eaggl_state._process_dense_x_file
 _process_sparse_x_file = eaggl_state._process_sparse_x_file
 _process_x_input_file = eaggl_state._process_x_input_file
+_normalize_gene_set_weights = pigean_x_inputs_core.normalize_gene_set_weights
+_maybe_permute_gene_set_rows = pigean_x_inputs_core.maybe_permute_gene_set_rows
+_maybe_prefilter_x_block = functools.partial(
+    pigean_x_inputs_core.maybe_prefilter_x_block,
+    log_fn=log,
+    debug_level=DEBUG,
+)
+_merge_missing_gene_rows = pigean_x_inputs_core.merge_missing_gene_rows
+_finalize_added_x_block = pigean_x_inputs_core.finalize_added_x_block
+_partition_missing_gene_rows = functools.partial(
+    pigean_x_inputs_core.partition_missing_gene_rows,
+    bail_fn=bail,
+)
+_reindex_x_rows_to_current_genes = pigean_x_inputs_core.reindex_x_rows_to_current_genes
+_ensure_gene_universe_for_x = functools.partial(
+    pigean_x_inputs_core.ensure_gene_universe_for_x,
+    open_gz_fn=open_gz,
+    remove_tag_from_input_fn=pegs_remove_tag_from_input,
+    log_fn=log,
+    debug_level=DEBUG,
+    bail_fn=bail,
+)
 _standardize_qc_metrics_after_x_read = eaggl_io.standardize_qc_metrics_after_x_read_for_runtime
 _maybe_correct_gene_set_betas_after_x_read = eaggl_io.maybe_correct_gene_set_betas_after_x_read_for_runtime
 _maybe_limit_initial_gene_sets_by_p = eaggl_io.maybe_limit_initial_gene_sets_by_p_for_runtime

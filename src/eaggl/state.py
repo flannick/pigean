@@ -253,6 +253,69 @@ def open_gz(file, flag=None):
     )
 
 
+def _read_gene_phewas_bfs(
+    state,
+    gene_phewas_bfs_in,
+    gene_phewas_bfs_id_col=None,
+    gene_phewas_bfs_pheno_col=None,
+    anchor_genes=None,
+    anchor_phenos=None,
+    gene_phewas_bfs_log_bf_col=None,
+    gene_phewas_bfs_combined_col=None,
+    gene_phewas_bfs_prior_col=None,
+    phewas_gene_to_X_gene_in=None,
+    min_value=None,
+    max_num_entries_at_once=None,
+):
+    cached = dict(locals())
+    cached.pop("state", None)
+    state.cached_gene_phewas_call = cached
+
+    if gene_phewas_bfs_in is None:
+        bail("Require --gene-stats-in or --gene-phewas-bfs-in for this operation")
+
+    log("Reading --gene-phewas-bfs-in file %s" % gene_phewas_bfs_in, INFO)
+    if state.genes is None:
+        bail("Need to initialixe --X before reading gene_phewas")
+
+    phewas_gene_to_X_gene = None
+    if phewas_gene_to_X_gene_in is not None:
+        phewas_gene_to_X_gene = pegs_parse_gene_map_file(
+            phewas_gene_to_X_gene_in,
+            allow_multi=True,
+            bail_fn=bail,
+        )
+
+    pegs_load_and_apply_gene_phewas_bfs_to_runtime(
+        state,
+        gene_phewas_bfs_in,
+        gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+        gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+        anchor_genes=anchor_genes,
+        anchor_phenos=anchor_phenos,
+        gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+        gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+        gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+        phewas_gene_to_x_gene=phewas_gene_to_X_gene,
+        min_value=min_value,
+        max_num_entries_at_once=max_num_entries_at_once,
+        open_text_fn=open_gz,
+        get_col_fn=_get_col,
+        construct_map_to_ind_fn=pegs_construct_map_to_ind,
+        warn_fn=warn,
+        bail_fn=bail,
+        log_fn=lambda message: log(message, DEBUG),
+    )
+    state.phewas_state = pegs_sync_phewas_runtime_state(state)
+
+
+def _reread_gene_phewas_bfs(state):
+    if state.cached_gene_phewas_call is None:
+        return
+    log("Rereading gene phewas bfs...", INFO)
+    _read_gene_phewas_bfs(state, **state.cached_gene_phewas_call)
+
+
 def _init_sparse_x_batch_state(runtime_state):
     genes = []
     gene_to_ind = None

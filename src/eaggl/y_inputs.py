@@ -96,21 +96,22 @@ def read_y_pipeline(
         Y = np.concatenate((Y, extra_Y))
         Y_for_regression = np.concatenate((Y_for_regression, extra_Y_for_regression))
 
+        expanded_X = runtime.X_orig
         if runtime.X_orig is not None:
+            expanded_X = sparse.csc_matrix(
+                (runtime.X_orig.data, runtime.X_orig.indices, runtime.X_orig.indptr),
+                shape=(runtime.X_orig.shape[0] + len(extra_Y), runtime.X_orig.shape[1]),
+            )
+
+        if runtime.genes is not None:
             runtime._set_X(
-                sparse.csc_matrix(
-                    (runtime.X_orig.data, runtime.X_orig.indices, runtime.X_orig.indptr),
-                    shape=(runtime.X_orig.shape[0] + len(extra_Y), runtime.X_orig.shape[1]),
-                ),
-                runtime.genes,
+                expanded_X,
+                runtime.genes + extra_genes,
                 runtime.gene_sets,
                 skip_V=True,
                 skip_scale_factors=True,
                 skip_N=False,
             )
-
-        if runtime.genes is not None:
-            runtime._set_X(runtime.X_orig, runtime.genes + extra_genes, runtime.gene_sets, skip_N=False)
 
     runtime._set_Y(Y, Y_for_regression, skip_V=True, skip_scale_factors=True)
     _apply_gene_stat_maps(runtime, gene_combined_map, gene_prior_map)

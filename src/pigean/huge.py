@@ -659,6 +659,7 @@ def load_huge_gene_and_exon_locations(domain, gene_loc_file, gene_label_map, hol
         gene_chrom_name_pos[chrom] = serialized_gene_info
 
     chrom_to_interval_tree = None
+    chrom_interval_to_gene = None
     if exons_loc_file is not None:
         domain.log("Reading exon locations")
         chrom_interval_to_gene = domain.pegs_read_loc_file_with_gene_map(
@@ -678,6 +679,7 @@ def load_huge_gene_and_exon_locations(domain, gene_loc_file, gene_label_map, hol
         "gene_to_chrom": gene_to_chrom,
         "gene_to_pos": gene_to_pos,
         "chrom_to_interval_tree": chrom_to_interval_tree,
+        "chrom_interval_to_gene": chrom_interval_to_gene,
     }
 
 

@@ -1951,6 +1951,7 @@ class PigeanState(object):
         gene_to_chrom = location_data["gene_to_chrom"]
         gene_to_pos = location_data["gene_to_pos"]
         chrom_to_interval_tree = location_data["chrom_to_interval_tree"]
+        chrom_interval_to_gene = location_data["chrom_interval_to_gene"]
 
         (allelic_var_k, gwas_prior_odds) = self.compute_allelic_var_and_prior(gwas_high_p, gwas_high_p_posterior, gwas_low_p, gwas_low_p_posterior)
         #this stores the original values, in case we detect low or high power

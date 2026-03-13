@@ -29,6 +29,7 @@ from pegs_shared.xdata import (
 )
 from pegs_shared.ydata import sync_phewas_runtime_state
 from pegs_utils import (
+    build_xin_to_p_noninf_index_map,
     load_and_apply_gene_phewas_bfs_to_runtime,
     load_and_apply_gene_set_phewas_statistics_to_runtime,
     load_and_apply_gene_set_statistics_to_runtime,
@@ -92,24 +93,41 @@ def read_x_pipeline(domain, runtime, read_x_pipeline_config):
     filter_using_phewas = read_x_pipeline_config.filter_using_phewas
     if filter_using_phewas and runtime.gene_pheno_Y is None:
         filter_using_phewas = False
+    filter_gene_set_p = read_x_pipeline_config.filter_gene_set_p
+    if filter_gene_set_p is None:
+        filter_gene_set_p = 1
 
     runtime._set_X(None, runtime.genes, None, skip_N=True)
     runtime._record_params({
-        "filter_gene_set_p": read_x_pipeline_config.filter_gene_set_p,
+        "filter_gene_set_p": filter_gene_set_p,
         "filter_negative": read_x_pipeline_config.filter_negative,
         "threshold_weights": read_x_pipeline_config.threshold_weights,
         "cap_weights": read_x_pipeline_config.cap_weights,
     })
 
+    xin_to_p_noninf_ind = getattr(read_x_pipeline_config, "xin_to_p_noninf_ind", None)
+    if xin_to_p_noninf_ind is None:
+        xin_to_p_noninf_ind = build_xin_to_p_noninf_index_map(
+            read_x_pipeline_config.X_in,
+            read_x_pipeline_config.X_list,
+            read_x_pipeline_config.Xd_in,
+            read_x_pipeline_config.Xd_list,
+            read_x_pipeline_config.initial_p,
+            warn_fn=domain.warn,
+            bail_fn=domain.bail,
+        )
+
     x_input_plan = domain.pegs_prepare_read_x_inputs(
-        read_x_pipeline_config.X_in,
-        Xd_ins=read_x_pipeline_config.Xd_in,
+        X_in=read_x_pipeline_config.X_in,
         X_list=read_x_pipeline_config.X_list,
+        Xd_in=read_x_pipeline_config.Xd_in,
         Xd_list=read_x_pipeline_config.Xd_list,
         initial_p=read_x_pipeline_config.initial_p,
+        xin_to_p_noninf_ind=xin_to_p_noninf_ind,
         batch_separator=read_x_pipeline_config.batch_separator,
         file_separator=read_x_pipeline_config.file_separator,
-        bail_fn=domain.bail,
+        sparse_list_open_fn=domain.open_gz,
+        dense_list_open_fn=open,
     )
     xdata_seed = xdata_from_input_plan(x_input_plan)
 
@@ -122,7 +140,7 @@ def read_x_pipeline(domain, runtime, read_x_pipeline_config):
         threshold_weights=read_x_pipeline_config.threshold_weights,
         cap_weights=read_x_pipeline_config.cap_weights,
         permute_gene_sets=read_x_pipeline_config.permute_gene_sets,
-        filter_gene_set_p=read_x_pipeline_config.filter_gene_set_p,
+        filter_gene_set_p=filter_gene_set_p,
         filter_gene_set_metric_z=read_x_pipeline_config.filter_gene_set_metric_z,
         filter_using_phewas=filter_using_phewas,
         increase_filter_gene_set_p=read_x_pipeline_config.increase_filter_gene_set_p,
@@ -143,6 +161,7 @@ def read_x_pipeline(domain, runtime, read_x_pipeline_config):
     )
 
     read_x_locals = dict(vars(read_x_pipeline_config))
+    read_x_locals["filter_gene_set_p"] = filter_gene_set_p
     read_x_locals["filter_using_phewas"] = filter_using_phewas
     ingestion_options = build_read_x_ingestion_options(read_x_locals)
     ingestion_state = xdata_seed.run_ingestion_stage(
