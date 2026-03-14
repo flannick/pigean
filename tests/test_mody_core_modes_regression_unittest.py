@@ -15,7 +15,7 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.repo_root = Path(__file__).resolve().parents[1]
         cls.model_data = cls.repo_root / "tests/data/model_small"
-        cls.gene_list = cls.repo_root / "tests/data/mody.gene.list"
+        cls.gene_list = cls.repo_root / "tests/data/t2d_smoke/mody.gene.list"
         cls.gene_stats = cls.repo_root / "tests/data/mody_priors_gene_stats.tsv"
         cls.reference_root = cls.repo_root / "tests/data/reference"
 

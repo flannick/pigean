@@ -1,0 +1,14 @@
+{
+  "case_total": 10000,
+  "ctrl_total": 20000,
+  "exome_rows": 22,
+  "exome_rows_for_mody_genes": 13,
+  "exomes_p_threshold": 0.0001,
+  "gwas_p_threshold": 1e-06,
+  "gwas_rows": 91800,
+  "mody_gene_count": 13,
+  "rng_seed": 20260314,
+  "source_exomes": "data/T2D.exomes.txt",
+  "source_gwas": "data/T2D.chrom_pos.sumstats.gz",
+  "source_mody": "data/mody.gene.list"
+}

@@ -26,7 +26,7 @@ class HugeRealGwasRegressionTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.repo_root = Path(__file__).resolve().parents[1]
-        cls.gwas_file = cls.repo_root.parent / "data" / "t2d.chrom_pos.sumstats.gz"
+        cls.gwas_file = cls.repo_root / "tests" / "data" / "t2d_smoke" / "T2D.p_lt_1e-6.chrom_pos.sumstats.tsv.gz"
         cls.gene_loc_file = cls.repo_root / "tests" / "data" / "model_small" / "NCBI37.3.plink.gene.loc"
         if not cls.gwas_file.exists():
             raise unittest.SkipTest(f"Missing GWAS fixture: {cls.gwas_file}")

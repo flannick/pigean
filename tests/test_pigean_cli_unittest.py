@@ -74,7 +74,7 @@ class PigeanCliTest(unittest.TestCase):
         self.assertNotIn("Traceback", err)
 
     def test_positive_controls_list_rejects_file_paths(self) -> None:
-        proc = self._run("gibbs", "--positive-controls-list", "tests/data/mody.gene.list")
+        proc = self._run("gibbs", "--positive-controls-list", "tests/data/t2d_smoke/mody.gene.list")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("expects a comma-separated list of gene symbols", err)
@@ -350,13 +350,13 @@ print(json.dumps(mask.tolist()))
         proc = self._run(
             "gibbs",
             "--gene-stats-in",
-            "tests/data/mody.gene.list",
+            "tests/data/t2d_smoke/mody.gene.list",
             "--print-effective-config",
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["mode"], "gibbs")
-        self.assertEqual(payload["options"]["gene_stats_in"], "tests/data/mody.gene.list")
+        self.assertEqual(payload["options"]["gene_stats_in"], "tests/data/t2d_smoke/mody.gene.list")
 
     def test_positive_controls_only_requires_positive_controls_all_in(self) -> None:
         proc = self._run("gibbs", "--positive-controls-list", "INS")

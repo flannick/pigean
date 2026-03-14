@@ -14,7 +14,7 @@ class ModyGibbsRegressionTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.repo_root = Path(__file__).resolve().parents[1]
-        cls.mody_gene_list = cls.repo_root / "tests/data/mody.gene.list"
+        cls.mody_gene_list = cls.repo_root / "tests/data/t2d_smoke/mody.gene.list"
         cls.ref_gene_prior = cls.repo_root / "tests/data/reference/mody_gibbs_gene_prior.tsv"
         cls.ref_gene_set_beta = cls.repo_root / "tests/data/reference/mody_gibbs_gene_set_beta_uncorrected.tsv"
         if not cls.mody_gene_list.exists() or not cls.ref_gene_prior.exists() or not cls.ref_gene_set_beta.exists():
