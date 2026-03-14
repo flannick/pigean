@@ -72,7 +72,7 @@
       "source_line": 72,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 56
+      "usage_references": 55
     },
     {
       "action": "append",
@@ -93,7 +93,7 @@
       "source_line": 73,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 25
+      "usage_references": 24
     },
     {
       "action": null,
@@ -1731,7 +1731,7 @@
       "source_line": 158,
       "summary": "load exome burden statistics as an additional HuGE evidence source",
       "type": null,
-      "usage_references": 32
+      "usage_references": 31
     },
     {
       "action": null,
@@ -2844,7 +2844,7 @@
       "source_line": 204,
       "summary": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
       "type": null,
-      "usage_references": 33
+      "usage_references": 32
     },
     {
       "action": null,
@@ -2991,7 +2991,7 @@
       "source_line": 220,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 55
+      "usage_references": 54
     },
     {
       "action": null,
@@ -3411,7 +3411,7 @@
       "source_line": 123,
       "summary": "load GWAS summary statistics as the primary HuGE input",
       "type": null,
-      "usage_references": 50
+      "usage_references": 49
     },
     {
       "action": null,
@@ -3705,7 +3705,7 @@
       "source_line": 124,
       "summary": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
       "type": null,
-      "usage_references": 26
+      "usage_references": 25
     },
     {
       "action": null,
@@ -3726,7 +3726,7 @@
       "source_line": 125,
       "summary": "write HuGE statistics cache for faster reruns",
       "type": null,
-      "usage_references": 25
+      "usage_references": 24
     },
     {
       "action": "append",
@@ -5511,7 +5511,7 @@
       "source_line": 260,
       "summary": "run gene-level phewas output stage from precomputed gene-phewas stats",
       "type": null,
-      "usage_references": 27
+      "usage_references": 26
     },
     {
       "action": null,

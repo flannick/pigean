@@ -49,7 +49,7 @@
       "source_line": 90,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 56
+      "usage_references": 55
     },
     {
       "action": "append",
@@ -70,7 +70,7 @@
       "source_line": 91,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 25
+      "usage_references": 24
     },
     {
       "action": "append",
@@ -1876,7 +1876,7 @@
       "source_line": 125,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 33
+      "usage_references": 32
     },
     {
       "action": null,
@@ -2002,7 +2002,7 @@
       "source_line": 138,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 55
+      "usage_references": 54
     },
     {
       "action": null,
@@ -3598,7 +3598,7 @@
       "source_line": 182,
       "summary": "run gene-level phewas output stage from precomputed gene-phewas statistics",
       "type": null,
-      "usage_references": 27
+      "usage_references": 26
     },
     {
       "action": null,
