@@ -244,7 +244,9 @@ The current CLI exposes:
 \item \texttt{--phi},
 \item \texttt{--alpha0},
 \item \texttt{--beta0},
-\item \texttt{--min-lambda-threshold}.
+\item \texttt{--min-lambda-threshold},
+\item \texttt{--factor-runs},
+\item \texttt{--consensus-nmf}.
 \end{itemize}
 
 A convenient theory-level formalization is to introduce nonnegative factor relevance variables $\lambda_k$ and use ARD priors so that weak factors are shrunk away automatically.
@@ -264,6 +266,25 @@ The exact scale/rate convention can be fixed later to match the implementation p
 \end{itemize}
 
 Thus, the effective number of retained mechanisms is not simply the user-supplied maximum; it is the subset of factors whose learned relevance survives the ARD shrinkage and thresholding.
+
+\subsection{Repeated restarts and consensus factorization}
+
+The current implementation also exposes a restart layer above the base ARD-NMF fit:
+\begin{itemize}
+\item \texttt{--factor-runs}: number of random restarts,
+\item \texttt{--consensus-nmf}: whether those restarts are aggregated into a consensus factorization,
+\item \texttt{--consensus-min-factor-cosine}: minimum cosine similarity required to align a restart factor to a reference factor,
+\item \texttt{--consensus-min-run-support}: minimum support fraction required to keep a consensus factor,
+\item \texttt{--consensus-aggregation}: aggregation rule across matched factor columns.
+\end{itemize}
+
+This creates two distinct operational regimes:
+\begin{enumerate}
+\item \emph{best-of-$N$ restarts}: run the same factor model under several seeds and keep the run with the best objective value,
+\item \emph{consensus NMF}: run the same factor model under several seeds, align matched factors across runs using cosine similarity on the gene-set loadings, and aggregate the matched columns into a consensus factorization.
+\end{enumerate}
+
+Let $W^{(r)} \in \mathbb{R}_+^{J \times K_r}$ denote the gene-set loading matrix from restart $r$ after ARD thresholding. For consensus mode, the implementation normalizes the columns of $W^{(r)}$, chooses a reference restart, aligns other runs to that reference by maximum total cosine similarity, and aggregates only those matched factors whose support across runs exceeds the configured threshold. Thus consensus is defined at the \emph{component} level rather than by averaging raw column order.
 
 \section{Filtering, pruning, and panel shaping}
 \label{sec:filtering}
@@ -342,6 +363,8 @@ A documentation-friendly operationalization is:
 \item inspect whether the top labels / top annotations are stable,
 \item use post-factor phenotype projection only after the factor structure is stable.
 \end{enumerate}
+
+These QC checks now map directly onto the restart and consensus CLI controls above. In particular, \texttt{--factor-runs} provides the repeated-fit layer, while \texttt{--consensus-nmf} plus the cosine/support thresholds provide an explicit implementation of cross-run factor agreement rather than leaving that agreement as an entirely manual external check.
 
 \section{Why the workflow view matters for the CLI}
 \label{sec:why_cli}

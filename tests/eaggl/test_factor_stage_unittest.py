@@ -21,6 +21,13 @@ def _options(**overrides):
         phi=1.0,
         alpha0=10.0,
         beta0=1.0,
+        seed=0,
+        factor_runs=1,
+        consensus_nmf=False,
+        consensus_min_factor_cosine=0.7,
+        consensus_min_run_support=0.5,
+        consensus_aggregation="median",
+        consensus_stats_out=None,
         gene_set_filter_value=0.0,
         gene_set_pheno_filter_value=0.25,
         pheno_filter_value=0.2,
@@ -76,6 +83,9 @@ class _RuntimeStub:
     def write_matrix_factors(self, out, write_anchor_specific=False):
         self.calls.append(("write_matrix_factors", out, write_anchor_specific))
 
+    def write_consensus_factor_diagnostics(self, out):
+        self.calls.append(("write_consensus_factor_diagnostics", out))
+
     def write_clusters(self, gene_set_out, gene_out, pheno_out, write_anchor_specific=False):
         self.calls.append(("write_clusters", gene_set_out, gene_out, pheno_out, write_anchor_specific))
 
@@ -116,6 +126,8 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.anchor_pheno_mask, [False, True])
         self.assertTrue(cfg.anchor_any_gene)
         self.assertEqual(cfg.gene_or_pheno_filter_value, options.pheno_filter_value)
+        self.assertEqual(cfg.factor_runs, 1)
+        self.assertFalse(cfg.consensus_nmf)
 
     def test_run_main_factor_stage_executes_runtime_and_reports_workflow(self) -> None:
         runtime = _RuntimeStub()
@@ -140,21 +152,23 @@ class FactorStageHelpersTest(unittest.TestCase):
             gene_anchor_clusters_out="g_anchor_cluster.tsv",
             pheno_anchor_clusters_out="p_anchor_cluster.tsv",
             gene_pheno_stats_out="gene_pheno.tsv",
+            consensus_stats_out="consensus.tsv",
             max_no_write_gene_pheno=0.2,
         )
         eaggl._write_main_factor_outputs(runtime, options)
-        self.assertEqual(len(runtime.calls), 5)
+        self.assertEqual(len(runtime.calls), 6)
         self.assertEqual(runtime.calls[0], ("write_matrix_factors", "factors.tsv", False))
         self.assertEqual(runtime.calls[1], ("write_matrix_factors", "factors_anchor.tsv", True))
+        self.assertEqual(runtime.calls[2], ("write_consensus_factor_diagnostics", "consensus.tsv"))
         self.assertEqual(
-            runtime.calls[2],
+            runtime.calls[3],
             ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", "p_cluster.tsv", False),
         )
         self.assertEqual(
-            runtime.calls[3],
+            runtime.calls[4],
             ("write_clusters", "gs_anchor_cluster.tsv", "g_anchor_cluster.tsv", "p_anchor_cluster.tsv", True),
         )
-        self.assertEqual(runtime.calls[4], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
+        self.assertEqual(runtime.calls[5], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 
     def test_workflow_required_inputs_contract_for_f1_to_f9(self) -> None:
         cases = [

@@ -256,6 +256,15 @@ class EagglCliReferenceTest(unittest.TestCase):
             "7",
             "--beta0",
             "2",
+            "--factor-runs",
+            "4",
+            "--consensus-nmf",
+            "--consensus-min-factor-cosine",
+            "0.8",
+            "--consensus-min-run-support",
+            "0.75",
+            "--consensus-aggregation",
+            "mean",
             "--min-lambda-threshold",
             "0.005",
             "--no-transpose",
@@ -282,6 +291,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "factors.tsv",
             "--factors-anchor-out",
             "factors_anchor.tsv",
+            "--consensus-stats-out",
+            "consensus.tsv",
             "--gene-set-clusters-out",
             "gene_set_clusters.tsv",
             "--gene-clusters-out",
@@ -307,6 +318,11 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["phi"], 0.1)
         self.assertEqual(opts["alpha0"], 7.0)
         self.assertEqual(opts["beta0"], 2.0)
+        self.assertEqual(opts["factor_runs"], 4)
+        self.assertTrue(opts["consensus_nmf"])
+        self.assertEqual(opts["consensus_min_factor_cosine"], 0.8)
+        self.assertEqual(opts["consensus_min_run_support"], 0.75)
+        self.assertEqual(opts["consensus_aggregation"], "mean")
         self.assertEqual(opts["min_lambda_threshold"], 0.005)
         self.assertTrue(opts["no_transpose"])
         self.assertEqual(opts["factor_prune_gene_sets_num"], 5)
@@ -321,6 +337,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertTrue(opts["label_include_phenos"])
         self.assertTrue(opts["label_individually"])
         self.assertEqual(opts["factors_out"], "factors.tsv")
+        self.assertEqual(opts["consensus_stats_out"], "consensus.tsv")
         self.assertEqual(opts["params_out"], "params.tsv")
 
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
@@ -367,6 +384,11 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--phi": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--alpha0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--beta0": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--factor-runs": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--consensus-nmf": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--consensus-min-factor-cosine": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--consensus-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--consensus-aggregation": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--min-lambda-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-transpose": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-prune-gene-sets-num": ["test_reference_factor_and_labeling_flags_round_trip"],
@@ -385,6 +407,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--label-individually": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factors-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factors-anchor-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--consensus-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-set-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--pheno-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],

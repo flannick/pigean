@@ -429,7 +429,7 @@
       "source_line": 255,
       "summary": "sample betas using loaded gene-phewas statistics instead of default Y",
       "type": null,
-      "usage_references": 10
+      "usage_references": 13
     },
     {
       "action": null,
@@ -471,7 +471,7 @@
       "source_line": 256,
       "summary": "compute uncorrected beta path from gene-phewas statistics",
       "type": null,
-      "usage_references": 9
+      "usage_references": 12
     },
     {
       "action": null,
@@ -2424,7 +2424,7 @@
       "source_line": 405,
       "summary": "combined column for advanced gene-phewas input",
       "type": null,
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2445,7 +2445,7 @@
       "source_line": 401,
       "summary": "gene ID column for advanced gene-phewas input",
       "type": null,
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2466,7 +2466,7 @@
       "source_line": 399,
       "summary": "input gene-phewas BFS table for advanced phewas workflows",
       "type": null,
-      "usage_references": 24
+      "usage_references": 25
     },
     {
       "action": null,
@@ -2487,7 +2487,7 @@
       "source_line": 403,
       "summary": "log BF column for advanced gene-phewas input",
       "type": null,
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2508,7 +2508,7 @@
       "source_line": 409,
       "summary": "phenotype column for advanced gene-phewas input",
       "type": null,
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2529,7 +2529,7 @@
       "source_line": 407,
       "summary": "prior column for advanced gene-phewas input",
       "type": null,
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2550,7 +2550,7 @@
       "source_line": 412,
       "summary": "gene ID remapping table for advanced gene-phewas ingestion",
       "type": null,
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": null,
@@ -2613,7 +2613,7 @@
       "source_line": 400,
       "summary": "input gene-phewas statistics table for advanced phewas workflows",
       "type": null,
-      "usage_references": 66
+      "usage_references": 67
     },
     {
       "action": null,
@@ -4251,7 +4251,7 @@
       "source_line": 423,
       "summary": "legacy per-epoch outer Gibbs iteration cap used when phase-specific bounds are not set",
       "type": "int",
-      "usage_references": 17
+      "usage_references": 18
     },
     {
       "action": null,
@@ -4272,7 +4272,7 @@
       "source_line": 465,
       "summary": null,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 6
     },
     {
       "action": null,
@@ -4377,7 +4377,7 @@
       "source_line": 411,
       "summary": "minimum value filter for advanced gene-phewas ingestion",
       "type": "float",
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -4524,7 +4524,7 @@
       "source_line": 464,
       "summary": null,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 6
     },
     {
       "action": null,
@@ -4902,7 +4902,7 @@
       "source_line": 434,
       "summary": "number of parallel outer Gibbs chains to run",
       "type": "int",
-      "usage_references": 13
+      "usage_references": 14
     },
     {
       "action": null,
@@ -4923,7 +4923,7 @@
       "source_line": 466,
       "summary": null,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -5511,7 +5511,7 @@
       "source_line": 260,
       "summary": "run gene-level phewas output stage from precomputed gene-phewas stats",
       "type": null,
-      "usage_references": 30
+      "usage_references": 31
     },
     {
       "action": null,

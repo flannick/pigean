@@ -6,7 +6,226 @@ import numpy as np
 import scipy
 import scipy.sparse as sparse
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _replace_runtime_state(target, source):
+    target.__dict__.clear()
+    target.__dict__.update(copy.deepcopy(source.__dict__))
+
+
+def _derive_factor_run_seeds(seed, factor_runs):
+    if factor_runs <= 1:
+        return [seed]
+    base_seed = seed if seed is not None else int(np.random.randint(0, np.iinfo(np.uint32).max))
+    children = np.random.SeedSequence(base_seed).spawn(factor_runs)
+    return [int(child.generate_state(1, dtype=np.uint32)[0]) for child in children]
+
+
+def _run_with_numpy_seed(seed, fn):
+    if seed is None:
+        return fn()
+    old_state = np.random.get_state()
+    np.random.seed(seed)
+    try:
+        return fn()
+    finally:
+        np.random.set_state(old_state)
+
+
+def _normalize_factor_columns(matrix):
+    if matrix is None or matrix.size == 0:
+        return None
+    norms = np.linalg.norm(matrix, axis=0)
+    norms[norms == 0] = 1.0
+    return matrix / norms[np.newaxis, :]
+
+
+def _aggregate_consensus_stack(stacked_values, aggregation):
+    if aggregation == "mean":
+        return np.mean(stacked_values, axis=0)
+    return np.median(stacked_values, axis=0)
+
+
+def _build_factor_run_summary(state, *, run_index, seed, evidence, likelihood, reconstruction_error, factor_gene_set_x_pheno):
+    return {
+        "run_index": int(run_index),
+        "seed": None if seed is None else int(seed),
+        "evidence": None if evidence is None else float(evidence),
+        "likelihood": None if likelihood is None else float(likelihood),
+        "reconstruction_error": None if reconstruction_error is None else float(reconstruction_error),
+        "num_factors": int(state.num_factors()),
+        "factor_gene_set_x_pheno": bool(factor_gene_set_x_pheno),
+    }
+
+
+def _best_run_sort_key(run_summary):
+    evidence = run_summary.get("evidence")
+    return (
+        float("inf") if evidence is None else float(evidence),
+        -int(run_summary.get("num_factors", 0)),
+        int(run_summary.get("run_index", 0)),
+    )
+
+
+def _finalize_factor_outputs(
+    state,
+    *,
+    factor_gene_set_x_pheno,
+    lmm_auth_key,
+    lmm_model,
+    lmm_provider,
+    label_gene_sets_only,
+    label_include_phenos,
+    label_individually,
+    bail_fn,
+    warn_fn,
+    log_fn,
+    info_level,
+    labeling_module,
+):
+    bail = bail_fn
+    warn = warn_fn
+    log = log_fn
+    INFO = info_level
+
+    reorder_inds = np.argsort(-state.factor_relevance)
+
+    state.exp_lambdak = state.exp_lambdak[reorder_inds]
+    state.factor_anchor_relevance = state.factor_anchor_relevance[reorder_inds, :]
+    state.factor_relevance = state.factor_relevance[reorder_inds]
+    if state.exp_gene_factors is not None:
+        state.exp_gene_factors = state.exp_gene_factors[:, reorder_inds]
+    if state.exp_pheno_factors is not None:
+        state.exp_pheno_factors = state.exp_pheno_factors[:, reorder_inds]
+    state.exp_gene_set_factors = state.exp_gene_set_factors[:, reorder_inds]
+
+    threshold = 1e-5
+    if state.num_factors() > 0:
+        if state.exp_gene_factors is not None and np.max(state.exp_gene_factors) > 0:
+            state.exp_gene_factors[state.exp_gene_factors < np.max(state.exp_gene_factors) * threshold] = 0
+        if state.exp_pheno_factors is not None and np.max(state.exp_pheno_factors) > 0:
+            state.exp_pheno_factors[state.exp_pheno_factors < np.max(state.exp_pheno_factors) * threshold] = 0
+        if np.max(state.exp_gene_set_factors) > 0:
+            state.exp_gene_set_factors[state.exp_gene_set_factors < np.max(state.exp_gene_set_factors) * threshold] = 0
+
+    num_top = 5
+    exp_gene_factors_for_top = state.get_factor_loadings(state.exp_gene_factors, loading_type="combined")
+    exp_pheno_factors_for_top = state.get_factor_loadings(state.exp_pheno_factors, loading_type="combined")
+    exp_gene_set_factors_for_top = state.get_factor_loadings(state.exp_gene_set_factors, loading_type="combined")
+
+    top_anchor_gene_or_pheno_inds = None
+    top_anchor_pheno_or_gene_inds = None
+
+    if factor_gene_set_x_pheno:
+        top_anchor_gene_or_pheno_inds = np.swapaxes(
+            np.argsort(
+                -(exp_pheno_factors_for_top).T[:, :, np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis, :, :],
+                axis=1,
+            )[:, :num_top, :],
+            0,
+            1,
+        )
+        if exp_gene_factors_for_top is not None:
+            top_anchor_pheno_or_gene_inds = np.swapaxes(
+                np.argsort(
+                    -(exp_gene_factors_for_top).T[:, :, np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis, :, :],
+                    axis=1,
+                )[:, :num_top, :],
+                0,
+                1,
+            )
+    else:
+        top_anchor_gene_or_pheno_inds = np.swapaxes(
+            np.argsort(
+                -(exp_gene_factors_for_top).T[:, :, np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis, :, :],
+                axis=1,
+            )[:, :num_top, :],
+            0,
+            1,
+        )
+        if exp_pheno_factors_for_top is not None:
+            top_anchor_pheno_or_gene_inds = np.swapaxes(
+                np.argsort(
+                    -(exp_pheno_factors_for_top).T[:, :, np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis, :, :],
+                    axis=1,
+                )[:, :num_top, :],
+                0,
+                1,
+            )
+
+    top_anchor_gene_set_inds = np.swapaxes(
+        np.argsort(-exp_gene_set_factors_for_top.T[:, :, np.newaxis] * state.gene_set_prob_factor_vector[np.newaxis, :, :], axis=1)[:, :num_top, :],
+        0,
+        1,
+    )
+
+    top_gene_or_pheno_inds = None
+    top_pheno_or_gene_inds = None
+
+    if factor_gene_set_x_pheno:
+        top_gene_or_pheno_inds = np.swapaxes(
+            np.argsort(
+                -(1 - np.prod(1 - ((exp_pheno_factors_for_top).T[:, :, np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
+                axis=1,
+            )[:, :num_top],
+            0,
+            1,
+        )
+        if exp_gene_factors_for_top is not None:
+            top_pheno_or_gene_inds = np.swapaxes(
+                np.argsort(
+                    -(1 - np.prod(1 - ((exp_gene_factors_for_top).T[:, :, np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
+                    axis=1,
+                )[:, :num_top],
+                0,
+                1,
+            )
+    else:
+        top_gene_or_pheno_inds = np.swapaxes(
+            np.argsort(
+                -(1 - np.prod(1 - ((exp_gene_factors_for_top).T[:, :, np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
+                axis=1,
+            )[:, :num_top],
+            0,
+            1,
+        )
+        if exp_pheno_factors_for_top is not None:
+            top_pheno_or_gene_inds = np.swapaxes(
+                np.argsort(
+                    -(1 - np.prod(1 - ((exp_pheno_factors_for_top).T[:, :, np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
+                    axis=1,
+                )[:, :num_top],
+                0,
+                1,
+            )
+
+    top_gene_set_inds = np.swapaxes(
+        np.argsort(-(1 - np.prod(1 - (exp_gene_set_factors_for_top.T[:, :, np.newaxis] * state.gene_set_prob_factor_vector[np.newaxis, :, :]), axis=2)), axis=1)[:, :num_top],
+        0,
+        1,
+    )
+
+    labeling_module.populate_factor_labels(
+        state,
+        factor_gene_set_x_pheno=factor_gene_set_x_pheno,
+        top_gene_set_inds=top_gene_set_inds,
+        top_anchor_gene_set_inds=top_anchor_gene_set_inds,
+        top_gene_or_pheno_inds=top_gene_or_pheno_inds,
+        top_anchor_gene_or_pheno_inds=top_anchor_gene_or_pheno_inds,
+        top_pheno_or_gene_inds=top_pheno_or_gene_inds,
+        lmm_auth_key=lmm_auth_key,
+        lmm_model=lmm_model,
+        lmm_provider=lmm_provider,
+        label_gene_sets_only=label_gene_sets_only,
+        label_include_phenos=label_include_phenos,
+        label_individually=label_individually,
+        log_fn=log,
+        bail_fn=bail,
+        warn_fn=warn,
+    )
+
+    log("Found %d factors" % state.num_factors(), INFO)
+
+
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -580,91 +799,324 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_
     state.factor_anchor_relevance = state._nnls_project_matrix(matrix_to_mult, vector_to_mult.T, max_value=1).T
     state.factor_relevance = state._nnls_project_matrix(matrix_to_mult, 1 - np.prod(1 - vector_to_mult, axis=1).T, max_value=1).T
 
-    #gene scores are either for phenos or for genes depending on the mode
-    reorder_inds = np.argsort(-state.factor_relevance)
-
-    state.exp_lambdak = state.exp_lambdak[reorder_inds]
-    state.factor_anchor_relevance = state.factor_anchor_relevance[reorder_inds,:]
-    state.factor_relevance = state.factor_relevance[reorder_inds]
-    if state.exp_gene_factors is not None:
-        state.exp_gene_factors = state.exp_gene_factors[:,reorder_inds]
-    if state.exp_pheno_factors is not None:
-        state.exp_pheno_factors = state.exp_pheno_factors[:,reorder_inds]
-    state.exp_gene_set_factors = state.exp_gene_set_factors[:,reorder_inds]
-
-    #zero out very low values
-    threshold = 1e-5
-    if state.num_factors() > 0:
-        state.exp_gene_factors[state.exp_gene_factors < np.max(state.exp_gene_factors) * threshold] = 0
-        if state.exp_pheno_factors is not None:
-            state.exp_pheno_factors[state.exp_pheno_factors < np.max(state.exp_pheno_factors) * threshold] = 0
-        state.exp_gene_set_factors[state.exp_gene_set_factors < np.max(state.exp_gene_set_factors) * threshold] = 0
-
-    num_top = 5
-
-    #matries are gene x factor
-    #materialize matrix of factor x gene x user, then take argmax over axis 1, then swap axes to get gene x factor x user
-    
-    #determine whether want highest, most specific, or combined
-    exp_gene_factors_for_top = state.get_factor_loadings(state.exp_gene_factors, loading_type='combined')
-    exp_pheno_factors_for_top = state.get_factor_loadings(state.exp_pheno_factors, loading_type='combined')
-    exp_gene_set_factors_for_top = state.get_factor_loadings(state.exp_gene_set_factors, loading_type='combined')
-
-    #(all_genes, factors)
-    #(anchor_genes, users)
-
-    top_anchor_gene_or_pheno_inds = None
-    top_anchor_pheno_or_gene_inds = None
-
-    if factor_gene_set_x_pheno:
-        top_anchor_gene_or_pheno_inds = np.swapaxes(np.argsort(-(exp_pheno_factors_for_top).T[:,:,np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis,:,:], axis=1)[:,:num_top,:], 0, 1)
-        if exp_gene_factors_for_top is not None:
-            top_anchor_pheno_or_gene_inds = np.swapaxes(np.argsort(-(exp_gene_factors_for_top).T[:,:,np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis,:,:], axis=1)[:,:num_top,:], 0, 1)
-    else:
-        top_anchor_gene_or_pheno_inds = np.swapaxes(np.argsort(-(exp_gene_factors_for_top).T[:,:,np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis,:,:], axis=1)[:,:num_top,:], 0, 1)
-        if exp_pheno_factors_for_top is not None:
-            top_anchor_pheno_or_gene_inds = np.swapaxes(np.argsort(-(exp_pheno_factors_for_top).T[:,:,np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis,:,:], axis=1)[:,:num_top,:], 0, 1)
-
-    #old one liner
-    #top_anchor_gene_or_pheno_inds = np.swapaxes(np.argsort(-(exp_pheno_factors_for_top if factor_gene_set_x_pheno else exp_gene_factors_for_top).T[:,:,np.newaxis] * (state.pheno_prob_factor_vector if factor_gene_set_x_pheno else state.gene_prob_factor_vector)[np.newaxis,:,:], axis=1)[:,:num_top,:], 0, 1)
-
-    top_anchor_gene_set_inds = np.swapaxes(np.argsort(-exp_gene_set_factors_for_top.T[:,:,np.newaxis] * state.gene_set_prob_factor_vector[np.newaxis,:,:], axis=1)[:,:num_top,:], 0, 1)
-
-    #sort by maximum across phenos
-    sort_max_across_phenos = True
-
-    top_gene_or_pheno_inds = None
-    top_pheno_or_gene_inds = None
-
-    if factor_gene_set_x_pheno:
-        top_gene_or_pheno_inds = np.swapaxes(np.argsort(-(1 - np.prod(1 - ((exp_pheno_factors_for_top).T[:,:,np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis,:,:]), axis=2)), axis=1)[:,:num_top], 0, 1)
-        if exp_gene_factors_for_top is not None:
-            top_pheno_or_gene_inds = np.swapaxes(np.argsort(-(1 - np.prod(1 - ((exp_gene_factors_for_top).T[:,:,np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis,:,:]), axis=2)), axis=1)[:,:num_top], 0, 1)                
-    else:
-        top_gene_or_pheno_inds = np.swapaxes(np.argsort(-(1 - np.prod(1 - ((exp_gene_factors_for_top).T[:,:,np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis,:,:]), axis=2)), axis=1)[:,:num_top], 0, 1)
-        if exp_pheno_factors_for_top is not None:
-            top_pheno_or_gene_inds = np.swapaxes(np.argsort(-(1 - np.prod(1 - ((exp_pheno_factors_for_top).T[:,:,np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis,:,:]), axis=2)), axis=1)[:,:num_top], 0, 1)                
-
-    top_gene_set_inds = np.swapaxes(np.argsort(-(1 - np.prod(1 - (exp_gene_set_factors_for_top.T[:,:,np.newaxis] * state.gene_set_prob_factor_vector[np.newaxis,:,:]), axis=2)), axis=1)[:,:num_top], 0, 1)
-
-    labeling_module.populate_factor_labels(
+    _finalize_factor_outputs(
         state,
         factor_gene_set_x_pheno=factor_gene_set_x_pheno,
-        top_gene_set_inds=top_gene_set_inds,
-        top_anchor_gene_set_inds=top_anchor_gene_set_inds,
-        top_gene_or_pheno_inds=top_gene_or_pheno_inds,
-        top_anchor_gene_or_pheno_inds=top_anchor_gene_or_pheno_inds,
-        top_pheno_or_gene_inds=top_pheno_or_gene_inds,
         lmm_auth_key=lmm_auth_key,
         lmm_model=lmm_model,
         lmm_provider=lmm_provider,
         label_gene_sets_only=label_gene_sets_only,
         label_include_phenos=label_include_phenos,
         label_individually=label_individually,
-        log_fn=log,
         bail_fn=bail,
         warn_fn=warn,
+        log_fn=log,
+        info_level=INFO,
+        labeling_module=labeling_module,
     )
 
-    log("Found %d factors" % state.num_factors(), INFO)
+    return _build_factor_run_summary(
+        state,
+        run_index=0,
+        seed=None,
+        evidence=result[3],
+        likelihood=result[2],
+        reconstruction_error=result[5],
+        factor_gene_set_x_pheno=factor_gene_set_x_pheno,
+    )
 
+
+def _run_factor_with_seed(state, *, seed, run_index, factor_kwargs):
+    def _runner():
+        return _run_factor_single(state, **factor_kwargs)
+
+    summary = _run_with_numpy_seed(seed, _runner)
+    if summary is None:
+        summary = _build_factor_run_summary(
+            state,
+            run_index=run_index,
+            seed=seed,
+            evidence=None,
+            likelihood=None,
+            reconstruction_error=None,
+            factor_gene_set_x_pheno=bool(state.exp_pheno_factors is not None and state.gene_factor_gene_mask is None),
+        )
+    summary["run_index"] = int(run_index)
+    summary["seed"] = None if seed is None else int(seed)
+    return summary
+
+
+def _collect_consensus_matches(run_states, run_summaries, reference_index, min_factor_cosine):
+    reference_factors = run_states[reference_index].exp_gene_set_factors
+    reference_norm = _normalize_factor_columns(reference_factors)
+    factor_matches = {idx: [(reference_index, idx, 1.0)] for idx in range(reference_factors.shape[1])}
+
+    for run_index, run_state in enumerate(run_states):
+        if run_index == reference_index:
+            continue
+        run_factors = run_state.exp_gene_set_factors
+        if run_factors is None or run_factors.size == 0:
+            continue
+        run_norm = _normalize_factor_columns(run_factors)
+        similarity = reference_norm.T @ run_norm
+        ref_inds, run_inds = scipy.optimize.linear_sum_assignment(1.0 - similarity)
+        for ref_factor_index, run_factor_index in zip(ref_inds, run_inds):
+            cosine = float(similarity[ref_factor_index, run_factor_index])
+            if cosine >= min_factor_cosine:
+                factor_matches[ref_factor_index].append((run_index, run_factor_index, cosine))
+    return factor_matches
+
+
+def _apply_consensus_solution(
+    reference_state,
+    run_states,
+    run_summaries,
+    *,
+    min_run_support,
+    aggregation,
+    min_factor_cosine,
+    factor_kwargs,
+):
+    eligible_indices = [idx for idx, state in enumerate(run_states) if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0 and state.num_factors() > 0]
+    if len(eligible_indices) == 0:
+        return copy.deepcopy(run_states[min(range(len(run_summaries)), key=lambda idx: _best_run_sort_key(run_summaries[idx]))]), {
+            "mode": "consensus",
+            "reference_run_index": None,
+            "run_summaries": copy.deepcopy(run_summaries),
+            "factor_support": [],
+        }
+
+    factor_count_to_indices = {}
+    for idx in eligible_indices:
+        factor_count_to_indices.setdefault(run_summaries[idx]["num_factors"], []).append(idx)
+    modal_factor_count = max(sorted(factor_count_to_indices), key=lambda key: (len(factor_count_to_indices[key]), key))
+    reference_candidates = factor_count_to_indices[modal_factor_count]
+    reference_index = min(reference_candidates, key=lambda idx: _best_run_sort_key(run_summaries[idx]))
+
+    consensus_state = copy.deepcopy(run_states[reference_index])
+    factor_matches = _collect_consensus_matches(run_states, run_summaries, reference_index, min_factor_cosine)
+
+    kept_factor_columns = []
+    kept_gene_columns = []
+    kept_pheno_columns = []
+    kept_lambda = []
+    kept_anchor_relevance = []
+    kept_factor_relevance = []
+    factor_support_rows = []
+    total_runs = max(1, len(run_states))
+
+    for reference_factor_index in range(run_states[reference_index].exp_gene_set_factors.shape[1]):
+        matched = factor_matches.get(reference_factor_index, [])
+        support_fraction = float(len(matched)) / float(total_runs)
+        factor_support_rows.append(
+            {
+                "reference_factor_index": int(reference_factor_index),
+                "support_runs": int(len(matched)),
+                "support_fraction": support_fraction,
+                "kept": bool(support_fraction >= min_run_support),
+                "matched_run_indices": [int(run_index) for run_index, _, _ in matched],
+                "matched_cosines": [float(cosine) for _, _, cosine in matched],
+            }
+        )
+        if support_fraction < min_run_support:
+            continue
+
+        gene_set_stack = np.stack(
+            [run_states[run_index].exp_gene_set_factors[:, factor_index] for run_index, factor_index, _ in matched],
+            axis=0,
+        )
+        kept_factor_columns.append(_aggregate_consensus_stack(gene_set_stack, aggregation))
+
+        gene_stack = [
+            run_states[run_index].exp_gene_factors[:, factor_index]
+            for run_index, factor_index, _ in matched
+            if run_states[run_index].exp_gene_factors is not None
+        ]
+        if len(gene_stack) > 0:
+            kept_gene_columns.append(_aggregate_consensus_stack(np.stack(gene_stack, axis=0), aggregation))
+
+        pheno_stack = [
+            run_states[run_index].exp_pheno_factors[:, factor_index]
+            for run_index, factor_index, _ in matched
+            if run_states[run_index].exp_pheno_factors is not None
+        ]
+        if len(pheno_stack) > 0:
+            kept_pheno_columns.append(_aggregate_consensus_stack(np.stack(pheno_stack, axis=0), aggregation))
+
+        kept_lambda.append(
+            _aggregate_consensus_stack(
+                np.array([run_states[run_index].exp_lambdak[factor_index] for run_index, factor_index, _ in matched], dtype=float),
+                aggregation,
+            )
+        )
+        kept_anchor_relevance.append(
+            _aggregate_consensus_stack(
+                np.stack([run_states[run_index].factor_anchor_relevance[factor_index, :] for run_index, factor_index, _ in matched], axis=0),
+                aggregation,
+            )
+        )
+        kept_factor_relevance.append(
+            _aggregate_consensus_stack(
+                np.array([run_states[run_index].factor_relevance[factor_index] for run_index, factor_index, _ in matched], dtype=float),
+                aggregation,
+            )
+        )
+
+    if len(kept_factor_columns) == 0:
+        consensus_state = copy.deepcopy(run_states[reference_index])
+        diagnostics = {
+            "mode": "consensus",
+            "reference_run_index": int(reference_index),
+            "run_summaries": copy.deepcopy(run_summaries),
+            "factor_support": factor_support_rows,
+            "fallback_to_reference": True,
+        }
+        return consensus_state, diagnostics
+
+    consensus_state.exp_gene_set_factors = np.column_stack(kept_factor_columns)
+    consensus_state.exp_gene_factors = np.column_stack(kept_gene_columns) if len(kept_gene_columns) > 0 else None
+    consensus_state.exp_pheno_factors = np.column_stack(kept_pheno_columns) if len(kept_pheno_columns) > 0 else None
+    consensus_state.exp_lambdak = np.asarray(kept_lambda, dtype=float)
+    consensus_state.factor_anchor_relevance = np.vstack(kept_anchor_relevance)
+    consensus_state.factor_relevance = np.asarray(kept_factor_relevance, dtype=float)
+
+    _finalize_factor_outputs(
+        consensus_state,
+        factor_gene_set_x_pheno=bool(run_summaries[reference_index]["factor_gene_set_x_pheno"]),
+        lmm_auth_key=factor_kwargs["lmm_auth_key"],
+        lmm_model=factor_kwargs["lmm_model"],
+        lmm_provider=factor_kwargs["lmm_provider"],
+        label_gene_sets_only=factor_kwargs["label_gene_sets_only"],
+        label_include_phenos=factor_kwargs["label_include_phenos"],
+        label_individually=factor_kwargs["label_individually"],
+        bail_fn=factor_kwargs["bail_fn"],
+        warn_fn=factor_kwargs["warn_fn"],
+        log_fn=factor_kwargs["log_fn"],
+        info_level=factor_kwargs["info_level"],
+        labeling_module=factor_kwargs["labeling_module"],
+    )
+
+    diagnostics = {
+        "mode": "consensus",
+        "reference_run_index": int(reference_index),
+        "run_summaries": copy.deepcopy(run_summaries),
+        "factor_support": factor_support_rows,
+        "modal_factor_count": int(modal_factor_count),
+        "aggregation": aggregation,
+        "min_factor_cosine": float(min_factor_cosine),
+        "min_run_support": float(min_run_support),
+    }
+    return consensus_state, diagnostics
+
+
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+    bail = bail_fn
+    log = log_fn
+    INFO = info_level
+
+    if factor_runs < 1:
+        bail("--factor-runs must be at least 1")
+    if consensus_aggregation not in {"median", "mean"}:
+        bail("--consensus-aggregation must be one of: median, mean")
+    if not (0 < consensus_min_factor_cosine <= 1):
+        bail("--consensus-min-factor-cosine must be in (0, 1]")
+    if not (0 < consensus_min_run_support <= 1):
+        bail("--consensus-min-run-support must be in (0, 1]")
+    if consensus_nmf and factor_runs < 2:
+        bail("--consensus-nmf requires --factor-runs >= 2")
+
+    factor_kwargs = {
+        "max_num_factors": max_num_factors,
+        "phi": phi,
+        "alpha0": alpha0,
+        "beta0": beta0,
+        "gene_set_filter_type": gene_set_filter_type,
+        "gene_set_filter_value": gene_set_filter_value,
+        "gene_or_pheno_filter_type": gene_or_pheno_filter_type,
+        "gene_or_pheno_filter_value": gene_or_pheno_filter_value,
+        "pheno_prune_value": pheno_prune_value,
+        "pheno_prune_number": pheno_prune_number,
+        "gene_prune_value": gene_prune_value,
+        "gene_prune_number": gene_prune_number,
+        "gene_set_prune_value": gene_set_prune_value,
+        "gene_set_prune_number": gene_set_prune_number,
+        "anchor_pheno_mask": anchor_pheno_mask,
+        "anchor_gene_mask": anchor_gene_mask,
+        "anchor_any_pheno": anchor_any_pheno,
+        "anchor_any_gene": anchor_any_gene,
+        "anchor_gene_set": anchor_gene_set,
+        "run_transpose": run_transpose,
+        "max_num_iterations": max_num_iterations,
+        "rel_tol": rel_tol,
+        "min_lambda_threshold": min_lambda_threshold,
+        "lmm_auth_key": lmm_auth_key,
+        "lmm_model": lmm_model,
+        "lmm_provider": lmm_provider,
+        "label_gene_sets_only": label_gene_sets_only,
+        "label_include_phenos": label_include_phenos,
+        "label_individually": label_individually,
+        "keep_original_loadings": keep_original_loadings,
+        "project_phenos_from_gene_sets": project_phenos_from_gene_sets,
+        "bail_fn": bail_fn,
+        "warn_fn": warn_fn,
+        "log_fn": log_fn,
+        "info_level": info_level,
+        "debug_level": debug_level,
+        "trace_level": trace_level,
+        "labeling_module": labeling_module,
+    }
+
+    state._record_params(
+        {
+            "factor_runs": factor_runs,
+            "consensus_nmf": bool(consensus_nmf),
+            "consensus_min_factor_cosine": consensus_min_factor_cosine,
+            "consensus_min_run_support": consensus_min_run_support,
+            "consensus_aggregation": consensus_aggregation,
+        }
+    )
+
+    if factor_runs == 1 and not consensus_nmf:
+        summary = _run_factor_with_seed(state, seed=seed, run_index=0, factor_kwargs=factor_kwargs)
+        state.consensus_mode = "single"
+        state.consensus_reference_run = 0
+        state.consensus_run_diagnostics = [summary]
+        state.consensus_factor_support = []
+        return
+
+    child_seeds = _derive_factor_run_seeds(seed, factor_runs)
+    run_states = []
+    run_summaries = []
+    for run_index, child_seed in enumerate(child_seeds):
+        log("Running factor restart %d/%d%s" % (run_index + 1, factor_runs, "" if child_seed is None else " [seed=%d]" % child_seed), INFO)
+        run_state = copy.deepcopy(state)
+        summary = _run_factor_with_seed(run_state, seed=child_seed, run_index=run_index, factor_kwargs=factor_kwargs)
+        run_states.append(run_state)
+        run_summaries.append(summary)
+
+    if consensus_nmf:
+        selected_state, diagnostics = _apply_consensus_solution(
+            state,
+            run_states,
+            run_summaries,
+            min_run_support=consensus_min_run_support,
+            aggregation=consensus_aggregation,
+            min_factor_cosine=consensus_min_factor_cosine,
+            factor_kwargs=factor_kwargs,
+        )
+    else:
+        best_run_index = min(range(len(run_summaries)), key=lambda idx: _best_run_sort_key(run_summaries[idx]))
+        selected_state = run_states[best_run_index]
+        diagnostics = {
+            "mode": "best_of_n",
+            "reference_run_index": int(best_run_index),
+            "run_summaries": copy.deepcopy(run_summaries),
+            "factor_support": [],
+        }
+
+    _replace_runtime_state(state, selected_state)
+    state.consensus_mode = diagnostics["mode"]
+    state.consensus_reference_run = diagnostics["reference_run_index"]
+    state.consensus_run_diagnostics = diagnostics["run_summaries"]
+    state.consensus_factor_support = diagnostics["factor_support"]
+    state.consensus_stats_out = consensus_stats_out

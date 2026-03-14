@@ -46,6 +46,13 @@ class FactorExecutionConfig:
     phi: float
     alpha0: float
     beta0: float
+    seed: int | None = None
+    factor_runs: int = 1
+    consensus_nmf: bool = False
+    consensus_min_factor_cosine: float = 0.7
+    consensus_min_run_support: float = 0.5
+    consensus_aggregation: str = "median"
+    consensus_stats_out: str | None = None
     gene_set_filter_value: object = None
     gene_or_pheno_filter_value: object = None
     pheno_prune_value: object = None
@@ -75,6 +82,13 @@ class FactorExecutionConfig:
             "phi": self.phi,
             "alpha0": self.alpha0,
             "beta0": self.beta0,
+            "seed": self.seed,
+            "factor_runs": self.factor_runs,
+            "consensus_nmf": self.consensus_nmf,
+            "consensus_min_factor_cosine": self.consensus_min_factor_cosine,
+            "consensus_min_run_support": self.consensus_min_run_support,
+            "consensus_aggregation": self.consensus_aggregation,
+            "consensus_stats_out": self.consensus_stats_out,
             "gene_set_filter_value": self.gene_set_filter_value,
             "gene_or_pheno_filter_value": self.gene_or_pheno_filter_value,
             "pheno_prune_value": self.pheno_prune_value,
@@ -370,6 +384,13 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         phi=options.phi,
         alpha0=options.alpha0,
         beta0=options.beta0,
+        seed=options.seed,
+        factor_runs=options.factor_runs,
+        consensus_nmf=options.consensus_nmf,
+        consensus_min_factor_cosine=options.consensus_min_factor_cosine,
+        consensus_min_run_support=options.consensus_min_run_support,
+        consensus_aggregation=options.consensus_aggregation,
+        consensus_stats_out=options.consensus_stats_out,
         gene_set_filter_value=options.gene_set_filter_value,
         gene_or_pheno_filter_value=resolve_factor_gene_or_pheno_filter_value(options, workflow),
         pheno_prune_value=options.factor_prune_phenos_val,

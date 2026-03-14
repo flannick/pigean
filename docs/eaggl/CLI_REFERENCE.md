@@ -173,6 +173,20 @@ Use these only when your files do not match the expected default headers.
 | `--min-lambda-threshold` | drop weak factors whose relevance falls below this threshold |
 | `--no-transpose` | keep the original matrix orientation instead of the default transposed view |
 
+### Restart and consensus controls
+
+| Flag | Meaning |
+|---|---|
+| `--factor-runs` | number of random restarts for factorization; if greater than `1` without consensus enabled, EAGGL keeps the best-evidence run |
+| `--consensus-nmf` | aggregate multiple restarts into a consensus factorization instead of selecting a single best run |
+| `--consensus-min-factor-cosine` | minimum cosine similarity required to match a restart factor to the reference factor during consensus building |
+| `--consensus-min-run-support` | minimum fraction of restart runs that must support a consensus factor for it to be kept |
+| `--consensus-aggregation` | aggregation rule for matched factor loadings across supporting runs (`median` or `mean`) |
+
+Operational note:
+- `--consensus-nmf` requires `--factor-runs >= 2`.
+- If `--factor-runs > 1` and `--consensus-nmf` is not set, EAGGL performs multi-start factorization and keeps only the best-evidence run.
+
 ### Factor pruning, weighting, and post-processing
 
 | Flag | Meaning |
@@ -210,6 +224,7 @@ Labeling details and the rationale for keeping labeling integrated into `factor`
 | `--pheno-anchor-clusters-out` | anchor-side phenotype clusters |
 | `--factor-phewas-stats-out` | factor-level PheWAS output |
 | `--gene-pheno-stats-out` | gene-phenotype output |
+| `--consensus-stats-out` | per-run and per-factor diagnostics for restart or consensus factorization |
 | `--params-out` | params and diagnostics output |
 
 ## Relationship to the theory doc

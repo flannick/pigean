@@ -7,6 +7,7 @@ from dataclasses import dataclass
 class FactorOutputPlan:
     factors_out: str | None = None
     factors_anchor_out: str | None = None
+    consensus_stats_out: str | None = None
     gene_set_clusters_out: str | None = None
     gene_clusters_out: str | None = None
     pheno_clusters_out: str | None = None
@@ -50,6 +51,7 @@ def build_factor_output_plan(options):
     return FactorOutputPlan(
         factors_out=options.factors_out,
         factors_anchor_out=options.factors_anchor_out,
+        consensus_stats_out=options.consensus_stats_out,
         gene_set_clusters_out=options.gene_set_clusters_out,
         gene_clusters_out=options.gene_clusters_out,
         pheno_clusters_out=options.pheno_clusters_out,
@@ -66,6 +68,8 @@ def write_factor_outputs_for_plan(runtime, output_plan):
         runtime.write_matrix_factors(output_plan.factors_out)
     if output_plan.factors_anchor_out is not None:
         runtime.write_matrix_factors(output_plan.factors_anchor_out, write_anchor_specific=True)
+    if output_plan.consensus_stats_out is not None:
+        runtime.write_consensus_factor_diagnostics(output_plan.consensus_stats_out)
     if (
         output_plan.gene_set_clusters_out is not None
         or output_plan.gene_clusters_out is not None

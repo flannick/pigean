@@ -668,6 +668,10 @@ class FactorModelState:
     factor_phewas_combined_prior_Ys_huber_zs: object | None = None
     factor_phewas_combined_prior_Ys_huber_p_values: object | None = None
     factor_phewas_combined_prior_Ys_huber_one_sided_p_values: object | None = None
+    consensus_mode: object | None = None
+    consensus_reference_run: object | None = None
+    consensus_run_diagnostics: object | None = None
+    consensus_factor_support: object | None = None
 
 
 _EAGGL_STATE_SLICES = (
@@ -1072,6 +1076,10 @@ class EagglState(object):
         self.factor_phewas_combined_prior_Ys_huber_zs = None #phewas statistics
         self.factor_phewas_combined_prior_Ys_huber_p_values = None #phewas statistics
         self.factor_phewas_combined_prior_Ys_huber_one_sided_p_values = None #phewas statistics
+        self.consensus_mode = None
+        self.consensus_reference_run = None
+        self.consensus_run_diagnostics = None
+        self.consensus_factor_support = None
 
         self._init_phewas_and_pheno_state()
         self._init_gene_set_regression_state()
@@ -1534,13 +1542,20 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False):
         return _eaggl_factor_runtime.run_factor(
             self,
             max_num_factors=max_num_factors,
             phi=phi,
             alpha0=alpha0,
             beta0=beta0,
+            seed=seed,
+            factor_runs=factor_runs,
+            consensus_nmf=consensus_nmf,
+            consensus_min_factor_cosine=consensus_min_factor_cosine,
+            consensus_min_run_support=consensus_min_run_support,
+            consensus_aggregation=consensus_aggregation,
+            consensus_stats_out=consensus_stats_out,
             gene_set_filter_type=gene_set_filter_type,
             gene_set_filter_value=gene_set_filter_value,
             gene_or_pheno_filter_type=gene_or_pheno_filter_type,
@@ -1977,6 +1992,43 @@ class EagglState(object):
 
 
                         output_fh.write("%s\n" % (line))
+
+    def write_consensus_factor_diagnostics(self, output_file=None):
+        if output_file is None:
+            return
+        log("Writing consensus factor diagnostics to %s" % output_file, INFO)
+        with open_gz(output_file, "w") as output_fh:
+            output_fh.write("record_type\tmode\treference_run\trun_index\tseed\tevidence\tlikelihood\treconstruction_error\tnum_factors\treference_factor_index\tsupport_runs\tsupport_fraction\tkept\tmatched_run_indices\tmatched_cosines\n")
+            mode = self.consensus_mode if self.consensus_mode is not None else "single"
+            reference_run = self.consensus_reference_run if self.consensus_reference_run is not None else 0
+            for run_summary in self.consensus_run_diagnostics or []:
+                output_fh.write(
+                    "run\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\t\t\t\t\t\n"
+                    % (
+                        mode,
+                        reference_run,
+                        run_summary.get("run_index", ""),
+                        run_summary.get("seed", ""),
+                        run_summary.get("evidence", ""),
+                        run_summary.get("likelihood", ""),
+                        run_summary.get("reconstruction_error", ""),
+                        run_summary.get("num_factors", ""),
+                    )
+                )
+            for factor_support in self.consensus_factor_support or []:
+                output_fh.write(
+                    "factor\t%s\t%s\t\t\t\t\t\t\t%s\t%s\t%s\t%s\t%s\t%s\n"
+                    % (
+                        mode,
+                        reference_run,
+                        factor_support.get("reference_factor_index", ""),
+                        factor_support.get("support_runs", ""),
+                        factor_support.get("support_fraction", ""),
+                        factor_support.get("kept", ""),
+                        ",".join([str(x) for x in factor_support.get("matched_run_indices", [])]),
+                        ",".join(["%.6g" % float(x) for x in factor_support.get("matched_cosines", [])]),
+                    )
+                )
 
     def write_clusters(self, gene_set_clusters_output_file=None, gene_clusters_output_file=None, pheno_clusters_output_file=None, write_anchor_specific=False, anchor_genes=None):
 

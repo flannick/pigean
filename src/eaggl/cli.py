@@ -291,12 +291,18 @@ parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for fac
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
 parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
+parser.add_option("","--factor-runs",default=1,type=int) #number of repeated random restarts for factorization
+parser.add_option("","--consensus-nmf",default=False,action="store_true") #aggregate repeated random restarts into a consensus factorization
+parser.add_option("","--consensus-min-factor-cosine",default=0.7,type=float) #minimum cosine similarity required to align factors across runs
+parser.add_option("","--consensus-min-run-support",default=0.5,type=float) #minimum fraction of runs that must support a consensus factor
+parser.add_option("","--consensus-aggregation",default="median",type=str) #aggregation rule for matched factor loadings across runs
 parser.add_option("","--gene-set-filter-value",type=float,default=0.01) #choose value of filter for gene sets. Will use beta uncorrected if available, otherwise beta, otherwise no filter
 parser.add_option("","--gene-filter-value",type=float,default=1) #choose value of filter for genes. Will use combined if available, then priors, then Y, then nothing. Used only when anchoring to a pheno(s) (or default)
 parser.add_option("","--pheno-filter-value",type=float,default=1) #choose value of filter for phenos. Used only when anchoring to genes
 parser.add_option("","--gene-set-pheno-filter-value",type=float,default=0.01) #choose value of filter for gene set anchoring
 parser.add_option("","--no-transpose",action='store_true') #factor original X rather than tranpose
 parser.add_option("","--min-lambda-threshold",type=float,default=1e-3) #remove factors with lambdak values below this threshold, or sum(gene loadings) below this threshold, or sum(gene set loadings) below this threshold
+parser.add_option("","--consensus-stats-out",default=None) #write consensus/restart diagnostics for factorization
 
 # Options for controlling factoring behavior.
 # Detailed workflow semantics, examples, and the F1-F9 mapping live in
@@ -381,7 +387,13 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--debug-level": "set logging verbosity for progress and diagnostic output",
     "--deterministic": "force deterministic random seed behavior (seed=0 unless --seed is set)",
     "--eaggl-bundle-in": "load bundled PIGEAN outputs as default EAGGL inputs",
+    "--consensus-aggregation": "choose how matched factors are aggregated across restarts in consensus mode",
+    "--consensus-min-factor-cosine": "minimum cosine similarity needed to align a restart factor to the reference factor",
+    "--consensus-min-run-support": "minimum restart support fraction required to keep a consensus factor",
+    "--consensus-nmf": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
+    "--consensus-stats-out": "write per-run and per-factor diagnostics for restart or consensus factorization",
     "--factor-phewas-from-gene-phewas-stats-in": "run factor-level phewas from precomputed gene-phewas statistics",
+    "--factor-runs": "run repeated random restarts for factorization; without consensus keep only the best run",
     "--factors-anchor-out": "write anchor-specific factorization outputs",
     "--factors-out": "write the main factor loading output table",
     "--gene-set-stats-in": "load gene-set statistics exported from PIGEAN",
@@ -432,8 +444,13 @@ _EXPERT_ENGINEERING_FLAGS = {
 _EXPERT_METHOD_FLAGS = {
     "--betas-from-phewas",
     "--betas-uncorrected-from-phewas",
+    "--consensus-aggregation",
+    "--consensus-min-factor-cosine",
+    "--consensus-min-run-support",
+    "--consensus-nmf",
     "--factor-phewas-from-gene-phewas-stats-in",
     "--factor-phewas-min-gene-factor-weight",
+    "--factor-runs",
     "--factor-prune-gene-sets-num",
     "--factor-prune-gene-sets-val",
     "--factor-prune-genes-num",
@@ -473,6 +490,7 @@ _EXPERT_METHOD_FLAGS = {
 
 _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--factor-phewas-stats-out",
+    "--consensus-stats-out",
     "--gene-anchor-clusters-out",
     "--gene-clusters-out",
     "--gene-pheno-stats-out",
@@ -1040,6 +1058,16 @@ def _bootstrap_cli(argv=None):
 
     pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
     parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
+    if parsed_options.factor_runs < 1:
+        bail("--factor-runs must be at least 1")
+    if parsed_options.consensus_aggregation not in set(["median", "mean"]):
+        bail("--consensus-aggregation must be one of: median, mean")
+    if not (0 < parsed_options.consensus_min_factor_cosine <= 1):
+        bail("--consensus-min-factor-cosine must be in (0, 1]")
+    if not (0 < parsed_options.consensus_min_run_support <= 1):
+        bail("--consensus-min-run-support must be in (0, 1]")
+    if parsed_options.consensus_nmf and parsed_options.factor_runs < 2:
+        bail("--consensus-nmf requires --factor-runs >= 2")
 
     if len(parsed_args) < 1:
         bail(usage)
