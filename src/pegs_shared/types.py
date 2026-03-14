@@ -323,10 +323,15 @@ class XData:
             filter_gene_set_metric_z=post_options.filter_gene_set_metric_z,
         )
 
+        sort_rank = None
         if runtime.p_values is not None:
-            sort_rank = -np.sqrt(-np.log(runtime.p_values + 1e-200))
-        else:
-            sort_rank = None
+            try:
+                p_values = np.asarray(runtime.p_values, dtype=float)
+            except (TypeError, ValueError):
+                p_values = None
+            if p_values is not None and p_values.size > 0:
+                finite_p_values = np.where(np.isfinite(p_values), p_values, 1.0)
+                sort_rank = -np.sqrt(-np.log(finite_p_values + 1e-200))
         sort_rank = post_callbacks.maybe_filter_zero_uncorrected_betas_after_x_read_fn(
             runtime,
             sort_rank=sort_rank,

@@ -3458,8 +3458,24 @@ class PigeanState(object):
         #set rho and nu as in TADA
         #rho / nu = mean frequency across genes
         rho = nu * np.mean((case_k + ctrl_k) / (case_N + ctrl_N), axis=0)
-
-        case_count_logbf = __tada_log_bf(case_k, case_N, ctrl_k, ctrl_N, mean_rrs, rho, nu, rho, nu, beta=beta)
+        valid_threshold_mask = np.isfinite(rho) & (rho > 0)
+        case_count_logbf = np.zeros(count_shape)
+        if np.any(valid_threshold_mask):
+            case_count_logbf[:, valid_threshold_mask] = __tada_log_bf(
+                case_k[:, valid_threshold_mask],
+                case_N[:, valid_threshold_mask],
+                ctrl_k[:, valid_threshold_mask],
+                ctrl_N[:, valid_threshold_mask],
+                mean_rrs[valid_threshold_mask],
+                rho[valid_threshold_mask],
+                nu,
+                rho[valid_threshold_mask],
+                nu,
+                beta=beta,
+            )
+        else:
+            log("No informative count thresholds were available; treating count evidence as zero", DEBUG)
+        case_count_logbf[~np.isfinite(case_count_logbf)] = 0
         case_count_logbf_tot = case_count_logbf.sum(axis=1)
 
         #filter out genes that look like artifacts
@@ -4933,32 +4949,44 @@ class PigeanState(object):
         bin_Y = distance_num[distance_denom != 0] / distance_denom[distance_denom != 0]
         bin_X = (np.array(range(len(distance_num))) * (max_distance_to_model / num_bins))[distance_denom != 0]
 
-        if compute_correlation_distance_function and np.sum(bin_Y != 0) > 0:
+        if compute_correlation_distance_function and np.sum(bin_Y != 0) > 0 and len(bin_Y) >= 2:
             sd_outlier_threshold = 3
             bin_outlier_max = np.mean(bin_Y) + sd_outlier_threshold * np.std(bin_Y)
             bin_mask = np.logical_and(bin_Y > -bin_outlier_max, bin_Y < bin_outlier_max)
             bin_Y = bin_Y[bin_mask]
             bin_X = bin_X[bin_mask]
 
-            slope = np.cov(bin_X, bin_Y)[0,1] / np.var(bin_X)
-            intercept = np.mean(bin_Y - bin_X * slope)
-            max_distance = -intercept / slope
-            if slope > 0:
-                log("Slope was positive; setting all correlations to zero")
-                intercept = 0
-                slope = 0
-            elif intercept < 0:
-                log("Incercept was negative; setting all correlations to zero")                
-                intercept = 0
-                slope = 0
+            fit_var = np.var(bin_X) if len(bin_X) >= 2 else 0
+            if len(bin_X) >= 2 and fit_var > 0:
+                slope = np.cov(bin_X, bin_Y)[0,1] / fit_var
+                intercept = np.mean(bin_Y - bin_X * slope)
+                max_distance = -intercept / slope if slope != 0 else np.inf
+                if not np.isfinite(slope) or not np.isfinite(intercept) or not np.isfinite(max_distance):
+                    log("Distance/correlation fit produced non-finite parameters; using precomputed function")
+                    slope = -5.229e-07
+                    intercept = 0.54
+                elif slope > 0:
+                    log("Slope was positive; setting all correlations to zero")
+                    intercept = 0
+                    slope = 0
+                elif intercept < 0:
+                    log("Incercept was negative; setting all correlations to zero")
+                    intercept = 0
+                    slope = 0
+                else:
+                    log("Fit function from bins: r^2 = %.2g%.4gx; max distance=%d" % (intercept, slope, max_distance))
             else:
-                log("Fit function from bins: r^2 = %.2g%.4gx; max distance=%d" % (intercept, slope, max_distance))
+                log("Too few non-degenerate bins to fit distance/correlation function; using precomputed function", DEBUG)
+                slope = -5.229e-07
+                intercept = 0.54
         else:
             max_distance = -intercept / slope
             log("Using precomputed function: r^2 = %.2g%.4gx; max distance=%d" % (intercept, slope, max_distance))
 
         if slope < 0:
             max_distance = -intercept / slope
+            if not np.isfinite(max_distance):
+                max_distance = -0.54 / -5.229e-07
             log("Using function: r^2 = %.2g + %.4g * x; max distance=%d" % (intercept, slope, max_distance))                
             self._record_params({"correlation_slope": slope, "correlation_intercept": intercept, "correlation_max_dist": max_distance})
 

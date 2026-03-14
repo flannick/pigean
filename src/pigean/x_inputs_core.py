@@ -1345,6 +1345,25 @@ def apply_prefilter_and_record(
         if np.sum(p_value_ignore) > 0:
             log_fn("Kept %d gene sets after p-value and beta filters" % (np.sum(p_value_mask)))
 
+        if runtime_state.gene_sets_ignored is None:
+            runtime_state.gene_sets_ignored = []
+        if runtime_state.col_sums_ignored is None:
+            runtime_state.col_sums_ignored = np.array([])
+        if runtime_state.scale_factors_ignored is None:
+            runtime_state.scale_factors_ignored = np.array([])
+        if runtime_state.mean_shifts_ignored is None:
+            runtime_state.mean_shifts_ignored = np.array([])
+        if runtime_state.beta_tildes_ignored is None:
+            runtime_state.beta_tildes_ignored = np.array([])
+        if runtime_state.p_values_ignored is None:
+            runtime_state.p_values_ignored = np.array([])
+        if runtime_state.ses_ignored is None:
+            runtime_state.ses_ignored = np.array([])
+        if runtime_state.z_scores_ignored is None:
+            runtime_state.z_scores_ignored = np.array([])
+        if runtime_state.se_inflation_factors_ignored is None:
+            runtime_state.se_inflation_factors_ignored = np.array([])
+
         runtime_state.gene_sets_ignored = runtime_state.gene_sets_ignored + [gene_sets[i] for i in range(len(gene_sets)) if p_value_ignore[i]]
         gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if p_value_mask[i]]
 

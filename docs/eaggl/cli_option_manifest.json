@@ -28,7 +28,7 @@
       "source_line": 112,
       "summary": null,
       "type": null,
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": "append",
@@ -49,7 +49,7 @@
       "source_line": 90,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 50
+      "usage_references": 56
     },
     {
       "action": "append",
@@ -70,7 +70,7 @@
       "source_line": 91,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 24
+      "usage_references": 25
     },
     {
       "action": "append",
@@ -91,7 +91,7 @@
       "source_line": 92,
       "summary": "load one or more dense gene-set matrix files directly",
       "type": null,
-      "usage_references": 19
+      "usage_references": 20
     },
     {
       "action": "append",
@@ -112,7 +112,7 @@
       "source_line": 93,
       "summary": "load a file listing dense gene-set matrix inputs",
       "type": null,
-      "usage_references": 13
+      "usage_references": 14
     },
     {
       "action": "store_true",
@@ -133,7 +133,7 @@
       "source_line": 252,
       "summary": null,
       "type": null,
-      "usage_references": 8
+      "usage_references": 6
     },
     {
       "action": "store_true",
@@ -154,7 +154,7 @@
       "source_line": 245,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
@@ -217,7 +217,7 @@
       "source_line": 278,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 3
     },
     {
       "action": null,
@@ -364,7 +364,7 @@
       "source_line": 109,
       "summary": null,
       "type": "float",
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -385,7 +385,7 @@
       "source_line": 95,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 5
     },
     {
       "action": null,
@@ -406,7 +406,7 @@
       "source_line": 228,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -448,7 +448,7 @@
       "source_line": 174,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 10
     },
     {
       "action": "store_true",
@@ -469,7 +469,7 @@
       "source_line": 175,
       "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 9
     },
     {
       "action": null,
@@ -490,7 +490,7 @@
       "source_line": 206,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 42
+      "usage_references": 43
     },
     {
       "action": "store_true",
@@ -511,7 +511,7 @@
       "source_line": 265,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 3
     },
     {
       "action": "store_true",
@@ -532,7 +532,7 @@
       "source_line": 365,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 5
     },
     {
       "action": null,
@@ -553,7 +553,7 @@
       "source_line": 201,
       "summary": "set logging verbosity for progress and diagnostic output",
       "type": "int",
-      "usage_references": 10
+      "usage_references": 12
     },
     {
       "action": "store_true",
@@ -574,7 +574,7 @@
       "source_line": 361,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -595,7 +595,7 @@
       "source_line": 366,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -616,7 +616,7 @@
       "source_line": 364,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -637,7 +637,7 @@
       "source_line": 363,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -658,7 +658,7 @@
       "source_line": 362,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -679,7 +679,7 @@
       "source_line": 205,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 28
+      "usage_references": 33
     },
     {
       "action": null,
@@ -952,7 +952,7 @@
       "source_line": 96,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 5
     },
     {
       "action": null,
@@ -973,7 +973,7 @@
       "source_line": 234,
       "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 11
     },
     {
       "action": "store_true",
@@ -994,7 +994,7 @@
       "source_line": 235,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 3
     },
     {
       "action": "store_true",
@@ -1015,7 +1015,7 @@
       "source_line": 355,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
@@ -1078,7 +1078,7 @@
       "source_line": 149,
       "summary": null,
       "type": null,
-      "usage_references": 22
+      "usage_references": 19
     },
     {
       "action": null,
@@ -1099,7 +1099,7 @@
       "source_line": 152,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 11
     },
     {
       "action": null,
@@ -1120,7 +1120,7 @@
       "source_line": 160,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -1141,7 +1141,7 @@
       "source_line": 161,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -1183,7 +1183,7 @@
       "source_line": 158,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -1204,7 +1204,7 @@
       "source_line": 148,
       "summary": null,
       "type": null,
-      "usage_references": 45
+      "usage_references": 58
     },
     {
       "action": null,
@@ -1225,7 +1225,7 @@
       "source_line": 115,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 19
     },
     {
       "action": null,
@@ -1246,7 +1246,7 @@
       "source_line": 116,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 5
     },
     {
       "action": null,
@@ -1288,7 +1288,7 @@
       "source_line": 319,
       "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 8
     },
     {
       "action": null,
@@ -1309,7 +1309,7 @@
       "source_line": 315,
       "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1330,7 +1330,7 @@
       "source_line": 313,
       "summary": "load gene-phewas statistics for projection and anchor workflows",
       "type": null,
-      "usage_references": 25
+      "usage_references": 24
     },
     {
       "action": null,
@@ -1351,7 +1351,7 @@
       "source_line": 317,
       "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1372,7 +1372,7 @@
       "source_line": 323,
       "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1393,7 +1393,7 @@
       "source_line": 321,
       "summary": null,
       "type": null,
-      "usage_references": 9
+      "usage_references": 8
     },
     {
       "action": null,
@@ -1414,7 +1414,7 @@
       "source_line": 326,
       "summary": null,
       "type": null,
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
@@ -1435,7 +1435,7 @@
       "source_line": 320,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1456,7 +1456,7 @@
       "source_line": 316,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1477,7 +1477,7 @@
       "source_line": 314,
       "summary": null,
       "type": null,
-      "usage_references": 60
+      "usage_references": 59
     },
     {
       "action": null,
@@ -1498,7 +1498,7 @@
       "source_line": 318,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1519,7 +1519,7 @@
       "source_line": 324,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1540,7 +1540,7 @@
       "source_line": 322,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1624,7 +1624,7 @@
       "source_line": 159,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -1771,7 +1771,7 @@
       "source_line": 129,
       "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 10
     },
     {
       "action": null,
@@ -1792,7 +1792,7 @@
       "source_line": 128,
       "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 10
     },
     {
       "action": null,
@@ -1813,7 +1813,7 @@
       "source_line": 130,
       "summary": null,
       "type": null,
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
@@ -1834,7 +1834,7 @@
       "source_line": 127,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1855,7 +1855,7 @@
       "source_line": 126,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 11
     },
     {
       "action": null,
@@ -1876,7 +1876,7 @@
       "source_line": 125,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 35
+      "usage_references": 33
     },
     {
       "action": null,
@@ -1897,7 +1897,7 @@
       "source_line": 155,
       "summary": null,
       "type": null,
-      "usage_references": 21
+      "usage_references": 25
     },
     {
       "action": null,
@@ -1918,7 +1918,7 @@
       "source_line": 132,
       "summary": null,
       "type": null,
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
@@ -1939,7 +1939,7 @@
       "source_line": 131,
       "summary": null,
       "type": null,
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
@@ -1960,7 +1960,7 @@
       "source_line": 141,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 15
     },
     {
       "action": null,
@@ -1981,7 +1981,7 @@
       "source_line": 139,
       "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 16
     },
     {
       "action": null,
@@ -2002,7 +2002,7 @@
       "source_line": 138,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 57
+      "usage_references": 55
     },
     {
       "action": null,
@@ -2023,7 +2023,7 @@
       "source_line": 140,
       "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 18
     },
     {
       "action": null,
@@ -2044,7 +2044,7 @@
       "source_line": 157,
       "summary": null,
       "type": null,
-      "usage_references": 23
+      "usage_references": 29
     },
     {
       "action": null,
@@ -2065,7 +2065,7 @@
       "source_line": 142,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 15
     },
     {
       "action": null,
@@ -2086,7 +2086,7 @@
       "source_line": 143,
       "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2107,7 +2107,7 @@
       "source_line": 225,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2128,7 +2128,7 @@
       "source_line": 224,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": "store_true",
@@ -2149,7 +2149,7 @@
       "source_line": 208,
       "summary": "show expert workflow, projection, and debug flags in addition to the normal public interface",
       "type": null,
-      "usage_references": 18
+      "usage_references": 16
     },
     {
       "action": "store_true",
@@ -2170,7 +2170,7 @@
       "source_line": 203,
       "summary": "suppress printing resolved options at startup",
       "type": null,
-      "usage_references": 17
+      "usage_references": 22
     },
     {
       "action": "store_true",
@@ -2191,7 +2191,7 @@
       "source_line": 202,
       "summary": "reduce progress logging noise during long runs",
       "type": null,
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": null,
@@ -2212,7 +2212,7 @@
       "source_line": 218,
       "summary": null,
       "type": "string",
-      "usage_references": 5
+      "usage_references": 4
     },
     {
       "action": "append",
@@ -2233,7 +2233,7 @@
       "source_line": 94,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -2254,7 +2254,7 @@
       "source_line": 133,
       "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 8
     },
     {
       "action": "store_true",
@@ -2338,7 +2338,7 @@
       "source_line": 212,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 4
     },
     {
       "action": null,
@@ -2422,7 +2422,7 @@
       "source_line": 199,
       "summary": "write structured run logs to this file",
       "type": null,
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
@@ -2464,7 +2464,7 @@
       "source_line": 356,
       "summary": null,
       "type": "float",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -2485,7 +2485,7 @@
       "source_line": 226,
       "summary": null,
       "type": "float",
-      "usage_references": 18
+      "usage_references": 20
     },
     {
       "action": null,
@@ -2506,7 +2506,7 @@
       "source_line": 241,
       "summary": null,
       "type": "float",
-      "usage_references": 6
+      "usage_references": 8
     },
     {
       "action": null,
@@ -2527,7 +2527,7 @@
       "source_line": 251,
       "summary": null,
       "type": "int",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -2548,7 +2548,7 @@
       "source_line": 190,
       "summary": null,
       "type": "float",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -2590,7 +2590,7 @@
       "source_line": 189,
       "summary": null,
       "type": "float",
-      "usage_references": 8
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2611,7 +2611,7 @@
       "source_line": 192,
       "summary": null,
       "type": "float",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -2632,7 +2632,7 @@
       "source_line": 270,
       "summary": null,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 5
     },
     {
       "action": null,
@@ -2674,7 +2674,7 @@
       "source_line": 240,
       "summary": null,
       "type": "int",
-      "usage_references": 26
+      "usage_references": 23
     },
     {
       "action": null,
@@ -2695,7 +2695,7 @@
       "source_line": 239,
       "summary": null,
       "type": "int",
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
@@ -2716,7 +2716,7 @@
       "source_line": 238,
       "summary": null,
       "type": "int",
-      "usage_references": 10
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2737,7 +2737,7 @@
       "source_line": 352,
       "summary": null,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 5
     },
     {
       "action": null,
@@ -2758,7 +2758,7 @@
       "source_line": 227,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2779,7 +2779,7 @@
       "source_line": 325,
       "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 8
     },
     {
       "action": null,
@@ -2800,7 +2800,7 @@
       "source_line": 242,
       "summary": null,
       "type": "float",
-      "usage_references": 8
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2821,7 +2821,7 @@
       "source_line": 243,
       "summary": null,
       "type": "float",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -2842,7 +2842,7 @@
       "source_line": 233,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2884,7 +2884,7 @@
       "source_line": 351,
       "summary": null,
       "type": "int",
-      "usage_references": 6
+      "usage_references": 5
     },
     {
       "action": "store_false",
@@ -2905,7 +2905,7 @@
       "source_line": 247,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": "store_false",
@@ -2926,7 +2926,7 @@
       "source_line": 246,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": "store_false",
@@ -2947,7 +2947,7 @@
       "source_line": 279,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 3
     },
     {
       "action": "store_false",
@@ -2968,7 +2968,7 @@
       "source_line": 250,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": "store_false",
@@ -2989,7 +2989,7 @@
       "source_line": 266,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 4
     },
     {
       "action": "store_false",
@@ -3031,7 +3031,7 @@
       "source_line": 213,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 3
     },
     {
       "action": "store_false",
@@ -3052,7 +3052,7 @@
       "source_line": 274,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 3
     },
     {
       "action": "store_true",
@@ -3094,7 +3094,7 @@
       "source_line": 348,
       "summary": null,
       "type": "int",
-      "usage_references": 15
+      "usage_references": 13
     },
     {
       "action": null,
@@ -3115,7 +3115,7 @@
       "source_line": 353,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -3136,7 +3136,7 @@
       "source_line": 101,
       "summary": null,
       "type": "int",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": "store_true",
@@ -3157,7 +3157,7 @@
       "source_line": 211,
       "summary": null,
       "type": null,
-      "usage_references": 10
+      "usage_references": 8
     },
     {
       "action": "append",
@@ -3178,7 +3178,7 @@
       "source_line": 99,
       "summary": null,
       "type": "float",
-      "usage_references": 17
+      "usage_references": 15
     },
     {
       "action": null,
@@ -3199,7 +3199,7 @@
       "source_line": 196,
       "summary": null,
       "type": null,
-      "usage_references": 21
+      "usage_references": 27
     },
     {
       "action": "store_true",
@@ -3220,7 +3220,7 @@
       "source_line": 219,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
@@ -3304,7 +3304,7 @@
       "source_line": 156,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -3325,7 +3325,7 @@
       "source_line": 162,
       "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 12
     },
     {
       "action": null,
@@ -3367,7 +3367,7 @@
       "source_line": 121,
       "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 21
     },
     {
       "action": null,
@@ -3388,7 +3388,7 @@
       "source_line": 119,
       "summary": null,
       "type": null,
-      "usage_references": 18
+      "usage_references": 25
     },
     {
       "action": "callback",
@@ -3409,7 +3409,7 @@
       "source_line": 120,
       "summary": null,
       "type": "string",
-      "usage_references": 24
+      "usage_references": 29
     },
     {
       "action": null,
@@ -3430,7 +3430,7 @@
       "source_line": 229,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": null,
@@ -3451,7 +3451,7 @@
       "source_line": 230,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 6
     },
     {
       "action": "store_true",
@@ -3472,7 +3472,7 @@
       "source_line": 207,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 32
+      "usage_references": 36
     },
     {
       "action": null,
@@ -3493,7 +3493,7 @@
       "source_line": 223,
       "summary": null,
       "type": "int",
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": "store_true",
@@ -3535,7 +3535,7 @@
       "source_line": 255,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
@@ -3556,7 +3556,7 @@
       "source_line": 253,
       "summary": null,
       "type": "float",
-      "usage_references": 16
+      "usage_references": 15
     },
     {
       "action": null,
@@ -3577,7 +3577,7 @@
       "source_line": 354,
       "summary": null,
       "type": "float",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -3598,7 +3598,7 @@
       "source_line": 182,
       "summary": "run gene-level phewas output stage from precomputed gene-phewas statistics",
       "type": null,
-      "usage_references": 28
+      "usage_references": 27
     },
     {
       "action": null,
@@ -3619,7 +3619,7 @@
       "source_line": 204,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 21
+      "usage_references": 22
     },
     {
       "action": null,
@@ -3640,7 +3640,7 @@
       "source_line": 102,
       "summary": null,
       "type": "float",
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
@@ -3661,7 +3661,7 @@
       "source_line": 275,
       "summary": null,
       "type": "float",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": "store_true",
@@ -3682,7 +3682,7 @@
       "source_line": 273,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 3
     },
     {
       "action": null,
@@ -3703,7 +3703,7 @@
       "source_line": 249,
       "summary": null,
       "type": "float",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": null,
@@ -3724,7 +3724,7 @@
       "source_line": 100,
       "summary": null,
       "type": "float",
-      "usage_references": 6
+      "usage_references": 5
     },
     {
       "action": null,
@@ -3745,7 +3745,7 @@
       "source_line": 106,
       "summary": null,
       "type": "string",
-      "usage_references": 12
+      "usage_references": 11
     },
     {
       "action": "store_true",
@@ -3766,7 +3766,7 @@
       "source_line": 191,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": "store_true",
@@ -3787,7 +3787,7 @@
       "source_line": 357,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
@@ -3808,7 +3808,7 @@
       "source_line": 200,
       "summary": "write warning messages to this file",
       "type": null,
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
@@ -3829,7 +3829,7 @@
       "source_line": 254,
       "summary": null,
       "type": "float",
-      "usage_references": 4
+      "usage_references": 3
     },
     {
       "action": "callback",
@@ -3850,7 +3850,7 @@
       "source_line": 244,
       "summary": null,
       "type": "string",
-      "usage_references": 7
+      "usage_references": 6
     }
   ],
   "visibilities": {

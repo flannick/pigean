@@ -27,6 +27,18 @@ TOY_GENE_SET_IDS = [
     "mp_decreased_circulating_glucose_level",
     "mp_abnormal_pancreatic_alpha_cell_morphology",
 ]
+INPUT_SUBSET_TOY_GENE_SET_IDS = [
+    "mp_maturity-onset_diabetes_of_the_young_type_1",
+    "mp_maturity-onset_diabetes_of_the_young_type_2",
+    "mp_maturity-onset_diabetes_of_the_young_type_3",
+    "mp_maturity-onset_diabetes_of_the_young_type_4",
+    "mp_transient_neonatal_diabetes_mellitus",
+    "mp_neonatal_diabetes",
+    "mp_absent_pancreatic_delta_cells",
+    "mp_absent_parietal_endoderm",
+    "mp_type_1_diabetes_mellitus_7",
+    "mp_abnormal_nerve_fiber_response_intensity",
+]
 
 
 def _read_mody_genes(path: Path) -> list[str]:
@@ -60,6 +72,8 @@ def build_fixture() -> dict[str, object]:
     out_case = out_dir / "mody_case_counts.tsv"
     out_ctrl = out_dir / "mody_ctrl_counts.tsv"
     out_toy_gene_sets = out_dir / "gene_set_list_mouse_t2d_toy.txt"
+    out_input_subset_toy_gene_sets = out_dir / "gene_set_list_input_subset_toy.txt"
+    out_toy_positive_controls_all = out_dir / "toy_positive_controls_all.tsv"
     out_summary = out_dir / "fixture_summary.json"
     out_readme = out_dir / "README.md"
 
@@ -124,6 +138,36 @@ def build_fixture() -> dict[str, object]:
             "Did not find all requested toy gene sets; "
             f"kept {kept_gene_sets} of {len(TOY_GENE_SET_IDS)}"
         )
+
+    kept_input_subset_gene_sets = 0
+    with src_mouse_gene_sets.open("r", encoding="utf-8") as src, out_input_subset_toy_gene_sets.open("w", encoding="utf-8") as dst:
+        for line in src:
+            gene_set_id = line.split("\t", 1)[0].strip()
+            if gene_set_id in INPUT_SUBSET_TOY_GENE_SET_IDS:
+                dst.write(line)
+                kept_input_subset_gene_sets += 1
+    if kept_input_subset_gene_sets != len(INPUT_SUBSET_TOY_GENE_SET_IDS):
+        raise SystemExit(
+            "Did not find all requested input-subset toy gene sets; "
+            f"kept {kept_input_subset_gene_sets} of {len(INPUT_SUBSET_TOY_GENE_SET_IDS)}"
+        )
+
+    toy_background_genes = sorted(mody_gene_set)
+    seen_toy_background = set(toy_background_genes)
+    with src_mouse_gene_sets.open("r", encoding="utf-8") as src:
+        for line in src:
+            gene_set_id, genes_blob = line.rstrip("\n").split("\t", 1)
+            if gene_set_id not in TOY_GENE_SET_IDS:
+                continue
+            for gene in genes_blob.split():
+                if gene not in seen_toy_background:
+                    toy_background_genes.append(gene)
+                    seen_toy_background.add(gene)
+    with out_toy_positive_controls_all.open("w", encoding="utf-8", newline="") as dst:
+        writer = csv.DictWriter(dst, fieldnames=["gene"], delimiter="\t", lineterminator="\n")
+        writer.writeheader()
+        for gene in toy_background_genes:
+            writer.writerow({"gene": gene})
 
     rng = random.Random(RNG_SEED)
     np_rng = np.random.default_rng(RNG_SEED)
@@ -191,6 +235,8 @@ def build_fixture() -> dict[str, object]:
         "exome_rows_for_mody_genes": kept_mody_rows,
         "mody_gene_count": len(mody_genes),
         "toy_gene_set_count": kept_gene_sets,
+        "input_subset_toy_gene_set_count": kept_input_subset_gene_sets,
+        "toy_positive_controls_all_gene_count": len(toy_background_genes),
         "case_total": CASE_TOTAL,
         "ctrl_total": CTRL_TOTAL,
         "rng_seed": RNG_SEED,
@@ -198,7 +244,7 @@ def build_fixture() -> dict[str, object]:
     out_summary.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     size_lines = []
-    for path in [out_gwas, out_exomes, out_mody, out_case, out_ctrl, out_toy_gene_sets, out_summary]:
+    for path in [out_gwas, out_exomes, out_mody, out_case, out_ctrl, out_toy_gene_sets, out_input_subset_toy_gene_sets, out_toy_positive_controls_all, out_summary]:
         size_lines.append(f"- `{path.name}`: {path.stat().st_size} bytes")
     out_readme.write_text(
         "# T2D Smoke Fixtures\n\n"
@@ -209,6 +255,8 @@ def build_fixture() -> dict[str, object]:
         "- `mody.gene.list`: copied MODY positive-control list\n"
         "- `mody_case_counts.tsv` / `mody_ctrl_counts.tsv`: synthetic burden-count fixtures for the MODY genes\n"
         f"- `gene_set_list_mouse_t2d_toy.txt`: 10 curated diabetes/pancreas lines copied from `{src_mouse_gene_sets.relative_to(repo_root)}` for fast toy tests\n"
+        f"- `gene_set_list_input_subset_toy.txt`: 10 curated real mouse lines covering the MODY/count genes for input-subset matrix tests\n"
+        "- `toy_positive_controls_all.tsv`: small one-column positive-control background derived from the toy gene sets plus the MODY genes\n"
         "- `fixture_summary.json`: thresholds and row counts\n\n"
         "Synthetic counts were generated with RNG seed `20260314`, cohort sizes 10k cases / 20k controls, and per-gene relative risk sampled as `1 + Exponential(scale=4)` so the expected mean RR is 5 with a minimum of 1.\n\n"
         "File sizes:\n"

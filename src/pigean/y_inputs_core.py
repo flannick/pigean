@@ -479,7 +479,7 @@ def read_and_align_auxiliary_y_components(
             extra_Y_exomes = aligned_existing_values[0]
     else:
         Y1_positive_controls = np.zeros(len(Y1_exomes))
-        extra_Y_positive_controls = np.zeros(len(extra_Y_positive_controls))
+        extra_Y_positive_controls = np.zeros(len(extra_genes_all))
 
     assert len(extra_Y_exomes) == len(extra_genes_all)
     assert len(extra_Y_exomes) == len(extra_Y_positive_controls)
@@ -523,7 +523,7 @@ def read_and_align_auxiliary_y_components(
             extra_Y_positive_controls = aligned_existing_values[1]
     else:
         Y1_case_counts = np.zeros(len(Y1_exomes))
-        extra_Y_case_counts = np.zeros(len(extra_Y_case_counts))
+        extra_Y_case_counts = np.zeros(len(extra_genes_all))
 
     assert len(extra_Y_exomes) == len(extra_genes_all)
     assert len(extra_Y_exomes) == len(extra_Y_positive_controls)

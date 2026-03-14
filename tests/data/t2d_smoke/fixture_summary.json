@@ -6,10 +6,12 @@
   "exomes_p_threshold": 0.0001,
   "gwas_p_threshold": 1e-06,
   "gwas_rows": 91800,
+  "input_subset_toy_gene_set_count": 10,
   "mody_gene_count": 13,
   "rng_seed": 20260314,
   "source_exomes": "data/T2D.exomes.txt",
   "source_gwas": "data/T2D.chrom_pos.sumstats.gz",
   "source_mody": "data/mody.gene.list",
-  "toy_gene_set_count": 10
+  "toy_gene_set_count": 10,
+  "toy_positive_controls_all_gene_count": 813
 }
