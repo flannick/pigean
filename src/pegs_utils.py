@@ -1455,6 +1455,33 @@ def complete_p_beta_se(p, beta, se, *, warn_fn=None):
     return (p, beta, se)
 
 
+def compute_variant_z(
+    p,
+    beta,
+    se,
+    *,
+    prefer_p_mask=None,
+):
+    z = beta / se
+    if prefer_p_mask is None:
+        return z
+
+    prefer_p_mask = np.asarray(prefer_p_mask, dtype=bool)
+    if np.sum(prefer_p_mask) == 0:
+        return z
+
+    p = np.asarray(p)
+    beta = np.asarray(beta)
+    p_safe = np.array(p[prefer_p_mask], dtype=float)
+    p_safe[p_safe <= 0] = 1e-300
+    p_safe[p_safe > 1] = 1
+    z_abs = np.abs(scipy.stats.norm.ppf(p_safe / 2))
+    beta_sign = np.sign(beta[prefer_p_mask])
+    beta_sign[beta_sign == 0] = 1
+    z[prefer_p_mask] = z_abs * beta_sign
+    return z
+
+
 from pegs_shared.output_tables import (
     write_factor_phewas_statistics,
     write_gene_gene_set_statistics,

@@ -821,6 +821,22 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertTrue(np.any(out_se == 1.0))
         self.assertGreaterEqual(len(warnings), 1)
 
+    def test_compute_variant_z_prefers_p_when_se_was_inferred(self) -> None:
+        p = np.array([8.63e-49, 0.07578], dtype=float)
+        beta = np.array([0.1419, -33.3838], dtype=float)
+        se = np.array([0.0097, 1 / np.sqrt(180106.67)], dtype=float)
+
+        out_z = pegs_utils.compute_variant_z(
+            p,
+            beta,
+            se,
+            prefer_p_mask=np.array([False, True]),
+        )
+
+        self.assertGreater(abs(out_z[0]), 10.0)
+        self.assertLess(abs(out_z[1]), 3.0)
+        self.assertLess(out_z[1], 0.0)
+
     def test_parse_gene_bfs_file_from_log_bf(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "gene_stats.tsv"

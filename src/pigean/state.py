@@ -61,6 +61,7 @@ pegs_calc_shift_scale_for_dense_block = pegs_runtime_matrix.calc_shift_scale_for
 pegs_calculate_V_internal = pegs_runtime_matrix.calculate_V_internal
 pegs_clean_chrom_name = pegs_io_common.clean_chrom_name
 pegs_complete_p_beta_se = pegs_utils_mod.complete_p_beta_se
+pegs_compute_variant_z = pegs_utils_mod.compute_variant_z
 pegs_coerce_runtime_state_dict = pegs_huge_cache.coerce_runtime_state_dict
 pegs_compute_banded_y_corr_cholesky = pegs_runtime_matrix.compute_banded_y_corr_cholesky
 pegs_compute_beta_tildes = pegs_regression.compute_beta_tildes
@@ -2096,6 +2097,7 @@ class PigeanState(object):
                         beta = None
 
                 se = None
+                se_was_inferred = False
                 if se_col is not None:
                     try:
                         se = float(cols[se_col])
@@ -2125,6 +2127,7 @@ class PigeanState(object):
 
                         if n is not None:
                             se = 1 / np.sqrt(n)
+                            se_was_inferred = True
 
                     elif gwas_n is not None:
                         if gwas_n <= 0:
@@ -2132,6 +2135,7 @@ class PigeanState(object):
 
                         n = gwas_n
                         se = 1 / np.sqrt(n)
+                        se_was_inferred = True
 
 
                 #make sure have two of the three
@@ -2166,7 +2170,7 @@ class PigeanState(object):
                 if chrom not in chrom_pos_p_beta_se_freq:
                     chrom_pos_p_beta_se_freq[chrom] = []
 
-                chrom_pos_p_beta_se_freq[chrom].append((pos, p, beta, se, freq))
+                chrom_pos_p_beta_se_freq[chrom].append((pos, p, beta, se, freq, se_was_inferred))
                 if chrom not in seen_chrom_pos:
                     seen_chrom_pos[chrom] = set()
                 seen_chrom_pos[chrom].add(pos)
@@ -2239,6 +2243,7 @@ class PigeanState(object):
             gene_covariate_genes = huge_buffers["gene_covariate_genes"]
             window_fun_intercept = None
             window_fun_slope = None
+            warned_prefer_p_for_inferred_se = False
 
             #second, compute the huge scores
             for learn_params in [True, False]:
@@ -2264,6 +2269,11 @@ class PigeanState(object):
                     var_p = np.array(vars_zipped[1], dtype=float)
                     var_beta = np.array(vars_zipped[2], dtype=float)
                     var_se = np.array(vars_zipped[3], dtype=float)
+                    var_se_was_inferred = np.array(vars_zipped[5], dtype=bool)
+                    infer_z_from_p_mask = np.logical_and(
+                        ~np.isnan(var_p),
+                        np.logical_and(~np.isnan(var_beta), var_se_was_inferred),
+                    )
 
                     (var_p, var_beta, var_se) = pegs_complete_p_beta_se(
                         var_p,
@@ -2272,7 +2282,19 @@ class PigeanState(object):
                         warn_fn=warn,
                     )
 
-                    var_z = var_beta / var_se
+                    if np.sum(infer_z_from_p_mask) > 0 and not warned_prefer_p_for_inferred_se:
+                        warn(
+                            "Using p-derived z-scores for %d variants with beta+p but inferred SE; pass --gwas-se-col when available"
+                            % np.sum(infer_z_from_p_mask)
+                        )
+                        warned_prefer_p_for_inferred_se = True
+
+                    var_z = pegs_compute_variant_z(
+                        var_p,
+                        var_beta,
+                        var_se,
+                        prefer_p_mask=infer_z_from_p_mask,
+                    )
                     var_se2 = np.square(var_se)
 
                     #this will vary slightly by chromosome but probably okay

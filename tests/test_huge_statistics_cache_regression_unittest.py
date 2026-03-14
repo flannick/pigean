@@ -107,11 +107,11 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
         cls.gwas_file.write_text(
             "\n".join(
                 [
-                    "CHR\tPOS\tP\tBETA\tN",
-                    "1\t100100\t1e-7\t0.20\t10000",
-                    "1\t100300\t1e-6\t-0.10\t10000",
-                    "1\t200100\t5e-8\t0.30\t10000",
-                    "1\t250000\t5e-5\t0.05\t10000",
+                    "CHR\tPOS\tP\tBETA\tSE\tN",
+                    "1\t100100\t1e-7\t0.20\t0.037546530337571084\t10000",
+                    "1\t100300\t1e-6\t-0.10\t0.020443047967832226\t10000",
+                    "1\t200100\t5e-8\t0.30\t0.05503263910953657\t10000",
+                    "1\t250000\t5e-5\t0.05\t0.012328549995532977\t10000",
                 ]
             )
             + "\n",
@@ -131,6 +131,8 @@ class HugeStatisticsCacheRegressionTest(unittest.TestCase):
             "P",
             "--gwas-beta-col",
             "BETA",
+            "--gwas-se-col",
+            "SE",
             "--gwas-n-col",
             "N",
             "--gene-loc-file-huge",
