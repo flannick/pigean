@@ -101,7 +101,36 @@ Operational notes:
   - `tests/test_phewas_stage_reuse_unittest.py`
   - `tests/test_pegs_utils_bundle_unittest.py`
 
-## 5) Simulation mode (`sim`)
+## 5) PheWAS-as-Y beta sampling (`--betas-from-phewas` / `--betas-uncorrected-from-phewas`)
+
+Purpose: Treat gene-by-phenotype statistics as the Y matrix and compute gene-set beta-tilde / beta outputs per phenotype instead of only for the default single Y vector.
+
+Required inputs:
+- Main mode on the beta path (`beta_tildes`, `betas`, or later stages that consume beta calculations)
+- `--gene-phewas-bfs-in <file>` or alias `--gene-phewas-stats-in <file>`
+- Column mappings:
+  - `--gene-phewas-bfs-id-col`
+  - `--gene-phewas-bfs-pheno-col`
+  - one or more of `--gene-phewas-bfs-log-bf-col`, `--gene-phewas-bfs-combined-col`, `--gene-phewas-bfs-prior-col`
+- Optional gene-ID remapping:
+  - `--gene-phewas-id-to-X-id`
+- Optional value threshold:
+  - `--min-gene-phewas-read-value`
+
+Primary behavior:
+- `--betas-uncorrected-from-phewas` computes the uncorrected beta path from the loaded gene-by-phenotype matrix.
+- `--betas-from-phewas` additionally computes the corrected/non-infinitesimal beta path from the same PheWAS-derived inputs.
+- If `--betas-from-phewas` is passed, the CLI currently auto-enables `--betas-uncorrected-from-phewas`.
+
+Chain semantics:
+- `--num-chains-betas`, `--max-num-iter-betas`, `--min-num-iter-betas`, and related beta-sampler controls apply to this path as they do to the ordinary beta stage.
+- The runtime stores PheWAS-derived results per phenotype while keeping the full current gene-set axis, even when internal prefiltering skips some gene sets.
+
+Notes:
+- This is distinct from `--run-phewas-from-gene-phewas-stats-in`, which produces a gene-level PheWAS output table.
+- This path is advanced and currently documented here rather than in the shorter human CLI reference.
+
+## 6) Simulation mode (`sim`)
 
 Purpose: Simulate gene and gene-set signal from configured hyperparameters.
 
@@ -122,7 +151,7 @@ Primary outputs:
 Notes:
 - `sim` is retained for testing and controlled benchmarking workflows.
 
-## 6) PoPS-style prior modes (`pops`, `naive_pops`)
+## 7) PoPS-style prior modes (`pops`, `naive_pops`)
 
 Purpose: Run PoPS-style settings on PIGEAN pipeline branches.
 

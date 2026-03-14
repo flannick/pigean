@@ -622,13 +622,13 @@ def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, m
 
     if run_using_phewas:
         if run_betas_using_phewas:
-            state.betas_phewas = copy.copy(result[0])
-            if len(state.betas_phewas.shape) == 1:
-                state.betas_phewas = state.betas[np.newaxis,:]
+            state.betas_phewas = _expand_phewas_gene_set_result(result[0], run_mask, len(state.gene_sets))
         if run_uncorrected_using_phewas:
-            state.betas_uncorrected_phewas = copy.copy(result_uncorrected[0])
-            if len(state.betas_uncorrected_phewas.shape) == 1:
-                state.betas_uncorrected_phewas = state.betas_uncorrected_phewas[np.newaxis,:]
+            state.betas_uncorrected_phewas = _expand_phewas_gene_set_result(
+                result_uncorrected[0],
+                initial_run_mask,
+                len(state.gene_sets),
+            )
 
     else:
         (avg_betas_v[run_mask], avg_postp_v[run_mask]) = result
@@ -649,6 +649,15 @@ def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, m
             state.betas_uncorrected_missing = np.zeros(len(state.gene_sets_missing))
             state.non_inf_avg_postps_missing = np.zeros(len(state.gene_sets_missing))
             state.non_inf_avg_cond_betas_missing = np.zeros(len(state.gene_sets_missing))
+
+
+def _expand_phewas_gene_set_result(values, mask, num_gene_sets):
+    expanded_values = np.array(values, copy=True)
+    if expanded_values.ndim == 1:
+        expanded_values = expanded_values[np.newaxis, :]
+    full_values = np.zeros((expanded_values.shape[0], num_gene_sets))
+    full_values[:, mask] = expanded_values
+    return full_values
 
 
 

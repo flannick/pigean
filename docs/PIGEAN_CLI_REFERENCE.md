@@ -5,6 +5,7 @@ This is the canonical human-written manual for the stable, routinely used `pytho
 Use this document for practical command shapes and option semantics.
 Use `docs/CLI_OPTIONS.md` for the exhaustive machine-generated parser inventory.
 Use `README.md` for the full repository documentation map.
+Use `docs/ADVANCED_SET_B.md` for retained advanced workflows such as HuGE cache I/O, precomputed stats ingestion, optional output PheWAS, and PheWAS-as-Y beta sampling.
 
 Scope rules for this document:
 - only stable user-facing options are included here
