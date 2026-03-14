@@ -22,6 +22,7 @@ Use this as the index for the repo documentation set.
 
 - `README.md`: project entrypoint, architecture summary, test tiers, and documentation index
 - `docs/PIGEAN_CLI_REFERENCE.md`: human-written manual for how to run PIGEAN
+- `docs/eaggl/CLI_REFERENCE.md`: human-written manual for how to run EAGGL
 - `docs/CLI_OPTIONS.md`: machine-generated exhaustive PIGEAN CLI inventory
 - `docs/eaggl/CLI_OPTIONS.md`: machine-generated exhaustive EAGGL CLI inventory
 

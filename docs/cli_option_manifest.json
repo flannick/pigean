@@ -72,7 +72,7 @@
       "source_line": 72,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 55
+      "usage_references": 60
     },
     {
       "action": "append",
@@ -93,7 +93,7 @@
       "source_line": 73,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 24
+      "usage_references": 27
     },
     {
       "action": null,
@@ -135,7 +135,7 @@
       "source_line": 74,
       "summary": "load one or more dense gene-set matrix files directly",
       "type": null,
-      "usage_references": 20
+      "usage_references": 23
     },
     {
       "action": "append",
@@ -156,7 +156,7 @@
       "source_line": 75,
       "summary": "load a file listing dense gene-set matrix inputs",
       "type": null,
-      "usage_references": 14
+      "usage_references": 17
     },
     {
       "action": null,
@@ -744,7 +744,7 @@
       "source_line": 279,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 43
+      "usage_references": 46
     },
     {
       "action": null,
@@ -1395,7 +1395,7 @@
       "source_line": 274,
       "summary": "set logging verbosity for progress and diagnostic output",
       "type": "int",
-      "usage_references": 12
+      "usage_references": 15
     },
     {
       "action": "store_true",
@@ -1563,7 +1563,7 @@
       "source_line": 278,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 33
+      "usage_references": 36
     },
     {
       "action": null,
@@ -2319,7 +2319,7 @@
       "source_line": 229,
       "summary": "gene location table used for correlation and locus-aware operations",
       "type": null,
-      "usage_references": 58
+      "usage_references": 61
     },
     {
       "action": null,
@@ -2361,7 +2361,7 @@
       "source_line": 118,
       "summary": null,
       "type": null,
-      "usage_references": 19
+      "usage_references": 22
     },
     {
       "action": null,
@@ -2550,7 +2550,7 @@
       "source_line": 412,
       "summary": "gene ID remapping table for advanced gene-phewas ingestion",
       "type": null,
-      "usage_references": 7
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2592,7 +2592,7 @@
       "source_line": 402,
       "summary": "gene ID column for advanced gene-phewas input",
       "type": null,
-      "usage_references": 6
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2613,7 +2613,7 @@
       "source_line": 400,
       "summary": "input gene-phewas statistics table for advanced phewas workflows",
       "type": null,
-      "usage_references": 59
+      "usage_references": 66
     },
     {
       "action": null,
@@ -2655,7 +2655,7 @@
       "source_line": 410,
       "summary": "phenotype column for advanced gene-phewas input",
       "type": null,
-      "usage_references": 6
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2781,7 +2781,7 @@
       "source_line": 209,
       "summary": "uncorrected beta column mapping for advanced gene-set stats ingestion",
       "type": null,
-      "usage_references": 7
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2823,7 +2823,7 @@
       "source_line": 205,
       "summary": "column mapping for advanced --gene-set-stats-in ingestion",
       "type": null,
-      "usage_references": 11
+      "usage_references": 14
     },
     {
       "action": null,
@@ -2844,7 +2844,7 @@
       "source_line": 204,
       "summary": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
       "type": null,
-      "usage_references": 32
+      "usage_references": 37
     },
     {
       "action": null,
@@ -2970,7 +2970,7 @@
       "source_line": 221,
       "summary": "column mapping for advanced --gene-stats-in ingestion",
       "type": null,
-      "usage_references": 16
+      "usage_references": 19
     },
     {
       "action": null,
@@ -2991,7 +2991,7 @@
       "source_line": 220,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 54
+      "usage_references": 59
     },
     {
       "action": null,
@@ -3054,7 +3054,7 @@
       "source_line": 224,
       "summary": "prior column mapping for advanced --gene-stats-in ingestion",
       "type": null,
-      "usage_references": 15
+      "usage_references": 18
     },
     {
       "action": null,
@@ -4041,7 +4041,7 @@
       "source_line": 300,
       "summary": null,
       "type": "float",
-      "usage_references": 20
+      "usage_references": 23
     },
     {
       "action": null,
@@ -5049,7 +5049,7 @@
       "source_line": 269,
       "summary": "write learned hyperparameters and runtime settings",
       "type": null,
-      "usage_references": 27
+      "usage_references": 33
     },
     {
       "action": "store_true",
@@ -5175,7 +5175,7 @@
       "source_line": 174,
       "summary": "load the full positive-control background gene universe",
       "type": null,
-      "usage_references": 21
+      "usage_references": 24
     },
     {
       "action": "store_false",
@@ -5259,7 +5259,7 @@
       "source_line": 168,
       "summary": "load positive-control genes with optional probabilities",
       "type": null,
-      "usage_references": 25
+      "usage_references": 28
     },
     {
       "action": "callback",
@@ -5280,7 +5280,7 @@
       "source_line": 171,
       "summary": "specify positive-control genes directly on the command line",
       "type": "string",
-      "usage_references": 29
+      "usage_references": 33
     },
     {
       "action": "store_false",
@@ -5385,7 +5385,7 @@
       "source_line": 280,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 36
+      "usage_references": 49
     },
     {
       "action": null,
@@ -5511,7 +5511,7 @@
       "source_line": 260,
       "summary": "run gene-level phewas output stage from precomputed gene-phewas stats",
       "type": null,
-      "usage_references": 26
+      "usage_references": 30
     },
     {
       "action": null,
@@ -5679,7 +5679,7 @@
       "source_line": 277,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 22
+      "usage_references": 25
     },
     {
       "action": null,
@@ -6288,7 +6288,7 @@
       "source_line": 328,
       "summary": null,
       "type": "float",
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,

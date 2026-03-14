@@ -11,6 +11,11 @@ Optional labeling stays attached to the same factor command; EAGGL does not have
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
 
+Related docs:
+- `docs/eaggl/CLI_REFERENCE.md`: curated run manual and main flag guide
+- `docs/eaggl/methods.tex`: theory and model formalization
+- `docs/eaggl/CLI_OPTIONS.md`: exhaustive generated inventory
+
 ## Common Setup
 
 Use the local venv from the analysis workspace:
@@ -32,7 +37,7 @@ Useful common outputs:
 Debug workflow selection without running factorization:
 
 ```bash
-$PYTHON src/eaggl.py factor --print-effective-config [workflow flags ...]
+$PYTHON -m eaggl factor --print-effective-config [workflow flags ...]
 ```
 
 ## Input Contracts
@@ -65,7 +70,7 @@ Required:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --gene-stats-in /path/to/gene_stats.out \
   --gene-set-stats-in /path/to/gene_set_stats.out \
@@ -82,7 +87,7 @@ Required:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --positive-controls-list INS,GCK,HNF1A \
   --gene-set-stats-out results/F2.gene_set_stats.out \
@@ -100,7 +105,7 @@ Required:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --gene-stats-in /path/to/gene_stats.out \
   --gene-set-stats-in /path/to/gene_set_stats.out \
@@ -119,7 +124,7 @@ Required:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --anchor-phenos T2D,T2D_ALT \
   --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
@@ -138,7 +143,7 @@ Required:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --anchor-any-pheno \
   --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
@@ -157,7 +162,7 @@ Required:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --anchor-genes INS \
   --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
@@ -183,7 +188,7 @@ Optional expansion knobs:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --anchor-genes INS,GCK \
   --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
@@ -202,7 +207,7 @@ Required:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --anchor-any-gene \
   --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
@@ -221,7 +226,7 @@ Required:
 Command:
 
 ```bash
-$PYTHON src/eaggl.py factor \
+$PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
   --anchor-gene-set \
   --gene-stats-in /path/to/gene_stats.out \
@@ -256,4 +261,4 @@ Post-read filtering does not tighten this threshold.
 
 1. Deterministic workflow baseline generator: `scripts/freeze_factor_workflow_effective_configs.sh`
 2. Effective-config fixtures: `tests/data/reference/factor_workflow_effective_config/`
-3. PIGEAN handoff details: `docs/INTEROP.md`
+3. PIGEAN handoff details: `docs/eaggl/INTEROP.md`

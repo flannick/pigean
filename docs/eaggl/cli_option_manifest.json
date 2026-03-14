@@ -49,7 +49,7 @@
       "source_line": 90,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 55
+      "usage_references": 60
     },
     {
       "action": "append",
@@ -70,7 +70,7 @@
       "source_line": 91,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 24
+      "usage_references": 27
     },
     {
       "action": "append",
@@ -91,7 +91,7 @@
       "source_line": 92,
       "summary": "load one or more dense gene-set matrix files directly",
       "type": null,
-      "usage_references": 20
+      "usage_references": 23
     },
     {
       "action": "append",
@@ -112,7 +112,7 @@
       "source_line": 93,
       "summary": "load a file listing dense gene-set matrix inputs",
       "type": null,
-      "usage_references": 14
+      "usage_references": 17
     },
     {
       "action": "store_true",
@@ -238,7 +238,7 @@
       "source_line": 292,
       "summary": null,
       "type": "float",
-      "usage_references": 2
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -259,7 +259,7 @@
       "source_line": 332,
       "summary": "anchor factorization to any gene in the loaded gene-phewas inputs",
       "type": null,
-      "usage_references": 10
+      "usage_references": 13
     },
     {
       "action": "store_true",
@@ -280,7 +280,7 @@
       "source_line": 330,
       "summary": "anchor factorization to any phenotype in the loaded phewas inputs",
       "type": null,
-      "usage_references": 24
+      "usage_references": 27
     },
     {
       "action": "store_true",
@@ -301,7 +301,7 @@
       "source_line": 333,
       "summary": "run gene-set anchoring using the loaded phenotype evidence",
       "type": null,
-      "usage_references": 10
+      "usage_references": 13
     },
     {
       "action": "callback",
@@ -322,7 +322,7 @@
       "source_line": 331,
       "summary": "anchor factorization to one or more genes",
       "type": "string",
-      "usage_references": 22
+      "usage_references": 25
     },
     {
       "action": "callback",
@@ -343,7 +343,7 @@
       "source_line": 329,
       "summary": "anchor factorization to one or more phenotypes",
       "type": "string",
-      "usage_references": 15
+      "usage_references": 19
     },
     {
       "action": null,
@@ -427,7 +427,7 @@
       "source_line": 293,
       "summary": null,
       "type": "float",
-      "usage_references": 2
+      "usage_references": 5
     },
     {
       "action": "store_true",
@@ -490,7 +490,7 @@
       "source_line": 206,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 43
+      "usage_references": 46
     },
     {
       "action": "store_true",
@@ -553,7 +553,7 @@
       "source_line": 201,
       "summary": "set logging verbosity for progress and diagnostic output",
       "type": "int",
-      "usage_references": 12
+      "usage_references": 15
     },
     {
       "action": "store_true",
@@ -679,7 +679,7 @@
       "source_line": 205,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 33
+      "usage_references": 36
     },
     {
       "action": null,
@@ -700,7 +700,7 @@
       "source_line": 144,
       "summary": "load bundled PIGEAN outputs as default EAGGL inputs",
       "type": null,
-      "usage_references": 32
+      "usage_references": 36
     },
     {
       "action": null,
@@ -721,7 +721,7 @@
       "source_line": 185,
       "summary": "run factor-level phewas from precomputed gene-phewas statistics",
       "type": null,
-      "usage_references": 7
+      "usage_references": 10
     },
     {
       "action": null,
@@ -742,7 +742,7 @@
       "source_line": 186,
       "summary": null,
       "type": "float",
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -763,7 +763,7 @@
       "source_line": 171,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 9
     },
     {
       "action": null,
@@ -784,7 +784,7 @@
       "source_line": 339,
       "summary": null,
       "type": "int",
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -805,7 +805,7 @@
       "source_line": 340,
       "summary": null,
       "type": "float",
-      "usage_references": 3
+      "usage_references": 5
     },
     {
       "action": null,
@@ -826,7 +826,7 @@
       "source_line": 337,
       "summary": null,
       "type": "int",
-      "usage_references": 3
+      "usage_references": 5
     },
     {
       "action": null,
@@ -847,7 +847,7 @@
       "source_line": 338,
       "summary": null,
       "type": "float",
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -868,7 +868,7 @@
       "source_line": 335,
       "summary": null,
       "type": "int",
-      "usage_references": 5
+      "usage_references": 8
     },
     {
       "action": null,
@@ -889,7 +889,7 @@
       "source_line": 336,
       "summary": null,
       "type": "float",
-      "usage_references": 5
+      "usage_references": 7
     },
     {
       "action": null,
@@ -910,7 +910,7 @@
       "source_line": 164,
       "summary": "write anchor-specific factorization outputs",
       "type": null,
-      "usage_references": 5
+      "usage_references": 8
     },
     {
       "action": null,
@@ -931,7 +931,7 @@
       "source_line": 163,
       "summary": "write the main factor loading output table",
       "type": null,
-      "usage_references": 22
+      "usage_references": 28
     },
     {
       "action": null,
@@ -1036,7 +1036,7 @@
       "source_line": 169,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1057,7 +1057,7 @@
       "source_line": 166,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 10
     },
     {
       "action": null,
@@ -1204,7 +1204,7 @@
       "source_line": 148,
       "summary": null,
       "type": null,
-      "usage_references": 58
+      "usage_references": 61
     },
     {
       "action": null,
@@ -1225,7 +1225,7 @@
       "source_line": 115,
       "summary": null,
       "type": null,
-      "usage_references": 19
+      "usage_references": 22
     },
     {
       "action": null,
@@ -1267,7 +1267,7 @@
       "source_line": 179,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1414,7 +1414,7 @@
       "source_line": 326,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 10
     },
     {
       "action": null,
@@ -1456,7 +1456,7 @@
       "source_line": 316,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1477,7 +1477,7 @@
       "source_line": 314,
       "summary": null,
       "type": null,
-      "usage_references": 59
+      "usage_references": 66
     },
     {
       "action": null,
@@ -1519,7 +1519,7 @@
       "source_line": 324,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1561,7 +1561,7 @@
       "source_line": 168,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1582,7 +1582,7 @@
       "source_line": 165,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 11
     },
     {
       "action": null,
@@ -1708,7 +1708,7 @@
       "source_line": 308,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1729,7 +1729,7 @@
       "source_line": 307,
       "summary": "load gene-set phewas statistics for projection and anchor workflows",
       "type": null,
-      "usage_references": 57
+      "usage_references": 64
     },
     {
       "action": null,
@@ -1750,7 +1750,7 @@
       "source_line": 311,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -1813,7 +1813,7 @@
       "source_line": 130,
       "summary": null,
       "type": null,
-      "usage_references": 7
+      "usage_references": 10
     },
     {
       "action": null,
@@ -1855,7 +1855,7 @@
       "source_line": 126,
       "summary": null,
       "type": null,
-      "usage_references": 11
+      "usage_references": 14
     },
     {
       "action": null,
@@ -1876,7 +1876,7 @@
       "source_line": 125,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 32
+      "usage_references": 37
     },
     {
       "action": null,
@@ -1981,7 +1981,7 @@
       "source_line": 139,
       "summary": null,
       "type": null,
-      "usage_references": 16
+      "usage_references": 19
     },
     {
       "action": null,
@@ -2002,7 +2002,7 @@
       "source_line": 138,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 54
+      "usage_references": 59
     },
     {
       "action": null,
@@ -2065,7 +2065,7 @@
       "source_line": 142,
       "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 18
     },
     {
       "action": null,
@@ -2275,7 +2275,7 @@
       "source_line": 287,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 9
     },
     {
       "action": "store_true",
@@ -2296,7 +2296,7 @@
       "source_line": 288,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 7
     },
     {
       "action": "store_true",
@@ -2317,7 +2317,7 @@
       "source_line": 289,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 7
     },
     {
       "action": "store_true",
@@ -2359,7 +2359,7 @@
       "source_line": 284,
       "summary": "enable optional LLM-based factor labeling",
       "type": "str",
-      "usage_references": 8
+      "usage_references": 11
     },
     {
       "action": null,
@@ -2380,7 +2380,7 @@
       "source_line": 286,
       "summary": "choose the LLM model used for optional labeling",
       "type": "str",
-      "usage_references": 5
+      "usage_references": 8
     },
     {
       "action": null,
@@ -2401,7 +2401,7 @@
       "source_line": 285,
       "summary": "choose the LLM provider used for optional labeling",
       "type": "str",
-      "usage_references": 8
+      "usage_references": 11
     },
     {
       "action": null,
@@ -2485,7 +2485,7 @@
       "source_line": 226,
       "summary": null,
       "type": "float",
-      "usage_references": 20
+      "usage_references": 23
     },
     {
       "action": null,
@@ -2653,7 +2653,7 @@
       "source_line": 290,
       "summary": null,
       "type": "int",
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2863,7 +2863,7 @@
       "source_line": 299,
       "summary": null,
       "type": "float",
-      "usage_references": 2
+      "usage_references": 5
     },
     {
       "action": null,
@@ -3073,7 +3073,7 @@
       "source_line": 298,
       "summary": null,
       "type": null,
-      "usage_references": 2
+      "usage_references": 5
     },
     {
       "action": null,
@@ -3199,7 +3199,7 @@
       "source_line": 196,
       "summary": null,
       "type": null,
-      "usage_references": 27
+      "usage_references": 33
     },
     {
       "action": "store_true",
@@ -3241,7 +3241,7 @@
       "source_line": 170,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -3262,7 +3262,7 @@
       "source_line": 167,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 8
     },
     {
       "action": null,
@@ -3346,7 +3346,7 @@
       "source_line": 291,
       "summary": null,
       "type": "float",
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -3367,7 +3367,7 @@
       "source_line": 121,
       "summary": null,
       "type": null,
-      "usage_references": 21
+      "usage_references": 24
     },
     {
       "action": null,
@@ -3388,7 +3388,7 @@
       "source_line": 119,
       "summary": null,
       "type": null,
-      "usage_references": 25
+      "usage_references": 28
     },
     {
       "action": "callback",
@@ -3409,7 +3409,7 @@
       "source_line": 120,
       "summary": null,
       "type": "string",
-      "usage_references": 29
+      "usage_references": 33
     },
     {
       "action": null,
@@ -3472,7 +3472,7 @@
       "source_line": 207,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 36
+      "usage_references": 49
     },
     {
       "action": null,
@@ -3514,7 +3514,7 @@
       "source_line": 327,
       "summary": "project phenotype loadings from gene-set scores instead of gene scores",
       "type": null,
-      "usage_references": 4
+      "usage_references": 7
     },
     {
       "action": "store_true",
@@ -3598,7 +3598,7 @@
       "source_line": 182,
       "summary": "run gene-level phewas output stage from precomputed gene-phewas statistics",
       "type": null,
-      "usage_references": 26
+      "usage_references": 30
     },
     {
       "action": null,
@@ -3619,7 +3619,7 @@
       "source_line": 204,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 22
+      "usage_references": 25
     },
     {
       "action": null,
@@ -3703,7 +3703,7 @@
       "source_line": 249,
       "summary": null,
       "type": "float",
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
