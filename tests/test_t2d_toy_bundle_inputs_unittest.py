@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 
-class T2DSmokeBundleInputsTest(unittest.TestCase):
+class T2DToyBundleInputsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.repo_root = Path(__file__).resolve().parents[1]
@@ -21,13 +21,13 @@ class T2DSmokeBundleInputsTest(unittest.TestCase):
             cls.fixture_root / "mody.gene.list",
             cls.fixture_root / "mody_case_counts.tsv",
             cls.fixture_root / "mody_ctrl_counts.tsv",
-            cls.model_data / "gene_set_list_mouse_2024.txt",
+            cls.fixture_root / "gene_set_list_mouse_t2d_toy.txt",
             cls.model_data / "portal_gencode.gene.map",
             cls.model_data / "NCBI37.3.plink.gene.loc",
         ]
         missing = [str(path) for path in required if not path.exists()]
         if missing:
-            raise unittest.SkipTest("Missing bundled T2D smoke fixtures: " + ", ".join(missing))
+            raise unittest.SkipTest("Missing bundled T2D toy fixtures: " + ", ".join(missing))
 
         cls.positive_controls_csv = ",".join(
             gene.strip()
@@ -37,7 +37,7 @@ class T2DSmokeBundleInputsTest(unittest.TestCase):
 
         cls._tmpdir_ctx = tempfile.TemporaryDirectory()
         cls.tmpdir = Path(cls._tmpdir_ctx.name)
-        cls.output_prefix = cls.tmpdir / "t2d_smoke"
+        cls.output_prefix = cls.tmpdir / "t2d_toy"
         cls.proc = cls._run_beta_tildes()
         cls.combined_output = (cls.proc.stdout or "") + (cls.proc.stderr or "")
 
@@ -56,7 +56,7 @@ class T2DSmokeBundleInputsTest(unittest.TestCase):
             "--deterministic",
             "--hide-opts",
             "--X-in",
-            str(cls.model_data / "gene_set_list_mouse_2024.txt"),
+            str(cls.fixture_root / "gene_set_list_mouse_t2d_toy.txt"),
             "--gene-map-in",
             str(cls.model_data / "portal_gencode.gene.map"),
             "--gene-loc-file",
@@ -129,18 +129,18 @@ class T2DSmokeBundleInputsTest(unittest.TestCase):
                 out[row[key_col]] = row
         return out
 
-    def test_logs_show_all_fixture_inputs_are_read(self) -> None:
+    def test_logs_show_all_toy_fixture_inputs_are_read(self) -> None:
         text = self.combined_output
         self.assertIn("Reading --exomes-in file", text)
         self.assertIn("Reading case counts from", text)
         self.assertIn("Reading ctrl counts from", text)
         self.assertIn("Reading --gwas-in file", text)
 
-    def test_outputs_are_nonempty_and_include_expected_t2d_genes(self) -> None:
+    def test_toy_outputs_are_nonempty_and_include_expected_t2d_genes(self) -> None:
         gene_stats = self._load_rows(self.output_prefix.with_suffix(".gene_stats.out"), "Gene")
         gene_set_stats = self._load_rows(self.output_prefix.with_suffix(".gene_set_stats.out"), "Gene_Set")
         self.assertGreaterEqual(len(gene_stats), 1000)
-        self.assertGreaterEqual(len(gene_set_stats), 100)
+        self.assertGreaterEqual(len(gene_set_stats), 5)
         self.assertIn("HNF1A", gene_stats)
         self.assertIn("GCK", gene_stats)
         self.assertIn("INS", gene_stats)

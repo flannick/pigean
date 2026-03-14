@@ -87,6 +87,50 @@ Legacy script is retained in `legacy/priors.py` for historical reference, but ac
 - `python -m pigean`
 - `python -m eaggl`
 
+## Test tiers
+
+Two bundled T2D fixture tiers are available for repo-tracked testing:
+
+- Toy tier:
+  - inputs live under `tests/data/t2d_smoke/`
+  - includes compact GWAS + exomes + MODY positive controls + synthetic case/control counts
+  - uses `tests/data/t2d_smoke/gene_set_list_mouse_t2d_toy.txt`
+  - intended for quick regression coverage of mixed input parsing and staged Y assembly
+- Validation tier:
+  - uses the same compact bundled GWAS fixture
+  - uses the real mouse gene-set file `tests/data/model_small/gene_set_list_mouse_2024.txt`
+  - intended for slower but more faithful gene-set validation without the toy QC-filter override
+
+Run the toy tier:
+
+```bash
+cd pigean
+PYTHONPATH=src ../../.venv/bin/python -m pytest \
+  tests/test_t2d_toy_bundle_inputs_unittest.py
+```
+
+Run the validation tier:
+
+```bash
+cd pigean
+PYTHONPATH=src ../../.venv/bin/python -m pytest \
+  tests/test_t2d_validation_bundle_inputs_unittest.py \
+  tests/test_huge_real_gwas_regression_unittest.py
+```
+
+Run the broader focused slice covering bundled fixtures plus MODY/CLI paths:
+
+```bash
+cd pigean
+PYTHONPATH=src ../../.venv/bin/python -m pytest \
+  tests/test_t2d_toy_bundle_inputs_unittest.py \
+  tests/test_t2d_validation_bundle_inputs_unittest.py \
+  tests/test_huge_real_gwas_regression_unittest.py \
+  tests/test_mody_core_modes_regression_unittest.py \
+  tests/test_mody_gibbs_regression_unittest.py \
+  tests/test_pigean_cli_unittest.py
+```
+
 Current architecture:
 - `src/pigean/app.py` and `src/eaggl/app.py` are the package-owned runtime entry modules
 - `src/pigean/dispatch.py`, `src/pigean/pipeline.py`, `src/pigean/gibbs.py`, `src/pigean/huge.py`, and `src/pigean/model.py` own the stage-level PIGEAN flow

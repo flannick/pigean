@@ -15,6 +15,18 @@ EXOMES_P_THRESHOLD = 1e-4
 CASE_TOTAL = 10_000
 CTRL_TOTAL = 20_000
 RNG_SEED = 20260314
+TOY_GENE_SET_IDS = [
+    "mp_abnormal_glucose_homeostasis",
+    "mp_abnormal_circulating_glucose_level",
+    "mp_abnormal_circulating_insulin_level",
+    "mp_abnormal_insulin_secretion",
+    "mp_abnormal_pancreas_morphology",
+    "mp_abnormal_pancreas_secretion",
+    "mp_abnormal_endocrine_pancreas_morphology",
+    "mp_abnormal_endocrine_pancreas_physiology",
+    "mp_decreased_circulating_glucose_level",
+    "mp_abnormal_pancreatic_alpha_cell_morphology",
+]
 
 
 def _read_mody_genes(path: Path) -> list[str]:
@@ -34,8 +46,9 @@ def build_fixture() -> dict[str, object]:
     src_gwas = analysis_root / "data" / "T2D.chrom_pos.sumstats.gz"
     src_exomes = analysis_root / "data" / "T2D.exomes.txt"
     src_mody = analysis_root / "data" / "mody.gene.list"
-    if not src_gwas.exists() or not src_exomes.exists() or not src_mody.exists():
-        missing = [str(p) for p in [src_gwas, src_exomes, src_mody] if not p.exists()]
+    src_mouse_gene_sets = repo_root / "tests" / "data" / "model_small" / "gene_set_list_mouse_2024.txt"
+    if not src_gwas.exists() or not src_exomes.exists() or not src_mody.exists() or not src_mouse_gene_sets.exists():
+        missing = [str(p) for p in [src_gwas, src_exomes, src_mody, src_mouse_gene_sets] if not p.exists()]
         raise SystemExit(f"Missing source inputs: {', '.join(missing)}")
 
     mody_genes = _read_mody_genes(src_mody)
@@ -46,6 +59,7 @@ def build_fixture() -> dict[str, object]:
     out_mody = out_dir / "mody.gene.list"
     out_case = out_dir / "mody_case_counts.tsv"
     out_ctrl = out_dir / "mody_ctrl_counts.tsv"
+    out_toy_gene_sets = out_dir / "gene_set_list_mouse_t2d_toy.txt"
     out_summary = out_dir / "fixture_summary.json"
     out_readme = out_dir / "README.md"
 
@@ -97,6 +111,19 @@ def build_fixture() -> dict[str, object]:
                     kept_mody_rows += 1
 
     shutil.copyfile(src_mody, out_mody)
+
+    kept_gene_sets = 0
+    with src_mouse_gene_sets.open("r", encoding="utf-8") as src, out_toy_gene_sets.open("w", encoding="utf-8") as dst:
+        for line in src:
+            gene_set_id = line.split("\t", 1)[0].strip()
+            if gene_set_id in TOY_GENE_SET_IDS:
+                dst.write(line)
+                kept_gene_sets += 1
+    if kept_gene_sets != len(TOY_GENE_SET_IDS):
+        raise SystemExit(
+            "Did not find all requested toy gene sets; "
+            f"kept {kept_gene_sets} of {len(TOY_GENE_SET_IDS)}"
+        )
 
     rng = random.Random(RNG_SEED)
     np_rng = np.random.default_rng(RNG_SEED)
@@ -163,6 +190,7 @@ def build_fixture() -> dict[str, object]:
         "exome_rows": exome_rows,
         "exome_rows_for_mody_genes": kept_mody_rows,
         "mody_gene_count": len(mody_genes),
+        "toy_gene_set_count": kept_gene_sets,
         "case_total": CASE_TOTAL,
         "ctrl_total": CTRL_TOTAL,
         "rng_seed": RNG_SEED,
@@ -170,7 +198,7 @@ def build_fixture() -> dict[str, object]:
     out_summary.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     size_lines = []
-    for path in [out_gwas, out_exomes, out_mody, out_case, out_ctrl, out_summary]:
+    for path in [out_gwas, out_exomes, out_mody, out_case, out_ctrl, out_toy_gene_sets, out_summary]:
         size_lines.append(f"- `{path.name}`: {path.stat().st_size} bytes")
     out_readme.write_text(
         "# T2D Smoke Fixtures\n\n"
@@ -180,6 +208,7 @@ def build_fixture() -> dict[str, object]:
         f"- `T2D.exomes.p_lt_1e-4_or_mody.tsv`: subset of `{src_exomes.relative_to(analysis_root)}` with `P-value < 1e-4` plus all MODY genes\n"
         "- `mody.gene.list`: copied MODY positive-control list\n"
         "- `mody_case_counts.tsv` / `mody_ctrl_counts.tsv`: synthetic burden-count fixtures for the MODY genes\n"
+        f"- `gene_set_list_mouse_t2d_toy.txt`: 10 curated diabetes/pancreas lines copied from `{src_mouse_gene_sets.relative_to(repo_root)}` for fast toy tests\n"
         "- `fixture_summary.json`: thresholds and row counts\n\n"
         "Synthetic counts were generated with RNG seed `20260314`, cohort sizes 10k cases / 20k controls, and per-gene relative risk sampled as `1 + Exponential(scale=4)` so the expected mean RR is 5 with a minimum of 1.\n\n"
         "File sizes:\n"

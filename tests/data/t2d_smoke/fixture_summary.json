@@ -10,5 +10,6 @@
   "rng_seed": 20260314,
   "source_exomes": "data/T2D.exomes.txt",
   "source_gwas": "data/T2D.chrom_pos.sumstats.gz",
-  "source_mody": "data/mody.gene.list"
+  "source_mody": "data/mody.gene.list",
+  "toy_gene_set_count": 10
 }
