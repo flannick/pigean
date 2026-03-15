@@ -48,7 +48,7 @@ Core matrix/stat inputs (direct mode):
 2. `--gene-stats-in`
 3. `--gene-set-stats-in`
 
-Use `--X-in` for a direct `.gmt` sparse matrix file. Use `--X-list` only for a text file that lists matrix inputs.
+Use `--X-in` for a direct `.gmt` sparse matrix file. Use `--X-list` only for a text file that lists matrix inputs. If a direct `.gmt` is passed to `--X-list`, EAGGL accepts it for compatibility but warns and treats it like `--X-in`.
 
 PheWAS matrix inputs (for phenotype/gene anchor workflows):
 

@@ -165,7 +165,7 @@ Use these only when your files do not match the expected default headers.
 Operational note:
 - Use `--X-in` for a direct `.gmt` sparse matrix file.
 - `--X-list` is for a text file that lists sparse matrix inputs one per line.
-- For compatibility, a direct `.gmt` or `.gmt.gz` path passed to `--X-list` is accepted and treated like `--X-in`, but `--X-in` is still the canonical form.
+- For compatibility, a direct `.gmt` or `.gmt.gz` path passed to `--X-list` is accepted and treated like `--X-in`, but EAGGL emits a warning and `--X-in` remains the canonical form.
 
 ### Core factor model controls
 

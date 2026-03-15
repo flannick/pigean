@@ -336,6 +336,17 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
             self.assertEqual(options["gene_stats_in"], str(override_gene_stats))
             self.assertTrue(options["gene_set_stats_in"].endswith("gene_set_stats.tsv.gz"))
 
+    def test_warns_when_direct_gmt_is_passed_to_x_list(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            gmt_path = Path(td) / "toy.gmt"
+            gmt_path.write_text("SET_A\tna\tGENE1\tGENE2\n", encoding="utf-8")
+            proc = self._run("factor", "--X-list", str(gmt_path), "--print-effective-config")
+            self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+            self.assertIn("Direct GMT path passed to --X-list", proc.stderr or "")
+            self.assertIn("Use --X-in for direct .gmt files", proc.stderr or "")
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["options"]["X_list"], [str(gmt_path)])
+
     def test_read_correlations_fails_fast_when_gls_cholesky_is_initialized(self) -> None:
         repo_root = self._repo_root()
         snippet = r"""

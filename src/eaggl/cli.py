@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import sys
 
@@ -771,6 +772,28 @@ _resolve_config_path_value = pegs_resolve_config_path_value
 
 _early_warn = pegs_emit_stderr_warning
 
+
+def _warn_for_direct_gmt_passed_to_x_list(options, warn_fn):
+    x_list = getattr(options, "X_list", None)
+    if x_list is None:
+        return
+    for raw_spec in x_list:
+        if raw_spec is None:
+            continue
+        spec = raw_spec
+        if getattr(options, "batch_separator", None) and options.batch_separator in spec:
+            spec = options.batch_separator.join(spec.split(options.batch_separator)[:-1])
+        if ":" in spec:
+            tag_prefix, remainder = spec.split(":", 1)
+            if len(tag_prefix) > 0 and len(remainder) > 0:
+                spec = remainder
+        lower_spec = spec.lower()
+        if os.path.isfile(spec) and (lower_spec.endswith(".gmt") or lower_spec.endswith(".gmt.gz")):
+            warn_fn(
+                "Direct GMT path passed to --X-list (%s); treating it as a sparse X input for compatibility. "
+                "Use --X-in for direct .gmt files." % raw_spec
+            )
+
 _json_safe = pegs_json_safe
 
 REMOVED_OPTION_REPLACEMENTS = {
@@ -1046,6 +1069,8 @@ def _bootstrap_cli(argv=None):
     warnings_fh = _logging_state["warnings_fh"]
     log = _logging_state["log"]
     warn = _logging_state["warn"]
+
+    _warn_for_direct_gmt_passed_to_x_list(parsed_options, warn)
 
     parsed_eaggl_bundle_info = _apply_eaggl_bundle_inputs(parsed_options)
     if parsed_eaggl_bundle_info is not None:
