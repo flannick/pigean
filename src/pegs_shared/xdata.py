@@ -113,10 +113,23 @@ def _append_inputs_from_list_files(
         list_specs = [list_specs]
 
     for list_spec in list_specs:
+        original_list_spec = list_spec
         batch = None
         if batch_separator in list_spec:
             batch = list_spec.split(batch_separator)[-1]
             list_spec = batch_separator.join(list_spec.split(batch_separator)[:-1])
+
+        list_path, list_tag = remove_tag_from_input(list_spec)
+        if _is_direct_sparse_matrix_spec(list_path):
+            direct_input = add_tag_to_input(list_path, list_tag)
+            if batch is not None and batch_separator not in direct_input:
+                direct_input = "%s%s%s" % (direct_input, batch_separator, batch)
+            dest_inputs.append(direct_input)
+            if initial_ps is not None:
+                assert(original_list_spec in xin_to_p_noninf_ind)
+                initial_ps.append(xin_to_p_noninf_ind[original_list_spec])
+            dest_orig_files.append(original_list_spec)
+            continue
 
         list_dir = os.path.dirname(os.path.abspath(list_spec))
         with list_open_fn(list_spec) as list_fh:
@@ -300,6 +313,13 @@ def build_read_x_post_options(local_vars, *, batches, num_ignored_gene_sets, ign
 
 def initialize_matrix_and_gene_index_state(runtime, batch_size):
     XData.initialized_runtime_state(batch_size).apply_to_runtime(runtime)
+
+
+def _is_direct_sparse_matrix_spec(input_path):
+    lower_input_path = input_path.lower()
+    return os.path.isfile(input_path) and (
+        lower_input_path.endswith(".gmt") or lower_input_path.endswith(".gmt.gz")
+    )
 
 
 def remove_tag_from_input(x_in, tag_separator=":"):

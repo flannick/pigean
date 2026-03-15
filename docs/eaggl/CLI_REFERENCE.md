@@ -162,6 +162,11 @@ Use these only when your files do not match the expected default headers.
 | gene-set-PheWAS column selectors such as `--gene-set-phewas-stats-id-col` and `--gene-set-phewas-stats-pheno-col` | choose the gene-set-PheWAS columns used from `--gene-set-phewas-stats-in` |
 | `--gene-phewas-id-to-X-id` | map gene IDs in the PheWAS input onto the X-matrix gene IDs |
 
+Operational note:
+- Use `--X-in` for a direct `.gmt` sparse matrix file.
+- `--X-list` is for a text file that lists sparse matrix inputs one per line.
+- For compatibility, a direct `.gmt` or `.gmt.gz` path passed to `--X-list` is accepted and treated like `--X-in`, but `--X-in` is still the canonical form.
+
 ### Core factor model controls
 
 | Flag | Meaning |

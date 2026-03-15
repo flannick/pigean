@@ -1987,6 +1987,31 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(plan.labels, ["tagA", "tagA"])
         self.assertEqual(plan.is_dense, [False, False])
 
+    def test_prepare_read_x_inputs_treats_gmt_passed_to_x_list_as_direct_sparse_input(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            gmt_path = root / "toy_matrix.gmt"
+            gmt_path.write_text("SET_A\tna\tGENE1\tGENE2\n", encoding="utf-8")
+
+            plan = pegs_utils.prepare_read_x_inputs(
+                X_in=None,
+                X_list=[str(gmt_path) + "@B1"],
+                Xd_in=None,
+                Xd_list=None,
+                initial_p=None,
+                xin_to_p_noninf_ind=None,
+                batch_separator="@",
+                file_separator=None,
+                sparse_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                dense_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+            )
+
+            self.assertEqual(plan.X_ins, [str(gmt_path)])
+            self.assertEqual(plan.batches, ["B1"])
+            self.assertEqual(plan.labels, ["B1"])
+            self.assertEqual(plan.orig_files, [str(gmt_path) + "@B1"])
+            self.assertEqual(plan.is_dense, [False])
+
     def test_resolve_gene_phewas_input_decision_skip_when_no_requested_input(self) -> None:
         decision = pegs_utils.resolve_gene_phewas_input_decision_for_stage(
             requested_input=None,
