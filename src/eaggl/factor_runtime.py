@@ -8,9 +8,22 @@ import numpy as np
 import scipy
 import scipy.sparse as sparse
 
+def _clone_runtime_value(value):
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        return value
+
+
+def _clone_runtime_state(source):
+    cloned = copy.copy(source)
+    cloned.__dict__ = {key: _clone_runtime_value(value) for key, value in source.__dict__.items()}
+    return cloned
+
+
 def _replace_runtime_state(target, source):
     target.__dict__.clear()
-    target.__dict__.update(copy.deepcopy(source.__dict__))
+    target.__dict__.update({key: _clone_runtime_value(value) for key, value in source.__dict__.items()})
 
 
 def _derive_factor_run_seeds(seed, factor_runs):
@@ -187,7 +200,7 @@ def _evaluate_phi_candidate(
     info_level,
 ):
     log_fn("Evaluating automatic phi candidate %.6g with %d restart(s)" % (phi, runs_per_step), info_level)
-    search_factor_kwargs = copy.deepcopy(factor_kwargs)
+    search_factor_kwargs = dict(factor_kwargs)
     search_factor_kwargs["phi"] = phi
     search_factor_kwargs["lmm_auth_key"] = None
     search_factor_kwargs["label_gene_sets_only"] = False
@@ -198,7 +211,7 @@ def _evaluate_phi_candidate(
     run_states = []
     run_summaries = []
     for run_index, child_seed in enumerate(child_seeds):
-        run_state = copy.deepcopy(template_state)
+        run_state = _clone_runtime_state(template_state)
         run_summary = _run_factor_with_seed(
             run_state,
             seed=child_seed,
@@ -1311,7 +1324,7 @@ def _apply_consensus_solution(
 ):
     eligible_indices = [idx for idx, state in enumerate(run_states) if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0 and state.num_factors() > 0]
     if len(eligible_indices) == 0:
-        return copy.deepcopy(run_states[min(range(len(run_summaries)), key=lambda idx: _best_run_sort_key(run_summaries[idx]))]), {
+        return _clone_runtime_state(run_states[min(range(len(run_summaries)), key=lambda idx: _best_run_sort_key(run_summaries[idx]))]), {
             "mode": "consensus",
             "reference_run_index": None,
             "run_summaries": copy.deepcopy(run_summaries),
@@ -1325,7 +1338,7 @@ def _apply_consensus_solution(
     reference_candidates = factor_count_to_indices[modal_factor_count]
     reference_index = min(reference_candidates, key=lambda idx: _best_run_sort_key(run_summaries[idx]))
 
-    consensus_state = copy.deepcopy(run_states[reference_index])
+    consensus_state = _clone_runtime_state(run_states[reference_index])
     factor_matches = _collect_consensus_matches(run_states, run_summaries, reference_index, min_factor_cosine)
 
     kept_factor_columns = []
@@ -1395,7 +1408,7 @@ def _apply_consensus_solution(
         )
 
     if len(kept_factor_columns) == 0:
-        consensus_state = copy.deepcopy(run_states[reference_index])
+        consensus_state = _clone_runtime_state(run_states[reference_index])
         diagnostics = {
             "mode": "consensus",
             "reference_run_index": int(reference_index),
@@ -1563,7 +1576,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
     run_summaries = []
     for run_index, child_seed in enumerate(child_seeds):
         log("Running factor restart %d/%d%s" % (run_index + 1, factor_runs, "" if child_seed is None else " [seed=%d]" % child_seed), INFO)
-        run_state = copy.deepcopy(state)
+        run_state = _clone_runtime_state(state)
         summary = _run_factor_with_seed(run_state, seed=child_seed, run_index=run_index, factor_kwargs=factor_kwargs)
         run_states.append(run_state)
         run_summaries.append(summary)

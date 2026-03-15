@@ -97,6 +97,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
 
     def test_run_factor_with_learn_phi_selects_less_redundant_candidate_before_final_run(self) -> None:
         state = _TinyState()
+        state.uncopyable_module = np
         final_runs = []
 
         def _stub_single(run_state, **kwargs):
@@ -167,7 +168,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 info_level=1,
                 debug_level=2,
                 trace_level=3,
-                labeling_module=object(),
+                labeling_module=np,
             )
 
         self.assertTrue(state.params["learn_phi"])
