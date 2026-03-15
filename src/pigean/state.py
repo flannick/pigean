@@ -5079,15 +5079,22 @@ class PigeanState(object):
     # ==========================================================================
     # Section: Beta Sampling Core (inner Gibbs for gene-set effects).
     # ==========================================================================
-    # there are two levels of parallelization here:
-    # 1. num_chains: sample multiple independent chains with the same beta/se/V
-    # 2. multiple parallel runs with different beta/se (and potentially V). To do this,
-    #    pass in lists of beta and se (must be the same length) and an optional list of V
-    #    (V must have same length as beta OR be a single shared matrix).
+    # `src/pigean/model.py` now owns the public beta-stage orchestration. The
+    # tensorized Gibbs kernel itself still lives here.
     #
-    # to run this in parallel, pass in a two-dimensional beta_tildes matrix where rows are
-    # parallel runs and columns are gene sets. V can also be 3D with first dimension matching
-    # parallel runs.
+    # There are two independent dimensions of replication in this kernel:
+    # 1. `num_chains`: independent Gibbs chains for the same beta/se/V problem.
+    # 2. `num_parallel`: independent beta problems processed together because
+    #    they share shape but may have different beta_tildes / ses / V inputs.
+    #
+    # `beta_tildes` therefore supports:
+    # - 1D: one beta problem over gene sets
+    # - 2D: `num_parallel x num_gene_sets`
+    #
+    # `V` can be:
+    # - a single shared matrix
+    # - sparse shared matrix
+    # - `num_parallel x num_gene_sets x num_gene_sets`
     def _calculate_non_inf_betas(self, initial_p, return_sample=False, max_num_burn_in=None, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, eps=0.01, max_frac_sem=0.01, max_allowed_batch_correlation=None, beta_outlier_iqr_threshold=5, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, adjust_hyper_sigma_p=False, only_update_hyper=False, sigma_num_devs_to_top=2.0, p_noninf_inflate=1.0, num_p_pseudo=1, sparse_solution=False, sparse_frac_betas=None, betas_trace_out=None, betas_trace_gene_sets=None, beta_tildes=None, ses=None, V=None, X_orig=None, scale_factors=None, mean_shifts=None, is_dense_gene_set=None, ps=None, sigma2s=None, assume_independent=False, num_missing_gene_sets=None, debug_genes=None, debug_gene_sets=None, init_betas=None, init_postp=None):
 
         # ==========================================================================
@@ -5262,19 +5269,23 @@ class PigeanState(object):
             #we have multiple parallel but only one V
             gene_set_masks = [np.tile(x, num_parallel).reshape((num_parallel, len(x))) for x in gene_set_masks]
 
-        #variables are denoted
-        #v: vectors of dimension equal to the number of gene sets
-        #m: data that varies by parallel runs and gene sets
-        #t: data that varies by chains, parallel runs, and gene sets
+        # Suffix convention used throughout the inner loop:
+        # - `_v`: one value per gene set
+        # - `_m`: `num_parallel x num_gene_sets`
+        # - `_t`: `num_chains x num_parallel x num_gene_sets`
+        #
+        # "parallel" here means separate beta problems advanced together, not
+        # OS-level parallel execution.
+        #
+        # Rules:
+        # 1. Broadcasting lower-rank numeric arrays to higher-rank chain/parallel
+        #    tensors must line up with the trailing gene-set axis.
+        # 2. Lower-rank masks index leading axes first, so a batch mask is lifted
+        #    to `_m` before being used inside the `_t` updates.
+        chain_parallel_gene_set_shape = (num_chains, num_parallel, num_gene_sets)
+        parallel_gene_set_shape = (num_parallel, num_gene_sets)
 
-        #rules:
-        #1. adding a lower dimensional tensor to higher dimenional ones means final dimensions must match. These operations are usually across replicates
-        #2. lower dimensional masks on the other hand index from the beginning dimensions (can use :,:,mask to index from end)
-        
-        tensor_shape = (num_chains, num_parallel, num_gene_sets)
-        matrix_shape = (num_parallel, num_gene_sets)
-
-        def _to_initial_tensor(values, name, clamp_unit_interval=False):
+        def _broadcast_initial_values_to_chain_parallel_gene_set_tensor(values, name, clamp_unit_interval=False):
             if values is None:
                 return None
             values = np.asarray(values)
@@ -5282,7 +5293,7 @@ class PigeanState(object):
                 if values.shape[0] != num_gene_sets:
                     bail("%s must have length num_gene_sets=%d; got %d" % (name, num_gene_sets, values.shape[0]))
                 values_m = np.tile(values, num_parallel).reshape((num_parallel, num_gene_sets))
-                values_t = np.tile(values_m, num_chains).reshape(tensor_shape)
+                values_t = np.tile(values_m, num_chains).reshape(chain_parallel_gene_set_shape)
             elif values.ndim == 2:
                 if values.shape[1] != num_gene_sets:
                     bail("%s must have num_gene_sets=%d columns; got %d" % (name, num_gene_sets, values.shape[1]))
@@ -5292,10 +5303,10 @@ class PigeanState(object):
                     values_m = np.tile(values, num_parallel).reshape((num_parallel, num_gene_sets))
                 else:
                     bail("%s must have num_parallel=%d rows; got %d" % (name, num_parallel, values.shape[0]))
-                values_t = np.tile(values_m, num_chains).reshape(tensor_shape)
+                values_t = np.tile(values_m, num_chains).reshape(chain_parallel_gene_set_shape)
             elif values.ndim == 3:
-                if values.shape != tensor_shape:
-                    bail("%s must have shape %s; got %s" % (name, str(tensor_shape), str(values.shape)))
+                if values.shape != chain_parallel_gene_set_shape:
+                    bail("%s must have shape %s; got %s" % (name, str(chain_parallel_gene_set_shape), str(values.shape)))
                 values_t = values
             else:
                 bail("%s must be a 1D, 2D, or 3D array" % name)
@@ -5306,13 +5317,13 @@ class PigeanState(object):
                 values_t = np.clip(values_t, 0.0, 1.0)
             return values_t
 
-        init_postp_t = _to_initial_tensor(init_postp, "init_postp", clamp_unit_interval=True)
-        init_betas_t = _to_initial_tensor(init_betas, "init_betas")
+        init_postp_t = _broadcast_initial_values_to_chain_parallel_gene_set_tensor(init_postp, "init_postp", clamp_unit_interval=True)
+        init_betas_t = _broadcast_initial_values_to_chain_parallel_gene_set_tensor(init_betas, "init_betas")
 
         #these are current posterior means (including p and the conditional beta). They are used to calculate avg_betas
         #using these as the actual betas would yield the Gauss-seidel algorithm
-        curr_post_means_t = np.zeros(tensor_shape)
-        curr_postp_t = np.ones(tensor_shape)
+        curr_post_means_t = np.zeros(chain_parallel_gene_set_shape)
+        curr_postp_t = np.ones(chain_parallel_gene_set_shape)
         if init_postp_t is not None:
             curr_postp_t = init_postp_t
 
@@ -5323,18 +5334,18 @@ class PigeanState(object):
             initial_sd = np.std(beta_tildes_m)
             if initial_sd == 0:
                 initial_sd = 1
-            curr_betas_t = scipy.stats.norm.rvs(0, initial_sd, tensor_shape)
+            curr_betas_t = scipy.stats.norm.rvs(0, initial_sd, chain_parallel_gene_set_shape)
 
-        res_beta_hat_t = np.zeros(tensor_shape)
+        res_beta_hat_t = np.zeros(chain_parallel_gene_set_shape)
 
-        avg_betas_m = np.zeros(matrix_shape)
-        avg_betas2_m = np.zeros(matrix_shape)
-        avg_postp_m = np.zeros(matrix_shape)
+        avg_betas_m = np.zeros(parallel_gene_set_shape)
+        avg_betas2_m = np.zeros(parallel_gene_set_shape)
+        avg_postp_m = np.zeros(parallel_gene_set_shape)
         num_avg = 0
 
         #these are the posterior betas averaged across iterations
-        sum_betas_t = np.zeros(tensor_shape)
-        sum_betas2_t = np.zeros(tensor_shape)
+        sum_betas_t = np.zeros(chain_parallel_gene_set_shape)
+        sum_betas2_t = np.zeros(chain_parallel_gene_set_shape)
 
         # Setting up constants
         #hyperparameters
@@ -5405,7 +5416,7 @@ class PigeanState(object):
                     else:
                         V_diag_m = np.diag(V)[np.newaxis,:]
 
-                account_for_V_diag_m = not np.isclose(V_diag_m, np.ones(matrix_shape)).all()
+                account_for_V_diag_m = not np.isclose(V_diag_m, np.ones(parallel_gene_set_shape)).all()
             else:
                 #we compute it from X, so we know it is always 1
                 V_diag_m = None
@@ -5447,18 +5458,20 @@ class PigeanState(object):
             iteration_num += 1
 
             #default to 1
-            curr_postp_t[:,compute_mask_v,:] = np.ones(tensor_shape)[:,compute_mask_v,:]
+            curr_postp_t[:,compute_mask_v,:] = np.ones(chain_parallel_gene_set_shape)[:,compute_mask_v,:]
 
             #sample whether each gene set has non-zero effect
-            rand_ps_t = np.random.random(tensor_shape)
+            rand_ps_t = np.random.random(chain_parallel_gene_set_shape)
             #generate normal random variable sampling
-            rand_norms_t = scipy.stats.norm.rvs(0, 1, tensor_shape)
+            rand_norms_t = scipy.stats.norm.rvs(0, 1, chain_parallel_gene_set_shape)
 
             # 3a) Update each gene-set batch conditional on current chain state.
             for gene_set_mask_ind in range(len(gene_set_masks)):
                 gene_set_mask_m = gene_set_masks[gene_set_mask_ind]
 
-                # Intersect active parallels with current gene-set batch membership.
+                # `compute_mask_v` tracks which parallel beta problems are still
+                # actively updating. Lift that to a `_m` mask and intersect with
+                # the current gene-set batch membership before the tensor update.
                 compute_mask_m = np.logical_and(compute_mask_v, gene_set_mask_m.T).T
 
                 # Value to use when determining if we should force an alpha shrink if
@@ -5517,9 +5530,9 @@ class PigeanState(object):
 
             # 3b) Update convergence diagnostics and stopping conditions.
             #now calculate the convergence metrics
-            R_m = np.zeros(matrix_shape)
-            beta_weights_m = np.zeros(matrix_shape)
-            sem2_m = np.zeros(matrix_shape)
+            R_m = np.zeros(parallel_gene_set_shape)
+            beta_weights_m = np.zeros(parallel_gene_set_shape)
+            sem2_m = np.zeros(parallel_gene_set_shape)
             will_break = False
             if assume_independent:
                 burn_in_phase_v[:] = False

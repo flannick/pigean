@@ -101,10 +101,14 @@ Methods area:
 
 Primary module:
 - `src/pigean/pipeline.py`
+- `src/pigean/model.py`
+  - stage-level orchestration for beta-tilde, non-inf beta, and prior steps
 
 Related lower-level module:
 - `src/pigean/state.py`
-  - lower-level beta estimation math still lives here
+  - lower-level tensorized non-inf beta Gibbs kernel still lives here
+  - use the `_v` / `_m` / `_t` suffix legend in `_calculate_non_inf_betas(...)`
+    when reading the chain x parallel x gene-set inner loop
 
 Primary regressions:
 - `tests/test_mody_core_modes_regression_unittest.py`
