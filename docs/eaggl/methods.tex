@@ -456,4 +456,75 @@ A concise summary of the theory is:
 \item PheWAS projection and labeling are downstream interpretation layers built on top of the factors.
 \end{itemize}
 
+\section{Factor relevance and any-anchor relevance}
+\label{sec:factor_relevance}
+
+After fitting the factorization, EAGGL reports a factor-level relevance score intended to summarize
+how strongly factor $k$ is supported by the selected trait or anchor set.
+
+The exact basis depends on the workflow family.
+
+\paragraph{F1-F5: gene x gene-set workflows.}
+Let $W^{(g)} \in \mathbb{R}_+^{G \times K}$ denote the gene-by-factor loading matrix, and let
+$p^{(u)} \in [0,1]^G$ denote the gene-level support vector for anchor user $u$.
+For example, $u$ may index:
+\begin{itemize}
+\item the single default phenotype (F1),
+\item the supplied positive-control pseudo-phenotype (F2),
+\item projected phenotypes (F3),
+\item anchor phenotypes (F4),
+\item or the single aggregated any-phenotype support vector (F5).
+\end{itemize}
+
+Define the anchor-specific factor relevance vector $r^{(u)} \in [0,1]^K$ by bounded nonnegative regression:
+\begin{equation}
+r^{(u)}
+=
+\arg\min_{0 \le r \le 1}
+\left\|
+p^{(u)} - W^{(g)} r
+\right\|_2^2.
+\label{eq:eaggl_factor_relevance_gene}
+\end{equation}
+
+\paragraph{F6-F9: gene-set x phenotype workflows.}
+Let $W^{(p)} \in \mathbb{R}_+^{T \times K}$ denote the phenotype-by-factor loading matrix, and let
+$p^{(u)} \in [0,1]^T$ denote the phenotype-support vector associated with anchor user $u$.
+For example, $u$ may index:
+\begin{itemize}
+\item anchor genes (F6-F7),
+\item the single aggregated any-gene support vector (F8),
+\item or the single anchor-gene-set induced support vector (F9).
+\end{itemize}
+
+Define the anchor-specific factor relevance vector analogously:
+\begin{equation}
+r^{(u)}
+=
+\arg\min_{0 \le r \le 1}
+\left\|
+p^{(u)} - W^{(p)} r
+\right\|_2^2.
+\label{eq:eaggl_factor_relevance_pheno}
+\end{equation}
+
+\paragraph{Any-anchor relevance.}
+When more than one anchor user is present, EAGGL summarizes the probability-like relevance of factor $k$
+to \emph{any} selected anchor by a noisy-OR aggregation:
+\begin{equation}
+r^{\mathrm{any}}_k
+=
+1 - \prod_{u=1}^U \left(1 - r^{(u)}_k\right).
+\label{eq:eaggl_factor_any_relevance}
+\end{equation}
+
+This gives the intended semantics:
+\begin{quote}
+``probability-like estimate that factor $k$ is relevant to at least one selected anchor / trait.''
+\end{quote}
+
+In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific score itself.
+This includes the common special cases F1, F2, and F9, and also F5 and F8 after their anchor sets are collapsed into a single aggregate support vector before factorization.
+
+
 \end{document}
