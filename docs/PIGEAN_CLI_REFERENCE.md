@@ -55,6 +55,8 @@ PYTHONPATH=src python -m pigean gibbs \
   --params-out results/trait.params.out
 ```
 
+`--params-out` is the resolved run record. It includes learned/internal quantities such as `p`, `sigma2`, Gibbs diagnostics, and other stage-specific outputs, and it also includes the resolved CLI/config state under `option_*` rows so the effective run settings can be reconstructed after the fact.
+
 HuGE cache build:
 
 ```bash

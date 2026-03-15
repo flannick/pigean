@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
 import subprocess
 import sys
@@ -129,6 +130,15 @@ class T2DToyBundleInputsTest(unittest.TestCase):
                 out[row[key_col]] = row
         return out
 
+    @staticmethod
+    def _load_params(path: Path) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        with path.open() as fh:
+            reader = csv.DictReader(fh, delimiter="\t")
+            for row in reader:
+                out.setdefault(row["Parameter"], []).append(row["Value"])
+        return out
+
     def test_logs_show_all_toy_fixture_inputs_are_read(self) -> None:
         text = self.combined_output
         self.assertIn("Reading --exomes-in file", text)
@@ -148,3 +158,19 @@ class T2DToyBundleInputsTest(unittest.TestCase):
         self.assertGreater(float(gene_stats["GCK"]["huge_score_exomes"]), 0.0)
         self.assertGreater(float(gene_stats["HNF1A"]["huge_score_gwas_uncorrected"]), 0.0)
 
+    def test_params_out_records_resolved_runtime_options(self) -> None:
+        params = self._load_params(self.output_prefix.with_suffix(".params.out"))
+        self.assertEqual(params["option_mode"][-1], "beta_tildes")
+        self.assertEqual(params["runtime_y_not_loaded"][-1], "False")
+        self.assertEqual(params["runtime_run_beta_tilde"][-1], "True")
+        self.assertEqual(params["option_gwas_n_col"][-1], "N")
+        self.assertTrue(params["option_gwas_in"][-1].endswith("T2D.p_lt_1e-6.chrom_pos.sumstats.tsv.gz"))
+        self.assertIn("option_max_gb", params)
+        self.assertIn("option_batch_size", params)
+        self.assertIn("option_max_read_entries_at_once", params)
+        self.assertIn("option_update_hyper_p", params)
+        self.assertIn("option_update_hyper_sigma", params)
+        positive_controls = json.loads(params["option_positive_controls_list"][-1])
+        self.assertIn("HNF1A", positive_controls)
+        mean_rrs = json.loads(params["option_counts_mean_rrs"][-1])
+        self.assertEqual(mean_rrs, [1.3, 1.6, 2.5, 3.8])

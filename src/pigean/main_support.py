@@ -249,6 +249,47 @@ def build_runtime_state(options):
     return pigean_runtime.build_runtime_state(pigean_state.PigeanState, options)
 
 
+def _serialize_param_snapshot_value(value):
+    if isinstance(value, (bool, int, float, str)):
+        return value
+    if value is None:
+        return "None"
+    if isinstance(value, (list, tuple, dict, set)):
+        return json.dumps(_json_safe(value), sort_keys=True)
+    return str(_json_safe(value))
+
+
+def record_resolved_runtime_options(state, options, mode, mode_state, sigma2_cond, y_not_loaded):
+    _sync_cli_state()
+    for option_name, option_value in sorted(vars(options).items()):
+        state._record_param(
+            "option_%s" % option_name,
+            _serialize_param_snapshot_value(option_value),
+            overwrite=True,
+        )
+
+    state._record_param("option_mode", _serialize_param_snapshot_value(mode), overwrite=True)
+    state._record_param("option_config_mode", _serialize_param_snapshot_value(config_mode), overwrite=True)
+    state._record_param(
+        "option_cli_specified_dests",
+        _serialize_param_snapshot_value(sorted(cli_specified_dests)),
+        overwrite=True,
+    )
+    state._record_param(
+        "option_config_specified_dests",
+        _serialize_param_snapshot_value(sorted(config_specified_dests)),
+        overwrite=True,
+    )
+    state._record_param("runtime_sigma2_cond", _serialize_param_snapshot_value(sigma2_cond), overwrite=True)
+    state._record_param("runtime_y_not_loaded", bool(y_not_loaded), overwrite=True)
+    for mode_key, mode_value in sorted(mode_state.items()):
+        state._record_param(
+            "runtime_%s" % mode_key,
+            _serialize_param_snapshot_value(mode_value),
+            overwrite=True,
+        )
+
+
 def configure_hyperparameters_for_main(state, options):
     return pigean_runtime.configure_hyperparameters_for_main(
         state,

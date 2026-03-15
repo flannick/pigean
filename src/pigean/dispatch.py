@@ -18,6 +18,14 @@ def run_main_pipeline(options, mode, services=None):
 
     sigma2_cond = pigean_main_support.configure_hyperparameters_for_main(state, options)
     y_not_loaded = pigean_main_support.load_main_y_inputs(state, options, mode_state)
+    pigean_main_support.record_resolved_runtime_options(
+        state,
+        options,
+        mode,
+        mode_state,
+        sigma2_cond,
+        y_not_loaded,
+    )
 
     non_huge_result = None
     if not mode_state["run_huge"]:
