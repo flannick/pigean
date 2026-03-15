@@ -114,10 +114,7 @@ class SetBSmokeTest(unittest.TestCase):
         self.assertIn("Reading --stats-in file", output)
         self.assertIn("Using col beta_tilde for beta_tilde values", output)
 
-    def test_run_phewas_from_gene_phewas_stats_in_smoke(self) -> None:
-        phewas_in = self.tmpdir / "set_b_gene_phewas_in.tsv"
-        phewas_out = self.tmpdir / "set_b_phewas_stats.out"
-
+    def _write_gene_phewas_smoke_input(self, path: Path) -> None:
         genes: list[str] = []
         with self.gene_stats.open(encoding="utf-8") as fh:
             next(fh)  # header
@@ -130,11 +127,16 @@ class SetBSmokeTest(unittest.TestCase):
                     break
         self.assertGreaterEqual(len(genes), 4, msg="Expected enough genes to build phewas smoke input")
 
-        with phewas_in.open("w", encoding="utf-8") as fh:
-            fh.write("Gene\tPheno\tlog_bf\n")
+        with path.open("w", encoding="utf-8") as fh:
+            fh.write("Gene\tPheno\tlog_bf\tcombined\tprior\n")
             for gene in genes:
-                fh.write(f"{gene}\tTEST_PHENO_A\t2.0\n")
-                fh.write(f"{gene}\tTEST_PHENO_B\t1.5\n")
+                fh.write(f"{gene}\tTEST_PHENO_A\t2.0\t1.7\t0.4\n")
+                fh.write(f"{gene}\tTEST_PHENO_B\t1.5\t1.2\t0.2\n")
+
+    def test_run_phewas_from_gene_phewas_stats_in_smoke(self) -> None:
+        phewas_in = self.tmpdir / "set_b_gene_phewas_in.tsv"
+        phewas_out = self.tmpdir / "set_b_phewas_stats.out"
+        self._write_gene_phewas_smoke_input(phewas_in)
 
         proc = self._run(
             "beta_tildes",
@@ -154,6 +156,10 @@ class SetBSmokeTest(unittest.TestCase):
             "Pheno",
             "--gene-phewas-bfs-log-bf-col",
             "log_bf",
+            "--gene-phewas-bfs-combined-col",
+            "combined",
+            "--gene-phewas-bfs-prior-col",
+            "prior",
             "--min-gene-phewas-read-value",
             "0",
             "--phewas-stats-out",
@@ -165,6 +171,60 @@ class SetBSmokeTest(unittest.TestCase):
         lines = [line for line in phewas_out.read_text(encoding="utf-8").splitlines() if line.strip()]
         self.assertGreater(len(lines), 1, msg="Expected non-empty phewas output")
         self.assertTrue(lines[0].startswith("Pheno\tanalysis\tbeta_tilde"))
+        analyses = {line.split("\t")[1] for line in lines[1:]}
+        self.assertEqual(analyses, {"log_bf_vs_log_bf", "combined_vs_combined"})
+
+    def test_run_phewas_from_gene_phewas_stats_in_diagnostic_surface(self) -> None:
+        phewas_in = self.tmpdir / "set_b_gene_phewas_diag_in.tsv"
+        phewas_out = self.tmpdir / "set_b_phewas_diag_stats.out"
+        self._write_gene_phewas_smoke_input(phewas_in)
+
+        proc = self._run(
+            "beta_tildes",
+            *self._common_x_args(),
+            *self._common_gene_stats_args(),
+            "--max-num-gene-sets-initial",
+            "3",
+            "--max-num-gene-sets-hyper",
+            "3",
+            "--max-num-gene-sets",
+            "3",
+            "--run-phewas-from-gene-phewas-stats-in",
+            str(phewas_in),
+            "--phewas-comparison-set",
+            "diagnostic",
+            "--gene-phewas-bfs-id-col",
+            "Gene",
+            "--gene-phewas-bfs-pheno-col",
+            "Pheno",
+            "--gene-phewas-bfs-log-bf-col",
+            "log_bf",
+            "--gene-phewas-bfs-combined-col",
+            "combined",
+            "--gene-phewas-bfs-prior-col",
+            "prior",
+            "--min-gene-phewas-read-value",
+            "0",
+            "--phewas-stats-out",
+            str(phewas_out),
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        analyses = {
+            line.split("\t")[1]
+            for line in phewas_out.read_text(encoding="utf-8").splitlines()[1:]
+            if line.strip()
+        }
+        self.assertEqual(
+            analyses,
+            {
+                "log_bf_vs_log_bf",
+                "combined_vs_combined",
+                "log_bf_vs_combined",
+                "log_bf_vs_prior",
+                "combined_vs_log_bf",
+                "combined_vs_prior",
+            },
+        )
 
     def test_sim_mode_with_x_only_and_max_gene_set_caps_smoke(self) -> None:
         proc = self._run(

@@ -275,6 +275,7 @@ print(json.dumps(mask.tolist()))
         proc = self._run("gibbs", "--help-expert")
         self.assertEqual(proc.returncode, 0)
         self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
+        self.assertIn("--phewas-comparison-set", proc.stdout)
         self.assertIn("run gene-level phewas output stage", proc.stdout)
         self.assertIn("--gene-stats-in", proc.stdout)
         self.assertIn("use precomputed gene-level statistics", proc.stdout)
@@ -310,6 +311,26 @@ print(json.dumps(mask.tolist()))
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("requires --phewas-stats-out", err)
+
+    def test_phewas_comparison_set_requires_run_phewas_stage(self) -> None:
+        proc = self._run("beta_tildes", "--phewas-comparison-set", "diagnostic")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("requires --run-phewas-from-gene-phewas-stats-in", err)
+
+    def test_phewas_comparison_set_rejects_unknown_value(self) -> None:
+        proc = self._run(
+            "beta_tildes",
+            "--run-phewas-from-gene-phewas-stats-in",
+            "x.tsv",
+            "--phewas-stats-out",
+            "out.tsv",
+            "--phewas-comparison-set",
+            "all",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("must be one of: matched, diagnostic", err)
 
     def test_gene_set_stats_column_option_requires_gene_set_stats_in(self) -> None:
         proc = self._run("gibbs", "--gene-set-stats-beta-col", "beta")

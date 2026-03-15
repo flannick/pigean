@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `312`
+- Total options: `313`
 - `method_required`: `19`
-- `method_optional`: `178`
+- `method_optional`: `179`
 - `engineering`: `104`
 - `experimental`: `2`
 - `compat_alias`: `1`
 - `debug_only`: `8`
-- visibility `expert`: `284`
+- visibility `expert`: `285`
 - visibility `normal`: `28`
 
 ## Method Required
@@ -172,6 +172,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--p-noninf-inflate` | `expert` | `yes` | `expert_help` | `p_noninf_inflate` | `1.0` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
 | `--phantom-region-posterior` | `expert` | `yes` | `expert_help` | `phantom_region_posterior` | `False` | - |
+| `--phewas-comparison-set` | `expert` | `yes` | `advanced_workflows` | `phewas_comparison_set` | `matched` | choose gene-level phewas output surface: matched or diagnostic |
 | `--positive-controls-default-prob` | `expert` | `yes` | `expert_help` | `positive_controls_default_prob` | `0.95` | - |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |

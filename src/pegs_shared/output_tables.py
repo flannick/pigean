@@ -1,5 +1,7 @@
 import numpy as np
 
+from pegs_shared.phewas import GENE_LEVEL_PHEWAS_COMPARISONS
+
 
 def _noop_log(_msg, _lvl=0):
     return None
@@ -561,32 +563,17 @@ def write_phewas_statistics(runtime, output_file, *, open_text_fn=None, log_fn=N
 
         ordered_inds = None
 
-        write = False
-        if runtime.pheno_Y_vs_input_combined_prior_Ys_beta is not None:
-            write = True
-            ordered_inds = sorted(range(len(runtime.phenos)), key=lambda k: -runtime.pheno_Y_vs_input_combined_prior_Ys_beta[k])
+        active_comparisons = []
+        for spec in GENE_LEVEL_PHEWAS_COMPARISONS:
+            if getattr(runtime, "%s_beta" % spec["output_base"]) is not None:
+                active_comparisons.append(spec)
+                if ordered_inds is None:
+                    ordered_inds = sorted(
+                        range(len(runtime.phenos)),
+                        key=lambda k, output_base=spec["output_base"]: -getattr(runtime, "%s_beta" % output_base)[k],
+                    )
 
-        if runtime.pheno_Y_vs_input_Y_beta is not None:
-            write = True
-            ordered_inds = sorted(range(len(runtime.phenos)), key=lambda k: -runtime.pheno_Y_vs_input_Y_beta[k])
-
-        if runtime.pheno_Y_vs_input_priors_beta is not None:
-            write = True
-            ordered_inds = sorted(range(len(runtime.phenos)), key=lambda k: -runtime.pheno_Y_vs_input_priors_beta[k])
-
-        if runtime.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta is not None:
-            write = True
-            ordered_inds = sorted(range(len(runtime.phenos)), key=lambda k: -runtime.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta[k])
-
-        if runtime.pheno_combined_prior_Ys_vs_input_Y_beta is not None:
-            write = True
-            ordered_inds = sorted(range(len(runtime.phenos)), key=lambda k: -runtime.pheno_combined_prior_Ys_vs_input_Y_beta[k])
-
-        if runtime.pheno_combined_prior_Ys_vs_input_priors_beta is not None:
-            write = True
-            ordered_inds = sorted(range(len(runtime.phenos)), key=lambda k: -runtime.pheno_combined_prior_Ys_vs_input_priors_beta[k])
-
-        if write:
+        if active_comparisons:
             header = "%s\t%s\t%s\t%s\t%s\t%s\t%s" % (header, "analysis", "beta_tilde", "P", "Z", "SE", "beta")
 
 
@@ -598,23 +585,20 @@ def write_phewas_statistics(runtime, output_file, *, open_text_fn=None, log_fn=N
         for i in ordered_inds:
             pheno = runtime.phenos[i]
             line = pheno
-            if runtime.pheno_Y_vs_input_combined_prior_Ys_beta is not None:
-                output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "log_bf_vs_combined", runtime.pheno_Y_vs_input_combined_prior_Ys_beta_tilde[i], runtime.pheno_Y_vs_input_combined_prior_Ys_p_value[i], runtime.pheno_Y_vs_input_combined_prior_Ys_Z[i], runtime.pheno_Y_vs_input_combined_prior_Ys_se[i], runtime.pheno_Y_vs_input_combined_prior_Ys_beta[i]))
-
-            if runtime.pheno_Y_vs_input_Y_beta is not None:
-                output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "log_bf_vs_log_bf", runtime.pheno_Y_vs_input_Y_beta_tilde[i], runtime.pheno_Y_vs_input_Y_p_value[i], runtime.pheno_Y_vs_input_Y_Z[i], runtime.pheno_Y_vs_input_Y_se[i], runtime.pheno_Y_vs_input_Y_beta[i]))
-
-            if runtime.pheno_Y_vs_input_priors_beta is not None:
-                output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "log_bf_vs_prior", runtime.pheno_Y_vs_input_priors_beta_tilde[i], runtime.pheno_Y_vs_input_priors_p_value[i], runtime.pheno_Y_vs_input_priors_Z[i], runtime.pheno_Y_vs_input_priors_se[i], runtime.pheno_Y_vs_input_priors_beta[i]))
-
-            if runtime.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta is not None:
-                output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "combined_vs_combined", runtime.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta_tilde[i], runtime.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_p_value[i], runtime.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_Z[i], runtime.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_se[i], runtime.pheno_combined_prior_Ys_vs_input_combined_prior_Ys_beta[i]))
-
-            if runtime.pheno_combined_prior_Ys_vs_input_Y_beta is not None:
-                output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "combined_vs_log_bf", runtime.pheno_combined_prior_Ys_vs_input_Y_beta_tilde[i], runtime.pheno_combined_prior_Ys_vs_input_Y_p_value[i], runtime.pheno_combined_prior_Ys_vs_input_Y_Z[i], runtime.pheno_combined_prior_Ys_vs_input_Y_se[i], runtime.pheno_combined_prior_Ys_vs_input_Y_beta[i]))
-
-            if runtime.pheno_combined_prior_Ys_vs_input_priors_beta is not None:
-                output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "combined_vs_prior", runtime.pheno_combined_prior_Ys_vs_input_priors_beta_tilde[i], runtime.pheno_combined_prior_Ys_vs_input_priors_p_value[i], runtime.pheno_combined_prior_Ys_vs_input_priors_Z[i], runtime.pheno_combined_prior_Ys_vs_input_priors_se[i], runtime.pheno_combined_prior_Ys_vs_input_priors_beta[i]))
+            for spec in active_comparisons:
+                output_base = spec["output_base"]
+                output_fh.write(
+                    "%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n"
+                    % (
+                        line,
+                        spec["analysis_label"],
+                        getattr(runtime, "%s_beta_tilde" % output_base)[i],
+                        getattr(runtime, "%s_p_value" % output_base)[i],
+                        getattr(runtime, "%s_Z" % output_base)[i],
+                        getattr(runtime, "%s_se" % output_base)[i],
+                        getattr(runtime, "%s_beta" % output_base)[i],
+                    )
+                )
 
 
 def write_factor_phewas_statistics(runtime, output_file, *, open_text_fn=None, log_fn=None, info_level=0):

@@ -67,10 +67,12 @@ Purpose: Produce gene-level PheWAS summary output from precomputed gene-by-pheno
 Required inputs:
 - Main mode run that computes input features (commonly `beta_tildes` or later modes)
 - `--run-phewas-from-gene-phewas-stats-in <file>`
+- optional: `--phewas-comparison-set matched|diagnostic`
 - Column mappings:
   - `--gene-phewas-bfs-id-col`
   - `--gene-phewas-bfs-pheno-col`
-  - one or more of `--gene-phewas-bfs-log-bf-col`, `--gene-phewas-bfs-combined-col`, `--gene-phewas-bfs-prior-col`
+  - `--gene-phewas-bfs-log-bf-col` for direct phenotype support
+  - `--gene-phewas-bfs-combined-col` for combined phenotype support
 - `--phewas-stats-out <file>`
 
 Primary outputs:
@@ -79,6 +81,18 @@ Primary outputs:
 Notes:
 - This is distinct from factor-based PheWAS (moved to `eaggl`).
 - Runtime logs one explicit I/O decision for this stage before running the output step.
+- Default `--phewas-comparison-set matched` writes only the two matched comparisons:
+  - `pheno_Y_vs_input_Y`
+  - `pheno_combined_prior_Ys_vs_input_combined_prior_Ys`
+- `--phewas-comparison-set diagnostic` additionally enables the four cross-family contrasts:
+  - `pheno_Y_vs_input_combined_prior_Ys`
+  - `pheno_Y_vs_input_priors`
+  - `pheno_combined_prior_Ys_vs_input_Y`
+  - `pheno_combined_prior_Ys_vs_input_priors`
+- The phenotype-side prior family is intentionally not part of this stage.
+- Only the combined phenotype-support family receives the sparse residual-correlation correction.
+- The later non-infinitesimal shrinkage step still uses the independent approximation.
+- If the stage cannot reuse an already loaded sparse matrix, it now stages the requested file once and slices phenotype batches from that staged sparse representation instead of rereading the raw file for every batch.
 
 Decision table:
 
@@ -93,6 +107,7 @@ Decision table:
 Operational notes:
 - Reuse happens only when the requested file resolves to the same normalized path as one of the reusable loaded sources.
 - Any post-load filtering of the loaded matrix disables reuse, because the output PheWAS stage expects the full requested matrix.
+- The non-reuse path still reads the raw file once up front, but it no longer rereads it once per phenotype batch.
 - The logging marker is the decision source of truth for debugging:
   - `mode=skip`
   - `mode=re_read_file`

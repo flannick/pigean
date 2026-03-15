@@ -935,6 +935,8 @@ class PhewasStageConfig:
     gene_phewas_bfs_log_bf_col: ColumnSpec = None
     gene_phewas_bfs_combined_col: ColumnSpec = None
     gene_phewas_bfs_prior_col: ColumnSpec = None
+    min_value: float | None = None
+    phewas_comparison_set: str = "matched"
     max_num_burn_in: int = 1000
     max_num_iter: int = 1100
     min_num_iter: int = 10
@@ -957,6 +959,8 @@ class PhewasStageConfig:
             "gene_phewas_bfs_log_bf_col": self.gene_phewas_bfs_log_bf_col,
             "gene_phewas_bfs_combined_col": self.gene_phewas_bfs_combined_col,
             "gene_phewas_bfs_prior_col": self.gene_phewas_bfs_prior_col,
+            "min_value": self.min_value,
+            "phewas_comparison_set": self.phewas_comparison_set,
             "max_num_burn_in": self.max_num_burn_in,
             "max_num_iter": self.max_num_iter,
             "min_num_iter": self.min_num_iter,

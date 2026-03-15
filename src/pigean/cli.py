@@ -258,6 +258,7 @@ parser.add_option("","--betas-uncorrected-from-phewas",action="store_true",defau
 
 #run a phewas against the gene scores
 parser.add_option("","--run-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a phewas against. This is distinct from --factor-phewas-from-gene-phewas-stats-in because it does not do a phewas per any factors; it does a phewas across all of the genes
+parser.add_option("","--phewas-comparison-set",default="matched") #matched keeps only direct-vs-direct and combined-vs-combined; diagnostic adds cross-family contrasts
 
 #limit gene sets printed
 parser.add_option("","--max-no-write-gene-set-beta",type=float,default=None) #do not write gene sets to gene-set-stats-out that have absolute beta values of this or lower
@@ -526,6 +527,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
     "--betas-uncorrected-from-phewas": "compute uncorrected beta path from gene-phewas statistics",
     "--run-phewas-from-gene-phewas-stats-in": "run gene-level phewas output stage from precomputed gene-phewas stats",
+    "--phewas-comparison-set": "choose gene-level phewas output surface: matched or diagnostic",
     "--phewas-stats-out": "write optional advanced gene-level phewas output table",
     "--gene-phewas-bfs-in": "input gene-phewas BFS table for advanced phewas workflows",
     "--gene-phewas-stats-in": "input gene-phewas statistics table for advanced phewas workflows",
@@ -632,6 +634,7 @@ _SET_B_METHOD_FLAGS = {
     "--gene-stats-prior-col",
     "--gene-stats-prob-col",
     "--min-gene-phewas-read-value",
+    "--phewas-comparison-set",
     "--no-cross-val",
     "--phewas-stats-out",
     "--run-phewas-from-gene-phewas-stats-in",
@@ -1254,6 +1257,13 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     # Optional PheWAS output path should never run silently with no output sink.
     if _options.run_phewas_from_gene_phewas_stats_in is not None and _options.phewas_stats_out is None:
         bail("Option --run-phewas-from-gene-phewas-stats-in requires --phewas-stats-out")
+    if _options.phewas_comparison_set not in {"matched", "diagnostic"}:
+        bail("Option --phewas-comparison-set must be one of: matched, diagnostic")
+    if (
+        _options.run_phewas_from_gene_phewas_stats_in is None
+        and _is_advanced_option_explicit("phewas_comparison_set", _cli_dests, _config_dests)
+    ):
+        bail("Option --phewas-comparison-set requires --run-phewas-from-gene-phewas-stats-in")
 
     has_phewas_consumer = (
         _options.betas_uncorrected_from_phewas

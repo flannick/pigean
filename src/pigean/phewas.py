@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import numpy as np
 import pegs_shared.phewas as pegs_phewas
+from scipy import sparse
 
 from . import main_support as pigean_main_support
 from . import runtime as pigean_runtime
@@ -26,6 +27,11 @@ def run_advanced_set_b_phewas_beta_sampling_if_requested(services, state, option
 def run_advanced_set_b_output_phewas_if_requested(services, state, options):
     if not options.run_phewas_from_gene_phewas_stats_in:
         return
+    if options.gene_phewas_bfs_prior_col is not None:
+        services.log(
+            "Ignoring --gene-phewas-bfs-prior-col for the gene-level PheWAS output stage; phenotype-side prior outputs are not implemented",
+            services.INFO,
+        )
     decision = pigean_main_support.resolve_gene_phewas_input_decision_for_stage(
         requested_input=options.run_phewas_from_gene_phewas_stats_in,
         reusable_inputs=[options.gene_phewas_bfs_in],
@@ -44,7 +50,9 @@ def run_advanced_set_b_output_phewas_if_requested(services, state, options):
         gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
         gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
         gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+        gene_phewas_bfs_prior_col=None,
+        min_value=getattr(options, "min_gene_phewas_read_value", None),
+        phewas_comparison_set=getattr(options, "phewas_comparison_set", "matched"),
         max_num_burn_in=options.max_num_burn_in,
         max_num_iter=options.max_num_iter_betas,
         min_num_iter=options.min_num_iter_betas,
@@ -141,6 +149,18 @@ def accumulate_phewas_outputs(state, output_prefix, beta, beta_tilde, se, z_scor
     return pegs_phewas.accumulate_standard_phewas_outputs(state, output_prefix, beta, beta_tilde, se, z_score, p_value)
 
 
+def accumulate_selected_gene_level_phewas_outputs(state, comparisons, beta, beta_tilde, se, z_score, p_value):
+    return pegs_phewas.accumulate_selected_gene_level_phewas_outputs(
+        state,
+        comparisons,
+        beta,
+        beta_tilde,
+        se,
+        z_score,
+        p_value,
+    )
+
+
 def build_phewas_input_values(state):
     default_value = (
         state.Y[:, np.newaxis]
@@ -157,6 +177,97 @@ def build_phewas_input_values(state):
         )
     )
     return np.exp(input_values + state.background_bf) / (1 + np.exp(input_values + state.background_bf))
+
+
+def get_enabled_gene_level_phewas_comparisons(state, comparison_set):
+    comparisons = []
+    for spec in pegs_phewas.iter_enabled_gene_level_phewas_comparisons(comparison_set):
+        if spec["axis_name"] == "Y" and state.Y is None:
+            continue
+        if spec["axis_name"] == "combined_prior_Ys" and state.combined_prior_Ys is None:
+            continue
+        if spec["axis_name"] == "priors" and state.priors is None:
+            continue
+        comparisons.append(spec)
+    return tuple(comparisons)
+
+
+def calculate_combined_phewas_block_with_sparse_correlation(
+    state,
+    input_values,
+    gene_pheno_combined_prior_Ys,
+    *,
+    begin,
+    end,
+    gene_pheno_Y,
+    phewas_beta_kwargs,
+):
+    """
+    Run the combined phenotype-support PheWAS block with sparse residual-correlation correction.
+
+    The correction is only applied to the combined phenotype-support outcome family.
+    Covariance is injected at the beta-tilde / SE stage through a sparse residual-correlation
+    estimate induced by overlapping gene sets. The later non-infinitesimal shrinkage step
+    still uses the independent approximation in `_calculate_non_inf_betas(...)`.
+    """
+    return calculate_phewas_block(
+        state,
+        input_values,
+        gene_pheno_combined_prior_Ys.T,
+        X_orig=state.X_orig,
+        X_phewas_beta=state.X_phewas_beta[begin:end, :] if state.X_phewas_beta is not None else None,
+        Y_resid=gene_pheno_Y.T if gene_pheno_Y is not None else None,
+        **phewas_beta_kwargs,
+    )
+
+
+def stage_gene_level_phewas_file_once(
+    state,
+    gene_phewas_bfs_in,
+    *,
+    gene_phewas_bfs_id_col,
+    gene_phewas_bfs_pheno_col,
+    gene_phewas_bfs_log_bf_col,
+    gene_phewas_bfs_combined_col,
+    min_value,
+    open_text_fn,
+    get_col_fn,
+    bail_fn,
+    warn_fn,
+):
+    parsed = pegs_phewas.parse_gene_phewas_bfs_file(
+        gene_phewas_bfs_in,
+        gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
+        gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
+        gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
+        gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
+        gene_phewas_bfs_prior_col=None,
+        min_value=min_value,
+        max_num_entries_at_once=None,
+        existing_phenos=state.phenos,
+        existing_pheno_to_ind=state.pheno_to_ind,
+        gene_to_ind=state.gene_to_ind,
+        gene_label_map=state.gene_label_map,
+        phewas_gene_to_x_gene=None,
+        open_text_fn=open_text_fn,
+        get_col_fn=get_col_fn,
+        bail_fn=bail_fn,
+        warn_fn=warn_fn,
+    )
+    num_prior_phenos = len(state.phenos) if state.phenos is not None else 0
+    pegs_phewas.expand_phewas_state_for_added_phenos(state, len(parsed.phenos) - num_prior_phenos)
+    state.phenos = parsed.phenos
+    state.pheno_to_ind = parsed.pheno_to_ind
+    state.num_gene_phewas_filtered = parsed.num_filtered
+
+    shape = (len(state.genes), len(parsed.phenos))
+    gene_pheno_Y = None
+    gene_pheno_combined_prior_Ys = None
+    if parsed.Ys is not None:
+        gene_pheno_Y = sparse.csc_matrix((parsed.Ys, (parsed.row, parsed.col)), shape=shape)
+    if parsed.combineds is not None:
+        gene_pheno_combined_prior_Ys = sparse.csc_matrix((parsed.combineds, (parsed.row, parsed.col)), shape=shape)
+    return parsed.phenos, gene_pheno_Y, gene_pheno_combined_prior_Ys
 
 
 def calculate_phewas_block(
@@ -330,6 +441,8 @@ def run_phewas(
     gene_phewas_bfs_log_bf_col=None,
     gene_phewas_bfs_combined_col=None,
     gene_phewas_bfs_prior_col=None,
+    min_value=None,
+    phewas_comparison_set="matched",
     max_num_burn_in=1000,
     max_num_iter=1100,
     min_num_iter=10,
@@ -371,26 +484,29 @@ def run_phewas(
 
     log("Running phewas", INFO)
     read_file = gene_phewas_bfs_in is not None
-    col_info = None
 
     if read_file:
-        phenos, pheno_to_ind, col_info = prepare_phewas_phenos_from_file(
+        phenos, staged_gene_pheno_Y, staged_gene_pheno_combined_prior_Ys = stage_gene_level_phewas_file_once(
             state,
             gene_phewas_bfs_in,
             gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
             gene_phewas_bfs_pheno_col=gene_phewas_bfs_pheno_col,
             gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
             gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
-            gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+            min_value=min_value,
             open_text_fn=open_text_fn,
             get_col_fn=get_col_fn,
-            construct_map_to_ind_fn=construct_map_to_ind_fn,
+            bail_fn=bail_fn,
             warn_fn=warn_fn,
-            log_fn=log_fn,
-            debug_level=debug_level,
         )
     else:
         phenos = state.phenos
+        staged_gene_pheno_Y = state.gene_pheno_Y
+        staged_gene_pheno_combined_prior_Ys = state.gene_pheno_combined_prior_Ys
+
+    enabled_comparisons = get_enabled_gene_level_phewas_comparisons(state, phewas_comparison_set)
+    direct_comparisons = tuple(spec for spec in enabled_comparisons if spec["output_family"] == "pheno_Y")
+    combined_comparisons = tuple(spec for spec in enabled_comparisons if spec["output_family"] == "pheno_combined_prior_Ys")
 
     num_batches = int(np.ceil(len(phenos) / batch_size))
     input_values = build_phewas_input_values(state)
@@ -418,39 +534,27 @@ def run_phewas(
         cur_batch_size = end - begin
         log("Processing phenos %d-%d" % (begin + 1, end))
 
-        if read_file:
-            gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors = read_phewas_file_batch(
-                state,
-                gene_phewas_bfs_in,
-                begin=begin,
-                cur_batch_size=cur_batch_size,
-                pheno_to_ind=pheno_to_ind,
-                id_col=col_info['id_col'],
-                pheno_col=col_info['pheno_col'],
-                bf_col=col_info['bf_col'],
-                combined_col=col_info['combined_col'],
-                prior_col=col_info['prior_col'],
-                open_text_fn=open_text_fn,
-                warn_fn=warn_fn,
-            )
-        else:
-            gene_pheno_Y = state.gene_pheno_Y[:,begin:end].toarray() if state.gene_pheno_Y is not None else None
-            gene_pheno_combined_prior_Ys = state.gene_pheno_combined_prior_Ys[:,begin:end].toarray() if state.gene_pheno_combined_prior_Ys is not None else None
+        gene_pheno_Y = staged_gene_pheno_Y[:, begin:end].toarray() if staged_gene_pheno_Y is not None else None
+        gene_pheno_combined_prior_Ys = (
+            staged_gene_pheno_combined_prior_Ys[:, begin:end].toarray()
+            if staged_gene_pheno_combined_prior_Ys is not None
+            else None
+        )
 
-        if gene_pheno_Y is not None:
+        if gene_pheno_Y is not None and direct_comparisons:
             beta, _, beta_tilde, se, Z, p_value, _ = calculate_phewas_block(state, input_values, gene_pheno_Y.T, **phewas_beta_kwargs)
             assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
-            accumulate_phewas_outputs(state, 'pheno_Y', beta, beta_tilde, se, Z, p_value)
+            accumulate_selected_gene_level_phewas_outputs(state, direct_comparisons, beta, beta_tilde, se, Z, p_value)
 
-        if gene_pheno_combined_prior_Ys is not None and not state.debug_skip_correlation:
-            beta, _, beta_tilde, se, Z, p_value, _ = calculate_phewas_block(
+        if gene_pheno_combined_prior_Ys is not None and not state.debug_skip_correlation and combined_comparisons:
+            beta, _, beta_tilde, se, Z, p_value, _ = calculate_combined_phewas_block_with_sparse_correlation(
                 state,
                 input_values,
-                gene_pheno_combined_prior_Ys.T,
-                X_orig=state.X_orig,
-                X_phewas_beta=state.X_phewas_beta[begin:end,:] if state.X_phewas_beta is not None else None,
-                Y_resid=gene_pheno_Y.T,
-                **phewas_beta_kwargs
+                gene_pheno_combined_prior_Ys,
+                begin=begin,
+                end=end,
+                gene_pheno_Y=gene_pheno_Y,
+                phewas_beta_kwargs=phewas_beta_kwargs,
             )
             assert beta.shape[0] == 3, "First dimension of beta should be 3, not (%s, %s)" % (beta.shape[0], beta.shape[1])
-            accumulate_phewas_outputs(state, 'pheno_combined_prior_Ys', beta, beta_tilde, se, Z, p_value)
+            accumulate_selected_gene_level_phewas_outputs(state, combined_comparisons, beta, beta_tilde, se, Z, p_value)

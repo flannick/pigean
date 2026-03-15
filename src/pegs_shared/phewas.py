@@ -131,6 +131,8 @@ def build_phewas_stage_config(
     gauss_seidel,
     sparse_solution,
     sparse_frac_betas,
+    min_value=None,
+    phewas_comparison_set="matched",
     run_for_factors=False,
     batch_size=None,
     min_gene_factor_weight=0.0,
@@ -142,6 +144,8 @@ def build_phewas_stage_config(
         gene_phewas_bfs_log_bf_col=gene_phewas_bfs_log_bf_col,
         gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
         gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
+        min_value=min_value,
+        phewas_comparison_set=phewas_comparison_set,
         max_num_burn_in=max_num_burn_in,
         max_num_iter=max_num_iter,
         min_num_iter=min_num_iter,
@@ -371,6 +375,72 @@ def read_phewas_file_batch(
     return gene_pheno_Y, gene_pheno_combined_prior_Ys, gene_pheno_priors
 
 
+GENE_LEVEL_PHEWAS_COMPARISONS = (
+    {
+        "output_base": "pheno_Y_vs_input_Y",
+        "analysis_label": "log_bf_vs_log_bf",
+        "output_family": "pheno_Y",
+        "axis_name": "Y",
+        "axis_index": 0,
+        "primary": True,
+        "uses_sparse_correlation": False,
+    },
+    {
+        "output_base": "pheno_combined_prior_Ys_vs_input_combined_prior_Ys",
+        "analysis_label": "combined_vs_combined",
+        "output_family": "pheno_combined_prior_Ys",
+        "axis_name": "combined_prior_Ys",
+        "axis_index": 1,
+        "primary": True,
+        "uses_sparse_correlation": True,
+    },
+    {
+        "output_base": "pheno_Y_vs_input_combined_prior_Ys",
+        "analysis_label": "log_bf_vs_combined",
+        "output_family": "pheno_Y",
+        "axis_name": "combined_prior_Ys",
+        "axis_index": 1,
+        "primary": False,
+        "uses_sparse_correlation": False,
+    },
+    {
+        "output_base": "pheno_Y_vs_input_priors",
+        "analysis_label": "log_bf_vs_prior",
+        "output_family": "pheno_Y",
+        "axis_name": "priors",
+        "axis_index": 2,
+        "primary": False,
+        "uses_sparse_correlation": False,
+    },
+    {
+        "output_base": "pheno_combined_prior_Ys_vs_input_Y",
+        "analysis_label": "combined_vs_log_bf",
+        "output_family": "pheno_combined_prior_Ys",
+        "axis_name": "Y",
+        "axis_index": 0,
+        "primary": False,
+        "uses_sparse_correlation": True,
+    },
+    {
+        "output_base": "pheno_combined_prior_Ys_vs_input_priors",
+        "analysis_label": "combined_vs_prior",
+        "output_family": "pheno_combined_prior_Ys",
+        "axis_name": "priors",
+        "axis_index": 2,
+        "primary": False,
+        "uses_sparse_correlation": True,
+    },
+)
+
+
+def iter_enabled_gene_level_phewas_comparisons(comparison_set):
+    if comparison_set == "matched":
+        return tuple(spec for spec in GENE_LEVEL_PHEWAS_COMPARISONS if spec["primary"])
+    if comparison_set == "diagnostic":
+        return GENE_LEVEL_PHEWAS_COMPARISONS
+    raise ValueError("Unknown gene-level PheWAS comparison set: %r" % (comparison_set,))
+
+
 def append_phewas_metric_block(
     current_beta,
     current_beta_tilde,
@@ -397,6 +467,37 @@ def append_phewas_metric_block(
         np.hstack((current_p_value, p_value)),
         one_sided_append,
     )
+
+
+def accumulate_selected_gene_level_phewas_outputs(runtime, comparisons, beta, beta_tilde, se, z_score, p_value):
+    for spec in comparisons:
+        output_base = spec["output_base"]
+        (
+            updated_beta,
+            updated_beta_tilde,
+            updated_se,
+            updated_z,
+            updated_p_value,
+            _,
+        ) = append_phewas_metric_block(
+            getattr(runtime, "%s_beta" % output_base),
+            getattr(runtime, "%s_beta_tilde" % output_base),
+            getattr(runtime, "%s_se" % output_base),
+            getattr(runtime, "%s_Z" % output_base),
+            getattr(runtime, "%s_p_value" % output_base),
+            None,
+            beta[spec["axis_index"], :],
+            beta_tilde[spec["axis_index"], :],
+            se[spec["axis_index"], :],
+            z_score[spec["axis_index"], :],
+            p_value[spec["axis_index"], :],
+            None,
+        )
+        setattr(runtime, "%s_beta" % output_base, updated_beta)
+        setattr(runtime, "%s_beta_tilde" % output_base, updated_beta_tilde)
+        setattr(runtime, "%s_se" % output_base, updated_se)
+        setattr(runtime, "%s_Z" % output_base, updated_z)
+        setattr(runtime, "%s_p_value" % output_base, updated_p_value)
 
 
 def accumulate_standard_phewas_outputs(runtime, output_prefix, beta, beta_tilde, se, z_score, p_value):

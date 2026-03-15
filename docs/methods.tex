@@ -733,6 +733,45 @@ several previous statistical approaches or ideas as special cases of
 this concept, albeit often with hueristics or approximations to the
 full probabilistic calculation.
 
+\subsection{Phenotype-resolved regression of PIGEAN support values}
+PIGEAN estimates three gene-level quantities for a trait: direct support, combined support, and prior support. Let these be denoted by
+\[
+s_i^{(D)}, \qquad s_i^{(C)}, \qquad s_i^{(P)},
+\]
+for gene $i = 1,\ldots,N$. In practice these are represented on the probability scale after applying the logistic transformation to the corresponding log-odds quantities.
+
+When phenotype-resolved gene-level support statistics are available from an external gene-by-phenotype table, PIGEAN can run an optional downstream PheWAS stage that relates those phenotype-specific signals to the target-trait support values above. Let $y_{it}^{(D)}$ denote the direct phenotype support for gene $i$ and phenotype $t$, and let $y_{it}^{(C)}$ denote the corresponding combined or indirect phenotype support. For each phenotype $t$, we fit regressions of the form
+\begin{equation}
+y_{it}^{(m)}
+=
+\alpha_t^{(m)}
++
+\beta_{t,D}^{(m)} s_i^{(D)}
++
+\beta_{t,C}^{(m)} s_i^{(C)}
++
+\beta_{t,P}^{(m)} s_i^{(P)}
++
+\varepsilon_{it}^{(m)},
+\label{eq:phewas_support_regression}
+\end{equation}
+where $m \in \{D, C\}$ indexes whether the phenotype-side outcome is the direct support quantity or the combined support quantity.
+
+The two primary reported contrasts are therefore:
+\begin{itemize}
+\item direct phenotype support versus direct target-trait support, corresponding to $\beta_{t,D}^{(D)}$;
+\item combined phenotype support versus combined target-trait support, corresponding to $\beta_{t,C}^{(C)}$.
+\end{itemize}
+These are the matched direct-direct and combined-combined comparisons, and they are the easiest to interpret biologically.
+
+Additional cross-family coefficients in Eq.~\eqref{eq:phewas_support_regression} may be useful as diagnostics. For example, one may inspect whether direct phenotype support is better explained by direct target-trait support or by combined target-trait support. However, we treat these cross-family coefficients as secondary summaries rather than as the primary PheWAS outputs.
+
+\paragraph{Correlation induced by overlapping gene sets.}
+The combined phenotype-support quantities inherit dependence through the overlapping gene annotations used to construct indirect support. Consequently, the phenotype-level regression statistics for the combined-support outcome cannot be treated as independent across gene sets. To account for this, PIGEAN uses a sparse approximation to the residual correlation structure induced by the annotation design matrix when estimating the regression standard errors for the combined-support outcome. In contrast, the direct-support outcome is treated using the simpler regression path. Thus, the covariance correction is applied specifically to the combined or indirect phenotype-support family, where the induced dependence is most acute.
+
+\paragraph{Scope of the optional PheWAS stage.}
+This phenotype-resolved regression is a downstream summary analysis and is not part of the core Gibbs sampler used to fit the PIGEAN model. Its purpose is to quantify which phenotypes track the direct and indirect trait-support patterns already learned by PIGEAN.
+
 \subsection{Investigating suggestive signals}
 It is common in genetic association studies to report (in addition to
 signals that exceed genome-wide significance) signals that are
