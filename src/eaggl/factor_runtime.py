@@ -59,6 +59,16 @@ def _aggregate_consensus_stack(stacked_values, aggregation):
     return np.median(stacked_values, axis=0)
 
 
+def _compute_any_anchor_relevance(factor_anchor_relevance):
+    anchor_relevance = np.asarray(factor_anchor_relevance, dtype=float)
+    if anchor_relevance.ndim != 2:
+        raise ValueError("factor_anchor_relevance must be 2D")
+    if anchor_relevance.shape[1] == 0:
+        return np.zeros(anchor_relevance.shape[0], dtype=float)
+    clipped = np.clip(anchor_relevance, 0.0, 1.0)
+    return 1.0 - np.prod(1.0 - clipped, axis=1)
+
+
 def _open_text_output(path):
     if path.endswith(".gz"):
         return gzip.open(path, "wt", encoding="utf-8")
@@ -1362,7 +1372,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     #want: (factors, users)
 
     state.factor_anchor_relevance = state._nnls_project_matrix(matrix_to_mult, vector_to_mult.T, max_value=1).T
-    state.factor_relevance = state._nnls_project_matrix(matrix_to_mult, 1 - np.prod(1 - vector_to_mult, axis=1).T, max_value=1).T
+    state.factor_relevance = _compute_any_anchor_relevance(state.factor_anchor_relevance)
 
     _finalize_factor_outputs(
         state,

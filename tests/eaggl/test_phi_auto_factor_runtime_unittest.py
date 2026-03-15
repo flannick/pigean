@@ -49,6 +49,31 @@ class _TinyState:
 
 
 class PhiAutoFactorRuntimeTest(unittest.TestCase):
+    def test_any_anchor_relevance_matches_single_user_coefficients(self) -> None:
+        factor_anchor_relevance = np.array([[0.2], [0.8], [1.0]])
+        any_relevance = eaggl_factor_runtime._compute_any_anchor_relevance(factor_anchor_relevance)
+        np.testing.assert_allclose(any_relevance, factor_anchor_relevance[:, 0])
+
+    def test_any_anchor_relevance_uses_noisy_or_across_users(self) -> None:
+        factor_anchor_relevance = np.array(
+            [
+                [0.2, 0.5],
+                [0.8, 0.1],
+                [1.2, -0.5],
+            ]
+        )
+        any_relevance = eaggl_factor_runtime._compute_any_anchor_relevance(factor_anchor_relevance)
+        expected = np.array(
+            [
+                1.0 - (1.0 - 0.2) * (1.0 - 0.5),
+                1.0 - (1.0 - 0.8) * (1.0 - 0.1),
+                1.0 - (1.0 - 1.0) * (1.0 - 0.0),
+            ]
+        )
+        np.testing.assert_allclose(any_relevance, expected)
+        self.assertTrue(np.all(any_relevance >= 0))
+        self.assertTrue(np.all(any_relevance <= 1))
+
     def test_weighted_jaccard_similarity_handles_simple_nonnegative_vectors(self) -> None:
         left = np.array([1.0, 1.0, 0.0])
         right = np.array([1.0, 0.0, 1.0])

@@ -30,7 +30,7 @@ class _TinyState:
         self.consensus_run_diagnostics = None
         self.consensus_factor_support = None
 
-    def _record_params(self, values) -> None:
+    def _record_params(self, values, overwrite=False) -> None:
         self.params.update(values)
 
     def num_factors(self) -> int:
