@@ -46,6 +46,16 @@ class FactorExecutionConfig:
     phi: float
     alpha0: float
     beta0: float
+    learn_phi: bool = False
+    learn_phi_max_redundancy: float = 0.6
+    learn_phi_runs_per_step: int = 5
+    learn_phi_min_run_support: float = 0.6
+    learn_phi_min_stability: float = 0.85
+    learn_phi_max_fit_loss_frac: float = 0.05
+    learn_phi_max_steps: int = 8
+    learn_phi_expand_factor: float = 10.0
+    learn_phi_weight_floor: float | None = None
+    learn_phi_report_out: str | None = None
     seed: int | None = None
     factor_runs: int = 1
     consensus_nmf: bool = False
@@ -80,6 +90,16 @@ class FactorExecutionConfig:
         return {
             "max_num_factors": self.max_num_factors,
             "phi": self.phi,
+            "learn_phi": self.learn_phi,
+            "learn_phi_max_redundancy": self.learn_phi_max_redundancy,
+            "learn_phi_runs_per_step": self.learn_phi_runs_per_step,
+            "learn_phi_min_run_support": self.learn_phi_min_run_support,
+            "learn_phi_min_stability": self.learn_phi_min_stability,
+            "learn_phi_max_fit_loss_frac": self.learn_phi_max_fit_loss_frac,
+            "learn_phi_max_steps": self.learn_phi_max_steps,
+            "learn_phi_expand_factor": self.learn_phi_expand_factor,
+            "learn_phi_weight_floor": self.learn_phi_weight_floor,
+            "learn_phi_report_out": self.learn_phi_report_out,
             "alpha0": self.alpha0,
             "beta0": self.beta0,
             "seed": self.seed,
@@ -382,6 +402,16 @@ def build_factor_execution_config(options, workflow, factor_inputs):
     return FactorExecutionConfig(
         max_num_factors=options.max_num_factors,
         phi=options.phi,
+        learn_phi=options.learn_phi,
+        learn_phi_max_redundancy=options.learn_phi_max_redundancy,
+        learn_phi_runs_per_step=options.learn_phi_runs_per_step,
+        learn_phi_min_run_support=options.learn_phi_min_run_support,
+        learn_phi_min_stability=options.learn_phi_min_stability,
+        learn_phi_max_fit_loss_frac=options.learn_phi_max_fit_loss_frac,
+        learn_phi_max_steps=options.learn_phi_max_steps,
+        learn_phi_expand_factor=options.learn_phi_expand_factor,
+        learn_phi_weight_floor=options.learn_phi_weight_floor,
+        learn_phi_report_out=options.learn_phi_report_out,
         alpha0=options.alpha0,
         beta0=options.beta0,
         seed=options.seed,

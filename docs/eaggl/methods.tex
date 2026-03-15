@@ -267,6 +267,60 @@ The exact scale/rate convention can be fixed later to match the implementation p
 
 Thus, the effective number of retained mechanisms is not simply the user-supplied maximum; it is the subset of factors whose learned relevance survives the ARD shrinkage and thresholding.
 
+\subsection{Automatic phi tuning}
+
+The current implementation can also treat $\phi$ as an automatically tuned structural hyperparameter rather than a fixed user constant. This is exposed through:
+\begin{itemize}
+\item \texttt{--learn-phi},
+\item \texttt{--learn-phi-max-redundancy},
+\item \texttt{--learn-phi-runs-per-step},
+\item \texttt{--learn-phi-min-run-support},
+\item \texttt{--learn-phi-min-stability},
+\item \texttt{--learn-phi-max-fit-loss-frac},
+\item \texttt{--learn-phi-max-steps},
+\item \texttt{--learn-phi-expand-factor},
+\item \texttt{--learn-phi-weight-floor},
+\item \texttt{--learn-phi-report-out}.
+\end{itemize}
+
+This is best understood as \emph{structural model selection}, not held-out cross-validation. The objective is not purely reconstruction error. The selected $\phi$ should preserve as many distinct factors as possible while avoiding near-duplicate factors and unstable restart behavior.
+
+For each tested $\phi$, EAGGL runs a small repeated-fit layer and summarizes the candidate by:
+\begin{itemize}
+\item the modal retained factor count $K_{\mathrm{eff}}$,
+\item the best reconstruction error among runs with that modal count,
+\item the best objective / evidence among runs with that modal count,
+\item the support fraction of the modal count across runs,
+\item the mean matched-factor cosine across modal runs,
+\item and a within-run redundancy score among retained factors.
+\end{itemize}
+
+The current redundancy metric is a weighted Jaccard overlap on nonnegative factor vectors after small-weight thresholding and $L_1$ normalization:
+\[
+\mathrm{J}_{w}(u, v) = \frac{\sum_i \min(u_i, v_i)}{\sum_i \max(u_i, v_i)}.
+\]
+By default, EAGGL computes this overlap on the gene-set loading columns. If gene-set loadings are unavailable, it falls back to gene loadings and then phenotype loadings.
+
+The search itself is log-scale and monotone-ish in spirit:
+\begin{enumerate}
+\item start from the user-supplied \texttt{--phi},
+\item expand outward multiplicatively until the redundancy threshold is bracketed,
+\item bisect the bracket in log space,
+\item and finally choose among all evaluated candidates rather than trusting only the last midpoint.
+\end{enumerate}
+
+The final selection rule is:
+\begin{enumerate}
+\item keep only candidates with redundancy below \texttt{--learn-phi-max-redundancy},
+\item keep only candidates with restart support above \texttt{--learn-phi-min-run-support},
+\item keep only candidates with matched-factor stability above \texttt{--learn-phi-min-stability},
+\item keep only candidates whose reconstruction error is within the allowed fractional loss of the best candidate seen,
+\item among those, choose the candidate with the largest retained factor count,
+\item then break ties by smaller $\phi$, smaller redundancy, and smaller evidence.
+\end{enumerate}
+
+Thus, when \texttt{--learn-phi} is enabled, the meaning of \texttt{--phi} changes slightly: it remains the user-specified \emph{initial guess}, but the final reported factorization may use a nearby selected value chosen by this structural search.
+
 \subsection{Repeated restarts and consensus factorization}
 
 The current implementation also exposes a restart layer above the base ARD-NMF fit. These are now documented as first-tier public EAGGL controls rather than hidden expert-only tuning parameters:

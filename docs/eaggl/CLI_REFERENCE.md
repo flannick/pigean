@@ -72,6 +72,19 @@ PYTHONPATH=src python -m eaggl factor \
   --consensus-stats-out results/consensus.tsv
 ```
 
+Automatic phi-tuning workflow from bundled PIGEAN outputs:
+
+```bash
+PYTHONPATH=src python -m eaggl factor \
+  --eaggl-bundle-in path/to/pigean_to_eaggl.tar.gz \
+  --learn-phi \
+  --learn-phi-report-out results/phi_search.tsv \
+  --factors-out results/factors.out \
+  --gene-set-clusters-out results/gene_set_clusters.out \
+  --gene-clusters-out results/gene_clusters.out \
+  --params-out results/params.out
+```
+
 Phenotype-anchored workflow:
 
 ```bash
@@ -207,6 +220,28 @@ These are first-tier factorization controls in the normal public EAGGL interface
 Operational note:
 - `--consensus-nmf` requires `--factor-runs >= 2`.
 - If `--factor-runs > 1` and `--consensus-nmf` is not set, EAGGL performs multi-start factorization and keeps only the best-evidence run.
+
+### Automatic phi tuning
+
+These are first-tier factorization controls when you want EAGGL to choose a better `phi` automatically rather than trusting a single fixed guess.
+
+| Flag | Meaning |
+|---|---|
+| `--learn-phi` | enable structural auto-tuning of `phi` before the final reported factorization |
+| `--learn-phi-max-redundancy` | maximum within-run weighted Jaccard overlap allowed between retained factors in the selected solution |
+| `--learn-phi-runs-per-step` | number of restart fits used to score each tested `phi` candidate |
+| `--learn-phi-min-run-support` | minimum fraction of restart runs that must agree on the modal retained factor count |
+| `--learn-phi-min-stability` | minimum mean matched-factor cosine across the modal restart runs |
+| `--learn-phi-max-fit-loss-frac` | maximum allowed reconstruction-error loss relative to the best candidate tested |
+| `--learn-phi-max-steps` | maximum number of log-space search steps after bracketing the redundancy transition |
+| `--learn-phi-expand-factor` | multiplicative factor used when widening the search bracket away from the initial `--phi` |
+| `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
+| `--learn-phi-report-out` | optional per-candidate diagnostics table for all tested `phi` values |
+
+Operational notes:
+- `--phi` remains the initial guess. With `--learn-phi`, EAGGL treats it as the starting point for search rather than the final fixed value.
+- Auto-tuning uses `--learn-phi-runs-per-step` during search, then runs the normal final factorization with the selected `phi`.
+- The default search is structural model selection, not held-out cross-validation. It prefers the smallest acceptable `phi` that keeps factors non-redundant, stable across restarts, and close to the best fit seen during search.
 
 ### Factor pruning, weighting, and post-processing
 

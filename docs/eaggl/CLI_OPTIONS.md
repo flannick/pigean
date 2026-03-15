@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `189`
+- Total options: `199`
 - `method_required`: `13`
-- `method_optional`: `101`
-- `engineering`: `69`
+- `method_optional`: `110`
+- `engineering`: `70`
 - `debug_only`: `6`
-- visibility `expert`: `169`
-- visibility `normal`: `20`
+- visibility `expert`: `172`
+- visibility `normal`: `27`
 
 ## Method Required
 
@@ -41,9 +41,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--add-gene-sets-by-enrichment-p` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_enrichment_p` | `None` | - |
 | `--add-gene-sets-by-fraction` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_fraction` | `None` | - |
 | `--adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
-| `--alpha0` | `expert` | `yes` | `expert_help` | `alpha0` | `10` | - |
+| `--alpha0` | `normal` | `yes` | `core_help` | `alpha0` | `10` | - |
 | `--background-prior` | `expert` | `yes` | `expert_help` | `background_prior` | `0.05` | - |
-| `--beta0` | `expert` | `yes` | `expert_help` | `beta0` | `1` | - |
+| `--beta0` | `normal` | `yes` | `core_help` | `beta0` | `1` | - |
 | `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
 | `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | - |
 | `--consensus-aggregation` | `normal` | `yes` | `core_help` | `consensus_aggregation` | `median` | choose how matched factors are aggregated across restarts in consensus mode |
@@ -77,6 +77,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
+| `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi by structural model selection before the final factorization |
+| `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `10.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
+| `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | maximum allowed reconstruction-error loss relative to the best tested phi during automatic tuning |
+| `--learn-phi-max-redundancy` | `normal` | `yes` | `core_help` | `learn_phi_max_redundancy` | `0.6` | maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning |
+| `--learn-phi-max-steps` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_steps` | `8` | maximum number of log-space phi search steps after bracketing |
+| `--learn-phi-min-run-support` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_run_support` | `0.6` | minimum run-support fraction required for a phi candidate during automatic tuning |
+| `--learn-phi-min-stability` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_stability` | `0.85` | minimum matched-factor cosine stability required for a phi candidate during automatic tuning |
+| `--learn-phi-runs-per-step` | `expert` | `yes` | `advanced_workflows` | `learn_phi_runs_per_step` | `5` | number of repeated restarts used to score each candidate phi |
+| `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--lmm-auth-key` | `expert` | `yes` | `advanced_workflows` | `lmm_auth_key` | `None` | enable optional LLM-based factor labeling |
 | `--lmm-model` | `expert` | `yes` | `advanced_workflows` | `lmm_model` | `gpt-4o-mini` | choose the LLM model used for optional labeling |
@@ -90,7 +99,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--max-no-write-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta` | `None` | - |
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
 | `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
-| `--max-num-factors` | `expert` | `yes` | `advanced_workflows` | `max_num_factors` | `30` | - |
+| `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | - |
 | `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `5000` | - |
 | `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `5000` | - |
 | `--max-num-gene-sets-initial` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_initial` | `None` | - |
@@ -99,7 +108,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `1e-20` | - |
 | `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `1e-20` | - |
 | `--min-gene-set-size` | `expert` | `yes` | `expert_help` | `min_gene_set_size` | `None` | - |
-| `--min-lambda-threshold` | `expert` | `yes` | `expert_help` | `min_lambda_threshold` | `0.001` | - |
+| `--min-lambda-threshold` | `normal` | `yes` | `core_help` | `min_lambda_threshold` | `0.001` | - |
 | `--min-num-iter-betas` | `expert` | `yes` | `expert_help` | `min_num_iter_betas` | `10` | - |
 | `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
 | `--no-add-top` | `expert` | `yes` | `expert_help` | `add_top` | `True` | - |
@@ -117,7 +126,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--p-noninf` | `expert` | `yes` | `expert_help` | `p_noninf` | `None` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
-| `--phi` | `expert` | `yes` | `advanced_workflows` | `phi` | `0.05` | - |
+| `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | - |
 | `--positive-controls-all-in` | `expert` | `yes` | `expert_help` | `positive_controls_all_in` | `None` | - |
 | `--positive-controls-in` | `expert` | `yes` | `expert_help` | `positive_controls_in` | `None` | - |
 | `--positive-controls-list` | `expert` | `yes` | `expert_help` | `positive_controls_list` | `None` | - |
@@ -196,6 +205,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--hide-progress` | `expert` | `no` | `core_help` | `hide_progress` | `False` | reduce progress logging noise during long runs |
 | `--ignore-genes` | `expert` | `no` | `expert_help` | `ignore_genes` | `["NA"]` | - |
 | `--ignore-negative-exp-beta` | `expert` | `no` | `expert_help` | `ignore_negative_exp_beta` | `-` | - |
+| `--learn-phi-report-out` | `expert` | `no` | `advanced_workflows` | `learn_phi_report_out` | `None` | write per-candidate phi search diagnostics |
 | `--log-file` | `expert` | `no` | `core_help` | `log_file` | `None` | write structured run logs to this file |
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
 | `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |

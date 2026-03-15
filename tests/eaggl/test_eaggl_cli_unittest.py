@@ -76,6 +76,12 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("--consensus-aggregation", proc.stdout)
         self.assertIn("--consensus-stats-out", proc.stdout)
 
+    def test_default_help_includes_phi_learning_controls(self) -> None:
+        proc = self._run("factor", "--help")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("--learn-phi", proc.stdout)
+        self.assertIn("--learn-phi-max-redundancy", proc.stdout)
+
     def test_default_help_uses_canonical_anchor_flags(self) -> None:
         proc = self._run("factor", "--help")
         self.assertEqual(proc.returncode, 0)
@@ -123,6 +129,13 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("Could not read config file", err)
+        self.assertNotIn("Traceback", err)
+
+    def test_invalid_phi_learning_settings_return_usage_error(self) -> None:
+        proc = self._run("factor", "--learn-phi", "--learn-phi-max-redundancy", "1.2")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-max-redundancy must be in (0, 1]", err)
         self.assertNotIn("Traceback", err)
 
     def test_removed_anchor_gene_alias_has_replacement_message(self) -> None:

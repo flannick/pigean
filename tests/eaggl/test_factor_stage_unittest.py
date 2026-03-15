@@ -28,6 +28,16 @@ def _options(**overrides):
         consensus_min_run_support=0.5,
         consensus_aggregation="median",
         consensus_stats_out=None,
+        learn_phi=False,
+        learn_phi_max_redundancy=0.6,
+        learn_phi_runs_per_step=5,
+        learn_phi_min_run_support=0.6,
+        learn_phi_min_stability=0.85,
+        learn_phi_max_fit_loss_frac=0.05,
+        learn_phi_max_steps=8,
+        learn_phi_expand_factor=10.0,
+        learn_phi_weight_floor=None,
+        learn_phi_report_out=None,
         gene_set_filter_value=0.0,
         gene_set_pheno_filter_value=0.25,
         pheno_filter_value=0.2,
@@ -128,6 +138,33 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.gene_or_pheno_filter_value, options.pheno_filter_value)
         self.assertEqual(cfg.factor_runs, 1)
         self.assertFalse(cfg.consensus_nmf)
+
+    def test_build_factor_execution_config_carries_phi_learning_controls(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
+        options = _options(
+            learn_phi=True,
+            learn_phi_max_redundancy=0.55,
+            learn_phi_runs_per_step=7,
+            learn_phi_min_run_support=0.7,
+            learn_phi_min_stability=0.9,
+            learn_phi_max_fit_loss_frac=0.03,
+            learn_phi_max_steps=6,
+            learn_phi_expand_factor=5.0,
+            learn_phi_weight_floor=0.02,
+            learn_phi_report_out="phi.tsv",
+        )
+        cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
+        self.assertTrue(cfg.learn_phi)
+        self.assertEqual(cfg.learn_phi_max_redundancy, 0.55)
+        self.assertEqual(cfg.learn_phi_runs_per_step, 7)
+        self.assertEqual(cfg.learn_phi_min_run_support, 0.7)
+        self.assertEqual(cfg.learn_phi_min_stability, 0.9)
+        self.assertEqual(cfg.learn_phi_max_fit_loss_frac, 0.03)
+        self.assertEqual(cfg.learn_phi_max_steps, 6)
+        self.assertEqual(cfg.learn_phi_expand_factor, 5.0)
+        self.assertEqual(cfg.learn_phi_weight_floor, 0.02)
+        self.assertEqual(cfg.learn_phi_report_out, "phi.tsv")
 
     def test_run_main_factor_stage_executes_runtime_and_reports_workflow(self) -> None:
         runtime = _RuntimeStub()

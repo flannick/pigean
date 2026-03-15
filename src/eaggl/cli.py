@@ -290,6 +290,16 @@ parser.add_option("","--label-include-phenos",default=False,action="store_true")
 parser.add_option("","--label-individually",default=False,action="store_true") #generate separate labels from genes, phenos, and gene sets separately
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
+parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization
+parser.add_option("","--learn-phi-max-redundancy",default=0.6,type=float) #maximum allowed within-run weighted Jaccard overlap between retained factors during phi search
+parser.add_option("","--learn-phi-runs-per-step",default=5,type=int) #number of repeated restarts used to score each candidate phi
+parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #minimum fraction of runs that must agree on the modal retained factor count during phi search
+parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
+parser.add_option("","--learn-phi-max-fit-loss-frac",default=0.05,type=float) #maximum allowed reconstruction-error loss relative to the best tested phi
+parser.add_option("","--learn-phi-max-steps",default=8,type=int) #maximum number of log-space search steps after bracketing phi
+parser.add_option("","--learn-phi-expand-factor",default=10.0,type=float) #multiplicative factor used when expanding the phi search bracket
+parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
+parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
 parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
 parser.add_option("","--factor-runs",default=1,type=int) #number of repeated random restarts for factorization
@@ -395,6 +405,16 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--consensus-stats-out": "write per-run and per-factor diagnostics for restart or consensus factorization",
     "--factor-phewas-from-gene-phewas-stats-in": "run factor-level phewas from precomputed gene-phewas statistics",
     "--factor-runs": "run repeated random restarts for factorization; without consensus keep only the best run",
+    "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
+    "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
+    "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best tested phi during automatic tuning",
+    "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning",
+    "--learn-phi-max-steps": "maximum number of log-space phi search steps after bracketing",
+    "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
+    "--learn-phi-min-stability": "minimum matched-factor cosine stability required for a phi candidate during automatic tuning",
+    "--learn-phi-report-out": "write per-candidate phi search diagnostics",
+    "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
+    "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
     "--factors-anchor-out": "write anchor-specific factorization outputs",
     "--factors-out": "write the main factor loading output table",
     "--gene-set-stats-in": "load gene-set statistics exported from PIGEAN",
@@ -479,6 +499,14 @@ _EXPERT_METHOD_FLAGS = {
     "--label-gene-sets-only",
     "--label-include-phenos",
     "--label-individually",
+    "--learn-phi-expand-factor",
+    "--learn-phi-max-fit-loss-frac",
+    "--learn-phi-max-steps",
+    "--learn-phi-min-run-support",
+    "--learn-phi-min-stability",
+    "--learn-phi-report-out",
+    "--learn-phi-runs-per-step",
+    "--learn-phi-weight-floor",
     "--lmm-auth-key",
     "--lmm-model",
     "--lmm-provider",
@@ -497,6 +525,7 @@ _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--gene-pheno-stats-out",
     "--gene-set-anchor-clusters-out",
     "--gene-set-clusters-out",
+    "--learn-phi-report-out",
     "--pheno-anchor-clusters-out",
     "--pheno-clusters-out",
     "--phewas-stats-out",
@@ -528,17 +557,24 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--anchor-gene-set",
     "--anchor-genes",
     "--anchor-phenos",
+    "--alpha0",
     "--consensus-aggregation",
     "--consensus-min-factor-cosine",
     "--consensus-min-run-support",
     "--consensus-nmf",
     "--consensus-stats-out",
+    "--beta0",
     "--eaggl-bundle-in",
     "--factor-runs",
     "--factors-anchor-out",
     "--factors-out",
     "--gene-set-stats-in",
     "--gene-stats-in",
+    "--learn-phi",
+    "--learn-phi-max-redundancy",
+    "--max-num-factors",
+    "--min-lambda-threshold",
+    "--phi",
     "--X-in",
     "--X-list",
     "--Xd-in",
@@ -1099,6 +1135,25 @@ def _bootstrap_cli(argv=None):
         bail("--consensus-min-run-support must be in (0, 1]")
     if parsed_options.consensus_nmf and parsed_options.factor_runs < 2:
         bail("--consensus-nmf requires --factor-runs >= 2")
+    if parsed_options.learn_phi:
+        if parsed_options.phi <= 0:
+            bail("--learn-phi requires --phi > 0")
+        if not (0 < parsed_options.learn_phi_max_redundancy <= 1):
+            bail("--learn-phi-max-redundancy must be in (0, 1]")
+        if parsed_options.learn_phi_runs_per_step < 1:
+            bail("--learn-phi-runs-per-step must be at least 1")
+        if not (0 < parsed_options.learn_phi_min_run_support <= 1):
+            bail("--learn-phi-min-run-support must be in (0, 1]")
+        if not (0 < parsed_options.learn_phi_min_stability <= 1):
+            bail("--learn-phi-min-stability must be in (0, 1]")
+        if parsed_options.learn_phi_max_fit_loss_frac < 0:
+            bail("--learn-phi-max-fit-loss-frac must be >= 0")
+        if parsed_options.learn_phi_max_steps < 1:
+            bail("--learn-phi-max-steps must be at least 1")
+        if parsed_options.learn_phi_expand_factor <= 1:
+            bail("--learn-phi-expand-factor must be > 1")
+        if parsed_options.learn_phi_weight_floor is not None and parsed_options.learn_phi_weight_floor < 0:
+            bail("--learn-phi-weight-floor must be >= 0")
 
     if len(parsed_args) < 1:
         bail(usage)

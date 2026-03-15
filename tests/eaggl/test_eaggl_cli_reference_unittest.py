@@ -252,6 +252,25 @@ class EagglCliReferenceTest(unittest.TestCase):
             "12",
             "--phi",
             "0.1",
+            "--learn-phi",
+            "--learn-phi-max-redundancy",
+            "0.55",
+            "--learn-phi-runs-per-step",
+            "7",
+            "--learn-phi-min-run-support",
+            "0.7",
+            "--learn-phi-min-stability",
+            "0.9",
+            "--learn-phi-max-fit-loss-frac",
+            "0.03",
+            "--learn-phi-max-steps",
+            "6",
+            "--learn-phi-expand-factor",
+            "5",
+            "--learn-phi-weight-floor",
+            "0.02",
+            "--learn-phi-report-out",
+            "phi.tsv",
             "--alpha0",
             "7",
             "--beta0",
@@ -316,6 +335,16 @@ class EagglCliReferenceTest(unittest.TestCase):
         opts = json.loads(proc.stdout)["options"]
         self.assertEqual(opts["max_num_factors"], 12)
         self.assertEqual(opts["phi"], 0.1)
+        self.assertTrue(opts["learn_phi"])
+        self.assertEqual(opts["learn_phi_max_redundancy"], 0.55)
+        self.assertEqual(opts["learn_phi_runs_per_step"], 7)
+        self.assertEqual(opts["learn_phi_min_run_support"], 0.7)
+        self.assertEqual(opts["learn_phi_min_stability"], 0.9)
+        self.assertEqual(opts["learn_phi_max_fit_loss_frac"], 0.03)
+        self.assertEqual(opts["learn_phi_max_steps"], 6)
+        self.assertEqual(opts["learn_phi_expand_factor"], 5.0)
+        self.assertEqual(opts["learn_phi_weight_floor"], 0.02)
+        self.assertEqual(opts["learn_phi_report_out"], "phi.tsv")
         self.assertEqual(opts["alpha0"], 7.0)
         self.assertEqual(opts["beta0"], 2.0)
         self.assertEqual(opts["factor_runs"], 4)
@@ -382,6 +411,16 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-phewas-id-to-X-id": ["test_reference_phewas_and_schema_flags_round_trip"],
             "--max-num-factors": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--phi": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-max-redundancy": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-runs-per-step": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-min-stability": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-max-fit-loss-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-max-steps": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--alpha0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--beta0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-runs": ["test_reference_factor_and_labeling_flags_round_trip"],
