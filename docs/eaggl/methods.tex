@@ -1,530 +1,280 @@
-
-% Proposed repo path: docs/eaggl/FACTORING_THEORY.tex
-%
-% This is intended as a human-authored theory note for the EAGGL workflows.
-% It can be compiled standalone or split into a larger methods document later.
-
 \documentclass[11pt]{article}
-\usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,amsthm,bm}
-\usepackage{booktabs}
-\usepackage{hyperref}
+\usepackage[paperwidth=8.5in,paperheight=11in,margin=1in]{geometry}
+\usepackage{xr}
+\usepackage{amsmath}
+\externaldocument{paper}
 
-\title{EAGGL factoring theory and workflow formalization}
+% For section headers starting with S
+\renewcommand{\thesection}{S.\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+
+% Equation numbering in supplementary style
+\makeatletter
+\def\tagform@#1{\maketag@@@{(S\ignorespaces#1\unskip\@@italiccorr)}}
+\makeatother
+
+\newcommand{\myfigurename}{Figure}
+\newcommand{\myref}[1]{\ref{#1}}
+\newcommand{\suppref}[1]{S\ref{#1}}
+\usepackage{amsmath,amssymb}
+\DeclareMathOperator{\EX}{\mathrm{E}}
+\DeclareMathOperator{\Var}{\mathrm{Var}}
+\DeclareMathOperator{\Cov}{\mathrm{Cov}}
+\usepackage{graphicx}
+
+\title{Supporting Information}
 \author{}
-\date{}
 
 \begin{document}
 \maketitle
 
-\section{Purpose and relation to PIGEAN}
-\label{sec:purpose}
+\section{Methods}
 
-EAGGL (Enrichment Analysis Gene Grouping and LLMs) is the downstream latent-structure stage that follows PIGEAN. Conceptually, PIGEAN produces:
+\subsection{The EAGGL model}
+
+EAGGL (Enrichment Analysis Gene Grouping and LLMs) is the latent-structure stage that follows PIGEAN. Whereas PIGEAN estimates the probability that each gene is relevant to a trait and the degree to which each gene annotation predicts trait-relevance, the goal of EAGGL is to decompose those trait-associated gene and annotation patterns into a small number of latent mechanisms.
+
+Let genes be indexed by $i = 1 \ldots N$, gene annotations or gene sets by $j = 1 \ldots M$, phenotypes by $t = 1 \ldots T$, and latent mechanisms by $k = 1 \ldots K$. Let $X_{ij} \ge 0$ denote the value of annotation $j$ for gene $i$. In the simplest setting, $X_{ij}$ is binary gene-set membership, although weighted annotations are also permitted. Let $p_i^{(u)} \in [0,1]$ denote the gene-level support for gene $i$ for anchor user $u$, and let $q_j^{(u)} \in [0,1]$ denote the corresponding annotation-level or gene-set-level support for annotation $j$ for anchor user $u$. The index $u = 1 \ldots U$ is a generic anchor index; depending on the workflow, it may refer to the default phenotype, a supplied positive-control pseudo-phenotype, one or more anchor phenotypes, one or more anchor genes, or an anchor gene set.
+
+The basic biological assumption is that trait-relevant genes and trait-relevant annotations co-occur because they load on a small number of shared mechanisms. In the gene-by-annotation workflow family, we therefore posit nonnegative gene weights $W_{ik}$ and nonnegative annotation weights $H_{jk}$ such that
+\begin{equation}
+X_{ij} \approx \sum_{k=1}^K W_{ik} H_{jk} + \epsilon_{ij},
+\label{eq:eaggl_basic_factor}
+\end{equation}
+where $\epsilon_{ij}$ is an error term. A factor $k$ is interpreted as a latent mechanism when a coherent set of genes has large $W_{ik}$ values and a coherent set of annotations has large $H_{jk}$ values.
+
+The entries of $X$ are not equally informative for a given trait. For example, an annotation that is itself strongly implicated by PIGEAN should contribute more strongly to inference than an annotation with no trait support; likewise, genes with high trait support should contribute more than genes with no support. EAGGL therefore fits the factorization under a weighted Gaussian likelihood:
+\begin{equation}
+\Pr(X \mid W, H, \Omega)
+\propto
+\exp\left(
+-\frac{1}{2}
+\sum_{i=1}^N \sum_{j=1}^M
+\Omega_{ij}
+\left(
+X_{ij} - \sum_{k=1}^K W_{ik} H_{jk}
+\right)^2
+\right),
+\label{eq:eaggl_weighted_likelihood}
+\end{equation}
+where $\Omega_{ij} \ge 0$ is a cell-specific weight. In the simplest single-trait setting, one can think of $\Omega_{ij}$ as proportional to $p_i q_j$, where $p_i$ is gene support and $q_j$ is annotation support. More generally, when several anchor users are present, EAGGL uses the additive form
+\begin{equation}
+\Omega_{ij}
+=
+\sum_{u=1}^U p_i^{(u)} q_j^{(u)}.
+\label{eq:eaggl_weight_matrix}
+\end{equation}
+This gives higher weight to entries supported simultaneously by the relevant genes and the relevant annotations for the chosen anchor set.
+
+Although EAGGL is often motivated heuristically by factorizing a matrix of the form $X_{ij} p_i q_j$, the weighted likelihood in Eq.~\eqref{eq:eaggl_weighted_likelihood} is the more useful mathematical form. It makes explicit that EAGGL seeks a factorization of the underlying annotation matrix while emphasizing entries most relevant to the trait or anchor set. This also avoids repeatedly materializing a different dense weighted matrix for every anchor user.
+
+\subsection{Fitting the model}
+
+Because the factor matrices are latent, we infer them from the observed nonnegative matrix and the support-derived weights. The factorization is regularized by automatic relevance determination (ARD), which allows the effective number of factors to be learned from the data rather than fixed in advance.
+
+Specifically, for each factor $k$ we introduce a nonnegative relevance scale $\lambda_k$ and use the prior
+\begin{equation}
+W_{ik} \mid \lambda_k \sim \text{HalfNormal}\left(0, \lambda_k / \phi \right),
+\qquad
+H_{jk} \mid \lambda_k \sim \text{HalfNormal}\left(0, \lambda_k / \phi \right),
+\label{eq:eaggl_halfnormal_prior}
+\end{equation}
+together with a factor-specific ARD prior
+\begin{equation}
+\lambda_k \sim \text{InvGamma}(a_0, b_0).
+\label{eq:eaggl_ard_prior}
+\end{equation}
+Here $\phi$ controls the baseline sparsity of the factor loadings, while $a_0$ and $b_0$ control the tendency of entire factors to be shrunk away. Small values of $\lambda_k$ correspond to factors that explain little of the observed matrix after accounting for the regularization, and are therefore removed.
+
+Up to additive constants, maximizing the posterior is equivalent to minimizing
+\begin{equation}
+\mathcal{L}(W,H,\lambda)
+=
+\frac{1}{2}
+\sum_{i=1}^N \sum_{j=1}^M
+\Omega_{ij}
+\left(
+X_{ij} - \sum_{k=1}^K W_{ik} H_{jk}
+\right)^2
++
+\frac{\phi}{2}
+\sum_{k=1}^K
+\frac{
+\|W_{\cdot k}\|_2^2 + \|H_{\cdot k}\|_2^2 + 2b_0
+}{
+\lambda_k
+}
++
+C
+\sum_{k=1}^K
+\log \lambda_k,
+\label{eq:eaggl_objective}
+\end{equation}
+where
+\begin{equation}
+C = \frac{N + M}{2} + a_0 + 1.
+\label{eq:eaggl_C}
+\end{equation}
+Thus, EAGGL uses the same basic intuition as other Bayesian nonnegative matrix factorization procedures with ARD: the reconstruction term encourages faithful explanation of the observed matrix, while the ARD penalty favors retaining only factors whose contribution is large enough to overcome whole-factor shrinkage.
+
+The number of retained mechanisms is therefore not simply the user-specified maximum candidate rank. Rather, EAGGL begins from a candidate rank $K$ and then discards factors with very small posterior relevance scales or nearly zero total loading. In this way, the effective number of mechanisms is learned adaptively.
+
+\subsection{Single-trait gene-by-annotation factorization}
+
+The default EAGGL workflow operates on the gene-by-annotation matrix $X$ together with a single trait-specific gene support vector $p_i$ and annotation support vector $q_j$. In this case $U=1$ and the weight matrix simplifies to
+\begin{equation}
+\Omega_{ij} = p_i q_j.
+\label{eq:eaggl_single_trait_weights}
+\end{equation}
+The fitted factor matrices $W$ and $H$ may be interpreted as:
 \begin{itemize}
-\item a gene-level support signal for each gene $g$,
-\item a gene-set level effect signal for each annotation or gene set $j$,
-\item optionally, phenotype-resolved gene or gene-set statistics that can be used for projection or anchored workflows.
+\item $W_{ik}$: the degree to which gene $i$ participates in mechanism $k$;
+\item $H_{jk}$: the degree to which annotation $j$ captures mechanism $k$.
 \end{itemize}
+This is the primary EAGGL model and corresponds to the scientific setting in which one seeks to decompose the trait-associated gene-by-annotation landscape into a small number of mechanisms.
 
-EAGGL turns those outputs into a small number of latent mechanisms. Each mechanism is represented by sparse nonnegative weights over one or more of:
-\begin{itemize}
-\item genes,
-\item gene sets / annotations,
-\item phenotypes.
-\end{itemize}
-
-The central idea is to construct a nonnegative matrix $M$ whose rows and columns depend on the workflow family, and then fit a low-rank nonnegative factorization
+A useful special case is when the input trait support for genes is not obtained from a standard PIGEAN trait run, but instead from a manually supplied list of positive-control genes. In that setting, the pseudo-trait support vector
 \[
-M \approx W H^\top
-\]
-with automatic relevance determination (ARD) so that the effective number of factors is learned from the data rather than fixed in advance.
-
-\section{Notation and base factorization abstraction}
-\label{sec:notation}
-
-Let:
-\begin{itemize}
-\item $g = 1,\dots,G$ index genes,
-\item $j = 1,\dots,J$ index gene sets / annotations,
-\item $t = 1,\dots,T$ index phenotypes,
-\item $k = 1,\dots,K$ index latent factors or mechanisms.
-\end{itemize}
-
-Let $X \in \mathbb{R}_+^{G \times J}$ denote the gene-by-gene-set matrix. In the simplest binary setting, $X_{gj}=1$ means gene $g$ belongs to gene set $j$, but EAGGL also permits weighted or dense versions of $X$.
-
-Let:
-\begin{itemize}
-\item $s_g \ge 0$ be a nonnegative gene support score,
-\item $a_j \ge 0$ be a nonnegative gene-set support score,
-\item $P_{gt} \ge 0$ be a nonnegative gene-by-phenotype support matrix,
-\item $Q_{jt} \ge 0$ be a nonnegative gene-set-by-phenotype support matrix.
-\end{itemize}
-
-The exact source of these quantities depends on the selected workflow, but they are always derived from EAGGL inputs such as:
-\begin{itemize}
-\item \texttt{--gene-stats-in},
-\item \texttt{--gene-set-stats-in},
-\item \texttt{--gene-phewas-stats-in},
-\item \texttt{--gene-set-phewas-stats-in},
-\item or a PIGEAN-to-EAGGL bundle.
-\end{itemize}
-
-The common abstraction is:
-\begin{equation}
-M = M(\text{workflow}, X, s, a, P, Q, \text{anchors}),
-\label{eq:workflow_matrix}
-\end{equation}
-where $M$ is always nonnegative and suitable for NMF-like factorization.
-
-\section{Base single-phenotype formalization: gene x gene-set factorization}
-\label{sec:single_trait}
-
-The main ``single trait anchoring'' idea can be formalized as follows.
-
-For a single phenotype or disease context, let $s_g$ be the gene support score for gene $g$ and let $a_j$ be the gene-set effect score for annotation $j$. A natural nonnegative matrix to factor is:
-\begin{equation}
-M^{(gs)}_{gj} = X_{gj} s_g a_j.
-\label{eq:gene_set_matrix}
-\end{equation}
-
-This matrix is large when:
-\begin{itemize}
-\item gene $g$ is strongly supported by PIGEAN,
-\item gene set $j$ is strongly associated with the phenotype,
-\item and gene $g$ actually belongs to gene set $j$.
-\end{itemize}
-
-We then posit latent mechanisms $k=1,\dots,K$ with:
-\begin{itemize}
-\item $W_{gk} \ge 0$: degree to which gene $g$ participates in factor $k$,
-\item $H_{jk} \ge 0$: degree to which gene set $j$ captures factor $k$.
-\end{itemize}
-
-The core approximation is:
-\begin{equation}
-M^{(gs)}_{gj} \approx \sum_{k=1}^K W_{gk} H_{jk} + \varepsilon_{gj},
-\label{eq:nmf_gene_set}
-\end{equation}
-or in matrix form
-\begin{equation}
-M^{(gs)} \approx W H^\top.
-\label{eq:nmf_matrix_form}
-\end{equation}
-
-This is the default conceptual model for:
-\begin{itemize}
-\item F1: default single-phenotype anchoring,
-\item F2: gene-list-as-phenotype anchoring,
-\item F3: default factorization plus later phenotype projection.
-\end{itemize}
-
-\subsection{Interpretation}
-A factor $k$ is interpreted as a latent mechanism when:
-\begin{itemize}
-\item a coherent set of genes has large $W_{gk}$,
-\item a coherent set of annotations has large $H_{jk}$,
-\item and the reconstructed submatrix $W_{\cdot k} H_{\cdot k}^\top$ explains an interpretable portion of $M^{(gs)}$.
-\end{itemize}
-
-\section{Workflow F2: gene-list-as-phenotype anchoring}
-\label{sec:f2}
-
-When the user supplies positive-control genes rather than a standard phenotype statistic file, EAGGL effectively replaces the phenotype-specific gene score $s_g$ with a pseudo-phenotype vector:
-\[
-s^{\mathrm{pc}}_g =
+p_i^{(\mathrm{pc})}
+=
 \begin{cases}
-1 & \text{if } g \text{ is in the supplied positive-control set},\\
+1 & \text{if gene } i \text{ is in the positive-control set,} \\
 0 & \text{otherwise,}
 \end{cases}
 \]
-or a weighted analogue if the control list carries scores.
+or a weighted analogue, simply replaces $p_i$ in Eq.~\eqref{eq:eaggl_single_trait_weights}. The factorization itself is unchanged; only the support weights defining which genes are emphasized by the model differ.
 
-The factorization then follows the same structure as Eq.~\eqref{eq:gene_set_matrix} and Eq.~\eqref{eq:nmf_gene_set}, but with $s_g$ interpreted as curated anchor support rather than support inferred from a standard PIGEAN trait file.
+\subsection{Phenotype-anchored extensions of the gene-by-annotation model}
 
-\section{Workflow F3: projection of additional phenotypes after factorization}
-\label{sec:f3_projection}
-
-In F3, the factorization itself still follows the gene-by-gene-set construction above, but additional phenotype information is projected after the main factors are learned.
-
-Let $W \in \mathbb{R}_+^{G \times K}$ be the fitted gene-by-factor matrix. For each external phenotype $t$, let $p_t \in \mathbb{R}_+^G$ denote the gene-level phenotype support vector derived from gene-PheWAS statistics. A natural phenotype-projection step is a nonnegative regression:
-\begin{equation}
-c_t = \arg\min_{c \ge 0} \| p_t - W c \|_2^2,
-\label{eq:nnls_gene_projection}
-\end{equation}
-where $c_t \in \mathbb{R}_+^K$ gives the factor coefficients for phenotype $t$.
-
-If the implementation instead projects from gene-set statistics, the analogous form is:
-\begin{equation}
-d_t = \arg\min_{d \ge 0} \| q_t - H d \|_2^2,
-\label{eq:nnls_gene_set_projection}
-\end{equation}
-where $q_t \in \mathbb{R}_+^J$ comes from gene-set-PheWAS statistics.
-
-This is the theory-level motivation for:
-\begin{itemize}
-\item \texttt{--gene-phewas-stats-in},
-\item \texttt{--gene-set-phewas-stats-in},
-\item \texttt{--project-phenos-from-gene-sets},
-\item and the post-factor PheWAS outputs.
-\end{itemize}
-
-\section{Workflows F4-F5: phenotype-anchored factorization}
-\label{sec:pheno_anchor}
-
-In phenotype-anchored workflows, phenotype information is used earlier, not just after factorization.
-
-Let $A \subseteq \{1,\dots,T\}$ be the selected anchor phenotype set:
-\begin{itemize}
-\item for F4, $A$ is the set named by \texttt{--anchor-phenos},
-\item for F5, $A$ is an all-phenotype aggregate defined by \texttt{--anchor-any-pheno}.
-\end{itemize}
-
-Conceptually, EAGGL forms phenotype-conditioned support summaries such as:
-\begin{equation}
-s^{(A)}_g = \mathrm{Agg}_{t \in A} P_{gt},
+In some applications, one wishes to condition factorization on several anchor phenotypes rather than on a single default trait. Let $P_{it}$ denote a nonnegative gene-by-phenotype support matrix and $Q_{jt}$ denote a nonnegative annotation-by-phenotype support matrix derived from phenotype-resolved statistics. If the anchor phenotype set is $A \subseteq \{1,\ldots,T\}$, then each $t \in A$ defines an anchor user, with
+\[
+p_i^{(u)} = P_{it},
 \qquad
-a^{(A)}_j = \mathrm{Agg}_{t \in A} Q_{jt},
-\label{eq:anchor_aggregation}
-\end{equation}
-where $\mathrm{Agg}$ denotes an implementation-defined nonnegative aggregation, for example a max, mean, weighted mean, or other monotone combination.
-
-The factorization then again follows:
-\begin{equation}
-M^{(A)}_{gj} = X_{gj} s^{(A)}_g a^{(A)}_j.
-\label{eq:anchored_gene_set_matrix}
-\end{equation}
-
-The key difference from F1 is that the matrix being factored is now explicitly conditioned on the chosen phenotype anchor set.
-
-\section{Workflows F6-F9: gene-anchored or gene-set-anchored gene-set x phenotype factorization}
-\label{sec:gene_anchor}
-
-For gene-driven or gene-set-driven workflows, the code distinguishes a second family in which the object being factorized is no longer most naturally a gene-by-gene-set matrix. Instead, the factorization is better described as a gene-set-by-phenotype matrix or a closely related anchored matrix.
-
-This matches the current workflow metadata, which marks F6-F9 as \texttt{factor\_gene\_set\_x\_pheno = True}.
-
-\subsection{Gene-set x phenotype factorization}
-Let $M^{(jp)} \in \mathbb{R}_+^{J \times T}$ be a gene-set-by-phenotype matrix derived from gene-set-PheWAS statistics, gene-PheWAS statistics, and the selected gene or gene-set anchors. Then:
-\begin{equation}
-M^{(jp)}_{jt} \approx \sum_{k=1}^K U_{jk} V_{tk} + \varepsilon_{jt},
-\label{eq:gene_set_pheno_factorization}
-\end{equation}
-where:
-\begin{itemize}
-\item $U_{jk} \ge 0$ is the gene-set loading for factor $k$,
-\item $V_{tk} \ge 0$ is the phenotype loading for factor $k$.
-\end{itemize}
-
-\subsection{Single-gene and multi-gene anchoring}
-For:
-\begin{itemize}
-\item F6: a single anchor gene,
-\item F7: multiple anchor genes,
-\item F8: any-gene anchoring,
-\end{itemize}
-the anchor set is used to construct masks or weights that determine which rows or columns of $M^{(jp)}$ are emphasized or admitted before factorization.
-
-A conceptual abstraction is:
-\begin{equation}
-M^{(jp,A)} = \mathcal{T}(Q, P, A_g),
-\label{eq:gene_anchor_matrix}
-\end{equation}
-where $A_g$ is the chosen gene anchor set and $\mathcal{T}$ denotes the anchored matrix-construction step implemented in code.
-
-\subsection{Gene-set anchoring}
-For F9, the anchor is an input gene set rather than a phenotype or gene set of genes. The same general factorization Eq.~\eqref{eq:gene_set_pheno_factorization} applies, but the anchor-induced mask and the required gene-level PheWAS input are different.
-
-\section{ARD priors and effective factor count}
-\label{sec:ard}
-
-The current CLI exposes:
-\begin{itemize}
-\item \texttt{--max-num-factors},
-\item \texttt{--phi},
-\item \texttt{--alpha0},
-\item \texttt{--beta0},
-\item \texttt{--min-lambda-threshold},
-\item \texttt{--factor-runs},
-\item \texttt{--consensus-nmf}.
-\end{itemize}
-
-A convenient theory-level formalization is to introduce nonnegative factor relevance variables $\lambda_k$ and use ARD priors so that weak factors are shrunk away automatically.
-
-At a high level:
-\begin{align}
-W_{\cdot k}, H_{\cdot k} &\sim \text{nonnegative prior controlled by } \phi \text{ and } \lambda_k, \\
-\lambda_k &\sim \text{ARD prior controlled by } \alpha_0, \beta_0.
-\end{align}
-
-The exact scale/rate convention can be fixed later to match the implementation precisely, but the conceptual role of the hyperparameters is:
-\begin{itemize}
-\item $\phi$: baseline sparsity / concentration of factor weights,
-\item $\alpha_0, \beta_0$: relevance shrinkage for whole factors,
-\item \texttt{--max-num-factors}: an upper cap on the candidate factor rank,
-\item \texttt{--min-lambda-threshold}: a post-fit cutoff below which factors are discarded.
-\end{itemize}
-
-Thus, the effective number of retained mechanisms is not simply the user-supplied maximum; it is the subset of factors whose learned relevance survives the ARD shrinkage and thresholding.
-
-\subsection{Automatic phi tuning}
-
-The current implementation can also treat $\phi$ as an automatically tuned structural hyperparameter rather than a fixed user constant. This is exposed through:
-\begin{itemize}
-\item \texttt{--learn-phi},
-\item \texttt{--learn-phi-max-redundancy},
-\item \texttt{--learn-phi-runs-per-step},
-\item \texttt{--learn-phi-min-run-support},
-\item \texttt{--learn-phi-min-stability},
-\item \texttt{--learn-phi-max-fit-loss-frac},
-\item \texttt{--learn-phi-max-steps},
-\item \texttt{--learn-phi-expand-factor},
-\item \texttt{--learn-phi-weight-floor},
-\item \texttt{--learn-phi-report-out}.
-\end{itemize}
-
-This is best understood as \emph{structural model selection}, not held-out cross-validation. The objective is not purely reconstruction error. The selected $\phi$ should preserve as many distinct factors as possible while avoiding near-duplicate factors and unstable restart behavior.
-
-For each tested $\phi$, EAGGL runs a small repeated-fit layer and summarizes the candidate by:
-\begin{itemize}
-\item the modal retained factor count $K_{\mathrm{eff}}$,
-\item the best reconstruction error among runs with that modal count,
-\item the best objective / evidence among runs with that modal count,
-\item the support fraction of the modal count across runs,
-\item the mean matched-factor cosine across modal runs,
-\item and a within-run redundancy score among retained factors.
-\end{itemize}
-
-The current redundancy metric is a weighted Jaccard overlap on nonnegative factor vectors after small-weight thresholding and $L_1$ normalization:
-\[
-\mathrm{J}_{w}(u, v) = \frac{\sum_i \min(u_i, v_i)}{\sum_i \max(u_i, v_i)}.
+q_j^{(u)} = Q_{jt}.
 \]
-By default, EAGGL computes this overlap on the gene-set loading columns. If gene-set loadings are unavailable, it falls back to gene loadings and then phenotype loadings.
+The weight matrix again takes the additive form of Eq.~\eqref{eq:eaggl_weight_matrix}:
+\begin{equation}
+\Omega_{ij}^{(A)}
+=
+\sum_{t \in A}
+P_{it} Q_{jt}.
+\label{eq:eaggl_pheno_anchor_weights}
+\end{equation}
+The factorization itself remains the same as Eq.~\eqref{eq:eaggl_basic_factor}. The difference is that the model is now conditioned on a selected phenotype set rather than on a single default trait.
 
-The search itself is log-scale and monotone-ish in spirit:
-\begin{enumerate}
-\item start from the user-supplied \texttt{--phi},
-\item expand outward multiplicatively until the redundancy threshold is bracketed,
-\item bisect the bracket in log space,
-\item and finally choose among all evaluated candidates rather than trusting only the last midpoint.
-\end{enumerate}
+When the goal is to summarize relevance to any phenotype in a large panel rather than to a manually specified subset, the anchor set is first collapsed to a single aggregate user and factorization proceeds under the same weighted model. Thus, the difference between multi-phenotype anchoring and any-phenotype anchoring lies in whether the phenotype-resolved support vectors are retained separately or combined before fitting; the underlying factor model is unchanged.
 
-The final selection rule is:
-\begin{enumerate}
-\item keep only candidates with redundancy below \texttt{--learn-phi-max-redundancy},
-\item keep only candidates with restart support above \texttt{--learn-phi-min-run-support},
-\item keep only candidates with matched-factor stability above \texttt{--learn-phi-min-stability},
-\item keep only candidates whose reconstruction error is within the allowed fractional loss of the best candidate seen,
-\item among those, choose the candidate with the largest retained factor count,
-\item then break ties by smaller $\phi$, smaller redundancy, and smaller evidence.
-\end{enumerate}
+\subsection{Gene-anchored and gene-set-anchored gene-set by phenotype factorization}
 
-Thus, when \texttt{--learn-phi} is enabled, the meaning of \texttt{--phi} changes slightly: it remains the user-specified \emph{initial guess}, but the final reported factorization may use a nearby selected value chosen by this structural search.
+The second major EAGGL workflow family factors a nonnegative gene-set-by-phenotype matrix rather than the original gene-by-annotation matrix. Let $Y_{jt} \ge 0$ denote a matrix whose rows are gene sets and whose columns are phenotypes, typically derived from phenotype-resolved PIGEAN statistics. EAGGL then posits
+\begin{equation}
+Y_{jt}
+\approx
+\sum_{k=1}^K H_{jk} Z_{tk} + \epsilon_{jt},
+\label{eq:eaggl_gene_set_pheno_factor}
+\end{equation}
+where $H_{jk}$ is again the loading of annotation $j$ on factor $k$, while $Z_{tk}$ is now the phenotype loading of factor $k$.
 
-\subsection{Repeated restarts and consensus factorization}
-
-The current implementation also exposes a restart layer above the base ARD-NMF fit. These are now documented as first-tier public EAGGL controls rather than hidden expert-only tuning parameters:
+As above, the factorization is fitted under a weighted Gaussian likelihood. Let $q_j^{(u)}$ denote gene-set support and let $r_t^{(u)}$ denote phenotype support induced by anchor user $u$. Then
+\begin{equation}
+\Omega_{jt}
+=
+\sum_{u=1}^U q_j^{(u)} r_t^{(u)}.
+\label{eq:eaggl_gene_anchor_weights}
+\end{equation}
+The anchor users are defined differently for the different workflows in this family:
 \begin{itemize}
-\item \texttt{--factor-runs}: number of random restarts,
-\item \texttt{--consensus-nmf}: whether those restarts are aggregated into a consensus factorization,
-\item \texttt{--consensus-min-factor-cosine}: minimum cosine similarity required to align a restart factor to a reference factor,
-\item \texttt{--consensus-min-run-support}: minimum support fraction required to keep a consensus factor,
-\item \texttt{--consensus-aggregation}: aggregation rule across matched factor columns.
+\item In single-gene anchoring and multi-gene anchoring, $u$ indexes one or more selected anchor genes.
+\item In any-gene anchoring, the selected anchor genes are first collapsed into a single aggregate user.
+\item In gene-set anchoring, the user is a supplied anchor gene set that induces phenotype support through the gene-PheWAS statistics.
 \end{itemize}
+Thus, the gene-anchored workflows and the phenotype-anchored workflows are not different factorization algorithms. They are different constructions of the matrix and weights supplied to the same ARD-regularized nonnegative factor model.
 
-This creates two distinct operational regimes:
-\begin{enumerate}
-\item \emph{best-of-$N$ restarts}: run the same factor model under several seeds and keep the run with the best objective value,
-\item \emph{consensus NMF}: run the same factor model under several seeds, align matched factors across runs using cosine similarity on the gene-set loadings, and aggregate the matched columns into a consensus factorization.
-\end{enumerate}
+\subsection{Factor relevance, any-anchor relevance, and phenotype annotation}
 
-Let $W^{(r)} \in \mathbb{R}_+^{J \times K_r}$ denote the gene-set loading matrix from restart $r$ after ARD thresholding. For consensus mode, the implementation normalizes the columns of $W^{(r)}$, chooses a reference restart, aligns other runs to that reference by maximum total cosine similarity, and aggregates only those matched factors whose support across runs exceeds the configured threshold. Thus consensus is defined at the \emph{component} level rather than by averaging raw column order.
+After fitting, EAGGL reports factor-level relevance scores that summarize how strongly each factor is supported by the selected trait or anchor set. These are downstream summaries derived from the fitted factor basis and are not themselves part of the factorization objective.
 
-\section{Filtering, pruning, and panel shaping}
-\label{sec:filtering}
-
-EAGGL also exposes many practical controls that change the matrix $M$ before factorization:
-\begin{itemize}
-\item thresholding of genes, phenotypes, or gene sets,
-\item correlation-based pruning,
-\item expansion of gene sets around anchor genes,
-\item optional sparsification of weighted gene sets into extreme subsets.
-\end{itemize}
-
-These controls do not change the form of the factor model itself, but they do change the matrix actually seen by that model. In other words, they act on the map in Eq.~\eqref{eq:workflow_matrix}, not on the factorization objective after $M$ is built.
-
-For documentation purposes, it is therefore useful to distinguish:
-\begin{itemize}
-\item \emph{model hyperparameters}: $\phi$, $\alpha_0$, $\beta_0$, $K_{\max}$, factor-thresholding,
-\item \emph{matrix-construction hyperparameters}: filters, pruning thresholds, anchor masks, and expansion rules.
-\end{itemize}
-
-\section{Post-factor phenotype annotation and regression}
-\label{sec:postfactor}
-
-The strategy note motivating EAGGL also describes running phenotype regressions after factorization. A general formalization is:
-
-\begin{enumerate}
-\item Fit the main factors.
-\item For each phenotype $t$, compute a nonnegative coefficient vector against the factor basis, for example by NNLS as in Eq.~\eqref{eq:nnls_gene_projection} or Eq.~\eqref{eq:nnls_gene_set_projection}.
-\item Store the resulting factor-by-phenotype coefficients, p-values, or related summaries as phenotype annotations of the factors.
-\end{enumerate}
-
-This is the theory-level role of:
-\begin{itemize}
-\item \texttt{--factor-phewas-from-gene-phewas-stats-in},
-\item \texttt{--factor-phewas-min-gene-factor-weight},
-\item \texttt{--project-phenos-from-gene-sets},
-\item and the various PheWAS output files.
-\end{itemize}
-
-\section{Labeling}
-\label{sec:labeling}
-
-Labeling is not part of the core statistical model. It is a post-factor interpretation layer.
-
-Let $\mathcal{S}_k$, $\mathcal{G}_k$, and $\mathcal{P}_k$ denote the top gene sets, genes, and phenotypes for factor $k$. Then a label is a function
-\[
-L_k = \mathcal{L}(\mathcal{S}_k, \mathcal{G}_k, \mathcal{P}_k),
-\]
-where:
-\begin{itemize}
-\item $\mathcal{L}$ may be a deterministic rule using top-ranked terms,
-\item or an LLM-assisted summarizer if the user provides provider credentials.
-\end{itemize}
-
-This motivates the documentation rule that labeling should be treated as a downstream interpretation option, not as part of the factorization itself.
-
-\section{QC and recommended stability criteria}
-\label{sec:qc}
-
-The strategy note motivating EAGGL suggests the following QC logic:
-
-\begin{itemize}
-\item run many random initializations,
-\item keep the run with the highest posterior likelihood or best objective value,
-\item require stable reconstruction loss,
-\item require stable effective factor count across runs,
-\item require high cross-run agreement of matched factors,
-\item threshold very small factor weights to zero.
-\end{itemize}
-
-A documentation-friendly operationalization is:
-\begin{enumerate}
-\item repeat fitting under several random seeds,
-\item compare the effective factor count after ARD thresholding,
-\item greedily match factors across runs and require high correlation of gene or gene-set weights,
-\item inspect whether the top labels / top annotations are stable,
-\item use post-factor phenotype projection only after the factor structure is stable.
-\end{enumerate}
-
-These QC checks now map directly onto the restart and consensus CLI controls above. In particular, \texttt{--factor-runs} provides the repeated-fit layer, while \texttt{--consensus-nmf} plus the cosine/support thresholds provide an explicit implementation of cross-run factor agreement rather than leaving that agreement as an entirely manual external check.
-
-\section{Why the workflow view matters for the CLI}
-\label{sec:why_cli}
-
-The EAGGL CLI should be documented around the workflow families above, not around the raw parser order. That is because the scientific meaning of a flag is determined less by where it appears in the code and more by:
-\begin{itemize}
-\item which matrix $M$ is being built,
-\item what the anchor set is,
-\item whether phenotype projection is part of the run,
-\item and which part of the pipeline is precomputed versus fitted inside EAGGL.
-\end{itemize}
-
-In practice, this means the clean user-facing documentation should be organized in the following order:
-\begin{enumerate}
-\item workflow selectors,
-\item required input contracts,
-\item core factor hyperparameters,
-\item projection / PheWAS options,
-\item labeling options,
-\item runtime and debugging controls.
-\end{enumerate}
-
-\section{Summary}
-\label{sec:summary}
-
-A concise summary of the theory is:
-
-\begin{itemize}
-\item EAGGL always builds a nonnegative matrix $M$ from PIGEAN outputs and optional anchor information.
-\item Different workflows change the \emph{definition} of $M$, not the overall factorization principle.
-\item F1-F3 are best understood as gene-by-gene-set factorization.
-\item F4-F5 are phenotype-conditioned versions of that same idea.
-\item F6-F9 are best understood as anchored gene-set-by-phenotype factorization.
-\item ARD controls the effective number of retained mechanisms.
-\item PheWAS projection and labeling are downstream interpretation layers built on top of the factors.
-\end{itemize}
-
-\section{Factor relevance and any-anchor relevance}
-\label{sec:factor_relevance}
-
-After fitting the factorization, EAGGL reports a factor-level relevance score intended to summarize
-how strongly factor $k$ is supported by the selected trait or anchor set.
-
-The exact basis depends on the workflow family.
-
-\paragraph{F1-F5: gene x gene-set workflows.}
-Let $W^{(g)} \in \mathbb{R}_+^{G \times K}$ denote the gene-by-factor loading matrix, and let
-$p^{(u)} \in [0,1]^G$ denote the gene-level support vector for anchor user $u$.
-For example, $u$ may index:
-\begin{itemize}
-\item the single default phenotype (F1),
-\item the supplied positive-control pseudo-phenotype (F2),
-\item projected phenotypes (F3),
-\item anchor phenotypes (F4),
-\item or the single aggregated any-phenotype support vector (F5).
-\end{itemize}
-
-Define the anchor-specific factor relevance vector $r^{(u)} \in [0,1]^K$ by bounded nonnegative regression:
+For the gene-by-annotation workflow family, let $W \in \mathbb{R}_+^{N \times K}$ denote the fitted gene-by-factor matrix, and let $p^{(u)} \in [0,1]^N$ denote the gene-level support vector for anchor user $u$. The anchor-specific relevance of the factors to user $u$ is defined by bounded nonnegative regression:
 \begin{equation}
 r^{(u)}
 =
 \arg\min_{0 \le r \le 1}
 \left\|
-p^{(u)} - W^{(g)} r
+p^{(u)} - W r
 \right\|_2^2.
 \label{eq:eaggl_factor_relevance_gene}
 \end{equation}
 
-\paragraph{F6-F9: gene-set x phenotype workflows.}
-Let $W^{(p)} \in \mathbb{R}_+^{T \times K}$ denote the phenotype-by-factor loading matrix, and let
-$p^{(u)} \in [0,1]^T$ denote the phenotype-support vector associated with anchor user $u$.
-For example, $u$ may index:
-\begin{itemize}
-\item anchor genes (F6-F7),
-\item the single aggregated any-gene support vector (F8),
-\item or the single anchor-gene-set induced support vector (F9).
-\end{itemize}
-
-Define the anchor-specific factor relevance vector analogously:
+For the gene-set-by-phenotype workflow family, let $Z \in \mathbb{R}_+^{T \times K}$ denote the fitted phenotype-by-factor matrix, and let $p^{(u)} \in [0,1]^T$ denote the phenotype support vector for anchor user $u$. The factor relevance is then defined analogously:
 \begin{equation}
 r^{(u)}
 =
 \arg\min_{0 \le r \le 1}
 \left\|
-p^{(u)} - W^{(p)} r
+p^{(u)} - Z r
 \right\|_2^2.
 \label{eq:eaggl_factor_relevance_pheno}
 \end{equation}
 
-\paragraph{Any-anchor relevance.}
-When more than one anchor user is present, EAGGL summarizes the probability-like relevance of factor $k$
-to \emph{any} selected anchor by a noisy-OR aggregation:
+When more than one anchor user is present, EAGGL summarizes the probability-like relevance of factor $k$ to any selected anchor by a noisy-OR aggregation:
 \begin{equation}
-r^{\mathrm{any}}_k
+r_k^{\mathrm{any}}
 =
-1 - \prod_{u=1}^U \left(1 - r^{(u)}_k\right).
+1 -
+\prod_{u=1}^U
+\left(
+1 - r_k^{(u)}
+\right).
 \label{eq:eaggl_factor_any_relevance}
 \end{equation}
+This has the intended semantics that $r_k^{\mathrm{any}}$ is the probability-like estimate that factor $k$ is relevant to at least one selected anchor. In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific relevance itself.
 
-This gives the intended semantics:
-\begin{quote}
-``probability-like estimate that factor $k$ is relevant to at least one selected anchor / trait.''
-\end{quote}
+Phenotype annotation after factorization is handled similarly. If $p^{(t)}$ is the support vector for phenotype $t$, then one may obtain factor-level phenotype coefficients by nonnegative least squares:
+\begin{equation}
+c^{(t)}
+=
+\arg\min_{c \ge 0}
+\left\|
+p^{(t)} - B c
+\right\|_2^2,
+\label{eq:eaggl_pheno_projection}
+\end{equation}
+where $B$ denotes the appropriate factor basis. For the default workflow family, $B$ may be the gene-by-factor matrix $W$ or the annotation-by-factor matrix $H$, depending on whether the projection is performed from gene-level or annotation-level phenotype statistics. For the gene-set-by-phenotype family, the phenotype loadings $Z$ themselves already define factor-by-phenotype association patterns.
 
-In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific score itself.
-This includes the common special cases F1, F2, and F9, and also F5 and F8 after their anchor sets are collapsed into a single aggregate support vector before factorization.
+\subsection{Repeated restarts, consensus factorization, and structural selection of $\phi$}
 
+The EAGGL objective is non-convex, and therefore different random initializations can converge to different local optima. For this reason, EAGGL is typically fit under repeated random restarts. The simplest use of repeated restarts is to retain the fitted solution with the best objective value. A more stringent alternative is consensus factorization, in which factors are first matched across runs and then aggregated only if they are reproduced consistently across restarts.
+
+Let $H^{(r)}$ denote the annotation loading matrix from restart $r$ after ARD thresholding. In consensus mode, EAGGL normalizes the factor columns, aligns factors across restarts by maximum total similarity, and aggregates matched factors only when they appear in a sufficient fraction of runs. Consensus is therefore defined at the component level rather than by averaging arbitrary column order.
+
+The hyperparameter $\phi$ also affects the effective number and sparsity of retained factors, even though ARD is responsible for pruning irrelevant components. EAGGL can therefore treat $\phi$ as a structural model-selection parameter rather than as a fixed constant. The guiding principle is to select the smallest value of $\phi$ that yields a factorization with many retained mechanisms but without unstable or near-duplicate factors.
+
+Operationally, each candidate value of $\phi$ is evaluated across repeated random restarts, and the candidate is summarized by: (a) the modal retained factor count; (b) reconstruction error; (c) agreement of matched factors across runs; and (d) within-run redundancy of the retained factors. Redundancy is measured on normalized factor loading vectors, for example by weighted Jaccard overlap:
+\begin{equation}
+J_w(u,v)
+=
+\frac{\sum_{\ell} \min(u_{\ell}, v_{\ell})}{\sum_{\ell} \max(u_{\ell}, v_{\ell})}.
+\label{eq:eaggl_weighted_jaccard}
+\end{equation}
+The selected value of $\phi$ is the smallest value that preserves an acceptably non-redundant and restart-stable solution without materially degrading reconstruction fit. This procedure is best understood as structural model selection rather than as held-out cross-validation.
+In the implementation, the selected $\phi$, the candidate-level search diagnostics, and the thresholds used for the search are written to the run log and parameter output so that the final reported factorization is auditable after the fact.
+
+\subsection{Optimizations for scaling EAGGL to large phenotype panels}
+
+Although the model is defined in terms of weighted nonnegative factorization, a direct implementation that explicitly constructs separate dense matrices for every anchor user would be inefficient. EAGGL therefore uses the weighted objective of Eq.~\eqref{eq:eaggl_weighted_likelihood} directly, rather than materializing large user-specific tensors. This preserves the model while substantially reducing memory use.
+
+Similarly, phenotype panels and annotation collections can be large enough that a naive factorization would be dominated by nearly null rows or columns. EAGGL therefore permits filtering and pruning of genes, annotations, or phenotypes before fitting. These operations do not change the form of the statistical model; they change only the subset of the matrix to which the model is applied.
+
+Finally, after fitting, very small factor loadings may be thresholded to zero. This encourages a sparse and more interpretable representation, stabilizes downstream summaries such as top genes and top annotations, and improves comparability across repeated restarts.
+
+\subsection{Interpretation and labeling of latent mechanisms}
+
+The outputs of EAGGL are the fitted factor loadings over genes, annotations, and, when applicable, phenotypes. These loadings constitute the statistical model output. Human-readable labels for factors are downstream summaries rather than part of the factorization model itself.
+
+If $\mathcal{S}_k$, $\mathcal{G}_k$, and $\mathcal{P}_k$ denote the highest-weight annotations, genes, and phenotypes for factor $k$, then a label may be viewed abstractly as a post hoc summary function
+\[
+L_k = \mathcal{L}(\mathcal{S}_k, \mathcal{G}_k, \mathcal{P}_k).
+\]
+Such labels may be generated deterministically from the top terms or by a separate language-model-based summarization step. In either case, the labeling procedure is downstream of the core statistical model and should be interpreted as an aid to biological interpretation rather than as part of the inference procedure itself.
 
 \end{document}

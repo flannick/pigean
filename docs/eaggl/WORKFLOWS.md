@@ -51,7 +51,7 @@ Core matrix/stat inputs (direct mode):
 Use `--X-in` for a direct `.gmt` sparse matrix file. Use `--X-list` only for a text file that lists matrix inputs. If a direct `.gmt` is passed to `--X-list`, EAGGL accepts it for compatibility but warns and treats it like `--X-in`.
 
 Consensus cNMF is part of the normal factor workflow surface: add `--factor-runs N --consensus-nmf` to any of the factor workflows below when you want restart aggregation instead of a single fitted run.
-Automatic phi tuning is also part of the normal factor workflow surface: add `--learn-phi` to any of the factor workflows below when you want EAGGL to search for a less redundant, restart-stable `phi` before the final reported factorization.
+Automatic phi tuning is also part of the normal factor workflow surface: add `--learn-phi` to any of the factor workflows below when you want EAGGL to search for a less redundant, restart-stable `phi` before the final reported factorization. The selected `phi` and the search thresholds are written to `--params-out`, and `--learn-phi-report-out` writes the full per-candidate diagnostics table.
 
 PheWAS matrix inputs (for phenotype/gene anchor workflows):
 

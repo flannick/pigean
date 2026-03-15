@@ -85,6 +85,8 @@ PYTHONPATH=src python -m eaggl factor \
   --params-out results/params.out
 ```
 
+`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics.
+
 Phenotype-anchored workflow:
 
 ```bash
@@ -241,6 +243,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 Operational notes:
 - `--phi` remains the initial guess. With `--learn-phi`, EAGGL treats it as the starting point for search rather than the final fixed value.
 - Auto-tuning uses `--learn-phi-runs-per-step` during search, then runs the normal final factorization with the selected `phi`.
+- The selected `phi`, the search thresholds, and per-candidate diagnostics are written to both the run log and `--params-out`. Use `--learn-phi-report-out` when you also want the full candidate table as a separate artifact.
 - The default search is structural model selection, not held-out cross-validation. It prefers the smallest acceptable `phi` that keeps factors non-redundant, stable across restarts, and close to the best fit seen during search.
 
 ### Factor pruning, weighting, and post-processing

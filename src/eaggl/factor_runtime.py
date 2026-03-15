@@ -65,6 +65,126 @@ def _open_text_output(path):
     return open(path, "w", encoding="utf-8")
 
 
+def _summarize_mask(mask):
+    if mask is None:
+        return (False, None, None)
+    mask_array = np.asarray(mask)
+    if mask_array.size == 0:
+        return (True, 0, 0)
+    try:
+        selected = int(np.sum(mask_array.astype(bool)))
+    except Exception:
+        selected = int(np.sum(mask_array != 0))
+    return (True, int(mask_array.size), selected)
+
+
+def _build_factor_param_record(
+    *,
+    max_num_factors,
+    phi,
+    alpha0,
+    beta0,
+    seed,
+    factor_runs,
+    consensus_nmf,
+    consensus_min_factor_cosine,
+    consensus_min_run_support,
+    consensus_aggregation,
+    consensus_stats_out,
+    learn_phi,
+    learn_phi_max_redundancy,
+    learn_phi_runs_per_step,
+    learn_phi_min_run_support,
+    learn_phi_min_stability,
+    learn_phi_max_fit_loss_frac,
+    learn_phi_max_steps,
+    learn_phi_expand_factor,
+    learn_phi_weight_floor,
+    learn_phi_report_out,
+    gene_set_filter_type,
+    gene_set_filter_value,
+    gene_or_pheno_filter_type,
+    gene_or_pheno_filter_value,
+    pheno_prune_value,
+    pheno_prune_number,
+    gene_prune_value,
+    gene_prune_number,
+    gene_set_prune_value,
+    gene_set_prune_number,
+    anchor_pheno_mask,
+    anchor_gene_mask,
+    anchor_any_pheno,
+    anchor_any_gene,
+    anchor_gene_set,
+    run_transpose,
+    max_num_iterations,
+    rel_tol,
+    min_lambda_threshold,
+    lmm_auth_key,
+    lmm_model,
+    lmm_provider,
+    label_gene_sets_only,
+    label_include_phenos,
+    label_individually,
+    keep_original_loadings,
+    project_phenos_from_gene_sets,
+):
+    anchor_gene_mask_present, anchor_gene_mask_total, anchor_gene_mask_selected = _summarize_mask(anchor_gene_mask)
+    anchor_pheno_mask_present, anchor_pheno_mask_total, anchor_pheno_mask_selected = _summarize_mask(anchor_pheno_mask)
+    return {
+        "max_num_factors": int(max_num_factors),
+        "phi": float(phi),
+        "alpha0": float(alpha0),
+        "beta0": float(beta0),
+        "seed": int(seed) if seed is not None else None,
+        "factor_runs": int(factor_runs),
+        "consensus_nmf": bool(consensus_nmf),
+        "consensus_min_factor_cosine": float(consensus_min_factor_cosine),
+        "consensus_min_run_support": float(consensus_min_run_support),
+        "consensus_aggregation": consensus_aggregation,
+        "consensus_stats_out": consensus_stats_out,
+        "learn_phi": bool(learn_phi),
+        "learn_phi_max_redundancy": float(learn_phi_max_redundancy),
+        "learn_phi_runs_per_step": int(learn_phi_runs_per_step),
+        "learn_phi_min_run_support": float(learn_phi_min_run_support),
+        "learn_phi_min_stability": float(learn_phi_min_stability),
+        "learn_phi_max_fit_loss_frac": float(learn_phi_max_fit_loss_frac),
+        "learn_phi_max_steps": int(learn_phi_max_steps),
+        "learn_phi_expand_factor": float(learn_phi_expand_factor),
+        "learn_phi_weight_floor": None if learn_phi_weight_floor is None else float(learn_phi_weight_floor),
+        "learn_phi_report_out": learn_phi_report_out,
+        "gene_set_filter_value": gene_set_filter_value,
+        "gene_or_pheno_filter_value": gene_or_pheno_filter_value,
+        "pheno_prune_value": pheno_prune_value,
+        "pheno_prune_number": pheno_prune_number,
+        "gene_prune_value": gene_prune_value,
+        "gene_prune_number": gene_prune_number,
+        "gene_set_prune_value": gene_set_prune_value,
+        "gene_set_prune_number": gene_set_prune_number,
+        "anchor_any_pheno": bool(anchor_any_pheno),
+        "anchor_any_gene": bool(anchor_any_gene),
+        "anchor_gene_set": bool(anchor_gene_set),
+        "anchor_gene_mask_present": bool(anchor_gene_mask_present),
+        "anchor_gene_mask_total": anchor_gene_mask_total,
+        "anchor_gene_mask_selected": anchor_gene_mask_selected,
+        "anchor_pheno_mask_present": bool(anchor_pheno_mask_present),
+        "anchor_pheno_mask_total": anchor_pheno_mask_total,
+        "anchor_pheno_mask_selected": anchor_pheno_mask_selected,
+        "run_transpose": bool(run_transpose),
+        "max_num_iterations": int(max_num_iterations),
+        "rel_tol": float(rel_tol),
+        "min_lambda_threshold": float(min_lambda_threshold),
+        "lmm_auth_key_present": lmm_auth_key is not None,
+        "lmm_model": lmm_model,
+        "lmm_provider": lmm_provider,
+        "label_gene_sets_only": bool(label_gene_sets_only),
+        "label_include_phenos": bool(label_include_phenos),
+        "label_individually": bool(label_individually),
+        "keep_original_loadings": bool(keep_original_loadings),
+        "project_phenos_from_gene_sets": bool(project_phenos_from_gene_sets),
+    }
+
+
 def _extract_canonical_factor_matrix(state):
     if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0:
         return state.exp_gene_set_factors
@@ -1531,14 +1651,72 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
     }
 
     state._record_params(
-        {
-            "factor_runs": factor_runs,
-            "consensus_nmf": bool(consensus_nmf),
-            "consensus_min_factor_cosine": consensus_min_factor_cosine,
-            "consensus_min_run_support": consensus_min_run_support,
-            "consensus_aggregation": consensus_aggregation,
-            "learn_phi": bool(learn_phi),
-        }
+        _build_factor_param_record(
+            max_num_factors=max_num_factors,
+            phi=phi,
+            alpha0=alpha0,
+            beta0=beta0,
+            seed=seed,
+            factor_runs=factor_runs,
+            consensus_nmf=consensus_nmf,
+            consensus_min_factor_cosine=consensus_min_factor_cosine,
+            consensus_min_run_support=consensus_min_run_support,
+            consensus_aggregation=consensus_aggregation,
+            consensus_stats_out=consensus_stats_out,
+            learn_phi=learn_phi,
+            learn_phi_max_redundancy=learn_phi_max_redundancy,
+            learn_phi_runs_per_step=learn_phi_runs_per_step,
+            learn_phi_min_run_support=learn_phi_min_run_support,
+            learn_phi_min_stability=learn_phi_min_stability,
+            learn_phi_max_fit_loss_frac=learn_phi_max_fit_loss_frac,
+            learn_phi_max_steps=learn_phi_max_steps,
+            learn_phi_expand_factor=learn_phi_expand_factor,
+            learn_phi_weight_floor=learn_phi_weight_floor,
+            learn_phi_report_out=learn_phi_report_out,
+            gene_set_filter_type=gene_set_filter_type,
+            gene_set_filter_value=gene_set_filter_value,
+            gene_or_pheno_filter_type=gene_or_pheno_filter_type,
+            gene_or_pheno_filter_value=gene_or_pheno_filter_value,
+            pheno_prune_value=pheno_prune_value,
+            pheno_prune_number=pheno_prune_number,
+            gene_prune_value=gene_prune_value,
+            gene_prune_number=gene_prune_number,
+            gene_set_prune_value=gene_set_prune_value,
+            gene_set_prune_number=gene_set_prune_number,
+            anchor_pheno_mask=anchor_pheno_mask,
+            anchor_gene_mask=anchor_gene_mask,
+            anchor_any_pheno=anchor_any_pheno,
+            anchor_any_gene=anchor_any_gene,
+            anchor_gene_set=anchor_gene_set,
+            run_transpose=run_transpose,
+            max_num_iterations=max_num_iterations,
+            rel_tol=rel_tol,
+            min_lambda_threshold=min_lambda_threshold,
+            lmm_auth_key=lmm_auth_key,
+            lmm_model=lmm_model,
+            lmm_provider=lmm_provider,
+            label_gene_sets_only=label_gene_sets_only,
+            label_include_phenos=label_include_phenos,
+            label_individually=label_individually,
+            keep_original_loadings=keep_original_loadings,
+            project_phenos_from_gene_sets=project_phenos_from_gene_sets,
+        ),
+        overwrite=True,
+    )
+    log(
+        "Factor config: phi=%.6g alpha0=%.6g beta0=%.6g max_num_factors=%d factor_runs=%d consensus_nmf=%s learn_phi=%s max_num_iterations=%d rel_tol=%.3g"
+        % (
+            float(phi),
+            float(alpha0),
+            float(beta0),
+            int(max_num_factors),
+            int(factor_runs),
+            bool(consensus_nmf),
+            bool(learn_phi),
+            int(max_num_iterations),
+            float(rel_tol),
+        ),
+        INFO,
     )
 
     if learn_phi:
@@ -1562,6 +1740,10 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         )
         phi = float(selected_candidate["phi"])
         factor_kwargs["phi"] = phi
+        state._record_params({"phi": phi}, overwrite=True)
+        log("Using learned phi %.6g for final factorization" % float(phi), INFO)
+    else:
+        log("Using fixed phi %.6g for factorization" % float(phi), INFO)
 
     if factor_runs == 1 and not consensus_nmf:
         summary = _run_factor_with_seed(state, seed=seed, run_index=0, factor_kwargs=factor_kwargs)

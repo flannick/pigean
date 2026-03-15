@@ -46,6 +46,8 @@ class FactorExecutionConfig:
     phi: float
     alpha0: float
     beta0: float
+    gene_set_filter_type: str | None = None
+    gene_or_pheno_filter_type: str | None = None
     learn_phi: bool = False
     learn_phi_max_redundancy: float = 0.6
     learn_phi_runs_per_step: int = 5
@@ -77,6 +79,8 @@ class FactorExecutionConfig:
     anchor_any_gene: bool = False
     anchor_gene_set: bool = False
     run_transpose: bool = True
+    max_num_iterations: int = 100
+    rel_tol: float = 1e-4
     min_lambda_threshold: float = 1e-3
     lmm_auth_key: object = None
     lmm_model: object = None
@@ -84,6 +88,7 @@ class FactorExecutionConfig:
     label_gene_sets_only: bool = False
     label_include_phenos: bool = False
     label_individually: bool = False
+    keep_original_loadings: bool = False
     project_phenos_from_gene_sets: bool = False
 
     def to_run_kwargs(self):
@@ -109,7 +114,9 @@ class FactorExecutionConfig:
             "consensus_min_run_support": self.consensus_min_run_support,
             "consensus_aggregation": self.consensus_aggregation,
             "consensus_stats_out": self.consensus_stats_out,
+            "gene_set_filter_type": self.gene_set_filter_type,
             "gene_set_filter_value": self.gene_set_filter_value,
+            "gene_or_pheno_filter_type": self.gene_or_pheno_filter_type,
             "gene_or_pheno_filter_value": self.gene_or_pheno_filter_value,
             "pheno_prune_value": self.pheno_prune_value,
             "pheno_prune_number": self.pheno_prune_number,
@@ -123,6 +130,8 @@ class FactorExecutionConfig:
             "anchor_any_gene": self.anchor_any_gene,
             "anchor_gene_set": self.anchor_gene_set,
             "run_transpose": self.run_transpose,
+            "max_num_iterations": self.max_num_iterations,
+            "rel_tol": self.rel_tol,
             "min_lambda_threshold": self.min_lambda_threshold,
             "lmm_auth_key": self.lmm_auth_key,
             "lmm_model": self.lmm_model,
@@ -130,6 +139,7 @@ class FactorExecutionConfig:
             "label_gene_sets_only": self.label_gene_sets_only,
             "label_include_phenos": self.label_include_phenos,
             "label_individually": self.label_individually,
+            "keep_original_loadings": self.keep_original_loadings,
             "project_phenos_from_gene_sets": self.project_phenos_from_gene_sets,
         }
 
@@ -421,7 +431,13 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         consensus_min_run_support=options.consensus_min_run_support,
         consensus_aggregation=options.consensus_aggregation,
         consensus_stats_out=options.consensus_stats_out,
+        gene_set_filter_type="betas_uncorrected",
         gene_set_filter_value=options.gene_set_filter_value,
+        gene_or_pheno_filter_type=(
+            "gene_set_phewas_betas_uncorrected"
+            if options.anchor_gene_set
+            else ("gene_phewas_combined" if workflow.factor_gene_set_x_pheno else "combined_prior_Ys")
+        ),
         gene_or_pheno_filter_value=resolve_factor_gene_or_pheno_filter_value(options, workflow),
         pheno_prune_value=options.factor_prune_phenos_val,
         pheno_prune_number=options.factor_prune_phenos_num,
@@ -435,6 +451,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         anchor_any_gene=options.anchor_any_gene,
         anchor_gene_set=options.anchor_gene_set,
         run_transpose=not options.no_transpose,
+        max_num_iterations=getattr(options, "max_num_iterations", 100),
+        rel_tol=getattr(options, "rel_tol", 1e-4),
         min_lambda_threshold=options.min_lambda_threshold,
         lmm_auth_key=options.lmm_auth_key,
         lmm_model=options.lmm_model,
@@ -442,6 +460,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         label_gene_sets_only=options.label_gene_sets_only,
         label_include_phenos=options.label_include_phenos,
         label_individually=options.label_individually,
+        keep_original_loadings=getattr(options, "keep_original_loadings", False),
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
     )
 

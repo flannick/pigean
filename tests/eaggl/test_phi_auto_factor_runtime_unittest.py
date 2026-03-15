@@ -181,6 +181,16 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertIn("learn_phi_candidate_phi", state.param_history)
         self.assertGreaterEqual(len(state.param_history["learn_phi_candidate_phi"]), 2)
         self.assertAlmostEqual(final_runs[-1], state.params["learn_phi_selected_phi"])
+        self.assertEqual(state.params["beta0"], 1.0)
+        self.assertEqual(state.params["factor_runs"], 1)
+        self.assertEqual(state.params["max_num_iterations"], 100)
+        self.assertEqual(state.params["rel_tol"], 1e-4)
+        self.assertEqual(state.params["min_lambda_threshold"], 1e-3)
+        self.assertEqual(state.params["lmm_provider"], "openai")
+        self.assertFalse(state.params["lmm_auth_key_present"])
+        self.assertFalse(state.params["anchor_gene_mask_present"])
+        self.assertFalse(state.params["anchor_pheno_mask_present"])
+        self.assertFalse(state.params["keep_original_loadings"])
 
 
 if __name__ == "__main__":

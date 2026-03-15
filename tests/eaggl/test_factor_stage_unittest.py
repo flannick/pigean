@@ -66,6 +66,7 @@ def _options(**overrides):
         label_gene_sets_only=False,
         label_include_phenos=False,
         label_individually=False,
+        keep_original_loadings=False,
         project_phenos_from_gene_sets=False,
         factors_out=None,
         factors_anchor_out=None,
@@ -138,6 +139,10 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.gene_or_pheno_filter_value, options.pheno_filter_value)
         self.assertEqual(cfg.factor_runs, 1)
         self.assertFalse(cfg.consensus_nmf)
+        self.assertEqual(cfg.gene_set_filter_type, "betas_uncorrected")
+        self.assertEqual(cfg.gene_or_pheno_filter_type, "gene_phewas_combined")
+        self.assertEqual(cfg.max_num_iterations, 100)
+        self.assertEqual(cfg.rel_tol, 1e-4)
 
     def test_build_factor_execution_config_carries_phi_learning_controls(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
@@ -165,6 +170,14 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_expand_factor, 5.0)
         self.assertEqual(cfg.learn_phi_weight_floor, 0.02)
         self.assertEqual(cfg.learn_phi_report_out, "phi.tsv")
+
+    def test_build_factor_execution_config_tracks_keep_original_loadings(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
+        options = _options(keep_original_loadings=True, anchor_gene_set=True)
+        cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
+        self.assertTrue(cfg.keep_original_loadings)
+        self.assertEqual(cfg.gene_or_pheno_filter_type, "gene_set_phewas_betas_uncorrected")
 
     def test_run_main_factor_stage_executes_runtime_and_reports_workflow(self) -> None:
         runtime = _RuntimeStub()
