@@ -5322,21 +5322,21 @@ class PigeanState(object):
 
         #these are current posterior means (including p and the conditional beta). They are used to calculate avg_betas
         #using these as the actual betas would yield the Gauss-seidel algorithm
-        curr_post_means_t = np.zeros(chain_parallel_gene_set_shape)
-        curr_postp_t = np.ones(chain_parallel_gene_set_shape)
+        posterior_beta_mean_t = np.zeros(chain_parallel_gene_set_shape)
+        posterior_nonzero_prob_t = np.ones(chain_parallel_gene_set_shape)
         if init_postp_t is not None:
-            curr_postp_t = init_postp_t
+            posterior_nonzero_prob_t = init_postp_t
 
         #these are the current betas to be used in each iteration
         if init_betas_t is not None:
-            curr_betas_t = init_betas_t
+            sampled_beta_t = init_betas_t
         else:
             initial_sd = np.std(beta_tildes_m)
             if initial_sd == 0:
                 initial_sd = 1
-            curr_betas_t = scipy.stats.norm.rvs(0, initial_sd, chain_parallel_gene_set_shape)
+            sampled_beta_t = scipy.stats.norm.rvs(0, initial_sd, chain_parallel_gene_set_shape)
 
-        res_beta_hat_t = np.zeros(chain_parallel_gene_set_shape)
+        residual_beta_tilde_t = np.zeros(chain_parallel_gene_set_shape)
 
         avg_betas_m = np.zeros(parallel_gene_set_shape)
         avg_betas2_m = np.zeros(parallel_gene_set_shape)
@@ -5344,8 +5344,8 @@ class PigeanState(object):
         num_avg = 0
 
         #these are the posterior betas averaged across iterations
-        sum_betas_t = np.zeros(chain_parallel_gene_set_shape)
-        sum_betas2_t = np.zeros(chain_parallel_gene_set_shape)
+        summed_posterior_beta_mean_t = np.zeros(chain_parallel_gene_set_shape)
+        summed_posterior_beta_mean_sq_t = np.zeros(chain_parallel_gene_set_shape)
 
         # Setting up constants
         #hyperparameters
@@ -5458,7 +5458,7 @@ class PigeanState(object):
             iteration_num += 1
 
             #default to 1
-            curr_postp_t[:,compute_mask_v,:] = np.ones(chain_parallel_gene_set_shape)[:,compute_mask_v,:]
+            posterior_nonzero_prob_t[:,compute_mask_v,:] = np.ones(chain_parallel_gene_set_shape)[:,compute_mask_v,:]
 
             #sample whether each gene set has non-zero effect
             rand_ps_t = np.random.random(chain_parallel_gene_set_shape)
@@ -5492,7 +5492,7 @@ class PigeanState(object):
                     norm_scale_m=norm_scale_m,
                     assume_independent=assume_independent,
                     beta_tildes_m=beta_tildes_m,
-                    curr_betas_t=curr_betas_t,
+                    sampled_beta_t=sampled_beta_t,
                     V=V,
                     multiple_V=multiple_V,
                     sparse_V=sparse_V,
@@ -5504,29 +5504,29 @@ class PigeanState(object):
                     betas_trace_gene_sets=betas_trace_gene_sets,
                     account_for_V_diag_m=account_for_V_diag_m,
                     V_diag_m=V_diag_m,
-                    curr_postp_t=curr_postp_t,
-                    curr_post_means_t=curr_post_means_t,
+                    posterior_nonzero_prob_t=posterior_nonzero_prob_t,
+                    posterior_beta_mean_t=posterior_beta_mean_t,
                     gauss_seidel=gauss_seidel,
-                    res_beta_hat_t=res_beta_hat_t,
+                    residual_beta_tilde_t=residual_beta_tilde_t,
                 )
 
             _apply_inner_beta_sparsity_update(
                 sparse_solution=sparse_solution,
                 sparse_frac_betas=sparse_frac_betas,
-                curr_postp_t=curr_postp_t,
+                posterior_nonzero_prob_t=posterior_nonzero_prob_t,
                 ps_m=ps_m,
-                curr_post_means_t=curr_post_means_t,
-                curr_betas_t=curr_betas_t,
+                posterior_beta_mean_t=posterior_beta_mean_t,
+                sampled_beta_t=sampled_beta_t,
                 compute_mask_v=compute_mask_v,
             )
 
-            curr_betas_m = np.mean(curr_post_means_t, axis=0)
-            curr_postp_m = np.mean(curr_postp_t, axis=0)
+            curr_betas_m = np.mean(posterior_beta_mean_t, axis=0)
+            curr_postp_m = np.mean(posterior_nonzero_prob_t, axis=0)
             #no state should be preserved across runs, but take a random one just in case
-            sample_betas_m = curr_betas_t[int(random.random() * curr_betas_t.shape[0]),:,:]
-            sample_postp_m = curr_postp_t[int(random.random() * curr_postp_t.shape[0]),:,:]
-            sum_betas_t[:,compute_mask_v,:] = sum_betas_t[:,compute_mask_v,:] + curr_post_means_t[:,compute_mask_v,:]
-            sum_betas2_t[:,compute_mask_v,:] = sum_betas2_t[:,compute_mask_v,:] + np.square(curr_post_means_t[:,compute_mask_v,:])
+            sample_betas_m = sampled_beta_t[int(random.random() * sampled_beta_t.shape[0]),:,:]
+            sample_postp_m = posterior_nonzero_prob_t[int(random.random() * posterior_nonzero_prob_t.shape[0]),:,:]
+            summed_posterior_beta_mean_t[:,compute_mask_v,:] = summed_posterior_beta_mean_t[:,compute_mask_v,:] + posterior_beta_mean_t[:,compute_mask_v,:]
+            summed_posterior_beta_mean_sq_t[:,compute_mask_v,:] = summed_posterior_beta_mean_sq_t[:,compute_mask_v,:] + np.square(posterior_beta_mean_t[:,compute_mask_v,:])
 
             # 3b) Update convergence diagnostics and stopping conditions.
             #now calculate the convergence metrics
@@ -5548,15 +5548,15 @@ class PigeanState(object):
                 prev_betas_m = curr_betas_m
             elif iteration_num > min_num_iter and np.sum(burn_in_phase_v) > 0:
                 (R_m, beta_weights_m, burn_in_phase_v) = _update_inner_beta_rhat_and_outliers(
-                    sum_betas_t=sum_betas_t,
-                    sum_betas2_t=sum_betas2_t,
+                    summed_posterior_beta_mean_t=summed_posterior_beta_mean_t,
+                    summed_posterior_beta_mean_sq_t=summed_posterior_beta_mean_sq_t,
                     iteration_num=iteration_num,
                     compute_mask_v=compute_mask_v,
                     use_max_r_for_convergence=use_max_r_for_convergence,
                     beta_outlier_iqr_threshold=beta_outlier_iqr_threshold,
-                    curr_betas_t=curr_betas_t,
-                    curr_postp_t=curr_postp_t,
-                    curr_post_means_t=curr_post_means_t,
+                    sampled_beta_t=sampled_beta_t,
+                    posterior_nonzero_prob_t=posterior_nonzero_prob_t,
+                    posterior_beta_mean_t=posterior_beta_mean_t,
                     burn_in_phase_v=burn_in_phase_v,
                     r_threshold_burn_in=r_threshold_burn_in,
                     num_parallel=num_parallel,
@@ -5606,10 +5606,10 @@ class PigeanState(object):
 
                 #average over the posterior means instead of samples
                 #these differ from sum_betas_v because those include the burn in phase
-                avg_betas_m += np.sum(curr_post_means_t, axis=0)
-                avg_betas2_m += np.sum(np.power(curr_post_means_t, 2), axis=0)
-                avg_postp_m += np.sum(curr_postp_t, axis=0)
-                num_avg += curr_post_means_t.shape[0]
+                avg_betas_m += np.sum(posterior_beta_mean_t, axis=0)
+                avg_betas2_m += np.sum(np.power(posterior_beta_mean_t, 2), axis=0)
+                avg_postp_m += np.sum(posterior_nonzero_prob_t, axis=0)
+                num_avg += posterior_beta_mean_t.shape[0]
 
                 if iteration_num >= min_num_iter and num_avg > 1:
                     if gauss_seidel:
@@ -5637,8 +5637,8 @@ class PigeanState(object):
                 # 3c) Adapt hyperparameters (p, sigma) while still in burn-in.
                 if update_hyper_p or update_hyper_sigma:
                     (new_p, new_sigma2) = _compute_inner_beta_hyper_update_targets(
-                        curr_postp_t=curr_postp_t,
-                        res_beta_hat_t=res_beta_hat_t,
+                        posterior_nonzero_prob_t=posterior_nonzero_prob_t,
+                        residual_beta_tilde_t=residual_beta_tilde_t,
                         hdmp_hdmpn_m=hdmp_hdmpn_m,
                         se2s_m=se2s_m,
                         curr_betas_m=curr_betas_m,
@@ -5712,7 +5712,7 @@ class PigeanState(object):
 
                                 #NEW inference
                                 max_beta = np.sqrt(max_beta_tilde2 - max_se2)
-                                correct_sigma2 = self.p * np.square(max_beta / np.abs(scipy.stats.norm.ppf(1 / float(curr_betas_t.shape[2]) * self.p * 2)))
+                                correct_sigma2 = self.p * np.square(max_beta / np.abs(scipy.stats.norm.ppf(1 / float(sampled_beta_t.shape[2]) * self.p * 2)))
                                 new_sigma2 = correct_sigma2
 
                                 if new_sigma2 / self.p <= lower_bound:
@@ -5770,10 +5770,10 @@ class PigeanState(object):
                     num_chains=num_chains,
                     num_gene_sets=num_gene_sets,
                     betas_trace_gene_sets=betas_trace_gene_sets,
-                    curr_post_means_t=curr_post_means_t,
-                    curr_betas_t=curr_betas_t,
-                    curr_postp_t=curr_postp_t,
-                    res_beta_hat_t=res_beta_hat_t,
+                    posterior_beta_mean_t=posterior_beta_mean_t,
+                    sampled_beta_t=sampled_beta_t,
+                    posterior_nonzero_prob_t=posterior_nonzero_prob_t,
+                    residual_beta_tilde_t=residual_beta_tilde_t,
                     scale_factors_m=scale_factors_m,
                     beta_tildes_m=beta_tildes_m,
                     ses_m=ses_m,
@@ -8610,33 +8610,33 @@ def _means_from_sums(sum_m, num_sum_m):
 def _apply_inner_beta_sparsity_update(
     sparse_solution,
     sparse_frac_betas,
-    curr_postp_t,
+    posterior_nonzero_prob_t,
     ps_m,
-    curr_post_means_t,
-    curr_betas_t,
+    posterior_beta_mean_t,
+    sampled_beta_t,
     compute_mask_v,
 ):
     if not sparse_solution:
         return
 
-    sparse_mask_t = curr_postp_t < ps_m
+    sparse_mask_t = posterior_nonzero_prob_t < ps_m
     if sparse_frac_betas is not None:
         # Zero out very small values relative to the top within each chain/parallel slice.
-        relative_value = np.max(np.abs(curr_post_means_t), axis=2)
+        relative_value = np.max(np.abs(posterior_beta_mean_t), axis=2)
         sparse_mask_t = np.logical_or(
             sparse_mask_t,
-            (np.abs(curr_post_means_t).T < sparse_frac_betas * relative_value.T).T,
+            (np.abs(posterior_beta_mean_t).T < sparse_frac_betas * relative_value.T).T,
         )
 
     # Do not sparsify slices that are currently outside the compute mask.
     sparse_mask_t[:, np.logical_not(compute_mask_v), :] = False
     log(
         "Setting %d entries to zero due to sparsity"
-        % np.sum(np.logical_and(sparse_mask_t, curr_betas_t > 0)),
+        % np.sum(np.logical_and(sparse_mask_t, sampled_beta_t > 0)),
         TRACE,
     )
-    curr_betas_t[sparse_mask_t] = 0
-    curr_post_means_t[sparse_mask_t] = 0
+    sampled_beta_t[sparse_mask_t] = 0
+    posterior_beta_mean_t[sparse_mask_t] = 0
 
 
 def _write_inner_beta_trace_rows(
@@ -8646,10 +8646,10 @@ def _write_inner_beta_trace_rows(
     num_chains,
     num_gene_sets,
     betas_trace_gene_sets,
-    curr_post_means_t,
-    curr_betas_t,
-    curr_postp_t,
-    res_beta_hat_t,
+    posterior_beta_mean_t,
+    sampled_beta_t,
+    posterior_nonzero_prob_t,
+    residual_beta_tilde_t,
     scale_factors_m,
     beta_tildes_m,
     ses_m,
@@ -8673,17 +8673,17 @@ def _write_inner_beta_trace_rows(
                         parallel_num + 1,
                         chain_num + 1,
                         gene_set,
-                        curr_post_means_t[chain_num, parallel_num, gene_set_idx]
+                        posterior_beta_mean_t[chain_num, parallel_num, gene_set_idx]
                         / scale_factors_m[parallel_num, gene_set_idx],
-                        curr_betas_t[chain_num, parallel_num, gene_set_idx]
+                        sampled_beta_t[chain_num, parallel_num, gene_set_idx]
                         / scale_factors_m[parallel_num, gene_set_idx],
-                        curr_postp_t[chain_num, parallel_num, gene_set_idx],
-                        res_beta_hat_t[chain_num, parallel_num, gene_set_idx]
+                        posterior_nonzero_prob_t[chain_num, parallel_num, gene_set_idx],
+                        residual_beta_tilde_t[chain_num, parallel_num, gene_set_idx]
                         / scale_factors_m[parallel_num, gene_set_idx],
                         beta_tildes_m[parallel_num, gene_set_idx]
                         / scale_factors_m[parallel_num, gene_set_idx],
-                        curr_betas_t[chain_num, parallel_num, gene_set_idx],
-                        res_beta_hat_t[chain_num, parallel_num, gene_set_idx],
+                        sampled_beta_t[chain_num, parallel_num, gene_set_idx],
+                        residual_beta_tilde_t[chain_num, parallel_num, gene_set_idx],
                         beta_tildes_m[parallel_num, gene_set_idx],
                         ses_m[parallel_num, gene_set_idx],
                         sigma2_m[parallel_num, gene_set_idx]
@@ -8701,8 +8701,8 @@ def _write_inner_beta_trace_rows(
 
 
 def _compute_inner_beta_hyper_update_targets(
-    curr_postp_t,
-    res_beta_hat_t,
+    posterior_nonzero_prob_t,
+    residual_beta_tilde_t,
     hdmp_hdmpn_m,
     se2s_m,
     curr_betas_m,
@@ -8722,11 +8722,11 @@ def _compute_inner_beta_hyper_update_targets(
 ):
     # Hyper-updates use Rao-Blackwellized moments to avoid sigma collapse.
     # Conditional slab mean m = hdmp_hdmpn * res_beta_hat.
-    cond_mean_t = hdmp_hdmpn_m[np.newaxis, :, :] * res_beta_hat_t
+    cond_mean_t = hdmp_hdmpn_m[np.newaxis, :, :] * residual_beta_tilde_t
     # Conditional slab variance v = hdmp_hdmpn * se2.
     cond_var_m = hdmp_hdmpn_m * se2s_m
     # E[beta^2] = postp * (m^2 + v).
-    e_beta2_m = np.mean(curr_postp_t * (np.square(cond_mean_t) + cond_var_m[np.newaxis, :, :]), axis=0)
+    e_beta2_m = np.mean(posterior_nonzero_prob_t * (np.square(cond_mean_t) + cond_var_m[np.newaxis, :, :]), axis=0)
     # mu = E[beta].
     mu_m = curr_betas_m
     # Var(beta) = E[beta^2] - (E[beta])^2.
@@ -8798,7 +8798,7 @@ def _update_inner_beta_gene_set_batch(
     norm_scale_m,
     assume_independent,
     beta_tildes_m,
-    curr_betas_t,
+    sampled_beta_t,
     V,
     multiple_V,
     sparse_V,
@@ -8810,17 +8810,17 @@ def _update_inner_beta_gene_set_batch(
     betas_trace_gene_sets,
     account_for_V_diag_m,
     V_diag_m,
-    curr_postp_t,
-    curr_post_means_t,
+    posterior_nonzero_prob_t,
+    posterior_beta_mean_t,
     gauss_seidel,
-    res_beta_hat_t,
+    residual_beta_tilde_t,
 ):
     # 1) Build residualized beta_tilde for the active batch.
     compute_mask_union = np.any(compute_mask_m, axis=0)
     compute_mask_union_filter_m = compute_mask_m[:, compute_mask_union]
 
     if assume_independent:
-        res_beta_hat_t_flat = beta_tildes_m[compute_mask_m]
+        residual_beta_tilde_t_flat = beta_tildes_m[compute_mask_m]
     else:
         current_num_parallel = sum(compute_mask_v)
 
@@ -8828,21 +8828,21 @@ def _update_inner_beta_gene_set_batch(
             # Pointwise matmul across active parallels while preserving chain dimension.
             res_beta_hat_union_t = np.einsum(
                 "hij,ijk->hik",
-                curr_betas_t[:, compute_mask_v, :],
+                sampled_beta_t[:, compute_mask_v, :],
                 V[compute_mask_v, :, :][:, :, compute_mask_union],
-            ).reshape((curr_betas_t.shape[0], current_num_parallel, np.sum(compute_mask_union)))
+            ).reshape((sampled_beta_t.shape[0], current_num_parallel, np.sum(compute_mask_union)))
         elif sparse_V:
             res_beta_hat_union_t = V[compute_mask_union, :].dot(
-                curr_betas_t[:, compute_mask_v, :].T.reshape(
-                    (curr_betas_t.shape[2], np.sum(compute_mask_v) * curr_betas_t.shape[0])
+                sampled_beta_t[:, compute_mask_v, :].T.reshape(
+                    (sampled_beta_t.shape[2], np.sum(compute_mask_v) * sampled_beta_t.shape[0])
                 )
-            ).reshape((np.sum(compute_mask_union), np.sum(compute_mask_v), curr_betas_t.shape[0])).T
+            ).reshape((np.sum(compute_mask_union), np.sum(compute_mask_v), sampled_beta_t.shape[0])).T
         elif use_X:
             if len(compute_mask_union.shape) == 2:
                 assert compute_mask_union.shape[0] == 1
                 compute_mask_union = np.squeeze(compute_mask_union)
 
-            curr_betas_filtered_t = curr_betas_t[:, compute_mask_v, :] / scale_factors_m[compute_mask_v, :]
+            curr_betas_filtered_t = sampled_beta_t[:, compute_mask_v, :] / scale_factors_m[compute_mask_v, :]
             interm = X_orig.dot(
                 curr_betas_filtered_t.T.reshape(
                     (curr_betas_filtered_t.shape[2], curr_betas_filtered_t.shape[0] * curr_betas_filtered_t.shape[1])
@@ -8860,24 +8860,24 @@ def _update_inner_beta_gene_set_batch(
             ).T
             res_beta_hat_union_t /= (X_orig.shape[0] * scale_factors_m[compute_mask_v, :][:, compute_mask_union])
         else:
-            res_beta_hat_union_t = curr_betas_t[:, compute_mask_v, :].dot(V[:, compute_mask_union])
+            res_beta_hat_union_t = sampled_beta_t[:, compute_mask_v, :].dot(V[:, compute_mask_union])
 
         if betas_trace_out is not None and betas_trace_gene_sets is not None:
             cur_sets = [betas_trace_gene_sets[x] for x in range(len(betas_trace_gene_sets)) if compute_mask_union[x]]
             pegs_construct_map_to_ind(betas_trace_gene_sets)
             pegs_construct_map_to_ind(cur_sets)
 
-        res_beta_hat_t_flat = res_beta_hat_union_t[:, compute_mask_union_filter_m[compute_mask_v, :]]
-        assert res_beta_hat_t_flat.shape[1] == np.sum(compute_mask_m)
-        res_beta_hat_t_flat = beta_tildes_m[compute_mask_m] - res_beta_hat_t_flat
+        residual_beta_tilde_t_flat = res_beta_hat_union_t[:, compute_mask_union_filter_m[compute_mask_v, :]]
+        assert residual_beta_tilde_t_flat.shape[1] == np.sum(compute_mask_m)
+        residual_beta_tilde_t_flat = beta_tildes_m[compute_mask_m] - residual_beta_tilde_t_flat
 
         if account_for_V_diag_m:
-            res_beta_hat_t_flat = res_beta_hat_t_flat + V_diag_m[compute_mask_m] * curr_betas_t[:, compute_mask_m]
+            residual_beta_tilde_t_flat = residual_beta_tilde_t_flat + V_diag_m[compute_mask_m] * sampled_beta_t[:, compute_mask_m]
         else:
-            res_beta_hat_t_flat = res_beta_hat_t_flat + curr_betas_t[:, compute_mask_m]
+            residual_beta_tilde_t_flat = residual_beta_tilde_t_flat + sampled_beta_t[:, compute_mask_m]
 
     # 2) Convert residualized effect to inclusion probabilities.
-    b2_t_flat = np.power(res_beta_hat_t_flat, 2)
+    b2_t_flat = np.power(residual_beta_tilde_t_flat, 2)
     d_const_b2_exp_t_flat = d_const_m[compute_mask_m] * np.exp(-b2_t_flat / (se2s_m[compute_mask_m] * 2.0))
     numerator_t_flat = c_const_m[compute_mask_m] * np.exp(-b2_t_flat / (2.0 * hdmpn_m[compute_mask_m]))
     numerator_zero_mask_t_flat = numerator_t_flat == 0
@@ -8892,47 +8892,47 @@ def _update_inner_beta_gene_set_batch(
         denominator_t_flat[d_imaginary_mask_t_flat] = numerator_t_flat[d_imaginary_mask_t_flat]
         numerator_t_flat[np.logical_and(~d_imaginary_mask_t_flat, numerator_imaginary_mask_t_flat)] = 0
 
-    curr_postp_t[:, compute_mask_m] = numerator_t_flat / denominator_t_flat
+    posterior_nonzero_prob_t[:, compute_mask_m] = numerator_t_flat / denominator_t_flat
 
     # 3) Update conditional means and sampled betas for this batch.
-    curr_post_means_t[:, compute_mask_m] = hdmp_hdmpn_m[compute_mask_m] * (
-        curr_postp_t[:, compute_mask_m] * res_beta_hat_t_flat
+    posterior_beta_mean_t[:, compute_mask_m] = hdmp_hdmpn_m[compute_mask_m] * (
+        posterior_nonzero_prob_t[:, compute_mask_m] * residual_beta_tilde_t_flat
     )
 
     if gauss_seidel:
-        proposed_beta_t_flat = curr_post_means_t[:, compute_mask_m]
+        proposed_beta_t_flat = posterior_beta_mean_t[:, compute_mask_m]
     else:
-        norm_mean_t_flat = hdmp_hdmpn_m[compute_mask_m] * res_beta_hat_t_flat
+        norm_mean_t_flat = hdmp_hdmpn_m[compute_mask_m] * residual_beta_tilde_t_flat
         proposed_beta_t_flat = norm_mean_t_flat + norm_scale_m[compute_mask_m] * rand_norms_t[:, compute_mask_m]
-        zero_mask_t_flat = rand_ps_t[:, compute_mask_m] >= curr_postp_t[:, compute_mask_m] * alpha_shrink
+        zero_mask_t_flat = rand_ps_t[:, compute_mask_m] >= posterior_nonzero_prob_t[:, compute_mask_m] * alpha_shrink
         proposed_beta_t_flat[zero_mask_t_flat] = 0
 
-    curr_betas_t[:, compute_mask_m] = proposed_beta_t_flat
-    res_beta_hat_t[:, compute_mask_m] = res_beta_hat_t_flat
+    sampled_beta_t[:, compute_mask_m] = proposed_beta_t_flat
+    residual_beta_tilde_t[:, compute_mask_m] = residual_beta_tilde_t_flat
 
 
 def _update_inner_beta_rhat_and_outliers(
-    sum_betas_t,
-    sum_betas2_t,
+    summed_posterior_beta_mean_t,
+    summed_posterior_beta_mean_sq_t,
     iteration_num,
     compute_mask_v,
     use_max_r_for_convergence,
     beta_outlier_iqr_threshold,
-    curr_betas_t,
-    curr_postp_t,
-    curr_post_means_t,
+    sampled_beta_t,
+    posterior_nonzero_prob_t,
+    posterior_beta_mean_t,
     burn_in_phase_v,
     r_threshold_burn_in,
     num_parallel,
 ):
     # These matrices have convergence statistics in format (num_parallel, num_gene_sets).
     # WARNING: only results for compute_mask_v are valid.
-    (B_m, W_m, R_m, avg_W_m, mean_t) = _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, iteration_num)
+    (B_m, W_m, R_m, avg_W_m, mean_t) = _calculate_r_tensor_from_chain_sums(summed_posterior_beta_mean_t, summed_posterior_beta_mean_sq_t, iteration_num)
 
-    beta_weights_m = np.zeros((sum_betas_t.shape[1], sum_betas_t.shape[2]))
-    sum_betas_t_mean = np.mean(sum_betas_t)
-    if sum_betas_t_mean > 0:
-        np.mean(sum_betas_t, axis=0) / sum_betas_t_mean
+    beta_weights_m = np.zeros((summed_posterior_beta_mean_t.shape[1], summed_posterior_beta_mean_t.shape[2]))
+    summed_posterior_beta_mean_t_mean = np.mean(summed_posterior_beta_mean_t)
+    if summed_posterior_beta_mean_t_mean > 0:
+        np.mean(summed_posterior_beta_mean_t, axis=0) / summed_posterior_beta_mean_t_mean
 
     # Calculate thresholded/scaled R summary.
     num_R_above_1_v = np.sum(R_m >= 1, axis=1)
@@ -9017,7 +9017,7 @@ def _update_inner_beta_rhat_and_outliers(
                         DEBUG,
                     )
 
-                    for tensor in [curr_betas_t, curr_postp_t, curr_post_means_t, sum_betas_t, sum_betas2_t]:
+                    for tensor in [sampled_beta_t, posterior_nonzero_prob_t, posterior_beta_mean_t, summed_posterior_beta_mean_t, summed_posterior_beta_mean_sq_t]:
                         tensor[outlier_mask_m[:, outlier_parallel], outlier_parallel, :] = copy.copy(
                             tensor[replacement_chains, outlier_parallel, :]
                         )
@@ -9054,19 +9054,19 @@ def _update_inner_beta_rhat_and_outliers(
     return (R_m, beta_weights_m, burn_in_phase_v)
 
 
-def _calculate_r_tensor_from_chain_sums(sum_betas_t, sum_betas2_t, num):
-    num_chains = sum_betas_t.shape[0]
-    num_parallel = sum_betas_t.shape[1]
-    num_gene_sets = sum_betas_t.shape[2]
+def _calculate_r_tensor_from_chain_sums(summed_posterior_beta_mean_t, summed_posterior_beta_mean_sq_t, num):
+    num_chains = summed_posterior_beta_mean_t.shape[0]
+    num_parallel = summed_posterior_beta_mean_t.shape[1]
+    num_gene_sets = summed_posterior_beta_mean_t.shape[2]
 
-    mean_t = sum_betas_t / float(max(num, 1))
+    mean_t = summed_posterior_beta_mean_t / float(max(num, 1))
     if num <= 1:
         ones_m = np.ones((num_parallel, num_gene_sets))
         avg_W_m = np.ones((num_chains, num_parallel))
         return (ones_m, ones_m, ones_m, avg_W_m, mean_t)
 
     mean_m = np.mean(mean_t, axis=0)
-    var_t = (sum_betas2_t - float(num) * np.square(mean_t)) / (float(num) - 1)
+    var_t = (summed_posterior_beta_mean_sq_t - float(num) * np.square(mean_t)) / (float(num) - 1)
     b_denom = max(num_chains - 1, 1)
     B_m = (float(num) / float(b_denom)) * np.sum(np.square(mean_t - mean_m), axis=0)
     W_m = np.mean(var_t, axis=0)
