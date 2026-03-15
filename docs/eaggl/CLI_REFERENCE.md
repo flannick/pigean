@@ -58,6 +58,20 @@ PYTHONPATH=src python -m eaggl factor \
   --params-out results/params.out
 ```
 
+Consensus cNMF workflow from bundled PIGEAN outputs:
+
+```bash
+PYTHONPATH=src python -m eaggl factor \
+  --eaggl-bundle-in path/to/pigean_to_eaggl.tar.gz \
+  --factor-runs 3 \
+  --consensus-nmf \
+  --factors-out results/factors.out \
+  --gene-set-clusters-out results/gene_set_clusters.out \
+  --gene-clusters-out results/gene_clusters.out \
+  --params-out results/params.out \
+  --consensus-stats-out results/consensus.tsv
+```
+
 Phenotype-anchored workflow:
 
 ```bash
@@ -179,6 +193,8 @@ Operational note:
 | `--no-transpose` | keep the original matrix orientation instead of the default transposed view |
 
 ### Restart and consensus controls
+
+These are first-tier factorization controls in the normal public EAGGL interface.
 
 | Flag | Meaning |
 |---|---|

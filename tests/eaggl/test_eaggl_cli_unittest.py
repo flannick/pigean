@@ -66,6 +66,16 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("there is no separate label mode", proc.stdout)
 
+    def test_default_help_includes_consensus_factor_controls(self) -> None:
+        proc = self._run("factor", "--help")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("--factor-runs", proc.stdout)
+        self.assertIn("--consensus-nmf", proc.stdout)
+        self.assertIn("--consensus-min-factor-cosine", proc.stdout)
+        self.assertIn("--consensus-min-run-support", proc.stdout)
+        self.assertIn("--consensus-aggregation", proc.stdout)
+        self.assertIn("--consensus-stats-out", proc.stdout)
+
     def test_default_help_uses_canonical_anchor_flags(self) -> None:
         proc = self._run("factor", "--help")
         self.assertEqual(proc.returncode, 0)

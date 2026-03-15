@@ -10,8 +10,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 - `method_optional`: `101`
 - `engineering`: `69`
 - `debug_only`: `6`
-- visibility `expert`: `175`
-- visibility `normal`: `14`
+- visibility `expert`: `169`
+- visibility `normal`: `20`
 
 ## Method Required
 
@@ -46,10 +46,10 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--beta0` | `expert` | `yes` | `expert_help` | `beta0` | `1` | - |
 | `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
 | `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | - |
-| `--consensus-aggregation` | `expert` | `yes` | `advanced_workflows` | `consensus_aggregation` | `median` | choose how matched factors are aggregated across restarts in consensus mode |
-| `--consensus-min-factor-cosine` | `expert` | `yes` | `advanced_workflows` | `consensus_min_factor_cosine` | `0.7` | minimum cosine similarity needed to align a restart factor to the reference factor |
-| `--consensus-min-run-support` | `expert` | `yes` | `advanced_workflows` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
-| `--consensus-nmf` | `expert` | `yes` | `advanced_workflows` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
+| `--consensus-aggregation` | `normal` | `yes` | `core_help` | `consensus_aggregation` | `median` | choose how matched factors are aggregated across restarts in consensus mode |
+| `--consensus-min-factor-cosine` | `normal` | `yes` | `core_help` | `consensus_min_factor_cosine` | `0.7` | minimum cosine similarity needed to align a restart factor to the reference factor |
+| `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
+| `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--factor-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_from_gene_phewas_stats_in` | `None` | run factor-level phewas from precomputed gene-phewas statistics |
 | `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.01` | - |
@@ -59,7 +59,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-prune-genes-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_genes_val` | `None` | - |
 | `--factor-prune-phenos-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_num` | `None` | - |
 | `--factor-prune-phenos-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_val` | `None` | - |
-| `--factor-runs` | `expert` | `yes` | `advanced_workflows` | `factor_runs` | `1` | run repeated random restarts for factorization; without consensus keep only the best run |
+| `--factor-runs` | `normal` | `yes` | `core_help` | `factor_runs` | `1` | run repeated random restarts for factorization; without consensus keep only the best run |
 | `--filter-gene-set-p` | `expert` | `yes` | `expert_help` | `filter_gene_set_p` | `None` | - |
 | `--filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
@@ -144,7 +144,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--batch-separator` | `expert` | `no` | `expert_help` | `batch_separator` | `@` | - |
 | `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
 | `--config` | `expert` | `no` | `core_help` | `config` | `None` | load a JSON config file; explicit CLI flags override config values |
-| `--consensus-stats-out` | `expert` | `no` | `advanced_workflows` | `consensus_stats_out` | `None` | write per-run and per-factor diagnostics for restart or consensus factorization |
+| `--consensus-stats-out` | `normal` | `no` | `core_help` | `consensus_stats_out` | `None` | write per-run and per-factor diagnostics for restart or consensus factorization |
 | `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
 | `--deterministic` | `expert` | `no` | `core_help` | `deterministic` | `False` | force deterministic random seed behavior (seed=0 unless --seed is set) |
 | `--factor-phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `factor_phewas_stats_out` | `None` | - |

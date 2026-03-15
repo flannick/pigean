@@ -72,7 +72,7 @@
       "source_line": 72,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 60
+      "usage_references": 67
     },
     {
       "action": "append",
@@ -93,7 +93,7 @@
       "source_line": 73,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 27
+      "usage_references": 34
     },
     {
       "action": null,
@@ -5049,7 +5049,7 @@
       "source_line": 269,
       "summary": "write learned hyperparameters and runtime settings",
       "type": null,
-      "usage_references": 33
+      "usage_references": 34
     },
     {
       "action": "store_true",
@@ -5385,7 +5385,7 @@
       "source_line": 280,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 49
+      "usage_references": 50
     },
     {
       "action": null,

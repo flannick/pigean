@@ -50,6 +50,8 @@ Core matrix/stat inputs (direct mode):
 
 Use `--X-in` for a direct `.gmt` sparse matrix file. Use `--X-list` only for a text file that lists matrix inputs. If a direct `.gmt` is passed to `--X-list`, EAGGL accepts it for compatibility but warns and treats it like `--X-in`.
 
+Consensus cNMF is part of the normal factor workflow surface: add `--factor-runs N --consensus-nmf` to any of the factor workflows below when you want restart aggregation instead of a single fitted run.
+
 PheWAS matrix inputs (for phenotype/gene anchor workflows):
 
 1. `--gene-phewas-stats-in`
