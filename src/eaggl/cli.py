@@ -115,6 +115,7 @@ parser.add_option("","--V-in",default=None)
 #optional gene name map
 parser.add_option("","--gene-map-in",default=None)
 parser.add_option("","--gene-map-orig-gene-col",default=1) #1-based column for original gene
+parser.add_option("","--gene-map-new-gene-col",default=2) #1-based column for remapped/current gene
 
 #Positive control genes
 parser.add_option("","--positive-controls-in",default=None)

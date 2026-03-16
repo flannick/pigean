@@ -16,6 +16,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from eaggl import phenotype_annotation as eaggl_phenotype_annotation  # noqa: E402
 from eaggl import phewas as eaggl_phewas  # noqa: E402
+from eaggl import factor_runtime as eaggl_factor_runtime  # noqa: E402
 
 
 class PhenotypeAnnotationTest(unittest.TestCase):
@@ -54,6 +55,56 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         ranked = eaggl_phenotype_annotation.rank_top_capture_indices(capture, strengths, num_top=2)
         np.testing.assert_array_equal(ranked[:, 0], np.array([1, 0]))
         np.testing.assert_array_equal(ranked[:, 1], np.array([1, 2]))
+
+    def test_align_projection_inputs_keeps_pre_filtered_basis(self) -> None:
+        basis = np.array(
+            [
+                [1.0, 0.0],
+                [0.0, 1.0],
+            ]
+        )
+        feature_by_pheno = np.array(
+            [
+                [10.0, 1.0],
+                [20.0, 2.0],
+                [30.0, 3.0],
+                [40.0, 4.0],
+            ]
+        )
+        mask = np.array([True, False, True, False])
+        aligned_basis, aligned_feature = eaggl_factor_runtime._align_projection_inputs_to_mask(
+            basis,
+            feature_by_pheno,
+            mask,
+        )
+        np.testing.assert_array_equal(aligned_basis, basis)
+        np.testing.assert_array_equal(aligned_feature, feature_by_pheno[mask, :])
+
+    def test_align_projection_inputs_subsets_full_basis_when_needed(self) -> None:
+        basis = np.array(
+            [
+                [1.0, 0.0],
+                [5.0, 5.0],
+                [0.0, 1.0],
+                [6.0, 6.0],
+            ]
+        )
+        feature_by_pheno = np.array(
+            [
+                [10.0, 1.0],
+                [20.0, 2.0],
+                [30.0, 3.0],
+                [40.0, 4.0],
+            ]
+        )
+        mask = np.array([True, False, True, False])
+        aligned_basis, aligned_feature = eaggl_factor_runtime._align_projection_inputs_to_mask(
+            basis,
+            feature_by_pheno,
+            mask,
+        )
+        np.testing.assert_array_equal(aligned_basis, basis[mask, :])
+        np.testing.assert_array_equal(aligned_feature, feature_by_pheno[mask, :])
 
 
 class FactorPhewasSurfaceTest(unittest.TestCase):

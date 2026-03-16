@@ -360,6 +360,20 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
             self.assertEqual(options["gene_stats_in"], str(override_gene_stats))
             self.assertTrue(options["gene_set_stats_in"].endswith("gene_set_stats.tsv.gz"))
 
+    def test_gene_map_column_defaults_are_exposed_in_effective_config(self) -> None:
+        proc = self._run(
+            "factor",
+            "--gene-map-in",
+            "dummy_gene_map.tsv",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        options = payload["options"]
+        self.assertEqual(options["gene_map_in"], "dummy_gene_map.tsv")
+        self.assertEqual(options["gene_map_orig_gene_col"], 1)
+        self.assertEqual(options["gene_map_new_gene_col"], 2)
+
     def test_warns_when_direct_gmt_is_passed_to_x_list(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             gmt_path = Path(td) / "toy.gmt"

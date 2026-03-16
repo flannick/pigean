@@ -83,6 +83,31 @@ def _project_pheno_capture_matrix(state, basis, feature_by_pheno, *, basis_name)
     return capture_weights
 
 
+def _align_projection_inputs_to_mask(basis, feature_by_target, mask):
+    if mask is None:
+        return basis, feature_by_target
+    mask = np.asarray(mask, dtype=bool)
+    mask_sum = int(np.sum(mask))
+
+    if basis.shape[0] == mask.shape[0]:
+        basis = basis[mask, :]
+    elif basis.shape[0] != mask_sum:
+        raise ValueError(
+            "Projection basis rows %s do not match mask length %s or kept count %s"
+            % (basis.shape[0], mask.shape[0], mask_sum)
+        )
+
+    if feature_by_target.shape[0] == mask.shape[0]:
+        feature_by_target = feature_by_target[mask, :]
+    elif feature_by_target.shape[0] != mask_sum:
+        raise ValueError(
+            "Projection target rows %s do not match mask length %s or kept count %s"
+            % (feature_by_target.shape[0], mask.shape[0], mask_sum)
+        )
+
+    return basis, feature_by_target
+
+
 def _open_text_output(path):
     if path.endswith(".gz"):
         return gzip.open(path, "wt", encoding="utf-8")
@@ -1338,9 +1363,11 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
                 pheno_matrix_to_project = pheno_matrix_to_project.T
             basis = state.exp_gene_set_factors
             feature_by_pheno = pheno_matrix_to_project
-            if state.gene_set_factor_gene_set_mask is not None:
-                basis = basis[state.gene_set_factor_gene_set_mask, :]
-                feature_by_pheno = feature_by_pheno[state.gene_set_factor_gene_set_mask, :]
+            basis, feature_by_pheno = _align_projection_inputs_to_mask(
+                basis,
+                feature_by_pheno,
+                state.gene_set_factor_gene_set_mask,
+            )
             full_pheno_factor_values = _project_pheno_capture_matrix(
                 state,
                 basis,
@@ -1353,9 +1380,11 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
                 pheno_matrix_to_project = pheno_matrix_to_project.T
             basis = state.exp_gene_factors
             feature_by_pheno = pheno_matrix_to_project
-            if state.gene_factor_gene_mask is not None:
-                basis = basis[state.gene_factor_gene_mask, :]
-                feature_by_pheno = feature_by_pheno[state.gene_factor_gene_mask, :]
+            basis, feature_by_pheno = _align_projection_inputs_to_mask(
+                basis,
+                feature_by_pheno,
+                state.gene_factor_gene_mask,
+            )
             full_pheno_factor_values = _project_pheno_capture_matrix(
                 state,
                 basis,
