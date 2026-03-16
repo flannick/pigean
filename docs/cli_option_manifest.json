@@ -72,7 +72,7 @@
       "source_line": 72,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 67
+      "usage_references": 68
     },
     {
       "action": "append",
@@ -5196,7 +5196,7 @@
       "source_line": 174,
       "summary": "load the full positive-control background gene universe",
       "type": null,
-      "usage_references": 24
+      "usage_references": 25
     },
     {
       "action": "store_false",
@@ -5280,7 +5280,7 @@
       "source_line": 168,
       "summary": "load positive-control genes with optional probabilities",
       "type": null,
-      "usage_references": 28
+      "usage_references": 31
     },
     {
       "action": "callback",
@@ -5301,7 +5301,7 @@
       "source_line": 171,
       "summary": "specify positive-control genes directly on the command line",
       "type": "string",
-      "usage_references": 33
+      "usage_references": 34
     },
     {
       "action": "store_false",
@@ -5406,7 +5406,7 @@
       "source_line": 281,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 52
+      "usage_references": 55
     },
     {
       "action": null,

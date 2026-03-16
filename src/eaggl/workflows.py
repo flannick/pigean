@@ -14,7 +14,7 @@ FACTOR_WORKFLOW_STRATEGY_META = {
         "factor_gene_set_x_pheno": False,
         "use_phewas_for_factoring": False,
         "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": None,
+        "warn_ignored_y_inputs_mode": "gene_list",
     },
     "F3": {
         "required_inputs": [],
@@ -97,7 +97,19 @@ def build_factor_workflow_error(workflow_id, missing_inputs):
 def has_potentially_ignored_factor_inputs(options):
     return bool(
         options.gene_set_stats_in
+        or options.gene_stats_in
+        or options.gene_list_in
+        or options.gene_list is not None
         or options.positive_controls_in
+        or options.positive_controls_list is not None
+    )
+
+
+def has_standalone_gene_list_inputs(options):
+    return bool(
+        options.gene_list_in is not None
+        or options.gene_list is not None
+        or options.positive_controls_in is not None
         or options.positive_controls_list is not None
     )
 
@@ -145,11 +157,12 @@ def classify_factor_workflow(options):
         workflow_label = "any phenotype anchoring"
     else:
         workflow_label = "single phenotype anchoring (to %s) using default statistics" % options.anchor_phenos
-        if projection_source is not None:
+        if has_standalone_gene_list_inputs(options):
+            workflow_id = "F2"
+            workflow_label = "standalone gene-list enrichment"
+        elif projection_source is not None:
             workflow_id = "F3"
             workflow_label = "%s. Will project using %s" % (workflow_label, projection_source)
-        elif options.positive_controls_in is not None or options.positive_controls_list is not None:
-            workflow_id = "F2"
         else:
             workflow_id = "F1"
 
@@ -181,10 +194,16 @@ def warn_for_factor_workflow_inputs(options, workflow, warn_fn):
 
     if options.anchor_gene_set:
         return
+
+    warning_mode = workflow.get("warn_ignored_y_inputs_mode")
+    if warning_mode == "gene_list":
+        if options.gene_stats_in is not None or options.gene_set_stats_in is not None:
+            warn_fn("Ignoring precomputed gene/gene-set stats in standalone gene-list mode")
+        return
+
     if not has_potentially_ignored_factor_inputs(options):
         return
 
-    warning_mode = workflow.get("warn_ignored_y_inputs_mode")
     if warning_mode == "anchor_phenos":
         warn_fn("Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode")
     elif warning_mode == "anchor_genes":
@@ -207,6 +226,9 @@ def enforce_factor_only_input_boundary(options, mode_state, bail_fn):
 
     workflow = mode_state.get("factor_workflow")
     use_phewas_for_factoring = bool(workflow and workflow.get("use_phewas_for_factoring"))
+    workflow_id = workflow.get("id") if isinstance(workflow, dict) else None
+    if workflow_id == "F2":
+        return
     if not use_phewas_for_factoring:
         missing = []
         if options.gene_stats_in is None:

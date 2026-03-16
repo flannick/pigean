@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import gene_list_inputs as eaggl_gene_list_inputs
 from . import phewas as eaggl_phewas
 
 
@@ -255,7 +256,9 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
         domain.log("No gene sets survived the input filters; stopping")
         domain.sys.exit(0)
 
-    if options.gene_stats_in is not None:
+    if workflow_id == "F2":
+        eaggl_gene_list_inputs.build_standalone_gene_list_inputs(domain, runtime, options)
+    elif options.gene_stats_in is not None:
         domain._run_read_y_stage(
             runtime,
             gene_bfs_in=options.gene_stats_in,
@@ -269,7 +272,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             hold_out_chrom=options.hold_out_chrom,
         )
 
-    if options.gene_set_stats_in is not None:
+    if workflow_id != "F2" and options.gene_set_stats_in is not None:
         domain._read_gene_set_statistics(
             runtime,
             options.gene_set_stats_in,

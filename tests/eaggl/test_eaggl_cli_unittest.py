@@ -251,7 +251,7 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
     def test_factor_workflow_ids_in_effective_config(self) -> None:
         cases = [
             ("F1", []),
-            ("F2", ["--positive-controls-list", "INS"]),
+            ("F2", ["--gene-list", "INS"]),
             ("F3", ["--gene-phewas-stats-in", "dummy_gene_phewas.tsv"]),
             (
                 "F4",
@@ -335,6 +335,33 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
                         payload["factor_workflow"]["label"],
                         "multiple gene anchoring (to {'GCK', 'INS'})",
                     )
+
+    def test_standalone_gene_list_flags_round_trip(self) -> None:
+        proc = self._run(
+            "factor",
+            "--gene-list",
+            "INS,GCK",
+            "--gene-list-in",
+            "genes.tsv",
+            "--gene-list-id-col",
+            "Gene",
+            "--gene-list-max-fdr-q",
+            "0.01",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["gene_list"], ["INS", "GCK"])
+        self.assertEqual(payload["options"]["gene_list_in"], "genes.tsv")
+        self.assertEqual(payload["options"]["gene_list_id_col"], "Gene")
+        self.assertEqual(payload["options"]["gene_list_max_fdr_q"], 0.01)
+        self.assertEqual(payload["factor_workflow"]["id"], "F2")
+
+    def test_positive_control_alias_still_selects_f2(self) -> None:
+        proc = self._run("factor", "--positive-controls-list", "INS", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["factor_workflow"]["id"], "F2")
 
     def test_factor_workflow_missing_inputs_fails_fast(self) -> None:
         proc = self._run("factor", "--anchor-genes", "INS")

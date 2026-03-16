@@ -141,6 +141,24 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(payload["eaggl_bundle"]["schema"], "pigean_eaggl_bundle/v1")
 
     def test_reference_workflow_selector_flags_round_trip(self) -> None:
+        gene_list = self._run_ok(
+            "factor",
+            "--gene-list-in",
+            "genes.tsv",
+            "--gene-list",
+            "INS,GCK",
+            "--gene-list-id-col",
+            "Gene",
+            "--gene-list-max-fdr-q",
+            "0.01",
+            "--print-effective-config",
+        )
+        gene_list_payload = json.loads(gene_list.stdout)
+        self.assertEqual(gene_list_payload["options"]["gene_list_in"], "genes.tsv")
+        self.assertEqual(gene_list_payload["options"]["gene_list"], ["INS", "GCK"])
+        self.assertEqual(gene_list_payload["options"]["gene_list_id_col"], "Gene")
+        self.assertEqual(gene_list_payload["options"]["gene_list_max_fdr_q"], 0.01)
+
         positive_controls = self._run_ok(
             "factor",
             "--positive-controls-in",
@@ -410,6 +428,10 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--eaggl-bundle-in": ["test_reference_bundle_defaults_round_trip", "test_eaggl_bundle_in_populates_default_inputs"],
             "--gene-map-in": ["test_reference_matrix_and_bundle_flags_round_trip"],
             "--gene-loc-file": ["test_reference_matrix_and_bundle_flags_round_trip"],
+            "--gene-list-in": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
+            "--gene-list": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
+            "--gene-list-id-col": ["test_reference_workflow_selector_flags_round_trip"],
+            "--gene-list-max-fdr-q": ["test_reference_workflow_selector_flags_round_trip"],
             "--positive-controls-in": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--positive-controls-list": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--positive-controls-all-in": ["test_reference_workflow_selector_flags_round_trip"],

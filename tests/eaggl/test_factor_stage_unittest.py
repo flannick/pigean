@@ -55,8 +55,14 @@ def _options(**overrides):
         factor_phewas_full_output=False,
         anchor_genes=None,
         anchor_phenos=None,
+        gene_list_in=None,
+        gene_list=None,
+        gene_list_id_col=1,
+        gene_list_no_header=False,
+        gene_list_max_fdr_q=0.05,
         positive_controls_in=None,
         positive_controls_list=None,
+        positive_controls_all_in=None,
         gene_set_phewas_stats_in=None,
         gene_phewas_bfs_in=None,
         run_phewas_from_gene_phewas_stats_in=None,
@@ -246,7 +252,7 @@ class FactorStageHelpersTest(unittest.TestCase):
     def test_workflow_required_inputs_contract_for_f1_to_f9(self) -> None:
         cases = [
             ("F1", _options(), []),
-            ("F2", _options(positive_controls_list=["INS"]), []),
+            ("F2", _options(gene_list=["INS"]), []),
             ("F3", _options(gene_phewas_bfs_in="gene_phewas.tsv"), []),
             ("F4", _options(anchor_phenos=["T2D"], gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
             ("F5", _options(anchor_any_pheno=True, gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
@@ -272,6 +278,10 @@ class FactorStageHelpersTest(unittest.TestCase):
             workflow["missing_required_inputs"],
             ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
         )
+
+    def test_workflow_classifies_positive_control_aliases_as_f2(self) -> None:
+        workflow = eaggl._classify_factor_workflow(_options(positive_controls_list=["INS"]))
+        self.assertEqual(workflow["id"], "F2")
 
     def test_run_main_factor_phewas_stage_invokes_eaggl_phewas_runner(self) -> None:
         runtime = _FactorPhewasRuntimeStub()

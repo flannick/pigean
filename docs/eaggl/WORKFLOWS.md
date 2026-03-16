@@ -95,19 +95,32 @@ $PYTHON -m eaggl factor \
   --factors-out results/F1.factors.out
 ```
 
-### F2: Gene-list-as-phenotype Anchoring
+### F2: Standalone Gene-list Enrichment
 
 Required:
 
-1. `--positive-controls-list` or `--positive-controls-in`
-2. data path to compute/obtain factor weights
+1. `--gene-list` or `--gene-list-in`
+2. `--X-in` or another X-matrix source
+
+Behavior:
+
+1. EAGGL uses the loaded X-gene universe as the enrichment background
+2. it runs a hypergeometric test for each loaded gene set against the input gene list
+3. it keeps gene sets with Benjamini-Hochberg `q <= --gene-list-max-fdr-q` (default `0.05`)
+4. retained gene sets are weighted by `-log(P) / sqrt(gene_set_size)`
+5. genes are unweighted and all genes from the retained gene sets are brought into the final factoring matrix
+
+Compatibility aliases:
+
+1. `--positive-controls-list`
+2. `--positive-controls-in`
 
 Command:
 
 ```bash
 $PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
-  --positive-controls-list INS,GCK,HNF1A \
+  --gene-list INS,GCK,HNF1A \
   --gene-set-stats-out results/F2.gene_set_stats.out \
   --gene-stats-out results/F2.gene_stats.out \
   --factors-out results/F2.factors.out

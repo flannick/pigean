@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `207`
-- `method_required`: `13`
-- `method_optional`: `117`
-- `engineering`: `71`
+- Total options: `212`
+- `method_required`: `16`
+- `method_optional`: `118`
+- `engineering`: `72`
 - `debug_only`: `6`
-- visibility `expert`: `180`
-- visibility `normal`: `27`
+- visibility `expert`: `182`
+- visibility `normal`: `30`
 
 ## Method Required
 
@@ -27,6 +27,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--anchor-genes` | `normal` | `yes` | `core_help` | `anchor_genes` | `None` | anchor factorization to one or more genes |
 | `--anchor-phenos` | `normal` | `yes` | `core_help` | `anchor_phenos` | `None` | anchor factorization to one or more phenotypes |
 | `--eaggl-bundle-in` | `normal` | `yes` | `core_help` | `eaggl_bundle_in` | `None` | load bundled PIGEAN outputs as default EAGGL inputs |
+| `--gene-list` | `normal` | `yes` | `core_help` | `gene_list` | `None` | provide a standalone EAGGL input gene list directly on the command line |
+| `--gene-list-in` | `normal` | `yes` | `core_help` | `gene_list_in` | `None` | read a standalone EAGGL input gene list from a file and synthesize enrichment weights internally |
+| `--gene-list-max-fdr-q` | `normal` | `yes` | `core_help` | `gene_list_max_fdr_q` | `0.05` | retain enriched gene sets up to this Benjamini-Hochberg FDR threshold in standalone EAGGL gene-list mode |
 | `--gene-loc-file` | `expert` | `yes` | `expert_help` | `gene_loc_file` | `None` | - |
 | `--gene-set-stats-in` | `normal` | `yes` | `core_help` | `gene_set_stats_in` | `None` | load gene-set statistics exported from PIGEAN |
 | `--gene-stats-in` | `normal` | `yes` | `core_help` | `gene_stats_in` | `None` | load gene-level statistics exported from PIGEAN |
@@ -72,6 +75,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
 | `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `1` | - |
+| `--gene-list-no-header` | `expert` | `yes` | `advanced_workflows` | `gene_list_no_header` | `False` | treat the standalone EAGGL gene-list file as headerless |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
 | `--gene-phewas-bfs-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and anchor workflows |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
@@ -172,6 +176,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |
 | `--gene-gene-set-stats-out` | `expert` | `no` | `expert_help` | `gene_gene_set_stats_out` | `None` | - |
+| `--gene-list-id-col` | `expert` | `no` | `expert_help` | `gene_list_id_col` | `1` | select the gene column from a standalone EAGGL gene-list file when it has multiple columns |
 | `--gene-map-new-gene-col` | `expert` | `no` | `expert_help` | `gene_map_new_gene_col` | `2` | - |
 | `--gene-map-orig-gene-col` | `expert` | `no` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
 | `--gene-pheno-stats-out` | `expert` | `no` | `advanced_workflows` | `gene_pheno_stats_out` | `None` | - |

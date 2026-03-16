@@ -121,6 +121,11 @@ parser.add_option("","--gene-map-new-gene-col",default=2) #1-based column for re
 parser.add_option("","--positive-controls-in",default=None)
 parser.add_option("","--positive-controls-list",type="string",action="callback",callback=get_comma_separated_args,default=None) #specify comma separated list of positive controls on the command line
 parser.add_option("","--positive-controls-all-in",default=None) #all genes to use in positive control analysis. If specified add these on top of the positive controls
+parser.add_option("","--gene-list-in",default=None)
+parser.add_option("","--gene-list",type="string",action="callback",callback=get_comma_separated_args,default=None)
+parser.add_option("","--gene-list-id-col",default=1)
+parser.add_option("","--gene-list-no-header",action='store_true',default=False)
+parser.add_option("","--gene-list-max-fdr-q",type=float,default=0.05)
 
 #association statistics for gene bfs in each gene set (if precomputed)
 #REMINDER: the betas are all in *external* units
@@ -419,6 +424,11 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phewas-se": "choose the uncertainty estimator for binary factor-phewas: robust or none",
     "--factor-phewas-full-output": "expose the full expert factor-phewas surface, including combined and huber variants",
     "--factor-runs": "run repeated random restarts for factorization; without consensus keep only the best run",
+    "--gene-list": "provide a standalone EAGGL input gene list directly on the command line",
+    "--gene-list-id-col": "select the gene column from a standalone EAGGL gene-list file when it has multiple columns",
+    "--gene-list-in": "read a standalone EAGGL input gene list from a file and synthesize enrichment weights internally",
+    "--gene-list-max-fdr-q": "retain enriched gene sets up to this Benjamini-Hochberg FDR threshold in standalone EAGGL gene-list mode",
+    "--gene-list-no-header": "treat the standalone EAGGL gene-list file as headerless",
     "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
     "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best tested phi during automatic tuning",
@@ -499,6 +509,8 @@ _EXPERT_METHOD_FLAGS = {
     "--factor-prune-genes-val",
     "--factor-prune-phenos-num",
     "--factor-prune-phenos-val",
+    "--gene-list-id-col",
+    "--gene-list-no-header",
     "--gene-phewas-bfs-combined-col",
     "--gene-phewas-bfs-id-col",
     "--gene-phewas-bfs-in",
@@ -566,6 +578,9 @@ _METHOD_REQUIRED_FLAGS = {
     "--anchor-phenos",
     "--factors-anchor-out",
     "--factors-out",
+    "--gene-list",
+    "--gene-list-in",
+    "--gene-list-max-fdr-q",
     "--gene-loc-file",
     "--gene-set-stats-in",
     "--gene-set-stats-out",
@@ -590,6 +605,9 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--factor-runs",
     "--factors-anchor-out",
     "--factors-out",
+    "--gene-list",
+    "--gene-list-in",
+    "--gene-list-max-fdr-q",
     "--gene-set-stats-in",
     "--gene-stats-in",
     "--learn-phi",

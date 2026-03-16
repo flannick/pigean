@@ -133,16 +133,32 @@ The fitted factor matrices $W$ and $H$ may be interpreted as:
 \end{itemize}
 This is the primary EAGGL model and corresponds to the scientific setting in which one seeks to decompose the trait-associated gene-by-annotation landscape into a small number of mechanisms.
 
-A useful special case is when the input trait support for genes is not obtained from a standard PIGEAN trait run, but instead from a manually supplied list of positive-control genes. In that setting, the pseudo-trait support vector
+A useful special case is when the input support is not obtained from a standard PIGEAN trait run, but instead from a manually supplied gene list. In that standalone workflow, EAGGL first uses the loaded gene universe from $X$ as the enrichment background and computes a hypergeometric enrichment $p$-value for every annotation or gene set. If $M$ is the number of genes in the loaded universe, $n$ is the number of supplied genes present in that universe, $N_j$ is the size of annotation $j$, and $k_j$ is the overlap between annotation $j$ and the supplied gene list, then
+\begin{equation}
+p_j^{(\mathrm{hyper})}
+=
+\Pr\!\left(
+\mathrm{Hypergeom}(M, n, N_j) \ge k_j
+\right).
+\label{eq:eaggl_gene_list_hypergeom}
+\end{equation}
+After Benjamini--Hochberg correction, annotations with $q_j \le q_{\max}$ are retained. Their annotation-level support is then defined by
+\begin{equation}
+q_j^{(\mathrm{standalone})}
+=
+\frac{-\log p_j^{(\mathrm{hyper})}}{\sqrt{N_j}},
+\label{eq:eaggl_gene_list_weights}
+\end{equation}
+while the gene-level support vector is binary:
 \[
-p_i^{(\mathrm{pc})}
+p_i^{(\mathrm{standalone})}
 =
 \begin{cases}
-1 & \text{if gene } i \text{ is in the positive-control set,} \\
-0 & \text{otherwise,}
+1 & \text{if gene } i \text{ is in the supplied list,} \\
+0 & \text{otherwise.}
 \end{cases}
 \]
-or a weighted analogue, simply replaces $p_i$ in Eq.~\eqref{eq:eaggl_single_trait_weights}. The factorization itself is unchanged; only the support weights defining which genes are emphasized by the model differ.
+All genes appearing in any retained annotation are then kept in the final factoring matrix. The factorization itself is unchanged; only the way the gene-level and annotation-level support vectors are constructed differs from the standard PIGEAN-driven path.
 
 \subsection{Phenotype-anchored extensions of the gene-by-annotation model}
 

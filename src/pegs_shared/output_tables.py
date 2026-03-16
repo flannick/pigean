@@ -719,6 +719,11 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
             header = "%s\t%s" % (header, "scale")
         if runtime.beta_tildes is not None:
             header = "%s\t%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde", "beta_tilde_internal", "P", "Z", "SE")
+        elif runtime.p_values is not None:
+            header = "%s\t%s" % (header, "P")
+            q_values = getattr(runtime, "q_values", None)
+            if q_values is not None:
+                header = "%s\t%s" % (header, "Q")
         if inf_betas is not None and not basic:
             header = "%s\t%s" % (header, "inf_beta")            
         if runtime.betas is not None:
@@ -788,6 +793,11 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
 
             if runtime.beta_tildes is not None:
                 line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes[i] / runtime.scale_factors[i], runtime.beta_tildes[i], runtime.p_values[i], runtime.z_scores[i], runtime.ses[i] / runtime.scale_factors[i])
+            elif runtime.p_values is not None:
+                line = "%s\t%.3g" % (line, runtime.p_values[i])
+                q_values = getattr(runtime, "q_values", None)
+                if q_values is not None:
+                    line = "%s\t%.3g" % (line, q_values[i])
             if inf_betas is not None and not basic:
                 line = "%s\t%.3g" % (line, inf_betas[i] / runtime.scale_factors[i])            
             if runtime.betas is not None:
