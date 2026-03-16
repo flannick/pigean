@@ -5,12 +5,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `200`
+- Total options: `206`
 - `method_required`: `13`
-- `method_optional`: `111`
-- `engineering`: `70`
+- `method_optional`: `116`
+- `engineering`: `71`
 - `debug_only`: `6`
-- visibility `expert`: `173`
+- visibility `expert`: `179`
 - visibility `normal`: `27`
 
 ## Method Required
@@ -51,9 +51,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
 | `--factor-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_from_gene_phewas_stats_in` | `None` | run factor-level phewas from precomputed gene-phewas statistics |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
-| `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.01` | - |
+| `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.0` | - |
+| `--factor-phewas-mode` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_mode` | `marginal_anchor_adjusted_binary` | choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment |
+| `--factor-phewas-se` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_se` | `robust` | choose the uncertainty estimator for binary factor-phewas: robust or none |
+| `--factor-phewas-thresholded-combined-cutoff` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_thresholded_combined_cutoff` | `1.0` | set the combined-support cutoff used to define thresholded phenotype hits for binary factor-phewas |
 | `--factor-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_num` | `None` | - |
 | `--factor-prune-gene-sets-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_val` | `None` | - |
 | `--factor-prune-genes-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_genes_num` | `None` | - |
@@ -126,6 +130,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--ols` | `expert` | `yes` | `expert_help` | `ols` | `-` | - |
 | `--p-noninf` | `expert` | `yes` | `expert_help` | `p_noninf` | `None` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
+| `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
 | `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | - |
 | `--positive-controls-all-in` | `expert` | `yes` | `expert_help` | `positive_controls_all_in` | `None` | - |
@@ -166,6 +171,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |
 | `--gene-gene-set-stats-out` | `expert` | `no` | `expert_help` | `gene_gene_set_stats_out` | `None` | - |
+| `--gene-map-new-gene-col` | `expert` | `no` | `expert_help` | `gene_map_new_gene_col` | `2` | - |
 | `--gene-map-orig-gene-col` | `expert` | `no` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
 | `--gene-pheno-stats-out` | `expert` | `no` | `advanced_workflows` | `gene_pheno_stats_out` | `None` | - |
 | `--gene-phewas-bfs-combined-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_combined_col` | `None` | - |

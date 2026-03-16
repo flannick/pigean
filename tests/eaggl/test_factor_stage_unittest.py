@@ -69,6 +69,7 @@ def _options(**overrides):
         label_individually=False,
         keep_original_loadings=False,
         project_phenos_from_gene_sets=False,
+        pheno_capture_input="weighted_thresholded",
         factors_out=None,
         factors_anchor_out=None,
         gene_set_clusters_out=None,
@@ -175,10 +176,11 @@ class FactorStageHelpersTest(unittest.TestCase):
     def test_build_factor_execution_config_tracks_keep_original_loadings(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
         factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
-        options = _options(keep_original_loadings=True, anchor_gene_set=True)
+        options = _options(keep_original_loadings=True, anchor_gene_set=True, pheno_capture_input="binary_thresholded")
         cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
         self.assertTrue(cfg.keep_original_loadings)
         self.assertEqual(cfg.gene_or_pheno_filter_type, "gene_set_phewas_betas_uncorrected")
+        self.assertEqual(cfg.pheno_capture_input, "binary_thresholded")
 
     def test_run_main_factor_stage_executes_runtime_and_reports_workflow(self) -> None:
         runtime = _RuntimeStub()

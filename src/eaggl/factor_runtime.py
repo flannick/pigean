@@ -83,6 +83,10 @@ def _project_pheno_capture_matrix(state, basis, feature_by_pheno, *, basis_name)
     return capture_weights
 
 
+def _prepare_pheno_capture_input_matrix(feature_by_pheno, mode):
+    return eaggl_phenotype_annotation.prepare_thresholded_profile_input(feature_by_pheno, mode)
+
+
 def _align_projection_inputs_to_mask(basis, feature_by_target, mask):
     if mask is None:
         return basis, feature_by_target
@@ -177,6 +181,7 @@ def _build_factor_param_record(
     label_individually,
     keep_original_loadings,
     project_phenos_from_gene_sets,
+    pheno_capture_input,
 ):
     anchor_gene_mask_present, anchor_gene_mask_total, anchor_gene_mask_selected = _summarize_mask(anchor_gene_mask)
     anchor_pheno_mask_present, anchor_pheno_mask_total, anchor_pheno_mask_selected = _summarize_mask(anchor_pheno_mask)
@@ -231,6 +236,7 @@ def _build_factor_param_record(
         "label_individually": bool(label_individually),
         "keep_original_loadings": bool(keep_original_loadings),
         "project_phenos_from_gene_sets": bool(project_phenos_from_gene_sets),
+        "pheno_capture_input": pheno_capture_input,
     }
 
 
@@ -830,7 +836,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -1351,6 +1357,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     full_pheno_factor_values = state.exp_pheno_factors
     state.pheno_capture_strength = None
     state.pheno_capture_basis = None
+    state.pheno_capture_input = None
     pheno_matrix_to_project = None
 
     if state.exp_gene_factors is None and state.exp_gene_set_factors is None:
@@ -1362,7 +1369,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             if not run_transpose:
                 pheno_matrix_to_project = pheno_matrix_to_project.T
             basis = state.exp_gene_set_factors
-            feature_by_pheno = pheno_matrix_to_project
+            feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
             basis, feature_by_pheno = _align_projection_inputs_to_mask(
                 basis,
                 feature_by_pheno,
@@ -1375,11 +1382,11 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
                 basis_name="gene_sets",
             )
         else:
-            pheno_matrix_to_project = state.gene_pheno_Y
+            pheno_matrix_to_project = state.gene_pheno_combined_prior_Ys if state.gene_pheno_combined_prior_Ys is not None else state.gene_pheno_Y
             if not run_transpose:
                 pheno_matrix_to_project = pheno_matrix_to_project.T
             basis = state.exp_gene_factors
-            feature_by_pheno = pheno_matrix_to_project
+            feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
             basis, feature_by_pheno = _align_projection_inputs_to_mask(
                 basis,
                 feature_by_pheno,
@@ -1395,13 +1402,16 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             
         if keep_original_loadings:
             full_pheno_factor_values[state.pheno_factor_pheno_mask,:] = state.exp_pheno_factors
+        state.pheno_capture_input = pheno_capture_input
     elif state.exp_pheno_factors is not None:
         state.pheno_capture_basis = "native"
         if state.X_phewas_beta_uncorrected is not None:
             feature_by_pheno = state.X_phewas_beta_uncorrected.T
             if not run_transpose:
                 feature_by_pheno = feature_by_pheno.T
+            feature_by_pheno = _prepare_pheno_capture_input_matrix(feature_by_pheno, pheno_capture_input)
             state.pheno_capture_strength = eaggl_phenotype_annotation.compute_profile_strengths(feature_by_pheno)
+            state.pheno_capture_input = pheno_capture_input
         else:
             state.pheno_capture_strength = np.sum(np.asarray(state.exp_pheno_factors, dtype=float), axis=1)
 
@@ -1647,7 +1657,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.6, learn_phi_runs_per_step=5, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_max_steps=8, learn_phi_expand_factor=10.0, learn_phi_weight_floor=None, learn_phi_report_out=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.6, learn_phi_runs_per_step=5, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_max_steps=8, learn_phi_expand_factor=10.0, learn_phi_weight_floor=None, learn_phi_report_out=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -1714,6 +1724,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "label_individually": label_individually,
         "keep_original_loadings": keep_original_loadings,
         "project_phenos_from_gene_sets": project_phenos_from_gene_sets,
+        "pheno_capture_input": pheno_capture_input,
         "bail_fn": bail_fn,
         "warn_fn": warn_fn,
         "log_fn": log_fn,
@@ -1773,6 +1784,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             label_individually=label_individually,
             keep_original_loadings=keep_original_loadings,
             project_phenos_from_gene_sets=project_phenos_from_gene_sets,
+            pheno_capture_input=pheno_capture_input,
         ),
         overwrite=True,
     )

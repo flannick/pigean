@@ -21,6 +21,19 @@ def compute_profile_strengths(feature_by_profile):
     return np.asarray(np.sum(dense, axis=0), dtype=float)
 
 
+def prepare_thresholded_profile_input(feature_by_profile, mode):
+    dense = _as_dense_feature_matrix(feature_by_profile)
+    if dense is None:
+        return None
+    if dense.ndim == 1:
+        dense = dense[:, np.newaxis]
+    if mode == "weighted_thresholded":
+        return np.asarray(np.maximum(dense, 0.0), dtype=float)
+    if mode == "binary_thresholded":
+        return np.asarray(dense > 0, dtype=float)
+    raise ValueError("Unknown phenotype capture input mode: %s" % mode)
+
+
 def project_phenotype_capture(nnls_project_fn, basis, feature_by_pheno, *, eps=1e-12, max_sum=1.0):
     dense_basis = _as_dense_feature_matrix(basis)
     dense_feature_by_pheno = _as_dense_feature_matrix(feature_by_pheno)

@@ -95,6 +95,8 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Projection quickstart:", proc.stdout)
         self.assertIn("--gene-set-phewas-stats-in", proc.stdout)
+        self.assertIn("--factor-phewas-mode", proc.stdout)
+        self.assertIn("--pheno-capture-input", proc.stdout)
         self.assertIn("--factor-phewas-full-output", proc.stdout)
         self.assertIn("--lmm-provider", proc.stdout)
         self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
@@ -137,6 +139,13 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-redundancy must be in (0, 1]", err)
+        self.assertNotIn("Traceback", err)
+
+    def test_invalid_factor_phewas_mode_returns_usage_error(self) -> None:
+        proc = self._run("factor", "--factor-phewas-mode", "definitely_invalid")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--factor-phewas-mode must be one of", err)
         self.assertNotIn("Traceback", err)
 
     def test_removed_anchor_gene_alias_has_replacement_message(self) -> None:
@@ -384,6 +393,29 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
             self.assertIn("Use --X-in for direct .gmt files", proc.stderr or "")
             payload = json.loads(proc.stdout)
             self.assertEqual(payload["options"]["X_list"], [str(gmt_path)])
+
+    def test_factor_phewas_and_capture_defaults_round_trip(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-phewas-mode",
+            "joint_anchor_adjusted_binary",
+            "--factor-phewas-anchor-covariate",
+            "combined",
+            "--factor-phewas-thresholded-combined-cutoff",
+            "1.5",
+            "--factor-phewas-se",
+            "none",
+            "--pheno-capture-input",
+            "binary_thresholded",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        opts = json.loads(proc.stdout)["options"]
+        self.assertEqual(opts["factor_phewas_mode"], "joint_anchor_adjusted_binary")
+        self.assertEqual(opts["factor_phewas_anchor_covariate"], "combined")
+        self.assertEqual(opts["factor_phewas_thresholded_combined_cutoff"], 1.5)
+        self.assertEqual(opts["factor_phewas_se"], "none")
+        self.assertEqual(opts["pheno_capture_input"], "binary_thresholded")
 
     def test_read_correlations_fails_fast_when_gls_cholesky_is_initialized(self) -> None:
         repo_root = self._repo_root()

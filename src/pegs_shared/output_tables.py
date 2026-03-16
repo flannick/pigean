@@ -609,7 +609,57 @@ def write_factor_phewas_statistics(runtime, output_file, *, open_text_fn=None, l
     if runtime.phenos is None or len(runtime.phenos) == 0:
         return
 
-    if runtime.factor_labels is None or (runtime.factor_phewas_Y_betas is None and runtime.factor_phewas_combined_prior_Ys_betas is None and runtime.factor_phewas_Y_huber_betas is None and runtime.factor_phewas_combined_prior_Ys_huber_betas is None):
+    result_blocks = getattr(runtime, "factor_phewas_result_blocks", None)
+    if runtime.factor_labels is None:
+        return
+    if result_blocks:
+        log_fn("Writing factor phewas stats to %s" % output_file, info_level)
+        with open_text_fn(output_file, 'w') as output_fh:
+            header = "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (
+                "Factor",
+                "Label",
+                "Pheno",
+                "analysis",
+                "mode",
+                "anchor_covariate",
+                "threshold_cutoff",
+                "se_type",
+                "beta",
+                "P",
+                "P_onesided",
+            )
+            header = "%s\t%s\t%s" % (header, "Z", "SE")
+            output_fh.write("%s\n" % header)
+            for block in result_blocks:
+                coefficients = block["coefficients"]
+                p_values = block["p_values"]
+                ses = block["ses"]
+                z_scores = block["z_scores"]
+                one_sided_p_values = block["one_sided_p_values"]
+                for f in range(len(runtime.factor_labels)):
+                    ordered = sorted(range(len(runtime.phenos)), key=lambda k: p_values[f, k])
+                    for i in ordered:
+                        output_fh.write(
+                            "%s\t%s\t%s\t%s\t%s\t%s\t%.3g\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n"
+                            % (
+                                "Factor%d" % (f + 1),
+                                runtime.factor_labels[f],
+                                runtime.phenos[i],
+                                block["analysis"],
+                                block["mode"],
+                                block["anchor_covariate"],
+                                block["threshold_cutoff"],
+                                block["se_type"],
+                                coefficients[f, i],
+                                p_values[f, i],
+                                one_sided_p_values[f, i],
+                                z_scores[f, i],
+                                ses[f, i],
+                            )
+                        )
+        return
+
+    if runtime.factor_phewas_Y_betas is None and runtime.factor_phewas_combined_prior_Ys_betas is None and runtime.factor_phewas_Y_huber_betas is None and runtime.factor_phewas_combined_prior_Ys_huber_betas is None:
         return 
 
     log_fn("Writing factor phewas stats to %s" % output_file, info_level)

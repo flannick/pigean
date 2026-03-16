@@ -62,10 +62,13 @@ PheWAS matrix inputs (for phenotype/gene anchor workflows):
 Phenotype annotation policy:
 
 1. use projection for primary phenotype capture
-2. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended capture basis
-3. treat `--factor-phewas-from-gene-phewas-stats-in` as a secondary expert workflow
-4. by default factor-PheWAS emits only the direct phenotype-support regression
-5. add `--factor-phewas-full-output` only when you explicitly want the legacy combined and Huber diagnostics
+2. interpret `pheno_clusters.out` as capture of the thresholded high-confidence phenotype profile, not of a fully observed unthresholded phenotype surface
+3. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
+4. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended capture basis
+5. treat `--factor-phewas-from-gene-phewas-stats-in` as a secondary expert workflow
+6. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`
+7. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
+8. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
 
 Bundle mode:
 

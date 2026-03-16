@@ -208,6 +208,16 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--factor-phewas-from-gene-phewas-stats-in",
             "gene_phewas.tsv",
             "--project-phenos-from-gene-sets",
+            "--factor-phewas-mode",
+            "joint_anchor_adjusted_binary",
+            "--factor-phewas-anchor-covariate",
+            "combined",
+            "--factor-phewas-thresholded-combined-cutoff",
+            "1.5",
+            "--factor-phewas-se",
+            "none",
+            "--pheno-capture-input",
+            "binary_thresholded",
             "--gene-stats-id-col",
             "GENE",
             "--gene-stats-prior-col",
@@ -235,6 +245,11 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["run_phewas_from_gene_phewas_stats_in"], "gene_phewas.tsv")
         self.assertEqual(opts["factor_phewas_from_gene_phewas_stats_in"], "gene_phewas.tsv")
         self.assertTrue(opts["project_phenos_from_gene_sets"])
+        self.assertEqual(opts["factor_phewas_mode"], "joint_anchor_adjusted_binary")
+        self.assertEqual(opts["factor_phewas_anchor_covariate"], "combined")
+        self.assertEqual(opts["factor_phewas_thresholded_combined_cutoff"], 1.5)
+        self.assertEqual(opts["factor_phewas_se"], "none")
+        self.assertEqual(opts["pheno_capture_input"], "binary_thresholded")
         self.assertEqual(opts["gene_stats_id_col"], "GENE")
         self.assertEqual(opts["gene_stats_prior_col"], "prior_col")
         self.assertEqual(opts["gene_set_stats_id_col"], "SET")
@@ -401,7 +416,12 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-set-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--run-phewas-from-gene-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--factor-phewas-from-gene-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip"],
+            "--factor-phewas-mode": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
+            "--factor-phewas-anchor-covariate": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
+            "--factor-phewas-thresholded-combined-cutoff": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
+            "--factor-phewas-se": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--project-phenos-from-gene-sets": ["test_reference_phewas_and_schema_flags_round_trip"],
+            "--pheno-capture-input": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--gene-stats-id-col": ["test_reference_phewas_and_schema_flags_round_trip"],
             "--gene-stats-prior-col": ["test_reference_phewas_and_schema_flags_round_trip"],
             "--gene-set-stats-id-col": ["test_reference_phewas_and_schema_flags_round_trip"],

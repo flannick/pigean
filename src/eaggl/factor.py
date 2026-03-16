@@ -90,6 +90,7 @@ class FactorExecutionConfig:
     label_individually: bool = False
     keep_original_loadings: bool = False
     project_phenos_from_gene_sets: bool = False
+    pheno_capture_input: str = "weighted_thresholded"
 
     def to_run_kwargs(self):
         return {
@@ -141,6 +142,7 @@ class FactorExecutionConfig:
             "label_individually": self.label_individually,
             "keep_original_loadings": self.keep_original_loadings,
             "project_phenos_from_gene_sets": self.project_phenos_from_gene_sets,
+            "pheno_capture_input": self.pheno_capture_input,
         }
 
 
@@ -462,6 +464,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         label_individually=options.label_individually,
         keep_original_loadings=getattr(options, "keep_original_loadings", False),
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
+        pheno_capture_input=getattr(options, "pheno_capture_input", "weighted_thresholded"),
     )
 
 
@@ -492,6 +495,15 @@ def run_main_factor_phewas_stage(domain, runtime, options):
         "PheWAS stage 'factor_phewas': mode=%s reason=%s" % (decision.mode, decision.reason),
         domain.INFO,
     )
+    runtime._record_params(
+        {
+            "factor_phewas_mode": options.factor_phewas_mode,
+            "factor_phewas_anchor_covariate": options.factor_phewas_anchor_covariate,
+            "factor_phewas_thresholded_combined_cutoff": options.factor_phewas_thresholded_combined_cutoff,
+            "factor_phewas_se": options.factor_phewas_se,
+        },
+        overwrite=True,
+    )
     bfs_to_use = decision.resolved_input
     run_phewas_with_common_args(
         domain,
@@ -499,7 +511,11 @@ def run_main_factor_phewas_stage(domain, runtime, options):
         options,
         bfs_to_use,
         run_for_factors=True,
-        min_gene_factor_weight=options.factor_phewas_min_gene_factor_weight,
+        min_gene_factor_weight=(
+            options.factor_phewas_min_gene_factor_weight
+            if options.factor_phewas_mode in set(["legacy_continuous_direct", "legacy_continuous_combined"])
+            else 0.0
+        ),
     )
     if options.factor_phewas_stats_out:
         runtime.write_factor_phewas_statistics(options.factor_phewas_stats_out)

@@ -185,7 +185,11 @@ parser.add_option("","--run-phewas-from-gene-phewas-stats-in",default=None) #spe
 
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a factor phewas against
-parser.add_option("","--factor-phewas-min-gene-factor-weight",type=float,default=0.01) #if genes have max weight across factors less than this, remove them before running phewas
+parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
+parser.add_option("","--factor-phewas-anchor-covariate",default="direct",type=str) #anchor covariate for binary factor-phewas modes: direct, combined, or none
+parser.add_option("","--factor-phewas-thresholded-combined-cutoff",type=float,default=1.0) #combined-support cutoff used to define thresholded phenotype hits
+parser.add_option("","--factor-phewas-se",default="robust",type=str) #uncertainty mode for the binary factor-phewas path: robust or none
+parser.add_option("","--factor-phewas-min-gene-factor-weight",type=float,default=0.0) #legacy continuous modes only: ignore genes with max factor weight below this threshold
 parser.add_option("","--factor-phewas-full-output",action='store_true',default=False) #write the legacy combined and huber factor phewas outputs in addition to the default direct regression surface
 
 #limit gene sets printed
@@ -344,6 +348,7 @@ parser.add_option("","--gene-phewas-stats-pheno-col",default=None,dest="gene_phe
 parser.add_option("","--min-gene-phewas-read-value",type="float",default=1)
 parser.add_option("","--gene-phewas-id-to-X-id",default=None) #mapping from gene ids in the phewas file to gene ids in the gmt
 parser.add_option("","--project-phenos-from-gene-sets",action='store_true',default=False) #use gene set scores to project pheno loadings rather than gene scores. Note that this will also have the side effect of conditioning the regression only on the gene sets in the model rather than all gene sets
+parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type=str) #capture input profile for pheno clusters: weighted_thresholded or binary_thresholded
 
 parser.add_option("","--anchor-phenos",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple pheno anchoring
 parser.add_option("","--anchor-any-pheno",action="store_true",default=False) #flatten all phenotypes into an uber weight
@@ -406,6 +411,10 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--consensus-nmf": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
     "--consensus-stats-out": "write per-run and per-factor diagnostics for restart or consensus factorization",
     "--factor-phewas-from-gene-phewas-stats-in": "run factor-level phewas from precomputed gene-phewas statistics",
+    "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
+    "--factor-phewas-anchor-covariate": "choose the anchor covariate for binary factor-phewas modes: direct, combined, or none",
+    "--factor-phewas-thresholded-combined-cutoff": "set the combined-support cutoff used to define thresholded phenotype hits for binary factor-phewas",
+    "--factor-phewas-se": "choose the uncertainty estimator for binary factor-phewas: robust or none",
     "--factor-phewas-full-output": "expose the full expert factor-phewas surface, including combined and huber variants",
     "--factor-runs": "run repeated random restarts for factorization; without consensus keep only the best run",
     "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
@@ -433,6 +442,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--log-file": "write structured run logs to this file",
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--project-phenos-from-gene-sets": "project phenotype loadings from gene-set scores instead of gene scores",
+    "--pheno-capture-input": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
     "--run-phewas-from-gene-phewas-stats-in": "run gene-level phewas output stage from precomputed gene-phewas statistics",
     "--seed": "set explicit random seed for deterministic reproducibility checks",
     "--warnings-file": "write warning messages to this file",
@@ -473,8 +483,12 @@ _EXPERT_METHOD_FLAGS = {
     "--consensus-min-run-support",
     "--consensus-nmf",
     "--factor-phewas-from-gene-phewas-stats-in",
+    "--factor-phewas-anchor-covariate",
     "--factor-phewas-full-output",
     "--factor-phewas-min-gene-factor-weight",
+    "--factor-phewas-mode",
+    "--factor-phewas-se",
+    "--factor-phewas-thresholded-combined-cutoff",
     "--factor-runs",
     "--factor-prune-gene-sets-num",
     "--factor-prune-gene-sets-val",
@@ -517,6 +531,7 @@ _EXPERT_METHOD_FLAGS = {
     "--max-num-factors",
     "--min-gene-phewas-read-value",
     "--phi",
+    "--pheno-capture-input",
     "--project-phenos-from-gene-sets",
     "--run-phewas-from-gene-phewas-stats-in",
 }
@@ -1129,8 +1144,28 @@ def _bootstrap_cli(argv=None):
 
     pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
     parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
+    if parsed_options.pheno_capture_input not in set(["weighted_thresholded", "binary_thresholded"]):
+        bail("--pheno-capture-input must be one of: weighted_thresholded, binary_thresholded")
     if parsed_options.factor_runs < 1:
         bail("--factor-runs must be at least 1")
+    if parsed_options.factor_phewas_mode not in set([
+        "marginal_anchor_adjusted_binary",
+        "marginal_unconditional_binary",
+        "joint_anchor_adjusted_binary",
+        "legacy_continuous_direct",
+        "legacy_continuous_combined",
+    ]):
+        bail(
+            "--factor-phewas-mode must be one of: marginal_anchor_adjusted_binary, "
+            "marginal_unconditional_binary, joint_anchor_adjusted_binary, "
+            "legacy_continuous_direct, legacy_continuous_combined"
+        )
+    if parsed_options.factor_phewas_anchor_covariate not in set(["direct", "combined", "none"]):
+        bail("--factor-phewas-anchor-covariate must be one of: direct, combined, none")
+    if parsed_options.factor_phewas_thresholded_combined_cutoff < 0:
+        bail("--factor-phewas-thresholded-combined-cutoff must be >= 0")
+    if parsed_options.factor_phewas_se not in set(["robust", "none"]):
+        bail("--factor-phewas-se must be one of: robust, none")
     if parsed_options.consensus_aggregation not in set(["median", "mean"]):
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < parsed_options.consensus_min_factor_cosine <= 1):

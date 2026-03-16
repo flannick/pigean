@@ -650,6 +650,8 @@ class FactorModelState:
     pheno_prob_factor_vector: object | None = None
     pheno_capture_strength: object | None = None
     pheno_capture_basis: object | None = None
+    pheno_capture_input: object | None = None
+    factor_phewas_result_blocks: object | None = None
     factor_phewas_Y_betas: object | None = None
     factor_phewas_Y_ses: object | None = None
     factor_phewas_Y_zs: object | None = None
@@ -1056,6 +1058,8 @@ class EagglState(object):
         self.pheno_prob_factor_vector = None #outer product of this with factor loadings gives anchor specific loadings
         self.pheno_capture_strength = None
         self.pheno_capture_basis = None
+        self.pheno_capture_input = None
+        self.factor_phewas_result_blocks = None
 
         self.factor_phewas_Y_betas = None #phewas statistics
         self.factor_phewas_Y_ses = None #phewas statistics
@@ -1546,7 +1550,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.6, learn_phi_runs_per_step=5, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_max_steps=8, learn_phi_expand_factor=10.0, learn_phi_weight_floor=None, learn_phi_report_out=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.6, learn_phi_runs_per_step=5, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_max_steps=8, learn_phi_expand_factor=10.0, learn_phi_weight_floor=None, learn_phi_report_out=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
         return _eaggl_factor_runtime.run_factor(
             self,
             max_num_factors=max_num_factors,
@@ -1597,6 +1601,7 @@ class EagglState(object):
             label_individually=label_individually,
             keep_original_loadings=keep_original_loadings,
             project_phenos_from_gene_sets=project_phenos_from_gene_sets,
+            pheno_capture_input=pheno_capture_input,
             bail_fn=bail,
             warn_fn=warn,
             log_fn=log,
@@ -2285,7 +2290,14 @@ class EagglState(object):
                     if anchors is None and self.pheno_capture_strength is not None:
                         capture_strength = np.asarray(self.pheno_capture_strength, dtype=float)
                         header = "%s\t%s" % (header, "capture_strength")
-                        master_key_fn = lambda k: -capture_strength[pheno_factor_pheno_inds[k]]
+                        if self.pheno_capture_basis is not None:
+                            header = "%s\t%s" % (header, "capture_basis")
+                        if self.pheno_capture_input is not None:
+                            header = "%s\t%s" % (header, "capture_input")
+                        master_key_fn = lambda k: (
+                            -np.max(values_for_cluster[pheno_factor_pheno_inds[k], :]),
+                            -capture_strength[pheno_factor_pheno_inds[k]],
+                        )
                     elif anchors is None and pheno_combined_prior_Ys is None and pheno_Y is None and pheno_priors is None:
                         any_prob = 1 - np.prod(1 - self.pheno_prob_factor_vector, axis=1)
                         header = "%s\t%s" % (header, "any_relevance")
@@ -2337,6 +2349,10 @@ class EagglState(object):
 
                         if capture_strength is not None:
                             line = "%s\t%.3g" % (line, capture_strength[orig_i])
+                            if self.pheno_capture_basis is not None:
+                                line = "%s\t%s" % (line, self.pheno_capture_basis)
+                            if self.pheno_capture_input is not None:
+                                line = "%s\t%s" % (line, self.pheno_capture_input)
                         if not gene_anchors and anchors is None and any_prob is not None:
                             line = "%s\t%.3g" % (line, any_prob[orig_i])
 

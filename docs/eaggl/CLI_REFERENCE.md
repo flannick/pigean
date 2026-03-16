@@ -179,13 +179,16 @@ Notes:
 | `--run-phewas-from-gene-phewas-stats-in` | run a gene-level PheWAS stage from precomputed gene-PheWAS stats; also required by the gene-set-anchored workflow |
 | `--factor-phewas-from-gene-phewas-stats-in` | compute factor-level phenotype enrichment regression from precomputed gene-PheWAS stats |
 | `--project-phenos-from-gene-sets` | compute phenotype capture on the gene-set basis instead of the gene basis |
+| `--pheno-capture-input` | choose whether phenotype capture uses retained weighted thresholded support or binary thresholded hits |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
 
 Operational notes:
 - phenotype projection is the primary user-facing phenotype annotation layer and is interpreted as phenotype capture, not phenotype relevance
+- capture operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
+- `--pheno-capture-input weighted_thresholded` is the default and uses retained combined-support values above the threshold; `binary_thresholded` is an expert sensitivity mode
 - factor-PheWAS is a secondary expert analysis for factor-specific phenotype enrichment
-- by default, factor-PheWAS reports only the direct phenotype-support regression surface
-- `--factor-phewas-full-output` restores the broader combined and Huber outputs for expert diagnostics
+- the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
+- `--factor-phewas-full-output` restores the broader legacy continuous and sensitivity outputs for expert diagnostics
 
 ### Input schema and column selectors
 
@@ -261,9 +264,26 @@ Operational notes:
 | `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | prune weak gene-set memberships from factor outputs |
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |
-| `--factor-phewas-min-gene-factor-weight` | minimum gene-factor weight kept for factor-PheWAS |
-| `--factor-phewas-full-output` | write the legacy combined and Huber factor-PheWAS outputs in addition to the default direct regression |
+| `--factor-phewas-mode` | choose the factor-PheWAS model class; default is marginal binary enrichment with direct anchor adjustment |
+| `--factor-phewas-anchor-covariate` | choose the anchor covariate for factor-PheWAS; default is `direct`, with `combined` and `none` as expert options |
+| `--factor-phewas-thresholded-combined-cutoff` | cutoff used to define thresholded phenotype hits for the binary factor-PheWAS modes |
+| `--factor-phewas-se` | choose the uncertainty estimator for factor-PheWAS; default is robust |
+| `--factor-phewas-min-gene-factor-weight` | minimum gene-factor weight kept for legacy continuous factor-PheWAS modes |
+| `--factor-phewas-full-output` | write the broader expert factor-PheWAS surface in addition to the default binary output |
 | `--threshold-weights` | threshold very small weights during post-processing |
+
+Operational notes:
+- Public default factor-PheWAS:
+  - `--factor-phewas-mode marginal_anchor_adjusted_binary`
+  - `--factor-phewas-anchor-covariate direct`
+  - `--factor-phewas-se robust`
+- Expert binary modes:
+  - `marginal_unconditional_binary`
+  - `joint_anchor_adjusted_binary`
+- Legacy continuous modes remain available for compatibility:
+  - `legacy_continuous_direct`
+  - `legacy_continuous_combined`
+- Combined anchor adjustment is expert-only because both the binary outcome and the combined anchor covariate inherit gene-set-mediated indirect structure; coefficient estimates can still be useful, but p-values are more approximate.
 
 ### Labeling and optional LLM integration
 
@@ -299,6 +319,12 @@ Labeling details and the rationale for keeping labeling integrated into `factor`
 
 The mathematical model and workflow formalization live in:
 - `docs/eaggl/methods.tex`
+
+For post-factor phenotype interpretation:
+- `pheno_clusters.out` is the primary phenotype annotation artifact
+- its factor columns are phenotype-capture weights on a thresholded phenotype profile
+- `capture_strength` is the retained high-confidence support mass, or retained hit count under binary capture mode
+- `factor_phewas_stats.out` is a secondary enrichment table rather than the main phenotype-labeling surface
 
 Use this split:
 - `docs/eaggl/CLI_REFERENCE.md`: how to run EAGGL and what the main flags do

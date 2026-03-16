@@ -4,6 +4,7 @@ import copy
 
 import numpy as np
 import scipy.sparse as sparse
+import scipy.stats
 
 from pegs_shared.io_common import construct_map_to_ind as pegs_construct_map_to_ind
 from pegs_shared.io_common import open_text_with_retry
@@ -21,6 +22,113 @@ from . import regression as eaggl_regression
 
 def open_gz(file, flag=None):
     return open_text_with_retry(file, flag=flag)
+
+
+_BINARY_FACTOR_PHEWAS_MODES = {
+    "marginal_anchor_adjusted_binary",
+    "marginal_unconditional_binary",
+    "joint_anchor_adjusted_binary",
+}
+
+_LEGACY_FACTOR_PHEWAS_MODES = {
+    "legacy_continuous_direct",
+    "legacy_continuous_combined",
+}
+
+
+def _ensure_factor_phewas_result_blocks(state):
+    if getattr(state, "factor_phewas_result_blocks", None) is None:
+        state.factor_phewas_result_blocks = []
+    return state.factor_phewas_result_blocks
+
+
+def _append_factor_phewas_result_block(
+    state,
+    *,
+    analysis,
+    mode,
+    anchor_covariate,
+    threshold_cutoff,
+    se_type,
+    coefficients,
+    ses,
+    z_scores,
+    p_values,
+    one_sided_p_values,
+):
+    _ensure_factor_phewas_result_blocks(state).append(
+        {
+            "analysis": analysis,
+            "mode": mode,
+            "anchor_covariate": anchor_covariate,
+            "threshold_cutoff": threshold_cutoff,
+            "se_type": se_type,
+            "coefficients": np.asarray(coefficients, dtype=float),
+            "ses": np.asarray(ses, dtype=float),
+            "z_scores": np.asarray(z_scores, dtype=float),
+            "p_values": np.asarray(p_values, dtype=float),
+            "one_sided_p_values": np.asarray(one_sided_p_values, dtype=float),
+        }
+    )
+
+
+def _factor_phewas_anchor_vector(state, anchor_covariate, bail_fn):
+    if anchor_covariate == "none":
+        return None
+    if anchor_covariate == "direct":
+        if state.Y is None:
+            bail_fn("Default factor-PheWAS anchor adjustment requires direct anchor support (`Y`)")
+        return np.asarray(state.Y, dtype=float)
+    if anchor_covariate == "combined":
+        if state.combined_prior_Ys is None:
+            bail_fn("Combined anchor adjustment requires combined anchor support")
+        return np.asarray(state.combined_prior_Ys, dtype=float)
+    bail_fn("Unknown factor-PheWAS anchor covariate: %s" % anchor_covariate)
+
+
+def _build_thresholded_hit_matrix(gene_pheno_combined_prior_Ys, gene_pheno_Y, cutoff):
+    source = gene_pheno_combined_prior_Ys if gene_pheno_combined_prior_Ys is not None else gene_pheno_Y
+    if source is None:
+        return None
+    source = np.asarray(source, dtype=float)
+    if gene_pheno_combined_prior_Ys is not None:
+        return np.asarray(source > cutoff, dtype=float)
+    return np.asarray(source > 0, dtype=float)
+
+
+def _fit_ols_with_selected_coefficients(X, Y, coefficient_indices, *, se_type="robust"):
+    X = np.asarray(X, dtype=float)
+    Y = np.asarray(Y, dtype=float)
+    if Y.ndim == 1:
+        Y = Y[:, np.newaxis]
+
+    xtx_inv = np.linalg.pinv(X.T @ X)
+    beta_all = xtx_inv @ X.T @ Y
+    residuals = Y - X @ beta_all
+
+    if se_type == "none":
+        dof = max(X.shape[0] - X.shape[1], 1)
+        sigma2 = np.sum(residuals ** 2, axis=0) / dof
+        covariances = np.einsum("m,ij->mij", sigma2, xtx_inv)
+    else:
+        hat_diag = np.einsum("ij,jk,ik->i", X, xtx_inv, X, optimize=True)
+        denom = np.maximum(1.0 - hat_diag, 1e-8)
+        scaled_residuals = (residuals ** 2) / (denom[:, np.newaxis] ** 2)
+        score_cov = np.einsum("im,ip,iq->mpq", scaled_residuals, X, X, optimize=True)
+        covariances = np.einsum("ab,mbc,cd->mad", xtx_inv, score_cov, xtx_inv, optimize=True)
+
+    coefficient_indices = list(coefficient_indices)
+    coefficients = beta_all[coefficient_indices, :]
+    ses = np.zeros((len(coefficient_indices), Y.shape[1]), dtype=float)
+    for coef_ind, source_index in enumerate(coefficient_indices):
+        ses[coef_ind, :] = np.sqrt(np.maximum(covariances[:, source_index, source_index], 0))
+
+    z_scores = np.zeros_like(coefficients)
+    positive_mask = ses > 0
+    z_scores[positive_mask] = coefficients[positive_mask] / ses[positive_mask]
+    p_values = 2 * scipy.stats.norm.cdf(-np.abs(z_scores))
+    one_sided_p_values = np.where(z_scores >= 0, p_values / 2.0, 1 - p_values / 2.0)
+    return coefficients, ses, z_scores, p_values, one_sided_p_values
 
 
 def build_phewas_input_values(state, run_for_factors=False, min_gene_factor_weight=0):
@@ -344,7 +452,7 @@ def accumulate_factor_phewas_outputs(state, output_prefix, beta_tilde, se, z_sco
     )
 
 
-def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
+def _run_legacy_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
     if gene_pheno_Y is not None:
         _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = calculate_phewas_block(
             input_values[factor_keep_mask, :],
@@ -398,6 +506,108 @@ def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y,
             accumulate_factor_phewas_outputs(state, "combined_prior_Ys", beta_tilde, se, z_score, p_value, one_sided_p_value, huber=True)
 
 
+def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
+    mode = getattr(options, "factor_phewas_mode", "marginal_anchor_adjusted_binary")
+
+    if mode in _LEGACY_FACTOR_PHEWAS_MODES:
+        legacy_direct = mode == "legacy_continuous_direct"
+        legacy_combined = mode == "legacy_continuous_combined"
+        _run_legacy_factor_phewas_batch(
+            state,
+            input_values=input_values,
+            factor_keep_mask=factor_keep_mask,
+            gene_pheno_Y=gene_pheno_Y if legacy_direct else None,
+            gene_pheno_combined_prior_Ys=gene_pheno_combined_prior_Ys if legacy_combined or getattr(options, "factor_phewas_full_output", False) else None,
+            begin=begin,
+            end=end,
+            phewas_beta_kwargs=phewas_beta_kwargs,
+            options=options,
+        )
+        return
+
+    hit_matrix = _build_thresholded_hit_matrix(
+        gene_pheno_combined_prior_Ys,
+        gene_pheno_Y,
+        getattr(options, "factor_phewas_thresholded_combined_cutoff", 1.0),
+    )
+    if hit_matrix is None:
+        return
+
+    se_type = getattr(options, "factor_phewas_se", "robust")
+    anchor_covariate = (
+        "none"
+        if mode == "marginal_unconditional_binary"
+        else getattr(options, "factor_phewas_anchor_covariate", "direct")
+    )
+    anchor_vector = _factor_phewas_anchor_vector(state, anchor_covariate, phewas_beta_kwargs["bail_fn"])
+    intercept = np.ones((input_values.shape[0], 1), dtype=float)
+
+    if mode == "joint_anchor_adjusted_binary":
+        design_parts = [input_values, intercept]
+        coefficient_indices = list(range(input_values.shape[1]))
+        if anchor_vector is not None:
+            design_parts.insert(1, anchor_vector[:, np.newaxis])
+            coefficient_indices = list(range(input_values.shape[1]))
+        X_design = np.hstack(design_parts)
+        coefficients, ses, z_scores, p_values, one_sided_p_values = _fit_ols_with_selected_coefficients(
+            X_design,
+            hit_matrix,
+            coefficient_indices,
+            se_type=se_type,
+        )
+        _append_factor_phewas_result_block(
+            state,
+            analysis="joint_anchor_adjusted_binary",
+            mode=mode,
+            anchor_covariate=anchor_covariate,
+            threshold_cutoff=getattr(options, "factor_phewas_thresholded_combined_cutoff", 1.0),
+            se_type=se_type,
+            coefficients=coefficients,
+            ses=ses,
+            z_scores=z_scores,
+            p_values=p_values,
+            one_sided_p_values=one_sided_p_values,
+        )
+        return
+
+    num_factors = input_values.shape[1]
+    coefficients = np.zeros((num_factors, hit_matrix.shape[1]), dtype=float)
+    ses = np.zeros_like(coefficients)
+    z_scores = np.zeros_like(coefficients)
+    p_values = np.zeros_like(coefficients)
+    one_sided_p_values = np.zeros_like(coefficients)
+    for factor_index in range(num_factors):
+        design_parts = [input_values[:, factor_index][:, np.newaxis], intercept]
+        if anchor_vector is not None:
+            design_parts.insert(1, anchor_vector[:, np.newaxis])
+        X_design = np.hstack(design_parts)
+        cur_coef, cur_se, cur_z, cur_p, cur_one = _fit_ols_with_selected_coefficients(
+            X_design,
+            hit_matrix,
+            [0],
+            se_type=se_type,
+        )
+        coefficients[factor_index, :] = cur_coef[0, :]
+        ses[factor_index, :] = cur_se[0, :]
+        z_scores[factor_index, :] = cur_z[0, :]
+        p_values[factor_index, :] = cur_p[0, :]
+        one_sided_p_values[factor_index, :] = cur_one[0, :]
+
+    _append_factor_phewas_result_block(
+        state,
+        analysis=mode,
+        mode=mode,
+        anchor_covariate=anchor_covariate,
+        threshold_cutoff=getattr(options, "factor_phewas_thresholded_combined_cutoff", 1.0),
+        se_type=se_type,
+        coefficients=coefficients,
+        ses=ses,
+        z_scores=z_scores,
+        p_values=p_values,
+        one_sided_p_values=one_sided_p_values,
+    )
+
+
 def run_standard_phewas_batch(state, input_values, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
     if gene_pheno_Y is not None:
         beta, _, beta_tilde, se, z_score, p_value, _ = calculate_phewas_block(
@@ -436,6 +646,7 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
             warn("Cannot run factor phewas without gene factors; skipping")
             return
         log("Running factor phewas", INFO)
+        state.factor_phewas_result_blocks = []
     else:
         if state.genes is None:
             warn("Cannot run phewas without X matrix; skipping")

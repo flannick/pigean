@@ -232,9 +232,11 @@ This has the intended semantics that $r_k^{\mathrm{any}}$ is the probability-lik
 \section{Phenotype capture and factor-specific phenotype enrichment}
 \label{sec:postfactor_revised}
 
-After fitting the main factorization, EAGGL can relate latent factors to additional human phenotypes in two conceptually distinct ways. The first is a descriptive \emph{capture} step, which estimates how strongly each phenotype is represented by each factor. The second is an inferential \emph{enrichment} step, which asks whether a phenotype is more concentrated in one factor than expected after accounting for the other factors and baseline covariates. These two quantities answer different scientific questions and are therefore not expected to coincide exactly.
+After fitting the main factorization, EAGGL can relate latent factors to additional human phenotypes in two conceptually distinct ways. The first is a descriptive \emph{capture} step, which estimates how strongly each phenotype's retained high-confidence support profile is represented by each factor. The second is an inferential \emph{enrichment} step, which asks whether a phenotype is more concentrated in one factor than expected after accounting for the anchor trait and optional covariates. These two quantities answer different scientific questions and are therefore not expected to coincide exactly.
 
-\subsection{Phenotype capture by compositional projection}
+\subsection{Phenotype capture by compositional projection of thresholded profiles}
+
+The external gene-by-phenotype support table can be very large. In practice, EAGGL therefore consumes a sparse thresholded representation that retains only gene-phenotype entries whose combined support exceeds a cutoff $c_0$. The phenotype profile used for post-factor annotation is therefore not the full unthresholded phenotype surface. It is the retained high-confidence thresholded profile.
 
 Let $b$ denote a feature basis shared by the factors and a phenotype-specific support vector. Depending on the workflow, this basis may be genes, gene sets, or phenotypes already present in the factored matrix. Let
 \[
@@ -244,9 +246,11 @@ denote the factor basis on that feature space, where $F_b$ is the number of feat
 \[
 s_t^{(b)} \in \mathbb{R}_+^{F_b}
 \]
-denote the nonnegative support profile for phenotype $t$ on that same basis.
+denote the thresholded phenotype profile for phenotype $t$ on that same basis.
 
-We decompose each phenotype profile into an overall strength and a compositional shape. Define the phenotype strength
+By default, EAGGL uses a \emph{weighted thresholded} profile: retained combined-support values are used for entries above the cutoff and zero otherwise. As an expert sensitivity analysis, one may instead use a \emph{binary thresholded} profile, in which retained entries are coded as $1$ and absent entries as $0$ before normalization.
+
+We decompose each thresholded phenotype profile into an overall retained strength and a compositional shape. Define the retained phenotype strength
 \begin{equation}
 a_t^{(b)} = \sum_{f=1}^{F_b} s_{tf}^{(b)},
 \label{eq:eaggl_pheno_strength}
@@ -272,56 +276,64 @@ c_t^{(b)}
 \right\|_2^2.
 \label{eq:eaggl_phenotype_capture}
 \end{equation}
-The coefficient $c_{tk}^{(b)}$ is interpreted as the degree to which phenotype $t$ is captured by factor $k$ on basis $b$. In contrast to a projection on the raw support vector, Eq.~\eqref{eq:eaggl_phenotype_capture} separates phenotype-specific structure from overall phenotype breadth. Thus, broadly associated phenotypes can still have large strength $a_t^{(b)}$ without automatically receiving high capture weights for every factor.
+The coefficient $c_{tk}^{(b)}$ is interpreted as the degree to which phenotype $t$ is captured by factor $k$ on basis $b$. In contrast to a projection on raw support mass, Eq.~\eqref{eq:eaggl_phenotype_capture} separates retained phenotype breadth from phenotype-specific structure. Broad phenotypes can therefore have large retained strength $a_t^{(b)}$ without automatically receiving high capture weights for every factor.
 
 \paragraph{Interpretation.}
 Phenotype capture is a descriptive quantity. It answers the question:
 \begin{quote}
-``How much of phenotype $t$ can be represented by each latent mechanism?''
+``How is the retained high-confidence support profile of phenotype $t$ represented as a mixture of latent mechanisms?''
 \end{quote}
 It is not a p-value, and it should not be interpreted as formal evidence that phenotype $t$ is uniquely associated with factor $k$.
 
 \subsection{Choice of projection basis across workflow families}
 
-For the default gene $\times$ gene-set workflow family (F1--F5), the preferred basis for phenotype capture is the gene basis. In that case, $B^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $B^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the phenotype-specific gene-set support vector.
+For the default gene $\times$ gene-set workflow family (F1--F5), the preferred basis for phenotype capture is the gene basis. In that case, $B^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $B^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-set support vector.
 
 For the gene-set $\times$ phenotype workflow family (F6--F9), phenotypes that are already present in the factored matrix have native phenotype loadings. These native loadings are interpreted as phenotype capture weights after appropriate normalization. For external phenotypes that were not part of the factored matrix, EAGGL projects them on the gene-set basis using Eq.~\eqref{eq:eaggl_phenotype_capture}.
 
-Thus, the phenotype-capture definition is common across workflows: EAGGL always projects a phenotype support profile onto the factor basis defined on the most natural shared feature space.
+Thus, the phenotype-capture definition is common across workflows: EAGGL always projects a thresholded phenotype support profile onto the factor basis defined on the most natural shared feature space.
 
-\subsection{Factor-specific phenotype enrichment regression}
+\subsection{Factor-specific phenotype enrichment with thresholded binary outcomes}
 
-A second, distinct summary asks whether phenotype $t$ is selectively enriched in genes belonging to factor $k$, after accounting for the other factors and baseline covariates. Let
+A second, distinct summary asks whether phenotype $t$ is selectively enriched in genes belonging to factor $k$, after accounting for the main anchor trait and optional covariates. Because the standard phenotype input is thresholded, the default factor-specific enrichment analysis is based on a binary thresholded outcome rather than on truncated continuous support values. Let
 \[
-W \in \mathbb{R}_+^{G \times K}
+h_{it} = \mathbb{I}\{ \text{combined phenotype support for gene } i \text{ and phenotype } t \text{ exceeds } c_0 \}
 \]
-denote the gene-by-factor membership matrix, and let
-\[
-y_t \in \mathbb{R}^G
-\]
-denote a phenotype-specific gene-level support vector, typically the direct phenotype support. EAGGL can then fit the multivariate regression
+denote the resulting thresholded phenotype-hit indicator. Let $W_{ik}$ denote the gene-membership weight of factor $k$ for gene $i$, let $a_i^{\mathrm{direct}}$ denote the direct support of the main anchor trait for gene $i$, and let $C_i$ denote optional gene-level covariates. The default model fits, for each phenotype $t$ and factor $k$,
 \begin{equation}
-y_t = \alpha_t \mathbf{1} + W \gamma_t + C \eta_t + \varepsilon_t,
+h_{it}
+=
+\alpha_{tk}
++
+\beta_{tk} W_{ik}
++
+\gamma_t a_i^{\mathrm{direct}}
++
+\eta_t^\top C_i
++
+\varepsilon_{it}.
 \label{eq:eaggl_factor_pheno_regression}
 \end{equation}
-where $C$ denotes optional baseline covariates, such as anchor-trait support or additional gene-level covariates. The coefficient $\gamma_{tk}$ is interpreted as the factor-specific phenotype enrichment effect for phenotype $t$ and factor $k$.
+This regression is fit one factor at a time, i.e. as a marginal anchor-adjusted binary model. The coefficient $\beta_{tk}$ is interpreted as the factor-specific enrichment of phenotype $t$ beyond what is already captured by the anchor trait's direct support.
 
 \paragraph{Interpretation.}
 Unlike the capture weights in Eq.~\eqref{eq:eaggl_phenotype_capture}, the coefficients in Eq.~\eqref{eq:eaggl_factor_pheno_regression} are incremental effects. They answer the question:
 \begin{quote}
-``Is phenotype $t$ more concentrated in factor $k$ than expected after accounting for the other factors and baseline support?''
+``Is phenotype $t$ enriched in factor $k$ beyond the anchor trait's direct gene support?''
 \end{quote}
 This is an inferential or hypothesis-testing quantity rather than a descriptive loading.
 
 \paragraph{Recommended default and scope.}
-Because the phenotype-support outcomes can be heteroskedastic and the factor loadings can be correlated, EAGGL treats this regression as a secondary analysis. In the default interpretation, the direct phenotype-support outcome is preferred. More elaborate outcome constructions, such as combined or indirect phenotype support, are optional extensions whose residual covariance structure may require additional approximation or calibration.
+The binary thresholded model is the default because it is defensible under sparse thresholded phenotype input and easier to interpret than a joint all-factor fit. EAGGL reports robust uncertainty by default, typically using HC3-type standard errors or chromosome-clustered uncertainty when location information is available. The resulting p-values are still approximate, because the thresholded phenotype-hit process is derived from a combined-support quantity that already reflects gene-set-mediated indirect support.
+
+An expert may instead fit: (i) a marginal binary model without an anchor covariate; (ii) a joint all-factor binary model with direct anchor adjustment; or (iii) legacy continuous direct/combined regressions. Using combined anchor support as the covariate is also an expert-only approximation, because then both the outcome and the covariate inherit related gene-set-mediated structure.
 
 \subsection{Relationship between phenotype capture and factor-specific enrichment}
 
 The two phenotype summaries serve complementary roles:
 \begin{itemize}
-\item \textbf{Phenotype capture} gives a bounded, compositional summary of how well a phenotype is represented by each factor. This is the primary annotation layer for interpreting factors with external phenotypes.
-\item \textbf{Factor-specific enrichment regression} tests whether a phenotype is unusually concentrated in one factor relative to the other factors and covariates. This is a secondary, expert-oriented summary.
+\item \textbf{Phenotype capture} gives a bounded, compositional summary of how well the retained high-confidence phenotype profile is represented by each factor. This is the primary annotation layer for interpreting factors with external phenotypes.
+\item \textbf{Factor-specific enrichment regression} tests whether that phenotype profile is unusually concentrated in one factor beyond what is already captured by the anchor trait and optional covariates. This is a secondary, expert-oriented summary.
 \end{itemize}
 
 Consequently, the main phenotype labels and top-phenotype annotations for a factor should be based on phenotype capture weights, whereas regression coefficients and associated significance measures should be interpreted as downstream enrichment diagnostics rather than as the primary phenotype annotation of the factor.
