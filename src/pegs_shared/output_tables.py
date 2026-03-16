@@ -636,15 +636,16 @@ def write_factor_phewas_statistics(runtime, output_file, *, open_text_fn=None, l
                 ses = block["ses"]
                 z_scores = block["z_scores"]
                 one_sided_p_values = block["one_sided_p_values"]
+                phenos = block.get("phenos", runtime.phenos)
                 for f in range(len(runtime.factor_labels)):
-                    ordered = sorted(range(len(runtime.phenos)), key=lambda k: p_values[f, k])
+                    ordered = sorted(range(len(phenos)), key=lambda k: p_values[f, k])
                     for i in ordered:
                         output_fh.write(
                             "%s\t%s\t%s\t%s\t%s\t%s\t%.3g\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n"
                             % (
                                 "Factor%d" % (f + 1),
                                 runtime.factor_labels[f],
-                                runtime.phenos[i],
+                                phenos[i],
                                 block["analysis"],
                                 block["mode"],
                                 block["anchor_covariate"],

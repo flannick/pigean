@@ -133,6 +133,7 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
             combined_prior_Ys=np.array([0.3, 0.4, 0.5]),
             X_orig=np.array([[1.0], [2.0], [3.0]]),
             X_phewas_beta=np.array([[0.5], [0.6]]),
+            phenos=["P1", "P2"],
             factor_phewas_result_blocks=None,
         )
 
@@ -208,10 +209,11 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
 
     def test_legacy_factor_phewas_mode_uses_existing_continuous_path(self) -> None:
         state = self._state()
+        state.factor_phewas_result_blocks = []
         input_values = np.array([[1.0], [2.0], [3.0]])
         factor_keep_mask = np.array([True, True, True])
-        gene_pheno_Y = np.array([[0.2], [0.8], [0.1]])
-        gene_pheno_combined = np.array([[0.3], [0.9], [0.4]])
+        gene_pheno_Y = np.array([[0.2, 0.4], [0.8, 0.6], [0.1, 0.9]])
+        gene_pheno_combined = np.array([[0.3, 0.2], [0.9, 0.7], [0.4, 0.8]])
         options = SimpleNamespace(
             factor_phewas_mode="legacy_continuous_direct",
             factor_phewas_anchor_covariate="direct",
@@ -221,26 +223,32 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
             debug_skip_huber=False,
             debug_skip_correlation=False,
         )
-        calls = []
-        with mock.patch.object(eaggl_phewas, "calculate_phewas_block", side_effect=[self._block_result()]) as calc:
-            with mock.patch.object(
-                eaggl_phewas,
-                "accumulate_factor_phewas_outputs",
-                side_effect=lambda _state, prefix, *_args, huber=False: calls.append((prefix, huber)),
-            ):
-                eaggl_phewas.run_factor_phewas_batch(
-                    state,
-                    input_values,
-                    factor_keep_mask,
-                    gene_pheno_Y,
-                    gene_pheno_combined,
-                    0,
-                    1,
-                    {},
-                    options=options,
-                )
+        legacy_block_result = (
+            None,
+            None,
+            np.array([[1.0], [2.0]]),
+            np.array([[0.1], [0.2]]),
+            np.array([[10.0], [20.0]]),
+            np.array([[1e-3], [2e-3]]),
+            np.array([[5e-4], [1e-3]]),
+        )
+        with mock.patch.object(eaggl_phewas, "calculate_phewas_block", side_effect=[legacy_block_result]) as calc:
+            eaggl_phewas.run_factor_phewas_batch(
+                state,
+                input_values,
+                factor_keep_mask,
+                gene_pheno_Y,
+                gene_pheno_combined,
+                0,
+                1,
+                {},
+                options=options,
+            )
         self.assertEqual(calc.call_count, 1)
-        self.assertEqual(calls, [("Y", False)])
+        self.assertEqual(len(state.factor_phewas_result_blocks), 1)
+        block = state.factor_phewas_result_blocks[0]
+        self.assertEqual(block["analysis"], "legacy_continuous_direct")
+        self.assertEqual(block["coefficients"].shape, (2, 1))
 
 
 if __name__ == "__main__":

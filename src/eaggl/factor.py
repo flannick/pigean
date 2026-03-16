@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import phewas as eaggl_phewas
+
 
 @dataclass
 class FactorOnlyStageResult:
@@ -356,7 +358,17 @@ def run_phewas_with_common_args(domain, runtime, options, gene_phewas_bfs_in, ru
         batch_size=300 if run_for_factors else None,
         min_gene_factor_weight=min_gene_factor_weight,
     )
-    runtime.run_phewas(**phewas_config.to_run_kwargs())
+    eaggl_phewas.run_phewas(
+        runtime,
+        **phewas_config.to_run_kwargs(),
+        options=options,
+        bail_fn=domain.bail,
+        warn_fn=domain.warn,
+        log_fn=domain.log,
+        info_level=domain.INFO,
+        debug_level=domain.DEBUG,
+        trace_level=domain.TRACE,
+    )
 
 
 def run_main_phewas_stage(domain, runtime, options):

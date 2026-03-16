@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -104,6 +105,25 @@ class _RuntimeStub:
 
     def write_gene_pheno_statistics(self, out, min_value_to_print=0):
         self.calls.append(("write_gene_pheno_statistics", out, min_value_to_print))
+
+
+class _FactorPhewasRuntimeStub:
+    def __init__(self) -> None:
+        self.recorded_params = None
+        self.output_path = None
+        self.gene_pheno_Y = None
+        self.gene_pheno_combined_prior_Ys = None
+        self.gene_pheno_priors = None
+        self.num_gene_phewas_filtered = 0
+
+    def num_factors(self):
+        return 2
+
+    def _record_params(self, params, overwrite=False):
+        self.recorded_params = (dict(params), overwrite)
+
+    def write_factor_phewas_statistics(self, path):
+        self.output_path = path
 
 
 class FactorStageHelpersTest(unittest.TestCase):
@@ -252,6 +272,50 @@ class FactorStageHelpersTest(unittest.TestCase):
             workflow["missing_required_inputs"],
             ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
         )
+
+    def test_run_main_factor_phewas_stage_invokes_eaggl_phewas_runner(self) -> None:
+        runtime = _FactorPhewasRuntimeStub()
+        options = _options(
+            factor_phewas_from_gene_phewas_stats_in="factor_phewas.tsv",
+            factor_phewas_stats_out="factor_phewas_stats.tsv",
+            gene_phewas_bfs_in="loaded_gene_phewas.tsv",
+            run_phewas_from_gene_phewas_stats_in="other_gene_phewas.tsv",
+            gene_phewas_bfs_id_col="Gene",
+            gene_phewas_bfs_pheno_col="Trait",
+            gene_phewas_bfs_log_bf_col="Direct",
+            gene_phewas_bfs_combined_col="Combined",
+            gene_phewas_bfs_prior_col="Prior",
+            max_num_burn_in=20,
+            max_num_iter_betas=25,
+            min_num_iter_betas=5,
+            num_chains_betas=3,
+            r_threshold_burn_in_betas=1.02,
+            use_max_r_for_convergence_betas=True,
+            max_frac_sem_betas=0.1,
+            gauss_seidel_betas=False,
+            sparse_solution=False,
+            sparse_frac_betas=0.01,
+            factor_phewas_mode="marginal_anchor_adjusted_binary",
+            factor_phewas_anchor_covariate="direct",
+            factor_phewas_thresholded_combined_cutoff=1.0,
+            factor_phewas_se="robust",
+            factor_phewas_min_gene_factor_weight=0.01,
+        )
+        domain = eaggl.build_main_domain()
+        with mock.patch.object(eaggl.eaggl_factor.eaggl_phewas, "run_phewas") as mocked_run:
+            result = eaggl.eaggl_factor.run_main_factor_phewas_stage(domain, runtime, options)
+        self.assertTrue(result.ran)
+        self.assertEqual(result.output_path, "factor_phewas_stats.tsv")
+        mocked_run.assert_called_once()
+        args, kwargs = mocked_run.call_args
+        self.assertIs(args[0], runtime)
+        self.assertEqual(kwargs["gene_phewas_bfs_in"], "factor_phewas.tsv")
+        self.assertTrue(kwargs["run_for_factors"])
+        self.assertEqual(kwargs["min_gene_factor_weight"], 0.0)
+        self.assertEqual(kwargs["options"], options)
+        self.assertEqual(runtime.output_path, "factor_phewas_stats.tsv")
+        self.assertEqual(runtime.recorded_params[0]["factor_phewas_mode"], "marginal_anchor_adjusted_binary")
+        self.assertTrue(runtime.recorded_params[1])
 
 
 if __name__ == "__main__":
