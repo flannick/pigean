@@ -51,6 +51,7 @@ def _options(**overrides):
         anchor_any_pheno=False,
         anchor_any_gene=False,
         anchor_gene_set=False,
+        factor_phewas_full_output=False,
         anchor_genes=None,
         anchor_phenos=None,
         positive_controls_in=None,

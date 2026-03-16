@@ -648,6 +648,8 @@ class FactorModelState:
     gene_set_prob_factor_vector: object | None = None
     exp_pheno_factors: object | None = None
     pheno_prob_factor_vector: object | None = None
+    pheno_capture_strength: object | None = None
+    pheno_capture_basis: object | None = None
     factor_phewas_Y_betas: object | None = None
     factor_phewas_Y_ses: object | None = None
     factor_phewas_Y_zs: object | None = None
@@ -1052,6 +1054,8 @@ class EagglState(object):
 
         self.exp_pheno_factors = None #anchor-agnostic factor loadings
         self.pheno_prob_factor_vector = None #outer product of this with factor loadings gives anchor specific loadings
+        self.pheno_capture_strength = None
+        self.pheno_capture_basis = None
 
         self.factor_phewas_Y_betas = None #phewas statistics
         self.factor_phewas_Y_ses = None #phewas statistics
@@ -2267,6 +2271,7 @@ class EagglState(object):
                 header = "Pheno"
                 master_key_fn = None
 
+                capture_strength = None
                 any_prob = None
 
                 if gene_anchors:
@@ -2277,7 +2282,11 @@ class EagglState(object):
                     if self.gene_pheno_priors is not None:
                         header = "%s\t%s" % (header, "prior")
                 else:
-                    if anchors is None and pheno_combined_prior_Ys is None and pheno_Y is None and pheno_priors is None:
+                    if anchors is None and self.pheno_capture_strength is not None:
+                        capture_strength = np.asarray(self.pheno_capture_strength, dtype=float)
+                        header = "%s\t%s" % (header, "capture_strength")
+                        master_key_fn = lambda k: -capture_strength[pheno_factor_pheno_inds[k]]
+                    elif anchors is None and pheno_combined_prior_Ys is None and pheno_Y is None and pheno_priors is None:
                         any_prob = 1 - np.prod(1 - self.pheno_prob_factor_vector, axis=1)
                         header = "%s\t%s" % (header, "any_relevance")
                         master_key_fn = lambda k: -any_prob[k]
@@ -2326,6 +2335,8 @@ class EagglState(object):
 
                         line = self.phenos[orig_i]
 
+                        if capture_strength is not None:
+                            line = "%s\t%.3g" % (line, capture_strength[orig_i])
                         if not gene_anchors and anchors is None and any_prob is not None:
                             line = "%s\t%.3g" % (line, any_prob[orig_i])
 

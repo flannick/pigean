@@ -185,6 +185,7 @@ parser.add_option("","--run-phewas-from-gene-phewas-stats-in",default=None) #spe
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a factor phewas against
 parser.add_option("","--factor-phewas-min-gene-factor-weight",type=float,default=0.01) #if genes have max weight across factors less than this, remove them before running phewas
+parser.add_option("","--factor-phewas-full-output",action='store_true',default=False) #write the legacy combined and huber factor phewas outputs in addition to the default direct regression surface
 
 #limit gene sets printed
 parser.add_option("","--max-no-write-gene-set-beta",type=float,default=None) #do not write gene sets to gene-set-stats-out that have absolute beta values of this or lower
@@ -404,6 +405,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--consensus-nmf": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
     "--consensus-stats-out": "write per-run and per-factor diagnostics for restart or consensus factorization",
     "--factor-phewas-from-gene-phewas-stats-in": "run factor-level phewas from precomputed gene-phewas statistics",
+    "--factor-phewas-full-output": "expose the full expert factor-phewas surface, including combined and huber variants",
     "--factor-runs": "run repeated random restarts for factorization; without consensus keep only the best run",
     "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
@@ -470,6 +472,7 @@ _EXPERT_METHOD_FLAGS = {
     "--consensus-min-run-support",
     "--consensus-nmf",
     "--factor-phewas-from-gene-phewas-stats-in",
+    "--factor-phewas-full-output",
     "--factor-phewas-min-gene-factor-weight",
     "--factor-runs",
     "--factor-prune-gene-sets-num",

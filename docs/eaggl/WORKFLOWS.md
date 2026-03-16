@@ -8,6 +8,7 @@ This document maps each supported factoring workflow to:
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
 Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode.
+Phenotype projection is the primary annotation layer and is interpreted as phenotype capture. Factor-PheWAS is a secondary expert-only enrichment regression.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
 
@@ -57,6 +58,14 @@ PheWAS matrix inputs (for phenotype/gene anchor workflows):
 
 1. `--gene-phewas-stats-in`
 2. `--gene-set-phewas-stats-in`
+
+Phenotype annotation policy:
+
+1. use projection for primary phenotype capture
+2. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended capture basis
+3. treat `--factor-phewas-from-gene-phewas-stats-in` as a secondary expert workflow
+4. by default factor-PheWAS emits only the direct phenotype-support regression
+5. add `--factor-phewas-full-output` only when you explicitly want the legacy combined and Huber diagnostics
 
 Bundle mode:
 

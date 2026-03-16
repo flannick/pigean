@@ -295,6 +295,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "4",
             "--factor-phewas-min-gene-factor-weight",
             "0.02",
+            "--factor-phewas-full-output",
             "--threshold-weights",
             "0.4",
             "--lmm-provider",
@@ -358,6 +359,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["factor_prune_genes_val"], 0.25)
         self.assertEqual(opts["factor_prune_phenos_num"], 4)
         self.assertEqual(opts["factor_phewas_min_gene_factor_weight"], 0.02)
+        self.assertTrue(opts["factor_phewas_full_output"])
         self.assertEqual(opts["threshold_weights"], 0.4)
         self.assertEqual(opts["lmm_provider"], "openai")
         self.assertEqual(opts["lmm_model"], "gpt-4o-mini")
@@ -437,6 +439,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--factor-prune-phenos-num": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-prune-phenos-val": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-phewas-min-gene-factor-weight": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--factor-phewas-full-output": ["test_reference_factor_and_labeling_flags_round_trip", "test_help_expert_includes_projection_and_labeling_flags"],
             "--threshold-weights": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--lmm-provider": ["test_reference_factor_and_labeling_flags_round_trip", "test_help_expert_includes_projection_and_labeling_flags"],
             "--lmm-model": ["test_reference_factor_and_labeling_flags_round_trip"],

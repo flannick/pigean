@@ -8,6 +8,8 @@ import numpy as np
 import scipy
 import scipy.sparse as sparse
 
+from . import phenotype_annotation as eaggl_phenotype_annotation
+
 def _clone_runtime_value(value):
     try:
         return copy.deepcopy(value)
@@ -67,6 +69,18 @@ def _compute_any_anchor_relevance(factor_anchor_relevance):
         return np.zeros(anchor_relevance.shape[0], dtype=float)
     clipped = np.clip(anchor_relevance, 0.0, 1.0)
     return 1.0 - np.prod(1.0 - clipped, axis=1)
+
+
+def _project_pheno_capture_matrix(state, basis, feature_by_pheno, *, basis_name):
+    capture_weights, capture_strength = eaggl_phenotype_annotation.project_phenotype_capture(
+        state._nnls_project_matrix,
+        basis,
+        feature_by_pheno,
+        max_sum=1.0,
+    )
+    state.pheno_capture_strength = capture_strength
+    state.pheno_capture_basis = basis_name
+    return capture_weights
 
 
 def _open_text_output(path):
@@ -734,16 +748,14 @@ def _finalize_factor_outputs(
 
     top_gene_or_pheno_inds = None
     top_pheno_or_gene_inds = None
+    top_capture_inds = eaggl_phenotype_annotation.rank_top_capture_indices(
+        exp_pheno_factors_for_top,
+        state.pheno_capture_strength,
+        num_top,
+    )
 
     if factor_gene_set_x_pheno:
-        top_gene_or_pheno_inds = np.swapaxes(
-            np.argsort(
-                -(1 - np.prod(1 - ((exp_pheno_factors_for_top).T[:, :, np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
-                axis=1,
-            )[:, :num_top],
-            0,
-            1,
-        )
+        top_gene_or_pheno_inds = top_capture_inds
         if exp_gene_factors_for_top is not None:
             top_pheno_or_gene_inds = np.swapaxes(
                 np.argsort(
@@ -763,14 +775,7 @@ def _finalize_factor_outputs(
             1,
         )
         if exp_pheno_factors_for_top is not None:
-            top_pheno_or_gene_inds = np.swapaxes(
-                np.argsort(
-                    -(1 - np.prod(1 - ((exp_pheno_factors_for_top).T[:, :, np.newaxis] * (state.pheno_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
-                    axis=1,
-                )[:, :num_top],
-                0,
-                1,
-            )
+            top_pheno_or_gene_inds = top_capture_inds
 
     top_gene_set_inds = np.swapaxes(
         np.argsort(-(1 - np.prod(1 - (exp_gene_set_factors_for_top.T[:, :, np.newaxis] * state.gene_set_prob_factor_vector[np.newaxis, :, :]), axis=2)), axis=1)[:, :num_top],
@@ -1319,6 +1324,8 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
 
     #all pheno factor values, either from the phewas used to factor or the phewas passed in to project
     full_pheno_factor_values = state.exp_pheno_factors
+    state.pheno_capture_strength = None
+    state.pheno_capture_basis = None
     pheno_matrix_to_project = None
 
     if state.exp_gene_factors is None and state.exp_gene_set_factors is None:
@@ -1329,18 +1336,45 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             pheno_matrix_to_project = state.X_phewas_beta_uncorrected.T
             if not run_transpose:
                 pheno_matrix_to_project = pheno_matrix_to_project.T
-
-            full_pheno_factor_values = state._project_H_with_fixed_W(state.exp_gene_set_factors, pheno_matrix_to_project if state.gene_set_factor_gene_set_mask is None else pheno_matrix_to_project[state.gene_set_factor_gene_set_mask,:], state.gene_set_prob_factor_vector if state.gene_set_factor_gene_set_mask is None else state.gene_set_prob_factor_vector[state.gene_set_factor_gene_set_mask,:], state.pheno_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+            basis = state.exp_gene_set_factors
+            feature_by_pheno = pheno_matrix_to_project
+            if state.gene_set_factor_gene_set_mask is not None:
+                basis = basis[state.gene_set_factor_gene_set_mask, :]
+                feature_by_pheno = feature_by_pheno[state.gene_set_factor_gene_set_mask, :]
+            full_pheno_factor_values = _project_pheno_capture_matrix(
+                state,
+                basis,
+                feature_by_pheno,
+                basis_name="gene_sets",
+            )
         else:
             pheno_matrix_to_project = state.gene_pheno_Y
             if not run_transpose:
                 pheno_matrix_to_project = pheno_matrix_to_project.T
-
-            full_pheno_factor_values = state._project_H_with_fixed_W(state.exp_gene_factors, pheno_matrix_to_project if state.gene_factor_gene_mask is None else pheno_matrix_to_project[state.gene_factor_gene_mask,:], state.gene_prob_factor_vector if state.gene_factor_gene_mask is None else state.gene_prob_factor_vector[state.gene_factor_gene_mask,:], state.pheno_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+            basis = state.exp_gene_factors
+            feature_by_pheno = pheno_matrix_to_project
+            if state.gene_factor_gene_mask is not None:
+                basis = basis[state.gene_factor_gene_mask, :]
+                feature_by_pheno = feature_by_pheno[state.gene_factor_gene_mask, :]
+            full_pheno_factor_values = _project_pheno_capture_matrix(
+                state,
+                basis,
+                feature_by_pheno,
+                basis_name="genes",
+            )
 
             
         if keep_original_loadings:
             full_pheno_factor_values[state.pheno_factor_pheno_mask,:] = state.exp_pheno_factors
+    elif state.exp_pheno_factors is not None:
+        state.pheno_capture_basis = "native"
+        if state.X_phewas_beta_uncorrected is not None:
+            feature_by_pheno = state.X_phewas_beta_uncorrected.T
+            if not run_transpose:
+                feature_by_pheno = feature_by_pheno.T
+            state.pheno_capture_strength = eaggl_phenotype_annotation.compute_profile_strengths(feature_by_pheno)
+        else:
+            state.pheno_capture_strength = np.sum(np.asarray(state.exp_pheno_factors, dtype=float), axis=1)
 
     #now gene set factor values, projecting from either phenos or genes depending on what was used
     if factor_gene_set_x_pheno and pheno_matrix_to_project is not None:

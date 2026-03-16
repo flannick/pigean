@@ -29,8 +29,9 @@ Typical user workflow:
 1. build or load the matrix and PIGEAN-derived evidence to factor
 2. choose the anchoring workflow
 3. fit the ARD nonnegative factor model
-4. optionally project phenotypes or run factor-PheWAS
-5. optionally label the factors
+4. optionally annotate factors with phenotype capture weights
+5. optionally run factor-PheWAS as a secondary expert enrichment analysis
+6. optionally label the factors
 
 ## Common command shapes
 
@@ -176,8 +177,15 @@ Notes:
 | `--gene-phewas-stats-in` | load gene-by-phenotype statistics |
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
 | `--run-phewas-from-gene-phewas-stats-in` | run a gene-level PheWAS stage from precomputed gene-PheWAS stats; also required by the gene-set-anchored workflow |
-| `--factor-phewas-from-gene-phewas-stats-in` | compute factor-level PheWAS from precomputed gene-PheWAS stats |
-| `--project-phenos-from-gene-sets` | project phenotype loadings from gene-set scores instead of gene scores |
+| `--factor-phewas-from-gene-phewas-stats-in` | compute factor-level phenotype enrichment regression from precomputed gene-PheWAS stats |
+| `--project-phenos-from-gene-sets` | compute phenotype capture on the gene-set basis instead of the gene basis |
+| `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
+
+Operational notes:
+- phenotype projection is the primary user-facing phenotype annotation layer and is interpreted as phenotype capture, not phenotype relevance
+- factor-PheWAS is a secondary expert analysis for factor-specific phenotype enrichment
+- by default, factor-PheWAS reports only the direct phenotype-support regression surface
+- `--factor-phewas-full-output` restores the broader combined and Huber outputs for expert diagnostics
 
 ### Input schema and column selectors
 
@@ -254,6 +262,7 @@ Operational notes:
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |
 | `--factor-phewas-min-gene-factor-weight` | minimum gene-factor weight kept for factor-PheWAS |
+| `--factor-phewas-full-output` | write the legacy combined and Huber factor-PheWAS outputs in addition to the default direct regression |
 | `--threshold-weights` | threshold very small weights during post-processing |
 
 ### Labeling and optional LLM integration

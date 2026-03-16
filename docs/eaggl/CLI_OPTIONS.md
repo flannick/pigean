@@ -5,12 +5,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `199`
+- Total options: `200`
 - `method_required`: `13`
-- `method_optional`: `110`
+- `method_optional`: `111`
 - `engineering`: `70`
 - `debug_only`: `6`
-- visibility `expert`: `172`
+- visibility `expert`: `173`
 - visibility `normal`: `27`
 
 ## Method Required
@@ -52,6 +52,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--factor-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_from_gene_phewas_stats_in` | `None` | run factor-level phewas from precomputed gene-phewas statistics |
+| `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
 | `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.01` | - |
 | `--factor-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_num` | `None` | - |
 | `--factor-prune-gene-sets-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_val` | `None` | - |

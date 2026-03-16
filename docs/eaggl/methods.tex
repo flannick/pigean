@@ -190,7 +190,7 @@ The anchor users are defined differently for the different workflows in this fam
 \end{itemize}
 Thus, the gene-anchored workflows and the phenotype-anchored workflows are not different factorization algorithms. They are different constructions of the matrix and weights supplied to the same ARD-regularized nonnegative factor model.
 
-\subsection{Factor relevance, any-anchor relevance, and phenotype annotation}
+\subsection{Factor relevance and any-anchor relevance}
 
 After fitting, EAGGL reports factor-level relevance scores that summarize how strongly each factor is supported by the selected trait or anchor set. These are downstream summaries derived from the fitted factor basis and are not themselves part of the factorization objective.
 
@@ -229,17 +229,102 @@ r_k^{\mathrm{any}}
 \end{equation}
 This has the intended semantics that $r_k^{\mathrm{any}}$ is the probability-like estimate that factor $k$ is relevant to at least one selected anchor. In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific relevance itself.
 
-Phenotype annotation after factorization is handled similarly. If $p^{(t)}$ is the support vector for phenotype $t$, then one may obtain factor-level phenotype coefficients by nonnegative least squares:
+\section{Phenotype capture and factor-specific phenotype enrichment}
+\label{sec:postfactor_revised}
+
+After fitting the main factorization, EAGGL can relate latent factors to additional human phenotypes in two conceptually distinct ways. The first is a descriptive \emph{capture} step, which estimates how strongly each phenotype is represented by each factor. The second is an inferential \emph{enrichment} step, which asks whether a phenotype is more concentrated in one factor than expected after accounting for the other factors and baseline covariates. These two quantities answer different scientific questions and are therefore not expected to coincide exactly.
+
+\subsection{Phenotype capture by compositional projection}
+
+Let $b$ denote a feature basis shared by the factors and a phenotype-specific support vector. Depending on the workflow, this basis may be genes, gene sets, or phenotypes already present in the factored matrix. Let
+\[
+B^{(b)} \in \mathbb{R}_+^{F_b \times K}
+\]
+denote the factor basis on that feature space, where $F_b$ is the number of features in basis $b$, and let
+\[
+s_t^{(b)} \in \mathbb{R}_+^{F_b}
+\]
+denote the nonnegative support profile for phenotype $t$ on that same basis.
+
+We decompose each phenotype profile into an overall strength and a compositional shape. Define the phenotype strength
 \begin{equation}
-c^{(t)}
-=
-\arg\min_{c \ge 0}
-\left\|
-p^{(t)} - B c
-\right\|_2^2,
-\label{eq:eaggl_pheno_projection}
+a_t^{(b)} = \sum_{f=1}^{F_b} s_{tf}^{(b)},
+\label{eq:eaggl_pheno_strength}
 \end{equation}
-where $B$ denotes the appropriate factor basis. For the default workflow family, $B$ may be the gene-by-factor matrix $W$ or the annotation-by-factor matrix $H$, depending on whether the projection is performed from gene-level or annotation-level phenotype statistics. For the gene-set-by-phenotype family, the phenotype loadings $Z$ themselves already define factor-by-phenotype association patterns.
+and the corresponding compositional phenotype profile
+\begin{equation}
+\tilde{s}_t^{(b)} = \frac{s_t^{(b)}}{a_t^{(b)} + \epsilon},
+\label{eq:eaggl_pheno_profile_normalized}
+\end{equation}
+where $\epsilon>0$ is a small constant to avoid division by zero. Likewise, each factor basis vector is normalized to unit $L_1$ mass,
+\begin{equation}
+\tilde{B}^{(b)}_{\bullet k} = \frac{B^{(b)}_{\bullet k}}{\sum_{f=1}^{F_b} B^{(b)}_{fk} + \epsilon}.
+\label{eq:eaggl_factor_basis_normalized}
+\end{equation}
+
+The phenotype capture weights are then defined by constrained nonnegative projection:
+\begin{equation}
+c_t^{(b)}
+=
+\arg\min_{c \ge 0,\ \mathbf{1}^\top c \le 1}
+\left\|
+\tilde{s}_t^{(b)} - \tilde{B}^{(b)} c
+\right\|_2^2.
+\label{eq:eaggl_phenotype_capture}
+\end{equation}
+The coefficient $c_{tk}^{(b)}$ is interpreted as the degree to which phenotype $t$ is captured by factor $k$ on basis $b$. In contrast to a projection on the raw support vector, Eq.~\eqref{eq:eaggl_phenotype_capture} separates phenotype-specific structure from overall phenotype breadth. Thus, broadly associated phenotypes can still have large strength $a_t^{(b)}$ without automatically receiving high capture weights for every factor.
+
+\paragraph{Interpretation.}
+Phenotype capture is a descriptive quantity. It answers the question:
+\begin{quote}
+``How much of phenotype $t$ can be represented by each latent mechanism?''
+\end{quote}
+It is not a p-value, and it should not be interpreted as formal evidence that phenotype $t$ is uniquely associated with factor $k$.
+
+\subsection{Choice of projection basis across workflow families}
+
+For the default gene $\times$ gene-set workflow family (F1--F5), the preferred basis for phenotype capture is the gene basis. In that case, $B^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $B^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the phenotype-specific gene-set support vector.
+
+For the gene-set $\times$ phenotype workflow family (F6--F9), phenotypes that are already present in the factored matrix have native phenotype loadings. These native loadings are interpreted as phenotype capture weights after appropriate normalization. For external phenotypes that were not part of the factored matrix, EAGGL projects them on the gene-set basis using Eq.~\eqref{eq:eaggl_phenotype_capture}.
+
+Thus, the phenotype-capture definition is common across workflows: EAGGL always projects a phenotype support profile onto the factor basis defined on the most natural shared feature space.
+
+\subsection{Factor-specific phenotype enrichment regression}
+
+A second, distinct summary asks whether phenotype $t$ is selectively enriched in genes belonging to factor $k$, after accounting for the other factors and baseline covariates. Let
+\[
+W \in \mathbb{R}_+^{G \times K}
+\]
+denote the gene-by-factor membership matrix, and let
+\[
+y_t \in \mathbb{R}^G
+\]
+denote a phenotype-specific gene-level support vector, typically the direct phenotype support. EAGGL can then fit the multivariate regression
+\begin{equation}
+y_t = \alpha_t \mathbf{1} + W \gamma_t + C \eta_t + \varepsilon_t,
+\label{eq:eaggl_factor_pheno_regression}
+\end{equation}
+where $C$ denotes optional baseline covariates, such as anchor-trait support or additional gene-level covariates. The coefficient $\gamma_{tk}$ is interpreted as the factor-specific phenotype enrichment effect for phenotype $t$ and factor $k$.
+
+\paragraph{Interpretation.}
+Unlike the capture weights in Eq.~\eqref{eq:eaggl_phenotype_capture}, the coefficients in Eq.~\eqref{eq:eaggl_factor_pheno_regression} are incremental effects. They answer the question:
+\begin{quote}
+``Is phenotype $t$ more concentrated in factor $k$ than expected after accounting for the other factors and baseline support?''
+\end{quote}
+This is an inferential or hypothesis-testing quantity rather than a descriptive loading.
+
+\paragraph{Recommended default and scope.}
+Because the phenotype-support outcomes can be heteroskedastic and the factor loadings can be correlated, EAGGL treats this regression as a secondary analysis. In the default interpretation, the direct phenotype-support outcome is preferred. More elaborate outcome constructions, such as combined or indirect phenotype support, are optional extensions whose residual covariance structure may require additional approximation or calibration.
+
+\subsection{Relationship between phenotype capture and factor-specific enrichment}
+
+The two phenotype summaries serve complementary roles:
+\begin{itemize}
+\item \textbf{Phenotype capture} gives a bounded, compositional summary of how well a phenotype is represented by each factor. This is the primary annotation layer for interpreting factors with external phenotypes.
+\item \textbf{Factor-specific enrichment regression} tests whether a phenotype is unusually concentrated in one factor relative to the other factors and covariates. This is a secondary, expert-oriented summary.
+\end{itemize}
+
+Consequently, the main phenotype labels and top-phenotype annotations for a factor should be based on phenotype capture weights, whereas regression coefficients and associated significance measures should be interpreted as downstream enrichment diagnostics rather than as the primary phenotype annotation of the factor.
 
 \subsection{Repeated restarts, consensus factorization, and structural selection of $\phi$}
 

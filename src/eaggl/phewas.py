@@ -355,7 +355,7 @@ def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y,
         )
         accumulate_factor_phewas_outputs(state, "Y", beta_tilde, se, z_score, p_value, one_sided_p_value)
 
-        if not options.debug_skip_huber:
+        if getattr(options, "factor_phewas_full_output", False) and not options.debug_skip_huber:
             _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = calculate_phewas_block(
                 input_values[factor_keep_mask, :],
                 gene_pheno_Y[factor_keep_mask, :].T,
@@ -366,7 +366,11 @@ def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y,
             )
             accumulate_factor_phewas_outputs(state, "Y", beta_tilde, se, z_score, p_value, one_sided_p_value, huber=True)
 
-    if gene_pheno_combined_prior_Ys is not None and not options.debug_skip_correlation:
+    if (
+        getattr(options, "factor_phewas_full_output", False)
+        and gene_pheno_combined_prior_Ys is not None
+        and not options.debug_skip_correlation
+    ):
         _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = calculate_phewas_block(
             input_values[factor_keep_mask, :],
             gene_pheno_combined_prior_Ys[factor_keep_mask, :].T,

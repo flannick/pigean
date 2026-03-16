@@ -95,6 +95,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Projection quickstart:", proc.stdout)
         self.assertIn("--gene-set-phewas-stats-in", proc.stdout)
+        self.assertIn("--factor-phewas-full-output", proc.stdout)
         self.assertIn("--lmm-provider", proc.stdout)
         self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
 
