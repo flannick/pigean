@@ -93,7 +93,7 @@ GENE_CSV=$(awk 'NF && $1 !~ /^#/ {print $1}' data/mody.gene.list | awk '!seen[$1
 
 PYTHONPATH=src python -m pigean gibbs \
   --config config/profiles/gene_list.default.json \
-  --positive-controls-list "$GENE_CSV" \
+  --gene-list "$GENE_CSV" \
   --gene-stats-out results/MODY.gene_stats.out \
   --gene-set-stats-out results/MODY.gene_set_stats.out \
   --params-out results/MODY.params.out

@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `313`
+- Total options: `322`
 - `method_required`: `19`
 - `method_optional`: `179`
 - `engineering`: `104`
 - `experimental`: `2`
-- `compat_alias`: `1`
+- `compat_alias`: `10`
 - `debug_only`: `8`
-- visibility `expert`: `285`
+- visibility `expert`: `294`
 - visibility `normal`: `28`
 
 ## Method Required
@@ -30,13 +30,13 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--exomes-in` | `normal` | `yes` | `core_help` | `exomes_in` | `None` | load exome burden statistics as an additional HuGE evidence source |
 | `--exons-loc-file-huge` | `expert` | `yes` | `expert_help` | `exons_loc_file_huge` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
+| `--gene-list` | `normal` | `yes` | `core_help` | `positive_controls_list` | `None` | specify gene-list genes directly on the command line |
+| `--gene-list-all-in` | `normal` | `yes` | `core_help` | `positive_controls_all_in` | `None` | load the full background gene universe for the gene-list input |
+| `--gene-list-in` | `normal` | `yes` | `core_help` | `positive_controls_in` | `None` | load gene-list inputs with optional probabilities from a file |
 | `--gene-loc-file` | `normal` | `yes` | `core_help` | `gene_loc_file` | `None` | gene location table used for correlation and locus-aware operations |
 | `--gene-loc-file-huge` | `normal` | `yes` | `core_help` | `gene_loc_file_huge` | `None` | gene location table used during HuGE score construction |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
 | `--gwas-in` | `normal` | `yes` | `core_help` | `gwas_in` | `None` | load GWAS summary statistics as the primary HuGE input |
-| `--positive-controls-all-in` | `normal` | `yes` | `core_help` | `positive_controls_all_in` | `None` | load the full positive-control background gene universe |
-| `--positive-controls-in` | `normal` | `yes` | `core_help` | `positive_controls_in` | `None` | load positive-control genes with optional probabilities |
-| `--positive-controls-list` | `normal` | `yes` | `core_help` | `positive_controls_list` | `None` | specify positive-control genes directly on the command line |
 | `--s2g-in` | `normal` | `yes` | `core_help` | `s2g_in` | `None` | load SNP-to-gene mappings used during HuGE score construction |
 
 ## Method Optional
@@ -95,6 +95,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gauss-seidel` | `expert` | `yes` | `expert_help` | `gauss_seidel` | `-` | - |
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
+| `--gene-list-default-prob` | `expert` | `yes` | `expert_help` | `positive_controls_default_prob` | `0.95` | default inclusion probability used for gene-list inputs without an explicit probability column |
 | `--gene-phewas-bfs-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | input gene-phewas BFS table for advanced phewas workflows |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | gene ID remapping table for advanced gene-phewas ingestion |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | input gene-phewas statistics table for advanced phewas workflows |
@@ -173,7 +174,6 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
 | `--phantom-region-posterior` | `expert` | `yes` | `expert_help` | `phantom_region_posterior` | `False` | - |
 | `--phewas-comparison-set` | `expert` | `yes` | `advanced_workflows` | `phewas_comparison_set` | `matched` | choose gene-level phewas output surface: matched or diagnostic |
-| `--positive-controls-default-prob` | `expert` | `yes` | `expert_help` | `positive_controls_default_prob` | `0.95` | - |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in` | `1.1` | - |
@@ -263,6 +263,11 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |
 | `--gene-gene-set-stats-out` | `expert` | `no` | `expert_help` | `gene_gene_set_stats_out` | `None` | - |
+| `--gene-list-all-id-col` | `expert` | `no` | `expert_help` | `positive_controls_all_id_col` | `None` | ID column in the full background gene-universe file for gene-list inputs |
+| `--gene-list-all-no-header` | `expert` | `no` | `expert_help` | `positive_controls_all_has_header` | `True` | declare that the background gene-universe file for gene-list inputs has no header row |
+| `--gene-list-id-col` | `expert` | `no` | `expert_help` | `positive_controls_id_col` | `None` | gene ID column for the gene-list input file |
+| `--gene-list-no-header` | `expert` | `no` | `expert_help` | `positive_controls_has_header` | `True` | declare that the gene-list input file has no header row |
+| `--gene-list-prob-col` | `expert` | `no` | `expert_help` | `positive_controls_prob_col` | `None` | probability column for the gene-list input file |
 | `--gene-map-new-gene-col` | `expert` | `no` | `expert_help` | `gene_map_new_gene_col` | `2` | - |
 | `--gene-map-orig-gene-col` | `expert` | `no` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
 | `--gene-phewas-bfs-combined-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_combined_col` | `None` | combined column for advanced gene-phewas input |
@@ -316,11 +321,6 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--params-out` | `normal` | `no` | `core_help` | `params_out` | `None` | write learned hyperparameters and runtime settings |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
 | `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | write optional advanced gene-level phewas output table |
-| `--positive-controls-all-id-col` | `expert` | `no` | `expert_help` | `positive_controls_all_id_col` | `None` | - |
-| `--positive-controls-all-no-header` | `expert` | `no` | `expert_help` | `positive_controls_all_has_header` | `True` | - |
-| `--positive-controls-id-col` | `expert` | `no` | `expert_help` | `positive_controls_id_col` | `None` | - |
-| `--positive-controls-no-header` | `expert` | `no` | `expert_help` | `positive_controls_has_header` | `True` | - |
-| `--positive-controls-prob-col` | `expert` | `no` | `expert_help` | `positive_controls_prob_col` | `None` | - |
 | `--pre-filter-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_batch_size` | `None` | - |
 | `--pre-filter-small-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_small_batch_size` | `500` | - |
 | `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |
@@ -344,6 +344,15 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
 | `--increase-hyper-if-betas-below` | `expert` | `no` | `expert_help` | `increase_hyper_if_betas_below` | `None` | - |
+| `--positive-controls-all-id-col` | `expert` | `no` | `expert_help` | `positive_controls_all_id_col` | `None` | compatibility alias for --gene-list-all-id-col |
+| `--positive-controls-all-in` | `expert` | `no` | `expert_help` | `positive_controls_all_in` | `None` | compatibility alias for --gene-list-all-in |
+| `--positive-controls-all-no-header` | `expert` | `no` | `expert_help` | `positive_controls_all_has_header` | `True` | compatibility alias for --gene-list-all-no-header |
+| `--positive-controls-default-prob` | `expert` | `no` | `expert_help` | `positive_controls_default_prob` | `0.95` | compatibility alias for --gene-list-default-prob |
+| `--positive-controls-id-col` | `expert` | `no` | `expert_help` | `positive_controls_id_col` | `None` | compatibility alias for --gene-list-id-col |
+| `--positive-controls-in` | `expert` | `no` | `expert_help` | `positive_controls_in` | `None` | compatibility alias for --gene-list-in |
+| `--positive-controls-list` | `expert` | `no` | `expert_help` | `positive_controls_list` | `None` | compatibility alias for --gene-list |
+| `--positive-controls-no-header` | `expert` | `no` | `expert_help` | `positive_controls_has_header` | `True` | compatibility alias for --gene-list-no-header |
+| `--positive-controls-prob-col` | `expert` | `no` | `expert_help` | `positive_controls_prob_col` | `None` | compatibility alias for --gene-list-prob-col |
 
 ## Debug Only
 

@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import importlib
 from pathlib import Path
 
 
@@ -78,8 +79,49 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("expects a comma-separated list of gene symbols", err)
+        self.assertIn("--gene-list-in", err)
         self.assertIn("--positive-controls-in", err)
         self.assertNotIn("Traceback", err)
+
+    def test_gene_list_alias_round_trips_in_effective_config(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gene-list",
+            "INS,GCK",
+            "--gene-list-in",
+            "genes.tsv",
+            "--gene-list-id-col",
+            "Gene",
+            "--gene-list-prob-col",
+            "Weight",
+            "--gene-list-default-prob",
+            "0.8",
+            "--gene-list-all-in",
+            "background.tsv",
+            "--gene-list-all-id-col",
+            "Symbol",
+            "--gene-list-no-header",
+            "--gene-list-all-no-header",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        options = payload["options"]
+        self.assertEqual(options["positive_controls_list"], ["INS", "GCK"])
+        self.assertEqual(options["positive_controls_in"], "genes.tsv")
+        self.assertEqual(options["positive_controls_id_col"], "Gene")
+        self.assertEqual(options["positive_controls_prob_col"], "Weight")
+        self.assertEqual(options["positive_controls_default_prob"], 0.8)
+        self.assertEqual(options["positive_controls_all_in"], "background.tsv")
+        self.assertEqual(options["positive_controls_all_id_col"], "Symbol")
+        self.assertFalse(options["positive_controls_has_header"])
+        self.assertFalse(options["positive_controls_all_has_header"])
+
+    def test_positive_controls_alias_still_round_trips_in_effective_config(self) -> None:
+        proc = self._run("gibbs", "--positive-controls-list", "INS", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["positive_controls_list"], ["INS"])
 
     def test_removed_min_post_burn_alias_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--min-post-burn-in", "50")
@@ -270,6 +312,8 @@ print(json.dumps(mask.tolist()))
         self.assertEqual(proc.returncode, 0)
         self.assertNotIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
         self.assertNotIn("--huge-statistics-in", proc.stdout)
+        self.assertIn("--gene-list", proc.stdout)
+        self.assertNotIn("--positive-controls-list", proc.stdout)
 
     def test_help_expert_includes_set_b_flags(self) -> None:
         proc = self._run("gibbs", "--help-expert")
@@ -281,6 +325,25 @@ print(json.dumps(mask.tolist()))
         self.assertIn("use precomputed gene-level statistics", proc.stdout)
         self.assertIn("--huge-statistics-in", proc.stdout)
         self.assertIn("read precomputed HuGE statistics cache", proc.stdout)
+
+    def test_cli_manifest_tiers_cover_gene_list_and_recent_set_b_flags(self) -> None:
+        pigean_cli = importlib.import_module("pigean.cli")
+        metadata = pigean_cli.get_cli_manifest_metadata()
+
+        self.assertEqual(metadata["--gene-list"]["category"], "method_required")
+        self.assertEqual(metadata["--gene-list"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--gene-list"]["documentation_target"], "core_help")
+        self.assertEqual(metadata["--gene-list-in"]["category"], "method_required")
+        self.assertEqual(metadata["--gene-list-all-in"]["category"], "method_required")
+
+        self.assertEqual(metadata["--positive-controls-list"]["category"], "compat_alias")
+        self.assertEqual(metadata["--positive-controls-list"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--positive-controls-in"]["category"], "compat_alias")
+        self.assertEqual(metadata["--positive-controls-all-in"]["category"], "compat_alias")
+
+        self.assertEqual(metadata["--phewas-comparison-set"]["category"], "method_optional")
+        self.assertEqual(metadata["--phewas-comparison-set"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--phewas-comparison-set"]["documentation_target"], "advanced_workflows")
 
     def test_huge_statistics_out_requires_gwas_in(self) -> None:
         proc = self._run("gibbs", "--huge-statistics-out", "cache_prefix")
@@ -383,7 +446,7 @@ print(json.dumps(mask.tolist()))
         proc = self._run("gibbs", "--positive-controls-list", "INS")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("Specified positive controls without --positive-controls-all-in", err)
+        self.assertIn("Specified gene-list inputs without --gene-list-all-in", err)
 
     def test_config_removed_gene_bfs_key_has_replacement_message(self) -> None:
         with tempfile.TemporaryDirectory() as td:

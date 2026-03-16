@@ -429,6 +429,9 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-list-in": "read a standalone EAGGL input gene list from a file and synthesize enrichment weights internally",
     "--gene-list-max-fdr-q": "retain enriched gene sets up to this Benjamini-Hochberg FDR threshold in standalone EAGGL gene-list mode",
     "--gene-list-no-header": "treat the standalone EAGGL gene-list file as headerless",
+    "--positive-controls-all-in": "compatibility alias for standalone EAGGL gene-list background handling",
+    "--positive-controls-in": "compatibility alias for --gene-list-in",
+    "--positive-controls-list": "compatibility alias for --gene-list",
     "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
     "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best tested phi during automatic tuning",
@@ -621,6 +624,12 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--Xd-list",
 }
 
+_COMPAT_ALIAS_FLAGS = {
+    "--positive-controls-all-in",
+    "--positive-controls-in",
+    "--positive-controls-list",
+}
+
 _DEBUG_ONLY_FLAGS = {
     "--debug-just-check-header",
     "--debug-old-batch",
@@ -650,6 +659,7 @@ def _is_output_path_flag(_primary_flag):
 def _is_engineering_selector_flag(_primary_flag):
     return (
         _is_column_selector_flag(_primary_flag)
+        or _primary_flag.endswith("-no-header")
         or _primary_flag in {
             "--batch-separator",
             "--file-separator",
@@ -691,6 +701,11 @@ def _build_cli_manifest_metadata():
             _doc_target = "internal_only"
             _help_group = "expert"
             _semantic = False
+        elif _primary_flag in _COMPAT_ALIAS_FLAGS:
+            _category = "compat_alias"
+            _visibility = "expert"
+            _doc_target = "expert_help"
+            _help_group = "expert"
         elif _is_output_path_flag(_primary_flag):
             _category = "engineering"
             _semantic = False

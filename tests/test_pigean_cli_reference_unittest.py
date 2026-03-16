@@ -154,8 +154,38 @@ class PigeanCliReferenceTest(unittest.TestCase):
         self.assertEqual(payload["options"]["exomes_se_col"], "SE")
         self.assertEqual(payload["options"]["exomes_n_col"], "N")
 
-    def test_reference_positive_controls_file_mode_runs(self) -> None:
+    def test_reference_gene_list_file_mode_runs(self) -> None:
         out_prefix = self.tmpdir / "positive_controls_file_mode"
+        proc = self._run_ok(
+            "beta_tildes",
+            "--deterministic",
+            "--hide-opts",
+            "--X-in",
+            str(self.fixture_root / "gene_set_list_mouse_t2d_toy.txt"),
+            "--gene-map-in",
+            str(self.model_data / "portal_gencode.gene.map"),
+            "--gene-loc-file",
+            str(self.model_data / "NCBI37.3.plink.gene.loc"),
+            "--gene-list-in",
+            str(self.fixture_root / "mody.gene.list"),
+            "--gene-list-no-header",
+            "--gene-list-all-in",
+            str(self.model_data / "NCBI37.3.plink.gene.loc"),
+            "--gene-list-all-id-col",
+            "6",
+            "--gene-list-all-no-header",
+            "--gene-stats-out",
+            str(out_prefix.with_suffix(".gene_stats.out")),
+            "--gene-set-stats-out",
+            str(out_prefix.with_suffix(".gene_set_stats.out")),
+            "--params-out",
+            str(out_prefix.with_suffix(".params.out")),
+        )
+        self.assertIn("Reading --gene-list-in file", (proc.stdout or "") + (proc.stderr or ""))
+        self.assertTrue(out_prefix.with_suffix(".gene_stats.out").exists())
+
+    def test_reference_positive_controls_alias_file_mode_still_runs(self) -> None:
+        out_prefix = self.tmpdir / "positive_controls_alias_file_mode"
         proc = self._run_ok(
             "beta_tildes",
             "--deterministic",
@@ -181,7 +211,7 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--params-out",
             str(out_prefix.with_suffix(".params.out")),
         )
-        self.assertIn("Reading --positive-controls-in file", (proc.stdout or "") + (proc.stderr or ""))
+        self.assertIn("Reading --gene-list-in file", (proc.stdout or "") + (proc.stderr or ""))
         self.assertTrue(out_prefix.with_suffix(".gene_stats.out").exists())
 
     def test_reference_huge_cache_round_trip_runs(self) -> None:
@@ -282,7 +312,7 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--Xd-in": ["test_reference_matrix_and_schema_flags_round_trip"],
             "--Xd-list": ["test_reference_matrix_and_schema_flags_round_trip"],
             "--gene-map-in": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_matrix_and_schema_flags_round_trip"],
-            "--gene-loc-file": ["test_reference_matrix_and_schema_flags_round_trip", "test_reference_positive_controls_file_mode_runs"],
+            "--gene-loc-file": ["test_reference_matrix_and_schema_flags_round_trip", "test_reference_gene_list_file_mode_runs"],
             "--gene-loc-file-huge": ["test_reference_matrix_and_schema_flags_round_trip", "test_validation_outputs_survive_without_qc_override"],
             "--exons-loc-file-huge": ["test_reference_matrix_and_schema_flags_round_trip"],
             "--gwas-in": ["test_validation_outputs_survive_without_qc_override", "test_real_gwas_huge_matches_legacy", "test_reference_gwas_and_exome_schema_flags_round_trip", "test_reference_huge_cache_round_trip_runs"],
@@ -298,12 +328,15 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--exomes-beta-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_logs_show_all_toy_fixture_inputs_are_read"],
             "--exomes-se-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_logs_show_all_toy_fixture_inputs_are_read"],
             "--exomes-n-col": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
-            "--positive-controls-in": ["test_reference_positive_controls_file_mode_runs"],
-            "--positive-controls-no-header": ["test_reference_positive_controls_file_mode_runs"],
-            "--positive-controls-list": ["test_positive_controls_list_rejects_file_paths", "test_positive_controls_only_requires_positive_controls_all_in", "test_toy_outputs_are_nonempty_and_include_expected_t2d_genes"],
-            "--positive-controls-all-in": ["test_reference_positive_controls_file_mode_runs", "test_positive_controls_only_requires_positive_controls_all_in", "test_toy_outputs_are_nonempty_and_include_expected_t2d_genes"],
-            "--positive-controls-all-id-col": ["test_reference_positive_controls_file_mode_runs", "test_toy_outputs_are_nonempty_and_include_expected_t2d_genes"],
-            "--positive-controls-all-no-header": ["test_reference_positive_controls_file_mode_runs", "test_toy_outputs_are_nonempty_and_include_expected_t2d_genes"],
+            "--gene-list-in": ["test_reference_gene_list_file_mode_runs", "test_gene_list_alias_round_trips_in_effective_config"],
+            "--gene-list-id-col": ["test_gene_list_alias_round_trips_in_effective_config"],
+            "--gene-list-prob-col": ["test_gene_list_alias_round_trips_in_effective_config"],
+            "--gene-list-default-prob": ["test_gene_list_alias_round_trips_in_effective_config"],
+            "--gene-list-no-header": ["test_reference_gene_list_file_mode_runs", "test_gene_list_alias_round_trips_in_effective_config"],
+            "--gene-list": ["test_gene_list_alias_round_trips_in_effective_config", "test_toy_outputs_are_nonempty_and_include_expected_t2d_genes"],
+            "--gene-list-all-in": ["test_reference_gene_list_file_mode_runs", "test_positive_controls_only_requires_positive_controls_all_in", "test_gene_list_alias_round_trips_in_effective_config", "test_toy_outputs_are_nonempty_and_include_expected_t2d_genes"],
+            "--gene-list-all-id-col": ["test_reference_gene_list_file_mode_runs", "test_gene_list_alias_round_trips_in_effective_config", "test_toy_outputs_are_nonempty_and_include_expected_t2d_genes"],
+            "--gene-list-all-no-header": ["test_reference_gene_list_file_mode_runs", "test_gene_list_alias_round_trips_in_effective_config"],
             "--case-counts-in": ["test_logs_show_all_toy_fixture_inputs_are_read"],
             "--ctrl-counts-in": ["test_logs_show_all_toy_fixture_inputs_are_read"],
             "--case-counts-max-freq-col": ["test_logs_show_all_toy_fixture_inputs_are_read"],
@@ -320,9 +353,9 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--filter-gene-set-p": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--max-gene-set-read-p": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--no-filter-negative": ["test_reference_precomputed_and_filter_flags_round_trip"],
-            "--gene-stats-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_positive_controls_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],
-            "--gene-set-stats-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_positive_controls_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],
-            "--params-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_positive_controls_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],
+            "--gene-stats-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_gene_list_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],
+            "--gene-set-stats-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_gene_list_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],
+            "--params-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_gene_list_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],
         }
         test_files = [
             self.repo_root / "tests/test_pigean_cli_reference_unittest.py",

@@ -3007,7 +3007,11 @@ class PigeanState(object):
 
     def read_positive_controls(self, positive_controls_in, positive_controls_id_col=None, positive_controls_prob_col=None, positive_controls_default_prob=0.95, positive_controls_has_header=True, positive_controls_list=None, positive_controls_all_in=None, positive_controls_all_id_col=None, positive_controls_all_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
         if positive_controls_in is None and positive_controls_list is None:
-            bail("Require --positive-controls-in or --positive-controls-list for this operation")
+            bail(
+                "Require --gene-list-in/--gene-list "
+                "(compatibility aliases: --positive-controls-in/--positive-controls-list) "
+                "for this operation"
+            )
 
         if hold_out_chrom is not None and self.gene_to_chrom is None:
             (self.gene_chrom_name_pos, self.gene_to_chrom, self.gene_to_pos) = pegs_read_loc_file_with_gene_map(
@@ -3035,7 +3039,11 @@ class PigeanState(object):
             positive_control_files.append((positive_controls_all_in, positive_controls_all_id_col, None, self.background_prior, positive_controls_all_has_header))
 
         for (cur_positive_controls_in, cur_id_col, cur_prob_col, default_prob, has_header) in positive_control_files:
-            log("Reading --positive-controls-in file %s" % cur_positive_controls_in, INFO)
+            log(
+                "Reading --gene-list-in file %s "
+                "(compatibility alias: --positive-controls-in)" % cur_positive_controls_in,
+                INFO,
+            )
 
             with open_gz(cur_positive_controls_in) as positive_controls_fh:
                 id_col = 0
@@ -3047,7 +3055,10 @@ class PigeanState(object):
                         seen_header = True
                         if has_header or len(cols) > 1:
                             if len(cols) > 1 and cur_id_col is None:
-                                bail("--positive-controls-id-col required for positive control files with more than one column")
+                                bail(
+                                    "--gene-list-id-col required for gene-list files with more than one column "
+                                    "(compatibility alias: --positive-controls-id-col)"
+                                )
                             elif cur_id_col is not None:
                                 id_col = _get_col(cur_id_col, cols)
 

@@ -165,6 +165,15 @@ parser.add_option("","--exomes-n-col",default=None)
 parser.add_option("","--exomes-n",type='float',default=None)
 
 #Positive control genes
+parser.add_option("","--gene-list-in",dest="positive_controls_in",default=None)
+parser.add_option("","--gene-list-id-col",dest="positive_controls_id_col",default=None)
+parser.add_option("","--gene-list-prob-col",dest="positive_controls_prob_col",default=None)
+parser.add_option("","--gene-list",type="string",action="callback",callback=get_comma_separated_args,dest="positive_controls_list",default=None) #specify comma separated list of genes on the command line
+parser.add_option("","--gene-list-default-prob",type=float,dest="positive_controls_default_prob",default=0.95)
+parser.add_option("","--gene-list-no-header",action="store_false", dest="positive_controls_has_header", default=True)
+parser.add_option("","--gene-list-all-in",dest="positive_controls_all_in",default=None) #all genes to use in gene-list analysis. If specified add these on top of the selected genes
+parser.add_option("","--gene-list-all-id-col",dest="positive_controls_all_id_col",default=None)
+parser.add_option("","--gene-list-all-no-header",action="store_false", dest="positive_controls_all_has_header", default=True)
 parser.add_option("","--positive-controls-in",default=None)
 parser.add_option("","--positive-controls-id-col",default=None)
 parser.add_option("","--positive-controls-prob-col",default=None)
@@ -513,9 +522,24 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--huge-statistics-out": "write HuGE statistics cache for faster reruns",
     "--eaggl-bundle-out": "write bundled PIGEAN outputs for direct eaggl.py consumption",
     "--params-out": "write learned hyperparameters and runtime settings",
-    "--positive-controls-all-in": "load the full positive-control background gene universe",
-    "--positive-controls-in": "load positive-control genes with optional probabilities",
-    "--positive-controls-list": "specify positive-control genes directly on the command line",
+    "--gene-list-all-id-col": "ID column in the full background gene-universe file for gene-list inputs",
+    "--gene-list-all-in": "load the full background gene universe for the gene-list input",
+    "--gene-list-all-no-header": "declare that the background gene-universe file for gene-list inputs has no header row",
+    "--gene-list-default-prob": "default inclusion probability used for gene-list inputs without an explicit probability column",
+    "--gene-list-id-col": "gene ID column for the gene-list input file",
+    "--gene-list-in": "load gene-list inputs with optional probabilities from a file",
+    "--gene-list-no-header": "declare that the gene-list input file has no header row",
+    "--gene-list-prob-col": "probability column for the gene-list input file",
+    "--gene-list": "specify gene-list genes directly on the command line",
+    "--positive-controls-all-id-col": "compatibility alias for --gene-list-all-id-col",
+    "--positive-controls-all-in": "compatibility alias for --gene-list-all-in",
+    "--positive-controls-all-no-header": "compatibility alias for --gene-list-all-no-header",
+    "--positive-controls-default-prob": "compatibility alias for --gene-list-default-prob",
+    "--positive-controls-id-col": "compatibility alias for --gene-list-id-col",
+    "--positive-controls-in": "compatibility alias for --gene-list-in",
+    "--positive-controls-list": "compatibility alias for --gene-list",
+    "--positive-controls-no-header": "compatibility alias for --gene-list-no-header",
+    "--positive-controls-prob-col": "compatibility alias for --gene-list-prob-col",
     "--cross-val": "enable cross-validation tuning of inner beta sampling hyperparameters",
     "--no-cross-val": "explicitly disable cross-validation tuning",
     "--cross-val-num-explore-each-direction": "cross-validation exploration breadth for sigma tuning",
@@ -654,6 +678,9 @@ _METHOD_REQUIRED_FLAGS = {
     "--exomes-in",
     "--exons-loc-file-huge",
     "--gene-covs-in",
+    "--gene-list-all-in",
+    "--gene-list-in",
+    "--gene-list",
     "--gene-loc-file",
     "--gene-loc-file-huge",
     "--gene-map-in",
@@ -661,9 +688,6 @@ _METHOD_REQUIRED_FLAGS = {
     "--gene-stats-out",
     "--gwas-in",
     "--params-out",
-    "--positive-controls-all-in",
-    "--positive-controls-in",
-    "--positive-controls-list",
     "--s2g-in",
 }
 
@@ -671,6 +695,9 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--case-counts-in",
     "--ctrl-counts-in",
     "--exomes-in",
+    "--gene-list-all-in",
+    "--gene-list-in",
+    "--gene-list",
     "--gene-loc-file",
     "--gene-loc-file-huge",
     "--gene-set-stats-in",
@@ -683,9 +710,6 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--max-rel-mcse-beta",
     "--num-chains",
     "--params-out",
-    "--positive-controls-all-in",
-    "--positive-controls-in",
-    "--positive-controls-list",
     "--s2g-in",
     "--strict-stopping",
     "--total-num-iter-gibbs",
@@ -705,6 +729,15 @@ _EXPERIMENTAL_FLAGS = {
 
 _COMPAT_ALIAS_FLAGS = {
     "--increase-hyper-if-betas-below",
+    "--positive-controls-all-id-col",
+    "--positive-controls-all-in",
+    "--positive-controls-all-no-header",
+    "--positive-controls-default-prob",
+    "--positive-controls-id-col",
+    "--positive-controls-in",
+    "--positive-controls-list",
+    "--positive-controls-no-header",
+    "--positive-controls-prob-col",
 }
 
 _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
@@ -1308,8 +1341,9 @@ def _validate_positive_control_inputs(_options):
         return
     if os.path.exists(candidate) or "/" in candidate or "\\" in candidate:
         bail(
-            "Option --positive-controls-list expects a comma-separated list of gene symbols; "
-            "to read positive controls from a file, use --positive-controls-in instead"
+            "Option --gene-list/--positive-controls-list expects a comma-separated list of gene symbols; "
+            "to read genes from a file, use --gene-list-in instead "
+            "(compatibility alias: --positive-controls-in)"
         )
 
 

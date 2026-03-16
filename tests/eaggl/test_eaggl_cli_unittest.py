@@ -7,6 +7,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import importlib
 from pathlib import Path
 
 
@@ -87,6 +88,8 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("--anchor-genes", proc.stdout)
         self.assertIn("--anchor-phenos", proc.stdout)
+        self.assertIn("--gene-list", proc.stdout)
+        self.assertNotIn("--positive-controls-list", proc.stdout)
         self.assertNotIn("--anchor-gene ", proc.stdout)
         self.assertNotIn("--anchor-pheno ", proc.stdout)
 
@@ -100,6 +103,32 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("--factor-phewas-full-output", proc.stdout)
         self.assertIn("--lmm-provider", proc.stdout)
         self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
+
+    def test_cli_manifest_tiers_cover_recent_factor_and_gene_list_flags(self) -> None:
+        eaggl_cli = importlib.import_module("eaggl.cli")
+        metadata = eaggl_cli.get_cli_manifest_metadata()
+
+        self.assertEqual(metadata["--gene-list"]["category"], "method_required")
+        self.assertEqual(metadata["--gene-list"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--gene-list-in"]["category"], "method_required")
+        self.assertEqual(metadata["--gene-list-max-fdr-q"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--gene-list-id-col"]["category"], "engineering")
+        self.assertEqual(metadata["--gene-list-id-col"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-list-no-header"]["category"], "engineering")
+        self.assertEqual(metadata["--gene-list-no-header"]["documentation_target"], "expert_help")
+
+        self.assertEqual(metadata["--positive-controls-list"]["category"], "compat_alias")
+        self.assertEqual(metadata["--positive-controls-list"]["public_visibility"], "expert")
+
+        self.assertEqual(metadata["--factor-runs"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--consensus-nmf"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--learn-phi"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--learn-phi-max-redundancy"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--learn-phi-runs-per-step"]["public_visibility"], "expert")
+
+        self.assertEqual(metadata["--factor-phewas-modes"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--factor-phewas-full-output"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--pheno-capture-input"]["documentation_target"], "advanced_workflows")
 
     def test_non_factor_modes_fail_with_routing_message(self) -> None:
         proc = self._run("gibbs")

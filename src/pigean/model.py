@@ -396,7 +396,10 @@ def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_
 
     if Y is None:
         if gwas_in is None and exomes_in is None and gene_bfs_in is None and positive_controls_in is None and positive_controls_list is None and case_counts_in is None and ctrl_counts_in is None:
-            bail("Need --gwas-in or --exomes-in or --gene-stats-in or --positive-controls-in or --case-counts_in")
+            bail(
+                "Need --gwas-in or --exomes-in or --gene-stats-in or "
+                "--gene-list-in/--positive-controls-in or --case-counts_in"
+            )
 
         log("Reading Y within calculate_gene_set_statistics; parameters may not be honored")
         _run_read_y_stage(

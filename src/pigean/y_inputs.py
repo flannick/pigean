@@ -226,7 +226,11 @@ def load_main_y_inputs(
         if y_read_contract.has_only_positive_controls():
             options.ols = True
             if options.positive_controls_all_in is None and not options.add_all_genes:
-                bail_fn("Specified positive controls without --positive-controls-all-in; therefore using all genes in gene sets as negatives. This may result in inflated enrichments. If you really want to run this, specify --add-all-genes")
+                bail_fn(
+                    "Specified gene-list inputs without --gene-list-all-in "
+                    "(compatibility alias: --positive-controls-all-in); therefore using all genes in gene sets as negatives. "
+                    "This may result in inflated enrichments. If you really want to run this, specify --add-all-genes"
+                )
         run_read_y_contract_stage_fn(state, y_read_contract)
         return False
 

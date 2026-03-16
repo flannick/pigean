@@ -196,7 +196,7 @@ class T2DInputSubsetMatrixTest(unittest.TestCase):
                 if exomes:
                     self.assertIn("Reading --exomes-in file", combined)
                 if pc_mode is not None:
-                    self.assertIn("Reading --positive-controls-in file", combined)
+                    self.assertIn("Reading --gene-list-in file", combined)
                 if counts:
                     self.assertIn("Reading case counts from", combined)
                     self.assertIn("Reading ctrl counts from", combined)

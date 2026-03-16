@@ -146,20 +146,24 @@ Notes:
 
 Exome inputs must provide enough information to recover effect size scale: in practice use `p + beta + se`, or `p + beta + n`.
 
-### Positive-control inputs
+### Gene-list inputs
 
 | Flag | Meaning |
 |---|---|
-| `--positive-controls-in` | read positive controls from a file |
-| `--positive-controls-no-header` | declare that `--positive-controls-in` has no header row |
-| `--positive-controls-list` | comma-separated positive-control genes on the command line |
-| `--positive-controls-all-in` | background gene universe for positive-control enrichment |
-| `--positive-controls-all-id-col` | ID column in `--positive-controls-all-in` |
-| `--positive-controls-all-no-header` | declare that `--positive-controls-all-in` has no header row |
+| `--gene-list-in` | read gene-list inputs from a file |
+| `--gene-list-id-col` | choose the gene ID column in `--gene-list-in` |
+| `--gene-list-prob-col` | choose the probability column in `--gene-list-in` |
+| `--gene-list-default-prob` | default probability to use when `--gene-list-prob-col` is absent |
+| `--gene-list-no-header` | declare that `--gene-list-in` has no header row |
+| `--gene-list` | comma-separated genes on the command line |
+| `--gene-list-all-in` | background gene universe for gene-list enrichment |
+| `--gene-list-all-id-col` | ID column in `--gene-list-all-in` |
+| `--gene-list-all-no-header` | declare that `--gene-list-all-in` has no header row |
 
 Important:
-- `--positive-controls-list` expects comma-separated gene symbols, not a file path
-- if you use positive controls, you should usually also provide `--positive-controls-all-in`
+- `--gene-list` expects comma-separated gene symbols, not a file path
+- if you use gene-list evidence, you should usually also provide `--gene-list-all-in`
+- `--positive-controls-*` remains available as a compatibility alias surface for the corresponding `--gene-list-*` flags
 
 ### Case/control burden-count inputs
 

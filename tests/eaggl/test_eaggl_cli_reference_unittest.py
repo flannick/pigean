@@ -149,6 +149,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "INS,GCK",
             "--gene-list-id-col",
             "Gene",
+            "--gene-list-no-header",
             "--gene-list-max-fdr-q",
             "0.01",
             "--print-effective-config",
@@ -157,6 +158,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(gene_list_payload["options"]["gene_list_in"], "genes.tsv")
         self.assertEqual(gene_list_payload["options"]["gene_list"], ["INS", "GCK"])
         self.assertEqual(gene_list_payload["options"]["gene_list_id_col"], "Gene")
+        self.assertTrue(gene_list_payload["options"]["gene_list_no_header"])
         self.assertEqual(gene_list_payload["options"]["gene_list_max_fdr_q"], 0.01)
 
         positive_controls = self._run_ok(
@@ -431,6 +433,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-list-in": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--gene-list": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--gene-list-id-col": ["test_reference_workflow_selector_flags_round_trip"],
+            "--gene-list-no-header": ["test_reference_workflow_selector_flags_round_trip"],
             "--gene-list-max-fdr-q": ["test_reference_workflow_selector_flags_round_trip"],
             "--positive-controls-in": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--positive-controls-list": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],

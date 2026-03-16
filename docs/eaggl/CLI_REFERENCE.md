@@ -160,10 +160,11 @@ Use `--print-effective-config` to confirm which workflow the CLI selected.
 | `--gene-list-in` | read a standalone input gene list from a file and let EAGGL synthesize enrichment weights internally |
 | `--gene-list` | provide a standalone input gene list directly on the command line |
 | `--gene-list-id-col` | choose the gene column from a standalone gene-list file when it has multiple columns |
+| `--gene-list-no-header` | declare that the standalone gene-list file has no header row |
 | `--gene-list-max-fdr-q` | retain gene sets up to this FDR threshold in standalone gene-list mode |
-| `--positive-controls-in` | read positive-control genes from a file |
-| `--positive-controls-list` | provide positive-control genes directly on the command line |
-| `--positive-controls-all-in` | legacy compatibility flag; standalone gene-list mode now uses the loaded X-gene universe as the background |
+| `--positive-controls-in` | legacy compatibility alias for `--gene-list-in` |
+| `--positive-controls-list` | legacy compatibility alias for `--gene-list` |
+| `--positive-controls-all-in` | legacy compatibility alias; standalone gene-list mode still uses the loaded X-gene universe as the background |
 | `--anchor-phenos` | anchor to one or more named phenotypes |
 | `--anchor-any-pheno` | anchor to an aggregate any-phenotype signal |
 | `--anchor-genes` | anchor to one or more genes |
@@ -174,8 +175,8 @@ Notes:
 - `--gene-list-in` / `--gene-list` are the primary standalone EAGGL workflow selectors
 - standalone gene-list mode uses the loaded X-gene universe as the enrichment background
 - retained standalone gene sets are weighted by `-log(P) / sqrt(gene_set_size)` and filtered by `--gene-list-max-fdr-q`
-- `--positive-controls-list` expects a comma-separated list, not a file path
-- `--positive-controls-in` / `--positive-controls-list` remain compatibility aliases for the standalone gene-list workflow
+- `--gene-list` expects a comma-separated list, not a file path
+- `--positive-controls-in` / `--positive-controls-list` remain compatibility aliases for the standalone gene-list workflow and are hidden from the primary help surface
 - anchored phenotype and gene workflows generally require PheWAS inputs in addition to the anchor flag itself
 
 ### PheWAS and projection inputs

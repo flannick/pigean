@@ -7,8 +7,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 - Total options: `212`
 - `method_required`: `16`
-- `method_optional`: `118`
-- `engineering`: `72`
+- `method_optional`: `114`
+- `engineering`: `73`
+- `compat_alias`: `3`
 - `debug_only`: `6`
 - visibility `expert`: `182`
 - visibility `normal`: `30`
@@ -75,7 +76,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
 | `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `1` | - |
-| `--gene-list-no-header` | `expert` | `yes` | `advanced_workflows` | `gene_list_no_header` | `False` | treat the standalone EAGGL gene-list file as headerless |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
 | `--gene-phewas-bfs-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and anchor workflows |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
@@ -138,9 +138,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
 | `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | - |
-| `--positive-controls-all-in` | `expert` | `yes` | `expert_help` | `positive_controls_all_in` | `None` | - |
-| `--positive-controls-in` | `expert` | `yes` | `expert_help` | `positive_controls_in` | `None` | - |
-| `--positive-controls-list` | `expert` | `yes` | `expert_help` | `positive_controls_list` | `None` | - |
 | `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project phenotype loadings from gene-set scores instead of gene scores |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
@@ -177,6 +174,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |
 | `--gene-gene-set-stats-out` | `expert` | `no` | `expert_help` | `gene_gene_set_stats_out` | `None` | - |
 | `--gene-list-id-col` | `expert` | `no` | `expert_help` | `gene_list_id_col` | `1` | select the gene column from a standalone EAGGL gene-list file when it has multiple columns |
+| `--gene-list-no-header` | `expert` | `no` | `expert_help` | `gene_list_no_header` | `False` | treat the standalone EAGGL gene-list file as headerless |
 | `--gene-map-new-gene-col` | `expert` | `no` | `expert_help` | `gene_map_new_gene_col` | `2` | - |
 | `--gene-map-orig-gene-col` | `expert` | `no` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
 | `--gene-pheno-stats-out` | `expert` | `no` | `advanced_workflows` | `gene_pheno_stats_out` | `None` | - |
@@ -233,6 +231,14 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--priors-num-gene-batches` | `expert` | `no` | `expert_help` | `priors_num_gene_batches` | `20` | - |
 | `--seed` | `expert` | `no` | `core_help` | `seed` | `None` | set explicit random seed for deterministic reproducibility checks |
 | `--warnings-file` | `expert` | `no` | `core_help` | `warnings_file` | `None` | write warning messages to this file |
+
+## Compat Alias
+
+| Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
+|---|---|---|---|---|---|---|
+| `--positive-controls-all-in` | `expert` | `yes` | `expert_help` | `positive_controls_all_in` | `None` | compatibility alias for standalone EAGGL gene-list background handling |
+| `--positive-controls-in` | `expert` | `yes` | `expert_help` | `positive_controls_in` | `None` | compatibility alias for --gene-list-in |
+| `--positive-controls-list` | `expert` | `yes` | `expert_help` | `positive_controls_list` | `None` | compatibility alias for --gene-list |
 
 ## Debug Only
 

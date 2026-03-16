@@ -1,8 +1,9 @@
 {
   "categories": {
+    "compat_alias": 3,
     "debug_only": 6,
-    "engineering": 72,
-    "method_optional": 118,
+    "engineering": 73,
+    "method_optional": 114,
     "method_required": 16
   },
   "entrypoint": "src/eaggl/cli.py",
@@ -49,7 +50,7 @@
       "source_line": 91,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 68
+      "usage_references": 69
     },
     {
       "action": "append",
@@ -574,7 +575,7 @@
       "source_line": 318,
       "summary": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
       "type": null,
-      "usage_references": 14
+      "usage_references": 15
     },
     {
       "action": null,
@@ -784,7 +785,7 @@
       "source_line": 218,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 36
+      "usage_references": 37
     },
     {
       "action": null,
@@ -868,7 +869,7 @@
       "source_line": 199,
       "summary": "expose the full expert factor-phewas surface, including combined and huber variants",
       "type": null,
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": null,
@@ -910,7 +911,7 @@
       "source_line": 193,
       "summary": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
       "type": "str",
-      "usage_references": 26
+      "usage_references": 27
     },
     {
       "action": "callback",
@@ -931,7 +932,7 @@
       "source_line": 194,
       "summary": "expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table",
       "type": "string",
-      "usage_references": 13
+      "usage_references": 14
     },
     {
       "action": null,
@@ -1141,7 +1142,7 @@
       "source_line": 317,
       "summary": "run repeated random restarts for factorization; without consensus keep only the best run",
       "type": "int",
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": null,
@@ -1456,7 +1457,7 @@
       "source_line": 125,
       "summary": "provide a standalone EAGGL input gene list directly on the command line",
       "type": "string",
-      "usage_references": 46
+      "usage_references": 157
     },
     {
       "action": null,
@@ -1477,7 +1478,7 @@
       "source_line": 126,
       "summary": "select the gene column from a standalone EAGGL gene-list file when it has multiple columns",
       "type": null,
-      "usage_references": 7
+      "usage_references": 16
     },
     {
       "action": null,
@@ -1498,7 +1499,7 @@
       "source_line": 124,
       "summary": "read a standalone EAGGL input gene list from a file and synthesize enrichment weights internally",
       "type": null,
-      "usage_references": 13
+      "usage_references": 37
     },
     {
       "action": null,
@@ -1519,15 +1520,15 @@
       "source_line": 128,
       "summary": "retain enriched gene sets up to this Benjamini-Hochberg FDR threshold in standalone EAGGL gene-list mode",
       "type": "float",
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": "store_true",
-      "category": "method_optional",
+      "category": "engineering",
       "default": "False",
       "deprecation_timeline": null,
       "dest": "gene_list_no_header",
-      "documentation_target": "advanced_workflows",
+      "documentation_target": "expert_help",
       "flags": [
         "",
         "--gene-list-no-header"
@@ -1536,11 +1537,11 @@
       "primary_flag": "--gene-list-no-header",
       "public_visibility": "expert",
       "replacement": null,
-      "scientific_semantic_impact": "yes",
+      "scientific_semantic_impact": "no",
       "source_line": 127,
       "summary": "treat the standalone EAGGL gene-list file as headerless",
       "type": null,
-      "usage_references": 3
+      "usage_references": 15
     },
     {
       "action": null,
@@ -1561,7 +1562,7 @@
       "source_line": 155,
       "summary": null,
       "type": null,
-      "usage_references": 61
+      "usage_references": 62
     },
     {
       "action": null,
@@ -1582,7 +1583,7 @@
       "source_line": 116,
       "summary": null,
       "type": null,
-      "usage_references": 23
+      "usage_references": 24
     },
     {
       "action": null,
@@ -2275,7 +2276,7 @@
       "source_line": 162,
       "summary": null,
       "type": null,
-      "usage_references": 25
+      "usage_references": 26
     },
     {
       "action": null,
@@ -2422,7 +2423,7 @@
       "source_line": 164,
       "summary": null,
       "type": null,
-      "usage_references": 29
+      "usage_references": 30
     },
     {
       "action": null,
@@ -2548,7 +2549,7 @@
       "source_line": 216,
       "summary": "suppress printing resolved options at startup",
       "type": null,
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": "store_true",
@@ -2716,7 +2717,7 @@
       "source_line": 305,
       "summary": "automatically tune phi by structural model selection before the final factorization",
       "type": null,
-      "usage_references": 92
+      "usage_references": 95
     },
     {
       "action": null,
@@ -2779,7 +2780,7 @@
       "source_line": 306,
       "summary": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning",
       "type": "float",
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": null,
@@ -2884,7 +2885,7 @@
       "source_line": 307,
       "summary": "number of repeated restarts used to score each candidate phi",
       "type": "int",
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": null,
@@ -3787,7 +3788,7 @@
       "source_line": 209,
       "summary": null,
       "type": null,
-      "usage_references": 39
+      "usage_references": 40
     },
     {
       "action": "store_true",
@@ -3850,7 +3851,7 @@
       "source_line": 357,
       "summary": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
       "type": "str",
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": null,
@@ -3959,7 +3960,7 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_all_in",
@@ -3974,13 +3975,13 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 123,
-      "summary": null,
+      "summary": "compatibility alias for standalone EAGGL gene-list background handling",
       "type": null,
-      "usage_references": 25
+      "usage_references": 21
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_in",
@@ -3995,13 +3996,13 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 121,
-      "summary": null,
+      "summary": "compatibility alias for --gene-list-in",
       "type": null,
-      "usage_references": 31
+      "usage_references": 28
     },
     {
       "action": "callback",
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "positive_controls_list",
@@ -4016,9 +4017,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 122,
-      "summary": null,
+      "summary": "compatibility alias for --gene-list",
       "type": "string",
-      "usage_references": 34
+      "usage_references": 37
     },
     {
       "action": null,
@@ -4081,7 +4082,7 @@
       "source_line": 220,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 55
+      "usage_references": 57
     },
     {
       "action": null,
