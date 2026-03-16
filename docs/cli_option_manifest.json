@@ -2361,7 +2361,7 @@
       "source_line": 118,
       "summary": null,
       "type": null,
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": null,
@@ -2382,7 +2382,7 @@
       "source_line": 120,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 5
     },
     {
       "action": null,
@@ -5406,7 +5406,7 @@
       "source_line": 281,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 50
+      "usage_references": 52
     },
     {
       "action": null,

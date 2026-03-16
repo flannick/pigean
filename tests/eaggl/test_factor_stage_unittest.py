@@ -296,6 +296,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             sparse_solution=False,
             sparse_frac_betas=0.01,
             factor_phewas_mode="marginal_anchor_adjusted_binary",
+            factor_phewas_modes=["marginal_anchor_adjusted_binary", "joint_anchor_adjusted_binary"],
             factor_phewas_anchor_covariate="direct",
             factor_phewas_thresholded_combined_cutoff=1.0,
             factor_phewas_se="robust",
@@ -315,6 +316,10 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(kwargs["options"], options)
         self.assertEqual(runtime.output_path, "factor_phewas_stats.tsv")
         self.assertEqual(runtime.recorded_params[0]["factor_phewas_mode"], "marginal_anchor_adjusted_binary")
+        self.assertEqual(
+            runtime.recorded_params[0]["factor_phewas_modes"],
+            "marginal_anchor_adjusted_binary,joint_anchor_adjusted_binary",
+        )
         self.assertTrue(runtime.recorded_params[1])
 
 

@@ -68,7 +68,8 @@ Phenotype annotation policy:
 5. treat `--factor-phewas-from-gene-phewas-stats-in` as a secondary expert workflow
 6. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`
 7. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
-8. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
+8. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
+9. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
 
 Bundle mode:
 

@@ -148,6 +148,13 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("--factor-phewas-mode must be one of", err)
         self.assertNotIn("Traceback", err)
 
+    def test_invalid_factor_phewas_modes_returns_usage_error(self) -> None:
+        proc = self._run("factor", "--factor-phewas-modes", "marginal_anchor_adjusted_binary,definitely_invalid")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--factor-phewas-modes contains invalid values", err)
+        self.assertNotIn("Traceback", err)
+
     def test_removed_anchor_gene_alias_has_replacement_message(self) -> None:
         proc = self._run("factor", "--anchor-gene", "INS")
         self.assertNotEqual(proc.returncode, 0)
@@ -399,6 +406,8 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
             "factor",
             "--factor-phewas-mode",
             "joint_anchor_adjusted_binary",
+            "--factor-phewas-modes",
+            "marginal_anchor_adjusted_binary,joint_anchor_adjusted_binary",
             "--factor-phewas-anchor-covariate",
             "combined",
             "--factor-phewas-thresholded-combined-cutoff",
@@ -412,6 +421,10 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         opts = json.loads(proc.stdout)["options"]
         self.assertEqual(opts["factor_phewas_mode"], "joint_anchor_adjusted_binary")
+        self.assertEqual(
+            opts["factor_phewas_modes"],
+            ["marginal_anchor_adjusted_binary", "joint_anchor_adjusted_binary"],
+        )
         self.assertEqual(opts["factor_phewas_anchor_covariate"], "combined")
         self.assertEqual(opts["factor_phewas_thresholded_combined_cutoff"], 1.5)
         self.assertEqual(opts["factor_phewas_se"], "none")

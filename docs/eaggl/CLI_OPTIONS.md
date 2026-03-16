@@ -5,12 +5,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `206`
+- Total options: `207`
 - `method_required`: `13`
-- `method_optional`: `116`
+- `method_optional`: `117`
 - `engineering`: `71`
 - `debug_only`: `6`
-- visibility `expert`: `179`
+- visibility `expert`: `180`
 - visibility `normal`: `27`
 
 ## Method Required
@@ -56,6 +56,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
 | `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.0` | - |
 | `--factor-phewas-mode` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_mode` | `marginal_anchor_adjusted_binary` | choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment |
+| `--factor-phewas-modes` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_modes` | `None` | expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table |
 | `--factor-phewas-se` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_se` | `robust` | choose the uncertainty estimator for binary factor-phewas: robust or none |
 | `--factor-phewas-thresholded-combined-cutoff` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_thresholded_combined_cutoff` | `1.0` | set the combined-support cutoff used to define thresholded phenotype hits for binary factor-phewas |
 | `--factor-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_gene_sets_num` | `None` | - |

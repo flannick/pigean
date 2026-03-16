@@ -507,9 +507,11 @@ def run_main_factor_phewas_stage(domain, runtime, options):
         "PheWAS stage 'factor_phewas': mode=%s reason=%s" % (decision.mode, decision.reason),
         domain.INFO,
     )
+    requested_modes = eaggl_phewas.resolve_requested_factor_phewas_modes(options)
     runtime._record_params(
         {
             "factor_phewas_mode": options.factor_phewas_mode,
+            "factor_phewas_modes": ",".join(requested_modes),
             "factor_phewas_anchor_covariate": options.factor_phewas_anchor_covariate,
             "factor_phewas_thresholded_combined_cutoff": options.factor_phewas_thresholded_combined_cutoff,
             "factor_phewas_se": options.factor_phewas_se,
@@ -525,7 +527,10 @@ def run_main_factor_phewas_stage(domain, runtime, options):
         run_for_factors=True,
         min_gene_factor_weight=(
             options.factor_phewas_min_gene_factor_weight
-            if options.factor_phewas_mode in set(["legacy_continuous_direct", "legacy_continuous_combined"])
+            if any(
+                mode in set(["legacy_continuous_direct", "legacy_continuous_combined"])
+                for mode in requested_modes
+            )
             else 0.0
         ),
     )

@@ -180,6 +180,7 @@ Notes:
 | `--factor-phewas-from-gene-phewas-stats-in` | compute factor-level phenotype enrichment regression from precomputed gene-PheWAS stats |
 | `--project-phenos-from-gene-sets` | compute phenotype capture on the gene-set basis instead of the gene basis |
 | `--pheno-capture-input` | choose whether phenotype capture uses retained weighted thresholded support or binary thresholded hits |
+| `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
 
 Operational notes:
@@ -188,6 +189,7 @@ Operational notes:
 - `--pheno-capture-input weighted_thresholded` is the default and uses retained combined-support values above the threshold; `binary_thresholded` is an expert sensitivity mode
 - factor-PheWAS is a secondary expert analysis for factor-specific phenotype enrichment
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
+- if you request multiple factor-PheWAS models in one run, `factor_phewas_stats.out` appends them together and labels each row with `model_name`, `factor_model_scope`, `outcome_surface`, and `anchor_covariate`
 - `--factor-phewas-full-output` restores the broader legacy continuous and sensitivity outputs for expert diagnostics
 
 ### Input schema and column selectors
@@ -265,6 +267,7 @@ Operational notes:
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |
 | `--factor-phewas-mode` | choose the factor-PheWAS model class; default is marginal binary enrichment with direct anchor adjustment |
+| `--factor-phewas-modes` | expert comma-separated list of model classes to run in one pass and append into the same factor-PheWAS output file |
 | `--factor-phewas-anchor-covariate` | choose the anchor covariate for factor-PheWAS; default is `direct`, with `combined` and `none` as expert options |
 | `--factor-phewas-thresholded-combined-cutoff` | cutoff used to define thresholded phenotype hits for the binary factor-PheWAS modes |
 | `--factor-phewas-se` | choose the uncertainty estimator for factor-PheWAS; default is robust |
@@ -277,6 +280,9 @@ Operational notes:
   - `--factor-phewas-mode marginal_anchor_adjusted_binary`
   - `--factor-phewas-anchor-covariate direct`
   - `--factor-phewas-se robust`
+- To compare multiple model surfaces in one run, use:
+  - `--factor-phewas-modes marginal_anchor_adjusted_binary,joint_anchor_adjusted_binary`
+  - each requested model is appended into one `factor_phewas_stats.out` table with explicit model-identifying columns
 - Expert binary modes:
   - `marginal_unconditional_binary`
   - `joint_anchor_adjusted_binary`

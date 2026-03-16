@@ -210,6 +210,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--project-phenos-from-gene-sets",
             "--factor-phewas-mode",
             "joint_anchor_adjusted_binary",
+            "--factor-phewas-modes",
+            "marginal_anchor_adjusted_binary,joint_anchor_adjusted_binary",
             "--factor-phewas-anchor-covariate",
             "combined",
             "--factor-phewas-thresholded-combined-cutoff",
@@ -246,6 +248,10 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["factor_phewas_from_gene_phewas_stats_in"], "gene_phewas.tsv")
         self.assertTrue(opts["project_phenos_from_gene_sets"])
         self.assertEqual(opts["factor_phewas_mode"], "joint_anchor_adjusted_binary")
+        self.assertEqual(
+            opts["factor_phewas_modes"],
+            ["marginal_anchor_adjusted_binary", "joint_anchor_adjusted_binary"],
+        )
         self.assertEqual(opts["factor_phewas_anchor_covariate"], "combined")
         self.assertEqual(opts["factor_phewas_thresholded_combined_cutoff"], 1.5)
         self.assertEqual(opts["factor_phewas_se"], "none")
@@ -417,6 +423,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--run-phewas-from-gene-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--factor-phewas-from-gene-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip"],
             "--factor-phewas-mode": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
+            "--factor-phewas-modes": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-anchor-covariate": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-thresholded-combined-cutoff": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-se": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],

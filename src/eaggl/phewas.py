@@ -35,6 +35,29 @@ _LEGACY_FACTOR_PHEWAS_MODES = {
     "legacy_continuous_combined",
 }
 
+_FACTOR_PHEWAS_MODEL_METADATA = {
+    "marginal_anchor_adjusted_binary": {
+        "factor_model_scope": "marginal_one_factor",
+        "outcome_surface": "binary_thresholded",
+    },
+    "marginal_unconditional_binary": {
+        "factor_model_scope": "marginal_one_factor",
+        "outcome_surface": "binary_thresholded",
+    },
+    "joint_anchor_adjusted_binary": {
+        "factor_model_scope": "joint_all_factors",
+        "outcome_surface": "binary_thresholded",
+    },
+    "legacy_continuous_direct": {
+        "factor_model_scope": "joint_all_factors",
+        "outcome_surface": "continuous_direct",
+    },
+    "legacy_continuous_combined": {
+        "factor_model_scope": "joint_all_factors",
+        "outcome_surface": "continuous_combined",
+    },
+}
+
 
 def _ensure_factor_phewas_result_blocks(state):
     if getattr(state, "factor_phewas_result_blocks", None) is None:
@@ -57,11 +80,15 @@ def _append_factor_phewas_result_block(
     p_values,
     one_sided_p_values,
 ):
+    metadata = _FACTOR_PHEWAS_MODEL_METADATA.get(mode, {})
     _ensure_factor_phewas_result_blocks(state).append(
         {
             "phenos": list(phenos),
             "analysis": analysis,
             "mode": mode,
+            "model_name": mode,
+            "factor_model_scope": metadata.get("factor_model_scope", "unknown"),
+            "outcome_surface": metadata.get("outcome_surface", "unknown"),
             "anchor_covariate": anchor_covariate,
             "threshold_cutoff": threshold_cutoff,
             "se_type": se_type,
@@ -72,6 +99,24 @@ def _append_factor_phewas_result_block(
             "one_sided_p_values": np.asarray(one_sided_p_values, dtype=float),
         }
     )
+
+
+def resolve_requested_factor_phewas_modes(options):
+    raw_modes = getattr(options, "factor_phewas_modes", None)
+    if raw_modes is None or raw_modes == []:
+        raw_modes = [getattr(options, "factor_phewas_mode", "marginal_anchor_adjusted_binary")]
+    elif isinstance(raw_modes, str):
+        raw_modes = raw_modes.split(",")
+
+    modes = []
+    seen = set()
+    for raw_mode in raw_modes:
+        mode = str(raw_mode).strip()
+        if mode == "" or mode in seen:
+            continue
+        seen.add(mode)
+        modes.append(mode)
+    return modes
 
 
 def _factor_phewas_anchor_vector(state, anchor_covariate, bail_fn):
@@ -454,7 +499,7 @@ def accumulate_factor_phewas_outputs(state, output_prefix, beta_tilde, se, z_sco
     )
 
 
-def _run_legacy_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
+def _run_legacy_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, mode, options):
     batch_phenos = state.phenos[begin:end]
     if gene_pheno_Y is not None:
         _, _, beta_tilde, se, z_score, p_value, one_sided_p_value = calculate_phewas_block(
@@ -469,7 +514,7 @@ def _run_legacy_factor_phewas_batch(state, input_values, factor_keep_mask, gene_
             state,
             phenos=batch_phenos,
             analysis="legacy_continuous_direct",
-            mode=getattr(options, "factor_phewas_mode", "legacy_continuous_direct"),
+            mode=mode,
             anchor_covariate="direct",
             threshold_cutoff=np.nan,
             se_type="legacy",
@@ -494,7 +539,7 @@ def _run_legacy_factor_phewas_batch(state, input_values, factor_keep_mask, gene_
                 state,
                 phenos=batch_phenos,
                 analysis="legacy_continuous_direct_huber",
-                mode=getattr(options, "factor_phewas_mode", "legacy_continuous_direct"),
+                mode=mode,
                 anchor_covariate="direct",
                 threshold_cutoff=np.nan,
                 se_type="legacy_huber",
@@ -506,7 +551,7 @@ def _run_legacy_factor_phewas_batch(state, input_values, factor_keep_mask, gene_
             )
 
     if (
-        getattr(options, "factor_phewas_full_output", False)
+        (mode == "legacy_continuous_combined" or getattr(options, "factor_phewas_full_output", False))
         and gene_pheno_combined_prior_Ys is not None
         and not options.debug_skip_correlation
     ):
@@ -565,8 +610,17 @@ def _run_legacy_factor_phewas_batch(state, input_values, factor_keep_mask, gene_
             )
 
 
-def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
-    mode = getattr(options, "factor_phewas_mode", "marginal_anchor_adjusted_binary")
+def _run_factor_phewas_batch_for_mode(state, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, mode, options):
+    min_gene_factor_weight = (
+        getattr(options, "factor_phewas_min_gene_factor_weight", 0.0)
+        if mode in _LEGACY_FACTOR_PHEWAS_MODES
+        else 0.0
+    )
+    input_values, factor_keep_mask = build_phewas_input_values(
+        state,
+        run_for_factors=True,
+        min_gene_factor_weight=min_gene_factor_weight,
+    )
     batch_phenos = state.phenos[begin:end]
 
     if mode in _LEGACY_FACTOR_PHEWAS_MODES:
@@ -581,6 +635,7 @@ def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y,
             begin=begin,
             end=end,
             phewas_beta_kwargs=phewas_beta_kwargs,
+            mode=mode,
             options=options,
         )
         return
@@ -670,6 +725,20 @@ def run_factor_phewas_batch(state, input_values, factor_keep_mask, gene_pheno_Y,
     )
 
 
+def run_factor_phewas_batch(state, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
+    for mode in resolve_requested_factor_phewas_modes(options):
+        _run_factor_phewas_batch_for_mode(
+            state,
+            gene_pheno_Y=gene_pheno_Y,
+            gene_pheno_combined_prior_Ys=gene_pheno_combined_prior_Ys,
+            begin=begin,
+            end=end,
+            phewas_beta_kwargs=phewas_beta_kwargs,
+            mode=mode,
+            options=options,
+        )
+
+
 def run_standard_phewas_batch(state, input_values, gene_pheno_Y, gene_pheno_combined_prior_Ys, begin, end, phewas_beta_kwargs, *, options):
     if gene_pheno_Y is not None:
         beta, _, beta_tilde, se, z_score, p_value, _ = calculate_phewas_block(
@@ -740,10 +809,13 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
         phenos = state.phenos
 
     num_batches = int(np.ceil(len(phenos) / batch_size))
-    input_values, factor_keep_mask = build_phewas_input_values(state, 
-        run_for_factors=run_for_factors,
-        min_gene_factor_weight=min_gene_factor_weight,
-    )
+    input_values = None
+    factor_keep_mask = None
+    if not run_for_factors:
+        input_values, factor_keep_mask = build_phewas_input_values(state, 
+            run_for_factors=run_for_factors,
+            min_gene_factor_weight=min_gene_factor_weight,
+        )
     phewas_beta_kwargs = {
         "max_num_burn_in": max_num_burn_in,
         "max_num_iter": max_num_iter,
@@ -799,8 +871,6 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
 
         if run_for_factors:
             run_factor_phewas_batch(state, 
-                input_values=input_values,
-                factor_keep_mask=factor_keep_mask,
                 gene_pheno_Y=gene_pheno_Y,
                 gene_pheno_combined_prior_Ys=gene_pheno_combined_prior_Ys,
                 begin=begin,

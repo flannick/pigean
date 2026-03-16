@@ -615,21 +615,25 @@ def write_factor_phewas_statistics(runtime, output_file, *, open_text_fn=None, l
     if result_blocks:
         log_fn("Writing factor phewas stats to %s" % output_file, info_level)
         with open_text_fn(output_file, 'w') as output_fh:
-            header = "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (
+            header_fields = [
                 "Factor",
                 "Label",
                 "Pheno",
                 "analysis",
                 "mode",
+                "model_name",
+                "factor_model_scope",
+                "outcome_surface",
                 "anchor_covariate",
                 "threshold_cutoff",
                 "se_type",
                 "beta",
                 "P",
                 "P_onesided",
-            )
-            header = "%s\t%s\t%s" % (header, "Z", "SE")
-            output_fh.write("%s\n" % header)
+                "Z",
+                "SE",
+            ]
+            output_fh.write("%s\n" % "\t".join(header_fields))
             for block in result_blocks:
                 coefficients = block["coefficients"]
                 p_values = block["p_values"]
@@ -640,24 +644,25 @@ def write_factor_phewas_statistics(runtime, output_file, *, open_text_fn=None, l
                 for f in range(len(runtime.factor_labels)):
                     ordered = sorted(range(len(phenos)), key=lambda k: p_values[f, k])
                     for i in ordered:
-                        output_fh.write(
-                            "%s\t%s\t%s\t%s\t%s\t%s\t%.3g\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n"
-                            % (
-                                "Factor%d" % (f + 1),
-                                runtime.factor_labels[f],
-                                phenos[i],
-                                block["analysis"],
-                                block["mode"],
-                                block["anchor_covariate"],
-                                block["threshold_cutoff"],
-                                block["se_type"],
-                                coefficients[f, i],
-                                p_values[f, i],
-                                one_sided_p_values[f, i],
-                                z_scores[f, i],
-                                ses[f, i],
-                            )
-                        )
+                        fields = [
+                            "Factor%d" % (f + 1),
+                            runtime.factor_labels[f],
+                            phenos[i],
+                            block["analysis"],
+                            block["mode"],
+                            block.get("model_name", block["mode"]),
+                            block.get("factor_model_scope", "unknown"),
+                            block.get("outcome_surface", "unknown"),
+                            block["anchor_covariate"],
+                            "%.3g" % block["threshold_cutoff"],
+                            block["se_type"],
+                            "%.3g" % coefficients[f, i],
+                            "%.3g" % p_values[f, i],
+                            "%.3g" % one_sided_p_values[f, i],
+                            "%.3g" % z_scores[f, i],
+                            "%.3g" % ses[f, i],
+                        ]
+                        output_fh.write("%s\n" % "\t".join(fields))
         return
 
     if runtime.factor_phewas_Y_betas is None and runtime.factor_phewas_combined_prior_Ys_betas is None and runtime.factor_phewas_Y_huber_betas is None and runtime.factor_phewas_combined_prior_Ys_huber_betas is None:

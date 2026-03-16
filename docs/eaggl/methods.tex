@@ -328,6 +328,8 @@ The binary thresholded model is the default because it is defensible under spars
 
 An expert may instead fit: (i) a marginal binary model without an anchor covariate; (ii) a joint all-factor binary model with direct anchor adjustment; or (iii) legacy continuous direct/combined regressions. Using combined anchor support as the covariate is also an expert-only approximation, because then both the outcome and the covariate inherit related gene-set-mediated structure.
 
+When multiple factor-specific enrichment models are requested in one run, EAGGL appends them into a single output table and tags each row with the model name, factor-model scope, outcome surface, and anchor-adjustment setting so that marginal, joint, and legacy analyses are not conflated downstream.
+
 \subsection{Relationship between phenotype capture and factor-specific enrichment}
 
 The two phenotype summaries serve complementary roles:

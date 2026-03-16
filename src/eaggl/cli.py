@@ -186,6 +186,7 @@ parser.add_option("","--run-phewas-from-gene-phewas-stats-in",default=None) #spe
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a factor phewas against
 parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
+parser.add_option("","--factor-phewas-modes",type="string",action="callback",callback=get_comma_separated_args,default=None) #comma-separated expert override to run multiple factor-phewas model surfaces in one pass
 parser.add_option("","--factor-phewas-anchor-covariate",default="direct",type=str) #anchor covariate for binary factor-phewas modes: direct, combined, or none
 parser.add_option("","--factor-phewas-thresholded-combined-cutoff",type=float,default=1.0) #combined-support cutoff used to define thresholded phenotype hits
 parser.add_option("","--factor-phewas-se",default="robust",type=str) #uncertainty mode for the binary factor-phewas path: robust or none
@@ -412,6 +413,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--consensus-stats-out": "write per-run and per-factor diagnostics for restart or consensus factorization",
     "--factor-phewas-from-gene-phewas-stats-in": "run factor-level phewas from precomputed gene-phewas statistics",
     "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
+    "--factor-phewas-modes": "expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table",
     "--factor-phewas-anchor-covariate": "choose the anchor covariate for binary factor-phewas modes: direct, combined, or none",
     "--factor-phewas-thresholded-combined-cutoff": "set the combined-support cutoff used to define thresholded phenotype hits for binary factor-phewas",
     "--factor-phewas-se": "choose the uncertainty estimator for binary factor-phewas: robust or none",
@@ -487,6 +489,7 @@ _EXPERT_METHOD_FLAGS = {
     "--factor-phewas-full-output",
     "--factor-phewas-min-gene-factor-weight",
     "--factor-phewas-mode",
+    "--factor-phewas-modes",
     "--factor-phewas-se",
     "--factor-phewas-thresholded-combined-cutoff",
     "--factor-runs",
@@ -1148,18 +1151,27 @@ def _bootstrap_cli(argv=None):
         bail("--pheno-capture-input must be one of: weighted_thresholded, binary_thresholded")
     if parsed_options.factor_runs < 1:
         bail("--factor-runs must be at least 1")
-    if parsed_options.factor_phewas_mode not in set([
+    allowed_factor_phewas_modes = set([
         "marginal_anchor_adjusted_binary",
         "marginal_unconditional_binary",
         "joint_anchor_adjusted_binary",
         "legacy_continuous_direct",
         "legacy_continuous_combined",
-    ]):
+    ])
+    if parsed_options.factor_phewas_mode not in allowed_factor_phewas_modes:
         bail(
             "--factor-phewas-mode must be one of: marginal_anchor_adjusted_binary, "
             "marginal_unconditional_binary, joint_anchor_adjusted_binary, "
             "legacy_continuous_direct, legacy_continuous_combined"
         )
+    if isinstance(parsed_options.factor_phewas_modes, str):
+        parsed_options.factor_phewas_modes = [x.strip() for x in parsed_options.factor_phewas_modes.split(",") if x.strip()]
+    if parsed_options.factor_phewas_modes is not None:
+        invalid_factor_phewas_modes = [x for x in parsed_options.factor_phewas_modes if x not in allowed_factor_phewas_modes]
+        if invalid_factor_phewas_modes:
+            bail(
+                "--factor-phewas-modes contains invalid values: %s" % ", ".join(invalid_factor_phewas_modes)
+            )
     if parsed_options.factor_phewas_anchor_covariate not in set(["direct", "combined", "none"]):
         bail("--factor-phewas-anchor-covariate must be one of: direct, combined, none")
     if parsed_options.factor_phewas_thresholded_combined_cutoff < 0:
