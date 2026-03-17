@@ -5,6 +5,38 @@ PIGEAN is the package-owned runtime for gene-set enrichment from GWAS, exomes, p
 - `PYTHONPATH=src python -m pigean`
 - `PYTHONPATH=src python -m eaggl`
 
+## Overview
+
+PIGEAN is the trait-to-gene and trait-to-gene-set inference layer.
+- At a high level, it combines direct human-genetic evidence with indirect support from shared gene annotations or gene sets.
+- Its main outputs are:
+  - gene-level support scores
+  - gene-set regression effects
+  - optional downstream phenotype-resolved summaries
+- The mathematical writeup is in:
+  - `docs/methods.tex`
+
+EAGGL is the latent-mechanism layer that follows PIGEAN.
+- At a high level, it factorizes the weighted gene-by-annotation structure into a smaller number of latent mechanisms.
+- It then annotates those factors with genes, gene sets, and optionally phenotype capture or factor-level phenotype enrichment.
+- The mathematical writeup is in:
+  - `docs/eaggl/methods.tex`
+
+## Where To Begin
+
+If you want to run the code:
+- Start with `docs/PIGEAN_CLI_REFERENCE.md` for PIGEAN or `docs/eaggl/CLI_REFERENCE.md` for EAGGL.
+- Then use the minimal setup and example commands in `README.md` below.
+
+If you want to follow the paper or understand the scientific method:
+- Read `docs/methods.tex` for PIGEAN and `docs/eaggl/methods.tex` for EAGGL.
+- Then use `docs/pigean/METHODS_TO_CODE.md` to map methods-level concepts onto the owning modules.
+
+If you want to modify the implementation:
+- Start with the architecture summary in this `README.md`.
+- Then read `docs/pigean/README.md`, `docs/eaggl/README.md`, and `docs/CANONICAL_SOURCE.md`.
+- Use `docs/pigean/METHODS_TO_CODE.md` when you need to connect a methods section to the current code owner.
+
 The current code layout is:
 - `src/`: active PIGEAN and EAGGL implementation
 - `legacy/`: frozen historical scripts
