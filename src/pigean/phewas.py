@@ -25,7 +25,7 @@ def run_advanced_set_b_phewas_beta_sampling_if_requested(services, state, option
 
 
 def run_advanced_set_b_output_phewas_if_requested(services, state, options):
-    if not options.run_phewas_from_gene_phewas_stats_in:
+    if not options.run_phewas:
         return
     if options.gene_phewas_bfs_prior_col is not None:
         services.log(
@@ -33,7 +33,7 @@ def run_advanced_set_b_output_phewas_if_requested(services, state, options):
             services.INFO,
         )
     decision = pigean_main_support.resolve_gene_phewas_input_decision_for_stage(
-        requested_input=options.run_phewas_from_gene_phewas_stats_in,
+        requested_input=options.run_phewas_input,
         reusable_inputs=[options.gene_phewas_bfs_in],
         read_gene_phewas=state.read_gene_phewas(),
         num_gene_phewas_filtered=state.num_gene_phewas_filtered,

@@ -266,7 +266,8 @@ parser.add_option("","--betas-uncorrected-from-phewas",action="store_true",defau
 
 
 #run a phewas against the gene scores
-parser.add_option("","--run-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a phewas against. This is distinct from --factor-phewas-from-gene-phewas-stats-in because it does not do a phewas per any factors; it does a phewas across all of the genes
+parser.add_option("","--run-phewas",action="store_true",default=False) #run the optional gene-level phewas output stage
+parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_legacy_input",default=None) #compatibility alias: implies --run-phewas and sets the stage-specific gene phewas input
 parser.add_option("","--phewas-comparison-set",default="matched") #matched keeps only direct-vs-direct and combined-vs-combined; diagnostic adds cross-family contrasts
 
 #limit gene sets printed
@@ -405,7 +406,7 @@ parser.add_option("","--experimental-hyper-mutation",action="store_true",default
 parser.add_option("","--experimental-increase-hyper-if-betas-below",type=float,default=None) #experimental no-signal threshold for Gibbs hyper mutation/restart heuristic
 parser.add_option("","--increase-hyper-if-betas-below",type=float,default=None) #legacy alias for --experimental-increase-hyper-if-betas-below
 
-# Gene-level phewas statistics input (used by --run-phewas-from-gene-phewas-stats-in).
+# Gene-level phewas statistics input (used by --run-phewas and advanced Set B reuse paths).
 parser.add_option("","--gene-phewas-bfs-in",default=None)
 parser.add_option("","--gene-phewas-stats-in",dest="gene_phewas_bfs_in",default=None)
 parser.add_option("","--gene-phewas-bfs-id-col",default=None)
@@ -557,7 +558,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--sim-only-positive": "simulation-only: constrain synthetic effects to positive values",
     "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
     "--betas-uncorrected-from-phewas": "compute uncorrected beta path from gene-phewas statistics",
-    "--run-phewas-from-gene-phewas-stats-in": "run gene-level phewas output stage from precomputed gene-phewas stats",
+    "--run-phewas": "run the optional gene-level phewas output stage",
+    "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
     "--phewas-comparison-set": "choose gene-level phewas output surface: matched or diagnostic",
     "--phewas-stats-out": "write optional advanced gene-level phewas output table",
     "--gene-phewas-bfs-in": "input gene-phewas BFS table for advanced phewas workflows",
@@ -682,7 +684,7 @@ _SET_B_METHOD_FLAGS = {
     "--phewas-comparison-set",
     "--no-cross-val",
     "--phewas-stats-out",
-    "--run-phewas-from-gene-phewas-stats-in",
+    "--run-phewas",
     "--sim-log-bf-noise-sigma-mult",
     "--sim-only-positive",
 }
@@ -749,6 +751,12 @@ _EXPERIMENTAL_FLAGS = {
 }
 
 _COMPAT_ALIAS_FLAGS = {
+    "--gene-phewas-bfs-combined-col",
+    "--gene-phewas-bfs-id-col",
+    "--gene-phewas-bfs-in",
+    "--gene-phewas-bfs-log-bf-col",
+    "--gene-phewas-bfs-pheno-col",
+    "--gene-phewas-bfs-prior-col",
     "--increase-hyper-if-betas-below",
     "--positive-controls-all-id-col",
     "--positive-controls-all-in",
@@ -759,6 +767,17 @@ _COMPAT_ALIAS_FLAGS = {
     "--positive-controls-list",
     "--positive-controls-no-header",
     "--positive-controls-prob-col",
+    "--run-phewas-from-gene-phewas-stats-in",
+}
+
+_HIDDEN_COMPAT_ALIAS_FLAGS = {
+    "--gene-phewas-bfs-combined-col",
+    "--gene-phewas-bfs-id-col",
+    "--gene-phewas-bfs-in",
+    "--gene-phewas-bfs-log-bf-col",
+    "--gene-phewas-bfs-pheno-col",
+    "--gene-phewas-bfs-prior-col",
+    "--run-phewas-from-gene-phewas-stats-in",
 }
 
 _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
@@ -840,9 +859,14 @@ def _build_cli_manifest_metadata():
             _semantic = False
         elif _primary_flag in _COMPAT_ALIAS_FLAGS:
             _category = "compat_alias"
-            _visibility = "expert"
-            _doc_target = "expert_help"
-            _help_group = "expert"
+            if _primary_flag in _HIDDEN_COMPAT_ALIAS_FLAGS:
+                _visibility = "hidden"
+                _doc_target = "internal_only"
+                _help_group = "expert"
+            else:
+                _visibility = "expert"
+                _doc_target = "expert_help"
+                _help_group = "expert"
             _semantic = False
         elif _primary_flag in _EXPERIMENTAL_FLAGS:
             _category = "experimental"
@@ -1183,7 +1207,7 @@ def _set_default_option(_options, _name, _value):
         setattr(_options, _name, _value)
 
 
-def _build_mode_state(_mode, _run_phewas_from_gene_phewas_stats_in):
+def _build_mode_state(_mode, _run_phewas):
     mode_state = {
         "run_huge": False,
         "run_beta_tilde": False,
@@ -1199,9 +1223,26 @@ def _build_mode_state(_mode, _run_phewas_from_gene_phewas_stats_in):
         bail("Unrecognized mode %s" % _mode)
     for state_key in state_keys:
         mode_state[state_key] = True
-    if _run_phewas_from_gene_phewas_stats_in is not None:
+    if _run_phewas:
         mode_state["run_phewas"] = True
     return mode_state
+
+
+def _normalize_phewas_stage_options(_options, warn_fn):
+    legacy_input = getattr(_options, "run_phewas_legacy_input", None)
+    _options.run_phewas_input = None
+    if legacy_input is not None:
+        warn_fn(
+            "Treating compatibility alias --run-phewas-from-gene-phewas-stats-in as "
+            "--run-phewas plus --gene-phewas-stats-in"
+        )
+        _options.run_phewas = True
+        if _options.gene_phewas_bfs_in is None:
+            _options.gene_phewas_bfs_in = legacy_input
+        _options.run_phewas_input = legacy_input
+        return
+    if _options.run_phewas:
+        _options.run_phewas_input = _options.gene_phewas_bfs_in
 
 
 
@@ -1309,47 +1350,49 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
                 bail("Option %s requires --gene-set-stats-in" % flag)
 
     # Optional PheWAS output path should never run silently with no output sink.
-    if _options.run_phewas_from_gene_phewas_stats_in is not None and _options.phewas_stats_out is None:
-        bail("Option --run-phewas-from-gene-phewas-stats-in requires --phewas-stats-out")
+    if _options.run_phewas and _options.phewas_stats_out is None:
+        bail("Option --run-phewas requires --phewas-stats-out")
     if _options.phewas_comparison_set not in {"matched", "diagnostic"}:
         bail("Option --phewas-comparison-set must be one of: matched, diagnostic")
     if (
-        _options.run_phewas_from_gene_phewas_stats_in is None
+        not _options.run_phewas
         and _is_advanced_option_explicit("phewas_comparison_set", _cli_dests, _config_dests)
     ):
-        bail("Option --phewas-comparison-set requires --run-phewas-from-gene-phewas-stats-in")
+        bail("Option --phewas-comparison-set requires --run-phewas")
+    if _options.run_phewas and _options.run_phewas_input is None:
+        bail("Option --run-phewas requires --gene-phewas-stats-in")
 
     has_phewas_consumer = (
         _options.betas_uncorrected_from_phewas
         or _options.betas_from_phewas
-        or _options.run_phewas_from_gene_phewas_stats_in is not None
+        or _options.run_phewas
     )
     if _options.gene_phewas_bfs_in is not None and not has_phewas_consumer:
         bail(
-            "Option --gene-phewas-bfs-in requires either --betas-uncorrected-from-phewas "
-            "(or --betas-from-phewas) or --run-phewas-from-gene-phewas-stats-in"
+            "Option --gene-phewas-stats-in requires either --betas-uncorrected-from-phewas "
+            "(or --betas-from-phewas) or --run-phewas"
         )
 
     gene_phewas_mapping_flags = (
-        ("gene_phewas_bfs_id_col", "--gene-phewas-bfs-id-col"),
-        ("gene_phewas_bfs_pheno_col", "--gene-phewas-bfs-pheno-col"),
-        ("gene_phewas_bfs_log_bf_col", "--gene-phewas-bfs-log-bf-col"),
-        ("gene_phewas_bfs_combined_col", "--gene-phewas-bfs-combined-col"),
-        ("gene_phewas_bfs_prior_col", "--gene-phewas-bfs-prior-col"),
+        ("gene_phewas_bfs_id_col", "--gene-phewas-stats-id-col"),
+        ("gene_phewas_bfs_pheno_col", "--gene-phewas-stats-pheno-col"),
+        ("gene_phewas_bfs_log_bf_col", "--gene-phewas-stats-log-bf-col"),
+        ("gene_phewas_bfs_combined_col", "--gene-phewas-stats-combined-col"),
+        ("gene_phewas_bfs_prior_col", "--gene-phewas-stats-prior-col"),
         ("gene_phewas_id_to_X_id", "--gene-phewas-id-to-X-id"),
         ("min_gene_phewas_read_value", "--min-gene-phewas-read-value"),
     )
     if (
         _options.gene_phewas_bfs_in is None
-        and _options.run_phewas_from_gene_phewas_stats_in is None
+        and not _options.run_phewas
         and not _options.betas_uncorrected_from_phewas
         and not _options.betas_from_phewas
     ):
         for dest, flag in gene_phewas_mapping_flags:
             if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
                 bail(
-                    "Option %s requires --gene-phewas-bfs-in or "
-                    "--run-phewas-from-gene-phewas-stats-in" % flag
+                    "Option %s requires --gene-phewas-stats-in or "
+                    "--run-phewas" % flag
                 )
 
     multi_y_schema_flags = (
@@ -1384,10 +1427,11 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
             (_options.positive_controls_in, "--gene-list-in"),
             (_options.positive_controls_list, "--gene-list"),
             (_options.gene_phewas_bfs_in, "--gene-phewas-bfs-in"),
-            (_options.run_phewas_from_gene_phewas_stats_in, "--run-phewas-from-gene-phewas-stats-in"),
         ):
             if value is not None:
                 conflicting_inputs.append(flag)
+        if _options.run_phewas:
+            conflicting_inputs.append("--run-phewas")
         if _options.betas_from_phewas:
             conflicting_inputs.append("--betas-from-phewas")
         if _options.betas_uncorrected_from_phewas:
@@ -1637,6 +1681,7 @@ def _bootstrap_cli(argv=None):
     if parsed_options.betas_from_phewas:
         _early_warn("Enabling --betas-uncorrected-from-phewas because --betas-from-phewas was passed")
         parsed_options.betas_uncorrected_from_phewas = True
+    _normalize_phewas_stage_options(parsed_options, _early_warn)
 
     _validate_advanced_option_dispatch(
         parsed_options,

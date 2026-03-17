@@ -239,8 +239,8 @@ def build_cli_services() -> PigeanMainServices:
     )
 
 
-def build_mode_state(mode, run_phewas_from_gene_phewas_stats_in):
-    return pigean_cli._build_mode_state(mode, run_phewas_from_gene_phewas_stats_in)
+def build_mode_state(mode, run_phewas):
+    return pigean_cli._build_mode_state(mode, run_phewas)
 
 
 def build_runtime_state(options):

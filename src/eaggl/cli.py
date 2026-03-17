@@ -186,10 +186,12 @@ parser.add_option("","--betas-uncorrected-from-phewas",action="store_true",defau
 parser.add_option("","--gene-pheno-stats-out",default=None)
 
 #run a phewas against the gene scores
-parser.add_option("","--run-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a phewas against. This is distinct from --factor-phewas-from-gene-phewas-stats-in because it does not do a phewas per any factors; it does a phewas across all of the genes
+parser.add_option("","--run-phewas",action="store_true",default=False) #run the optional gene-level phewas output stage
+parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_legacy_input",default=None) #compatibility alias: implies --run-phewas and sets the stage-specific gene phewas input
 
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
-parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",default=None) #specify the gene phewas stats to run a factor phewas against
+parser.add_option("","--run-factor-phewas",action="store_true",default=False) #run the optional factor-level phewas stage
+parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",dest="factor_phewas_legacy_input",default=None) #compatibility alias: implies --run-factor-phewas and sets the stage-specific gene phewas input
 parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
 parser.add_option("","--factor-phewas-modes",type="string",action="callback",callback=get_comma_separated_args,default=None) #comma-separated expert override to run multiple factor-phewas model surfaces in one pass
 parser.add_option("","--factor-phewas-anchor-covariate",default="direct",type=str) #anchor covariate for binary factor-phewas modes: direct, combined, or none
@@ -416,7 +418,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--consensus-min-run-support": "minimum restart support fraction required to keep a consensus factor",
     "--consensus-nmf": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
     "--consensus-stats-out": "write per-run and per-factor diagnostics for restart or consensus factorization",
-    "--factor-phewas-from-gene-phewas-stats-in": "run factor-level phewas from precomputed gene-phewas statistics",
+    "--run-factor-phewas": "run the optional factor-level phewas stage",
+    "--factor-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in",
     "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
     "--factor-phewas-modes": "expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table",
     "--factor-phewas-anchor-covariate": "choose the anchor covariate for binary factor-phewas modes: direct, combined, or none",
@@ -458,7 +461,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--project-phenos-from-gene-sets": "project phenotype loadings from gene-set scores instead of gene scores",
     "--pheno-capture-input": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
-    "--run-phewas-from-gene-phewas-stats-in": "run gene-level phewas output stage from precomputed gene-phewas statistics",
+    "--run-phewas": "run the optional gene-level phewas output stage",
+    "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
     "--seed": "set explicit random seed for deterministic reproducibility checks",
     "--warnings-file": "write warning messages to this file",
 }
@@ -497,9 +501,10 @@ _EXPERT_METHOD_FLAGS = {
     "--consensus-min-factor-cosine",
     "--consensus-min-run-support",
     "--consensus-nmf",
-    "--factor-phewas-from-gene-phewas-stats-in",
+    "--run-factor-phewas",
     "--factor-phewas-anchor-covariate",
     "--factor-phewas-full-output",
+    "--factor-phewas-from-gene-phewas-stats-in",
     "--factor-phewas-min-gene-factor-weight",
     "--factor-phewas-mode",
     "--factor-phewas-modes",
@@ -551,7 +556,7 @@ _EXPERT_METHOD_FLAGS = {
     "--phi",
     "--pheno-capture-input",
     "--project-phenos-from-gene-sets",
-    "--run-phewas-from-gene-phewas-stats-in",
+    "--run-phewas",
 }
 
 _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
@@ -625,9 +630,28 @@ _CORE_VISIBLE_METHOD_FLAGS = {
 }
 
 _COMPAT_ALIAS_FLAGS = {
+    "--factor-phewas-from-gene-phewas-stats-in",
+    "--gene-phewas-bfs-combined-col",
+    "--gene-phewas-bfs-id-col",
+    "--gene-phewas-bfs-in",
+    "--gene-phewas-bfs-log-bf-col",
+    "--gene-phewas-bfs-pheno-col",
+    "--gene-phewas-bfs-prior-col",
     "--positive-controls-all-in",
     "--positive-controls-in",
     "--positive-controls-list",
+    "--run-phewas-from-gene-phewas-stats-in",
+}
+
+_HIDDEN_COMPAT_ALIAS_FLAGS = {
+    "--factor-phewas-from-gene-phewas-stats-in",
+    "--gene-phewas-bfs-combined-col",
+    "--gene-phewas-bfs-id-col",
+    "--gene-phewas-bfs-in",
+    "--gene-phewas-bfs-log-bf-col",
+    "--gene-phewas-bfs-pheno-col",
+    "--gene-phewas-bfs-prior-col",
+    "--run-phewas-from-gene-phewas-stats-in",
 }
 
 _DEBUG_ONLY_FLAGS = {
@@ -703,9 +727,14 @@ def _build_cli_manifest_metadata():
             _semantic = False
         elif _primary_flag in _COMPAT_ALIAS_FLAGS:
             _category = "compat_alias"
-            _visibility = "expert"
-            _doc_target = "expert_help"
-            _help_group = "expert"
+            if _primary_flag in _HIDDEN_COMPAT_ALIAS_FLAGS:
+                _visibility = "hidden"
+                _doc_target = "internal_only"
+                _help_group = "expert"
+            else:
+                _visibility = "expert"
+                _doc_target = "expert_help"
+                _help_group = "expert"
         elif _is_output_path_flag(_primary_flag):
             _category = "engineering"
             _semantic = False
@@ -797,7 +826,8 @@ def _apply_cli_help_layout(_parser, show_expert=False):
         "  python -m eaggl factor --eaggl-bundle-in /path/to/bundle.tar.gz --factors-out factors.tsv\n\n"
         "Projection quickstart:\n"
         "  python -m eaggl factor --eaggl-bundle-in /path/to/bundle.tar.gz "
-        "--gene-phewas-stats-in /path/to/gene_phewas.tsv --factor-phewas-stats-out factor_phewas.tsv\n\n"
+        "--gene-phewas-stats-in /path/to/gene_phewas.tsv --run-factor-phewas "
+        "--factor-phewas-stats-out factor_phewas.tsv\n\n"
         "Optional labeling remains part of the factor command; there is no separate label mode.\n\n"
         "Use --help-expert to show projection workflows, optional labeling, "
         "expert tuning, and debug flags."
@@ -890,6 +920,37 @@ def _warn_for_direct_gmt_passed_to_x_list(options, warn_fn):
                 "Direct GMT path passed to --X-list (%s); treating it as a sparse X input for compatibility. "
                 "Use --X-in for direct .gmt files." % raw_spec
             )
+
+
+def _normalize_optional_phewas_stage_options(options, warn_fn):
+    options.run_phewas_input = None
+    options.run_factor_phewas_input = None
+
+    legacy_run_phewas_input = getattr(options, "run_phewas_legacy_input", None)
+    if legacy_run_phewas_input is not None:
+        warn_fn(
+            "Treating compatibility alias --run-phewas-from-gene-phewas-stats-in as "
+            "--run-phewas plus --gene-phewas-stats-in"
+        )
+        options.run_phewas = True
+        if options.gene_phewas_bfs_in is None:
+            options.gene_phewas_bfs_in = legacy_run_phewas_input
+        options.run_phewas_input = legacy_run_phewas_input
+    elif options.run_phewas:
+        options.run_phewas_input = options.gene_phewas_bfs_in
+
+    legacy_factor_phewas_input = getattr(options, "factor_phewas_legacy_input", None)
+    if legacy_factor_phewas_input is not None:
+        warn_fn(
+            "Treating compatibility alias --factor-phewas-from-gene-phewas-stats-in as "
+            "--run-factor-phewas plus --gene-phewas-stats-in"
+        )
+        options.run_factor_phewas = True
+        if options.gene_phewas_bfs_in is None:
+            options.gene_phewas_bfs_in = legacy_factor_phewas_input
+        options.run_factor_phewas_input = legacy_factor_phewas_input
+    elif options.run_factor_phewas:
+        options.run_factor_phewas_input = options.gene_phewas_bfs_in
 
 _json_safe = pegs_json_safe
 
@@ -1178,6 +1239,8 @@ def _bootstrap_cli(argv=None):
             applied_text = ", ".join(["%s=%s" % (k, applied[k]) for k in sorted(applied.keys())])
             log("Loaded --eaggl-bundle-in bundle %s and applied defaults: %s" % (parsed_options.eaggl_bundle_in, applied_text), INFO)
 
+    _normalize_optional_phewas_stage_options(parsed_options, warn)
+
     pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
     parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
     if parsed_options.pheno_capture_input not in set(["weighted_thresholded", "binary_thresholded"]):
@@ -1211,6 +1274,14 @@ def _bootstrap_cli(argv=None):
         bail("--factor-phewas-thresholded-combined-cutoff must be >= 0")
     if parsed_options.factor_phewas_se not in set(["robust", "none"]):
         bail("--factor-phewas-se must be one of: robust, none")
+    if parsed_options.run_phewas and parsed_options.run_phewas_input is None:
+        bail("--run-phewas requires --gene-phewas-stats-in")
+    if parsed_options.run_phewas and parsed_options.phewas_stats_out is None:
+        bail("--run-phewas requires --phewas-stats-out")
+    if parsed_options.run_factor_phewas and parsed_options.run_factor_phewas_input is None:
+        bail("--run-factor-phewas requires --gene-phewas-stats-in")
+    if parsed_options.run_factor_phewas and parsed_options.factor_phewas_stats_out is None:
+        bail("--run-factor-phewas requires --factor-phewas-stats-out")
     if parsed_options.consensus_aggregation not in set(["median", "mean"]):
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < parsed_options.consensus_min_factor_cosine <= 1):
@@ -1272,7 +1343,7 @@ def _bootstrap_cli(argv=None):
     else:
         bail("Unrecognized mode %s" % parsed_mode)
 
-    if parsed_options.run_phewas_from_gene_phewas_stats_in is not None:
+    if parsed_options.run_phewas:
         parsed_run_phewas = True
 
     parsed_options.correct_betas_mean = parsed_options.correct_betas_mean if parsed_options.correct_betas_mean is not None else True

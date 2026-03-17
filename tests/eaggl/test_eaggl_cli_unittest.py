@@ -98,11 +98,14 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Projection quickstart:", proc.stdout)
         self.assertIn("--gene-set-phewas-stats-in", proc.stdout)
+        self.assertIn("--run-phewas", proc.stdout)
+        self.assertIn("--run-factor-phewas", proc.stdout)
         self.assertIn("--factor-phewas-mode", proc.stdout)
         self.assertIn("--pheno-capture-input", proc.stdout)
         self.assertIn("--factor-phewas-full-output", proc.stdout)
         self.assertIn("--lmm-provider", proc.stdout)
-        self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
+        self.assertNotIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
+        self.assertNotIn("--factor-phewas-from-gene-phewas-stats-in", proc.stdout)
 
     def test_cli_manifest_tiers_cover_recent_factor_and_gene_list_flags(self) -> None:
         eaggl_cli = importlib.import_module("eaggl.cli")
@@ -119,6 +122,14 @@ class EagglCliTest(unittest.TestCase):
 
         self.assertEqual(metadata["--positive-controls-list"]["category"], "compat_alias")
         self.assertEqual(metadata["--positive-controls-list"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--run-phewas"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--run-phewas"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--run-factor-phewas"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--run-factor-phewas"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--run-phewas-from-gene-phewas-stats-in"]["category"], "compat_alias")
+        self.assertEqual(metadata["--run-phewas-from-gene-phewas-stats-in"]["public_visibility"], "hidden")
+        self.assertEqual(metadata["--factor-phewas-from-gene-phewas-stats-in"]["category"], "compat_alias")
+        self.assertEqual(metadata["--factor-phewas-from-gene-phewas-stats-in"]["public_visibility"], "hidden")
 
         self.assertEqual(metadata["--factor-runs"]["public_visibility"], "normal")
         self.assertEqual(metadata["--consensus-nmf"]["public_visibility"], "normal")
@@ -183,6 +194,58 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--factor-phewas-modes contains invalid values", err)
         self.assertNotIn("Traceback", err)
+
+    def test_run_phewas_requires_input_and_output(self) -> None:
+        proc = self._run("factor", "--run-phewas", "--phewas-stats-out", "phewas.tsv")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--run-phewas requires --gene-phewas-stats-in", err)
+
+        proc = self._run("factor", "--run-phewas", "--gene-phewas-stats-in", "gene_phewas.tsv")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--run-phewas requires --phewas-stats-out", err)
+
+    def test_run_factor_phewas_requires_input_and_output(self) -> None:
+        proc = self._run("factor", "--run-factor-phewas", "--factor-phewas-stats-out", "factor_phewas.tsv")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--run-factor-phewas requires --gene-phewas-stats-in", err)
+
+        proc = self._run("factor", "--run-factor-phewas", "--gene-phewas-stats-in", "gene_phewas.tsv")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--run-factor-phewas requires --factor-phewas-stats-out", err)
+
+    def test_legacy_run_phewas_alias_normalizes_to_run_flag(self) -> None:
+        proc = self._run(
+            "factor",
+            "--run-phewas-from-gene-phewas-stats-in",
+            "gene_phewas.tsv",
+            "--phewas-stats-out",
+            "phewas.tsv",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["run_phewas"])
+        self.assertEqual(payload["options"]["gene_phewas_bfs_in"], "gene_phewas.tsv")
+        self.assertEqual(payload["options"]["run_phewas_input"], "gene_phewas.tsv")
+
+    def test_legacy_factor_phewas_alias_normalizes_to_run_flag(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-phewas-from-gene-phewas-stats-in",
+            "gene_phewas.tsv",
+            "--factor-phewas-stats-out",
+            "factor_phewas.tsv",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["run_factor_phewas"])
+        self.assertEqual(payload["options"]["gene_phewas_bfs_in"], "gene_phewas.tsv")
+        self.assertEqual(payload["options"]["run_factor_phewas_input"], "gene_phewas.tsv")
 
     def test_removed_anchor_gene_alias_has_replacement_message(self) -> None:
         proc = self._run("factor", "--anchor-gene", "INS")
@@ -339,8 +402,11 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
                 "F9",
                 [
                     "--anchor-gene-set",
-                    "--run-phewas-from-gene-phewas-stats-in",
+                    "--run-phewas",
+                    "--gene-phewas-stats-in",
                     "dummy_gene_phewas.tsv",
+                    "--phewas-stats-out",
+                    "dummy_phewas.tsv",
                 ],
             ),
         ]

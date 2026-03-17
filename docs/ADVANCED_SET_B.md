@@ -60,19 +60,20 @@ Primary outputs:
 Notes:
 - Use `--deterministic` (or fixed `--seed`) for cache-vs-raw parity checks.
 
-## 4) Optional gene-level PheWAS output (`--run-phewas-from-gene-phewas-stats-in`)
+## 4) Optional gene-level PheWAS output (`--run-phewas`)
 
 Purpose: Produce gene-level PheWAS summary output from precomputed gene-by-phenotype statistics.
 
 Required inputs:
 - Main mode run that computes input features (commonly `beta_tildes` or later modes)
-- `--run-phewas-from-gene-phewas-stats-in <file>`
+- `--run-phewas`
+- `--gene-phewas-stats-in <file>`
 - optional: `--phewas-comparison-set matched|diagnostic`
 - Column mappings:
-  - `--gene-phewas-bfs-id-col`
-  - `--gene-phewas-bfs-pheno-col`
-  - `--gene-phewas-bfs-log-bf-col` for direct phenotype support
-  - `--gene-phewas-bfs-combined-col` for combined phenotype support
+  - `--gene-phewas-stats-id-col`
+  - `--gene-phewas-stats-pheno-col`
+  - `--gene-phewas-stats-log-bf-col` for direct phenotype support
+  - `--gene-phewas-stats-combined-col` for combined phenotype support
 - `--phewas-stats-out <file>`
 
 Primary outputs:
@@ -122,11 +123,11 @@ Purpose: Treat gene-by-phenotype statistics as the Y matrix and compute gene-set
 
 Required inputs:
 - Main mode on the beta path (`beta_tildes`, `betas`, or later stages that consume beta calculations)
-- `--gene-phewas-bfs-in <file>` or alias `--gene-phewas-stats-in <file>`
+- `--gene-phewas-stats-in <file>`
 - Column mappings:
-  - `--gene-phewas-bfs-id-col`
-  - `--gene-phewas-bfs-pheno-col`
-  - one or more of `--gene-phewas-bfs-log-bf-col`, `--gene-phewas-bfs-combined-col`, `--gene-phewas-bfs-prior-col`
+  - `--gene-phewas-stats-id-col`
+  - `--gene-phewas-stats-pheno-col`
+  - one or more of `--gene-phewas-stats-log-bf-col`, `--gene-phewas-stats-combined-col`, `--gene-phewas-stats-prior-col`
 - Optional gene-ID remapping:
   - `--gene-phewas-id-to-X-id`
 - Optional value threshold:
@@ -142,7 +143,11 @@ Chain semantics:
 - The runtime stores PheWAS-derived results per phenotype while keeping the full current gene-set axis, even when internal prefiltering skips some gene sets.
 
 Notes:
-- This is distinct from `--run-phewas-from-gene-phewas-stats-in`, which produces a gene-level PheWAS output table.
+- This is distinct from `--run-phewas`, which produces a gene-level PheWAS output table.
+- Compatibility alias:
+  - `--run-phewas-from-gene-phewas-stats-in <file>`
+  - behaves like `--run-phewas --gene-phewas-stats-in <file>`
+- Compatibility aliases also remain accepted for the older `--gene-phewas-bfs-*` selector family, but `--gene-phewas-stats-*` is the canonical documented surface.
 - This path is advanced and currently documented here rather than in the shorter human CLI reference.
 
 ## 6) Native multi-Y trait batching (`--multi-y-in`)

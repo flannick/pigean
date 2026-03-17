@@ -163,7 +163,7 @@ def build_main_mode_state(domain):
     return {
         "run_factor": domain.run_factor,
         "run_phewas": domain.run_phewas,
-        "run_factor_phewas": domain.options.factor_phewas_from_gene_phewas_stats_in is not None,
+        "run_factor_phewas": bool(domain.options.run_factor_phewas),
         "run_naive_factor": domain.run_naive_factor,
         "use_phewas_for_factoring": domain.use_phewas_for_factoring,
         "factor_gene_set_x_pheno": domain.factor_gene_set_x_pheno,
@@ -378,7 +378,7 @@ def run_main_phewas_stage(domain, runtime, options):
     decision = resolve_gene_phewas_stage_decision(
         domain,
         runtime,
-        options.run_phewas_from_gene_phewas_stats_in,
+        options.run_phewas_input,
         [options.gene_phewas_bfs_in],
     )
     domain.log("PheWAS stage 'phewas': mode=%s reason=%s" % (decision.mode, decision.reason), domain.INFO)
@@ -503,8 +503,8 @@ def run_main_factor_phewas_stage(domain, runtime, options):
     decision = resolve_gene_phewas_stage_decision(
         domain,
         runtime,
-        options.factor_phewas_from_gene_phewas_stats_in,
-        [options.gene_phewas_bfs_in, options.run_phewas_from_gene_phewas_stats_in],
+        options.run_factor_phewas_input,
+        [options.gene_phewas_bfs_in, options.run_phewas_input],
     )
     domain.log(
         "PheWAS stage 'factor_phewas': mode=%s reason=%s" % (decision.mode, decision.reason),

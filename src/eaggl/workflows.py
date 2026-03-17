@@ -59,7 +59,7 @@ FACTOR_WORKFLOW_STRATEGY_META = {
         "warn_ignored_y_inputs_mode": "anchor_genes",
     },
     "F9": {
-        "required_inputs": ["--run-phewas-from-gene-phewas-stats-in"],
+        "required_inputs": ["--run-phewas", "--gene-phewas-stats-in"],
         "factor_gene_set_x_pheno": True,
         "use_phewas_for_factoring": False,
         "expand_gene_sets": False,
@@ -78,8 +78,11 @@ def workflow_required_inputs_satisfied(workflow_id, options):
         elif flag == "--gene-phewas-stats-in":
             if options.gene_phewas_bfs_in is None:
                 missing_inputs.append(flag)
-        elif flag == "--run-phewas-from-gene-phewas-stats-in":
-            if options.run_phewas_from_gene_phewas_stats_in is None:
+        elif flag == "--run-phewas":
+            if not options.run_phewas:
+                missing_inputs.append(flag)
+        elif flag == "--gene-phewas-stats-in":
+            if options.run_phewas_input is None:
                 missing_inputs.append(flag)
     return missing_inputs
 
@@ -90,7 +93,7 @@ def build_factor_workflow_error(workflow_id, missing_inputs):
     if workflow_id in ("F4", "F5", "F6", "F7", "F8"):
         return "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
     if workflow_id == "F9":
-        return "Require --run-phewas-from-gene-phewas-stats"
+        return "Require --run-phewas and --gene-phewas-stats-in"
     return "Missing required inputs: %s" % ", ".join(missing_inputs)
 
 

@@ -354,6 +354,7 @@ print(json.dumps(mask.tolist()))
     def test_default_help_hides_expert_flags(self) -> None:
         proc = self._run("gibbs", "--help")
         self.assertEqual(proc.returncode, 0)
+        self.assertNotIn("--run-phewas", proc.stdout)
         self.assertNotIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
         self.assertNotIn("--huge-statistics-in", proc.stdout)
         self.assertIn("--gene-list", proc.stdout)
@@ -362,9 +363,10 @@ print(json.dumps(mask.tolist()))
     def test_help_expert_includes_set_b_flags(self) -> None:
         proc = self._run("gibbs", "--help-expert")
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
+        self.assertIn("--run-phewas", proc.stdout)
+        self.assertNotIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
         self.assertIn("--phewas-comparison-set", proc.stdout)
-        self.assertIn("run gene-level phewas output stage", proc.stdout)
+        self.assertIn("run the optional gene-level phewas output stage", proc.stdout)
         self.assertIn("--gene-stats-in", proc.stdout)
         self.assertIn("use precomputed gene-level statistics", proc.stdout)
         self.assertIn("--huge-statistics-in", proc.stdout)
@@ -384,6 +386,11 @@ print(json.dumps(mask.tolist()))
         self.assertEqual(metadata["--positive-controls-list"]["public_visibility"], "expert")
         self.assertEqual(metadata["--positive-controls-in"]["category"], "compat_alias")
         self.assertEqual(metadata["--positive-controls-all-in"]["category"], "compat_alias")
+        self.assertEqual(metadata["--run-phewas"]["category"], "method_optional")
+        self.assertEqual(metadata["--run-phewas"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--run-phewas"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--run-phewas-from-gene-phewas-stats-in"]["category"], "compat_alias")
+        self.assertEqual(metadata["--run-phewas-from-gene-phewas-stats-in"]["public_visibility"], "hidden")
 
         self.assertEqual(metadata["--phewas-comparison-set"]["category"], "method_optional")
         self.assertEqual(metadata["--phewas-comparison-set"]["public_visibility"], "expert")
@@ -414,7 +421,7 @@ print(json.dumps(mask.tolist()))
         self.assertIn("Option --eaggl-bundle-out must end with .tar, .tar.gz, or .tgz", err)
 
     def test_run_phewas_from_gene_phewas_stats_requires_output_path(self) -> None:
-        proc = self._run("beta_tildes", "--run-phewas-from-gene-phewas-stats-in", "x.tsv")
+        proc = self._run("beta_tildes", "--run-phewas", "--gene-phewas-stats-in", "x.tsv")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("requires --phewas-stats-out", err)
@@ -423,12 +430,13 @@ print(json.dumps(mask.tolist()))
         proc = self._run("beta_tildes", "--phewas-comparison-set", "diagnostic")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("requires --run-phewas-from-gene-phewas-stats-in", err)
+        self.assertIn("requires --run-phewas", err)
 
     def test_phewas_comparison_set_rejects_unknown_value(self) -> None:
         proc = self._run(
             "beta_tildes",
-            "--run-phewas-from-gene-phewas-stats-in",
+            "--run-phewas",
+            "--gene-phewas-stats-in",
             "x.tsv",
             "--phewas-stats-out",
             "out.tsv",
@@ -438,6 +446,27 @@ print(json.dumps(mask.tolist()))
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("must be one of: matched, diagnostic", err)
+
+    def test_run_phewas_requires_gene_phewas_input(self) -> None:
+        proc = self._run("beta_tildes", "--run-phewas", "--phewas-stats-out", "out.tsv")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("requires --gene-phewas-stats-in", err)
+
+    def test_legacy_run_phewas_alias_normalizes_to_run_flag(self) -> None:
+        proc = self._run(
+            "beta_tildes",
+            "--run-phewas-from-gene-phewas-stats-in",
+            "x.tsv",
+            "--phewas-stats-out",
+            "out.tsv",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["run_phewas"])
+        self.assertEqual(payload["options"]["gene_phewas_bfs_in"], "x.tsv")
+        self.assertEqual(payload["options"]["run_phewas_input"], "x.tsv")
 
     def test_gene_set_stats_column_option_requires_gene_set_stats_in(self) -> None:
         proc = self._run("gibbs", "--gene-set-stats-beta-col", "beta")
@@ -452,10 +481,10 @@ print(json.dumps(mask.tolist()))
         self.assertIn("Option --gene-stats-log-bf-col requires --gene-stats-in", err)
 
     def test_gene_phewas_input_requires_consumer_flag(self) -> None:
-        proc = self._run("gibbs", "--gene-phewas-bfs-in", "phewas.tsv")
+        proc = self._run("gibbs", "--gene-phewas-stats-in", "phewas.tsv")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("Option --gene-phewas-bfs-in requires either --betas-uncorrected-from-phewas", err)
+        self.assertIn("Option --gene-phewas-stats-in requires either --betas-uncorrected-from-phewas", err)
 
     def test_pops_mode_defaults_are_exposed_in_effective_config(self) -> None:
         proc = self._run("pops", "--deterministic", "--print-effective-config")

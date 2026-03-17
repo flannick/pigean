@@ -7,6 +7,7 @@ Use `docs/CLI_OPTIONS.md` for the exhaustive machine-generated parser inventory.
 Use `README.md` for the full repository documentation map.
 Use `docs/ADVANCED_SET_B.md` for retained advanced workflows such as HuGE cache I/O, precomputed stats ingestion, optional output PheWAS, PheWAS-as-Y beta sampling, and native multi-Y trait batching.
 For the gene-level PheWAS output stage specifically, the public default is now the matched comparison set; use `--phewas-comparison-set diagnostic` only when you explicitly want the cross-family diagnostics.
+Optional downstream analyses use explicit `--run-*` booleans with separate `--*-in` / `--*-out` flags. Older hybrid flags remain compatibility aliases but are not the canonical documented surface.
 
 Scope rules for this document:
 - only stable user-facing options are included here

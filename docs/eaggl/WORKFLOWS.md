@@ -65,7 +65,7 @@ Phenotype annotation policy:
 2. interpret `pheno_clusters.out` as capture of the thresholded high-confidence phenotype profile, not of a fully observed unthresholded phenotype surface
 3. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
 4. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended capture basis
-5. treat `--factor-phewas-from-gene-phewas-stats-in` as a secondary expert workflow
+5. treat `--run-factor-phewas` as a secondary expert workflow
 6. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`
 7. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
 8. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
@@ -251,8 +251,9 @@ $PYTHON -m eaggl factor \
 Required:
 
 1. `--anchor-gene-set`
-2. `--run-phewas-from-gene-phewas-stats-in`
-3. enough evidence input to compute gene/gene-set scores if not precomputed
+2. `--run-phewas`
+3. `--gene-phewas-stats-in`
+4. enough evidence input to compute gene/gene-set scores if not precomputed
 
 Command:
 
@@ -262,7 +263,8 @@ $PYTHON -m eaggl factor \
   --anchor-gene-set \
   --gene-stats-in /path/to/gene_stats.out \
   --gene-set-stats-in /path/to/gene_set_stats.out \
-  --run-phewas-from-gene-phewas-stats-in /path/to/gene_phewas_stats.out \
+  --run-phewas \
+  --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
   --factors-out results/F9.factors.out
 ```
 

@@ -5,14 +5,15 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `329`
+- Total options: `330`
 - `method_required`: `19`
-- `method_optional`: `180`
-- `engineering`: `110`
+- `method_optional`: `179`
+- `engineering`: `105`
 - `experimental`: `2`
-- `compat_alias`: `10`
+- `compat_alias`: `17`
 - `debug_only`: `8`
-- visibility `expert`: `301`
+- visibility `expert`: `295`
+- visibility `hidden`: `7`
 - visibility `normal`: `28`
 
 ## Method Required
@@ -96,7 +97,6 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-list-default-prob` | `expert` | `yes` | `expert_help` | `positive_controls_default_prob` | `0.95` | default inclusion probability used for gene-list inputs without an explicit probability column |
-| `--gene-phewas-bfs-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | input gene-phewas BFS table for advanced phewas workflows |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | gene ID remapping table for advanced gene-phewas ingestion |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | input gene-phewas statistics table for advanced phewas workflows |
 | `--gene-set-betas-in` | `expert` | `yes` | `expert_help` | `gene_set_betas_in` | `None` | - |
@@ -179,7 +179,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in` | `1.1` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
-| `--run-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `run_phewas_from_gene_phewas_stats_in` | `None` | run gene-level phewas output stage from precomputed gene-phewas stats |
+| `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | run the optional gene-level phewas output stage |
 | `--s2g-normalize-values` | `expert` | `yes` | `expert_help` | `s2g_normalize_values` | `None` | - |
 | `--scale-region-posterior` | `expert` | `yes` | `expert_help` | `scale_region_posterior` | `False` | - |
 | `--sigma-num-devs-to-top` | `expert` | `yes` | `expert_help` | `sigma_num_devs_to_top` | `2.0` | - |
@@ -271,11 +271,6 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-list-prob-col` | `expert` | `no` | `expert_help` | `positive_controls_prob_col` | `None` | probability column for the gene-list input file |
 | `--gene-map-new-gene-col` | `expert` | `no` | `expert_help` | `gene_map_new_gene_col` | `2` | - |
 | `--gene-map-orig-gene-col` | `expert` | `no` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
-| `--gene-phewas-bfs-combined-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_combined_col` | `None` | combined column for advanced gene-phewas input |
-| `--gene-phewas-bfs-id-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_id_col` | `None` | gene ID column for advanced gene-phewas input |
-| `--gene-phewas-bfs-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | log BF column for advanced gene-phewas input |
-| `--gene-phewas-bfs-pheno-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_pheno_col` | `None` | phenotype column for advanced gene-phewas input |
-| `--gene-phewas-bfs-prior-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_prior_col` | `None` | prior column for advanced gene-phewas input |
 | `--gene-phewas-stats-combined-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_combined_col` | `None` | combined column for advanced gene-phewas input |
 | `--gene-phewas-stats-id-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_id_col` | `None` | gene ID column for advanced gene-phewas input |
 | `--gene-phewas-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | log BF column for advanced gene-phewas input |
@@ -350,6 +345,12 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
+| `--gene-phewas-bfs-combined-col` | `hidden` | `no` | `internal_only` | `gene_phewas_bfs_combined_col` | `None` | combined column for advanced gene-phewas input |
+| `--gene-phewas-bfs-id-col` | `hidden` | `no` | `internal_only` | `gene_phewas_bfs_id_col` | `None` | gene ID column for advanced gene-phewas input |
+| `--gene-phewas-bfs-in` | `hidden` | `no` | `internal_only` | `gene_phewas_bfs_in` | `None` | input gene-phewas BFS table for advanced phewas workflows |
+| `--gene-phewas-bfs-log-bf-col` | `hidden` | `no` | `internal_only` | `gene_phewas_bfs_log_bf_col` | `None` | log BF column for advanced gene-phewas input |
+| `--gene-phewas-bfs-pheno-col` | `hidden` | `no` | `internal_only` | `gene_phewas_bfs_pheno_col` | `None` | phenotype column for advanced gene-phewas input |
+| `--gene-phewas-bfs-prior-col` | `hidden` | `no` | `internal_only` | `gene_phewas_bfs_prior_col` | `None` | prior column for advanced gene-phewas input |
 | `--increase-hyper-if-betas-below` | `expert` | `no` | `expert_help` | `increase_hyper_if_betas_below` | `None` | - |
 | `--positive-controls-all-id-col` | `expert` | `no` | `expert_help` | `positive_controls_all_id_col` | `None` | compatibility alias for --gene-list-all-id-col |
 | `--positive-controls-all-in` | `expert` | `no` | `expert_help` | `positive_controls_all_in` | `None` | compatibility alias for --gene-list-all-in |
@@ -360,6 +361,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--positive-controls-list` | `expert` | `no` | `expert_help` | `positive_controls_list` | `None` | compatibility alias for --gene-list |
 | `--positive-controls-no-header` | `expert` | `no` | `expert_help` | `positive_controls_has_header` | `True` | compatibility alias for --gene-list-no-header |
 | `--positive-controls-prob-col` | `expert` | `no` | `expert_help` | `positive_controls_prob_col` | `None` | compatibility alias for --gene-list-prob-col |
+| `--run-phewas-from-gene-phewas-stats-in` | `hidden` | `no` | `internal_only` | `run_phewas_legacy_input` | `None` | compatibility alias for --run-phewas plus --gene-phewas-stats-in |
 
 ## Debug Only
 

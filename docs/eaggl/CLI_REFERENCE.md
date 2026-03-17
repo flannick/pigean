@@ -5,6 +5,7 @@ This is the canonical human-written manual for the stable, routinely used `pytho
 Use this document for practical command shapes, workflow selection, and the meaning of the main EAGGL flags.
 Use `docs/eaggl/CLI_OPTIONS.md` for the exhaustive machine-generated parser inventory.
 Use `README.md` for the full repository documentation map.
+Optional downstream analyses use explicit `--run-*` booleans with separate `--*-in` / `--*-out` flags. Older hybrid flags remain accepted as compatibility aliases but are not the canonical documented surface.
 
 Scope rules for this document:
 - only stable user-facing workflows and flag groups are described here
@@ -185,8 +186,8 @@ Notes:
 |---|---|
 | `--gene-phewas-stats-in` | load gene-by-phenotype statistics |
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
-| `--run-phewas-from-gene-phewas-stats-in` | run a gene-level PheWAS stage from precomputed gene-PheWAS stats; also required by the gene-set-anchored workflow |
-| `--factor-phewas-from-gene-phewas-stats-in` | compute factor-level phenotype enrichment regression from precomputed gene-PheWAS stats |
+| `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in`; also required by the gene-set-anchored workflow |
+| `--run-factor-phewas` | compute factor-level phenotype enrichment regression from `--gene-phewas-stats-in` |
 | `--project-phenos-from-gene-sets` | compute phenotype capture on the gene-set basis instead of the gene basis |
 | `--pheno-capture-input` | choose whether phenotype capture uses retained weighted thresholded support or binary thresholded hits |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
@@ -200,6 +201,10 @@ Operational notes:
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
 - if you request multiple factor-PheWAS models in one run, `factor_phewas_stats.out` appends them together and labels each row with `model_name`, `factor_model_scope`, `outcome_surface`, and `anchor_covariate`
 - `--factor-phewas-full-output` restores the broader legacy continuous and sensitivity outputs for expert diagnostics
+- compatibility aliases remain accepted but are not the canonical public interface:
+  - `--run-phewas-from-gene-phewas-stats-in <file>`
+  - `--factor-phewas-from-gene-phewas-stats-in <file>`
+  - each behaves like the corresponding `--run-*` flag plus `--gene-phewas-stats-in <file>`
 
 ### Input schema and column selectors
 

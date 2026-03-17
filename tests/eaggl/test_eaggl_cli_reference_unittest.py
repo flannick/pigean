@@ -209,8 +209,11 @@ class EagglCliReferenceTest(unittest.TestCase):
         gene_set_anchor = self._run_ok(
             "factor",
             "--anchor-gene-set",
-            "--run-phewas-from-gene-phewas-stats-in",
+            "--run-phewas",
+            "--gene-phewas-stats-in",
             "gene_phewas.tsv",
+            "--phewas-stats-out",
+            "phewas.tsv",
             "--print-effective-config",
         )
         gene_set_payload = json.loads(gene_set_anchor.stdout)
@@ -223,10 +226,12 @@ class EagglCliReferenceTest(unittest.TestCase):
             "gene_phewas.tsv",
             "--gene-set-phewas-stats-in",
             "gene_set_phewas.tsv",
-            "--run-phewas-from-gene-phewas-stats-in",
-            "gene_phewas.tsv",
-            "--factor-phewas-from-gene-phewas-stats-in",
-            "gene_phewas.tsv",
+            "--run-phewas",
+            "--phewas-stats-out",
+            "phewas.tsv",
+            "--run-factor-phewas",
+            "--factor-phewas-stats-out",
+            "factor_phewas.tsv",
             "--project-phenos-from-gene-sets",
             "--factor-phewas-mode",
             "joint_anchor_adjusted_binary",
@@ -264,8 +269,10 @@ class EagglCliReferenceTest(unittest.TestCase):
         opts = payload["options"]
         self.assertEqual(opts["gene_phewas_bfs_in"], "gene_phewas.tsv")
         self.assertEqual(opts["gene_set_phewas_stats_in"], "gene_set_phewas.tsv")
-        self.assertEqual(opts["run_phewas_from_gene_phewas_stats_in"], "gene_phewas.tsv")
-        self.assertEqual(opts["factor_phewas_from_gene_phewas_stats_in"], "gene_phewas.tsv")
+        self.assertTrue(opts["run_phewas"])
+        self.assertEqual(opts["run_phewas_input"], "gene_phewas.tsv")
+        self.assertTrue(opts["run_factor_phewas"])
+        self.assertEqual(opts["run_factor_phewas_input"], "gene_phewas.tsv")
         self.assertTrue(opts["project_phenos_from_gene_sets"])
         self.assertEqual(opts["factor_phewas_mode"], "joint_anchor_adjusted_binary")
         self.assertEqual(
@@ -445,8 +452,10 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--anchor-gene-set": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--gene-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--gene-set-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
-            "--run-phewas-from-gene-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
-            "--factor-phewas-from-gene-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip"],
+            "--run-phewas": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
+            "--run-factor-phewas": ["test_reference_phewas_and_schema_flags_round_trip"],
+            "--run-phewas-from-gene-phewas-stats-in": ["test_legacy_run_phewas_alias_normalizes_to_run_flag"],
+            "--factor-phewas-from-gene-phewas-stats-in": ["test_legacy_factor_phewas_alias_normalizes_to_run_flag"],
             "--factor-phewas-mode": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-modes": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-anchor-covariate": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],

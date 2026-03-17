@@ -5,13 +5,14 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `212`
+- Total options: `214`
 - `method_required`: `16`
-- `method_optional`: `114`
-- `engineering`: `73`
-- `compat_alias`: `3`
+- `method_optional`: `113`
+- `engineering`: `68`
+- `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `182`
+- visibility `expert`: `176`
+- visibility `hidden`: `8`
 - visibility `normal`: `30`
 
 ## Method Required
@@ -56,7 +57,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
-| `--factor-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_from_gene_phewas_stats_in` | `None` | run factor-level phewas from precomputed gene-phewas statistics |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
 | `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.0` | - |
 | `--factor-phewas-mode` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_mode` | `marginal_anchor_adjusted_binary` | choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment |
@@ -77,7 +77,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
 | `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `1` | - |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
-| `--gene-phewas-bfs-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and anchor workflows |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | - |
 | `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
@@ -142,7 +141,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
-| `--run-phewas-from-gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `run_phewas_from_gene_phewas_stats_in` | `None` | run gene-level phewas output stage from precomputed gene-phewas statistics |
+| `--run-factor-phewas` | `expert` | `yes` | `advanced_workflows` | `run_factor_phewas` | `False` | run the optional factor-level phewas stage |
+| `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | run the optional gene-level phewas output stage |
 | `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
@@ -178,11 +178,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-map-new-gene-col` | `expert` | `no` | `expert_help` | `gene_map_new_gene_col` | `2` | - |
 | `--gene-map-orig-gene-col` | `expert` | `no` | `expert_help` | `gene_map_orig_gene_col` | `1` | - |
 | `--gene-pheno-stats-out` | `expert` | `no` | `advanced_workflows` | `gene_pheno_stats_out` | `None` | - |
-| `--gene-phewas-bfs-combined-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_combined_col` | `None` | - |
-| `--gene-phewas-bfs-id-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_id_col` | `None` | - |
-| `--gene-phewas-bfs-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | - |
-| `--gene-phewas-bfs-pheno-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_pheno_col` | `None` | - |
-| `--gene-phewas-bfs-prior-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_prior_col` | `None` | - |
 | `--gene-phewas-stats-combined-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_combined_col` | `None` | - |
 | `--gene-phewas-stats-id-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_id_col` | `None` | - |
 | `--gene-phewas-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | - |
@@ -236,9 +231,17 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
+| `--factor-phewas-from-gene-phewas-stats-in` | `hidden` | `yes` | `internal_only` | `factor_phewas_legacy_input` | `None` | compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in |
+| `--gene-phewas-bfs-combined-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_combined_col` | `None` | - |
+| `--gene-phewas-bfs-id-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_id_col` | `None` | - |
+| `--gene-phewas-bfs-in` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and anchor workflows |
+| `--gene-phewas-bfs-log-bf-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_log_bf_col` | `None` | - |
+| `--gene-phewas-bfs-pheno-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_pheno_col` | `None` | - |
+| `--gene-phewas-bfs-prior-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_prior_col` | `None` | - |
 | `--positive-controls-all-in` | `expert` | `yes` | `expert_help` | `positive_controls_all_in` | `None` | compatibility alias for standalone EAGGL gene-list background handling |
 | `--positive-controls-in` | `expert` | `yes` | `expert_help` | `positive_controls_in` | `None` | compatibility alias for --gene-list-in |
 | `--positive-controls-list` | `expert` | `yes` | `expert_help` | `positive_controls_list` | `None` | compatibility alias for --gene-list |
+| `--run-phewas-from-gene-phewas-stats-in` | `hidden` | `yes` | `internal_only` | `run_phewas_legacy_input` | `None` | compatibility alias for --run-phewas plus --gene-phewas-stats-in |
 
 ## Debug Only
 

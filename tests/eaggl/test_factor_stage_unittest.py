@@ -65,7 +65,10 @@ def _options(**overrides):
         positive_controls_all_in=None,
         gene_set_phewas_stats_in=None,
         gene_phewas_bfs_in=None,
-        run_phewas_from_gene_phewas_stats_in=None,
+        run_phewas=False,
+        run_phewas_input=None,
+        run_factor_phewas=False,
+        run_factor_phewas_input=None,
         no_transpose=False,
         min_lambda_threshold=1e-3,
         lmm_auth_key=None,
@@ -259,7 +262,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             ("F6", _options(anchor_genes=["INS"], gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
             ("F7", _options(anchor_genes=["INS", "GCK"], gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
             ("F8", _options(anchor_any_gene=True, gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
-            ("F9", _options(anchor_gene_set=True, run_phewas_from_gene_phewas_stats_in="g.tsv"), []),
+            ("F9", _options(anchor_gene_set=True, run_phewas=True, run_phewas_input="g.tsv", gene_phewas_bfs_in="g.tsv"), []),
         ]
         for workflow_id, options, expected_missing in cases:
             with self.subTest(workflow=workflow_id):
@@ -286,10 +289,12 @@ class FactorStageHelpersTest(unittest.TestCase):
     def test_run_main_factor_phewas_stage_invokes_eaggl_phewas_runner(self) -> None:
         runtime = _FactorPhewasRuntimeStub()
         options = _options(
-            factor_phewas_from_gene_phewas_stats_in="factor_phewas.tsv",
+            run_factor_phewas=True,
+            run_factor_phewas_input="factor_phewas.tsv",
             factor_phewas_stats_out="factor_phewas_stats.tsv",
             gene_phewas_bfs_in="loaded_gene_phewas.tsv",
-            run_phewas_from_gene_phewas_stats_in="other_gene_phewas.tsv",
+            run_phewas=True,
+            run_phewas_input="other_gene_phewas.tsv",
             gene_phewas_bfs_id_col="Gene",
             gene_phewas_bfs_pheno_col="Trait",
             gene_phewas_bfs_log_bf_col="Direct",
