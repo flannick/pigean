@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `322`
+- Total options: `329`
 - `method_required`: `19`
-- `method_optional`: `179`
-- `engineering`: `104`
+- `method_optional`: `180`
+- `engineering`: `110`
 - `experimental`: `2`
 - `compat_alias`: `10`
 - `debug_only`: `8`
-- visibility `expert`: `294`
+- visibility `expert`: `301`
 - visibility `normal`: `28`
 
 ## Method Required
@@ -149,6 +149,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--min-num-iter-betas` | `expert` | `yes` | `expert_help` | `min_num_iter_betas` | `10` | - |
 | `--min-num-post-burn-in` | `expert` | `yes` | `expert_help` | `min_num_post_burn_in` | `10` | - |
 | `--min-var-posterior` | `expert` | `yes` | `expert_help` | `min_var_posterior` | `0.01` | - |
+| `--multi-y-in` | `expert` | `yes` | `advanced_workflows` | `multi_y_in` | `None` | run the current pigean pipeline once per trait from a long-form multi-Y table and append trait-labeled outputs |
 | `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
 | `--no-add-top` | `expert` | `yes` | `expert_help` | `add_top` | `True` | - |
 | `--no-adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
@@ -318,6 +319,12 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--log-file` | `expert` | `no` | `core_help` | `log_file` | `None` | write structured run logs to this file |
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
 | `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |
+| `--multi-y-combined-col` | `expert` | `no` | `expert_help` | `multi_y_combined_col` | `None` | combined-support column for --multi-y-in |
+| `--multi-y-id-col` | `expert` | `no` | `expert_help` | `multi_y_id_col` | `None` | gene ID column for --multi-y-in |
+| `--multi-y-log-bf-col` | `expert` | `no` | `expert_help` | `multi_y_log_bf_col` | `None` | log BF column for --multi-y-in |
+| `--multi-y-max-phenos-per-batch` | `expert` | `no` | `expert_help` | `multi_y_max_phenos_per_batch` | `None` | expert override for the number of traits loaded per native multi-Y batch |
+| `--multi-y-pheno-col` | `expert` | `no` | `expert_help` | `multi_y_pheno_col` | `None` | trait column for --multi-y-in |
+| `--multi-y-prior-col` | `expert` | `no` | `expert_help` | `multi_y_prior_col` | `None` | prior-support column for --multi-y-in |
 | `--params-out` | `normal` | `no` | `core_help` | `params_out` | `None` | write learned hyperparameters and runtime settings |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
 | `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | write optional advanced gene-level phewas output table |

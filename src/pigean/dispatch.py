@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from . import main_support as pigean_main_support
+from . import multi_y as pigean_multi_y
 from . import outputs as pigean_outputs
 from . import pipeline as pigean_pipeline
 
@@ -13,6 +14,8 @@ def run_main_pipeline(options, mode, services=None):
         services.log("Numpy version: %s" % services.np.__version__)
         services.log("Scipy version: %s" % services.scipy.__version__)
         services.log("Options: %s" % options)
+    if getattr(options, "multi_y_in", None) is not None:
+        return pigean_multi_y.run_multi_y_pipeline(services=services, options=options, mode=mode)
     state = pigean_main_support.build_runtime_state(options)
     mode_state = pigean_main_support.build_mode_state(mode, options.run_phewas_from_gene_phewas_stats_in)
 

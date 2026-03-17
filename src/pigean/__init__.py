@@ -13,6 +13,7 @@ _PUBLIC_SUBMODULES = frozenset(
         "huge",
         "main_support",
         "model",
+        "multi_y",
         "outputs",
         "phewas",
         "phewas_io",

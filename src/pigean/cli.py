@@ -420,6 +420,13 @@ parser.add_option("","--gene-phewas-bfs-pheno-col",default=None)
 parser.add_option("","--gene-phewas-stats-pheno-col",default=None,dest="gene_phewas_bfs_pheno_col")
 parser.add_option("","--min-gene-phewas-read-value",type="float",default=1)
 parser.add_option("","--gene-phewas-id-to-X-id",default=None) #mapping from gene ids in the phewas file to gene ids in the gmt
+parser.add_option("","--multi-y-in",default=None)
+parser.add_option("","--multi-y-id-col",default=None)
+parser.add_option("","--multi-y-pheno-col",default=None)
+parser.add_option("","--multi-y-log-bf-col",default=None)
+parser.add_option("","--multi-y-combined-col",default=None)
+parser.add_option("","--multi-y-prior-col",default=None)
+parser.add_option("","--multi-y-max-phenos-per-batch",type="int",default=None)
 
 #simulation parameters
 parser.add_option("","--sim-log-bf-noise-sigma-mult",type=float,default=0) #noise to add to simulations (in standard devs)
@@ -567,6 +574,13 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-phewas-stats-pheno-col": "phenotype column for advanced gene-phewas input",
     "--gene-phewas-id-to-X-id": "gene ID remapping table for advanced gene-phewas ingestion",
     "--min-gene-phewas-read-value": "minimum value filter for advanced gene-phewas ingestion",
+    "--multi-y-in": "run the current pigean pipeline once per trait from a long-form multi-Y table and append trait-labeled outputs",
+    "--multi-y-id-col": "gene ID column for --multi-y-in",
+    "--multi-y-pheno-col": "trait column for --multi-y-in",
+    "--multi-y-log-bf-col": "log BF column for --multi-y-in",
+    "--multi-y-combined-col": "combined-support column for --multi-y-in",
+    "--multi-y-prior-col": "prior-support column for --multi-y-in",
+    "--multi-y-max-phenos-per-batch": "expert override for the number of traits loaded per native multi-Y batch",
     "--hide-opts": "suppress printing resolved options at startup",
     "--hide-progress": "reduce progress logging noise during long runs",
     "--log-file": "write structured run logs to this file",
@@ -618,6 +632,7 @@ _EXPERT_ENGINEERING_FLAGS = {
     "--huge-statistics-out",
     "--max-gb",
     "--max-read-entries-at-once",
+    "--multi-y-max-phenos-per-batch",
     "--pre-filter-batch-size",
     "--pre-filter-small-batch-size",
     "--priors-num-gene-batches",
@@ -658,6 +673,12 @@ _SET_B_METHOD_FLAGS = {
     "--gene-stats-prior-col",
     "--gene-stats-prob-col",
     "--min-gene-phewas-read-value",
+    "--multi-y-in",
+    "--multi-y-id-col",
+    "--multi-y-pheno-col",
+    "--multi-y-log-bf-col",
+    "--multi-y-combined-col",
+    "--multi-y-prior-col",
     "--phewas-comparison-set",
     "--no-cross-val",
     "--phewas-stats-out",
@@ -1331,6 +1352,49 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
                     "--run-phewas-from-gene-phewas-stats-in" % flag
                 )
 
+    multi_y_schema_flags = (
+        ("multi_y_id_col", "--multi-y-id-col"),
+        ("multi_y_pheno_col", "--multi-y-pheno-col"),
+        ("multi_y_log_bf_col", "--multi-y-log-bf-col"),
+        ("multi_y_combined_col", "--multi-y-combined-col"),
+        ("multi_y_prior_col", "--multi-y-prior-col"),
+        ("multi_y_max_phenos_per_batch", "--multi-y-max-phenos-per-batch"),
+    )
+    if _options.multi_y_in is None:
+        for dest, flag in multi_y_schema_flags:
+            if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
+                bail("Option %s requires --multi-y-in" % flag)
+    else:
+        if _options.gene_set_stats_out is None:
+            bail("Option --multi-y-in requires --gene-set-stats-out")
+        if _options.multi_y_max_phenos_per_batch is not None and _options.multi_y_max_phenos_per_batch <= 0:
+            bail("Option --multi-y-max-phenos-per-batch must be > 0")
+        conflicting_inputs = []
+        for value, flag in (
+            (_options.gwas_in, "--gwas-in"),
+            (_options.huge_statistics_in, "--huge-statistics-in"),
+            (_options.exomes_in, "--exomes-in"),
+            (_options.case_counts_in, "--case-counts-in"),
+            (_options.ctrl_counts_in, "--ctrl-counts-in"),
+            (_options.gene_stats_in, "--gene-stats-in"),
+            (_options.gene_set_stats_in, "--gene-set-stats-in"),
+            (_options.gene_set_betas_in, "--gene-set-betas-in"),
+            (_options.const_gene_set_beta, "--const-gene-set-beta"),
+            (_options.const_gene_Y, "--const-gene-Y"),
+            (_options.positive_controls_in, "--gene-list-in"),
+            (_options.positive_controls_list, "--gene-list"),
+            (_options.gene_phewas_bfs_in, "--gene-phewas-bfs-in"),
+            (_options.run_phewas_from_gene_phewas_stats_in, "--run-phewas-from-gene-phewas-stats-in"),
+        ):
+            if value is not None:
+                conflicting_inputs.append(flag)
+        if _options.betas_from_phewas:
+            conflicting_inputs.append("--betas-from-phewas")
+        if _options.betas_uncorrected_from_phewas:
+            conflicting_inputs.append("--betas-uncorrected-from-phewas")
+        if conflicting_inputs:
+            bail("Option --multi-y-in cannot be combined with %s" % ", ".join(conflicting_inputs))
+
 
 def _validate_positive_control_inputs(_options):
     values = _options.positive_controls_list
@@ -1560,6 +1624,16 @@ def _bootstrap_cli(argv=None):
     if parsed_options.gene_cor_file is None and parsed_options.gene_loc_file is None and not parsed_options.ols:
         warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
         parsed_options.ols = True
+    if (
+        parsed_options.multi_y_in is not None
+        and not _is_option_dest_explicit("linear", parsed_cli_specified_dests, parsed_config_specified_dests)
+    ):
+        _early_warn(
+            "Enabling --linear because --multi-y-in provides continuous trait support vectors; pass --no-linear to override"
+        )
+        parsed_options.linear = True
+        if not _is_option_dest_explicit("max_for_linear", parsed_cli_specified_dests, parsed_config_specified_dests):
+            parsed_options.max_for_linear = 1
     if parsed_options.betas_from_phewas:
         _early_warn("Enabling --betas-uncorrected-from-phewas because --betas-from-phewas was passed")
         parsed_options.betas_uncorrected_from_phewas = True

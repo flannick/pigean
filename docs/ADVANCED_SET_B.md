@@ -145,7 +145,55 @@ Notes:
 - This is distinct from `--run-phewas-from-gene-phewas-stats-in`, which produces a gene-level PheWAS output table.
 - This path is advanced and currently documented here rather than in the shorter human CLI reference.
 
-## 6) Simulation mode (`sim`)
+## 6) Native multi-Y trait batching (`--multi-y-in`)
+
+Purpose: Run the current `pigean` package once per trait from a long-form multi-trait gene-statistics table, then append trait-labelled outputs into one aggregated file.
+
+Supported modes:
+- `betas`
+- `gibbs`
+
+Required inputs:
+- Mode `betas` or `gibbs`
+- Gene-set input (`--X-in` or `--X-list`)
+- `--multi-y-in <file>`
+- `--gene-set-stats-out <file>`
+- Schema mapping:
+  - optional `--multi-y-id-col` (default `Gene`)
+  - optional `--multi-y-pheno-col` (auto-detects `Trait` then `Pheno`)
+  - optional `--multi-y-log-bf-col` (auto-detects `log_bf` then `Direct`)
+  - optional `--multi-y-combined-col` (auto-detects `combined` then `Combined`)
+  - optional `--multi-y-prior-col` (auto-detects `prior` then `Prior`)
+
+Optional expert controls:
+- `--multi-y-max-phenos-per-batch <n>`
+  - overrides the automatic trait chunk size
+  - if omitted, PIGEAN estimates a trait batch size from `--max-gb`
+
+Primary outputs:
+- `--gene-set-stats-out`
+  - aggregated across all requested traits
+  - includes a `trait` column
+- `--gene-stats-out`
+  - only for `gibbs`
+  - aggregated across all requested traits
+  - includes a `trait` column
+- `--params-out`
+  - records the resolved multi-Y settings and completed trait count
+
+Semantics:
+- Each trait is materialized onto the current X gene universe and then run through the ordinary current-package `betas` or `gibbs` path.
+- This is a native orchestration workflow, not a second legacy code path.
+- If a single trait leaves no surviving gene sets after filtering, that trait is skipped and the rest of the batch continues.
+
+Important notes:
+- `--multi-y-in` is intentionally separate from `--betas-from-phewas`.
+- `--betas-from-phewas` computes one multi-phenotype beta surface inside the advanced Set B path.
+- `--multi-y-in` instead runs the ordinary package once per trait and appends trait-labelled outputs.
+- Because the long-form multi-Y inputs are continuous support vectors, the CLI auto-enables `--linear` unless you explicitly pass `--no-linear`.
+- `--multi-y-in` cannot be combined with other primary Y sources such as `--gwas-in`, `--gene-stats-in`, gene-list inputs, or the older PheWAS-as-Y flags.
+
+## 7) Simulation mode (`sim`)
 
 Purpose: Simulate gene and gene-set signal from configured hyperparameters.
 
@@ -166,7 +214,7 @@ Primary outputs:
 Notes:
 - `sim` is retained for testing and controlled benchmarking workflows.
 
-## 7) PoPS-style prior modes (`pops`, `naive_pops`)
+## 8) PoPS-style prior modes (`pops`, `naive_pops`)
 
 Purpose: Run PoPS-style settings on PIGEAN pipeline branches.
 
