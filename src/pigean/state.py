@@ -4178,10 +4178,11 @@ class PigeanState(object):
             info_level=INFO,
         )
 
-    def write_gene_statistics(self, output_file):
+    def write_gene_statistics(self, output_file, max_no_write_gene_combined=None):
         return pigean_outputs.write_gene_statistics(
             self,
             output_file,
+            max_no_write_gene_combined=max_no_write_gene_combined,
             log_fn=log,
             info_level=INFO,
         )

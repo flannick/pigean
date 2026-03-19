@@ -62,10 +62,11 @@ def write_phewas_gene_set_statistics(
     )
 
 
-def write_gene_statistics(runtime, output_file, *, log_fn, info_level):
+def write_gene_statistics(runtime, output_file, max_no_write_gene_combined=None, *, log_fn, info_level):
     return pegs_write_gene_statistics(
         runtime,
         output_file,
+        max_no_write_gene_combined=max_no_write_gene_combined,
         open_text_fn=open_gz,
         log_fn=log_fn,
         info_level=info_level,
@@ -173,7 +174,10 @@ def write_main_outputs_and_optional_phewas(services, state, options, mode_state,
         state.write_gene_set_overlap_statistics(options.gene_set_overlap_stats_out)
 
     if options.gene_stats_out:
-        state.write_gene_statistics(options.gene_stats_out)
+        state.write_gene_statistics(
+            options.gene_stats_out,
+            max_no_write_gene_combined=options.max_no_write_gene_combined,
+        )
     if options.gene_gene_set_stats_out:
         state.write_gene_gene_set_statistics(
             options.gene_gene_set_stats_out,

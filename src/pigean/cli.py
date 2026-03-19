@@ -275,6 +275,7 @@ parser.add_option("","--max-no-write-gene-set-beta",type=float,default=None) #do
 parser.add_option("","--max-no-write-gene-gene-set-beta",type=float,default=0) #do not write gene sets to gene-gene-set-stats-out that have absolute beta values of this or lower
 parser.add_option("","--use-beta-uncorrected-for-gene-gene-set-write-filter",action="store_true",default=False) #filter on beta uncorrected rather than beta when filtering gene/gene set pairs to write
 parser.add_option("","--max-no-write-gene-set-beta-uncorrected",type=float,default=None) #do not write gene sets to gene-set-stats-out that have absolute beta values of this or lower
+parser.add_option("","--max-no-write-gene-combined",type=float,default=None) #do not write genes to gene-stats-out that have absolute combined values of this or lower
 
 #output for parameters
 parser.add_option("","--params-out",default=None)
@@ -558,6 +559,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--sim-only-positive": "simulation-only: constrain synthetic effects to positive values",
     "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
     "--betas-uncorrected-from-phewas": "compute uncorrected beta path from gene-phewas statistics",
+    "--max-no-write-gene-combined": "do not write genes to gene-stats-out when abs(combined) is at or below this threshold",
     "--run-phewas": "run the optional gene-level phewas output stage",
     "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
     "--phewas-comparison-set": "choose gene-level phewas output surface: matched or diagnostic",

@@ -167,6 +167,17 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["multi_y_prior_col"], "Prior")
         self.assertEqual(options["multi_y_max_phenos_per_batch"], 3)
 
+    def test_gene_stats_combined_write_filter_round_trips(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--max-no-write-gene-combined",
+            "1.5",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["max_no_write_gene_combined"], 1.5)
+
     def test_removed_min_post_burn_alias_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--min-post-burn-in", "50")
         self.assertNotEqual(proc.returncode, 0)

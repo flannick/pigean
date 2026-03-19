@@ -294,6 +294,7 @@ parser.add_option("","--max-no-write-gene-set-beta",type=float,default=None) #do
 parser.add_option("","--max-no-write-gene-gene-set-beta",type=float,default=0) #do not write gene sets to gene-gene-set-stats-out that have absolute beta values of this or lower
 parser.add_option("","--use-beta-uncorrected-for-gene-gene-set-write-filter",action="store_true",default=False) #filter on beta uncorrected rather than beta when filtering gene/gene set pairs to write
 parser.add_option("","--max-no-write-gene-set-beta-uncorrected",type=float,default=None) #do not write gene sets to gene-set-stats-out that have absolute beta values of this or lower
+parser.add_option("","--max-no-write-gene-combined",type=float,default=None) #do not write genes to gene-stats-out that have absolute combined values of this or lower
 parser.add_option("","--max-no-write-gene-pheno",type=float,default=0) #write only gene-pheno pairs if one value in the row is higher than this
 
 #output for parameters
@@ -13033,7 +13034,7 @@ class GeneSetData(object):
                         line = "%s\t%.3g" % (line, self.betas_uncorrected_phewas[p,i] / self.scale_factors[i])            
                     output_fh.write("%s\n" % line)
 
-    def write_gene_statistics(self, output_file):
+    def write_gene_statistics(self, output_file, max_no_write_gene_combined=None):
         log("Writing gene stats to %s" % output_file, INFO)
 
         with open_gz(output_file, 'w') as output_fh:
@@ -13141,6 +13142,8 @@ class GeneSetData(object):
 
             gene_N = self.get_gene_N()
             for i in ordered_i:
+                if max_no_write_gene_combined is not None and self.combined_prior_Ys is not None and np.abs(self.combined_prior_Ys[i]) <= max_no_write_gene_combined:
+                    continue
                 gene = genes[i]
                 line = gene
                 if self.priors is not None:
@@ -13227,6 +13230,8 @@ class GeneSetData(object):
                 gene_N_missing = self.get_gene_N(get_missing=True)
 
                 for i in range(len(self.genes_missing)):
+                    if max_no_write_gene_combined is not None and self.combined_prior_Ys is not None and self.priors_missing is not None and np.abs(self.priors_missing[i]) <= max_no_write_gene_combined:
+                        continue
                     gene = self.genes_missing[i]
                     line = gene
                     if self.priors is not None:
@@ -19480,7 +19485,7 @@ def main():
         g.write_phewas_gene_set_statistics(options.phewas_gene_set_stats_out, max_no_write_gene_set_beta=options.max_no_write_gene_set_beta, max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected)
 
     if options.gene_stats_out:
-        g.write_gene_statistics(options.gene_stats_out)
+        g.write_gene_statistics(options.gene_stats_out, max_no_write_gene_combined=options.max_no_write_gene_combined)
 
     if options.gene_gene_set_stats_out:
         g.write_gene_gene_set_statistics(options.gene_gene_set_stats_out, max_no_write_gene_gene_set_beta=options.max_no_write_gene_gene_set_beta, write_filter_beta_uncorrected=options.use_beta_uncorrected_for_gene_gene_set_write_filter)

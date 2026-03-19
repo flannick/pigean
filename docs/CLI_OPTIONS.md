@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `330`
+- Total options: `331`
 - `method_required`: `19`
-- `method_optional`: `179`
+- `method_optional`: `180`
 - `engineering`: `105`
 - `experimental`: `2`
 - `compat_alias`: `17`
 - `debug_only`: `8`
-- visibility `expert`: `295`
+- visibility `expert`: `296`
 - visibility `hidden`: `7`
 - visibility `normal`: `28`
 
@@ -127,6 +127,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--max-frac-sem-betas` | `expert` | `yes` | `expert_help` | `max_frac_sem_betas` | `0.01` | - |
 | `--max-gene-set-read-p` | `expert` | `yes` | `expert_help` | `max_gene_set_read_p` | `0.05` | - |
 | `--max-gene-set-size` | `expert` | `yes` | `expert_help` | `max_gene_set_size` | `30000` | - |
+| `--max-no-write-gene-combined` | `expert` | `yes` | `expert_help` | `max_no_write_gene_combined` | `None` | do not write genes to gene-stats-out when abs(combined) is at or below this threshold |
 | `--max-no-write-gene-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_gene_set_beta` | `0` | - |
 | `--max-no-write-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta` | `None` | - |
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |

@@ -281,6 +281,8 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "1",
             "--max-gene-set-read-p",
             "1",
+            "--max-no-write-gene-combined",
+            "0.5",
             "--no-filter-negative",
             "--min-gene-set-size",
             "1",
@@ -294,6 +296,7 @@ class PigeanCliReferenceTest(unittest.TestCase):
         self.assertEqual(payload["options"]["gene_stats_prior_col"], "prior")
         self.assertEqual(payload["options"]["filter_gene_set_p"], 1.0)
         self.assertEqual(payload["options"]["max_gene_set_read_p"], 1.0)
+        self.assertEqual(payload["options"]["max_no_write_gene_combined"], 0.5)
         self.assertFalse(payload["options"]["filter_negative"])
         self.assertEqual(payload["options"]["min_gene_set_size"], 1)
 
@@ -352,6 +355,7 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--filter-gene-set-metric-z": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_reference_precomputed_and_filter_flags_round_trip"],
             "--filter-gene-set-p": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--max-gene-set-read-p": ["test_reference_precomputed_and_filter_flags_round_trip"],
+            "--max-no-write-gene-combined": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--no-filter-negative": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--gene-stats-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_gene_list_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],
             "--gene-set-stats-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_gene_list_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],

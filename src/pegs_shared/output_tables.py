@@ -72,7 +72,7 @@ def write_phewas_gene_set_statistics(runtime, output_file, max_no_write_gene_set
                 output_fh.write("%s\n" % line)
 
 
-def write_gene_statistics(runtime, output_file, *, open_text_fn=None, log_fn=None, info_level=0):
+def write_gene_statistics(runtime, output_file, max_no_write_gene_combined=None, *, open_text_fn=None, log_fn=None, info_level=0):
     if open_text_fn is None:
         open_text_fn = open
     if log_fn is None:
@@ -180,6 +180,12 @@ def write_gene_statistics(runtime, output_file, *, open_text_fn=None, log_fn=Non
 
         gene_N = runtime.get_gene_N()
         for i in ordered_i:
+            if (
+                max_no_write_gene_combined is not None
+                and runtime.combined_prior_Ys is not None
+                and np.abs(runtime.combined_prior_Ys[i]) <= max_no_write_gene_combined
+            ):
+                continue
             gene = genes[i]
             line = gene
             if runtime.priors is not None:
@@ -262,6 +268,13 @@ def write_gene_statistics(runtime, output_file, *, open_text_fn=None, log_fn=Non
             gene_N_missing = runtime.get_gene_N(get_missing=True)
 
             for i in range(len(runtime.genes_missing)):
+                if (
+                    max_no_write_gene_combined is not None
+                    and runtime.combined_prior_Ys is not None
+                    and runtime.priors_missing is not None
+                    and np.abs(runtime.priors_missing[i]) <= max_no_write_gene_combined
+                ):
+                    continue
                 gene = runtime.genes_missing[i]
                 line = gene
                 if runtime.priors is not None:

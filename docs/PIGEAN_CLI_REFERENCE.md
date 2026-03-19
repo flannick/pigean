@@ -200,6 +200,7 @@ Count tables are expected to contain `gene`, `revel`, `count`, and `total`, plus
 | `--no-filter-negative` | keep negative beta-tilde gene sets rather than dropping them |
 | `--gene-stats-out` | gene-level output table |
 | `--gene-set-stats-out` | gene-set output table |
+| `--max-no-write-gene-combined` | optional write-time filter for `gene_stats.out` based on absolute combined score |
 | `--params-out` | params/diagnostics output table |
 
 ## Testing expectations for this reference
