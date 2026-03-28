@@ -83,6 +83,10 @@ def initialize_read_x_batch_seed_state(
     return batches, num_ignored_gene_sets
 
 
+def is_metric_qc_filter_active(filter_gene_set_metric_z):
+    return filter_gene_set_metric_z is not None and filter_gene_set_metric_z > 0
+
+
 def initialize_filtered_gene_set_state(runtime, update_hyper_p):
     runtime.gene_sets_ignored = []
     if runtime.gene_set_labels is not None:
@@ -220,7 +224,12 @@ def maybe_correct_gene_set_betas_after_x_read(
     if log_fn is None:
         log_fn = lambda _message: None
 
-    if not (filter_gene_set_p is not None and (correct_betas_mean or correct_betas_var) and runtime.beta_tildes is not None):
+    if not (
+        filter_gene_set_p is not None
+        and (correct_betas_mean or correct_betas_var)
+        and runtime.beta_tildes is not None
+        and runtime.ses is not None
+    ):
         return
 
     (
@@ -419,7 +428,7 @@ def apply_post_read_gene_set_size_and_qc_filters(
         log_fn("Ignoring %d gene sets due to too many genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
         runtime.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
 
-    if runtime.total_qc_metrics is not None and filter_gene_set_metric_z:
+    if runtime.total_qc_metrics is not None and is_metric_qc_filter_active(filter_gene_set_metric_z):
         filter_mask = np.abs(runtime.mean_qc_metrics) < filter_gene_set_metric_z
         filter_ignore = ~filter_mask
         log_fn("Ignoring %d gene sets due to QC metric filters (kept %d)" % (np.sum(filter_ignore), np.sum(filter_mask)))

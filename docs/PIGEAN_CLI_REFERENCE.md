@@ -194,7 +194,7 @@ Count tables are expected to contain `gene`, `revel`, `count`, and `total`, plus
 | Flag | Meaning |
 |---|---|
 | `--min-gene-set-size` | minimum retained gene-set size after runtime filtering |
-| `--filter-gene-set-metric-z` | post-read gene-set QC metric threshold |
+| `--filter-gene-set-metric-z` | post-read gene-set QC metric threshold; values `<= 0` disable the QC-metric filter |
 | `--filter-gene-set-p` | prefilter gene sets by association p-value |
 | `--max-gene-set-read-p` | max p-value to keep in the initial read/beta stage |
 | `--no-filter-negative` | keep negative beta-tilde gene sets rather than dropping them |
@@ -211,7 +211,7 @@ Testing tiers:
 - toy tier:
   - uses `tests/data/t2d_smoke/gene_set_list_mouse_t2d_toy.txt`
   - exercises bundled GWAS + exomes + positive controls + case/control counts
-  - allows `--filter-gene-set-metric-z 0` because the toy gene-set file is intentionally tiny
+  - uses `--filter-gene-set-metric-z 0` to disable QC-metric filtering on the intentionally tiny toy gene-set file
 - validation tier:
   - uses the real mouse gene-set file `tests/data/model_small/gene_set_list_mouse_2024.txt`
   - uses bundled GWAS without the toy QC override

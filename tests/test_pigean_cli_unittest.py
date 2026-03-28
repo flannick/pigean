@@ -178,6 +178,81 @@ class PigeanCliTest(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["options"]["max_no_write_gene_combined"], 1.5)
 
+    def test_gene_stats_input_with_metric_z_zero_disables_qc_prefilter(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            gene_stats = tmp_path / "gene_stats.tsv"
+            gene_stats.write_text(
+                """Gene\tDirect\tCombined
+KCNJ11\t2.0\t2.5
+PAX4\t1.8\t2.3
+HNF1B\t1.6\t2.1
+HNF4A\t1.4\t1.9
+GCK\t1.2\t1.7
+HNF1A\t1.1\t1.6
+PDX1\t1.0\t1.5
+INS\t0.9\t1.4
+ABCC8\t0.8\t1.3
+NEUROD1\t0.7\t1.2
+""",
+                encoding="utf-8",
+            )
+            for extra_flags in ([], ["--no-correct-betas-mean"]):
+                out_prefix = tmp_path / ("out_no_correct_mean" if extra_flags else "out")
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "pigean",
+                    "betas",
+                    "--deterministic",
+                    "--X-in",
+                    "tests/data/t2d_smoke/gene_set_list_input_subset_toy.txt",
+                    "--gene-map-in",
+                    "tests/data/model_small/portal_gencode.gene.map",
+                    "--gene-loc-file",
+                    "tests/data/model_small/NCBI37.3.plink.gene.loc",
+                    "--gene-stats-in",
+                    str(gene_stats),
+                    "--gene-stats-id-col",
+                    "Gene",
+                    "--gene-stats-log-bf-col",
+                    "Direct",
+                    "--gene-stats-combined-col",
+                    "Combined",
+                    "--gene-set-stats-out",
+                    str(out_prefix.with_suffix('.gene_set_stats.out')),
+                    "--gene-stats-out",
+                    str(out_prefix.with_suffix('.gene_stats.out')),
+                    "--params-out",
+                    str(out_prefix.with_suffix('.params.out')),
+                    "--min-gene-set-size",
+                    "1",
+                    "--filter-gene-set-p",
+                    "1",
+                    "--filter-gene-set-metric-z",
+                    "0",
+                    "--max-gene-set-read-p",
+                    "1",
+                    "--prune-gene-sets",
+                    "1.1",
+                    "--weighted-prune-gene-sets",
+                    "1.1",
+                ] + extra_flags
+                proc = subprocess.run(
+                    cmd,
+                    cwd=repo_root,
+                    env=self._base_env(repo_root),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                combined = (proc.stderr or "") + (proc.stdout or "")
+                self.assertNotIn("unexpected internal error", combined)
+                self.assertNotIn("unsupported operand type(s) for /: 'NoneType' and 'NoneType'", combined)
+                self.assertNotIn("boolean index did not match indexed array along axis 0", combined)
+                self.assertNotIn("Traceback", combined)
+
     def test_removed_min_post_burn_alias_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--min-post-burn-in", "50")
         self.assertNotEqual(proc.returncode, 0)

@@ -181,6 +181,7 @@ from pegs_shared.runtime_matrix import (
 from pegs_shared.x_runtime import (
     apply_post_read_gene_set_size_and_qc_filters,
     initialize_filtered_gene_set_state,
+    is_metric_qc_filter_active,
     initialize_hyper_defaults_after_x_read,
     initialize_read_x_batch_seed_state,
     ingest_x_inputs,

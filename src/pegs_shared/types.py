@@ -11,6 +11,7 @@ import scipy.sparse as sparse
 from pegs_shared.x_runtime import (
     initialize_filtered_gene_set_state,
     initialize_read_x_batch_seed_state,
+    is_metric_qc_filter_active,
     maybe_prepare_filtered_correlation,
     resolve_read_x_run_logistic,
     run_read_x_ingestion,
@@ -180,7 +181,10 @@ class XData:
         )
 
         if (
-            (ingestion_options.filter_gene_set_p < 1 or ingestion_options.filter_gene_set_metric_z)
+            (
+                ingestion_options.filter_gene_set_p < 1
+                or is_metric_qc_filter_active(ingestion_options.filter_gene_set_metric_z)
+            )
             and runtime.Y is not None
         ):
             initialize_filtered_gene_set_state(runtime, update_hyper_p=ingestion_options.update_hyper_p)

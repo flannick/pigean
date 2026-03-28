@@ -1340,7 +1340,7 @@ def apply_prefilter_and_record(
     gene_ignored_N_missing_new = None
     gene_ignored_N_missing_int = None
 
-    if filter_gene_set_p < 1 or filter_gene_set_metric_z is not None:
+    if filter_gene_set_p < 1 or pegs_utils_mod.is_metric_qc_filter_active(filter_gene_set_metric_z):
         p_value_ignore = ~p_value_mask
         if np.sum(p_value_ignore) > 0:
             log_fn("Kept %d gene sets after p-value and beta filters" % (np.sum(p_value_mask)))
@@ -1453,7 +1453,10 @@ def maybe_prefilter_x_block(
     mean_qc_metrics = None
     total_qc_metrics_directions = None
 
-    if (filter_gene_set_p < 1 or filter_gene_set_metric_z is not None) and runtime_state.Y is not None:
+    if (
+        filter_gene_set_p < 1
+        or pegs_utils_mod.is_metric_qc_filter_active(filter_gene_set_metric_z)
+    ) and runtime_state.Y is not None:
         log_fn("Analyzing gene sets to pre-filter")
 
         (mean_shifts, scale_factors) = runtime_state._calc_X_shift_scale(cur_X)
