@@ -480,7 +480,7 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
         if max_num_gene_sets_hyper is not None and np.sum(gene_sets_for_hyper_mask) > max_num_gene_sets_hyper:
             drop_mask = np.random.default_rng().choice(
                 np.where(gene_sets_for_hyper_mask)[0],
-                size=np.sum(gene_sets_for_hyper_mask) - runtime_state.batch_size,
+                size=np.sum(gene_sets_for_hyper_mask) - max_num_gene_sets_hyper,
                 replace=False,
             )
             log_fn(
