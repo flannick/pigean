@@ -551,6 +551,8 @@ def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
     skip_betas,
     filter_gene_set_p,
     filter_using_phewas,
+    retain_all_beta_uncorrected,
+    independent_betas_only,
     max_num_burn_in,
     max_num_iter_betas,
     min_num_iter_betas,
@@ -564,7 +566,9 @@ def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
     *,
     log_fn,
 ):
-    if skip_betas or runtime_state.p_values is None or filter_gene_set_p >= 1 or filter_using_phewas:
+    if skip_betas or runtime_state.p_values is None or filter_using_phewas:
+        return sort_rank
+    if not retain_all_beta_uncorrected and not independent_betas_only and filter_gene_set_p >= 1:
         return sort_rank
 
     betas, _avg_postp = runtime_state._calculate_non_inf_betas(
@@ -590,6 +594,17 @@ def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
     log_fn("%d have betas uncorrected below 0.001" % np.sum(betas < 0.001))
     log_fn("%d have betas uncorrected below 0.01" % np.sum(betas < 0.01))
 
+    if retain_all_beta_uncorrected or independent_betas_only:
+        runtime_state.betas_uncorrected = np.array(betas, copy=True)
+        runtime_state.non_inf_avg_postps = np.array(_avg_postp, copy=True)
+        runtime_state.non_inf_avg_cond_betas = np.zeros(len(betas))
+        positive_postp_mask = runtime_state.non_inf_avg_postps > 0
+        runtime_state.non_inf_avg_cond_betas[positive_postp_mask] = (
+            runtime_state.betas_uncorrected[positive_postp_mask]
+            / runtime_state.non_inf_avg_postps[positive_postp_mask]
+        )
+        return -np.abs(betas)
+
     beta_ignore = betas == 0
     beta_mask = ~beta_ignore
     if np.sum(beta_mask) > 0:
@@ -606,12 +621,14 @@ def maybe_reduce_gene_sets_to_max_after_x_read_for_runtime(
     skip_betas,
     max_num_gene_sets,
     sort_rank,
+    retain_all_beta_uncorrected,
+    independent_betas_only,
     *,
     log_fn,
     debug_level,
     trace_level,
 ):
-    if skip_betas or max_num_gene_sets is None or max_num_gene_sets <= 0:
+    if skip_betas or max_num_gene_sets is None or max_num_gene_sets <= 0 or independent_betas_only:
         return
     if len(runtime_state.gene_sets) <= max_num_gene_sets:
         return
@@ -647,7 +664,12 @@ def maybe_reduce_gene_sets_to_max_after_x_read_for_runtime(
         trimmed_keep_mask[keep_indices[:max_num_gene_sets]] = True
         keep_mask = trimmed_keep_mask
     if np.sum(~keep_mask) > 0:
-        runtime_state.subset_gene_sets(keep_mask, keep_missing=False, ignore_missing=True, skip_V=True)
+        runtime_state.subset_gene_sets(
+            keep_mask,
+            keep_missing=retain_all_beta_uncorrected,
+            ignore_missing=not retain_all_beta_uncorrected,
+            skip_V=True,
+        )
 
 
 def estimate_dense_chunk_size(gene_set_count, only_ids, default_chunk_size=500):

@@ -351,6 +351,9 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--gene-stats-prior-col": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--huge-statistics-out": ["test_huge_statistics_out_requires_gwas_in", "test_reference_huge_cache_round_trip_runs"],
             "--huge-statistics-in": ["test_huge_statistics_in_and_out_conflict", "test_reference_huge_cache_round_trip_runs"],
+            "--max-num-gene-sets": ["test_retain_all_beta_uncorrected_writes_rows_beyond_cap", "test_independent_betas_only_skips_corrected_beta_columns"],
+            "--retain-all-beta-uncorrected": ["test_retain_all_beta_uncorrected_writes_rows_beyond_cap", "test_cli_manifest_tiers_cover_gene_list_and_recent_set_b_flags"],
+            "--independent-betas-only": ["test_independent_betas_only_skips_corrected_beta_columns", "test_independent_betas_only_requires_betas_mode"],
             "--min-gene-set-size": ["test_reference_precomputed_and_filter_flags_round_trip", "test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override"],
             "--filter-gene-set-metric-z": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_reference_precomputed_and_filter_flags_round_trip"],
             "--filter-gene-set-p": ["test_reference_precomputed_and_filter_flags_round_trip"],
@@ -364,6 +367,7 @@ class PigeanCliReferenceTest(unittest.TestCase):
         test_files = [
             self.repo_root / "tests/test_pigean_cli_reference_unittest.py",
             self.repo_root / "tests/test_pigean_cli_unittest.py",
+            self.repo_root / "tests/test_beta_uncorrected_full_universe_unittest.py",
             self.repo_root / "tests/test_t2d_toy_bundle_inputs_unittest.py",
             self.repo_root / "tests/test_t2d_validation_bundle_inputs_unittest.py",
             self.repo_root / "tests/test_huge_real_gwas_regression_unittest.py",

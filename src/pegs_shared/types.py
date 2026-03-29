@@ -342,6 +342,8 @@ class XData:
             skip_betas=post_options.skip_betas,
             filter_gene_set_p=post_options.filter_gene_set_p,
             filter_using_phewas=post_options.filter_using_phewas,
+            retain_all_beta_uncorrected=post_options.retain_all_beta_uncorrected,
+            independent_betas_only=post_options.independent_betas_only,
             max_num_burn_in=post_options.max_num_burn_in,
             max_num_iter_betas=post_options.max_num_iter_betas,
             min_num_iter_betas=post_options.min_num_iter_betas,
@@ -358,6 +360,8 @@ class XData:
             skip_betas=post_options.skip_betas,
             max_num_gene_sets=post_options.max_num_gene_sets,
             sort_rank=sort_rank,
+            retain_all_beta_uncorrected=post_options.retain_all_beta_uncorrected,
+            independent_betas_only=post_options.independent_betas_only,
         )
         post_callbacks.record_read_x_counts_fn(
             runtime,
@@ -478,6 +482,8 @@ class XReadPostOptions:
     max_gene_set_size: int
     filter_gene_set_metric_z: float
     max_num_gene_sets: int | None
+    retain_all_beta_uncorrected: bool
+    independent_betas_only: bool
 
 
 @dataclass
@@ -570,6 +576,8 @@ class ReadXPipelineConfig:
     betas_trace_out: OptionalPathLikeStr = None
     show_progress: bool = True
     max_num_entries_at_once: int | None = None
+    retain_all_beta_uncorrected: bool = False
+    independent_betas_only: bool = False
 
 
 @dataclass

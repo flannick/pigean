@@ -308,6 +308,8 @@ def build_read_x_post_options(local_vars, *, batches, num_ignored_gene_sets, ign
         max_gene_set_size=local_vars["max_gene_set_size"],
         filter_gene_set_metric_z=local_vars["filter_gene_set_metric_z"],
         max_num_gene_sets=local_vars["max_num_gene_sets"],
+        retain_all_beta_uncorrected=local_vars["retain_all_beta_uncorrected"],
+        independent_betas_only=local_vars["independent_betas_only"],
     )
 
 

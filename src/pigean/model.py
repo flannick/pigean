@@ -507,20 +507,21 @@ def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_
     else:
         (state.beta_tildes, state.z_scores, state.p_values, state.ses, state.se_inflation_factors) = (beta_tildes, z_scores, p_values, ses, se_inflation_factors)
 
-        state.X_orig_missing_gene_sets = None
-        state.mean_shifts_missing = None
-        state.scale_factors_missing = None
-        state.is_dense_gene_set_missing = None
-        state.ps_missing = None
-        state.sigma2s_missing = None
+        if state.gene_sets_missing is None:
+            state.X_orig_missing_gene_sets = None
+            state.mean_shifts_missing = None
+            state.scale_factors_missing = None
+            state.is_dense_gene_set_missing = None
+            state.ps_missing = None
+            state.sigma2s_missing = None
 
-        state.beta_tildes_missing = None
-        state.p_values_missing = None
-        state.ses_missing = None
-        state.z_scores_missing = None
+            state.beta_tildes_missing = None
+            state.p_values_missing = None
+            state.ses_missing = None
+            state.z_scores_missing = None
 
-        state.total_qc_metrics_missing = None
-        state.mean_qc_metrics_missing = None
+            state.total_qc_metrics_missing = None
+            state.mean_qc_metrics_missing = None
 
         if max_gene_set_p is not None:
             gene_set_mask = state.p_values <= max_gene_set_p
@@ -537,7 +538,7 @@ def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_
 
 
 
-def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, sparse_solution=False, pre_filter_batch_size=None, pre_filter_small_batch_size=500, sparse_frac_betas=None, betas_trace_out=None, run_betas_using_phewas=False, run_uncorrected_using_phewas=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, **kwargs):
+def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, min_num_iter=10, num_chains=10, r_threshold_burn_in=1.01, use_max_r_for_convergence=True, max_frac_sem=0.01, gauss_seidel=False, update_hyper_sigma=True, update_hyper_p=True, sparse_solution=False, pre_filter_batch_size=None, pre_filter_small_batch_size=500, sparse_frac_betas=None, betas_trace_out=None, run_betas_using_phewas=False, run_uncorrected_using_phewas=False, independent_only=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, **kwargs):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -548,6 +549,8 @@ def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, m
     run_using_phewas = run_betas_using_phewas or run_uncorrected_using_phewas
 
     log("Calculating betas")
+    if independent_only and run_using_phewas:
+        bail("Option --independent-betas-only is not supported with the PheWAS beta path")
     if run_using_phewas:
         (beta_tildes_to_use, ses_to_use) = (state.beta_tildes_phewas, state.ses_phewas)
     else:
@@ -564,6 +567,26 @@ def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, m
     else:
         (avg_betas_uncorrected_v, avg_postp_uncorrected_v) = result_uncorrected
         initial_run_mask = avg_betas_uncorrected_v != 0
+
+    if independent_only:
+        state.betas = None
+        state.betas_r_hat = None
+        state.betas_mcse = None
+        state.betas_uncorrected = copy.copy(avg_betas_uncorrected_v)
+        state.non_inf_avg_postps = copy.copy(avg_postp_uncorrected_v)
+        state.non_inf_avg_cond_betas = copy.copy(avg_betas_uncorrected_v)
+        positive_postp_mask = state.non_inf_avg_postps > 0
+        state.non_inf_avg_cond_betas[positive_postp_mask] /= state.non_inf_avg_postps[positive_postp_mask]
+        if state.gene_sets_missing is not None:
+            if state.betas_missing is None:
+                state.betas_missing = np.zeros(len(state.gene_sets_missing))
+            if state.betas_uncorrected_missing is None:
+                state.betas_uncorrected_missing = np.zeros(len(state.gene_sets_missing))
+            if state.non_inf_avg_postps_missing is None:
+                state.non_inf_avg_postps_missing = np.zeros(len(state.gene_sets_missing))
+            if state.non_inf_avg_cond_betas_missing is None:
+                state.non_inf_avg_cond_betas_missing = np.zeros(len(state.gene_sets_missing))
+        return
 
     run_mask = copy.copy(initial_run_mask)
 
@@ -648,10 +671,14 @@ def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, m
         state.non_inf_avg_cond_betas[avg_postp_v > 0] /= avg_postp_v[avg_postp_v > 0]
 
         if state.gene_sets_missing is not None:
-            state.betas_missing = np.zeros(len(state.gene_sets_missing))
-            state.betas_uncorrected_missing = np.zeros(len(state.gene_sets_missing))
-            state.non_inf_avg_postps_missing = np.zeros(len(state.gene_sets_missing))
-            state.non_inf_avg_cond_betas_missing = np.zeros(len(state.gene_sets_missing))
+            if state.betas_missing is None:
+                state.betas_missing = np.zeros(len(state.gene_sets_missing))
+            if state.betas_uncorrected_missing is None:
+                state.betas_uncorrected_missing = np.zeros(len(state.gene_sets_missing))
+            if state.non_inf_avg_postps_missing is None:
+                state.non_inf_avg_postps_missing = np.zeros(len(state.gene_sets_missing))
+            if state.non_inf_avg_cond_betas_missing is None:
+                state.non_inf_avg_cond_betas_missing = np.zeros(len(state.gene_sets_missing))
 
 
 def _expand_phewas_gene_set_result(values, mask, num_gene_sets):

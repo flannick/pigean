@@ -27,6 +27,15 @@ def run_main_adaptive_read_x(
     bail_fn,
     log_fn,
 ):
+    pure_betas_run = (
+        mode_state["run_beta"]
+        and not mode_state["run_priors"]
+        and not mode_state["run_naive_priors"]
+        and not mode_state["run_gibbs"]
+    )
+    retain_all_beta_uncorrected = pure_betas_run and (
+        options.retain_all_beta_uncorrected or options.independent_betas_only
+    )
     xin_to_p_noninf_ind = build_xin_to_p_noninf_index_map_fn(
         options.X_in,
         options.X_list,
@@ -120,6 +129,8 @@ def run_main_adaptive_read_x(
             skip_V=(options.max_gene_set_read_p is not None),
             max_num_entries_at_once=options.max_read_entries_at_once,
             force_reread=read_x_retry_state["force_reread"],
+            retain_all_beta_uncorrected=retain_all_beta_uncorrected,
+            independent_betas_only=pure_betas_run and options.independent_betas_only,
         )
         run_read_x_stage_fn(state, options.X_in, **read_x_kwargs)
 

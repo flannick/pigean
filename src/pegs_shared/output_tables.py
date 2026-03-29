@@ -865,10 +865,23 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
 
             col_sums_missing = runtime.get_col_sums(runtime.X_orig_missing_gene_sets)
             for i in range(len(runtime.gene_sets_missing)):
-                if max_no_write_gene_set_beta is not None and runtime.betas_missing is not None and np.abs(runtime.betas_missing[i] / runtime.scale_factors_missing[i]) <= max_no_write_gene_set_beta:
+                missing_beta_value = 0.0
+                if runtime.betas_missing is not None and runtime.betas_missing[i] is not None:
+                    missing_beta_value = runtime.betas_missing[i]
+                missing_beta_uncorrected_value = 0.0
+                if runtime.betas_uncorrected_missing is not None and runtime.betas_uncorrected_missing[i] is not None:
+                    missing_beta_uncorrected_value = runtime.betas_uncorrected_missing[i]
+                missing_avg_cond_beta_value = 0.0
+                if runtime.non_inf_avg_cond_betas_missing is not None and runtime.non_inf_avg_cond_betas_missing[i] is not None:
+                    missing_avg_cond_beta_value = runtime.non_inf_avg_cond_betas_missing[i]
+                missing_avg_postp_value = 0.0
+                if runtime.non_inf_avg_postps_missing is not None and runtime.non_inf_avg_postps_missing[i] is not None:
+                    missing_avg_postp_value = runtime.non_inf_avg_postps_missing[i]
+
+                if max_no_write_gene_set_beta is not None and runtime.betas is not None and np.abs(missing_beta_value / runtime.scale_factors_missing[i]) <= max_no_write_gene_set_beta:
                     continue
 
-                if max_no_write_gene_set_beta_uncorrected is not None and runtime.betas_uncorrected_missing is not None and np.abs(runtime.betas_uncorrected_missing[i] / runtime.scale_factors_missing[i]) <= max_no_write_gene_set_beta_uncorrected:
+                if max_no_write_gene_set_beta_uncorrected is not None and runtime.betas_uncorrected is not None and np.abs(missing_beta_uncorrected_value / runtime.scale_factors_missing[i]) <= max_no_write_gene_set_beta_uncorrected:
                     continue
 
                 line = runtime.gene_sets_missing[i]
@@ -882,18 +895,18 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 if inf_betas is not None and not basic:
                     line = "%s\t%.3g" % (line, inf_betas_missing[i] / runtime.scale_factors_missing[i])            
                 if runtime.betas is not None:
-                    line = "%s\t%.3g\t%.3g" % (line, runtime.betas_missing[i] / runtime.scale_factors_missing[i], runtime.betas_missing[i])
+                    line = "%s\t%.3g\t%.3g" % (line, missing_beta_value / runtime.scale_factors_missing[i], missing_beta_value)
                     if runtime.betas_r_hat is not None:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
                 if runtime.betas_uncorrected is not None and not basic:
-                    line = "%s\t%.3g" % (line, runtime.betas_uncorrected_missing[i] / runtime.scale_factors_missing[i])            
+                    line = "%s\t%.3g" % (line, missing_beta_uncorrected_value / runtime.scale_factors_missing[i])            
                     if runtime.betas_uncorrected_r_hat is not None:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
                 if not basic:
                     if runtime.non_inf_avg_cond_betas is not None:
-                        line = "%s\t%.3g" % (line, runtime.non_inf_avg_cond_betas_missing[i] / runtime.scale_factors_missing[i])
+                        line = "%s\t%.3g" % (line, missing_avg_cond_beta_value / runtime.scale_factors_missing[i])
                     if runtime.non_inf_avg_postps is not None:
-                        line = "%s\t%.3g" % (line, runtime.non_inf_avg_postps_missing[i])
+                        line = "%s\t%.3g" % (line, missing_avg_postp_value)
                     if runtime.beta_tildes_orig is not None:
                         line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_missing_orig[i] / runtime.scale_factors_missing[i], runtime.beta_tildes_missing_orig[i], runtime.p_values_missing_orig[i], runtime.z_scores_missing_orig[i], runtime.ses_missing_orig[i] / runtime.scale_factors_missing[i])
                     if inf_betas_orig is not None:

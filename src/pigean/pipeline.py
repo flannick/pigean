@@ -149,6 +149,7 @@ def run_main_beta_stage(services, state, options, mode_state):
             "pre_filter_batch_size": options.pre_filter_batch_size,
             "pre_filter_small_batch_size": options.pre_filter_small_batch_size,
             "betas_trace_out": options.betas_trace_out,
+            "independent_only": options.independent_betas_only,
         })
         state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
         pigean_phewas.run_advanced_set_b_phewas_beta_sampling_if_requested(

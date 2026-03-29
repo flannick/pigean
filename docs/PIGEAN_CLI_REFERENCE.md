@@ -189,6 +189,19 @@ Count tables are expected to contain `gene`, `revel`, `count`, and `total`, plus
 | `--huge-statistics-out` | write a HuGE cache tarball |
 | `--huge-statistics-in` | read a HuGE cache tarball |
 
+### Expert beta-stage controls
+
+| Flag | Meaning |
+|---|---|
+| `--retain-all-beta-uncorrected` | in pure `betas` runs, preserve independent `beta_uncorrected` values for gene sets dropped only by the expensive `--max-num-gene-sets` cap |
+| `--independent-betas-only` | in pure `betas` runs, compute only independent `beta_uncorrected` and skip the covariance-backed corrected-beta solve |
+
+Notes:
+- These flags are aimed at large expanded-X seeded `betas` reruns where the raw regression stage is cheap but the final covariance-backed beta solve is what forces aggressive top-N truncation.
+- `--retain-all-beta-uncorrected` keeps the expensive corrected `beta` path capped, but it still writes real independent `beta_uncorrected` values for capped-out rows in `gene_set_stats.out`.
+- `--independent-betas-only` implies `--retain-all-beta-uncorrected`.
+- Both flags currently support only pure `betas` mode.
+
 ### Core filters and outputs
 
 | Flag | Meaning |

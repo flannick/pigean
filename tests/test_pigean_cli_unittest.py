@@ -457,6 +457,8 @@ print(json.dumps(mask.tolist()))
         self.assertIn("use precomputed gene-level statistics", proc.stdout)
         self.assertIn("--huge-statistics-in", proc.stdout)
         self.assertIn("read precomputed HuGE statistics cache", proc.stdout)
+        self.assertIn("--retain-all-beta-uncorrected", proc.stdout)
+        self.assertIn("--independent-betas-only", proc.stdout)
 
     def test_cli_manifest_tiers_cover_gene_list_and_recent_set_b_flags(self) -> None:
         pigean_cli = importlib.import_module("pigean.cli")
@@ -481,6 +483,25 @@ print(json.dumps(mask.tolist()))
         self.assertEqual(metadata["--phewas-comparison-set"]["category"], "method_optional")
         self.assertEqual(metadata["--phewas-comparison-set"]["public_visibility"], "expert")
         self.assertEqual(metadata["--phewas-comparison-set"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--retain-all-beta-uncorrected"]["category"], "method_optional")
+        self.assertEqual(metadata["--retain-all-beta-uncorrected"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--retain-all-beta-uncorrected"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--independent-betas-only"]["category"], "method_optional")
+        self.assertEqual(metadata["--independent-betas-only"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--independent-betas-only"]["documentation_target"], "advanced_workflows")
+
+    def test_independent_betas_only_requires_betas_mode(self) -> None:
+        proc = self._run("gibbs", "--independent-betas-only")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("currently supports only betas mode", err)
+
+    def test_independent_betas_only_implies_retain_all_beta_uncorrected(self) -> None:
+        proc = self._run("betas", "--independent-betas-only", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["independent_betas_only"])
+        self.assertTrue(payload["options"]["retain_all_beta_uncorrected"])
 
     def test_huge_statistics_out_requires_gwas_in(self) -> None:
         proc = self._run("gibbs", "--huge-statistics-out", "cache_prefix")

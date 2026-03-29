@@ -21,6 +21,15 @@ Primary outputs:
 
 Notes:
 - This path bypasses raw `--gwas-in` / `--exomes-in` Y loading.
+- In pure `betas` runs on large expanded X collections, two expert controls are available for decoupling cheap independent shrinkage from the expensive corrected-beta solve:
+  - `--retain-all-beta-uncorrected`
+    - keep real independent `beta_uncorrected` values for gene sets dropped only by `--max-num-gene-sets`
+    - corrected `beta` remains limited to the capped retained subset
+  - `--independent-betas-only`
+    - skip the covariance-backed corrected-beta solve entirely
+    - write only the cheap independent `beta_uncorrected` path
+    - implies `--retain-all-beta-uncorrected`
+- These controls currently apply only to pure `betas` mode, not `priors` or outer `gibbs`.
 
 ## 2) Precomputed gene-set statistics input (`--gene-set-stats-in`)
 

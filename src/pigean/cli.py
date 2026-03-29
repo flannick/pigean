@@ -298,6 +298,8 @@ parser.add_option("","--linear",action='store_true',dest="linear",default=None) 
 parser.add_option("","--no-linear",action='store_false',dest="linear",default=None) #run linear regression on odds rather than logistic regression on binary disease status. Applies only to beta_tildes and priors, not gibbs
 parser.add_option("","--max-for-linear",type='float',default=None) #if linear regression is specified, it will switch to logistic regression if a probability exceeds this value
 parser.add_option("","--use-sampling-for-betas",type='int',default=None) #rather than taking top X% of gene sets to be positive during gene set statistics, sample from probability distribution
+parser.add_option("","--retain-all-beta-uncorrected",action='store_true',default=False) #for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap
+parser.add_option("","--independent-betas-only",action='store_true',default=False) #for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve
 
 
 #other control
@@ -555,6 +557,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--cross-val-max-num-tries": "maximum cross-validation boundary expansions",
     "--cross-val-folds": "number of folds for cross-validation tuning",
     "--exomes-in": "load exome burden statistics as an additional HuGE evidence source",
+    "--retain-all-beta-uncorrected": "for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap",
+    "--independent-betas-only": "for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve",
     "--sim-log-bf-noise-sigma-mult": "simulation-only noise scale for generated log Bayes factors",
     "--sim-only-positive": "simulation-only: constrain synthetic effects to positive values",
     "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
@@ -649,6 +653,7 @@ _SET_B_METHOD_FLAGS = {
     "--cross-val-folds",
     "--cross-val-max-num-tries",
     "--cross-val-num-explore-each-direction",
+    "--independent-betas-only",
     "--gene-phewas-bfs-combined-col",
     "--gene-phewas-bfs-id-col",
     "--gene-phewas-bfs-in",
@@ -686,6 +691,7 @@ _SET_B_METHOD_FLAGS = {
     "--phewas-comparison-set",
     "--no-cross-val",
     "--phewas-stats-out",
+    "--retain-all-beta-uncorrected",
     "--run-phewas",
     "--sim-log-bf-noise-sigma-mult",
     "--sim-only-positive",
@@ -1659,6 +1665,13 @@ def _bootstrap_cli(argv=None):
     parsed_mode = parsed_args[0]
     if parsed_mode in set(["factor", "naive_factor"]):
         bail("Mode '%s' is not available in pigean.py after repository split; run this in the eaggl repository" % parsed_mode)
+    if parsed_options.independent_betas_only and parsed_mode != "betas":
+        bail("Option --independent-betas-only currently supports only betas mode")
+    if parsed_options.retain_all_beta_uncorrected and parsed_mode != "betas":
+        bail("Option --retain-all-beta-uncorrected currently supports only betas mode")
+    if parsed_options.independent_betas_only and not parsed_options.retain_all_beta_uncorrected:
+        _early_warn("Enabling --retain-all-beta-uncorrected because --independent-betas-only was passed")
+        parsed_options.retain_all_beta_uncorrected = True
 
     _apply_mode_and_runtime_defaults(
         parsed_options,

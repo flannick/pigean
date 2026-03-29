@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `331`
+- Total options: `333`
 - `method_required`: `19`
-- `method_optional`: `180`
+- `method_optional`: `182`
 - `engineering`: `105`
 - `experimental`: `2`
 - `compat_alias`: `17`
 - `debug_only`: `8`
-- visibility `expert`: `296`
+- visibility `expert`: `298`
 - visibility `hidden`: `7`
 - visibility `normal`: `28`
 
@@ -116,6 +116,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gwas-units` | `expert` | `yes` | `expert_help` | `gwas_units` | `None` | - |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
 | `--increase-filter-gene-set-p` | `expert` | `yes` | `expert_help` | `increase_filter_gene_set_p` | `0.01` | - |
+| `--independent-betas-only` | `expert` | `yes` | `advanced_workflows` | `independent_betas_only` | `False` | for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve |
 | `--learn-window` | `expert` | `yes` | `expert_help` | `learn_window` | `False` | - |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--max-abs-mcse-d` | `normal` | `yes` | `core_help` | `max_abs_mcse_d` | `None` | stop Gibbs once monitored gene-probability MCSE is below this absolute threshold |
@@ -180,6 +181,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in` | `1.1` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
+| `--retain-all-beta-uncorrected` | `expert` | `yes` | `advanced_workflows` | `retain_all_beta_uncorrected` | `False` | for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap |
 | `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | run the optional gene-level phewas output stage |
 | `--s2g-normalize-values` | `expert` | `yes` | `expert_help` | `s2g_normalize_values` | `None` | - |
 | `--scale-region-posterior` | `expert` | `yes` | `expert_help` | `scale_region_posterior` | `False` | - |
