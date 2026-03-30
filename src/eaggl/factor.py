@@ -61,7 +61,7 @@ class FactorExecutionConfig:
     learn_phi_expand_factor: float = 10.0
     learn_phi_weight_floor: float | None = None
     learn_phi_report_out: str | None = None
-    learn_phi_prune_gene_sets_num: int | None = None
+    learn_phi_prune_gene_sets_num: int | None = 1000
     learn_phi_max_num_iterations: int | None = None
     seed: int | None = None
     factor_runs: int = 1
@@ -443,7 +443,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_expand_factor=options.learn_phi_expand_factor,
         learn_phi_weight_floor=options.learn_phi_weight_floor,
         learn_phi_report_out=options.learn_phi_report_out,
-        learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", None),
+        learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", 1000),
         learn_phi_max_num_iterations=getattr(options, "learn_phi_max_num_iterations", None),
         alpha0=options.alpha0,
         beta0=options.beta0,

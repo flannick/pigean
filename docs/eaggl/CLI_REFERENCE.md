@@ -80,7 +80,6 @@ Automatic phi-tuning workflow from bundled PIGEAN outputs:
 PYTHONPATH=src python -m eaggl factor \
   --eaggl-bundle-in path/to/pigean_to_eaggl.tar.gz \
   --learn-phi \
-  --learn-phi-prune-gene-sets-num 1000 \
   --learn-phi-max-num-iterations 50 \
   --learn-phi-report-out results/phi_search.tsv \
   --factors-out results/factors.out \
@@ -268,7 +267,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-expand-factor` | multiplicative factor used when widening the search bracket away from the initial `--phi` |
 | `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
 | `--learn-phi-report-out` | optional per-candidate diagnostics table for all tested `phi` values |
-| `--learn-phi-prune-gene-sets-num` | expert shortcut: during phi search only, correlation-prune to at most this many representative gene sets before candidate NMF evaluation |
+| `--learn-phi-prune-gene-sets-num` | expert shortcut: during phi search only, correlation-prune to at most this many representative gene sets before candidate NMF evaluation; defaults to `1000` |
 | `--learn-phi-max-num-iterations` | expert shortcut: during phi search only, cap candidate NMF iterations separately from the final factorization |
 
 Operational notes:
@@ -276,6 +275,7 @@ Operational notes:
 - Auto-tuning uses `--learn-phi-runs-per-step` during search, then runs the normal final factorization with the selected `phi`.
 - The selected `phi`, the search thresholds, the redundancy basis, and per-candidate diagnostics are written to both the run log and `--params-out`. Use `--learn-phi-report-out` when you also want the full candidate table as a separate artifact.
 - The default search is structural model selection, not held-out cross-validation. It prefers the smallest acceptable `phi` that keeps factors non-redundant, stable across restarts, and close to the best fit seen during search.
+- By default, `--learn-phi` evaluates candidates on a correlation-pruned sentinel panel of up to `1000` gene sets. Override `--learn-phi-prune-gene-sets-num` when you want a different sentinel size.
 - `--learn-phi-prune-gene-sets-num` and `--learn-phi-max-num-iterations` apply only while scoring phi candidates. The final reported factorization still reruns on the full retained panel using the selected `phi`.
 
 ### Factor pruning, weighting, and post-processing

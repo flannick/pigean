@@ -42,7 +42,7 @@ def _options(**overrides):
         learn_phi_expand_factor=10.0,
         learn_phi_weight_floor=None,
         learn_phi_report_out=None,
-        learn_phi_prune_gene_sets_num=None,
+        learn_phi_prune_gene_sets_num=1000,
         learn_phi_max_num_iterations=None,
         gene_set_filter_value=0.0,
         gene_set_pheno_filter_value=0.25,
@@ -244,6 +244,13 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_report_out, "phi.tsv")
         self.assertEqual(cfg.learn_phi_prune_gene_sets_num, 1000)
         self.assertEqual(cfg.learn_phi_max_num_iterations, 25)
+
+    def test_build_factor_execution_config_defaults_phi_search_prune_to_1000(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
+        options = _options(learn_phi=True, learn_phi_prune_gene_sets_num=1000)
+        cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
+        self.assertEqual(cfg.learn_phi_prune_gene_sets_num, 1000)
 
     def test_build_factor_execution_config_tracks_keep_original_loadings(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)

@@ -425,6 +425,13 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["consensus_stats_out"], "consensus.tsv")
         self.assertEqual(opts["params_out"], "params.tsv")
 
+    def test_reference_learn_phi_defaults_include_sentinel_prune(self) -> None:
+        proc = self._run("factor", "--learn-phi", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        opts = json.loads(proc.stdout)["options"]
+        self.assertTrue(opts["learn_phi"])
+        self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
+
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
         documented_flags = sorted(set(re.findall(r"`(--[A-Za-z0-9-]+)`", self.doc_path.read_text(encoding="utf-8"))))
         flag_to_tests = {

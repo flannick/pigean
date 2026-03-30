@@ -2717,7 +2717,7 @@
       "source_line": 307,
       "summary": "automatically tune phi by structural model selection before the final factorization",
       "type": null,
-      "usage_references": 126
+      "usage_references": 129
     },
     {
       "action": null,
@@ -2869,7 +2869,7 @@
     {
       "action": null,
       "category": "method_optional",
-      "default": "None",
+      "default": "1000",
       "deprecation_timeline": null,
       "dest": "learn_phi_prune_gene_sets_num",
       "documentation_target": "advanced_workflows",
@@ -4124,7 +4124,7 @@
       "source_line": 222,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 63
+      "usage_references": 64
     },
     {
       "action": null,

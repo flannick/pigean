@@ -314,7 +314,7 @@ parser.add_option("","--learn-phi-max-steps",default=8,type=int) #maximum number
 parser.add_option("","--learn-phi-expand-factor",default=10.0,type=float) #multiplicative factor used when expanding the phi search bracket
 parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
 parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
-parser.add_option("","--learn-phi-prune-gene-sets-num",default=None,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
+parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
 parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #during phi search only, cap the NMF iteration budget used for each tested phi candidate
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
 parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
