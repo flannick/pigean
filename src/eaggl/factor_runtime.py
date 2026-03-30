@@ -154,6 +154,8 @@ def _build_factor_param_record(
     learn_phi_expand_factor,
     learn_phi_weight_floor,
     learn_phi_report_out,
+    learn_phi_prune_gene_sets_num,
+    learn_phi_max_num_iterations,
     gene_set_filter_type,
     gene_set_filter_value,
     gene_or_pheno_filter_type,
@@ -207,6 +209,9 @@ def _build_factor_param_record(
         "learn_phi_expand_factor": float(learn_phi_expand_factor),
         "learn_phi_weight_floor": None if learn_phi_weight_floor is None else float(learn_phi_weight_floor),
         "learn_phi_report_out": learn_phi_report_out,
+        "learn_phi_prune_gene_sets_num": None if learn_phi_prune_gene_sets_num is None else int(learn_phi_prune_gene_sets_num),
+        "learn_phi_max_num_iterations": None if learn_phi_max_num_iterations is None else int(learn_phi_max_num_iterations),
+        "learn_phi_redundancy_basis_target": "gene",
         "gene_set_filter_value": gene_set_filter_value,
         "gene_or_pheno_filter_value": gene_or_pheno_filter_value,
         "pheno_prune_value": pheno_prune_value,
@@ -250,6 +255,16 @@ def _extract_canonical_factor_matrix(state):
     return None
 
 
+def _extract_redundancy_factor_matrix(state):
+    if state.exp_gene_factors is not None and state.exp_gene_factors.size > 0:
+        return ("gene", state.exp_gene_factors)
+    if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0:
+        return ("gene_set", state.exp_gene_set_factors)
+    if state.exp_pheno_factors is not None and state.exp_pheno_factors.size > 0:
+        return ("pheno", state.exp_pheno_factors)
+    return ("none", None)
+
+
 def _prepare_factor_vector_for_overlap(vector, weight_floor):
     clipped = np.clip(np.asarray(vector, dtype=float), 0.0, None)
     if weight_floor is not None and weight_floor > 0:
@@ -271,10 +286,64 @@ def _weighted_jaccard_similarity(u, v, weight_floor):
     return float(np.sum(np.minimum(u_prepared, v_prepared)) / denominator)
 
 
+def _gene_set_sort_rank_for_pruning(state, *, betas, betas_uncorrected):
+    if state.X_phewas_beta_uncorrected is not None:
+        return -np.asarray(state.X_phewas_beta_uncorrected.mean(axis=0)).ravel()
+    source = betas_uncorrected if betas_uncorrected is not None else betas
+    if source is None:
+        return np.arange(state.X_orig.shape[1], dtype=float)
+    if sparse.issparse(source):
+        return -np.asarray(source.mean(axis=1)).ravel()
+    source_array = np.asarray(source, dtype=float)
+    if source_array.ndim == 1:
+        return -source_array
+    if source_array.shape[1] == 0:
+        return np.zeros(source_array.shape[0], dtype=float)
+    return -np.mean(source_array, axis=1)
+
+
+def _compute_gene_set_prune_number_masks(state, *, gene_set_mask, gene_set_sort_rank, gene_set_prune_number):
+    return state._compute_gene_set_batches(
+        V=None,
+        X_orig=state.X_orig[:, gene_set_mask],
+        mean_shifts=state.mean_shifts[gene_set_mask],
+        scale_factors=state.scale_factors[gene_set_mask],
+        sort_values=gene_set_sort_rank[gene_set_mask],
+        stop_at=gene_set_prune_number,
+        tag="gene sets",
+    )
+
+
+def _combine_prune_masks(prune_masks, prune_number, sort_rank, tag, *, log_fn=None, trace_level=None):
+    if prune_masks is None or len(prune_masks) == 0:
+        return None
+    all_prune_mask = np.full(len(prune_masks[0]), False)
+    for cur_prune_mask in prune_masks:
+        all_prune_mask[cur_prune_mask] = True
+        if log_fn is not None and trace_level is not None:
+            log_fn(
+                "Adding %d relatively uncorrelated %ss (total now %d)"
+                % (np.sum(cur_prune_mask), tag, np.sum(all_prune_mask)),
+                trace_level,
+            )
+        if np.sum(all_prune_mask) > prune_number:
+            break
+    if np.sum(all_prune_mask) > prune_number:
+        threshold_value = sorted(sort_rank[all_prune_mask])[prune_number - 1]
+        all_prune_mask[sort_rank > threshold_value] = False
+    if np.sum(~all_prune_mask) > 0 and log_fn is not None and trace_level is not None:
+        log_fn(
+            "Found %d %ss remaining after pruning to max number (of %d)"
+            % (np.sum(all_prune_mask), tag, len(all_prune_mask)),
+            trace_level,
+        )
+    return all_prune_mask
+
+
 def _compute_within_run_factor_redundancy(state, weight_floor):
-    canonical = _extract_canonical_factor_matrix(state)
+    redundancy_basis, canonical = _extract_redundancy_factor_matrix(state)
     if canonical is None or canonical.shape[1] <= 1:
-        return 0.0
+        return (0.0, redundancy_basis)
     max_redundancy = 0.0
     for left_index in range(canonical.shape[1]):
         for right_index in range(left_index + 1, canonical.shape[1]):
@@ -286,7 +355,7 @@ def _compute_within_run_factor_redundancy(state, weight_floor):
                     weight_floor,
                 ),
             )
-    return float(max_redundancy)
+    return (float(max_redundancy), redundancy_basis)
 
 
 def _collect_run_indices_by_modal_factor_count(run_states, run_summaries):
@@ -342,12 +411,15 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor):
     else:
         stability = float(np.mean(np.asarray(matched_cosines, dtype=float)))
 
+    redundancy, redundancy_basis = _compute_within_run_factor_redundancy(run_states[reference_index], weight_floor)
+
     return {
         "phi": float(phi),
         "modal_factor_count": int(modal_factor_count),
         "run_support": float(len(modal_indices)) / float(max(1, len(run_states))),
         "stability": float(stability),
-        "redundancy": _compute_within_run_factor_redundancy(run_states[reference_index], weight_floor),
+        "redundancy": redundancy,
+        "redundancy_basis": redundancy_basis,
         "best_error": None if best_error is None else float(best_error),
         "best_evidence": None if best_evidence is None else float(best_evidence),
         "reference_run_index": int(reference_index),
@@ -371,6 +443,8 @@ def _evaluate_phi_candidate(
     runs_per_step,
     factor_kwargs,
     weight_floor,
+    prune_gene_sets_num,
+    max_num_iterations,
     log_fn,
     info_level,
 ):
@@ -381,6 +455,10 @@ def _evaluate_phi_candidate(
     search_factor_kwargs["label_gene_sets_only"] = False
     search_factor_kwargs["label_include_phenos"] = False
     search_factor_kwargs["label_individually"] = False
+    if prune_gene_sets_num is not None:
+        search_factor_kwargs["gene_set_prune_number"] = int(prune_gene_sets_num)
+    if max_num_iterations is not None:
+        search_factor_kwargs["max_num_iterations"] = int(max_num_iterations)
 
     child_seeds = _derive_factor_run_seeds(seed, runs_per_step)
     run_states = []
@@ -403,6 +481,22 @@ def _evaluate_phi_candidate(
         weight_floor=weight_floor,
     )
     candidate["run_summaries"] = copy.deepcopy(run_summaries)
+    best_error = candidate.get("best_error")
+    best_evidence = candidate.get("best_evidence")
+    log_fn(
+        "Automatic phi candidate %.6g summary: K_eff=%d, redundancy[%s]=%.3g, stability=%.3g, run_support=%.3g, best_error=%s, best_evidence=%s"
+        % (
+            float(candidate["phi"]),
+            int(candidate["modal_factor_count"]),
+            str(candidate.get("redundancy_basis", "unknown")),
+            float(candidate["redundancy"]),
+            float(candidate["stability"]),
+            float(candidate["run_support"]),
+            "NA" if best_error is None else "%.6g" % float(best_error),
+            "NA" if best_evidence is None else "%.6g" % float(best_evidence),
+        ),
+        info_level,
+    )
     return candidate
 
 
@@ -468,11 +562,11 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
         return
     with _open_text_output(report_path) as output_fh:
         output_fh.write(
-            "selected\tselection_reason\tphi\tmodal_factor_count\trun_support\tstability\tredundancy\tbest_error\tbest_evidence\treference_run_index\tmodal_run_indices\tmatched_cosines\n"
+            "selected\tselection_reason\tphi\tmodal_factor_count\trun_support\tstability\tredundancy_basis\tredundancy\tbest_error\tbest_evidence\treference_run_index\tmodal_run_indices\tmatched_cosines\n"
         )
         for candidate in sorted(candidates, key=lambda row: float(row["phi"])):
             output_fh.write(
-                "%s\t%s\t%.12g\t%d\t%.6g\t%.6g\t%.6g\t%s\t%s\t%d\t%s\t%s\n"
+                "%s\t%s\t%.12g\t%d\t%.6g\t%.6g\t%s\t%.6g\t%s\t%s\t%d\t%s\t%s\n"
                 % (
                     "1" if math.isclose(float(candidate["phi"]), float(selected_phi), rel_tol=1e-12, abs_tol=1e-15) else "0",
                     selection_reason,
@@ -480,6 +574,7 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
                     int(candidate["modal_factor_count"]),
                     float(candidate["run_support"]),
                     float(candidate["stability"]),
+                    str(candidate.get("redundancy_basis", "unknown")),
                     float(candidate["redundancy"]),
                     "" if candidate.get("best_error") is None else "%.12g" % float(candidate["best_error"]),
                     "" if candidate.get("best_evidence") is None else "%.12g" % float(candidate["best_evidence"]),
@@ -505,6 +600,8 @@ def _record_phi_search_params(
     max_fit_loss_frac,
     max_steps,
     expand_factor,
+    prune_gene_sets_num,
+    max_num_iterations,
 ):
     state._record_params(
         {
@@ -520,6 +617,9 @@ def _record_phi_search_params(
             "learn_phi_max_steps": int(max_steps),
             "learn_phi_expand_factor": float(expand_factor),
             "learn_phi_weight_floor": float(weight_floor),
+            "learn_phi_prune_gene_sets_num": None if prune_gene_sets_num is None else int(prune_gene_sets_num),
+            "learn_phi_max_num_iterations": None if max_num_iterations is None else int(max_num_iterations),
+            "learn_phi_redundancy_basis": str(selected_candidate.get("redundancy_basis", "unknown")),
         },
         overwrite=True,
     )
@@ -528,6 +628,7 @@ def _record_phi_search_params(
         "learn_phi_candidate_modal_factor_count": "modal_factor_count",
         "learn_phi_candidate_run_support": "run_support",
         "learn_phi_candidate_stability": "stability",
+        "learn_phi_candidate_redundancy_basis": "redundancy_basis",
         "learn_phi_candidate_redundancy": "redundancy",
         "learn_phi_candidate_best_error": "best_error",
         "learn_phi_candidate_best_evidence": "best_evidence",
@@ -553,6 +654,8 @@ def _learn_phi(
     expand_factor,
     weight_floor,
     report_out,
+    prune_gene_sets_num,
+    max_num_iterations,
     factor_kwargs,
     log_fn,
     info_level,
@@ -573,6 +676,8 @@ def _learn_phi(
             runs_per_step=runs_per_step,
             factor_kwargs=factor_kwargs,
             weight_floor=weight_floor,
+            prune_gene_sets_num=prune_gene_sets_num,
+            max_num_iterations=max_num_iterations,
             log_fn=log_fn,
             info_level=info_level,
         )
@@ -642,6 +747,8 @@ def _learn_phi(
         max_fit_loss_frac=max_fit_loss_frac,
         max_steps=max_steps,
         expand_factor=expand_factor,
+        prune_gene_sets_num=prune_gene_sets_num,
+        max_num_iterations=max_num_iterations,
     )
     _write_phi_search_report(
         report_out,
@@ -650,11 +757,12 @@ def _learn_phi(
         selection_reason=selection_reason,
     )
     log_fn(
-        "Selected phi %.6g by automatic tuning [%s]: K_eff=%d, redundancy=%.3g, stability=%.3g, run_support=%.3g"
+        "Selected phi %.6g by automatic tuning [%s]: K_eff=%d, redundancy[%s]=%.3g, stability=%.3g, run_support=%.3g"
         % (
             float(selected_candidate["phi"]),
             selection_reason,
             int(selected_candidate["modal_factor_count"]),
+            str(selected_candidate.get("redundancy_basis", "unknown")),
             float(selected_candidate["redundancy"]),
             float(selected_candidate["stability"]),
             float(selected_candidate["run_support"]),
@@ -1099,22 +1207,6 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     if gene_or_pheno_max_vector is not None and gene_or_pheno_filter_value is not None:
         gene_or_pheno_mask = gene_or_pheno_max_vector > gene_or_pheno_filter_value
 
-    def __combine_prune_masks(prune_masks, prune_number, sort_rank, tag):
-        if prune_masks is None or len(prune_masks) == 0:
-            return None
-        all_prune_mask = np.full(len(prune_masks[0]), False)
-        for cur_prune_mask in prune_masks:
-            all_prune_mask[cur_prune_mask] = True
-            log("Adding %d relatively uncorrelated %ss (total now %d)" % (np.sum(cur_prune_mask), tag, np.sum(all_prune_mask)), TRACE)
-            if np.sum(all_prune_mask) > prune_number:
-                break
-        if np.sum(all_prune_mask) > prune_number:
-            threshold_value = sorted(sort_rank[all_prune_mask])[prune_number - 1]
-            all_prune_mask[sort_rank > threshold_value] = False
-        if np.sum(~all_prune_mask) > 0:
-            log("Found %d %ss remaining after pruning to max number (of %d)" % (np.sum(all_prune_mask), tag, len(state.phenos)))
-        return all_prune_mask
-
     if pheno_prune_value is not None or pheno_prune_number is not None:
         mask_for_pruning = gene_or_pheno_mask if factor_gene_set_x_pheno else anchor_pheno_mask
         if mask_for_pruning is not None:
@@ -1135,7 +1227,14 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             if pheno_prune_number is not None:
                 (mean_shifts, scale_factors) = state._calc_X_shift_scale(state.X_phewas_beta_uncorrected[mask_for_pruning,:].T)
                 pheno_prune_number_masks = state._compute_gene_set_batches(V=None, X_orig=state.X_phewas_beta_uncorrected[mask_for_pruning,:].T, mean_shifts=mean_shifts, scale_factors=scale_factors, sort_values=pheno_sort_rank[mask_for_pruning], stop_at=pheno_prune_number, tag="phenos")
-                all_pheno_prune_mask = __combine_prune_masks(pheno_prune_number_masks, pheno_prune_number, pheno_sort_rank[mask_for_pruning], "pheno")
+                all_pheno_prune_mask = _combine_prune_masks(
+                    pheno_prune_number_masks,
+                    pheno_prune_number,
+                    pheno_sort_rank[mask_for_pruning],
+                    "pheno",
+                    log_fn=log,
+                    trace_level=TRACE,
+                )
                 mask_for_pruning[np.where(mask_for_pruning)[0][~all_pheno_prune_mask]] = False
             if mask_for_pruning is anchor_pheno_mask and num_users > 1:
                 #in this case, we may have changed the number of users
@@ -1161,7 +1260,14 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             if gene_prune_number is not None:
                 (mean_shifts, scale_factors) = state._calc_X_shift_scale(state.X_orig[mask_for_pruning,:].T)
                 gene_prune_number_masks = state._compute_gene_set_batches(V=None, X_orig=state.X_orig[mask_for_pruning,:].T, mean_shifts=mean_shifts, scale_factors=scale_factors, sort_values=gene_sort_rank[mask_for_pruning], stop_at=gene_prune_number, tag="genes")
-                all_gene_prune_mask = __combine_prune_masks(gene_prune_number_masks, gene_prune_number, gene_sort_rank[mask_for_pruning], "gene")
+                all_gene_prune_mask = _combine_prune_masks(
+                    gene_prune_number_masks,
+                    gene_prune_number,
+                    gene_sort_rank[mask_for_pruning],
+                    "gene",
+                    log_fn=log,
+                    trace_level=TRACE,
+                )
                 mask_for_pruning[np.where(mask_for_pruning)[0][~all_gene_prune_mask]] = False
 
             if mask_for_pruning is anchor_gene_mask and num_users > 1:
@@ -1217,7 +1323,11 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         gene_set_mask = gene_set_max_vector > gene_set_filter_value
 
 
-    gene_set_sort_rank = -(state.X_phewas_beta_uncorrected.mean(axis=0).A1 if state.X_phewas_beta_uncorrected is not None else state.betas)
+    gene_set_sort_rank = _gene_set_sort_rank_for_pruning(
+        state,
+        betas=betas,
+        betas_uncorrected=betas_uncorrected,
+    )
 
     if gene_set_prune_value is not None or gene_set_prune_number is not None:
         log("Pruning gene sets to reduce matrix size", DEBUG)
@@ -1229,9 +1339,21 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         gene_set_mask[np.where(gene_set_mask)[0][~gene_set_prune_mask]] = False
 
     if gene_set_prune_number is not None:
-        gene_set_prune_number_masks = state._compute_gene_set_batches(V=None, X_orig=state.X_orig[:,gene_set_mask], mean_shifts=state.mean_shifts[gene_set_mask], scale_factors=state.scale_factors[gene_set_mask], sort_values=gene_set_sort_rank[gene_set_mask], stop_at=pheno_prune_number, tag="gene sets")
+        gene_set_prune_number_masks = _compute_gene_set_prune_number_masks(
+            state,
+            gene_set_mask=gene_set_mask,
+            gene_set_sort_rank=gene_set_sort_rank,
+            gene_set_prune_number=gene_set_prune_number,
+        )
 
-        all_gene_set_prune_mask = __combine_prune_masks(gene_set_prune_number_masks, gene_set_prune_number, gene_set_sort_rank[gene_set_mask], "gene set")
+        all_gene_set_prune_mask = _combine_prune_masks(
+            gene_set_prune_number_masks,
+            gene_set_prune_number,
+            gene_set_sort_rank[gene_set_mask],
+            "gene set",
+            log_fn=log,
+            trace_level=TRACE,
+        )
 
         gene_set_mask[np.where(gene_set_mask)[0][~all_gene_set_prune_mask]] = False
     
@@ -1285,7 +1407,20 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     normalize_gene_sets = False
     cap = True
 
-    result = state._bayes_nmf_l2_extension(matrix.toarray(), gene_set_prob_vector[gene_set_mask,:], gene_or_pheno_prob_vector[gene_or_pheno_mask,:], a0=alpha0, K=max_num_factors, tol=rel_tol, phi=phi, cap_genes=cap, cap_gene_sets=cap, normalize_genes=normalize_genes, normalize_gene_sets=normalize_gene_sets)
+    result = state._bayes_nmf_l2_extension(
+        matrix.toarray(),
+        gene_set_prob_vector[gene_set_mask,:],
+        gene_or_pheno_prob_vector[gene_or_pheno_mask,:],
+        n_iter=max_num_iterations,
+        a0=alpha0,
+        K=max_num_factors,
+        tol=rel_tol,
+        phi=phi,
+        cap_genes=cap,
+        cap_gene_sets=cap,
+        normalize_genes=normalize_genes,
+        normalize_gene_sets=normalize_gene_sets,
+    )
 
     state.exp_lambdak = result[4]
     exp_gene_or_pheno_factors = result[1].T
@@ -1657,7 +1792,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.6, learn_phi_runs_per_step=5, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_max_steps=8, learn_phi_expand_factor=10.0, learn_phi_weight_floor=None, learn_phi_report_out=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_runs_per_step=5, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_max_steps=8, learn_phi_expand_factor=10.0, learn_phi_weight_floor=None, learn_phi_report_out=None, learn_phi_prune_gene_sets_num=None, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -1691,6 +1826,10 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bail("--learn-phi-expand-factor must be > 1")
         if learn_phi_weight_floor is not None and learn_phi_weight_floor < 0:
             bail("--learn-phi-weight-floor must be >= 0 when set")
+        if learn_phi_prune_gene_sets_num is not None and learn_phi_prune_gene_sets_num < 1:
+            bail("--learn-phi-prune-gene-sets-num must be at least 1")
+        if learn_phi_max_num_iterations is not None and learn_phi_max_num_iterations < 1:
+            bail("--learn-phi-max-num-iterations must be at least 1")
 
     factor_kwargs = {
         "max_num_factors": max_num_factors,
@@ -1757,6 +1896,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             learn_phi_expand_factor=learn_phi_expand_factor,
             learn_phi_weight_floor=learn_phi_weight_floor,
             learn_phi_report_out=learn_phi_report_out,
+            learn_phi_prune_gene_sets_num=learn_phi_prune_gene_sets_num,
+            learn_phi_max_num_iterations=learn_phi_max_num_iterations,
             gene_set_filter_type=gene_set_filter_type,
             gene_set_filter_value=gene_set_filter_value,
             gene_or_pheno_filter_type=gene_or_pheno_filter_type,
@@ -1819,6 +1960,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             expand_factor=learn_phi_expand_factor,
             weight_floor=weight_floor,
             report_out=learn_phi_report_out,
+            prune_gene_sets_num=learn_phi_prune_gene_sets_num,
+            max_num_iterations=learn_phi_max_num_iterations,
             factor_kwargs=factor_kwargs,
             log_fn=log,
             info_level=INFO,

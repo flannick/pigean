@@ -52,7 +52,7 @@ class FactorExecutionConfig:
     gene_set_filter_type: str | None = None
     gene_or_pheno_filter_type: str | None = None
     learn_phi: bool = False
-    learn_phi_max_redundancy: float = 0.6
+    learn_phi_max_redundancy: float = 0.5
     learn_phi_runs_per_step: int = 5
     learn_phi_min_run_support: float = 0.6
     learn_phi_min_stability: float = 0.85
@@ -61,6 +61,8 @@ class FactorExecutionConfig:
     learn_phi_expand_factor: float = 10.0
     learn_phi_weight_floor: float | None = None
     learn_phi_report_out: str | None = None
+    learn_phi_prune_gene_sets_num: int | None = None
+    learn_phi_max_num_iterations: int | None = None
     seed: int | None = None
     factor_runs: int = 1
     consensus_nmf: bool = False
@@ -109,6 +111,8 @@ class FactorExecutionConfig:
             "learn_phi_expand_factor": self.learn_phi_expand_factor,
             "learn_phi_weight_floor": self.learn_phi_weight_floor,
             "learn_phi_report_out": self.learn_phi_report_out,
+            "learn_phi_prune_gene_sets_num": self.learn_phi_prune_gene_sets_num,
+            "learn_phi_max_num_iterations": self.learn_phi_max_num_iterations,
             "alpha0": self.alpha0,
             "beta0": self.beta0,
             "seed": self.seed,
@@ -439,6 +443,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_expand_factor=options.learn_phi_expand_factor,
         learn_phi_weight_floor=options.learn_phi_weight_floor,
         learn_phi_report_out=options.learn_phi_report_out,
+        learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", None),
+        learn_phi_max_num_iterations=getattr(options, "learn_phi_max_num_iterations", None),
         alpha0=options.alpha0,
         beta0=options.beta0,
         seed=options.seed,

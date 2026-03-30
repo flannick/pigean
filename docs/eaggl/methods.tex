@@ -364,15 +364,15 @@ Let $H^{(r)}$ denote the annotation loading matrix from restart $r$ after ARD th
 
 The hyperparameter $\phi$ also affects the effective number and sparsity of retained factors, even though ARD is responsible for pruning irrelevant components. EAGGL can therefore treat $\phi$ as a structural model-selection parameter rather than as a fixed constant. The guiding principle is to select the smallest value of $\phi$ that yields a factorization with many retained mechanisms but without unstable or near-duplicate factors.
 
-Operationally, each candidate value of $\phi$ is evaluated across repeated random restarts, and the candidate is summarized by: (a) the modal retained factor count; (b) reconstruction error; (c) agreement of matched factors across runs; and (d) within-run redundancy of the retained factors. Redundancy is measured on normalized factor loading vectors, for example by weighted Jaccard overlap:
+Operationally, each candidate value of $\phi$ is evaluated across repeated random restarts, and the candidate is summarized by: (a) the modal retained factor count; (b) reconstruction error; (c) agreement of matched factors across runs; and (d) within-run redundancy of the retained factors. In the current implementation, redundancy is measured primarily on normalized gene loading vectors, with fallback to gene-set or phenotype loading vectors only when gene loadings are unavailable. The overlap score is weighted Jaccard:
 \begin{equation}
 J_w(u,v)
 =
 \frac{\sum_{\ell} \min(u_{\ell}, v_{\ell})}{\sum_{\ell} \max(u_{\ell}, v_{\ell})}.
 \label{eq:eaggl_weighted_jaccard}
 \end{equation}
-The selected value of $\phi$ is the smallest value that preserves an acceptably non-redundant and restart-stable solution without materially degrading reconstruction fit. This procedure is best understood as structural model selection rather than as held-out cross-validation.
-In the implementation, the selected $\phi$, the candidate-level search diagnostics, and the thresholds used for the search are written to the run log and parameter output so that the final reported factorization is auditable after the fact.
+The selected value of $\phi$ is the smallest value that preserves an acceptably non-redundant and restart-stable solution without materially degrading reconstruction fit. In the current defaults, the redundancy gate is set to weighted Jaccard $0.5$ on the gene-loading basis, corresponding roughly to a requirement that no retained factor share much more than half of its gene-loading mass with another retained factor. This procedure is best understood as structural model selection rather than as held-out cross-validation.
+In the implementation, the selected $\phi$, the candidate-level search diagnostics, and the thresholds used for the search are written to the run log and parameter output so that the final reported factorization is auditable after the fact. For very large annotation collections, the implementation may optionally evaluate candidate $\phi$ values on a sentinel subset of relatively uncorrelated gene sets and under a smaller candidate iteration budget, then rerun the final reported factorization on the full retained matrix with the selected $\phi$. This shortcut changes only the cost of the search procedure; it does not change the final fitting target once $\phi$ has been chosen.
 
 \subsection{Optimizations for scaling EAGGL to large phenotype panels}
 

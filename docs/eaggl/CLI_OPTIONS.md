@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `214`
+- Total options: `216`
 - `method_required`: `16`
-- `method_optional`: `113`
+- `method_optional`: `115`
 - `engineering`: `68`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `176`
+- visibility `expert`: `178`
 - visibility `hidden`: `8`
 - visibility `normal`: `30`
 
@@ -89,10 +89,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi by structural model selection before the final factorization |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `10.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
 | `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | maximum allowed reconstruction-error loss relative to the best tested phi during automatic tuning |
-| `--learn-phi-max-redundancy` | `normal` | `yes` | `core_help` | `learn_phi_max_redundancy` | `0.6` | maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning |
+| `--learn-phi-max-num-iterations` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_num_iterations` | `None` | during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate |
+| `--learn-phi-max-redundancy` | `normal` | `yes` | `core_help` | `learn_phi_max_redundancy` | `0.5` | maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available |
 | `--learn-phi-max-steps` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_steps` | `8` | maximum number of log-space phi search steps after bracketing |
 | `--learn-phi-min-run-support` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_run_support` | `0.6` | minimum run-support fraction required for a phi candidate during automatic tuning |
 | `--learn-phi-min-stability` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_stability` | `0.85` | minimum matched-factor cosine stability required for a phi candidate during automatic tuning |
+| `--learn-phi-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `learn_phi_prune_gene_sets_num` | `None` | during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi |
 | `--learn-phi-runs-per-step` | `expert` | `yes` | `advanced_workflows` | `learn_phi_runs_per_step` | `5` | number of repeated restarts used to score each candidate phi |
 | `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |

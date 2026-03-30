@@ -136,6 +136,8 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--learn-phi"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-max-redundancy"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-runs-per-step"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--learn-phi-prune-gene-sets-num"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--learn-phi-max-num-iterations"]["public_visibility"], "expert")
 
         self.assertEqual(metadata["--factor-phewas-modes"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phewas-full-output"]["documentation_target"], "advanced_workflows")
@@ -179,6 +181,19 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-redundancy must be in (0, 1]", err)
+        self.assertNotIn("Traceback", err)
+
+    def test_invalid_phi_search_shortcut_settings_return_usage_error(self) -> None:
+        proc = self._run("factor", "--learn-phi", "--learn-phi-prune-gene-sets-num", "0")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-prune-gene-sets-num must be at least 1", err)
+        self.assertNotIn("Traceback", err)
+
+        proc = self._run("factor", "--learn-phi", "--learn-phi-max-num-iterations", "0")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-max-num-iterations must be at least 1", err)
         self.assertNotIn("Traceback", err)
 
     def test_invalid_factor_phewas_mode_returns_usage_error(self) -> None:

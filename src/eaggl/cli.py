@@ -305,7 +305,7 @@ parser.add_option("","--label-individually",default=False,action="store_true") #
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization
-parser.add_option("","--learn-phi-max-redundancy",default=0.6,type=float) #maximum allowed within-run weighted Jaccard overlap between retained factors during phi search
+parser.add_option("","--learn-phi-max-redundancy",default=0.5,type=float) #maximum allowed within-run weighted Jaccard overlap between retained factors during phi search, measured on gene loadings when available
 parser.add_option("","--learn-phi-runs-per-step",default=5,type=int) #number of repeated restarts used to score each candidate phi
 parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #minimum fraction of runs that must agree on the modal retained factor count during phi search
 parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
@@ -314,6 +314,8 @@ parser.add_option("","--learn-phi-max-steps",default=8,type=int) #maximum number
 parser.add_option("","--learn-phi-expand-factor",default=10.0,type=float) #multiplicative factor used when expanding the phi search bracket
 parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
 parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
+parser.add_option("","--learn-phi-prune-gene-sets-num",default=None,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
+parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #during phi search only, cap the NMF iteration budget used for each tested phi candidate
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
 parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
 parser.add_option("","--factor-runs",default=1,type=int) #number of repeated random restarts for factorization
@@ -438,10 +440,12 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
     "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best tested phi during automatic tuning",
-    "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning",
+    "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available",
+    "--learn-phi-max-num-iterations": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
     "--learn-phi-max-steps": "maximum number of log-space phi search steps after bracketing",
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
     "--learn-phi-min-stability": "minimum matched-factor cosine stability required for a phi candidate during automatic tuning",
+    "--learn-phi-prune-gene-sets-num": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
     "--learn-phi-report-out": "write per-candidate phi search diagnostics",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
@@ -542,9 +546,11 @@ _EXPERT_METHOD_FLAGS = {
     "--label-individually",
     "--learn-phi-expand-factor",
     "--learn-phi-max-fit-loss-frac",
+    "--learn-phi-max-num-iterations",
     "--learn-phi-max-steps",
     "--learn-phi-min-run-support",
     "--learn-phi-min-stability",
+    "--learn-phi-prune-gene-sets-num",
     "--learn-phi-report-out",
     "--learn-phi-runs-per-step",
     "--learn-phi-weight-floor",
@@ -1309,6 +1315,10 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-expand-factor must be > 1")
         if parsed_options.learn_phi_weight_floor is not None and parsed_options.learn_phi_weight_floor < 0:
             bail("--learn-phi-weight-floor must be >= 0")
+        if parsed_options.learn_phi_prune_gene_sets_num is not None and parsed_options.learn_phi_prune_gene_sets_num < 1:
+            bail("--learn-phi-prune-gene-sets-num must be at least 1")
+        if parsed_options.learn_phi_max_num_iterations is not None and parsed_options.learn_phi_max_num_iterations < 1:
+            bail("--learn-phi-max-num-iterations must be at least 1")
 
     if len(parsed_args) < 1:
         bail(usage)

@@ -319,6 +319,10 @@ class EagglCliReferenceTest(unittest.TestCase):
             "0.02",
             "--learn-phi-report-out",
             "phi.tsv",
+            "--learn-phi-prune-gene-sets-num",
+            "1000",
+            "--learn-phi-max-num-iterations",
+            "50",
             "--alpha0",
             "7",
             "--beta0",
@@ -394,6 +398,8 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_expand_factor"], 5.0)
         self.assertEqual(opts["learn_phi_weight_floor"], 0.02)
         self.assertEqual(opts["learn_phi_report_out"], "phi.tsv")
+        self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
+        self.assertEqual(opts["learn_phi_max_num_iterations"], 50)
         self.assertEqual(opts["alpha0"], 7.0)
         self.assertEqual(opts["beta0"], 2.0)
         self.assertEqual(opts["factor_runs"], 4)
@@ -484,6 +490,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-prune-gene-sets-num": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-max-num-iterations": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--alpha0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--beta0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-runs": ["test_reference_factor_and_labeling_flags_round_trip"],

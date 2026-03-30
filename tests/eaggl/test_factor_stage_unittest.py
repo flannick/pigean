@@ -30,7 +30,7 @@ def _options(**overrides):
         consensus_aggregation="median",
         consensus_stats_out=None,
         learn_phi=False,
-        learn_phi_max_redundancy=0.6,
+        learn_phi_max_redundancy=0.5,
         learn_phi_runs_per_step=5,
         learn_phi_min_run_support=0.6,
         learn_phi_min_stability=0.85,
@@ -39,6 +39,8 @@ def _options(**overrides):
         learn_phi_expand_factor=10.0,
         learn_phi_weight_floor=None,
         learn_phi_report_out=None,
+        learn_phi_prune_gene_sets_num=None,
+        learn_phi_max_num_iterations=None,
         gene_set_filter_value=0.0,
         gene_set_pheno_filter_value=0.25,
         pheno_filter_value=0.2,
@@ -136,6 +138,40 @@ class _FactorPhewasRuntimeStub:
 
 
 class FactorStageHelpersTest(unittest.TestCase):
+    def test_zero_uncorrected_filter_hook_accepts_shared_runtime_kwargs(self) -> None:
+        runtime = SimpleNamespace(p_values=None, gene_sets=[])
+        sort_rank = [1.0, 0.5]
+        result = eaggl._maybe_filter_zero_uncorrected_betas_after_x_read(
+            runtime_state=runtime,
+            sort_rank=sort_rank,
+            skip_betas=False,
+            filter_gene_set_p=1.0,
+            filter_using_phewas=False,
+            retain_all_beta_uncorrected=False,
+            independent_betas_only=False,
+            max_num_burn_in=10,
+            max_num_iter_betas=20,
+            min_num_iter_betas=5,
+            num_chains_betas=2,
+            r_threshold_burn_in_betas=1.01,
+            use_max_r_for_convergence_betas=True,
+            max_frac_sem_betas=0.01,
+            max_allowed_batch_correlation=None,
+            sparse_solution=False,
+            sparse_frac_betas=0.001,
+        )
+        self.assertIs(result, sort_rank)
+        self.assertIsNone(
+            eaggl._maybe_reduce_gene_sets_to_max_after_x_read(
+                runtime_state=runtime,
+                skip_betas=False,
+                max_num_gene_sets=5000,
+                sort_rank=sort_rank,
+                retain_all_beta_uncorrected=False,
+                independent_betas_only=False,
+            )
+        )
+
     def test_extract_factor_workflow_defaults(self) -> None:
         workflow = eaggl._extract_factor_workflow({})
         self.assertIsNone(workflow.workflow_id)
@@ -189,6 +225,8 @@ class FactorStageHelpersTest(unittest.TestCase):
             learn_phi_expand_factor=5.0,
             learn_phi_weight_floor=0.02,
             learn_phi_report_out="phi.tsv",
+            learn_phi_prune_gene_sets_num=1000,
+            learn_phi_max_num_iterations=25,
         )
         cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
         self.assertTrue(cfg.learn_phi)
@@ -201,6 +239,8 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_expand_factor, 5.0)
         self.assertEqual(cfg.learn_phi_weight_floor, 0.02)
         self.assertEqual(cfg.learn_phi_report_out, "phi.tsv")
+        self.assertEqual(cfg.learn_phi_prune_gene_sets_num, 1000)
+        self.assertEqual(cfg.learn_phi_max_num_iterations, 25)
 
     def test_build_factor_execution_config_tracks_keep_original_loadings(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
