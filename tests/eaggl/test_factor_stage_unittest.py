@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
+
+import numpy as np
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -291,6 +294,35 @@ class FactorStageHelpersTest(unittest.TestCase):
             ("write_clusters", "gs_anchor_cluster.tsv", "g_anchor_cluster.tsv", "p_anchor_cluster.tsv", True),
         )
         self.assertEqual(runtime.calls[5], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
+
+    def test_write_clusters_gene_set_writer_uses_betas_uncorrected_without_stale_alias(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.exp_lambdak = [1.0, 1.0]
+        runtime.exp_gene_set_factors = np.array(
+            [
+                [0.2, 0.8],
+                [0.9, 0.1],
+            ]
+        )
+        runtime.exp_gene_factors = None
+        runtime.exp_pheno_factors = None
+        runtime.betas = None
+        runtime.betas_uncorrected = np.array([0.1, 0.9])
+        runtime.gene_set_factor_gene_set_mask = None
+        runtime.factor_labels = ["label1", "label2"]
+        runtime.gene_sets = ["gs1", "gs2"]
+        runtime.anchor_pheno_mask = None
+        runtime.anchor_gene_mask = None
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = Path(tmpdir) / "gene_set_clusters.tsv"
+            runtime.write_clusters(gene_set_clusters_output_file=str(out_path))
+            content = out_path.read_text()
+
+        self.assertIn("beta_uncorrected", content)
+        lines = content.strip().splitlines()
+        self.assertGreaterEqual(len(lines), 3)
+        self.assertTrue(lines[1].startswith("gs2\t0.9"))
 
     def test_workflow_required_inputs_contract_for_f1_to_f9(self) -> None:
         cases = [

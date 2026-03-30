@@ -2108,7 +2108,7 @@ class EagglState(object):
                 if self.betas_uncorrected is not None or (pheno_anchors and self.X_phewas_beta_uncorrected is not None):
                     header = "%s\t%s" % (header, "beta_uncorrected")
                     if self.betas_uncorrected is not None and master_key_fn is None:
-                        master_key_fn = lambda k: -self.betas_uncorrected_[gene_set_factor_gene_set_inds[k]]
+                        master_key_fn = lambda k: -self.betas_uncorrected[gene_set_factor_gene_set_inds[k]]
 
                 if anchors is not None:
                     header = "%s\t%s" % (header, "relevance")
