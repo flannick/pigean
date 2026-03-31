@@ -358,20 +358,52 @@ Consequently, the main phenotype labels and top-phenotype annotations for a fact
 
 \subsection{Repeated restarts, consensus factorization, and structural selection of $\phi$}
 
-The EAGGL objective is non-convex, and therefore different random initializations can converge to different local optima. For this reason, EAGGL is typically fit under repeated random restarts. The simplest use of repeated restarts is to retain the fitted solution with the best objective value. A more stringent alternative is consensus factorization, in which factors are first matched across runs and then aggregated only if they are reproduced consistently across restarts.
+The EAGGL objective is non-convex, and therefore different random initializations can converge to different local optima. For this reason, EAGGL is typically fit under repeated random restarts. The simplest use of repeated restarts is to retain the fitted solution with the best objective value. A more stringent alternative is consensus factorization, in which factors are first matched across runs and then aggregated only if they are reproduced consistently across restarts. Let $H^{(r)}$ denote the annotation loading matrix from restart $r$ after ARD thresholding. In consensus mode, EAGGL normalizes the factor columns, aligns factors across restarts by maximum total similarity, and aggregates matched factors only when they appear in a sufficient fraction of runs.
 
-Let $H^{(r)}$ denote the annotation loading matrix from restart $r$ after ARD thresholding. In consensus mode, EAGGL normalizes the factor columns, aligns factors across restarts by maximum total similarity, and aggregates matched factors only when they appear in a sufficient fraction of runs. Consensus is therefore defined at the component level rather than by averaging arbitrary column order.
+The hyperparameter $\phi$ also affects the effective number and sparsity of retained factors, even though ARD is responsible for pruning irrelevant components. EAGGL therefore treats $\phi$ as a structural model-selection parameter rather than as a fixed constant. Operationally, each candidate value of $\phi$ is evaluated across repeated random restarts and summarized by the retained factor count, restart support, restart stability, reconstruction fit, and within-run redundancy.
 
-The hyperparameter $\phi$ also affects the effective number and sparsity of retained factors, even though ARD is responsible for pruning irrelevant components. EAGGL can therefore treat $\phi$ as a structural model-selection parameter rather than as a fixed constant. The guiding principle is to select the smallest value of $\phi$ that yields a factorization with many retained mechanisms but without unstable or near-duplicate factors.
-
-Operationally, each candidate value of $\phi$ is evaluated across one or more random restarts, and the candidate is summarized by: (a) the modal retained factor count; (b) reconstruction error; (c) agreement of matched factors across runs when multiple restarts are requested; and (d) within-run redundancy of the retained factors. In the current implementation, redundancy is measured primarily on normalized gene loading vectors, with fallback to gene-set or phenotype loading vectors only when gene loadings are unavailable. The overlap score is weighted Jaccard:
+Let $R$ be the number of restarts, let $K^{(r)}$ be the retained factor count in restart $r$, and let $K_{\mathrm{eff}}$ be the modal retained factor count. Let
+\[
+\mathcal{R}_{\mathrm{mode}} = \{ r : K^{(r)} = K_{\mathrm{eff}} \},
+\]
+and let $m = |\mathcal{R}_{\mathrm{mode}}|$. The restart-support statistic is
 \begin{equation}
-J_w(u,v)
-=
-\frac{\sum_{\ell} \min(u_{\ell}, v_{\ell})}{\sum_{\ell} \max(u_{\ell}, v_{\ell})}.
+s(\phi) = \frac{m}{R}.
+\label{eq:eaggl_restart_support}
+\end{equation}
+When $m \ge 2$, factors are aligned across the modal restarts by maximum total cosine similarity and restart stability is defined as the mean cosine similarity of the matched factors across the modal restart set. When $m < 2$, restart stability is treated as undefined and the candidate is not considered restart-stable.
+
+Within each modal restart, EAGGL measures redundancy on a canonical loading basis. The canonical basis is the gene loading matrix when available, with fallback to the gene-set loading matrix and then the phenotype loading matrix otherwise. After clipping negligible weights and renormalizing each factor loading vector, overlap between factors with loading vectors $u$ and $v$ is measured by weighted Jaccard:
+\begin{equation}
+J_w(u,v) = \frac{\sum_{\ell} \min(u_{\ell}, v_{\ell})}{\sum_{\ell} \max(u_{\ell}, v_{\ell})}.
 \label{eq:eaggl_weighted_jaccard}
 \end{equation}
-The selected value of $\phi$ is the smallest value that preserves an acceptably non-redundant and restart-stable solution without materially degrading reconstruction fit. In the current defaults, the redundancy gate is set to weighted Jaccard $0.5$ on the gene-loading basis, corresponding roughly to a requirement that no retained factor share much more than half of its gene-loading mass with another retained factor. This procedure is best understood as structural model selection rather than as held-out cross-validation.
+For factor $k$, let
+\begin{equation}
+d_k = \max_{\ell \ne k} J_w(u_k, u_{\ell})
+\label{eq:eaggl_nn_overlap}
+\end{equation}
+denote its nearest-neighbor overlap. EAGGL summarizes within-run redundancy by
+\begin{equation}
+d_{\max} = \max_k d_k
+\label{eq:eaggl_hard_redundancy}
+\end{equation}
+and
+\begin{equation}
+d_{0.9} = Q_{0.9}(d_1, \ldots, d_K),
+\label{eq:eaggl_tail_redundancy}
+\end{equation}
+where $Q_{0.9}$ denotes the 90th percentile. Candidate-level redundancy is summarized across the modal restarts by the median values of $d_{\max}$ and $d_{0.9}$, while the worst-case $d_{\max}$ across modal restarts is retained as an additional diagnostic.
+
+A candidate value of $\phi$ is considered acceptable if it satisfies prespecified thresholds on restart support, restart stability, reconstruction fit, and both redundancy summaries. Candidates whose modal retained factor count equals the user-supplied maximum candidate rank are marked as capped and are not preferred when uncapped acceptable candidates exist.
+
+Among acceptable uncapped candidates, let $K^*$ be the largest retained factor count observed. EAGGL then selects the largest value of $\phi$ among the acceptable candidates satisfying
+\begin{equation}
+K_{\mathrm{eff}} \ge \rho K^*,
+\label{eq:eaggl_k_band}
+\end{equation}
+where $\rho \in (0,1]$ is a near-maximal factor-count fraction. Ties are broken by lower $d_{0.9}$, then lower $d_{\max}$, and then better reconstruction fit. If no uncapped candidate is acceptable, the same rule is applied to the capped candidates. This procedure is best understood as selecting the simplest acceptable factorization rather than the most saturated one.
+
 In the implementation, the selected $\phi$, the candidate-level search diagnostics, and the thresholds used for the search are written to the run log and parameter output so that the final reported factorization is auditable after the fact. For very large annotation collections, the implementation evaluates candidate $\phi$ values on a sentinel subset of relatively uncorrelated gene sets and may also use a smaller candidate iteration budget, then reruns the final reported factorization on the full retained matrix with the selected $\phi$. The current defaults use a sentinel size of 1000 representative gene sets and one restart per candidate, with larger restart counts available as an expert stability check. This shortcut changes only the cost of the search procedure; it does not change the final fitting target once $\phi$ has been chosen.
 
 \subsection{Optimizations for scaling EAGGL to large phenotype panels}

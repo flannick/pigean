@@ -34,10 +34,12 @@ def _options(**overrides):
         consensus_stats_out=None,
         learn_phi=False,
         learn_phi_max_redundancy=0.5,
+        learn_phi_max_redundancy_q90=0.35,
         learn_phi_runs_per_step=1,
         learn_phi_min_run_support=0.6,
         learn_phi_min_stability=0.85,
         learn_phi_max_fit_loss_frac=0.05,
+        learn_phi_k_band_frac=0.9,
         learn_phi_max_steps=8,
         learn_phi_expand_factor=10.0,
         learn_phi_weight_floor=None,
@@ -220,10 +222,12 @@ class FactorStageHelpersTest(unittest.TestCase):
         options = _options(
             learn_phi=True,
             learn_phi_max_redundancy=0.55,
+            learn_phi_max_redundancy_q90=0.25,
             learn_phi_runs_per_step=7,
             learn_phi_min_run_support=0.7,
             learn_phi_min_stability=0.9,
             learn_phi_max_fit_loss_frac=0.03,
+            learn_phi_k_band_frac=0.8,
             learn_phi_max_steps=6,
             learn_phi_expand_factor=5.0,
             learn_phi_weight_floor=0.02,
@@ -234,10 +238,12 @@ class FactorStageHelpersTest(unittest.TestCase):
         cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
         self.assertTrue(cfg.learn_phi)
         self.assertEqual(cfg.learn_phi_max_redundancy, 0.55)
+        self.assertEqual(cfg.learn_phi_max_redundancy_q90, 0.25)
         self.assertEqual(cfg.learn_phi_runs_per_step, 7)
         self.assertEqual(cfg.learn_phi_min_run_support, 0.7)
         self.assertEqual(cfg.learn_phi_min_stability, 0.9)
         self.assertEqual(cfg.learn_phi_max_fit_loss_frac, 0.03)
+        self.assertEqual(cfg.learn_phi_k_band_frac, 0.8)
         self.assertEqual(cfg.learn_phi_max_steps, 6)
         self.assertEqual(cfg.learn_phi_expand_factor, 5.0)
         self.assertEqual(cfg.learn_phi_weight_floor, 0.02)

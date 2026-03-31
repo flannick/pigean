@@ -146,10 +146,12 @@ def _build_factor_param_record(
     consensus_stats_out,
     learn_phi,
     learn_phi_max_redundancy,
+    learn_phi_max_redundancy_q90,
     learn_phi_runs_per_step,
     learn_phi_min_run_support,
     learn_phi_min_stability,
     learn_phi_max_fit_loss_frac,
+    learn_phi_k_band_frac,
     learn_phi_max_steps,
     learn_phi_expand_factor,
     learn_phi_weight_floor,
@@ -201,10 +203,12 @@ def _build_factor_param_record(
         "consensus_stats_out": consensus_stats_out,
         "learn_phi": bool(learn_phi),
         "learn_phi_max_redundancy": float(learn_phi_max_redundancy),
+        "learn_phi_max_redundancy_q90": float(learn_phi_max_redundancy_q90),
         "learn_phi_runs_per_step": int(learn_phi_runs_per_step),
         "learn_phi_min_run_support": float(learn_phi_min_run_support),
         "learn_phi_min_stability": float(learn_phi_min_stability),
         "learn_phi_max_fit_loss_frac": float(learn_phi_max_fit_loss_frac),
+        "learn_phi_k_band_frac": float(learn_phi_k_band_frac),
         "learn_phi_max_steps": int(learn_phi_max_steps),
         "learn_phi_expand_factor": float(learn_phi_expand_factor),
         "learn_phi_weight_floor": None if learn_phi_weight_floor is None else float(learn_phi_weight_floor),
@@ -255,7 +259,7 @@ def _extract_canonical_factor_matrix(state):
     return None
 
 
-def _extract_redundancy_factor_matrix(state):
+def _extract_overlap_basis_matrix(state):
     if state.exp_gene_factors is not None and state.exp_gene_factors.size > 0:
         return ("gene", state.exp_gene_factors)
     if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0:
@@ -340,31 +344,63 @@ def _combine_prune_masks(prune_masks, prune_number, sort_rank, tag, *, log_fn=No
     return all_prune_mask
 
 
-def _compute_within_run_factor_redundancy(state, weight_floor):
-    redundancy_basis, canonical = _extract_redundancy_factor_matrix(state)
+def _compute_within_run_factor_redundancy_profile(state, weight_floor):
+    redundancy_basis, canonical = _extract_overlap_basis_matrix(state)
     if canonical is None or canonical.shape[1] <= 1:
-        return (0.0, redundancy_basis)
-    max_redundancy = 0.0
+        return {
+            "redundancy_basis": redundancy_basis,
+            "redundancy_max": 0.0,
+            "redundancy_q90": 0.0,
+            "redundancy_mean": 0.0,
+            "nearest_neighbor_overlaps": [],
+        }
+
+    nearest_neighbor_overlaps = []
     for left_index in range(canonical.shape[1]):
-        for right_index in range(left_index + 1, canonical.shape[1]):
-            max_redundancy = max(
-                max_redundancy,
+        nearest_overlap = 0.0
+        for right_index in range(canonical.shape[1]):
+            if left_index == right_index:
+                continue
+            nearest_overlap = max(
+                nearest_overlap,
                 _weighted_jaccard_similarity(
                     canonical[:, left_index],
                     canonical[:, right_index],
                     weight_floor,
                 ),
             )
-    return (float(max_redundancy), redundancy_basis)
+        nearest_neighbor_overlaps.append(float(nearest_overlap))
+
+    overlap_array = np.asarray(nearest_neighbor_overlaps, dtype=float)
+    return {
+        "redundancy_basis": redundancy_basis,
+        "redundancy_max": float(np.max(overlap_array)) if overlap_array.size > 0 else 0.0,
+        "redundancy_q90": float(np.quantile(overlap_array, 0.9)) if overlap_array.size > 0 else 0.0,
+        "redundancy_mean": float(np.mean(overlap_array)) if overlap_array.size > 0 else 0.0,
+        "nearest_neighbor_overlaps": nearest_neighbor_overlaps,
+    }
 
 
 def _collect_run_indices_by_modal_factor_count(run_states, run_summaries):
     factor_count_to_indices = {}
     for index, run_state in enumerate(run_states):
         factor_count_to_indices.setdefault(int(run_summaries[index].get("num_factors", 0)), []).append(index)
-    modal_factor_count = max(
-        sorted(factor_count_to_indices),
-        key=lambda key: (len(factor_count_to_indices[key]), key),
+    max_support = max(len(indices) for indices in factor_count_to_indices.values())
+    supported_counts = [key for key, indices in factor_count_to_indices.items() if len(indices) == max_support]
+
+    def _median_error_for_count(count_value):
+        errors = [
+            float(run_summaries[index]["reconstruction_error"])
+            for index in factor_count_to_indices[count_value]
+            if run_summaries[index].get("reconstruction_error") is not None
+        ]
+        if len(errors) == 0:
+            return float("inf")
+        return float(np.median(np.asarray(errors, dtype=float)))
+
+    modal_factor_count = min(
+        supported_counts,
+        key=lambda key: (_median_error_for_count(key), int(key)),
     )
     return modal_factor_count, factor_count_to_indices[modal_factor_count]
 
@@ -381,7 +417,7 @@ def _match_factor_cosines(reference_matrix, other_matrix):
     return [float(similarity[ref_index, other_index]) for ref_index, other_index in zip(ref_inds, other_inds)]
 
 
-def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor):
+def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, max_num_factors):
     modal_factor_count, modal_indices = _collect_run_indices_by_modal_factor_count(run_states, run_summaries)
     reference_index = min(modal_indices, key=lambda idx: _best_run_sort_key(run_summaries[idx]))
 
@@ -405,26 +441,47 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor):
         )
 
     if len(modal_indices) <= 1:
-        stability = 1.0
+        stability = None
+        stability_defined = False
     elif len(matched_cosines) == 0:
         stability = 0.0
+        stability_defined = True
     else:
         stability = float(np.mean(np.asarray(matched_cosines, dtype=float)))
+        stability_defined = True
 
-    redundancy, redundancy_basis = _compute_within_run_factor_redundancy(run_states[reference_index], weight_floor)
+    run_redundancy_profiles = [
+        _compute_within_run_factor_redundancy_profile(run_states[index], weight_floor)
+        for index in modal_indices
+    ]
+    redundancy_basis_values = [str(profile.get("redundancy_basis", "unknown")) for profile in run_redundancy_profiles]
+    redundancy_basis = redundancy_basis_values[0] if len(set(redundancy_basis_values)) == 1 else "mixed"
+    redundancy_max_values = [float(profile["redundancy_max"]) for profile in run_redundancy_profiles]
+    redundancy_q90_values = [float(profile["redundancy_q90"]) for profile in run_redundancy_profiles]
+    redundancy_mean_values = [float(profile["redundancy_mean"]) for profile in run_redundancy_profiles]
 
     return {
         "phi": float(phi),
         "modal_factor_count": int(modal_factor_count),
         "run_support": float(len(modal_indices)) / float(max(1, len(run_states))),
-        "stability": float(stability),
-        "redundancy": redundancy,
+        "stability": None if stability is None else float(stability),
+        "stability_defined": bool(stability_defined),
+        "num_modal_runs": int(len(modal_indices)),
+        "redundancy": float(np.median(np.asarray(redundancy_max_values, dtype=float))) if len(redundancy_max_values) > 0 else 0.0,
         "redundancy_basis": redundancy_basis,
+        "redundancy_max": float(np.median(np.asarray(redundancy_max_values, dtype=float))) if len(redundancy_max_values) > 0 else 0.0,
+        "redundancy_q90": float(np.median(np.asarray(redundancy_q90_values, dtype=float))) if len(redundancy_q90_values) > 0 else 0.0,
+        "redundancy_mean": float(np.median(np.asarray(redundancy_mean_values, dtype=float))) if len(redundancy_mean_values) > 0 else 0.0,
+        "redundancy_max_worst": float(np.max(np.asarray(redundancy_max_values, dtype=float))) if len(redundancy_max_values) > 0 else 0.0,
         "best_error": None if best_error is None else float(best_error),
         "best_evidence": None if best_evidence is None else float(best_evidence),
         "reference_run_index": int(reference_index),
         "modal_run_indices": [int(index) for index in modal_indices],
         "matched_cosines": [float(value) for value in matched_cosines],
+        "run_redundancy_max": redundancy_max_values,
+        "run_redundancy_q90": redundancy_q90_values,
+        "run_redundancy_mean": redundancy_mean_values,
+        "capped": bool(int(modal_factor_count) >= int(max_num_factors)),
     }
 
 
@@ -479,18 +536,22 @@ def _evaluate_phi_candidate(
         run_summaries,
         phi=phi,
         weight_floor=weight_floor,
+        max_num_factors=int(factor_kwargs.get("max_num_factors", 0)),
     )
     candidate["run_summaries"] = copy.deepcopy(run_summaries)
     best_error = candidate.get("best_error")
     best_evidence = candidate.get("best_evidence")
     log_fn(
-        "Automatic phi candidate %.6g summary: K_eff=%d, redundancy[%s]=%.3g, stability=%.3g, run_support=%.3g, best_error=%s, best_evidence=%s"
+        "Automatic phi candidate %.6g summary: K_eff=%d, capped=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, redundancy_mean=%.3g, stability=%s, run_support=%.3g, best_error=%s, best_evidence=%s"
         % (
             float(candidate["phi"]),
             int(candidate["modal_factor_count"]),
+            bool(candidate.get("capped", False)),
             str(candidate.get("redundancy_basis", "unknown")),
-            float(candidate["redundancy"]),
-            float(candidate["stability"]),
+            float(candidate["redundancy_max"]),
+            float(candidate["redundancy_q90"]),
+            float(candidate["redundancy_mean"]),
+            "NA" if candidate.get("stability") is None else "%.3g" % float(candidate["stability"]),
             float(candidate["run_support"]),
             "NA" if best_error is None else "%.6g" % float(best_error),
             "NA" if best_evidence is None else "%.6g" % float(best_evidence),
@@ -500,61 +561,96 @@ def _evaluate_phi_candidate(
     return candidate
 
 
-def _candidate_sort_key(candidate):
-    best_evidence = candidate.get("best_evidence")
-    return (
-        -int(candidate.get("modal_factor_count", 0)),
-        float(candidate.get("phi", float("inf"))),
-        float(candidate.get("redundancy", float("inf"))),
-        float("inf") if best_evidence is None else float(best_evidence),
-    )
-
-
 def _select_phi_candidate(
     candidates,
     *,
     max_redundancy,
+    max_redundancy_q90,
     min_run_support,
     min_stability,
     max_fit_loss_frac,
+    k_band_frac,
+    runs_per_step,
 ):
     finite_errors = [float(candidate["best_error"]) for candidate in candidates if candidate.get("best_error") is not None]
     best_global_error = min(finite_errors) if len(finite_errors) > 0 else None
 
     acceptable = []
     for candidate in candidates:
-        if candidate["redundancy"] > max_redundancy:
+        if candidate["redundancy_max"] > max_redundancy:
+            continue
+        if candidate["redundancy_q90"] > max_redundancy_q90:
             continue
         if candidate["run_support"] < min_run_support:
             continue
-        if candidate["stability"] < min_stability:
-            continue
+        if runs_per_step > 1:
+            if int(candidate.get("num_modal_runs", 0)) < 2:
+                continue
+            if not bool(candidate.get("stability_defined", False)):
+                continue
+            if candidate.get("stability") is None or float(candidate["stability"]) < min_stability:
+                continue
         if best_global_error is not None and candidate.get("best_error") is not None:
             if float(candidate["best_error"]) > float(best_global_error) * (1.0 + max_fit_loss_frac):
                 continue
         acceptable.append(candidate)
 
+    def _acceptable_pool_sort_key(candidate):
+        best_error = candidate.get("best_error")
+        return (
+            -float(candidate.get("phi", 0.0)),
+            float(candidate.get("redundancy_q90", float("inf"))),
+            float(candidate.get("redundancy_max", float("inf"))),
+            float("inf") if best_error is None else float(best_error),
+            int(candidate.get("modal_factor_count", 0)),
+        )
+
     if len(acceptable) > 0:
-        return min(acceptable, key=_candidate_sort_key), "max_factor_count_within_constraints"
+        acceptable_uncapped = [candidate for candidate in acceptable if not bool(candidate.get("capped", False))]
+        selection_pool = acceptable_uncapped if len(acceptable_uncapped) > 0 else acceptable
+        selection_pool_name = "uncapped" if len(acceptable_uncapped) > 0 else "capped"
+        k_star = max(int(candidate.get("modal_factor_count", 0)) for candidate in selection_pool)
+        k_band_threshold = int(math.ceil(float(k_band_frac) * float(k_star)))
+        in_band = [
+            candidate
+            for candidate in selection_pool
+            if int(candidate.get("modal_factor_count", 0)) >= k_band_threshold
+        ]
+        selected = min(in_band, key=_acceptable_pool_sort_key)
+        selected["selection_pool"] = selection_pool_name
+        selected["k_band_threshold"] = int(k_band_threshold)
+        return selected, "largest_phi_within_k_band"
 
     def _fallback_sort_key(candidate):
         fit_limit = None if best_global_error is None else float(best_global_error) * (1.0 + max_fit_loss_frac)
         fit_violation = 0.0
         if fit_limit is not None and candidate.get("best_error") is not None:
             fit_violation = max(0.0, float(candidate["best_error"]) - fit_limit)
-        best_evidence = candidate.get("best_evidence")
+        run_support_violation = max(0.0, min_run_support - float(candidate["run_support"]))
+        if runs_per_step > 1:
+            if int(candidate.get("num_modal_runs", 0)) < 2 or not bool(candidate.get("stability_defined", False)) or candidate.get("stability") is None:
+                stability_violation = float("inf")
+            else:
+                stability_violation = max(0.0, min_stability - float(candidate["stability"]))
+        else:
+            stability_violation = 0.0
         return (
-            max(0.0, float(candidate["redundancy"]) - max_redundancy),
-            max(0.0, min_run_support - float(candidate["run_support"])),
-            max(0.0, min_stability - float(candidate["stability"])),
+            1 if bool(candidate.get("capped", False)) else 0,
+            max(0.0, float(candidate.get("redundancy_q90", 0.0)) - max_redundancy_q90),
+            max(0.0, float(candidate.get("redundancy_max", 0.0)) - max_redundancy),
+            run_support_violation,
+            stability_violation,
             fit_violation,
-            -int(candidate["modal_factor_count"]),
-            float(candidate["phi"]),
-            float(candidate["redundancy"]),
-            float("inf") if best_evidence is None else float(best_evidence),
+            -float(candidate.get("phi", 0.0)),
+            float(candidate.get("redundancy_q90", float("inf"))),
+            float(candidate.get("redundancy_max", float("inf"))),
+            int(candidate.get("modal_factor_count", 0)),
         )
 
-    return min(candidates, key=_fallback_sort_key), "fallback_min_constraint_violation"
+    selected = min(candidates, key=_fallback_sort_key)
+    selected["selection_pool"] = "fallback"
+    selected["k_band_threshold"] = None
+    return selected, "fallback_min_constraint_violation"
 
 
 def _write_phi_search_report(report_path, candidates, *, selected_phi, selection_reason):
@@ -562,20 +658,26 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
         return
     with _open_text_output(report_path) as output_fh:
         output_fh.write(
-            "selected\tselection_reason\tphi\tmodal_factor_count\trun_support\tstability\tredundancy_basis\tredundancy\tbest_error\tbest_evidence\treference_run_index\tmodal_run_indices\tmatched_cosines\n"
+            "selected\tselection_reason\tphi\tmodal_factor_count\tcapped\tnum_modal_runs\trun_support\tstability\tstability_defined\tredundancy_basis\tredundancy_max\tredundancy_q90\tredundancy_mean\tredundancy_max_worst\tbest_error\tbest_evidence\treference_run_index\tmodal_run_indices\tmatched_cosines\n"
         )
         for candidate in sorted(candidates, key=lambda row: float(row["phi"])):
             output_fh.write(
-                "%s\t%s\t%.12g\t%d\t%.6g\t%.6g\t%s\t%.6g\t%s\t%s\t%d\t%s\t%s\n"
+                "%s\t%s\t%.12g\t%d\t%s\t%d\t%.6g\t%s\t%s\t%.6g\t%.6g\t%.6g\t%.6g\t%s\t%s\t%d\t%s\t%s\n"
                 % (
                     "1" if math.isclose(float(candidate["phi"]), float(selected_phi), rel_tol=1e-12, abs_tol=1e-15) else "0",
                     selection_reason,
                     float(candidate["phi"]),
                     int(candidate["modal_factor_count"]),
+                    "1" if bool(candidate.get("capped", False)) else "0",
+                    int(candidate.get("num_modal_runs", 0)),
                     float(candidate["run_support"]),
-                    float(candidate["stability"]),
+                    "" if candidate.get("stability") is None else "%.6g" % float(candidate["stability"]),
+                    "1" if bool(candidate.get("stability_defined", False)) else "0",
                     str(candidate.get("redundancy_basis", "unknown")),
-                    float(candidate["redundancy"]),
+                    float(candidate.get("redundancy_max", candidate.get("redundancy", 0.0))),
+                    float(candidate.get("redundancy_q90", 0.0)),
+                    float(candidate.get("redundancy_mean", 0.0)),
+                    float(candidate.get("redundancy_max_worst", 0.0)),
                     "" if candidate.get("best_error") is None else "%.12g" % float(candidate["best_error"]),
                     "" if candidate.get("best_evidence") is None else "%.12g" % float(candidate["best_evidence"]),
                     int(candidate["reference_run_index"]),
@@ -594,10 +696,12 @@ def _record_phi_search_params(
     candidates,
     weight_floor,
     max_redundancy,
+    max_redundancy_q90,
     runs_per_step,
     min_run_support,
     min_stability,
     max_fit_loss_frac,
+    k_band_frac,
     max_steps,
     expand_factor,
     prune_gene_sets_num,
@@ -610,26 +714,37 @@ def _record_phi_search_params(
             "learn_phi_selected_phi": float(selected_candidate["phi"]),
             "learn_phi_selection_reason": selection_reason,
             "learn_phi_max_redundancy": float(max_redundancy),
+            "learn_phi_max_redundancy_q90": float(max_redundancy_q90),
             "learn_phi_runs_per_step": int(runs_per_step),
             "learn_phi_min_run_support": float(min_run_support),
             "learn_phi_min_stability": float(min_stability),
             "learn_phi_max_fit_loss_frac": float(max_fit_loss_frac),
+            "learn_phi_k_band_frac": float(k_band_frac),
             "learn_phi_max_steps": int(max_steps),
             "learn_phi_expand_factor": float(expand_factor),
             "learn_phi_weight_floor": float(weight_floor),
             "learn_phi_prune_gene_sets_num": None if prune_gene_sets_num is None else int(prune_gene_sets_num),
             "learn_phi_max_num_iterations": None if max_num_iterations is None else int(max_num_iterations),
             "learn_phi_redundancy_basis": str(selected_candidate.get("redundancy_basis", "unknown")),
+            "learn_phi_selection_pool": str(selected_candidate.get("selection_pool", "unknown")),
+            "learn_phi_k_band_threshold": selected_candidate.get("k_band_threshold"),
         },
         overwrite=True,
     )
     metric_map = {
         "learn_phi_candidate_phi": "phi",
         "learn_phi_candidate_modal_factor_count": "modal_factor_count",
+        "learn_phi_candidate_capped": "capped",
+        "learn_phi_candidate_num_modal_runs": "num_modal_runs",
         "learn_phi_candidate_run_support": "run_support",
         "learn_phi_candidate_stability": "stability",
+        "learn_phi_candidate_stability_defined": "stability_defined",
         "learn_phi_candidate_redundancy_basis": "redundancy_basis",
         "learn_phi_candidate_redundancy": "redundancy",
+        "learn_phi_candidate_redundancy_max": "redundancy_max",
+        "learn_phi_candidate_redundancy_q90": "redundancy_q90",
+        "learn_phi_candidate_redundancy_mean": "redundancy_mean",
+        "learn_phi_candidate_redundancy_max_worst": "redundancy_max_worst",
         "learn_phi_candidate_best_error": "best_error",
         "learn_phi_candidate_best_evidence": "best_evidence",
     }
@@ -647,9 +762,11 @@ def _learn_phi(
     seed,
     runs_per_step,
     max_redundancy,
+    max_redundancy_q90,
     min_run_support,
     min_stability,
     max_fit_loss_frac,
+    k_band_frac,
     max_steps,
     expand_factor,
     weight_floor,
@@ -660,9 +777,6 @@ def _learn_phi(
     log_fn,
     info_level,
 ):
-    min_phi = float(initial_phi) / 1e4
-    max_phi = float(initial_phi) * 1e4
-    log_tol = 0.15
     candidates_by_phi = {}
 
     def _evaluate(phi_value):
@@ -684,54 +798,24 @@ def _learn_phi(
         candidates_by_phi[float(candidate["phi"])] = candidate
         return candidate
 
-    start_candidate = _evaluate(initial_phi)
-    lower_candidate = None
-    upper_candidate = None
-
-    if start_candidate["redundancy"] > max_redundancy:
-        lower_candidate = start_candidate
-        current_phi = float(initial_phi)
-        while current_phi < max_phi:
-            current_phi = min(current_phi * expand_factor, max_phi)
-            candidate = _evaluate(current_phi)
-            if candidate["redundancy"] <= max_redundancy:
-                upper_candidate = candidate
-                break
-            lower_candidate = candidate
-            if math.isclose(current_phi, max_phi, rel_tol=1e-12, abs_tol=1e-15):
-                break
-    else:
-        upper_candidate = start_candidate
-        current_phi = float(initial_phi)
-        while current_phi > min_phi:
-            current_phi = max(current_phi / expand_factor, min_phi)
-            candidate = _evaluate(current_phi)
-            if candidate["redundancy"] > max_redundancy:
-                lower_candidate = candidate
-                break
-            upper_candidate = candidate
-            if math.isclose(current_phi, min_phi, rel_tol=1e-12, abs_tol=1e-15):
-                break
-
-    if lower_candidate is not None and upper_candidate is not None:
-        for _ in range(max_steps):
-            interval = math.log(float(upper_candidate["phi"]) / float(lower_candidate["phi"]))
-            if interval <= log_tol:
-                break
-            midpoint_phi = math.sqrt(float(lower_candidate["phi"]) * float(upper_candidate["phi"]))
-            midpoint = _evaluate(midpoint_phi)
-            if midpoint["redundancy"] > max_redundancy:
-                lower_candidate = midpoint
-            else:
-                upper_candidate = midpoint
+    initial_phi = float(initial_phi)
+    min_phi = initial_phi / 1e4
+    max_phi = initial_phi * 1e4
+    for step_index in range(-int(max_steps), int(max_steps) + 1):
+        phi_value = initial_phi * math.pow(float(expand_factor), float(step_index))
+        phi_value = min(max(phi_value, min_phi), max_phi)
+        _evaluate(phi_value)
 
     candidates = list(candidates_by_phi.values())
     selected_candidate, selection_reason = _select_phi_candidate(
         candidates,
         max_redundancy=max_redundancy,
+        max_redundancy_q90=max_redundancy_q90,
         min_run_support=min_run_support,
         min_stability=min_stability,
         max_fit_loss_frac=max_fit_loss_frac,
+        k_band_frac=k_band_frac,
+        runs_per_step=runs_per_step,
     )
     _record_phi_search_params(
         state,
@@ -741,10 +825,12 @@ def _learn_phi(
         candidates=candidates,
         weight_floor=weight_floor,
         max_redundancy=max_redundancy,
+        max_redundancy_q90=max_redundancy_q90,
         runs_per_step=runs_per_step,
         min_run_support=min_run_support,
         min_stability=min_stability,
         max_fit_loss_frac=max_fit_loss_frac,
+        k_band_frac=k_band_frac,
         max_steps=max_steps,
         expand_factor=expand_factor,
         prune_gene_sets_num=prune_gene_sets_num,
@@ -757,14 +843,18 @@ def _learn_phi(
         selection_reason=selection_reason,
     )
     log_fn(
-        "Selected phi %.6g by automatic tuning [%s]: K_eff=%d, redundancy[%s]=%.3g, stability=%.3g, run_support=%.3g"
+        "Selected phi %.6g by automatic tuning [%s]: K_eff=%d, capped=%s, pool=%s, k_band_threshold=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, stability=%s, run_support=%.3g"
         % (
             float(selected_candidate["phi"]),
             selection_reason,
             int(selected_candidate["modal_factor_count"]),
+            bool(selected_candidate.get("capped", False)),
+            str(selected_candidate.get("selection_pool", "unknown")),
+            "NA" if selected_candidate.get("k_band_threshold") is None else str(int(selected_candidate["k_band_threshold"])),
             str(selected_candidate.get("redundancy_basis", "unknown")),
-            float(selected_candidate["redundancy"]),
-            float(selected_candidate["stability"]),
+            float(selected_candidate.get("redundancy_max", selected_candidate.get("redundancy", 0.0))),
+            float(selected_candidate.get("redundancy_q90", 0.0)),
+            "NA" if selected_candidate.get("stability") is None else "%.3g" % float(selected_candidate["stability"]),
             float(selected_candidate["run_support"]),
         ),
         info_level,
@@ -1792,7 +1882,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_max_steps=8, learn_phi_expand_factor=10.0, learn_phi_weight_floor=None, learn_phi_report_out=None, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=8, learn_phi_expand_factor=10.0, learn_phi_weight_floor=None, learn_phi_report_out=None, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -1812,6 +1902,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bail("--learn-phi requires --phi > 0")
         if not (0 < learn_phi_max_redundancy <= 1):
             bail("--learn-phi-max-redundancy must be in (0, 1]")
+        if not (0 < learn_phi_max_redundancy_q90 <= 1):
+            bail("--learn-phi-max-redundancy-q90 must be in (0, 1]")
         if learn_phi_runs_per_step < 1:
             bail("--learn-phi-runs-per-step must be at least 1")
         if not (0 < learn_phi_min_run_support <= 1):
@@ -1820,6 +1912,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bail("--learn-phi-min-stability must be in (0, 1]")
         if learn_phi_max_fit_loss_frac < 0:
             bail("--learn-phi-max-fit-loss-frac must be >= 0")
+        if not (0 < learn_phi_k_band_frac <= 1):
+            bail("--learn-phi-k-band-frac must be in (0, 1]")
         if learn_phi_max_steps < 1:
             bail("--learn-phi-max-steps must be at least 1")
         if learn_phi_expand_factor <= 1:
@@ -1888,10 +1982,12 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             consensus_stats_out=consensus_stats_out,
             learn_phi=learn_phi,
             learn_phi_max_redundancy=learn_phi_max_redundancy,
+            learn_phi_max_redundancy_q90=learn_phi_max_redundancy_q90,
             learn_phi_runs_per_step=learn_phi_runs_per_step,
             learn_phi_min_run_support=learn_phi_min_run_support,
             learn_phi_min_stability=learn_phi_min_stability,
             learn_phi_max_fit_loss_frac=learn_phi_max_fit_loss_frac,
+            learn_phi_k_band_frac=learn_phi_k_band_frac,
             learn_phi_max_steps=learn_phi_max_steps,
             learn_phi_expand_factor=learn_phi_expand_factor,
             learn_phi_weight_floor=learn_phi_weight_floor,
@@ -1953,9 +2049,11 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             seed=seed,
             runs_per_step=learn_phi_runs_per_step,
             max_redundancy=learn_phi_max_redundancy,
+            max_redundancy_q90=learn_phi_max_redundancy_q90,
             min_run_support=learn_phi_min_run_support,
             min_stability=learn_phi_min_stability,
             max_fit_loss_frac=learn_phi_max_fit_loss_frac,
+            k_band_frac=learn_phi_k_band_frac,
             max_steps=learn_phi_max_steps,
             expand_factor=learn_phi_expand_factor,
             weight_floor=weight_floor,

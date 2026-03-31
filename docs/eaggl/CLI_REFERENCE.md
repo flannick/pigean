@@ -88,7 +88,7 @@ PYTHONPATH=src python -m eaggl factor \
   --params-out results/params.out
 ```
 
-`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics.
+`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics. Current `--learn-phi` diagnostics include the redundancy basis, candidate capped-status, nearest-neighbor overlap summaries (`redundancy_max` and `redundancy_q90`), and the final selection pool / near-maximal K-band threshold.
 
 Phenotype-anchored workflow:
 

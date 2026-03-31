@@ -53,10 +53,12 @@ class FactorExecutionConfig:
     gene_or_pheno_filter_type: str | None = None
     learn_phi: bool = False
     learn_phi_max_redundancy: float = 0.5
+    learn_phi_max_redundancy_q90: float = 0.35
     learn_phi_runs_per_step: int = 1
     learn_phi_min_run_support: float = 0.6
     learn_phi_min_stability: float = 0.85
     learn_phi_max_fit_loss_frac: float = 0.05
+    learn_phi_k_band_frac: float = 0.9
     learn_phi_max_steps: int = 8
     learn_phi_expand_factor: float = 10.0
     learn_phi_weight_floor: float | None = None
@@ -103,10 +105,12 @@ class FactorExecutionConfig:
             "phi": self.phi,
             "learn_phi": self.learn_phi,
             "learn_phi_max_redundancy": self.learn_phi_max_redundancy,
+            "learn_phi_max_redundancy_q90": self.learn_phi_max_redundancy_q90,
             "learn_phi_runs_per_step": self.learn_phi_runs_per_step,
             "learn_phi_min_run_support": self.learn_phi_min_run_support,
             "learn_phi_min_stability": self.learn_phi_min_stability,
             "learn_phi_max_fit_loss_frac": self.learn_phi_max_fit_loss_frac,
+            "learn_phi_k_band_frac": self.learn_phi_k_band_frac,
             "learn_phi_max_steps": self.learn_phi_max_steps,
             "learn_phi_expand_factor": self.learn_phi_expand_factor,
             "learn_phi_weight_floor": self.learn_phi_weight_floor,
@@ -435,10 +439,12 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         phi=options.phi,
         learn_phi=options.learn_phi,
         learn_phi_max_redundancy=options.learn_phi_max_redundancy,
+        learn_phi_max_redundancy_q90=options.learn_phi_max_redundancy_q90,
         learn_phi_runs_per_step=options.learn_phi_runs_per_step,
         learn_phi_min_run_support=options.learn_phi_min_run_support,
         learn_phi_min_stability=options.learn_phi_min_stability,
         learn_phi_max_fit_loss_frac=options.learn_phi_max_fit_loss_frac,
+        learn_phi_k_band_frac=options.learn_phi_k_band_frac,
         learn_phi_max_steps=options.learn_phi_max_steps,
         learn_phi_expand_factor=options.learn_phi_expand_factor,
         learn_phi_weight_floor=options.learn_phi_weight_floor,

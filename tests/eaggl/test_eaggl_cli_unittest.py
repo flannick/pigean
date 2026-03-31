@@ -135,7 +135,9 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--consensus-nmf"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-max-redundancy"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--learn-phi-max-redundancy-q90"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-runs-per-step"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--learn-phi-k-band-frac"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-prune-gene-sets-num"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-max-num-iterations"]["public_visibility"], "expert")
 
@@ -181,6 +183,18 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-redundancy must be in (0, 1]", err)
+        self.assertNotIn("Traceback", err)
+
+        proc = self._run("factor", "--learn-phi", "--learn-phi-max-redundancy-q90", "1.2")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-max-redundancy-q90 must be in (0, 1]", err)
+        self.assertNotIn("Traceback", err)
+
+        proc = self._run("factor", "--learn-phi", "--learn-phi-k-band-frac", "0")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-k-band-frac must be in (0, 1]", err)
         self.assertNotIn("Traceback", err)
 
     def test_invalid_phi_search_shortcut_settings_return_usage_error(self) -> None:

@@ -303,6 +303,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi",
             "--learn-phi-max-redundancy",
             "0.55",
+            "--learn-phi-max-redundancy-q90",
+            "0.25",
             "--learn-phi-runs-per-step",
             "7",
             "--learn-phi-min-run-support",
@@ -311,6 +313,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "0.9",
             "--learn-phi-max-fit-loss-frac",
             "0.03",
+            "--learn-phi-k-band-frac",
+            "0.8",
             "--learn-phi-max-steps",
             "6",
             "--learn-phi-expand-factor",
@@ -390,10 +394,12 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["phi"], 0.1)
         self.assertTrue(opts["learn_phi"])
         self.assertEqual(opts["learn_phi_max_redundancy"], 0.55)
+        self.assertEqual(opts["learn_phi_max_redundancy_q90"], 0.25)
         self.assertEqual(opts["learn_phi_runs_per_step"], 7)
         self.assertEqual(opts["learn_phi_min_run_support"], 0.7)
         self.assertEqual(opts["learn_phi_min_stability"], 0.9)
         self.assertEqual(opts["learn_phi_max_fit_loss_frac"], 0.03)
+        self.assertEqual(opts["learn_phi_k_band_frac"], 0.8)
         self.assertEqual(opts["learn_phi_max_steps"], 6)
         self.assertEqual(opts["learn_phi_expand_factor"], 5.0)
         self.assertEqual(opts["learn_phi_weight_floor"], 0.02)
@@ -431,6 +437,9 @@ class EagglCliReferenceTest(unittest.TestCase):
         opts = json.loads(proc.stdout)["options"]
         self.assertTrue(opts["learn_phi"])
         self.assertEqual(opts["learn_phi_runs_per_step"], 1)
+        self.assertEqual(opts["learn_phi_max_redundancy"], 0.5)
+        self.assertEqual(opts["learn_phi_max_redundancy_q90"], 0.35)
+        self.assertEqual(opts["learn_phi_k_band_frac"], 0.9)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
 
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
@@ -490,10 +499,12 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--phi": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-redundancy": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-max-redundancy-q90": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-runs-per-step": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-min-stability": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-fit-loss-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-k-band-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-steps": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],

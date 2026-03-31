@@ -306,10 +306,12 @@ parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for fac
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization
 parser.add_option("","--learn-phi-max-redundancy",default=0.5,type=float) #maximum allowed within-run weighted Jaccard overlap between retained factors during phi search, measured on gene loadings when available
+parser.add_option("","--learn-phi-max-redundancy-q90",default=0.35,type=float) #maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during phi search
 parser.add_option("","--learn-phi-runs-per-step",default=1,type=int) #number of repeated restarts used to score each candidate phi
 parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #minimum fraction of runs that must agree on the modal retained factor count during phi search
 parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
 parser.add_option("","--learn-phi-max-fit-loss-frac",default=0.05,type=float) #maximum allowed reconstruction-error loss relative to the best tested phi
+parser.add_option("","--learn-phi-k-band-frac",default=0.9,type=float) #among acceptable candidates, require at least this fraction of the maximal retained factor count before preferring larger phi
 parser.add_option("","--learn-phi-max-steps",default=8,type=int) #maximum number of log-space search steps after bracketing phi
 parser.add_option("","--learn-phi-expand-factor",default=10.0,type=float) #multiplicative factor used when expanding the phi search bracket
 parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
@@ -441,8 +443,10 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
     "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best tested phi during automatic tuning",
     "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available",
+    "--learn-phi-max-redundancy-q90": "maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning",
     "--learn-phi-max-num-iterations": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
     "--learn-phi-max-steps": "maximum number of log-space phi search steps after bracketing",
+    "--learn-phi-k-band-frac": "among acceptable phi candidates, keep only those within this fraction of the maximal retained factor count before preferring larger phi",
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
     "--learn-phi-min-stability": "minimum matched-factor cosine stability required for a phi candidate during automatic tuning",
     "--learn-phi-prune-gene-sets-num": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
@@ -1301,6 +1305,8 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi requires --phi > 0")
         if not (0 < parsed_options.learn_phi_max_redundancy <= 1):
             bail("--learn-phi-max-redundancy must be in (0, 1]")
+        if not (0 < parsed_options.learn_phi_max_redundancy_q90 <= 1):
+            bail("--learn-phi-max-redundancy-q90 must be in (0, 1]")
         if parsed_options.learn_phi_runs_per_step < 1:
             bail("--learn-phi-runs-per-step must be at least 1")
         if not (0 < parsed_options.learn_phi_min_run_support <= 1):
@@ -1309,6 +1315,8 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-min-stability must be in (0, 1]")
         if parsed_options.learn_phi_max_fit_loss_frac < 0:
             bail("--learn-phi-max-fit-loss-frac must be >= 0")
+        if not (0 < parsed_options.learn_phi_k_band_frac <= 1):
+            bail("--learn-phi-k-band-frac must be in (0, 1]")
         if parsed_options.learn_phi_max_steps < 1:
             bail("--learn-phi-max-steps must be at least 1")
         if parsed_options.learn_phi_expand_factor <= 1:

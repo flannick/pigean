@@ -209,30 +209,55 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             ),
             exp_pheno_factors=None,
         )
-        redundancy, basis = eaggl_factor_runtime._compute_within_run_factor_redundancy(
+        profile = eaggl_factor_runtime._compute_within_run_factor_redundancy_profile(
             state,
             weight_floor=0.0,
         )
-        self.assertEqual(basis, "gene")
-        self.assertAlmostEqual(redundancy, 1.0)
+        self.assertEqual(profile["redundancy_basis"], "gene")
+        self.assertAlmostEqual(profile["redundancy_max"], 1.0)
+        self.assertAlmostEqual(profile["redundancy_q90"], 1.0)
 
-    def test_select_phi_candidate_prefers_largest_factor_count_within_constraints(self) -> None:
+    def test_select_phi_candidate_prefers_largest_phi_within_uncapped_k_band(self) -> None:
         candidates = [
             {
-                "phi": 0.02,
+                "phi": 0.05,
                 "modal_factor_count": 4,
                 "run_support": 1.0,
                 "stability": 0.95,
-                "redundancy": 0.91,
-                "best_error": 1.0,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
+                "redundancy": 0.31,
+                "redundancy_max": 0.31,
+                "redundancy_q90": 0.23,
+                "best_error": 0.98,
                 "best_evidence": 8.0,
             },
             {
-                "phi": 0.1,
+                "phi": 0.005,
+                "modal_factor_count": 5,
+                "run_support": 1.0,
+                "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": True,
+                "redundancy": 0.18,
+                "redundancy_max": 0.18,
+                "redundancy_q90": 0.12,
+                "best_error": 0.95,
+                "best_evidence": 9.0,
+            },
+            {
+                "phi": 0.02,
                 "modal_factor_count": 3,
                 "run_support": 1.0,
                 "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
                 "redundancy": 0.2,
+                "redundancy_max": 0.2,
+                "redundancy_q90": 0.15,
                 "best_error": 1.02,
                 "best_evidence": 7.0,
             },
@@ -241,7 +266,12 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "modal_factor_count": 2,
                 "run_support": 1.0,
                 "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
                 "redundancy": 0.1,
+                "redundancy_max": 0.1,
+                "redundancy_q90": 0.05,
                 "best_error": 1.01,
                 "best_evidence": 6.0,
             },
@@ -249,12 +279,17 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         selected, reason = eaggl_factor_runtime._select_phi_candidate(
             candidates,
             max_redundancy=0.6,
+            max_redundancy_q90=0.35,
             min_run_support=0.6,
             min_stability=0.85,
             max_fit_loss_frac=0.05,
+            k_band_frac=0.9,
+            runs_per_step=3,
         )
-        self.assertEqual(reason, "max_factor_count_within_constraints")
-        self.assertEqual(selected["phi"], 0.1)
+        self.assertEqual(reason, "largest_phi_within_k_band")
+        self.assertEqual(selected["phi"], 0.05)
+        self.assertEqual(selected["selection_pool"], "uncapped")
+        self.assertEqual(selected["k_band_threshold"], 4)
 
     def test_run_factor_with_learn_phi_selects_less_redundant_candidate_before_final_run(self) -> None:
         state = _TinyState()
@@ -335,15 +370,17 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertTrue(state.params["learn_phi"])
         self.assertGreaterEqual(state.params["learn_phi_selected_phi"], 0.05)
         self.assertLess(state.params["learn_phi_selected_phi"], 0.5)
-        self.assertEqual(state.params["learn_phi_selection_reason"], "max_factor_count_within_constraints")
+        self.assertEqual(state.params["learn_phi_selection_reason"], "largest_phi_within_k_band")
         self.assertEqual(state.params["learn_phi_redundancy_basis_target"], "gene")
         self.assertEqual(state.params["learn_phi_redundancy_basis"], "gene")
+        self.assertEqual(state.params["learn_phi_selection_pool"], "uncapped")
         self.assertEqual(state.num_factors(), 3)
         np.testing.assert_allclose(state.exp_gene_set_factors, np.eye(3), atol=1e-8)
         self.assertEqual(state.consensus_mode, "single")
         self.assertIn("learn_phi_candidate_phi", state.param_history)
         self.assertGreaterEqual(len(state.param_history["learn_phi_candidate_phi"]), 2)
         self.assertTrue(all(value == "gene" for value in state.param_history["learn_phi_candidate_redundancy_basis"]))
+        self.assertIn("learn_phi_candidate_redundancy_q90", state.param_history)
         self.assertAlmostEqual(final_runs[-1], state.params["learn_phi_selected_phi"])
         self.assertEqual(state.params["beta0"], 1.0)
         self.assertEqual(state.params["factor_runs"], 1)
@@ -450,7 +487,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(candidate["modal_factor_count"], 2)
         self.assertEqual(candidate["redundancy_basis"], "gene")
         self.assertTrue(any("Automatic phi candidate 0.1 summary:" in message for message, _ in messages))
-        self.assertTrue(any("redundancy[gene]=" in message for message, _ in messages))
+        self.assertTrue(any("redundancy_max[gene]=" in message for message, _ in messages))
+        self.assertTrue(any("redundancy_q90=" in message for message, _ in messages))
 
 
 if __name__ == "__main__":
