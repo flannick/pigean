@@ -2717,7 +2717,7 @@
       "source_line": 307,
       "summary": "automatically tune phi by structural model selection before the final factorization",
       "type": null,
-      "usage_references": 129
+      "usage_references": 131
     },
     {
       "action": null,
@@ -2911,7 +2911,7 @@
     {
       "action": null,
       "category": "method_optional",
-      "default": "5",
+      "default": "1",
       "deprecation_timeline": null,
       "dest": "learn_phi_runs_per_step",
       "documentation_target": "advanced_workflows",
@@ -2927,7 +2927,7 @@
       "source_line": 309,
       "summary": "number of repeated restarts used to score each candidate phi",
       "type": "int",
-      "usage_references": 10
+      "usage_references": 12
     },
     {
       "action": null,

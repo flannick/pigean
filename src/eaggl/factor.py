@@ -53,7 +53,7 @@ class FactorExecutionConfig:
     gene_or_pheno_filter_type: str | None = None
     learn_phi: bool = False
     learn_phi_max_redundancy: float = 0.5
-    learn_phi_runs_per_step: int = 5
+    learn_phi_runs_per_step: int = 1
     learn_phi_min_run_support: float = 0.6
     learn_phi_min_stability: float = 0.85
     learn_phi_max_fit_loss_frac: float = 0.05

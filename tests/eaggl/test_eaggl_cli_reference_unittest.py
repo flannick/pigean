@@ -430,6 +430,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, msg=proc.stderr)
         opts = json.loads(proc.stdout)["options"]
         self.assertTrue(opts["learn_phi"])
+        self.assertEqual(opts["learn_phi_runs_per_step"], 1)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
 
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:

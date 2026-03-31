@@ -259,7 +259,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 |---|---|
 | `--learn-phi` | enable structural auto-tuning of `phi` before the final reported factorization |
 | `--learn-phi-max-redundancy` | maximum within-run weighted Jaccard overlap allowed between retained factors in the selected solution, measured on gene loadings when available; the default `0.5` is intended as a rough \"share at most about half\" rule |
-| `--learn-phi-runs-per-step` | number of restart fits used to score each tested `phi` candidate |
+| `--learn-phi-runs-per-step` | number of restart fits used to score each tested `phi` candidate; defaults to `1` for cheaper search, with larger values as an expert stability check |
 | `--learn-phi-min-run-support` | minimum fraction of restart runs that must agree on the modal retained factor count |
 | `--learn-phi-min-stability` | minimum mean matched-factor cosine across the modal restart runs |
 | `--learn-phi-max-fit-loss-frac` | maximum allowed reconstruction-error loss relative to the best candidate tested |
@@ -273,6 +273,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 Operational notes:
 - `--phi` remains the initial guess. With `--learn-phi`, EAGGL treats it as the starting point for search rather than the final fixed value.
 - Auto-tuning uses `--learn-phi-runs-per-step` during search, then runs the normal final factorization with the selected `phi`.
+- The default search uses one restart per candidate `phi`. Increase `--learn-phi-runs-per-step` only when you explicitly want a more expensive restart-stability check during selection.
 - The selected `phi`, the search thresholds, the redundancy basis, and per-candidate diagnostics are written to both the run log and `--params-out`. Use `--learn-phi-report-out` when you also want the full candidate table as a separate artifact.
 - The default search is structural model selection, not held-out cross-validation. It prefers the smallest acceptable `phi` that keeps factors non-redundant, stable across restarts, and close to the best fit seen during search.
 - By default, `--learn-phi` evaluates candidates on a correlation-pruned sentinel panel of up to `1000` gene sets. Override `--learn-phi-prune-gene-sets-num` when you want a different sentinel size.

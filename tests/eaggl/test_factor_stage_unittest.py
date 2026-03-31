@@ -34,7 +34,7 @@ def _options(**overrides):
         consensus_stats_out=None,
         learn_phi=False,
         learn_phi_max_redundancy=0.5,
-        learn_phi_runs_per_step=5,
+        learn_phi_runs_per_step=1,
         learn_phi_min_run_support=0.6,
         learn_phi_min_stability=0.85,
         learn_phi_max_fit_loss_frac=0.05,
