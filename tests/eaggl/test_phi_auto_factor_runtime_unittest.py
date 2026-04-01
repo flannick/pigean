@@ -104,6 +104,54 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
 
         self.assertEqual(calls["n_iter"], 7)
 
+    def test_run_factor_single_skips_empty_gene_prune_without_crashing(self) -> None:
+        class _ForwardingState:
+            def __init__(self) -> None:
+                self.X_orig = sparse.csr_matrix(np.array([[1.0, 0.0], [0.0, 1.0]]))
+                self.X_phewas_beta = None
+                self.X_phewas_beta_uncorrected = None
+                self.gene_pheno_combined_prior_Ys = None
+                self.gene_pheno_priors = None
+                self.gene_pheno_Y = None
+                self.combined_prior_Ys = None
+                self.priors = None
+                self.Y = np.array([1.0, 0.5], dtype=float)
+                self.betas = np.array([0.2, 0.3], dtype=float)
+                self.betas_uncorrected = np.array([0.2, 0.3], dtype=float)
+                self.scale_factors = np.ones(2, dtype=float)
+                self.background_log_bf = 0.0
+                self.gene_sets = ["gs1", "gs2"]
+                self.genes = ["g1", "g2"]
+                self.phenos = []
+                self.default_pheno = "default"
+                self.params = {}
+                self.exp_gene_set_factors = None
+                self.exp_gene_factors = None
+                self.exp_pheno_factors = None
+                self.exp_lambdak = None
+                self.factor_anchor_relevance = None
+                self.factor_relevance = None
+
+            def _record_params(self, values, overwrite=False):
+                self.params.update(values)
+
+        state = _ForwardingState()
+
+        eaggl_factor_runtime._run_factor_single(
+            state,
+            gene_or_pheno_filter_value=10.0,
+            gene_prune_number=2,
+            bail_fn=lambda msg: (_ for _ in ()).throw(AssertionError(msg)),
+            warn_fn=lambda *args, **kwargs: None,
+            log_fn=lambda *args, **kwargs: None,
+            info_level=1,
+            debug_level=2,
+            trace_level=3,
+            labeling_module=np,
+        )
+
+        self.assertIsNone(state.exp_lambdak)
+
     def test_gene_set_sort_rank_uses_local_uncorrected_betas_when_state_betas_absent(self) -> None:
         state = SimpleNamespace(
             X_phewas_beta_uncorrected=None,
@@ -448,6 +496,59 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertIsNone(final_call["gene_set_prune_number"])
         self.assertEqual(final_call["max_num_iterations"], 100)
 
+    def test_run_factor_with_learn_phi_uses_search_only_gene_prune_override(self) -> None:
+        state = _TinyState()
+        state.uncopyable_module = np
+        recorded_kwargs = []
+
+        def _stub_single(run_state, **kwargs):
+            recorded_kwargs.append(dict(kwargs))
+            matrix = np.array([[1.0, 0.0], [0.0, 1.0]])
+            run_state.exp_gene_set_factors = matrix
+            run_state.exp_gene_factors = matrix
+            run_state.exp_pheno_factors = None
+            run_state.exp_lambdak = np.ones(matrix.shape[1], dtype=float)
+            run_state.factor_anchor_relevance = np.ones((matrix.shape[1], 1), dtype=float)
+            run_state.factor_relevance = np.ones(matrix.shape[1], dtype=float)
+            return {
+                "run_index": 0,
+                "seed": None,
+                "evidence": 1.0,
+                "likelihood": 1.0,
+                "reconstruction_error": 1.0,
+                "num_factors": matrix.shape[1],
+                "factor_gene_set_x_pheno": False,
+            }
+
+        with mock.patch.object(eaggl_factor_runtime, "_run_factor_single", side_effect=_stub_single):
+            eaggl_factor_runtime.run_factor(
+                state,
+                phi=0.1,
+                learn_phi=True,
+                learn_phi_runs_per_step=1,
+                learn_phi_max_steps=1,
+                learn_phi_prune_genes_num=13,
+                learn_phi_prune_gene_sets_num=11,
+                gene_prune_number=None,
+                gene_set_prune_number=None,
+                factor_runs=1,
+                consensus_nmf=False,
+                bail_fn=lambda msg: (_ for _ in ()).throw(AssertionError(msg)),
+                warn_fn=lambda *args, **kwargs: None,
+                log_fn=lambda *args, **kwargs: None,
+                info_level=1,
+                debug_level=2,
+                trace_level=3,
+                labeling_module=np,
+            )
+
+        self.assertGreaterEqual(len(recorded_kwargs), 2)
+        search_call = recorded_kwargs[0]
+        final_call = recorded_kwargs[-1]
+        self.assertEqual(search_call["gene_prune_number"], 13)
+        self.assertEqual(search_call["gene_set_prune_number"], 11)
+        self.assertIsNone(final_call["gene_prune_number"])
+
     def test_evaluate_phi_candidate_logs_candidate_summary(self) -> None:
         state = _TinyState()
         messages = []
@@ -478,6 +579,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 runs_per_step=1,
                 factor_kwargs={},
                 weight_floor=0.0,
+                prune_genes_num=None,
                 prune_gene_sets_num=None,
                 max_num_iterations=None,
                 log_fn=lambda message, level: messages.append((message, level)),
@@ -489,6 +591,120 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertTrue(any("Automatic phi candidate 0.1 summary:" in message for message, _ in messages))
         self.assertTrue(any("redundancy_max[gene]=" in message for message, _ in messages))
         self.assertTrue(any("redundancy_q90=" in message for message, _ in messages))
+
+    def test_write_phi_search_report_handles_string_redundancy_basis(self) -> None:
+        from tempfile import TemporaryDirectory
+
+        candidate = {
+            "phi": 0.05,
+            "modal_factor_count": 3,
+            "capped": False,
+            "num_modal_runs": 1,
+            "run_support": 1.0,
+            "stability": None,
+            "stability_defined": False,
+            "redundancy_basis": "gene",
+            "redundancy_max": 0.2,
+            "redundancy_q90": 0.1,
+            "redundancy_mean": 0.05,
+            "redundancy_max_worst": 0.2,
+            "best_error": 12.0,
+            "best_evidence": 3.0,
+            "reference_run_index": 0,
+            "modal_run_indices": [0],
+            "matched_cosines": [],
+        }
+        with TemporaryDirectory() as tmpdir:
+            report = Path(tmpdir) / "learn_phi.tsv"
+            eaggl_factor_runtime._write_phi_search_report(
+                str(report),
+                [candidate],
+                selected_phi=0.05,
+                selection_reason="unit_test",
+            )
+            text = report.read_text()
+        self.assertIn("redundancy_basis", text)
+        self.assertIn("\tgene\t", text)
+
+    def test_learn_phi_starts_at_initial_phi_and_caps_total_expansions(self) -> None:
+        state = _TinyState()
+        evaluated_phis = []
+
+        def _stub_evaluate_phi_candidate(
+            _state,
+            *,
+            phi,
+            seed,
+            runs_per_step,
+            factor_kwargs,
+            weight_floor,
+            prune_genes_num,
+            prune_gene_sets_num,
+            max_num_iterations,
+            log_fn,
+            info_level,
+        ):
+            evaluated_phis.append(float(phi))
+            if phi <= 0.02:
+                factor_count = 200
+                capped = True
+            elif phi >= 0.2:
+                factor_count = 0
+                capped = False
+            else:
+                factor_count = 71
+                capped = False
+            return {
+                "phi": float(phi),
+                "modal_factor_count": factor_count,
+                "capped": capped,
+                "run_support": 1.0,
+                "stability": None,
+                "stability_defined": False,
+                "num_modal_runs": 1,
+                "redundancy_basis": "gene" if factor_count > 0 else "none",
+                "redundancy": 0.2 if factor_count > 0 else 0.0,
+                "redundancy_max": 0.2 if factor_count > 0 else 0.0,
+                "redundancy_q90": 0.1 if factor_count > 0 else 0.0,
+                "redundancy_mean": 0.08 if factor_count > 0 else 0.0,
+                "redundancy_max_worst": 0.2 if factor_count > 0 else 0.0,
+                "best_error": 1.0 + float(phi),
+                "best_evidence": 10.0 - float(phi),
+                "reference_run_index": 0,
+                "modal_run_indices": [0],
+                "matched_cosines": [],
+            }
+
+        with mock.patch.object(eaggl_factor_runtime, "_evaluate_phi_candidate", side_effect=_stub_evaluate_phi_candidate):
+            selected = eaggl_factor_runtime._learn_phi(
+                state,
+                initial_phi=0.05,
+                seed=0,
+                runs_per_step=1,
+                max_redundancy=0.5,
+                max_redundancy_q90=0.35,
+                min_run_support=0.6,
+                min_stability=0.85,
+                max_fit_loss_frac=0.05,
+                k_band_frac=0.9,
+                max_steps=3,
+                expand_factor=2.0,
+                weight_floor=0.0,
+                report_out=None,
+                prune_genes_num=1000,
+                prune_gene_sets_num=1000,
+                max_num_iterations=None,
+                factor_kwargs={"max_num_factors": 200},
+                log_fn=lambda *args, **kwargs: None,
+                info_level=1,
+            )
+
+        self.assertEqual(evaluated_phis[0], 0.05)
+        self.assertIn(0.1, evaluated_phis)
+        self.assertIn(0.025, evaluated_phis)
+        self.assertNotIn(5.0, evaluated_phis)
+        self.assertLessEqual(len(evaluated_phis) - 1, 3)
+        self.assertGreaterEqual(selected["phi"], 0.05)
 
 
 if __name__ == "__main__":

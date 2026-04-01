@@ -263,10 +263,11 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-min-run-support` | minimum fraction of restart runs that must agree on the modal retained factor count |
 | `--learn-phi-min-stability` | minimum mean matched-factor cosine across the modal restart runs |
 | `--learn-phi-max-fit-loss-frac` | maximum allowed reconstruction-error loss relative to the best candidate tested |
-| `--learn-phi-max-steps` | maximum number of log-space search steps after bracketing the redundancy transition |
+| `--learn-phi-max-steps` | maximum number of additional `phi` candidates to evaluate after the initial `--phi`; defaults to `5` |
 | `--learn-phi-expand-factor` | multiplicative factor used when widening the search bracket away from the initial `--phi` |
 | `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
 | `--learn-phi-report-out` | optional per-candidate diagnostics table for all tested `phi` values |
+| `--learn-phi-prune-genes-num` | expert shortcut: during phi search only, correlation-prune to at most this many representative genes before candidate NMF evaluation; defaults to `1000` |
 | `--learn-phi-prune-gene-sets-num` | expert shortcut: during phi search only, correlation-prune to at most this many representative gene sets before candidate NMF evaluation; defaults to `1000` |
 | `--learn-phi-max-num-iterations` | expert shortcut: during phi search only, cap candidate NMF iterations separately from the final factorization |
 
@@ -275,9 +276,10 @@ Operational notes:
 - Auto-tuning uses `--learn-phi-runs-per-step` during search, then runs the normal final factorization with the selected `phi`.
 - The default search uses one restart per candidate `phi`. Increase `--learn-phi-runs-per-step` only when you explicitly want a more expensive restart-stability check during selection.
 - The selected `phi`, the search thresholds, the redundancy basis, and per-candidate diagnostics are written to both the run log and `--params-out`. Use `--learn-phi-report-out` when you also want the full candidate table as a separate artifact.
-- The default search is structural model selection, not held-out cross-validation. It prefers the smallest acceptable `phi` that keeps factors non-redundant, stable across restarts, and close to the best fit seen during search.
-- By default, `--learn-phi` evaluates candidates on a correlation-pruned sentinel panel of up to `1000` gene sets. Override `--learn-phi-prune-gene-sets-num` when you want a different sentinel size.
-- `--learn-phi-prune-gene-sets-num` and `--learn-phi-max-num-iterations` apply only while scoring phi candidates. The final reported factorization still reruns on the full retained panel using the selected `phi`.
+- The default search is structural model selection, not held-out cross-validation. It prefers the simplest acceptable `phi` within the near-maximal factor-count band, rather than automatically driving `phi` to the smallest value tested.
+- By default, `--learn-phi` evaluates candidates on a correlation-pruned sentinel panel of up to `1000` genes and `1000` gene sets. Override `--learn-phi-prune-genes-num` and `--learn-phi-prune-gene-sets-num` when you want different sentinel sizes.
+- The default search budget is `5` additional candidate evaluations after the initial `--phi`. Those evaluations may be spent on upward expansion, downward expansion, or midpoint refinement once the search brackets a capped or zero-factor boundary.
+- `--learn-phi-prune-genes-num`, `--learn-phi-prune-gene-sets-num`, and `--learn-phi-max-num-iterations` apply only while scoring phi candidates. The final reported factorization still reruns on the full retained panel using the selected `phi`.
 
 ### Factor pruning, weighting, and post-processing
 

@@ -312,10 +312,11 @@ parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #mini
 parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
 parser.add_option("","--learn-phi-max-fit-loss-frac",default=0.05,type=float) #maximum allowed reconstruction-error loss relative to the best tested phi
 parser.add_option("","--learn-phi-k-band-frac",default=0.9,type=float) #among acceptable candidates, require at least this fraction of the maximal retained factor count before preferring larger phi
-parser.add_option("","--learn-phi-max-steps",default=8,type=int) #maximum number of log-space search steps after bracketing phi
-parser.add_option("","--learn-phi-expand-factor",default=10.0,type=float) #multiplicative factor used when expanding the phi search bracket
+parser.add_option("","--learn-phi-max-steps",default=5,type=int) #maximum number of additional phi candidates to evaluate after the initial phi
+parser.add_option("","--learn-phi-expand-factor",default=2.0,type=float) #multiplicative factor used when expanding the phi search bracket
 parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
 parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
+parser.add_option("","--learn-phi-prune-genes-num",default=1000,type=int) #during phi search only, prune to at most this many genes before candidate NMF evaluation
 parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
 parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #during phi search only, cap the NMF iteration budget used for each tested phi candidate
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
@@ -449,6 +450,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-k-band-frac": "among acceptable phi candidates, keep only those within this fraction of the maximal retained factor count before preferring larger phi",
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
     "--learn-phi-min-stability": "minimum matched-factor cosine stability required for a phi candidate during automatic tuning",
+    "--learn-phi-prune-genes-num": "during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi",
     "--learn-phi-prune-gene-sets-num": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
     "--learn-phi-report-out": "write per-candidate phi search diagnostics",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
@@ -1323,6 +1325,8 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-expand-factor must be > 1")
         if parsed_options.learn_phi_weight_floor is not None and parsed_options.learn_phi_weight_floor < 0:
             bail("--learn-phi-weight-floor must be >= 0")
+        if parsed_options.learn_phi_prune_genes_num is not None and parsed_options.learn_phi_prune_genes_num < 1:
+            bail("--learn-phi-prune-genes-num must be at least 1")
         if parsed_options.learn_phi_prune_gene_sets_num is not None and parsed_options.learn_phi_prune_gene_sets_num < 1:
             bail("--learn-phi-prune-gene-sets-num must be at least 1")
         if parsed_options.learn_phi_max_num_iterations is not None and parsed_options.learn_phi_max_num_iterations < 1:

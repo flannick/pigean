@@ -323,6 +323,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "0.02",
             "--learn-phi-report-out",
             "phi.tsv",
+            "--learn-phi-prune-genes-num",
+            "900",
             "--learn-phi-prune-gene-sets-num",
             "1000",
             "--learn-phi-max-num-iterations",
@@ -404,6 +406,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_expand_factor"], 5.0)
         self.assertEqual(opts["learn_phi_weight_floor"], 0.02)
         self.assertEqual(opts["learn_phi_report_out"], "phi.tsv")
+        self.assertEqual(opts["learn_phi_prune_genes_num"], 900)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
         self.assertEqual(opts["learn_phi_max_num_iterations"], 50)
         self.assertEqual(opts["alpha0"], 7.0)
@@ -440,6 +443,8 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_max_redundancy"], 0.5)
         self.assertEqual(opts["learn_phi_max_redundancy_q90"], 0.35)
         self.assertEqual(opts["learn_phi_k_band_frac"], 0.9)
+        self.assertEqual(opts["learn_phi_expand_factor"], 2.0)
+        self.assertEqual(opts["learn_phi_prune_genes_num"], 1000)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
 
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
@@ -509,6 +514,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-prune-genes-num": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-prune-gene-sets-num": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-num-iterations": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--alpha0": ["test_reference_factor_and_labeling_flags_round_trip"],
