@@ -189,6 +189,7 @@ Count tables are expected to contain `gene`, `revel`, `count`, and `total`, plus
 | `--gene-stats-log-bf-col` | log-BF column |
 | `--gene-stats-combined-col` | combined-score column |
 | `--gene-stats-prior-col` | prior column |
+| `--gene-stats-output-scope` | choose whether `gene_stats.out` writes the active universe only or the legacy expanded missing-gene view |
 | `--huge-statistics-out` | write a HuGE cache tarball |
 | `--huge-statistics-in` | read a HuGE cache tarball |
 
@@ -218,6 +219,10 @@ Notes:
 | `--gene-set-stats-out` | gene-set output table |
 | `--max-no-write-gene-combined` | optional write-time filter for `gene_stats.out` based on absolute combined score |
 | `--params-out` | params/diagnostics output table |
+
+Notes:
+- `--gene-stats-output-scope universe` is the default and writes only genes in the active analysis universe.
+- `--gene-stats-output-scope current` restores the older behavior that also appends missing-gene rows after the active universe block.
 
 ## Testing expectations for this reference
 

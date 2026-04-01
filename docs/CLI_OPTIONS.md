@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `338`
+- Total options: `339`
 - `method_required`: `19`
 - `method_optional`: `185`
-- `engineering`: `107`
+- `engineering`: `108`
 - `experimental`: `2`
 - `compat_alias`: `17`
 - `debug_only`: `8`
-- visibility `expert`: `303`
+- visibility `expert`: `304`
 - visibility `hidden`: `7`
 - visibility `normal`: `28`
 
@@ -296,6 +296,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-stats-id-col` | `expert` | `no` | `expert_help` | `gene_stats_id_col` | `None` | column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_stats_log_bf_col` | `None` | log BF column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-out` | `normal` | `no` | `core_help` | `gene_stats_out` | `None` | write the final gene-level statistics table |
+| `--gene-stats-output-scope` | `expert` | `no` | `expert_help` | `gene_stats_output_scope` | `universe` | control whether gene-stats-out writes only the active analysis universe or the legacy expanded view with missing genes |
 | `--gene-stats-prior-col` | `expert` | `no` | `expert_help` | `gene_stats_prior_col` | `None` | prior column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-prob-col` | `expert` | `no` | `expert_help` | `gene_stats_prob_col` | `None` | probability column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-trace-out` | `expert` | `no` | `expert_help` | `gene_stats_trace_out` | `None` | - |

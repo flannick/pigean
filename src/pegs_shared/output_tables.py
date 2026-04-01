@@ -72,7 +72,16 @@ def write_phewas_gene_set_statistics(runtime, output_file, max_no_write_gene_set
                 output_fh.write("%s\n" % line)
 
 
-def write_gene_statistics(runtime, output_file, max_no_write_gene_combined=None, *, open_text_fn=None, log_fn=None, info_level=0):
+def write_gene_statistics(
+    runtime,
+    output_file,
+    max_no_write_gene_combined=None,
+    gene_stats_output_scope="universe",
+    *,
+    open_text_fn=None,
+    log_fn=None,
+    info_level=0,
+):
     if open_text_fn is None:
         open_text_fn = open
     if log_fn is None:
@@ -264,7 +273,7 @@ def write_gene_statistics(runtime, output_file, max_no_write_gene_combined=None,
 
             output_fh.write("%s\n" % line)
 
-        if runtime.genes_missing is not None:
+        if gene_stats_output_scope == "current" and runtime.genes_missing is not None:
             gene_N_missing = runtime.get_gene_N(get_missing=True)
 
             for i in range(len(runtime.genes_missing)):

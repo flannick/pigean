@@ -388,6 +388,23 @@ class PigeanCliTest(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["options"]["max_no_write_gene_combined"], 1.5)
 
+    def test_gene_stats_output_scope_round_trips(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gene-stats-output-scope",
+            "current",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["gene_stats_output_scope"], "current")
+
+    def test_gene_stats_output_scope_rejects_invalid_value(self) -> None:
+        proc = self._run("gibbs", "--gene-stats-output-scope", "bad")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("Option --gene-stats-output-scope must be one of: universe, current", err)
+
     def test_gene_stats_input_with_metric_z_zero_disables_qc_prefilter(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -462,6 +479,82 @@ NEUROD1\t0.7\t1.2
                 self.assertNotIn("unsupported operand type(s) for /: 'NoneType' and 'NoneType'", combined)
                 self.assertNotIn("boolean index did not match indexed array along axis 0", combined)
                 self.assertNotIn("Traceback", combined)
+
+    def test_gene_stats_output_scope_defaults_to_active_universe(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            gene_stats = tmp_path / "gene_stats.tsv"
+            gene_stats.write_text(
+                "Gene\tDirect\tCombined\nKCNJ11\t2.0\t2.5\nGCK\t1.0\t1.5\n",
+                encoding="utf-8",
+            )
+            default_out = tmp_path / "default_gene_stats.out"
+            current_out = tmp_path / "current_gene_stats.out"
+
+            common_prefix = [
+                sys.executable,
+                "-m",
+                "pigean",
+                "beta_tildes",
+                "--deterministic",
+                "--linear",
+                "--X-in",
+                "tests/data/t2d_smoke/gene_set_list_input_subset_toy.txt",
+                "--gene-map-in",
+                "tests/data/model_small/portal_gencode.gene.map",
+                "--gene-loc-file",
+                "tests/data/model_small/NCBI37.3.plink.gene.loc",
+                "--gene-stats-in",
+                str(gene_stats),
+                "--gene-stats-id-col",
+                "Gene",
+                "--gene-stats-log-bf-col",
+                "Direct",
+                "--gene-stats-combined-col",
+                "Combined",
+                "--gene-universe-from-y",
+                "--gene-set-stats-out",
+                str(tmp_path / "gene_set_stats.out"),
+                "--params-out",
+                str(tmp_path / "params.out"),
+                "--min-gene-set-size",
+                "1",
+                "--filter-gene-set-p",
+                "1",
+                "--max-gene-set-read-p",
+                "1",
+                "--prune-gene-sets",
+                "1.1",
+                "--weighted-prune-gene-sets",
+                "1.1",
+            ]
+            default_proc = subprocess.run(
+                common_prefix + ["--gene-stats-out", str(default_out)],
+                cwd=repo_root,
+                env=self._base_env(repo_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(default_proc.returncode, 0, msg=(default_proc.stderr or "") + (default_proc.stdout or ""))
+
+            current_proc = subprocess.run(
+                common_prefix + ["--gene-stats-out", str(current_out), "--gene-stats-output-scope", "current"],
+                cwd=repo_root,
+                env=self._base_env(repo_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(current_proc.returncode, 0, msg=(current_proc.stderr or "") + (current_proc.stdout or ""))
+
+            default_text = default_out.read_text(encoding="utf-8")
+            current_text = current_out.read_text(encoding="utf-8")
+            self.assertIn("KCNJ11", default_text)
+            self.assertIn("GCK", default_text)
+            self.assertNotIn("HNF1A", default_text)
+            self.assertIn("HNF1A", current_text)
 
     def test_removed_min_post_burn_alias_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--min-post-burn-in", "50")

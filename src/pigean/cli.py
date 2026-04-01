@@ -257,6 +257,7 @@ parser.add_option("","--phewas-gene-set-stats-out",default=None)
 parser.add_option("","--gene-set-stats-trace-out",default=None)
 parser.add_option("","--betas-trace-out",default=None)
 parser.add_option("","--gene-stats-out",default=None)
+parser.add_option("","--gene-stats-output-scope",default="universe")
 parser.add_option("","--gene-stats-trace-out",default=None)
 parser.add_option("","--gene-gene-set-stats-out",default=None)
 parser.add_option("","--gene-set-overlap-stats-out",default=None)
@@ -531,6 +532,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-set-stats-p-col": "p-value column mapping for advanced gene-set stats ingestion",
     "--gene-set-stats-out": "write the final gene-set statistics table",
     "--gene-stats-out": "write the final gene-level statistics table",
+    "--gene-stats-output-scope": "control whether gene-stats-out writes only the active analysis universe or the legacy expanded view with missing genes",
     "--gene-loc-file": "gene location table used for correlation and locus-aware operations",
     "--gene-loc-file-huge": "gene location table used during HuGE score construction",
     "--gwas-in": "load GWAS summary statistics as the primary HuGE input",
@@ -643,6 +645,7 @@ _EXPERT_ENGINEERING_FLAGS = {
     "--diag-every",
     "--eaggl-bundle-out",
     "--gene-set-stats-trace-out",
+    "--gene-stats-output-scope",
     "--gene-stats-trace-out",
     "--gibbs-max-mb-X-h",
     "--gibbs-num-batches-parallel",
@@ -1384,6 +1387,8 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     num_gene_universe_modes = int(_options.gene_universe_in is not None) + int(bool(_options.gene_universe_from_y)) + int(bool(_options.gene_universe_from_x))
     if num_gene_universe_modes > 1:
         bail("Specify at most one of --gene-universe-in, --gene-universe-from-y, or --gene-universe-from-x")
+    if _options.gene_stats_output_scope not in ("universe", "current"):
+        bail("Option --gene-stats-output-scope must be one of: universe, current")
 
     gene_set_stats_col_flags = (
         ("gene_set_stats_id_col", "--gene-set-stats-id-col"),
