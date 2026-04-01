@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `333`
+- Total options: `338`
 - `method_required`: `19`
-- `method_optional`: `182`
-- `engineering`: `105`
+- `method_optional`: `185`
+- `engineering`: `107`
 - `experimental`: `2`
 - `compat_alias`: `17`
 - `debug_only`: `8`
-- visibility `expert`: `298`
+- visibility `expert`: `303`
 - visibility `hidden`: `7`
 - visibility `normal`: `28`
 
@@ -102,6 +102,9 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-set-betas-in` | `expert` | `yes` | `expert_help` | `gene_set_betas_in` | `None` | - |
 | `--gene-set-stats-in` | `normal` | `yes` | `core_help` | `gene_set_stats_in` | `None` | use precomputed gene-set statistics to bypass beta-tilde recomputation |
 | `--gene-stats-in` | `normal` | `yes` | `core_help` | `gene_stats_in` | `None` | use precomputed gene-level statistics as input instead of deriving scores from raw sources |
+| `--gene-universe-from-x` | `expert` | `yes` | `expert_help` | `gene_universe_from_x` | `False` | use the union of genes across input gene sets as the analysis universe |
+| `--gene-universe-from-y` | `expert` | `yes` | `expert_help` | `gene_universe_from_y` | `False` | use only genes present in the input Y values as the analysis universe |
+| `--gene-universe-in` | `expert` | `yes` | `expert_help` | `gene_universe_in` | `None` | load an explicit gene universe shared across Y input modes |
 | `--gene-zs-gws-prob-true` | `expert` | `yes` | `expert_help` | `gene_zs_gws_prob_true` | `None` | - |
 | `--gwas-detect-high-power` | `expert` | `yes` | `expert_help` | `gwas_detect_high_power` | `100` | - |
 | `--gwas-detect-low-power` | `expert` | `yes` | `expert_help` | `gwas_detect_low_power` | `10` | - |
@@ -296,6 +299,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-stats-prior-col` | `expert` | `no` | `expert_help` | `gene_stats_prior_col` | `None` | prior column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-prob-col` | `expert` | `no` | `expert_help` | `gene_stats_prob_col` | `None` | probability column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-trace-out` | `expert` | `no` | `expert_help` | `gene_stats_trace_out` | `None` | - |
+| `--gene-universe-id-col` | `expert` | `no` | `expert_help` | `gene_universe_id_col` | `None` | ID column in the explicit gene-universe file shared across Y input modes |
+| `--gene-universe-no-header` | `expert` | `no` | `expert_help` | `gene_universe_has_header` | `True` | declare that the explicit gene-universe file has no header row |
 | `--gibbs-max-mb-X-h` | `expert` | `no` | `expert_help` | `gibbs_max_mb_X_h` | `100` | - |
 | `--gibbs-num-batches-parallel` | `expert` | `no` | `expert_help` | `gibbs_num_batches_parallel` | `10` | - |
 | `--gwas-beta-col` | `expert` | `no` | `expert_help` | `gwas_beta_col` | `None` | - |

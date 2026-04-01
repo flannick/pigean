@@ -174,6 +174,11 @@ parser.add_option("","--gene-list-no-header",action="store_false", dest="positiv
 parser.add_option("","--gene-list-all-in",dest="positive_controls_all_in",default=None) #all genes to use in gene-list analysis. If specified add these on top of the selected genes
 parser.add_option("","--gene-list-all-id-col",dest="positive_controls_all_id_col",default=None)
 parser.add_option("","--gene-list-all-no-header",action="store_false", dest="positive_controls_all_has_header", default=True)
+parser.add_option("","--gene-universe-in",default=None)
+parser.add_option("","--gene-universe-id-col",default=None)
+parser.add_option("","--gene-universe-no-header",action="store_false", dest="gene_universe_has_header", default=True)
+parser.add_option("","--gene-universe-from-y",action="store_true",default=False)
+parser.add_option("","--gene-universe-from-x",action="store_true",default=False)
 parser.add_option("","--positive-controls-in",default=None)
 parser.add_option("","--positive-controls-id-col",default=None)
 parser.add_option("","--positive-controls-prob-col",default=None)
@@ -536,6 +541,11 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-list-all-id-col": "ID column in the full background gene-universe file for gene-list inputs",
     "--gene-list-all-in": "load the full background gene universe for the gene-list input",
     "--gene-list-all-no-header": "declare that the background gene-universe file for gene-list inputs has no header row",
+    "--gene-universe-id-col": "ID column in the explicit gene-universe file shared across Y input modes",
+    "--gene-universe-in": "load an explicit gene universe shared across Y input modes",
+    "--gene-universe-no-header": "declare that the explicit gene-universe file has no header row",
+    "--gene-universe-from-y": "use only genes present in the input Y values as the analysis universe",
+    "--gene-universe-from-x": "use the union of genes across input gene sets as the analysis universe",
     "--gene-list-default-prob": "default inclusion probability used for gene-list inputs without an explicit probability column",
     "--gene-list-id-col": "gene ID column for the gene-list input file",
     "--gene-list-in": "load gene-list inputs with optional probabilities from a file",
@@ -1253,6 +1263,27 @@ def _normalize_phewas_stage_options(_options, warn_fn):
         _options.run_phewas_input = _options.gene_phewas_bfs_in
 
 
+def _normalize_gene_universe_options(_options, warn_fn):
+    if _options.gene_universe_in is None and _options.positive_controls_all_in is not None:
+        warn_fn(
+            "Treating compatibility alias --gene-list-all-in/--positive-controls-all-in as --gene-universe-in"
+        )
+        _options.gene_universe_in = _options.positive_controls_all_in
+        if _options.gene_universe_id_col is None:
+            _options.gene_universe_id_col = _options.positive_controls_all_id_col
+        if _options.gene_universe_has_header is True and _options.positive_controls_all_has_header is not None:
+            _options.gene_universe_has_header = _options.positive_controls_all_has_header
+        _options.positive_controls_all_in = None
+        _options.positive_controls_all_id_col = None
+        _options.positive_controls_all_has_header = True
+
+    if _options.add_all_genes and not _options.gene_universe_from_x:
+        warn_fn("Treating compatibility option --add-all-genes as --gene-universe-from-x")
+        _options.gene_universe_from_x = True
+    if _options.gene_universe_from_x:
+        _options.add_all_genes = True
+
+
 
 options = None
 args = []
@@ -1341,6 +1372,18 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         for dest, flag in gene_stats_col_flags:
             if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
                 bail("Option %s requires --gene-stats-in" % flag)
+
+    gene_universe_schema_flags = (
+        ("gene_universe_id_col", "--gene-universe-id-col"),
+        ("gene_universe_has_header", "--gene-universe-no-header"),
+    )
+    if _options.gene_universe_in is None:
+        for dest, flag in gene_universe_schema_flags:
+            if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
+                bail("Option %s requires --gene-universe-in" % flag)
+    num_gene_universe_modes = int(_options.gene_universe_in is not None) + int(bool(_options.gene_universe_from_y)) + int(bool(_options.gene_universe_from_x))
+    if num_gene_universe_modes > 1:
+        bail("Specify at most one of --gene-universe-in, --gene-universe-from-y, or --gene-universe-from-x")
 
     gene_set_stats_col_flags = (
         ("gene_set_stats_id_col", "--gene-set-stats-id-col"),
@@ -1697,6 +1740,7 @@ def _bootstrap_cli(argv=None):
         _early_warn("Enabling --betas-uncorrected-from-phewas because --betas-from-phewas was passed")
         parsed_options.betas_uncorrected_from_phewas = True
     _normalize_phewas_stage_options(parsed_options, _early_warn)
+    _normalize_gene_universe_options(parsed_options, _early_warn)
 
     _validate_advanced_option_dispatch(
         parsed_options,

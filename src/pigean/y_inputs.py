@@ -122,6 +122,11 @@ def build_main_y_read_contract(options):
         positive_controls_all_in=options.positive_controls_all_in,
         positive_controls_all_id_col=options.positive_controls_all_id_col,
         positive_controls_all_has_header=options.positive_controls_all_has_header,
+        gene_universe_in=options.gene_universe_in,
+        gene_universe_id_col=options.gene_universe_id_col,
+        gene_universe_has_header=options.gene_universe_has_header,
+        gene_universe_from_y=options.gene_universe_from_y,
+        gene_universe_from_x=options.gene_universe_from_x,
         case_counts_in=options.case_counts_in,
         case_counts_gene_col=options.case_counts_gene_col,
         case_counts_revel_col=options.case_counts_revel_col,
@@ -219,18 +224,17 @@ def load_main_y_inputs(
             gene_bfs_prior_col=options.gene_stats_prior_col,
             gene_covs_in=options.gene_covs_in,
             hold_out_chrom=options.hold_out_chrom,
+            gene_universe_in=options.gene_universe_in,
+            gene_universe_id_col=options.gene_universe_id_col,
+            gene_universe_has_header=options.gene_universe_has_header,
+            gene_universe_from_y=options.gene_universe_from_y,
+            gene_universe_from_x=options.gene_universe_from_x,
         )
         return False
 
     if y_read_contract.has_any_source():
         if y_read_contract.has_only_positive_controls():
             options.ols = True
-            if options.positive_controls_all_in is None and not options.add_all_genes:
-                bail_fn(
-                    "Specified gene-list inputs without --gene-list-all-in "
-                    "(compatibility alias: --positive-controls-all-in); therefore using all genes in gene sets as negatives. "
-                    "This may result in inflated enrichments. If you really want to run this, specify --add-all-genes"
-                )
         run_read_y_contract_stage_fn(state, y_read_contract)
         return False
 

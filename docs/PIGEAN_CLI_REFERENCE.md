@@ -157,14 +157,17 @@ Exome inputs must provide enough information to recover effect size scale: in pr
 | `--gene-list-default-prob` | default probability to use when `--gene-list-prob-col` is absent |
 | `--gene-list-no-header` | declare that `--gene-list-in` has no header row |
 | `--gene-list` | comma-separated genes on the command line |
-| `--gene-list-all-in` | background gene universe for gene-list enrichment |
-| `--gene-list-all-id-col` | ID column in `--gene-list-all-in` |
-| `--gene-list-all-no-header` | declare that `--gene-list-all-in` has no header row |
+| `--gene-universe-in` | explicit gene universe file applied consistently across Y-input modes |
+| `--gene-universe-id-col` | gene ID column in `--gene-universe-in` |
+| `--gene-universe-no-header` | declare that `--gene-universe-in` has no header row |
+| `--gene-universe-from-y` | use only genes present in the input Y source as the universe |
+| `--gene-universe-from-x` | use all genes observed across `--X-in` / `--X-list` as the universe |
 
 Important:
 - `--gene-list` expects comma-separated gene symbols, not a file path
-- if you use gene-list evidence, you should usually also provide `--gene-list-all-in`
-- `--positive-controls-*` remains available as a compatibility alias surface for the corresponding `--gene-list-*` flags
+- GWAS / HuGE-derived inputs default to the HuGE gene list if no explicit universe is supplied, and this is recorded in the log
+- other Y-input modes should provide one of `--gene-universe-in`, `--gene-universe-from-y`, or `--gene-universe-from-x`
+- `--gene-list-all-*` and `--positive-controls-all-*` remain compatibility aliases for the canonical gene-universe surface
 
 ### Case/control burden-count inputs
 

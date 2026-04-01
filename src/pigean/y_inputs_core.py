@@ -5,11 +5,14 @@ import copy
 import numpy as np
 import scipy.sparse as sparse
 
+from pegs_shared.gene_io import load_gene_ids_from_file
 from pegs_shared.io_common import (
     clean_chrom_name,
     construct_map_to_ind,
+    open_text_with_retry,
     parse_gene_map_file,
     read_loc_file_with_gene_map,
+    resolve_column_index,
 )
 
 
@@ -223,6 +226,11 @@ def read_y_pipeline(
     case_counts_in=None,
     ctrl_counts_in=None,
     gene_bfs_in=None,
+    gene_universe_in=None,
+    gene_universe_id_col=None,
+    gene_universe_has_header=True,
+    gene_universe_from_y=False,
+    gene_universe_from_x=False,
     gene_loc_file=None,
     gene_covs_in=None,
     hold_out_chrom=None,
@@ -234,6 +242,31 @@ def read_y_pipeline(
     apply_gene_covariates_and_correct_huge_fn,
     **kwargs,
 ):
+    (gene_universe_mode, gene_universe_genes) = resolve_requested_gene_universe(
+        runtime_state,
+        gwas_in=gwas_in,
+        huge_statistics_in=huge_statistics_in,
+        exomes_in=exomes_in,
+        positive_controls_in=positive_controls_in,
+        positive_controls_list=positive_controls_list,
+        case_counts_in=case_counts_in,
+        gene_bfs_in=gene_bfs_in,
+        gene_universe_in=gene_universe_in,
+        gene_universe_id_col=gene_universe_id_col,
+        gene_universe_has_header=gene_universe_has_header,
+        gene_universe_from_y=gene_universe_from_y,
+        gene_universe_from_x=gene_universe_from_x,
+        log_fn=log_fn,
+        bail_fn=bail_fn,
+        warn_fn=warn_fn,
+    )
+    initialize_explicit_gene_universe_if_needed(
+        runtime_state,
+        gene_universe_mode=gene_universe_mode,
+        gene_universe_genes=gene_universe_genes,
+        log_fn=log_fn,
+    )
+
     (
         Y1_exomes,
         Y1_positive_controls,
@@ -317,6 +350,8 @@ def read_y_pipeline(
         missing_value_exomes=missing_value_exomes,
         missing_value_positive_controls=missing_value_positive_controls,
         missing_value_case_counts=missing_value_case_counts,
+        extend_with_extra_genes=(gene_universe_mode != "file"),
+        warn_fn=warn_fn,
     )
 
     finalize_y_vectors_and_expand_x(
@@ -342,6 +377,74 @@ def read_y_pipeline(
         gene_prior_map=gene_prior_map,
     )
     apply_gene_covariates_and_correct_huge_fn(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
+
+
+def resolve_requested_gene_universe(
+    runtime_state,
+    *,
+    gwas_in,
+    huge_statistics_in,
+    exomes_in,
+    positive_controls_in,
+    positive_controls_list,
+    case_counts_in,
+    gene_bfs_in,
+    gene_universe_in,
+    gene_universe_id_col,
+    gene_universe_has_header,
+    gene_universe_from_y,
+    gene_universe_from_x,
+    log_fn,
+    bail_fn,
+    warn_fn,
+):
+    num_selected = int(gene_universe_in is not None) + int(bool(gene_universe_from_y)) + int(bool(gene_universe_from_x))
+    if num_selected > 1:
+        bail_fn("Specify at most one of --gene-universe-in, --gene-universe-from-y, or --gene-universe-from-x")
+
+    if gene_universe_in is not None:
+        universe_genes = load_gene_ids_from_file(
+            gene_universe_in,
+            gene_ids_id_col=gene_universe_id_col,
+            gene_ids_has_header=gene_universe_has_header,
+            gene_label_map=runtime_state.gene_label_map,
+            open_text_fn=open_text_with_retry,
+            get_col_fn=resolve_column_index,
+            log_fn=log_fn,
+            warn_fn=warn_fn,
+            bail_fn=bail_fn,
+        )
+        log_fn("Using explicit gene universe from --gene-universe-in with %d genes" % len(universe_genes))
+        return ("file", universe_genes)
+
+    if gene_universe_from_y:
+        log_fn("Using only genes present in the input Y values as the gene universe")
+        return ("y", None)
+
+    if gene_universe_from_x:
+        log_fn("Using the union of genes across input gene sets as the gene universe")
+        return ("x", None)
+
+    if gwas_in is not None or huge_statistics_in is not None:
+        log_fn("No explicit gene universe provided; defaulting to the HuGE/GWAS gene list used during gene-score construction")
+        return ("y", None)
+
+    if gene_bfs_in is not None or exomes_in is not None or positive_controls_in is not None or positive_controls_list is not None or case_counts_in is not None:
+        bail_fn(
+            "This input Y mode requires an explicit gene universe. Provide --gene-universe-in, "
+            "or opt into --gene-universe-from-y or --gene-universe-from-x."
+        )
+
+    return ("y", None)
+
+
+def initialize_explicit_gene_universe_if_needed(runtime_state, *, gene_universe_mode, gene_universe_genes, log_fn):
+    if gene_universe_mode != "file":
+        return
+    if runtime_state.genes is not None:
+        return
+    log_fn("Initializing analysis gene universe from explicit gene-universe file")
+    runtime_state._set_X(runtime_state.X_orig, list(gene_universe_genes), runtime_state.gene_sets, skip_N=False)
 
 
 def apply_gene_level_maps_after_read_y(runtime_state, gene_combined_map=None, gene_prior_map=None):
@@ -481,6 +584,11 @@ def read_and_align_auxiliary_y_components(
         Y1_positive_controls = np.zeros(len(Y1_exomes))
         extra_Y_positive_controls = np.zeros(len(extra_genes_all))
 
+    if runtime_state.genes is not None and len(Y1_exomes) == 0:
+        Y1_exomes = np.zeros(len(runtime_state.genes))
+    if runtime_state.genes is not None and len(Y1_positive_controls) == 0:
+        Y1_positive_controls = np.zeros(len(runtime_state.genes))
+
     assert len(extra_Y_exomes) == len(extra_genes_all)
     assert len(extra_Y_exomes) == len(extra_Y_positive_controls)
     assert len(Y1_exomes) == len(Y1_positive_controls)
@@ -524,6 +632,13 @@ def read_and_align_auxiliary_y_components(
     else:
         Y1_case_counts = np.zeros(len(Y1_exomes))
         extra_Y_case_counts = np.zeros(len(extra_genes_all))
+
+    if runtime_state.genes is not None and len(Y1_exomes) == 0:
+        Y1_exomes = np.zeros(len(runtime_state.genes))
+    if runtime_state.genes is not None and len(Y1_positive_controls) == 0:
+        Y1_positive_controls = np.zeros(len(runtime_state.genes))
+    if runtime_state.genes is not None and len(Y1_case_counts) == 0:
+        Y1_case_counts = np.zeros(len(runtime_state.genes))
 
     assert len(extra_Y_exomes) == len(extra_genes_all)
     assert len(extra_Y_exomes) == len(extra_Y_positive_controls)
@@ -733,6 +848,8 @@ def materialize_y_on_gene_universe(
     missing_value_exomes,
     missing_value_positive_controls,
     missing_value_case_counts,
+    extend_with_extra_genes=True,
+    warn_fn=None,
 ):
     if missing_value is None:
         if len(Y1) > 0:
@@ -778,6 +895,8 @@ def materialize_y_on_gene_universe(
         missing_value_exomes=missing_value_exomes,
         missing_value_positive_controls=missing_value_positive_controls,
         missing_value_case_counts=missing_value_case_counts,
+        extend_with_extra_genes=extend_with_extra_genes,
+        warn_fn=warn_fn,
     )
 
 
@@ -889,6 +1008,8 @@ def merge_y_into_existing_gene_universe(
     missing_value_exomes,
     missing_value_positive_controls,
     missing_value_case_counts,
+    extend_with_extra_genes=True,
+    warn_fn=None,
 ):
     Y = Y1 + Y1_exomes + Y1_positive_controls + Y1_case_counts
     Y[np.isnan(Y1)] = Y1_exomes[np.isnan(Y1)] + Y1_positive_controls[np.isnan(Y1)] + Y1_case_counts[np.isnan(Y1)] + missing_value
@@ -919,6 +1040,7 @@ def merge_y_into_existing_gene_universe(
     new_extra_Y_case_counts = list(np.full(len(extra_Y), missing_value_case_counts))
 
     num_add = 0
+    num_skipped_extra = 0
     for i in range(len(extra_genes_all)):
         if extra_genes_all[i] in extra_gene_to_ind:
             extra_Y[extra_gene_to_ind[extra_genes_all[i]]] += (extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
@@ -926,7 +1048,7 @@ def merge_y_into_existing_gene_universe(
             new_extra_Y_exomes[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_exomes[i]
             new_extra_Y_positive_controls[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_positive_controls[i]
             new_extra_Y_case_counts[extra_gene_to_ind[extra_genes_all[i]]] = extra_Y_case_counts[i]
-        else:
+        elif extend_with_extra_genes:
             num_add += 1
             extra_genes.append(extra_genes_all[i])
             extra_Y.append(extra_Y_exomes[i] + extra_Y_positive_controls[i] + extra_Y_case_counts[i])
@@ -934,6 +1056,20 @@ def merge_y_into_existing_gene_universe(
             new_extra_Y_exomes.append(extra_Y_exomes[i])
             new_extra_Y_positive_controls.append(extra_Y_positive_controls[i])
             new_extra_Y_case_counts.append(extra_Y_case_counts[i])
+        else:
+            num_skipped_extra += 1
+
+    if not extend_with_extra_genes and warn_fn is not None and (len(extra_genes) > 0 or num_skipped_extra > 0):
+        warn_fn(
+            "Ignored %d genes from Y inputs because they were absent from the explicit gene universe"
+            % (len(extra_genes) + num_skipped_extra)
+        )
+        extra_genes = []
+        extra_Y = []
+        extra_Y_for_regression = []
+        new_extra_Y_exomes = []
+        new_extra_Y_positive_controls = []
+        new_extra_Y_case_counts = []
 
     extra_Y = np.array(extra_Y)
     extra_Y_for_regression = np.array(extra_Y_for_regression)

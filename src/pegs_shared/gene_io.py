@@ -417,6 +417,70 @@ def parse_gene_covariates_file(
     return ParsedGeneCovariates(cov_names=cov_names, gene_to_covs=gene_in_covs)
 
 
+def load_gene_ids_from_file(
+    gene_ids_in,
+    *,
+    gene_ids_id_col=None,
+    gene_ids_has_header=True,
+    gene_label_map=None,
+    open_text_fn=None,
+    get_col_fn=None,
+    log_fn=None,
+    warn_fn=None,
+    bail_fn=None,
+):
+    if bail_fn is None:
+        bail_fn = _default_bail
+    if log_fn is None:
+        log_fn = lambda _m: None
+    if warn_fn is None:
+        warn_fn = lambda _m: None
+    if open_text_fn is None:
+        bail_fn("Bug in code: open_text_fn required for load_gene_ids_from_file")
+    if get_col_fn is None:
+        get_col_fn = resolve_column_index
+
+    if gene_ids_in is None:
+        bail_fn("Require --gene-universe-in for this operation")
+
+    log_fn("Reading gene-universe file %s" % gene_ids_in)
+    genes = []
+    seen = set()
+    with open_text_fn(gene_ids_in) as fh:
+        id_col = 0
+        saw_first = False
+        for line in fh:
+            cols = line.strip("\n").split()
+            if len(cols) == 0:
+                continue
+
+            if not saw_first:
+                saw_first = True
+                if gene_ids_has_header or len(cols) > 1:
+                    if len(cols) > 1 and gene_ids_id_col is None:
+                        gene_ids_id_col = "Gene"
+                    if gene_ids_id_col is not None:
+                        id_col = get_col_fn(gene_ids_id_col, cols)
+                    if gene_ids_has_header:
+                        continue
+
+            if id_col >= len(cols):
+                warn_fn("Skipping gene-universe line with too few columns: %s" % line.strip("\n"))
+                continue
+
+            gene = cols[id_col]
+            if gene_label_map is not None and gene in gene_label_map:
+                gene = gene_label_map[gene]
+            if gene in seen:
+                continue
+            seen.add(gene)
+            genes.append(gene)
+
+    if len(genes) == 0:
+        bail_fn("Gene-universe file %s contained no genes" % gene_ids_in)
+    return genes
+
+
 def align_gene_scalar_map(gene_to_value, genes=None, gene_to_ind=None, missing_value=np.nan):
     if genes is None:
         genes = []

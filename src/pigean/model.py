@@ -421,6 +421,7 @@ def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_
         #convert X and Y to their new values
         min_correlation = 0.05
         state._set_Y(state.Y, state.Y_for_regression, state.Y_exomes, state.Y_positive_controls, state.Y_case_counts, Y_corr_m=correlation_m, store_corr_sparse=run_corrected_ols, skip_V=True, skip_scale_factors=True, min_correlation=min_correlation)
+        Y = state.Y_for_regression
 
     #subset gene sets to remove empty ones first
     #number of gene sets in each gene set

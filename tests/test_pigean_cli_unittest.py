@@ -112,16 +112,226 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["positive_controls_id_col"], "Gene")
         self.assertEqual(options["positive_controls_prob_col"], "Weight")
         self.assertEqual(options["positive_controls_default_prob"], 0.8)
-        self.assertEqual(options["positive_controls_all_in"], "background.tsv")
-        self.assertEqual(options["positive_controls_all_id_col"], "Symbol")
+        self.assertIsNone(options["positive_controls_all_in"])
+        self.assertEqual(options["gene_universe_in"], "background.tsv")
+        self.assertEqual(options["gene_universe_id_col"], "Symbol")
         self.assertFalse(options["positive_controls_has_header"])
-        self.assertFalse(options["positive_controls_all_has_header"])
+        self.assertFalse(options["gene_universe_has_header"])
 
     def test_positive_controls_alias_still_round_trips_in_effective_config(self) -> None:
         proc = self._run("gibbs", "--positive-controls-list", "INS", "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["options"]["positive_controls_list"], ["INS"])
+
+    def test_gene_universe_options_round_trip_in_effective_config(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gene-universe-in",
+            "universe.tsv",
+            "--gene-universe-id-col",
+            "Symbol",
+            "--gene-universe-no-header",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        options = payload["options"]
+        self.assertEqual(options["gene_universe_in"], "universe.tsv")
+        self.assertEqual(options["gene_universe_id_col"], "Symbol")
+        self.assertFalse(options["gene_universe_has_header"])
+
+    def test_gene_list_all_alias_populates_gene_universe_options(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gene-list-all-in",
+            "background.tsv",
+            "--gene-list-all-id-col",
+            "Gene",
+            "--gene-list-all-no-header",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        options = payload["options"]
+        self.assertEqual(options["gene_universe_in"], "background.tsv")
+        self.assertEqual(options["gene_universe_id_col"], "Gene")
+        self.assertFalse(options["gene_universe_has_header"])
+
+    def test_gene_stats_input_requires_explicit_gene_universe(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            gene_stats = tmp_path / "gene_stats.tsv"
+            gene_stats.write_text(
+                "Gene\tDirect\tCombined\nKCNJ11\t2.0\t2.5\nGCK\t1.0\t1.5\n",
+                encoding="utf-8",
+            )
+            cmd = [
+                sys.executable,
+                "-m",
+                "pigean",
+                "betas",
+                "--X-in",
+                "tests/data/t2d_smoke/gene_set_list_input_subset_toy.txt",
+                "--gene-map-in",
+                "tests/data/model_small/portal_gencode.gene.map",
+                "--gene-stats-in",
+                str(gene_stats),
+                "--gene-stats-id-col",
+                "Gene",
+                "--gene-stats-log-bf-col",
+                "Direct",
+                "--gene-stats-combined-col",
+                "Combined",
+                "--gene-set-stats-out",
+                str(tmp_path / "gene_set_stats.out"),
+            ]
+            proc = subprocess.run(
+                cmd,
+                cwd=repo_root,
+                env=self._base_env(repo_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(proc.returncode, 0)
+            err = (proc.stderr or "") + (proc.stdout or "")
+            self.assertIn("requires an explicit gene universe", err)
+            self.assertIn("--gene-universe-in", err)
+            self.assertIn("--gene-universe-from-y", err)
+            self.assertIn("--gene-universe-from-x", err)
+
+    def test_gene_stats_input_supports_gene_universe_from_x(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            gene_stats = tmp_path / "gene_stats.tsv"
+            gene_stats.write_text(
+                "Gene\tDirect\tCombined\nKCNJ11\t2.0\t2.5\nGCK\t1.0\t1.5\n",
+                encoding="utf-8",
+            )
+            cmd = [
+                sys.executable,
+                "-m",
+                "pigean",
+                "beta_tildes",
+                "--deterministic",
+                "--linear",
+                "--X-in",
+                "tests/data/t2d_smoke/gene_set_list_input_subset_toy.txt",
+                "--gene-map-in",
+                "tests/data/model_small/portal_gencode.gene.map",
+                "--gene-loc-file",
+                "tests/data/model_small/NCBI37.3.plink.gene.loc",
+                "--gene-stats-in",
+                str(gene_stats),
+                "--gene-stats-id-col",
+                "Gene",
+                "--gene-stats-log-bf-col",
+                "Direct",
+                "--gene-stats-combined-col",
+                "Combined",
+                "--gene-universe-from-x",
+                "--gene-set-stats-out",
+                str(tmp_path / "gene_set_stats.out"),
+                "--gene-stats-out",
+                str(tmp_path / "gene_stats.out"),
+                "--params-out",
+                str(tmp_path / "params.out"),
+                "--min-gene-set-size",
+                "1",
+                "--filter-gene-set-p",
+                "1",
+                "--max-gene-set-read-p",
+                "1",
+                "--prune-gene-sets",
+                "1.1",
+                "--weighted-prune-gene-sets",
+                "1.1",
+            ]
+            proc = subprocess.run(
+                cmd,
+                cwd=repo_root,
+                env=self._base_env(repo_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+            self.assertTrue((tmp_path / "gene_set_stats.out").exists())
+            self.assertTrue((tmp_path / "gene_stats.out").exists())
+
+    def test_gene_stats_input_respects_explicit_gene_universe_file(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            gene_stats = tmp_path / "gene_stats.tsv"
+            gene_stats.write_text(
+                "Gene\tDirect\tCombined\nKCNJ11\t2.0\t2.5\nGCK\t1.0\t1.5\nOUTSIDE\t3.0\t3.5\n",
+                encoding="utf-8",
+            )
+            gene_universe = tmp_path / "gene_universe.tsv"
+            gene_universe.write_text(
+                "Gene\nKCNJ11\nGCK\nHNF1A\nPAX4\nHNF1B\nHNF4A\nPDX1\nINS\nABCC8\nNEUROD1\n",
+                encoding="utf-8",
+            )
+            gene_stats_out = tmp_path / "gene_stats.out"
+            cmd = [
+                sys.executable,
+                "-m",
+                "pigean",
+                "beta_tildes",
+                "--deterministic",
+                "--linear",
+                "--X-in",
+                "tests/data/t2d_smoke/gene_set_list_input_subset_toy.txt",
+                "--gene-map-in",
+                "tests/data/model_small/portal_gencode.gene.map",
+                "--gene-loc-file",
+                "tests/data/model_small/NCBI37.3.plink.gene.loc",
+                "--gene-stats-in",
+                str(gene_stats),
+                "--gene-stats-id-col",
+                "Gene",
+                "--gene-stats-log-bf-col",
+                "Direct",
+                "--gene-stats-combined-col",
+                "Combined",
+                "--gene-universe-in",
+                str(gene_universe),
+                "--gene-universe-id-col",
+                "Gene",
+                "--gene-set-stats-out",
+                str(tmp_path / "gene_set_stats.out"),
+                "--gene-stats-out",
+                str(gene_stats_out),
+                "--params-out",
+                str(tmp_path / "params.out"),
+                "--min-gene-set-size",
+                "1",
+                "--filter-gene-set-p",
+                "1",
+                "--max-gene-set-read-p",
+                "1",
+                "--prune-gene-sets",
+                "1.1",
+                "--weighted-prune-gene-sets",
+                "1.1",
+            ]
+            proc = subprocess.run(
+                cmd,
+                cwd=repo_root,
+                env=self._base_env(repo_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+            output_text = gene_stats_out.read_text(encoding="utf-8")
+            self.assertIn("HNF1A", output_text)
+            self.assertIn("KCNJ11", output_text)
+            self.assertNotIn("OUTSIDE", output_text)
 
     def test_multi_y_requires_gene_set_stats_out(self) -> None:
         proc = self._run("betas", "--multi-y-in", "traits.tsv")
@@ -461,7 +671,12 @@ print(json.dumps(mask.tolist()))
         self.assertIn("--independent-betas-only", proc.stdout)
 
     def test_cli_manifest_tiers_cover_gene_list_and_recent_set_b_flags(self) -> None:
-        pigean_cli = importlib.import_module("pigean.cli")
+        repo_root = Path(__file__).resolve().parents[1]
+        sys.path.insert(0, str(repo_root / "src"))
+        try:
+            pigean_cli = importlib.import_module("pigean.cli")
+        finally:
+            del sys.path[0]
         metadata = pigean_cli.get_cli_manifest_metadata()
 
         self.assertEqual(metadata["--gene-list"]["category"], "method_required")
@@ -622,11 +837,14 @@ print(json.dumps(mask.tolist()))
         self.assertEqual(payload["mode"], "gibbs")
         self.assertEqual(payload["options"]["gene_stats_in"], "tests/data/t2d_smoke/mody.gene.list")
 
-    def test_positive_controls_only_requires_positive_controls_all_in(self) -> None:
+    def test_positive_controls_only_requires_explicit_gene_universe(self) -> None:
         proc = self._run("gibbs", "--positive-controls-list", "INS")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("Specified gene-list inputs without --gene-list-all-in", err)
+        self.assertIn("requires an explicit gene universe", err)
+        self.assertIn("--gene-universe-in", err)
+        self.assertIn("--gene-universe-from-y", err)
+        self.assertIn("--gene-universe-from-x", err)
 
     def test_config_removed_gene_bfs_key_has_replacement_message(self) -> None:
         with tempfile.TemporaryDirectory() as td:

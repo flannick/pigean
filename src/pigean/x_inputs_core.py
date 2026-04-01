@@ -1255,6 +1255,19 @@ def compute_prefilter_assoc_stats(runtime_state, cur_X, run_logistic, filter_usi
     Y_to_use = runtime_state.Y_for_regression
     gene_pheno_Y = runtime_state.gene_pheno_Y.T.toarray() if filter_using_phewas else None
 
+    # When the runtime gene universe is expanded from X after seeding Y from a
+    # smaller explicit/non-HuGE source, newly added genes carry zero evidence.
+    # Prefilter association stats must see vectors aligned to the current X rows.
+    if Y_to_use is not None and cur_X.shape[0] > len(Y_to_use):
+        Y_to_use = np.append(Y_to_use, np.zeros(cur_X.shape[0] - len(Y_to_use)))
+    if gene_pheno_Y is not None and cur_X.shape[0] > gene_pheno_Y.shape[0]:
+        gene_pheno_Y = np.vstack(
+            (
+                gene_pheno_Y,
+                np.zeros((cur_X.shape[0] - gene_pheno_Y.shape[0], gene_pheno_Y.shape[1])),
+            )
+        )
+
     if run_logistic:
         Y = np.exp(Y_to_use + runtime_state.background_log_bf) / (1 + np.exp(Y_to_use + runtime_state.background_log_bf))
         (
@@ -1883,5 +1896,41 @@ def ensure_gene_universe_for_x(
                 new_Y_case_counts = np.append(new_Y_case_counts, np.zeros(len(add_genes)))
 
             runtime_state._set_Y(new_Y, new_Y_for_regression, new_Y_exomes, new_Y_positive_controls, new_Y_case_counts)
+            if runtime_state.Y_orig is not None and len(runtime_state.Y_orig) == len(runtime_state.genes):
+                runtime_state.Y_orig = np.append(runtime_state.Y_orig, np.zeros(len(add_genes)))
+            if runtime_state.Y_for_regression_orig is not None and len(runtime_state.Y_for_regression_orig) == len(runtime_state.genes):
+                runtime_state.Y_for_regression_orig = np.append(runtime_state.Y_for_regression_orig, np.zeros(len(add_genes)))
+            if runtime_state.combined_prior_Ys is not None and len(runtime_state.combined_prior_Ys) == len(runtime_state.genes):
+                runtime_state.combined_prior_Ys = np.append(runtime_state.combined_prior_Ys, np.full(len(add_genes), np.nan))
+            if runtime_state.combined_prior_Ys_for_regression is not None and len(runtime_state.combined_prior_Ys_for_regression) == len(runtime_state.genes):
+                runtime_state.combined_prior_Ys_for_regression = np.append(
+                    runtime_state.combined_prior_Ys_for_regression,
+                    np.full(len(add_genes), np.nan),
+                )
+            if runtime_state.combined_prior_Ys_adj is not None and len(runtime_state.combined_prior_Ys_adj) == len(runtime_state.genes):
+                runtime_state.combined_prior_Ys_adj = np.append(
+                    runtime_state.combined_prior_Ys_adj,
+                    np.full(len(add_genes), np.nan),
+                )
+            if runtime_state.priors is not None and len(runtime_state.priors) == len(runtime_state.genes):
+                runtime_state.priors = np.append(runtime_state.priors, np.zeros(len(add_genes)))
+            if runtime_state.priors_orig is not None and len(runtime_state.priors_orig) == len(runtime_state.genes):
+                runtime_state.priors_orig = np.append(runtime_state.priors_orig, np.zeros(len(add_genes)))
+            if runtime_state.priors_adj is not None and len(runtime_state.priors_adj) == len(runtime_state.genes):
+                runtime_state.priors_adj = np.append(runtime_state.priors_adj, np.zeros(len(add_genes)))
+            if runtime_state.priors_adj_orig is not None and len(runtime_state.priors_adj_orig) == len(runtime_state.genes):
+                runtime_state.priors_adj_orig = np.append(runtime_state.priors_adj_orig, np.zeros(len(add_genes)))
+            if len(add_genes) > 0 and (
+                runtime_state.y_corr is not None
+                or runtime_state.y_corr_sparse is not None
+                or runtime_state.y_corr_cholesky is not None
+            ):
+                log_fn(
+                    "Clearing precomputed Y correlation matrices after expanding the gene universe from X",
+                    debug_level,
+                )
+                runtime_state.y_corr = None
+                runtime_state.y_corr_sparse = None
+                runtime_state.y_corr_cholesky = None
 
         runtime_state._set_X(runtime_state.X_orig, list(all_genes), runtime_state.gene_sets, skip_N=False)
