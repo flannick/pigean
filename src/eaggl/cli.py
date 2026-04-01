@@ -310,11 +310,12 @@ parser.add_option("","--learn-phi-max-redundancy-q90",default=0.35,type=float) #
 parser.add_option("","--learn-phi-runs-per-step",default=1,type=int) #number of repeated restarts used to score each candidate phi
 parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #minimum fraction of runs that must agree on the modal retained factor count during phi search
 parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
-parser.add_option("","--learn-phi-max-fit-loss-frac",default=0.05,type=float) #maximum allowed reconstruction-error loss relative to the best tested phi
-parser.add_option("","--learn-phi-k-band-frac",default=0.9,type=float) #among acceptable candidates, require at least this fraction of the maximal retained factor count before preferring larger phi
+parser.add_option("","--learn-phi-max-fit-loss-frac",default=0.05,type=float) #legacy fallback fit-loss guard used when no phi candidate satisfies the primary redundancy/restart criteria
+parser.add_option("","--learn-phi-k-band-frac",default=0.9,type=float) #legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection
 parser.add_option("","--learn-phi-max-steps",default=5,type=int) #maximum number of additional phi candidates to evaluate after the initial phi
 parser.add_option("","--learn-phi-expand-factor",default=2.0,type=float) #multiplicative factor used when expanding the phi search bracket
 parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
+parser.add_option("","--learn-phi-mass-floor-frac",default=0.005,type=float) #minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring
 parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
 parser.add_option("","--learn-phi-prune-genes-num",default=1000,type=int) #during phi search only, prune to at most this many genes before candidate NMF evaluation
 parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
@@ -442,12 +443,13 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--positive-controls-list": "compatibility alias for --gene-list",
     "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
-    "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best tested phi during automatic tuning",
+    "--learn-phi-max-fit-loss-frac": "legacy fallback fit-loss guard used when no phi candidate satisfies the primary redundancy/restart criteria",
+    "--learn-phi-mass-floor-frac": "minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring",
     "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available",
     "--learn-phi-max-redundancy-q90": "maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning",
     "--learn-phi-max-num-iterations": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
     "--learn-phi-max-steps": "maximum number of log-space phi search steps after bracketing",
-    "--learn-phi-k-band-frac": "among acceptable phi candidates, keep only those within this fraction of the maximal retained factor count before preferring larger phi",
+    "--learn-phi-k-band-frac": "legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection",
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
     "--learn-phi-min-stability": "minimum matched-factor cosine stability required for a phi candidate during automatic tuning",
     "--learn-phi-prune-genes-num": "during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi",
@@ -1325,6 +1327,8 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-expand-factor must be > 1")
         if parsed_options.learn_phi_weight_floor is not None and parsed_options.learn_phi_weight_floor < 0:
             bail("--learn-phi-weight-floor must be >= 0")
+        if not (0 < parsed_options.learn_phi_mass_floor_frac <= 1):
+            bail("--learn-phi-mass-floor-frac must be in (0, 1]")
         if parsed_options.learn_phi_prune_genes_num is not None and parsed_options.learn_phi_prune_genes_num < 1:
             bail("--learn-phi-prune-genes-num must be at least 1")
         if parsed_options.learn_phi_prune_gene_sets_num is not None and parsed_options.learn_phi_prune_gene_sets_num < 1:

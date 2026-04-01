@@ -265,7 +265,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertAlmostEqual(profile["redundancy_max"], 1.0)
         self.assertAlmostEqual(profile["redundancy_q90"], 1.0)
 
-    def test_select_phi_candidate_prefers_largest_phi_within_uncapped_k_band(self) -> None:
+    def test_select_phi_candidate_prefers_frontier_elbow_over_nearby_higher_complexity(self) -> None:
         candidates = [
             {
                 "phi": 0.05,
@@ -278,36 +278,26 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "redundancy": 0.31,
                 "redundancy_max": 0.31,
                 "redundancy_q90": 0.23,
-                "best_error": 0.98,
+                "best_error": 40.0,
                 "best_evidence": 8.0,
+                "effective_factor_count": 3.8,
+                "mass_ge_floor_factor_count": 4,
             },
             {
-                "phi": 0.005,
+                "phi": 0.02,
                 "modal_factor_count": 5,
                 "run_support": 1.0,
                 "stability": 0.95,
                 "stability_defined": True,
                 "num_modal_runs": 3,
-                "capped": True,
+                "capped": False,
                 "redundancy": 0.18,
                 "redundancy_max": 0.18,
                 "redundancy_q90": 0.12,
-                "best_error": 0.95,
+                "best_error": 36.0,
                 "best_evidence": 9.0,
-            },
-            {
-                "phi": 0.02,
-                "modal_factor_count": 3,
-                "run_support": 1.0,
-                "stability": 0.95,
-                "stability_defined": True,
-                "num_modal_runs": 3,
-                "capped": False,
-                "redundancy": 0.2,
-                "redundancy_max": 0.2,
-                "redundancy_q90": 0.15,
-                "best_error": 1.02,
-                "best_evidence": 7.0,
+                "effective_factor_count": 4.7,
+                "mass_ge_floor_factor_count": 5,
             },
             {
                 "phi": 1.0,
@@ -317,11 +307,13 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "stability_defined": True,
                 "num_modal_runs": 3,
                 "capped": False,
-                "redundancy": 0.1,
-                "redundancy_max": 0.1,
-                "redundancy_q90": 0.05,
-                "best_error": 1.01,
+                "redundancy": 0.2,
+                "redundancy_max": 0.2,
+                "redundancy_q90": 0.15,
+                "best_error": 100.0,
                 "best_evidence": 6.0,
+                "effective_factor_count": 2.0,
+                "mass_ge_floor_factor_count": 2,
             },
         ]
         selected, reason = eaggl_factor_runtime._select_phi_candidate(
@@ -334,10 +326,11 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             k_band_frac=0.9,
             runs_per_step=3,
         )
-        self.assertEqual(reason, "largest_phi_within_k_band")
+        self.assertEqual(reason, "marginal_gain_frontier")
         self.assertEqual(selected["phi"], 0.05)
         self.assertEqual(selected["selection_pool"], "uncapped")
-        self.assertEqual(selected["k_band_threshold"], 4)
+        self.assertEqual(selected["selection_frontier_size"], 3)
+        self.assertIsNotNone(selected["selection_marginal_gain"])
 
     def test_run_factor_with_learn_phi_selects_less_redundant_candidate_before_final_run(self) -> None:
         state = _TinyState()
@@ -354,7 +347,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                         [0.0, 0.0, 1.0, 1.0],
                     ]
                 )
-                error = 1.0
+                error = 35.0
                 evidence = 10.0
             elif phi < 0.5:
                 matrix = np.array(
@@ -364,7 +357,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                         [0.0, 0.0, 1.0],
                     ]
                 )
-                error = 1.02
+                error = 40.0
                 evidence = 8.0
             else:
                 matrix = np.array(
@@ -374,7 +367,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                         [0.0, 0.0],
                     ]
                 )
-                error = 1.01
+                error = 100.0
                 evidence = 7.0
             run_state.exp_gene_set_factors = matrix
             run_state.exp_gene_factors = matrix
@@ -418,7 +411,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertTrue(state.params["learn_phi"])
         self.assertGreaterEqual(state.params["learn_phi_selected_phi"], 0.05)
         self.assertLess(state.params["learn_phi_selected_phi"], 0.5)
-        self.assertEqual(state.params["learn_phi_selection_reason"], "largest_phi_within_k_band")
+        self.assertEqual(state.params["learn_phi_selection_reason"], "marginal_gain_frontier")
         self.assertEqual(state.params["learn_phi_redundancy_basis_target"], "gene")
         self.assertEqual(state.params["learn_phi_redundancy_basis"], "gene")
         self.assertEqual(state.params["learn_phi_selection_pool"], "uncapped")
@@ -638,6 +631,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             runs_per_step,
             factor_kwargs,
             weight_floor,
+            mass_floor_frac,
             prune_genes_num,
             prune_gene_sets_num,
             max_num_iterations,
@@ -704,7 +698,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertIn(0.025, evaluated_phis)
         self.assertNotIn(5.0, evaluated_phis)
         self.assertLessEqual(len(evaluated_phis) - 1, 3)
-        self.assertGreaterEqual(selected["phi"], 0.05)
+        self.assertEqual(selected["phi"], 0.025)
 
 
 if __name__ == "__main__":

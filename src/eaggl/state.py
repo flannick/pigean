@@ -1429,6 +1429,11 @@ class EagglState(object):
         n_lambda = [lambdak]
         it = 1
 
+        self.last_factorization_final_delambda = None
+        self.last_factorization_iterations = 0
+        self.last_factorization_converged = False
+        self.last_factorization_hit_iteration_cap = False
+
         P_gene_set = _append_with_any_user(P_gene_set)
         P_gene = _append_with_any_user(P_gene)
 
@@ -1519,6 +1524,12 @@ class EagglState(object):
                 log(f"Iteration={it}; evid={evid:.3g}; lik={like:.3g}; err={error:.3g}; delambda={delambda:.3g}; factors={factors}; factors_non_zero={factors_non_zero}")
             it += 1
 
+        final_iterations = max(0, it - 1)
+        self.last_factorization_final_delambda = float(delambda)
+        self.last_factorization_iterations = int(final_iterations)
+        self.last_factorization_converged = bool(delambda < tol)
+        self.last_factorization_hit_iteration_cap = bool(final_iterations >= int(n_iter) and delambda >= tol)
+
         # Return the results
         return W, H, n_like[-1], n_evid[-1], n_lambda[-1], n_error[-1]
 
@@ -1550,7 +1561,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_report_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_report_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
         return _eaggl_factor_runtime.run_factor(
             self,
             max_num_factors=max_num_factors,
@@ -1575,6 +1586,7 @@ class EagglState(object):
             learn_phi_max_steps=learn_phi_max_steps,
             learn_phi_expand_factor=learn_phi_expand_factor,
             learn_phi_weight_floor=learn_phi_weight_floor,
+            learn_phi_mass_floor_frac=learn_phi_mass_floor_frac,
             learn_phi_report_out=learn_phi_report_out,
             learn_phi_prune_genes_num=learn_phi_prune_genes_num,
             learn_phi_prune_gene_sets_num=learn_phi_prune_gene_sets_num,

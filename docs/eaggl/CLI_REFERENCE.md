@@ -88,7 +88,7 @@ PYTHONPATH=src python -m eaggl factor \
   --params-out results/params.out
 ```
 
-`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics. Current `--learn-phi` diagnostics include the redundancy basis, candidate capped-status, nearest-neighbor overlap summaries (`redundancy_max` and `redundancy_q90`), and the final selection pool / near-maximal K-band threshold.
+`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics. Current `--learn-phi` diagnostics include the redundancy basis, candidate capped-status, nearest-neighbor overlap summaries (`redundancy_max` and `redundancy_q90`), factor-mass summaries (`effective_factor_count` and `mass_ge_floor_factor_count`), and convergence diagnostics such as final `delambda` and whether the scout fit hit the iteration cap.
 
 Phenotype-anchored workflow:
 
@@ -262,7 +262,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-runs-per-step` | number of restart fits used to score each tested `phi` candidate; defaults to `1` for cheaper search, with larger values as an expert stability check |
 | `--learn-phi-min-run-support` | minimum fraction of restart runs that must agree on the modal retained factor count |
 | `--learn-phi-min-stability` | minimum mean matched-factor cosine across the modal restart runs |
-| `--learn-phi-max-fit-loss-frac` | maximum allowed reconstruction-error loss relative to the best candidate tested |
+| `--learn-phi-max-fit-loss-frac` | legacy fallback fit-loss guard used only when no candidate satisfies the primary redundancy/restart criteria |
 | `--learn-phi-max-steps` | maximum number of additional `phi` candidates to evaluate after the initial `--phi`; defaults to `5` |
 | `--learn-phi-expand-factor` | multiplicative factor used when widening the search bracket away from the initial `--phi` |
 | `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
@@ -276,7 +276,9 @@ Operational notes:
 - Auto-tuning uses `--learn-phi-runs-per-step` during search, then runs the normal final factorization with the selected `phi`.
 - The default search uses one restart per candidate `phi`. Increase `--learn-phi-runs-per-step` only when you explicitly want a more expensive restart-stability check during selection.
 - The selected `phi`, the search thresholds, the redundancy basis, and per-candidate diagnostics are written to both the run log and `--params-out`. Use `--learn-phi-report-out` when you also want the full candidate table as a separate artifact.
-- The default search is structural model selection, not held-out cross-validation. It prefers the simplest acceptable `phi` within the near-maximal factor-count band, rather than automatically driving `phi` to the smallest value tested.
+- The default search is structural model selection, not held-out cross-validation. It now gates on redundancy and restart behavior, then chooses `phi` from the resulting fit/complexity frontier using the marginal improvement in reconstruction error per additional retained mechanism, rather than a near-maximal factor-count band.
+- Candidate complexity is summarized using both the raw retained factor count and factor-mass diagnostics. In particular, `effective_factor_count` is the inverse-participation-ratio style mass summary `(sum m_k)^2 / sum m_k^2`, and `mass_ge_floor_factor_count` counts factors whose mass fraction is at least `1%`.
+- The search report also records whether the scout factorization converged before the candidate iteration cap, via `final_delambda`, `final_iterations`, `converged_fraction`, and `hit_iteration_cap_fraction`.
 - By default, `--learn-phi` evaluates candidates on a correlation-pruned sentinel panel of up to `1000` genes and `1000` gene sets. Override `--learn-phi-prune-genes-num` and `--learn-phi-prune-gene-sets-num` when you want different sentinel sizes.
 - The default search budget is `5` additional candidate evaluations after the initial `--phi`. Those evaluations may be spent on upward expansion, downward expansion, or midpoint refinement once the search brackets a capped or zero-factor boundary.
 - `--learn-phi-prune-genes-num`, `--learn-phi-prune-gene-sets-num`, and `--learn-phi-max-num-iterations` apply only while scoring phi candidates. The final reported factorization still reruns on the full retained panel using the selected `phi`.

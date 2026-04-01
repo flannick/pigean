@@ -62,6 +62,7 @@ class FactorExecutionConfig:
     learn_phi_max_steps: int = 5
     learn_phi_expand_factor: float = 2.0
     learn_phi_weight_floor: float | None = None
+    learn_phi_mass_floor_frac: float = 0.005
     learn_phi_report_out: str | None = None
     learn_phi_prune_genes_num: int | None = 1000
     learn_phi_prune_gene_sets_num: int | None = 1000
@@ -115,6 +116,7 @@ class FactorExecutionConfig:
             "learn_phi_max_steps": self.learn_phi_max_steps,
             "learn_phi_expand_factor": self.learn_phi_expand_factor,
             "learn_phi_weight_floor": self.learn_phi_weight_floor,
+            "learn_phi_mass_floor_frac": self.learn_phi_mass_floor_frac,
             "learn_phi_report_out": self.learn_phi_report_out,
             "learn_phi_prune_genes_num": self.learn_phi_prune_genes_num,
             "learn_phi_prune_gene_sets_num": self.learn_phi_prune_gene_sets_num,
@@ -450,6 +452,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_max_steps=options.learn_phi_max_steps,
         learn_phi_expand_factor=options.learn_phi_expand_factor,
         learn_phi_weight_floor=options.learn_phi_weight_floor,
+        learn_phi_mass_floor_frac=getattr(options, "learn_phi_mass_floor_frac", 0.005),
         learn_phi_report_out=options.learn_phi_report_out,
         learn_phi_prune_genes_num=getattr(options, "learn_phi_prune_genes_num", 1000),
         learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", 1000),
