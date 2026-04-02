@@ -55,6 +55,27 @@ class _CapturedFactorCall(RuntimeError):
 
 
 class PhiAutoFactorRuntimeTest(unittest.TestCase):
+    def test_compute_factor_mass_profile_ignores_nonfinite_loadings(self) -> None:
+        state = SimpleNamespace(
+            exp_gene_set_factors=np.array(
+                [
+                    [1.0, np.nan, 0.0],
+                    [2.0, np.inf, 1.0],
+                ],
+                dtype=float,
+            ),
+            exp_gene_factors=None,
+            exp_pheno_factors=None,
+        )
+
+        profile = eaggl_factor_runtime._compute_factor_mass_profile(state, mass_floor_frac=0.1)
+
+        self.assertTrue(np.isfinite(profile["effective_factor_count"]))
+        self.assertGreater(profile["effective_factor_count"], 0.0)
+        self.assertEqual(profile["mass_ge_floor_factor_count"], 2)
+        self.assertTrue(np.isfinite(profile["max_mass_fraction"]))
+        self.assertTrue(np.isfinite(profile["top5_mass_fraction"]))
+
     def test_run_factor_single_forwards_max_num_iterations_to_nmf(self) -> None:
         calls = {}
 
@@ -103,6 +124,35 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             )
 
         self.assertEqual(calls["n_iter"], 7)
+
+    def test_run_factor_learn_phi_only_skips_final_factorization(self) -> None:
+        state = _TinyState()
+
+        with mock.patch.object(
+            eaggl_factor_runtime,
+            "_learn_phi",
+            return_value={"phi": 0.025},
+        ) as learn_phi_mock, mock.patch.object(
+            eaggl_factor_runtime,
+            "_run_factor_with_seed",
+            side_effect=AssertionError("final factorization should not run"),
+        ):
+            eaggl_factor_runtime.run_factor(
+                state,
+                phi=0.05,
+                learn_phi=True,
+                learn_phi_only=True,
+                bail_fn=lambda msg: (_ for _ in ()).throw(AssertionError(msg)),
+                warn_fn=lambda *args, **kwargs: None,
+                log_fn=lambda *args, **kwargs: None,
+                info_level=1,
+                debug_level=2,
+                trace_level=3,
+                labeling_module=np,
+            )
+
+        learn_phi_mock.assert_called_once()
+        self.assertEqual(state.params["phi"], 0.025)
 
     def test_run_factor_single_skips_empty_gene_prune_without_crashing(self) -> None:
         class _ForwardingState:
@@ -325,6 +375,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             max_fit_loss_frac=0.05,
             k_band_frac=0.9,
             runs_per_step=3,
+            min_error_gain_per_factor=5.0,
         )
         self.assertEqual(reason, "marginal_gain_frontier")
         self.assertEqual(selected["phi"], 0.05)

@@ -156,6 +156,8 @@ def _build_factor_param_record(
     learn_phi_expand_factor,
     learn_phi_weight_floor,
     learn_phi_mass_floor_frac,
+    learn_phi_min_error_gain_per_factor,
+    learn_phi_only,
     learn_phi_report_out,
     learn_phi_prune_genes_num,
     learn_phi_prune_gene_sets_num,
@@ -215,6 +217,8 @@ def _build_factor_param_record(
         "learn_phi_expand_factor": float(learn_phi_expand_factor),
         "learn_phi_weight_floor": None if learn_phi_weight_floor is None else float(learn_phi_weight_floor),
         "learn_phi_mass_floor_frac": float(learn_phi_mass_floor_frac),
+        "learn_phi_min_error_gain_per_factor": float(learn_phi_min_error_gain_per_factor),
+        "learn_phi_only": bool(learn_phi_only),
         "learn_phi_report_out": learn_phi_report_out,
         "learn_phi_prune_genes_num": None if learn_phi_prune_genes_num is None else int(learn_phi_prune_genes_num),
         "learn_phi_prune_gene_sets_num": None if learn_phi_prune_gene_sets_num is None else int(learn_phi_prune_gene_sets_num),
@@ -388,11 +392,17 @@ def _compute_within_run_factor_redundancy_profile(state, weight_floor):
 def _compute_factor_mass_profile(state, *, mass_floor_frac):
     component_masses = []
     if getattr(state, "exp_gene_set_factors", None) is not None and state.exp_gene_set_factors.size > 0:
-        component_masses.append(np.sum(np.maximum(np.asarray(state.exp_gene_set_factors, dtype=float), 0.0), axis=0))
+        gene_set_factors = np.asarray(state.exp_gene_set_factors, dtype=float)
+        gene_set_factors = np.nan_to_num(gene_set_factors, nan=0.0, posinf=0.0, neginf=0.0)
+        component_masses.append(np.sum(np.maximum(gene_set_factors, 0.0), axis=0))
     if getattr(state, "exp_gene_factors", None) is not None and state.exp_gene_factors is not None and state.exp_gene_factors.size > 0:
-        component_masses.append(np.sum(np.maximum(np.asarray(state.exp_gene_factors, dtype=float), 0.0), axis=0))
+        gene_factors = np.asarray(state.exp_gene_factors, dtype=float)
+        gene_factors = np.nan_to_num(gene_factors, nan=0.0, posinf=0.0, neginf=0.0)
+        component_masses.append(np.sum(np.maximum(gene_factors, 0.0), axis=0))
     elif getattr(state, "exp_pheno_factors", None) is not None and state.exp_pheno_factors is not None and state.exp_pheno_factors.size > 0:
-        component_masses.append(np.sum(np.maximum(np.asarray(state.exp_pheno_factors, dtype=float), 0.0), axis=0))
+        pheno_factors = np.asarray(state.exp_pheno_factors, dtype=float)
+        pheno_factors = np.nan_to_num(pheno_factors, nan=0.0, posinf=0.0, neginf=0.0)
+        component_masses.append(np.sum(np.maximum(pheno_factors, 0.0), axis=0))
 
     if len(component_masses) == 0:
         return {
@@ -409,7 +419,9 @@ def _compute_factor_mass_profile(state, *, mass_floor_frac):
         clipped = [np.maximum(np.asarray(component, dtype=float), 1e-50) for component in component_masses]
         factor_masses = np.exp(np.mean(np.stack([np.log(component) for component in clipped], axis=0), axis=0))
 
-    factor_masses = np.maximum(np.asarray(factor_masses, dtype=float), 0.0)
+    factor_masses = np.asarray(factor_masses, dtype=float)
+    factor_masses = np.nan_to_num(factor_masses, nan=0.0, posinf=0.0, neginf=0.0)
+    factor_masses = np.maximum(factor_masses, 0.0)
     total_mass = float(np.sum(factor_masses))
     if total_mass <= 0:
         mass_fractions = np.zeros_like(factor_masses, dtype=float)
@@ -701,7 +713,7 @@ def _build_phi_complexity_frontier(candidates):
     return frontier
 
 
-def _select_candidate_by_marginal_gain(frontier):
+def _select_candidate_by_marginal_gain(frontier, *, min_error_gain_per_factor):
     if len(frontier) == 0:
         return None, None
     selected = frontier[0]
@@ -713,7 +725,7 @@ def _select_candidate_by_marginal_gain(frontier):
         previous_error = float(selected["best_error"])
         current_error = float(candidate["best_error"])
         marginal_gain = (previous_error - current_error) / float(complexity_delta)
-        if marginal_gain >= _LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR:
+        if marginal_gain >= float(min_error_gain_per_factor):
             selected = candidate
             selected_gain = float(marginal_gain)
         else:
@@ -731,6 +743,7 @@ def _select_phi_candidate(
     max_fit_loss_frac,
     k_band_frac,
     runs_per_step,
+    min_error_gain_per_factor,
 ):
     acceptable = []
     for candidate in candidates:
@@ -756,7 +769,10 @@ def _select_phi_candidate(
         selection_pool = acceptable_uncapped if len(acceptable_uncapped) > 0 else acceptable
         selection_pool_name = "uncapped" if len(acceptable_uncapped) > 0 else "capped"
         frontier = _build_phi_complexity_frontier(selection_pool)
-        selected, selected_gain = _select_candidate_by_marginal_gain(frontier)
+        selected, selected_gain = _select_candidate_by_marginal_gain(
+            frontier,
+            min_error_gain_per_factor=min_error_gain_per_factor,
+        )
         if selected is None:
             selected = min(
                 selection_pool,
@@ -871,6 +887,7 @@ def _record_phi_search_params(
     max_steps,
     expand_factor,
     mass_floor_frac,
+    min_error_gain_per_factor,
     prune_genes_num,
     prune_gene_sets_num,
     max_num_iterations,
@@ -889,7 +906,7 @@ def _record_phi_search_params(
             "learn_phi_max_fit_loss_frac": float(max_fit_loss_frac),
             "learn_phi_k_band_frac": float(k_band_frac),
             "learn_phi_mass_floor_frac": float(mass_floor_frac),
-            "learn_phi_min_error_gain_per_factor": float(_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR),
+            "learn_phi_min_error_gain_per_factor": float(min_error_gain_per_factor),
             "learn_phi_max_steps": int(max_steps),
             "learn_phi_expand_factor": float(expand_factor),
             "learn_phi_weight_floor": float(weight_floor),
@@ -951,6 +968,7 @@ def _learn_phi(
     expand_factor,
     weight_floor,
     mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC,
+    min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR,
     report_out,
     prune_genes_num,
     prune_gene_sets_num,
@@ -1074,6 +1092,7 @@ def _learn_phi(
         max_fit_loss_frac=max_fit_loss_frac,
         k_band_frac=k_band_frac,
         runs_per_step=runs_per_step,
+        min_error_gain_per_factor=min_error_gain_per_factor,
     )
     _record_phi_search_params(
         state,
@@ -1092,6 +1111,7 @@ def _learn_phi(
         max_steps=max_steps,
         expand_factor=expand_factor,
         mass_floor_frac=mass_floor_frac,
+        min_error_gain_per_factor=min_error_gain_per_factor,
         prune_genes_num=prune_genes_num,
         prune_gene_sets_num=prune_gene_sets_num,
         max_num_iterations=max_num_iterations,
@@ -2152,7 +2172,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_report_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -2192,6 +2212,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bail("--learn-phi-weight-floor must be >= 0 when set")
         if not (0 < learn_phi_mass_floor_frac <= 1):
             bail("--learn-phi-mass-floor-frac must be in (0, 1]")
+        if learn_phi_min_error_gain_per_factor < 0:
+            bail("--learn-phi-min-error-gain-per-factor must be >= 0")
         if learn_phi_prune_genes_num is not None and learn_phi_prune_genes_num < 1:
             bail("--learn-phi-prune-genes-num must be at least 1")
         if learn_phi_prune_gene_sets_num is not None and learn_phi_prune_gene_sets_num < 1:
@@ -2266,6 +2288,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             learn_phi_expand_factor=learn_phi_expand_factor,
             learn_phi_weight_floor=learn_phi_weight_floor,
             learn_phi_mass_floor_frac=learn_phi_mass_floor_frac,
+            learn_phi_min_error_gain_per_factor=learn_phi_min_error_gain_per_factor,
+            learn_phi_only=learn_phi_only,
             learn_phi_report_out=learn_phi_report_out,
             learn_phi_prune_genes_num=learn_phi_prune_genes_num,
             learn_phi_prune_gene_sets_num=learn_phi_prune_gene_sets_num,
@@ -2334,6 +2358,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             expand_factor=learn_phi_expand_factor,
             weight_floor=weight_floor,
             mass_floor_frac=float(learn_phi_mass_floor_frac),
+            min_error_gain_per_factor=float(learn_phi_min_error_gain_per_factor),
             report_out=learn_phi_report_out,
             prune_genes_num=learn_phi_prune_genes_num,
             prune_gene_sets_num=learn_phi_prune_gene_sets_num,
@@ -2346,6 +2371,9 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         factor_kwargs["phi"] = phi
         state._record_params({"phi": phi}, overwrite=True)
         log("Using learned phi %.6g for final factorization" % float(phi), INFO)
+        if learn_phi_only:
+            log("Stopping after automatic phi selection because --learn-phi-only was requested", INFO)
+            return
     else:
         log("Using fixed phi %.6g for factorization" % float(phi), INFO)
 

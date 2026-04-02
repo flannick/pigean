@@ -3222,7 +3222,7 @@
       "source_line": 259,
       "summary": "write the final gene-level statistics table",
       "type": null,
-      "usage_references": 47
+      "usage_references": 50
     },
     {
       "action": null,
@@ -3243,7 +3243,7 @@
       "source_line": 260,
       "summary": "control whether gene-stats-out writes only the active analysis universe or the legacy expanded view with missing genes",
       "type": null,
-      "usage_references": 8
+      "usage_references": 11
     },
     {
       "action": null,
