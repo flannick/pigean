@@ -89,6 +89,7 @@ def _options(**overrides):
         project_phenos_from_gene_sets=False,
         pheno_capture_input="weighted_thresholded",
         factors_out=None,
+        factor_metrics_out=None,
         factors_anchor_out=None,
         gene_set_clusters_out=None,
         gene_clusters_out=None,
@@ -113,6 +114,9 @@ class _RuntimeStub:
 
     def write_matrix_factors(self, out, write_anchor_specific=False):
         self.calls.append(("write_matrix_factors", out, write_anchor_specific))
+
+    def write_factor_metrics(self, out):
+        self.calls.append(("write_factor_metrics", out))
 
     def write_consensus_factor_diagnostics(self, out):
         self.calls.append(("write_consensus_factor_diagnostics", out))
@@ -286,6 +290,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         runtime = _RuntimeStub()
         options = _options(
             factors_out="factors.tsv",
+            factor_metrics_out="factor_metrics.tsv",
             factors_anchor_out="factors_anchor.tsv",
             gene_set_clusters_out="gs_cluster.tsv",
             gene_clusters_out="g_cluster.tsv",
@@ -298,19 +303,20 @@ class FactorStageHelpersTest(unittest.TestCase):
             max_no_write_gene_pheno=0.2,
         )
         eaggl._write_main_factor_outputs(runtime, options)
-        self.assertEqual(len(runtime.calls), 6)
+        self.assertEqual(len(runtime.calls), 7)
         self.assertEqual(runtime.calls[0], ("write_matrix_factors", "factors.tsv", False))
-        self.assertEqual(runtime.calls[1], ("write_matrix_factors", "factors_anchor.tsv", True))
-        self.assertEqual(runtime.calls[2], ("write_consensus_factor_diagnostics", "consensus.tsv"))
+        self.assertEqual(runtime.calls[1], ("write_factor_metrics", "factor_metrics.tsv"))
+        self.assertEqual(runtime.calls[2], ("write_matrix_factors", "factors_anchor.tsv", True))
+        self.assertEqual(runtime.calls[3], ("write_consensus_factor_diagnostics", "consensus.tsv"))
         self.assertEqual(
-            runtime.calls[3],
+            runtime.calls[4],
             ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", "p_cluster.tsv", False),
         )
         self.assertEqual(
-            runtime.calls[4],
+            runtime.calls[5],
             ("write_clusters", "gs_anchor_cluster.tsv", "g_anchor_cluster.tsv", "p_anchor_cluster.tsv", True),
         )
-        self.assertEqual(runtime.calls[5], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
+        self.assertEqual(runtime.calls[6], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 
     def test_write_clusters_gene_set_writer_uses_betas_uncorrected_without_stale_alias(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)

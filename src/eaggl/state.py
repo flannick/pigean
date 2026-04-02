@@ -1955,6 +1955,252 @@ class EagglState(object):
             info_level=INFO,
         )
 
+    def _compute_single_factor_overlap_profile(self, matrix, factor_index, *, weight_floor=None):
+        if matrix is None:
+            return {
+                "max_overlap": 0.0,
+                "q90_overlap": 0.0,
+                "mean_overlap": 0.0,
+                "nearest_factor_index": None,
+            }
+        canonical = np.asarray(matrix, dtype=float)
+        if canonical.ndim != 2 or canonical.shape[1] <= 1:
+            return {
+                "max_overlap": 0.0,
+                "q90_overlap": 0.0,
+                "mean_overlap": 0.0,
+                "nearest_factor_index": None,
+            }
+
+        def _prepare(vec):
+            clipped = np.clip(np.asarray(vec, dtype=float), 0.0, None)
+            if weight_floor is not None and weight_floor > 0:
+                clipped[clipped < float(weight_floor)] = 0.0
+            total = float(np.sum(clipped))
+            if total <= 0:
+                return clipped
+            return clipped / total
+
+        def _weighted_jaccard(u, v):
+            u_prepared = _prepare(u)
+            v_prepared = _prepare(v)
+            denominator = float(np.sum(np.maximum(u_prepared, v_prepared)))
+            if denominator <= 0:
+                return 0.0
+            return float(np.sum(np.minimum(u_prepared, v_prepared)) / denominator)
+
+        overlaps = []
+        nearest_factor_index = None
+        nearest_overlap = -1.0
+        for other_index in range(canonical.shape[1]):
+            if other_index == factor_index:
+                continue
+            overlap = _weighted_jaccard(canonical[:, factor_index], canonical[:, other_index])
+            overlaps.append(float(overlap))
+            if overlap > nearest_overlap:
+                nearest_overlap = float(overlap)
+                nearest_factor_index = int(other_index)
+
+        if len(overlaps) == 0:
+            return {
+                "max_overlap": 0.0,
+                "q90_overlap": 0.0,
+                "mean_overlap": 0.0,
+                "nearest_factor_index": None,
+            }
+
+        overlap_array = np.asarray(overlaps, dtype=float)
+        return {
+            "max_overlap": float(np.max(overlap_array)),
+            "q90_overlap": float(np.quantile(overlap_array, 0.9)),
+            "mean_overlap": float(np.mean(overlap_array)),
+            "nearest_factor_index": nearest_factor_index,
+        }
+
+    def _compute_factor_component_metrics(self, matrix, factor_index):
+        if matrix is None:
+            return {
+                "mass": 0.0,
+                "mass_fraction": 0.0,
+                "effective_support": 0.0,
+                "num_nonzero": 0,
+                "num_ge_0p001": 0,
+                "num_ge_0p005": 0,
+                "num_ge_0p01": 0,
+                "max_weight": 0.0,
+                "top5_weight_fraction": 0.0,
+            }
+
+        canonical = np.asarray(matrix, dtype=float)
+        if canonical.ndim != 2 or factor_index >= canonical.shape[1]:
+            return {
+                "mass": 0.0,
+                "mass_fraction": 0.0,
+                "effective_support": 0.0,
+                "num_nonzero": 0,
+                "num_ge_0p001": 0,
+                "num_ge_0p005": 0,
+                "num_ge_0p01": 0,
+                "max_weight": 0.0,
+                "top5_weight_fraction": 0.0,
+            }
+
+        clipped = np.clip(canonical[:, factor_index], 0.0, None)
+        mass = float(np.sum(clipped))
+        total_matrix_mass = float(np.sum(np.clip(canonical, 0.0, None)))
+        if mass <= 0.0 or total_matrix_mass <= 0.0:
+            normalized = np.zeros_like(clipped, dtype=float)
+            mass_fraction = 0.0
+        else:
+            normalized = clipped / mass
+            mass_fraction = float(mass / total_matrix_mass)
+
+        denom = float(np.sum(np.square(normalized)))
+        effective_support = 0.0 if denom <= 0.0 else float(1.0 / denom)
+        sorted_weights = np.sort(normalized)[::-1]
+        return {
+            "mass": mass,
+            "mass_fraction": mass_fraction,
+            "effective_support": effective_support,
+            "num_nonzero": int(np.sum(normalized > 0.0)),
+            "num_ge_0p001": int(np.sum(normalized >= 0.001)),
+            "num_ge_0p005": int(np.sum(normalized >= 0.005)),
+            "num_ge_0p01": int(np.sum(normalized >= 0.01)),
+            "max_weight": float(sorted_weights[0]) if sorted_weights.size > 0 else 0.0,
+            "top5_weight_fraction": float(np.sum(sorted_weights[:5])) if sorted_weights.size > 0 else 0.0,
+        }
+
+    def write_factor_metrics(self, output_file=None):
+        if output_file is None or self.num_factors() <= 0:
+            return
+
+        gene_set_masses = None
+        if self.exp_gene_set_factors is not None and self.exp_gene_set_factors.size > 0:
+            gene_set_factors = np.asarray(self.exp_gene_set_factors, dtype=float)
+            gene_set_factors = np.nan_to_num(gene_set_factors, nan=0.0, posinf=0.0, neginf=0.0)
+            gene_set_masses = np.sum(np.maximum(gene_set_factors, 0.0), axis=0)
+        else:
+            gene_set_factors = None
+
+        if self.exp_gene_factors is not None and self.exp_gene_factors.size > 0:
+            gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+            gene_factors = np.nan_to_num(gene_factors, nan=0.0, posinf=0.0, neginf=0.0)
+            gene_masses = np.sum(np.maximum(gene_factors, 0.0), axis=0)
+        else:
+            gene_factors = None
+            gene_masses = None
+
+        log("Writing factor metrics to %s" % output_file, INFO)
+        with open_gz(output_file, "w") as output_fh:
+            header = [
+                "Factor",
+                "label",
+                "lambda",
+                "any_relevance",
+                "gene_mass",
+                "gene_mass_fraction",
+                "gene_effective_support",
+                "gene_num_nonzero",
+                "gene_num_ge_0p001",
+                "gene_num_ge_0p005",
+                "gene_num_ge_0p01",
+                "gene_max_weight",
+                "gene_top5_weight_fraction",
+                "gene_max_jaccard",
+                "gene_q90_jaccard",
+                "gene_mean_jaccard",
+                "gene_nearest_factor",
+                "gene_set_mass",
+                "gene_set_mass_fraction",
+                "gene_set_effective_support",
+                "gene_set_num_nonzero",
+                "gene_set_num_ge_0p001",
+                "gene_set_num_ge_0p005",
+                "gene_set_num_ge_0p01",
+                "gene_set_max_weight",
+                "gene_set_top5_weight_fraction",
+                "gene_set_max_jaccard",
+                "gene_set_q90_jaccard",
+                "gene_set_mean_jaccard",
+                "gene_set_nearest_factor",
+                "combined_mass",
+                "combined_mass_fraction",
+                "combined_unique_fraction",
+                "factor_mass_floor_0p5pct",
+            ]
+            output_fh.write("%s\n" % "\t".join(header))
+
+            if gene_set_masses is None and gene_masses is None:
+                combined_masses = np.zeros(self.num_factors(), dtype=float)
+            elif gene_set_masses is None:
+                combined_masses = np.asarray(gene_masses, dtype=float)
+            elif gene_masses is None:
+                combined_masses = np.asarray(gene_set_masses, dtype=float)
+            else:
+                combined_masses = np.exp(
+                    np.mean(
+                        np.stack(
+                            [
+                                np.log(np.maximum(np.asarray(gene_set_masses, dtype=float), 1e-50)),
+                                np.log(np.maximum(np.asarray(gene_masses, dtype=float), 1e-50)),
+                            ],
+                            axis=0,
+                        ),
+                        axis=0,
+                    )
+                )
+            combined_total_mass = float(np.sum(np.maximum(combined_masses, 0.0)))
+
+            for i in range(self.num_factors()):
+                gene_metrics = self._compute_factor_component_metrics(gene_factors, i)
+                gene_set_metrics = self._compute_factor_component_metrics(gene_set_factors, i)
+                gene_overlap = self._compute_single_factor_overlap_profile(gene_factors, i)
+                gene_set_overlap = self._compute_single_factor_overlap_profile(gene_set_factors, i)
+
+                combined_mass = float(max(0.0, combined_masses[i])) if i < len(combined_masses) else 0.0
+                combined_mass_fraction = 0.0 if combined_total_mass <= 0.0 else float(combined_mass / combined_total_mass)
+                combined_unique_fraction = 1.0 - max(
+                    float(gene_overlap.get("max_overlap", 0.0)),
+                    float(gene_set_overlap.get("max_overlap", 0.0)),
+                )
+                line = [
+                    "Factor%d" % (i + 1),
+                    "" if self.factor_labels is None else str(self.factor_labels[i]),
+                    "%.6g" % float(self.exp_lambdak[i]) if self.exp_lambdak is not None else "NA",
+                    "%.6g" % float(self.factor_relevance[i]) if self.factor_relevance is not None else "NA",
+                    "%.6g" % gene_metrics["mass"],
+                    "%.6g" % gene_metrics["mass_fraction"],
+                    "%.6g" % gene_metrics["effective_support"],
+                    str(gene_metrics["num_nonzero"]),
+                    str(gene_metrics["num_ge_0p001"]),
+                    str(gene_metrics["num_ge_0p005"]),
+                    str(gene_metrics["num_ge_0p01"]),
+                    "%.6g" % gene_metrics["max_weight"],
+                    "%.6g" % gene_metrics["top5_weight_fraction"],
+                    "%.6g" % float(gene_overlap["max_overlap"]),
+                    "%.6g" % float(gene_overlap["q90_overlap"]),
+                    "%.6g" % float(gene_overlap["mean_overlap"]),
+                    "" if gene_overlap["nearest_factor_index"] is None else "Factor%d" % (int(gene_overlap["nearest_factor_index"]) + 1),
+                    "%.6g" % gene_set_metrics["mass"],
+                    "%.6g" % gene_set_metrics["mass_fraction"],
+                    "%.6g" % gene_set_metrics["effective_support"],
+                    str(gene_set_metrics["num_nonzero"]),
+                    str(gene_set_metrics["num_ge_0p001"]),
+                    str(gene_set_metrics["num_ge_0p005"]),
+                    str(gene_set_metrics["num_ge_0p01"]),
+                    "%.6g" % gene_set_metrics["max_weight"],
+                    "%.6g" % gene_set_metrics["top5_weight_fraction"],
+                    "%.6g" % float(gene_set_overlap["max_overlap"]),
+                    "%.6g" % float(gene_set_overlap["q90_overlap"]),
+                    "%.6g" % float(gene_set_overlap["mean_overlap"]),
+                    "" if gene_set_overlap["nearest_factor_index"] is None else "Factor%d" % (int(gene_set_overlap["nearest_factor_index"]) + 1),
+                    "%.6g" % combined_mass,
+                    "%.6g" % combined_mass_fraction,
+                    "%.6g" % combined_unique_fraction,
+                    "1" if combined_mass_fraction >= 0.005 else "0",
+                ]
+                output_fh.write("%s\n" % "\t".join(line))
+
     def write_matrix_factors(self, factors_output_file=None, write_anchor_specific=False):
 
         if self.num_factors() <= 0:

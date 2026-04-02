@@ -367,6 +367,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--label-individually",
             "--factors-out",
             "factors.tsv",
+            "--factor-metrics-out",
+            "factor_metrics.tsv",
             "--factors-anchor-out",
             "factors_anchor.tsv",
             "--consensus-stats-out",
@@ -431,6 +433,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertTrue(opts["label_include_phenos"])
         self.assertTrue(opts["label_individually"])
         self.assertEqual(opts["factors_out"], "factors.tsv")
+        self.assertEqual(opts["factor_metrics_out"], "factor_metrics.tsv")
         self.assertEqual(opts["consensus_stats_out"], "consensus.tsv")
         self.assertEqual(opts["params_out"], "params.tsv")
 
