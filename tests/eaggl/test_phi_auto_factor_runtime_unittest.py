@@ -55,6 +55,16 @@ class _CapturedFactorCall(RuntimeError):
 
 
 class PhiAutoFactorRuntimeTest(unittest.TestCase):
+    def test_choose_gene_or_pheno_anchor_source_falls_back_from_nonfinite_combined(self) -> None:
+        combined = np.array([[np.nan], [1.0]], dtype=float)
+        Y = np.array([[2.0], [3.0]], dtype=float)
+        priors = np.array([[0.5], [0.25]], dtype=float)
+
+        matrix, label = eaggl_factor_runtime._choose_gene_or_pheno_anchor_source(combined, priors, Y)
+
+        self.assertEqual(label, "Y")
+        self.assertTrue(np.array_equal(matrix, Y))
+
     def test_compute_factor_mass_profile_ignores_nonfinite_loadings(self) -> None:
         state = SimpleNamespace(
             exp_gene_set_factors=np.array(
@@ -315,7 +325,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertAlmostEqual(profile["redundancy_max"], 1.0)
         self.assertAlmostEqual(profile["redundancy_q90"], 1.0)
 
-    def test_select_phi_candidate_prefers_frontier_elbow_over_nearby_higher_complexity(self) -> None:
+    def test_select_phi_candidate_prefers_effective_k_tail_band_over_weaker_simple_candidate(self) -> None:
         candidates = [
             {
                 "phi": 0.05,
@@ -348,6 +358,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "best_evidence": 9.0,
                 "effective_factor_count": 4.7,
                 "mass_ge_floor_factor_count": 5,
+                "tail_fraction": 0.02,
             },
             {
                 "phi": 1.0,
@@ -364,6 +375,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "best_evidence": 6.0,
                 "effective_factor_count": 2.0,
                 "mass_ge_floor_factor_count": 2,
+                "tail_fraction": 0.01,
             },
         ]
         selected, reason = eaggl_factor_runtime._select_phi_candidate(
@@ -377,11 +389,11 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             runs_per_step=3,
             min_error_gain_per_factor=5.0,
         )
-        self.assertEqual(reason, "marginal_gain_frontier")
-        self.assertEqual(selected["phi"], 0.05)
+        self.assertEqual(reason, "effective_k_tail_band")
+        self.assertEqual(selected["phi"], 0.02)
         self.assertEqual(selected["selection_pool"], "uncapped")
-        self.assertEqual(selected["selection_frontier_size"], 3)
-        self.assertIsNotNone(selected["selection_marginal_gain"])
+        self.assertGreaterEqual(selected["selection_frontier_size"], 1)
+        self.assertIsNone(selected["selection_marginal_gain"])
 
     def test_run_factor_with_learn_phi_selects_less_redundant_candidate_before_final_run(self) -> None:
         state = _TinyState()
@@ -462,7 +474,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertTrue(state.params["learn_phi"])
         self.assertGreaterEqual(state.params["learn_phi_selected_phi"], 0.05)
         self.assertLess(state.params["learn_phi_selected_phi"], 0.5)
-        self.assertEqual(state.params["learn_phi_selection_reason"], "marginal_gain_frontier")
+        self.assertEqual(state.params["learn_phi_selection_reason"], "effective_k_tail_band")
         self.assertEqual(state.params["learn_phi_redundancy_basis_target"], "gene")
         self.assertEqual(state.params["learn_phi_redundancy_basis"], "gene")
         self.assertEqual(state.params["learn_phi_selection_pool"], "uncapped")
@@ -670,6 +682,37 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertIn("redundancy_basis", text)
         self.assertIn("\tgene\t", text)
 
+    def test_write_phi_factor_metrics_report_includes_phi_and_selected_flag(self) -> None:
+        from tempfile import TemporaryDirectory
+
+        candidate = {
+            "phi": 0.025,
+            "reference_run_index": 0,
+            "factor_metric_rows": [
+                {
+                    "Factor": "Factor1",
+                    "label": "alpha",
+                    "combined_mass_fraction": "0.01",
+                },
+                {
+                    "Factor": "Factor2",
+                    "label": "beta",
+                    "combined_mass_fraction": "0.02",
+                },
+            ],
+        }
+        with TemporaryDirectory() as tmpdir:
+            report = Path(tmpdir) / "phi_factor_metrics.tsv"
+            eaggl_factor_runtime._write_phi_factor_metrics_report(
+                str(report),
+                [candidate],
+                selected_phi=0.025,
+            )
+            text = report.read_text()
+        self.assertIn("phi\tselected\treference_run_index\tFactor\tlabel\tcombined_mass_fraction", text)
+        self.assertIn("0.025\t1\t0\tFactor1\talpha\t0.01", text)
+        self.assertIn("0.025\t1\t0\tFactor2\tbeta\t0.02", text)
+
     def test_learn_phi_starts_at_initial_phi_and_caps_total_expansions(self) -> None:
         state = _TinyState()
         evaluated_phis = []
@@ -749,7 +792,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertIn(0.025, evaluated_phis)
         self.assertNotIn(5.0, evaluated_phis)
         self.assertLessEqual(len(evaluated_phis) - 1, 3)
-        self.assertEqual(selected["phi"], 0.025)
+        self.assertEqual(selected["phi"], 0.05)
 
 
 if __name__ == "__main__":
