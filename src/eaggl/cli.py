@@ -320,6 +320,17 @@ parser.add_option("","--learn-phi-mass-floor-frac",default=0.005,type=float) #mi
 parser.add_option("","--learn-phi-min-error-gain-per-factor",default=5.0,type=float) #minimum reconstruction-error reduction required per additional effective factor when traversing the phi-search frontier
 parser.add_option("","--learn-phi-only",default=False,action="store_true") #stop after automatic phi selection and report writing; skip the final full-panel factorization
 parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
+parser.add_option("","--factor-phi-metrics-out",default=None) #write per-factor diagnostics for each phi-search candidate
+parser.add_option("","--factor-backend",default="full",type=str) #factorization backend: full or blockwise_global_w
+parser.add_option("","--learn-phi-backend",default="sentinel_pruned",type=str) #phi-search backend: sentinel_pruned or blockwise_global_w
+parser.add_option("","--blockwise-gene-set-block-size",default=5000,type=int) #number of retained gene sets per block for blockwise_global_w
+parser.add_option("","--blockwise-epochs",default=3,type=int) #number of blockwise global passes
+parser.add_option("","--blockwise-shuffle-blocks",default=True,action="store_true") #shuffle block order between blockwise epochs
+parser.add_option("","--no-blockwise-shuffle-blocks",dest="blockwise_shuffle_blocks",action="store_false")
+parser.add_option("","--blockwise-warm-start",default=True,action="store_true") #warm-start neighboring phi candidates in blockwise phi search
+parser.add_option("","--no-blockwise-warm-start",dest="blockwise_warm_start",action="store_false")
+parser.add_option("","--blockwise-max-blocks",default=None,type=int) #optional debugging cap on processed blocks per epoch
+parser.add_option("","--blockwise-report-out",default=None) #write detailed per-epoch blockwise diagnostics
 parser.add_option("","--learn-phi-prune-genes-num",default=1000,type=int) #during phi search only, prune to at most this many genes before candidate NMF evaluation
 parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
 parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #during phi search only, cap the NMF iteration budget used for each tested phi candidate
@@ -427,6 +438,13 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--consensus-min-run-support": "minimum restart support fraction required to keep a consensus factor",
     "--consensus-nmf": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
     "--consensus-stats-out": "write per-run and per-factor diagnostics for restart or consensus factorization",
+    "--blockwise-epochs": "set the number of global block passes used by the scalable blockwise backend",
+    "--blockwise-gene-set-block-size": "set how many retained gene sets are solved per block in blockwise_global_w mode",
+    "--blockwise-max-blocks": "optionally cap the number of processed blocks per epoch for debugging blockwise runs",
+    "--blockwise-report-out": "write per-epoch blockwise diagnostics",
+    "--blockwise-shuffle-blocks": "shuffle block order between epochs in blockwise_global_w mode",
+    "--blockwise-warm-start": "warm-start neighboring phi candidates when using blockwise_global_w phi search",
+    "--factor-backend": "choose the final factorization backend: full or blockwise_global_w",
     "--run-factor-phewas": "run the optional factor-level phewas stage",
     "--factor-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in",
     "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
@@ -453,6 +471,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-max-redundancy-q90": "maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning",
     "--learn-phi-max-num-iterations": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
     "--learn-phi-max-steps": "maximum number of log-space phi search steps after bracketing",
+    "--learn-phi-backend": "choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets",
     "--learn-phi-only": "stop after automatic phi selection and report writing instead of running the final full-panel factorization",
     "--learn-phi-k-band-frac": "legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection",
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
@@ -460,6 +479,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-prune-genes-num": "during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi",
     "--learn-phi-prune-gene-sets-num": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
     "--learn-phi-report-out": "write per-candidate phi search diagnostics",
+    "--factor-phi-metrics-out": "write per-factor diagnostics for each investigated phi-search candidate",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
     "--factors-anchor-out": "write anchor-specific factorization outputs",
@@ -528,6 +548,7 @@ _EXPERT_METHOD_FLAGS = {
     "--factor-phewas-se",
     "--factor-phewas-thresholded-combined-cutoff",
     "--factor-runs",
+    "--factor-backend",
     "--factor-prune-gene-sets-num",
     "--factor-prune-gene-sets-val",
     "--factor-prune-genes-num",
@@ -557,7 +578,14 @@ _EXPERT_METHOD_FLAGS = {
     "--label-gene-sets-only",
     "--label-include-phenos",
     "--label-individually",
+    "--blockwise-epochs",
+    "--blockwise-gene-set-block-size",
+    "--blockwise-max-blocks",
+    "--blockwise-report-out",
+    "--blockwise-shuffle-blocks",
+    "--blockwise-warm-start",
     "--learn-phi-expand-factor",
+    "--learn-phi-backend",
     "--learn-phi-max-fit-loss-frac",
     "--learn-phi-max-num-iterations",
     "--learn-phi-max-steps",
@@ -565,6 +593,7 @@ _EXPERT_METHOD_FLAGS = {
     "--learn-phi-min-stability",
     "--learn-phi-prune-gene-sets-num",
     "--learn-phi-report-out",
+    "--factor-phi-metrics-out",
     "--learn-phi-runs-per-step",
     "--learn-phi-weight-floor",
     "--lmm-auth-key",
@@ -579,6 +608,7 @@ _EXPERT_METHOD_FLAGS = {
 }
 
 _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
+    "--factor-phi-metrics-out",
     "--factor-phewas-stats-out",
     "--consensus-stats-out",
     "--gene-anchor-clusters-out",
@@ -628,6 +658,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--consensus-nmf",
     "--consensus-stats-out",
     "--beta0",
+    "--factor-backend",
     "--eaggl-bundle-in",
     "--factor-runs",
     "--factors-anchor-out",
@@ -638,6 +669,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--gene-set-stats-in",
     "--gene-stats-in",
     "--learn-phi",
+    "--learn-phi-backend",
     "--learn-phi-max-redundancy",
     "--max-num-factors",
     "--min-lambda-threshold",
@@ -1309,6 +1341,16 @@ def _bootstrap_cli(argv=None):
         bail("--consensus-min-run-support must be in (0, 1]")
     if parsed_options.consensus_nmf and parsed_options.factor_runs < 2:
         bail("--consensus-nmf requires --factor-runs >= 2")
+    if parsed_options.factor_backend not in set(["full", "blockwise_global_w"]):
+        bail("--factor-backend must be one of: full, blockwise_global_w")
+    if parsed_options.learn_phi_backend not in set(["sentinel_pruned", "blockwise_global_w"]):
+        bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w")
+    if parsed_options.blockwise_gene_set_block_size < 1:
+        bail("--blockwise-gene-set-block-size must be at least 1")
+    if parsed_options.blockwise_epochs < 1:
+        bail("--blockwise-epochs must be at least 1")
+    if parsed_options.blockwise_max_blocks is not None and parsed_options.blockwise_max_blocks < 1:
+        bail("--blockwise-max-blocks must be at least 1")
     if parsed_options.learn_phi:
         if parsed_options.phi <= 0:
             bail("--learn-phi requires --phi > 0")

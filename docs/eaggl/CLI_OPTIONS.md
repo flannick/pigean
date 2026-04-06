@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `220`
+- Total options: `234`
 - `method_required`: `16`
-- `method_optional`: `119`
-- `engineering`: `68`
+- `method_optional`: `130`
+- `engineering`: `71`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `182`
+- visibility `expert`: `194`
 - visibility `hidden`: `8`
-- visibility `normal`: `30`
+- visibility `normal`: `32`
 
 ## Method Required
 
@@ -51,11 +51,17 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--beta0` | `normal` | `yes` | `core_help` | `beta0` | `1` | - |
 | `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
 | `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | - |
+| `--blockwise-epochs` | `expert` | `yes` | `advanced_workflows` | `blockwise_epochs` | `3` | set the number of global block passes used by the scalable blockwise backend |
+| `--blockwise-gene-set-block-size` | `expert` | `yes` | `advanced_workflows` | `blockwise_gene_set_block_size` | `5000` | set how many retained gene sets are solved per block in blockwise_global_w mode |
+| `--blockwise-max-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_max_blocks` | `None` | optionally cap the number of processed blocks per epoch for debugging blockwise runs |
+| `--blockwise-shuffle-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_shuffle_blocks` | `True` | shuffle block order between epochs in blockwise_global_w mode |
+| `--blockwise-warm-start` | `expert` | `yes` | `advanced_workflows` | `blockwise_warm_start` | `True` | warm-start neighboring phi candidates when using blockwise_global_w phi search |
 | `--consensus-aggregation` | `normal` | `yes` | `core_help` | `consensus_aggregation` | `median` | choose how matched factors are aggregated across restarts in consensus mode |
 | `--consensus-min-factor-cosine` | `normal` | `yes` | `core_help` | `consensus_min_factor_cosine` | `0.7` | minimum cosine similarity needed to align a restart factor to the reference factor |
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
 | `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.0` | - |
@@ -87,6 +93,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi by structural model selection before the final factorization |
+| `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `2.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
 | `--learn-phi-k-band-frac` | `expert` | `yes` | `expert_help` | `learn_phi_k_band_frac` | `0.9` | legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection |
 | `--learn-phi-mass-floor-frac` | `expert` | `yes` | `expert_help` | `learn_phi_mass_floor_frac` | `0.005` | minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring |
@@ -95,8 +102,10 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-max-redundancy` | `normal` | `yes` | `core_help` | `learn_phi_max_redundancy` | `0.5` | maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available |
 | `--learn-phi-max-redundancy-q90` | `expert` | `yes` | `expert_help` | `learn_phi_max_redundancy_q90` | `0.35` | maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning |
 | `--learn-phi-max-steps` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_steps` | `5` | maximum number of log-space phi search steps after bracketing |
+| `--learn-phi-min-error-gain-per-factor` | `expert` | `yes` | `expert_help` | `learn_phi_min_error_gain_per_factor` | `5.0` | minimum reconstruction-error reduction required per additional effective factor when traversing the automatic phi frontier |
 | `--learn-phi-min-run-support` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_run_support` | `0.6` | minimum run-support fraction required for a phi candidate during automatic tuning |
 | `--learn-phi-min-stability` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_stability` | `0.85` | minimum matched-factor cosine stability required for a phi candidate during automatic tuning |
+| `--learn-phi-only` | `expert` | `yes` | `expert_help` | `learn_phi_only` | `False` | stop after automatic phi selection and report writing instead of running the final full-panel factorization |
 | `--learn-phi-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `learn_phi_prune_gene_sets_num` | `1000` | during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi |
 | `--learn-phi-prune-genes-num` | `expert` | `yes` | `expert_help` | `learn_phi_prune_genes_num` | `1000` | during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi |
 | `--learn-phi-runs-per-step` | `expert` | `yes` | `advanced_workflows` | `learn_phi_runs_per_step` | `1` | number of repeated restarts used to score each candidate phi |
@@ -128,6 +137,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
 | `--no-add-top` | `expert` | `yes` | `expert_help` | `add_top` | `True` | - |
 | `--no-adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
+| `--no-blockwise-shuffle-blocks` | `expert` | `yes` | `expert_help` | `blockwise_shuffle_blocks` | `-` | - |
+| `--no-blockwise-warm-start` | `expert` | `yes` | `expert_help` | `blockwise_warm_start` | `-` | - |
 | `--no-cap-weights` | `expert` | `yes` | `expert_help` | `cap_weights` | `True` | - |
 | `--no-correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
@@ -166,11 +177,14 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 |---|---|---|---|---|---|---|
 | `--batch-separator` | `expert` | `no` | `expert_help` | `batch_separator` | `@` | - |
 | `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
+| `--blockwise-report-out` | `expert` | `no` | `expert_help` | `blockwise_report_out` | `None` | write per-epoch blockwise diagnostics |
 | `--config` | `expert` | `no` | `core_help` | `config` | `None` | load a JSON config file; explicit CLI flags override config values |
 | `--consensus-stats-out` | `normal` | `no` | `core_help` | `consensus_stats_out` | `None` | write per-run and per-factor diagnostics for restart or consensus factorization |
 | `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
 | `--deterministic` | `expert` | `no` | `core_help` | `deterministic` | `False` | force deterministic random seed behavior (seed=0 unless --seed is set) |
+| `--factor-metrics-out` | `expert` | `no` | `expert_help` | `factor_metrics_out` | `None` | - |
 | `--factor-phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `factor_phewas_stats_out` | `None` | - |
+| `--factor-phi-metrics-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_metrics_out` | `None` | write per-factor diagnostics for each investigated phi-search candidate |
 | `--factors-anchor-out` | `normal` | `no` | `core_help` | `factors_anchor_out` | `None` | write anchor-specific factorization outputs |
 | `--factors-out` | `normal` | `no` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
 | `--file-separator` | `expert` | `no` | `expert_help` | `file_separator` | `None` | - |

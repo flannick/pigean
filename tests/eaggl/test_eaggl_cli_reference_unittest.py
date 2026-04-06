@@ -323,6 +323,22 @@ class EagglCliReferenceTest(unittest.TestCase):
             "0.02",
             "--learn-phi-report-out",
             "phi.tsv",
+            "--factor-phi-metrics-out",
+            "phi_factor_metrics.tsv",
+            "--factor-backend",
+            "blockwise_global_w",
+            "--learn-phi-backend",
+            "blockwise_global_w",
+            "--blockwise-gene-set-block-size",
+            "1234",
+            "--blockwise-epochs",
+            "4",
+            "--no-blockwise-shuffle-blocks",
+            "--no-blockwise-warm-start",
+            "--blockwise-max-blocks",
+            "6",
+            "--blockwise-report-out",
+            "blockwise.tsv",
             "--learn-phi-prune-genes-num",
             "900",
             "--learn-phi-prune-gene-sets-num",
@@ -408,6 +424,15 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_expand_factor"], 5.0)
         self.assertEqual(opts["learn_phi_weight_floor"], 0.02)
         self.assertEqual(opts["learn_phi_report_out"], "phi.tsv")
+        self.assertEqual(opts["factor_phi_metrics_out"], "phi_factor_metrics.tsv")
+        self.assertEqual(opts["factor_backend"], "blockwise_global_w")
+        self.assertEqual(opts["learn_phi_backend"], "blockwise_global_w")
+        self.assertEqual(opts["blockwise_gene_set_block_size"], 1234)
+        self.assertEqual(opts["blockwise_epochs"], 4)
+        self.assertFalse(opts["blockwise_shuffle_blocks"])
+        self.assertFalse(opts["blockwise_warm_start"])
+        self.assertEqual(opts["blockwise_max_blocks"], 6)
+        self.assertEqual(opts["blockwise_report_out"], "blockwise.tsv")
         self.assertEqual(opts["learn_phi_prune_genes_num"], 900)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
         self.assertEqual(opts["learn_phi_max_num_iterations"], 50)
@@ -514,15 +539,24 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-max-fit-loss-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-k-band-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-steps": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-backend": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--factor-phi-metrics-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-prune-genes-num": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-prune-gene-sets-num": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-num-iterations": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--alpha0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--beta0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-runs": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--factor-backend": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--blockwise-gene-set-block-size": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--blockwise-epochs": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--blockwise-shuffle-blocks": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--blockwise-warm-start": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--blockwise-max-blocks": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--blockwise-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-nmf": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-min-factor-cosine": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],

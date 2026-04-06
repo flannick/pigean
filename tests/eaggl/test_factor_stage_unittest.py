@@ -44,6 +44,15 @@ def _options(**overrides):
         learn_phi_expand_factor=2.0,
         learn_phi_weight_floor=None,
         learn_phi_report_out=None,
+        factor_phi_metrics_out=None,
+        factor_backend="full",
+        learn_phi_backend="sentinel_pruned",
+        blockwise_gene_set_block_size=5000,
+        blockwise_epochs=3,
+        blockwise_shuffle_blocks=True,
+        blockwise_warm_start=True,
+        blockwise_max_blocks=None,
+        blockwise_report_out=None,
         learn_phi_prune_genes_num=1000,
         learn_phi_prune_gene_sets_num=1000,
         learn_phi_max_num_iterations=None,
@@ -237,6 +246,15 @@ class FactorStageHelpersTest(unittest.TestCase):
             learn_phi_expand_factor=5.0,
             learn_phi_weight_floor=0.02,
             learn_phi_report_out="phi.tsv",
+            factor_phi_metrics_out="phi_factor_metrics.tsv",
+            factor_backend="blockwise_global_w",
+            learn_phi_backend="blockwise_global_w",
+            blockwise_gene_set_block_size=123,
+            blockwise_epochs=4,
+            blockwise_shuffle_blocks=False,
+            blockwise_warm_start=False,
+            blockwise_max_blocks=7,
+            blockwise_report_out="blockwise.tsv",
             learn_phi_prune_genes_num=900,
             learn_phi_prune_gene_sets_num=1000,
             learn_phi_max_num_iterations=25,
@@ -254,6 +272,15 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_expand_factor, 5.0)
         self.assertEqual(cfg.learn_phi_weight_floor, 0.02)
         self.assertEqual(cfg.learn_phi_report_out, "phi.tsv")
+        self.assertEqual(cfg.factor_phi_metrics_out, "phi_factor_metrics.tsv")
+        self.assertEqual(cfg.factor_backend, "blockwise_global_w")
+        self.assertEqual(cfg.learn_phi_backend, "blockwise_global_w")
+        self.assertEqual(cfg.blockwise_gene_set_block_size, 123)
+        self.assertEqual(cfg.blockwise_epochs, 4)
+        self.assertFalse(cfg.blockwise_shuffle_blocks)
+        self.assertFalse(cfg.blockwise_warm_start)
+        self.assertEqual(cfg.blockwise_max_blocks, 7)
+        self.assertEqual(cfg.blockwise_report_out, "blockwise.tsv")
         self.assertEqual(cfg.learn_phi_prune_genes_num, 900)
         self.assertEqual(cfg.learn_phi_prune_gene_sets_num, 1000)
         self.assertEqual(cfg.learn_phi_max_num_iterations, 25)

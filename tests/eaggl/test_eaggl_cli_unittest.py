@@ -82,6 +82,8 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("--learn-phi", proc.stdout)
         self.assertIn("--learn-phi-max-redundancy", proc.stdout)
+        self.assertIn("--factor-backend", proc.stdout)
+        self.assertIn("--learn-phi-backend", proc.stdout)
 
     def test_default_help_uses_canonical_anchor_flags(self) -> None:
         proc = self._run("factor", "--help")
@@ -216,6 +218,17 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-num-iterations must be at least 1", err)
         self.assertNotIn("Traceback", err)
+
+    def test_invalid_blockwise_backend_settings_return_usage_error(self) -> None:
+        proc = self._run("factor", "--factor-backend", "invalid")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--factor-backend must be one of: full, blockwise_global_w", err)
+
+        proc = self._run("factor", "--learn-phi-backend", "invalid")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w", err)
 
     def test_invalid_factor_phewas_mode_returns_usage_error(self) -> None:
         proc = self._run("factor", "--factor-phewas-mode", "definitely_invalid")

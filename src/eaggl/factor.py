@@ -66,6 +66,19 @@ class FactorExecutionConfig:
     learn_phi_min_error_gain_per_factor: float = 5.0
     learn_phi_only: bool = False
     learn_phi_report_out: str | None = None
+    factor_phi_metrics_out: str | None = None
+    factor_backend: str = "full"
+    learn_phi_backend: str = "sentinel_pruned"
+    blockwise_gene_set_block_size: int = 5000
+    blockwise_epochs: int = 3
+    blockwise_shuffle_blocks: bool = True
+    blockwise_warm_start: bool = True
+    blockwise_max_blocks: int | None = None
+    blockwise_report_out: str | None = None
+    factors_out: str | None = None
+    factor_metrics_out: str | None = None
+    gene_set_clusters_out: str | None = None
+    gene_clusters_out: str | None = None
     learn_phi_prune_genes_num: int | None = 1000
     learn_phi_prune_gene_sets_num: int | None = 1000
     learn_phi_max_num_iterations: int | None = None
@@ -122,6 +135,19 @@ class FactorExecutionConfig:
             "learn_phi_min_error_gain_per_factor": self.learn_phi_min_error_gain_per_factor,
             "learn_phi_only": self.learn_phi_only,
             "learn_phi_report_out": self.learn_phi_report_out,
+            "factor_phi_metrics_out": self.factor_phi_metrics_out,
+            "factor_backend": self.factor_backend,
+            "learn_phi_backend": self.learn_phi_backend,
+            "blockwise_gene_set_block_size": self.blockwise_gene_set_block_size,
+            "blockwise_epochs": self.blockwise_epochs,
+            "blockwise_shuffle_blocks": self.blockwise_shuffle_blocks,
+            "blockwise_warm_start": self.blockwise_warm_start,
+            "blockwise_max_blocks": self.blockwise_max_blocks,
+            "blockwise_report_out": self.blockwise_report_out,
+            "factors_out": self.factors_out,
+            "factor_metrics_out": self.factor_metrics_out,
+            "gene_set_clusters_out": self.gene_set_clusters_out,
+            "gene_clusters_out": self.gene_clusters_out,
             "learn_phi_prune_genes_num": self.learn_phi_prune_genes_num,
             "learn_phi_prune_gene_sets_num": self.learn_phi_prune_gene_sets_num,
             "learn_phi_max_num_iterations": self.learn_phi_max_num_iterations,
@@ -460,6 +486,19 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_min_error_gain_per_factor=getattr(options, "learn_phi_min_error_gain_per_factor", 5.0),
         learn_phi_only=getattr(options, "learn_phi_only", False),
         learn_phi_report_out=options.learn_phi_report_out,
+        factor_phi_metrics_out=getattr(options, "factor_phi_metrics_out", None),
+        factor_backend=getattr(options, "factor_backend", "full"),
+        learn_phi_backend=getattr(options, "learn_phi_backend", "sentinel_pruned"),
+        blockwise_gene_set_block_size=getattr(options, "blockwise_gene_set_block_size", 5000),
+        blockwise_epochs=getattr(options, "blockwise_epochs", 3),
+        blockwise_shuffle_blocks=getattr(options, "blockwise_shuffle_blocks", True),
+        blockwise_warm_start=getattr(options, "blockwise_warm_start", True),
+        blockwise_max_blocks=getattr(options, "blockwise_max_blocks", None),
+        blockwise_report_out=getattr(options, "blockwise_report_out", None),
+        factors_out=getattr(options, "factors_out", None),
+        factor_metrics_out=getattr(options, "factor_metrics_out", None),
+        gene_set_clusters_out=getattr(options, "gene_set_clusters_out", None),
+        gene_clusters_out=getattr(options, "gene_clusters_out", None),
         learn_phi_prune_genes_num=getattr(options, "learn_phi_prune_genes_num", 1000),
         learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", 1000),
         learn_phi_max_num_iterations=getattr(options, "learn_phi_max_num_iterations", None),

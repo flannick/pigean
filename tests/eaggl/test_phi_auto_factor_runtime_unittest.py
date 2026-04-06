@@ -16,6 +16,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from eaggl import factor_runtime as eaggl_factor_runtime  # noqa: E402
+from eaggl.state import EagglState  # noqa: E402
 
 
 class _TinyState:
@@ -55,8 +56,281 @@ class _CapturedFactorCall(RuntimeError):
 
 
 class PhiAutoFactorRuntimeTest(unittest.TestCase):
-    def test_choose_gene_or_pheno_anchor_source_falls_back_from_nonfinite_combined(self) -> None:
+    def test_blockwise_backend_matches_full_solver_for_single_block(self) -> None:
+        matrix = np.array(
+            [
+                [0.9, 0.1, 0.0, 0.0],
+                [0.8, 0.2, 0.0, 0.0],
+                [0.0, 0.0, 0.7, 0.3],
+                [0.0, 0.0, 0.6, 0.4],
+            ],
+            dtype=float,
+        )
+        gene_set_prob = np.ones((matrix.shape[0], 1), dtype=float)
+        gene_prob = np.ones((matrix.shape[1], 1), dtype=float)
+
+        full_state = EagglState()
+        np.random.seed(0)
+        full_result = full_state._bayes_nmf_l2_extension(
+            matrix,
+            gene_set_prob,
+            gene_prob,
+            n_iter=40,
+            a0=10,
+            K=4,
+            tol=1e-6,
+            phi=0.05,
+            cap_genes=True,
+            cap_gene_sets=True,
+        )
+        full_lambdak = np.asarray(full_result[4], dtype=float)
+        full_factor_count = int(np.sum(full_lambdak > 1e-3))
+        full_error = float(full_result[5])
+
+        block_state = SimpleNamespace()
+        np.random.seed(0)
+        block_result = eaggl_factor_runtime._fit_blockwise_global_w(
+            block_state,
+            matrix,
+            gene_set_prob_vector=gene_set_prob,
+            gene_or_pheno_prob_vector=gene_prob,
+            max_num_factors=4,
+            max_num_iterations=40,
+            alpha0=10.0,
+            phi=0.05,
+            rel_tol=1e-6,
+            min_lambda_threshold=1e-3,
+            block_size=matrix.shape[0],
+            epochs=40,
+            shuffle_blocks=False,
+            max_blocks=None,
+            warm_start_state=None,
+            warm_start_enabled=False,
+            cap_genes=True,
+            cap_gene_sets=True,
+            report_out=None,
+            log_fn=lambda *args, **kwargs: None,
+            info_level=1,
+        )
+        block_lambdak = np.asarray(block_result["lambdak"], dtype=float)
+        block_factor_count = int(np.sum(block_lambdak > 1e-3))
+        block_error = float(block_result["reconstruction_error"])
+
+        self.assertEqual(block_factor_count, full_factor_count)
+        self.assertLess(abs(block_error - full_error), 1.0)
+
+    def test_blockwise_backend_runs_multi_block_and_records_backend_details(self) -> None:
+        matrix = np.array(
+            [
+                [0.9, 0.1, 0.0, 0.0],
+                [0.8, 0.2, 0.0, 0.0],
+                [0.0, 0.0, 0.7, 0.3],
+                [0.0, 0.0, 0.6, 0.4],
+                [0.4, 0.6, 0.0, 0.0],
+                [0.0, 0.0, 0.5, 0.5],
+            ],
+            dtype=float,
+        )
+        state = EagglState()
+        np.random.seed(1)
+        result = eaggl_factor_runtime._fit_blockwise_global_w(
+            state,
+            matrix,
+            gene_set_prob_vector=np.ones((matrix.shape[0], 1), dtype=float),
+            gene_or_pheno_prob_vector=np.ones((matrix.shape[1], 1), dtype=float),
+            max_num_factors=4,
+            max_num_iterations=12,
+            alpha0=10.0,
+            phi=0.05,
+            rel_tol=1e-6,
+            min_lambda_threshold=1e-3,
+            block_size=2,
+            epochs=6,
+            shuffle_blocks=False,
+            max_blocks=None,
+            warm_start_state=None,
+            warm_start_enabled=False,
+            cap_genes=True,
+            cap_gene_sets=True,
+            report_out=None,
+            log_fn=lambda *args, **kwargs: None,
+            info_level=1,
+        )
+        self.assertEqual(result["gene_set_factors"].shape[0], matrix.shape[0])
+        self.assertEqual(result["gene_or_pheno_factors"].shape[0], matrix.shape[1])
+        self.assertEqual(state.last_factorization_backend, "blockwise_global_w")
+        self.assertEqual(state.last_factorization_backend_details["num_blocks"], 3)
+        self.assertEqual(state.last_factorization_backend_details["block_size"], 2)
+        self.assertEqual(state.last_factorization_backend_details["max_total_passes"], 12)
+        self.assertGreaterEqual(state.last_factorization_backend_details["global_refinement_passes"], 3)
+        self.assertEqual(state.last_factorization_backend_details["min_refinement_passes"], 2)
+        self.assertEqual(state.last_factorization_backend_details["min_shrinkage_refinement_passes"], 2)
+        self.assertEqual(state.last_factorization_backend_details["refinement_lambda_freeze_passes"], 1)
+        self.assertFalse(state.last_factorization_backend_details["refinement_collapse_guard_triggered"])
+        self.assertTrue(any(report.get("phase") == "refinement" for report in state.last_factorization_blockwise_report))
+        first_refinement = next(report for report in state.last_factorization_blockwise_report if report.get("phase") == "refinement")
+        self.assertEqual(first_refinement.get("lambda_update_mode"), "freeze")
+        self.assertTrue(any(report.get("lambda_update_mode") == "damped" for report in state.last_factorization_blockwise_report if report.get("phase") == "refinement"))
+        self.assertLessEqual(float(np.max(result["gene_set_factors"])), 1.0 + 1e-9)
+        self.assertLessEqual(float(np.max(result["gene_or_pheno_factors"])), 1.0 + 1e-9)
+
+    def test_build_blockwise_family_keep_indices_from_records_collapses_overlap_families(self) -> None:
+        records = [
+            {
+                "Factor": "Factor1",
+                "combined_mass_fraction": "0.40",
+                "gene_effective_support": "10",
+                "gene_set_effective_support": "12",
+                "gene_max_jaccard": "0.91",
+                "gene_nearest_factor": "Factor2",
+                "gene_set_max_jaccard": "0.20",
+                "gene_set_nearest_factor": "Factor2",
+                "combined_unique_fraction": "0.09",
+            },
+            {
+                "Factor": "Factor2",
+                "combined_mass_fraction": "0.20",
+                "gene_effective_support": "8",
+                "gene_set_effective_support": "9",
+                "gene_max_jaccard": "0.91",
+                "gene_nearest_factor": "Factor1",
+                "gene_set_max_jaccard": "0.20",
+                "gene_set_nearest_factor": "Factor1",
+                "combined_unique_fraction": "0.09",
+            },
+            {
+                "Factor": "Factor3",
+                "combined_mass_fraction": "0.25",
+                "gene_effective_support": "7",
+                "gene_set_effective_support": "11",
+                "gene_max_jaccard": "0.15",
+                "gene_nearest_factor": "Factor4",
+                "gene_set_max_jaccard": "0.72",
+                "gene_set_nearest_factor": "Factor4",
+                "combined_unique_fraction": "0.28",
+            },
+            {
+                "Factor": "Factor4",
+                "combined_mass_fraction": "0.15",
+                "gene_effective_support": "6",
+                "gene_set_effective_support": "10",
+                "gene_max_jaccard": "0.15",
+                "gene_nearest_factor": "Factor3",
+                "gene_set_max_jaccard": "0.72",
+                "gene_set_nearest_factor": "Factor3",
+                "combined_unique_fraction": "0.28",
+            },
+        ]
+
+        summary = eaggl_factor_runtime._build_blockwise_family_keep_indices_from_records(records)
+
+        self.assertEqual(summary["keep_indices"], [0, 2])
+        self.assertEqual(sorted(summary["components"]), [[0, 1], [2, 3]])
+
+    def test_blockwise_backend_caps_total_passes_with_max_num_iterations(self) -> None:
+        matrix = np.array(
+            [
+                [0.9, 0.1, 0.0, 0.0],
+                [0.8, 0.2, 0.0, 0.0],
+                [0.0, 0.0, 0.7, 0.3],
+                [0.0, 0.0, 0.6, 0.4],
+                [0.4, 0.6, 0.0, 0.0],
+                [0.0, 0.0, 0.5, 0.5],
+            ],
+            dtype=float,
+        )
+        state = SimpleNamespace()
+        np.random.seed(2)
+        eaggl_factor_runtime._fit_blockwise_global_w(
+            state,
+            matrix,
+            gene_set_prob_vector=np.ones((matrix.shape[0], 1), dtype=float),
+            gene_or_pheno_prob_vector=np.ones((matrix.shape[1], 1), dtype=float),
+            max_num_factors=4,
+            max_num_iterations=3,
+            alpha0=10.0,
+            phi=0.05,
+            rel_tol=1e-12,
+            min_lambda_threshold=1e-3,
+            block_size=2,
+            epochs=2,
+            shuffle_blocks=False,
+            max_blocks=None,
+            warm_start_state=None,
+            warm_start_enabled=False,
+            cap_genes=True,
+            cap_gene_sets=True,
+            report_out=None,
+            log_fn=lambda *args, **kwargs: None,
+            info_level=1,
+        )
+        self.assertEqual(len(state.last_factorization_blockwise_report), 3)
+        self.assertEqual(state.last_factorization_backend_details["max_total_passes"], 3)
+        self.assertEqual(state.last_factorization_backend_details["epochs"], 2)
+        self.assertEqual(state.last_factorization_backend_details["global_refinement_passes"], 1)
+        self.assertEqual(state.last_factorization_iterations, 3)
+
+    def test_blockwise_backend_emits_pass_factor_metrics_checkpoints_for_window(self) -> None:
+        matrix = np.array(
+            [
+                [0.9, 0.1, 0.0, 0.0],
+                [0.8, 0.2, 0.0, 0.0],
+                [0.0, 0.0, 0.7, 0.3],
+                [0.0, 0.0, 0.6, 0.4],
+                [0.4, 0.6, 0.0, 0.0],
+                [0.0, 0.0, 0.5, 0.5],
+            ],
+            dtype=float,
+        )
+        state = SimpleNamespace()
+        captured_outputs = []
+
+        with mock.patch.object(
+            eaggl_factor_runtime,
+            "_write_blockwise_pass_factor_metrics_checkpoint",
+            side_effect=lambda *args, **kwargs: captured_outputs.append(kwargs["output_file"]),
+        ):
+            eaggl_factor_runtime._fit_blockwise_global_w(
+                state,
+                matrix,
+                gene_set_prob_vector=np.ones((matrix.shape[0], 1), dtype=float),
+                gene_or_pheno_prob_vector=np.ones((matrix.shape[1], 1), dtype=float),
+                max_num_factors=4,
+                max_num_iterations=8,
+                alpha0=10.0,
+                phi=0.05,
+                rel_tol=1e-6,
+                min_lambda_threshold=1e-3,
+                block_size=2,
+                epochs=6,
+                shuffle_blocks=False,
+                max_blocks=None,
+                warm_start_state=None,
+                warm_start_enabled=False,
+                cap_genes=True,
+                cap_gene_sets=True,
+                report_out=None,
+                log_fn=lambda *args, **kwargs: None,
+                info_level=1,
+                pass_metrics_dir="/tmp/blockwise_pass_metrics_test",
+            )
+
+        self.assertIn("/tmp/blockwise_pass_metrics_test/pass_005.factor_metrics.out.gz", captured_outputs)
+        self.assertIn("/tmp/blockwise_pass_metrics_test/pass_006.factor_metrics.out.gz", captured_outputs)
+        self.assertGreaterEqual(len(captured_outputs), 2)
+
+    def test_choose_gene_or_pheno_anchor_source_keeps_partially_nonfinite_combined(self) -> None:
         combined = np.array([[np.nan], [1.0]], dtype=float)
+        Y = np.array([[2.0], [3.0]], dtype=float)
+        priors = np.array([[0.5], [0.25]], dtype=float)
+
+        matrix, label = eaggl_factor_runtime._choose_gene_or_pheno_anchor_source(combined, priors, Y)
+
+        self.assertEqual(label, "combined_prior_Ys")
+        self.assertTrue(np.array_equal(matrix, combined, equal_nan=True))
+
+    def test_choose_gene_or_pheno_anchor_source_falls_back_when_combined_is_entirely_nonfinite(self) -> None:
+        combined = np.array([[np.nan], [np.inf]], dtype=float)
         Y = np.array([[2.0], [3.0]], dtype=float)
         priors = np.array([[0.5], [0.25]], dtype=float)
 
@@ -85,6 +359,27 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(profile["mass_ge_floor_factor_count"], 2)
         self.assertTrue(np.isfinite(profile["max_mass_fraction"]))
         self.assertTrue(np.isfinite(profile["top5_mass_fraction"]))
+
+    def test_compute_factor_mass_profile_returns_full_schema_for_zero_factors(self) -> None:
+        state = SimpleNamespace(
+            exp_gene_set_factors=np.zeros((2, 0), dtype=float),
+            exp_gene_factors=np.zeros((3, 0), dtype=float),
+            exp_pheno_factors=None,
+        )
+
+        profile = eaggl_factor_runtime._compute_factor_mass_profile(state, mass_floor_frac=0.005)
+
+        self.assertEqual(profile["factor_masses"].size, 0)
+        self.assertEqual(profile["mass_fractions"].size, 0)
+        self.assertEqual(profile["effective_factor_count"], 0.0)
+        self.assertEqual(profile["mass_ge_floor_factor_count"], 0)
+        self.assertEqual(profile["primary_factor_count"], 0)
+        self.assertEqual(profile["secondary_factor_count"], 0)
+        self.assertEqual(profile["filtered_factor_count"], 0)
+        self.assertEqual(profile["tail_fraction"], 0.0)
+        self.assertEqual(profile["filtered_fraction"], 0.0)
+        self.assertEqual(profile["max_mass_fraction"], 0.0)
+        self.assertEqual(profile["top5_mass_fraction"], 0.0)
 
     def test_run_factor_single_forwards_max_num_iterations_to_nmf(self) -> None:
         calls = {}
@@ -135,6 +430,62 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
 
         self.assertEqual(calls["n_iter"], 7)
 
+    def test_run_factor_single_single_block_blockwise_delegates_to_full_solver(self) -> None:
+        calls = {}
+
+        class _ForwardingState:
+            def __init__(self) -> None:
+                self.X_orig = sparse.csr_matrix(np.array([[1.0, 0.0], [0.0, 1.0]]))
+                self.X_phewas_beta = None
+                self.X_phewas_beta_uncorrected = None
+                self.gene_pheno_combined_prior_Ys = None
+                self.gene_pheno_priors = None
+                self.gene_pheno_Y = None
+                self.combined_prior_Ys = None
+                self.priors = None
+                self.Y = np.array([1.0, 0.5], dtype=float)
+                self.betas = np.array([0.2, 0.3], dtype=float)
+                self.betas_uncorrected = np.array([0.2, 0.3], dtype=float)
+                self.scale_factors = np.ones(2, dtype=float)
+                self.background_log_bf = 0.0
+                self.gene_sets = ["gs1", "gs2"]
+                self.genes = ["g1", "g2"]
+                self.phenos = []
+                self.default_pheno = "default"
+                self.params = {}
+
+            def _record_params(self, values, overwrite=False):
+                self.params.update(values)
+
+            def _bayes_nmf_l2_extension(self, *args, **kwargs):
+                calls.update(kwargs)
+                raise _CapturedFactorCall()
+
+        state = _ForwardingState()
+
+        with mock.patch.object(
+            eaggl_factor_runtime,
+            "_fit_blockwise_global_w",
+            side_effect=AssertionError("single-block blockwise should delegate to full solver"),
+        ):
+            with self.assertRaises(_CapturedFactorCall):
+                eaggl_factor_runtime._run_factor_single(
+                    state,
+                    phi=0.1,
+                    factor_backend="blockwise_global_w",
+                    blockwise_gene_set_block_size=999,
+                    max_num_iterations=7,
+                    bail_fn=lambda msg: (_ for _ in ()).throw(AssertionError(msg)),
+                    warn_fn=lambda *args, **kwargs: None,
+                    log_fn=lambda *args, **kwargs: None,
+                    info_level=1,
+                    debug_level=2,
+                    trace_level=3,
+                    labeling_module=np,
+                )
+
+        self.assertEqual(calls["n_iter"], 7)
+
     def test_run_factor_learn_phi_only_skips_final_factorization(self) -> None:
         state = _TinyState()
 
@@ -163,6 +514,66 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
 
         learn_phi_mock.assert_called_once()
         self.assertEqual(state.params["phi"], 0.025)
+        self.assertEqual(learn_phi_mock.call_args.kwargs["learn_phi_backend"], "sentinel_pruned")
+
+    def test_write_phi_search_report_includes_blockwise_backend_fields(self) -> None:
+        candidate = {
+            "phi": 0.05,
+            "modal_factor_count": 12,
+            "effective_factor_count": 10.5,
+            "mass_ge_floor_factor_count": 9,
+            "primary_factor_count": 9,
+            "secondary_factor_count": 2,
+            "filtered_factor_count": 1,
+            "tail_fraction": 0.01,
+            "filtered_fraction": 0.1,
+            "mass_floor_frac": 0.005,
+            "max_mass_fraction": 0.2,
+            "top5_mass_fraction": 0.6,
+            "capped": False,
+            "num_modal_runs": 1,
+            "run_support": 1.0,
+            "stability": None,
+            "stability_defined": False,
+            "redundancy_basis": "gene",
+            "redundancy_max": 0.0,
+            "redundancy_q90": 0.0,
+            "redundancy_mean": 0.0,
+            "redundancy_max_worst": 0.0,
+            "best_error": 12.0,
+            "best_evidence": 13.0,
+            "final_delambda": 0.1,
+            "final_iterations": 3,
+            "converged_fraction": 0.0,
+            "hit_iteration_cap_fraction": 1.0,
+            "backend": "blockwise_global_w",
+            "blockwise_num_blocks": 4,
+            "blockwise_block_size": 100,
+            "blockwise_epochs": 3,
+            "blockwise_columns_evaluated": 400,
+            "blockwise_warm_started": True,
+            "blockwise_wall_time_sec": 1.5,
+            "blockwise_epoch_error_trace": [12.0, 10.0, 9.0],
+            "reference_run_index": 0,
+            "modal_run_indices": [0],
+            "matched_cosines": [],
+        }
+        report_path = REPO_ROOT / "results" / "tmp_blockwise_learn_phi_report.tsv"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            eaggl_factor_runtime._write_phi_search_report(
+                str(report_path),
+                [candidate],
+                selected_phi=0.05,
+                selection_reason="test",
+            )
+            text = report_path.read_text(encoding="utf-8")
+        finally:
+            if report_path.exists():
+                report_path.unlink()
+        self.assertIn("backend", text.splitlines()[0])
+        self.assertIn("blockwise_num_blocks", text.splitlines()[0])
+        self.assertIn("blockwise_global_w", text)
 
     def test_run_factor_single_skips_empty_gene_prune_without_crashing(self) -> None:
         class _ForwardingState:
@@ -790,6 +1201,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(evaluated_phis[0], 0.05)
         self.assertIn(0.1, evaluated_phis)
         self.assertIn(0.025, evaluated_phis)
+        self.assertIn(0.0125, evaluated_phis)
+        self.assertNotIn(0.2, evaluated_phis)
         self.assertNotIn(5.0, evaluated_phis)
         self.assertLessEqual(len(evaluated_phis) - 1, 3)
         self.assertEqual(selected["phi"], 0.05)
