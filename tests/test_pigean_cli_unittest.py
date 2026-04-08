@@ -333,6 +333,34 @@ class PigeanCliTest(unittest.TestCase):
             self.assertIn("KCNJ11", output_text)
             self.assertNotIn("OUTSIDE", output_text)
 
+    def test_explicit_gene_universe_reinitializes_after_x_load(self) -> None:
+        y_inputs_core = importlib.import_module("pigean.y_inputs_core")
+
+        class _FakeRuntimeState:
+            def __init__(self) -> None:
+                self.X_orig = object()
+                self.gene_sets = ["SET_A"]
+                self.genes = ["X1", "X2", "X3"]
+                self.set_x_calls: list[tuple[object, list[str], list[str], bool]] = []
+
+            def _set_X(self, X_orig, genes, gene_sets, skip_N=False):
+                self.set_x_calls.append((X_orig, list(genes), list(gene_sets), skip_N))
+                self.genes = list(genes)
+
+        runtime_state = _FakeRuntimeState()
+        logs: list[str] = []
+
+        y_inputs_core.initialize_explicit_gene_universe_if_needed(
+            runtime_state,
+            gene_universe_mode="file",
+            gene_universe_genes=["G1", "G2"],
+            log_fn=logs.append,
+        )
+
+        self.assertEqual(len(runtime_state.set_x_calls), 1)
+        self.assertEqual(runtime_state.genes, ["G1", "G2"])
+        self.assertIn("Reinitializing analysis gene universe from explicit gene-universe file after X load", logs)
+
     def test_multi_y_requires_gene_set_stats_out(self) -> None:
         proc = self._run("betas", "--multi-y-in", "traits.tsv")
         self.assertNotEqual(proc.returncode, 0)

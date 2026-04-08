@@ -441,10 +441,14 @@ def resolve_requested_gene_universe(
 def initialize_explicit_gene_universe_if_needed(runtime_state, *, gene_universe_mode, gene_universe_genes, log_fn):
     if gene_universe_mode != "file":
         return
-    if runtime_state.genes is not None:
+    requested_genes = list(gene_universe_genes)
+    if runtime_state.genes is not None and list(runtime_state.genes) == requested_genes:
         return
-    log_fn("Initializing analysis gene universe from explicit gene-universe file")
-    runtime_state._set_X(runtime_state.X_orig, list(gene_universe_genes), runtime_state.gene_sets, skip_N=False)
+    if runtime_state.genes is None:
+        log_fn("Initializing analysis gene universe from explicit gene-universe file")
+    else:
+        log_fn("Reinitializing analysis gene universe from explicit gene-universe file after X load")
+    runtime_state._set_X(runtime_state.X_orig, requested_genes, runtime_state.gene_sets, skip_N=False)
 
 
 def apply_gene_level_maps_after_read_y(runtime_state, gene_combined_map=None, gene_prior_map=None):
