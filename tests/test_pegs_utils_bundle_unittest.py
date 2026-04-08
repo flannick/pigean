@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import optparse
 import shutil
 import sys
@@ -821,6 +822,17 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertTrue(np.any(out_se == 1.0))
         self.assertGreaterEqual(len(warnings), 1)
 
+    def test_complete_p_beta_se_derives_p_from_beta_and_se(self) -> None:
+        p = np.array([np.nan], dtype=float)
+        beta = np.array([2.0], dtype=float)
+        se = np.array([1.0], dtype=float)
+
+        out_p, out_beta, out_se = pegs_utils.complete_p_beta_se(p, beta, se)
+
+        self.assertAlmostEqual(out_p[0], math.erfc(2.0 / math.sqrt(2.0)))
+        self.assertEqual(out_beta[0], 2.0)
+        self.assertEqual(out_se[0], 1.0)
+
     def test_compute_variant_z_prefers_p_when_se_was_inferred(self) -> None:
         p = np.array([8.63e-49, 0.07578], dtype=float)
         beta = np.array([0.1419, -33.3838], dtype=float)
@@ -836,6 +848,17 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertGreater(abs(out_z[0]), 10.0)
         self.assertLess(abs(out_z[1]), 3.0)
         self.assertLess(out_z[1], 0.0)
+
+    def test_compute_variant_z_prefers_p_by_default_when_available(self) -> None:
+        p = np.array([0.2, np.nan], dtype=float)
+        beta = np.array([-10.0, -10.0], dtype=float)
+        se = np.array([1.0, 1.0], dtype=float)
+
+        out_z = pegs_utils.compute_variant_z(p, beta, se)
+
+        self.assertLess(abs(out_z[0]), 2.0)
+        self.assertLess(out_z[0], 0.0)
+        self.assertEqual(out_z[1], -10.0)
 
     def test_parse_gene_bfs_file_from_log_bf(self) -> None:
         with tempfile.TemporaryDirectory() as td:

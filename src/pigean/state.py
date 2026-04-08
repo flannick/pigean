@@ -2243,7 +2243,7 @@ class PigeanState(object):
             gene_covariate_genes = huge_buffers["gene_covariate_genes"]
             window_fun_intercept = None
             window_fun_slope = None
-            warned_prefer_p_for_inferred_se = False
+            warned_prefer_p_for_gwas_p = False
 
             #second, compute the huge scores
             for learn_params in [True, False]:
@@ -2270,10 +2270,7 @@ class PigeanState(object):
                     var_beta = np.array(vars_zipped[2], dtype=float)
                     var_se = np.array(vars_zipped[3], dtype=float)
                     var_se_was_inferred = np.array(vars_zipped[5], dtype=bool)
-                    infer_z_from_p_mask = np.logical_and(
-                        ~np.isnan(var_p),
-                        np.logical_and(~np.isnan(var_beta), var_se_was_inferred),
-                    )
+                    prefer_z_from_p_mask = ~np.isnan(var_p)
 
                     (var_p, var_beta, var_se) = pegs_complete_p_beta_se(
                         var_p,
@@ -2282,18 +2279,18 @@ class PigeanState(object):
                         warn_fn=warn,
                     )
 
-                    if np.sum(infer_z_from_p_mask) > 0 and not warned_prefer_p_for_inferred_se:
+                    if np.sum(prefer_z_from_p_mask) > 0 and not warned_prefer_p_for_gwas_p:
                         warn(
-                            "Using p-derived z-scores for %d variants with beta+p but inferred SE; pass --gwas-se-col when available"
-                            % np.sum(infer_z_from_p_mask)
+                            "Using p-derived z-scores for %d variants because p-values were provided; beta/se/N are used only to complete missing quantities and determine sign/scale where needed"
+                            % np.sum(prefer_z_from_p_mask)
                         )
-                        warned_prefer_p_for_inferred_se = True
+                        warned_prefer_p_for_gwas_p = True
 
                     var_z = pegs_compute_variant_z(
                         var_p,
                         var_beta,
                         var_se,
-                        prefer_p_mask=infer_z_from_p_mask,
+                        prefer_p_mask=prefer_z_from_p_mask,
                     )
                     var_se2 = np.square(var_se)
 

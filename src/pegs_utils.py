@@ -1445,7 +1445,7 @@ def complete_p_beta_se(p, beta, se, *, warn_fn=None):
         se_none_mask[bad_mask] = False
 
     if np.sum(p_none_mask) > 0:
-        p[p_none_mask] = 2 * scipy.stats.norm.pdf(-np.abs(beta[p_none_mask] / se[p_none_mask]))
+        p[p_none_mask] = 2 * scipy.stats.norm.cdf(-np.abs(beta[p_none_mask] / se[p_none_mask]))
     if np.sum(beta_none_mask) > 0:
         z = np.abs(scipy.stats.norm.ppf(np.array(p[beta_none_mask] / 2)))
         beta[beta_none_mask] = z * se[beta_none_mask]
@@ -1465,7 +1465,7 @@ def compute_variant_z(
 ):
     z = beta / se
     if prefer_p_mask is None:
-        return z
+        prefer_p_mask = ~np.isnan(p)
 
     prefer_p_mask = np.asarray(prefer_p_mask, dtype=bool)
     if np.sum(prefer_p_mask) == 0:
