@@ -1443,7 +1443,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
                 self.subset_calls = []
                 self.set_x_calls = []
 
-            def subset_gene_sets(self, subset_mask, keep_missing=True):
+            def subset_gene_sets(self, subset_mask, keep_missing=True, **_kwargs):
                 self.subset_calls.append((subset_mask.copy(), keep_missing))
 
             def _set_X(self, X_orig, genes, gene_sets, skip_N=True):
@@ -1533,7 +1533,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
                 self.beta_tildes = None
                 self.betas = None
 
-            def subset_gene_sets(self, subset_mask, keep_missing=True):
+            def subset_gene_sets(self, subset_mask, keep_missing=True, **_kwargs):
                 self.subset_mask = subset_mask
                 self.keep_missing = keep_missing
 
@@ -1623,7 +1623,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
                 self.X_phewas_beta = None
                 self.X_phewas_beta_uncorrected = None
 
-            def subset_gene_sets(self, subset_mask, keep_missing=True):
+            def subset_gene_sets(self, subset_mask, keep_missing=True, **_kwargs):
                 self.subset_mask = subset_mask
                 self.keep_missing = keep_missing
 
@@ -1741,6 +1741,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
         rt.gene_set_labels = np.array(["L1"])
         pegs_utils.initialize_filtered_gene_set_state(rt, update_hyper_p=True)
         self.assertEqual(rt.gene_sets_ignored, [])
+        self.assertEqual(rt.gene_set_filter_reason_ignored, [])
         self.assertEqual(rt.gene_set_labels_ignored.shape[0], 0)
         self.assertEqual(rt.beta_tildes.shape[0], 0)
         self.assertIsNone(rt.se_inflation_factors)

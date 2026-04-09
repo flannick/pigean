@@ -61,6 +61,8 @@ class XData:
     gene_sets: OptionalStringList = field(default_factory=list)
     gene_sets_missing: OptionalStringList = field(default_factory=list)
     gene_sets_ignored: OptionalStringList = field(default_factory=list)
+    gene_set_filter_reason_missing: OptionalStringList = field(default_factory=list)
+    gene_set_filter_reason_ignored: OptionalStringList = field(default_factory=list)
     gene_to_ind: IndexMap | None = field(default_factory=dict)
     gene_missing_to_ind: IndexMap | None = field(default_factory=dict)
     gene_set_to_ind: IndexMap | None = field(default_factory=dict)

@@ -89,6 +89,7 @@ def is_metric_qc_filter_active(filter_gene_set_metric_z):
 
 def initialize_filtered_gene_set_state(runtime, update_hyper_p):
     runtime.gene_sets_ignored = []
+    runtime.gene_set_filter_reason_ignored = []
     if runtime.gene_set_labels is not None:
         runtime.gene_set_labels_ignored = np.array([])
 
@@ -260,7 +261,7 @@ def maybe_correct_gene_set_betas_after_x_read(
             "Ignoring %d gene sets whose p-value increased after adjusting betas (kept %d)"
             % (np.sum(~newly_below_p_mask), np.sum(newly_below_p_mask))
         )
-        runtime.subset_gene_sets(newly_below_p_mask, ignore_missing=True, keep_missing=False, skip_V=True)
+        runtime.subset_gene_sets(newly_below_p_mask, ignore_missing=True, keep_missing=False, skip_V=True, filter_reason="adjusted_p_value_filter")
 
 
 def maybe_limit_initial_gene_sets_by_p(runtime, max_num_gene_sets_initial, *, log_fn=None):
@@ -273,7 +274,7 @@ def maybe_limit_initial_gene_sets_by_p(runtime, max_num_gene_sets_initial, *, lo
     if max_num_gene_sets_initial > 0 and max_num_gene_sets_initial < len(runtime.p_values):
         p_value_filter = np.partition(runtime.p_values, max_num_gene_sets_initial - 1)[max_num_gene_sets_initial - 1]
         log_fn("Keeping only %d most significant gene sets due to --max-num-gene-sets-initial" % max_num_gene_sets_initial)
-        runtime.subset_gene_sets(runtime.p_values <= p_value_filter, ignore_missing=True, keep_missing=False, skip_V=True)
+        runtime.subset_gene_sets(runtime.p_values <= p_value_filter, ignore_missing=True, keep_missing=False, skip_V=True, filter_reason="max_num_gene_sets_initial")
 
 
 def maybe_prune_gene_sets_after_x_read(
@@ -292,6 +293,7 @@ def maybe_prune_gene_sets_after_x_read(
         keep_missing=False,
         ignore_missing=True,
         skip_V=True,
+        filter_reason="correlation_pruning",
     )
 
     if weighted_prune_gene_sets and runtime.Y is not None:
@@ -305,6 +307,7 @@ def maybe_prune_gene_sets_after_x_read(
             ignore_missing=True,
             skip_V=True,
             gene_weights=gene_weights,
+            filter_reason="weighted_correlation_pruning",
         )
 
 
@@ -419,20 +422,20 @@ def apply_post_read_gene_set_size_and_qc_filters(
     if np.sum(size_ignore) > 0:
         size_mask = ~size_ignore
         log_fn("Ignoring %d gene sets due to too few genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
-        runtime.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
+        runtime.subset_gene_sets(size_mask, keep_missing=False, ignore_missing=True, skip_V=True, filter_reason="min_gene_set_size")
 
     col_sums = runtime.get_col_sums(runtime.X_orig, num_nonzero=True)
     size_ignore = col_sums > max_gene_set_size
     if np.sum(size_ignore) > 0:
         size_mask = ~size_ignore
         log_fn("Ignoring %d gene sets due to too many genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
-        runtime.subset_gene_sets(size_mask, keep_missing=False, skip_V=True)
+        runtime.subset_gene_sets(size_mask, keep_missing=False, ignore_missing=True, skip_V=True, filter_reason="max_gene_set_size")
 
     if runtime.total_qc_metrics is not None and is_metric_qc_filter_active(filter_gene_set_metric_z):
         filter_mask = np.abs(runtime.mean_qc_metrics) < filter_gene_set_metric_z
         filter_ignore = ~filter_mask
         log_fn("Ignoring %d gene sets due to QC metric filters (kept %d)" % (np.sum(filter_ignore), np.sum(filter_mask)))
-        runtime.subset_gene_sets(filter_mask, keep_missing=False, ignore_missing=True, skip_V=True)
+        runtime.subset_gene_sets(filter_mask, keep_missing=False, ignore_missing=True, skip_V=True, filter_reason="qc_metric_filter")
 
 
 def make_add_to_x_handler(runtime, read_config, read_callbacks, *, run_logistic):

@@ -426,7 +426,7 @@ def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_
     #subset gene sets to remove empty ones first
     #number of gene sets in each gene set
     col_sums = state.get_col_sums(state.X_orig, num_nonzero=True)
-    state.subset_gene_sets(col_sums > 0, keep_missing=False, skip_V=True, skip_scale_factors=True)
+    state.subset_gene_sets(col_sums > 0, keep_missing=False, ignore_missing=True, skip_V=True, skip_scale_factors=True, filter_reason="empty_after_gene_filter")
 
     state._set_scale_factors()
 
@@ -529,7 +529,7 @@ def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_
             if np.sum(gene_set_mask) == 0 and len(state.p_values) > 0:
                 gene_set_mask = state.p_values == np.min(state.p_values)
             log("Keeping %d gene sets that passed threshold of p<%.3g" % (np.sum(gene_set_mask), max_gene_set_p))
-            state.subset_gene_sets(gene_set_mask, keep_missing=True, skip_V=True)
+            state.subset_gene_sets(gene_set_mask, keep_missing=True, skip_V=True, filter_reason="max_gene_set_p")
 
             if len(state.gene_sets) < 1:
                 log("No gene sets left!")

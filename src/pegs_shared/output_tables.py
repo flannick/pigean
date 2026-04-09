@@ -735,6 +735,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
         header = "Gene_Set"
         if runtime.gene_set_labels is not None:
             header = "%s\t%s" % (header, "label")
+        header = "%s\t%s" % (header, "filter_reason")
         if runtime.X_orig is not None:
             col_sums = runtime.get_col_sums(runtime.X_orig)
             header = "%s\t%s" % (header, "N")
@@ -809,6 +810,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
             line = runtime.gene_sets[i]
             if runtime.gene_set_labels is not None:
                 line = "%s\t%s" % (line, runtime.gene_set_labels[i])
+            line = "%s\t%s" % (line, "kept")
             if runtime.X_orig is not None:
                 line = "%s\t%d" % (line, col_sums[i])
                 line = "%s\t%.3g" % (line, runtime.scale_factors[i])
@@ -896,6 +898,10 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 line = runtime.gene_sets_missing[i]
                 if runtime.gene_set_labels is not None:
                     line = "%s\t%s" % (line, runtime.gene_set_labels_missing[i])
+                missing_reason = "filtered_missing"
+                if getattr(runtime, "gene_set_filter_reason_missing", None) is not None and i < len(runtime.gene_set_filter_reason_missing):
+                    missing_reason = runtime.gene_set_filter_reason_missing[i]
+                line = "%s\t%s" % (line, missing_reason)
                 line = "%s\t%d" % (line, col_sums_missing[i])
                 line = "%s\t%.3g" % (line, runtime.scale_factors_missing[i])
 
@@ -968,6 +974,10 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 line = "%s" % runtime.gene_sets_ignored[i]
                 if runtime.gene_set_labels is not None:
                     line = "%s\t%s" % (line, runtime.gene_set_labels_ignored[i])
+                ignored_reason = "filtered_ignored"
+                if getattr(runtime, "gene_set_filter_reason_ignored", None) is not None and i < len(runtime.gene_set_filter_reason_ignored):
+                    ignored_reason = runtime.gene_set_filter_reason_ignored[i]
+                line = "%s\t%s" % (line, ignored_reason)
 
                 line = "%s\t%d" % (line, runtime.col_sums_ignored[i])
                 line = "%s\t%.3g" % (line, runtime.scale_factors_ignored[i])

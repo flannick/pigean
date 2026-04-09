@@ -609,7 +609,7 @@ def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
     beta_mask = ~beta_ignore
     if np.sum(beta_mask) > 0:
         log_fn("Ignoring %d gene sets due to zero uncorrected betas (kept %d)" % (np.sum(beta_ignore), np.sum(beta_mask)))
-        runtime_state.subset_gene_sets(beta_mask, keep_missing=False, ignore_missing=True, skip_V=True)
+        runtime_state.subset_gene_sets(beta_mask, keep_missing=False, ignore_missing=True, skip_V=True, filter_reason="zero_beta_uncorrected")
     else:
         log_fn("Keeping %d gene sets with zero uncorrected betas to avoid having none" % (np.sum(beta_ignore)))
 
@@ -669,6 +669,7 @@ def maybe_reduce_gene_sets_to_max_after_x_read_for_runtime(
             keep_missing=retain_all_beta_uncorrected,
             ignore_missing=not retain_all_beta_uncorrected,
             skip_V=True,
+            filter_reason="max_num_gene_sets_cap",
         )
 
 
@@ -1356,10 +1357,14 @@ def apply_prefilter_and_record(
     p_value_mask,
     filter_gene_set_p,
     filter_gene_set_metric_z,
+    filter_using_phewas,
+    filter_negative,
     scale_factors,
     mean_shifts,
     beta_tildes,
+    beta_tildes_phewas,
     p_values,
+    p_values_phewas,
     ses,
     z_scores,
     se_inflation_factors,
@@ -1370,6 +1375,23 @@ def apply_prefilter_and_record(
     *,
     log_fn,
 ):
+    def _prefilter_reason_for_index(i):
+        reasons = []
+        if filter_negative:
+            negative_filtered = beta_tildes[i] < 0
+            if filter_using_phewas and beta_tildes_phewas is not None:
+                negative_filtered = negative_filtered and np.all(beta_tildes_phewas[:, i] < 0)
+            if negative_filtered:
+                reasons.append("prefilter_negative_beta")
+        p_filtered = p_values[i] > filter_gene_set_p
+        if filter_using_phewas and p_values_phewas is not None:
+            p_filtered = p_filtered and np.all(p_values_phewas[:, i] > filter_gene_set_p)
+        if p_filtered:
+            reasons.append("prefilter_p_value")
+        if not reasons:
+            reasons.append("prefilter_other")
+        return ";".join(reasons)
+
     p_value_ignore = np.full(len(p_value_mask), False)
     gene_ignored_N = None
     gene_ignored_N_missing_new = None
@@ -1382,6 +1404,8 @@ def apply_prefilter_and_record(
 
         if runtime_state.gene_sets_ignored is None:
             runtime_state.gene_sets_ignored = []
+        if runtime_state.gene_set_filter_reason_ignored is None:
+            runtime_state.gene_set_filter_reason_ignored = []
         if runtime_state.col_sums_ignored is None:
             runtime_state.col_sums_ignored = np.array([])
         if runtime_state.scale_factors_ignored is None:
@@ -1400,6 +1424,9 @@ def apply_prefilter_and_record(
             runtime_state.se_inflation_factors_ignored = np.array([])
 
         runtime_state.gene_sets_ignored = runtime_state.gene_sets_ignored + [gene_sets[i] for i in range(len(gene_sets)) if p_value_ignore[i]]
+        runtime_state.gene_set_filter_reason_ignored = runtime_state.gene_set_filter_reason_ignored + [
+            _prefilter_reason_for_index(i) for i in range(len(gene_sets)) if p_value_ignore[i]
+        ]
         gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if p_value_mask[i]]
 
         runtime_state.col_sums_ignored = np.append(runtime_state.col_sums_ignored, runtime_state.get_col_sums(cur_X[:, p_value_ignore]))
@@ -1558,10 +1585,14 @@ def maybe_prefilter_x_block(
             p_value_mask=p_value_mask,
             filter_gene_set_p=filter_gene_set_p,
             filter_gene_set_metric_z=filter_gene_set_metric_z,
+            filter_using_phewas=filter_using_phewas,
+            filter_negative=filter_negative,
             scale_factors=scale_factors,
             mean_shifts=mean_shifts,
             beta_tildes=beta_tildes,
+            beta_tildes_phewas=beta_tildes_phewas if filter_using_phewas else None,
             p_values=p_values,
+            p_values_phewas=p_values_phewas if filter_using_phewas else None,
             ses=ses,
             z_scores=z_scores,
             se_inflation_factors=se_inflation_factors,

@@ -97,6 +97,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
 
         self.assertEqual(runtime.gene_sets, ["GS1", "GS2"])
         self.assertEqual(runtime.gene_sets_missing, ["GS3"])
+        self.assertEqual(runtime.gene_set_filter_reason_missing, ["max_num_gene_sets_cap"])
         np.testing.assert_allclose(runtime.betas_uncorrected, np.array([3.0, 2.0]))
         np.testing.assert_allclose(runtime.betas_uncorrected_missing, np.array([1.0]))
 
@@ -157,6 +158,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
                 rows = list(csv.DictReader(fh, delimiter="\t"))
 
         self.assertGreater(len(rows), 1)
+        self.assertIn("filter_reason", rows[0])
         retained_uncorrected_rows = [
             row
             for row in rows
@@ -164,6 +166,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
             and abs(float(row["beta_uncorrected"])) > 0
             and row.get("beta") not in (None, "", "NA")
             and float(row["beta"]) == 0.0
+            and row.get("filter_reason") == "max_num_gene_sets_cap"
         ]
         self.assertTrue(
             retained_uncorrected_rows,

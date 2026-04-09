@@ -392,6 +392,8 @@ class GeneSetRegressionState:
     gene_sets: OptionalStringList = None
     gene_sets_missing: OptionalStringList = None
     gene_sets_ignored: OptionalStringList = None
+    gene_set_filter_reason_missing: OptionalStringList = None
+    gene_set_filter_reason_ignored: OptionalStringList = None
     gene_set_to_ind: IndexMap | None = None
     beta_tildes: OptionalVectorLike = None
     p_values: OptionalVectorLike = None
@@ -6289,7 +6291,7 @@ class PigeanState(object):
                 x[:] = np.array([x[i] for i in sorted_gene_indices])
 
 
-    def _prune_gene_sets(self, prune_value, prune_deterministically=False, max_size=5000, keep_missing=False, ignore_missing=False, skip_V=False, X_orig=None, gene_sets=None, rank_vector=None, do_internal_pruning=True, gene_weights=None):
+    def _prune_gene_sets(self, prune_value, prune_deterministically=False, max_size=5000, keep_missing=False, ignore_missing=False, skip_V=False, X_orig=None, gene_sets=None, rank_vector=None, do_internal_pruning=True, gene_weights=None, filter_reason=None):
 
         if gene_weights is not None:
             gene_weights = copy.copy(gene_weights)
@@ -6437,7 +6439,7 @@ class PigeanState(object):
 
         if np.sum(~keep_mask) > 0:
             if X_orig is self.X_orig and do_internal_pruning:
-                self.subset_gene_sets(keep_mask, keep_missing=keep_missing, ignore_missing=ignore_missing, skip_V=skip_V)
+                self.subset_gene_sets(keep_mask, keep_missing=keep_missing, ignore_missing=ignore_missing, skip_V=skip_V, filter_reason=filter_reason)
                 log("Pruning at %.3g resulted in %d%s (of original %d)" % (prune_value, len(self.gene_sets), name, len(keep_mask)))
 
 
@@ -6572,7 +6574,7 @@ class PigeanState(object):
         #        x[:] = np.concatenate((x[gene_mask], x[~gene_mask]))
 
     #subset the current state of the class to a reduced set of gene sets
-    def subset_gene_sets(self, subset_mask, keep_missing=True, ignore_missing=False, skip_V=False, skip_scale_factors=False):
+    def subset_gene_sets(self, subset_mask, keep_missing=True, ignore_missing=False, skip_V=False, skip_scale_factors=False, filter_reason=None):
 
         if subset_mask is None or np.sum(~subset_mask) == 0:
             return
@@ -6590,6 +6592,10 @@ class PigeanState(object):
                 if self.gene_sets_ignored is None:
                     self.gene_sets_ignored = []
                 self.gene_sets_ignored = self.gene_sets_ignored + [self.gene_sets[i] for i in range(len(self.gene_sets)) if remove_mask[i]]
+                if self.gene_set_filter_reason_ignored is None:
+                    self.gene_set_filter_reason_ignored = []
+                ignored_reason = filter_reason if filter_reason is not None else "filtered_ignored"
+                self.gene_set_filter_reason_ignored = self.gene_set_filter_reason_ignored + [ignored_reason] * int(np.sum(remove_mask))
 
             if self.gene_set_labels is not None:
                 if self.gene_set_labels_ignored is None:
@@ -6655,6 +6661,8 @@ class PigeanState(object):
 
         elif keep_missing:
             self.gene_sets_missing = [self.gene_sets[i] for i in range(len(self.gene_sets)) if remove_mask[i]]
+            missing_reason = filter_reason if filter_reason is not None else "filtered_missing"
+            self.gene_set_filter_reason_missing = [missing_reason] * int(np.sum(remove_mask))
 
             if self.beta_tildes is not None:
                 self.beta_tildes_missing = self.beta_tildes[remove_mask]
@@ -6839,6 +6847,7 @@ class PigeanState(object):
 
         self.gene_sets += self.gene_sets_missing
         self.gene_sets_missing = None
+        self.gene_set_filter_reason_missing = None
         self.gene_set_to_ind = pegs_construct_map_to_ind(self.gene_sets)
 
         if self.beta_tildes_missing is not None:
