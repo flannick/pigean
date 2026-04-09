@@ -54,6 +54,7 @@ class XData:
     X_binary_packed: OptionalMatrixLike = None
     X_orig_missing_genes: OptionalMatrixLike = None
     X_orig_missing_gene_sets: OptionalMatrixLike = None
+    X_orig_ignored_gene_sets: OptionalMatrixLike = None
     X_orig_missing_genes_missing_gene_sets: OptionalMatrixLike = None
     last_X_block: DenseBlockCache | None = None
     genes: OptionalStringList = field(default_factory=list)
@@ -63,6 +64,7 @@ class XData:
     gene_sets_ignored: OptionalStringList = field(default_factory=list)
     gene_set_filter_reason_missing: OptionalStringList = field(default_factory=list)
     gene_set_filter_reason_ignored: OptionalStringList = field(default_factory=list)
+    gene_set_track_beta_uncorrected_ignored: OptionalVectorLike = None
     gene_to_ind: IndexMap | None = field(default_factory=dict)
     gene_missing_to_ind: IndexMap | None = field(default_factory=dict)
     gene_set_to_ind: IndexMap | None = field(default_factory=dict)
@@ -80,6 +82,7 @@ class XData:
     gene_set_labels_ignored: OptionalVectorLike = None
     is_dense_gene_set: OptionalVectorLike = None
     is_dense_gene_set_missing: OptionalVectorLike = None
+    is_dense_gene_set_ignored: OptionalVectorLike = None
     gene_chrom_name_pos: ChromGenePosMap | None = None
     gene_to_chrom: ChromMap | None = None
     gene_to_pos: PositionMap | None = None
@@ -346,6 +349,7 @@ class XData:
             filter_using_phewas=post_options.filter_using_phewas,
             retain_all_beta_uncorrected=post_options.retain_all_beta_uncorrected,
             independent_betas_only=post_options.independent_betas_only,
+            track_filtered_beta_uncorrected=post_options.track_filtered_beta_uncorrected,
             max_num_burn_in=post_options.max_num_burn_in,
             max_num_iter_betas=post_options.max_num_iter_betas,
             min_num_iter_betas=post_options.min_num_iter_betas,
@@ -364,6 +368,7 @@ class XData:
             sort_rank=sort_rank,
             retain_all_beta_uncorrected=post_options.retain_all_beta_uncorrected,
             independent_betas_only=post_options.independent_betas_only,
+            track_filtered_beta_uncorrected=post_options.track_filtered_beta_uncorrected,
         )
         post_callbacks.record_read_x_counts_fn(
             runtime,
@@ -486,6 +491,7 @@ class XReadPostOptions:
     max_num_gene_sets: int | None
     retain_all_beta_uncorrected: bool
     independent_betas_only: bool
+    track_filtered_beta_uncorrected: bool
 
 
 @dataclass
@@ -580,6 +586,7 @@ class ReadXPipelineConfig:
     max_num_entries_at_once: int | None = None
     retain_all_beta_uncorrected: bool = False
     independent_betas_only: bool = False
+    track_filtered_beta_uncorrected: bool = False
 
 
 @dataclass

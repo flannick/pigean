@@ -306,6 +306,7 @@ parser.add_option("","--max-for-linear",type='float',default=None) #if linear re
 parser.add_option("","--use-sampling-for-betas",type='int',default=None) #rather than taking top X% of gene sets to be positive during gene set statistics, sample from probability distribution
 parser.add_option("","--retain-all-beta-uncorrected",action='store_true',default=False) #for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap
 parser.add_option("","--independent-betas-only",action='store_true',default=False) #for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve
+parser.add_option("","--track-filtered-beta-uncorrected",action='store_true',default=False) #for betas/gibbs runs, preserve and track independent beta_uncorrected for gene sets that pass p prefilter but are later filtered out
 
 
 #other control
@@ -571,6 +572,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--exomes-in": "load exome burden statistics as an additional HuGE evidence source",
     "--retain-all-beta-uncorrected": "for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap",
     "--independent-betas-only": "for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve",
+    "--track-filtered-beta-uncorrected": "for betas/gibbs runs, preserve and track independent beta_uncorrected for gene sets that pass p prefilter but are later filtered out",
     "--sim-log-bf-noise-sigma-mult": "simulation-only noise scale for generated log Bayes factors",
     "--sim-only-positive": "simulation-only: constrain synthetic effects to positive values",
     "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
@@ -705,6 +707,7 @@ _SET_B_METHOD_FLAGS = {
     "--no-cross-val",
     "--phewas-stats-out",
     "--retain-all-beta-uncorrected",
+    "--track-filtered-beta-uncorrected",
     "--run-phewas",
     "--sim-log-bf-noise-sigma-mult",
     "--sim-only-positive",
@@ -1717,6 +1720,8 @@ def _bootstrap_cli(argv=None):
         bail("Option --independent-betas-only currently supports only betas mode")
     if parsed_options.retain_all_beta_uncorrected and parsed_mode != "betas":
         bail("Option --retain-all-beta-uncorrected currently supports only betas mode")
+    if parsed_options.track_filtered_beta_uncorrected and parsed_mode not in set(["betas", "gibbs"]):
+        bail("Option --track-filtered-beta-uncorrected currently supports only betas and gibbs modes")
     if parsed_options.independent_betas_only and not parsed_options.retain_all_beta_uncorrected:
         _early_warn("Enabling --retain-all-beta-uncorrected because --independent-betas-only was passed")
         parsed_options.retain_all_beta_uncorrected = True

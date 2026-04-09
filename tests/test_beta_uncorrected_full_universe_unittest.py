@@ -18,6 +18,8 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from pigean import x_inputs_core as pigean_x_inputs_core  # noqa: E402
+from pigean import model as pigean_model  # noqa: E402
+from pigean import state as pigean_state_module  # noqa: E402
 from pigean.state import PigeanState  # noqa: E402
 
 
@@ -67,6 +69,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
             filter_gene_set_p=1.0,
             filter_using_phewas=False,
             retain_all_beta_uncorrected=True,
+            track_filtered_beta_uncorrected=False,
             independent_betas_only=False,
             max_num_burn_in=None,
             max_num_iter_betas=20,
@@ -89,6 +92,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
             max_num_gene_sets=2,
             sort_rank=sort_rank,
             retain_all_beta_uncorrected=True,
+            track_filtered_beta_uncorrected=False,
             independent_betas_only=False,
             log_fn=lambda *_args, **_kwargs: None,
             debug_level=1,
@@ -100,6 +104,62 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
         self.assertEqual(runtime.gene_set_filter_reason_missing, ["max_num_gene_sets_cap"])
         np.testing.assert_allclose(runtime.betas_uncorrected, np.array([3.0, 2.0]))
         np.testing.assert_allclose(runtime.betas_uncorrected_missing, np.array([1.0]))
+
+    def test_track_filtered_beta_uncorrected_routes_later_filtered_rows_to_ignored_sidecar(self) -> None:
+        runtime = self._build_runtime()
+        runtime.track_filtered_beta_uncorrected = True
+
+        runtime.subset_gene_sets(
+            np.array([True, False, True]),
+            keep_missing=False,
+            ignore_missing=True,
+            skip_V=True,
+            filter_reason="correlation_pruning",
+        )
+
+        self.assertEqual(runtime.gene_sets, ["GS1", "GS3"])
+        self.assertEqual(runtime.gene_sets_ignored, ["GS2"])
+        np.testing.assert_array_equal(runtime.gene_set_track_beta_uncorrected_ignored, np.array([True]))
+        self.assertIsNotNone(runtime.X_orig_ignored_gene_sets)
+        self.assertEqual(runtime.X_orig_ignored_gene_sets.shape, (3, 1))
+
+    def test_tracked_ignored_uncorrected_betas_are_computed_for_ignored_rows(self) -> None:
+        runtime = self._build_runtime()
+        runtime.track_filtered_beta_uncorrected = True
+        runtime.subset_gene_sets(
+            np.array([True, False, True]),
+            keep_missing=False,
+            ignore_missing=True,
+            skip_V=True,
+            filter_reason="correlation_pruning",
+        )
+
+        def _fake_calc(*_args, **_kwargs):
+            return np.array([1.25]), np.array([0.5])
+
+        runtime._calculate_non_inf_betas = _fake_calc  # type: ignore[method-assign]
+
+        pigean_model.update_tracked_ignored_uncorrected_betas(
+            runtime,
+            beta_tildes=runtime.beta_tildes_ignored[np.array([True])],
+            ses=runtime.ses_ignored[np.array([True])],
+            scale_factors=runtime.scale_factors_ignored[np.array([True])],
+            mean_shifts=runtime.mean_shifts_ignored[np.array([True])],
+            max_num_burn_in=5,
+            max_num_iter=20,
+            min_num_iter=5,
+            num_chains=2,
+            r_threshold_burn_in=1.01,
+            use_max_r_for_convergence=True,
+            max_frac_sem=0.01,
+            max_allowed_batch_correlation=None,
+            gauss_seidel=False,
+            sparse_solution=False,
+            sparse_frac_betas=None,
+        )
+
+        np.testing.assert_allclose(runtime.betas_uncorrected_ignored, np.array([1.25]))
+        np.testing.assert_allclose(runtime.non_inf_avg_postps_ignored, np.array([0.5]))
 
     def test_retain_all_beta_uncorrected_writes_rows_beyond_cap(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -173,6 +233,76 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
             msg="Expected at least one capped-out row with preserved nonzero beta_uncorrected and zero beta",
         )
 
+    def test_track_filtered_beta_uncorrected_writes_ignored_rows_beyond_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            out_prefix = tmp_path / "track_filtered_uncorrected"
+            proc = self._run(
+                "betas",
+                "--deterministic",
+                "--hide-opts",
+                "--X-in",
+                "tests/data/model_small/gene_set_list_mouse_2024.txt",
+                "--gene-map-in",
+                "tests/data/model_small/portal_gencode.gene.map",
+                "--gene-loc-file",
+                "tests/data/model_small/NCBI37.3.plink.gene.loc",
+                "--gene-list-in",
+                "tests/data/t2d_smoke/mody.gene.list",
+                "--gene-list-no-header",
+                "--gene-list-all-in",
+                "tests/data/model_small/NCBI37.3.plink.gene.loc",
+                "--gene-list-all-id-col",
+                "6",
+                "--gene-list-all-no-header",
+                "--gene-set-stats-out",
+                str(out_prefix.with_suffix(".gene_set_stats.out")),
+                "--gene-stats-out",
+                str(out_prefix.with_suffix(".gene_stats.out")),
+                "--params-out",
+                str(out_prefix.with_suffix(".params.out")),
+                "--num-chains-betas",
+                "2",
+                "--max-num-iter-betas",
+                "20",
+                "--min-num-iter-betas",
+                "5",
+                "--max-num-burn-in",
+                "5",
+                "--min-gene-set-size",
+                "1",
+                "--filter-gene-set-p",
+                "1",
+                "--max-gene-set-read-p",
+                "1",
+                "--no-filter-negative",
+                "--max-num-gene-sets-initial",
+                "200",
+                "--max-num-gene-sets-hyper",
+                "200",
+                "--max-num-gene-sets",
+                "5",
+                "--track-filtered-beta-uncorrected",
+            )
+            self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+
+            with out_prefix.with_suffix(".gene_set_stats.out").open(encoding="utf-8") as fh:
+                rows = list(csv.DictReader(fh, delimiter="\t"))
+
+        tracked_rows = [
+            row
+            for row in rows
+            if row.get("beta_uncorrected") not in (None, "", "NA")
+            and abs(float(row["beta_uncorrected"])) > 0
+            and row.get("beta") not in (None, "", "NA")
+            and float(row["beta"]) == 0.0
+            and row.get("filter_reason") == "max_num_gene_sets_cap"
+        ]
+        self.assertTrue(
+            tracked_rows,
+            msg="Expected at least one capped-out ignored row with preserved nonzero beta_uncorrected and zero beta",
+        )
+
     def test_independent_betas_only_skips_corrected_beta_columns(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -228,6 +358,18 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
         self.assertIn("beta_uncorrected", header)
         self.assertNotIn("beta_internal", header)
         self.assertNotIn("\tbeta\t", "\t" + header + "\t")
+
+    def test_apply_gibbs_ignored_final_state_restores_full_ignored_alignment(self) -> None:
+        runtime = self._build_runtime()
+        runtime.gene_sets_ignored = ["PREFILTER", "TRACKED"]
+        runtime.gene_set_track_beta_uncorrected_ignored = np.array([False, True])
+        runtime._gibbs_sum_betas_uncorrected_ignored_m = np.array([[1.0], [3.0]])
+        runtime._gibbs_sum_betas_uncorrected2_ignored_m = np.array([[1.0], [9.0]])
+        runtime._gibbs_num_sum_beta_ignored_m = np.array([[1.0], [1.0]])
+
+        pigean_state_module._apply_gibbs_ignored_final_state(runtime)
+
+        np.testing.assert_allclose(runtime.betas_uncorrected_ignored, np.array([0.0, 2.0]))
 
 
 if __name__ == "__main__":

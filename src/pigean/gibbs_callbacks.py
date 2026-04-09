@@ -207,6 +207,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             num_sum_priors_missing_m=stacked.get("num_sum_priors_missing_m") if include_missing else None,
         )
         legacy_module._apply_gibbs_final_state(state, final_summary, adjust_priors)
+        legacy_module._apply_gibbs_ignored_final_state(state)
         return {
             "remaining_total_iter": remaining_total_iter,
             "num_completed_epochs": num_completed_epochs,

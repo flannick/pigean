@@ -316,6 +316,165 @@ def compute_gibbs_uncorrected_betas_and_defaults(
     }
 
 
+def _get_tracked_ignored_gene_set_mask(state):
+    track_mask = getattr(state, "gene_set_track_beta_uncorrected_ignored", None)
+    if track_mask is None:
+        return None
+    track_mask = np.asarray(track_mask, dtype=bool)
+    if track_mask.size == 0 or not np.any(track_mask):
+        return None
+    return track_mask
+
+
+def update_tracked_ignored_uncorrected_betas(
+    state,
+    *,
+    beta_tildes,
+    ses,
+    scale_factors,
+    mean_shifts,
+    return_sample=False,
+    debug_gene_sets=None,
+    **inner_beta_kwargs,
+):
+    track_mask = _get_tracked_ignored_gene_set_mask(state)
+    if (
+        not getattr(state, "track_filtered_beta_uncorrected", False)
+        or track_mask is None
+        or getattr(state, "X_orig_ignored_gene_sets", None) is None
+        or beta_tildes is None
+        or ses is None
+    ):
+        return None
+
+    beta_tildes_arr = np.asarray(beta_tildes)
+    num_tracked = beta_tildes_arr.shape[-1] if beta_tildes_arr.ndim > 1 else beta_tildes_arr.shape[0]
+
+    ignored_is_dense = np.zeros(num_tracked, dtype=bool)
+    if getattr(state, "is_dense_gene_set_ignored", None) is not None:
+        ignored_is_dense = np.asarray(state.is_dense_gene_set_ignored, dtype=bool)[track_mask]
+
+    ignored_ps = np.full(num_tracked, state.p, dtype=float)
+    if getattr(state, "ps_ignored", None) is not None and len(state.ps_ignored) == len(track_mask):
+        ignored_ps = np.asarray(state.ps_ignored)[track_mask]
+
+    ignored_sigma2s = np.full(num_tracked, state.sigma2, dtype=float)
+    if getattr(state, "sigma2s_ignored", None) is not None and len(state.sigma2s_ignored) == len(track_mask):
+        ignored_sigma2s = np.asarray(state.sigma2s_ignored)[track_mask]
+
+    if debug_gene_sets is None and state.gene_sets_ignored is not None:
+        debug_gene_sets = [state.gene_sets_ignored[i] for i in range(len(state.gene_sets_ignored)) if track_mask[i]]
+
+    result = state._calculate_non_inf_betas(
+        assume_independent=True,
+        initial_p=None,
+        beta_tildes=beta_tildes,
+        ses=ses,
+        V=None,
+        X_orig=None,
+        scale_factors=scale_factors,
+        mean_shifts=mean_shifts,
+        is_dense_gene_set=ignored_is_dense,
+        ps=ignored_ps,
+        sigma2s=ignored_sigma2s,
+        return_sample=return_sample,
+        update_hyper_sigma=False,
+        update_hyper_p=False,
+        debug_gene_sets=debug_gene_sets,
+        **inner_beta_kwargs,
+    )
+
+    if return_sample:
+        (
+            tracked_betas_sample_m,
+            tracked_postp_sample_m,
+            tracked_betas_mean_m,
+            tracked_postp_mean_m,
+        ) = result
+    else:
+        tracked_betas_mean_m, tracked_postp_mean_m = result
+        tracked_betas_sample_m = None
+        tracked_postp_sample_m = None
+
+    full_betas_uncorrected = np.zeros(len(state.gene_sets_ignored))
+    full_postps = np.zeros(len(state.gene_sets_ignored))
+    full_cond_betas = np.zeros(len(state.gene_sets_ignored))
+    full_betas_uncorrected[track_mask] = tracked_betas_mean_m
+    full_postps[track_mask] = tracked_postp_mean_m
+    positive_postp_mask = tracked_postp_mean_m > 0
+    tracked_cond_betas = np.array(tracked_betas_mean_m, copy=True)
+    tracked_cond_betas[positive_postp_mask] = (
+        tracked_betas_mean_m[positive_postp_mask] / tracked_postp_mean_m[positive_postp_mask]
+    )
+    full_cond_betas[track_mask] = tracked_cond_betas
+
+    state.betas_uncorrected_ignored = full_betas_uncorrected
+    state.non_inf_avg_postps_ignored = full_postps
+    state.non_inf_avg_cond_betas_ignored = full_cond_betas
+
+    return {
+        "track_mask": track_mask,
+        "betas_uncorrected_mean_m": tracked_betas_mean_m,
+        "postp_mean_m": tracked_postp_mean_m,
+        "betas_uncorrected_sample_m": tracked_betas_sample_m,
+        "postp_sample_m": tracked_postp_sample_m,
+    }
+
+
+def compute_gibbs_tracked_ignored_uncorrected_betas(
+    state,
+    Y_sample_m,
+    y_corr_sparse,
+    *,
+    inner_beta_kwargs_linear,
+):
+    track_mask = _get_tracked_ignored_gene_set_mask(state)
+    if (
+        not getattr(state, "track_filtered_beta_uncorrected", False)
+        or track_mask is None
+        or getattr(state, "X_orig_ignored_gene_sets", None) is None
+        or state.X_orig_ignored_gene_sets.shape[1] != int(np.sum(track_mask))
+    ):
+        return None
+
+    (
+        ignored_beta_tildes_m,
+        ignored_ses_m,
+        ignored_z_scores_m,
+        ignored_p_values_m,
+        _ignored_se_inflation_factors_m,
+        _ignored_alpha_tildes_m,
+        _ignored_diverged_m,
+    ) = state._compute_logistic_beta_tildes(
+        state.X_orig_ignored_gene_sets,
+        Y_sample_m,
+        state.scale_factors_ignored[track_mask] if state.scale_factors_ignored is not None else None,
+        state.mean_shifts_ignored[track_mask] if state.mean_shifts_ignored is not None else None,
+        resid_correlation_matrix=y_corr_sparse,
+    )
+
+    ignored_setup = update_tracked_ignored_uncorrected_betas(
+        state,
+        beta_tildes=ignored_beta_tildes_m,
+        ses=ignored_ses_m,
+        scale_factors=np.tile(state.scale_factors_ignored[track_mask], (ignored_beta_tildes_m.shape[0], 1))
+        if state.scale_factors_ignored is not None
+        else None,
+        mean_shifts=np.tile(state.mean_shifts_ignored[track_mask], (ignored_beta_tildes_m.shape[0], 1))
+        if state.mean_shifts_ignored is not None
+        else None,
+        return_sample=True,
+        debug_gene_sets=[state.gene_sets_ignored[i] for i in range(len(state.gene_sets_ignored)) if track_mask],
+        **inner_beta_kwargs_linear,
+    )
+    if ignored_setup is None:
+        return None
+    ignored_setup["beta_tildes_m"] = ignored_beta_tildes_m
+    ignored_setup["z_scores_m"] = ignored_z_scores_m
+    ignored_setup["p_values_m"] = ignored_p_values_m
+    return ignored_setup
+
+
 def build_non_inf_beta_sampler_kwargs(inner_beta_kwargs):
     return {
         "max_num_burn_in": inner_beta_kwargs["passed_in_max_num_burn_in"],
@@ -529,7 +688,13 @@ def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_
             if np.sum(gene_set_mask) == 0 and len(state.p_values) > 0:
                 gene_set_mask = state.p_values == np.min(state.p_values)
             log("Keeping %d gene sets that passed threshold of p<%.3g" % (np.sum(gene_set_mask), max_gene_set_p))
-            state.subset_gene_sets(gene_set_mask, keep_missing=True, skip_V=True, filter_reason="max_gene_set_p")
+            state.subset_gene_sets(
+                gene_set_mask,
+                keep_missing=not getattr(state, "track_filtered_beta_uncorrected", False),
+                ignore_missing=getattr(state, "track_filtered_beta_uncorrected", False),
+                skip_V=True,
+                filter_reason="max_gene_set_p",
+            )
 
             if len(state.gene_sets) < 1:
                 log("No gene sets left!")
@@ -556,6 +721,22 @@ def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, m
         (beta_tildes_to_use, ses_to_use) = (state.beta_tildes_phewas, state.ses_phewas)
     else:
         (beta_tildes_to_use, ses_to_use) = (state.beta_tildes, state.ses)
+    tracked_ignored_mask = _get_tracked_ignored_gene_set_mask(state)
+    ignored_beta_sampler_kwargs = build_non_inf_beta_sampler_kwargs(
+        {
+            "passed_in_max_num_burn_in": max_num_burn_in,
+            "max_num_iter_betas": max_num_iter,
+            "min_num_iter_betas": min_num_iter,
+            "num_chains_betas": num_chains,
+            "r_threshold_burn_in_betas": r_threshold_burn_in,
+            "use_max_r_for_convergence_betas": use_max_r_for_convergence,
+            "max_frac_sem_betas": max_frac_sem,
+            "max_allowed_batch_correlation": kwargs.get("max_allowed_batch_correlation"),
+            "gauss_seidel_betas": gauss_seidel,
+            "sparse_solution": sparse_solution,
+            "sparse_frac_betas": sparse_frac_betas,
+        }
+    )
 
     if not run_using_phewas or run_uncorrected_using_phewas:
         result_uncorrected = state._calculate_non_inf_betas(p, beta_tildes=beta_tildes_to_use, ses=ses_to_use, max_num_burn_in=max_num_burn_in, max_num_iter=max_num_iter, min_num_iter=min_num_iter, num_chains=num_chains, r_threshold_burn_in=r_threshold_burn_in, use_max_r_for_convergence=use_max_r_for_convergence, max_frac_sem=max_frac_sem, gauss_seidel=gauss_seidel, update_hyper_sigma=False, update_hyper_p=False, sparse_solution=sparse_solution, sparse_frac_betas=sparse_frac_betas, assume_independent=True, V=None, **kwargs)
@@ -587,6 +768,15 @@ def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, m
                 state.non_inf_avg_postps_missing = np.zeros(len(state.gene_sets_missing))
             if state.non_inf_avg_cond_betas_missing is None:
                 state.non_inf_avg_cond_betas_missing = np.zeros(len(state.gene_sets_missing))
+        if tracked_ignored_mask is not None and state.beta_tildes_ignored is not None and state.ses_ignored is not None:
+            update_tracked_ignored_uncorrected_betas(
+                state,
+                beta_tildes=state.beta_tildes_ignored[tracked_ignored_mask],
+                ses=state.ses_ignored[tracked_ignored_mask],
+                scale_factors=state.scale_factors_ignored[tracked_ignored_mask] if state.scale_factors_ignored is not None else None,
+                mean_shifts=state.mean_shifts_ignored[tracked_ignored_mask] if state.mean_shifts_ignored is not None else None,
+                **ignored_beta_sampler_kwargs,
+            )
         return
 
     run_mask = copy.copy(initial_run_mask)
@@ -680,6 +870,15 @@ def calculate_non_inf_betas(state, p, max_num_burn_in=1000, max_num_iter=1100, m
                 state.non_inf_avg_postps_missing = np.zeros(len(state.gene_sets_missing))
             if state.non_inf_avg_cond_betas_missing is None:
                 state.non_inf_avg_cond_betas_missing = np.zeros(len(state.gene_sets_missing))
+        if tracked_ignored_mask is not None and state.beta_tildes_ignored is not None and state.ses_ignored is not None:
+            update_tracked_ignored_uncorrected_betas(
+                state,
+                beta_tildes=state.beta_tildes_ignored[tracked_ignored_mask],
+                ses=state.ses_ignored[tracked_ignored_mask],
+                scale_factors=state.scale_factors_ignored[tracked_ignored_mask] if state.scale_factors_ignored is not None else None,
+                mean_shifts=state.mean_shifts_ignored[tracked_ignored_mask] if state.mean_shifts_ignored is not None else None,
+                **ignored_beta_sampler_kwargs,
+            )
 
 
 def _expand_phewas_gene_set_result(values, mask, num_gene_sets):

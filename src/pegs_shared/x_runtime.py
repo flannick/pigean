@@ -90,17 +90,26 @@ def is_metric_qc_filter_active(filter_gene_set_metric_z):
 def initialize_filtered_gene_set_state(runtime, update_hyper_p):
     runtime.gene_sets_ignored = []
     runtime.gene_set_filter_reason_ignored = []
+    runtime.gene_set_track_beta_uncorrected_ignored = np.array([], dtype=bool)
     if runtime.gene_set_labels is not None:
         runtime.gene_set_labels_ignored = np.array([])
 
     runtime.col_sums_ignored = np.array([])
     runtime.scale_factors_ignored = np.array([])
     runtime.mean_shifts_ignored = np.array([])
+    runtime.X_orig_ignored_gene_sets = None
+    runtime.is_dense_gene_set_ignored = np.array([], dtype=bool)
     runtime.beta_tildes_ignored = np.array([])
     runtime.p_values_ignored = np.array([])
     runtime.ses_ignored = np.array([])
     runtime.z_scores_ignored = np.array([])
     runtime.se_inflation_factors_ignored = np.array([])
+    runtime.betas_uncorrected_ignored = None
+    runtime.betas_uncorrected_ignored_orig = None
+    runtime.non_inf_avg_cond_betas_ignored = None
+    runtime.non_inf_avg_postps_ignored = None
+    runtime.non_inf_avg_cond_betas_ignored_orig = None
+    runtime.non_inf_avg_postps_ignored_orig = None
 
     runtime.beta_tildes = np.array([])
     runtime.p_values = np.array([])
@@ -119,11 +128,13 @@ def initialize_filtered_gene_set_state(runtime, update_hyper_p):
 
     runtime.sigma2s = None
     runtime.sigma2s_missing = None
+    runtime.sigma2s_ignored = None
     if update_hyper_p is not None:
         runtime.ps = np.array([])
     else:
         runtime.ps = None
     runtime.ps_missing = None
+    runtime.ps_ignored = None
 
 
 def maybe_prepare_filtered_correlation(

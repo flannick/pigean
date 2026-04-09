@@ -967,6 +967,8 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                     continue
 
                 ignored_beta_uncorrected_value = 0 
+                if getattr(runtime, "betas_uncorrected_ignored", None) is not None:
+                    ignored_beta_uncorrected_value = runtime.betas_uncorrected_ignored[i]
                 if max_no_write_gene_set_beta_uncorrected is not None and runtime.betas_uncorrected is not None and ignored_beta_uncorrected_value <= max_no_write_gene_set_beta_uncorrected:
                     continue
 
@@ -996,14 +998,20 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                     if runtime.betas_r_hat is not None:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
                 if runtime.betas_uncorrected is not None and not basic:
-                    line = "%s\t%.3g" % (line, ignored_beta_uncorrected_value)            
+                    line = "%s\t%.3g" % (line, ignored_beta_uncorrected_value / scale_factor_denom)            
                     if runtime.betas_uncorrected_r_hat is not None:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
                 if not basic:
                     if runtime.non_inf_avg_cond_betas is not None:
-                        line = "%s\t%.3g" % (line, 0)
+                        ignored_avg_cond_beta_value = 0
+                        if getattr(runtime, "non_inf_avg_cond_betas_ignored", None) is not None:
+                            ignored_avg_cond_beta_value = runtime.non_inf_avg_cond_betas_ignored[i]
+                        line = "%s\t%.3g" % (line, ignored_avg_cond_beta_value / scale_factor_denom)
                     if runtime.non_inf_avg_postps is not None:
-                        line = "%s\t%.3g" % (line, 0)
+                        ignored_avg_postp_value = 0
+                        if getattr(runtime, "non_inf_avg_postps_ignored", None) is not None:
+                            ignored_avg_postp_value = runtime.non_inf_avg_postps_ignored[i]
+                        line = "%s\t%.3g" % (line, ignored_avg_postp_value)
                     if runtime.beta_tildes_orig is not None:
                         if runtime.beta_tildes_ignored is not None:
                             line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_ignored[i] / scale_factor_denom, runtime.beta_tildes_ignored[i], runtime.p_values_ignored[i], runtime.z_scores_ignored[i], runtime.ses_ignored[i] / scale_factor_denom)
@@ -1014,18 +1022,36 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                     if runtime.betas_orig is not None:
                         line = "%s\t%.3g\t%.3g" % (line, 0, 0)
                     if runtime.betas_uncorrected_orig is not None:
-                        line = "%s\t%.3g\t%.3g" % (line, 0, 0)
+                        ignored_beta_uncorrected_orig_value = 0
+                        if getattr(runtime, "betas_uncorrected_ignored_orig", None) is not None:
+                            ignored_beta_uncorrected_orig_value = runtime.betas_uncorrected_ignored_orig[i]
+                        line = "%s\t%.3g\t%.3g" % (line, ignored_beta_uncorrected_orig_value / scale_factor_denom, ignored_beta_uncorrected_orig_value)
                     if runtime.non_inf_avg_cond_betas_orig is not None:
-                        line = "%s\t%.3g" % (line, 0)
+                        ignored_avg_cond_beta_orig_value = 0
+                        if getattr(runtime, "non_inf_avg_cond_betas_ignored_orig", None) is not None:
+                            ignored_avg_cond_beta_orig_value = runtime.non_inf_avg_cond_betas_ignored_orig[i]
+                        line = "%s\t%.3g" % (line, ignored_avg_cond_beta_orig_value / scale_factor_denom)
                     if runtime.non_inf_avg_postps_orig is not None:
-                        line = "%s\t%.3g" % (line, 0)
+                        ignored_avg_postp_orig_value = 0
+                        if getattr(runtime, "non_inf_avg_postps_ignored_orig", None) is not None:
+                            ignored_avg_postp_orig_value = runtime.non_inf_avg_postps_ignored_orig[i]
+                        line = "%s\t%.3g" % (line, ignored_avg_postp_orig_value)
 
                     if runtime.ps is not None or runtime.p is not None:
-                        line = "%s\t%s" % (line, "NA")
+                        ignored_p = runtime.p
+                        if getattr(runtime, "ps_ignored", None) is not None and i < len(runtime.ps_ignored):
+                            ignored_p = runtime.ps_ignored[i]
+                        line = "%s\t%.3g" % (line, ignored_p)
                     if runtime.sigma2s is not None or runtime.sigma2 is not None:
-                        line = "%s\t%s" % (line, "NA")
+                        ignored_sigma2 = runtime.sigma2
+                        if getattr(runtime, "sigma2s_ignored", None) is not None and i < len(runtime.sigma2s_ignored):
+                            ignored_sigma2 = runtime.sigma2s_ignored[i]
+                        line = "%s\t%.3g" % (line, runtime.get_scaled_sigma2(scale_factor_denom, ignored_sigma2, runtime.sigma_power, None, None))
                     if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None:
-                        line = "%s\t%s" % (line, "NA")
+                        ignored_sigma2 = runtime.sigma2
+                        if getattr(runtime, "sigma2s_ignored", None) is not None and i < len(runtime.sigma2s_ignored):
+                            ignored_sigma2 = runtime.sigma2s_ignored[i]
+                        line = "%s\t%.3g" % (line, runtime.get_scaled_sigma2(scale_factor_denom, ignored_sigma2, runtime.sigma_power, runtime.sigma_threshold_k, runtime.sigma_threshold_xo))
 
                     if runtime.X_osc is not None:
                         line = "%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA")
