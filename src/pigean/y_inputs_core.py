@@ -1015,26 +1015,14 @@ def merge_y_into_existing_gene_universe(
     extend_with_extra_genes=True,
     warn_fn=None,
 ):
-    Y = Y1 + Y1_exomes + Y1_positive_controls + Y1_case_counts
-    Y[np.isnan(Y1)] = Y1_exomes[np.isnan(Y1)] + Y1_positive_controls[np.isnan(Y1)] + Y1_case_counts[np.isnan(Y1)] + missing_value
-    Y[np.isnan(Y1_exomes)] = Y1[np.isnan(Y1_exomes)] + Y1_positive_controls[np.isnan(Y1_exomes)] + Y1_case_counts[np.isnan(Y1_exomes)] + missing_value_exomes
-    Y[np.isnan(Y1_positive_controls)] = Y1[np.isnan(Y1_positive_controls)] + Y1_exomes[np.isnan(Y1_positive_controls)] + Y1_case_counts[np.isnan(Y1_positive_controls)] + missing_value_positive_controls
-    Y[np.isnan(Y1_case_counts)] = Y1[np.isnan(Y1_case_counts)] + Y1_exomes[np.isnan(Y1_case_counts)] + Y1_positive_controls[np.isnan(Y1_case_counts)] + missing_value_case_counts
+    Y_primary_filled = np.where(np.isnan(Y1), missing_value, Y1)
+    Y_for_regression_primary_filled = np.where(np.isnan(Y1_for_regression), missing_value, Y1_for_regression)
+    Y_exomes = np.where(np.isnan(Y1_exomes), missing_value_exomes, Y1_exomes)
+    Y_positive_controls = np.where(np.isnan(Y1_positive_controls), missing_value_positive_controls, Y1_positive_controls)
+    Y_case_counts = np.where(np.isnan(Y1_case_counts), missing_value_case_counts, Y1_case_counts)
 
-    Y_for_regression = Y1_for_regression + Y1_exomes + Y1_positive_controls + Y1_case_counts
-    Y_for_regression[np.isnan(Y1_for_regression)] = Y1_exomes[np.isnan(Y1_for_regression)] + Y1_positive_controls[np.isnan(Y1_for_regression)] + Y1_case_counts[np.isnan(Y1_for_regression)] + missing_value
-    Y_for_regression[np.isnan(Y1_exomes)] = Y1_for_regression[np.isnan(Y1_exomes)] + Y1_positive_controls[np.isnan(Y1_exomes)] + Y1_case_counts[np.isnan(Y1_exomes)] + missing_value_exomes
-    Y_for_regression[np.isnan(Y1_positive_controls)] = Y_for_regression[np.isnan(Y1_positive_controls)] + Y1_exomes[np.isnan(Y1_positive_controls)] + Y1_case_counts[np.isnan(Y1_positive_controls)] + missing_value_positive_controls
-    Y_for_regression[np.isnan(Y1_case_counts)] = Y_for_regression[np.isnan(Y1_case_counts)] + Y1_exomes[np.isnan(Y1_case_counts)] + Y1_positive_controls[np.isnan(Y1_case_counts)] + missing_value_case_counts
-
-    Y_exomes = Y1_exomes
-    Y_exomes[np.isnan(Y1_exomes)] = missing_value_exomes
-
-    Y_positive_controls = Y1_positive_controls
-    Y_positive_controls[np.isnan(Y1_positive_controls)] = missing_value_positive_controls
-
-    Y_case_counts = Y1_case_counts
-    Y_case_counts[np.isnan(Y1_case_counts)] = missing_value_case_counts
+    Y = Y_primary_filled + Y_exomes + Y_positive_controls + Y_case_counts
+    Y_for_regression = Y_for_regression_primary_filled + Y_exomes + Y_positive_controls + Y_case_counts
 
     extra_gene_to_ind = construct_map_to_ind(extra_genes)
     extra_Y = list(extra_Y)

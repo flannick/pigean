@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import importlib
 from pathlib import Path
+import numpy as np
 
 
 class PigeanCliTest(unittest.TestCase):
@@ -157,6 +158,42 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["gene_universe_in"], "background.tsv")
         self.assertEqual(options["gene_universe_id_col"], "Gene")
         self.assertFalse(options["gene_universe_has_header"])
+
+    def test_gene_list_with_explicit_gene_universe_materializes_background_genes(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        sys.path.insert(0, str(repo_root / "src"))
+        cli_mod = importlib.import_module("pigean.cli")
+        main_support = importlib.import_module("pigean.main_support")
+        options, _args = cli_mod.parser.parse_args(
+            [
+                "gibbs",
+                "--X-in",
+                "tests/data/model_small/gene_set_list_mouse_2024.txt",
+                "--gene-map-in",
+                "tests/data/model_small/portal_gencode.gene.map",
+                "--positive-controls-list",
+                "HNF1A,HNF4A,HNF1B,GCK,PDX1,CEL,NEUROD1,APPL1,INS,ABCC8,KCNJ11,PAX4,BLK",
+                "--gene-universe-in",
+                "tests/data/model_small/NCBI37.3.plink.gene.loc",
+                "--gene-universe-id-col",
+                "6",
+                "--gene-universe-no-header",
+                "--hide-progress",
+                "--deterministic",
+            ]
+        )
+        state = main_support.build_runtime_state(options)
+        mode_state = main_support.build_mode_state("gibbs", options.run_phewas)
+        y_not_loaded = main_support.load_main_y_inputs(state, options, mode_state)
+        self.assertFalse(y_not_loaded)
+        self.assertIsNotNone(state.Y_for_regression)
+        self.assertEqual(len(state.genes), len(state.Y_for_regression))
+        self.assertEqual(int(np.isnan(state.Y_for_regression).sum()), 0)
+        probs = np.exp(state.Y_for_regression + state.background_log_bf) / (
+            1 + np.exp(state.Y_for_regression + state.background_log_bf)
+        )
+        self.assertGreater(int((probs > 0.5).sum()), 0)
+        self.assertGreater(int((probs < 0.5).sum()), 0)
 
     def test_gene_stats_input_requires_explicit_gene_universe(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
