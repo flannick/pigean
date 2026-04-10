@@ -416,7 +416,7 @@ def read_gene_set_phewas_statistics(
         runtime_state,
         stats_in,
         stats_id_col=stats_id_col,
-        stats_pheno_col=stats_pheno_col,
+        stats_pheno_col=stats_pheno_col if stats_pheno_col is not None else "Pheno",
         stats_beta_col=stats_beta_col,
         stats_beta_uncorrected_col=stats_beta_uncorrected_col,
         min_gene_set_beta=min_gene_set_beta,

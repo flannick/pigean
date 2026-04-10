@@ -209,12 +209,16 @@ class MainPipelineResult:
 
 def build_main_mode_state(domain):
     factor_gene_clusters_in = getattr(domain.options, "factor_gene_clusters_in", None)
+    factor_gene_set_clusters_in = getattr(domain.options, "factor_gene_set_clusters_in", None)
     return {
         "run_factor": domain.run_factor,
         "run_phewas": domain.run_phewas,
         "run_factor_phewas": bool(domain.options.run_factor_phewas),
-        "factor_projection_only": bool(factor_gene_clusters_in is not None),
+        "factor_projection_only": bool(
+            factor_gene_clusters_in is not None or factor_gene_set_clusters_in is not None
+        ),
         "factor_gene_clusters_in": factor_gene_clusters_in,
+        "factor_gene_set_clusters_in": factor_gene_set_clusters_in,
         "factor_phewas_projection_only": bool(
             factor_gene_clusters_in is not None and bool(domain.options.run_factor_phewas)
         ),
@@ -228,11 +232,18 @@ def build_main_mode_state(domain):
 
 def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     if mode_state.get("factor_projection_only"):
-        load_existing_factor_gene_clusters(
-            domain,
-            runtime,
-            options.factor_gene_clusters_in,
-        )
+        if options.factor_gene_clusters_in is not None:
+            load_existing_factor_gene_clusters(
+                domain,
+                runtime,
+                options.factor_gene_clusters_in,
+            )
+        if options.factor_gene_set_clusters_in is not None:
+            load_existing_factor_gene_set_clusters(
+                domain,
+                runtime,
+                options.factor_gene_set_clusters_in,
+            )
         if options.gene_stats_in is not None:
             domain._run_read_y_stage(
                 runtime,
@@ -508,6 +519,128 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
     }
 
 
+def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in):
+    """Load prior EAGGL gene-set-cluster factor loadings for projection-only outputs."""
+    if gene_set_clusters_in is None:
+        domain.bail("Projection-only gene-set factor outputs require --factor-gene-set-clusters-in")
+
+    gene_sets = []
+    gene_set_to_ind = {}
+    loadings = []
+    used_to_factor_values = []
+    beta_values = []
+    beta_uncorrected_values = []
+    labels_by_factor_index = {}
+
+    with domain.open_gz(gene_set_clusters_in, "r") as input_fh:
+        reader = csv.DictReader(input_fh, delimiter="\t")
+        if reader.fieldnames is None:
+            domain.bail("Empty gene-set-clusters file: %s" % gene_set_clusters_in)
+
+        raw_factor_columns = []
+        for column_name in reader.fieldnames:
+            factor_number = _parse_factor_number(column_name)
+            if factor_number is not None:
+                raw_factor_columns.append((factor_number, column_name))
+        raw_factor_columns.sort(key=lambda x: x[0])
+        factor_columns = [column_name for _, column_name in raw_factor_columns]
+        if len(factor_columns) == 0:
+            domain.bail(
+                "Could not find raw Factor1..FactorK loading columns in %s"
+                % gene_set_clusters_in
+            )
+
+        for row_number, row in enumerate(reader, start=2):
+            gene_set = row.get("Gene_Set")
+            if gene_set is None or gene_set == "":
+                domain.bail("Missing Gene_Set value in %s at row %d" % (gene_set_clusters_in, row_number))
+            if gene_set in gene_set_to_ind:
+                domain.bail(
+                    "Duplicate Gene_Set value in %s: %s. Projection-only input expects the standard "
+                    "non-anchor gene_set_clusters output, not anchor-specific duplicated rows."
+                    % (gene_set_clusters_in, gene_set)
+                )
+
+            gene_set_to_ind[gene_set] = len(gene_sets)
+            gene_sets.append(gene_set)
+            row_loadings = []
+            for column_name in factor_columns:
+                value = _coerce_optional_float(
+                    row.get(column_name),
+                    field_name=column_name,
+                    row_name=gene_set,
+                    domain=domain,
+                )
+                row_loadings.append(0.0 if value is None else value)
+            loadings.append(row_loadings)
+
+            raw_used_to_factor = row.get("used_to_factor")
+            if raw_used_to_factor is None or raw_used_to_factor == "":
+                used_to_factor_values.append(True)
+            else:
+                used_to_factor_values.append(str(raw_used_to_factor).strip().lower() in set(["1", "true", "t", "yes", "y"]))
+
+            beta_values.append(
+                _coerce_optional_float(row.get("beta"), field_name="beta", row_name=gene_set, domain=domain)
+            )
+            beta_uncorrected_values.append(
+                _coerce_optional_float(row.get("beta_uncorrected"), field_name="beta_uncorrected", row_name=gene_set, domain=domain)
+            )
+
+            cluster_name = row.get("cluster")
+            label = row.get("label")
+            factor_index = _parse_factor_number(cluster_name) if cluster_name is not None else None
+            if factor_index is not None and label not in (None, ""):
+                labels_by_factor_index.setdefault(factor_index - 1, label)
+
+    if len(gene_sets) == 0:
+        domain.bail("No gene sets found in gene-set-clusters file: %s" % gene_set_clusters_in)
+
+    factor_matrix = np.asarray(loadings, dtype=float)
+    num_factors = factor_matrix.shape[1]
+    existing_lambdak = getattr(runtime, "exp_lambdak", None)
+    if existing_lambdak is not None and len(existing_lambdak) != num_factors:
+        domain.bail(
+            "Precomputed gene and gene-set factor tables disagree on factor count: %d vs %d"
+            % (len(existing_lambdak), num_factors)
+        )
+
+    runtime.gene_sets = gene_sets
+    runtime.gene_set_to_ind = gene_set_to_ind
+    runtime.exp_gene_set_factors = factor_matrix
+    runtime.exp_lambdak = np.ones(num_factors, dtype=float)
+    runtime.gene_set_factor_gene_set_mask = np.asarray(used_to_factor_values, dtype=bool)
+    if getattr(runtime, "factor_labels", None) is None:
+        runtime.factor_labels = [
+            labels_by_factor_index.get(i, "Factor%d" % (i + 1))
+            for i in range(num_factors)
+        ]
+
+    if all(value is not None for value in beta_values):
+        runtime.betas = np.asarray(beta_values, dtype=float)
+    if all(value is not None for value in beta_uncorrected_values):
+        runtime.betas_uncorrected = np.asarray(beta_uncorrected_values, dtype=float)
+
+    runtime._record_params(
+        {
+            "factor_gene_set_clusters_in": gene_set_clusters_in,
+            "factor_projection_only": True,
+            "factor_projection_only_num_gene_sets": len(gene_sets),
+            "factor_projection_only_gene_set_num_factors": num_factors,
+        },
+        overwrite=True,
+    )
+    domain.log(
+        "Loaded %d gene sets x %d factors from %s for projection-only EAGGL outputs"
+        % (len(gene_sets), num_factors, gene_set_clusters_in),
+        domain.INFO,
+    )
+    return {
+        "num_gene_sets": len(gene_sets),
+        "num_factors": num_factors,
+    }
+
+
 def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in):
     """Compatibility wrapper for the legacy projection-only factor-PheWAS flag."""
     return load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in)
@@ -739,7 +872,20 @@ def run_main_pheno_projection_stage(domain, runtime, options):
         domain.log("No factors; not projecting pheno clusters")
         return PhewasStageResult(ran=False, output_path=options.pheno_clusters_out)
 
-    if not domain._has_loaded_gene_phewas(runtime):
+    if options.project_phenos_from_gene_sets:
+        if runtime.X_phewas_beta_uncorrected is None:
+            domain._read_gene_set_phewas_statistics(
+                runtime,
+                options.gene_set_phewas_stats_in,
+                stats_id_col=options.gene_set_phewas_stats_id_col,
+                stats_pheno_col=options.gene_set_phewas_stats_pheno_col,
+                stats_beta_col=options.gene_set_phewas_stats_beta_col,
+                stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col,
+                min_gene_set_beta=getattr(options, "min_gene_set_read_beta", None),
+                min_gene_set_beta_uncorrected=getattr(options, "min_gene_set_read_beta_uncorrected", None),
+                max_num_entries_at_once=getattr(options, "max_read_entries_at_once", None),
+            )
+    elif not domain._has_loaded_gene_phewas(runtime):
         domain._read_gene_phewas_bfs(
             runtime,
             gene_phewas_bfs_in=options.gene_phewas_bfs_in,
@@ -755,8 +901,9 @@ def run_main_pheno_projection_stage(domain, runtime, options):
             max_num_entries_at_once=options.max_read_entries_at_once,
         )
 
-    eaggl_factor_runtime.project_phenos_from_loaded_gene_factors(
+    eaggl_factor_runtime.project_phenos_from_loaded_factors(
         runtime,
+        project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
         pheno_capture_input=options.pheno_capture_input,
         bail_fn=domain.bail,
         log_fn=domain.log,

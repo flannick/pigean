@@ -70,6 +70,10 @@ def _options(**overrides):
         anchor_any_gene=False,
         anchor_gene_set=False,
         factor_phewas_full_output=False,
+        factor_gene_clusters_in=None,
+        factor_gene_set_clusters_in=None,
+        min_gene_set_read_beta=1e-20,
+        min_gene_set_read_beta_uncorrected=1e-20,
         anchor_genes=None,
         anchor_phenos=None,
         gene_list_in=None,
@@ -81,6 +85,10 @@ def _options(**overrides):
         positive_controls_list=None,
         positive_controls_all_in=None,
         gene_set_phewas_stats_in=None,
+        gene_set_phewas_stats_id_col="Gene_Set",
+        gene_set_phewas_stats_pheno_col=None,
+        gene_set_phewas_stats_beta_col=None,
+        gene_set_phewas_stats_beta_uncorrected_col=None,
         gene_phewas_bfs_in=None,
         gene_phewas_bfs_id_col=None,
         gene_phewas_bfs_pheno_col=None,
@@ -544,6 +552,85 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertGreater(runtime.exp_pheno_factors[1, 1], runtime.exp_pheno_factors[1, 0])
         self.assertIn("capture_strength", content)
         self.assertIn("capture_basis", content)
+        self.assertIn("TraitA", content)
+        self.assertIn("TraitB", content)
+
+    def test_load_existing_factor_gene_set_clusters_sets_gene_set_factor_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gene_set_clusters = Path(tmpdir) / "gene_set_clusters.out"
+            gene_set_clusters.write_text(
+                "\t".join(["Gene_Set", "beta_uncorrected", "used_to_factor", "cluster", "label", "Factor1", "Factor2"])
+                + "\n"
+                + "GS1\t0.8\tTrue\tFactor1\timmune\t0.9\t0.1\n"
+                + "GS2\t0.4\tFalse\tFactor2\tmetabolic\t0.2\t0.8\n",
+                encoding="utf-8",
+            )
+
+            runtime = _ProjectionOnlyRuntimeStub()
+            domain = eaggl.build_main_domain()
+            result = eaggl.eaggl_factor.load_existing_factor_gene_set_clusters(
+                domain,
+                runtime,
+                str(gene_set_clusters),
+            )
+
+        self.assertEqual(result["num_gene_sets"], 2)
+        self.assertEqual(result["num_factors"], 2)
+        self.assertEqual(runtime.gene_sets, ["GS1", "GS2"])
+        self.assertEqual(runtime.gene_set_to_ind["GS2"], 1)
+        np.testing.assert_allclose(runtime.exp_gene_set_factors, [[0.9, 0.1], [0.2, 0.8]])
+        np.testing.assert_array_equal(runtime.gene_set_factor_gene_set_mask, [True, False])
+        np.testing.assert_allclose(runtime.betas_uncorrected, [0.8, 0.4])
+        self.assertEqual(runtime.factor_labels, ["immune", "metabolic"])
+
+    def test_projection_only_pheno_cluster_stage_projects_from_gene_set_factors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            gene_set_clusters = tmpdir_path / "gene_set_clusters.out"
+            gene_set_clusters.write_text(
+                "\t".join(["Gene_Set", "used_to_factor", "cluster", "label", "Factor1", "Factor2"])
+                + "\n"
+                + "GS1\tTrue\tFactor1\timmune\t1.0\t0.0\n"
+                + "GS2\tTrue\tFactor2\tmetabolic\t0.0\t1.0\n",
+                encoding="utf-8",
+            )
+            gene_set_phewas = tmpdir_path / "gene_set_phewas.tsv"
+            gene_set_phewas.write_text(
+                "Gene_Set\tPheno\tbeta_uncorrected\tbeta\n"
+                "GS1\tTraitA\t2.0\t1.0\n"
+                "GS2\tTraitA\t0.0\t0.0\n"
+                "GS1\tTraitB\t0.0\t0.0\n"
+                "GS2\tTraitB\t3.0\t1.5\n",
+                encoding="utf-8",
+            )
+            pheno_clusters = tmpdir_path / "pheno_clusters.out.gz"
+
+            runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+            domain = eaggl.build_main_domain()
+            eaggl.eaggl_factor.load_existing_factor_gene_set_clusters(domain, runtime, str(gene_set_clusters))
+            options = _options(
+                factor_gene_set_clusters_in=str(gene_set_clusters),
+                gene_set_phewas_stats_in=str(gene_set_phewas),
+                project_phenos_from_gene_sets=True,
+                pheno_clusters_out=str(pheno_clusters),
+                pheno_capture_input="weighted_thresholded",
+            )
+            result = eaggl.eaggl_factor.run_main_pheno_projection_stage(domain, runtime, options)
+            runtime.write_clusters(None, None, str(pheno_clusters))
+
+            import gzip
+
+            with gzip.open(pheno_clusters, "rt", encoding="utf-8") as fh:
+                content = fh.read()
+
+        self.assertTrue(result.ran)
+        self.assertEqual(result.output_path, str(pheno_clusters))
+        self.assertEqual(runtime.phenos, ["TraitA", "TraitB"])
+        self.assertEqual(runtime.exp_pheno_factors.shape, (2, 2))
+        self.assertGreater(runtime.exp_pheno_factors[0, 0], runtime.exp_pheno_factors[0, 1])
+        self.assertGreater(runtime.exp_pheno_factors[1, 1], runtime.exp_pheno_factors[1, 0])
+        self.assertIn("capture_basis", content)
+        self.assertIn("gene_sets", content)
         self.assertIn("TraitA", content)
         self.assertIn("TraitB", content)
 

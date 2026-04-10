@@ -276,7 +276,7 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--factor-gene-clusters-in", "gene_clusters.out.gz")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--factor-gene-clusters-in requires --run-factor-phewas or --pheno-clusters-out", err)
+        self.assertIn("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires --run-factor-phewas or --pheno-clusters-out", err)
 
     def test_projection_only_pheno_clusters_requires_gene_phewas_input(self) -> None:
         proc = self._run(
@@ -289,6 +289,31 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in", err)
+
+    def test_projection_only_gene_set_pheno_clusters_requires_gene_set_inputs(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--project-phenos-from-gene-sets",
+            "--pheno-clusters-out",
+            "pheno_clusters.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--project-phenos-from-gene-sets with precomputed factors requires --factor-gene-set-clusters-in", err)
+
+        proc = self._run(
+            "factor",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--project-phenos-from-gene-sets",
+            "--pheno-clusters-out",
+            "pheno_clusters.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--project-phenos-from-gene-sets with precomputed factors requires --gene-set-phewas-stats-in", err)
 
     def test_projection_only_factor_phewas_flag_round_trip(self) -> None:
         proc = self._run(
@@ -346,6 +371,25 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["factor_gene_clusters_in"], "gene_clusters.out.gz")
         self.assertEqual(payload["options"]["pheno_clusters_out"], "pheno_clusters.tsv.gz")
         self.assertEqual(payload["options"]["factor_phewas_stats_out"], "factor_phewas.tsv.gz")
+
+    def test_projection_only_gene_set_pheno_clusters_flag_round_trip(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--gene-set-phewas-stats-in",
+            "gene_set_phewas.tsv",
+            "--project-phenos-from-gene-sets",
+            "--pheno-clusters-out",
+            "pheno_clusters.tsv.gz",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["factor_gene_set_clusters_in"], "gene_set_clusters.out.gz")
+        self.assertEqual(payload["options"]["gene_set_phewas_stats_in"], "gene_set_phewas.tsv")
+        self.assertTrue(payload["options"]["project_phenos_from_gene_sets"])
+        self.assertEqual(payload["options"]["pheno_clusters_out"], "pheno_clusters.tsv.gz")
 
     def test_legacy_run_phewas_alias_normalizes_to_run_flag(self) -> None:
         proc = self._run(
