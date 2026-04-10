@@ -533,7 +533,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-set-stats-p-col": "p-value column mapping for advanced gene-set stats ingestion",
     "--gene-set-stats-out": "write the final gene-set statistics table",
     "--gene-stats-out": "write the final gene-level statistics table",
-    "--gene-stats-output-scope": "control whether gene-stats-out writes only the active analysis universe or the legacy expanded view with missing genes",
+    "--gene-stats-output-scope": "control whether gene-stats-out writes only the selected universe or all tracked genes outside it; choices: universe, all (current is a compatibility alias for all)",
     "--gene-loc-file": "gene location table used for correlation and locus-aware operations",
     "--gene-loc-file-huge": "gene location table used during HuGE score construction",
     "--gwas-in": "load GWAS summary statistics as the primary HuGE input",
@@ -1390,8 +1390,8 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     num_gene_universe_modes = int(_options.gene_universe_in is not None) + int(bool(_options.gene_universe_from_y)) + int(bool(_options.gene_universe_from_x))
     if num_gene_universe_modes > 1:
         bail("Specify at most one of --gene-universe-in, --gene-universe-from-y, or --gene-universe-from-x")
-    if _options.gene_stats_output_scope not in ("universe", "current"):
-        bail("Option --gene-stats-output-scope must be one of: universe, current")
+    if _options.gene_stats_output_scope not in ("universe", "current", "all"):
+        bail("Option --gene-stats-output-scope must be one of: universe, all")
 
     gene_set_stats_col_flags = (
         ("gene_set_stats_id_col", "--gene-set-stats-id-col"),

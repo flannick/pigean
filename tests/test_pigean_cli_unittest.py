@@ -457,18 +457,28 @@ class PigeanCliTest(unittest.TestCase):
         proc = self._run(
             "gibbs",
             "--gene-stats-output-scope",
-            "current",
+            "all",
             "--print-effective-config",
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
-        self.assertEqual(payload["options"]["gene_stats_output_scope"], "current")
+        self.assertEqual(payload["options"]["gene_stats_output_scope"], "all")
+
+        compat_proc = self._run(
+            "gibbs",
+            "--gene-stats-output-scope",
+            "current",
+            "--print-effective-config",
+        )
+        self.assertEqual(compat_proc.returncode, 0, msg=(compat_proc.stderr or "") + (compat_proc.stdout or ""))
+        compat_payload = json.loads(compat_proc.stdout)
+        self.assertEqual(compat_payload["options"]["gene_stats_output_scope"], "current")
 
     def test_gene_stats_output_scope_rejects_invalid_value(self) -> None:
         proc = self._run("gibbs", "--gene-stats-output-scope", "bad")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("Option --gene-stats-output-scope must be one of: universe, current", err)
+        self.assertIn("Option --gene-stats-output-scope must be one of: universe, all", err)
 
     def test_gene_stats_input_with_metric_z_zero_disables_qc_prefilter(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -555,7 +565,7 @@ NEUROD1\t0.7\t1.2
                 encoding="utf-8",
             )
             default_out = tmp_path / "default_gene_stats.out"
-            current_out = tmp_path / "current_gene_stats.out"
+            all_out = tmp_path / "all_gene_stats.out"
 
             common_prefix = [
                 sys.executable,
@@ -604,22 +614,22 @@ NEUROD1\t0.7\t1.2
             )
             self.assertEqual(default_proc.returncode, 0, msg=(default_proc.stderr or "") + (default_proc.stdout or ""))
 
-            current_proc = subprocess.run(
-                common_prefix + ["--gene-stats-out", str(current_out), "--gene-stats-output-scope", "current"],
+            all_proc = subprocess.run(
+                common_prefix + ["--gene-stats-out", str(all_out), "--gene-stats-output-scope", "all"],
                 cwd=repo_root,
                 env=self._base_env(repo_root),
                 capture_output=True,
                 text=True,
                 check=False,
             )
-            self.assertEqual(current_proc.returncode, 0, msg=(current_proc.stderr or "") + (current_proc.stdout or ""))
+            self.assertEqual(all_proc.returncode, 0, msg=(all_proc.stderr or "") + (all_proc.stdout or ""))
 
             default_text = default_out.read_text(encoding="utf-8")
-            current_text = current_out.read_text(encoding="utf-8")
+            all_text = all_out.read_text(encoding="utf-8")
             self.assertIn("KCNJ11", default_text)
             self.assertIn("GCK", default_text)
             self.assertNotIn("HNF1A", default_text)
-            self.assertIn("HNF1A", current_text)
+            self.assertIn("HNF1A", all_text)
 
     def test_removed_min_post_burn_alias_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--min-post-burn-in", "50")

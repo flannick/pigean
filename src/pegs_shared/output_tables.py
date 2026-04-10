@@ -87,6 +87,7 @@ def write_gene_statistics(
     if log_fn is None:
         log_fn = lambda _msg, _lvl=0: None
     log_fn("Writing gene stats to %s" % output_file, info_level)
+    include_outside_universe = gene_stats_output_scope in ("current", "all")
 
     with open_text_fn(output_file, 'w') as output_fh:
         if runtime.genes is not None:
@@ -101,15 +102,16 @@ def write_gene_statistics(
             return
 
         huge_only_genes = set()
-        if runtime.gene_to_huge_score is not None:
-            huge_only_genes = set(runtime.gene_to_huge_score.keys()) - set(genes)
-        if runtime.gene_to_gwas_huge_score is not None:
-            huge_only_genes = set(runtime.gene_to_gwas_huge_score.keys()) - set(genes) - set(huge_only_genes)
-        if runtime.gene_to_exomes_huge_score is not None:
-            huge_only_genes = set(runtime.gene_to_exomes_huge_score.keys()) - set(genes) - set(huge_only_genes)
+        if include_outside_universe:
+            if runtime.gene_to_huge_score is not None:
+                huge_only_genes = set(runtime.gene_to_huge_score.keys()) - set(genes)
+            if runtime.gene_to_gwas_huge_score is not None:
+                huge_only_genes = set(runtime.gene_to_gwas_huge_score.keys()) - set(genes) - set(huge_only_genes)
+            if runtime.gene_to_exomes_huge_score is not None:
+                huge_only_genes = set(runtime.gene_to_exomes_huge_score.keys()) - set(genes) - set(huge_only_genes)
 
-        if runtime.genes_missing is not None:
-            huge_only_genes = huge_only_genes - set(runtime.genes_missing)
+            if runtime.genes_missing is not None:
+                huge_only_genes = huge_only_genes - set(runtime.genes_missing)
 
         huge_only_genes = list(huge_only_genes)
 
@@ -273,7 +275,7 @@ def write_gene_statistics(
 
             output_fh.write("%s\n" % line)
 
-        if gene_stats_output_scope == "current" and runtime.genes_missing is not None:
+        if include_outside_universe and runtime.genes_missing is not None:
             gene_N_missing = runtime.get_gene_N(get_missing=True)
 
             for i in range(len(runtime.genes_missing)):
