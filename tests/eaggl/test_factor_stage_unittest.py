@@ -184,6 +184,66 @@ class _ProjectionOnlyRuntimeStub:
 
 
 class FactorStageHelpersTest(unittest.TestCase):
+    def test_eaggl_state_run_factor_filters_legacy_wrapper_kwargs(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        captured = {}
+
+        def _stub_run_factor(
+            state,
+            *,
+            factor_backend="full",
+            blockwise_gene_set_block_size=5000,
+            blockwise_epochs=3,
+            blockwise_shuffle_blocks=True,
+            blockwise_warm_start=True,
+            blockwise_max_blocks=None,
+            blockwise_report_out=None,
+            bail_fn=None,
+            warn_fn=None,
+            log_fn=None,
+            info_level=None,
+            debug_level=None,
+            trace_level=None,
+            labeling_module=None,
+        ):
+            captured.update(
+                {
+                    "state": state,
+                    "factor_backend": factor_backend,
+                    "blockwise_gene_set_block_size": blockwise_gene_set_block_size,
+                    "blockwise_epochs": blockwise_epochs,
+                    "blockwise_shuffle_blocks": blockwise_shuffle_blocks,
+                    "blockwise_warm_start": blockwise_warm_start,
+                    "blockwise_max_blocks": blockwise_max_blocks,
+                    "blockwise_report_out": blockwise_report_out,
+                }
+            )
+            return "stubbed"
+
+        with mock.patch.object(eaggl.eaggl_state._eaggl_factor_runtime, "run_factor", new=_stub_run_factor):
+            result = runtime.run_factor(
+                factor_backend="blockwise_global_w",
+                max_num_gene_sets=1234,
+                gene_set_budget_mode="pruned",
+                learn_phi_gene_set_budget_mode="sentinel_pruned",
+                online_block_size=777,
+                online_epochs=6,
+                online_shuffle_blocks=False,
+                online_warm_start=False,
+                online_max_blocks=4,
+                online_report_out="legacy_report.tsv.gz",
+            )
+
+        self.assertEqual(result, "stubbed")
+        self.assertIs(captured["state"], runtime)
+        self.assertEqual(captured["factor_backend"], "blockwise_global_w")
+        self.assertEqual(captured["blockwise_gene_set_block_size"], 777)
+        self.assertEqual(captured["blockwise_epochs"], 6)
+        self.assertFalse(captured["blockwise_shuffle_blocks"])
+        self.assertFalse(captured["blockwise_warm_start"])
+        self.assertEqual(captured["blockwise_max_blocks"], 4)
+        self.assertEqual(captured["blockwise_report_out"], "legacy_report.tsv.gz")
+
     def test_zero_uncorrected_filter_hook_accepts_shared_runtime_kwargs(self) -> None:
         runtime = SimpleNamespace(p_values=None, gene_sets=[])
         sort_rank = [1.0, 0.5]
