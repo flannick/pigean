@@ -192,6 +192,7 @@ parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_l
 
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
 parser.add_option("","--run-factor-phewas",action="store_true",default=False) #run the optional factor-level phewas stage
+parser.add_option("","--factor-phewas-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run only the factor-phewas projection stage
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",dest="factor_phewas_legacy_input",default=None) #compatibility alias: implies --run-factor-phewas and sets the stage-specific gene phewas input
 parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
 parser.add_option("","--factor-phewas-modes",type="string",action="callback",callback=get_comma_separated_args,default=None) #comma-separated expert override to run multiple factor-phewas model surfaces in one pass
@@ -450,6 +451,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
     "--factor-phewas-modes": "expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table",
     "--factor-phewas-anchor-covariate": "choose the anchor covariate for binary factor-phewas modes: direct, combined, or none",
+    "--factor-phewas-gene-clusters-in": "load an existing gene_clusters.out(.gz) table and run only factor-phewas without refitting factors",
     "--factor-phewas-thresholded-combined-cutoff": "set the combined-support cutoff used to define thresholded phenotype hits for binary factor-phewas",
     "--factor-phewas-se": "choose the uncertainty estimator for binary factor-phewas: robust or none",
     "--factor-phewas-full-output": "expose the full expert factor-phewas surface, including combined and huber variants",
@@ -542,6 +544,7 @@ _EXPERT_METHOD_FLAGS = {
     "--factor-phewas-anchor-covariate",
     "--factor-phewas-full-output",
     "--factor-phewas-from-gene-phewas-stats-in",
+    "--factor-phewas-gene-clusters-in",
     "--factor-phewas-min-gene-factor-weight",
     "--factor-phewas-mode",
     "--factor-phewas-modes",
@@ -1333,6 +1336,8 @@ def _bootstrap_cli(argv=None):
         bail("--run-factor-phewas requires --gene-phewas-stats-in")
     if parsed_options.run_factor_phewas and parsed_options.factor_phewas_stats_out is None:
         bail("--run-factor-phewas requires --factor-phewas-stats-out")
+    if parsed_options.factor_phewas_gene_clusters_in is not None and not parsed_options.run_factor_phewas:
+        bail("--factor-phewas-gene-clusters-in requires --run-factor-phewas")
     if parsed_options.consensus_aggregation not in set(["median", "mean"]):
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < parsed_options.consensus_min_factor_cosine <= 1):
@@ -1413,8 +1418,15 @@ def _bootstrap_cli(argv=None):
 
         if error is not None:
             bail("Cannot run factoring type: %s. %s" % (factor_type, error))
-        log("Running factoring type: %s [workflow=%s]" % (factor_type, parsed_factor_workflow["id"]))
-        _warn_for_factor_workflow_inputs(parsed_options, parsed_factor_workflow)
+        if parsed_options.factor_phewas_gene_clusters_in is not None:
+            parsed_run_factor = False
+            log(
+                "Running projection-only factor PheWAS from %s"
+                % parsed_options.factor_phewas_gene_clusters_in
+            )
+        else:
+            log("Running factoring type: %s [workflow=%s]" % (factor_type, parsed_factor_workflow["id"]))
+            _warn_for_factor_workflow_inputs(parsed_options, parsed_factor_workflow)
     else:
         bail("Unrecognized mode %s" % parsed_mode)
 

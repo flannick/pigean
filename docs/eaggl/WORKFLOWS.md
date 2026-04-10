@@ -89,6 +89,7 @@ Phenotype annotation policy:
 7. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
 8. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
 9. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
+10. to rerun only factor-PheWAS from existing EAGGL factors, pass `--run-factor-phewas --factor-phewas-gene-clusters-in results/gene_clusters.out.gz --gene-phewas-stats-in ... --factor-phewas-stats-out ...`; this loads the raw factor loading columns from the prior `gene_clusters.out(.gz)` output and skips factor refitting
 
 Bundle mode:
 

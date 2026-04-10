@@ -156,6 +156,17 @@ class _FactorPhewasRuntimeStub:
         self.output_path = path
 
 
+class _ProjectionOnlyRuntimeStub:
+    def __init__(self) -> None:
+        self.recorded_params = []
+
+    def _record_params(self, params, overwrite=False):
+        self.recorded_params.append((dict(params), overwrite))
+
+    def num_factors(self):
+        return 0 if getattr(self, "exp_lambdak", None) is None else len(self.exp_lambdak)
+
+
 class FactorStageHelpersTest(unittest.TestCase):
     def test_zero_uncorrected_filter_hook_accepts_shared_runtime_kwargs(self) -> None:
         runtime = SimpleNamespace(p_values=None, gene_sets=[])
@@ -407,6 +418,63 @@ class FactorStageHelpersTest(unittest.TestCase):
     def test_workflow_classifies_positive_control_aliases_as_f2(self) -> None:
         workflow = eaggl._classify_factor_workflow(_options(positive_controls_list=["INS"]))
         self.assertEqual(workflow["id"], "F2")
+
+    def test_load_existing_factor_phewas_gene_clusters_sets_gene_factor_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gene_clusters = Path(tmpdir) / "gene_clusters.out"
+            gene_clusters.write_text(
+                "\t".join(
+                    [
+                        "Gene",
+                        "combined",
+                        "log_bf",
+                        "prior",
+                        "used_to_factor",
+                        "cluster",
+                        "label",
+                        "Factor1",
+                        "Factor2",
+                        "Relative_Factor1",
+                        "Relative_Factor2",
+                        "Combined_Factor1",
+                        "Combined_Factor2",
+                    ]
+                )
+                + "\n"
+                + "GENE1\t1.5\t0.7\t0.1\tTrue\tFactor1\timmune\t0.8\t0.2\t1\t0.25\t0.7\t0.1\n"
+                + "GENE2\t0.5\t0.2\t0.05\tTrue\tFactor2\tmetabolic\t0.1\t0.9\t0.125\t1\t0.05\t0.8\n",
+                encoding="utf-8",
+            )
+
+            runtime = _ProjectionOnlyRuntimeStub()
+            domain = eaggl.build_main_domain()
+            result = eaggl.eaggl_factor.load_existing_factor_phewas_gene_clusters(
+                domain,
+                runtime,
+                str(gene_clusters),
+            )
+
+        self.assertEqual(result["num_genes"], 2)
+        self.assertEqual(result["num_factors"], 2)
+        self.assertEqual(runtime.genes, ["GENE1", "GENE2"])
+        self.assertEqual(runtime.gene_to_ind["GENE2"], 1)
+        np.testing.assert_allclose(runtime.exp_gene_factors, [[0.8, 0.2], [0.1, 0.9]])
+        np.testing.assert_allclose(runtime.Y, [0.7, 0.2])
+        np.testing.assert_allclose(runtime.combined_prior_Ys, [1.5, 0.5])
+        np.testing.assert_allclose(runtime.priors, [0.1, 0.05])
+        self.assertEqual(runtime.factor_labels, ["immune", "metabolic"])
+        self.assertEqual(runtime.num_factors(), 2)
+
+    def test_projection_only_factor_phewas_stage_gate_does_not_require_factor_fit(self) -> None:
+        self.assertTrue(
+            eaggl.eaggl_factor.should_run_main_factor_phewas_stage(
+                {
+                    "run_factor": False,
+                    "run_factor_phewas": True,
+                    "factor_phewas_projection_only": True,
+                }
+            )
+        )
 
     def test_run_main_factor_phewas_stage_invokes_eaggl_phewas_runner(self) -> None:
         runtime = _FactorPhewasRuntimeStub()

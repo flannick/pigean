@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `234`
+- Total options: `235`
 - `method_required`: `16`
-- `method_optional`: `130`
+- `method_optional`: `131`
 - `engineering`: `71`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `194`
+- visibility `expert`: `195`
 - visibility `hidden`: `8`
 - visibility `normal`: `32`
 
@@ -64,6 +64,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
+| `--factor-phewas-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_gene_clusters_in` | `None` | load an existing gene_clusters.out(.gz) table and run only factor-phewas without refitting factors |
 | `--factor-phewas-min-gene-factor-weight` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_min_gene_factor_weight` | `0.0` | - |
 | `--factor-phewas-mode` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_mode` | `marginal_anchor_adjusted_binary` | choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment |
 | `--factor-phewas-modes` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_modes` | `None` | expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table |

@@ -266,6 +266,30 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--run-factor-phewas requires --factor-phewas-stats-out", err)
 
+    def test_projection_only_factor_phewas_requires_run_flag(self) -> None:
+        proc = self._run("factor", "--factor-phewas-gene-clusters-in", "gene_clusters.out.gz")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--factor-phewas-gene-clusters-in requires --run-factor-phewas", err)
+
+    def test_projection_only_factor_phewas_flag_round_trip(self) -> None:
+        proc = self._run(
+            "factor",
+            "--run-factor-phewas",
+            "--factor-phewas-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--gene-phewas-stats-in",
+            "gene_phewas.tsv",
+            "--factor-phewas-stats-out",
+            "factor_phewas.tsv.gz",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["run_factor_phewas"])
+        self.assertEqual(payload["options"]["factor_phewas_gene_clusters_in"], "gene_clusters.out.gz")
+        self.assertEqual(payload["options"]["run_factor_phewas_input"], "gene_phewas.tsv")
+
     def test_legacy_run_phewas_alias_normalizes_to_run_flag(self) -> None:
         proc = self._run(
             "factor",

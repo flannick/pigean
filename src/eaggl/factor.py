@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import csv
+import re
 from dataclasses import dataclass, field
+
+import numpy as np
 
 from . import gene_list_inputs as eaggl_gene_list_inputs
 from . import phewas as eaggl_phewas
@@ -206,6 +210,9 @@ def build_main_mode_state(domain):
         "run_factor": domain.run_factor,
         "run_phewas": domain.run_phewas,
         "run_factor_phewas": bool(domain.options.run_factor_phewas),
+        "factor_phewas_projection_only": bool(
+            getattr(domain.options, "factor_phewas_gene_clusters_in", None) is not None
+        ),
         "run_naive_factor": domain.run_naive_factor,
         "use_phewas_for_factoring": domain.use_phewas_for_factoring,
         "factor_gene_set_x_pheno": domain.factor_gene_set_x_pheno,
@@ -215,6 +222,27 @@ def build_main_mode_state(domain):
 
 
 def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
+    if mode_state.get("factor_phewas_projection_only"):
+        load_existing_factor_phewas_gene_clusters(
+            domain,
+            runtime,
+            options.factor_phewas_gene_clusters_in,
+        )
+        if options.gene_stats_in is not None:
+            domain._run_read_y_stage(
+                runtime,
+                gene_bfs_in=options.gene_stats_in,
+                show_progress=not options.hide_progress,
+                gene_bfs_id_col=options.gene_stats_id_col,
+                gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
+                gene_bfs_combined_col=options.gene_stats_combined_col,
+                gene_bfs_prob_col=options.gene_stats_prob_col,
+                gene_bfs_prior_col=options.gene_stats_prior_col,
+                gene_covs_in=options.gene_covs_in,
+                hold_out_chrom=options.hold_out_chrom,
+            )
+        return FactorInputs()
+
     current_workflow = mode_state.get("factor_workflow")
     workflow_id = current_workflow.get("id") if isinstance(current_workflow, dict) else None
 
@@ -335,6 +363,137 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     if mode_state["run_factor"]:
         factor_input_state = load_factor_phewas_inputs(domain, runtime, options)
     return factor_input_state
+
+
+def _parse_factor_number(column_name, prefix="Factor"):
+    match = re.fullmatch(r"%s([0-9]+)" % re.escape(prefix), column_name)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def _coerce_optional_float(raw_value, *, field_name, row_name, domain):
+    if raw_value is None or raw_value == "":
+        return None
+    try:
+        return float(raw_value)
+    except ValueError:
+        domain.bail(
+            "Could not parse numeric value for %s in %s: %s"
+            % (field_name, row_name, raw_value)
+        )
+
+
+def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in):
+    """Load prior EAGGL gene-cluster factor loadings for projection-only factor PheWAS."""
+    if gene_clusters_in is None:
+        domain.bail("Projection-only factor PheWAS requires --factor-phewas-gene-clusters-in")
+
+    genes = []
+    gene_to_ind = {}
+    loadings = []
+    combined_values = []
+    y_values = []
+    prior_values = []
+    labels_by_factor_index = {}
+
+    with domain.open_gz(gene_clusters_in, "r") as input_fh:
+        reader = csv.DictReader(input_fh, delimiter="\t")
+        if reader.fieldnames is None:
+            domain.bail("Empty gene-clusters file: %s" % gene_clusters_in)
+
+        raw_factor_columns = []
+        for column_name in reader.fieldnames:
+            factor_number = _parse_factor_number(column_name)
+            if factor_number is not None:
+                raw_factor_columns.append((factor_number, column_name))
+        raw_factor_columns.sort(key=lambda x: x[0])
+        factor_columns = [column_name for _, column_name in raw_factor_columns]
+        if len(factor_columns) == 0:
+            domain.bail(
+                "Could not find raw Factor1..FactorK loading columns in %s"
+                % gene_clusters_in
+            )
+
+        for row_number, row in enumerate(reader, start=2):
+            gene = row.get("Gene")
+            if gene is None or gene == "":
+                domain.bail("Missing Gene value in %s at row %d" % (gene_clusters_in, row_number))
+            if gene in gene_to_ind:
+                domain.bail(
+                    "Duplicate Gene value in %s: %s. Projection-only input expects the standard "
+                    "non-anchor gene_clusters output, not anchor-specific duplicated rows."
+                    % (gene_clusters_in, gene)
+                )
+
+            gene_to_ind[gene] = len(genes)
+            genes.append(gene)
+            row_loadings = []
+            for column_name in factor_columns:
+                value = _coerce_optional_float(
+                    row.get(column_name),
+                    field_name=column_name,
+                    row_name=gene,
+                    domain=domain,
+                )
+                row_loadings.append(0.0 if value is None else value)
+            loadings.append(row_loadings)
+
+            combined_values.append(
+                _coerce_optional_float(row.get("combined"), field_name="combined", row_name=gene, domain=domain)
+            )
+            y_values.append(
+                _coerce_optional_float(row.get("log_bf"), field_name="log_bf", row_name=gene, domain=domain)
+            )
+            prior_values.append(
+                _coerce_optional_float(row.get("prior"), field_name="prior", row_name=gene, domain=domain)
+            )
+
+            cluster_name = row.get("cluster")
+            label = row.get("label")
+            factor_index = _parse_factor_number(cluster_name) if cluster_name is not None else None
+            if factor_index is not None and label not in (None, ""):
+                labels_by_factor_index.setdefault(factor_index - 1, label)
+
+    if len(genes) == 0:
+        domain.bail("No genes found in gene-clusters file: %s" % gene_clusters_in)
+
+    factor_matrix = np.asarray(loadings, dtype=float)
+    num_factors = factor_matrix.shape[1]
+    runtime.genes = genes
+    runtime.gene_to_ind = gene_to_ind
+    runtime.exp_gene_factors = factor_matrix
+    runtime.exp_lambdak = np.ones(num_factors, dtype=float)
+    runtime.factor_labels = [
+        labels_by_factor_index.get(i, "Factor%d" % (i + 1))
+        for i in range(num_factors)
+    ]
+
+    if all(value is not None for value in combined_values):
+        runtime.combined_prior_Ys = np.asarray(combined_values, dtype=float)
+    if all(value is not None for value in y_values):
+        runtime.Y = np.asarray(y_values, dtype=float)
+    if all(value is not None for value in prior_values):
+        runtime.priors = np.asarray(prior_values, dtype=float)
+
+    runtime._record_params(
+        {
+            "factor_phewas_gene_clusters_in": gene_clusters_in,
+            "factor_phewas_projection_only": True,
+            "factor_phewas_projection_only_num_genes": len(genes),
+            "factor_phewas_projection_only_num_factors": num_factors,
+        },
+        overwrite=True,
+    )
+    domain.log(
+        "Loaded %d genes x %d factors from %s for projection-only factor PheWAS"
+        % (len(genes), num_factors, gene_clusters_in),
+        domain.INFO,
+    )
+    return {
+        "num_genes": len(genes),
+        "num_factors": num_factors,
+    }
 
 
 def load_factor_phewas_inputs(domain, runtime, options):
@@ -606,4 +765,7 @@ def run_main_factor_phewas_stage(domain, runtime, options):
 
 
 def should_run_main_factor_phewas_stage(mode_state):
-    return bool(mode_state["run_factor"] and mode_state["run_factor_phewas"])
+    return bool(
+        mode_state["run_factor_phewas"]
+        and (mode_state["run_factor"] or mode_state.get("factor_phewas_projection_only"))
+    )

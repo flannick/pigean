@@ -775,7 +775,7 @@ def run_phewas(state, gene_phewas_bfs_in=None, gene_phewas_bfs_id_col=None, gene
         bail("Require --gene-stats-in or --gene-phewas-bfs-in with a column for log_bf/Y in this operation")
 
     if run_for_factors:
-        if state.exp_gene_set_factors is None:
+        if state.exp_gene_factors is None:
             warn("Cannot run factor phewas without gene factors; skipping")
             return
         log("Running factor phewas", INFO)

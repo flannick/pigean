@@ -515,6 +515,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--factor-phewas-mode": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-modes": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-anchor-covariate": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
+            "--factor-phewas-gene-clusters-in": ["test_projection_only_factor_phewas_flag_round_trip"],
             "--factor-phewas-thresholded-combined-cutoff": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-se": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--project-phenos-from-gene-sets": ["test_reference_phewas_and_schema_flags_round_trip"],
