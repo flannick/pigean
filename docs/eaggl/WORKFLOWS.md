@@ -89,7 +89,28 @@ Phenotype annotation policy:
 7. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
 8. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
 9. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
-10. to rerun only factor-PheWAS from existing EAGGL factors, pass `--run-factor-phewas --factor-phewas-gene-clusters-in results/gene_clusters.out.gz --gene-phewas-stats-in ... --factor-phewas-stats-out ...`; this loads the raw factor loading columns from the prior `gene_clusters.out(.gz)` output and skips factor refitting
+10. to rerun projection outputs from existing EAGGL factors, pass `--factor-gene-clusters-in results/gene_clusters.out.gz`; add `--pheno-clusters-out ...` to write phenotype clusters, `--run-factor-phewas --factor-phewas-stats-out ...` to write factor-PheWAS, or both in the same command
+11. `--factor-phewas-gene-clusters-in` remains accepted as a compatibility alias for the factor-PheWAS-only projection path, but `--factor-gene-clusters-in` is the canonical precomputed-factor input
+
+Projection-only phenotype clusters:
+
+```bash
+$PYTHON -m eaggl factor \
+  --factor-gene-clusters-in results/gene_clusters.out.gz \
+  --gene-phewas-stats-in /path/to/gene_phewas_stats.out.gz \
+  --pheno-clusters-out results/pheno_clusters.projected.out.gz
+```
+
+Projection-only phenotype clusters plus factor-PheWAS:
+
+```bash
+$PYTHON -m eaggl factor \
+  --factor-gene-clusters-in results/gene_clusters.out.gz \
+  --gene-phewas-stats-in /path/to/gene_phewas_stats.out.gz \
+  --pheno-clusters-out results/pheno_clusters.projected.out.gz \
+  --run-factor-phewas \
+  --factor-phewas-stats-out results/factor_phewas_stats.out.gz
+```
 
 Bundle mode:
 

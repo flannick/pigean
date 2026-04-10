@@ -87,6 +87,12 @@ class EagglMainDomain(object):
     def _write_main_factor_outputs(self, runtime, options):
         return eaggl_outputs.write_main_factor_outputs(runtime, options)
 
+    def _run_main_pheno_projection_stage(self, runtime, options):
+        return eaggl_factor.run_main_pheno_projection_stage(self, runtime, options)
+
+    def _should_run_main_pheno_projection_stage(self, mode_state, options):
+        return eaggl_factor.should_run_main_pheno_projection_stage(mode_state, options)
+
     def _run_main_factor_phewas_stage(self, runtime, options):
         return eaggl_factor.run_main_factor_phewas_stage(self, runtime, options)
 

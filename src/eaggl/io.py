@@ -508,7 +508,7 @@ def has_loaded_gene_phewas(runtime):
     return (
         runtime.gene_pheno_Y is not None
         or runtime.gene_pheno_combined_prior_Ys is not None
-        and runtime.gene_pheno_priors is not None
+        or runtime.gene_pheno_priors is not None
     )
 
 

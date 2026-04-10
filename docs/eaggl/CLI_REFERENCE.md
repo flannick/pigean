@@ -194,7 +194,8 @@ Notes:
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
 | `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in`; also required by the gene-set-anchored workflow |
 | `--run-factor-phewas` | compute factor-level phenotype enrichment regression from `--gene-phewas-stats-in` |
-| `--factor-phewas-gene-clusters-in` | run only factor-level PheWAS from an existing `gene_clusters.out(.gz)` factor loading table, without refitting factors |
+| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only phenotype clusters, factor-PheWAS, or both without refitting factors |
+| `--factor-phewas-gene-clusters-in` | compatibility alias for the older factor-PheWAS-only projection command |
 | `--project-phenos-from-gene-sets` | compute phenotype capture on the gene-set basis instead of the gene basis |
 | `--pheno-capture-input` | choose whether phenotype capture uses retained weighted thresholded support or binary thresholded hits |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
@@ -206,8 +207,10 @@ Operational notes:
 - `--pheno-capture-input weighted_thresholded` is the default and uses retained combined-support values above the threshold; `binary_thresholded` is an expert sensitivity mode
 - factor-PheWAS is a secondary expert analysis for factor-specific phenotype enrichment
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
-- projection-only factor-PheWAS uses the raw `Factor1..FactorK` columns from `gene_clusters.out(.gz)` as the gene-factor loading matrix; any `combined`, `log_bf`, or `prior` columns in that file are reused as anchor covariates unless overridden by `--gene-stats-in`
-- projection-only factor-PheWAS expects the standard non-anchor `gene_clusters.out(.gz)` table with one row per gene
+- projection-only phenotype clusters and factor-PheWAS use the raw `Factor1..FactorK` columns from `gene_clusters.out(.gz)` as the gene-factor loading matrix; any `combined`, `log_bf`, or `prior` columns in that file are reused as anchor covariates unless overridden by `--gene-stats-in`
+- projection-only phenotype clusters require `--gene-phewas-stats-in` and write `pheno_clusters.out(.gz)` through the same cluster writer used after a normal factorization
+- projection-only phenotype clusters from `gene_clusters.out(.gz)` use the gene-factor basis; `--project-phenos-from-gene-sets` remains available only during normal factor runs where gene-set factors are present in memory
+- projection-only reuse expects the standard non-anchor `gene_clusters.out(.gz)` table with one row per gene
 - if you request multiple factor-PheWAS models in one run, `factor_phewas_stats.out` appends them together and labels each row with `model_name`, `factor_model_scope`, `outcome_surface`, and `anchor_covariate`
 - `--factor-phewas-full-output` restores the broader legacy continuous and sensitivity outputs for expert diagnostics
 - compatibility aliases remain accepted but are not the canonical public interface:

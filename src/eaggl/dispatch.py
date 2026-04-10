@@ -25,6 +25,10 @@ def run_main_pipeline(domain, options):
     if mode_state["run_factor"]:
         factor_model_stage_result = domain._run_main_factor_stage(state, options, mode_state, factor_input_state)
 
+    pheno_projection_stage_result = domain.PhewasStageResult(ran=False, output_path=options.pheno_clusters_out)
+    if domain._should_run_main_pheno_projection_stage(mode_state, options):
+        pheno_projection_stage_result = domain._run_main_pheno_projection_stage(state, options)
+
     domain._write_main_factor_outputs(state, options)
 
     factor_phewas_stage_result = domain.PhewasStageResult(ran=False, output_path=options.factor_phewas_stats_out)
@@ -40,5 +44,6 @@ def run_main_pipeline(domain, options):
         factor_only=factor_only_stage_result,
         phewas=phewas_stage_result,
         factor=factor_model_stage_result,
+        pheno_projection=pheno_projection_stage_result,
         factor_phewas=factor_phewas_stage_result,
     )

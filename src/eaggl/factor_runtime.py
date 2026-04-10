@@ -817,6 +817,71 @@ def _align_projection_inputs_to_mask(basis, feature_by_target, mask):
     return basis, feature_by_target
 
 
+def project_phenos_from_loaded_gene_factors(
+    state,
+    *,
+    pheno_capture_input="weighted_thresholded",
+    bail_fn,
+    log_fn,
+    info_level,
+):
+    """Project phenotype profiles onto precomputed gene-factor loadings."""
+    if state.exp_gene_factors is None:
+        bail_fn("Projection-only pheno clusters require gene factor loadings from --factor-gene-clusters-in")
+    if state.phenos is None or len(state.phenos) == 0:
+        bail_fn("Projection-only pheno clusters require phenotypes from --gene-phewas-stats-in")
+
+    feature_by_pheno = None
+    source_name = None
+    if state.gene_pheno_combined_prior_Ys is not None:
+        feature_by_pheno = state.gene_pheno_combined_prior_Ys
+        source_name = "gene_pheno_combined_prior_Ys"
+    elif state.gene_pheno_Y is not None:
+        feature_by_pheno = state.gene_pheno_Y
+        source_name = "gene_pheno_Y"
+    elif state.gene_pheno_priors is not None:
+        feature_by_pheno = state.gene_pheno_priors
+        source_name = "gene_pheno_priors"
+    else:
+        bail_fn(
+            "Projection-only pheno clusters require --gene-phewas-stats-in with combined, log_bf, or prior values"
+        )
+
+    basis, feature_by_pheno = _align_projection_inputs_to_mask(
+        state.exp_gene_factors,
+        feature_by_pheno,
+        state.gene_factor_gene_mask,
+    )
+    prepared_feature_by_pheno = _prepare_pheno_capture_input_matrix(
+        feature_by_pheno,
+        pheno_capture_input,
+    )
+    state.exp_pheno_factors = _project_pheno_capture_matrix(
+        state,
+        basis,
+        prepared_feature_by_pheno,
+        basis_name="genes",
+    )
+    state.pheno_factor_pheno_mask = np.full(len(state.phenos), False, dtype=bool)
+    state.pheno_capture_input = pheno_capture_input
+    state._record_params(
+        {
+            "factor_projection_only_pheno_clusters": True,
+            "factor_projection_only_pheno_capture_basis": "genes",
+            "factor_projection_only_pheno_capture_input": pheno_capture_input,
+            "factor_projection_only_pheno_source": source_name,
+            "factor_projection_only_num_phenos": len(state.phenos),
+        },
+        overwrite=True,
+    )
+    log_fn(
+        "Projected %d phenotypes onto %d precomputed gene factors using %s"
+        % (len(state.phenos), state.exp_gene_factors.shape[1], source_name),
+        info_level,
+    )
+    return state.exp_pheno_factors
+
+
 def _open_text_output(path):
     if path.endswith(".gz"):
         return gzip.open(path, "wt", encoding="utf-8")

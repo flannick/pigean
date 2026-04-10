@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import gene_list_inputs as eaggl_gene_list_inputs
+from . import factor_runtime as eaggl_factor_runtime
 from . import phewas as eaggl_phewas
 
 
@@ -202,16 +203,20 @@ class MainPipelineResult:
     factor_only: FactorOnlyStageResult
     phewas: PhewasStageResult = field(default_factory=PhewasStageResult)
     factor: FactorStageResult = field(default_factory=FactorStageResult)
+    pheno_projection: PhewasStageResult = field(default_factory=PhewasStageResult)
     factor_phewas: PhewasStageResult = field(default_factory=PhewasStageResult)
 
 
 def build_main_mode_state(domain):
+    factor_gene_clusters_in = getattr(domain.options, "factor_gene_clusters_in", None)
     return {
         "run_factor": domain.run_factor,
         "run_phewas": domain.run_phewas,
         "run_factor_phewas": bool(domain.options.run_factor_phewas),
+        "factor_projection_only": bool(factor_gene_clusters_in is not None),
+        "factor_gene_clusters_in": factor_gene_clusters_in,
         "factor_phewas_projection_only": bool(
-            getattr(domain.options, "factor_phewas_gene_clusters_in", None) is not None
+            factor_gene_clusters_in is not None and bool(domain.options.run_factor_phewas)
         ),
         "run_naive_factor": domain.run_naive_factor,
         "use_phewas_for_factoring": domain.use_phewas_for_factoring,
@@ -222,11 +227,11 @@ def build_main_mode_state(domain):
 
 
 def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
-    if mode_state.get("factor_phewas_projection_only"):
-        load_existing_factor_phewas_gene_clusters(
+    if mode_state.get("factor_projection_only"):
+        load_existing_factor_gene_clusters(
             domain,
             runtime,
-            options.factor_phewas_gene_clusters_in,
+            options.factor_gene_clusters_in,
         )
         if options.gene_stats_in is not None:
             domain._run_read_y_stage(
@@ -384,14 +389,15 @@ def _coerce_optional_float(raw_value, *, field_name, row_name, domain):
         )
 
 
-def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in):
-    """Load prior EAGGL gene-cluster factor loadings for projection-only factor PheWAS."""
+def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
+    """Load prior EAGGL gene-cluster factor loadings for projection-only outputs."""
     if gene_clusters_in is None:
-        domain.bail("Projection-only factor PheWAS requires --factor-phewas-gene-clusters-in")
+        domain.bail("Projection-only factor outputs require --factor-gene-clusters-in")
 
     genes = []
     gene_to_ind = {}
     loadings = []
+    used_to_factor_values = []
     combined_values = []
     y_values = []
     prior_values = []
@@ -438,6 +444,11 @@ def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in)
                 )
                 row_loadings.append(0.0 if value is None else value)
             loadings.append(row_loadings)
+            raw_used_to_factor = row.get("used_to_factor")
+            if raw_used_to_factor is None or raw_used_to_factor == "":
+                used_to_factor_values.append(True)
+            else:
+                used_to_factor_values.append(str(raw_used_to_factor).strip().lower() in set(["1", "true", "t", "yes", "y"]))
 
             combined_values.append(
                 _coerce_optional_float(row.get("combined"), field_name="combined", row_name=gene, domain=domain)
@@ -464,6 +475,7 @@ def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in)
     runtime.gene_to_ind = gene_to_ind
     runtime.exp_gene_factors = factor_matrix
     runtime.exp_lambdak = np.ones(num_factors, dtype=float)
+    runtime.gene_factor_gene_mask = np.asarray(used_to_factor_values, dtype=bool)
     runtime.factor_labels = [
         labels_by_factor_index.get(i, "Factor%d" % (i + 1))
         for i in range(num_factors)
@@ -478,15 +490,15 @@ def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in)
 
     runtime._record_params(
         {
-            "factor_phewas_gene_clusters_in": gene_clusters_in,
-            "factor_phewas_projection_only": True,
-            "factor_phewas_projection_only_num_genes": len(genes),
-            "factor_phewas_projection_only_num_factors": num_factors,
+            "factor_gene_clusters_in": gene_clusters_in,
+            "factor_projection_only": True,
+            "factor_projection_only_num_genes": len(genes),
+            "factor_projection_only_num_factors": num_factors,
         },
         overwrite=True,
     )
     domain.log(
-        "Loaded %d genes x %d factors from %s for projection-only factor PheWAS"
+        "Loaded %d genes x %d factors from %s for projection-only EAGGL outputs"
         % (len(genes), num_factors, gene_clusters_in),
         domain.INFO,
     )
@@ -494,6 +506,11 @@ def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in)
         "num_genes": len(genes),
         "num_factors": num_factors,
     }
+
+
+def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in):
+    """Compatibility wrapper for the legacy projection-only factor-PheWAS flag."""
+    return load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in)
 
 
 def load_factor_phewas_inputs(domain, runtime, options):
@@ -717,6 +734,37 @@ def run_main_factor_stage(domain, runtime, options, mode_state, factor_input_sta
     return FactorStageResult(ran=True, workflow_id=workflow.workflow_id)
 
 
+def run_main_pheno_projection_stage(domain, runtime, options):
+    if runtime.num_factors() <= 0:
+        domain.log("No factors; not projecting pheno clusters")
+        return PhewasStageResult(ran=False, output_path=options.pheno_clusters_out)
+
+    if not domain._has_loaded_gene_phewas(runtime):
+        domain._read_gene_phewas_bfs(
+            runtime,
+            gene_phewas_bfs_in=options.gene_phewas_bfs_in,
+            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+            anchor_genes=options.anchor_genes,
+            anchor_phenos=options.anchor_phenos,
+            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+            phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
+            min_value=options.min_gene_phewas_read_value,
+            max_num_entries_at_once=options.max_read_entries_at_once,
+        )
+
+    eaggl_factor_runtime.project_phenos_from_loaded_gene_factors(
+        runtime,
+        pheno_capture_input=options.pheno_capture_input,
+        bail_fn=domain.bail,
+        log_fn=domain.log,
+        info_level=domain.INFO,
+    )
+    return PhewasStageResult(ran=True, output_path=options.pheno_clusters_out)
+
+
 def run_main_factor_phewas_stage(domain, runtime, options):
     if runtime.num_factors() <= 0:
         domain.log("No factors; not performing factor phewas")
@@ -767,5 +815,16 @@ def run_main_factor_phewas_stage(domain, runtime, options):
 def should_run_main_factor_phewas_stage(mode_state):
     return bool(
         mode_state["run_factor_phewas"]
-        and (mode_state["run_factor"] or mode_state.get("factor_phewas_projection_only"))
+        and (
+            mode_state["run_factor"]
+            or mode_state.get("factor_projection_only")
+            or mode_state.get("factor_phewas_projection_only")
+        )
+    )
+
+
+def should_run_main_pheno_projection_stage(mode_state, options):
+    return bool(
+        mode_state.get("factor_projection_only")
+        and options.pheno_clusters_out is not None
     )

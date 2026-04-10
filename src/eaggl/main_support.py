@@ -194,6 +194,10 @@ def _run_main_factor_stage(g, options, mode_state, factor_input_state):
     return eaggl_factor.run_main_factor_stage(_build_main_domain(), g, options, mode_state, factor_input_state)
 
 
+def _run_main_pheno_projection_stage(g, options):
+    return eaggl_factor.run_main_pheno_projection_stage(_build_main_domain(), g, options)
+
+
 def _write_main_factor_outputs(g, options):
     return eaggl_outputs.write_main_factor_outputs(g, options)
 

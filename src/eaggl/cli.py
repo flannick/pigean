@@ -192,6 +192,7 @@ parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_l
 
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
 parser.add_option("","--run-factor-phewas",action="store_true",default=False) #run the optional factor-level phewas stage
+parser.add_option("","--factor-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run projection-only factor outputs without refitting
 parser.add_option("","--factor-phewas-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run only the factor-phewas projection stage
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",dest="factor_phewas_legacy_input",default=None) #compatibility alias: implies --run-factor-phewas and sets the stage-specific gene phewas input
 parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
@@ -448,10 +449,11 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-backend": "choose the final factorization backend: full or blockwise_global_w",
     "--run-factor-phewas": "run the optional factor-level phewas stage",
     "--factor-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in",
+    "--factor-gene-clusters-in": "load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors",
     "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
     "--factor-phewas-modes": "expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table",
     "--factor-phewas-anchor-covariate": "choose the anchor covariate for binary factor-phewas modes: direct, combined, or none",
-    "--factor-phewas-gene-clusters-in": "load an existing gene_clusters.out(.gz) table and run only factor-phewas without refitting factors",
+    "--factor-phewas-gene-clusters-in": "compatibility alias for --factor-gene-clusters-in plus --run-factor-phewas",
     "--factor-phewas-thresholded-combined-cutoff": "set the combined-support cutoff used to define thresholded phenotype hits for binary factor-phewas",
     "--factor-phewas-se": "choose the uncertainty estimator for binary factor-phewas: robust or none",
     "--factor-phewas-full-output": "expose the full expert factor-phewas surface, including combined and huber variants",
@@ -542,6 +544,7 @@ _EXPERT_METHOD_FLAGS = {
     "--consensus-nmf",
     "--run-factor-phewas",
     "--factor-phewas-anchor-covariate",
+    "--factor-gene-clusters-in",
     "--factor-phewas-full-output",
     "--factor-phewas-from-gene-phewas-stats-in",
     "--factor-phewas-gene-clusters-in",
@@ -980,6 +983,12 @@ def _normalize_optional_phewas_stage_options(options, warn_fn):
     options.run_phewas_input = None
     options.run_factor_phewas_input = None
 
+    if getattr(options, "factor_phewas_gene_clusters_in", None) is not None:
+        if getattr(options, "factor_gene_clusters_in", None) is None:
+            options.factor_gene_clusters_in = options.factor_phewas_gene_clusters_in
+        elif options.factor_gene_clusters_in != options.factor_phewas_gene_clusters_in:
+            bail("--factor-gene-clusters-in and --factor-phewas-gene-clusters-in must match when both are set")
+
     legacy_run_phewas_input = getattr(options, "run_phewas_legacy_input", None)
     if legacy_run_phewas_input is not None:
         warn_fn(
@@ -1338,6 +1347,13 @@ def _bootstrap_cli(argv=None):
         bail("--run-factor-phewas requires --factor-phewas-stats-out")
     if parsed_options.factor_phewas_gene_clusters_in is not None and not parsed_options.run_factor_phewas:
         bail("--factor-phewas-gene-clusters-in requires --run-factor-phewas")
+    if parsed_options.factor_gene_clusters_in is not None:
+        if not parsed_options.run_factor_phewas and parsed_options.pheno_clusters_out is None:
+            bail("--factor-gene-clusters-in requires --run-factor-phewas or --pheno-clusters-out")
+        if parsed_options.pheno_clusters_out is not None and parsed_options.gene_phewas_bfs_in is None:
+            bail("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in")
+        if parsed_options.project_phenos_from_gene_sets:
+            bail("--factor-gene-clusters-in supports gene-based phenotype projection only; omit --project-phenos-from-gene-sets")
     if parsed_options.consensus_aggregation not in set(["median", "mean"]):
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < parsed_options.consensus_min_factor_cosine <= 1):
@@ -1418,11 +1434,11 @@ def _bootstrap_cli(argv=None):
 
         if error is not None:
             bail("Cannot run factoring type: %s. %s" % (factor_type, error))
-        if parsed_options.factor_phewas_gene_clusters_in is not None:
+        if parsed_options.factor_gene_clusters_in is not None:
             parsed_run_factor = False
             log(
-                "Running projection-only factor PheWAS from %s"
-                % parsed_options.factor_phewas_gene_clusters_in
+                "Running projection-only EAGGL factor outputs from %s"
+                % parsed_options.factor_gene_clusters_in
             )
         else:
             log("Running factoring type: %s [workflow=%s]" % (factor_type, parsed_factor_workflow["id"]))
