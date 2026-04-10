@@ -3,12 +3,12 @@
     "compat_alias": 11,
     "debug_only": 6,
     "engineering": 71,
-    "method_optional": 131,
+    "method_optional": 147,
     "method_required": 16
   },
   "entrypoint": "src/eaggl/cli.py",
   "module": "eaggl.cli",
-  "num_options": 235,
+  "num_options": 251,
   "options": [
     {
       "action": null,
@@ -173,7 +173,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 396,
+      "source_line": 412,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -194,7 +194,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 397,
+      "source_line": 413,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -236,7 +236,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 338,
+      "source_line": 354,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -257,7 +257,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 385,
+      "source_line": 401,
       "summary": "anchor factorization to any gene in the loaded gene-phewas inputs",
       "type": null,
       "usage_references": 13
@@ -278,7 +278,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 383,
+      "source_line": 399,
       "summary": "anchor factorization to any phenotype in the loaded phewas inputs",
       "type": null,
       "usage_references": 27
@@ -299,7 +299,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 386,
+      "source_line": 402,
       "summary": "run gene-set anchoring using the loaded phenotype evidence",
       "type": null,
       "usage_references": 13
@@ -320,7 +320,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 384,
+      "source_line": 400,
       "summary": "anchor factorization to one or more genes",
       "type": "string",
       "usage_references": 25
@@ -341,10 +341,52 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 382,
+      "source_line": 398,
       "summary": "anchor factorization to one or more phenotypes",
       "type": "string",
       "usage_references": 19
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "approx_projection_block_size",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--approx-projection-block-size"
+      ],
+      "help": null,
+      "primary_flag": "--approx-projection-block-size",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 339,
+      "summary": "block size used for final blockwise projection in approximate modes",
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "100",
+      "deprecation_timeline": null,
+      "dest": "approx_projection_n_iter",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--approx-projection-n-iter"
+      ],
+      "help": null,
+      "primary_flag": "--approx-projection-n-iter",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 340,
+      "summary": "iteration budget for fixed-basis final projection in approximate modes",
+      "type": "int",
+      "usage_references": 9
     },
     {
       "action": null,
@@ -425,7 +467,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 339,
+      "source_line": 355,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -474,132 +516,6 @@
     },
     {
       "action": null,
-      "category": "method_optional",
-      "default": "3",
-      "deprecation_timeline": null,
-      "dest": "blockwise_epochs",
-      "documentation_target": "advanced_workflows",
-      "flags": [
-        "",
-        "--blockwise-epochs"
-      ],
-      "help": null,
-      "primary_flag": "--blockwise-epochs",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "yes",
-      "source_line": 328,
-      "summary": "set the number of global block passes used by the scalable blockwise backend",
-      "type": "int",
-      "usage_references": 9
-    },
-    {
-      "action": null,
-      "category": "method_optional",
-      "default": "5000",
-      "deprecation_timeline": null,
-      "dest": "blockwise_gene_set_block_size",
-      "documentation_target": "advanced_workflows",
-      "flags": [
-        "",
-        "--blockwise-gene-set-block-size"
-      ],
-      "help": null,
-      "primary_flag": "--blockwise-gene-set-block-size",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "yes",
-      "source_line": 327,
-      "summary": "set how many retained gene sets are solved per block in blockwise_global_w mode",
-      "type": "int",
-      "usage_references": 9
-    },
-    {
-      "action": null,
-      "category": "method_optional",
-      "default": "None",
-      "deprecation_timeline": null,
-      "dest": "blockwise_max_blocks",
-      "documentation_target": "advanced_workflows",
-      "flags": [
-        "",
-        "--blockwise-max-blocks"
-      ],
-      "help": null,
-      "primary_flag": "--blockwise-max-blocks",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "yes",
-      "source_line": 333,
-      "summary": "optionally cap the number of processed blocks per epoch for debugging blockwise runs",
-      "type": "int",
-      "usage_references": 9
-    },
-    {
-      "action": null,
-      "category": "engineering",
-      "default": "None",
-      "deprecation_timeline": null,
-      "dest": "blockwise_report_out",
-      "documentation_target": "expert_help",
-      "flags": [
-        "",
-        "--blockwise-report-out"
-      ],
-      "help": null,
-      "primary_flag": "--blockwise-report-out",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "no",
-      "source_line": 334,
-      "summary": "write per-epoch blockwise diagnostics",
-      "type": null,
-      "usage_references": 7
-    },
-    {
-      "action": "store_true",
-      "category": "method_optional",
-      "default": "True",
-      "deprecation_timeline": null,
-      "dest": "blockwise_shuffle_blocks",
-      "documentation_target": "advanced_workflows",
-      "flags": [
-        "",
-        "--blockwise-shuffle-blocks"
-      ],
-      "help": null,
-      "primary_flag": "--blockwise-shuffle-blocks",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "yes",
-      "source_line": 329,
-      "summary": "shuffle block order between epochs in blockwise_global_w mode",
-      "type": null,
-      "usage_references": 6
-    },
-    {
-      "action": "store_true",
-      "category": "method_optional",
-      "default": "True",
-      "deprecation_timeline": null,
-      "dest": "blockwise_warm_start",
-      "documentation_target": "advanced_workflows",
-      "flags": [
-        "",
-        "--blockwise-warm-start"
-      ],
-      "help": null,
-      "primary_flag": "--blockwise-warm-start",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "yes",
-      "source_line": 331,
-      "summary": "warm-start neighboring phi candidates when using blockwise_global_w phi search",
-      "type": null,
-      "usage_references": 6
-    },
-    {
-      "action": null,
       "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
@@ -635,7 +551,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 344,
+      "source_line": 360,
       "summary": "choose how matched factors are aggregated across restarts in consensus mode",
       "type": "str",
       "usage_references": 10
@@ -656,7 +572,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 342,
+      "source_line": 358,
       "summary": "minimum cosine similarity needed to align a restart factor to the reference factor",
       "type": "float",
       "usage_references": 10
@@ -677,7 +593,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 343,
+      "source_line": 359,
       "summary": "minimum restart support fraction required to keep a consensus factor",
       "type": "float",
       "usage_references": 10
@@ -698,7 +614,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 341,
+      "source_line": 357,
       "summary": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
       "type": null,
       "usage_references": 15
@@ -719,7 +635,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 351,
+      "source_line": 367,
       "summary": "write per-run and per-factor diagnostics for restart or consensus factorization",
       "type": null,
       "usage_references": 9
@@ -761,7 +677,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 418,
+      "source_line": 434,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -803,7 +719,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 414,
+      "source_line": 430,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -824,7 +740,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 419,
+      "source_line": 435,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -845,7 +761,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 417,
+      "source_line": 433,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -866,7 +782,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 416,
+      "source_line": 432,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -887,7 +803,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 415,
+      "source_line": 431,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -950,10 +866,10 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 325,
-      "summary": "choose the final factorization backend: full or blockwise_global_w",
+      "source_line": 327,
+      "summary": "deprecated compatibility alias for selecting the approximation backend",
       "type": "str",
-      "usage_references": 16
+      "usage_references": 11
     },
     {
       "action": null,
@@ -1223,7 +1139,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 392,
+      "source_line": 408,
       "summary": null,
       "type": "int",
       "usage_references": 6
@@ -1244,7 +1160,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 393,
+      "source_line": 409,
       "summary": null,
       "type": "float",
       "usage_references": 5
@@ -1265,7 +1181,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 390,
+      "source_line": 406,
       "summary": null,
       "type": "int",
       "usage_references": 5
@@ -1286,7 +1202,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 391,
+      "source_line": 407,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -1307,7 +1223,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 388,
+      "source_line": 404,
       "summary": null,
       "type": "int",
       "usage_references": 8
@@ -1328,7 +1244,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 389,
+      "source_line": 405,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -1349,7 +1265,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 340,
+      "source_line": 356,
       "summary": "run repeated random restarts for factorization; without consensus keep only the best run",
       "type": "int",
       "usage_references": 17
@@ -1475,7 +1391,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 408,
+      "source_line": 424,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1622,7 +1538,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 346,
+      "source_line": 362,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -1874,7 +1790,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 371,
+      "source_line": 387,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -1895,7 +1811,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 367,
+      "source_line": 383,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -1916,7 +1832,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 365,
+      "source_line": 381,
       "summary": "load gene-phewas statistics for projection and anchor workflows",
       "type": null,
       "usage_references": 25
@@ -1937,7 +1853,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 369,
+      "source_line": 385,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -1958,7 +1874,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 375,
+      "source_line": 391,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -1979,7 +1895,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 373,
+      "source_line": 389,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2000,7 +1916,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 378,
+      "source_line": 394,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2021,7 +1937,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 372,
+      "source_line": 388,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2042,7 +1958,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 368,
+      "source_line": 384,
       "summary": null,
       "type": null,
       "usage_references": 14
@@ -2063,7 +1979,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 366,
+      "source_line": 382,
       "summary": null,
       "type": null,
       "usage_references": 103
@@ -2084,7 +2000,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 370,
+      "source_line": 386,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2105,7 +2021,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 376,
+      "source_line": 392,
       "summary": null,
       "type": null,
       "usage_references": 14
@@ -2126,7 +2042,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 374,
+      "source_line": 390,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -2151,6 +2067,27 @@
       "summary": null,
       "type": null,
       "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "pruned",
+      "deprecation_timeline": null,
+      "dest": "gene_set_budget_mode",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--gene-set-budget-mode"
+      ],
+      "help": null,
+      "primary_flag": "--gene-set-budget-mode",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 325,
+      "summary": "choose the binding gene-set budget behavior: pruned, online_shared_basis, or structure_preserving_sketch",
+      "type": "str",
+      "usage_references": 15
     },
     {
       "action": null,
@@ -2189,7 +2126,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 345,
+      "source_line": 361,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -2231,7 +2168,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 348,
+      "source_line": 364,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -2252,7 +2189,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 361,
+      "source_line": 377,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2273,7 +2210,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 362,
+      "source_line": 378,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2294,7 +2231,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 360,
+      "source_line": 376,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -2315,7 +2252,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 359,
+      "source_line": 375,
       "summary": "load gene-set phewas statistics for projection and anchor workflows",
       "type": null,
       "usage_references": 64
@@ -2336,7 +2273,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 363,
+      "source_line": 379,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -2927,7 +2864,7 @@
       "source_line": 309,
       "summary": "automatically tune phi by structural model selection before the final factorization",
       "type": null,
-      "usage_references": 190
+      "usage_references": 237
     },
     {
       "action": null,
@@ -2945,10 +2882,73 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 326,
-      "summary": "choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets",
+      "source_line": 328,
+      "summary": "deprecated compatibility alias for the phi-search gene-set budget mode",
       "type": "str",
-      "usage_references": 18
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "learn_phi_confirm_block_size",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--learn-phi-confirm-block-size"
+      ],
+      "help": null,
+      "primary_flag": "--learn-phi-confirm-block-size",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 349,
+      "summary": "working-set / block-size budget for phi confirmation online runs",
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "5",
+      "deprecation_timeline": null,
+      "dest": "learn_phi_confirm_online_passes",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--learn-phi-confirm-online-passes"
+      ],
+      "help": null,
+      "primary_flag": "--learn-phi-confirm-online-passes",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 348,
+      "summary": "number of online_shared_basis passes used during phi confirmation",
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "3",
+      "deprecation_timeline": null,
+      "dest": "learn_phi_confirm_topk",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--learn-phi-confirm-topk"
+      ],
+      "help": null,
+      "primary_flag": "--learn-phi-confirm-topk",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 347,
+      "summary": "number of top sketch-scored phi candidates to confirm with online_shared_basis",
+      "type": "int",
+      "usage_references": 9
     },
     {
       "action": null,
@@ -2970,6 +2970,27 @@
       "summary": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
       "type": "float",
       "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "learn_phi_gene_set_budget_mode",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--learn-phi-gene-set-budget-mode"
+      ],
+      "help": null,
+      "primary_flag": "--learn-phi-gene-set-budget-mode",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 326,
+      "summary": "optional override for the phi-search gene-set budget mode",
+      "type": "str",
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3050,7 +3071,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 337,
+      "source_line": 353,
       "summary": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
       "type": "int",
       "usage_references": 13
@@ -3218,10 +3239,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 336,
+      "source_line": 352,
       "summary": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
       "type": "int",
-      "usage_references": 13
+      "usage_references": 12
     },
     {
       "action": null,
@@ -3239,10 +3260,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 335,
+      "source_line": 351,
       "summary": "during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi",
       "type": "int",
-      "usage_references": 12
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3285,6 +3306,48 @@
       "summary": "number of repeated restarts used to score each candidate phi",
       "type": "int",
       "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "3",
+      "deprecation_timeline": null,
+      "dest": "learn_phi_scout_repeats",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--learn-phi-scout-repeats"
+      ],
+      "help": null,
+      "primary_flag": "--learn-phi-scout-repeats",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 346,
+      "summary": "number of sketch scouting replicates per phi candidate",
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "learn_phi_scout_selection_method",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--learn-phi-scout-selection-method"
+      ],
+      "help": null,
+      "primary_flag": "--learn-phi-scout-selection-method",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 350,
+      "summary": "optional sketch selection method override used during phi scouting",
+      "type": "str",
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3449,7 +3512,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 409,
+      "source_line": 425,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -3646,23 +3709,23 @@
     {
       "action": null,
       "category": "method_optional",
-      "default": "5000",
+      "default": "None",
       "deprecation_timeline": null,
       "dest": "max_num_gene_sets",
-      "documentation_target": "expert_help",
+      "documentation_target": "core_help",
       "flags": [
         "",
         "--max-num-gene-sets"
       ],
       "help": null,
       "primary_flag": "--max-num-gene-sets",
-      "public_visibility": "expert",
+      "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 257,
-      "summary": null,
+      "summary": "gene-set budget used only when the retained panel exceeds the requested size; exact/full remains the default otherwise",
       "type": "int",
-      "usage_references": 40
+      "usage_references": 56
     },
     {
       "action": null,
@@ -3722,7 +3785,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 405,
+      "source_line": 421,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -3764,7 +3827,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 377,
+      "source_line": 393,
       "summary": null,
       "type": "float",
       "usage_references": 10
@@ -3848,7 +3911,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 350,
+      "source_line": 366,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -3869,7 +3932,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 404,
+      "source_line": 420,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -3936,48 +3999,6 @@
       "summary": null,
       "type": null,
       "usage_references": 3
-    },
-    {
-      "action": "store_false",
-      "category": "method_optional",
-      "default": null,
-      "deprecation_timeline": null,
-      "dest": "blockwise_shuffle_blocks",
-      "documentation_target": "expert_help",
-      "flags": [
-        "",
-        "--no-blockwise-shuffle-blocks"
-      ],
-      "help": null,
-      "primary_flag": "--no-blockwise-shuffle-blocks",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "yes",
-      "source_line": 330,
-      "summary": null,
-      "type": null,
-      "usage_references": 2
-    },
-    {
-      "action": "store_false",
-      "category": "method_optional",
-      "default": null,
-      "deprecation_timeline": null,
-      "dest": "blockwise_warm_start",
-      "documentation_target": "expert_help",
-      "flags": [
-        "",
-        "--no-blockwise-warm-start"
-      ],
-      "help": null,
-      "primary_flag": "--no-blockwise-warm-start",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "yes",
-      "source_line": 332,
-      "summary": null,
-      "type": null,
-      "usage_references": 2
     },
     {
       "action": "store_false",
@@ -4066,6 +4087,48 @@
     {
       "action": "store_false",
       "category": "method_optional",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "online_shuffle_blocks",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--no-online-shuffle-blocks"
+      ],
+      "help": null,
+      "primary_flag": "--no-online-shuffle-blocks",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 334,
+      "summary": null,
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": "store_false",
+      "category": "method_optional",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "online_warm_start",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--no-online-warm-start"
+      ],
+      "help": null,
+      "primary_flag": "--no-online-warm-start",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 336,
+      "summary": null,
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": "store_false",
+      "category": "method_optional",
       "default": "None",
       "deprecation_timeline": null,
       "dest": "sparse_solution",
@@ -4100,7 +4163,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 349,
+      "source_line": 365,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -4121,7 +4184,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 401,
+      "source_line": 417,
       "summary": null,
       "type": "int",
       "usage_references": 18
@@ -4142,7 +4205,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 406,
+      "source_line": 422,
       "summary": null,
       "type": "int",
       "usage_references": 11
@@ -4188,6 +4251,174 @@
       "summary": null,
       "type": null,
       "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "online_block_size",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--online-block-size"
+      ],
+      "help": null,
+      "primary_flag": "--online-block-size",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 329,
+      "summary": "working-set / block-size budget for the online_shared_basis approximation",
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "online_epochs",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--online-epochs"
+      ],
+      "help": null,
+      "primary_flag": "--online-epochs",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 331,
+      "summary": "deprecated alias for --online-passes",
+      "type": "int",
+      "usage_references": 3
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "online_max_blocks",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--online-max-blocks"
+      ],
+      "help": null,
+      "primary_flag": "--online-max-blocks",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 337,
+      "summary": "optionally cap processed online blocks per pass for debugging",
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "5",
+      "deprecation_timeline": null,
+      "dest": "online_min_passes_before_stopping",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--online-min-passes-before-stopping"
+      ],
+      "help": null,
+      "primary_flag": "--online-min-passes-before-stopping",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 332,
+      "summary": "minimum number of online_shared_basis passes before early stopping is allowed",
+      "type": "int",
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "20",
+      "deprecation_timeline": null,
+      "dest": "online_passes",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--online-passes"
+      ],
+      "help": null,
+      "primary_flag": "--online-passes",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 330,
+      "summary": "maximum number of global online_shared_basis passes over retained gene sets",
+      "type": "int",
+      "usage_references": 13
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "online_report_out",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--online-report-out"
+      ],
+      "help": null,
+      "primary_flag": "--online-report-out",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 338,
+      "summary": "write per-pass diagnostics for online_shared_basis",
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": "store_true",
+      "category": "method_optional",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "online_shuffle_blocks",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--online-shuffle-blocks"
+      ],
+      "help": null,
+      "primary_flag": "--online-shuffle-blocks",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 333,
+      "summary": "shuffle block order between passes in online_shared_basis mode",
+      "type": null,
+      "usage_references": 6
+    },
+    {
+      "action": "store_true",
+      "category": "method_optional",
+      "default": "True",
+      "deprecation_timeline": null,
+      "dest": "online_warm_start",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--online-warm-start"
+      ],
+      "help": null,
+      "primary_flag": "--online-warm-start",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 335,
+      "summary": "warm-start neighboring phi candidates in online_shared_basis mode",
+      "type": null,
+      "usage_references": 6
     },
     {
       "action": "append",
@@ -4289,7 +4520,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 380,
+      "source_line": 396,
       "summary": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
       "type": "str",
       "usage_references": 12
@@ -4331,7 +4562,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 347,
+      "source_line": 363,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -4562,7 +4793,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 379,
+      "source_line": 395,
       "summary": "project phenotype loadings from gene-set scores instead of gene scores",
       "type": null,
       "usage_references": 8
@@ -4625,7 +4856,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 407,
+      "source_line": 423,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -4734,6 +4965,111 @@
       "summary": null,
       "type": "float",
       "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "16",
+      "deprecation_timeline": null,
+      "dest": "sketch_embedding_dim",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--sketch-embedding-dim"
+      ],
+      "help": null,
+      "primary_flag": "--sketch-embedding-dim",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 342,
+      "summary": "embedding dimension used to select actual sketch gene sets",
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sketch_random_seed",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--sketch-random-seed"
+      ],
+      "help": null,
+      "primary_flag": "--sketch-random-seed",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 344,
+      "summary": "random seed used during sketch representative selection",
+      "type": "int",
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0",
+      "deprecation_timeline": null,
+      "dest": "sketch_refinement_passes",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--sketch-refinement-passes"
+      ],
+      "help": null,
+      "primary_flag": "--sketch-refinement-passes",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 345,
+      "summary": "optional conservative post-projection refinement passes in structure_preserving_sketch mode",
+      "type": "int",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "projected_cluster_medoids",
+      "deprecation_timeline": null,
+      "dest": "sketch_selection_method",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--sketch-selection-method"
+      ],
+      "help": null,
+      "primary_flag": "--sketch-selection-method",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 343,
+      "summary": "actual-column selection method for structure_preserving_sketch",
+      "type": "str",
+      "usage_references": 9
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "sketch_size",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--sketch-size"
+      ],
+      "help": null,
+      "primary_flag": "--sketch-size",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 341,
+      "summary": "actual-column sketch size for the structure_preserving_sketch approximation",
+      "type": "int",
+      "usage_references": 9
     },
     {
       "action": null,
@@ -4877,7 +5213,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 410,
+      "source_line": 426,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -4947,8 +5283,8 @@
     }
   ],
   "visibilities": {
-    "expert": 195,
+    "expert": 208,
     "hidden": 8,
-    "normal": 32
+    "normal": 35
   }
 }

@@ -71,14 +71,30 @@ class FactorExecutionConfig:
     learn_phi_only: bool = False
     learn_phi_report_out: str | None = None
     factor_phi_metrics_out: str | None = None
+    max_num_gene_sets: int | None = None
+    gene_set_budget_mode: str = "pruned"
+    learn_phi_gene_set_budget_mode: str | None = None
     factor_backend: str = "full"
     learn_phi_backend: str = "sentinel_pruned"
-    blockwise_gene_set_block_size: int = 5000
-    blockwise_epochs: int = 3
-    blockwise_shuffle_blocks: bool = True
-    blockwise_warm_start: bool = True
-    blockwise_max_blocks: int | None = None
-    blockwise_report_out: str | None = None
+    online_block_size: int | None = None
+    online_passes: int = 20
+    online_min_passes_before_stopping: int = 5
+    online_shuffle_blocks: bool = True
+    online_warm_start: bool = True
+    online_max_blocks: int | None = None
+    online_report_out: str | None = None
+    approx_projection_block_size: int | None = None
+    approx_projection_n_iter: int = 100
+    sketch_size: int | None = None
+    sketch_embedding_dim: int = 16
+    sketch_selection_method: str = "projected_cluster_medoids"
+    sketch_random_seed: int | None = None
+    sketch_refinement_passes: int = 0
+    learn_phi_scout_repeats: int = 3
+    learn_phi_confirm_topk: int = 3
+    learn_phi_confirm_online_passes: int = 5
+    learn_phi_confirm_block_size: int | None = None
+    learn_phi_scout_selection_method: str | None = None
     factors_out: str | None = None
     factor_metrics_out: str | None = None
     gene_set_clusters_out: str | None = None
@@ -140,14 +156,30 @@ class FactorExecutionConfig:
             "learn_phi_only": self.learn_phi_only,
             "learn_phi_report_out": self.learn_phi_report_out,
             "factor_phi_metrics_out": self.factor_phi_metrics_out,
+            "max_num_gene_sets": self.max_num_gene_sets,
+            "gene_set_budget_mode": self.gene_set_budget_mode,
+            "learn_phi_gene_set_budget_mode": self.learn_phi_gene_set_budget_mode,
             "factor_backend": self.factor_backend,
             "learn_phi_backend": self.learn_phi_backend,
-            "blockwise_gene_set_block_size": self.blockwise_gene_set_block_size,
-            "blockwise_epochs": self.blockwise_epochs,
-            "blockwise_shuffle_blocks": self.blockwise_shuffle_blocks,
-            "blockwise_warm_start": self.blockwise_warm_start,
-            "blockwise_max_blocks": self.blockwise_max_blocks,
-            "blockwise_report_out": self.blockwise_report_out,
+            "online_block_size": self.online_block_size,
+            "online_passes": self.online_passes,
+            "online_min_passes_before_stopping": self.online_min_passes_before_stopping,
+            "online_shuffle_blocks": self.online_shuffle_blocks,
+            "online_warm_start": self.online_warm_start,
+            "online_max_blocks": self.online_max_blocks,
+            "online_report_out": self.online_report_out,
+            "approx_projection_block_size": self.approx_projection_block_size,
+            "approx_projection_n_iter": self.approx_projection_n_iter,
+            "sketch_size": self.sketch_size,
+            "sketch_embedding_dim": self.sketch_embedding_dim,
+            "sketch_selection_method": self.sketch_selection_method,
+            "sketch_random_seed": self.sketch_random_seed,
+            "sketch_refinement_passes": self.sketch_refinement_passes,
+            "learn_phi_scout_repeats": self.learn_phi_scout_repeats,
+            "learn_phi_confirm_topk": self.learn_phi_confirm_topk,
+            "learn_phi_confirm_online_passes": self.learn_phi_confirm_online_passes,
+            "learn_phi_confirm_block_size": self.learn_phi_confirm_block_size,
+            "learn_phi_scout_selection_method": self.learn_phi_scout_selection_method,
             "factors_out": self.factors_out,
             "factor_metrics_out": self.factor_metrics_out,
             "gene_set_clusters_out": self.gene_set_clusters_out,
@@ -396,6 +428,7 @@ def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in)
     y_values = []
     prior_values = []
     labels_by_factor_index = {}
+    factor_columns = None
 
     with domain.open_gz(gene_clusters_in, "r") as input_fh:
         reader = csv.DictReader(input_fh, delimiter="\t")
@@ -646,14 +679,30 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_only=getattr(options, "learn_phi_only", False),
         learn_phi_report_out=options.learn_phi_report_out,
         factor_phi_metrics_out=getattr(options, "factor_phi_metrics_out", None),
+        max_num_gene_sets=getattr(options, "max_num_gene_sets", None),
+        gene_set_budget_mode=getattr(options, "gene_set_budget_mode", "pruned"),
+        learn_phi_gene_set_budget_mode=getattr(options, "learn_phi_gene_set_budget_mode", None),
         factor_backend=getattr(options, "factor_backend", "full"),
         learn_phi_backend=getattr(options, "learn_phi_backend", "sentinel_pruned"),
-        blockwise_gene_set_block_size=getattr(options, "blockwise_gene_set_block_size", 5000),
-        blockwise_epochs=getattr(options, "blockwise_epochs", 3),
-        blockwise_shuffle_blocks=getattr(options, "blockwise_shuffle_blocks", True),
-        blockwise_warm_start=getattr(options, "blockwise_warm_start", True),
-        blockwise_max_blocks=getattr(options, "blockwise_max_blocks", None),
-        blockwise_report_out=getattr(options, "blockwise_report_out", None),
+        online_block_size=getattr(options, "online_block_size", None),
+        online_passes=getattr(options, "online_passes", getattr(options, "online_epochs", 20)),
+        online_min_passes_before_stopping=getattr(options, "online_min_passes_before_stopping", 5),
+        online_shuffle_blocks=getattr(options, "online_shuffle_blocks", True),
+        online_warm_start=getattr(options, "online_warm_start", True),
+        online_max_blocks=getattr(options, "online_max_blocks", None),
+        online_report_out=getattr(options, "online_report_out", None),
+        approx_projection_block_size=getattr(options, "approx_projection_block_size", None),
+        approx_projection_n_iter=getattr(options, "approx_projection_n_iter", 100),
+        sketch_size=getattr(options, "sketch_size", None),
+        sketch_embedding_dim=getattr(options, "sketch_embedding_dim", 16),
+        sketch_selection_method=getattr(options, "sketch_selection_method", "projected_cluster_medoids"),
+        sketch_random_seed=getattr(options, "sketch_random_seed", None),
+        sketch_refinement_passes=getattr(options, "sketch_refinement_passes", 0),
+        learn_phi_scout_repeats=getattr(options, "learn_phi_scout_repeats", 3),
+        learn_phi_confirm_topk=getattr(options, "learn_phi_confirm_topk", 3),
+        learn_phi_confirm_online_passes=getattr(options, "learn_phi_confirm_online_passes", 5),
+        learn_phi_confirm_block_size=getattr(options, "learn_phi_confirm_block_size", None),
+        learn_phi_scout_selection_method=getattr(options, "learn_phi_scout_selection_method", None),
         factors_out=getattr(options, "factors_out", None),
         factor_metrics_out=getattr(options, "factor_metrics_out", None),
         gene_set_clusters_out=getattr(options, "gene_set_clusters_out", None),

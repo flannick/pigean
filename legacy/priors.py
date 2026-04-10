@@ -532,6 +532,7 @@ parser.add_option("","--factor-prune-genes-num",type='int',default=None) #when r
 parser.add_option("","--factor-prune-genes-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce genes by pruning those more correlated than this value. Genes will be sorted by average probability across phenotypes
 parser.add_option("","--factor-prune-gene-sets-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by including only this many (add an independent set). Gene sets will be sorted by maximum association across phenotypes
 parser.add_option("","--factor-prune-gene-sets-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by pruning those more correlated than this value. Gene sets will be sorted by maximum assoication across phenotypes
+parser.add_option("","--skip-factor-projections",action='store_true') #legacy-only helper: stop after core factor fit and use fitted-panel loadings for factor summaries
 
 
 parser.add_option("","--add-gene-sets-by-enrichment-p",type='float',default=None) #when running multiple gene anchoring, add in gene sets that pass the enrichment filters. Filter according to p-value
@@ -11471,7 +11472,7 @@ class GeneSetData(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, skip_factor_projections=False):
 
         if self.X_orig is None:
             bail("Cannot run factoring without X")
@@ -11906,7 +11907,7 @@ class GeneSetData(object):
         normalize_gene_sets = False
         cap = True
 
-        result = self._bayes_nmf_l2_extension(matrix.toarray(), gene_set_prob_vector[gene_set_mask,:], gene_or_pheno_prob_vector[gene_or_pheno_mask,:], a0=alpha0, K=max_num_factors, tol=rel_tol, phi=phi, cap_genes=cap, cap_gene_sets=cap, normalize_genes=normalize_genes, normalize_gene_sets=normalize_gene_sets)
+        result = self._bayes_nmf_l2_extension(matrix.toarray(), gene_set_prob_vector[gene_set_mask,:], gene_or_pheno_prob_vector[gene_or_pheno_mask,:], n_iter=max_num_iterations, a0=alpha0, K=max_num_factors, tol=rel_tol, phi=phi, cap_genes=cap, cap_gene_sets=cap, normalize_genes=normalize_genes, normalize_gene_sets=normalize_gene_sets)
 
         self.exp_lambdak = result[4]
         exp_gene_or_pheno_factors = result[1].T
@@ -11935,84 +11936,96 @@ class GeneSetData(object):
         self.gene_set_factor_gene_set_mask = gene_set_mask
 
         #now project the additional genes/phenos/gene sets onto the factors
-
-        log("Projecting factors", TRACE)
-
-        #this code gets the "relevance" values
-        #first get the probabilities for either the genotypes or phenotypes (whichever we didn't use to factor)
-        #these need to be specific to the anchors
-        if factor_gene_set_x_pheno:
-            if gene_or_pheno_full_prob_vector is not None:
-                self.gene_prob_factor_vector = self._nnls_project_matrix(self.pheno_prob_factor_vector, gene_or_pheno_full_prob_vector.T)
-                self._record_params({"factor_gene_prob_from": "phenos"})
-            else:
-                self.gene_prob_factor_vector = self._nnls_project_matrix(self.gene_set_prob_factor_vector, self.X_orig)
-                self._record_params({"factor_gene_prob_from": "gene_sets"})
+        if skip_factor_projections:
+            log("Skipping post-fit factor projections; using fitted-panel loadings only", INFO)
+            if self.gene_set_prob_factor_vector is not None and sparse.issparse(self.gene_set_prob_factor_vector):
+                self.gene_set_prob_factor_vector = self.gene_set_prob_factor_vector.toarray()
+            if self.gene_prob_factor_vector is not None and sparse.issparse(self.gene_prob_factor_vector):
+                self.gene_prob_factor_vector = self.gene_prob_factor_vector.toarray()
+            if self.pheno_prob_factor_vector is not None and sparse.issparse(self.pheno_prob_factor_vector):
+                self.pheno_prob_factor_vector = self.pheno_prob_factor_vector.toarray()
+            if self.gene_set_prob_factor_vector is not None and self.gene_set_factor_gene_set_mask is not None and self.gene_set_prob_factor_vector.shape[0] != self.exp_gene_set_factors.shape[0]:
+                self.gene_set_prob_factor_vector = self.gene_set_prob_factor_vector[self.gene_set_factor_gene_set_mask,:]
+            if self.gene_prob_factor_vector is not None and self.gene_factor_gene_mask is not None and self.gene_prob_factor_vector.shape[0] != self.exp_gene_factors.shape[0]:
+                self.gene_prob_factor_vector = self.gene_prob_factor_vector[self.gene_factor_gene_mask,:]
         else:
-            if gene_or_pheno_full_prob_vector is not None:
-                self.pheno_prob_factor_vector = self._nnls_project_matrix(self.gene_prob_factor_vector, gene_or_pheno_full_prob_vector.T)
-                self._record_params({"factor_pheno_prob_from": "genes"})
-            elif self.X_phewas_beta_uncorrected is not None:
-                self.pheno_prob_factor_vector = self._nnls_project_matrix(self.gene_set_prob_factor_vector, self.X_phewas_beta_uncorrected)
-                self._record_params({"factor_pheno_prob_from": "gene_sets"})
+            log("Projecting factors", TRACE)
 
-        if self.gene_set_prob_factor_vector is not None and sparse.issparse(self.gene_set_prob_factor_vector):
-            self.gene_set_prob_factor_vector = self.gene_set_prob_factor_vector.toarray()
-        if self.gene_prob_factor_vector is not None and sparse.issparse(self.gene_prob_factor_vector):
-            self.gene_prob_factor_vector = self.gene_prob_factor_vector.toarray()
-        if self.pheno_prob_factor_vector is not None and sparse.issparse(self.pheno_prob_factor_vector):
-            self.pheno_prob_factor_vector = self.pheno_prob_factor_vector.toarray()
-
-        gene_matrix_to_project = self.X_orig.T
-        if not run_transpose:
-            gene_matrix_to_project = gene_matrix_to_project.T
-
-        #this code projects to the additional dimensions
-
-        #all gene factor values
-        full_gene_factor_values = self._project_H_with_fixed_W(self.exp_gene_set_factors, gene_matrix_to_project[self.gene_set_factor_gene_set_mask,:], self.gene_set_prob_factor_vector[self.gene_set_factor_gene_set_mask,:], self.gene_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
-        if not factor_gene_set_x_pheno and keep_original_loadings:
-            full_gene_factor_values[self.gene_factor_gene_mask,:] = self.exp_gene_factors
-
-        #all pheno factor values, either from the phewas used to factor or the phewas passed in to project
-        full_pheno_factor_values = self.exp_pheno_factors
-        pheno_matrix_to_project = None
-
-        if self.exp_gene_factors is None and self.exp_gene_set_factors is None:
-            bail("Something went wrong: both gene factors and gene set factors are empty")
-
-        if self.X_phewas_beta_uncorrected is not None and self.pheno_prob_factor_vector is not None:
-            if project_phenos_from_gene_sets or self.exp_gene_factors is None:
-                pheno_matrix_to_project = self.X_phewas_beta_uncorrected.T
-                if not run_transpose:
-                    pheno_matrix_to_project = pheno_matrix_to_project.T
-
-                full_pheno_factor_values = self._project_H_with_fixed_W(self.exp_gene_set_factors, pheno_matrix_to_project if self.gene_set_factor_gene_set_mask is None else pheno_matrix_to_project[self.gene_set_factor_gene_set_mask,:], self.gene_set_prob_factor_vector if self.gene_set_factor_gene_set_mask is None else self.gene_set_prob_factor_vector[self.gene_set_factor_gene_set_mask,:], self.pheno_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+            #this code gets the "relevance" values
+            #first get the probabilities for either the genotypes or phenotypes (whichever we didn't use to factor)
+            #these need to be specific to the anchors
+            if factor_gene_set_x_pheno:
+                if gene_or_pheno_full_prob_vector is not None:
+                    self.gene_prob_factor_vector = self._nnls_project_matrix(self.pheno_prob_factor_vector, gene_or_pheno_full_prob_vector.T)
+                    self._record_params({"factor_gene_prob_from": "phenos"})
+                else:
+                    self.gene_prob_factor_vector = self._nnls_project_matrix(self.gene_set_prob_factor_vector, self.X_orig)
+                    self._record_params({"factor_gene_prob_from": "gene_sets"})
             else:
-                pheno_matrix_to_project = self.gene_pheno_Y
-                if not run_transpose:
-                    pheno_matrix_to_project = pheno_matrix_to_project.T
+                if gene_or_pheno_full_prob_vector is not None:
+                    self.pheno_prob_factor_vector = self._nnls_project_matrix(self.gene_prob_factor_vector, gene_or_pheno_full_prob_vector.T)
+                    self._record_params({"factor_pheno_prob_from": "genes"})
+                elif self.X_phewas_beta_uncorrected is not None:
+                    self.pheno_prob_factor_vector = self._nnls_project_matrix(self.gene_set_prob_factor_vector, self.X_phewas_beta_uncorrected)
+                    self._record_params({"factor_pheno_prob_from": "gene_sets"})
 
-                full_pheno_factor_values = self._project_H_with_fixed_W(self.exp_gene_factors, pheno_matrix_to_project if self.gene_factor_gene_mask is None else pheno_matrix_to_project[self.gene_factor_gene_mask,:], self.gene_prob_factor_vector if self.gene_factor_gene_mask is None else self.gene_prob_factor_vector[self.gene_factor_gene_mask,:], self.pheno_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+            if self.gene_set_prob_factor_vector is not None and sparse.issparse(self.gene_set_prob_factor_vector):
+                self.gene_set_prob_factor_vector = self.gene_set_prob_factor_vector.toarray()
+            if self.gene_prob_factor_vector is not None and sparse.issparse(self.gene_prob_factor_vector):
+                self.gene_prob_factor_vector = self.gene_prob_factor_vector.toarray()
+            if self.pheno_prob_factor_vector is not None and sparse.issparse(self.pheno_prob_factor_vector):
+                self.pheno_prob_factor_vector = self.pheno_prob_factor_vector.toarray()
 
-                
+            gene_matrix_to_project = self.X_orig.T
+            if not run_transpose:
+                gene_matrix_to_project = gene_matrix_to_project.T
+
+            #this code projects to the additional dimensions
+
+            #all gene factor values
+            full_gene_factor_values = self._project_H_with_fixed_W(self.exp_gene_set_factors, gene_matrix_to_project[self.gene_set_factor_gene_set_mask,:], self.gene_set_prob_factor_vector[self.gene_set_factor_gene_set_mask,:], self.gene_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+            if not factor_gene_set_x_pheno and keep_original_loadings:
+                full_gene_factor_values[self.gene_factor_gene_mask,:] = self.exp_gene_factors
+
+            #all pheno factor values, either from the phewas used to factor or the phewas passed in to project
+            full_pheno_factor_values = self.exp_pheno_factors
+            pheno_matrix_to_project = None
+
+            if self.exp_gene_factors is None and self.exp_gene_set_factors is None:
+                bail("Something went wrong: both gene factors and gene set factors are empty")
+
+            if self.X_phewas_beta_uncorrected is not None and self.pheno_prob_factor_vector is not None:
+                if project_phenos_from_gene_sets or self.exp_gene_factors is None:
+                    pheno_matrix_to_project = self.X_phewas_beta_uncorrected.T
+                    if not run_transpose:
+                        pheno_matrix_to_project = pheno_matrix_to_project.T
+
+                    full_pheno_factor_values = self._project_H_with_fixed_W(self.exp_gene_set_factors, pheno_matrix_to_project if self.gene_set_factor_gene_set_mask is None else pheno_matrix_to_project[self.gene_set_factor_gene_set_mask,:], self.gene_set_prob_factor_vector if self.gene_set_factor_gene_set_mask is None else self.gene_set_prob_factor_vector[self.gene_set_factor_gene_set_mask,:], self.pheno_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+                else:
+                    pheno_matrix_to_project = self.gene_pheno_Y
+                    if not run_transpose:
+                        pheno_matrix_to_project = pheno_matrix_to_project.T
+
+                    full_pheno_factor_values = self._project_H_with_fixed_W(self.exp_gene_factors, pheno_matrix_to_project if self.gene_factor_gene_mask is None else pheno_matrix_to_project[self.gene_factor_gene_mask,:], self.gene_prob_factor_vector if self.gene_factor_gene_mask is None else self.gene_prob_factor_vector[self.gene_factor_gene_mask,:], self.pheno_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+
+
+                if keep_original_loadings:
+                    full_pheno_factor_values[self.pheno_factor_pheno_mask,:] = self.exp_pheno_factors
+
+            #now gene set factor values, projecting from either phenos or genes depending on what was used
+            if factor_gene_set_x_pheno and pheno_matrix_to_project is not None:
+                #we have to swap the gene sets and genes, which means transposing the matrix to project and swapping the prios
+                full_gene_set_factor_values = self._project_H_with_fixed_W(self.exp_pheno_factors, pheno_matrix_to_project[:,self.pheno_factor_pheno_mask].T if run_transpose else pheno_matrix_to_project[self.pheno_factor_pheno_mask,:].T, self.pheno_prob_factor_vector[self.pheno_factor_pheno_mask,:], self.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
+            else:
+                full_gene_set_factor_values = self._project_H_with_fixed_W(self.exp_gene_factors, gene_matrix_to_project[:,self.gene_factor_gene_mask].T if run_transpose else gene_matrix_to_project[self.gene_factor_gene_mask,:].T, self.gene_prob_factor_vector[self.gene_factor_gene_mask,:], self.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
+
             if keep_original_loadings:
-                full_pheno_factor_values[self.pheno_factor_pheno_mask,:] = self.exp_pheno_factors
+                full_gene_set_factor_values[self.gene_set_factor_gene_set_mask,:] = self.exp_gene_set_factors
 
-        #now gene set factor values, projecting from either phenos or genes depending on what was used
-        if factor_gene_set_x_pheno and pheno_matrix_to_project is not None:
-            #we have to swap the gene sets and genes, which means transposing the matrix to project and swapping the prios
-            full_gene_set_factor_values = self._project_H_with_fixed_W(self.exp_pheno_factors, pheno_matrix_to_project[:,self.pheno_factor_pheno_mask].T if run_transpose else pheno_matrix_to_project[self.pheno_factor_pheno_mask,:].T, self.pheno_prob_factor_vector[self.pheno_factor_pheno_mask,:], self.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
-        else:
-            full_gene_set_factor_values = self._project_H_with_fixed_W(self.exp_gene_factors, gene_matrix_to_project[:,self.gene_factor_gene_mask].T if run_transpose else gene_matrix_to_project[self.gene_factor_gene_mask,:].T, self.gene_prob_factor_vector[self.gene_factor_gene_mask,:], self.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
-
-        if keep_original_loadings:
-            full_gene_set_factor_values[self.gene_set_factor_gene_set_mask,:] = self.exp_gene_set_factors
-
-        #update these to store the imputed as well
-        self.exp_gene_factors = full_gene_factor_values
-        self.exp_pheno_factors = full_pheno_factor_values
-        self.exp_gene_set_factors = full_gene_set_factor_values
+            #update these to store the imputed as well
+            self.exp_gene_factors = full_gene_factor_values
+            self.exp_pheno_factors = full_pheno_factor_values
+            self.exp_gene_set_factors = full_gene_set_factor_values
 
         if factor_gene_set_x_pheno:
             exp_gene_or_pheno_factors = self.exp_pheno_factors
@@ -12028,8 +12041,13 @@ class GeneSetData(object):
         #vector_to_mult: (users, genes)
         #want: (factors, users)
 
-        self.factor_anchor_relevance = self._nnls_project_matrix(matrix_to_mult, vector_to_mult.T, max_value=1).T
-        self.factor_relevance = self._nnls_project_matrix(matrix_to_mult, 1 - np.prod(1 - vector_to_mult, axis=1).T, max_value=1).T
+        if skip_factor_projections:
+            self.factor_anchor_relevance = np.ones((self.num_factors(), 1))
+            self.factor_relevance = np.ones(self.num_factors())
+            self._record_params({"factor_relevance_mode": "skipped_projection_placeholder"})
+        else:
+            self.factor_anchor_relevance = self._nnls_project_matrix(matrix_to_mult, vector_to_mult.T, max_value=1).T
+            self.factor_relevance = self._nnls_project_matrix(matrix_to_mult, 1 - np.prod(1 - vector_to_mult, axis=1).T, max_value=1).T
 
         #gene scores are either for phenos or for genes depending on the mode
         reorder_inds = np.argsort(-self.factor_relevance)
@@ -12109,15 +12127,23 @@ class GeneSetData(object):
 
         factor_prompts = []
         for i in range(self.num_factors()):
-            self.factor_top_gene_sets.append([self.gene_sets[j] for j in top_gene_set_inds[:,i]])
+            if skip_factor_projections and self.gene_set_factor_gene_set_mask is not None:
+                gene_sets_for_top = [self.gene_sets[j] for j in np.where(self.gene_set_factor_gene_set_mask)[0]]
+            else:
+                gene_sets_for_top = self.gene_sets
 
-            self.factor_anchor_top_gene_sets.append([[self.gene_sets[j] for j in top_anchor_gene_set_inds[:,i,k]] for k in range(top_anchor_gene_set_inds.shape[2])])
+            self.factor_top_gene_sets.append([gene_sets_for_top[j] for j in top_gene_set_inds[:,i]])
+
+            self.factor_anchor_top_gene_sets.append([[gene_sets_for_top[j] for j in top_anchor_gene_set_inds[:,i,k]] for k in range(top_anchor_gene_set_inds.shape[2])])
 
             if factor_gene_set_x_pheno:
                 genes_or_phenos = self.phenos
                 phenos_or_genes = self.genes
             else:
-                genes_or_phenos = self.genes
+                if skip_factor_projections and self.gene_factor_gene_mask is not None:
+                    genes_or_phenos = [self.genes[j] for j in np.where(self.gene_factor_gene_mask)[0]]
+                else:
+                    genes_or_phenos = self.genes
                 phenos_or_genes = self.phenos
 
             top_genes_or_phenos.append([genes_or_phenos[j] for j in top_gene_or_pheno_inds[:,i] if not factor_gene_set_x_pheno or genes_or_phenos[j] != self.default_pheno])
@@ -13892,6 +13918,11 @@ class GeneSetData(object):
             #this uses strongest absolute value
             values_for_cluster = self.exp_gene_set_factors
 
+            gene_sets_for_output = self.gene_sets
+            betas_for_output = self.betas
+            betas_uncorrected_for_output = self.betas_uncorrected
+            gene_set_prob_for_output = self.gene_set_prob_factor_vector
+
             log("Writing gene set clusters to %s" % gene_set_clusters_output_file, INFO)
             with open_gz(gene_set_clusters_output_file, 'w') as output_fh:
 
@@ -13945,29 +13976,29 @@ class GeneSetData(object):
                         orig_i = gene_set_factor_gene_set_inds[i]
                         assert(orig_i == i)
 
-                        line = self.gene_sets[orig_i]
+                        line = gene_sets_for_output[orig_i]
 
                         if anchors is None:
                             if any_prob is not None:
                                 line = "%s\t%.3g" % (line, any_prob[orig_i])
-                            if self.betas is not None:
-                                line = "%s\t%.3g" % (line, self.betas[orig_i])
-                            if self.betas_uncorrected is not None:
-                                line = "%s\t%.3g" % (line, self.betas_uncorrected[orig_i])
+                            if betas_for_output is not None:
+                                line = "%s\t%.3g" % (line, betas_for_output[orig_i])
+                            if betas_uncorrected_for_output is not None:
+                                line = "%s\t%.3g" % (line, betas_uncorrected_for_output[orig_i])
 
                         else:
                             if self.X_phewas_beta is not None and pheno_anchors:
                                 line = "%s\t%.3g" % (line, self.X_phewas_beta[anchor_inds[j],orig_i])
-                            elif self.betas is not None:
-                                line = "%s\t%.3g" % (line, self.betas[orig_i])
+                            elif betas_for_output is not None:
+                                line = "%s\t%.3g" % (line, betas_for_output[orig_i])
                                 
                             if self.X_phewas_beta_uncorrected is not None and pheno_anchors:
                                 line = "%s\t%.3g" % (line, self.X_phewas_beta_uncorrected[anchor_inds[j],orig_i])
-                            elif self.betas_uncorrected is not None:
-                                line = "%s\t%.3g" % (line, self.betas_uncorrected[orig_i])
+                            elif betas_uncorrected_for_output is not None:
+                                line = "%s\t%.3g" % (line, betas_uncorrected_for_output[orig_i])
 
                             
-                            line = "%s\t%.3g" % (line, self.gene_set_prob_factor_vector[i,j])
+                            line = "%s\t%.3g" % (line, gene_set_prob_for_output[i,j])
 
                         used_to_factor = self.gene_set_factor_gene_set_mask[i] if self.gene_set_factor_gene_set_mask is not None else False
                         line = "%s\t%s" % (line, used_to_factor)
@@ -13975,7 +14006,7 @@ class GeneSetData(object):
                         multiplier = 1
                         if anchors is not None:
                             line = "%s\t%s" % (line, anchors[j])
-                            multiplier = self.gene_set_prob_factor_vector[orig_i,j]
+                            multiplier = gene_set_prob_for_output[orig_i,j]
 
                         cluster = np.argmax(values_for_cluster[i,:] * multiplier)
 
@@ -13986,6 +14017,25 @@ class GeneSetData(object):
             #this uses strongest absolute value
             values_for_cluster = self.exp_gene_factors
 
+            genes_for_output = self.genes
+            combined_for_output = self.combined_prior_Ys
+            Y_for_output = self.Y
+            priors_for_output = self.priors
+            gene_prob_for_output = self.gene_prob_factor_vector
+            gene_factor_gene_mask_for_output = self.gene_factor_gene_mask
+            if self.gene_factor_gene_mask is not None and len(self.gene_factor_gene_mask) != self.exp_gene_factors.shape[0] and np.sum(self.gene_factor_gene_mask) == self.exp_gene_factors.shape[0]:
+                subset_inds = np.where(self.gene_factor_gene_mask)[0]
+                genes_for_output = [self.genes[i] for i in subset_inds]
+                if self.combined_prior_Ys is not None:
+                    combined_for_output = self.combined_prior_Ys[subset_inds]
+                if self.Y is not None:
+                    Y_for_output = self.Y[subset_inds]
+                if self.priors is not None:
+                    priors_for_output = self.priors[subset_inds]
+                if self.gene_prob_factor_vector is not None and self.gene_prob_factor_vector.shape[0] != self.exp_gene_factors.shape[0]:
+                    gene_prob_for_output = self.gene_prob_factor_vector[subset_inds,:]
+                gene_factor_gene_mask_for_output = np.array([True] * len(subset_inds))
+
             log("Writing gene clusters to %s" % (gene_clusters_output_file), INFO)
             with open_gz(gene_clusters_output_file, 'w') as output_fh:
                 gene_factor_gene_inds = list(range(self.exp_gene_factors.shape[0]))
@@ -13994,23 +14044,23 @@ class GeneSetData(object):
 
                 any_prob = None
                 if anchors is None:
-                    if self.combined_prior_Ys is None and self.Y is None and self.priors is None:
-                        any_prob = 1 - np.prod(1 - self.gene_prob_factor_vector, axis=1)
+                    if combined_for_output is None and Y_for_output is None and priors_for_output is None:
+                        any_prob = 1 - np.prod(1 - gene_prob_for_output, axis=1)
                         header = "%s\t%s" % (header, "any_relevance")
                         master_key_fn = lambda k: -any_prob[k]
 
-                if self.combined_prior_Ys is not None or (pheno_anchors and self.gene_pheno_combined_prior_Ys is not None):
+                if combined_for_output is not None or (pheno_anchors and self.gene_pheno_combined_prior_Ys is not None):
                     header = "%s\t%s" % (header, "combined")
-                    if self.combined_prior_Ys is not None:
-                        master_key_fn = lambda k: -self.combined_prior_Ys[gene_factor_gene_inds[k]]
-                if self.Y is not None or (pheno_anchors and self.gene_pheno_Y is not None):
+                    if combined_for_output is not None:
+                        master_key_fn = lambda k: -combined_for_output[gene_factor_gene_inds[k]]
+                if Y_for_output is not None or (pheno_anchors and self.gene_pheno_Y is not None):
                     header = "%s\t%s" % (header, "log_bf")
-                    if self.Y is not None and master_key_fn is None:
-                        master_key_fn = lambda k: -self.Y[gene_factor_gene_inds[k]]
-                if self.priors is not None or (pheno_anchors and self.gene_pheno_priors is not None):
+                    if Y_for_output is not None and master_key_fn is None:
+                        master_key_fn = lambda k: -Y_for_output[gene_factor_gene_inds[k]]
+                if priors_for_output is not None or (pheno_anchors and self.gene_pheno_priors is not None):
                     header = "%s\t%s" % (header, "prior")
-                    if self.priors is not None and master_key_fn is None:
-                        master_key_fn = lambda k: -self.priors[gene_factor_gene_inds[k]]
+                    if priors_for_output is not None and master_key_fn is None:
+                        master_key_fn = lambda k: -priors_for_output[gene_factor_gene_inds[k]]
 
                 if anchors is not None:
                     header = "%s\t%s" % (header, "relevance")                    
@@ -14027,7 +14077,7 @@ class GeneSetData(object):
                 
                 for j in range(num_users):
                     if anchors is not None:
-                        key_fn = lambda k: (-self.gene_prob_factor_vector[gene_factor_gene_inds[k],j], master_key_fn(k))
+                        key_fn = lambda k: (-gene_prob_for_output[gene_factor_gene_inds[k],j], master_key_fn(k))
                     else:
                         key_fn = master_key_fn
 
@@ -14040,25 +14090,25 @@ class GeneSetData(object):
                         orig_i = gene_factor_gene_inds[i]
                         assert(orig_i == i)
 
-                        line = self.genes[orig_i]
+                        line = genes_for_output[orig_i]
 
                         if anchors is None and any_prob is not None:
                             line = "%s\t%.3g" % (line, any_prob[orig_i])
 
-                        if self.combined_prior_Ys is not None or (pheno_anchors and self.gene_pheno_combined_prior_Ys is not None):
-                            line = "%s\t%.3g" % (line, self.gene_pheno_combined_prior_Ys[orig_i,anchor_inds[j]] if pheno_anchors and self.gene_pheno_combined_prior_Ys is not None else self.combined_prior_Ys[orig_i])
-                        if self.Y is not None or (pheno_anchors and self.gene_pheno_Y is not None):
-                            line = "%s\t%.3g" % (line, self.gene_pheno_Y[orig_i,anchor_inds[j]] if pheno_anchors and self.gene_pheno_Y is not None else self.Y[orig_i])
-                        if self.priors is not None or (pheno_anchors and self.gene_pheno_priors is not None):
-                            line = "%s\t%.3g" % (line, self.gene_pheno_priors[orig_i,anchor_inds[j]] if pheno_anchors and self.gene_pheno_priors is not None else self.priors[orig_i])
+                        if combined_for_output is not None or (pheno_anchors and self.gene_pheno_combined_prior_Ys is not None):
+                            line = "%s\t%.3g" % (line, self.gene_pheno_combined_prior_Ys[orig_i,anchor_inds[j]] if pheno_anchors and self.gene_pheno_combined_prior_Ys is not None else combined_for_output[orig_i])
+                        if Y_for_output is not None or (pheno_anchors and self.gene_pheno_Y is not None):
+                            line = "%s\t%.3g" % (line, self.gene_pheno_Y[orig_i,anchor_inds[j]] if pheno_anchors and self.gene_pheno_Y is not None else Y_for_output[orig_i])
+                        if priors_for_output is not None or (pheno_anchors and self.gene_pheno_priors is not None):
+                            line = "%s\t%.3g" % (line, self.gene_pheno_priors[orig_i,anchor_inds[j]] if pheno_anchors and self.gene_pheno_priors is not None else priors_for_output[orig_i])
 
                         multiplier = 1
                         if anchors is not None:
-                            line = "%s\t%.3g" % (line, self.gene_prob_factor_vector[i,j])
+                            line = "%s\t%.3g" % (line, gene_prob_for_output[i,j])
                             line = "%s\t%s" % (line, anchors[j])
-                            multiplier = self.gene_prob_factor_vector[orig_i,j]
+                            multiplier = gene_prob_for_output[orig_i,j]
 
-                        used_to_factor = self.gene_factor_gene_mask[i] if self.gene_factor_gene_mask is not None else False
+                        used_to_factor = gene_factor_gene_mask_for_output[i] if gene_factor_gene_mask_for_output is not None else False
                         line = "%s\t%s" % (line, used_to_factor)
 
                         if gene_anchors:
@@ -19535,7 +19585,7 @@ def main():
         else:
             gene_or_pheno_filter_value = options.gene_filter_value
 
-        g.run_factor(max_num_factors=options.max_num_factors, phi=options.phi, alpha0=options.alpha0, beta0=options.beta0, gene_set_filter_value=options.gene_set_filter_value, gene_or_pheno_filter_value=gene_or_pheno_filter_value, pheno_prune_value=options.factor_prune_phenos_val, pheno_prune_number=options.factor_prune_phenos_num, gene_prune_value=options.factor_prune_genes_val, gene_prune_number=options.factor_prune_genes_num, gene_set_prune_value=options.factor_prune_gene_sets_val, gene_set_prune_number=options.factor_prune_gene_sets_num, anchor_pheno_mask=g.anchor_pheno_mask, anchor_gene_mask=g.anchor_gene_mask, anchor_any_pheno=options.anchor_any_pheno, anchor_any_gene=options.anchor_any_gene, anchor_gene_set=options.anchor_gene_set, run_transpose=not options.no_transpose, min_lambda_threshold=options.min_lambda_threshold, lmm_auth_key=options.lmm_auth_key, lmm_model=options.lmm_model, label_gene_sets_only=options.label_gene_sets_only, label_include_phenos=options.label_include_phenos, label_individually=options.label_individually, project_phenos_from_gene_sets=options.project_phenos_from_gene_sets)
+        g.run_factor(max_num_factors=options.max_num_factors, phi=options.phi, alpha0=options.alpha0, beta0=options.beta0, gene_set_filter_value=options.gene_set_filter_value, gene_or_pheno_filter_value=gene_or_pheno_filter_value, pheno_prune_value=options.factor_prune_phenos_val, pheno_prune_number=options.factor_prune_phenos_num, gene_prune_value=options.factor_prune_genes_val, gene_prune_number=options.factor_prune_genes_num, gene_set_prune_value=options.factor_prune_gene_sets_val, gene_set_prune_number=options.factor_prune_gene_sets_num, anchor_pheno_mask=g.anchor_pheno_mask, anchor_gene_mask=g.anchor_gene_mask, anchor_any_pheno=options.anchor_any_pheno, anchor_any_gene=options.anchor_any_gene, anchor_gene_set=options.anchor_gene_set, run_transpose=not options.no_transpose, min_lambda_threshold=options.min_lambda_threshold, lmm_auth_key=options.lmm_auth_key, lmm_model=options.lmm_model, label_gene_sets_only=options.label_gene_sets_only, label_include_phenos=options.label_include_phenos, label_individually=options.label_individually, project_phenos_from_gene_sets=options.project_phenos_from_gene_sets, skip_factor_projections=options.skip_factor_projections)
 
 
     if options.factors_out is not None:

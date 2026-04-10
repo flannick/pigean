@@ -119,7 +119,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(block_factor_count, full_factor_count)
         self.assertLess(abs(block_error - full_error), 1.0)
 
-    def test_blockwise_backend_runs_multi_block_and_records_backend_details(self) -> None:
+    def test_online_backend_runs_multi_block_and_records_backend_details(self) -> None:
         matrix = np.array(
             [
                 [0.9, 0.1, 0.0, 0.0],
@@ -158,74 +158,15 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         )
         self.assertEqual(result["gene_set_factors"].shape[0], matrix.shape[0])
         self.assertEqual(result["gene_or_pheno_factors"].shape[0], matrix.shape[1])
-        self.assertEqual(state.last_factorization_backend, "blockwise_global_w")
+        self.assertEqual(state.last_factorization_backend, "online_shared_basis")
         self.assertEqual(state.last_factorization_backend_details["num_blocks"], 3)
         self.assertEqual(state.last_factorization_backend_details["block_size"], 2)
-        self.assertEqual(state.last_factorization_backend_details["max_total_passes"], 12)
-        self.assertGreaterEqual(state.last_factorization_backend_details["global_refinement_passes"], 3)
-        self.assertEqual(state.last_factorization_backend_details["min_refinement_passes"], 2)
-        self.assertEqual(state.last_factorization_backend_details["min_shrinkage_refinement_passes"], 2)
-        self.assertEqual(state.last_factorization_backend_details["refinement_lambda_freeze_passes"], 1)
-        self.assertFalse(state.last_factorization_backend_details["refinement_collapse_guard_triggered"])
-        self.assertTrue(any(report.get("phase") == "refinement" for report in state.last_factorization_blockwise_report))
-        first_refinement = next(report for report in state.last_factorization_blockwise_report if report.get("phase") == "refinement")
-        self.assertEqual(first_refinement.get("lambda_update_mode"), "freeze")
-        self.assertTrue(any(report.get("lambda_update_mode") == "damped" for report in state.last_factorization_blockwise_report if report.get("phase") == "refinement"))
+        self.assertEqual(state.last_factorization_backend_details["epochs"], 6)
+        self.assertEqual(state.last_factorization_backend_details["columns_evaluated"], matrix.shape[0])
+        self.assertEqual(len(state.last_factorization_backend_details["epoch_error_trace"]), len(state.last_factorization_blockwise_report))
+        self.assertTrue(all(report.get("phase") == "online" for report in state.last_factorization_blockwise_report))
         self.assertLessEqual(float(np.max(result["gene_set_factors"])), 1.0 + 1e-9)
         self.assertLessEqual(float(np.max(result["gene_or_pheno_factors"])), 1.0 + 1e-9)
-
-    def test_build_blockwise_family_keep_indices_from_records_collapses_overlap_families(self) -> None:
-        records = [
-            {
-                "Factor": "Factor1",
-                "combined_mass_fraction": "0.40",
-                "gene_effective_support": "10",
-                "gene_set_effective_support": "12",
-                "gene_max_jaccard": "0.91",
-                "gene_nearest_factor": "Factor2",
-                "gene_set_max_jaccard": "0.20",
-                "gene_set_nearest_factor": "Factor2",
-                "combined_unique_fraction": "0.09",
-            },
-            {
-                "Factor": "Factor2",
-                "combined_mass_fraction": "0.20",
-                "gene_effective_support": "8",
-                "gene_set_effective_support": "9",
-                "gene_max_jaccard": "0.91",
-                "gene_nearest_factor": "Factor1",
-                "gene_set_max_jaccard": "0.20",
-                "gene_set_nearest_factor": "Factor1",
-                "combined_unique_fraction": "0.09",
-            },
-            {
-                "Factor": "Factor3",
-                "combined_mass_fraction": "0.25",
-                "gene_effective_support": "7",
-                "gene_set_effective_support": "11",
-                "gene_max_jaccard": "0.15",
-                "gene_nearest_factor": "Factor4",
-                "gene_set_max_jaccard": "0.72",
-                "gene_set_nearest_factor": "Factor4",
-                "combined_unique_fraction": "0.28",
-            },
-            {
-                "Factor": "Factor4",
-                "combined_mass_fraction": "0.15",
-                "gene_effective_support": "6",
-                "gene_set_effective_support": "10",
-                "gene_max_jaccard": "0.15",
-                "gene_nearest_factor": "Factor3",
-                "gene_set_max_jaccard": "0.72",
-                "gene_set_nearest_factor": "Factor3",
-                "combined_unique_fraction": "0.28",
-            },
-        ]
-
-        summary = eaggl_factor_runtime._build_blockwise_family_keep_indices_from_records(records)
-
-        self.assertEqual(summary["keep_indices"], [0, 2])
-        self.assertEqual(sorted(summary["components"]), [[0, 1], [2, 3]])
 
     def test_blockwise_backend_caps_total_passes_with_max_num_iterations(self) -> None:
         matrix = np.array(
@@ -264,11 +205,9 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             log_fn=lambda *args, **kwargs: None,
             info_level=1,
         )
-        self.assertEqual(len(state.last_factorization_blockwise_report), 3)
-        self.assertEqual(state.last_factorization_backend_details["max_total_passes"], 3)
+        self.assertEqual(len(state.last_factorization_blockwise_report), 2)
         self.assertEqual(state.last_factorization_backend_details["epochs"], 2)
-        self.assertEqual(state.last_factorization_backend_details["global_refinement_passes"], 1)
-        self.assertEqual(state.last_factorization_iterations, 3)
+        self.assertEqual(state.last_factorization_iterations, 2)
 
     def test_blockwise_backend_emits_pass_factor_metrics_checkpoints_for_window(self) -> None:
         matrix = np.array(
@@ -472,8 +411,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 eaggl_factor_runtime._run_factor_single(
                     state,
                     phi=0.1,
-                    factor_backend="blockwise_global_w",
-                    blockwise_gene_set_block_size=999,
+                    factor_backend="online_shared_basis",
+                    online_block_size=999,
                     max_num_iterations=7,
                     bail_fn=lambda msg: (_ for _ in ()).throw(AssertionError(msg)),
                     warn_fn=lambda *args, **kwargs: None,
@@ -514,9 +453,9 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
 
         learn_phi_mock.assert_called_once()
         self.assertEqual(state.params["phi"], 0.025)
-        self.assertEqual(learn_phi_mock.call_args.kwargs["learn_phi_backend"], "sentinel_pruned")
+        self.assertEqual(learn_phi_mock.call_args.kwargs["learn_phi_backend"], "pruned")
 
-    def test_write_phi_search_report_includes_blockwise_backend_fields(self) -> None:
+    def test_write_phi_search_report_includes_budget_backend_fields(self) -> None:
         candidate = {
             "phi": 0.05,
             "modal_factor_count": 12,
@@ -546,7 +485,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             "final_iterations": 3,
             "converged_fraction": 0.0,
             "hit_iteration_cap_fraction": 1.0,
-            "backend": "blockwise_global_w",
+            "backend": "online_shared_basis",
             "blockwise_num_blocks": 4,
             "blockwise_block_size": 100,
             "blockwise_epochs": 3,
@@ -573,7 +512,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 report_path.unlink()
         self.assertIn("backend", text.splitlines()[0])
         self.assertIn("blockwise_num_blocks", text.splitlines()[0])
-        self.assertIn("blockwise_global_w", text)
+        self.assertIn("online_shared_basis", text)
 
     def test_run_factor_single_skips_empty_gene_prune_without_crashing(self) -> None:
         class _ForwardingState:

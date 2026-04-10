@@ -91,9 +91,12 @@ PYTHONPATH=src python -m eaggl factor \
 `--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics. Current `--learn-phi` diagnostics include the redundancy basis, candidate capped-status, nearest-neighbor overlap summaries (`redundancy_max` and `redundancy_q90`), factor-mass summaries (`effective_factor_count` and `mass_ge_floor_factor_count`), and convergence diagnostics such as final `delambda` and whether the scout fit hit the iteration cap.
 
 Scalable backend note:
-- `--factor-backend full|blockwise_global_w` selects the final factorization backend.
-- `--learn-phi-backend sentinel_pruned|blockwise_global_w` selects the phi-search backend.
-- `blockwise_global_w` keeps one shared global gene-factor basis and one shared ARD state across block-local gene-set solves, so all retained gene sets can contribute during phi search and final factorization without requiring one giant in-memory solve.
+- `--max-num-gene-sets` activates a large-panel approximation only when the retained gene-set panel exceeds the requested budget.
+- `--gene-set-budget-mode pruned|online_shared_basis|structure_preserving_sketch` selects the binding approximation mode.
+- Exact/full factorization remains the default when no budget is specified or when the retained panel does not exceed the budget.
+- `online_shared_basis` keeps one shared global gene-factor basis and one shared ARD state across block-local gene-set solves, then reprojects all retained gene sets against the final basis.
+- `structure_preserving_sketch` selects a representative sketch of actual gene sets, factors that sketch with the exact solver, then projects all retained gene sets onto the learned basis.
+- Stored factor loadings remain on their original fitted scale; any normalization used internally for sketch selection does not overwrite the stored model.
 
 Phenotype-anchored workflow:
 
@@ -272,7 +275,10 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-min-stability` | minimum mean matched-factor cosine across the modal restart runs |
 | `--learn-phi-max-fit-loss-frac` | legacy fallback fit-loss guard used only when no candidate satisfies the primary redundancy/restart criteria |
 | `--learn-phi-max-steps` | maximum number of additional `phi` candidates to evaluate after the initial `--phi`; defaults to `5` |
-| `--learn-phi-backend` | choose between the legacy sentinel-pruned phi search and the blockwise-global-W phi search over all retained gene sets |
+| `--max-num-gene-sets` | gene-set budget that activates a large-panel approximation only when the retained panel exceeds this size |
+| `--gene-set-budget-mode` | choose the binding approximation mode: `pruned`, `online_shared_basis`, or `structure_preserving_sketch` |
+| `--learn-phi-gene-set-budget-mode` | optional override for the phi-search budget mode; defaults to `--gene-set-budget-mode` |
+| `--learn-phi-backend` | deprecated compatibility alias for the phi-search budget mode |
 | `--learn-phi-expand-factor` | multiplicative factor used when widening the search bracket away from the initial `--phi` |
 | `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
 | `--learn-phi-report-out` | optional per-candidate diagnostics table for all tested `phi` values |
@@ -288,8 +294,9 @@ Operational notes:
 - The default search is structural model selection, not held-out cross-validation. It now gates on redundancy and restart behavior, then chooses `phi` from the resulting fit/complexity frontier using the marginal improvement in reconstruction error per additional retained mechanism, rather than a near-maximal factor-count band.
 - Candidate complexity is summarized using both the raw retained factor count and factor-mass diagnostics. In particular, `effective_factor_count` is the inverse-participation-ratio style mass summary `(sum m_k)^2 / sum m_k^2`, and `mass_ge_floor_factor_count` counts factors whose mass fraction is at least `1%`.
 - The search report also records whether the scout factorization converged before the candidate iteration cap, via `final_delambda`, `final_iterations`, `converged_fraction`, and `hit_iteration_cap_fraction`.
-- By default, `--learn-phi-backend sentinel_pruned` evaluates candidates on a correlation-pruned sentinel panel of up to `1000` genes and `1000` gene sets. Override `--learn-phi-prune-genes-num` and `--learn-phi-prune-gene-sets-num` when you want different sentinel sizes.
-- `--learn-phi-backend blockwise_global_w` instead evaluates all retained gene sets in blocks while keeping one shared global gene-factor basis and one shared ARD state.
+- When the budget mode is `pruned`, phi search uses the current reduced-panel behavior.
+- When the budget mode is `online_shared_basis`, phi search evaluates all retained gene sets in blocks while keeping one shared global gene-factor basis and one shared ARD state.
+- When the budget mode is `structure_preserving_sketch`, phi search evaluates candidates on an actual-column structure-preserving sketch rather than on the legacy independent-pruned sentinel panel.
 - The default search budget is `5` additional candidate evaluations after the initial `--phi`. Those evaluations may be spent on upward expansion, downward expansion, or midpoint refinement once the search brackets a capped or zero-factor boundary.
 - `--learn-phi-prune-genes-num`, `--learn-phi-prune-gene-sets-num`, and `--learn-phi-max-num-iterations` apply only while scoring phi candidates. The final reported factorization still reruns on the full retained panel using the selected `phi`.
 
@@ -300,13 +307,26 @@ Operational notes:
 | `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | prune weak gene-set memberships from factor outputs |
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |
-| `--factor-backend` | choose the final factorization backend: `full` or `blockwise_global_w` |
-| `--blockwise-gene-set-block-size` | set the retained gene-set block size used by `blockwise_global_w` |
-| `--blockwise-epochs` | number of global block passes used by `blockwise_global_w` |
-| `--blockwise-shuffle-blocks` | shuffle gene-set block order between blockwise epochs |
-| `--blockwise-warm-start` | warm-start neighboring phi candidates in blockwise phi search |
-| `--blockwise-max-blocks` | optional debugging cap on the number of processed blocks per epoch |
-| `--blockwise-report-out` | write per-epoch blockwise diagnostics |
+| `--factor-backend` | deprecated compatibility alias for selecting a large-panel approximation backend |
+| `--online-block-size` | working-set / block-size budget used by `online_shared_basis`; defaults to `--max-num-gene-sets` |
+| `--online-passes` | maximum number of global online passes used by `online_shared_basis` |
+| `--online-min-passes-before-stopping` | minimum number of passes required before `online_shared_basis` may stop early |
+| `--online-shuffle-blocks` | shuffle gene-set block order between online passes |
+| `--online-warm-start` | warm-start neighboring phi candidates in `online_shared_basis` |
+| `--online-max-blocks` | optional debugging cap on the number of processed blocks per online pass |
+| `--online-report-out` | write per-pass diagnostics for `online_shared_basis` |
+| `--approx-projection-block-size` | block size used for final fixed-basis projection in approximate modes |
+| `--approx-projection-n-iter` | iteration budget used for final fixed-basis projection in approximate modes |
+| `--sketch-size` | actual-column sketch size used by `structure_preserving_sketch`; defaults to `--max-num-gene-sets` |
+| `--sketch-embedding-dim` | embedding dimension used for actual-column sketch selection |
+| `--sketch-selection-method` | actual-column sketch selector; current implementation is `projected_cluster_medoids` |
+| `--sketch-random-seed` | random seed for sketch representative selection |
+| `--sketch-refinement-passes` | optional conservative post-projection refinement passes with the learned basis fixed |
+| `--learn-phi-scout-repeats` | number of sketch scouting replicates per phi candidate |
+| `--learn-phi-confirm-topk` | number of top sketch-scored phi candidates to confirm with `online_shared_basis` |
+| `--learn-phi-confirm-online-passes` | number of online passes used during phi confirmation |
+| `--learn-phi-confirm-block-size` | working-set / block-size budget for phi confirmation online runs |
+| `--learn-phi-scout-selection-method` | optional sketch selection-method override used during phi scouting |
 | `--factor-phewas-mode` | choose the factor-PheWAS model class; default is marginal binary enrichment with direct anchor adjustment |
 | `--factor-phewas-modes` | expert comma-separated list of model classes to run in one pass and append into the same factor-PheWAS output file |
 | `--factor-phewas-anchor-covariate` | choose the anchor covariate for factor-PheWAS; default is `direct`, with `combined` and `none` as expert options |

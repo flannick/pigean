@@ -5,12 +5,29 @@ import gzip
 import math
 import os
 import time
+from contextlib import contextmanager
+from types import SimpleNamespace
 
 import numpy as np
 import scipy
 import scipy.sparse as sparse
 
 from . import phenotype_annotation as eaggl_phenotype_annotation
+
+
+@contextmanager
+def _open_text_output(path):
+    if path is None:
+        raise ValueError("output path must not be None")
+    output_dir = os.path.dirname(path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    if str(path).endswith(".gz"):
+        with gzip.open(path, "wt", encoding="utf-8") as handle:
+            yield handle
+    else:
+        with open(path, "w", encoding="utf-8") as handle:
+            yield handle
 
 def _clone_runtime_value(value):
     try:
@@ -83,6 +100,22 @@ def _matrix_nonfinite_fraction(matrix):
     if values.size == 0:
         return 0.0
     return float(np.mean(~np.isfinite(values)))
+
+
+def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, log_fn=None, info_level=None):
+    for label, matrix in (("combined_prior_Ys", combined_prior_Ys), ("Y", Y), ("priors", priors)):
+        if matrix is None:
+            continue
+        if _matrix_nonfinite_fraction(matrix) >= 1.0:
+            continue
+        if label != "combined_prior_Ys" and log_fn is not None:
+            log_fn(
+                "Using %s for implicit factor-anchor relevance because earlier source combined_prior_Ys had non-finite values"
+                % str(label),
+                info_level,
+            )
+        return matrix, label
+    return None, None
 
 
 def _sanitize_dense_or_sparse_nonnegative_probabilities(matrix):
@@ -170,7 +203,127 @@ def _initialize_blockwise_gene_set_factors(num_rows, num_factors, vmax):
     return np.random.random((int(num_rows), int(num_factors))) * scale
 
 
-def _fit_blockwise_global_w(
+def _normalize_rows_l2(matrix):
+    matrix = np.asarray(matrix, dtype=float)
+    if matrix.size == 0:
+        return matrix.reshape(matrix.shape)
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    norms[norms <= 0] = 1.0
+    return matrix / norms
+
+
+def _normalize_columns_l2(matrix):
+    matrix = np.asarray(matrix, dtype=float)
+    if matrix.size == 0:
+        return matrix.reshape(matrix.shape)
+    norms = np.linalg.norm(matrix, axis=0, keepdims=True)
+    norms[norms <= 0] = 1.0
+    return matrix / norms
+
+
+def _blockwise_ranges_by_id(num_rows, block_size, *, max_blocks=None):
+    return {
+        int(block_number): (int(start), int(stop))
+        for block_number, start, stop in _blockwise_block_ranges(
+            num_rows,
+            int(block_size),
+            shuffle_blocks=False,
+            rng=np.random.RandomState(0),
+            max_blocks=max_blocks,
+        )
+    }
+
+
+def _factor_metric_record_summary(records):
+    if records is None or len(records) == 0:
+        return {
+            "median_gene_overlap": 0.0,
+            "q90_gene_overlap": 0.0,
+            "median_gene_set_overlap": 0.0,
+            "q90_gene_set_overlap": 0.0,
+            "median_combined_unique_fraction": 1.0,
+        }
+
+    def _extract(values_key, default_value=0.0):
+        values = [float(record.get(values_key, default_value) or default_value) for record in records]
+        return np.asarray(values, dtype=float)
+
+    gene_overlap = _extract("gene_max_jaccard")
+    gene_set_overlap = _extract("gene_set_max_jaccard")
+    combined_unique = _extract("combined_unique_fraction", 1.0)
+    return {
+        "median_gene_overlap": float(np.median(gene_overlap)) if gene_overlap.size > 0 else 0.0,
+        "q90_gene_overlap": float(np.quantile(gene_overlap, 0.9)) if gene_overlap.size > 0 else 0.0,
+        "median_gene_set_overlap": float(np.median(gene_set_overlap)) if gene_set_overlap.size > 0 else 0.0,
+        "q90_gene_set_overlap": float(np.quantile(gene_set_overlap, 0.9)) if gene_set_overlap.size > 0 else 0.0,
+        "median_combined_unique_fraction": float(np.median(combined_unique)) if combined_unique.size > 0 else 1.0,
+    }
+
+
+def _summarize_block_factor_usage(block_rows) -> np.ndarray:
+    if block_rows is None or len(block_rows) == 0:
+        return np.zeros((0, 0), dtype=float)
+    block_ids = sorted(int(block_id) for block_id in block_rows.keys())
+    first_block = np.asarray(block_rows[block_ids[0]], dtype=float)
+    num_factors = int(first_block.shape[1]) if first_block.ndim == 2 else 0
+    usage = np.zeros((len(block_ids), num_factors), dtype=float)
+    for row_index, block_id in enumerate(block_ids):
+        block = np.asarray(block_rows[block_id], dtype=float)
+        if block.ndim != 2 or block.shape[1] != num_factors:
+            continue
+        usage[row_index, :] = np.sum(np.square(np.maximum(block, 0.0)), axis=0)
+    return usage
+
+
+def _block_usage_entropy_summary(block_usage) -> dict:
+    usage = np.asarray(block_usage, dtype=float)
+    if usage.size == 0 or usage.ndim != 2 or usage.shape[1] == 0:
+        return {"median_block_usage_entropy": 0.0, "q90_block_usage_entropy": 0.0}
+    normalized = np.maximum(usage, 0.0)
+    normalized /= np.maximum(np.sum(normalized, axis=0, keepdims=True), 1e-50)
+    entropy = -np.sum(np.where(normalized > 0, normalized * np.log(np.maximum(normalized, 1e-50)), 0.0), axis=0)
+    if usage.shape[0] > 1:
+        entropy /= math.log(float(usage.shape[0]))
+    return {
+        "median_block_usage_entropy": float(np.median(entropy)) if entropy.size > 0 else 0.0,
+        "q90_block_usage_entropy": float(np.quantile(entropy, 0.9)) if entropy.size > 0 else 0.0,
+    }
+
+
+def _solve_blockwise_block_with_fixed_basis(
+    V_block,
+    S_block,
+    shared_gene_factors,
+    lambdak,
+    *,
+    phi_scaled,
+    eps,
+    cap_gene_sets,
+    initial_W_block=None,
+    vmax=1.0,
+    iterations=5,
+):
+    current_k = int(shared_gene_factors.shape[0])
+    W_block = (
+        _initialize_blockwise_gene_set_factors(V_block.shape[0], current_k, vmax)
+        if initial_W_block is None or np.asarray(initial_W_block).shape != (V_block.shape[0], current_k)
+        else np.maximum(np.asarray(initial_W_block, dtype=float).copy(), eps)
+    )
+    for _ in range(int(max(1, iterations))):
+        V_ap_block = W_block @ shared_gene_factors + eps
+        numerator_W = (V_block * S_block) @ shared_gene_factors.T
+        denominator_W = (V_ap_block * S_block) @ shared_gene_factors.T + phi_scaled * W_block * (1.0 / np.maximum(lambdak, eps))[np.newaxis, :] + eps
+        W_block *= numerator_W / denominator_W
+        W_block = np.maximum(W_block, 0.0)
+        if cap_gene_sets:
+            W_block = np.clip(W_block, 0.0, 1.0)
+    V_ap_block = W_block @ shared_gene_factors + eps
+    error = float(np.sum(S_block * np.square(V_block - V_ap_block)))
+    likelihood = float(np.sum(0.5 * S_block * np.square(V_block - V_ap_block)))
+    return W_block, error, likelihood
+
+
+def _fit_online_shared_basis(
     state,
     matrix,
     *,
@@ -183,7 +336,8 @@ def _fit_blockwise_global_w(
     rel_tol,
     min_lambda_threshold,
     block_size,
-    epochs,
+    passes,
+    min_passes_before_stopping,
     shuffle_blocks,
     max_blocks,
     warm_start_state,
@@ -199,11 +353,7 @@ def _fit_blockwise_global_w(
     if not hasattr(state, "last_factorization_blockwise_report"):
         state.last_factorization_blockwise_report = []
     eps = 1e-50
-    V = matrix
-    if sparse.issparse(V):
-        V = V.tocsr()
-    else:
-        V = np.asarray(V, dtype=float)
+    V = matrix.tocsr() if sparse.issparse(matrix) else np.asarray(matrix, dtype=float)
     N, M = V.shape
     vmax = float(np.max(V)) if N > 0 and M > 0 else 1.0
     K = int(max_num_factors)
@@ -237,20 +387,16 @@ def _fit_blockwise_global_w(
             warm_started = True
     if shared_gene_factors is None:
         shared_gene_factors = _initialize_blockwise_gene_factors(K, M, vmax)
+
+    block_ranges_by_id = _blockwise_ranges_by_id(N, int(block_size), max_blocks=max_blocks)
+    ordered_block_ids = sorted(block_ranges_by_id.keys())
     if lambdak is None:
         initial_w_sq_sum = np.zeros(K, dtype=float)
-        for block_number, start, stop in _blockwise_block_ranges(
-            N,
-            int(block_size),
-            shuffle_blocks=False,
-            rng=np.random.RandomState(0),
-            max_blocks=None,
-        ):
+        for block_number, (start, stop) in sorted(block_ranges_by_id.items()):
             W_block = _initialize_blockwise_gene_set_factors(stop - start, K, vmax)
             block_rows[block_number] = W_block
             initial_w_sq_sum += np.sum(W_block ** 2, axis=0)
-        lambdak = (0.5 * (initial_w_sq_sum + np.sum(shared_gene_factors ** 2, axis=1)) + b0) / C
-        lambdak = np.maximum(lambdak, eps)
+        lambdak = np.maximum((0.5 * (initial_w_sq_sum + np.sum(shared_gene_factors ** 2, axis=1)) + b0) / C, eps)
 
     rng = np.random.RandomState(int(np.random.randint(0, np.iinfo(np.uint32).max)))
     block_reports = []
@@ -260,27 +406,51 @@ def _fit_blockwise_global_w(
     delambda = 1.0
     total_columns_evaluated = 0
     epoch_error_trace = []
-
     gene_probabilities = _dense_probabilities(gene_or_pheno_prob_vector)
     gene_set_probabilities = _dense_probabilities(gene_set_prob_vector)
 
     def _materialize_gene_set_factors(current_block_rows, current_shared_gene_factors):
         ordered_blocks = []
         current_k = int(current_shared_gene_factors.shape[0])
-        for block_number, start, stop in _blockwise_block_ranges(
-            N,
-            int(block_size),
-            shuffle_blocks=False,
-            rng=np.random.RandomState(0),
-            max_blocks=None,
-        ):
+        for block_number, (start, stop) in sorted(block_ranges_by_id.items()):
             W_block = current_block_rows.get(block_number)
             if W_block is None or W_block.shape != (stop - start, current_k):
                 W_block = _initialize_blockwise_gene_set_factors(stop - start, current_k, vmax)
             ordered_blocks.append(np.asarray(W_block, dtype=float))
-        return np.vstack(ordered_blocks) if len(ordered_blocks) > 0 else np.zeros((N, current_shared_gene_factors.shape[0]), dtype=float)
+        return np.vstack(ordered_blocks) if len(ordered_blocks) > 0 else np.zeros((int(N), current_shared_gene_factors.shape[0]), dtype=float)
 
-    def _run_blockwise_pass(current_shared_gene_factors, current_lambdak, current_block_rows, *, shuffle_this_pass, lambda_update_mode="normal", lambda_damping=1.0):
+    def _compute_pass_diagnostics(current_shared_gene_factors, current_lambdak, current_block_rows):
+        gene_set_factors = _materialize_gene_set_factors(current_block_rows, current_shared_gene_factors)
+        factor_records = _collect_blockwise_factor_metric_records(
+            state,
+            gene_set_factors=gene_set_factors,
+            gene_factors=current_shared_gene_factors.T,
+            lambdak=current_lambdak,
+        ) or []
+        mass_profile = _compute_factor_mass_profile(
+            SimpleNamespace(
+                exp_gene_set_factors=gene_set_factors,
+                exp_gene_factors=current_shared_gene_factors.T,
+                exp_pheno_factors=None,
+            ),
+            mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC,
+        )
+        overlap_summary = _factor_metric_record_summary(factor_records)
+        entropy_summary = _block_usage_entropy_summary(_summarize_block_factor_usage(current_block_rows))
+        return {
+            "effective_factor_count": float(mass_profile.get("effective_factor_count", 0.0)),
+            "mass_ge_floor_factor_count": int(mass_profile.get("mass_ge_floor_factor_count", 0)),
+            "median_gene_overlap": float(overlap_summary["median_gene_overlap"]),
+            "q90_gene_overlap": float(overlap_summary["q90_gene_overlap"]),
+            "median_gene_set_overlap": float(overlap_summary["median_gene_set_overlap"]),
+            "q90_gene_set_overlap": float(overlap_summary["q90_gene_set_overlap"]),
+            "median_combined_unique_fraction": float(overlap_summary["median_combined_unique_fraction"]),
+            "top5_mass_fraction": float(mass_profile.get("top5_mass_fraction", 0.0)),
+            "median_block_usage_entropy": float(entropy_summary["median_block_usage_entropy"]),
+            "q90_block_usage_entropy": float(entropy_summary["q90_block_usage_entropy"]),
+        }
+
+    def _run_online_pass(current_shared_gene_factors, current_lambdak, current_block_rows, *, shuffle_this_pass):
         current_k = int(current_shared_gene_factors.shape[0])
         ranges = _blockwise_block_ranges(
             N,
@@ -295,10 +465,8 @@ def _fit_blockwise_global_w(
         pass_like = 0.0
         pass_error = 0.0
         pass_columns_evaluated = 0
-
         for block_number, start, stop in ranges:
-            V_block = _dense_block(V, start, stop)
-            V_block = np.maximum(V_block, 0.0)
+            V_block = np.maximum(_dense_block(V, start, stop), 0.0)
             S_block = _compute_weight_matrix_for_block(
                 None if gene_set_probabilities is None else gene_set_probabilities[start:stop, :],
                 gene_probabilities,
@@ -323,26 +491,13 @@ def _fit_blockwise_global_w(
             pass_error += float(np.sum(S_block * (V_block - V_ap_block) ** 2))
             pass_columns_evaluated += int(stop - start)
             current_block_rows[block_number] = W_block
-
         denominator_H = denominator_H_linear + phi_scaled * current_shared_gene_factors * (1.0 / np.maximum(current_lambdak, eps))[:, np.newaxis] + eps
-        updated_shared_gene_factors = current_shared_gene_factors * (numerator_H / denominator_H)
-        updated_shared_gene_factors = np.maximum(updated_shared_gene_factors, 0.0)
+        updated_shared_gene_factors = np.maximum(current_shared_gene_factors * (numerator_H / denominator_H), 0.0)
         if cap_genes:
             updated_shared_gene_factors = np.clip(updated_shared_gene_factors, 0.0, 1.0)
-        lambdak_new = np.maximum((0.5 * (w_sq_sum + np.sum(updated_shared_gene_factors ** 2, axis=1)) + b0) / C, eps)
-        if lambda_update_mode == "freeze":
-            updated_lambdak = np.asarray(current_lambdak, dtype=float).copy()
-        elif lambda_update_mode == "damped":
-            damping = float(np.clip(lambda_damping, 0.0, 1.0))
-            updated_lambdak = np.maximum((1.0 - damping) * np.asarray(current_lambdak, dtype=float) + damping * lambdak_new, eps)
-        else:
-            updated_lambdak = lambdak_new
-        if lambda_update_mode == "freeze":
-            pass_delambda = float("nan")
-        else:
-            pass_delambda = float(np.max(np.abs(updated_lambdak - current_lambdak) / (np.maximum(current_lambdak, eps)))) if current_lambdak.size > 0 else 0.0
+        updated_lambdak = np.maximum((0.5 * (w_sq_sum + np.sum(updated_shared_gene_factors ** 2, axis=1)) + b0) / C, eps)
+        pass_delambda = float(np.max(np.abs(updated_lambdak - current_lambdak) / np.maximum(current_lambdak, eps))) if current_lambdak.size > 0 else 0.0
         regularization = phi_scaled * np.sum((0.5 * (w_sq_sum + np.sum(updated_shared_gene_factors ** 2, axis=1)) + b0) / np.maximum(updated_lambdak, eps) + C * np.log(np.maximum(updated_lambdak, eps)))
-        active_lambda = updated_lambdak[updated_lambdak >= lambda_cut]
         active_factors = int(np.sum(updated_lambdak >= lambda_cut))
         return (
             updated_shared_gene_factors,
@@ -357,33 +512,11 @@ def _fit_blockwise_global_w(
                 "delambda": float(pass_delambda),
                 "active_factors": int(active_factors),
                 "retained_factors": int(updated_shared_gene_factors.shape[0]),
-                "lambda_q10": float(np.quantile(active_lambda if active_lambda.size > 0 else updated_lambdak, 0.1)) if updated_lambdak.size > 0 else 0.0,
-                "lambda_median": float(np.quantile(active_lambda if active_lambda.size > 0 else updated_lambdak, 0.5)) if updated_lambdak.size > 0 else 0.0,
-                "lambda_q90": float(np.quantile(active_lambda if active_lambda.size > 0 else updated_lambdak, 0.9)) if updated_lambdak.size > 0 else 0.0,
-                "lambda_update_mode": str(lambda_update_mode),
-                "lambda_damping": float(lambda_damping),
             },
         )
 
-    max_total_passes = int(max(1, max_num_iterations))
-    initial_epoch_passes = int(min(max_total_passes, max(1, epochs)))
-    total_passes_completed = 0
-    collapse_guard_triggered = False
-    collapse_guard_stop_pass = None
-    lambda_freeze_passes = int(max(0, _DEFAULT_BLOCKWISE_REFINEMENT_LAMBDA_FREEZE_PASSES))
-    lambda_damping = float(np.clip(_DEFAULT_BLOCKWISE_REFINEMENT_LAMBDA_DAMPING, 0.0, 1.0))
-    min_refinement_passes = int(max(0, _DEFAULT_BLOCKWISE_GLOBAL_REFINEMENT_PASSES))
-    min_shrinkage_refinement_passes = int(max(0, _DEFAULT_BLOCKWISE_MIN_SHRINKAGE_REFINEMENT_PASSES))
-    min_total_refinement_passes = int(max(min_refinement_passes, lambda_freeze_passes + min_shrinkage_refinement_passes))
-    family_merge_applied = False
-    family_merge_components = None
-    family_merge_retained_factors_before = None
-    family_merge_retained_factors_after = None
-
     def _maybe_write_pass_checkpoint(pass_number, current_shared_gene_factors, current_lambdak, current_block_rows):
-        if pass_metrics_dir is None:
-            return
-        if pass_number < int(_DEFAULT_BLOCKWISE_PASS_CHECKPOINT_START) or pass_number > int(_DEFAULT_BLOCKWISE_PASS_CHECKPOINT_END):
+        if pass_metrics_dir is None or pass_number < int(_DEFAULT_BLOCKWISE_PASS_CHECKPOINT_START) or pass_number > int(_DEFAULT_BLOCKWISE_PASS_CHECKPOINT_END):
             return
         os.makedirs(pass_metrics_dir, exist_ok=True)
         checkpoint_file = os.path.join(pass_metrics_dir, "pass_%03d.factor_metrics.out.gz" % int(pass_number))
@@ -395,62 +528,38 @@ def _fit_blockwise_global_w(
             lambdak=current_lambdak,
         )
 
-    def _current_active_factor_count(current_lambdak):
-        current_lambdak = np.asarray(current_lambdak, dtype=float)
-        if current_lambdak.size == 0:
-            return 0
-        return int(np.sum(current_lambdak >= lambda_cut))
-
-    def _apply_family_merge(current_shared_gene_factors, current_lambdak, current_block_rows):
-        gene_set_factors = _materialize_gene_set_factors(current_block_rows, current_shared_gene_factors)
-        records = _collect_blockwise_factor_metric_records(
-            state,
-            gene_set_factors=gene_set_factors,
-            gene_factors=current_shared_gene_factors.T,
-            lambdak=current_lambdak,
-        )
-        if not records:
-            return (
+    def _reproject_all_blocks_with_fixed_basis(current_shared_gene_factors, current_lambdak, *, iterations, initial_block_rows=None):
+        reprojected_rows = {}
+        for block_number, (start, stop) in sorted(block_ranges_by_id.items()):
+            V_block = np.maximum(_dense_block(V, start, stop), 0.0)
+            S_block = _compute_weight_matrix_for_block(
+                None if gene_set_probabilities is None else gene_set_probabilities[start:stop, :],
+                gene_probabilities,
+                stop - start,
+                M,
+            )
+            initial_W_block = None if initial_block_rows is None else initial_block_rows.get(block_number)
+            W_block, _, _ = _solve_blockwise_block_with_fixed_basis(
+                V_block,
+                S_block,
                 current_shared_gene_factors,
                 current_lambdak,
-                current_block_rows,
-                {
-                    "applied": False,
-                    "components": None,
-                    "retained_factors_before": int(current_shared_gene_factors.shape[0]),
-                    "retained_factors_after": int(current_shared_gene_factors.shape[0]),
-                },
+                phi_scaled=phi_scaled,
+                eps=eps,
+                cap_gene_sets=cap_gene_sets,
+                initial_W_block=initial_W_block,
+                vmax=vmax,
+                iterations=iterations,
             )
-        family_summary = _build_blockwise_family_keep_indices_from_records(records)
-        keep_indices = [int(index) for index in family_summary.get("keep_indices", [])]
-        if len(keep_indices) == 0 or len(keep_indices) >= int(current_shared_gene_factors.shape[0]):
-            return (
-                current_shared_gene_factors,
-                current_lambdak,
-                current_block_rows,
-                {
-                    "applied": False,
-                    "components": len(family_summary.get("components", [])),
-                    "retained_factors_before": int(current_shared_gene_factors.shape[0]),
-                    "retained_factors_after": int(current_shared_gene_factors.shape[0]),
-                },
-            )
-        merged_shared_gene_factors = np.asarray(current_shared_gene_factors, dtype=float)[keep_indices, :]
-        merged_lambdak = np.asarray(current_lambdak, dtype=float)[keep_indices]
-        return (
-            merged_shared_gene_factors,
-            merged_lambdak,
-            {},
-            {
-                "applied": True,
-                "components": len(family_summary.get("components", [])),
-                "retained_factors_before": int(current_shared_gene_factors.shape[0]),
-                "retained_factors_after": int(len(keep_indices)),
-            },
-        )
+            reprojected_rows[int(block_number)] = W_block
+        return reprojected_rows
 
-    for epoch_index in range(initial_epoch_passes):
-        shared_gene_factors, lambdak, block_rows, pass_stats = _run_blockwise_pass(
+    max_total_passes = int(min(max(1, max_num_iterations), max(1, passes)))
+    min_passes = int(min(max_total_passes, max(1, min_passes_before_stopping)))
+    target_passes = int(max_total_passes)
+    for pass_index in range(target_passes):
+        current_shared_gene_factors = shared_gene_factors
+        shared_gene_factors, lambdak, block_rows, pass_stats = _run_online_pass(
             shared_gene_factors,
             lambdak,
             block_rows,
@@ -462,11 +571,17 @@ def _fit_blockwise_global_w(
         delambda = float(pass_stats["delambda"])
         total_columns_evaluated = int(pass_stats["columns_evaluated"])
         epoch_error_trace.append(error)
+        report_stats = dict(pass_stats)
+        report_stats.update(_compute_pass_diagnostics(shared_gene_factors, lambdak, block_rows))
+        report_stats["phase"] = "online"
+        report_stats["epoch"] = int(pass_index + 1)
+        block_reports.append(report_stats)
+        _maybe_write_pass_checkpoint(pass_index + 1, shared_gene_factors, lambdak, block_rows)
         log_fn(
-            "Blockwise epoch %d/%d; backend=blockwise_global_w; blocks=%d; rows=%d; err=%.6g; delambda=%.6g; active_factors=%d; warm_start=%s"
+            "Online shared-basis pass %d/%d; backend=online_shared_basis; blocks=%d; rows=%d; err=%.6g; delambda=%.6g; active_factors=%d; warm_start=%s"
             % (
-                epoch_index + 1,
-                int(initial_epoch_passes),
+                pass_index + 1,
+                int(target_passes),
                 int(pass_stats["num_blocks"]),
                 int(total_columns_evaluated),
                 error,
@@ -476,203 +591,44 @@ def _fit_blockwise_global_w(
             ),
             info_level,
         )
-        report_stats = dict(pass_stats)
-        report_stats["phase"] = "epoch"
-        report_stats["epoch"] = int(epoch_index + 1)
-        block_reports.append(report_stats)
-        total_passes_completed += 1
-        _maybe_write_pass_checkpoint(total_passes_completed, shared_gene_factors, lambdak, block_rows)
-        if delambda < rel_tol and total_passes_completed >= initial_epoch_passes:
+        if (pass_index + 1) >= int(min_passes) and delambda < rel_tol:
             break
 
-    refinement_passes_completed = 0
-    shrinkage_refinement_passes_completed = 0
-    previous_shrinkage_delambda = None
-    current_active_factors = _current_active_factor_count(lambdak)
-    while total_passes_completed < max_total_passes:
-        previous_shared_gene_factors = np.asarray(shared_gene_factors, dtype=float).copy()
-        previous_lambdak = np.asarray(lambdak, dtype=float).copy()
-        previous_active_factors = int(current_active_factors)
-        current_lambda_update_mode = "freeze" if refinement_passes_completed < lambda_freeze_passes else "damped"
-        current_lambda_damping = 0.0 if current_lambda_update_mode == "freeze" else lambda_damping
-        candidate_shared_gene_factors, candidate_lambdak, block_rows, pass_stats = _run_blockwise_pass(
-            shared_gene_factors,
-            lambdak,
-            block_rows,
-            shuffle_this_pass=shuffle_blocks,
-            lambda_update_mode=current_lambda_update_mode,
-            lambda_damping=current_lambda_damping,
-        )
-        candidate_active_factors = int(pass_stats["active_factors"])
-        active_drop_frac = float(max(0.0, previous_active_factors - candidate_active_factors) / max(1, previous_active_factors))
-        current_pass_delambda = float(pass_stats["delambda"])
-        delambda_spike = 1.0
-        if previous_shrinkage_delambda is not None and np.isfinite(current_pass_delambda) and previous_shrinkage_delambda > 0:
-            delambda_spike = float(current_pass_delambda / max(previous_shrinkage_delambda, eps))
-        guard_triggered_this_pass = (
-            current_lambda_update_mode != "freeze" and (
-                active_drop_frac >= float(_DEFAULT_BLOCKWISE_REFINEMENT_COLLAPSE_DROP_FRAC)
-                or (
-                    previous_shrinkage_delambda is not None
-                    and active_drop_frac >= 0.1
-                    and delambda_spike >= float(_DEFAULT_BLOCKWISE_REFINEMENT_DELAMBDA_SPIKE_MULT)
-                )
-            )
-        )
-        if guard_triggered_this_pass:
-            collapse_guard_triggered = True
-            collapse_guard_stop_pass = int(total_passes_completed + 1)
-            shared_gene_factors = previous_shared_gene_factors
-            lambdak = previous_lambdak
-            current_active_factors = int(previous_active_factors)
-            delambda = float(previous_shrinkage_delambda) if previous_shrinkage_delambda is not None else float("nan")
-            log_fn(
-                "Stopping blockwise refinement at pass %d after guardrail rejected a collapse step; active_factors would have changed %d -> %d (drop_frac=%.6g) with delambda spike %.6g"
-                % (
-                    int(collapse_guard_stop_pass),
-                    int(previous_active_factors),
-                    int(candidate_active_factors),
-                    float(active_drop_frac),
-                    float(delambda_spike),
-                ),
-                info_level,
-            )
-            break
-        shared_gene_factors = candidate_shared_gene_factors
-        lambdak = candidate_lambdak
-        current_active_factors = int(candidate_active_factors)
-        like = float(pass_stats["likelihood"])
-        evid = float(pass_stats["evidence"])
-        error = float(pass_stats["error"])
-        delambda = float(current_pass_delambda)
-        total_columns_evaluated = int(pass_stats["columns_evaluated"])
-        epoch_error_trace.append(error)
-        merge_summary = None
-        if current_lambda_update_mode == "freeze" and not family_merge_applied:
-            shared_gene_factors, lambdak, block_rows, merge_summary = _apply_family_merge(
-                shared_gene_factors,
-                lambdak,
-                block_rows,
-            )
-            family_merge_applied = bool(merge_summary.get("applied", False))
-            family_merge_components = merge_summary.get("components")
-            family_merge_retained_factors_before = int(merge_summary.get("retained_factors_before", current_active_factors))
-            family_merge_retained_factors_after = int(merge_summary.get("retained_factors_after", current_active_factors))
-            current_active_factors = _current_active_factor_count(lambdak)
-            if family_merge_applied:
-                log_fn(
-                    "Collapsed blockwise overlap families after frozen refinement pass %d: %d factors -> %d representatives across %d families"
-                    % (
-                        int(refinement_passes_completed + 1),
-                        int(family_merge_retained_factors_before),
-                        int(family_merge_retained_factors_after),
-                        int(family_merge_components),
-                    ),
-                    info_level,
-                )
-        log_fn(
-            "Blockwise global refinement %d/%d; backend=blockwise_global_w; blocks=%d; rows=%d; err=%.6g; delambda=%s; active_factors=%d; retained_factors=%d; lambda_mode=%s; lambda_damping=%.6g"
-            % (
-                refinement_passes_completed + 1,
-                int(max(0, max_total_passes - initial_epoch_passes)),
-                int(pass_stats["num_blocks"]),
-                int(total_columns_evaluated),
-                error,
-                "nan" if not np.isfinite(delambda) else "%.6g" % float(delambda),
-                int(current_active_factors),
-                int(shared_gene_factors.shape[0]),
-                str(pass_stats.get("lambda_update_mode", "normal")),
-                float(pass_stats.get("lambda_damping", 1.0)),
-            ),
-            info_level,
-        )
-        report_stats = dict(pass_stats)
-        report_stats["phase"] = "refinement"
-        report_stats["epoch"] = int(len(block_reports) + 1)
-        report_stats["active_factors"] = int(current_active_factors)
-        report_stats["retained_factors"] = int(shared_gene_factors.shape[0])
-        if merge_summary is not None:
-            report_stats["family_merge_applied"] = "1" if family_merge_applied else "0"
-            report_stats["family_merge_components"] = "" if family_merge_components is None else str(int(family_merge_components))
-            report_stats["retained_factors_after_merge"] = str(int(shared_gene_factors.shape[0]))
-        block_reports.append(report_stats)
-        total_passes_completed += 1
-        refinement_passes_completed += 1
-        if current_lambda_update_mode != "freeze" and np.isfinite(delambda):
-            shrinkage_refinement_passes_completed += 1
-            previous_shrinkage_delambda = float(delambda)
-        _maybe_write_pass_checkpoint(total_passes_completed, shared_gene_factors, lambdak, block_rows)
-        if (
-            refinement_passes_completed >= min_total_refinement_passes
-            and shrinkage_refinement_passes_completed >= min_shrinkage_refinement_passes
-            and np.isfinite(delambda)
-            and delambda < rel_tol
-        ):
-            break
-
-    ordered_blocks = []
-    for block_number, start, stop in _blockwise_block_ranges(N, int(block_size), shuffle_blocks=False, rng=np.random.RandomState(0), max_blocks=None):
-        V_block = _dense_block(V, start, stop)
-        S_block = _compute_weight_matrix_for_block(
-            None if gene_set_probabilities is None else gene_set_probabilities[start:stop, :],
-            gene_probabilities,
-            stop - start,
-            M,
-        )
-        current_k = int(shared_gene_factors.shape[0])
-        W_block = _initialize_blockwise_gene_set_factors(stop - start, current_k, vmax)
-        V_ap_block = W_block @ shared_gene_factors + eps
-        numerator_W = (V_block * S_block) @ shared_gene_factors.T
-        denominator_W = (V_ap_block * S_block) @ shared_gene_factors.T + phi_scaled * W_block * (1.0 / np.maximum(lambdak, eps))[np.newaxis, :] + eps
-        W_block *= numerator_W / denominator_W
-        W_block = np.maximum(W_block, 0.0)
-        if cap_gene_sets:
-            W_block = np.clip(W_block, 0.0, 1.0)
-        block_rows[block_number] = W_block
-        ordered_blocks.append(W_block)
-    gene_set_factors = np.vstack(ordered_blocks) if len(ordered_blocks) > 0 else np.zeros((N, K), dtype=float)
-
+    block_rows = _reproject_all_blocks_with_fixed_basis(shared_gene_factors, lambdak, iterations=5, initial_block_rows=None)
+    gene_set_factors = _materialize_gene_set_factors(block_rows, shared_gene_factors)
     final_iterations = int(len(block_reports))
     state.last_factorization_final_delambda = float(delambda)
     state.last_factorization_iterations = final_iterations
-    state.last_factorization_converged = bool(delambda < rel_tol)
-    state.last_factorization_hit_iteration_cap = bool(final_iterations >= int(max_total_passes) and delambda >= rel_tol)
-    state.last_factorization_backend = "blockwise_global_w"
+    state.last_factorization_converged = bool(np.isfinite(delambda) and delambda < rel_tol)
+    state.last_factorization_hit_iteration_cap = bool(final_iterations >= int(max_total_passes) and not (np.isfinite(delambda) and delambda < rel_tol))
+    state.last_factorization_backend = "online_shared_basis"
     state.last_factorization_backend_details = {
-        "backend": "blockwise_global_w",
-        "num_blocks": int(math.ceil(float(N) / float(max(1, block_size)))) if N > 0 else 0,
+        "backend": "online_shared_basis",
+        "num_blocks": int(len(ordered_block_ids)),
         "block_size": int(block_size),
-        "epochs": int(initial_epoch_passes),
-        "max_total_passes": int(max_total_passes),
-        "global_refinement_passes": int(refinement_passes_completed),
-        "min_refinement_passes": int(min_refinement_passes),
-        "min_shrinkage_refinement_passes": int(min_shrinkage_refinement_passes),
-        "refinement_lambda_freeze_passes": int(lambda_freeze_passes),
-        "refinement_lambda_damping": float(lambda_damping),
-        "refinement_collapse_guard_triggered": bool(collapse_guard_triggered),
-        "refinement_collapse_guard_stop_pass": None if collapse_guard_stop_pass is None else int(collapse_guard_stop_pass),
-        "family_merge_applied": bool(family_merge_applied),
-        "family_merge_components": None if family_merge_components is None else int(family_merge_components),
-        "family_merge_retained_factors_before": None if family_merge_retained_factors_before is None else int(family_merge_retained_factors_before),
-        "family_merge_retained_factors_after": None if family_merge_retained_factors_after is None else int(family_merge_retained_factors_after),
+        "epochs": int(target_passes),
+        "passes_completed": int(final_iterations),
+        "online_passes": int(target_passes),
+        "online_min_passes_before_stopping": int(min_passes),
         "columns_evaluated": int(total_columns_evaluated),
         "warm_started": bool(warm_started),
         "lambda_cut": float(lambda_cut),
         "epoch_error_trace": [float(value) for value in epoch_error_trace],
+        "pass_error_trace": [float(value) for value in epoch_error_trace],
         "wall_time_sec": float(time.time() - started_at),
     }
     state.last_factorization_blockwise_report = block_reports
 
     if report_out is not None:
         with _open_text_output(report_out) as output_fh:
-            output_fh.write("epoch\tphase\tbackend\tnum_blocks\tblock_size\tcolumns_evaluated\terror\tevidence\tlikelihood\tdelambda\tactive_factors\tretained_factors\tlambda_update_mode\tlambda_damping\tfamily_merge_applied\tfamily_merge_components\tretained_factors_after_merge\twarm_started\n")
+            output_fh.write("epoch\tphase\tbackend\tnum_blocks\tblock_size\tcolumns_evaluated\terror\tevidence\tlikelihood\tdelambda\tactive_factors\tretained_factors\teffective_factor_count\tmass_ge_floor_factor_count\tmedian_gene_overlap\tq90_gene_overlap\tmedian_gene_set_overlap\tq90_gene_set_overlap\tmedian_combined_unique_fraction\ttop5_mass_fraction\tmedian_block_usage_entropy\tq90_block_usage_entropy\twarm_started\n")
             for report in block_reports:
                 output_fh.write(
-                    "%d\t%s\t%s\t%d\t%d\t%d\t%.12g\t%.12g\t%.12g\t%.12g\t%d\t%d\t%s\t%.12g\t%s\t%s\t%s\t%s\n"
+                    "%d\t%s\t%s\t%d\t%d\t%d\t%.12g\t%.12g\t%.12g\t%.12g\t%d\t%d\t%.12g\t%d\t%.12g\t%.12g\t%.12g\t%.12g\t%.12g\t%.12g\t%.12g\t%.12g\t%s\n"
                     % (
                         int(report["epoch"]),
-                        str(report.get("phase", "epoch")),
-                        "blockwise_global_w",
+                        str(report.get("phase", "online")),
+                        "online_shared_basis",
                         int(report["num_blocks"]),
                         int(block_size),
                         int(report["columns_evaluated"]),
@@ -682,11 +638,16 @@ def _fit_blockwise_global_w(
                         float(report["delambda"]),
                         int(report["active_factors"]),
                         int(report.get("retained_factors", report["active_factors"])),
-                        str(report.get("lambda_update_mode", "normal")),
-                        float(report.get("lambda_damping", 1.0)),
-                        str(report.get("family_merge_applied", "")),
-                        str(report.get("family_merge_components", "")),
-                        str(report.get("retained_factors_after_merge", "")),
+                        float(report.get("effective_factor_count", 0.0)),
+                        int(report.get("mass_ge_floor_factor_count", 0)),
+                        float(report.get("median_gene_overlap", 0.0)),
+                        float(report.get("q90_gene_overlap", 0.0)),
+                        float(report.get("median_gene_set_overlap", 0.0)),
+                        float(report.get("q90_gene_set_overlap", 0.0)),
+                        float(report.get("median_combined_unique_fraction", 1.0)),
+                        float(report.get("top5_mass_fraction", 0.0)),
+                        float(report.get("median_block_usage_entropy", 0.0)),
+                        float(report.get("q90_block_usage_entropy", 0.0)),
                         "1" if warm_started else "0",
                     )
                 )
@@ -700,128 +661,186 @@ def _fit_blockwise_global_w(
         "gene_or_pheno_factors": shared_gene_factors.T,
         "likelihood": like,
         "evidence": evid,
-        "lambdak": lambdak,
         "reconstruction_error": error,
-        "backend": "blockwise_global_w",
-        "backend_details": state.last_factorization_backend_details,
+        "lambdak": np.asarray(lambdak, dtype=float),
         "warm_start_payload": warm_start_payload,
     }
 
 
-def _checkpoint_output_path(path):
-    if path is None:
-        return None
-    if path.endswith(".gz"):
-        stem, ext = os.path.splitext(path[:-3])
-        return f"{stem}.pre_projection{ext}.gz"
-    stem, ext = os.path.splitext(path)
-    if ext:
-        return f"{stem}.pre_projection{ext}"
-    return f"{path}.pre_projection"
+def _fit_blockwise_global_w(*args, **kwargs):
+    if "epochs" in kwargs and "passes" not in kwargs:
+        kwargs["passes"] = kwargs.pop("epochs")
+    if "min_passes_before_stopping" not in kwargs:
+        kwargs["min_passes_before_stopping"] = int(kwargs.get("passes", kwargs.get("max_num_iterations", 1)))
+    return _fit_online_shared_basis(*args, **kwargs)
 
 
-def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clusters_out, gene_clusters_out, log_fn, info_level):
-    checkpoint_factor_metrics = _checkpoint_output_path(factor_metrics_out)
-    checkpoint_gene_set_clusters = _checkpoint_output_path(gene_set_clusters_out)
-    checkpoint_gene_clusters = _checkpoint_output_path(gene_clusters_out)
-    if checkpoint_factor_metrics is None and checkpoint_gene_set_clusters is None and checkpoint_gene_clusters is None:
-        return
-    log_fn("Writing pre-projection factor checkpoint outputs", info_level)
-    if getattr(state, "factor_labels", None) is None and state.num_factors() > 0:
-        state.factor_labels = ["Factor%d" % (i + 1) for i in range(state.num_factors())]
-    if checkpoint_factor_metrics is not None:
-        state.write_factor_metrics(checkpoint_factor_metrics)
-    if checkpoint_gene_set_clusters is not None or checkpoint_gene_clusters is not None:
-        state.write_clusters(checkpoint_gene_set_clusters, checkpoint_gene_clusters, None)
+def _compute_sketch_row_embedding(matrix, embedding_dim, *, random_seed):
+    matrix_csr = matrix.tocsr() if sparse.issparse(matrix) else sparse.csr_matrix(np.asarray(matrix, dtype=float))
+    num_rows, num_cols = matrix_csr.shape
+    dim = int(max(1, min(int(embedding_dim), num_cols)))
+    rng = np.random.RandomState(0 if random_seed is None else int(random_seed))
+    projection = rng.normal(0.0, 1.0 / math.sqrt(float(dim)), size=(num_cols, dim))
+    embedding = matrix_csr @ projection
+    embedding = np.asarray(embedding, dtype=float)
+    row_norms = np.linalg.norm(embedding, axis=1, keepdims=True)
+    row_norms[row_norms <= 0] = 1.0
+    return embedding / row_norms
 
 
-def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, log_fn=None, info_level=1):
-    candidates = [
-        ("combined_prior_Ys", combined_prior_Ys),
-        ("Y", Y),
-        ("priors", priors),
-    ]
-    first_available_label = None
-    fallback_choice = None
-    for label, matrix in candidates:
-        if matrix is None:
-            continue
-        if first_available_label is None:
-            first_available_label = label
-        nonfinite_fraction = _matrix_nonfinite_fraction(matrix)
-        if nonfinite_fraction < 1.0:
-            if first_available_label != label and log_fn is not None:
-                log_fn(
-                    "Using %s for implicit factor-anchor relevance because earlier source %s was entirely non-finite"
-                    % (label, first_available_label),
-                    info_level,
-                )
-            elif nonfinite_fraction > 0.0 and log_fn is not None:
-                log_fn(
-                    "Using %s for implicit factor-anchor relevance after sanitizing non-finite values (non-finite fraction %.4g)"
-                    % (label, nonfinite_fraction),
-                    info_level,
-                )
-            return (matrix, label)
-        if fallback_choice is None or nonfinite_fraction < fallback_choice[2]:
-            fallback_choice = (matrix, label, nonfinite_fraction)
-    if fallback_choice is not None:
-        if log_fn is not None:
-            log_fn(
-                "All implicit factor-anchor sources contained non-finite values; using %s after sanitization (non-finite fraction %.4g)"
-                % (fallback_choice[1], fallback_choice[2]),
-                info_level,
-            )
-        return (fallback_choice[0], fallback_choice[1])
-    return (None, None)
+def _select_projected_cluster_medoids_rows(embedding, sketch_size, *, importance_scores=None):
+    embedding = np.asarray(embedding, dtype=float)
+    num_rows = int(embedding.shape[0])
+    target = int(min(max(1, sketch_size), num_rows))
+    if target >= num_rows:
+        return list(range(num_rows))
+    importance = np.ones(num_rows, dtype=float) if importance_scores is None else np.asarray(importance_scores, dtype=float)
+    if importance.shape[0] != num_rows:
+        importance = np.ones(num_rows, dtype=float)
+    if np.max(importance) > np.min(importance):
+        importance = (importance - np.min(importance)) / max(np.max(importance) - np.min(importance), 1e-12)
+    else:
+        importance = np.zeros(num_rows, dtype=float)
+    selected = []
+    first_index = int(np.argmax(np.linalg.norm(embedding, axis=1) + 0.05 * importance))
+    selected.append(first_index)
+    best_similarity = embedding @ embedding[first_index]
+    while len(selected) < target:
+        candidate_score = (1.0 - np.clip(best_similarity, -1.0, 1.0)) * (1.0 + 0.05 * importance)
+        candidate_score[np.asarray(selected, dtype=int)] = -np.inf
+        next_index = int(np.argmax(candidate_score))
+        if not np.isfinite(candidate_score[next_index]):
+            break
+        selected.append(next_index)
+        best_similarity = np.maximum(best_similarity, embedding @ embedding[next_index])
+    if len(selected) < target:
+        remaining = [idx for idx in range(num_rows) if idx not in set(selected)]
+        selected.extend(remaining[: target - len(selected)])
+    return sorted(int(index) for index in selected[:target])
 
 
-def _project_pheno_capture_matrix(state, basis, feature_by_pheno, *, basis_name):
-    capture_weights, capture_strength = eaggl_phenotype_annotation.project_phenotype_capture(
-        state._nnls_project_matrix,
-        basis,
-        feature_by_pheno,
-        max_sum=1.0,
+def _fit_structure_preserving_sketch(
+    state,
+    matrix,
+    *,
+    gene_set_prob_vector,
+    gene_or_pheno_prob_vector,
+    max_num_factors,
+    max_num_iterations,
+    alpha0,
+    phi,
+    rel_tol,
+    sketch_size,
+    sketch_embedding_dim,
+    sketch_selection_method,
+    sketch_random_seed,
+    sketch_refinement_passes,
+    projection_block_size,
+    cap_genes,
+    cap_gene_sets,
+    log_fn,
+    info_level,
+    gene_set_importance_scores=None,
+):
+    resolved_selection_method = _resolve_sketch_selection_method(sketch_selection_method)
+    if str(resolved_selection_method) != "projected_cluster_medoids":
+        raise ValueError("Unsupported sketch selection method '%s'" % str(sketch_selection_method))
+    started_at = time.time()
+    V = matrix.tocsr() if sparse.issparse(matrix) else sparse.csr_matrix(np.asarray(matrix, dtype=float))
+    num_rows, num_cols = V.shape
+    selected_indices = _select_projected_cluster_medoids_rows(
+        _compute_sketch_row_embedding(V, int(sketch_embedding_dim), random_seed=sketch_random_seed),
+        int(sketch_size),
+        importance_scores=gene_set_importance_scores,
     )
-    state.pheno_capture_strength = capture_strength
-    state.pheno_capture_basis = basis_name
-    return capture_weights
-
-
-def _prepare_pheno_capture_input_matrix(feature_by_pheno, mode):
-    return eaggl_phenotype_annotation.prepare_thresholded_profile_input(feature_by_pheno, mode)
-
-
-def _align_projection_inputs_to_mask(basis, feature_by_target, mask):
-    if mask is None:
-        return basis, feature_by_target
-    mask = np.asarray(mask, dtype=bool)
-    mask_sum = int(np.sum(mask))
-
-    if basis.shape[0] == mask.shape[0]:
-        basis = basis[mask, :]
-    elif basis.shape[0] != mask_sum:
-        raise ValueError(
-            "Projection basis rows %s do not match mask length %s or kept count %s"
-            % (basis.shape[0], mask.shape[0], mask_sum)
+    sketch_matrix = np.asarray(V[selected_indices, :].toarray(), dtype=float)
+    sketch_gene_set_prob = np.asarray(gene_set_prob_vector[selected_indices, :], dtype=float)
+    exact_result = state._bayes_nmf_l2_extension(
+        sketch_matrix,
+        sketch_gene_set_prob,
+        gene_or_pheno_prob_vector,
+        n_iter=max_num_iterations,
+        a0=alpha0,
+        K=max_num_factors,
+        tol=rel_tol,
+        phi=phi,
+        cap_genes=cap_genes,
+        cap_gene_sets=cap_gene_sets,
+        normalize_genes=False,
+        normalize_gene_sets=False,
+    )
+    shared_gene_factors = np.asarray(exact_result[1], dtype=float)
+    lambdak = np.asarray(exact_result[4], dtype=float)
+    phi_scaled = (float(np.std(sketch_matrix)) ** 2) * float(phi)
+    eps = 1e-50
+    if projection_block_size is None or int(projection_block_size) < 1:
+        projection_block_size = int(sketch_size)
+    block_ranges_by_id = _blockwise_ranges_by_id(num_rows, int(projection_block_size), max_blocks=None)
+    gene_probabilities = _dense_probabilities(gene_or_pheno_prob_vector)
+    gene_set_probabilities = _dense_probabilities(gene_set_prob_vector)
+    projected_rows = {}
+    projection_iterations = int(max(5, 5 + 2 * max(0, int(sketch_refinement_passes))))
+    for block_number, (start, stop) in sorted(block_ranges_by_id.items()):
+        V_block = np.maximum(_dense_block(V, start, stop), 0.0)
+        S_block = _compute_weight_matrix_for_block(
+            None if gene_set_probabilities is None else gene_set_probabilities[start:stop, :],
+            gene_probabilities,
+            stop - start,
+            num_cols,
         )
-
-    if feature_by_target.shape[0] == mask.shape[0]:
-        feature_by_target = feature_by_target[mask, :]
-    elif feature_by_target.shape[0] != mask_sum:
-        raise ValueError(
-            "Projection target rows %s do not match mask length %s or kept count %s"
-            % (feature_by_target.shape[0], mask.shape[0], mask_sum)
+        W_block, _, _ = _solve_blockwise_block_with_fixed_basis(
+            V_block,
+            S_block,
+            shared_gene_factors,
+            lambdak,
+            phi_scaled=phi_scaled,
+            eps=eps,
+            cap_gene_sets=cap_gene_sets,
+            initial_W_block=None,
+            vmax=float(np.max(sketch_matrix)) if sketch_matrix.size > 0 else 1.0,
+            iterations=projection_iterations,
         )
-
-    return basis, feature_by_target
-
-
-def _open_text_output(path):
-    if path.endswith(".gz"):
-        return gzip.open(path, "wt", encoding="utf-8")
-    return open(path, "w", encoding="utf-8")
-
+        projected_rows[int(block_number)] = W_block
+    gene_set_factors = np.vstack([projected_rows[block_id] for block_id in sorted(projected_rows.keys())]) if len(projected_rows) > 0 else np.zeros((num_rows, shared_gene_factors.shape[0]), dtype=float)
+    state.last_factorization_backend = "structure_preserving_sketch"
+    state.last_factorization_backend_details = {
+        "backend": "structure_preserving_sketch",
+        "sketch_size": int(len(selected_indices)),
+        "selected_gene_sets": int(len(selected_indices)),
+        "projected_gene_sets": int(num_rows),
+        "embedding_dim": int(sketch_embedding_dim),
+        "selection_method": str(resolved_selection_method),
+        "projection_block_size": int(projection_block_size),
+        "sketch_refinement_passes": int(sketch_refinement_passes),
+        "wall_time_sec": float(time.time() - started_at),
+    }
+    state.last_factorization_blockwise_report = []
+    state.last_factorization_final_delambda = None
+    state.last_factorization_iterations = int(max_num_iterations)
+    state.last_factorization_converged = None
+    state.last_factorization_hit_iteration_cap = None
+    log_fn(
+        "Structure-preserving sketch selected %d actual gene sets from %d using %s (embedding_dim=%d)"
+        % (int(len(selected_indices)), int(num_rows), str(resolved_selection_method), int(sketch_embedding_dim)),
+        info_level,
+    )
+    warm_start_payload = {
+        "gene_factors": np.asarray(shared_gene_factors, dtype=float).copy(),
+        "lambdak": np.asarray(lambdak, dtype=float).copy(),
+        "selected_gene_set_indices": [int(index) for index in selected_indices],
+        "selection_method": str(resolved_selection_method),
+        "sketch_embedding_dim": int(sketch_embedding_dim),
+    }
+    return {
+        "gene_set_factors": gene_set_factors,
+        "gene_or_pheno_factors": shared_gene_factors.T,
+        "likelihood": exact_result[2],
+        "evidence": exact_result[3],
+        "reconstruction_error": exact_result[5],
+        "lambdak": lambdak,
+        "selected_gene_set_indices": selected_indices,
+        "warm_start_payload": warm_start_payload,
+    }
 
 def _derive_blockwise_pass_metrics_dir(factor_metrics_out, blockwise_report_out):
     candidate = factor_metrics_out if factor_metrics_out is not None else blockwise_report_out
@@ -833,6 +852,45 @@ def _derive_blockwise_pass_metrics_dir(factor_metrics_out, blockwise_report_out)
     if ext:
         return f"{stem}.blockwise_pass_metrics"
     return f"{candidate}.blockwise_pass_metrics"
+
+
+def _derive_pre_projection_output_path(path):
+    if path is None:
+        return None
+    if path.endswith(".gz"):
+        base = path[:-3]
+        root, ext = os.path.splitext(base)
+        return f"{root}.pre_projection{ext}.gz" if ext else f"{base}.pre_projection.gz"
+    root, ext = os.path.splitext(path)
+    return f"{root}.pre_projection{ext}" if ext else f"{path}.pre_projection"
+
+
+def _write_pre_projection_checkpoint(
+    state,
+    *,
+    factor_metrics_out,
+    gene_set_clusters_out,
+    gene_clusters_out,
+    log_fn,
+    info_level,
+):
+    checkpoint_factor_metrics_out = _derive_pre_projection_output_path(factor_metrics_out)
+    checkpoint_gene_set_clusters_out = _derive_pre_projection_output_path(gene_set_clusters_out)
+    checkpoint_gene_clusters_out = _derive_pre_projection_output_path(gene_clusters_out)
+    if checkpoint_factor_metrics_out is not None:
+        log_fn("Writing factor metrics to %s" % checkpoint_factor_metrics_out, info_level)
+        state.write_factor_metrics(checkpoint_factor_metrics_out)
+    if checkpoint_gene_set_clusters_out is not None or checkpoint_gene_clusters_out is not None:
+        factor_labels = getattr(state, "factor_labels", None)
+        if factor_labels is None:
+            log_fn("Skipping pre-projection cluster checkpoint because factor labels are unavailable", info_level)
+        else:
+            log_fn("Writing gene set clusters to %s" % checkpoint_gene_set_clusters_out, info_level)
+            state.write_clusters(
+                checkpoint_gene_set_clusters_out,
+                checkpoint_gene_clusters_out,
+                None,
+            )
 
 
 def _write_blockwise_pass_factor_metrics_checkpoint(
@@ -927,14 +985,30 @@ def _build_factor_param_record(
     learn_phi_only,
     learn_phi_report_out,
     factor_phi_metrics_out,
+    max_num_gene_sets,
+    gene_set_budget_mode,
+    learn_phi_gene_set_budget_mode,
     factor_backend,
     learn_phi_backend,
-    blockwise_gene_set_block_size,
-    blockwise_epochs,
-    blockwise_shuffle_blocks,
-    blockwise_warm_start,
-    blockwise_max_blocks,
-    blockwise_report_out,
+    online_block_size,
+    online_passes,
+    online_min_passes_before_stopping,
+    online_shuffle_blocks,
+    online_warm_start,
+    online_max_blocks,
+    online_report_out,
+    approx_projection_block_size,
+    approx_projection_n_iter,
+    sketch_size,
+    sketch_embedding_dim,
+    sketch_selection_method,
+    sketch_random_seed,
+    sketch_refinement_passes,
+    learn_phi_scout_repeats,
+    learn_phi_confirm_topk,
+    learn_phi_confirm_online_passes,
+    learn_phi_confirm_block_size,
+    learn_phi_scout_selection_method,
     learn_phi_prune_genes_num,
     learn_phi_prune_gene_sets_num,
     learn_phi_max_num_iterations,
@@ -997,14 +1071,30 @@ def _build_factor_param_record(
         "learn_phi_only": bool(learn_phi_only),
         "learn_phi_report_out": learn_phi_report_out,
         "factor_phi_metrics_out": factor_phi_metrics_out,
+        "max_num_gene_sets": None if max_num_gene_sets is None else int(max_num_gene_sets),
+        "gene_set_budget_mode": str(gene_set_budget_mode),
+        "learn_phi_gene_set_budget_mode": None if learn_phi_gene_set_budget_mode is None else str(learn_phi_gene_set_budget_mode),
         "factor_backend": factor_backend,
         "learn_phi_backend": learn_phi_backend,
-        "blockwise_gene_set_block_size": int(blockwise_gene_set_block_size),
-        "blockwise_epochs": int(blockwise_epochs),
-        "blockwise_shuffle_blocks": bool(blockwise_shuffle_blocks),
-        "blockwise_warm_start": bool(blockwise_warm_start),
-        "blockwise_max_blocks": None if blockwise_max_blocks is None else int(blockwise_max_blocks),
-        "blockwise_report_out": blockwise_report_out,
+        "online_block_size": None if online_block_size is None else int(online_block_size),
+        "online_passes": int(online_passes),
+        "online_min_passes_before_stopping": int(online_min_passes_before_stopping),
+        "online_shuffle_blocks": bool(online_shuffle_blocks),
+        "online_warm_start": bool(online_warm_start),
+        "online_max_blocks": None if online_max_blocks is None else int(online_max_blocks),
+        "online_report_out": online_report_out,
+        "approx_projection_block_size": None if approx_projection_block_size is None else int(approx_projection_block_size),
+        "approx_projection_n_iter": int(approx_projection_n_iter),
+        "sketch_size": None if sketch_size is None else int(sketch_size),
+        "sketch_embedding_dim": int(sketch_embedding_dim),
+        "sketch_selection_method": str(_resolve_sketch_selection_method(sketch_selection_method)),
+        "sketch_random_seed": None if sketch_random_seed is None else int(sketch_random_seed),
+        "sketch_refinement_passes": int(sketch_refinement_passes),
+        "learn_phi_scout_repeats": int(learn_phi_scout_repeats),
+        "learn_phi_confirm_topk": int(learn_phi_confirm_topk),
+        "learn_phi_confirm_online_passes": int(learn_phi_confirm_online_passes),
+        "learn_phi_confirm_block_size": None if learn_phi_confirm_block_size is None else int(learn_phi_confirm_block_size),
+        "learn_phi_scout_selection_method": None if learn_phi_scout_selection_method is None else str(_resolve_sketch_selection_method(learn_phi_scout_selection_method)),
         "learn_phi_prune_genes_num": None if learn_phi_prune_genes_num is None else int(learn_phi_prune_genes_num),
         "learn_phi_prune_gene_sets_num": None if learn_phi_prune_gene_sets_num is None else int(learn_phi_prune_gene_sets_num),
         "learn_phi_max_num_iterations": None if learn_phi_max_num_iterations is None else int(learn_phi_max_num_iterations),
@@ -1040,6 +1130,212 @@ def _build_factor_param_record(
         "project_phenos_from_gene_sets": bool(project_phenos_from_gene_sets),
         "pheno_capture_input": pheno_capture_input,
     }
+
+
+def _resolve_budget_mode_alias(mode_value, *, default_mode):
+    mode_str = str(mode_value or default_mode)
+    if mode_str in {"pruned", "online_shared_basis", "structure_preserving_sketch"}:
+        return mode_str
+    if mode_str == "sentinel_pruned":
+        return "pruned"
+    if mode_str == "blockwise_global_w":
+        return "online_shared_basis"
+    if mode_str == "full":
+        return str(default_mode)
+    return str(default_mode)
+
+
+def _resolve_sketch_selection_method(method_value):
+    method_str = str(method_value or "projected_cluster_medoids")
+    if method_str == "projected_kmedoids":
+        return "projected_cluster_medoids"
+    return method_str
+
+
+def _should_use_blockwise_projection(effective_factor_mode):
+    return str(effective_factor_mode) in {"online_shared_basis", "structure_preserving_sketch"}
+
+
+def _project_remaining_loadings_blockwise(
+    state,
+    *,
+    factor_gene_set_x_pheno,
+    run_transpose,
+    phi,
+    rel_tol,
+    cap,
+    normalize_genes,
+    normalize_gene_sets,
+    keep_original_loadings,
+    project_phenos_from_gene_sets,
+    pheno_capture_input,
+    gene_or_pheno_full_prob_vector,
+    approx_projection_block_size,
+    approx_projection_n_iter,
+):
+    block_size = None if approx_projection_block_size is None else int(approx_projection_block_size)
+    projection_n_iter = int(max(1, approx_projection_n_iter))
+
+    if factor_gene_set_x_pheno:
+        if gene_or_pheno_full_prob_vector is not None:
+            state.gene_prob_factor_vector = state._nnls_project_matrix_blockwise(
+                state.pheno_prob_factor_vector,
+                gene_or_pheno_full_prob_vector.T,
+                block_size=block_size,
+            )
+            state._record_params({"factor_gene_prob_from": "phenos"})
+        else:
+            state.gene_prob_factor_vector = state._nnls_project_matrix_blockwise(
+                state.gene_set_prob_factor_vector,
+                state.X_orig,
+                block_size=block_size,
+            )
+            state._record_params({"factor_gene_prob_from": "gene_sets"})
+    else:
+        if gene_or_pheno_full_prob_vector is not None:
+            state.pheno_prob_factor_vector = state._nnls_project_matrix_blockwise(
+                state.gene_prob_factor_vector,
+                gene_or_pheno_full_prob_vector.T,
+                block_size=block_size,
+            )
+            state._record_params({"factor_pheno_prob_from": "genes"})
+        elif state.X_phewas_beta_uncorrected is not None:
+            state.pheno_prob_factor_vector = state._nnls_project_matrix_blockwise(
+                state.gene_set_prob_factor_vector,
+                state.X_phewas_beta_uncorrected,
+                block_size=block_size,
+            )
+            state._record_params({"factor_pheno_prob_from": "gene_sets"})
+
+    if state.gene_set_prob_factor_vector is not None and sparse.issparse(state.gene_set_prob_factor_vector):
+        state.gene_set_prob_factor_vector = state.gene_set_prob_factor_vector.toarray()
+    if state.gene_prob_factor_vector is not None and sparse.issparse(state.gene_prob_factor_vector):
+        state.gene_prob_factor_vector = state.gene_prob_factor_vector.toarray()
+    if state.pheno_prob_factor_vector is not None and sparse.issparse(state.pheno_prob_factor_vector):
+        state.pheno_prob_factor_vector = state.pheno_prob_factor_vector.toarray()
+
+    gene_matrix_to_project = state.X_orig.T
+    if not run_transpose:
+        gene_matrix_to_project = gene_matrix_to_project.T
+
+    full_gene_factor_values = state._project_H_with_fixed_W_blockwise(
+        state.exp_gene_set_factors,
+        gene_matrix_to_project[state.gene_set_factor_gene_set_mask, :],
+        state.gene_set_prob_factor_vector[state.gene_set_factor_gene_set_mask, :],
+        state.gene_prob_factor_vector,
+        block_size=block_size,
+        phi=phi,
+        tol=rel_tol,
+        n_iter=projection_n_iter,
+        cap_genes=cap,
+        normalize_genes=normalize_genes,
+    )
+    if not factor_gene_set_x_pheno and keep_original_loadings:
+        full_gene_factor_values[state.gene_factor_gene_mask, :] = state.exp_gene_factors
+
+    full_pheno_factor_values = state.exp_pheno_factors
+    state.pheno_capture_strength = None
+    state.pheno_capture_basis = None
+    state.pheno_capture_input = None
+    pheno_matrix_to_project = None
+
+    if state.exp_gene_factors is None and state.exp_gene_set_factors is None:
+        raise ValueError("Something went wrong: both gene factors and gene set factors are empty")
+
+    if state.X_phewas_beta_uncorrected is not None and state.pheno_prob_factor_vector is not None:
+        if project_phenos_from_gene_sets or state.exp_gene_factors is None:
+            pheno_matrix_to_project = state.X_phewas_beta_uncorrected.T
+            if not run_transpose:
+                pheno_matrix_to_project = pheno_matrix_to_project.T
+            basis = state.exp_gene_set_factors
+            feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
+            basis, feature_by_pheno = _align_projection_inputs_to_mask(
+                basis,
+                feature_by_pheno,
+                state.gene_set_factor_gene_set_mask,
+            )
+            full_pheno_factor_values = _project_pheno_capture_matrix(
+                state,
+                basis,
+                feature_by_pheno,
+                basis_name="gene_sets",
+            )
+        else:
+            pheno_matrix_to_project = state.gene_pheno_combined_prior_Ys if state.gene_pheno_combined_prior_Ys is not None else state.gene_pheno_Y
+            if not run_transpose:
+                pheno_matrix_to_project = pheno_matrix_to_project.T
+            basis = state.exp_gene_factors
+            feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
+            basis, feature_by_pheno = _align_projection_inputs_to_mask(
+                basis,
+                feature_by_pheno,
+                state.gene_factor_gene_mask,
+            )
+            full_pheno_factor_values = _project_pheno_capture_matrix(
+                state,
+                basis,
+                feature_by_pheno,
+                basis_name="genes",
+            )
+
+        if keep_original_loadings:
+            full_pheno_factor_values[state.pheno_factor_pheno_mask, :] = state.exp_pheno_factors
+        state.pheno_capture_input = pheno_capture_input
+    elif state.exp_pheno_factors is not None:
+        state.pheno_capture_basis = "native"
+        if state.X_phewas_beta_uncorrected is not None:
+            feature_by_pheno = state.X_phewas_beta_uncorrected.T
+            if not run_transpose:
+                feature_by_pheno = feature_by_pheno.T
+            feature_by_pheno = _prepare_pheno_capture_input_matrix(feature_by_pheno, pheno_capture_input)
+            state.pheno_capture_strength = eaggl_phenotype_annotation.compute_profile_strengths(feature_by_pheno)
+            state.pheno_capture_input = pheno_capture_input
+        else:
+            state.pheno_capture_strength = np.sum(np.asarray(state.exp_pheno_factors, dtype=float), axis=1)
+
+    if factor_gene_set_x_pheno and pheno_matrix_to_project is not None:
+        full_gene_set_factor_values = state._project_H_with_fixed_W_blockwise(
+            state.exp_pheno_factors,
+            pheno_matrix_to_project[:, state.pheno_factor_pheno_mask].T if run_transpose else pheno_matrix_to_project[state.pheno_factor_pheno_mask, :].T,
+            state.pheno_prob_factor_vector[state.pheno_factor_pheno_mask, :],
+            state.gene_set_prob_factor_vector,
+            block_size=block_size,
+            phi=phi,
+            tol=rel_tol,
+            n_iter=projection_n_iter,
+            cap_genes=cap,
+            normalize_genes=normalize_gene_sets,
+        )
+    else:
+        full_gene_set_factor_values = state._project_H_with_fixed_W_blockwise(
+            state.exp_gene_factors,
+            gene_matrix_to_project[:, state.gene_factor_gene_mask].T if run_transpose else gene_matrix_to_project[state.gene_factor_gene_mask, :].T,
+            state.gene_prob_factor_vector[state.gene_factor_gene_mask, :],
+            state.gene_set_prob_factor_vector,
+            block_size=block_size,
+            phi=phi,
+            tol=rel_tol,
+            n_iter=projection_n_iter,
+            cap_genes=cap,
+            normalize_genes=normalize_gene_sets,
+        )
+
+    if keep_original_loadings:
+        full_gene_set_factor_values[state.gene_set_factor_gene_set_mask, :] = state.exp_gene_set_factors
+
+    state.exp_gene_factors = full_gene_factor_values
+    state.exp_pheno_factors = full_pheno_factor_values
+    state.exp_gene_set_factors = full_gene_set_factor_values
+
+    matrix_to_mult = state.exp_pheno_factors if factor_gene_set_x_pheno else state.exp_gene_factors
+    vector_to_mult = state.pheno_prob_factor_vector if factor_gene_set_x_pheno else state.gene_prob_factor_vector
+    state.factor_anchor_relevance = state._nnls_project_matrix_blockwise(
+        matrix_to_mult,
+        vector_to_mult.T,
+        block_size=block_size,
+        max_value=1,
+    ).T
+    state.factor_relevance = _compute_any_anchor_relevance(state.factor_anchor_relevance)
 
 
 def _extract_canonical_factor_matrix(state):
@@ -1254,100 +1550,9 @@ def _factor_label_to_index(label):
     return index if index >= 0 else None
 
 
-def _build_blockwise_family_keep_indices_from_records(
-    records,
-    *,
-    gene_overlap_threshold=None,
-    gene_set_overlap_threshold=None,
-    unique_fraction_threshold=None,
-):
-    if gene_overlap_threshold is None:
-        gene_overlap_threshold = _DEFAULT_BLOCKWISE_FAMILY_MERGE_GENE_OVERLAP
-    if gene_set_overlap_threshold is None:
-        gene_set_overlap_threshold = _DEFAULT_BLOCKWISE_FAMILY_MERGE_GENE_SET_OVERLAP
-    if unique_fraction_threshold is None:
-        unique_fraction_threshold = _DEFAULT_BLOCKWISE_FAMILY_MERGE_UNIQUE_FRACTION
-    num_factors = int(len(records))
-    if num_factors <= 1:
-        return {
-            "keep_indices": list(range(num_factors)),
-            "components": [list(range(num_factors))] if num_factors == 1 else [],
-        }
-
-    parents = list(range(num_factors))
-
-    def find(index):
-        while parents[index] != index:
-            parents[index] = parents[parents[index]]
-            index = parents[index]
-        return index
-
-    def union(left, right):
-        left_root = find(left)
-        right_root = find(right)
-        if left_root != right_root:
-            parents[right_root] = left_root
-
-    for factor_index, record in enumerate(records):
-        gene_overlap = float(record.get("gene_max_jaccard", 0.0))
-        gene_set_overlap = float(record.get("gene_set_max_jaccard", 0.0))
-        combined_unique = float(record.get("combined_unique_fraction", 1.0))
-        gene_neighbor = _factor_label_to_index(record.get("gene_nearest_factor"))
-        gene_set_neighbor = _factor_label_to_index(record.get("gene_set_nearest_factor"))
-
-        if gene_neighbor is not None and gene_neighbor < num_factors and gene_overlap >= float(gene_overlap_threshold):
-            union(factor_index, gene_neighbor)
-        if gene_set_neighbor is not None and gene_set_neighbor < num_factors and gene_set_overlap >= float(gene_set_overlap_threshold):
-            union(factor_index, gene_set_neighbor)
-
-        if combined_unique <= float(unique_fraction_threshold):
-            candidate_neighbors = []
-            if gene_neighbor is not None and gene_neighbor < num_factors:
-                candidate_neighbors.append((gene_overlap, gene_neighbor))
-            if gene_set_neighbor is not None and gene_set_neighbor < num_factors:
-                candidate_neighbors.append((gene_set_overlap, gene_set_neighbor))
-            if len(candidate_neighbors) > 0:
-                _, best_neighbor = max(candidate_neighbors, key=lambda item: (item[0], -item[1]))
-                union(factor_index, best_neighbor)
-
-    component_map = {}
-    for factor_index in range(num_factors):
-        component_map.setdefault(find(factor_index), []).append(factor_index)
-    components = [sorted(indices) for indices in component_map.values()]
-    components.sort(key=lambda indices: (len(indices), indices[0]), reverse=True)
-
-    keep_indices = []
-    for indices in components:
-        representative = max(
-            indices,
-            key=lambda index: (
-                float(records[index].get("combined_mass_fraction", 0.0)),
-                float(records[index].get("gene_effective_support", 0.0)),
-                float(records[index].get("gene_set_effective_support", 0.0)),
-                -int(index),
-            ),
-        )
-        keep_indices.append(int(representative))
-
-    keep_indices = sorted(set(keep_indices))
-    return {
-        "keep_indices": keep_indices,
-        "components": components,
-    }
-
-
 _DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC = 0.005
 _LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR = 5.0
-_DEFAULT_BLOCKWISE_GLOBAL_REFINEMENT_PASSES = 2
 _DEFAULT_BLOCKWISE_K0 = 15
-_DEFAULT_BLOCKWISE_REFINEMENT_LAMBDA_FREEZE_PASSES = 1
-_DEFAULT_BLOCKWISE_REFINEMENT_LAMBDA_DAMPING = 0.25
-_DEFAULT_BLOCKWISE_REFINEMENT_COLLAPSE_DROP_FRAC = 0.35
-_DEFAULT_BLOCKWISE_REFINEMENT_DELAMBDA_SPIKE_MULT = 4.0
-_DEFAULT_BLOCKWISE_MIN_SHRINKAGE_REFINEMENT_PASSES = 2
-_DEFAULT_BLOCKWISE_FAMILY_MERGE_GENE_OVERLAP = 0.8
-_DEFAULT_BLOCKWISE_FAMILY_MERGE_GENE_SET_OVERLAP = 0.6
-_DEFAULT_BLOCKWISE_FAMILY_MERGE_UNIQUE_FRACTION = 0.2
 _DEFAULT_BLOCKWISE_PASS_CHECKPOINT_START = 5
 _DEFAULT_BLOCKWISE_PASS_CHECKPOINT_END = 12
 
@@ -1569,9 +1774,13 @@ def _evaluate_phi_candidate(
     log_fn,
     info_level,
 ):
+    effective_budget_mode = _resolve_budget_mode_alias(
+        learn_phi_backend,
+        default_mode=str(factor_kwargs.get("gene_set_budget_mode", "pruned")),
+    )
     log_fn(
         "Evaluating automatic phi candidate %.6g with %d restart(s) [backend=%s]"
-        % (phi, runs_per_step, learn_phi_backend),
+        % (phi, runs_per_step, effective_budget_mode),
         info_level,
     )
     search_factor_kwargs = dict(factor_kwargs)
@@ -1580,14 +1789,18 @@ def _evaluate_phi_candidate(
     search_factor_kwargs["label_gene_sets_only"] = False
     search_factor_kwargs["label_include_phenos"] = False
     search_factor_kwargs["label_individually"] = False
-    if learn_phi_backend == "blockwise_global_w":
-        search_factor_kwargs["factor_backend"] = "blockwise_global_w"
+    search_factor_kwargs["gene_set_budget_mode"] = effective_budget_mode
+    if effective_budget_mode == "online_shared_basis":
+        search_factor_kwargs["factor_backend"] = "online_shared_basis"
         search_factor_kwargs["blockwise_warm_start_state"] = warm_start_payload
+    elif effective_budget_mode == "structure_preserving_sketch":
+        search_factor_kwargs["factor_backend"] = "structure_preserving_sketch"
     else:
-        if prune_genes_num is not None:
-            search_factor_kwargs["gene_prune_number"] = int(prune_genes_num)
-        if prune_gene_sets_num is not None:
-            search_factor_kwargs["gene_set_prune_number"] = int(prune_gene_sets_num)
+        search_factor_kwargs["factor_backend"] = "full"
+    if prune_genes_num is not None:
+        search_factor_kwargs["gene_prune_number"] = int(prune_genes_num)
+    if effective_budget_mode == "pruned" and prune_gene_sets_num is not None:
+        search_factor_kwargs["gene_set_prune_number"] = int(prune_gene_sets_num)
     if max_num_iterations is not None:
         search_factor_kwargs["max_num_iterations"] = int(max_num_iterations)
 
@@ -1614,10 +1827,10 @@ def _evaluate_phi_candidate(
         max_num_factors=int(factor_kwargs.get("max_num_factors", 0)),
     )
     candidate["run_summaries"] = copy.deepcopy(run_summaries)
-    candidate["backend"] = str(learn_phi_backend if learn_phi_backend == "blockwise_global_w" else factor_kwargs.get("factor_backend", "full"))
+    candidate["backend"] = str(effective_budget_mode)
     reference_state = run_states[int(candidate["reference_run_index"])]
     reference_summary = run_summaries[int(candidate["reference_run_index"])]
-    if learn_phi_backend == "blockwise_global_w":
+    if effective_budget_mode == "online_shared_basis":
         candidate["warm_start_payload"] = reference_summary.get("blockwise_warm_start_payload")
     if hasattr(reference_state, "_collect_factor_metrics_records"):
         candidate["factor_metric_rows"] = reference_state._collect_factor_metrics_records()
@@ -2003,6 +2216,10 @@ def _learn_phi(
     log_fn,
     info_level,
 ):
+    effective_learn_phi_mode = _resolve_budget_mode_alias(
+        learn_phi_backend,
+        default_mode=str(factor_kwargs.get("gene_set_budget_mode", "pruned")),
+    )
     candidates_by_phi = {}
 
     remaining_evaluations = int(max_steps)
@@ -2015,7 +2232,7 @@ def _learn_phi(
         if consume_budget and remaining_evaluations <= 0:
             return None
         warm_start_payload = None
-        if learn_phi_backend == "blockwise_global_w" and blockwise_warm_start and len(candidates_by_phi) > 0:
+        if effective_learn_phi_mode == "online_shared_basis" and blockwise_warm_start and len(candidates_by_phi) > 0:
             prior_candidates = [
                 candidate
                 for candidate in candidates_by_phi.values()
@@ -2039,8 +2256,8 @@ def _learn_phi(
             "log_fn": log_fn,
             "info_level": info_level,
         }
-        if learn_phi_backend != "sentinel_pruned" or warm_start_payload is not None:
-            evaluate_kwargs["learn_phi_backend"] = learn_phi_backend
+        if effective_learn_phi_mode != "pruned" or warm_start_payload is not None:
+            evaluate_kwargs["learn_phi_backend"] = effective_learn_phi_mode
             evaluate_kwargs["warm_start_payload"] = warm_start_payload
         candidate = _evaluate_phi_candidate(state, **evaluate_kwargs)
         candidates_by_phi[float(candidate["phi"])] = candidate
@@ -2200,7 +2417,7 @@ def _learn_phi(
         expand_factor=expand_factor,
         mass_floor_frac=mass_floor_frac,
         min_error_gain_per_factor=min_error_gain_per_factor,
-        learn_phi_backend=learn_phi_backend,
+        learn_phi_backend=effective_learn_phi_mode,
         prune_genes_num=prune_genes_num,
         prune_gene_sets_num=prune_gene_sets_num,
         max_num_iterations=max_num_iterations,
@@ -2221,7 +2438,7 @@ def _learn_phi(
         % (
             float(selected_candidate["phi"]),
             selection_reason,
-            str(selected_candidate.get("backend", learn_phi_backend)),
+            str(selected_candidate.get("backend", effective_learn_phi_mode)),
             int(selected_candidate["modal_factor_count"]),
             float(selected_candidate.get("effective_factor_count", 0.0)),
             int(selected_candidate.get("mass_ge_floor_factor_count", 0)),
@@ -2418,7 +2635,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", max_num_gene_sets=None, gene_set_budget_mode="pruned", factor_backend="full", online_block_size=None, online_passes=20, online_min_passes_before_stopping=5, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, approx_projection_block_size=None, approx_projection_n_iter=100, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_cluster_medoids", sketch_random_seed=None, sketch_refinement_passes=0, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -2823,6 +3040,24 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         betas_uncorrected=betas_uncorrected,
     )
 
+    resolved_budget_mode = str(gene_set_budget_mode or "pruned")
+    effective_gene_set_budget = None if max_num_gene_sets is None else int(max_num_gene_sets)
+    if factor_backend in {"blockwise_global_w", "online_shared_basis"}:
+        resolved_budget_mode = "online_shared_basis"
+        if effective_gene_set_budget is None:
+            effective_gene_set_budget = int(online_block_size) if online_block_size is not None else None
+    elif factor_backend == "structure_preserving_sketch":
+        resolved_budget_mode = "structure_preserving_sketch"
+        if effective_gene_set_budget is None:
+            effective_gene_set_budget = int(sketch_size) if sketch_size is not None else None
+    effective_pruned_budget = gene_set_prune_number
+    if (
+        resolved_budget_mode == "pruned"
+        and effective_gene_set_budget is not None
+        and int(np.sum(gene_set_mask)) > int(effective_gene_set_budget)
+    ):
+        effective_pruned_budget = int(effective_gene_set_budget) if effective_pruned_budget is None else min(int(effective_pruned_budget), int(effective_gene_set_budget))
+
     if gene_set_prune_value is not None or gene_set_prune_number is not None:
         log("Pruning gene sets to reduce matrix size", DEBUG)
 
@@ -2832,17 +3067,17 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         log("Found %d gene_sets remaining after pruning (of %d)" % (np.sum(gene_set_prune_mask), len(state.gene_sets)))
         gene_set_mask[np.where(gene_set_mask)[0][~gene_set_prune_mask]] = False
 
-    if gene_set_prune_number is not None:
+    if effective_pruned_budget is not None:
         gene_set_prune_number_masks = _compute_gene_set_prune_number_masks(
             state,
             gene_set_mask=gene_set_mask,
             gene_set_sort_rank=gene_set_sort_rank,
-            gene_set_prune_number=gene_set_prune_number,
+            gene_set_prune_number=effective_pruned_budget,
         )
 
         all_gene_set_prune_mask = _combine_prune_masks(
             gene_set_prune_number_masks,
-            gene_set_prune_number,
+            effective_pruned_budget,
             gene_set_sort_rank[gene_set_mask],
             "gene set",
             log_fn=log,
@@ -2883,12 +3118,18 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     if not run_transpose:
         matrix = matrix.T
 
-    if factor_backend not in {"full", "blockwise_global_w"}:
-        bail("Unknown factor backend '%s'" % factor_backend)
-    if factor_backend == "blockwise_global_w" and not run_transpose:
-        bail("--factor-backend blockwise_global_w currently requires the default transposed factor matrix")
+    num_retained_gene_sets = int(matrix.shape[0])
+    effective_factor_mode = "full"
+    budget_is_binding = bool(effective_gene_set_budget is not None and num_retained_gene_sets > int(effective_gene_set_budget))
+    if budget_is_binding and resolved_budget_mode == "online_shared_basis":
+        effective_factor_mode = "online_shared_basis"
+    elif budget_is_binding and resolved_budget_mode == "structure_preserving_sketch":
+        effective_factor_mode = "structure_preserving_sketch"
 
-    log("Running matrix factorization with backend=%s" % factor_backend)
+    if effective_factor_mode in {"online_shared_basis", "structure_preserving_sketch"} and not run_transpose:
+        bail("--gene-set-budget-mode %s currently requires the default transposed factor matrix" % effective_factor_mode)
+
+    log("Running matrix factorization with mode=%s (requested_budget_mode=%s, budget=%s, retained_gene_sets=%d)" % (effective_factor_mode, resolved_budget_mode, str(effective_gene_set_budget), num_retained_gene_sets))
     if np.sum(~gene_or_pheno_mask) > 0 or np.sum(~gene_set_mask) > 0:
         log("Filtered original matrix from (%s, %s) to (%s, %s)" % (len(gene_or_pheno_mask), len(gene_set_mask), sum(gene_or_pheno_mask), sum(gene_set_mask)))
     log("Matrix to factor shape: (%s, %s)" % (matrix.shape), DEBUG)
@@ -2906,26 +3147,25 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     normalize_gene_sets = False
     cap = True
 
+    effective_block_size = int(online_block_size) if online_block_size is not None else int(effective_gene_set_budget if effective_gene_set_budget is not None else max(1, num_retained_gene_sets))
     effective_block_count = int(
         min(
-            math.ceil(float(matrix.shape[0]) / float(max(1, blockwise_gene_set_block_size))),
-            int(blockwise_max_blocks) if blockwise_max_blocks is not None else math.ceil(float(matrix.shape[0]) / float(max(1, blockwise_gene_set_block_size))),
+            math.ceil(float(matrix.shape[0]) / float(max(1, effective_block_size))),
+            int(online_max_blocks) if online_max_blocks is not None else math.ceil(float(matrix.shape[0]) / float(max(1, effective_block_size))),
         )
     ) if matrix.shape[0] > 0 else 0
 
-    delegated_single_block_to_full = bool(
-        factor_backend == "blockwise_global_w" and effective_block_count <= 1
-    )
+    delegated_single_block_to_full = bool(effective_factor_mode == "online_shared_basis" and effective_block_count <= 1)
     if delegated_single_block_to_full:
         log(
-            "Delegating single-block blockwise_global_w run to the full solver for exact equivalence",
+            "Delegating single-block online_shared_basis run to the full solver for exact equivalence",
             INFO,
         )
 
-    if factor_backend == "blockwise_global_w" and not delegated_single_block_to_full:
-        blockwise_started_at = time.time()
-        blockwise_pass_metrics_dir = _derive_blockwise_pass_metrics_dir(factor_metrics_out, blockwise_report_out)
-        result = _fit_blockwise_global_w(
+    if effective_factor_mode == "online_shared_basis" and not delegated_single_block_to_full:
+        online_started_at = time.time()
+        blockwise_pass_metrics_dir = _derive_blockwise_pass_metrics_dir(factor_metrics_out, online_report_out)
+        result = _fit_online_shared_basis(
             state,
             matrix,
             gene_set_prob_vector=gene_set_prob_vector[gene_set_mask, :],
@@ -2936,21 +3176,22 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             phi=phi,
             rel_tol=rel_tol,
             min_lambda_threshold=min_lambda_threshold,
-            block_size=blockwise_gene_set_block_size,
-            epochs=blockwise_epochs,
-            shuffle_blocks=blockwise_shuffle_blocks,
-            max_blocks=blockwise_max_blocks,
+            block_size=effective_block_size,
+            passes=online_passes,
+            min_passes_before_stopping=online_min_passes_before_stopping,
+            shuffle_blocks=online_shuffle_blocks,
+            max_blocks=online_max_blocks,
             warm_start_state=blockwise_warm_start_state,
-            warm_start_enabled=blockwise_warm_start,
+            warm_start_enabled=online_warm_start,
             cap_genes=cap,
             cap_gene_sets=cap,
-            report_out=blockwise_report_out,
+            report_out=online_report_out,
             pass_metrics_dir=blockwise_pass_metrics_dir,
             log_fn=log,
             info_level=INFO,
         )
-        state.last_factorization_backend = "blockwise_global_w"
-        state.last_factorization_backend_details["wall_time_sec"] = float(time.time() - blockwise_started_at)
+        state.last_factorization_backend = "online_shared_basis"
+        state.last_factorization_backend_details["wall_time_sec"] = float(time.time() - online_started_at)
         state.exp_lambdak = np.asarray(result["lambdak"], dtype=float)
         exp_gene_or_pheno_factors = np.asarray(result["gene_or_pheno_factors"], dtype=float)
         state.exp_gene_set_factors = np.asarray(result["gene_set_factors"], dtype=float)
@@ -2958,6 +3199,38 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         likelihood_value = result["likelihood"]
         reconstruction_error_value = result["reconstruction_error"]
         blockwise_warm_start_payload = result.get("warm_start_payload")
+    elif effective_factor_mode == "structure_preserving_sketch":
+        sketch_started_at = time.time()
+        sketch_result = _fit_structure_preserving_sketch(
+            state,
+            matrix,
+            gene_set_prob_vector=gene_set_prob_vector[gene_set_mask, :],
+            gene_or_pheno_prob_vector=gene_or_pheno_prob_vector[gene_or_pheno_mask, :],
+            max_num_factors=max_num_factors,
+            max_num_iterations=max_num_iterations,
+            alpha0=alpha0,
+            phi=phi,
+            rel_tol=rel_tol,
+            sketch_size=int(sketch_size) if sketch_size is not None else int(effective_gene_set_budget),
+            sketch_embedding_dim=int(sketch_embedding_dim),
+            sketch_selection_method=_resolve_sketch_selection_method(sketch_selection_method),
+            sketch_random_seed=sketch_random_seed,
+            sketch_refinement_passes=sketch_refinement_passes,
+            projection_block_size=approx_projection_block_size if approx_projection_block_size is not None else effective_block_size,
+            cap_genes=cap,
+            cap_gene_sets=cap,
+            log_fn=log,
+            info_level=INFO,
+            gene_set_importance_scores=gene_set_sort_rank[gene_set_mask],
+        )
+        state.last_factorization_backend_details["wall_time_sec"] = float(time.time() - sketch_started_at)
+        state.exp_lambdak = np.asarray(sketch_result["lambdak"], dtype=float)
+        exp_gene_or_pheno_factors = np.asarray(sketch_result["gene_or_pheno_factors"], dtype=float)
+        state.exp_gene_set_factors = np.asarray(sketch_result["gene_set_factors"], dtype=float)
+        evidence_value = sketch_result["evidence"]
+        likelihood_value = sketch_result["likelihood"]
+        reconstruction_error_value = sketch_result["reconstruction_error"]
+        blockwise_warm_start_payload = None
     else:
         result = state._bayes_nmf_l2_extension(
             matrix.toarray(),
@@ -2973,9 +3246,9 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             normalize_genes=normalize_genes,
             normalize_gene_sets=normalize_gene_sets,
         )
-        state.last_factorization_backend = "blockwise_global_w" if delegated_single_block_to_full else "full"
+        state.last_factorization_backend = "online_shared_basis" if delegated_single_block_to_full else "full"
         state.last_factorization_backend_details = {
-            "backend": "blockwise_global_w" if delegated_single_block_to_full else "full",
+            "backend": "online_shared_basis" if delegated_single_block_to_full else "full",
             "delegated_to_full_solver": bool(delegated_single_block_to_full),
             "num_blocks": 1,
             "block_size": int(matrix.shape[0]),
@@ -2996,7 +3269,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
 
     #subset_out the weak factors
     lambda_keep_threshold = float(min_lambda_threshold)
-    if factor_backend == "blockwise_global_w":
+    if effective_factor_mode == "online_shared_basis":
         lambda_cut = (state.last_factorization_backend_details or {}).get("lambda_cut")
         if lambda_cut is not None and np.isfinite(lambda_cut):
             lambda_keep_threshold = min(float(min_lambda_threshold), float(lambda_cut))
@@ -3037,136 +3310,133 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     #now project the additional genes/phenos/gene sets onto the factors
 
     log("Projecting factors", TRACE)
-
-    #this code gets the "relevance" values
-    #first get the probabilities for either the genotypes or phenotypes (whichever we didn't use to factor)
-    #these need to be specific to the anchors
-    if factor_gene_set_x_pheno:
-        if gene_or_pheno_full_prob_vector is not None:
-            state.gene_prob_factor_vector = state._nnls_project_matrix(state.pheno_prob_factor_vector, gene_or_pheno_full_prob_vector.T)
-            state._record_params({"factor_gene_prob_from": "phenos"})
-        else:
-            state.gene_prob_factor_vector = state._nnls_project_matrix(state.gene_set_prob_factor_vector, state.X_orig)
-            state._record_params({"factor_gene_prob_from": "gene_sets"})
+    if _should_use_blockwise_projection(effective_factor_mode):
+        _project_remaining_loadings_blockwise(
+            state,
+            factor_gene_set_x_pheno=factor_gene_set_x_pheno,
+            run_transpose=run_transpose,
+            phi=phi,
+            rel_tol=rel_tol,
+            cap=cap,
+            normalize_genes=normalize_genes,
+            normalize_gene_sets=normalize_gene_sets,
+            keep_original_loadings=keep_original_loadings,
+            project_phenos_from_gene_sets=project_phenos_from_gene_sets,
+            pheno_capture_input=pheno_capture_input,
+            gene_or_pheno_full_prob_vector=gene_or_pheno_full_prob_vector,
+            approx_projection_block_size=approx_projection_block_size if approx_projection_block_size is not None else effective_block_size,
+            approx_projection_n_iter=approx_projection_n_iter,
+        )
     else:
-        if gene_or_pheno_full_prob_vector is not None:
-            state.pheno_prob_factor_vector = state._nnls_project_matrix(state.gene_prob_factor_vector, gene_or_pheno_full_prob_vector.T)
-            state._record_params({"factor_pheno_prob_from": "genes"})
-        elif state.X_phewas_beta_uncorrected is not None:
-            state.pheno_prob_factor_vector = state._nnls_project_matrix(state.gene_set_prob_factor_vector, state.X_phewas_beta_uncorrected)
-            state._record_params({"factor_pheno_prob_from": "gene_sets"})
-
-    if state.gene_set_prob_factor_vector is not None and sparse.issparse(state.gene_set_prob_factor_vector):
-        state.gene_set_prob_factor_vector = state.gene_set_prob_factor_vector.toarray()
-    if state.gene_prob_factor_vector is not None and sparse.issparse(state.gene_prob_factor_vector):
-        state.gene_prob_factor_vector = state.gene_prob_factor_vector.toarray()
-    if state.pheno_prob_factor_vector is not None and sparse.issparse(state.pheno_prob_factor_vector):
-        state.pheno_prob_factor_vector = state.pheno_prob_factor_vector.toarray()
-
-    gene_matrix_to_project = state.X_orig.T
-    if not run_transpose:
-        gene_matrix_to_project = gene_matrix_to_project.T
-
-    #this code projects to the additional dimensions
-
-    #all gene factor values
-    full_gene_factor_values = state._project_H_with_fixed_W(state.exp_gene_set_factors, gene_matrix_to_project[state.gene_set_factor_gene_set_mask,:], state.gene_set_prob_factor_vector[state.gene_set_factor_gene_set_mask,:], state.gene_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
-    if not factor_gene_set_x_pheno and keep_original_loadings:
-        full_gene_factor_values[state.gene_factor_gene_mask,:] = state.exp_gene_factors
-
-    #all pheno factor values, either from the phewas used to factor or the phewas passed in to project
-    full_pheno_factor_values = state.exp_pheno_factors
-    state.pheno_capture_strength = None
-    state.pheno_capture_basis = None
-    state.pheno_capture_input = None
-    pheno_matrix_to_project = None
-
-    if state.exp_gene_factors is None and state.exp_gene_set_factors is None:
-        bail("Something went wrong: both gene factors and gene set factors are empty")
-
-    if state.X_phewas_beta_uncorrected is not None and state.pheno_prob_factor_vector is not None:
-        if project_phenos_from_gene_sets or state.exp_gene_factors is None:
-            pheno_matrix_to_project = state.X_phewas_beta_uncorrected.T
-            if not run_transpose:
-                pheno_matrix_to_project = pheno_matrix_to_project.T
-            basis = state.exp_gene_set_factors
-            feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
-            basis, feature_by_pheno = _align_projection_inputs_to_mask(
-                basis,
-                feature_by_pheno,
-                state.gene_set_factor_gene_set_mask,
-            )
-            full_pheno_factor_values = _project_pheno_capture_matrix(
-                state,
-                basis,
-                feature_by_pheno,
-                basis_name="gene_sets",
-            )
+        #this code gets the "relevance" values
+        #first get the probabilities for either the genotypes or phenotypes (whichever we didn't use to factor)
+        #these need to be specific to the anchors
+        if factor_gene_set_x_pheno:
+            if gene_or_pheno_full_prob_vector is not None:
+                state.gene_prob_factor_vector = state._nnls_project_matrix(state.pheno_prob_factor_vector, gene_or_pheno_full_prob_vector.T)
+                state._record_params({"factor_gene_prob_from": "phenos"})
+            else:
+                state.gene_prob_factor_vector = state._nnls_project_matrix(state.gene_set_prob_factor_vector, state.X_orig)
+                state._record_params({"factor_gene_prob_from": "gene_sets"})
         else:
-            pheno_matrix_to_project = state.gene_pheno_combined_prior_Ys if state.gene_pheno_combined_prior_Ys is not None else state.gene_pheno_Y
-            if not run_transpose:
-                pheno_matrix_to_project = pheno_matrix_to_project.T
-            basis = state.exp_gene_factors
-            feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
-            basis, feature_by_pheno = _align_projection_inputs_to_mask(
-                basis,
-                feature_by_pheno,
-                state.gene_factor_gene_mask,
-            )
-            full_pheno_factor_values = _project_pheno_capture_matrix(
-                state,
-                basis,
-                feature_by_pheno,
-                basis_name="genes",
-            )
+            if gene_or_pheno_full_prob_vector is not None:
+                state.pheno_prob_factor_vector = state._nnls_project_matrix(state.gene_prob_factor_vector, gene_or_pheno_full_prob_vector.T)
+                state._record_params({"factor_pheno_prob_from": "genes"})
+            elif state.X_phewas_beta_uncorrected is not None:
+                state.pheno_prob_factor_vector = state._nnls_project_matrix(state.gene_set_prob_factor_vector, state.X_phewas_beta_uncorrected)
+                state._record_params({"factor_pheno_prob_from": "gene_sets"})
 
-            
-        if keep_original_loadings:
-            full_pheno_factor_values[state.pheno_factor_pheno_mask,:] = state.exp_pheno_factors
-        state.pheno_capture_input = pheno_capture_input
-    elif state.exp_pheno_factors is not None:
-        state.pheno_capture_basis = "native"
-        if state.X_phewas_beta_uncorrected is not None:
-            feature_by_pheno = state.X_phewas_beta_uncorrected.T
-            if not run_transpose:
-                feature_by_pheno = feature_by_pheno.T
-            feature_by_pheno = _prepare_pheno_capture_input_matrix(feature_by_pheno, pheno_capture_input)
-            state.pheno_capture_strength = eaggl_phenotype_annotation.compute_profile_strengths(feature_by_pheno)
+        if state.gene_set_prob_factor_vector is not None and sparse.issparse(state.gene_set_prob_factor_vector):
+            state.gene_set_prob_factor_vector = state.gene_set_prob_factor_vector.toarray()
+        if state.gene_prob_factor_vector is not None and sparse.issparse(state.gene_prob_factor_vector):
+            state.gene_prob_factor_vector = state.gene_prob_factor_vector.toarray()
+        if state.pheno_prob_factor_vector is not None and sparse.issparse(state.pheno_prob_factor_vector):
+            state.pheno_prob_factor_vector = state.pheno_prob_factor_vector.toarray()
+
+        gene_matrix_to_project = state.X_orig.T
+        if not run_transpose:
+            gene_matrix_to_project = gene_matrix_to_project.T
+
+        full_gene_factor_values = state._project_H_with_fixed_W(state.exp_gene_set_factors, gene_matrix_to_project[state.gene_set_factor_gene_set_mask,:], state.gene_set_prob_factor_vector[state.gene_set_factor_gene_set_mask,:], state.gene_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+        if not factor_gene_set_x_pheno and keep_original_loadings:
+            full_gene_factor_values[state.gene_factor_gene_mask,:] = state.exp_gene_factors
+
+        full_pheno_factor_values = state.exp_pheno_factors
+        state.pheno_capture_strength = None
+        state.pheno_capture_basis = None
+        state.pheno_capture_input = None
+        pheno_matrix_to_project = None
+
+        if state.exp_gene_factors is None and state.exp_gene_set_factors is None:
+            bail("Something went wrong: both gene factors and gene set factors are empty")
+
+        if state.X_phewas_beta_uncorrected is not None and state.pheno_prob_factor_vector is not None:
+            if project_phenos_from_gene_sets or state.exp_gene_factors is None:
+                pheno_matrix_to_project = state.X_phewas_beta_uncorrected.T
+                if not run_transpose:
+                    pheno_matrix_to_project = pheno_matrix_to_project.T
+                basis = state.exp_gene_set_factors
+                feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
+                basis, feature_by_pheno = _align_projection_inputs_to_mask(
+                    basis,
+                    feature_by_pheno,
+                    state.gene_set_factor_gene_set_mask,
+                )
+                full_pheno_factor_values = _project_pheno_capture_matrix(
+                    state,
+                    basis,
+                    feature_by_pheno,
+                    basis_name="gene_sets",
+                )
+            else:
+                pheno_matrix_to_project = state.gene_pheno_combined_prior_Ys if state.gene_pheno_combined_prior_Ys is not None else state.gene_pheno_Y
+                if not run_transpose:
+                    pheno_matrix_to_project = pheno_matrix_to_project.T
+                basis = state.exp_gene_factors
+                feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
+                basis, feature_by_pheno = _align_projection_inputs_to_mask(
+                    basis,
+                    feature_by_pheno,
+                    state.gene_factor_gene_mask,
+                )
+                full_pheno_factor_values = _project_pheno_capture_matrix(
+                    state,
+                    basis,
+                    feature_by_pheno,
+                    basis_name="genes",
+                )
+
+            if keep_original_loadings:
+                full_pheno_factor_values[state.pheno_factor_pheno_mask,:] = state.exp_pheno_factors
             state.pheno_capture_input = pheno_capture_input
+        elif state.exp_pheno_factors is not None:
+            state.pheno_capture_basis = "native"
+            if state.X_phewas_beta_uncorrected is not None:
+                feature_by_pheno = state.X_phewas_beta_uncorrected.T
+                if not run_transpose:
+                    feature_by_pheno = feature_by_pheno.T
+                feature_by_pheno = _prepare_pheno_capture_input_matrix(feature_by_pheno, pheno_capture_input)
+                state.pheno_capture_strength = eaggl_phenotype_annotation.compute_profile_strengths(feature_by_pheno)
+                state.pheno_capture_input = pheno_capture_input
+            else:
+                state.pheno_capture_strength = np.sum(np.asarray(state.exp_pheno_factors, dtype=float), axis=1)
+
+        if factor_gene_set_x_pheno and pheno_matrix_to_project is not None:
+            full_gene_set_factor_values = state._project_H_with_fixed_W(state.exp_pheno_factors, pheno_matrix_to_project[:,state.pheno_factor_pheno_mask].T if run_transpose else pheno_matrix_to_project[state.pheno_factor_pheno_mask,:].T, state.pheno_prob_factor_vector[state.pheno_factor_pheno_mask,:], state.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
         else:
-            state.pheno_capture_strength = np.sum(np.asarray(state.exp_pheno_factors, dtype=float), axis=1)
+            full_gene_set_factor_values = state._project_H_with_fixed_W(state.exp_gene_factors, gene_matrix_to_project[:,state.gene_factor_gene_mask].T if run_transpose else gene_matrix_to_project[state.gene_factor_gene_mask,:].T, state.gene_prob_factor_vector[state.gene_factor_gene_mask,:], state.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
 
-    #now gene set factor values, projecting from either phenos or genes depending on what was used
-    if factor_gene_set_x_pheno and pheno_matrix_to_project is not None:
-        #we have to swap the gene sets and genes, which means transposing the matrix to project and swapping the prios
-        full_gene_set_factor_values = state._project_H_with_fixed_W(state.exp_pheno_factors, pheno_matrix_to_project[:,state.pheno_factor_pheno_mask].T if run_transpose else pheno_matrix_to_project[state.pheno_factor_pheno_mask,:].T, state.pheno_prob_factor_vector[state.pheno_factor_pheno_mask,:], state.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
-    else:
-        full_gene_set_factor_values = state._project_H_with_fixed_W(state.exp_gene_factors, gene_matrix_to_project[:,state.gene_factor_gene_mask].T if run_transpose else gene_matrix_to_project[state.gene_factor_gene_mask,:].T, state.gene_prob_factor_vector[state.gene_factor_gene_mask,:], state.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
+        if keep_original_loadings:
+            full_gene_set_factor_values[state.gene_set_factor_gene_set_mask,:] = state.exp_gene_set_factors
 
-    if keep_original_loadings:
-        full_gene_set_factor_values[state.gene_set_factor_gene_set_mask,:] = state.exp_gene_set_factors
+        state.exp_gene_factors = full_gene_factor_values
+        state.exp_pheno_factors = full_pheno_factor_values
+        state.exp_gene_set_factors = full_gene_set_factor_values
 
-    #update these to store the imputed as well
-    state.exp_gene_factors = full_gene_factor_values
-    state.exp_pheno_factors = full_pheno_factor_values
-    state.exp_gene_set_factors = full_gene_set_factor_values
-
-    if factor_gene_set_x_pheno:
-        exp_gene_or_pheno_factors = state.exp_pheno_factors
-    else:
-        exp_gene_or_pheno_factors = state.exp_gene_factors
-
-    #now update relevance
-
-    matrix_to_mult = state.exp_pheno_factors if factor_gene_set_x_pheno else state.exp_gene_factors
-    vector_to_mult = state.pheno_prob_factor_vector if factor_gene_set_x_pheno else state.gene_prob_factor_vector
-
-    #matrix_to_mult: (genes, factors)
-    #vector_to_mult: (users, genes)
-    #want: (factors, users)
-
-    state.factor_anchor_relevance = state._nnls_project_matrix(matrix_to_mult, vector_to_mult.T, max_value=1).T
-    state.factor_relevance = _compute_any_anchor_relevance(state.factor_anchor_relevance)
+        matrix_to_mult = state.exp_pheno_factors if factor_gene_set_x_pheno else state.exp_gene_factors
+        vector_to_mult = state.pheno_prob_factor_vector if factor_gene_set_x_pheno else state.gene_prob_factor_vector
+        state.factor_anchor_relevance = state._nnls_project_matrix(matrix_to_mult, vector_to_mult.T, max_value=1).T
+        state.factor_relevance = _compute_any_anchor_relevance(state.factor_anchor_relevance)
 
     _finalize_factor_outputs(
         state,
@@ -3380,23 +3650,63 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_passes=20, online_min_passes_before_stopping=5, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, approx_projection_block_size=None, approx_projection_n_iter=100, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_cluster_medoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", learn_phi_scout_repeats=3, learn_phi_confirm_topk=3, learn_phi_confirm_online_passes=5, learn_phi_confirm_block_size=None, learn_phi_scout_selection_method=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
 
     if factor_runs < 1:
         bail("--factor-runs must be at least 1")
-    if factor_backend not in {"full", "blockwise_global_w"}:
-        bail("--factor-backend must be one of: full, blockwise_global_w")
-    if learn_phi_backend not in {"sentinel_pruned", "blockwise_global_w"}:
-        bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w")
-    if int(blockwise_gene_set_block_size) < 1:
-        bail("--blockwise-gene-set-block-size must be at least 1")
-    if int(blockwise_epochs) < 1:
-        bail("--blockwise-epochs must be at least 1")
-    if blockwise_max_blocks is not None and int(blockwise_max_blocks) < 1:
-        bail("--blockwise-max-blocks must be at least 1")
+    if max_num_gene_sets is not None and int(max_num_gene_sets) < 1:
+        bail("--max-num-gene-sets must be at least 1")
+    if str(gene_set_budget_mode) not in {"pruned", "online_shared_basis", "structure_preserving_sketch"}:
+        bail("--gene-set-budget-mode must be one of: pruned, online_shared_basis, structure_preserving_sketch")
+    if learn_phi_gene_set_budget_mode is not None and str(learn_phi_gene_set_budget_mode) not in {"pruned", "online_shared_basis", "structure_preserving_sketch"}:
+        bail("--learn-phi-gene-set-budget-mode must be one of: pruned, online_shared_basis, structure_preserving_sketch")
+    if factor_backend not in {"full", "blockwise_global_w", "online_shared_basis", "structure_preserving_sketch"}:
+        bail("--factor-backend must be one of: full, blockwise_global_w, online_shared_basis, structure_preserving_sketch")
+    if learn_phi_backend not in {"sentinel_pruned", "blockwise_global_w", "online_shared_basis", "structure_preserving_sketch"}:
+        bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w, online_shared_basis, structure_preserving_sketch")
+    if online_block_size is not None and int(online_block_size) < 1:
+        bail("--online-block-size must be at least 1")
+    if int(online_passes) < 1:
+        bail("--online-passes must be at least 1")
+    if int(online_min_passes_before_stopping) < 1:
+        bail("--online-min-passes-before-stopping must be at least 1")
+    if int(online_min_passes_before_stopping) > int(online_passes):
+        bail("--online-min-passes-before-stopping must be <= --online-passes")
+    if online_max_blocks is not None and int(online_max_blocks) < 1:
+        bail("--online-max-blocks must be at least 1")
+    if approx_projection_block_size is not None and int(approx_projection_block_size) < 1:
+        bail("--approx-projection-block-size must be at least 1")
+    if int(approx_projection_n_iter) < 1:
+        bail("--approx-projection-n-iter must be at least 1")
+    if sketch_size is not None and int(sketch_size) < 1:
+        bail("--sketch-size must be at least 1")
+    if int(sketch_embedding_dim) < 1:
+        bail("--sketch-embedding-dim must be at least 1")
+    if str(_resolve_sketch_selection_method(sketch_selection_method)) not in {"projected_cluster_medoids"}:
+        bail("--sketch-selection-method must be one of: projected_cluster_medoids, projected_kmedoids")
+    if int(sketch_refinement_passes) < 0:
+        bail("--sketch-refinement-passes must be >= 0")
+    if int(learn_phi_scout_repeats) < 1:
+        bail("--learn-phi-scout-repeats must be at least 1")
+    if int(learn_phi_confirm_topk) < 1:
+        bail("--learn-phi-confirm-topk must be at least 1")
+    if int(learn_phi_confirm_online_passes) < 1:
+        bail("--learn-phi-confirm-online-passes must be at least 1")
+    if learn_phi_confirm_block_size is not None and int(learn_phi_confirm_block_size) < 1:
+        bail("--learn-phi-confirm-block-size must be at least 1")
+    if learn_phi_scout_selection_method is not None and str(_resolve_sketch_selection_method(learn_phi_scout_selection_method)) not in {"projected_cluster_medoids"}:
+        bail("--learn-phi-scout-selection-method must be one of: projected_cluster_medoids, projected_kmedoids")
+    effective_factor_backend = _resolve_budget_mode_alias(
+        factor_backend,
+        default_mode=str(gene_set_budget_mode),
+    )
+    effective_learn_phi_backend = _resolve_budget_mode_alias(
+        learn_phi_backend,
+        default_mode=str(learn_phi_gene_set_budget_mode if learn_phi_gene_set_budget_mode is not None else gene_set_budget_mode),
+    )
     if consensus_aggregation not in {"median", "mean"}:
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < consensus_min_factor_cosine <= 1):
@@ -3472,13 +3782,23 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "keep_original_loadings": keep_original_loadings,
         "project_phenos_from_gene_sets": project_phenos_from_gene_sets,
         "pheno_capture_input": pheno_capture_input,
-        "factor_backend": factor_backend,
-        "blockwise_gene_set_block_size": blockwise_gene_set_block_size,
-        "blockwise_epochs": blockwise_epochs,
-        "blockwise_shuffle_blocks": blockwise_shuffle_blocks,
-        "blockwise_warm_start": blockwise_warm_start,
-        "blockwise_max_blocks": blockwise_max_blocks,
-        "blockwise_report_out": blockwise_report_out,
+        "max_num_gene_sets": max_num_gene_sets,
+        "gene_set_budget_mode": effective_factor_backend,
+        "factor_backend": effective_factor_backend,
+        "online_block_size": online_block_size,
+        "online_passes": online_passes,
+        "online_min_passes_before_stopping": online_min_passes_before_stopping,
+        "online_shuffle_blocks": online_shuffle_blocks,
+        "online_warm_start": online_warm_start,
+        "online_max_blocks": online_max_blocks,
+        "online_report_out": online_report_out,
+        "approx_projection_block_size": approx_projection_block_size,
+        "approx_projection_n_iter": approx_projection_n_iter,
+        "sketch_size": sketch_size,
+        "sketch_embedding_dim": sketch_embedding_dim,
+        "sketch_selection_method": _resolve_sketch_selection_method(sketch_selection_method),
+        "sketch_random_seed": sketch_random_seed,
+        "sketch_refinement_passes": sketch_refinement_passes,
         "factors_out": factors_out,
         "factor_metrics_out": factor_metrics_out,
         "gene_set_clusters_out": gene_set_clusters_out,
@@ -3521,14 +3841,30 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             learn_phi_only=learn_phi_only,
             learn_phi_report_out=learn_phi_report_out,
             factor_phi_metrics_out=factor_phi_metrics_out,
-            factor_backend=factor_backend,
-            learn_phi_backend=learn_phi_backend,
-            blockwise_gene_set_block_size=blockwise_gene_set_block_size,
-            blockwise_epochs=blockwise_epochs,
-            blockwise_shuffle_blocks=blockwise_shuffle_blocks,
-            blockwise_warm_start=blockwise_warm_start,
-            blockwise_max_blocks=blockwise_max_blocks,
-            blockwise_report_out=blockwise_report_out,
+            max_num_gene_sets=max_num_gene_sets,
+            gene_set_budget_mode=effective_factor_backend,
+            learn_phi_gene_set_budget_mode=effective_learn_phi_backend,
+            factor_backend=effective_factor_backend,
+            learn_phi_backend=effective_learn_phi_backend,
+            online_block_size=online_block_size,
+            online_passes=online_passes,
+            online_min_passes_before_stopping=online_min_passes_before_stopping,
+            online_shuffle_blocks=online_shuffle_blocks,
+            online_warm_start=online_warm_start,
+            online_max_blocks=online_max_blocks,
+            online_report_out=online_report_out,
+            approx_projection_block_size=approx_projection_block_size,
+            approx_projection_n_iter=approx_projection_n_iter,
+            sketch_size=sketch_size,
+            sketch_embedding_dim=sketch_embedding_dim,
+            sketch_selection_method=_resolve_sketch_selection_method(sketch_selection_method),
+            sketch_random_seed=sketch_random_seed,
+            sketch_refinement_passes=sketch_refinement_passes,
+            learn_phi_scout_repeats=learn_phi_scout_repeats,
+            learn_phi_confirm_topk=learn_phi_confirm_topk,
+            learn_phi_confirm_online_passes=learn_phi_confirm_online_passes,
+            learn_phi_confirm_block_size=learn_phi_confirm_block_size,
+            learn_phi_scout_selection_method=learn_phi_scout_selection_method,
             learn_phi_prune_genes_num=learn_phi_prune_genes_num,
             learn_phi_prune_gene_sets_num=learn_phi_prune_gene_sets_num,
             learn_phi_max_num_iterations=learn_phi_max_num_iterations,
@@ -3564,7 +3900,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         overwrite=True,
     )
     log(
-        "Factor config: phi=%.6g alpha0=%.6g beta0=%.6g max_num_factors=%d factor_runs=%d consensus_nmf=%s learn_phi=%s factor_backend=%s learn_phi_backend=%s max_num_iterations=%d rel_tol=%.3g"
+        "Factor config: phi=%.6g alpha0=%.6g beta0=%.6g max_num_factors=%d factor_runs=%d consensus_nmf=%s learn_phi=%s gene_set_budget_mode=%s learn_phi_budget_mode=%s max_num_iterations=%d rel_tol=%.3g"
         % (
             float(phi),
             float(alpha0),
@@ -3573,8 +3909,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             int(factor_runs),
             bool(consensus_nmf),
             bool(learn_phi),
-            str(factor_backend),
-            str(learn_phi_backend),
+            str(effective_factor_backend),
+            str(effective_learn_phi_backend),
             int(max_num_iterations),
             float(rel_tol),
         ),
@@ -3599,8 +3935,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             weight_floor=weight_floor,
             mass_floor_frac=float(learn_phi_mass_floor_frac),
             min_error_gain_per_factor=float(learn_phi_min_error_gain_per_factor),
-            learn_phi_backend=learn_phi_backend,
-            blockwise_warm_start=blockwise_warm_start,
+            learn_phi_backend=effective_learn_phi_backend,
+            blockwise_warm_start=online_warm_start,
             report_out=learn_phi_report_out,
             factor_phi_metrics_out=factor_phi_metrics_out,
             prune_genes_num=learn_phi_prune_genes_num,

@@ -54,24 +54,45 @@ Use `--X-in` for a direct `.gmt` sparse matrix file. Use `--X-list` only for a t
 Consensus cNMF is part of the normal factor workflow surface: add `--factor-runs N --consensus-nmf` to any of the factor workflows below when you want restart aggregation instead of a single fitted run.
 Automatic phi tuning is also part of the normal factor workflow surface: add `--learn-phi` to any of the factor workflows below when you want EAGGL to search for a less redundant, restart-stable `phi` before the final reported factorization. The selected `phi`, the redundancy basis, and the search thresholds are written to `--params-out`, and `--learn-phi-report-out` writes the full per-candidate diagnostics table. Redundancy is measured on gene loadings when they are available, with fallback to gene-set or phenotype loadings only when gene loadings are absent. The search records both the worst nearest-neighbor overlap (`redundancy_max`) and a global tail-overlap summary (`redundancy_q90`), treats capped solutions explicitly, and computes factor-mass diagnostics (`effective_factor_count` and `mass_ge_floor_factor_count`) plus convergence diagnostics (`final_delambda`, `final_iterations`, and hit-iteration-cap summaries) for each candidate. Among acceptable uncapped candidates, selection now follows a fit/complexity frontier: EAGGL orders candidates by increasing retained mechanism complexity and keeps adding complexity only while the improvement in reconstruction error per additional retained mechanism stays above the marginal-gain threshold. This avoids the older near-maximal-K bias once redundancy is no longer the active constraint. The default redundancy thresholds are `--learn-phi-max-redundancy 0.5` and `--learn-phi-max-redundancy-q90 0.35`.
 
-EAGGL now exposes two scalable phi-search backends:
+Large-panel approximation is now controlled by one budget switch:
 
-1. `--learn-phi-backend sentinel_pruned`
-   - the legacy shortcut
-   - evaluates candidates on a correlation-pruned sentinel panel of up to `1000` genes and `1000` gene sets by default
-2. `--learn-phi-backend blockwise_global_w`
-   - the preferred scalable approximation to a full retained-panel search
-   - keeps one shared global gene-factor basis and shared ARD state across block-local gene-set solves
-   - evaluates all retained gene sets in blocks instead of replacing them with a single decorrelated sentinel panel
+1. `--max-num-gene-sets`
+   - activates a large-panel approximation only when the retained gene-set panel exceeds the requested budget
+2. `--gene-set-budget-mode pruned|online_shared_basis|structure_preserving_sketch`
+   - `pruned`: current reduced-panel behavior
+   - `online_shared_basis`: keep all retained gene sets and solve them blockwise with one shared global gene-factor basis
+   - `structure_preserving_sketch`: select a representative sketch of actual gene sets, factor that sketch exactly, then project all retained gene sets
 
-Likewise, the final factorization can run with either:
+Exact/full factorization remains the default when no budget is specified or when the retained panel does not exceed the requested budget.
 
-1. `--factor-backend full`
-   - the original in-memory solve
-2. `--factor-backend blockwise_global_w`
-   - a blockwise solve over the full retained gene-set collection with one shared global gene-factor basis
+The same budget mode applies to phi search. If you need a separate override, use `--learn-phi-gene-set-budget-mode`.
 
-Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffle-blocks`, `--blockwise-warm-start`, `--blockwise-max-blocks`, and `--blockwise-report-out` to tune or audit the blockwise backend. When `--learn-phi-backend blockwise_global_w` is used, neighboring phi candidates are warm-started from the closest previously fitted phi on the log scale when possible.
+For `online_shared_basis`, tune or audit the approximation with:
+- `--online-block-size`
+- `--online-passes`
+- `--online-min-passes-before-stopping`
+- `--online-shuffle-blocks`
+- `--online-warm-start`
+- `--online-max-blocks`
+- `--online-report-out`
+- `--approx-projection-block-size`
+- `--approx-projection-n-iter`
+
+For `structure_preserving_sketch`, tune or audit the approximation with:
+- `--sketch-size`
+- `--sketch-embedding-dim`
+- `--sketch-selection-method`
+- `--sketch-random-seed`
+- `--sketch-refinement-passes`
+
+For the planned phi scout/confirm workflow, the active control surface is:
+- `--learn-phi-scout-repeats`
+- `--learn-phi-confirm-topk`
+- `--learn-phi-confirm-online-passes`
+- `--learn-phi-confirm-block-size`
+- `--learn-phi-scout-selection-method`
+
+Stored gene and gene-set factor loadings remain on their original fitted scale. Any normalization used internally for sketch selection is transient and does not overwrite the stored model.
 
 PheWAS matrix inputs (for phenotype/gene anchor workflows):
 

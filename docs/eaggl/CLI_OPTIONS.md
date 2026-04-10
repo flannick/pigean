@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `235`
+- Total options: `251`
 - `method_required`: `16`
-- `method_optional`: `131`
+- `method_optional`: `147`
 - `engineering`: `71`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `195`
+- visibility `expert`: `208`
 - visibility `hidden`: `8`
-- visibility `normal`: `32`
+- visibility `normal`: `35`
 
 ## Method Required
 
@@ -47,21 +47,18 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--add-gene-sets-by-fraction` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_fraction` | `None` | - |
 | `--adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
 | `--alpha0` | `normal` | `yes` | `core_help` | `alpha0` | `10` | - |
+| `--approx-projection-block-size` | `expert` | `yes` | `advanced_workflows` | `approx_projection_block_size` | `None` | block size used for final blockwise projection in approximate modes |
+| `--approx-projection-n-iter` | `expert` | `yes` | `advanced_workflows` | `approx_projection_n_iter` | `100` | iteration budget for fixed-basis final projection in approximate modes |
 | `--background-prior` | `expert` | `yes` | `expert_help` | `background_prior` | `0.05` | - |
 | `--beta0` | `normal` | `yes` | `core_help` | `beta0` | `1` | - |
 | `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
 | `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | - |
-| `--blockwise-epochs` | `expert` | `yes` | `advanced_workflows` | `blockwise_epochs` | `3` | set the number of global block passes used by the scalable blockwise backend |
-| `--blockwise-gene-set-block-size` | `expert` | `yes` | `advanced_workflows` | `blockwise_gene_set_block_size` | `5000` | set how many retained gene sets are solved per block in blockwise_global_w mode |
-| `--blockwise-max-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_max_blocks` | `None` | optionally cap the number of processed blocks per epoch for debugging blockwise runs |
-| `--blockwise-shuffle-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_shuffle_blocks` | `True` | shuffle block order between epochs in blockwise_global_w mode |
-| `--blockwise-warm-start` | `expert` | `yes` | `advanced_workflows` | `blockwise_warm_start` | `True` | warm-start neighboring phi candidates when using blockwise_global_w phi search |
 | `--consensus-aggregation` | `normal` | `yes` | `core_help` | `consensus_aggregation` | `median` | choose how matched factors are aggregated across restarts in consensus mode |
 | `--consensus-min-factor-cosine` | `normal` | `yes` | `core_help` | `consensus_min_factor_cosine` | `0.7` | minimum cosine similarity needed to align a restart factor to the reference factor |
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
-| `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
+| `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | deprecated compatibility alias for selecting the approximation backend |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
 | `--factor-phewas-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_gene_clusters_in` | `None` | load an existing gene_clusters.out(.gz) table and run only factor-phewas without refitting factors |
@@ -86,6 +83,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | - |
+| `--gene-set-budget-mode` | `normal` | `yes` | `core_help` | `gene_set_budget_mode` | `pruned` | choose the binding gene-set budget behavior: pruned, online_shared_basis, or structure_preserving_sketch |
 | `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
 | `--gene-set-pheno-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_pheno_filter_value` | `0.01` | - |
 | `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and anchor workflows |
@@ -94,8 +92,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi by structural model selection before the final factorization |
-| `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
+| `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | deprecated compatibility alias for the phi-search gene-set budget mode |
+| `--learn-phi-confirm-block-size` | `expert` | `yes` | `advanced_workflows` | `learn_phi_confirm_block_size` | `None` | working-set / block-size budget for phi confirmation online runs |
+| `--learn-phi-confirm-online-passes` | `expert` | `yes` | `advanced_workflows` | `learn_phi_confirm_online_passes` | `5` | number of online_shared_basis passes used during phi confirmation |
+| `--learn-phi-confirm-topk` | `expert` | `yes` | `advanced_workflows` | `learn_phi_confirm_topk` | `3` | number of top sketch-scored phi candidates to confirm with online_shared_basis |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `2.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
+| `--learn-phi-gene-set-budget-mode` | `normal` | `yes` | `core_help` | `learn_phi_gene_set_budget_mode` | `None` | optional override for the phi-search gene-set budget mode |
 | `--learn-phi-k-band-frac` | `expert` | `yes` | `expert_help` | `learn_phi_k_band_frac` | `0.9` | legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection |
 | `--learn-phi-mass-floor-frac` | `expert` | `yes` | `expert_help` | `learn_phi_mass_floor_frac` | `0.005` | minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring |
 | `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | legacy fallback fit-loss guard used when no phi candidate satisfies the primary redundancy/restart criteria |
@@ -110,6 +112,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `learn_phi_prune_gene_sets_num` | `1000` | during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi |
 | `--learn-phi-prune-genes-num` | `expert` | `yes` | `expert_help` | `learn_phi_prune_genes_num` | `1000` | during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi |
 | `--learn-phi-runs-per-step` | `expert` | `yes` | `advanced_workflows` | `learn_phi_runs_per_step` | `1` | number of repeated restarts used to score each candidate phi |
+| `--learn-phi-scout-repeats` | `expert` | `yes` | `advanced_workflows` | `learn_phi_scout_repeats` | `3` | number of sketch scouting replicates per phi candidate |
+| `--learn-phi-scout-selection-method` | `expert` | `yes` | `advanced_workflows` | `learn_phi_scout_selection_method` | `None` | optional sketch selection method override used during phi scouting |
 | `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--lmm-auth-key` | `expert` | `yes` | `advanced_workflows` | `lmm_auth_key` | `None` | enable optional LLM-based factor labeling |
@@ -125,7 +129,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
 | `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
 | `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | - |
-| `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `5000` | - |
+| `--max-num-gene-sets` | `normal` | `yes` | `core_help` | `max_num_gene_sets` | `None` | gene-set budget used only when the retained panel exceeds the requested size; exact/full remains the default otherwise |
 | `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `5000` | - |
 | `--max-num-gene-sets-initial` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_initial` | `None` | - |
 | `--max-num-iter-betas` | `expert` | `yes` | `expert_help` | `max_num_iter_betas` | `1100` | - |
@@ -138,18 +142,25 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
 | `--no-add-top` | `expert` | `yes` | `expert_help` | `add_top` | `True` | - |
 | `--no-adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
-| `--no-blockwise-shuffle-blocks` | `expert` | `yes` | `expert_help` | `blockwise_shuffle_blocks` | `-` | - |
-| `--no-blockwise-warm-start` | `expert` | `yes` | `expert_help` | `blockwise_warm_start` | `-` | - |
 | `--no-cap-weights` | `expert` | `yes` | `expert_help` | `cap_weights` | `True` | - |
 | `--no-correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
+| `--no-online-shuffle-blocks` | `expert` | `yes` | `expert_help` | `online_shuffle_blocks` | `-` | - |
+| `--no-online-warm-start` | `expert` | `yes` | `expert_help` | `online_warm_start` | `-` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--no-transpose` | `expert` | `yes` | `expert_help` | `no_transpose` | `-` | - |
 | `--num-chains` | `expert` | `yes` | `expert_help` | `num_chains` | `10` | - |
 | `--num-chains-betas` | `expert` | `yes` | `expert_help` | `num_chains_betas` | `4` | - |
 | `--num-gene-sets-for-prior` | `expert` | `yes` | `expert_help` | `num_gene_sets_for_prior` | `None` | - |
 | `--ols` | `expert` | `yes` | `expert_help` | `ols` | `-` | - |
+| `--online-block-size` | `expert` | `yes` | `advanced_workflows` | `online_block_size` | `None` | working-set / block-size budget for the online_shared_basis approximation |
+| `--online-epochs` | `expert` | `yes` | `advanced_workflows` | `online_epochs` | `None` | deprecated alias for --online-passes |
+| `--online-max-blocks` | `expert` | `yes` | `advanced_workflows` | `online_max_blocks` | `None` | optionally cap processed online blocks per pass for debugging |
+| `--online-min-passes-before-stopping` | `expert` | `yes` | `advanced_workflows` | `online_min_passes_before_stopping` | `5` | minimum number of online_shared_basis passes before early stopping is allowed |
+| `--online-passes` | `expert` | `yes` | `advanced_workflows` | `online_passes` | `20` | maximum number of global online_shared_basis passes over retained gene sets |
+| `--online-shuffle-blocks` | `expert` | `yes` | `advanced_workflows` | `online_shuffle_blocks` | `True` | shuffle block order between passes in online_shared_basis mode |
+| `--online-warm-start` | `expert` | `yes` | `advanced_workflows` | `online_warm_start` | `True` | warm-start neighboring phi candidates in online_shared_basis mode |
 | `--p-noninf` | `expert` | `yes` | `expert_help` | `p_noninf` | `None` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
 | `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
@@ -162,6 +173,11 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--run-factor-phewas` | `expert` | `yes` | `advanced_workflows` | `run_factor_phewas` | `False` | run the optional factor-level phewas stage |
 | `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | run the optional gene-level phewas output stage |
 | `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
+| `--sketch-embedding-dim` | `expert` | `yes` | `advanced_workflows` | `sketch_embedding_dim` | `16` | embedding dimension used to select actual sketch gene sets |
+| `--sketch-random-seed` | `expert` | `yes` | `advanced_workflows` | `sketch_random_seed` | `None` | random seed used during sketch representative selection |
+| `--sketch-refinement-passes` | `expert` | `yes` | `advanced_workflows` | `sketch_refinement_passes` | `0` | optional conservative post-projection refinement passes in structure_preserving_sketch mode |
+| `--sketch-selection-method` | `expert` | `yes` | `advanced_workflows` | `sketch_selection_method` | `projected_cluster_medoids` | actual-column selection method for structure_preserving_sketch |
+| `--sketch-size` | `expert` | `yes` | `advanced_workflows` | `sketch_size` | `None` | actual-column sketch size for the structure_preserving_sketch approximation |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
@@ -178,7 +194,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 |---|---|---|---|---|---|---|
 | `--batch-separator` | `expert` | `no` | `expert_help` | `batch_separator` | `@` | - |
 | `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
-| `--blockwise-report-out` | `expert` | `no` | `expert_help` | `blockwise_report_out` | `None` | write per-epoch blockwise diagnostics |
 | `--config` | `expert` | `no` | `core_help` | `config` | `None` | load a JSON config file; explicit CLI flags override config values |
 | `--consensus-stats-out` | `normal` | `no` | `core_help` | `consensus_stats_out` | `None` | write per-run and per-factor diagnostics for restart or consensus factorization |
 | `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
@@ -236,6 +251,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--log-file` | `expert` | `no` | `core_help` | `log_file` | `None` | write structured run logs to this file |
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
 | `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |
+| `--online-report-out` | `expert` | `no` | `expert_help` | `online_report_out` | `None` | write per-pass diagnostics for online_shared_basis |
 | `--params-out` | `expert` | `no` | `expert_help` | `params_out` | `None` | - |
 | `--pheno-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `pheno_anchor_clusters_out` | `None` | - |
 | `--pheno-clusters-out` | `expert` | `no` | `advanced_workflows` | `pheno_clusters_out` | `None` | - |

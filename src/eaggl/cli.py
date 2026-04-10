@@ -254,7 +254,7 @@ parser.add_option("","--no-filter-negative",default=None,action="store_false",de
 
 parser.add_option("","--max-num-gene-sets-initial",type=int,default=None) #ignore gene sets to reduce to this number. Uses nominal p-values. Happens before expensive operations (pruning, parameter estimation, non-inf betas)
 parser.add_option("","--max-num-gene-sets-hyper",type=int,default=5000) #use at most this number of gene sets for hyper parameter estimation (this occurs before the max-num-gene-sets operation)
-parser.add_option("","--max-num-gene-sets",type=int,default=5000) #ignore gene sets to reduce to this number. Uses pruning to find independent gene sets with highest betas. Happens afer expensive operations (pruning, parameter estimation) but before gibbs
+parser.add_option("","--max-num-gene-sets",type=int,default=None) #gene-set budget used by EAGGL large-panel approximation; exact/full remains the default when omitted or non-binding
 parser.add_option("","--max-gene-set-read-p",type=float,default=.05) #gene sets with p above this are excluded from the original beta analysis but included in gibbs
 parser.add_option("","--min-gene-set-read-beta",type=float,default=1e-20) #gene sets with beta below this are excluded from reading in the gene stats file
 parser.add_option("","--min-gene-set-read-beta-uncorrected",type=float,default=1e-20) #gene sets with beta below this are excluded from reading in the gene set stats file
@@ -322,16 +322,32 @@ parser.add_option("","--learn-phi-min-error-gain-per-factor",default=5.0,type=fl
 parser.add_option("","--learn-phi-only",default=False,action="store_true") #stop after automatic phi selection and report writing; skip the final full-panel factorization
 parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
 parser.add_option("","--factor-phi-metrics-out",default=None) #write per-factor diagnostics for each phi-search candidate
-parser.add_option("","--factor-backend",default="full",type=str) #factorization backend: full or blockwise_global_w
-parser.add_option("","--learn-phi-backend",default="sentinel_pruned",type=str) #phi-search backend: sentinel_pruned or blockwise_global_w
-parser.add_option("","--blockwise-gene-set-block-size",default=5000,type=int) #number of retained gene sets per block for blockwise_global_w
-parser.add_option("","--blockwise-epochs",default=3,type=int) #number of blockwise global passes
-parser.add_option("","--blockwise-shuffle-blocks",default=True,action="store_true") #shuffle block order between blockwise epochs
-parser.add_option("","--no-blockwise-shuffle-blocks",dest="blockwise_shuffle_blocks",action="store_false")
-parser.add_option("","--blockwise-warm-start",default=True,action="store_true") #warm-start neighboring phi candidates in blockwise phi search
-parser.add_option("","--no-blockwise-warm-start",dest="blockwise_warm_start",action="store_false")
-parser.add_option("","--blockwise-max-blocks",default=None,type=int) #optional debugging cap on processed blocks per epoch
-parser.add_option("","--blockwise-report-out",default=None) #write detailed per-epoch blockwise diagnostics
+parser.add_option("","--gene-set-budget-mode",default="pruned",type=str) #approximation mode used when the retained gene-set panel exceeds --max-num-gene-sets
+parser.add_option("","--learn-phi-gene-set-budget-mode",default=None,type=str) #optional override for phi-search budget mode; defaults to --gene-set-budget-mode
+parser.add_option("","--factor-backend",default="full",type=str) #deprecated compatibility alias; use --gene-set-budget-mode with --max-num-gene-sets
+parser.add_option("","--learn-phi-backend",default="sentinel_pruned",type=str) #deprecated compatibility alias; use --learn-phi-gene-set-budget-mode
+parser.add_option("","--online-block-size",default=None,type=int) #working-set / block-size budget for online_shared_basis; defaults to --max-num-gene-sets
+parser.add_option("","--online-passes",dest="online_passes",default=20,type=int) #maximum number of shared-basis online passes across all blocks
+parser.add_option("","--online-epochs",dest="online_epochs",default=None,type=int) #deprecated alias for --online-passes
+parser.add_option("","--online-min-passes-before-stopping",default=5,type=int) #minimum number of online passes before early stopping is allowed
+parser.add_option("","--online-shuffle-blocks",default=True,action="store_true") #shuffle block order between online_shared_basis passes
+parser.add_option("","--no-online-shuffle-blocks",dest="online_shuffle_blocks",action="store_false")
+parser.add_option("","--online-warm-start",default=True,action="store_true") #warm-start neighboring phi candidates in online_shared_basis mode
+parser.add_option("","--no-online-warm-start",dest="online_warm_start",action="store_false")
+parser.add_option("","--online-max-blocks",default=None,type=int) #optional debugging cap on processed blocks per pass in online_shared_basis mode
+parser.add_option("","--online-report-out",default=None) #write per-pass online_shared_basis diagnostics
+parser.add_option("","--approx-projection-block-size",default=None,type=int) #block size used for final approximate-mode projection
+parser.add_option("","--approx-projection-n-iter",default=100,type=int) #iteration budget for final approximate-mode fixed-basis projection
+parser.add_option("","--sketch-size",default=None,type=int) #actual-column sketch size for structure_preserving_sketch; defaults to --max-num-gene-sets
+parser.add_option("","--sketch-embedding-dim",default=16,type=int) #embedding dimension used during actual-column sketch selection
+parser.add_option("","--sketch-selection-method",default="projected_cluster_medoids",type=str) #actual-column sketch selector
+parser.add_option("","--sketch-random-seed",default=None,type=int) #random seed used by structure_preserving_sketch selection
+parser.add_option("","--sketch-refinement-passes",default=0,type=int) #extra fixed-basis reprojection passes after sketch factorization
+parser.add_option("","--learn-phi-scout-repeats",default=3,type=int) #number of sketch scouting replicates per phi candidate
+parser.add_option("","--learn-phi-confirm-topk",default=3,type=int) #number of top sketch-scored phi candidates to confirm with online_shared_basis
+parser.add_option("","--learn-phi-confirm-online-passes",default=5,type=int) #number of online_shared_basis passes for phi confirmation
+parser.add_option("","--learn-phi-confirm-block-size",default=None,type=int) #working-set size for phi confirmation online_shared_basis runs
+parser.add_option("","--learn-phi-scout-selection-method",default=None,type=str) #optional override for sketch selection method during phi scouting
 parser.add_option("","--learn-phi-prune-genes-num",default=1000,type=int) #during phi search only, prune to at most this many genes before candidate NMF evaluation
 parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
 parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #during phi search only, cap the NMF iteration budget used for each tested phi candidate
@@ -439,13 +455,30 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--consensus-min-run-support": "minimum restart support fraction required to keep a consensus factor",
     "--consensus-nmf": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
     "--consensus-stats-out": "write per-run and per-factor diagnostics for restart or consensus factorization",
-    "--blockwise-epochs": "set the number of global block passes used by the scalable blockwise backend",
-    "--blockwise-gene-set-block-size": "set how many retained gene sets are solved per block in blockwise_global_w mode",
-    "--blockwise-max-blocks": "optionally cap the number of processed blocks per epoch for debugging blockwise runs",
-    "--blockwise-report-out": "write per-epoch blockwise diagnostics",
-    "--blockwise-shuffle-blocks": "shuffle block order between epochs in blockwise_global_w mode",
-    "--blockwise-warm-start": "warm-start neighboring phi candidates when using blockwise_global_w phi search",
-    "--factor-backend": "choose the final factorization backend: full or blockwise_global_w",
+    "--max-num-gene-sets": "gene-set budget used only when the retained panel exceeds the requested size; exact/full remains the default otherwise",
+    "--gene-set-budget-mode": "choose the binding gene-set budget behavior: pruned, online_shared_basis, or structure_preserving_sketch",
+    "--learn-phi-gene-set-budget-mode": "optional override for the phi-search gene-set budget mode",
+    "--factor-backend": "deprecated compatibility alias for selecting the approximation backend",
+    "--online-block-size": "working-set / block-size budget for the online_shared_basis approximation",
+    "--online-passes": "maximum number of global online_shared_basis passes over retained gene sets",
+    "--online-epochs": "deprecated alias for --online-passes",
+    "--online-min-passes-before-stopping": "minimum number of online_shared_basis passes before early stopping is allowed",
+    "--online-max-blocks": "optionally cap processed online blocks per pass for debugging",
+    "--online-report-out": "write per-pass diagnostics for online_shared_basis",
+    "--online-shuffle-blocks": "shuffle block order between passes in online_shared_basis mode",
+    "--online-warm-start": "warm-start neighboring phi candidates in online_shared_basis mode",
+    "--approx-projection-block-size": "block size used for final blockwise projection in approximate modes",
+    "--approx-projection-n-iter": "iteration budget for fixed-basis final projection in approximate modes",
+    "--sketch-size": "actual-column sketch size for the structure_preserving_sketch approximation",
+    "--sketch-embedding-dim": "embedding dimension used to select actual sketch gene sets",
+    "--sketch-selection-method": "actual-column selection method for structure_preserving_sketch",
+    "--sketch-random-seed": "random seed used during sketch representative selection",
+    "--sketch-refinement-passes": "optional conservative post-projection refinement passes in structure_preserving_sketch mode",
+    "--learn-phi-scout-repeats": "number of sketch scouting replicates per phi candidate",
+    "--learn-phi-confirm-topk": "number of top sketch-scored phi candidates to confirm with online_shared_basis",
+    "--learn-phi-confirm-online-passes": "number of online_shared_basis passes used during phi confirmation",
+    "--learn-phi-confirm-block-size": "working-set / block-size budget for phi confirmation online runs",
+    "--learn-phi-scout-selection-method": "optional sketch selection method override used during phi scouting",
     "--run-factor-phewas": "run the optional factor-level phewas stage",
     "--factor-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in",
     "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
@@ -473,7 +506,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-max-redundancy-q90": "maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning",
     "--learn-phi-max-num-iterations": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
     "--learn-phi-max-steps": "maximum number of log-space phi search steps after bracketing",
-    "--learn-phi-backend": "choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets",
+    "--learn-phi-backend": "deprecated compatibility alias for the phi-search gene-set budget mode",
     "--learn-phi-only": "stop after automatic phi selection and report writing instead of running the final full-panel factorization",
     "--learn-phi-k-band-frac": "legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection",
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
@@ -551,6 +584,9 @@ _EXPERT_METHOD_FLAGS = {
     "--factor-phewas-se",
     "--factor-phewas-thresholded-combined-cutoff",
     "--factor-runs",
+    "--max-num-gene-sets",
+    "--gene-set-budget-mode",
+    "--learn-phi-gene-set-budget-mode",
     "--factor-backend",
     "--factor-prune-gene-sets-num",
     "--factor-prune-gene-sets-val",
@@ -581,21 +617,35 @@ _EXPERT_METHOD_FLAGS = {
     "--label-gene-sets-only",
     "--label-include-phenos",
     "--label-individually",
-    "--blockwise-epochs",
-    "--blockwise-gene-set-block-size",
-    "--blockwise-max-blocks",
-    "--blockwise-report-out",
-    "--blockwise-shuffle-blocks",
-    "--blockwise-warm-start",
+    "--approx-projection-block-size",
+    "--approx-projection-n-iter",
+    "--online-block-size",
+    "--online-passes",
+    "--online-epochs",
+    "--online-min-passes-before-stopping",
+    "--online-max-blocks",
+    "--online-report-out",
+    "--online-shuffle-blocks",
+    "--online-warm-start",
+    "--sketch-size",
+    "--sketch-embedding-dim",
+    "--sketch-selection-method",
+    "--sketch-random-seed",
+    "--sketch-refinement-passes",
     "--learn-phi-expand-factor",
     "--learn-phi-backend",
     "--learn-phi-max-fit-loss-frac",
     "--learn-phi-max-num-iterations",
     "--learn-phi-max-steps",
+    "--learn-phi-confirm-block-size",
+    "--learn-phi-confirm-online-passes",
+    "--learn-phi-confirm-topk",
     "--learn-phi-min-run-support",
     "--learn-phi-min-stability",
     "--learn-phi-prune-gene-sets-num",
     "--learn-phi-report-out",
+    "--learn-phi-scout-repeats",
+    "--learn-phi-scout-selection-method",
     "--factor-phi-metrics-out",
     "--learn-phi-runs-per-step",
     "--learn-phi-weight-floor",
@@ -661,6 +711,9 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--consensus-nmf",
     "--consensus-stats-out",
     "--beta0",
+    "--max-num-gene-sets",
+    "--gene-set-budget-mode",
+    "--learn-phi-gene-set-budget-mode",
     "--factor-backend",
     "--eaggl-bundle-in",
     "--factor-runs",
@@ -1346,16 +1399,50 @@ def _bootstrap_cli(argv=None):
         bail("--consensus-min-run-support must be in (0, 1]")
     if parsed_options.consensus_nmf and parsed_options.factor_runs < 2:
         bail("--consensus-nmf requires --factor-runs >= 2")
-    if parsed_options.factor_backend not in set(["full", "blockwise_global_w"]):
-        bail("--factor-backend must be one of: full, blockwise_global_w")
-    if parsed_options.learn_phi_backend not in set(["sentinel_pruned", "blockwise_global_w"]):
-        bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w")
-    if parsed_options.blockwise_gene_set_block_size < 1:
-        bail("--blockwise-gene-set-block-size must be at least 1")
-    if parsed_options.blockwise_epochs < 1:
-        bail("--blockwise-epochs must be at least 1")
-    if parsed_options.blockwise_max_blocks is not None and parsed_options.blockwise_max_blocks < 1:
-        bail("--blockwise-max-blocks must be at least 1")
+    if parsed_options.max_num_gene_sets is not None and parsed_options.max_num_gene_sets < 1:
+        bail("--max-num-gene-sets must be at least 1")
+    if parsed_options.gene_set_budget_mode not in set(["pruned", "online_shared_basis", "structure_preserving_sketch"]):
+        bail("--gene-set-budget-mode must be one of: pruned, online_shared_basis, structure_preserving_sketch")
+    if parsed_options.learn_phi_gene_set_budget_mode is not None and parsed_options.learn_phi_gene_set_budget_mode not in set(["pruned", "online_shared_basis", "structure_preserving_sketch"]):
+        bail("--learn-phi-gene-set-budget-mode must be one of: pruned, online_shared_basis, structure_preserving_sketch")
+    if parsed_options.factor_backend not in set(["full", "blockwise_global_w", "online_shared_basis", "structure_preserving_sketch"]):
+        bail("--factor-backend must be one of: full, blockwise_global_w, online_shared_basis, structure_preserving_sketch")
+    if parsed_options.learn_phi_backend not in set(["sentinel_pruned", "blockwise_global_w", "online_shared_basis", "structure_preserving_sketch"]):
+        bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w, online_shared_basis, structure_preserving_sketch")
+    if getattr(parsed_options, "online_epochs", None) is not None:
+        parsed_options.online_passes = parsed_options.online_epochs
+    if parsed_options.online_block_size is not None and parsed_options.online_block_size < 1:
+        bail("--online-block-size must be at least 1")
+    if parsed_options.online_passes < 1:
+        bail("--online-passes must be at least 1")
+    if parsed_options.online_min_passes_before_stopping < 1:
+        bail("--online-min-passes-before-stopping must be at least 1")
+    if parsed_options.online_min_passes_before_stopping > parsed_options.online_passes:
+        bail("--online-min-passes-before-stopping must be <= --online-passes")
+    if parsed_options.online_max_blocks is not None and parsed_options.online_max_blocks < 1:
+        bail("--online-max-blocks must be at least 1")
+    if parsed_options.approx_projection_block_size is not None and parsed_options.approx_projection_block_size < 1:
+        bail("--approx-projection-block-size must be at least 1")
+    if parsed_options.approx_projection_n_iter < 1:
+        bail("--approx-projection-n-iter must be at least 1")
+    if parsed_options.sketch_size is not None and parsed_options.sketch_size < 1:
+        bail("--sketch-size must be at least 1")
+    if parsed_options.sketch_embedding_dim < 1:
+        bail("--sketch-embedding-dim must be at least 1")
+    if parsed_options.sketch_selection_method not in set(["projected_cluster_medoids", "projected_kmedoids"]):
+        bail("--sketch-selection-method must be one of: projected_cluster_medoids, projected_kmedoids")
+    if parsed_options.sketch_refinement_passes < 0:
+        bail("--sketch-refinement-passes must be >= 0")
+    if parsed_options.learn_phi_scout_repeats < 1:
+        bail("--learn-phi-scout-repeats must be at least 1")
+    if parsed_options.learn_phi_confirm_topk < 1:
+        bail("--learn-phi-confirm-topk must be at least 1")
+    if parsed_options.learn_phi_confirm_online_passes < 1:
+        bail("--learn-phi-confirm-online-passes must be at least 1")
+    if parsed_options.learn_phi_confirm_block_size is not None and parsed_options.learn_phi_confirm_block_size < 1:
+        bail("--learn-phi-confirm-block-size must be at least 1")
+    if parsed_options.learn_phi_scout_selection_method is not None and parsed_options.learn_phi_scout_selection_method not in set(["projected_cluster_medoids", "projected_kmedoids"]):
+        bail("--learn-phi-scout-selection-method must be one of: projected_cluster_medoids, projected_kmedoids")
     if parsed_options.learn_phi:
         if parsed_options.phi <= 0:
             bail("--learn-phi requires --phi > 0")
@@ -1389,6 +1476,22 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-prune-gene-sets-num must be at least 1")
         if parsed_options.learn_phi_max_num_iterations is not None and parsed_options.learn_phi_max_num_iterations < 1:
             bail("--learn-phi-max-num-iterations must be at least 1")
+
+    if parsed_options.factor_backend == "blockwise_global_w":
+        parsed_options.gene_set_budget_mode = "online_shared_basis"
+    elif parsed_options.factor_backend == "online_shared_basis":
+        parsed_options.gene_set_budget_mode = "online_shared_basis"
+    elif parsed_options.factor_backend == "structure_preserving_sketch":
+        parsed_options.gene_set_budget_mode = "structure_preserving_sketch"
+
+    if parsed_options.learn_phi_backend == "blockwise_global_w":
+        parsed_options.learn_phi_gene_set_budget_mode = "online_shared_basis"
+    elif parsed_options.learn_phi_backend == "online_shared_basis":
+        parsed_options.learn_phi_gene_set_budget_mode = "online_shared_basis"
+    elif parsed_options.learn_phi_backend == "structure_preserving_sketch":
+        parsed_options.learn_phi_gene_set_budget_mode = "structure_preserving_sketch"
+    elif parsed_options.learn_phi_backend == "sentinel_pruned" and parsed_options.learn_phi_gene_set_budget_mode is None:
+        parsed_options.learn_phi_gene_set_budget_mode = "pruned"
 
     if len(parsed_args) < 1:
         bail(usage)

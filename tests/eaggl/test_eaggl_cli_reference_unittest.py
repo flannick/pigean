@@ -325,20 +325,48 @@ class EagglCliReferenceTest(unittest.TestCase):
             "phi.tsv",
             "--factor-phi-metrics-out",
             "phi_factor_metrics.tsv",
-            "--factor-backend",
-            "blockwise_global_w",
-            "--learn-phi-backend",
-            "blockwise_global_w",
-            "--blockwise-gene-set-block-size",
+            "--max-num-gene-sets",
             "1234",
-            "--blockwise-epochs",
+            "--gene-set-budget-mode",
+            "online_shared_basis",
+            "--learn-phi-gene-set-budget-mode",
+            "structure_preserving_sketch",
+            "--online-block-size",
+            "1234",
+            "--online-passes",
             "4",
-            "--no-blockwise-shuffle-blocks",
-            "--no-blockwise-warm-start",
-            "--blockwise-max-blocks",
+            "--online-min-passes-before-stopping",
+            "2",
+            "--no-online-shuffle-blocks",
+            "--no-online-warm-start",
+            "--online-max-blocks",
             "6",
-            "--blockwise-report-out",
-            "blockwise.tsv",
+            "--online-report-out",
+            "online.tsv",
+            "--approx-projection-block-size",
+            "250",
+            "--approx-projection-n-iter",
+            "25",
+            "--sketch-size",
+            "111",
+            "--sketch-embedding-dim",
+            "12",
+            "--sketch-selection-method",
+            "projected_cluster_medoids",
+            "--sketch-random-seed",
+            "17",
+            "--sketch-refinement-passes",
+            "2",
+            "--learn-phi-scout-repeats",
+            "4",
+            "--learn-phi-confirm-topk",
+            "2",
+            "--learn-phi-confirm-online-passes",
+            "6",
+            "--learn-phi-confirm-block-size",
+            "777",
+            "--learn-phi-scout-selection-method",
+            "projected_cluster_medoids",
             "--learn-phi-prune-genes-num",
             "900",
             "--learn-phi-prune-gene-sets-num",
@@ -425,14 +453,30 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_weight_floor"], 0.02)
         self.assertEqual(opts["learn_phi_report_out"], "phi.tsv")
         self.assertEqual(opts["factor_phi_metrics_out"], "phi_factor_metrics.tsv")
-        self.assertEqual(opts["factor_backend"], "blockwise_global_w")
-        self.assertEqual(opts["learn_phi_backend"], "blockwise_global_w")
-        self.assertEqual(opts["blockwise_gene_set_block_size"], 1234)
-        self.assertEqual(opts["blockwise_epochs"], 4)
-        self.assertFalse(opts["blockwise_shuffle_blocks"])
-        self.assertFalse(opts["blockwise_warm_start"])
-        self.assertEqual(opts["blockwise_max_blocks"], 6)
-        self.assertEqual(opts["blockwise_report_out"], "blockwise.tsv")
+        self.assertEqual(opts["max_num_gene_sets"], 1234)
+        self.assertEqual(opts["gene_set_budget_mode"], "online_shared_basis")
+        self.assertEqual(opts["learn_phi_gene_set_budget_mode"], "structure_preserving_sketch")
+        self.assertEqual(opts["factor_backend"], "full")
+        self.assertEqual(opts["learn_phi_backend"], "sentinel_pruned")
+        self.assertEqual(opts["online_block_size"], 1234)
+        self.assertEqual(opts["online_passes"], 4)
+        self.assertEqual(opts["online_min_passes_before_stopping"], 2)
+        self.assertFalse(opts["online_shuffle_blocks"])
+        self.assertFalse(opts["online_warm_start"])
+        self.assertEqual(opts["online_max_blocks"], 6)
+        self.assertEqual(opts["online_report_out"], "online.tsv")
+        self.assertEqual(opts["approx_projection_block_size"], 250)
+        self.assertEqual(opts["approx_projection_n_iter"], 25)
+        self.assertEqual(opts["sketch_size"], 111)
+        self.assertEqual(opts["sketch_embedding_dim"], 12)
+        self.assertEqual(opts["sketch_selection_method"], "projected_cluster_medoids")
+        self.assertEqual(opts["sketch_random_seed"], 17)
+        self.assertEqual(opts["sketch_refinement_passes"], 2)
+        self.assertEqual(opts["learn_phi_scout_repeats"], 4)
+        self.assertEqual(opts["learn_phi_confirm_topk"], 2)
+        self.assertEqual(opts["learn_phi_confirm_online_passes"], 6)
+        self.assertEqual(opts["learn_phi_confirm_block_size"], 777)
+        self.assertEqual(opts["learn_phi_scout_selection_method"], "projected_cluster_medoids")
         self.assertEqual(opts["learn_phi_prune_genes_num"], 900)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
         self.assertEqual(opts["learn_phi_max_num_iterations"], 50)
@@ -541,6 +585,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-k-band-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-steps": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-backend": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-gene-set-budget-mode": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
@@ -551,13 +596,28 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--alpha0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--beta0": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-runs": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--max-num-gene-sets": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--gene-set-budget-mode": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-backend": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--blockwise-gene-set-block-size": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--blockwise-epochs": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--blockwise-shuffle-blocks": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--blockwise-warm-start": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--blockwise-max-blocks": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--blockwise-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--online-block-size": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--online-passes": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--online-min-passes-before-stopping": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--online-shuffle-blocks": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--online-warm-start": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--online-max-blocks": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--online-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--approx-projection-block-size": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--approx-projection-n-iter": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--sketch-size": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--sketch-embedding-dim": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--sketch-selection-method": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--sketch-random-seed": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--sketch-refinement-passes": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-scout-repeats": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-confirm-topk": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-confirm-online-passes": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-confirm-block-size": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-scout-selection-method": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-nmf": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-min-factor-cosine": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],

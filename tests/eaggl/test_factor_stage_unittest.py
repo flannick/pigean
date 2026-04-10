@@ -45,14 +45,31 @@ def _options(**overrides):
         learn_phi_weight_floor=None,
         learn_phi_report_out=None,
         factor_phi_metrics_out=None,
+        max_num_gene_sets=None,
+        gene_set_budget_mode="pruned",
+        learn_phi_gene_set_budget_mode=None,
         factor_backend="full",
         learn_phi_backend="sentinel_pruned",
-        blockwise_gene_set_block_size=5000,
-        blockwise_epochs=3,
-        blockwise_shuffle_blocks=True,
-        blockwise_warm_start=True,
-        blockwise_max_blocks=None,
-        blockwise_report_out=None,
+        online_block_size=5000,
+        online_passes=20,
+        online_epochs=None,
+        online_min_passes_before_stopping=5,
+        online_shuffle_blocks=True,
+        online_warm_start=True,
+        online_max_blocks=None,
+        online_report_out=None,
+        approx_projection_block_size=None,
+        approx_projection_n_iter=100,
+        sketch_size=None,
+        sketch_embedding_dim=16,
+        sketch_selection_method="projected_cluster_medoids",
+        sketch_random_seed=None,
+        sketch_refinement_passes=0,
+        learn_phi_scout_repeats=3,
+        learn_phi_confirm_topk=3,
+        learn_phi_confirm_online_passes=5,
+        learn_phi_confirm_block_size=None,
+        learn_phi_scout_selection_method=None,
         learn_phi_prune_genes_num=1000,
         learn_phi_prune_gene_sets_num=1000,
         learn_phi_max_num_iterations=None,
@@ -258,14 +275,22 @@ class FactorStageHelpersTest(unittest.TestCase):
             learn_phi_weight_floor=0.02,
             learn_phi_report_out="phi.tsv",
             factor_phi_metrics_out="phi_factor_metrics.tsv",
-            factor_backend="blockwise_global_w",
-            learn_phi_backend="blockwise_global_w",
-            blockwise_gene_set_block_size=123,
-            blockwise_epochs=4,
-            blockwise_shuffle_blocks=False,
-            blockwise_warm_start=False,
-            blockwise_max_blocks=7,
-            blockwise_report_out="blockwise.tsv",
+            max_num_gene_sets=123,
+            gene_set_budget_mode="online_shared_basis",
+            learn_phi_gene_set_budget_mode="structure_preserving_sketch",
+            factor_backend="online_shared_basis",
+            learn_phi_backend="structure_preserving_sketch",
+            online_block_size=123,
+            online_passes=4,
+            online_shuffle_blocks=False,
+            online_warm_start=False,
+            online_max_blocks=7,
+            online_report_out="online.tsv",
+            sketch_size=111,
+            sketch_embedding_dim=12,
+            sketch_selection_method="projected_cluster_medoids",
+            sketch_random_seed=17,
+            sketch_refinement_passes=2,
             learn_phi_prune_genes_num=900,
             learn_phi_prune_gene_sets_num=1000,
             learn_phi_max_num_iterations=25,
@@ -284,14 +309,23 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_weight_floor, 0.02)
         self.assertEqual(cfg.learn_phi_report_out, "phi.tsv")
         self.assertEqual(cfg.factor_phi_metrics_out, "phi_factor_metrics.tsv")
-        self.assertEqual(cfg.factor_backend, "blockwise_global_w")
-        self.assertEqual(cfg.learn_phi_backend, "blockwise_global_w")
-        self.assertEqual(cfg.blockwise_gene_set_block_size, 123)
-        self.assertEqual(cfg.blockwise_epochs, 4)
-        self.assertFalse(cfg.blockwise_shuffle_blocks)
-        self.assertFalse(cfg.blockwise_warm_start)
-        self.assertEqual(cfg.blockwise_max_blocks, 7)
-        self.assertEqual(cfg.blockwise_report_out, "blockwise.tsv")
+        self.assertEqual(cfg.max_num_gene_sets, 123)
+        self.assertEqual(cfg.gene_set_budget_mode, "online_shared_basis")
+        self.assertEqual(cfg.learn_phi_gene_set_budget_mode, "structure_preserving_sketch")
+        self.assertEqual(cfg.factor_backend, "online_shared_basis")
+        self.assertEqual(cfg.learn_phi_backend, "structure_preserving_sketch")
+        self.assertEqual(cfg.online_block_size, 123)
+        self.assertEqual(cfg.online_passes, 4)
+        self.assertEqual(cfg.online_min_passes_before_stopping, 5)
+        self.assertFalse(cfg.online_shuffle_blocks)
+        self.assertFalse(cfg.online_warm_start)
+        self.assertEqual(cfg.online_max_blocks, 7)
+        self.assertEqual(cfg.online_report_out, "online.tsv")
+        self.assertEqual(cfg.sketch_size, 111)
+        self.assertEqual(cfg.sketch_embedding_dim, 12)
+        self.assertEqual(cfg.sketch_selection_method, "projected_cluster_medoids")
+        self.assertEqual(cfg.sketch_random_seed, 17)
+        self.assertEqual(cfg.sketch_refinement_passes, 2)
         self.assertEqual(cfg.learn_phi_prune_genes_num, 900)
         self.assertEqual(cfg.learn_phi_prune_gene_sets_num, 1000)
         self.assertEqual(cfg.learn_phi_max_num_iterations, 25)

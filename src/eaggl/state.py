@@ -1382,6 +1382,91 @@ class EagglState(object):
 
         return H_new
 
+    def _nnls_project_matrix_blockwise(self, W, X_new, *, block_size, max_iter=500, tol=1e-5, max_value=None, max_sum=None):
+        if X_new is None:
+            return None
+        if getattr(X_new, "ndim", None) == 1:
+            return self._nnls_project_matrix(W, X_new, max_iter=max_iter, tol=tol, max_value=max_value, max_sum=max_sum)
+        n_samples = int(X_new.shape[0])
+        if block_size is None or int(block_size) <= 0 or n_samples <= int(block_size):
+            if sparse.issparse(X_new):
+                X_new = X_new.toarray()
+            return self._nnls_project_matrix(W, np.asarray(X_new, dtype=float), max_iter=max_iter, tol=tol, max_value=max_value, max_sum=max_sum)
+
+        out = np.zeros((n_samples, W.shape[1]), dtype=float)
+        for start in range(0, n_samples, int(block_size)):
+            stop = min(n_samples, start + int(block_size))
+            X_block = X_new[start:stop]
+            if sparse.issparse(X_block):
+                X_block = X_block.toarray()
+            out[start:stop, :] = self._nnls_project_matrix(
+                W,
+                np.asarray(X_block, dtype=float),
+                max_iter=max_iter,
+                tol=tol,
+                max_value=max_value,
+                max_sum=max_sum,
+            )
+        return out
+
+    def _project_H_with_fixed_W_blockwise(self, W, V_new, P_gene_set, P_gene_new, *, block_size, phi=0.0, lambdak=None, n_iter=100, tol=1e-5, normalize_genes=False, cap_genes=False, add_intercept=False):
+        if V_new is None:
+            return None
+        if getattr(V_new, "ndim", None) != 2:
+            return self._project_H_with_fixed_W(
+                W,
+                V_new,
+                P_gene_set,
+                P_gene_new,
+                phi=phi,
+                lambdak=lambdak,
+                n_iter=n_iter,
+                tol=tol,
+                normalize_genes=normalize_genes,
+                cap_genes=cap_genes,
+                add_intercept=add_intercept,
+            )
+        n_rows, n_cols = V_new.shape
+        if block_size is None or int(block_size) <= 0 or n_cols <= int(block_size):
+            if sparse.issparse(V_new):
+                V_new = V_new.toarray()
+            return self._project_H_with_fixed_W(
+                W,
+                np.asarray(V_new, dtype=float),
+                P_gene_set,
+                P_gene_new,
+                phi=phi,
+                lambdak=lambdak,
+                n_iter=n_iter,
+                tol=tol,
+                normalize_genes=normalize_genes,
+                cap_genes=cap_genes,
+                add_intercept=add_intercept,
+            )
+
+        out = np.zeros((n_cols, W.shape[1] + (1 if add_intercept else 0)), dtype=float)
+        for start in range(0, n_cols, int(block_size)):
+            stop = min(n_cols, start + int(block_size))
+            V_block = V_new[:, start:stop]
+            if sparse.issparse(V_block):
+                V_block = V_block.toarray()
+            P_new_block = None if P_gene_new is None else P_gene_new[start:stop, :]
+            H_block = self._project_H_with_fixed_W(
+                W,
+                np.asarray(V_block, dtype=float),
+                P_gene_set,
+                P_new_block,
+                phi=phi,
+                lambdak=lambdak,
+                n_iter=n_iter,
+                tol=tol,
+                normalize_genes=normalize_genes,
+                cap_genes=cap_genes,
+                add_intercept=add_intercept,
+            )
+            out[start:stop, :] = H_block
+        return out
+
     def _bayes_nmf_l2_extension(self, V0, P_gene_set=None, P_gene=None, n_iter=10000, a0=10, tol=1e-7, K=15,
                                 K0=15, phi=1.0, cap_genes=False, normalize_genes=False, cap_gene_sets=False, normalize_gene_sets=False):
         """
@@ -1594,7 +1679,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_passes=20, online_min_passes_before_stopping=5, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, approx_projection_block_size=None, approx_projection_n_iter=100, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_cluster_medoids", sketch_random_seed=None, sketch_refinement_passes=0, learn_phi_scout_repeats=3, learn_phi_confirm_topk=3, learn_phi_confirm_online_passes=5, learn_phi_confirm_block_size=None, learn_phi_scout_selection_method=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
         return _eaggl_factor_runtime.run_factor(
             self,
             max_num_factors=max_num_factors,
@@ -1630,16 +1715,24 @@ class EagglState(object):
             factor_backend=factor_backend,
             learn_phi_backend=learn_phi_backend,
             online_block_size=online_block_size,
-            online_epochs=online_epochs,
+            online_passes=online_passes,
+            online_min_passes_before_stopping=online_min_passes_before_stopping,
             online_shuffle_blocks=online_shuffle_blocks,
             online_warm_start=online_warm_start,
             online_max_blocks=online_max_blocks,
             online_report_out=online_report_out,
+            approx_projection_block_size=approx_projection_block_size,
+            approx_projection_n_iter=approx_projection_n_iter,
             sketch_size=sketch_size,
             sketch_embedding_dim=sketch_embedding_dim,
             sketch_selection_method=sketch_selection_method,
             sketch_random_seed=sketch_random_seed,
             sketch_refinement_passes=sketch_refinement_passes,
+            learn_phi_scout_repeats=learn_phi_scout_repeats,
+            learn_phi_confirm_topk=learn_phi_confirm_topk,
+            learn_phi_confirm_online_passes=learn_phi_confirm_online_passes,
+            learn_phi_confirm_block_size=learn_phi_confirm_block_size,
+            learn_phi_scout_selection_method=learn_phi_scout_selection_method,
             factors_out=factors_out,
             factor_metrics_out=factor_metrics_out,
             gene_set_clusters_out=gene_set_clusters_out,
@@ -5991,6 +6084,7 @@ def _maybe_filter_zero_uncorrected_betas_after_x_read(
     filter_using_phewas,
     retain_all_beta_uncorrected,
     independent_betas_only,
+    track_filtered_beta_uncorrected,
     max_num_burn_in,
     max_num_iter_betas,
     min_num_iter_betas,
@@ -6002,6 +6096,7 @@ def _maybe_filter_zero_uncorrected_betas_after_x_read(
     sparse_solution,
     sparse_frac_betas,
 ):
+    del track_filtered_beta_uncorrected
     if skip_betas or runtime_state.p_values is None or filter_using_phewas:
         return sort_rank
     if not retain_all_beta_uncorrected and not independent_betas_only and filter_gene_set_p >= 1:
@@ -6049,7 +6144,9 @@ def _maybe_reduce_gene_sets_to_max_after_x_read(
     sort_rank,
     retain_all_beta_uncorrected,
     independent_betas_only,
+    track_filtered_beta_uncorrected,
 ):
+    del track_filtered_beta_uncorrected
     if skip_betas or max_num_gene_sets is None or max_num_gene_sets <= 0 or independent_betas_only:
         return
     if len(runtime_state.gene_sets) <= max_num_gene_sets:
