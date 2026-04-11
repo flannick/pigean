@@ -486,6 +486,49 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
 
         self.assertEqual(calls["n_iter"], 7)
 
+    def test_run_factor_single_bails_when_gene_set_filter_removes_everything(self) -> None:
+        class _ZeroGeneSetState:
+            def __init__(self) -> None:
+                self.X_orig = sparse.csr_matrix(np.array([[1.0, 0.0], [0.0, 1.0]]))
+                self.X_phewas_beta = None
+                self.X_phewas_beta_uncorrected = None
+                self.gene_pheno_combined_prior_Ys = None
+                self.gene_pheno_priors = None
+                self.gene_pheno_Y = None
+                self.combined_prior_Ys = None
+                self.priors = None
+                self.Y = np.array([[1.0], [0.5]], dtype=float)
+                self.betas = np.array([[0.1], [0.2]], dtype=float)
+                self.betas_uncorrected = np.array([[0.1], [0.2]], dtype=float)
+                self.scale_factors = np.ones(2, dtype=float)
+                self.background_log_bf = 0.0
+                self.gene_sets = ["gs1", "gs2"]
+                self.genes = ["g1", "g2"]
+                self.phenos = []
+                self.default_pheno = "default"
+                self.params = {}
+
+            def _record_params(self, values, overwrite=False):
+                self.params.update(values)
+
+        state = _ZeroGeneSetState()
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "No gene sets remained after factor gene-set filtering",
+        ):
+            eaggl_factor_runtime._run_factor_single(
+                state,
+                gene_set_filter_value=0.5,
+                bail_fn=lambda msg: (_ for _ in ()).throw(RuntimeError(msg)),
+                warn_fn=lambda *args, **kwargs: None,
+                log_fn=lambda *args, **kwargs: None,
+                info_level=1,
+                debug_level=2,
+                trace_level=3,
+                labeling_module=np,
+            )
+
     def test_run_factor_learn_phi_only_skips_final_factorization(self) -> None:
         state = _TinyState()
 

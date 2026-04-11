@@ -2917,6 +2917,10 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     if gene_set_max_vector is not None and gene_set_filter_value is not None:
         gene_set_mask = gene_set_max_vector > gene_set_filter_value
 
+    if not np.any(gene_set_mask):
+        bail(
+            "No gene sets remained after factor gene-set filtering; relax --gene-set-filter-value or adjust the input gene-set statistics thresholds"
+        )
 
     gene_set_sort_rank = _gene_set_sort_rank_for_pruning(
         state,
@@ -2929,6 +2933,10 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
 
     if gene_set_prune_value is not None:
         gene_set_prune_mask = state._prune_gene_sets(gene_set_prune_value, X_orig=state.X_orig[:,gene_set_mask], gene_sets=[state.gene_sets[i] for i in np.where(gene_set_mask)[0]], rank_vector=gene_set_sort_rank[gene_set_mask], do_internal_pruning=False)
+        if gene_set_prune_mask is None:
+            bail(
+                "No gene sets remained before factor gene-set pruning; relax --gene-set-filter-value or adjust the input gene-set statistics thresholds"
+            )
 
         log("Found %d gene_sets remaining after pruning (of %d)" % (np.sum(gene_set_prune_mask), len(state.gene_sets)))
         gene_set_mask[np.where(gene_set_mask)[0][~gene_set_prune_mask]] = False
@@ -2951,6 +2959,11 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         )
 
         gene_set_mask[np.where(gene_set_mask)[0][~all_gene_set_prune_mask]] = False
+
+    if not np.any(gene_set_mask):
+        bail(
+            "No gene sets remained after factor gene-set pruning; relax --factor-prune-gene-sets-num/--factor-prune-gene-sets-val or adjust the input gene-set statistics thresholds"
+        )
     
     gene_set_full_prob_vector = None
     if gene_set_full_vector is not None:
