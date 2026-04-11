@@ -265,6 +265,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             max_allowed_batch_correlation=None,
             sparse_solution=False,
             sparse_frac_betas=0.001,
+            track_filtered_beta_uncorrected=False,
         )
         self.assertIs(result, sort_rank)
         self.assertIsNone(
@@ -275,6 +276,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 sort_rank=sort_rank,
                 retain_all_beta_uncorrected=False,
                 independent_betas_only=False,
+                track_filtered_beta_uncorrected=False,
             )
         )
 

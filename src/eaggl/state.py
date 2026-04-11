@@ -6014,6 +6014,7 @@ def _maybe_filter_zero_uncorrected_betas_after_x_read(
     max_allowed_batch_correlation,
     sparse_solution,
     sparse_frac_betas,
+    track_filtered_beta_uncorrected=False,
 ):
     if skip_betas or runtime_state.p_values is None or filter_using_phewas:
         return sort_rank
@@ -6062,6 +6063,7 @@ def _maybe_reduce_gene_sets_to_max_after_x_read(
     sort_rank,
     retain_all_beta_uncorrected,
     independent_betas_only,
+    track_filtered_beta_uncorrected=False,
 ):
     if skip_betas or max_num_gene_sets is None or max_num_gene_sets <= 0 or independent_betas_only:
         return
