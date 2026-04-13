@@ -623,6 +623,8 @@ class PigeanState(object):
         self.track_filtered_beta_uncorrected = False
         self._gibbs_sum_betas_uncorrected_ignored_m = None
         self._gibbs_sum_betas_uncorrected2_ignored_m = None
+        self._gibbs_sum_postps_ignored_m = None
+        self._gibbs_sum_postps2_ignored_m = None
         self._gibbs_num_sum_beta_ignored_m = None
 
         pegs_initialize_matrix_and_gene_index_state(self, batch_size=batch_size)
@@ -10437,6 +10439,7 @@ def _accumulate_gibbs_post_burn_iteration(
         _accumulate_gibbs_ignored_uncorrected_iteration(
             state,
             ignored_uncorrected_setup["betas_uncorrected_mean_m"],
+            ignored_uncorrected_setup["postp_mean_m"],
         )
 
     if state.genes_missing is not None:
@@ -10448,15 +10451,20 @@ def _accumulate_gibbs_post_burn_iteration(
         epoch_sums["num_sum_priors_missing_m"] += 1
 
 
-def _accumulate_gibbs_ignored_uncorrected_iteration(state, ignored_uncorrected_betas_mean_m):
+def _accumulate_gibbs_ignored_uncorrected_iteration(state, ignored_uncorrected_betas_mean_m, ignored_postp_mean_m=None):
     if ignored_uncorrected_betas_mean_m is None:
         return
     if state._gibbs_sum_betas_uncorrected_ignored_m is None:
         state._gibbs_sum_betas_uncorrected_ignored_m = np.zeros_like(ignored_uncorrected_betas_mean_m)
         state._gibbs_sum_betas_uncorrected2_ignored_m = np.zeros_like(ignored_uncorrected_betas_mean_m)
+        state._gibbs_sum_postps_ignored_m = np.zeros_like(ignored_uncorrected_betas_mean_m)
+        state._gibbs_sum_postps2_ignored_m = np.zeros_like(ignored_uncorrected_betas_mean_m)
         state._gibbs_num_sum_beta_ignored_m = np.zeros_like(ignored_uncorrected_betas_mean_m)
     state._gibbs_sum_betas_uncorrected_ignored_m += ignored_uncorrected_betas_mean_m
     state._gibbs_sum_betas_uncorrected2_ignored_m += np.power(ignored_uncorrected_betas_mean_m, 2)
+    if ignored_postp_mean_m is not None:
+        state._gibbs_sum_postps_ignored_m += ignored_postp_mean_m
+        state._gibbs_sum_postps2_ignored_m += np.power(ignored_postp_mean_m, 2)
     state._gibbs_num_sum_beta_ignored_m += 1
 
 
@@ -10670,6 +10678,8 @@ def _snapshot_pre_gibbs_state(state):
     state.non_inf_avg_postps_ignored_orig = copy.copy(state.non_inf_avg_postps_ignored)
     state._gibbs_sum_betas_uncorrected_ignored_m = None
     state._gibbs_sum_betas_uncorrected2_ignored_m = None
+    state._gibbs_sum_postps_ignored_m = None
+    state._gibbs_sum_postps2_ignored_m = None
     state._gibbs_num_sum_beta_ignored_m = None
 
     state.Y_orig = copy.copy(state.Y)
@@ -10696,9 +10706,28 @@ def _apply_gibbs_ignored_final_state(state):
         10,
         record_param_fn=state._record_param,
     )
+    tracked_avg_postps_v = np.zeros_like(tracked_avg_betas_uncorrected_v)
+    if state._gibbs_sum_postps_ignored_m is not None:
+        _outlier_mask_postp_m, tracked_avg_postps_v = _outlier_resistant_mean(
+            state._gibbs_sum_postps_ignored_m,
+            state._gibbs_num_sum_beta_ignored_m,
+            10,
+            record_param_fn=state._record_param,
+        )
     full_betas_uncorrected = np.zeros(len(state.gene_sets_ignored))
+    full_postps = np.zeros(len(state.gene_sets_ignored))
+    full_cond_betas = np.zeros(len(state.gene_sets_ignored))
     full_betas_uncorrected[track_mask] = tracked_avg_betas_uncorrected_v
+    full_postps[track_mask] = tracked_avg_postps_v
+    positive_postp_mask = tracked_avg_postps_v > 0
+    tracked_cond_betas = np.array(tracked_avg_betas_uncorrected_v, copy=True)
+    tracked_cond_betas[positive_postp_mask] = (
+        tracked_avg_betas_uncorrected_v[positive_postp_mask] / tracked_avg_postps_v[positive_postp_mask]
+    )
+    full_cond_betas[track_mask] = tracked_cond_betas
     state.betas_uncorrected_ignored = full_betas_uncorrected
+    state.non_inf_avg_postps_ignored = full_postps
+    state.non_inf_avg_cond_betas_ignored = full_cond_betas
 
 
 def _maybe_log_gibbs_conditional_variance(state, top_gene_prior):
