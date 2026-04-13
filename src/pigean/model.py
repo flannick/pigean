@@ -339,6 +339,32 @@ def _select_tracked_ignored_values(values, track_mask, *, dtype=None):
     return None
 
 
+def _coerce_tracked_mean_vector(values):
+    if values is None:
+        return None
+    if sparse.issparse(values):
+        arr = values.toarray()
+    else:
+        arr = np.asarray(values)
+    if arr.ndim == 0:
+        return np.atleast_1d(arr).astype(float, copy=False)
+    if arr.ndim == 1:
+        return arr.astype(float, copy=False)
+    if arr.dtype != object:
+        return np.mean(arr.astype(float, copy=False), axis=0)
+
+    rows = []
+    for row in values:
+        row_arr = np.asarray(row)
+        if sparse.issparse(row):
+            row_arr = row.toarray()
+        row_arr = np.asarray(row_arr, dtype=float).ravel()
+        rows.append(row_arr)
+    if len(rows) == 0:
+        return np.array([], dtype=float)
+    return np.mean(np.vstack(rows), axis=0)
+
+
 def update_tracked_ignored_uncorrected_betas(
     state,
     *,
@@ -422,12 +448,8 @@ def update_tracked_ignored_uncorrected_betas(
         tracked_betas_sample_m = None
         tracked_postp_sample_m = None
 
-    tracked_betas_mean_m = np.asarray(tracked_betas_mean_m)
-    tracked_postp_mean_m = np.asarray(tracked_postp_mean_m)
-    if tracked_betas_mean_m.ndim > 1:
-        tracked_betas_mean_m = np.mean(tracked_betas_mean_m, axis=0)
-    if tracked_postp_mean_m.ndim > 1:
-        tracked_postp_mean_m = np.mean(tracked_postp_mean_m, axis=0)
+    tracked_betas_mean_m = _coerce_tracked_mean_vector(tracked_betas_mean_m)
+    tracked_postp_mean_m = _coerce_tracked_mean_vector(tracked_postp_mean_m)
 
     full_betas_uncorrected = np.zeros(len(state.gene_sets_ignored))
     full_postps = np.zeros(len(state.gene_sets_ignored))
