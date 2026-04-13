@@ -326,6 +326,19 @@ def _get_tracked_ignored_gene_set_mask(state):
     return track_mask
 
 
+def _select_tracked_ignored_values(values, track_mask, *, dtype=None):
+    if values is None or track_mask is None:
+        return None
+    arr = np.asarray(values, dtype=dtype) if dtype is not None else np.asarray(values)
+    if arr.ndim == 0:
+        return arr.reshape(1)
+    if arr.shape[0] == track_mask.size:
+        return arr[track_mask]
+    if arr.shape[0] == int(np.sum(track_mask)):
+        return arr
+    return None
+
+
 def update_tracked_ignored_uncorrected_betas(
     state,
     *,
@@ -351,16 +364,29 @@ def update_tracked_ignored_uncorrected_betas(
     num_tracked = beta_tildes_arr.shape[-1] if beta_tildes_arr.ndim > 1 else beta_tildes_arr.shape[0]
 
     ignored_is_dense = np.zeros(num_tracked, dtype=bool)
-    if getattr(state, "is_dense_gene_set_ignored", None) is not None:
-        ignored_is_dense = np.asarray(state.is_dense_gene_set_ignored, dtype=bool)[track_mask]
+    tracked_is_dense = _select_tracked_ignored_values(
+        getattr(state, "is_dense_gene_set_ignored", None),
+        track_mask,
+        dtype=bool,
+    )
+    if tracked_is_dense is not None:
+        ignored_is_dense = np.asarray(tracked_is_dense, dtype=bool)
 
     ignored_ps = np.full(num_tracked, state.p, dtype=float)
-    if getattr(state, "ps_ignored", None) is not None and len(state.ps_ignored) == len(track_mask):
-        ignored_ps = np.asarray(state.ps_ignored)[track_mask]
+    tracked_ps = _select_tracked_ignored_values(
+        getattr(state, "ps_ignored", None),
+        track_mask,
+    )
+    if tracked_ps is not None:
+        ignored_ps = np.asarray(tracked_ps, dtype=float)
 
     ignored_sigma2s = np.full(num_tracked, state.sigma2, dtype=float)
-    if getattr(state, "sigma2s_ignored", None) is not None and len(state.sigma2s_ignored) == len(track_mask):
-        ignored_sigma2s = np.asarray(state.sigma2s_ignored)[track_mask]
+    tracked_sigma2s = _select_tracked_ignored_values(
+        getattr(state, "sigma2s_ignored", None),
+        track_mask,
+    )
+    if tracked_sigma2s is not None:
+        ignored_sigma2s = np.asarray(tracked_sigma2s, dtype=float)
 
     if debug_gene_sets is None and state.gene_sets_ignored is not None:
         debug_gene_sets = [state.gene_sets_ignored[i] for i in range(len(state.gene_sets_ignored)) if track_mask[i]]
@@ -448,23 +474,32 @@ def compute_gibbs_tracked_ignored_uncorrected_betas(
     ) = state._compute_logistic_beta_tildes(
         state.X_orig_ignored_gene_sets,
         Y_sample_m,
-        state.scale_factors_ignored[track_mask] if state.scale_factors_ignored is not None else None,
-        state.mean_shifts_ignored[track_mask] if state.mean_shifts_ignored is not None else None,
+        _select_tracked_ignored_values(getattr(state, "scale_factors_ignored", None), track_mask),
+        _select_tracked_ignored_values(getattr(state, "mean_shifts_ignored", None), track_mask),
         resid_correlation_matrix=y_corr_sparse,
+    )
+
+    tracked_scale_factors = _select_tracked_ignored_values(
+        getattr(state, "scale_factors_ignored", None),
+        track_mask,
+    )
+    tracked_mean_shifts = _select_tracked_ignored_values(
+        getattr(state, "mean_shifts_ignored", None),
+        track_mask,
     )
 
     ignored_setup = update_tracked_ignored_uncorrected_betas(
         state,
         beta_tildes=ignored_beta_tildes_m,
         ses=ignored_ses_m,
-        scale_factors=np.tile(state.scale_factors_ignored[track_mask], (ignored_beta_tildes_m.shape[0], 1))
-        if state.scale_factors_ignored is not None
+        scale_factors=np.tile(tracked_scale_factors, (ignored_beta_tildes_m.shape[0], 1))
+        if tracked_scale_factors is not None
         else None,
-        mean_shifts=np.tile(state.mean_shifts_ignored[track_mask], (ignored_beta_tildes_m.shape[0], 1))
-        if state.mean_shifts_ignored is not None
+        mean_shifts=np.tile(tracked_mean_shifts, (ignored_beta_tildes_m.shape[0], 1))
+        if tracked_mean_shifts is not None
         else None,
         return_sample=True,
-        debug_gene_sets=[state.gene_sets_ignored[i] for i in range(len(state.gene_sets_ignored)) if track_mask],
+        debug_gene_sets=[state.gene_sets_ignored[i] for i in range(len(state.gene_sets_ignored)) if track_mask[i]],
         **inner_beta_kwargs_linear,
     )
     if ignored_setup is None:

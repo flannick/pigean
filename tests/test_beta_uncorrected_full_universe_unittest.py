@@ -161,6 +161,51 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
         np.testing.assert_allclose(runtime.betas_uncorrected_ignored, np.array([1.25]))
         np.testing.assert_allclose(runtime.non_inf_avg_postps_ignored, np.array([0.5]))
 
+    def test_tracked_ignored_uncorrected_betas_accept_tracked_only_ignored_metadata(self) -> None:
+        runtime = self._build_runtime()
+        runtime.track_filtered_beta_uncorrected = True
+        runtime.gene_sets_ignored = ["PREFILTER1", "TRACKED1", "PREFILTER2", "TRACKED2", "PREFILTER3"]
+        runtime.gene_set_track_beta_uncorrected_ignored = np.array([False, True, False, True, False])
+        runtime.X_orig_ignored_gene_sets = sparse.csc_matrix(np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]]))
+        runtime.is_dense_gene_set_ignored = np.array([True, False], dtype=bool)
+        runtime.ps_ignored = np.array([0.2, 0.4], dtype=float)
+        runtime.sigma2s_ignored = np.array([1.5, 2.5], dtype=float)
+
+        captured = {}
+
+        def _fake_calc(*_args, **kwargs):
+            captured["is_dense_gene_set"] = np.array(kwargs["is_dense_gene_set"], copy=True)
+            captured["ps"] = np.array(kwargs["ps"], copy=True)
+            captured["sigma2s"] = np.array(kwargs["sigma2s"], copy=True)
+            return np.array([1.25, 0.75]), np.array([0.5, 0.25])
+
+        runtime._calculate_non_inf_betas = _fake_calc  # type: ignore[method-assign]
+
+        pigean_model.update_tracked_ignored_uncorrected_betas(
+            runtime,
+            beta_tildes=np.array([0.8, 0.6]),
+            ses=np.array([0.1, 0.1]),
+            scale_factors=np.array([1.0, 1.0]),
+            mean_shifts=np.array([0.0, 0.0]),
+            max_num_burn_in=5,
+            max_num_iter=20,
+            min_num_iter=5,
+            num_chains=2,
+            r_threshold_burn_in=1.01,
+            use_max_r_for_convergence=True,
+            max_frac_sem=0.01,
+            max_allowed_batch_correlation=None,
+            gauss_seidel=False,
+            sparse_solution=False,
+            sparse_frac_betas=None,
+        )
+
+        np.testing.assert_array_equal(captured["is_dense_gene_set"], np.array([True, False]))
+        np.testing.assert_allclose(captured["ps"], np.array([0.2, 0.4]))
+        np.testing.assert_allclose(captured["sigma2s"], np.array([1.5, 2.5]))
+        np.testing.assert_allclose(runtime.betas_uncorrected_ignored, np.array([0.0, 1.25, 0.0, 0.75, 0.0]))
+        np.testing.assert_allclose(runtime.non_inf_avg_postps_ignored, np.array([0.0, 0.5, 0.0, 0.25, 0.0]))
+
     def test_retain_all_beta_uncorrected_writes_rows_beyond_cap(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
