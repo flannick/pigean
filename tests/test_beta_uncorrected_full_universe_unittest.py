@@ -206,6 +206,48 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
         np.testing.assert_allclose(runtime.betas_uncorrected_ignored, np.array([0.0, 1.25, 0.0, 0.75, 0.0]))
         np.testing.assert_allclose(runtime.non_inf_avg_postps_ignored, np.array([0.0, 0.5, 0.0, 0.25, 0.0]))
 
+    def test_tracked_ignored_uncorrected_betas_collapse_two_dimensional_means(self) -> None:
+        runtime = self._build_runtime()
+        runtime.track_filtered_beta_uncorrected = True
+        runtime.gene_sets_ignored = ["TRACKED1", "TRACKED2"]
+        runtime.gene_set_track_beta_uncorrected_ignored = np.array([True, True])
+        runtime.X_orig_ignored_gene_sets = sparse.csc_matrix(np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]]))
+
+        def _fake_calc(*_args, **_kwargs):
+            return (
+                np.array([[1.0, 2.0], [3.0, 4.0]]),
+                np.array([[0.1, 0.2], [0.3, 0.4]]),
+                np.array([[10.0, 20.0], [30.0, 40.0]]),
+                np.array([[0.5, 0.6], [0.7, 0.8]]),
+            )
+
+        runtime._calculate_non_inf_betas = _fake_calc  # type: ignore[method-assign]
+
+        result = pigean_model.update_tracked_ignored_uncorrected_betas(
+            runtime,
+            beta_tildes=np.array([[0.8, 0.6], [0.7, 0.5]]),
+            ses=np.array([[0.1, 0.1], [0.1, 0.1]]),
+            scale_factors=np.array([[1.0, 1.0], [1.0, 1.0]]),
+            mean_shifts=np.array([[0.0, 0.0], [0.0, 0.0]]),
+            return_sample=True,
+            max_num_burn_in=5,
+            max_num_iter=20,
+            min_num_iter=5,
+            num_chains=2,
+            r_threshold_burn_in=1.01,
+            use_max_r_for_convergence=True,
+            max_frac_sem=0.01,
+            max_allowed_batch_correlation=None,
+            gauss_seidel=False,
+            sparse_solution=False,
+            sparse_frac_betas=None,
+        )
+
+        np.testing.assert_allclose(result["betas_uncorrected_mean_m"], np.array([20.0, 30.0]))
+        np.testing.assert_allclose(result["postp_mean_m"], np.array([0.6, 0.7]))
+        np.testing.assert_allclose(runtime.betas_uncorrected_ignored, np.array([20.0, 30.0]))
+        np.testing.assert_allclose(runtime.non_inf_avg_postps_ignored, np.array([0.6, 0.7]))
+
     def test_retain_all_beta_uncorrected_writes_rows_beyond_cap(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)

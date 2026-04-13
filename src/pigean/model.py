@@ -422,6 +422,13 @@ def update_tracked_ignored_uncorrected_betas(
         tracked_betas_sample_m = None
         tracked_postp_sample_m = None
 
+    tracked_betas_mean_m = np.asarray(tracked_betas_mean_m)
+    tracked_postp_mean_m = np.asarray(tracked_postp_mean_m)
+    if tracked_betas_mean_m.ndim > 1:
+        tracked_betas_mean_m = np.mean(tracked_betas_mean_m, axis=0)
+    if tracked_postp_mean_m.ndim > 1:
+        tracked_postp_mean_m = np.mean(tracked_postp_mean_m, axis=0)
+
     full_betas_uncorrected = np.zeros(len(state.gene_sets_ignored))
     full_postps = np.zeros(len(state.gene_sets_ignored))
     full_cond_betas = np.zeros(len(state.gene_sets_ignored))
