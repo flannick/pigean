@@ -3904,7 +3904,7 @@ class PigeanState(object):
             if self.priors_adj is not None:
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
-    def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
+    def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, gibbs_summary_mode="raw_common_mask", write_gibbs_global_filtered_summaries=False, gene_set_p_active_threshold=0.01, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, max_post_beta_rhat=1.25, max_rel_prior_beta_inconsistency=0.50, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, gene_prior_terms_trace_out=None, gene_prior_terms_trace_genes=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
         from pigean import gibbs as pigean_gibbs
         from pigean import gibbs_callbacks as pigean_gibbs_callbacks
 
@@ -3941,6 +3941,9 @@ class PigeanState(object):
             max_frac_sem_betas=max_frac_sem_betas,
             use_mean_betas=use_mean_betas,
             warm_start=warm_start,
+            gibbs_summary_mode=gibbs_summary_mode,
+            write_gibbs_global_filtered_summaries=write_gibbs_global_filtered_summaries,
+            gene_set_p_active_threshold=gene_set_p_active_threshold,
             burn_in_rhat_quantile=burn_in_rhat_quantile,
             burn_in_patience=burn_in_patience,
             burn_in_stall_window=burn_in_stall_window,
@@ -3951,6 +3954,8 @@ class PigeanState(object):
             stop_min_gene_d=stop_min_gene_d,
             max_abs_mcse_d=max_abs_mcse_d,
             max_rel_mcse_beta=max_rel_mcse_beta,
+            max_post_beta_rhat=max_post_beta_rhat,
+            max_rel_prior_beta_inconsistency=max_rel_prior_beta_inconsistency,
             active_beta_top_k=active_beta_top_k,
             active_beta_min_abs=active_beta_min_abs,
             beta_rel_mcse_denom_floor=beta_rel_mcse_denom_floor,
@@ -3980,6 +3985,8 @@ class PigeanState(object):
             adjust_priors=adjust_priors,
             gene_set_stats_trace_out=gene_set_stats_trace_out,
             gene_stats_trace_out=gene_stats_trace_out,
+            gene_prior_terms_trace_out=gene_prior_terms_trace_out,
+            gene_prior_terms_trace_genes=gene_prior_terms_trace_genes,
             betas_trace_out=betas_trace_out,
             debug_zero_sparse=debug_zero_sparse,
             eps=eps,
@@ -4167,13 +4174,14 @@ class PigeanState(object):
             else:
                 return self.gene_N + (self.gene_ignored_N if self.gene_ignored_N is not None else 0)
 
-    def write_gene_set_statistics(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False):
+    def write_gene_set_statistics(self, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False, output_detail="full"):
         return pigean_outputs.write_gene_set_statistics(
             self,
             output_file,
             max_no_write_gene_set_beta=max_no_write_gene_set_beta,
             max_no_write_gene_set_beta_uncorrected=max_no_write_gene_set_beta_uncorrected,
             basic=basic,
+            output_detail=output_detail,
             log_fn=log,
             info_level=INFO,
         )
@@ -4189,12 +4197,13 @@ class PigeanState(object):
             info_level=INFO,
         )
 
-    def write_gene_statistics(self, output_file, max_no_write_gene_combined=None, gene_stats_output_scope="universe"):
+    def write_gene_statistics(self, output_file, max_no_write_gene_combined=None, gene_stats_output_scope="universe", output_detail="full"):
         return pigean_outputs.write_gene_statistics(
             self,
             output_file,
             max_no_write_gene_combined=max_no_write_gene_combined,
             gene_stats_output_scope=gene_stats_output_scope,
+            output_detail=output_detail,
             log_fn=log,
             info_level=INFO,
         )
@@ -7085,15 +7094,24 @@ def _has_gibbs_epoch_aggregates(epoch_aggregates):
     return len(epoch_aggregates["sum_betas_m"]) > 0
 
 
-def _build_gibbs_diag_sums(epoch_aggregates, sum_betas_m, sum_betas2_m, num_sum_beta_m, sum_Ds_m, num_sum_Y_m):
+def _build_gibbs_diag_sums(
+    epoch_aggregates,
+    sum_betas_m,
+    sum_betas2_m,
+    num_sum_beta_m,
+    sum_Ds_m,
+    num_sum_Y_m,
+    sum_priors_m,
+):
     if not _has_gibbs_epoch_aggregates(epoch_aggregates):
-        return (sum_betas_m, sum_betas2_m, num_sum_beta_m, sum_Ds_m, num_sum_Y_m)
+        return (sum_betas_m, sum_betas2_m, num_sum_beta_m, sum_Ds_m, num_sum_Y_m, sum_priors_m)
     diag_sum_betas_m = np.vstack(epoch_aggregates["sum_betas_m"] + [sum_betas_m])
     diag_sum_betas2_m = np.vstack(epoch_aggregates["sum_betas2_m"] + [sum_betas2_m])
     diag_num_sum_beta_m = np.vstack(epoch_aggregates["num_sum_beta_m"] + [num_sum_beta_m])
     diag_sum_Ds_m = np.vstack(epoch_aggregates["sum_Ds_m"] + [sum_Ds_m])
     diag_num_sum_Y_m = np.vstack(epoch_aggregates["num_sum_Y_m"] + [num_sum_Y_m])
-    return (diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, diag_sum_Ds_m, diag_num_sum_Y_m)
+    diag_sum_priors_m = np.vstack(epoch_aggregates["sum_priors_m"] + [sum_priors_m])
+    return (diag_sum_betas_m, diag_sum_betas2_m, diag_num_sum_beta_m, diag_sum_Ds_m, diag_num_sum_Y_m, diag_sum_priors_m)
 
 
 # ========================= Outer Gibbs Control Normalization =========================
@@ -8680,6 +8698,85 @@ def _means_from_sums(sum_m, num_sum_m):
     return np.divide(sum_m, np.maximum(num_sum_m, 1.0))
 
 
+def _mean_from_chain_means(chain_means_m, chain_keep_v=None):
+    if chain_means_m.size == 0:
+        return np.array([], dtype=float)
+    if chain_keep_v is None:
+        return np.mean(chain_means_m, axis=0)
+    chain_keep_v = np.asarray(chain_keep_v, dtype=bool)
+    if chain_keep_v.ndim != 1 or chain_keep_v.shape[0] != chain_means_m.shape[0]:
+        raise ValueError("chain_keep_v must be a 1D boolean mask aligned to chain_means_m")
+    if not np.any(chain_keep_v):
+        chain_keep_v = np.ones(chain_means_m.shape[0], dtype=bool)
+    return np.mean(chain_means_m[chain_keep_v, :], axis=0)
+
+
+def _quantiles_from_chain_means(chain_means_m, lower_q=0.025, upper_q=0.975, chain_keep_v=None):
+    if chain_means_m.size == 0:
+        return (np.array([], dtype=float), np.array([], dtype=float))
+    if chain_keep_v is not None:
+        chain_keep_v = np.asarray(chain_keep_v, dtype=bool)
+        if chain_keep_v.ndim != 1 or chain_keep_v.shape[0] != chain_means_m.shape[0]:
+            raise ValueError("chain_keep_v must be a 1D boolean mask aligned to chain_means_m")
+        if np.any(chain_keep_v):
+            chain_means_m = chain_means_m[chain_keep_v, :]
+    return (
+        np.quantile(chain_means_m, lower_q, axis=0),
+        np.quantile(chain_means_m, upper_q, axis=0),
+    )
+
+
+def _compute_gibbs_global_chain_keep_mask(
+    prior_chain_means_m,
+    beta_chain_means_m,
+    beta_uncorrected_chain_means_m,
+    scale_factors_v,
+    num_mad,
+    active_beta_threshold,
+    record_param_fn=None,
+):
+    num_chains = prior_chain_means_m.shape[0]
+    if num_chains == 0:
+        return np.array([], dtype=bool)
+    if num_chains <= 2 or num_mad is None or num_mad <= 0:
+        keep_v = np.ones(num_chains, dtype=bool)
+    else:
+        scale_factors_v = np.maximum(np.asarray(scale_factors_v, dtype=float), 1e-20)
+        beta_chain_external_m = beta_chain_means_m / scale_factors_v[np.newaxis, :]
+        beta_uncorrected_external_m = beta_uncorrected_chain_means_m / scale_factors_v[np.newaxis, :]
+
+        global_metrics = {
+            "total_abs_prior_mass": np.sum(np.abs(prior_chain_means_m), axis=1),
+            "total_abs_beta_mass": np.sum(np.abs(beta_chain_external_m), axis=1),
+            "total_abs_beta_uncorrected_mass": np.sum(np.abs(beta_uncorrected_external_m), axis=1),
+            "active_beta_count": np.sum(beta_chain_external_m > active_beta_threshold, axis=1).astype(float),
+        }
+
+        drop_v = np.zeros(num_chains, dtype=bool)
+        for metric_name, metric_v in global_metrics.items():
+            median = float(np.median(metric_v))
+            mad = float(np.median(np.abs(metric_v - median)))
+            if not np.isfinite(mad) or mad <= 0:
+                continue
+            metric_drop_v = np.abs(metric_v - median) > (float(num_mad) * mad)
+            if np.any(metric_drop_v):
+                log(
+                    "Global Gibbs summary filter dropped %d chains on metric %s (median=%.4g, MAD=%.4g)"
+                    % (int(np.sum(metric_drop_v)), metric_name, median, mad),
+                    DEBUG,
+                )
+            drop_v = np.logical_or(drop_v, metric_drop_v)
+
+        keep_v = ~drop_v
+        if not np.any(keep_v):
+            keep_v[:] = True
+
+    if record_param_fn is not None:
+        record_param_fn("gibbs_global_summary_chain_keep_count", int(np.sum(keep_v)), overwrite=True)
+        record_param_fn("gibbs_global_summary_chain_drop_count", int(len(keep_v) - np.sum(keep_v)), overwrite=True)
+    return keep_v
+
+
 def _apply_inner_beta_sparsity_update(
     sparse_solution,
     sparse_frac_betas,
@@ -9590,6 +9687,96 @@ def _write_gene_set_stats_trace_rows(
             )
 
 
+def _resolve_gibbs_prior_trace_gene_targets(state, trace_genes):
+    if trace_genes is None:
+        return []
+    if state.gene_to_ind is None:
+        bail("gene_to_ind is required for --gene-prior-terms-trace-genes")
+    targets = []
+    seen = set()
+    for gene in trace_genes:
+        if gene in seen:
+            continue
+        if gene not in state.gene_to_ind:
+            bail("Gene '%s' requested in --gene-prior-terms-trace-genes was not found in the current Gibbs gene universe" % gene)
+        targets.append((gene, state.gene_to_ind[gene]))
+        seen.add(gene)
+    return targets
+
+
+def _serialize_gibbs_prior_trace_row(state, gene_idx):
+    if sparse.issparse(state.X_orig):
+        gene_row = state.X_orig.getrow(gene_idx)
+        return {
+            "format": "sparse_row",
+            "gene_idx": int(gene_idx),
+            "shape": [int(gene_row.shape[1])],
+            "indices": gene_row.indices.astype(int).tolist(),
+            "data": gene_row.data.astype(float).tolist(),
+        }
+
+    return {
+        "format": "dense_row",
+        "gene_idx": int(gene_idx),
+        "values": np.asarray(state.X_orig[gene_idx, :]).ravel().astype(float).tolist(),
+    }
+
+
+def _maybe_write_gibbs_gene_prior_terms_trace(
+    gene_prior_terms_trace_fh,
+    iteration_num,
+    trace_chain_offset,
+    state,
+    trace_genes,
+    full_betas_sample_m,
+):
+    if gene_prior_terms_trace_fh is None or not trace_genes:
+        return
+
+    gene_targets = _resolve_gibbs_prior_trace_gene_targets(state, trace_genes)
+    if len(gene_targets) == 0:
+        return
+
+    for gene, gene_idx in gene_targets:
+        gene_prior_terms_trace_fh.write(
+            "%d\tNA\t%s\tscale_factors\t%s\n"
+            % (
+                iteration_num + 1,
+                gene,
+                json.dumps(np.asarray(state.scale_factors, dtype=float).tolist(), separators=(",", ":")),
+            )
+        )
+        gene_prior_terms_trace_fh.write(
+            "%d\tNA\t%s\tmean_shifts\t%s\n"
+            % (
+                iteration_num + 1,
+                gene,
+                json.dumps(np.asarray(state.mean_shifts, dtype=float).tolist(), separators=(",", ":")),
+            )
+        )
+        gene_prior_terms_trace_fh.write(
+            "%d\tNA\t%s\tX_orig_row\t%s\n"
+            % (
+                iteration_num + 1,
+                gene,
+                json.dumps(_serialize_gibbs_prior_trace_row(state, gene_idx), separators=(",", ":")),
+            )
+        )
+
+        for chain_num in range(full_betas_sample_m.shape[0]):
+            gene_prior_terms_trace_fh.write(
+                "%d\t%d\t%s\tfull_betas_sample\t%s\n"
+                % (
+                    iteration_num + 1,
+                    trace_chain_offset + chain_num + 1,
+                    gene,
+                    json.dumps(np.asarray(full_betas_sample_m[chain_num, :], dtype=float).tolist(), separators=(",", ":")),
+                )
+            )
+
+    gene_prior_terms_trace_fh.flush()
+
+
 def _combine_optional_gene_bf_terms(Y_exomes, Y_positive_controls, Y_case_counts):
     combined = 0
     for term in (Y_exomes, Y_positive_controls, Y_case_counts):
@@ -9722,7 +9909,117 @@ def _compute_post_burn_gene_diagnostics(
     }
 
 
+def _adjust_gibbs_prior_chain_means_for_sampling(state, priors_chain_means_m, priors_missing_chain_means_m=None):
+    if priors_missing_chain_means_m is None:
+        priors_missing_chain_means_m = np.zeros((priors_chain_means_m.shape[0], 0))
+
+    gene_N = np.asarray(state.get_gene_N(), dtype=float)
+    gene_N_missing = np.asarray(state.get_gene_N(get_missing=True), dtype=float)
+
+    all_gene_N = gene_N
+    if state.genes_missing is not None:
+        assert gene_N_missing is not None
+        all_gene_N = np.concatenate((all_gene_N, gene_N_missing))
+
+    gene_var = np.var(all_gene_N)
+    if gene_var <= 0:
+        return (priors_chain_means_m, priors_missing_chain_means_m)
+
+    total_priors_m = np.hstack((priors_chain_means_m, priors_missing_chain_means_m))
+    priors_slope = total_priors_m.dot(all_gene_N) / (total_priors_m.shape[1] * gene_var)
+
+    priors_chain_means_m = priors_chain_means_m - np.outer(priors_slope, gene_N)
+    if priors_missing_chain_means_m.shape[1] > 0:
+        priors_missing_chain_means_m = priors_missing_chain_means_m - np.outer(priors_slope, gene_N_missing)
+
+    return (priors_chain_means_m, priors_missing_chain_means_m)
+
+
+def _compute_gibbs_implied_prior_chain_means(state, beta_chain_means_m, adjust_priors):
+    priors_chain_means_m = pigean_model.calc_priors_from_betas(
+        state.X_orig,
+        beta_chain_means_m,
+        state.mean_shifts,
+        state.scale_factors,
+    )
+
+    priors_missing_chain_means_m = np.zeros((beta_chain_means_m.shape[0], 0))
+    if state.genes_missing is not None:
+        priors_missing_chain_means_m = pigean_model.calc_priors_from_betas(
+            state.X_orig_missing_genes,
+            beta_chain_means_m,
+            state.mean_shifts,
+            state.scale_factors,
+        )
+
+    if adjust_priors:
+        (
+            priors_chain_means_m,
+            priors_missing_chain_means_m,
+        ) = _adjust_gibbs_prior_chain_means_for_sampling(
+            state,
+            priors_chain_means_m,
+            priors_missing_chain_means_m,
+        )
+
+    return (priors_chain_means_m, priors_missing_chain_means_m)
+
+
+def _summarize_prior_beta_consistency(direct_priors_v, implied_priors_v, record_param_fn=None):
+    abs_diff_v = np.abs(direct_priors_v - implied_priors_v)
+    rel_diff_v = abs_diff_v / np.maximum(np.abs(implied_priors_v), 0.10)
+
+    summary = {
+        "prior_beta_summary_abs_diff_q50": _safe_quantile(abs_diff_v, 0.50, 0.0),
+        "prior_beta_summary_abs_diff_q90": _safe_quantile(abs_diff_v, 0.90, 0.0),
+        "prior_beta_summary_abs_diff_max": float(np.max(abs_diff_v)) if abs_diff_v.size > 0 else 0.0,
+        "prior_beta_summary_rel_diff_q50": _safe_quantile(rel_diff_v, 0.50, 0.0),
+        "prior_beta_summary_rel_diff_q90": _safe_quantile(rel_diff_v, 0.90, 0.0),
+        "prior_beta_summary_rel_diff_max": float(np.max(rel_diff_v)) if rel_diff_v.size > 0 else 0.0,
+    }
+    if record_param_fn is not None:
+        for key, value in summary.items():
+            record_param_fn(key, value, overwrite=True)
+    return summary
+
+
+def _compute_post_burn_prior_beta_consistency_diagnostics(
+    state,
+    diag_sum_priors_m,
+    diag_num_sum_Y_m,
+    diag_sum_betas_m,
+    diag_num_sum_beta_m,
+    gene_indices,
+    adjust_priors,
+    stop_mcse_quantile,
+):
+    direct_prior_chain_means_m = _means_from_sums(diag_sum_priors_m, diag_num_sum_Y_m)
+    beta_chain_means_m = _means_from_sums(diag_sum_betas_m, diag_num_sum_beta_m)
+    implied_prior_chain_means_m, _priors_missing_chain_means_m = _compute_gibbs_implied_prior_chain_means(
+        state,
+        beta_chain_means_m,
+        adjust_priors,
+    )
+
+    rel_diff_chain_means_m = np.abs(direct_prior_chain_means_m - implied_prior_chain_means_m) / np.maximum(
+        np.abs(implied_prior_chain_means_m),
+        0.10,
+    )
+    rel_diff_mean_v = np.mean(rel_diff_chain_means_m, axis=0)
+
+    if gene_indices is None or len(gene_indices) == 0:
+        monitored_v = rel_diff_mean_v
+    else:
+        monitored_v = rel_diff_mean_v[gene_indices]
+
+    return {
+        "prior_beta_rel_inconsistency_v": rel_diff_mean_v,
+        "prior_beta_rel_inconsistency_q": _safe_quantile(monitored_v, stop_mcse_quantile, np.inf),
+    }
+
+
 def _summarize_gibbs_chain_aggregates(
+    state,
     sum_Ys_m,
     sum_Y_raws_m,
     sum_log_pos_m,
@@ -9746,34 +10043,15 @@ def _summarize_gibbs_chain_aggregates(
     num_sum_beta_m,
     num_chains_effective,
     num_mad,
+    adjust_priors,
+    gibbs_summary_mode="raw_common_mask",
+    write_gibbs_global_filtered_summaries=False,
+    gene_set_p_active_threshold=0.01,
     record_param_fn=None,
     sum_priors_missing_m=None,
     sum_Ds_missing_m=None,
     num_sum_priors_missing_m=None,
 ):
-    Y_outlier_mask_m, _ = _outlier_resistant_mean(sum_Ys_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
-    beta_outlier_mask_m, avg_betas_v = _outlier_resistant_mean(sum_betas_m, num_sum_beta_m, num_mad, record_param_fn=record_param_fn)
-
-    _, _ = _outlier_resistant_mean(sum_Y_raws_m, num_sum_Y_m, num_mad, record_param_fn=record_param_fn)
-    _, avg_log_pos_v = _outlier_resistant_mean(sum_log_pos_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-    _, avg_log_po_raws_v = _outlier_resistant_mean(sum_log_po_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-    _, avg_Ds_v = _outlier_resistant_mean(sum_Ds_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-    _, avg_D_raws_v = _outlier_resistant_mean(sum_D_raws_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-    _, avg_priors_v = _outlier_resistant_mean(sum_priors_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-    _, avg_bf_orig_v = _outlier_resistant_mean(sum_bf_orig_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-    _, avg_bf_orig_raw_v = _outlier_resistant_mean(sum_bf_orig_raw_m, num_sum_Y_m, num_mad, Y_outlier_mask_m)
-
-    avg_priors_missing_v = np.array([])
-    avg_Ds_missing_v = np.array([])
-    if sum_priors_missing_m is not None and sum_Ds_missing_m is not None and num_sum_priors_missing_m is not None:
-        priors_missing_outlier_mask_m, avg_priors_missing_v = _outlier_resistant_mean(sum_priors_missing_m, num_sum_priors_missing_m, num_mad, record_param_fn=record_param_fn)
-        _, avg_Ds_missing_v = _outlier_resistant_mean(sum_Ds_missing_m, num_sum_priors_missing_m, num_mad, priors_missing_outlier_mask_m)
-
-    _, avg_betas_uncorrected_v = _outlier_resistant_mean(sum_betas_uncorrected_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
-    _, avg_postp_v = _outlier_resistant_mean(sum_postp_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
-    _, avg_beta_tildes_v = _outlier_resistant_mean(sum_beta_tildes_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
-    _, avg_z_scores_v = _outlier_resistant_mean(sum_z_scores_m, num_sum_beta_m, num_mad, beta_outlier_mask_m)
-
     num_post_burn_in_Y = int(np.min(num_sum_Y_m))
     num_post_burn_in_beta = int(np.min(num_sum_beta_m))
 
@@ -9786,8 +10064,98 @@ def _summarize_gibbs_chain_aggregates(
     prior_chain_means_m = _means_from_sums(sum_priors_m, num_sum_Y_m)
     combined_chain_means_m = _means_from_sums(sum_log_po_raws_m, num_sum_Y_m)
     log_bf_chain_means_m = _means_from_sums(sum_bf_orig_raw_m, num_sum_Y_m)
+    log_pos_chain_means_m = _means_from_sums(sum_log_pos_m, num_sum_Y_m)
+    D_chain_means_m = _means_from_sums(sum_Ds_m, num_sum_Y_m)
+    D_raw_chain_means_m = _means_from_sums(sum_D_raws_m, num_sum_Y_m)
+    bf_orig_chain_means_m = _means_from_sums(sum_bf_orig_m, num_sum_Y_m)
     beta_chain_means_m = _means_from_sums(sum_betas_m, num_sum_beta_m)
     beta_uncorrected_chain_means_m = _means_from_sums(sum_betas_uncorrected_m, num_sum_beta_m)
+    postp_chain_means_m = _means_from_sums(sum_postp_m, num_sum_beta_m)
+    beta_tilde_chain_means_m = _means_from_sums(sum_beta_tildes_m, num_sum_beta_m)
+    z_score_chain_means_m = _means_from_sums(sum_z_scores_m, num_sum_beta_m)
+
+    if gibbs_summary_mode not in {"raw_common_mask", "global_filtered"}:
+        raise DataValidationError(
+            "Unrecognized --gibbs-summary-mode %s; expected raw_common_mask or global_filtered"
+            % gibbs_summary_mode
+        )
+
+    global_chain_keep_v = _compute_gibbs_global_chain_keep_mask(
+        prior_chain_means_m=prior_chain_means_m,
+        beta_chain_means_m=beta_chain_means_m,
+        beta_uncorrected_chain_means_m=beta_uncorrected_chain_means_m,
+        scale_factors_v=state.scale_factors,
+        num_mad=num_mad,
+        active_beta_threshold=gene_set_p_active_threshold,
+        record_param_fn=record_param_fn,
+    )
+    primary_chain_keep_v = None
+    if gibbs_summary_mode == "global_filtered":
+        primary_chain_keep_v = global_chain_keep_v
+
+    avg_log_pos_v = _mean_from_chain_means(log_pos_chain_means_m, primary_chain_keep_v)
+    avg_log_po_raws_v = _mean_from_chain_means(combined_chain_means_m, primary_chain_keep_v)
+    avg_Ds_v = _mean_from_chain_means(D_chain_means_m, primary_chain_keep_v)
+    avg_D_raws_v = _mean_from_chain_means(D_raw_chain_means_m, primary_chain_keep_v)
+    avg_priors_v = _mean_from_chain_means(prior_chain_means_m, primary_chain_keep_v)
+    avg_bf_orig_v = _mean_from_chain_means(bf_orig_chain_means_m, primary_chain_keep_v)
+    avg_bf_orig_raw_v = _mean_from_chain_means(log_bf_chain_means_m, primary_chain_keep_v)
+    avg_betas_v = _mean_from_chain_means(beta_chain_means_m, primary_chain_keep_v)
+    avg_betas_uncorrected_v = _mean_from_chain_means(beta_uncorrected_chain_means_m, primary_chain_keep_v)
+    avg_postp_v = _mean_from_chain_means(postp_chain_means_m, primary_chain_keep_v)
+    avg_beta_tildes_v = _mean_from_chain_means(beta_tilde_chain_means_m, primary_chain_keep_v)
+    avg_z_scores_v = _mean_from_chain_means(z_score_chain_means_m, primary_chain_keep_v)
+
+    avg_priors_missing_v = np.array([])
+    avg_Ds_missing_v = np.array([])
+    if sum_priors_missing_m is not None and sum_Ds_missing_m is not None and num_sum_priors_missing_m is not None:
+        priors_missing_chain_means_m = _means_from_sums(sum_priors_missing_m, num_sum_priors_missing_m)
+        Ds_missing_chain_means_m = _means_from_sums(sum_Ds_missing_m, num_sum_priors_missing_m)
+        avg_priors_missing_v = _mean_from_chain_means(priors_missing_chain_means_m, primary_chain_keep_v)
+        avg_Ds_missing_v = _mean_from_chain_means(Ds_missing_chain_means_m, primary_chain_keep_v)
+
+    implied_prior_chain_means_m, implied_prior_missing_chain_means_m = _compute_gibbs_implied_prior_chain_means(
+        state,
+        beta_chain_means_m,
+        adjust_priors,
+    )
+    final_avg_priors_v = _mean_from_chain_means(implied_prior_chain_means_m, primary_chain_keep_v)
+    final_avg_priors_missing_v = np.array([])
+    if implied_prior_missing_chain_means_m.shape[1] > 0:
+        final_avg_priors_missing_v = _mean_from_chain_means(implied_prior_missing_chain_means_m, primary_chain_keep_v)
+
+    prior_beta_consistency_summary = _summarize_prior_beta_consistency(
+        avg_priors_v,
+        final_avg_priors_v,
+        record_param_fn=record_param_fn,
+    )
+
+    beta_chain_means_external_m = beta_chain_means_m / np.maximum(state.scale_factors, 1e-20)[np.newaxis, :]
+    beta_uncorrected_chain_means_external_m = (
+        beta_uncorrected_chain_means_m / np.maximum(state.scale_factors, 1e-20)[np.newaxis, :]
+    )
+    beta_ci_lower_v, beta_ci_upper_v = _quantiles_from_chain_means(
+        beta_chain_means_external_m,
+        chain_keep_v=primary_chain_keep_v,
+    )
+    beta_uncorrected_ci_lower_v, beta_uncorrected_ci_upper_v = _quantiles_from_chain_means(
+        beta_uncorrected_chain_means_external_m,
+        chain_keep_v=primary_chain_keep_v,
+    )
+    if primary_chain_keep_v is None:
+        beta_active_source_m = beta_chain_means_external_m
+    else:
+        beta_active_source_m = beta_chain_means_external_m[primary_chain_keep_v, :]
+    beta_p_active_v = np.mean(beta_active_source_m > gene_set_p_active_threshold, axis=0)
+
+    global_filtered_avg_betas_v = None
+    global_filtered_avg_betas_uncorrected_v = None
+    if write_gibbs_global_filtered_summaries:
+        global_filtered_avg_betas_v = _mean_from_chain_means(beta_chain_means_m, global_chain_keep_v)
+        global_filtered_avg_betas_uncorrected_v = _mean_from_chain_means(
+            beta_uncorrected_chain_means_m,
+            global_chain_keep_v,
+        )
 
     prior_mcse_v = np.sqrt(np.var(prior_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
     combined_mcse_v = np.sqrt(np.var(combined_chain_means_m, axis=0, ddof=1) / float(num_chains_effective))
@@ -9801,15 +10169,22 @@ def _summarize_gibbs_chain_aggregates(
         "avg_Ds_v": avg_Ds_v,
         "avg_D_raws_v": avg_D_raws_v,
         "avg_priors_v": avg_priors_v,
+        "final_avg_priors_v": final_avg_priors_v,
         "avg_bf_orig_v": avg_bf_orig_v,
         "avg_bf_orig_raw_v": avg_bf_orig_raw_v,
         "avg_priors_missing_v": avg_priors_missing_v,
+        "final_avg_priors_missing_v": final_avg_priors_missing_v,
         "avg_Ds_missing_v": avg_Ds_missing_v,
         "avg_betas_v": avg_betas_v,
         "avg_betas_uncorrected_v": avg_betas_uncorrected_v,
         "avg_postp_v": avg_postp_v,
         "avg_beta_tildes_v": avg_beta_tildes_v,
         "avg_z_scores_v": avg_z_scores_v,
+        "beta_ci_lower_v": beta_ci_lower_v,
+        "beta_ci_upper_v": beta_ci_upper_v,
+        "beta_uncorrected_ci_lower_v": beta_uncorrected_ci_lower_v,
+        "beta_uncorrected_ci_upper_v": beta_uncorrected_ci_upper_v,
+        "beta_p_active_v": beta_p_active_v,
         "prior_r_hat_v": prior_r_hat_v,
         "combined_r_hat_v": combined_r_hat_v,
         "log_bf_r_hat_v": log_bf_r_hat_v,
@@ -9820,6 +10195,15 @@ def _summarize_gibbs_chain_aggregates(
         "log_bf_mcse_v": log_bf_mcse_v,
         "beta_mcse_v": beta_mcse_v,
         "beta_uncorrected_mcse_v": beta_uncorrected_mcse_v,
+        "gibbs_summary_mode": gibbs_summary_mode,
+        "write_gibbs_global_filtered_summaries": write_gibbs_global_filtered_summaries,
+        "gene_set_p_active_threshold": gene_set_p_active_threshold,
+        "global_chain_keep_v": global_chain_keep_v,
+        "global_chain_keep_count": int(np.sum(global_chain_keep_v)),
+        "global_chain_drop_count": int(len(global_chain_keep_v) - np.sum(global_chain_keep_v)),
+        "global_filtered_avg_betas_v": global_filtered_avg_betas_v,
+        "global_filtered_avg_betas_uncorrected_v": global_filtered_avg_betas_uncorrected_v,
+        **prior_beta_consistency_summary,
     }
 
 
@@ -9838,6 +10222,13 @@ def _apply_gibbs_final_state(state, final_summary, adjust_priors):
     state.betas_uncorrected_mcse = final_summary["beta_uncorrected_mcse_v"]
     state.non_inf_avg_cond_betas = None
     state.non_inf_avg_postps = final_summary["avg_postp_v"]
+    state.betas_ci_lower = final_summary["beta_ci_lower_v"]
+    state.betas_ci_upper = final_summary["beta_ci_upper_v"]
+    state.betas_uncorrected_ci_lower = final_summary["beta_uncorrected_ci_lower_v"]
+    state.betas_uncorrected_ci_upper = final_summary["beta_uncorrected_ci_upper_v"]
+    state.betas_p_active = final_summary["beta_p_active_v"]
+    state.betas_global_filtered = final_summary["global_filtered_avg_betas_v"]
+    state.betas_uncorrected_global_filtered = final_summary["global_filtered_avg_betas_uncorrected_v"]
 
     state.priors = final_summary["avg_priors_v"]
     state.priors_r_hat = final_summary["prior_r_hat_v"]
@@ -9857,6 +10248,37 @@ def _apply_gibbs_final_state(state, final_summary, adjust_priors):
     state.combined_prior_Ys = final_summary["avg_log_po_raws_v"] - state.background_log_bf
     state.combined_prior_Ys_r_hat = final_summary["combined_r_hat_v"]
     state.combined_prior_Ys_mcse = final_summary["combined_mcse_v"]
+
+    if hasattr(state, "_record_params"):
+        state._record_params(
+            {
+                "gibbs_summary_mode": final_summary["gibbs_summary_mode"],
+                "write_gibbs_global_filtered_summaries": final_summary["write_gibbs_global_filtered_summaries"],
+                "gene_set_p_active_threshold": final_summary["gene_set_p_active_threshold"],
+                "gene_set_beta_ci_level": 0.95,
+                "gibbs_global_summary_chain_keep_count": final_summary["global_chain_keep_count"],
+                "gibbs_global_summary_chain_drop_count": final_summary["global_chain_drop_count"],
+            },
+            overwrite=True,
+        )
+
+    log(
+        "Final Gibbs prior/beta consistency: rel_diff_q90=%.4g, rel_diff_max=%.4g"
+        % (
+            final_summary["prior_beta_summary_rel_diff_q90"],
+            final_summary["prior_beta_summary_rel_diff_max"],
+        ),
+        INFO,
+    )
+    log(
+        "Final Gibbs summary mode=%s; global chain keep/drop=%d/%d"
+        % (
+            final_summary["gibbs_summary_mode"],
+            final_summary["global_chain_keep_count"],
+            final_summary["global_chain_drop_count"],
+        ),
+        INFO,
+    )
 
     gene_N = state.get_gene_N()
     gene_N_missing = state.get_gene_N(get_missing=True)
@@ -10396,6 +10818,10 @@ def _compute_gibbs_iteration_betas_and_priors(
     correction_config,
     epoch_priors,
     log_bf_state,
+    iteration_num,
+    trace_chain_offset,
+    gene_prior_terms_trace_fh,
+    gene_prior_terms_trace_genes,
 ):
     inner_beta_kwargs = correction_config.inner_beta_kwargs
     iteration_update_config = correction_config.iteration_update_config
@@ -10421,6 +10847,10 @@ def _compute_gibbs_iteration_betas_and_priors(
     )
     refresh_update = _refresh_gibbs_iteration_priors_and_huge(
         state,
+        iteration_num=iteration_num,
+        trace_chain_offset=trace_chain_offset,
+        gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
+        gene_prior_terms_trace_genes=gene_prior_terms_trace_genes,
         full_betas_sample_m=full_betas_sample_m,
         full_betas_mean_m=full_betas_mean_m,
         full_postp_sample_m=full_postp_sample_m,
@@ -11148,6 +11578,7 @@ def _decide_gibbs_post_burn_action(
     post_stall_recent_worse = post_burn_action_config["post_stall_recent_worse"]
     beta_rhat_q_post = post_burn_action_config["beta_rhat_q_post"]
     D_mcse_q = post_burn_action_config["D_mcse_q"]
+    prior_beta_rel_inconsistency_q = post_burn_action_config["prior_beta_rel_inconsistency_q"]
     post_stall_recent_beta_rhat_q = post_burn_action_config["post_stall_recent_beta_rhat_q"]
     post_stall_recent_D_mcse_q = post_burn_action_config["post_stall_recent_D_mcse_q"]
 
@@ -11173,7 +11604,7 @@ def _decide_gibbs_post_burn_action(
         # Keep and aggregate this epoch's post-burn samples, then continue
         # with a new epoch to add more effective chain means.
         log(
-            "Restarting Gibbs epoch due to post-burn stall at iter %d (global %d) because precision is not yet met (plateau=%s, recent_worse=%s, beta_Rhat_q=%.4g, D_mcse_q=%.4g, recent_beta_Rhat_q=%s, recent_D_mcse_q=%s); aggregating current epoch samples before restart"
+            "Restarting Gibbs epoch due to post-burn stall at iter %d (global %d) because precision is not yet met (plateau=%s, recent_worse=%s, beta_Rhat_q=%.4g, D_mcse_q=%.4g, prior_beta_rel_inconsistency_q=%.4g, recent_beta_Rhat_q=%s, recent_D_mcse_q=%s); aggregating current epoch samples before restart"
             % (
                 epoch_iter_num,
                 total_iter_num,
@@ -11181,6 +11612,7 @@ def _decide_gibbs_post_burn_action(
                 str(post_stall_recent_worse),
                 beta_rhat_q_post,
                 D_mcse_q,
+                prior_beta_rel_inconsistency_q,
                 ("%.4g" % post_stall_recent_beta_rhat_q) if np.isfinite(post_stall_recent_beta_rhat_q) else "NA",
                 ("%.4g" % post_stall_recent_D_mcse_q) if np.isfinite(post_stall_recent_D_mcse_q) else "NA",
             ),
@@ -11191,8 +11623,8 @@ def _decide_gibbs_post_burn_action(
     decision["done"] = True
     decision["stop_due_to_stall"] = True
     log(
-        "Post-burn stall detected at iter %d (global %d) and precision is not yet met, but no restart attempts remain; stopping this epoch (beta_Rhat_q=%.4g, D_mcse_q=%.4g)"
-        % (epoch_iter_num, total_iter_num, beta_rhat_q_post, D_mcse_q),
+        "Post-burn stall detected at iter %d (global %d) and precision is not yet met, but no restart attempts remain; stopping this epoch (beta_Rhat_q=%.4g, D_mcse_q=%.4g, prior_beta_rel_inconsistency_q=%.4g)"
+        % (epoch_iter_num, total_iter_num, beta_rhat_q_post, D_mcse_q, prior_beta_rel_inconsistency_q),
         INFO,
     )
     return decision
@@ -11349,6 +11781,9 @@ def _log_gibbs_post_burn_diagnostics(
     num_eligible_genes,
     D_mcse_q,
     max_abs_mcse_d,
+    max_post_beta_rhat,
+    prior_beta_rel_inconsistency_q,
+    max_rel_prior_beta_inconsistency,
     num_active_betas,
     num_full_gene_sets,
     num_chains_effective_for_diag,
@@ -11359,12 +11794,13 @@ def _log_gibbs_post_burn_diagnostics(
 ):
     if stop_min_gene_d is None:
         log(
-            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
             % (
                 epoch_iter_num,
                 total_iter_num,
                 stop_mcse_quantile,
                 beta_rhat_q_post,
+                max_post_beta_rhat,
                 stop_mcse_quantile,
                 beta_ratio_q,
                 max_rel_mcse_beta,
@@ -11373,6 +11809,9 @@ def _log_gibbs_post_burn_diagnostics(
                 top_gene_k,
                 D_mcse_q,
                 max_abs_mcse_d,
+                stop_mcse_quantile,
+                prior_beta_rel_inconsistency_q,
+                max_rel_prior_beta_inconsistency,
                 num_active_betas,
                 num_full_gene_sets,
                 num_chains_effective_for_diag,
@@ -11386,12 +11825,13 @@ def _log_gibbs_post_burn_diagnostics(
         return
 
     log(
-        "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g; beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+        "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
         % (
             epoch_iter_num,
             total_iter_num,
             stop_mcse_quantile,
             beta_rhat_q_post,
+            max_post_beta_rhat,
             stop_mcse_quantile,
             beta_ratio_q,
             max_rel_mcse_beta,
@@ -11403,6 +11843,9 @@ def _log_gibbs_post_burn_diagnostics(
             num_eligible_genes,
             D_mcse_q,
             max_abs_mcse_d,
+            stop_mcse_quantile,
+            prior_beta_rel_inconsistency_q,
+            max_rel_prior_beta_inconsistency,
             num_active_betas,
             num_full_gene_sets,
             num_chains_effective_for_diag,
@@ -11444,6 +11887,7 @@ def _build_post_burn_action_config(
     post_stall_update,
     beta_rhat_q_post,
     D_mcse_q,
+    prior_beta_rel_inconsistency_q,
 ):
     return {
         "num_attempts": run_state.num_attempts,
@@ -11454,6 +11898,7 @@ def _build_post_burn_action_config(
         "post_stall_recent_worse": post_stall_update["post_stall_recent_worse"],
         "beta_rhat_q_post": beta_rhat_q_post,
         "D_mcse_q": D_mcse_q,
+        "prior_beta_rel_inconsistency_q": prior_beta_rel_inconsistency_q,
         "post_stall_recent_beta_rhat_q": post_stall_update["post_stall_recent_beta_rhat_q"],
         "post_stall_recent_D_mcse_q": post_stall_update["post_stall_recent_D_mcse_q"],
     }
@@ -11461,6 +11906,7 @@ def _build_post_burn_action_config(
 
 # ========================= Outer Gibbs Post-burn Diagnostics =========================
 def _compute_gibbs_post_burn_diag_metrics(
+    state,
     min_num_post_burn_in_for_epoch,
     diag_config,
     epoch_sums,
@@ -11473,6 +11919,7 @@ def _compute_gibbs_post_burn_diag_metrics(
         num_sum_beta_m,
         sum_Ds_m,
         num_sum_Y_m,
+        sum_priors_m,
     ) = (
         epoch_sums["epoch_aggregates"],
         epoch_sums["sum_betas_m"],
@@ -11480,6 +11927,7 @@ def _compute_gibbs_post_burn_diag_metrics(
         epoch_sums["num_sum_beta_m"],
         epoch_sums["sum_Ds_m"],
         epoch_sums["num_sum_Y_m"],
+        epoch_sums["sum_priors_m"],
     )
     num_chains = diag_config["num_chains"]
     stop_mcse_quantile = diag_config["stop_mcse_quantile"]
@@ -11492,6 +11940,7 @@ def _compute_gibbs_post_burn_diag_metrics(
         diag_num_sum_beta_m,
         diag_sum_Ds_m,
         diag_num_sum_Y_m,
+        diag_sum_priors_m,
     ) = _build_gibbs_diag_sums(
         epoch_aggregates,
         sum_betas_m,
@@ -11499,6 +11948,7 @@ def _compute_gibbs_post_burn_diag_metrics(
         num_sum_beta_m,
         sum_Ds_m,
         num_sum_Y_m,
+        sum_priors_m,
     )
 
     num_chains_effective_for_diag = diag_sum_betas_m.shape[0]
@@ -11519,6 +11969,16 @@ def _compute_gibbs_post_burn_diag_metrics(
         diag_config["stop_top_gene_k"],
         diag_config["stop_min_gene_d"],
         stop_mcse_quantile,
+    )
+    prior_beta_consistency_diag = _compute_post_burn_prior_beta_consistency_diagnostics(
+        state=state,
+        diag_sum_priors_m=diag_sum_priors_m,
+        diag_num_sum_Y_m=diag_num_sum_Y_m,
+        diag_sum_betas_m=diag_sum_betas_m,
+        diag_num_sum_beta_m=diag_num_sum_beta_m,
+        gene_indices=gene_diag["top_gene_indices"],
+        adjust_priors=diag_config["adjust_priors"],
+        stop_mcse_quantile=stop_mcse_quantile,
     )
 
     post_stall_update = _update_post_burn_stall_tracking(
@@ -11552,6 +12012,7 @@ def _compute_gibbs_post_burn_diag_metrics(
         "num_monitored_genes": gene_diag["num_monitored_genes"],
         "num_eligible_genes": gene_diag["num_eligible_genes"],
         "D_mcse_q": gene_diag["D_mcse_q"],
+        "prior_beta_rel_inconsistency_q": prior_beta_consistency_diag["prior_beta_rel_inconsistency_q"],
         "post_stall_update": post_stall_update,
     }
 
@@ -11560,13 +12021,22 @@ def _update_gibbs_post_burn_precision_streak(
     stop_pass_streak,
     beta_ratio_q,
     D_mcse_q,
+    beta_rhat_q_post,
+    prior_beta_rel_inconsistency_q,
     max_rel_mcse_beta,
     max_abs_mcse_d,
+    max_post_beta_rhat,
+    max_rel_prior_beta_inconsistency,
     num_post_burn_D,
     min_num_post_burn_in_for_epoch,
 ):
     min_post_burn_reached = num_post_burn_D >= min_num_post_burn_in_for_epoch
-    precision_pass = beta_ratio_q <= max_rel_mcse_beta and D_mcse_q <= max_abs_mcse_d
+    precision_pass = (
+        beta_ratio_q <= max_rel_mcse_beta
+        and D_mcse_q <= max_abs_mcse_d
+        and beta_rhat_q_post <= max_post_beta_rhat
+        and prior_beta_rel_inconsistency_q <= max_rel_prior_beta_inconsistency
+    )
     if precision_pass and min_post_burn_reached:
         stop_pass_streak += 1
     else:
@@ -11575,6 +12045,7 @@ def _update_gibbs_post_burn_precision_streak(
 
 
 def _evaluate_gibbs_post_burn_diagnostics_and_decision(
+    state,
     min_num_post_burn_in_for_epoch,
     diag_config,
     iter_state,
@@ -11589,6 +12060,7 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
     burn_in_pass_streak = epoch_control["burn_in_pass_streak"]
 
     diag_metrics = _compute_gibbs_post_burn_diag_metrics(
+        state=state,
         min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
         diag_config=diag_config,
         epoch_sums=epoch_sums,
@@ -11603,8 +12075,12 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         stop_pass_streak=stop_pass_streak,
         beta_ratio_q=diag_metrics["beta_ratio_q"],
         D_mcse_q=diag_metrics["D_mcse_q"],
+        beta_rhat_q_post=diag_metrics["beta_rhat_q_post"],
+        prior_beta_rel_inconsistency_q=diag_metrics["prior_beta_rel_inconsistency_q"],
         max_rel_mcse_beta=diag_config["max_rel_mcse_beta"],
         max_abs_mcse_d=diag_config["max_abs_mcse_d"],
+        max_post_beta_rhat=diag_config["max_post_beta_rhat"],
+        max_rel_prior_beta_inconsistency=diag_config["max_rel_prior_beta_inconsistency"],
         num_post_burn_D=num_post_burn_D,
         min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
     )
@@ -11623,6 +12099,9 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         num_eligible_genes=diag_metrics["num_eligible_genes"],
         D_mcse_q=diag_metrics["D_mcse_q"],
         max_abs_mcse_d=diag_config["max_abs_mcse_d"],
+        max_post_beta_rhat=diag_config["max_post_beta_rhat"],
+        prior_beta_rel_inconsistency_q=diag_metrics["prior_beta_rel_inconsistency_q"],
+        max_rel_prior_beta_inconsistency=diag_config["max_rel_prior_beta_inconsistency"],
         num_active_betas=diag_metrics["num_active_betas"],
         num_full_gene_sets=diag_config["num_full_gene_sets"],
         num_chains_effective_for_diag=diag_metrics["num_chains_effective_for_diag"],
@@ -11642,6 +12121,7 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
             post_stall_update=post_stall_update,
             beta_rhat_q_post=diag_metrics["beta_rhat_q_post"],
             D_mcse_q=diag_metrics["D_mcse_q"],
+            prior_beta_rel_inconsistency_q=diag_metrics["prior_beta_rel_inconsistency_q"],
         ),
     )
 
@@ -11659,6 +12139,7 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
 
 
 def _run_optional_gibbs_post_burn_diagnostics(
+    state,
     min_num_post_burn_in_for_epoch,
     diag_every,
     epoch_iter_num,
@@ -11679,6 +12160,7 @@ def _run_optional_gibbs_post_burn_diagnostics(
         return post_burn_update
 
     return _run_due_gibbs_post_burn_diagnostics(
+        state=state,
         min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
         post_burn_diag_config=post_burn_diag_config,
         iter_state=iter_state,
@@ -11690,6 +12172,7 @@ def _run_optional_gibbs_post_burn_diagnostics(
 
 
 def _run_due_gibbs_post_burn_diagnostics(
+    state,
     min_num_post_burn_in_for_epoch,
     post_burn_diag_config,
     iter_state,
@@ -11699,6 +12182,7 @@ def _run_due_gibbs_post_burn_diagnostics(
     post_burn_update,
 ):
     post_burn_diag = _evaluate_gibbs_post_burn_diagnostics_and_decision(
+        state=state,
         min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
         diag_config=post_burn_diag_config,
         iter_state=iter_state,
@@ -11822,6 +12306,7 @@ def _advance_gibbs_post_burn_state(
     )
 
     post_burn_diag_update = _run_optional_gibbs_post_burn_diagnostics(
+        state=state,
         min_num_post_burn_in_for_epoch=min_num_post_burn_in_for_epoch,
         diag_every=diag_every,
         epoch_iter_num=epoch_iter_num,
@@ -11903,9 +12388,11 @@ def _write_gibbs_iteration_gene_set_stats_trace(
 def _finalize_gibbs_iteration_progress(
     state,
     gene_set_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     iteration_num,
     trace_chain_offset,
     iter_state,
+    epoch_priors,
     full_betas_mean_m,
     full_betas_sample_m,
     full_postp_mean_m,
@@ -11913,6 +12400,7 @@ def _finalize_gibbs_iteration_progress(
     R_beta_v,
     betas_sem2_v,
     use_mean_betas,
+    gene_prior_terms_trace_genes,
     epoch_control,
     post_burn_update,
 ):
@@ -11930,7 +12418,6 @@ def _finalize_gibbs_iteration_progress(
         betas_sem2_v,
         use_mean_betas,
     )
-
     _apply_gibbs_post_burn_control_update(epoch_control=epoch_control, post_burn_update=post_burn_update)
     return {"done": post_burn_update["done"]}
 
@@ -12776,6 +13263,10 @@ def _maybe_refresh_gibbs_huge_scores(
 
 def _refresh_gibbs_iteration_priors_and_huge(
     state,
+    iteration_num,
+    trace_chain_offset,
+    gene_prior_terms_trace_fh,
+    gene_prior_terms_trace_genes,
     warm_start,
     use_mean_betas,
     prev_warm_start_betas_m,
@@ -12802,6 +13293,14 @@ def _refresh_gibbs_iteration_priors_and_huge(
         full_betas_mean_m=full_betas_mean_m,
         full_postp_sample_m=full_postp_sample_m,
         full_postp_mean_m=full_postp_mean_m,
+    )
+    _maybe_write_gibbs_gene_prior_terms_trace(
+        gene_prior_terms_trace_fh,
+        iteration_num,
+        trace_chain_offset,
+        state,
+        gene_prior_terms_trace_genes,
+        full_betas_sample_m,
     )
     (
         priors_sample_m,

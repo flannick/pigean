@@ -5,16 +5,16 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `339`
-- `method_required`: `19`
-- `method_optional`: `185`
-- `engineering`: `108`
+- Total options: `346`
+- `method_required`: `20`
+- `method_optional`: `189`
+- `engineering`: `110`
 - `experimental`: `2`
 - `compat_alias`: `17`
 - `debug_only`: `8`
-- visibility `expert`: `304`
+- visibility `expert`: `305`
 - visibility `hidden`: `7`
-- visibility `normal`: `28`
+- visibility `normal`: `34`
 
 ## Method Required
 
@@ -37,6 +37,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-loc-file` | `normal` | `yes` | `core_help` | `gene_loc_file` | `None` | gene location table used for correlation and locus-aware operations |
 | `--gene-loc-file-huge` | `normal` | `yes` | `core_help` | `gene_loc_file_huge` | `None` | gene location table used during HuGE score construction |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
+| `--gene-set-p-active-threshold` | `normal` | `yes` | `core_help` | `gene_set_p_active_threshold` | `0.01` | threshold in external beta units used for Pr(beta > eps) gene-set summary output |
 | `--gwas-in` | `normal` | `yes` | `core_help` | `gwas_in` | `None` | load GWAS summary statistics as the primary HuGE input |
 | `--s2g-in` | `normal` | `yes` | `core_help` | `s2g_in` | `None` | load SNP-to-gene mappings used during HuGE score construction |
 
@@ -143,7 +144,9 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--max-num-iter-betas` | `expert` | `yes` | `expert_help` | `max_num_iter_betas` | `1100` | - |
 | `--max-num-post-burn-in` | `expert` | `yes` | `expert_help` | `max_num_post_burn_in` | `None` | - |
 | `--max-num-restarts` | `expert` | `yes` | `expert_help` | `max_num_restarts` | `10` | - |
+| `--max-post-beta-rhat` | `normal` | `yes` | `core_help` | `max_post_beta_rhat` | `None` | require the monitored post-burn beta R-hat quantile to fall below this threshold before Gibbs can stop |
 | `--max-rel-mcse-beta` | `normal` | `yes` | `core_help` | `max_rel_mcse_beta` | `None` | stop Gibbs once active beta MCSE is below this relative threshold |
+| `--max-rel-prior-beta-inconsistency` | `normal` | `yes` | `core_help` | `max_rel_prior_beta_inconsistency` | `None` | require final summarized priors to stay close to the priors implied by summarized corrected betas before Gibbs can stop |
 | `--min-gene-phewas-read-value` | `expert` | `yes` | `advanced_workflows` | `min_gene_phewas_read_value` | `1` | minimum value filter for advanced gene-phewas ingestion |
 | `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `1e-20` | - |
 | `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `1e-20` | - |
@@ -220,6 +223,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--top-gene-prior` | `expert` | `yes` | `expert_help` | `top_gene_prior` | `None` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
 | `--total-num-iter-gibbs` | `normal` | `yes` | `core_help` | `total_num_iter_gibbs` | `None` | total outer Gibbs iteration budget across all restart epochs |
+| `--track-filtered-beta-uncorrected` | `expert` | `yes` | `advanced_workflows` | `track_filtered_beta_uncorrected` | `False` | for betas/gibbs runs, preserve and track independent beta_uncorrected for gene sets that pass p prefilter but are later filtered out |
 | `--update-hyper` | `normal` | `yes` | `core_help` | `update_hyper` | `None` | choose whether outer Gibbs updates p, sigma, both, or neither during adaptation |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence` | `-` | - |
@@ -228,6 +232,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--use-sampling-for-betas` | `expert` | `yes` | `expert_help` | `use_sampling_for_betas` | `None` | - |
 | `--warm-start` | `normal` | `yes` | `core_help` | `warm_start` | `True` | reuse previous-iteration beta state when warm-starting outer Gibbs updates |
 | `--weighted-prune-gene-sets` | `expert` | `yes` | `expert_help` | `weighted_prune_gene_sets` | `None` | - |
+| `--write-gibbs-global-filtered-summaries` | `normal` | `yes` | `core_help` | `write_gibbs_global_filtered_summaries` | `False` | append globally filtered Gibbs sensitivity columns to gene-set outputs without changing the primary raw summary |
 | `--x-sparsify` | `expert` | `yes` | `expert_help` | `x_sparsify` | `[50,100,250,1000]` | - |
 
 ## Engineering
@@ -296,7 +301,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-stats-id-col` | `expert` | `no` | `expert_help` | `gene_stats_id_col` | `None` | column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_stats_log_bf_col` | `None` | log BF column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-out` | `normal` | `no` | `core_help` | `gene_stats_out` | `None` | write the final gene-level statistics table |
-| `--gene-stats-output-scope` | `expert` | `no` | `expert_help` | `gene_stats_output_scope` | `universe` | control whether gene-stats-out writes only the active analysis universe or the legacy expanded view with missing genes |
+| `--gene-stats-output-scope` | `expert` | `no` | `expert_help` | `gene_stats_output_scope` | `universe` | control whether gene-stats-out writes only the selected universe or all tracked genes outside it; choices: universe, all (current is a compatibility alias for all) |
 | `--gene-stats-prior-col` | `expert` | `no` | `expert_help` | `gene_stats_prior_col` | `None` | prior column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-prob-col` | `expert` | `no` | `expert_help` | `gene_stats_prob_col` | `None` | probability column mapping for advanced --gene-stats-in ingestion |
 | `--gene-stats-trace-out` | `expert` | `no` | `expert_help` | `gene_stats_trace_out` | `None` | - |
@@ -304,6 +309,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-universe-no-header` | `expert` | `no` | `expert_help` | `gene_universe_has_header` | `True` | declare that the explicit gene-universe file has no header row |
 | `--gibbs-max-mb-X-h` | `expert` | `no` | `expert_help` | `gibbs_max_mb_X_h` | `100` | - |
 | `--gibbs-num-batches-parallel` | `expert` | `no` | `expert_help` | `gibbs_num_batches_parallel` | `10` | - |
+| `--gibbs-summary-mode` | `normal` | `no` | `core_help` | `gibbs_summary_mode` | `raw_common_mask` | choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask |
 | `--gwas-beta-col` | `expert` | `no` | `expert_help` | `gwas_beta_col` | `None` | - |
 | `--gwas-chrom-col` | `expert` | `no` | `expert_help` | `gwas_chrom_col` | `None` | - |
 | `--gwas-filter-col` | `expert` | `no` | `expert_help` | `gwas_filter_col` | `None` | - |
@@ -329,6 +335,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--multi-y-max-phenos-per-batch` | `expert` | `no` | `expert_help` | `multi_y_max_phenos_per_batch` | `None` | expert override for the number of traits loaded per native multi-Y batch |
 | `--multi-y-pheno-col` | `expert` | `no` | `expert_help` | `multi_y_pheno_col` | `None` | trait column for --multi-y-in |
 | `--multi-y-prior-col` | `expert` | `no` | `expert_help` | `multi_y_prior_col` | `None` | prior-support column for --multi-y-in |
+| `--output-detail` | `normal` | `no` | `core_help` | `output_detail` | `main` | choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions |
 | `--params-out` | `normal` | `no` | `core_help` | `params_out` | `None` | write learned hyperparameters and runtime settings |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
 | `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | write optional advanced gene-level phewas output table |

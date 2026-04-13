@@ -265,6 +265,7 @@ parser.add_option("","--gene-covs-out",default=None)
 parser.add_option("","--gene-effectors-out",default=None)
 parser.add_option("","--phewas-stats-out",default=None)
 parser.add_option("","--eaggl-bundle-out",default=None) #write a bundled handoff tarball for eaggl.py inputs
+parser.add_option("","--output-detail",default="main") #column detail level for gene/gene-set outputs: main, full, or debug
 
 #for beta calculation against additional traits
 parser.add_option("","--betas-from-phewas",action="store_true",default=False)
@@ -445,6 +446,9 @@ parser.add_option("","--sim-only-positive",action="store_true") #only simulate p
 
 #gibbs sampling parameters
 parser.add_option("","--num-mad",type=int,default=10) #number of median absolute devs above which to treat chains as outliers
+parser.add_option("","--gibbs-summary-mode",type="string",default="raw_common_mask") #primary Gibbs summary mode: raw_common_mask or global_filtered
+parser.add_option("","--write-gibbs-global-filtered-summaries",action="store_true",default=False) #append globally filtered sensitivity summaries to gene-set outputs
+parser.add_option("","--gene-set-p-active-threshold",type=float,default=0.01) #external beta threshold for Pr(beta > eps) in gene-set outputs
 parser.add_option("","--min-num-burn-in",type=int,default=10) #minimum number of burn-in iterations per outer Gibbs epoch
 parser.add_option("","--min-num-post-burn-in",type=int,dest="min_num_post_burn_in",default=10) #minimum number of post-burn-in iterations per outer Gibbs epoch
 parser.add_option("","--max-num-post-burn-in",type=int,dest="max_num_post_burn_in",default=None) #maximum number of post-burn-in iterations per outer Gibbs epoch
@@ -459,6 +463,8 @@ parser.add_option("","--no-warm-start",action="store_false",dest="warm_start") #
 # Primary precision controls.
 parser.add_option("","--max-abs-mcse-d",type=float,default=None) #maximum allowed absolute MCSE on posterior D
 parser.add_option("","--max-rel-mcse-beta",type=float,default=None) #maximum allowed relative MCSE on active betas
+parser.add_option("","--max-post-beta-rhat",type=float,default=None) #maximum allowed post-burn beta R-hat quantile before Gibbs can stop
+parser.add_option("","--max-rel-prior-beta-inconsistency",type=float,default=None) #maximum allowed relative mismatch between summarized priors and priors implied by summarized corrected betas
 parser.add_option("","--num-chains",type=int,default=10) #number of chains for gibbs sampling. Larger number uses more memory and compute but produces lower MCSE
 parser.add_option("","--max-num-restarts",type=int,default=10) #maximum number of additional Gibbs restart epochs to run and aggregate. Larger numbers increasing likelihood of reaching MCSE
 
@@ -532,8 +538,10 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-set-stats-se-col": "SE column mapping for advanced gene-set stats ingestion",
     "--gene-set-stats-p-col": "p-value column mapping for advanced gene-set stats ingestion",
     "--gene-set-stats-out": "write the final gene-set statistics table",
+    "--gene-set-p-active-threshold": "threshold in external beta units used for Pr(beta > eps) gene-set summary output",
     "--gene-stats-out": "write the final gene-level statistics table",
     "--gene-stats-output-scope": "control whether gene-stats-out writes only the selected universe or all tracked genes outside it; choices: universe, all (current is a compatibility alias for all)",
+    "--output-detail": "choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions",
     "--gene-loc-file": "gene location table used for correlation and locus-aware operations",
     "--gene-loc-file-huge": "gene location table used during HuGE score construction",
     "--gwas-in": "load GWAS summary statistics as the primary HuGE input",
@@ -605,10 +613,13 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--multi-y-max-phenos-per-batch": "expert override for the number of traits loaded per native multi-Y batch",
     "--hide-opts": "suppress printing resolved options at startup",
     "--hide-progress": "reduce progress logging noise during long runs",
+    "--gibbs-summary-mode": "choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask",
     "--log-file": "write structured run logs to this file",
     "--max-abs-mcse-d": "stop Gibbs once monitored gene-probability MCSE is below this absolute threshold",
     "--max-num-iter": "legacy per-epoch outer Gibbs iteration cap used when phase-specific bounds are not set",
+    "--max-post-beta-rhat": "require the monitored post-burn beta R-hat quantile to fall below this threshold before Gibbs can stop",
     "--max-rel-mcse-beta": "stop Gibbs once active beta MCSE is below this relative threshold",
+    "--max-rel-prior-beta-inconsistency": "require final summarized priors to stay close to the priors implied by summarized corrected betas before Gibbs can stop",
     "--num-chains": "number of parallel outer Gibbs chains to run",
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--strict-stopping": "tighten Gibbs stopping thresholds relative to the default lenient preset",
@@ -619,6 +630,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--update-hyper": "choose whether outer Gibbs updates p, sigma, both, or neither during adaptation",
     "--warm-start": "reuse previous-iteration beta state when warm-starting outer Gibbs updates",
     "--no-warm-start": "disable warm-starting and restart outer Gibbs updates from default initialization each iteration",
+    "--write-gibbs-global-filtered-summaries": "append globally filtered Gibbs sensitivity columns to gene-set outputs without changing the primary raw summary",
     "--help-expert": "show expert, advanced, and debug flags in addition to the normal public interface",
     "--warnings-file": "write warning messages to this file",
 }
@@ -647,7 +659,9 @@ _EXPERT_ENGINEERING_FLAGS = {
     "--diag-every",
     "--eaggl-bundle-out",
     "--gene-set-stats-trace-out",
+    "--gibbs-summary-mode",
     "--gene-stats-output-scope",
+    "--output-detail",
     "--gene-stats-trace-out",
     "--gibbs-max-mb-X-h",
     "--gibbs-num-batches-parallel",
@@ -733,6 +747,7 @@ _METHOD_REQUIRED_FLAGS = {
     "--gene-map-in",
     "--gene-set-stats-out",
     "--gene-stats-out",
+    "--gene-set-p-active-threshold",
     "--gwas-in",
     "--params-out",
     "--s2g-in",
@@ -751,10 +766,15 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--gene-set-stats-out",
     "--gene-stats-in",
     "--gene-stats-out",
+    "--output-detail",
     "--gwas-in",
     "--max-abs-mcse-d",
     "--max-num-iter",
+    "--max-post-beta-rhat",
     "--max-rel-mcse-beta",
+    "--max-rel-prior-beta-inconsistency",
+    "--gene-set-p-active-threshold",
+    "--gibbs-summary-mode",
     "--num-chains",
     "--params-out",
     "--s2g-in",
@@ -763,6 +783,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--update-hyper",
     "--warm-start",
     "--no-warm-start",
+    "--write-gibbs-global-filtered-summaries",
     "--X-in",
     "--X-list",
     "--Xd-in",
@@ -1318,11 +1339,15 @@ _GIBBS_STOPPING_PRESETS = {
         "stop_mcse_quantile": 0.90,
         "max_rel_mcse_beta": 0.20,
         "max_abs_mcse_d": 0.10,
+        "max_post_beta_rhat": 1.25,
+        "max_rel_prior_beta_inconsistency": 0.50,
     },
     "strict": {
         "stop_mcse_quantile": 0.95,
         "max_rel_mcse_beta": 0.05,
         "max_abs_mcse_d": 0.03,
+        "max_post_beta_rhat": 1.10,
+        "max_rel_prior_beta_inconsistency": 0.25,
     },
 }
 
@@ -1392,6 +1417,8 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         bail("Specify at most one of --gene-universe-in, --gene-universe-from-y, or --gene-universe-from-x")
     if _options.gene_stats_output_scope not in ("universe", "current", "all"):
         bail("Option --gene-stats-output-scope must be one of: universe, all")
+    if _options.output_detail not in ("main", "full", "debug"):
+        bail("Option --output-detail must be one of: main, full, debug")
 
     gene_set_stats_col_flags = (
         ("gene_set_stats_id_col", "--gene-set-stats-id-col"),

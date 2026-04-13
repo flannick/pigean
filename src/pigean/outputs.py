@@ -23,6 +23,7 @@ def write_gene_set_statistics(
     max_no_write_gene_set_beta=None,
     max_no_write_gene_set_beta_uncorrected=None,
     basic=False,
+    output_detail="full",
     *,
     log_fn,
     info_level,
@@ -33,6 +34,7 @@ def write_gene_set_statistics(
         max_no_write_gene_set_beta=max_no_write_gene_set_beta,
         max_no_write_gene_set_beta_uncorrected=max_no_write_gene_set_beta_uncorrected,
         basic=basic,
+        output_detail=output_detail,
         open_text_fn=open_gz,
         log_fn=log_fn,
         info_level=info_level,
@@ -67,6 +69,7 @@ def write_gene_statistics(
     output_file,
     max_no_write_gene_combined=None,
     gene_stats_output_scope="universe",
+    output_detail="full",
     *,
     log_fn,
     info_level,
@@ -76,6 +79,7 @@ def write_gene_statistics(
         output_file,
         max_no_write_gene_combined=max_no_write_gene_combined,
         gene_stats_output_scope=gene_stats_output_scope,
+        output_detail=output_detail,
         open_text_fn=open_gz,
         log_fn=log_fn,
         info_level=info_level,
@@ -129,7 +133,7 @@ def write_eaggl_bundle_if_requested(services, state, options, mode):
         (
             "gene_stats_in",
             "gene_stats.tsv.gz",
-            lambda path: state.write_gene_statistics(path),
+            lambda path: state.write_gene_statistics(path, output_detail=options.output_detail),
             "gene statistics",
             "run a mode that computes/loads gene scores",
         ),
@@ -140,6 +144,7 @@ def write_eaggl_bundle_if_requested(services, state, options, mode):
                 path,
                 max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
                 max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
+                output_detail=options.output_detail,
             ),
             "gene-set statistics",
             "run a mode that computes/loads gene-set statistics",
@@ -172,6 +177,7 @@ def write_main_outputs_and_optional_phewas(services, state, options, mode_state,
             options.gene_set_stats_out,
             max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
             max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
+            output_detail=options.output_detail,
         )
     if options.phewas_gene_set_stats_out:
         state.write_phewas_gene_set_statistics(
@@ -187,6 +193,7 @@ def write_main_outputs_and_optional_phewas(services, state, options, mode_state,
             options.gene_stats_out,
             max_no_write_gene_combined=options.max_no_write_gene_combined,
             gene_stats_output_scope=options.gene_stats_output_scope,
+            output_detail=options.output_detail,
         )
     if options.gene_gene_set_stats_out:
         state.write_gene_gene_set_statistics(

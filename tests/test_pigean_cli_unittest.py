@@ -142,6 +142,34 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["gene_universe_id_col"], "Symbol")
         self.assertFalse(options["gene_universe_has_header"])
 
+    def test_gibbs_summary_options_round_trip_in_effective_config(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gibbs-summary-mode",
+            "global_filtered",
+            "--write-gibbs-global-filtered-summaries",
+            "--gene-set-p-active-threshold",
+            "0.02",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        options = payload["options"]
+        self.assertEqual(options["gibbs_summary_mode"], "global_filtered")
+        self.assertTrue(options["write_gibbs_global_filtered_summaries"])
+        self.assertEqual(options["gene_set_p_active_threshold"], 0.02)
+
+    def test_output_detail_defaults_to_main_and_round_trips(self) -> None:
+        default_proc = self._run("gibbs", "--print-effective-config")
+        self.assertEqual(default_proc.returncode, 0, msg=(default_proc.stderr or "") + (default_proc.stdout or ""))
+        default_payload = json.loads(default_proc.stdout)
+        self.assertEqual(default_payload["options"]["output_detail"], "main")
+
+        full_proc = self._run("gibbs", "--output-detail", "full", "--print-effective-config")
+        self.assertEqual(full_proc.returncode, 0, msg=(full_proc.stderr or "") + (full_proc.stdout or ""))
+        full_payload = json.loads(full_proc.stdout)
+        self.assertEqual(full_payload["options"]["output_detail"], "full")
+
     def test_gene_list_all_alias_populates_gene_universe_options(self) -> None:
         proc = self._run(
             "gibbs",
@@ -479,6 +507,21 @@ class PigeanCliTest(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("Option --gene-stats-output-scope must be one of: universe, all", err)
+
+    def test_gibbs_stopping_consistency_flags_round_trip(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--max-post-beta-rhat",
+            "1.15",
+            "--max-rel-prior-beta-inconsistency",
+            "0.30",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        options = payload["options"]
+        self.assertEqual(options["max_post_beta_rhat"], 1.15)
+        self.assertEqual(options["max_rel_prior_beta_inconsistency"], 0.30)
 
     def test_gene_stats_input_with_metric_z_zero_disables_qc_prefilter(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

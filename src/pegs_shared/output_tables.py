@@ -77,6 +77,7 @@ def write_gene_statistics(
     output_file,
     max_no_write_gene_combined=None,
     gene_stats_output_scope="universe",
+    output_detail="full",
     *,
     open_text_fn=None,
     log_fn=None,
@@ -123,21 +124,23 @@ def write_gene_statistics(
                     write_log_bf_diagnostics = True
                     break
 
+        is_main_detail = output_detail == "main"
+
         header = "Gene"
 
         if runtime.priors is not None:
             header = "%s\t%s" % (header, "prior")
-            if runtime.priors_r_hat is not None:
+            if runtime.priors_r_hat is not None and not is_main_detail:
                 header = "%s\t%s\t%s" % (header, "prior_r_hat", "prior_mcse")
-        if runtime.priors_adj is not None:
+        if runtime.priors_adj is not None and not is_main_detail:
             header = "%s\t%s" % (header, "prior_adj")
         if runtime.combined_prior_Ys is not None:
             header = "%s\t%s" % (header, "combined")
-            if runtime.combined_prior_Ys_r_hat is not None:
+            if runtime.combined_prior_Ys_r_hat is not None and not is_main_detail:
                 header = "%s\t%s\t%s" % (header, "combined_r_hat", "combined_mcse")
-        if runtime.combined_prior_Ys_adj is not None:
+        if runtime.combined_prior_Ys_adj is not None and not is_main_detail:
             header = "%s\t%s" % (header, "combined_adj")
-        if runtime.combined_prior_Y_ses is not None:
+        if runtime.combined_prior_Y_ses is not None and not is_main_detail:
             header = "%s\t%s" % (header, "combined_se")
         if runtime.combined_Ds is not None:
             header = "%s\t%s" % (header, "combined_D")
@@ -155,17 +158,17 @@ def write_gene_statistics(
             header = "%s\t%s" % (header, "case_count_bf")
         if runtime.Y is not None:
             header = "%s\t%s" % (header, "log_bf")
-            if write_log_bf_diagnostics:
+            if write_log_bf_diagnostics and not is_main_detail:
                 header = "%s\t%s\t%s" % (header, "log_bf_r_hat", "log_bf_mcse")
-        if write_regression:
+        if write_regression and not is_main_detail:
             header = "%s\t%s" % (header, "log_bf_regression")
-        if runtime.Y_uncorrected is not None:
+        if runtime.Y_uncorrected is not None and not is_main_detail:
             header = "%s\t%s" % (header, "log_bf_uncorrected")
         if runtime.priors_orig is not None:
             header = "%s\t%s" % (header, "prior_orig")
-        if runtime.priors_adj_orig is not None:
+        if runtime.priors_adj_orig is not None and not is_main_detail:
             header = "%s\t%s" % (header, "prior_adj_orig")
-        if runtime.batches is not None:
+        if runtime.batches is not None and not is_main_detail:
             header = "%s\t%s" % (header, "batch")
         if runtime.X_orig is not None:
             header = "%s\t%s" % (header, "N")            
@@ -174,7 +177,7 @@ def write_gene_statistics(
         if runtime.gene_to_pos is not None:
             header = "%s\t%s\t%s" % (header, "Start", "End")
 
-        if runtime.gene_covariate_zs is not None:
+        if runtime.gene_covariate_zs is not None and not is_main_detail:
             header = "%s\t%s" % (header, "\t".join(map(lambda x: "%s" % x, [runtime.gene_covariate_names[i] for i in range(len(runtime.gene_covariate_names)) if i != runtime.gene_covariate_intercept_index])))
 
         output_fh.write("%s\n" % header)
@@ -201,17 +204,17 @@ def write_gene_statistics(
             line = gene
             if runtime.priors is not None:
                 line = "%s\t%.3g" % (line, runtime.priors[i])
-                if runtime.priors_r_hat is not None:
+                if runtime.priors_r_hat is not None and not is_main_detail:
                     line = "%s\t%.3g\t%.3g" % (line, runtime.priors_r_hat[i], runtime.priors_mcse[i])
-            if runtime.priors_adj is not None:
+            if runtime.priors_adj is not None and not is_main_detail:
                 line = "%s\t%.3g" % (line, runtime.priors_adj[i])
             if runtime.combined_prior_Ys is not None:
                 line = "%s\t%.3g" % (line, runtime.combined_prior_Ys[i])
-                if runtime.combined_prior_Ys_r_hat is not None:
+                if runtime.combined_prior_Ys_r_hat is not None and not is_main_detail:
                     line = "%s\t%.3g\t%.3g" % (line, runtime.combined_prior_Ys_r_hat[i], runtime.combined_prior_Ys_mcse[i])
-            if runtime.combined_prior_Ys_adj is not None:
+            if runtime.combined_prior_Ys_adj is not None and not is_main_detail:
                 line = "%s\t%.3g" % (line, runtime.combined_prior_Ys_adj[i])
-            if runtime.combined_prior_Y_ses is not None:
+            if runtime.combined_prior_Y_ses is not None and not is_main_detail:
                 line = "%s\t%.3g" % (line, runtime.combined_prior_Y_ses[i])
             if runtime.combined_Ds is not None:
                 line = "%s\t%.3g" % (line, runtime.combined_Ds[i])
@@ -248,20 +251,20 @@ def write_gene_statistics(
                     line = "%s\t%s" % (line, "NA")
             if runtime.Y is not None:
                 line = "%s\t%.3g" % (line, runtime.Y[i])
-                if write_log_bf_diagnostics:
+                if write_log_bf_diagnostics and not is_main_detail:
                     if np.isfinite(runtime.Y_mcse[i]) and np.isfinite(runtime.Y_r_hat[i]) and runtime.Y_mcse[i] > 0 and runtime.Y_r_hat[i] > 1:
                         line = "%s\t%.3g\t%.3g" % (line, runtime.Y_r_hat[i], runtime.Y_mcse[i])
                     else:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
-            if write_regression:
+            if write_regression and not is_main_detail:
                 line = "%s\t%.3g" % (line, runtime.Y_for_regression[i])
-            if runtime.Y_uncorrected is not None:
+            if runtime.Y_uncorrected is not None and not is_main_detail:
                 line = "%s\t%.3g" % (line, runtime.Y_uncorrected[i])
             if runtime.priors_orig is not None:
                 line = "%s\t%.3g" % (line, runtime.priors_orig[i])
-            if runtime.priors_adj_orig is not None:
+            if runtime.priors_adj_orig is not None and not is_main_detail:
                 line = "%s\t%.3g" % (line, runtime.priors_adj_orig[i])
-            if runtime.batches is not None:
+            if runtime.batches is not None and not is_main_detail:
                 line = "%s\t%s" % (line, runtime.batches[i])
             if runtime.X_orig is not None:
                 line = "%s\t%d" % (line, gene_N[i])
@@ -270,7 +273,7 @@ def write_gene_statistics(
             if runtime.gene_to_pos is not None:
                 line = "%s\t%s\t%s" % (line, runtime.gene_to_pos[gene][0] if gene in runtime.gene_to_pos else "NA", runtime.gene_to_pos[gene][1] if gene in runtime.gene_to_pos else "NA")
 
-            if runtime.gene_covariate_zs is not None:
+            if runtime.gene_covariate_zs is not None and not is_main_detail:
                 line = "%s\t%s" % (line, "\t".join(map(lambda x: "%.3g" % x, [runtime.gene_covariate_zs[i,j] for j in range(len(runtime.gene_covariate_names)) if j != runtime.gene_covariate_intercept_index])))
 
             output_fh.write("%s\n" % line)
@@ -290,19 +293,19 @@ def write_gene_statistics(
                 line = gene
                 if runtime.priors is not None:
                     line = ("%s\t%.3g" % (line, runtime.priors_missing[i])) if runtime.priors_missing is not None else ("%s\t%s" % (line, "NA"))
-                    if runtime.priors_r_hat is not None:
+                    if runtime.priors_r_hat is not None and not is_main_detail:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
-                if runtime.priors_adj is not None:
+                if runtime.priors_adj is not None and not is_main_detail:
                     line = ("%s\t%.3g" % (line, runtime.priors_adj_missing[i])) if runtime.priors_adj_missing is not None else ("%s\t%s" % (line, "NA"))
                 if runtime.combined_prior_Ys is not None:
                     #has no Y of itself so its combined is just the prior
                     line = ("%s\t%.3g" % (line, runtime.priors_missing[i])) if runtime.priors_missing is not None else ("%s\t%s" % (line, "NA"))
-                    if runtime.combined_prior_Ys_r_hat is not None:
+                    if runtime.combined_prior_Ys_r_hat is not None and not is_main_detail:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
-                if runtime.combined_prior_Ys_adj is not None:
+                if runtime.combined_prior_Ys_adj is not None and not is_main_detail:
                     #has no Y of itself so its combined is just the prior
                     line = ("%s\t%.3g" % (line, runtime.priors_adj_missing[i])) if runtime.priors_adj_missing is not None else ("%s\t%s" % (line, "NA"))
-                if runtime.combined_prior_Y_ses is not None:
+                if runtime.combined_prior_Y_ses is not None and not is_main_detail:
                     line = "%s\t%s" % (line, "NA")
                 if runtime.combined_Ds_missing is not None:
                     line = "%s\t%.3g" % (line, runtime.combined_Ds_missing[i])
@@ -338,18 +341,18 @@ def write_gene_statistics(
                         line = "%s\t%s" % (line, "NA")
                 if runtime.Y is not None:
                     line = "%s\t%s" % (line, "NA")
-                    if write_log_bf_diagnostics:
+                    if write_log_bf_diagnostics and not is_main_detail:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
-                if write_regression:
+                if write_regression and not is_main_detail:
                     line = "%s\t%s" % (line, "NA")
-                if runtime.Y_uncorrected is not None:
+                if runtime.Y_uncorrected is not None and not is_main_detail:
                     line = "%s\t%s" % (line, "NA")
                 if runtime.priors_orig is not None:
                     line = ("%s\t%.3g" % (line, runtime.priors_missing_orig[i])) if runtime.priors_missing_orig is not None else ("%s\t%s" % (line, "NA"))
 
-                if runtime.priors_adj_orig is not None:
+                if runtime.priors_adj_orig is not None and not is_main_detail:
                     line = ("%s\t%.3g" % (line, runtime.priors_adj_missing_orig[i])) if runtime.priors_adj_missing_orig is not None else ("%s\t%s" % (line, "NA"))
-                if runtime.batches is not None:
+                if runtime.batches is not None and not is_main_detail:
                     line = "%s\t%s" % (line, "NA")
                 if runtime.X_orig is not None:
                     line = "%s\t%d" % (line, gene_N_missing[i])
@@ -358,7 +361,7 @@ def write_gene_statistics(
                 if runtime.gene_to_pos is not None:
                     line = "%s\t%s\t%s" % (line, runtime.gene_to_pos[gene][0] if gene in runtime.gene_to_pos else "NA", runtime.gene_to_pos[gene][1] if gene in runtime.gene_to_pos else "NA")
 
-                if runtime.gene_covariate_zs is not None:
+                if runtime.gene_covariate_zs is not None and not is_main_detail:
                     line = "%s\t%s" % (line, "\t".join(["NA" for j in range(len(runtime.gene_covariate_names)) if j != runtime.gene_covariate_intercept_index]))
 
                 output_fh.write("%s\n" % line)
@@ -368,17 +371,17 @@ def write_gene_statistics(
             line = gene
             if runtime.priors is not None:
                 line = "%s\t%s" % (line, "NA")
-                if runtime.priors_r_hat is not None:
+                if runtime.priors_r_hat is not None and not is_main_detail:
                     line = "%s\t%s\t%s" % (line, "NA", "NA")
-            if runtime.priors_adj is not None:
+            if runtime.priors_adj is not None and not is_main_detail:
                 line = "%s\t%s" % (line, "NA")
             if runtime.combined_prior_Ys is not None:
                 line = "%s\t%s" % (line, "NA")
-                if runtime.combined_prior_Ys_r_hat is not None:
+                if runtime.combined_prior_Ys_r_hat is not None and not is_main_detail:
                     line = "%s\t%s\t%s" % (line, "NA", "NA")
-            if runtime.combined_prior_Ys_adj is not None:
+            if runtime.combined_prior_Ys_adj is not None and not is_main_detail:
                 line = "%s\t%s" % (line, "NA")
-            if runtime.combined_prior_Y_ses is not None:
+            if runtime.combined_prior_Y_ses is not None and not is_main_detail:
                 line = "%s\t%s" % (line, "NA")
             if runtime.combined_Ds_missing is not None:
                 line = "%s\t%s" % (line, "NA")
@@ -414,17 +417,17 @@ def write_gene_statistics(
                     line = "%s\t%s" % (line, "NA")
             if runtime.Y is not None:
                 line = "%s\t%s" % (line, "NA")
-                if write_log_bf_diagnostics:
+                if write_log_bf_diagnostics and not is_main_detail:
                     line = "%s\t%s\t%s" % (line, "NA", "NA")
-            if write_regression:
+            if write_regression and not is_main_detail:
                 line = "%s\t%s" % (line, "NA")
-            if runtime.Y_uncorrected is not None:
+            if runtime.Y_uncorrected is not None and not is_main_detail:
                 line = "%s\t%s" % (line, "NA")
             if runtime.priors_orig is not None:
                 line = "%s\t%s" % (line, "NA")
-            if runtime.priors_adj_orig is not None:
+            if runtime.priors_adj_orig is not None and not is_main_detail:
                 line = "%s\t%s" % (line, "NA")
-            if runtime.batches is not None:
+            if runtime.batches is not None and not is_main_detail:
                 line = "%s\t%s" % (line, "NA")
             if runtime.X_orig is not None:
                 line = "%s\t%s" % (line, "NA")
@@ -721,7 +724,7 @@ def write_factor_phewas_statistics(runtime, output_file, *, open_text_fn=None, l
                     output_fh.write("%s\t%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g\n" % (line, "combined_huber", runtime.factor_phewas_combined_prior_Ys_huber_betas[f,i], runtime.factor_phewas_combined_prior_Ys_huber_p_values[f,i], runtime.factor_phewas_combined_prior_Ys_huber_one_sided_p_values[f,i], runtime.factor_phewas_combined_prior_Ys_huber_zs[f,i], runtime.factor_phewas_combined_prior_Ys_huber_ses[f,i]))
 
 
-def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False, *, open_text_fn=None, log_fn=None, info_level=0, debug_only_avg_huge=False):
+def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=None, max_no_write_gene_set_beta_uncorrected=None, basic=False, output_detail="full", *, open_text_fn=None, log_fn=None, info_level=0, debug_only_avg_huge=False):
     if open_text_fn is None:
         open_text_fn = open
     if log_fn is None:
@@ -734,6 +737,33 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
         inf_betas_orig = getattr(runtime, "inf_betas_orig", None)
         inf_betas_missing = getattr(runtime, "inf_betas_missing", None)
         inf_betas_missing_orig = getattr(runtime, "inf_betas_missing_orig", None)
+        betas_ci_lower = getattr(runtime, "betas_ci_lower", None)
+        betas_ci_upper = getattr(runtime, "betas_ci_upper", None)
+        betas_uncorrected_ci_lower = getattr(runtime, "betas_uncorrected_ci_lower", None)
+        betas_uncorrected_ci_upper = getattr(runtime, "betas_uncorrected_ci_upper", None)
+        betas_p_active = getattr(runtime, "betas_p_active", None)
+        betas_global_filtered = getattr(runtime, "betas_global_filtered", None)
+        betas_uncorrected_global_filtered = getattr(runtime, "betas_uncorrected_global_filtered", None)
+
+        def _append_scaled_interval(line, lower_arr, upper_arr, idx, scale_factor):
+            if lower_arr is None or upper_arr is None:
+                return "%s\tNA\tNA" % line
+            return "%s\t%.3g\t%.3g" % (line, lower_arr[idx], upper_arr[idx])
+
+        def _append_prob(line, value_arr, idx):
+            if value_arr is None:
+                return "%s\tNA" % line
+            return "%s\t%.3g" % (line, value_arr[idx])
+
+        def _append_scaled_value(line, value_arr, idx, scale_factor, include_internal=False):
+            if value_arr is None:
+                return "%s\tNA%s" % (line, "\tNA" if include_internal else "")
+            if include_internal:
+                return "%s\t%.3g\t%.3g" % (line, value_arr[idx] / scale_factor, value_arr[idx])
+            return "%s\t%.3g" % (line, value_arr[idx] / scale_factor)
+
+        is_main_detail = output_detail == "main"
+
         header = "Gene_Set"
         if runtime.gene_set_labels is not None:
             header = "%s\t%s" % (header, "label")
@@ -742,55 +772,77 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
             col_sums = runtime.get_col_sums(runtime.X_orig)
             header = "%s\t%s" % (header, "N")
             header = "%s\t%s" % (header, "scale")
-        if runtime.beta_tildes is not None:
+        if runtime.beta_tildes is not None and not is_main_detail:
             header = "%s\t%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde", "beta_tilde_internal", "P", "Z", "SE")
-        elif runtime.p_values is not None:
+        elif runtime.p_values is not None and not is_main_detail:
             header = "%s\t%s" % (header, "P")
             q_values = getattr(runtime, "q_values", None)
             if q_values is not None:
                 header = "%s\t%s" % (header, "Q")
-        if inf_betas is not None and not basic:
+        if inf_betas is not None and not basic and not is_main_detail:
             header = "%s\t%s" % (header, "inf_beta")            
         if runtime.betas is not None:
-            header = "%s\t%s\t%s" % (header, "beta", "beta_internal")
-            if runtime.betas_r_hat is not None:
+            if is_main_detail:
+                header = "%s\t%s" % (header, "beta")
+            else:
+                header = "%s\t%s\t%s" % (header, "beta", "beta_internal")
+            if runtime.betas_r_hat is not None and not is_main_detail:
                 header = "%s\t%s\t%s" % (header, "beta_r_hat", "beta_mcse")
+            if betas_ci_lower is not None and betas_ci_upper is not None:
+                header = "%s\t%s\t%s" % (header, "beta_ci_lower", "beta_ci_upper")
+            if betas_p_active is not None:
+                header = "%s\t%s" % (header, "p_active_beta_gt_eps")
+            if betas_global_filtered is not None and not is_main_detail:
+                header = "%s\t%s\t%s" % (header, "beta_global_filtered", "beta_global_filtered_internal")
         if runtime.betas_uncorrected is not None and not basic:
             header = "%s\t%s" % (header, "beta_uncorrected")            
-            if runtime.betas_uncorrected_r_hat is not None:
+            if runtime.betas_uncorrected_r_hat is not None and not is_main_detail:
                 header = "%s\t%s\t%s" % (header, "beta_uncorrected_r_hat", "beta_uncorrected_mcse")
+            if betas_uncorrected_ci_lower is not None and betas_uncorrected_ci_upper is not None:
+                header = "%s\t%s\t%s" % (header, "beta_uncorrected_ci_lower", "beta_uncorrected_ci_upper")
+            if betas_uncorrected_global_filtered is not None and not is_main_detail:
+                header = "%s\t%s" % (header, "beta_uncorrected_global_filtered")
         if not basic:
-            if runtime.non_inf_avg_cond_betas is not None:
+            if runtime.non_inf_avg_cond_betas is not None and not is_main_detail:
                 header = "%s\t%s" % (header, "avg_cond_beta")            
             if runtime.non_inf_avg_postps is not None:
                 header = "%s\t%s" % (header, "avg_postp")            
             if runtime.beta_tildes_orig is not None:
-                header = "%s\t%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde_orig", "beta_tilde_internal_orig", "P_orig", "Z_orig", "SE_orig")
-            if inf_betas_orig is not None:
+                if is_main_detail:
+                    header = "%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde_orig", "P_orig", "Z_orig", "SE_orig")
+                else:
+                    header = "%s\t%s\t%s\t%s\t%s\t%s" % (header, "beta_tilde_orig", "beta_tilde_internal_orig", "P_orig", "Z_orig", "SE_orig")
+            if inf_betas_orig is not None and not is_main_detail:
                 header = "%s\t%s" % (header, "inf_beta_orig")            
             if runtime.betas_orig is not None:
-                header = "%s\t%s\t%s" % (header, "beta_orig", "beta_internal_orig")
+                if is_main_detail:
+                    header = "%s\t%s" % (header, "beta_orig")
+                else:
+                    header = "%s\t%s\t%s" % (header, "beta_orig", "beta_internal_orig")
             if runtime.betas_uncorrected_orig is not None:
-                header = "%s\t%s\t%s" % (header, "beta_uncorrected_orig", "beta_uncorrected_internal_orig")
-            if runtime.non_inf_avg_cond_betas_orig is not None:
+                if is_main_detail:
+                    header = "%s\t%s" % (header, "beta_uncorrected_orig")
+                else:
+                    header = "%s\t%s\t%s" % (header, "beta_uncorrected_orig", "beta_uncorrected_internal_orig")
+            if runtime.non_inf_avg_cond_betas_orig is not None and not is_main_detail:
                 header = "%s\t%s" % (header, "avg_cond_beta_orig")            
-            if runtime.non_inf_avg_postps_orig is not None:
+            if runtime.non_inf_avg_postps_orig is not None and not is_main_detail:
                 header = "%s\t%s" % (header, "avg_postp_orig")            
             if runtime.ps is not None or runtime.p is not None:
                 header = "%s\t%s" % (header, "p_used")
             if runtime.sigma2s is not None or runtime.sigma2 is not None:
                 header = "%s\t%s" % (header, "sigma2_used")
-            if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None:
+            if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None and not is_main_detail:
                 header = "%s\t%s" % (header, "sigma2_thresholded")
-            if runtime.X_osc is not None:
+            if runtime.X_osc is not None and not is_main_detail:
                 header = "%s\t%s\t%s\t%s" % (header, "O", "X_O", "weight")
-            if runtime.total_qc_metrics is not None:
+            if runtime.total_qc_metrics is not None and not is_main_detail:
                 if debug_only_avg_huge:
                     header = "%s\t%s" % (header, "avg_huge_adjustment")
                 else:
                     header = "%s\t%s\t%s" % (header, "\t".join(map(lambda x: "avg_%s" % x, [runtime.gene_covariate_names[i] for i in range(len(runtime.gene_covariate_names)) if i != runtime.gene_covariate_intercept_index])), "avg_huge_adjustment")
 
-            if runtime.mean_qc_metrics is not None:
+            if runtime.mean_qc_metrics is not None and not is_main_detail:
                 header = "%s\t%s" % (header, "avg_avg_metric")
 
         output_fh.write("%s\n" % header)
@@ -817,53 +869,81 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 line = "%s\t%d" % (line, col_sums[i])
                 line = "%s\t%.3g" % (line, runtime.scale_factors[i])
 
-            if runtime.beta_tildes is not None:
+            if runtime.beta_tildes is not None and not is_main_detail:
                 line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes[i] / runtime.scale_factors[i], runtime.beta_tildes[i], runtime.p_values[i], runtime.z_scores[i], runtime.ses[i] / runtime.scale_factors[i])
-            elif runtime.p_values is not None:
+            elif runtime.p_values is not None and not is_main_detail:
                 line = "%s\t%.3g" % (line, runtime.p_values[i])
                 q_values = getattr(runtime, "q_values", None)
                 if q_values is not None:
                     line = "%s\t%.3g" % (line, q_values[i])
-            if inf_betas is not None and not basic:
+            if inf_betas is not None and not basic and not is_main_detail:
                 line = "%s\t%.3g" % (line, inf_betas[i] / runtime.scale_factors[i])            
             if runtime.betas is not None:
-                line = "%s\t%.3g\t%.3g" % (line, runtime.betas[i] / runtime.scale_factors[i], runtime.betas[i])
-                if runtime.betas_r_hat is not None:
+                if is_main_detail:
+                    line = "%s\t%.3g" % (line, runtime.betas[i] / runtime.scale_factors[i])
+                else:
+                    line = "%s\t%.3g\t%.3g" % (line, runtime.betas[i] / runtime.scale_factors[i], runtime.betas[i])
+                if runtime.betas_r_hat is not None and not is_main_detail:
                     line = "%s\t%.3g\t%.3g" % (line, runtime.betas_r_hat[i], runtime.betas_mcse[i])
+                if betas_ci_lower is not None and betas_ci_upper is not None:
+                    line = _append_scaled_interval(line, betas_ci_lower, betas_ci_upper, i, runtime.scale_factors[i])
+                if betas_p_active is not None:
+                    line = _append_prob(line, betas_p_active, i)
+                if betas_global_filtered is not None and not is_main_detail:
+                    line = _append_scaled_value(line, betas_global_filtered, i, runtime.scale_factors[i], include_internal=True)
             if runtime.betas_uncorrected is not None and not basic:
                 line = "%s\t%.3g" % (line, runtime.betas_uncorrected[i] / runtime.scale_factors[i])            
-                if runtime.betas_uncorrected_r_hat is not None:
+                if runtime.betas_uncorrected_r_hat is not None and not is_main_detail:
                     line = "%s\t%.3g\t%.3g" % (line, runtime.betas_uncorrected_r_hat[i], runtime.betas_uncorrected_mcse[i])
+                if betas_uncorrected_ci_lower is not None and betas_uncorrected_ci_upper is not None:
+                    line = _append_scaled_interval(
+                        line,
+                        betas_uncorrected_ci_lower,
+                        betas_uncorrected_ci_upper,
+                        i,
+                        runtime.scale_factors[i],
+                    )
+                if betas_uncorrected_global_filtered is not None and not is_main_detail:
+                    line = _append_scaled_value(line, betas_uncorrected_global_filtered, i, runtime.scale_factors[i])
             if not basic:
-                if runtime.non_inf_avg_cond_betas is not None:
+                if runtime.non_inf_avg_cond_betas is not None and not is_main_detail:
                     line = "%s\t%.3g" % (line, runtime.non_inf_avg_cond_betas[i] / runtime.scale_factors[i])
                 if runtime.non_inf_avg_postps is not None:
                     line = "%s\t%.3g" % (line, runtime.non_inf_avg_postps[i])
                 if runtime.beta_tildes_orig is not None:
-                    line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_orig[i] / runtime.scale_factors[i], runtime.beta_tildes_orig[i], runtime.p_values_orig[i], runtime.z_scores_orig[i], runtime.ses_orig[i] / runtime.scale_factors[i])
-                if inf_betas_orig is not None:
+                    if is_main_detail:
+                        line = "%s\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_orig[i] / runtime.scale_factors[i], runtime.p_values_orig[i], runtime.z_scores_orig[i], runtime.ses_orig[i] / runtime.scale_factors[i])
+                    else:
+                        line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_orig[i] / runtime.scale_factors[i], runtime.beta_tildes_orig[i], runtime.p_values_orig[i], runtime.z_scores_orig[i], runtime.ses_orig[i] / runtime.scale_factors[i])
+                if inf_betas_orig is not None and not is_main_detail:
                     line = "%s\t%.3g" % (line, inf_betas_orig[i] / runtime.scale_factors[i])            
                 if runtime.betas_orig is not None:
-                    line = "%s\t%.3g\t%.3g" % (line, runtime.betas_orig[i] / runtime.scale_factors[i], runtime.betas_orig[i])
+                    if is_main_detail:
+                        line = "%s\t%.3g" % (line, runtime.betas_orig[i] / runtime.scale_factors[i])
+                    else:
+                        line = "%s\t%.3g\t%.3g" % (line, runtime.betas_orig[i] / runtime.scale_factors[i], runtime.betas_orig[i])
                 if runtime.betas_uncorrected_orig is not None:
-                    line = "%s\t%.3g\t%.3g" % (line, runtime.betas_uncorrected_orig[i] / runtime.scale_factors[i], runtime.betas_uncorrected_orig[i])
-                if runtime.non_inf_avg_cond_betas_orig is not None:
+                    if is_main_detail:
+                        line = "%s\t%.3g" % (line, runtime.betas_uncorrected_orig[i] / runtime.scale_factors[i])
+                    else:
+                        line = "%s\t%.3g\t%.3g" % (line, runtime.betas_uncorrected_orig[i] / runtime.scale_factors[i], runtime.betas_uncorrected_orig[i])
+                if runtime.non_inf_avg_cond_betas_orig is not None and not is_main_detail:
                     line = "%s\t%.3g" % (line, runtime.non_inf_avg_cond_betas_orig[i] / runtime.scale_factors[i])
-                if runtime.non_inf_avg_postps_orig is not None:
+                if runtime.non_inf_avg_postps_orig is not None and not is_main_detail:
                     line = "%s\t%.3g" % (line, runtime.non_inf_avg_postps_orig[i])
 
                 if runtime.ps is not None or runtime.p is not None:
                     line = "%s\t%.3g" % (line, runtime.ps[i] if runtime.ps is not None else runtime.p)
                 if runtime.sigma2s is not None or runtime.sigma2 is not None:
                     line = "%s\t%.3g" % (line, runtime.get_scaled_sigma2(runtime.scale_factors[i], runtime.sigma2s[i] if runtime.sigma2s is not None else runtime.sigma2, runtime.sigma_power, None, None))
-                if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None:
+                if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None and not is_main_detail:
                     line = "%s\t%.3g" % (line, runtime.get_scaled_sigma2(runtime.scale_factors[i], runtime.sigma2s[i] if runtime.sigma2s is not None else runtime.sigma2, runtime.sigma_power, runtime.sigma_threshold_k, runtime.sigma_threshold_xo))
-                if runtime.X_osc is not None:
+                if runtime.X_osc is not None and not is_main_detail:
                     line = "%s\t%.3g\t%.3g\t%.3g" % (line, runtime.osc[i], runtime.X_osc[i], runtime.osc_weights[i])
 
-                if runtime.total_qc_metrics is not None:
+                if runtime.total_qc_metrics is not None and not is_main_detail:
                     line = "%s\t%s" % (line, "\t".join(map(lambda x: "%.3g" % x, runtime.total_qc_metrics[i,:])))
-                if runtime.mean_qc_metrics is not None:
+                if runtime.mean_qc_metrics is not None and not is_main_detail:
                     line = "%s\t%.3g" % (line, runtime.mean_qc_metrics[i])
 
 
@@ -907,34 +987,56 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 line = "%s\t%d" % (line, col_sums_missing[i])
                 line = "%s\t%.3g" % (line, runtime.scale_factors_missing[i])
 
-                if runtime.beta_tildes is not None:
+                if runtime.beta_tildes is not None and not is_main_detail:
                     line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_missing[i] / runtime.scale_factors_missing[i], runtime.beta_tildes_missing[i], runtime.p_values_missing[i], runtime.z_scores_missing[i], runtime.ses_missing[i] / runtime.scale_factors_missing[i])
-                if inf_betas is not None and not basic:
+                if inf_betas is not None and not basic and not is_main_detail:
                     line = "%s\t%.3g" % (line, inf_betas_missing[i] / runtime.scale_factors_missing[i])            
                 if runtime.betas is not None:
-                    line = "%s\t%.3g\t%.3g" % (line, missing_beta_value / runtime.scale_factors_missing[i], missing_beta_value)
-                    if runtime.betas_r_hat is not None:
+                    if is_main_detail:
+                        line = "%s\t%.3g" % (line, missing_beta_value / runtime.scale_factors_missing[i])
+                    else:
+                        line = "%s\t%.3g\t%.3g" % (line, missing_beta_value / runtime.scale_factors_missing[i], missing_beta_value)
+                    if runtime.betas_r_hat is not None and not is_main_detail:
+                        line = "%s\t%s\t%s" % (line, "NA", "NA")
+                    if betas_ci_lower is not None and betas_ci_upper is not None:
+                        line = "%s\t%s\t%s" % (line, "NA", "NA")
+                    if betas_p_active is not None:
+                        line = "%s\t%s" % (line, "NA")
+                    if betas_global_filtered is not None and not is_main_detail:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
                 if runtime.betas_uncorrected is not None and not basic:
                     line = "%s\t%.3g" % (line, missing_beta_uncorrected_value / runtime.scale_factors_missing[i])            
-                    if runtime.betas_uncorrected_r_hat is not None:
+                    if runtime.betas_uncorrected_r_hat is not None and not is_main_detail:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
+                    if betas_uncorrected_ci_lower is not None and betas_uncorrected_ci_upper is not None:
+                        line = "%s\t%s\t%s" % (line, "NA", "NA")
+                    if betas_uncorrected_global_filtered is not None and not is_main_detail:
+                        line = "%s\t%s" % (line, "NA")
                 if not basic:
-                    if runtime.non_inf_avg_cond_betas is not None:
+                    if runtime.non_inf_avg_cond_betas is not None and not is_main_detail:
                         line = "%s\t%.3g" % (line, missing_avg_cond_beta_value / runtime.scale_factors_missing[i])
                     if runtime.non_inf_avg_postps is not None:
                         line = "%s\t%.3g" % (line, missing_avg_postp_value)
                     if runtime.beta_tildes_orig is not None:
-                        line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_missing_orig[i] / runtime.scale_factors_missing[i], runtime.beta_tildes_missing_orig[i], runtime.p_values_missing_orig[i], runtime.z_scores_missing_orig[i], runtime.ses_missing_orig[i] / runtime.scale_factors_missing[i])
-                    if inf_betas_orig is not None:
+                        if is_main_detail:
+                            line = "%s\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_missing_orig[i] / runtime.scale_factors_missing[i], runtime.p_values_missing_orig[i], runtime.z_scores_missing_orig[i], runtime.ses_missing_orig[i] / runtime.scale_factors_missing[i])
+                        else:
+                            line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_missing_orig[i] / runtime.scale_factors_missing[i], runtime.beta_tildes_missing_orig[i], runtime.p_values_missing_orig[i], runtime.z_scores_missing_orig[i], runtime.ses_missing_orig[i] / runtime.scale_factors_missing[i])
+                    if inf_betas_orig is not None and not is_main_detail:
                         line = "%s\t%.3g" % (line, inf_betas_missing_orig[i] / runtime.scale_factors_missing[i])            
                     if runtime.betas_orig is not None:
-                        line = "%s\t%.3g\t%.3g" % (line, runtime.betas_missing_orig[i] / runtime.scale_factors_missing[i], runtime.betas_missing_orig[i])
+                        if is_main_detail:
+                            line = "%s\t%.3g" % (line, runtime.betas_missing_orig[i] / runtime.scale_factors_missing[i])
+                        else:
+                            line = "%s\t%.3g\t%.3g" % (line, runtime.betas_missing_orig[i] / runtime.scale_factors_missing[i], runtime.betas_missing_orig[i])
                     if runtime.betas_uncorrected_orig is not None:
-                        line = "%s\t%.3g\t%.3g" % (line, runtime.betas_uncorrected_missing_orig[i] / runtime.scale_factors_missing[i], runtime.betas_uncorrected_missing_orig[i])
-                    if runtime.non_inf_avg_cond_betas_orig is not None:
+                        if is_main_detail:
+                            line = "%s\t%.3g" % (line, runtime.betas_uncorrected_missing_orig[i] / runtime.scale_factors_missing[i])
+                        else:
+                            line = "%s\t%.3g\t%.3g" % (line, runtime.betas_uncorrected_missing_orig[i] / runtime.scale_factors_missing[i], runtime.betas_uncorrected_missing_orig[i])
+                    if runtime.non_inf_avg_cond_betas_orig is not None and not is_main_detail:
                         line = "%s\t%.3g" % (line, runtime.non_inf_avg_cond_betas_missing_orig[i] / runtime.scale_factors_missing[i])
-                    if runtime.non_inf_avg_postps_orig is not None:
+                    if runtime.non_inf_avg_postps_orig is not None and not is_main_detail:
                         line = "%s\t%.3g" % (line, runtime.non_inf_avg_postps_missing_orig[i])
 
                     if runtime.ps is not None or runtime.p is not None:
@@ -942,15 +1044,15 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
 
                     if runtime.sigma2s is not None or runtime.sigma2 is not None:
                         line = "%s\t%.3g" % (line, runtime.get_scaled_sigma2(runtime.scale_factors_missing[i], runtime.sigma2s_missing[i] if runtime.sigma2s_missing is not None else runtime.sigma2, runtime.sigma_power, None, None))
-                    if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None:
+                    if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None and not is_main_detail:
                         line = "%s\t%.3g" % (line, runtime.get_scaled_sigma2(runtime.scale_factors_missing[i], runtime.sigma2s_missing[i] if runtime.sigma2s_missing is not None else runtime.sigma2, runtime.sigma_power, runtime.sigma_threshold_k, runtime.sigma_threshold_xo))
 
-                    if runtime.X_osc is not None:
+                    if runtime.X_osc is not None and not is_main_detail:
                         line = "%s\t%.3g\t%.3g\t%.3g" % (line, runtime.osc_missing[i], runtime.X_osc_missing[i], runtime.osc_weights_missing[i])
 
-                    if runtime.total_qc_metrics is not None:
+                    if runtime.total_qc_metrics is not None and not is_main_detail:
                         line = "%s\t%s" % (line, "\t".join(map(lambda x: "%.3g" % x, runtime.total_qc_metrics_missing[i,:])))
-                    if runtime.mean_qc_metrics is not None:
+                    if runtime.mean_qc_metrics is not None and not is_main_detail:
                         line = "%s\t%.3g" % (line, runtime.mean_qc_metrics_missing[i])
 
                 output_fh.write("%s\n" % line)
@@ -988,23 +1090,36 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
 
                 scale_factor_denom = runtime.scale_factors_ignored[i] + 1e-20
 
-                if runtime.beta_tildes is not None:
+                if runtime.beta_tildes is not None and not is_main_detail:
                     if runtime.beta_tildes_ignored is not None:
                         line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_ignored[i] / scale_factor_denom, runtime.beta_tildes_ignored[i], runtime.p_values_ignored[i], runtime.z_scores_ignored[i], runtime.ses_ignored[i] / scale_factor_denom)
                     else:
                         line = "%s\t%s\t%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA", "NA", "NA")
-                if inf_betas is not None and not basic:
+                if inf_betas is not None and not basic and not is_main_detail:
                     line = "%s\t%.3g" % (line, 0)            
                 if runtime.betas is not None:
-                    line = "%s\t%.3g\t%.3g" % (line, ignored_beta_value, ignored_beta_value)
-                    if runtime.betas_r_hat is not None:
+                    if is_main_detail:
+                        line = "%s\t%.3g" % (line, ignored_beta_value)
+                    else:
+                        line = "%s\t%.3g\t%.3g" % (line, ignored_beta_value, ignored_beta_value)
+                    if runtime.betas_r_hat is not None and not is_main_detail:
+                        line = "%s\t%s\t%s" % (line, "NA", "NA")
+                    if betas_ci_lower is not None and betas_ci_upper is not None:
+                        line = "%s\t%s\t%s" % (line, "NA", "NA")
+                    if betas_p_active is not None:
+                        line = "%s\t%s" % (line, "NA")
+                    if betas_global_filtered is not None and not is_main_detail:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
                 if runtime.betas_uncorrected is not None and not basic:
                     line = "%s\t%.3g" % (line, ignored_beta_uncorrected_value / scale_factor_denom)            
-                    if runtime.betas_uncorrected_r_hat is not None:
+                    if runtime.betas_uncorrected_r_hat is not None and not is_main_detail:
                         line = "%s\t%s\t%s" % (line, "NA", "NA")
+                    if betas_uncorrected_ci_lower is not None and betas_uncorrected_ci_upper is not None:
+                        line = "%s\t%s\t%s" % (line, "NA", "NA")
+                    if betas_uncorrected_global_filtered is not None and not is_main_detail:
+                        line = "%s\t%s" % (line, "NA")
                 if not basic:
-                    if runtime.non_inf_avg_cond_betas is not None:
+                    if runtime.non_inf_avg_cond_betas is not None and not is_main_detail:
                         ignored_avg_cond_beta_value = 0
                         if getattr(runtime, "non_inf_avg_cond_betas_ignored", None) is not None:
                             ignored_avg_cond_beta_value = runtime.non_inf_avg_cond_betas_ignored[i]
@@ -1016,24 +1131,36 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                         line = "%s\t%.3g" % (line, ignored_avg_postp_value)
                     if runtime.beta_tildes_orig is not None:
                         if runtime.beta_tildes_ignored is not None:
-                            line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_ignored[i] / scale_factor_denom, runtime.beta_tildes_ignored[i], runtime.p_values_ignored[i], runtime.z_scores_ignored[i], runtime.ses_ignored[i] / scale_factor_denom)
+                            if is_main_detail:
+                                line = "%s\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_ignored[i] / scale_factor_denom, runtime.p_values_ignored[i], runtime.z_scores_ignored[i], runtime.ses_ignored[i] / scale_factor_denom)
+                            else:
+                                line = "%s\t%.3g\t%.3g\t%.3g\t%.3g\t%.3g" % (line, runtime.beta_tildes_ignored[i] / scale_factor_denom, runtime.beta_tildes_ignored[i], runtime.p_values_ignored[i], runtime.z_scores_ignored[i], runtime.ses_ignored[i] / scale_factor_denom)
                         else:
-                            line = "%s\t%s\t%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA", "NA", "NA")
-                    if inf_betas_orig is not None:
+                            if is_main_detail:
+                                line = "%s\t%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA", "NA")
+                            else:
+                                line = "%s\t%s\t%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA", "NA", "NA")
+                    if inf_betas_orig is not None and not is_main_detail:
                         line = "%s\t%.3g" % (line, 0)
                     if runtime.betas_orig is not None:
-                        line = "%s\t%.3g\t%.3g" % (line, 0, 0)
+                        if is_main_detail:
+                            line = "%s\t%.3g" % (line, 0)
+                        else:
+                            line = "%s\t%.3g\t%.3g" % (line, 0, 0)
                     if runtime.betas_uncorrected_orig is not None:
                         ignored_beta_uncorrected_orig_value = 0
                         if getattr(runtime, "betas_uncorrected_ignored_orig", None) is not None:
                             ignored_beta_uncorrected_orig_value = runtime.betas_uncorrected_ignored_orig[i]
-                        line = "%s\t%.3g\t%.3g" % (line, ignored_beta_uncorrected_orig_value / scale_factor_denom, ignored_beta_uncorrected_orig_value)
-                    if runtime.non_inf_avg_cond_betas_orig is not None:
+                        if is_main_detail:
+                            line = "%s\t%.3g" % (line, ignored_beta_uncorrected_orig_value / scale_factor_denom)
+                        else:
+                            line = "%s\t%.3g\t%.3g" % (line, ignored_beta_uncorrected_orig_value / scale_factor_denom, ignored_beta_uncorrected_orig_value)
+                    if runtime.non_inf_avg_cond_betas_orig is not None and not is_main_detail:
                         ignored_avg_cond_beta_orig_value = 0
                         if getattr(runtime, "non_inf_avg_cond_betas_ignored_orig", None) is not None:
                             ignored_avg_cond_beta_orig_value = runtime.non_inf_avg_cond_betas_ignored_orig[i]
                         line = "%s\t%.3g" % (line, ignored_avg_cond_beta_orig_value / scale_factor_denom)
-                    if runtime.non_inf_avg_postps_orig is not None:
+                    if runtime.non_inf_avg_postps_orig is not None and not is_main_detail:
                         ignored_avg_postp_orig_value = 0
                         if getattr(runtime, "non_inf_avg_postps_ignored_orig", None) is not None:
                             ignored_avg_postp_orig_value = runtime.non_inf_avg_postps_ignored_orig[i]
@@ -1049,18 +1176,18 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                         if getattr(runtime, "sigma2s_ignored", None) is not None and i < len(runtime.sigma2s_ignored):
                             ignored_sigma2 = runtime.sigma2s_ignored[i]
                         line = "%s\t%.3g" % (line, runtime.get_scaled_sigma2(scale_factor_denom, ignored_sigma2, runtime.sigma_power, None, None))
-                    if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None:
+                    if (runtime.sigma2s is not None or runtime.sigma2 is not None) and runtime.sigma_threshold_k is not None and runtime.sigma_threshold_xo is not None and not is_main_detail:
                         ignored_sigma2 = runtime.sigma2
                         if getattr(runtime, "sigma2s_ignored", None) is not None and i < len(runtime.sigma2s_ignored):
                             ignored_sigma2 = runtime.sigma2s_ignored[i]
                         line = "%s\t%.3g" % (line, runtime.get_scaled_sigma2(scale_factor_denom, ignored_sigma2, runtime.sigma_power, runtime.sigma_threshold_k, runtime.sigma_threshold_xo))
 
-                    if runtime.X_osc is not None:
+                    if runtime.X_osc is not None and not is_main_detail:
                         line = "%s\t%s\t%s\t%s" % (line, "NA", "NA", "NA")
 
-                    if runtime.total_qc_metrics is not None:
+                    if runtime.total_qc_metrics is not None and not is_main_detail:
                         line = "%s\t%s" % (line, "\t".join(map(lambda x: "%.3g" % x, runtime.total_qc_metrics_ignored[i,:])))
-                    if runtime.mean_qc_metrics is not None:
+                    if runtime.mean_qc_metrics is not None and not is_main_detail:
                         line = "%s\t%.3g" % (line, runtime.mean_qc_metrics_ignored[i])
 
                 output_fh.write("%s\n" % line)

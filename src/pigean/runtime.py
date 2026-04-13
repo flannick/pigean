@@ -92,10 +92,16 @@ def temporary_state_fields(state, overrides, restore_fields):
 
 
 @contextlib.contextmanager
-def open_optional_gibbs_trace_files(gene_set_stats_trace_out, gene_stats_trace_out, open_gz):
+def open_optional_gibbs_trace_files(
+    gene_set_stats_trace_out,
+    gene_stats_trace_out,
+    gene_prior_terms_trace_out,
+    open_gz,
+):
     with contextlib.ExitStack() as stack:
         gene_set_stats_trace_fh = None
         gene_stats_trace_fh = None
+        gene_prior_terms_trace_fh = None
         if gene_set_stats_trace_out is not None:
             gene_set_stats_trace_fh = stack.enter_context(open_gz(gene_set_stats_trace_out, "w"))
             gene_set_stats_trace_fh.write(
@@ -104,7 +110,10 @@ def open_optional_gibbs_trace_files(gene_set_stats_trace_out, gene_stats_trace_o
         if gene_stats_trace_out is not None:
             gene_stats_trace_fh = stack.enter_context(open_gz(gene_stats_trace_out, "w"))
             gene_stats_trace_fh.write("It\tChain\tGene\tprior\tcombined\tlog_bf\tD\tpercent_top\tadjust\n")
-        yield (gene_set_stats_trace_fh, gene_stats_trace_fh)
+        if gene_prior_terms_trace_out is not None:
+            gene_prior_terms_trace_fh = stack.enter_context(open_gz(gene_prior_terms_trace_out, "w"))
+            gene_prior_terms_trace_fh.write("It\tChain\tGene\tObject\tPayload\n")
+        yield (gene_set_stats_trace_fh, gene_stats_trace_fh, gene_prior_terms_trace_fh)
 
 
 def open_optional_inner_betas_trace_file(betas_trace_out, open_gz):

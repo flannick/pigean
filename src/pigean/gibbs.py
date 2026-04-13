@@ -61,6 +61,9 @@ class GibbsEpochPhaseConfig:
     num_chains: int
     num_full_gene_sets: int
     use_mean_betas: bool
+    gibbs_summary_mode: str
+    write_gibbs_global_filtered_summaries: bool
+    gene_set_p_active_threshold: float
     max_mb_X_h: int
     target_num_epochs: int
     num_mad: int
@@ -82,6 +85,7 @@ class GibbsIterationUpdateConfig:
     num_chains: int
     num_batches_parallel: int
     betas_trace_out: str | None
+    gene_prior_terms_trace_genes: list[str] | None
     update_huge_scores: bool
     compute_Y_raw: bool
     adjust_priors: bool
@@ -521,11 +525,16 @@ def _build_gibbs_record_config(
     max_num_iter,
     use_mean_betas,
     warm_start,
+    gibbs_summary_mode,
+    write_gibbs_global_filtered_summaries,
+    gene_set_p_active_threshold,
     stopping_preset_name,
     r_threshold_burn_in,
     stop_mcse_quantile,
     max_abs_mcse_d,
     max_rel_mcse_beta,
+    max_post_beta_rhat,
+    max_rel_prior_beta_inconsistency,
     sparse_solution,
     sparse_frac_gibbs,
     sparse_max_gibbs,
@@ -571,11 +580,16 @@ def _build_gibbs_record_config(
         "max_num_iter": max_num_iter,
         "use_mean_betas": use_mean_betas,
         "warm_start": warm_start,
+        "gibbs_summary_mode": gibbs_summary_mode,
+        "write_gibbs_global_filtered_summaries": write_gibbs_global_filtered_summaries,
+        "gene_set_p_active_threshold": gene_set_p_active_threshold,
         "stopping_preset_name": stopping_preset_name,
         "r_threshold_burn_in": r_threshold_burn_in,
         "stop_mcse_quantile": stop_mcse_quantile,
         "max_abs_mcse_d": max_abs_mcse_d,
         "max_rel_mcse_beta": max_rel_mcse_beta,
+        "max_post_beta_rhat": max_post_beta_rhat,
+        "max_rel_prior_beta_inconsistency": max_rel_prior_beta_inconsistency,
         "sparse_solution": sparse_solution,
         "sparse_frac_gibbs": sparse_frac_gibbs,
         "sparse_max_gibbs": sparse_max_gibbs,
@@ -604,6 +618,9 @@ def _record_gibbs_configuration_params(state, run_state, config):
             "epoch_max_num_iter": config["epoch_max_num_iter_config"],
             "use_mean_betas": config["use_mean_betas"],
             "warm_start": config["warm_start"],
+            "gibbs_summary_mode": config["gibbs_summary_mode"],
+            "write_gibbs_global_filtered_summaries": config["write_gibbs_global_filtered_summaries"],
+            "gene_set_p_active_threshold": config["gene_set_p_active_threshold"],
             "stopping_preset_name": config["stopping_preset_name"],
             "r_threshold_burn_in": config["r_threshold_burn_in"],
             "burn_in_rhat_quantile": config["burn_in_rhat_quantile"],
@@ -623,6 +640,8 @@ def _record_gibbs_configuration_params(state, run_state, config):
             "stop_min_gene_d": config["stop_min_gene_d"],
             "max_abs_mcse_d": config["max_abs_mcse_d"],
             "max_rel_mcse_beta": config["max_rel_mcse_beta"],
+            "max_post_beta_rhat": config["max_post_beta_rhat"],
+            "max_rel_prior_beta_inconsistency": config["max_rel_prior_beta_inconsistency"],
             "beta_rel_mcse_denom_floor": config["beta_rel_mcse_denom_floor"],
             "stall_window": config["stall_window"],
             "stall_min_burn_in": config["stall_min_burn_in"],
@@ -688,11 +707,13 @@ def _log_gibbs_configuration_summary(config, run_state, log_fn, info_level):
         info_level,
     )
     log_fn(
-        "Gibbs stopping thresholds: stop_q=%.3g, stop_patience=%d, max_rel_mcse_beta=%.4g, beta_rel_mcse_denom_floor=%.4g, stop_top_gene_k=%d, stop_min_gene_d=%s, max_abs_mcse_d=%.4g, diag_every=%d"
+        "Gibbs stopping thresholds: stop_q=%.3g, stop_patience=%d, max_rel_mcse_beta=%.4g, max_post_beta_rhat=%.4g, max_rel_prior_beta_inconsistency=%.4g, beta_rel_mcse_denom_floor=%.4g, stop_top_gene_k=%d, stop_min_gene_d=%s, max_abs_mcse_d=%.4g, diag_every=%d"
         % (
             config["stop_mcse_quantile"],
             config["stop_patience"],
             config["max_rel_mcse_beta"],
+            config["max_post_beta_rhat"],
+            config["max_rel_prior_beta_inconsistency"],
             config["beta_rel_mcse_denom_floor"],
             config["stop_top_gene_k"],
             ("%.4g" % config["stop_min_gene_d"]) if config["stop_min_gene_d"] is not None else "None",
@@ -732,6 +753,9 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
         num_chains=config_inputs["num_chains"],
         num_full_gene_sets=config_inputs["num_full_gene_sets"],
         use_mean_betas=config_inputs["use_mean_betas"],
+        gibbs_summary_mode=config_inputs["gibbs_summary_mode"],
+        write_gibbs_global_filtered_summaries=config_inputs["write_gibbs_global_filtered_summaries"],
+        gene_set_p_active_threshold=config_inputs["gene_set_p_active_threshold"],
         max_mb_X_h=config_inputs["max_mb_X_h"],
         target_num_epochs=config_inputs["target_num_epochs"],
         num_mad=config_inputs["num_mad"],
@@ -764,6 +788,7 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
         num_chains=config_inputs["num_chains"],
         num_batches_parallel=config_inputs["num_batches_parallel"],
         betas_trace_out=config_inputs["betas_trace_out"],
+        gene_prior_terms_trace_genes=config_inputs["gene_prior_terms_trace_genes"],
         update_huge_scores=config_inputs["update_huge_scores"],
         compute_Y_raw=config_inputs["compute_Y_raw"],
         adjust_priors=config_inputs["adjust_priors"],
@@ -803,6 +828,8 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
         "stop_min_gene_d": config_inputs["stop_min_gene_d"],
         "max_rel_mcse_beta": config_inputs["max_rel_mcse_beta"],
         "max_abs_mcse_d": config_inputs["max_abs_mcse_d"],
+        "max_post_beta_rhat": config_inputs["max_post_beta_rhat"],
+        "max_rel_prior_beta_inconsistency": config_inputs["max_rel_prior_beta_inconsistency"],
         "stop_patience": config_inputs["stop_patience"],
         "stall_window": config_inputs["stall_window"],
         "stall_min_post_burn_in": config_inputs["stall_min_post_burn_in"],
@@ -812,10 +839,12 @@ def _build_gibbs_epoch_runtime_configs(config_inputs):
         "stall_recent_eps": config_inputs["stall_recent_eps"],
         "num_full_gene_sets": config_inputs["num_full_gene_sets"],
         "burn_in_patience": config_inputs["burn_in_patience"],
+        "adjust_priors": config_inputs["adjust_priors"],
     }
     iteration_progress_config = {
         "diag_every": config_inputs["diag_every"],
         "use_mean_betas": config_inputs["use_mean_betas"],
+        "gene_prior_terms_trace_genes": config_inputs["gene_prior_terms_trace_genes"],
         "post_burn_diag_config": post_burn_diag_config,
         "burn_in_config": burn_in_config,
     }
@@ -845,6 +874,9 @@ def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
         "num_chains": gibbs_controls.num_chains,
         "num_full_gene_sets": dynamic_inputs["num_full_gene_sets"],
         "use_mean_betas": dynamic_inputs["use_mean_betas"],
+        "gibbs_summary_mode": dynamic_inputs["gibbs_summary_mode"],
+        "write_gibbs_global_filtered_summaries": dynamic_inputs["write_gibbs_global_filtered_summaries"],
+        "gene_set_p_active_threshold": dynamic_inputs["gene_set_p_active_threshold"],
         "max_mb_X_h": dynamic_inputs["max_mb_X_h"],
         "target_num_epochs": gibbs_controls.target_num_epochs,
         "num_mad": dynamic_inputs["num_mad"],
@@ -860,6 +892,7 @@ def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
         "debug_zero_sparse": dynamic_inputs["debug_zero_sparse"],
         "num_batches_parallel": dynamic_inputs["num_batches_parallel"],
         "betas_trace_out": dynamic_inputs["betas_trace_out"],
+        "gene_prior_terms_trace_genes": dynamic_inputs["gene_prior_terms_trace_genes"],
         "update_huge_scores": dynamic_inputs["update_huge_scores"],
         "compute_Y_raw": dynamic_inputs["compute_Y_raw"],
         "sparse_frac_gibbs": dynamic_inputs["sparse_frac_gibbs"],
@@ -874,6 +907,8 @@ def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
         "stop_mcse_quantile": dynamic_inputs["stop_mcse_quantile"],
         "max_rel_mcse_beta": dynamic_inputs["max_rel_mcse_beta"],
         "max_abs_mcse_d": dynamic_inputs["max_abs_mcse_d"],
+        "max_post_beta_rhat": dynamic_inputs["max_post_beta_rhat"],
+        "max_rel_prior_beta_inconsistency": dynamic_inputs["max_rel_prior_beta_inconsistency"],
         "r_threshold_burn_in": dynamic_inputs["r_threshold_burn_in"],
         "gauss_seidel": dynamic_inputs["gauss_seidel"],
         "eps": dynamic_inputs["eps"],
@@ -912,6 +947,9 @@ def _build_gibbs_epoch_runtime_config_inputs(gibbs_controls, dynamic_inputs):
 def _build_gibbs_dynamic_runtime_inputs(
     gibbs_inputs,
     use_mean_betas,
+    gibbs_summary_mode,
+    write_gibbs_global_filtered_summaries,
+    gene_set_p_active_threshold,
     max_mb_X_h,
     num_mad,
     adjust_priors,
@@ -931,6 +969,7 @@ def _build_gibbs_dynamic_runtime_inputs(
     debug_zero_sparse,
     num_batches_parallel,
     betas_trace_out,
+    gene_prior_terms_trace_genes,
     update_huge_scores,
     sparse_frac_gibbs,
     sparse_max_gibbs,
@@ -942,6 +981,8 @@ def _build_gibbs_dynamic_runtime_inputs(
     stop_mcse_quantile,
     max_rel_mcse_beta,
     max_abs_mcse_d,
+    max_post_beta_rhat,
+    max_rel_prior_beta_inconsistency,
     initial_linear_filter,
     correct_betas_mean,
     correct_betas_var,
@@ -949,6 +990,9 @@ def _build_gibbs_dynamic_runtime_inputs(
     return {
         "num_full_gene_sets": gibbs_inputs["num_full_gene_sets"],
         "use_mean_betas": use_mean_betas,
+        "gibbs_summary_mode": gibbs_summary_mode,
+        "write_gibbs_global_filtered_summaries": write_gibbs_global_filtered_summaries,
+        "gene_set_p_active_threshold": gene_set_p_active_threshold,
         "max_mb_X_h": max_mb_X_h,
         "num_mad": num_mad,
         "adjust_priors": adjust_priors,
@@ -968,6 +1012,7 @@ def _build_gibbs_dynamic_runtime_inputs(
         "debug_zero_sparse": debug_zero_sparse,
         "num_batches_parallel": num_batches_parallel,
         "betas_trace_out": betas_trace_out,
+        "gene_prior_terms_trace_genes": gene_prior_terms_trace_genes,
         "update_huge_scores": update_huge_scores,
         "compute_Y_raw": gibbs_inputs["compute_Y_raw"],
         "sparse_frac_gibbs": sparse_frac_gibbs,
@@ -980,6 +1025,8 @@ def _build_gibbs_dynamic_runtime_inputs(
         "stop_mcse_quantile": stop_mcse_quantile,
         "max_rel_mcse_beta": max_rel_mcse_beta,
         "max_abs_mcse_d": max_abs_mcse_d,
+        "max_post_beta_rhat": max_post_beta_rhat,
+        "max_rel_prior_beta_inconsistency": max_rel_prior_beta_inconsistency,
         "initial_linear_filter": initial_linear_filter,
         "correct_betas_mean": correct_betas_mean,
         "correct_betas_var": correct_betas_var,
@@ -1285,6 +1332,7 @@ def _run_started_gibbs_epoch_attempt(
     epoch_iteration_static_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     log_bf_state,
     epoch_attempt,
     callbacks,
@@ -1314,6 +1362,7 @@ def _run_started_gibbs_epoch_attempt(
         loop_config=loop_config,
         gene_set_stats_trace_fh=gene_set_stats_trace_fh,
         gene_stats_trace_fh=gene_stats_trace_fh,
+        gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
         log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
         callbacks=callbacks,
     )
@@ -1353,6 +1402,7 @@ def _run_single_gibbs_epoch_attempt(
     epoch_iteration_static_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     log_bf_state,
     callbacks,
 ):
@@ -1378,6 +1428,7 @@ def _run_single_gibbs_epoch_attempt(
         epoch_iteration_static_config=epoch_iteration_static_config,
         gene_set_stats_trace_fh=gene_set_stats_trace_fh,
         gene_stats_trace_fh=gene_stats_trace_fh,
+        gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
         log_bf_state=log_bf_state,
         epoch_attempt=epoch_attempt,
         callbacks=callbacks,
@@ -1392,6 +1443,7 @@ def _run_and_apply_gibbs_epoch_attempt(
     epoch_iteration_static_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     log_bf_state,
     callbacks,
 ):
@@ -1403,6 +1455,7 @@ def _run_and_apply_gibbs_epoch_attempt(
         epoch_iteration_static_config=epoch_iteration_static_config,
         gene_set_stats_trace_fh=gene_set_stats_trace_fh,
         gene_stats_trace_fh=gene_stats_trace_fh,
+        gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
         log_bf_state=log_bf_state,
         callbacks=callbacks,
     )
@@ -1417,6 +1470,7 @@ def _run_gibbs_epoch_phase(
     epoch_iteration_static_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     log_bf_state,
     callbacks,
 ):
@@ -1429,6 +1483,7 @@ def _run_gibbs_epoch_phase(
             epoch_iteration_static_config=epoch_iteration_static_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             gene_stats_trace_fh=gene_stats_trace_fh,
+            gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
             log_bf_state=log_bf_state,
             callbacks=callbacks,
         )
@@ -1444,14 +1499,16 @@ def _run_gibbs_epochs_with_optional_traces(
     epoch_iteration_static_config,
     gene_set_stats_trace_out,
     gene_stats_trace_out,
+    gene_prior_terms_trace_out,
     gibbs_inputs,
     callbacks,
 ):
     with open_optional_gibbs_trace_files(
         gene_set_stats_trace_out=gene_set_stats_trace_out,
         gene_stats_trace_out=gene_stats_trace_out,
+        gene_prior_terms_trace_out=gene_prior_terms_trace_out,
         open_gz=callbacks.open_gz_fn,
-    ) as (gene_set_stats_trace_fh, gene_stats_trace_fh):
+    ) as (gene_set_stats_trace_fh, gene_stats_trace_fh, gene_prior_terms_trace_fh):
         _run_gibbs_epoch_phase(
             state=state,
             run_state=run_state,
@@ -1460,6 +1517,7 @@ def _run_gibbs_epochs_with_optional_traces(
             epoch_iteration_static_config=epoch_iteration_static_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             gene_stats_trace_fh=gene_stats_trace_fh,
+            gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
             log_bf_state=_build_initial_gibbs_log_bf_state(gibbs_inputs),
             callbacks=callbacks,
         )
@@ -1484,6 +1542,9 @@ def _build_gibbs_iteration_correction_context(
     epoch_sums,
     iteration_num,
     log_bf_state,
+    trace_chain_offset,
+    gene_prior_terms_trace_fh,
+    gene_prior_terms_trace_genes,
 ):
     return {
         "state": state,
@@ -1496,6 +1557,9 @@ def _build_gibbs_iteration_correction_context(
         "epoch_sums": epoch_sums,
         "iteration_num": iteration_num,
         "log_bf_state": log_bf_state,
+        "trace_chain_offset": trace_chain_offset,
+        "gene_prior_terms_trace_fh": gene_prior_terms_trace_fh,
+        "gene_prior_terms_trace_genes": gene_prior_terms_trace_genes,
     }
 
 
@@ -1510,6 +1574,7 @@ def _build_gibbs_iteration_finalize_context(
     epoch_priors,
     epoch_runtime,
     gene_set_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     iteration_update,
     should_break,
     log_bf_state,
@@ -1525,6 +1590,7 @@ def _build_gibbs_iteration_finalize_context(
         "epoch_priors": epoch_priors,
         "epoch_runtime": epoch_runtime,
         "gene_set_stats_trace_fh": gene_set_stats_trace_fh,
+        "gene_prior_terms_trace_fh": gene_prior_terms_trace_fh,
         "iteration_update": iteration_update,
         "should_break": should_break,
         "log_bf_state": log_bf_state,
@@ -1542,6 +1608,7 @@ def _build_gibbs_iteration_progress_update_context(
     epoch_priors,
     epoch_runtime,
     gene_set_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     iteration_update,
     log_bf_state,
 ):
@@ -1556,6 +1623,7 @@ def _build_gibbs_iteration_progress_update_context(
         "epoch_priors": epoch_priors,
         "epoch_runtime": epoch_runtime,
         "gene_set_stats_trace_fh": gene_set_stats_trace_fh,
+        "gene_prior_terms_trace_fh": gene_prior_terms_trace_fh,
         "iteration_update": iteration_update,
         "log_bf_state": log_bf_state,
     }
@@ -1571,6 +1639,7 @@ def _finalize_gibbs_iteration_after_correction(finalize_context, callbacks):
     epoch_priors = finalize_context["epoch_priors"]
     epoch_runtime = finalize_context["epoch_runtime"]
     gene_set_stats_trace_fh = finalize_context["gene_set_stats_trace_fh"]
+    gene_prior_terms_trace_fh = finalize_context["gene_prior_terms_trace_fh"]
     iteration_update = finalize_context["iteration_update"]
     should_break = finalize_context["should_break"]
     log_bf_state = finalize_context["log_bf_state"]
@@ -1596,6 +1665,7 @@ def _finalize_gibbs_iteration_after_correction(finalize_context, callbacks):
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
             iteration_update=iteration_update,
             log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
         ),
@@ -1620,6 +1690,7 @@ def _run_single_gibbs_iteration(
     progress_runtime_config,
     iteration_state_config,
     gene_set_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     iteration_num,
     log_bf_state,
     callbacks,
@@ -1645,6 +1716,9 @@ def _run_single_gibbs_iteration(
             epoch_sums=epoch_sums,
             iteration_num=iteration_num,
             log_bf_state=log_bf_state,
+            trace_chain_offset=progress_runtime_config.trace_chain_offset,
+            gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
+            gene_prior_terms_trace_genes=progress_runtime_config.iteration_progress_config.get("gene_prior_terms_trace_genes"),
         ),
     )
     (log_bf_state, should_break) = _extract_gibbs_iteration_update_state(iteration_update)
@@ -1661,6 +1735,7 @@ def _run_single_gibbs_iteration(
             epoch_priors=epoch_priors,
             epoch_runtime=epoch_runtime,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
             iteration_update=iteration_update,
             should_break=should_break,
             log_bf_state=log_bf_state,
@@ -1679,6 +1754,7 @@ def _run_gibbs_epoch_iterations(
     loop_config,
     gene_set_stats_trace_fh,
     gene_stats_trace_fh,
+    gene_prior_terms_trace_fh,
     log_bf_state,
     callbacks,
 ):
@@ -1705,6 +1781,7 @@ def _run_gibbs_epoch_iterations(
             progress_runtime_config=progress_runtime_config,
             iteration_state_config=iteration_state_config,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
             iteration_num=iteration_num,
             log_bf_state=log_bf_state,
             callbacks=callbacks,
@@ -1749,6 +1826,9 @@ def run_outer_gibbs(
     max_frac_sem_betas=0.01,
     use_mean_betas=True,
     warm_start=False,
+    gibbs_summary_mode="raw_common_mask",
+    write_gibbs_global_filtered_summaries=False,
+    gene_set_p_active_threshold=0.01,
     burn_in_rhat_quantile=0.95,
     burn_in_patience=2,
     burn_in_stall_window=10,
@@ -1759,6 +1839,8 @@ def run_outer_gibbs(
     stop_min_gene_d=None,
     max_abs_mcse_d=0.05,
     max_rel_mcse_beta=0.20,
+    max_post_beta_rhat=1.25,
+    max_rel_prior_beta_inconsistency=0.50,
     active_beta_top_k=200,
     active_beta_min_abs=0.01,
     beta_rel_mcse_denom_floor=0.10,
@@ -1788,10 +1870,17 @@ def run_outer_gibbs(
     adjust_priors=True,
     gene_set_stats_trace_out=None,
     gene_stats_trace_out=None,
+    gene_prior_terms_trace_out=None,
+    gene_prior_terms_trace_genes=None,
     betas_trace_out=None,
     debug_zero_sparse=False,
     eps=0.01,
 ):
+    if (gene_prior_terms_trace_out is None) != (not gene_prior_terms_trace_genes):
+        callbacks.bail_fn(
+            "Use --gene-prior-terms-trace-out together with --gene-prior-terms-trace-genes"
+        )
+
     gibbs_controls = _normalize_gibbs_run_controls(
         max_num_iter=max_num_iter,
         total_num_iter=total_num_iter,
@@ -1830,11 +1919,16 @@ def run_outer_gibbs(
         max_num_iter=max_num_iter,
         use_mean_betas=use_mean_betas,
         warm_start=warm_start,
+        gibbs_summary_mode=gibbs_summary_mode,
+        write_gibbs_global_filtered_summaries=write_gibbs_global_filtered_summaries,
+        gene_set_p_active_threshold=gene_set_p_active_threshold,
         stopping_preset_name=stopping_preset_name,
         r_threshold_burn_in=r_threshold_burn_in,
         stop_mcse_quantile=stop_mcse_quantile,
         max_abs_mcse_d=max_abs_mcse_d,
         max_rel_mcse_beta=max_rel_mcse_beta,
+        max_post_beta_rhat=max_post_beta_rhat,
+        max_rel_prior_beta_inconsistency=max_rel_prior_beta_inconsistency,
         sparse_solution=sparse_solution,
         sparse_frac_gibbs=sparse_frac_gibbs,
         sparse_max_gibbs=sparse_max_gibbs,
@@ -1865,6 +1959,9 @@ def run_outer_gibbs(
             _build_gibbs_dynamic_runtime_inputs(
                 gibbs_inputs=gibbs_inputs,
                 use_mean_betas=use_mean_betas,
+                gibbs_summary_mode=gibbs_summary_mode,
+                write_gibbs_global_filtered_summaries=write_gibbs_global_filtered_summaries,
+                gene_set_p_active_threshold=gene_set_p_active_threshold,
                 max_mb_X_h=max_mb_X_h,
                 num_mad=num_mad,
                 adjust_priors=adjust_priors,
@@ -1884,6 +1981,7 @@ def run_outer_gibbs(
                 debug_zero_sparse=debug_zero_sparse,
                 num_batches_parallel=num_batches_parallel,
                 betas_trace_out=betas_trace_out,
+                gene_prior_terms_trace_genes=gene_prior_terms_trace_genes,
                 update_huge_scores=update_huge_scores,
                 sparse_frac_gibbs=sparse_frac_gibbs,
                 sparse_max_gibbs=sparse_max_gibbs,
@@ -1895,6 +1993,8 @@ def run_outer_gibbs(
                 stop_mcse_quantile=stop_mcse_quantile,
                 max_rel_mcse_beta=max_rel_mcse_beta,
                 max_abs_mcse_d=max_abs_mcse_d,
+                max_post_beta_rhat=max_post_beta_rhat,
+                max_rel_prior_beta_inconsistency=max_rel_prior_beta_inconsistency,
                 initial_linear_filter=initial_linear_filter,
                 correct_betas_mean=correct_betas_mean,
                 correct_betas_var=correct_betas_var,
@@ -1909,6 +2009,7 @@ def run_outer_gibbs(
         epoch_iteration_static_config=epoch_runtime_configs.epoch_iteration_static_config,
         gene_set_stats_trace_out=gene_set_stats_trace_out,
         gene_stats_trace_out=gene_stats_trace_out,
+        gene_prior_terms_trace_out=gene_prior_terms_trace_out,
         gibbs_inputs=gibbs_inputs,
         callbacks=callbacks,
     )

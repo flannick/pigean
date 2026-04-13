@@ -54,6 +54,13 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         state.betas_mcse = None
         state.betas_uncorrected_r_hat = None
         state.betas_uncorrected_mcse = None
+        state.betas_ci_lower = None
+        state.betas_ci_upper = None
+        state.betas_uncorrected_ci_lower = None
+        state.betas_uncorrected_ci_upper = None
+        state.betas_p_active = None
+        state.betas_global_filtered = None
+        state.betas_uncorrected_global_filtered = None
         state.priors_r_hat = None
         state.priors_mcse = None
         state.combined_prior_Ys_r_hat = None
@@ -113,6 +120,9 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             "stop_due_to_precision": epoch_control["stop_due_to_precision"],
             "num_mad": epoch_phase_config.num_mad,
             "adjust_priors": epoch_phase_config.adjust_priors,
+            "gibbs_summary_mode": epoch_phase_config.gibbs_summary_mode,
+            "write_gibbs_global_filtered_summaries": epoch_phase_config.write_gibbs_global_filtered_summaries,
+            "gene_set_p_active_threshold": epoch_phase_config.gene_set_p_active_threshold,
         }
 
     def finalize_gibbs_epoch_attempt(state, epoch_aggregates, epoch_sums, finalize_context):
@@ -128,6 +138,9 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         stop_due_to_precision = finalize_context["stop_due_to_precision"]
         num_mad = finalize_context["num_mad"]
         adjust_priors = finalize_context["adjust_priors"]
+        gibbs_summary_mode = finalize_context["gibbs_summary_mode"]
+        write_gibbs_global_filtered_summaries = finalize_context["write_gibbs_global_filtered_summaries"]
+        gene_set_p_active_threshold = finalize_context["gene_set_p_active_threshold"]
 
         remaining_total_iter -= iterations_run_this_epoch
         if remaining_total_iter < 0:
@@ -178,6 +191,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         )
         num_chains_effective = stacked["sum_betas_m"].shape[0]
         final_summary = legacy_module._summarize_gibbs_chain_aggregates(
+            state,
             stacked["sum_Ys_m"],
             stacked["sum_Y_raws_m"],
             stacked["sum_log_pos_m"],
@@ -201,6 +215,10 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             stacked["num_sum_beta_m"],
             num_chains_effective,
             num_mad,
+            adjust_priors,
+            gibbs_summary_mode=gibbs_summary_mode,
+            write_gibbs_global_filtered_summaries=write_gibbs_global_filtered_summaries,
+            gene_set_p_active_threshold=gene_set_p_active_threshold,
             record_param_fn=state._record_param,
             sum_priors_missing_m=stacked.get("sum_priors_missing_m") if include_missing else None,
             sum_Ds_missing_m=stacked.get("sum_Ds_missing_m") if include_missing else None,
@@ -241,6 +259,9 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         epoch_sums = correction_context["epoch_sums"]
         iteration_num = correction_context["iteration_num"]
         log_bf_state = correction_context["log_bf_state"]
+        trace_chain_offset = correction_context["trace_chain_offset"]
+        gene_prior_terms_trace_fh = correction_context["gene_prior_terms_trace_fh"]
+        gene_prior_terms_trace_genes = correction_context["gene_prior_terms_trace_genes"]
 
         (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
         restart_controls = legacy_module._build_gibbs_low_beta_restart_controls(correction_config)
@@ -251,6 +272,10 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             correction_config=correction_config,
             epoch_priors=epoch_priors,
             log_bf_state=(log_bf_m, log_bf_uncorrected_m, log_bf_raw_m),
+            iteration_num=iteration_num,
+            trace_chain_offset=trace_chain_offset,
+            gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
+            gene_prior_terms_trace_genes=gene_prior_terms_trace_genes,
         )
         full_betas_sample_m = iteration_betas_priors["full_betas_sample_m"]
         full_postp_sample_m = iteration_betas_priors["full_postp_sample_m"]
@@ -298,6 +323,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         iteration_num = progress_update_context["iteration_num"]
         iteration_update = progress_update_context["iteration_update"]
         gene_set_stats_trace_fh = progress_update_context["gene_set_stats_trace_fh"]
+        gene_prior_terms_trace_fh = progress_update_context["gene_prior_terms_trace_fh"]
         log_bf_state = progress_update_context["log_bf_state"]
         (log_bf_m, _log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
 
@@ -344,9 +370,11 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         return legacy_module._finalize_gibbs_iteration_progress(
             state=state,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
+            gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
             iteration_num=iteration_num,
             trace_chain_offset=progress_context["trace_chain_offset"],
             iter_state=iter_state,
+            epoch_priors=epoch_priors,
             full_betas_mean_m=progress_context["full_betas_mean_m"],
             full_betas_sample_m=progress_context["full_betas_sample_m"],
             full_postp_mean_m=progress_context["full_postp_mean_m"],
@@ -354,6 +382,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             R_beta_v=epoch_control["R_beta_v"],
             betas_sem2_v=post_burn_update["betas_sem2_v"],
             use_mean_betas=iteration_progress_config["use_mean_betas"],
+            gene_prior_terms_trace_genes=iteration_progress_config.get("gene_prior_terms_trace_genes"),
             epoch_control=epoch_control,
             post_burn_update=post_burn_update,
         )
