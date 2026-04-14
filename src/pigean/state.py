@@ -10700,20 +10700,30 @@ def _apply_gibbs_ignored_final_state(state):
     track_mask = np.asarray(state.gene_set_track_beta_uncorrected_ignored, dtype=bool)
     if track_mask.size == 0 or not np.any(track_mask):
         return
-    _outlier_mask_m, tracked_avg_betas_uncorrected_v = _outlier_resistant_mean(
-        state._gibbs_sum_betas_uncorrected_ignored_m,
-        state._gibbs_num_sum_beta_ignored_m,
-        10,
-        record_param_fn=state._record_param,
-    )
-    tracked_avg_postps_v = np.zeros_like(tracked_avg_betas_uncorrected_v)
-    if state._gibbs_sum_postps_ignored_m is not None:
-        _outlier_mask_postp_m, tracked_avg_postps_v = _outlier_resistant_mean(
-            state._gibbs_sum_postps_ignored_m,
+    if np.ndim(state._gibbs_sum_betas_uncorrected_ignored_m) <= 1:
+        num_sum_v = np.array(state._gibbs_num_sum_beta_ignored_m, copy=True, dtype=float)
+        num_sum_v[num_sum_v == 0] = 1
+        tracked_avg_betas_uncorrected_v = (
+            np.asarray(state._gibbs_sum_betas_uncorrected_ignored_m, dtype=float) / num_sum_v
+        )
+        tracked_avg_postps_v = np.zeros_like(tracked_avg_betas_uncorrected_v)
+        if state._gibbs_sum_postps_ignored_m is not None:
+            tracked_avg_postps_v = np.asarray(state._gibbs_sum_postps_ignored_m, dtype=float) / num_sum_v
+    else:
+        _outlier_mask_m, tracked_avg_betas_uncorrected_v = _outlier_resistant_mean(
+            state._gibbs_sum_betas_uncorrected_ignored_m,
             state._gibbs_num_sum_beta_ignored_m,
             10,
             record_param_fn=state._record_param,
         )
+        tracked_avg_postps_v = np.zeros_like(tracked_avg_betas_uncorrected_v)
+        if state._gibbs_sum_postps_ignored_m is not None:
+            _outlier_mask_postp_m, tracked_avg_postps_v = _outlier_resistant_mean(
+                state._gibbs_sum_postps_ignored_m,
+                state._gibbs_num_sum_beta_ignored_m,
+                10,
+                record_param_fn=state._record_param,
+            )
     full_betas_uncorrected = np.zeros(len(state.gene_sets_ignored))
     full_postps = np.zeros(len(state.gene_sets_ignored))
     full_cond_betas = np.zeros(len(state.gene_sets_ignored))

@@ -492,11 +492,11 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
         runtime = self._build_runtime()
         runtime.gene_sets_ignored = ["PREFILTER", "TRACKED"]
         runtime.gene_set_track_beta_uncorrected_ignored = np.array([False, True])
-        runtime._gibbs_sum_betas_uncorrected_ignored_m = np.array([[1.0], [3.0]])
-        runtime._gibbs_sum_betas_uncorrected2_ignored_m = np.array([[1.0], [9.0]])
-        runtime._gibbs_sum_postps_ignored_m = np.array([[0.25], [0.75]])
-        runtime._gibbs_sum_postps2_ignored_m = np.array([[0.0625], [0.5625]])
-        runtime._gibbs_num_sum_beta_ignored_m = np.array([[1.0], [1.0]])
+        runtime._gibbs_sum_betas_uncorrected_ignored_m = np.array([4.0])
+        runtime._gibbs_sum_betas_uncorrected2_ignored_m = np.array([10.0])
+        runtime._gibbs_sum_postps_ignored_m = np.array([1.0])
+        runtime._gibbs_sum_postps2_ignored_m = np.array([0.625])
+        runtime._gibbs_num_sum_beta_ignored_m = np.array([2.0])
 
         pigean_state_module._apply_gibbs_ignored_final_state(runtime)
 
