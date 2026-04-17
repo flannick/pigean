@@ -795,7 +795,11 @@ def extract_factor_inputs(factor_input_state):
 def resolve_factor_gene_or_pheno_filter_value(options, workflow):
     if options.anchor_gene_set:
         return options.gene_set_pheno_filter_value
-    if workflow.factor_gene_set_x_pheno:
+    if isinstance(workflow, dict):
+        factor_gene_set_x_pheno = workflow.get("factor_gene_set_x_pheno", False)
+    else:
+        factor_gene_set_x_pheno = workflow.factor_gene_set_x_pheno
+    if factor_gene_set_x_pheno:
         return options.pheno_filter_value
     return options.gene_filter_value
 
