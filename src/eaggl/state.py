@@ -4693,6 +4693,8 @@ class EagglState(object):
             return
         if X_orig is None:
             return
+        if prune_value is None:
+            return
         if prune_value > 1:
             return
         keep_mask = np.array([False] * len(gene_sets))
