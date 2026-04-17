@@ -255,19 +255,19 @@ parser.add_option("","--filter-negative",default=None,action="store_true",dest="
 parser.add_option("","--no-filter-negative",default=None,action="store_false",dest="filter_negative") #after sparsifying, remove any gene sets with negative beta tilde (under assumption that we added the "wrong" extreme)
 
 parser.add_option("","--max-num-gene-sets-initial",type=int,default=None) #ignore gene sets to reduce to this number. Uses nominal p-values. Happens before expensive operations (pruning, parameter estimation, non-inf betas)
-parser.add_option("","--max-num-gene-sets-hyper",type=int,default=5000) #use at most this number of gene sets for hyper parameter estimation (this occurs before the max-num-gene-sets operation)
-parser.add_option("","--max-num-gene-sets",type=int,default=5000) #ignore gene sets to reduce to this number. Uses pruning to find independent gene sets with highest betas. Happens afer expensive operations (pruning, parameter estimation) but before gibbs
-parser.add_option("","--max-gene-set-read-p",type=float,default=.05) #gene sets with p above this are excluded from the original beta analysis but included in gibbs
-parser.add_option("","--min-gene-set-read-beta",type=float,default=1e-20) #gene sets with beta below this are excluded from reading in the gene stats file
-parser.add_option("","--min-gene-set-read-beta-uncorrected",type=float,default=1e-20) #gene sets with beta below this are excluded from reading in the gene set stats file
+parser.add_option("","--max-num-gene-sets-hyper",type=int,default=None) #use at most this number of gene sets for hyper parameter estimation (this occurs before the max-num-gene-sets operation)
+parser.add_option("","--max-num-gene-sets",type=int,default=None) #ignore gene sets to reduce to this number. Uses pruning to find independent gene sets with highest betas. Happens afer expensive operations (pruning, parameter estimation) but before gibbs
+parser.add_option("","--max-gene-set-read-p",type=float,default=1.0) #gene sets with p above this are excluded from the original beta analysis but included in gibbs
+parser.add_option("","--min-gene-set-read-beta",type=float,default=None) #gene sets with beta below this are excluded from reading in the gene stats file
+parser.add_option("","--min-gene-set-read-beta-uncorrected",type=float,default=None) #gene sets with beta below this are excluded from reading in the gene set stats file
 parser.add_option("","--x-sparsify",type="string",action="callback",callback=get_comma_separated_args,default=[50,100,250,1000]) #applies to continuous gene sets, which are converted to dichotomous gene sets internally. For each value N, generate a new dichotomous gene set with the most N extreme genes (see next three options)
 parser.add_option("","--add-ext",default=False,action="store_true") #add the top and bottom extremes as a gene set
 parser.add_option("","--no-add-top",default=True,action="store_false",dest="add_top") #add the top extremes as a gene set
 parser.add_option("","--no-add-bottom",default=True,action="store_false",dest="add_bottom") #add the bottom extremes as a gene set
 
-parser.add_option("","--threshold-weights",type='float',default=0.5) #weights below this fraction of top weight are set to 0
+parser.add_option("","--threshold-weights",type='float',default=0.0) #weights below this fraction of top weight are set to 0
 parser.add_option("","--no-cap-weights",default=True,action="store_false",dest="cap_weights") #after normalizing weights by dividing by average, don't set those above 1 to have value 1
-parser.add_option("","--max-gene-set-size",type=int,default=30000) #maximum number of genes in a gene set to consider
+parser.add_option("","--max-gene-set-size",type=int,default=2147483647) #maximum number of genes in a gene set to consider
 parser.add_option("","--add-all-genes",default=False,action="store_true") #add all genes from any gene set to the model, as opposed to just genes in the input --gwas-in or --exomes-in etc. Recommended to not normally use, since gene sets often are contaminated with genes that will bias toward significant associations. However, if you are passing in gene-values for only a small number of genes, and implicitly assuming that the remaining genes are zero, this can be used as a convenience feature rather than adding 0s for the desired genes
 parser.add_option("","--prune-gene-sets",type=float,default=None) #gene sets with correlation above this threshold with any other gene set are removed (smallest gene set in correlation is retained)
 parser.add_option("","--weighted-prune-gene-sets",type=float,default=None) #gene sets with correlation (weighted by Y) above this threshold with any other gene set are removed (smallest gene set in correlation is retained)
@@ -1473,18 +1473,18 @@ def _bootstrap_cli(argv=None):
     parsed_options.p_noninf = parsed_options.p_noninf if parsed_options.p_noninf is not None else [0.001]
     parsed_options.sigma_power = parsed_options.sigma_power if parsed_options.sigma_power is not None else -2
     parsed_options.update_hyper = parsed_options.update_hyper if parsed_options.update_hyper is not None else "p"
-    parsed_options.filter_negative = parsed_options.filter_negative if parsed_options.filter_negative is not None else True
+    parsed_options.filter_negative = parsed_options.filter_negative if parsed_options.filter_negative is not None else False
     if parsed_options.prune_gene_sets is None:
-        parsed_options.prune_gene_sets = 0.5 if parsed_run_factor and parsed_factor_gene_set_x_pheno else 0.8
+        parsed_options.prune_gene_sets = None
     if parsed_options.weighted_prune_gene_sets is None:
-        parsed_options.weighted_prune_gene_sets = 0.5 if parsed_run_factor and parsed_factor_gene_set_x_pheno else 0.8
+        parsed_options.weighted_prune_gene_sets = None
 
     parsed_options.top_gene_set_prior = parsed_options.top_gene_set_prior if parsed_options.top_gene_set_prior is not None else 0.8
     parsed_options.num_gene_sets_for_prior = parsed_options.num_gene_sets_for_prior if parsed_options.num_gene_sets_for_prior is not None else 50
     parsed_options.filter_gene_set_p = parsed_options.filter_gene_set_p if parsed_options.filter_gene_set_p is not None else 0.01
     parsed_options.linear = parsed_options.linear if parsed_options.linear is not None else False
     parsed_options.max_for_linear = parsed_options.max_for_linear if parsed_options.max_for_linear is not None else 0.95
-    parsed_options.min_gene_set_size = parsed_options.min_gene_set_size if parsed_options.min_gene_set_size is not None else 10
+    parsed_options.min_gene_set_size = parsed_options.min_gene_set_size if parsed_options.min_gene_set_size is not None else 1
     if parsed_run_factor and parsed_factor_gene_set_x_pheno and parsed_options.add_gene_sets_by_enrichment_p is not None:
         parsed_options.filter_gene_set_p = parsed_options.add_gene_sets_by_enrichment_p
     parsed_options.sparse_frac_betas = parsed_options.sparse_frac_betas if parsed_options.sparse_frac_betas is not None else 0.001

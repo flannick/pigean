@@ -264,6 +264,18 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
 
     gene_set_ids = None
     factor_uses_phewas_gene_set_ids = workflow_id in set(["F4", "F5", "F6", "F7", "F8"])
+    gene_set_read_p_threshold = None
+    if options.max_gene_set_read_p is not None and options.max_gene_set_read_p < 1:
+        gene_set_read_p_threshold = options.max_gene_set_read_p
+    gene_set_read_beta_uncorrected_threshold = options.min_gene_set_read_beta_uncorrected
+    if options.gene_set_filter_value is not None:
+        if gene_set_read_beta_uncorrected_threshold is None:
+            gene_set_read_beta_uncorrected_threshold = options.gene_set_filter_value
+        else:
+            gene_set_read_beta_uncorrected_threshold = max(
+                gene_set_read_beta_uncorrected_threshold,
+                options.gene_set_filter_value,
+            )
     if factor_uses_phewas_gene_set_ids:
         if options.gene_set_phewas_stats_in is None:
             domain.bail("Need --gene-set-phewas-stats-in")
@@ -275,7 +287,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             stats_beta_col=options.gene_set_phewas_stats_beta_col,
             stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col,
             min_gene_set_beta=options.min_gene_set_read_beta,
-            min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
+            min_gene_set_beta_uncorrected=gene_set_read_beta_uncorrected_threshold,
             return_only_ids=True,
             phenos_to_match=options.anchor_phenos,
             max_num_entries_at_once=options.max_read_entries_at_once,
@@ -292,9 +304,9 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             stats_beta_col=options.gene_set_stats_beta_col,
             stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
             ignore_negative_exp_beta=options.ignore_negative_exp_beta,
-            max_gene_set_p=options.max_gene_set_read_p,
-            min_gene_set_beta=options.min_gene_set_read_beta,
-            min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
+            max_gene_set_p=gene_set_read_p_threshold,
+            min_gene_set_beta=None,
+            min_gene_set_beta_uncorrected=gene_set_read_beta_uncorrected_threshold,
             return_only_ids=True,
         )
 
@@ -357,6 +369,18 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             gene_covs_in=options.gene_covs_in,
             hold_out_chrom=options.hold_out_chrom,
         )
+        gene_read_threshold = None
+        if not mode_state["factor_gene_set_x_pheno"]:
+            gene_read_threshold = resolve_factor_gene_or_pheno_filter_value(options, current_workflow)
+        if gene_read_threshold is not None and runtime.combined_prior_Ys is not None:
+            gene_keep_mask = runtime.combined_prior_Ys > gene_read_threshold
+            if np.sum(~gene_keep_mask) > 0:
+                domain.log(
+                    "Subsetting to %d genes passing combined > %.3g before factorization"
+                    % (int(np.sum(gene_keep_mask)), float(gene_read_threshold)),
+                    domain.INFO,
+                )
+                runtime._subset_genes(gene_keep_mask, skip_V=True, skip_scale_factors=True)
 
     if workflow_id != "F2" and options.gene_set_stats_in is not None:
         domain._read_gene_set_statistics(
@@ -370,9 +394,9 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             stats_beta_col=options.gene_set_stats_beta_col,
             stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
             ignore_negative_exp_beta=options.ignore_negative_exp_beta,
-            max_gene_set_p=options.max_gene_set_read_p,
-            min_gene_set_beta=options.min_gene_set_read_beta,
-            min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
+            max_gene_set_p=gene_set_read_p_threshold,
+            min_gene_set_beta=None,
+            min_gene_set_beta_uncorrected=gene_set_read_beta_uncorrected_threshold,
         )
 
     factor_input_state = FactorInputs()

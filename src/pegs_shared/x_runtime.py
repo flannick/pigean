@@ -429,18 +429,20 @@ def apply_post_read_gene_set_size_and_qc_filters(
         return
 
     col_sums = runtime.get_col_sums(runtime.X_orig, num_nonzero=True)
-    size_ignore = col_sums < min_gene_set_size
-    if np.sum(size_ignore) > 0:
-        size_mask = ~size_ignore
-        log_fn("Ignoring %d gene sets due to too few genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
-        runtime.subset_gene_sets(size_mask, keep_missing=False, ignore_missing=True, skip_V=True, filter_reason="min_gene_set_size")
+    if min_gene_set_size is not None:
+        size_ignore = col_sums < min_gene_set_size
+        if np.sum(size_ignore) > 0:
+            size_mask = ~size_ignore
+            log_fn("Ignoring %d gene sets due to too few genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
+            runtime.subset_gene_sets(size_mask, keep_missing=False, ignore_missing=True, skip_V=True, filter_reason="min_gene_set_size")
 
     col_sums = runtime.get_col_sums(runtime.X_orig, num_nonzero=True)
-    size_ignore = col_sums > max_gene_set_size
-    if np.sum(size_ignore) > 0:
-        size_mask = ~size_ignore
-        log_fn("Ignoring %d gene sets due to too many genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
-        runtime.subset_gene_sets(size_mask, keep_missing=False, ignore_missing=True, skip_V=True, filter_reason="max_gene_set_size")
+    if max_gene_set_size is not None:
+        size_ignore = col_sums > max_gene_set_size
+        if np.sum(size_ignore) > 0:
+            size_mask = ~size_ignore
+            log_fn("Ignoring %d gene sets due to too many genes (kept %d)" % (np.sum(size_ignore), np.sum(size_mask)))
+            runtime.subset_gene_sets(size_mask, keep_missing=False, ignore_missing=True, skip_V=True, filter_reason="max_gene_set_size")
 
     if runtime.total_qc_metrics is not None and is_metric_qc_filter_active(filter_gene_set_metric_z):
         filter_mask = np.abs(runtime.mean_qc_metrics) < filter_gene_set_metric_z
