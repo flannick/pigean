@@ -344,6 +344,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
         max_num_gene_sets_hyper=options.max_num_gene_sets_hyper,
         skip_betas=True,
         batch_separator=options.batch_separator,
+        x_list_unlabeled_batching=options.x_list_unlabeled_batching,
         ignore_genes=options.ignore_genes,
         file_separator=options.file_separator,
         show_progress=not options.hide_progress,

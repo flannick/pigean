@@ -105,12 +105,17 @@ def _append_inputs_from_list_files(
     initial_ps=None,
     xin_to_p_noninf_ind=None,
     batch_separator="@",
+    unlabeled_batching="per_file",
+    warn_fn=None,
 ):
     if list_specs is None:
         return
 
     if type(list_specs) == str:
         list_specs = [list_specs]
+
+    if unlabeled_batching not in set(["per_file", "shared"]):
+        raise ValueError("Unknown unlabeled list batching mode '%s'" % unlabeled_batching)
 
     for list_spec in list_specs:
         original_list_spec = list_spec
@@ -132,6 +137,7 @@ def _append_inputs_from_list_files(
             continue
 
         list_dir = os.path.dirname(os.path.abspath(list_spec))
+        warned_unlabeled = False
         with list_open_fn(list_spec) as list_fh:
             for raw_line in list_fh:
                 line = strip_fn(raw_line)
@@ -151,7 +157,21 @@ def _append_inputs_from_list_files(
                 if initial_ps is not None:
                     assert(list_spec in xin_to_p_noninf_ind)
                     initial_ps.append(xin_to_p_noninf_ind[list_spec])
-                dest_orig_files.append(list_spec)
+                if batch is None and batch_separator not in line:
+                    if warn_fn is not None and not warned_unlabeled:
+                        warn_fn(
+                            "Unlabeled entries from --X-list file %s have no explicit batch; default batching mode is '%s'. "
+                            "Use @BATCH on list entries or set --x-list-unlabeled-batching explicitly to avoid surprises."
+                            % (list_spec, unlabeled_batching)
+                        )
+                        warned_unlabeled = True
+                    if unlabeled_batching == "shared":
+                        dest_orig_files.append(list_spec)
+                    else:
+                        path_for_orig_file, _tag = remove_tag_from_input(line)
+                        dest_orig_files.append(path_for_orig_file)
+                else:
+                    dest_orig_files.append(list_spec)
 
 
 def prepare_read_x_inputs(
@@ -166,6 +186,8 @@ def prepare_read_x_inputs(
     *,
     sparse_list_open_fn,
     dense_list_open_fn,
+    x_list_unlabeled_batching="per_file",
+    warn_fn=None,
 ):
     initial_ps = None
     if initial_p is not None:
@@ -187,6 +209,8 @@ def prepare_read_x_inputs(
         initial_ps=initial_ps,
         xin_to_p_noninf_ind=xin_to_p_noninf_ind,
         batch_separator=batch_separator,
+        unlabeled_batching=x_list_unlabeled_batching,
+        warn_fn=warn_fn,
     )
     X_ins, batches, labels, orig_files = _expand_x_inputs(
         X_ins,
@@ -209,6 +233,8 @@ def prepare_read_x_inputs(
         initial_ps=initial_ps,
         xin_to_p_noninf_ind=xin_to_p_noninf_ind,
         batch_separator=batch_separator,
+        unlabeled_batching=x_list_unlabeled_batching,
+        warn_fn=warn_fn,
     )
     Xd_ins, batches2, labels2, orig_dfiles = _expand_x_inputs(
         Xd_ins,

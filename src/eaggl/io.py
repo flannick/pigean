@@ -128,6 +128,8 @@ def read_x_pipeline(domain, runtime, read_x_pipeline_config):
         file_separator=read_x_pipeline_config.file_separator,
         sparse_list_open_fn=domain.open_gz,
         dense_list_open_fn=open,
+        x_list_unlabeled_batching=read_x_pipeline_config.x_list_unlabeled_batching,
+        warn_fn=domain.warn,
     )
     xdata_seed = xdata_from_input_plan(x_input_plan)
 

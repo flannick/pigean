@@ -569,6 +569,7 @@ class ReadXPipelineConfig:
     sigma_num_devs_to_top: float = 2.0
     p_noninf_inflate: float = 1
     batch_separator: str = "@"
+    x_list_unlabeled_batching: str = "per_file"
     ignore_genes: set[str] = field(default_factory=lambda: set(["NA"]))
     file_separator: str | None = None
     max_num_burn_in: int | None = None

@@ -114,6 +114,7 @@ def run_main_adaptive_read_x(
             sigma_num_devs_to_top=options.sigma_num_devs_to_top,
             p_noninf_inflate=options.p_noninf_inflate,
             batch_separator=options.batch_separator,
+            x_list_unlabeled_batching=options.x_list_unlabeled_batching,
             ignore_genes=options.ignore_genes,
             file_separator=options.file_separator,
             max_num_burn_in=options.max_num_burn_in,
@@ -238,6 +239,8 @@ def read_x_pipeline(
         file_separator=read_x_pipeline_config.file_separator,
         sparse_list_open_fn=open_gz_fn,
         dense_list_open_fn=open_dense_fn,
+        x_list_unlabeled_batching=read_x_pipeline_config.x_list_unlabeled_batching,
+        warn_fn=warn_fn,
     )
     xdata_seed = pegs_xdata_from_input_plan(x_input_plan)
 

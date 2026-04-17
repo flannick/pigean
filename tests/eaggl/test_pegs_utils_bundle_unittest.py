@@ -2011,6 +2011,80 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(plan.labels, ["tagA", "tagA"])
         self.assertEqual(plan.is_dense, [False, False])
 
+    def test_prepare_read_x_inputs_x_list_unlabeled_batching_per_file_warns_and_separates_batches(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            sparse_list = root / "x_list.txt"
+            file_a = root / "a.tsv"
+            file_b = root / "b.tsv"
+            file_a.write_text("SET1 GENE1\n", encoding="utf-8")
+            file_b.write_text("SET2 GENE2\n", encoding="utf-8")
+            sparse_list.write_text("a.tsv\nb.tsv\n", encoding="utf-8")
+
+            warnings = []
+            plan = pegs_utils.prepare_read_x_inputs(
+                X_in=None,
+                X_list=[str(sparse_list)],
+                Xd_in=None,
+                Xd_list=None,
+                initial_p=None,
+                xin_to_p_noninf_ind=None,
+                batch_separator="@",
+                file_separator=None,
+                sparse_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                dense_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                x_list_unlabeled_batching="per_file",
+                warn_fn=warnings.append,
+            )
+
+            assigned_batches = pegs_utils.assign_default_batches(
+                batches=plan.batches,
+                orig_files=plan.orig_files,
+                batch_all_for_hyper=False,
+                first_for_hyper=False,
+            )
+            self.assertEqual(len(set(assigned_batches)), 2)
+            self.assertEqual(plan.orig_files, [str(file_a), str(file_b)])
+            self.assertEqual(len(warnings), 1)
+            self.assertIn("default batching mode is 'per_file'", warnings[0])
+
+    def test_prepare_read_x_inputs_x_list_unlabeled_batching_shared_groups_batches(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            sparse_list = root / "x_list.txt"
+            file_a = root / "a.tsv"
+            file_b = root / "b.tsv"
+            file_a.write_text("SET1 GENE1\n", encoding="utf-8")
+            file_b.write_text("SET2 GENE2\n", encoding="utf-8")
+            sparse_list.write_text("a.tsv\nb.tsv\n", encoding="utf-8")
+
+            warnings = []
+            plan = pegs_utils.prepare_read_x_inputs(
+                X_in=None,
+                X_list=[str(sparse_list)],
+                Xd_in=None,
+                Xd_list=None,
+                initial_p=None,
+                xin_to_p_noninf_ind=None,
+                batch_separator="@",
+                file_separator=None,
+                sparse_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                dense_list_open_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                x_list_unlabeled_batching="shared",
+                warn_fn=warnings.append,
+            )
+
+            assigned_batches = pegs_utils.assign_default_batches(
+                batches=plan.batches,
+                orig_files=plan.orig_files,
+                batch_all_for_hyper=False,
+                first_for_hyper=False,
+            )
+            self.assertEqual(len(set(assigned_batches)), 1)
+            self.assertEqual(plan.orig_files, [str(sparse_list), str(sparse_list)])
+            self.assertEqual(len(warnings), 1)
+            self.assertIn("default batching mode is 'shared'", warnings[0])
+
     def test_prepare_read_x_inputs_treats_gmt_passed_to_x_list_as_direct_sparse_input(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

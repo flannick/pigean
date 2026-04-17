@@ -95,6 +95,7 @@ parser.add_option("","--Xd-list",action="append",default=None)
 parser.add_option("","--ignore-genes",action='append',default=["NA"]) #gene names to ignore
 parser.add_option("","--batch-separator",default="@") #separator for batches
 parser.add_option("","--file-separator",default=None) #separator for multiple files
+parser.add_option("","--x-list-unlabeled-batching",default="per_file") #for unlabeled entries from --X-list/--Xd-list, default batches are either per_file or shared
 
 #model parameters
 parser.add_option("","--p-noninf",type=float,default=None,action='append') #initial parameter for p
