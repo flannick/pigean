@@ -413,6 +413,7 @@ def _read_x_pipeline(runtime, read_x_pipeline_config):
         read_x_pipeline_config,
         open_gz_fn=open_gz,
         open_dense_fn=open,
+        warn_fn=warn,
         log_fn=log,
         info_level=INFO,
         debug_level=DEBUG,

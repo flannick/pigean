@@ -179,6 +179,7 @@ def read_x_pipeline(
     *,
     open_gz_fn,
     open_dense_fn,
+    warn_fn,
     log_fn,
     info_level,
     debug_level,
