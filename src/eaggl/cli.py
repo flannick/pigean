@@ -258,6 +258,7 @@ parser.add_option("","--no-filter-negative",default=None,action="store_false",de
 parser.add_option("","--max-num-gene-sets-initial",type=int,default=None) #ignore gene sets to reduce to this number. Uses nominal p-values. Happens before expensive operations (pruning, parameter estimation, non-inf betas)
 parser.add_option("","--max-num-gene-sets-hyper",type=int,default=None) #use at most this number of gene sets for hyper parameter estimation (this occurs before the max-num-gene-sets operation)
 parser.add_option("","--max-num-gene-sets",type=int,default=None) #ignore gene sets to reduce to this number. Uses pruning to find independent gene sets with highest betas. Happens afer expensive operations (pruning, parameter estimation) but before gibbs
+parser.add_option("","--max-num-discovery-gene-sets",type=int,default=None) #during EAGGL factorization, cap the number of representative discovery gene sets used to learn W
 parser.add_option("","--max-gene-set-read-p",type=float,default=1.0) #gene sets with p above this are excluded from the original beta analysis but included in gibbs
 parser.add_option("","--min-gene-set-read-beta",type=float,default=None) #gene sets with beta below this are excluded from reading in the gene stats file
 parser.add_option("","--min-gene-set-read-beta-uncorrected",type=float,default=None) #gene sets with beta below this are excluded from reading in the gene set stats file
@@ -394,6 +395,9 @@ parser.add_option("","--factor-prune-genes-num",type='int',default=None) #when r
 parser.add_option("","--factor-prune-genes-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce genes by pruning those more correlated than this value. Genes will be sorted by average probability across phenotypes
 parser.add_option("","--factor-prune-gene-sets-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by including only this many (add an independent set). Gene sets will be sorted by maximum association across phenotypes
 parser.add_option("","--factor-prune-gene-sets-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by pruning those more correlated than this value. Gene sets will be sorted by maximum assoication across phenotypes
+parser.add_option("","--no-auto-discovery-subset",action="store_true",default=False) #during EAGGL factorization, use all retained gene sets rather than only family leaders for discovery
+parser.add_option("","--no-discovery-redundancy-weighting",action="store_true",default=False) #during EAGGL factorization, disable redundancy-balanced discovery weights
+parser.add_option("","--discovery-redundancy-threshold",type="float",default=0.5) #similarity threshold used to assign retained gene sets to discovery families
 
 
 parser.add_option("","--add-gene-sets-by-enrichment-p",type='float',default=None) #when running multiple gene anchoring, add in gene sets that pass the enrichment filters. Filter according to p-value
@@ -1421,6 +1425,10 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-prune-gene-sets-num must be at least 1")
         if parsed_options.learn_phi_max_num_iterations is not None and parsed_options.learn_phi_max_num_iterations < 1:
             bail("--learn-phi-max-num-iterations must be at least 1")
+    if parsed_options.max_num_discovery_gene_sets is not None and parsed_options.max_num_discovery_gene_sets < 1:
+        bail("--max-num-discovery-gene-sets must be at least 1")
+    if not (0 <= parsed_options.discovery_redundancy_threshold <= 1):
+        bail("--discovery-redundancy-threshold must be in [0, 1]")
 
     if len(parsed_args) < 1:
         bail(usage)

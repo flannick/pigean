@@ -642,9 +642,13 @@ class FactorModelState:
     factor_anchor_top_gene_sets: object | None = None
     factor_anchor_top_genes: object | None = None
     factor_anchor_top_phenos: object | None = None
-    gene_factor_gene_mask: object | None = None
-    gene_set_factor_gene_set_mask: object | None = None
-    pheno_factor_pheno_mask: object | None = None
+    gene_in_discovery_mask: object | None = None
+    gene_set_in_discovery_mask: object | None = None
+    pheno_in_discovery_mask: object | None = None
+    gene_set_discovery_family_id: object | None = None
+    gene_set_discovery_representative_mask: object | None = None
+    gene_set_discovery_family_size: object | None = None
+    gene_set_discovery_weight: object | None = None
     exp_gene_factors: object | None = None
     gene_prob_factor_vector: object | None = None
     exp_gene_set_factors: object | None = None
@@ -1047,9 +1051,13 @@ class EagglState(object):
         self.factor_anchor_top_phenos = None
 
         #masks used to select inputs to the factoring
-        self.gene_factor_gene_mask = None
-        self.gene_set_factor_gene_set_mask = None
-        self.pheno_factor_pheno_mask = None  #only used in factor pheno mode or factor phewas mode
+        self.gene_in_discovery_mask = None
+        self.gene_set_in_discovery_mask = None
+        self.pheno_in_discovery_mask = None  #only used in factor pheno mode or factor phewas mode
+        self.gene_set_discovery_family_id = None
+        self.gene_set_discovery_representative_mask = None
+        self.gene_set_discovery_family_size = None
+        self.gene_set_discovery_weight = None
 
         self.exp_gene_factors = None #anchor-agnostic factor loadings
         self.gene_prob_factor_vector = None #outer product of this with factor loadings gives anchor specific loadings
@@ -1595,7 +1603,10 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_threshold=0.5, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
+        if max_num_discovery_gene_sets is None and max_num_gene_sets is not None:
+            warn("max_num_gene_sets is deprecated for factor-stage discovery; mapping it to max_num_discovery_gene_sets")
+            max_num_discovery_gene_sets = max_num_gene_sets
         blockwise_gene_set_block_size = blockwise_gene_set_block_size if blockwise_gene_set_block_size is not None else (online_block_size if online_block_size is not None else 5000)
         blockwise_epochs = blockwise_epochs if blockwise_epochs is not None else online_epochs
         blockwise_shuffle_blocks = blockwise_shuffle_blocks if blockwise_shuffle_blocks is not None else online_shuffle_blocks
@@ -1631,6 +1642,7 @@ class EagglState(object):
             "learn_phi_report_out": learn_phi_report_out,
             "factor_phi_metrics_out": factor_phi_metrics_out,
             "max_num_gene_sets": max_num_gene_sets,
+            "max_num_discovery_gene_sets": max_num_discovery_gene_sets,
             "gene_set_budget_mode": gene_set_budget_mode,
             "learn_phi_gene_set_budget_mode": learn_phi_gene_set_budget_mode,
             "factor_backend": factor_backend,
@@ -1663,6 +1675,9 @@ class EagglState(object):
             "gene_prune_number": gene_prune_number,
             "gene_set_prune_value": gene_set_prune_value,
             "gene_set_prune_number": gene_set_prune_number,
+            "auto_discovery_subset": auto_discovery_subset,
+            "discovery_redundancy_weighting": discovery_redundancy_weighting,
+            "discovery_redundancy_threshold": discovery_redundancy_threshold,
             "anchor_pheno_mask": anchor_pheno_mask,
             "anchor_gene_mask": anchor_gene_mask,
             "anchor_any_pheno": anchor_any_pheno,
@@ -2454,7 +2469,14 @@ class EagglState(object):
                 if anchors is not None:
                     header = "%s\t%s" % (header, "relevance")
 
-                header = "%s\t%s" % (header, "used_to_factor")
+                header = "%s\t%s" % (header, "in_discovery")
+                header = "%s\t%s\t%s\t%s\t%s" % (
+                    header,
+                    "discovery_family_id",
+                    "discovery_representative",
+                    "discovery_family_size",
+                    "discovery_weight",
+                )
 
                 if anchors is not None:
                     header = "%s\t%s" % (header, "anchor")
@@ -2505,8 +2527,19 @@ class EagglState(object):
                             
                             line = "%s\t%.3g" % (line, self.gene_set_prob_factor_vector[i,j])
 
-                        used_to_factor = self.gene_set_factor_gene_set_mask[i] if self.gene_set_factor_gene_set_mask is not None else False
-                        line = "%s\t%s" % (line, used_to_factor)
+                        in_discovery = self.gene_set_in_discovery_mask[i] if self.gene_set_in_discovery_mask is not None else False
+                        discovery_family_id = self.gene_set_discovery_family_id[i] if self.gene_set_discovery_family_id is not None else "NA"
+                        discovery_representative = self.gene_set_discovery_representative_mask[i] if self.gene_set_discovery_representative_mask is not None else False
+                        discovery_family_size = self.gene_set_discovery_family_size[i] if self.gene_set_discovery_family_size is not None else "NA"
+                        discovery_weight = self.gene_set_discovery_weight[i] if self.gene_set_discovery_weight is not None else "NA"
+                        line = "%s\t%s\t%s\t%s\t%s\t%s" % (
+                            line,
+                            in_discovery,
+                            discovery_family_id,
+                            discovery_representative,
+                            discovery_family_size,
+                            discovery_weight,
+                        )
 
                         multiplier = 1
                         if anchors is not None:
@@ -2552,7 +2585,7 @@ class EagglState(object):
                     header = "%s\t%s" % (header, "relevance")                    
                     header = "%s\t%s" % (header, "anchor")
 
-                header = "%s\t%s" % (header, "used_to_factor")
+                header = "%s\t%s" % (header, "in_discovery")
                 if gene_anchors:
                     header = "%s\t%s" % (header, "is_anchor")                    
 
@@ -2594,8 +2627,8 @@ class EagglState(object):
                             line = "%s\t%s" % (line, anchors[j])
                             multiplier = self.gene_prob_factor_vector[orig_i,j]
 
-                        used_to_factor = self.gene_factor_gene_mask[i] if self.gene_factor_gene_mask is not None else False
-                        line = "%s\t%s" % (line, used_to_factor)
+                        in_discovery = self.gene_in_discovery_mask[i] if self.gene_in_discovery_mask is not None else False
+                        line = "%s\t%s" % (line, in_discovery)
 
                         if gene_anchors:
                             line = "%s\t%s" % (line, anchor_mask[i])
@@ -2662,7 +2695,7 @@ class EagglState(object):
                     header = "%s\t%s" % (header, "relevance")                    
                     header = "%s\t%s" % (header, "anchor")
 
-                header = "%s\t%s" % (header, "used_to_factor")
+                header = "%s\t%s" % (header, "in_discovery")
 
                 if pheno_anchors:
                     header = "%s\t%s" % (header, "is_anchor")
@@ -2713,8 +2746,8 @@ class EagglState(object):
                             line = "%s\t%s" % (line, anchors[j])
                             multiplier = self.pheno_prob_factor_vector[orig_i,j]
 
-                        used_to_factor = self.pheno_factor_pheno_mask[i] if self.pheno_factor_pheno_mask is not None else False
-                        line = "%s\t%s" % (line, used_to_factor)
+                        in_discovery = self.pheno_in_discovery_mask[i] if self.pheno_in_discovery_mask is not None else False
+                        line = "%s\t%s" % (line, in_discovery)
                         if pheno_anchors:
                             line = "%s\t%s" % (line, anchor_mask[i])
 
@@ -4640,8 +4673,8 @@ class EagglState(object):
             if self.gene_pheno_priors is not None:
                 self.gene_pheno_priors = self.gene_pheno_priors[[index_map_rev[x] for x in range(self.gene_pheno_priors.shape[0])],:]
 
-        if self.gene_factor_gene_mask is not None:
-            self.gene_factor_gene_mask = self.gene_factor_gene_mask[[index_map_rev[x] for x in range(self.gene_pheno_combined_prior_Ys.shape[0])]]
+        if self.gene_in_discovery_mask is not None:
+            self.gene_in_discovery_mask = self.gene_in_discovery_mask[[index_map_rev[x] for x in range(self.gene_pheno_combined_prior_Ys.shape[0])]]
 
         if self.gene_prob_factor_vector is not None:
             self.gene_prob_factor_vector = self.gene_prob_factor_vector[[index_map_rev[x] for x in range(self.gene_prob_factor_vector.shape[0])]]
@@ -4881,8 +4914,8 @@ class EagglState(object):
 
         if self.exp_gene_factors is not None:
             self.exp_gene_factors = self.exp_gene_factors[gene_mask,:]
-        if self.gene_factor_gene_mask is not None:
-            self.gene_factor_gene_mask = self.gene_factor_gene_mask[gene_mask,:]
+        if self.gene_in_discovery_mask is not None:
+            self.gene_in_discovery_mask = self.gene_in_discovery_mask[gene_mask]
 
         if not skip_Y:
             if self.Y is not None:
@@ -5126,8 +5159,16 @@ class EagglState(object):
 
         if self.exp_gene_set_factors is not None:
             self.exp_gene_set_factors = self.exp_gene_set_factors[subset_mask,:]
-        if self.gene_set_factor_gene_set_mask is not None:
-            self.gene_set_factor_gene_set_mask = self.gene_set_factor_gene_set_mask[subset_mask]
+        if self.gene_set_in_discovery_mask is not None:
+            self.gene_set_in_discovery_mask = self.gene_set_in_discovery_mask[subset_mask]
+        if self.gene_set_discovery_family_id is not None:
+            self.gene_set_discovery_family_id = self.gene_set_discovery_family_id[subset_mask]
+        if self.gene_set_discovery_representative_mask is not None:
+            self.gene_set_discovery_representative_mask = self.gene_set_discovery_representative_mask[subset_mask]
+        if self.gene_set_discovery_family_size is not None:
+            self.gene_set_discovery_family_size = self.gene_set_discovery_family_size[subset_mask]
+        if self.gene_set_discovery_weight is not None:
+            self.gene_set_discovery_weight = self.gene_set_discovery_weight[subset_mask]
 
 
         if self.beta_tildes is not None:

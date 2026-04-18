@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `237`
+- Total options: `242`
 - `method_required`: `16`
-- `method_optional`: `133`
+- `method_optional`: `138`
 - `engineering`: `71`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `197`
+- visibility `expert`: `202`
 - visibility `hidden`: `8`
 - visibility `normal`: `32`
 
@@ -61,6 +61,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--discovery-redundancy-threshold` | `expert` | `yes` | `expert_help` | `discovery_redundancy_threshold` | `0.5` | - |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
 | `--factor-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_clusters_in` | `None` | load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors |
 | `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only phenotype capture from the gene-set factor basis |
@@ -119,31 +120,34 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--lmm-provider` | `expert` | `yes` | `advanced_workflows` | `lmm_provider` | `openai` | choose the LLM provider used for optional labeling |
 | `--max-for-linear` | `expert` | `yes` | `expert_help` | `max_for_linear` | `None` | - |
 | `--max-frac-sem-betas` | `expert` | `yes` | `expert_help` | `max_frac_sem_betas` | `0.01` | - |
-| `--max-gene-set-read-p` | `expert` | `yes` | `expert_help` | `max_gene_set_read_p` | `0.05` | - |
-| `--max-gene-set-size` | `expert` | `yes` | `expert_help` | `max_gene_set_size` | `30000` | - |
+| `--max-gene-set-read-p` | `expert` | `yes` | `expert_help` | `max_gene_set_read_p` | `1.0` | - |
+| `--max-gene-set-size` | `expert` | `yes` | `expert_help` | `max_gene_set_size` | `2147483647` | - |
 | `--max-no-write-gene-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_gene_set_beta` | `0` | - |
 | `--max-no-write-gene-pheno` | `expert` | `yes` | `expert_help` | `max_no_write_gene_pheno` | `0` | - |
 | `--max-no-write-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta` | `None` | - |
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
 | `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
+| `--max-num-discovery-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_discovery_gene_sets` | `None` | - |
 | `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | - |
-| `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `5000` | - |
-| `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `5000` | - |
+| `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `None` | - |
+| `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `None` | - |
 | `--max-num-gene-sets-initial` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_initial` | `None` | - |
 | `--max-num-iter-betas` | `expert` | `yes` | `expert_help` | `max_num_iter_betas` | `1100` | - |
 | `--min-gene-phewas-read-value` | `expert` | `yes` | `advanced_workflows` | `min_gene_phewas_read_value` | `1` | - |
-| `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `1e-20` | - |
-| `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `1e-20` | - |
+| `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `None` | - |
+| `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `None` | - |
 | `--min-gene-set-size` | `expert` | `yes` | `expert_help` | `min_gene_set_size` | `None` | - |
 | `--min-lambda-threshold` | `normal` | `yes` | `core_help` | `min_lambda_threshold` | `0.001` | - |
 | `--min-num-iter-betas` | `expert` | `yes` | `expert_help` | `min_num_iter_betas` | `10` | - |
 | `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
 | `--no-add-top` | `expert` | `yes` | `expert_help` | `add_top` | `True` | - |
 | `--no-adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
+| `--no-auto-discovery-subset` | `expert` | `yes` | `expert_help` | `no_auto_discovery_subset` | `False` | - |
 | `--no-blockwise-shuffle-blocks` | `expert` | `yes` | `expert_help` | `blockwise_shuffle_blocks` | `-` | - |
 | `--no-blockwise-warm-start` | `expert` | `yes` | `expert_help` | `blockwise_warm_start` | `-` | - |
 | `--no-cap-weights` | `expert` | `yes` | `expert_help` | `cap_weights` | `True` | - |
 | `--no-correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--no-discovery-redundancy-weighting` | `expert` | `yes` | `expert_help` | `no_discovery_redundancy_weighting` | `False` | - |
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
@@ -166,12 +170,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
-| `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
+| `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.0` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
 | `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |
 | `--weighted-prune-gene-sets` | `expert` | `yes` | `expert_help` | `weighted_prune_gene_sets` | `None` | - |
+| `--x-list-unlabeled-batching` | `expert` | `yes` | `expert_help` | `x_list_unlabeled_batching` | `per_file` | - |
 | `--x-sparsify` | `expert` | `yes` | `expert_help` | `x_sparsify` | `[50,100,250,1000]` | - |
 
 ## Engineering

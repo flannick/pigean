@@ -281,7 +281,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
 | `--learn-phi-report-out` | optional per-candidate diagnostics table for all tested `phi` values |
 | `--learn-phi-prune-genes-num` | expert shortcut: during phi search only, correlation-prune to at most this many representative genes before candidate NMF evaluation; defaults to `1000` |
-| `--learn-phi-prune-gene-sets-num` | expert shortcut: during phi search only, correlation-prune to at most this many representative gene sets before candidate NMF evaluation; defaults to `1000` |
+| `--learn-phi-prune-gene-sets-num` | deprecated expert knob retained for compatibility; phi search now uses the same discovery plan as the final fit and this option is ignored |
 | `--learn-phi-max-num-iterations` | expert shortcut: during phi search only, cap candidate NMF iterations separately from the final factorization |
 
 Operational notes:
@@ -292,16 +292,20 @@ Operational notes:
 - The default search is structural model selection, not held-out cross-validation. It now gates on redundancy and restart behavior, then chooses `phi` from the resulting fit/complexity frontier using the marginal improvement in reconstruction error per additional retained mechanism, rather than a near-maximal factor-count band.
 - Candidate complexity is summarized using both the raw retained factor count and factor-mass diagnostics. In particular, `effective_factor_count` is the inverse-participation-ratio style mass summary `(sum m_k)^2 / sum m_k^2`, and `mass_ge_floor_factor_count` counts factors whose mass fraction is at least `1%`.
 - The search report also records whether the scout factorization converged before the candidate iteration cap, via `final_delambda`, `final_iterations`, `converged_fraction`, and `hit_iteration_cap_fraction`.
-- By default, `--learn-phi-backend sentinel_pruned` evaluates candidates on a correlation-pruned sentinel panel of up to `1000` genes and `1000` gene sets. Override `--learn-phi-prune-genes-num` and `--learn-phi-prune-gene-sets-num` when you want different sentinel sizes.
+- By default, `--learn-phi-backend sentinel_pruned` evaluates candidates on a lightweight sentinel panel. `--learn-phi-prune-genes-num` still affects that gene-side shortcut, but gene-set discovery now follows the same retained-to-discovery plan used by the final fit.
 - `--learn-phi-backend blockwise_global_w` instead evaluates all retained gene sets in blocks while keeping one shared global gene-factor basis and one shared ARD state.
 - The default search budget is `5` additional candidate evaluations after the initial `--phi`. Those evaluations may be spent on upward expansion, downward expansion, or midpoint refinement once the search brackets a capped or zero-factor boundary.
-- `--learn-phi-prune-genes-num`, `--learn-phi-prune-gene-sets-num`, and `--learn-phi-max-num-iterations` apply only while scoring phi candidates. The final reported factorization still reruns on the full retained panel using the selected `phi`.
+- `--learn-phi-prune-genes-num` and `--learn-phi-max-num-iterations` apply only while scoring phi candidates. Gene-set discovery selection itself is shared between learn-phi and the final reported factorization.
 
 ### Factor pruning, weighting, and post-processing
 
 | Flag | Meaning |
 |---|---|
-| `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | prune weak gene-set memberships from factor outputs |
+| `--max-num-discovery-gene-sets` | cap the number of discovery family leaders used to learn the latent basis `W`; all retained annotations are still projected afterward |
+| `--no-auto-discovery-subset` | disable the default family-leader discovery subset and instead fit discovery on all retained gene sets |
+| `--no-discovery-redundancy-weighting` | disable the default redundancy-balanced discovery weighting |
+| `--discovery-redundancy-threshold` | similarity threshold used when assigning retained gene sets to discovery families; defaults to `0.5` |
+| `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | deprecated factor-stage discovery controls kept only as compatibility aliases; use the discovery flags above instead |
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |
 | `--factor-backend` | choose the final factorization backend: `full` or `blockwise_global_w` |

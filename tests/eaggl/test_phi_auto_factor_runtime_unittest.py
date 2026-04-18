@@ -56,6 +56,87 @@ class _CapturedFactorCall(RuntimeError):
 
 
 class PhiAutoFactorRuntimeTest(unittest.TestCase):
+    def test_build_discovery_plan_collapses_exact_duplicate_gene_sets(self) -> None:
+        state = EagglState()
+        state.X_orig = sparse.csr_matrix(
+            np.array(
+                [
+                    [1.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            )
+        )
+        state.mean_shifts, state.scale_factors = state._calc_X_shift_scale(state.X_orig)
+        state.gene_sets = ["gs1", "gs1_dup", "gs2"]
+        sort_rank = np.array([0.0, 1.0, 2.0], dtype=float)
+        q_full = np.array([[0.9], [0.3], [0.4]], dtype=float)
+
+        plan = eaggl_factor_runtime._build_discovery_plan(
+            state,
+            retained_gene_set_mask_full=np.array([True, True, True]),
+            gene_set_sort_rank=sort_rank,
+            gene_set_prob_vector_full=q_full,
+            max_num_discovery_gene_sets=None,
+            auto_discovery_subset=True,
+            discovery_redundancy_weighting=True,
+            discovery_redundancy_threshold=0.5,
+        )
+
+        np.testing.assert_array_equal(plan.in_discovery_mask_full, [True, False, True])
+        np.testing.assert_array_equal(plan.discovery_family_size_full, [2, 2, 1])
+        self.assertEqual(float(plan.discovery_prob_vector[0, 0]), 0.6)
+        self.assertEqual(float(plan.discovery_prob_vector[1, 0]), 0.4)
+
+    def test_build_discovery_plan_caps_family_leaders_not_retained_rows(self) -> None:
+        state = EagglState()
+        state.X_orig = sparse.csr_matrix(np.eye(4, dtype=float))
+        state.mean_shifts, state.scale_factors = state._calc_X_shift_scale(state.X_orig)
+        state.gene_sets = ["a", "b", "c", "d"]
+
+        plan = eaggl_factor_runtime._build_discovery_plan(
+            state,
+            retained_gene_set_mask_full=np.array([True, True, True, True]),
+            gene_set_sort_rank=np.arange(4, dtype=float),
+            gene_set_prob_vector_full=np.ones((4, 1), dtype=float),
+            max_num_discovery_gene_sets=2,
+            auto_discovery_subset=True,
+            discovery_redundancy_weighting=False,
+            discovery_redundancy_threshold=0.5,
+        )
+
+        self.assertEqual(int(np.sum(plan.retained_gene_set_mask_full)), 4)
+        self.assertEqual(int(np.sum(plan.in_discovery_mask_full)), 2)
+        np.testing.assert_array_equal(plan.discovery_family_id_full[:2], [0, 1])
+
+    def test_build_discovery_plan_no_auto_mode_applies_local_redundancy_weighting(self) -> None:
+        state = EagglState()
+        state.X_orig = sparse.csr_matrix(
+            np.array(
+                [
+                    [1.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            )
+        )
+        state.mean_shifts, state.scale_factors = state._calc_X_shift_scale(state.X_orig)
+        state.gene_sets = ["gs1", "gs1_dup", "gs2"]
+
+        plan = eaggl_factor_runtime._build_discovery_plan(
+            state,
+            retained_gene_set_mask_full=np.array([True, True, True]),
+            gene_set_sort_rank=np.arange(3, dtype=float),
+            gene_set_prob_vector_full=np.ones((3, 1), dtype=float),
+            max_num_discovery_gene_sets=None,
+            auto_discovery_subset=False,
+            discovery_redundancy_weighting=True,
+            discovery_redundancy_threshold=0.5,
+        )
+
+        np.testing.assert_array_equal(plan.in_discovery_mask_full, [True, True, True])
+        self.assertLess(float(plan.discovery_prob_vector[0, 0]), 1.0)
+        self.assertLess(float(plan.discovery_prob_vector[1, 0]), 1.0)
+        self.assertEqual(float(plan.discovery_prob_vector[2, 0]), 1.0)
+
     def test_blockwise_backend_matches_full_solver_for_single_block(self) -> None:
         matrix = np.array(
             [
@@ -1001,7 +1082,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertGreaterEqual(len(recorded_kwargs), 2)
         search_call = recorded_kwargs[0]
         final_call = recorded_kwargs[-1]
-        self.assertEqual(search_call["gene_set_prune_number"], 11)
+        self.assertIsNone(search_call["gene_set_prune_number"])
         self.assertEqual(search_call["max_num_iterations"], 7)
         self.assertIsNone(final_call["gene_set_prune_number"])
         self.assertEqual(final_call["max_num_iterations"], 100)
@@ -1056,7 +1137,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         search_call = recorded_kwargs[0]
         final_call = recorded_kwargs[-1]
         self.assertEqual(search_call["gene_prune_number"], 13)
-        self.assertEqual(search_call["gene_set_prune_number"], 11)
+        self.assertIsNone(search_call["gene_set_prune_number"])
         self.assertIsNone(final_call["gene_prune_number"])
 
     def test_evaluate_phi_candidate_logs_candidate_summary(self) -> None:
