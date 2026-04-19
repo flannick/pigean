@@ -3,12 +3,12 @@
     "compat_alias": 11,
     "debug_only": 6,
     "engineering": 71,
-    "method_optional": 138,
+    "method_optional": 139,
     "method_required": 16
   },
   "entrypoint": "src/eaggl/cli.py",
   "module": "eaggl.cli",
-  "num_options": 242,
+  "num_options": 243,
   "options": [
     {
       "action": null,
@@ -50,7 +50,7 @@
       "source_line": 91,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 83
+      "usage_references": 95
     },
     {
       "action": "append",
@@ -173,7 +173,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 403,
+      "source_line": 404,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -194,7 +194,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 404,
+      "source_line": 405,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -761,7 +761,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 425,
+      "source_line": 426,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -803,7 +803,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 421,
+      "source_line": 422,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -824,7 +824,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 426,
+      "source_line": 427,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -845,7 +845,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 424,
+      "source_line": 425,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -866,7 +866,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 423,
+      "source_line": 424,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -887,7 +887,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 422,
+      "source_line": 423,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -911,7 +911,7 @@
       "source_line": 225,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 46
+      "usage_references": 48
     },
     {
       "action": null,
@@ -929,10 +929,31 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 400,
+      "source_line": 401,
       "summary": null,
       "type": "float",
-      "usage_references": 6
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "effective_size",
+      "deprecation_timeline": null,
+      "dest": "discovery_redundancy_weighting_mode",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--discovery-redundancy-weighting-mode"
+      ],
+      "help": null,
+      "primary_flag": "--discovery-redundancy-weighting-mode",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 399,
+      "summary": null,
+      "type": "choice",
+      "usage_references": 8
     },
     {
       "action": null,
@@ -1037,7 +1058,7 @@
       "source_line": 172,
       "summary": null,
       "type": null,
-      "usage_references": 2
+      "usage_references": 4
     },
     {
       "action": null,
@@ -1457,7 +1478,7 @@
       "source_line": 171,
       "summary": "write the main factor loading output table",
       "type": null,
-      "usage_references": 30
+      "usage_references": 32
     },
     {
       "action": null,
@@ -1538,7 +1559,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 415,
+      "source_line": 416,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1583,7 +1604,7 @@
       "source_line": 175,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 14
     },
     {
       "action": null,
@@ -1835,7 +1856,7 @@
       "source_line": 156,
       "summary": null,
       "type": null,
-      "usage_references": 69
+      "usage_references": 71
     },
     {
       "action": null,
@@ -2234,7 +2255,7 @@
       "source_line": 174,
       "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 15
     },
     {
       "action": null,
@@ -2528,7 +2549,7 @@
       "source_line": 133,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 38
+      "usage_references": 40
     },
     {
       "action": null,
@@ -2612,7 +2633,7 @@
       "source_line": 149,
       "summary": null,
       "type": null,
-      "usage_references": 20
+      "usage_references": 22
     },
     {
       "action": null,
@@ -2633,7 +2654,7 @@
       "source_line": 147,
       "summary": null,
       "type": null,
-      "usage_references": 24
+      "usage_references": 26
     },
     {
       "action": null,
@@ -2654,7 +2675,7 @@
       "source_line": 146,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 67
+      "usage_references": 69
     },
     {
       "action": null,
@@ -2675,7 +2696,7 @@
       "source_line": 148,
       "summary": null,
       "type": null,
-      "usage_references": 23
+      "usage_references": 25
     },
     {
       "action": null,
@@ -2843,7 +2864,7 @@
       "source_line": 222,
       "summary": "reduce progress logging noise during long runs",
       "type": null,
-      "usage_references": 8
+      "usage_references": 10
     },
     {
       "action": null,
@@ -3473,7 +3494,7 @@
       "source_line": 219,
       "summary": "write structured run logs to this file",
       "type": null,
-      "usage_references": 7
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3512,7 +3533,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 416,
+      "source_line": 417,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -3704,7 +3725,7 @@
       "source_line": 261,
       "summary": null,
       "type": "int",
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3725,7 +3746,7 @@
       "source_line": 311,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3806,7 +3827,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 412,
+      "source_line": 413,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -3953,7 +3974,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 411,
+      "source_line": 412,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -4040,7 +4061,7 @@
       "source_line": 398,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 6
     },
     {
       "action": "store_false",
@@ -4142,10 +4163,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 399,
+      "source_line": 400,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 5
     },
     {
       "action": "store_false",
@@ -4247,7 +4268,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 408,
+      "source_line": 409,
       "summary": null,
       "type": "int",
       "usage_references": 18
@@ -4268,7 +4289,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 413,
+      "source_line": 414,
       "summary": null,
       "type": "int",
       "usage_references": 11
@@ -4355,7 +4376,7 @@
       "source_line": 216,
       "summary": null,
       "type": null,
-      "usage_references": 48
+      "usage_references": 50
     },
     {
       "action": "store_true",
@@ -4523,7 +4544,7 @@
       "source_line": 312,
       "summary": null,
       "type": "float",
-      "usage_references": 13
+      "usage_references": 15
     },
     {
       "action": null,
@@ -4649,7 +4670,7 @@
       "source_line": 227,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 76
+      "usage_references": 77
     },
     {
       "action": null,
@@ -4751,7 +4772,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 414,
+      "source_line": 415,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -5003,7 +5024,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 417,
+      "source_line": 418,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -5027,7 +5048,7 @@
       "source_line": 220,
       "summary": "write warning messages to this file",
       "type": null,
-      "usage_references": 7
+      "usage_references": 9
     },
     {
       "action": null,
@@ -5094,7 +5115,7 @@
     }
   ],
   "visibilities": {
-    "expert": 202,
+    "expert": 203,
     "hidden": 8,
     "normal": 32
   }

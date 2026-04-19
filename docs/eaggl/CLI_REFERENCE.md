@@ -303,6 +303,7 @@ Operational notes:
 |---|---|
 | `--max-num-discovery-gene-sets` | cap the number of discovery family leaders used to learn the latent basis `W`; all retained annotations are still projected afterward |
 | `--no-auto-discovery-subset` | disable the default family-leader discovery subset and instead fit discovery on all retained gene sets |
+| `--discovery-redundancy-weighting-mode` | choose leader-family discovery weighting: `effective_size`, `log_effective_size`, or `none` |
 | `--no-discovery-redundancy-weighting` | disable the default redundancy-balanced discovery weighting |
 | `--discovery-redundancy-threshold` | similarity threshold used when assigning retained gene sets to discovery families; defaults to `0.5` |
 | `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | deprecated factor-stage discovery controls kept only as compatibility aliases; use the discovery flags above instead |
@@ -314,6 +315,12 @@ Operational notes:
 | `--blockwise-shuffle-blocks` | shuffle gene-set block order between blockwise epochs |
 | `--blockwise-warm-start` | warm-start neighboring phi candidates in blockwise phi search |
 | `--blockwise-max-blocks` | optional debugging cap on the number of processed blocks per epoch |
+
+Notes:
+
+- The current default weighting mode is `effective_size`. `log_effective_size` remains the conservative fallback, and `none` disables redundancy weighting entirely.
+- `--no-discovery-redundancy-weighting` is a compatibility shortcut for `--discovery-redundancy-weighting-mode none`.
+- `--no-auto-discovery-subset` currently disables weighted leader-family corrections and falls back to unweighted retained-row discovery.
 | `--blockwise-report-out` | write per-epoch blockwise diagnostics |
 | `--factor-phewas-mode` | choose the factor-PheWAS model class; default is marginal binary enrichment with direct anchor adjustment |
 | `--factor-phewas-modes` | expert comma-separated list of model classes to run in one pass and append into the same factor-PheWAS output file |

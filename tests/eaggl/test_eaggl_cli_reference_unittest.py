@@ -95,6 +95,11 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(payload["options"]["debug_level"], 4)
         self.assertEqual(payload["options"]["max_gb"], 5)
 
+    def test_reference_default_discovery_weighting_mode_is_effective_size(self) -> None:
+        proc = self._run_ok("factor", "--print-effective-config")
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["discovery_redundancy_weighting_mode"], "effective_size")
+
     def test_reference_matrix_and_bundle_flags_round_trip(self) -> None:
         x_list = self.tmpdir / "x_inputs.list"
         x_list.write_text("alpha.tsv\n", encoding="utf-8")
@@ -342,6 +347,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--max-num-discovery-gene-sets",
             "55",
             "--no-auto-discovery-subset",
+            "--discovery-redundancy-weighting-mode",
+            "effective_size",
             "--no-discovery-redundancy-weighting",
             "--discovery-redundancy-threshold",
             "0.6",
@@ -441,6 +448,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["blockwise_report_out"], "blockwise.tsv")
         self.assertEqual(opts["max_num_discovery_gene_sets"], 55)
         self.assertTrue(opts["no_auto_discovery_subset"])
+        self.assertEqual(opts["discovery_redundancy_weighting_mode"], "effective_size")
         self.assertTrue(opts["no_discovery_redundancy_weighting"])
         self.assertEqual(opts["discovery_redundancy_threshold"], 0.6)
         self.assertEqual(opts["learn_phi_prune_genes_num"], 900)
@@ -572,6 +580,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--blockwise-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--max-num-discovery-gene-sets": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-auto-discovery-subset": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--discovery-redundancy-weighting-mode": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-discovery-redundancy-weighting": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--discovery-redundancy-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-nmf": ["test_reference_factor_and_labeling_flags_round_trip"],

@@ -22,6 +22,8 @@ class DiscoveryPlan:
     discovery_family_id_full: object
     discovery_representative_mask_full: object
     discovery_family_size_full: object
+    discovery_family_mean_similarity_full: object
+    discovery_family_effective_size_full: object
     discovery_weight_full: object
     discovery_prob_vector: object
     discovery_row_indices_full: object
@@ -1067,6 +1069,7 @@ def _build_factor_param_record(
     max_num_discovery_gene_sets,
     auto_discovery_subset,
     discovery_redundancy_weighting,
+    discovery_redundancy_weighting_mode,
     discovery_redundancy_threshold,
     anchor_pheno_mask,
     anchor_gene_mask,
@@ -1140,6 +1143,7 @@ def _build_factor_param_record(
         "max_num_discovery_gene_sets": None if max_num_discovery_gene_sets is None else int(max_num_discovery_gene_sets),
         "auto_discovery_subset": bool(auto_discovery_subset),
         "discovery_redundancy_weighting": bool(discovery_redundancy_weighting),
+        "discovery_redundancy_weighting_mode": str(discovery_redundancy_weighting_mode),
         "discovery_redundancy_threshold": float(discovery_redundancy_threshold),
         "anchor_any_pheno": bool(anchor_any_pheno),
         "anchor_any_gene": bool(anchor_any_gene),
@@ -1330,6 +1334,32 @@ def _compute_retained_redundancy_counts(state, retained_indices, threshold, *, b
     return counts
 
 
+def _resolve_discovery_weighting_mode(discovery_redundancy_weighting, discovery_redundancy_weighting_mode):
+    if discovery_redundancy_weighting_mode is not None:
+        resolved = str(discovery_redundancy_weighting_mode)
+    else:
+        resolved = "effective_size" if discovery_redundancy_weighting else "none"
+    return resolved
+
+
+def _clip_similarity(value):
+    return float(np.clip(float(value), 0.0, 1.0))
+
+
+def _compute_discovery_effective_size(family_size, mean_similarity):
+    family_size = int(family_size)
+    if family_size <= 1:
+        return 1.0
+    mean_similarity = _clip_similarity(mean_similarity)
+    return float(family_size / (1.0 + (family_size - 1) * mean_similarity))
+
+
+def _compute_family_mean_similarity(member_similarities):
+    if len(member_similarities) == 0:
+        return np.nan
+    return float(np.mean(np.asarray(member_similarities, dtype=float)))
+
+
 def _build_discovery_plan(
     state,
     *,
@@ -1339,14 +1369,21 @@ def _build_discovery_plan(
     max_num_discovery_gene_sets,
     auto_discovery_subset,
     discovery_redundancy_weighting,
+    discovery_redundancy_weighting_mode,
     discovery_redundancy_threshold,
 ):
+    discovery_redundancy_weighting_mode = _resolve_discovery_weighting_mode(
+        discovery_redundancy_weighting,
+        discovery_redundancy_weighting_mode,
+    )
     num_gene_sets_total = len(state.gene_sets)
     retained_row_indices_full = np.where(np.asarray(retained_gene_set_mask_full, dtype=bool))[0]
     in_discovery_mask_full = np.zeros(num_gene_sets_total, dtype=bool)
     discovery_representative_mask_full = np.zeros(num_gene_sets_total, dtype=bool)
     discovery_family_id_full = np.full(num_gene_sets_total, -1, dtype=int)
     discovery_family_size_full = np.zeros(num_gene_sets_total, dtype=int)
+    discovery_family_mean_similarity_full = np.full(num_gene_sets_total, np.nan, dtype=float)
+    discovery_family_effective_size_full = np.full(num_gene_sets_total, np.nan, dtype=float)
     discovery_weight_full = np.zeros(num_gene_sets_total, dtype=float)
 
     if len(retained_row_indices_full) == 0:
@@ -1357,6 +1394,8 @@ def _build_discovery_plan(
             discovery_family_id_full=discovery_family_id_full,
             discovery_representative_mask_full=discovery_representative_mask_full,
             discovery_family_size_full=discovery_family_size_full,
+            discovery_family_mean_similarity_full=discovery_family_mean_similarity_full,
+            discovery_family_effective_size_full=discovery_family_effective_size_full,
             discovery_weight_full=discovery_weight_full,
             discovery_prob_vector=empty_prob,
             discovery_row_indices_full=np.zeros(0, dtype=int),
@@ -1371,12 +1410,14 @@ def _build_discovery_plan(
     ]
     leader_indices = []
     family_members = []
+    family_member_similarities = []
 
     for candidate_index in ordered_retained_indices:
         if len(leader_indices) == 0:
             family_id = 0
             leader_indices.append(int(candidate_index))
             family_members.append([int(candidate_index)])
+            family_member_similarities.append([])
             discovery_representative_mask_full[candidate_index] = True
             discovery_family_id_full[candidate_index] = family_id
             continue
@@ -1395,47 +1436,59 @@ def _build_discovery_plan(
             family_id = len(leader_indices)
             leader_indices.append(int(candidate_index))
             family_members.append([int(candidate_index)])
+            family_member_similarities.append([])
             discovery_representative_mask_full[candidate_index] = True
         else:
             family_id = best_family
             family_members[family_id].append(int(candidate_index))
+            family_member_similarities[family_id].append(_clip_similarity(best_similarity))
         discovery_family_id_full[candidate_index] = int(family_id)
 
     for family_id, member_indices in enumerate(family_members):
         family_size = len(member_indices)
         discovery_family_size_full[member_indices] = family_size
+        family_mean_similarity = _compute_family_mean_similarity(family_member_similarities[family_id])
+        family_effective_size = _compute_discovery_effective_size(family_size, family_mean_similarity)
+        discovery_family_mean_similarity_full[member_indices] = family_mean_similarity
+        discovery_family_effective_size_full[member_indices] = family_effective_size
 
     retained_prob = np.asarray(gene_set_prob_vector_full[retained_row_indices_full, :], dtype=float)
     if auto_discovery_subset:
         discovery_row_indices_full = np.asarray(leader_indices, dtype=int)
         in_discovery_mask_full[discovery_row_indices_full] = True
-        if discovery_redundancy_weighting:
-            discovery_prob_vector = np.vstack(
+        representative_prob_vector = np.asarray(gene_set_prob_vector_full[discovery_row_indices_full, :], dtype=float)
+        if discovery_redundancy_weighting_mode == "effective_size":
+            multipliers = np.asarray(
                 [
-                    np.mean(
-                        np.asarray(gene_set_prob_vector_full[np.asarray(member_indices, dtype=int), :], dtype=float),
-                        axis=0,
-                    )
-                    for member_indices in family_members
-                ]
-            )
+                    discovery_family_effective_size_full[int(leader_index)]
+                    for leader_index in discovery_row_indices_full
+                ],
+                dtype=float,
+            )[:, np.newaxis]
+            discovery_prob_vector = representative_prob_vector * multipliers
+        elif discovery_redundancy_weighting_mode == "log_effective_size":
+            multipliers = np.asarray(
+                [
+                    1.0 + math.log(max(1.0, discovery_family_effective_size_full[int(leader_index)]))
+                    for leader_index in discovery_row_indices_full
+                ],
+                dtype=float,
+            )[:, np.newaxis]
+            discovery_prob_vector = representative_prob_vector * multipliers
+        elif discovery_redundancy_weighting_mode == "none":
+            discovery_prob_vector = representative_prob_vector
         else:
-            discovery_prob_vector = np.asarray(gene_set_prob_vector_full[discovery_row_indices_full, :], dtype=float)
+            raise ValueError(
+                "Unknown discovery redundancy weighting mode: %s"
+                % discovery_redundancy_weighting_mode
+            )
         for family_id, member_indices in enumerate(family_members):
             family_weight = float(np.mean(discovery_prob_vector[family_id, :])) if discovery_prob_vector.shape[1] > 0 else 0.0
             discovery_weight_full[member_indices] = family_weight
     else:
         discovery_row_indices_full = retained_row_indices_full.copy()
         in_discovery_mask_full[retained_row_indices_full] = True
-        if discovery_redundancy_weighting:
-            redundancy_counts = _compute_retained_redundancy_counts(
-                state,
-                retained_row_indices_full,
-                float(discovery_redundancy_threshold),
-            )
-            discovery_prob_vector = retained_prob / redundancy_counts[:, np.newaxis]
-        else:
-            discovery_prob_vector = retained_prob
+        discovery_prob_vector = retained_prob
         family_lookup = {int(idx): family_id for family_id, members in enumerate(family_members) for idx in members}
         for retained_index in retained_row_indices_full:
             discovery_family_id_full[retained_index] = family_lookup[int(retained_index)]
@@ -1447,6 +1500,8 @@ def _build_discovery_plan(
         discovery_family_id_full=discovery_family_id_full,
         discovery_representative_mask_full=discovery_representative_mask_full,
         discovery_family_size_full=discovery_family_size_full,
+        discovery_family_mean_similarity_full=discovery_family_mean_similarity_full,
+        discovery_family_effective_size_full=discovery_family_effective_size_full,
         discovery_weight_full=discovery_weight_full,
         discovery_prob_vector=np.asarray(discovery_prob_vector, dtype=float),
         discovery_row_indices_full=np.asarray(discovery_row_indices_full, dtype=int),
@@ -2733,7 +2788,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_threshold=0.5, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.5, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -3147,6 +3202,13 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     if gene_set_prune_number is not None and max_num_discovery_gene_sets is None:
         warn("--factor-prune-gene-sets-num is deprecated; mapping it to --max-num-discovery-gene-sets")
         max_num_discovery_gene_sets = int(gene_set_prune_number)
+    if not auto_discovery_subset and discovery_redundancy_weighting_mode != "none":
+        warn(
+            "discovery_redundancy_weighting_mode=%s is not supported with --no-auto-discovery-subset; falling back to none"
+            % discovery_redundancy_weighting_mode
+        )
+        discovery_redundancy_weighting_mode = "none"
+        discovery_redundancy_weighting = False
     
     gene_set_full_prob_vector = None
     if gene_set_full_vector is not None:
@@ -3178,10 +3240,11 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         max_num_discovery_gene_sets=max_num_discovery_gene_sets,
         auto_discovery_subset=auto_discovery_subset,
         discovery_redundancy_weighting=discovery_redundancy_weighting,
+        discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
         discovery_redundancy_threshold=discovery_redundancy_threshold,
     )
 
-    state._record_params({"max_num_factors": max_num_factors, "alpha0": alpha0, "phi": phi, "gene_set_filter_type": gene_set_filter_type, "gene_set_filter_value": gene_set_filter_value, "gene_or_pheno_filter_type": gene_or_pheno_filter_type, "gene_or_pheno_filter_value": gene_or_pheno_filter_value, "pheno_prune_value": pheno_prune_value, "pheno_prune_number": pheno_prune_number, "gene_set_prune_value": gene_set_prune_value, "gene_set_prune_number": gene_set_prune_number, "max_num_discovery_gene_sets": max_num_discovery_gene_sets, "auto_discovery_subset": auto_discovery_subset, "discovery_redundancy_weighting": discovery_redundancy_weighting, "discovery_redundancy_threshold": discovery_redundancy_threshold, "num_retained_gene_sets": int(np.sum(gene_set_mask)), "num_discovery_gene_sets": int(discovery_plan.discovery_row_indices_full.size), "run_transpose": run_transpose})
+    state._record_params({"max_num_factors": max_num_factors, "alpha0": alpha0, "phi": phi, "gene_set_filter_type": gene_set_filter_type, "gene_set_filter_value": gene_set_filter_value, "gene_or_pheno_filter_type": gene_or_pheno_filter_type, "gene_or_pheno_filter_value": gene_or_pheno_filter_value, "pheno_prune_value": pheno_prune_value, "pheno_prune_number": pheno_prune_number, "gene_set_prune_value": gene_set_prune_value, "gene_set_prune_number": gene_set_prune_number, "max_num_discovery_gene_sets": max_num_discovery_gene_sets, "auto_discovery_subset": auto_discovery_subset, "discovery_redundancy_weighting": discovery_redundancy_weighting, "discovery_redundancy_weighting_mode": discovery_redundancy_weighting_mode, "discovery_redundancy_threshold": discovery_redundancy_threshold, "num_retained_gene_sets": int(np.sum(gene_set_mask)), "num_discovery_gene_sets": int(discovery_plan.discovery_row_indices_full.size), "run_transpose": run_transpose})
 
 
     matrix = state.X_phewas_beta_uncorrected.T if factor_gene_set_x_pheno else state.X_orig.T
@@ -3336,6 +3399,8 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     state.gene_set_discovery_representative_mask = discovery_plan.discovery_representative_mask_full
     state.gene_set_discovery_family_size = discovery_plan.discovery_family_size_full
     state.gene_set_discovery_weight = discovery_plan.discovery_weight_full
+    state.gene_set_discovery_family_mean_similarity = discovery_plan.discovery_family_mean_similarity_full
+    state.gene_set_discovery_family_effective_size = discovery_plan.discovery_family_effective_size_full
 
     _write_pre_projection_checkpoint(
         state,
@@ -3692,7 +3757,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_threshold=0.5, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.5, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -3752,6 +3817,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bail("--learn-phi-max-num-iterations must be at least 1")
     if max_num_discovery_gene_sets is not None and int(max_num_discovery_gene_sets) < 1:
         bail("--max-num-discovery-gene-sets must be at least 1")
+    if discovery_redundancy_weighting_mode not in {"effective_size", "log_effective_size", "none"}:
+        bail("--discovery-redundancy-weighting-mode must be one of: effective_size, log_effective_size, none")
     if not (0 <= float(discovery_redundancy_threshold) <= 1):
         bail("--discovery-redundancy-threshold must be in [0, 1]")
     if learn_phi_prune_gene_sets_num is not None:
@@ -3779,6 +3846,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "max_num_discovery_gene_sets": max_num_discovery_gene_sets,
         "auto_discovery_subset": auto_discovery_subset,
         "discovery_redundancy_weighting": discovery_redundancy_weighting,
+        "discovery_redundancy_weighting_mode": discovery_redundancy_weighting_mode,
         "discovery_redundancy_threshold": discovery_redundancy_threshold,
         "anchor_pheno_mask": anchor_pheno_mask,
         "anchor_gene_mask": anchor_gene_mask,
@@ -3871,6 +3939,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             max_num_discovery_gene_sets=max_num_discovery_gene_sets,
             auto_discovery_subset=auto_discovery_subset,
             discovery_redundancy_weighting=discovery_redundancy_weighting,
+            discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
             discovery_redundancy_threshold=discovery_redundancy_threshold,
             anchor_pheno_mask=anchor_pheno_mask,
             anchor_gene_mask=anchor_gene_mask,

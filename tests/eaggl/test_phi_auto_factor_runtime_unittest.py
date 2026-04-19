@@ -78,14 +78,49 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             gene_set_prob_vector_full=q_full,
             max_num_discovery_gene_sets=None,
             auto_discovery_subset=True,
-            discovery_redundancy_weighting=True,
+            discovery_redundancy_weighting=False,
+            discovery_redundancy_weighting_mode="none",
             discovery_redundancy_threshold=0.5,
         )
 
         np.testing.assert_array_equal(plan.in_discovery_mask_full, [True, False, True])
         np.testing.assert_array_equal(plan.discovery_family_size_full, [2, 2, 1])
-        self.assertEqual(float(plan.discovery_prob_vector[0, 0]), 0.6)
+        np.testing.assert_allclose(plan.discovery_family_mean_similarity_full[:2], [1.0, 1.0])
+        np.testing.assert_allclose(plan.discovery_family_effective_size_full[:2], [1.0, 1.0])
+        self.assertEqual(float(plan.discovery_prob_vector[0, 0]), 0.9)
         self.assertEqual(float(plan.discovery_prob_vector[1, 0]), 0.4)
+
+    def test_build_discovery_plan_effective_size_weighting_preserves_duplicate_leader_support(self) -> None:
+        state = EagglState()
+        state.X_orig = sparse.csr_matrix(
+            np.array(
+                [
+                    [1.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            )
+        )
+        state.mean_shifts, state.scale_factors = state._calc_X_shift_scale(state.X_orig)
+        state.gene_sets = ["gs1", "gs1_dup", "gs2"]
+        sort_rank = np.array([0.0, 1.0, 2.0], dtype=float)
+        q_full = np.array([[0.9], [0.3], [0.4]], dtype=float)
+
+        plan = eaggl_factor_runtime._build_discovery_plan(
+            state,
+            retained_gene_set_mask_full=np.array([True, True, True]),
+            gene_set_sort_rank=sort_rank,
+            gene_set_prob_vector_full=q_full,
+            max_num_discovery_gene_sets=None,
+            auto_discovery_subset=True,
+            discovery_redundancy_weighting=True,
+            discovery_redundancy_weighting_mode="effective_size",
+            discovery_redundancy_threshold=0.5,
+        )
+
+        np.testing.assert_array_equal(plan.in_discovery_mask_full, [True, False, True])
+        np.testing.assert_allclose(plan.discovery_family_effective_size_full[:2], [1.0, 1.0])
+        self.assertAlmostEqual(float(plan.discovery_prob_vector[0, 0]), 0.9)
+        self.assertAlmostEqual(float(plan.discovery_prob_vector[1, 0]), 0.4)
 
     def test_build_discovery_plan_caps_family_leaders_not_retained_rows(self) -> None:
         state = EagglState()
@@ -101,6 +136,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             max_num_discovery_gene_sets=2,
             auto_discovery_subset=True,
             discovery_redundancy_weighting=False,
+            discovery_redundancy_weighting_mode="none",
             discovery_redundancy_threshold=0.5,
         )
 
@@ -108,7 +144,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(int(np.sum(plan.in_discovery_mask_full)), 2)
         np.testing.assert_array_equal(plan.discovery_family_id_full[:2], [0, 1])
 
-    def test_build_discovery_plan_no_auto_mode_applies_local_redundancy_weighting(self) -> None:
+    def test_build_discovery_plan_no_auto_mode_uses_unweighted_retained_support(self) -> None:
         state = EagglState()
         state.X_orig = sparse.csr_matrix(
             np.array(
@@ -129,13 +165,27 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             max_num_discovery_gene_sets=None,
             auto_discovery_subset=False,
             discovery_redundancy_weighting=True,
+            discovery_redundancy_weighting_mode="none",
             discovery_redundancy_threshold=0.5,
         )
 
         np.testing.assert_array_equal(plan.in_discovery_mask_full, [True, True, True])
-        self.assertLess(float(plan.discovery_prob_vector[0, 0]), 1.0)
-        self.assertLess(float(plan.discovery_prob_vector[1, 0]), 1.0)
+        np.testing.assert_allclose(plan.discovery_prob_vector[:, 0], [1.0, 1.0, 1.0])
         self.assertEqual(float(plan.discovery_prob_vector[2, 0]), 1.0)
+
+    def test_compute_discovery_effective_size_matches_expected_limits(self) -> None:
+        self.assertEqual(
+            eaggl_factor_runtime._compute_discovery_effective_size(1, 0.0),
+            1.0,
+        )
+        self.assertAlmostEqual(
+            eaggl_factor_runtime._compute_discovery_effective_size(4, 1.0),
+            1.0,
+        )
+        self.assertAlmostEqual(
+            eaggl_factor_runtime._compute_discovery_effective_size(4, 0.0),
+            4.0,
+        )
 
     def test_blockwise_backend_matches_full_solver_for_single_block(self) -> None:
         matrix = np.array(

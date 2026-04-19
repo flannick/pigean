@@ -396,6 +396,7 @@ parser.add_option("","--factor-prune-genes-val",type='float',default=None) #when
 parser.add_option("","--factor-prune-gene-sets-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by including only this many (add an independent set). Gene sets will be sorted by maximum association across phenotypes
 parser.add_option("","--factor-prune-gene-sets-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by pruning those more correlated than this value. Gene sets will be sorted by maximum assoication across phenotypes
 parser.add_option("","--no-auto-discovery-subset",action="store_true",default=False) #during EAGGL factorization, use all retained gene sets rather than only family leaders for discovery
+parser.add_option("","--discovery-redundancy-weighting-mode",type="choice",choices=["effective_size","log_effective_size","none"],default="effective_size") #leader-family redundancy weighting mode for discovery support
 parser.add_option("","--no-discovery-redundancy-weighting",action="store_true",default=False) #during EAGGL factorization, disable redundancy-balanced discovery weights
 parser.add_option("","--discovery-redundancy-threshold",type="float",default=0.5) #similarity threshold used to assign retained gene sets to discovery families
 
