@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import copy
+import csv
+import gzip
+import os
 import random
 
 import numpy as np
@@ -9,6 +12,60 @@ import scipy.sparse as sparse
 from pegs_shared.io_common import construct_map_to_ind
 import pegs_utils as pegs_utils_mod
 from . import runtime as pigean_runtime
+
+
+def _deterministic_pre_gibbs_enabled(runtime_state):
+    return bool(getattr(runtime_state, "deterministic_mode", False))
+
+
+def _maybe_dump_pre_gibbs_gene_sets(
+    runtime_state,
+    stage_name,
+    *,
+    sort_rank=None,
+    beta_uncorrected=None,
+    keep_mask=None,
+):
+    prefix = os.environ.get("PIGEAN_DEBUG_PRE_GIBBS_DUMP_PREFIX")
+    if not prefix or runtime_state.gene_sets is None or not _deterministic_pre_gibbs_enabled(runtime_state):
+        return
+
+    out_path = f"{prefix}.{stage_name}.tsv.gz"
+    with gzip.open(out_path, "wt", newline="") as fh:
+        writer = csv.writer(fh, delimiter="\t")
+        writer.writerow(
+            [
+                "Gene_Set",
+                "label",
+                "batch",
+                "P",
+                "beta_tilde",
+                "Z",
+                "SE",
+                "beta_uncorrected_pre_cap",
+                "sort_rank",
+                "keep_mask",
+                "p_used",
+                "sigma2_used",
+            ]
+        )
+        for i, gene_set in enumerate(runtime_state.gene_sets):
+            writer.writerow(
+                [
+                    gene_set,
+                    runtime_state.gene_set_labels[i] if runtime_state.gene_set_labels is not None else "",
+                    runtime_state.gene_set_batches[i] if runtime_state.gene_set_batches is not None else "",
+                    runtime_state.p_values[i] if runtime_state.p_values is not None else "",
+                    runtime_state.beta_tildes[i] if runtime_state.beta_tildes is not None else "",
+                    runtime_state.z_scores[i] if runtime_state.z_scores is not None else "",
+                    runtime_state.ses[i] if runtime_state.ses is not None else "",
+                    beta_uncorrected[i] if beta_uncorrected is not None else "",
+                    sort_rank[i] if sort_rank is not None else "",
+                    int(bool(keep_mask[i])) if keep_mask is not None else "",
+                    runtime_state.ps[i] if runtime_state.ps is not None else runtime_state.p,
+                    runtime_state.sigma2s[i] if runtime_state.sigma2s is not None else runtime_state.sigma2,
+                ]
+            )
 
 
 def normalize_dense_gene_rows(mat_info, genes, gene_label_map):
@@ -457,7 +514,15 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
         return
 
     assert runtime_state.gene_set_batches[0] is not None
-    ordered_batches = [runtime_state.gene_set_batches[0]] + list(set([x for x in runtime_state.gene_set_batches if x != runtime_state.gene_set_batches[0]]))
+    if _deterministic_pre_gibbs_enabled(runtime_state):
+        ordered_batches = []
+        seen_batches = set()
+        for batch in runtime_state.gene_set_batches:
+            if batch not in seen_batches:
+                ordered_batches.append(batch)
+                seen_batches.add(batch)
+    else:
+        ordered_batches = [runtime_state.gene_set_batches[0]] + list(set([x for x in runtime_state.gene_set_batches if x != runtime_state.gene_set_batches[0]]))
     batches_num_ignored = {}
     for i in range(len(batches)):
         if batches[i] not in batches_num_ignored:
@@ -478,11 +543,18 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
         gene_sets_for_hyper_mask = gene_sets_in_batch_mask.copy()
 
         if max_num_gene_sets_hyper is not None and np.sum(gene_sets_for_hyper_mask) > max_num_gene_sets_hyper:
-            drop_mask = np.random.default_rng().choice(
-                np.where(gene_sets_for_hyper_mask)[0],
-                size=np.sum(gene_sets_for_hyper_mask) - max_num_gene_sets_hyper,
-                replace=False,
-            )
+            if _deterministic_pre_gibbs_enabled(runtime_state):
+                drop_mask = np.random.choice(
+                    np.where(gene_sets_for_hyper_mask)[0],
+                    size=np.sum(gene_sets_for_hyper_mask) - max_num_gene_sets_hyper,
+                    replace=False,
+                )
+            else:
+                drop_mask = np.random.default_rng().choice(
+                    np.where(gene_sets_for_hyper_mask)[0],
+                    size=np.sum(gene_sets_for_hyper_mask) - max_num_gene_sets_hyper,
+                    replace=False,
+                )
             log_fn(
                 "Dropping %d gene sets to reduce gene sets used for hyper parameters to %d"
                 % (len(drop_mask), max_num_gene_sets_hyper),
@@ -543,6 +615,7 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
         )
 
     finalize_batch_hyper_vectors(runtime_state=runtime_state, first_for_hyper=first_for_hyper)
+    _maybe_dump_pre_gibbs_gene_sets(runtime_state, "after_hyper_learning")
 
 
 def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
@@ -608,6 +681,12 @@ def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
 
     beta_ignore = betas == 0
     beta_mask = ~beta_ignore
+    _maybe_dump_pre_gibbs_gene_sets(
+        runtime_state,
+        "before_zero_filter",
+        beta_uncorrected=betas,
+        keep_mask=beta_mask,
+    )
     if np.sum(beta_mask) > 0:
         log_fn("Ignoring %d gene sets due to zero uncorrected betas (kept %d)" % (np.sum(beta_ignore), np.sum(beta_mask)))
         runtime_state.subset_gene_sets(
@@ -620,7 +699,15 @@ def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
     else:
         log_fn("Keeping %d gene sets with zero uncorrected betas to avoid having none" % (np.sum(beta_ignore)))
 
-    return -np.abs(betas[beta_mask])
+    sort_rank = -np.abs(betas[beta_mask])
+    _maybe_dump_pre_gibbs_gene_sets(
+        runtime_state,
+        "after_zero_filter_before_cap",
+        sort_rank=sort_rank,
+        beta_uncorrected=betas[beta_mask],
+        keep_mask=np.ones(len(runtime_state.gene_sets), dtype=bool),
+    )
+    return sort_rank
 
 
 def maybe_reduce_gene_sets_to_max_after_x_read_for_runtime(
@@ -672,6 +759,12 @@ def maybe_reduce_gene_sets_to_max_after_x_read_for_runtime(
         trimmed_keep_mask[keep_indices[:max_num_gene_sets]] = True
         keep_mask = trimmed_keep_mask
     if np.sum(~keep_mask) > 0:
+        _maybe_dump_pre_gibbs_gene_sets(
+            runtime_state,
+            "before_cap_application",
+            sort_rank=sort_rank,
+            keep_mask=keep_mask,
+        )
         runtime_state.subset_gene_sets(
             keep_mask,
             keep_missing=retain_all_beta_uncorrected and not track_filtered_beta_uncorrected,
@@ -679,6 +772,7 @@ def maybe_reduce_gene_sets_to_max_after_x_read_for_runtime(
             skip_V=True,
             filter_reason="max_num_gene_sets_cap",
         )
+        _maybe_dump_pre_gibbs_gene_sets(runtime_state, "after_cap_application")
 
 
 def estimate_dense_chunk_size(gene_set_count, only_ids, default_chunk_size=500):

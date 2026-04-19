@@ -929,6 +929,24 @@ print(json.dumps(mask.tolist()))
         self.assertTrue(payload["options"]["independent_betas_only"])
         self.assertTrue(payload["options"]["retain_all_beta_uncorrected"])
 
+    def test_track_filtered_beta_uncorrected_defaults_on_for_gibbs(self) -> None:
+        proc = self._run("gibbs", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["track_filtered_beta_uncorrected"])
+
+    def test_track_filtered_beta_uncorrected_can_be_disabled_explicitly(self) -> None:
+        proc = self._run("gibbs", "--no-track-filtered-beta-uncorrected", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertFalse(payload["options"]["track_filtered_beta_uncorrected"])
+
+    def test_track_filtered_beta_uncorrected_stays_off_outside_betas_and_gibbs(self) -> None:
+        proc = self._run("sim", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertFalse(payload["options"]["track_filtered_beta_uncorrected"])
+
     def test_huge_statistics_out_requires_gwas_in(self) -> None:
         proc = self._run("gibbs", "--huge-statistics-out", "cache_prefix")
         self.assertNotEqual(proc.returncode, 0)
