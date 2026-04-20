@@ -173,6 +173,7 @@ parser.add_option("","--factor-metrics-out",default=None)
 parser.add_option("","--factors-anchor-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
+parser.add_option("","--trait-factor-links-out",default=None)
 parser.add_option("","--pheno-clusters-out",default=None)
 parser.add_option("","--gene-set-anchor-clusters-out",default=None)
 parser.add_option("","--gene-anchor-clusters-out",default=None)
@@ -382,6 +383,8 @@ parser.add_option("","--min-gene-phewas-read-value",type="float",default=1)
 parser.add_option("","--gene-phewas-id-to-X-id",default=None) #mapping from gene ids in the phewas file to gene ids in the gmt
 parser.add_option("","--project-phenos-from-gene-sets",action='store_true',default=False) #use gene set scores to project pheno loadings rather than gene scores. Note that this will also have the side effect of conditioning the regression only on the gene sets in the model rather than all gene sets
 parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type=str) #capture input profile for pheno clusters: weighted_thresholded or binary_thresholded
+parser.add_option("","--trait-linkage-source",default="auto",type=str) #trait linkage support surface: auto, combined, log_bf, prior
+parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
 
 parser.add_option("","--anchor-phenos",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple pheno anchoring
 parser.add_option("","--anchor-any-pheno",action="store_true",default=False) #flatten all phenotypes into an uber weight
@@ -492,6 +495,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
     "--factors-anchor-out": "write anchor-specific factorization outputs",
     "--factors-out": "write the main factor loading output table",
+    "--trait-factor-links-out": "write the canonical long-form trait-factor linkage table",
     "--gene-set-stats-in": "load gene-set statistics exported from PIGEAN",
     "--gene-stats-in": "load gene-level statistics exported from PIGEAN",
     "--gene-phewas-bfs-in": "load gene-phewas statistics for projection and anchor workflows",
@@ -506,6 +510,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--project-phenos-from-gene-sets": "project phenotype loadings from gene-set scores instead of gene scores",
     "--pheno-capture-input": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
+    "--trait-linkage-source": "choose the support surface for canonical trait linkage: auto, combined, log_bf, or prior",
+    "--no-trait-linkage": "disable canonical trait linkage even when trait inputs are available",
     "--run-phewas": "run the optional gene-level phewas output stage",
     "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
     "--seed": "set explicit random seed for deterministic reproducibility checks",
@@ -615,6 +621,8 @@ _EXPERT_METHOD_FLAGS = {
     "--phi",
     "--pheno-capture-input",
     "--project-phenos-from-gene-sets",
+    "--trait-linkage-source",
+    "--no-trait-linkage",
     "--run-phewas",
 }
 
@@ -646,6 +654,7 @@ _METHOD_REQUIRED_FLAGS = {
     "--anchor-phenos",
     "--factors-anchor-out",
     "--factors-out",
+    "--trait-factor-links-out",
     "--gene-list",
     "--gene-list-in",
     "--gene-list-max-fdr-q",
@@ -674,6 +683,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--factor-runs",
     "--factors-anchor-out",
     "--factors-out",
+    "--trait-factor-links-out",
     "--gene-list",
     "--gene-list-in",
     "--gene-list-max-fdr-q",
@@ -685,6 +695,8 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--max-num-factors",
     "--min-lambda-threshold",
     "--phi",
+    "--trait-linkage-source",
+    "--no-trait-linkage",
     "--X-in",
     "--X-list",
     "--Xd-in",
@@ -987,6 +999,12 @@ def _warn_for_direct_gmt_passed_to_x_list(options, warn_fn):
 def _normalize_optional_phewas_stage_options(options, warn_fn):
     options.run_phewas_input = None
     options.run_factor_phewas_input = None
+
+    if getattr(options, "pheno_clusters_out", None) is not None:
+        warn_fn(
+            "Treating compatibility alias --pheno-clusters-out as --trait-factor-links-out; "
+            "the canonical public trait output is now the long-form trait-factor linkage table"
+        )
 
     if getattr(options, "factor_phewas_gene_clusters_in", None) is not None:
         if getattr(options, "factor_gene_clusters_in", None) is None:
@@ -1313,6 +1331,8 @@ def _bootstrap_cli(argv=None):
     parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
     if parsed_options.pheno_capture_input not in set(["weighted_thresholded", "binary_thresholded"]):
         bail("--pheno-capture-input must be one of: weighted_thresholded, binary_thresholded")
+    if parsed_options.trait_linkage_source not in set(["auto", "combined", "log_bf", "prior"]):
+        bail("--trait-linkage-source must be one of: auto, combined, log_bf, prior")
     if parsed_options.factor_runs < 1:
         bail("--factor-runs must be at least 1")
     allowed_factor_phewas_modes = set([
@@ -1357,11 +1377,16 @@ def _bootstrap_cli(argv=None):
         or parsed_options.factor_gene_set_clusters_in is not None
     )
     if projection_only_factor_inputs:
-        if not parsed_options.run_factor_phewas and parsed_options.pheno_clusters_out is None:
-            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires --run-factor-phewas or --pheno-clusters-out")
+        if (
+            not parsed_options.run_factor_phewas
+            and parsed_options.pheno_clusters_out is None
+            and getattr(parsed_options, "trait_factor_links_out", None) is None
+            and parsed_options.no_trait_linkage
+        ):
+            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires --run-factor-phewas, --trait-factor-links-out, or --pheno-clusters-out unless --no-trait-linkage is not set")
         if parsed_options.run_factor_phewas and parsed_options.factor_gene_clusters_in is None:
             bail("--run-factor-phewas with precomputed factors requires --factor-gene-clusters-in")
-        if parsed_options.pheno_clusters_out is not None:
+        if parsed_options.pheno_clusters_out is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None or not parsed_options.no_trait_linkage:
             if parsed_options.project_phenos_from_gene_sets:
                 if parsed_options.factor_gene_set_clusters_in is None:
                     bail("--project-phenos-from-gene-sets with precomputed factors requires --factor-gene-set-clusters-in")

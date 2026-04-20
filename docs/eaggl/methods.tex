@@ -245,12 +245,12 @@ r_k^{\mathrm{any}}
 \end{equation}
 This has the intended semantics that $r_k^{\mathrm{any}}$ is the probability-like estimate that factor $k$ is relevant to at least one selected anchor. In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific relevance itself.
 
-\section{Phenotype capture and factor-specific phenotype enrichment}
+\section{Trait linkage and factor-specific phenotype enrichment}
 \label{sec:postfactor_revised}
 
-After fitting the main factorization, EAGGL can relate latent factors to additional human phenotypes in two conceptually distinct ways. The first is a descriptive \emph{capture} step, which estimates how strongly each phenotype's retained high-confidence support profile is represented by each factor. The second is an inferential \emph{enrichment} step, which asks whether a phenotype is more concentrated in one factor than expected after accounting for the anchor trait and optional covariates. These two quantities answer different scientific questions and are therefore not expected to coincide exactly.
+After fitting the main factorization, EAGGL can relate latent factors to additional human phenotypes in two conceptually distinct ways. The primary public annotation layer is a descriptive \emph{trait linkage} step, which estimates how strongly each phenotype's retained high-confidence support profile is represented by each factor. The secondary expert-only layer is an inferential \emph{enrichment} step, which asks whether a phenotype is more concentrated in one factor than expected after accounting for the anchor trait and optional covariates. These two quantities answer different scientific questions and are therefore not expected to coincide exactly.
 
-\subsection{Phenotype capture by compositional projection of thresholded profiles}
+\subsection{Canonical trait linkage by compositional projection of thresholded profiles}
 
 The external gene-by-phenotype support table can be very large. In practice, EAGGL therefore consumes a sparse thresholded representation that retains only gene-phenotype entries whose combined support exceeds a cutoff $c_0$. The phenotype profile used for post-factor annotation is therefore not the full unthresholded phenotype surface. It is the retained high-confidence thresholded profile.
 

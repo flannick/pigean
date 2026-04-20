@@ -113,11 +113,14 @@ def _options(**overrides):
         keep_original_loadings=False,
         project_phenos_from_gene_sets=False,
         pheno_capture_input="weighted_thresholded",
+        trait_linkage_source="auto",
+        no_trait_linkage=False,
         factors_out=None,
         factor_metrics_out=None,
         factors_anchor_out=None,
         gene_set_clusters_out=None,
         gene_clusters_out=None,
+        trait_factor_links_out=None,
         pheno_clusters_out=None,
         gene_set_anchor_clusters_out=None,
         gene_anchor_clusters_out=None,
@@ -148,6 +151,9 @@ class _RuntimeStub:
 
     def write_clusters(self, gene_set_out, gene_out, pheno_out, write_anchor_specific=False):
         self.calls.append(("write_clusters", gene_set_out, gene_out, pheno_out, write_anchor_specific))
+
+    def write_trait_factor_links(self, out):
+        self.calls.append(("write_trait_factor_links", out))
 
     def write_gene_pheno_statistics(self, out, min_value_to_print=0):
         self.calls.append(("write_gene_pheno_statistics", out, min_value_to_print))
@@ -410,6 +416,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             factors_anchor_out="factors_anchor.tsv",
             gene_set_clusters_out="gs_cluster.tsv",
             gene_clusters_out="g_cluster.tsv",
+            trait_factor_links_out="trait_links.tsv",
             pheno_clusters_out="p_cluster.tsv",
             gene_set_anchor_clusters_out="gs_anchor_cluster.tsv",
             gene_anchor_clusters_out="g_anchor_cluster.tsv",
@@ -419,20 +426,22 @@ class FactorStageHelpersTest(unittest.TestCase):
             max_no_write_gene_pheno=0.2,
         )
         eaggl._write_main_factor_outputs(runtime, options)
-        self.assertEqual(len(runtime.calls), 7)
+        self.assertEqual(len(runtime.calls), 9)
         self.assertEqual(runtime.calls[0], ("write_matrix_factors", "factors.tsv", False))
         self.assertEqual(runtime.calls[1], ("write_factor_metrics", "factor_metrics.tsv"))
         self.assertEqual(runtime.calls[2], ("write_matrix_factors", "factors_anchor.tsv", True))
         self.assertEqual(runtime.calls[3], ("write_consensus_factor_diagnostics", "consensus.tsv"))
         self.assertEqual(
             runtime.calls[4],
-            ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", "p_cluster.tsv", False),
+            ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False),
         )
+        self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv"))
+        self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "p_cluster.tsv"))
         self.assertEqual(
-            runtime.calls[5],
+            runtime.calls[7],
             ("write_clusters", "gs_anchor_cluster.tsv", "g_anchor_cluster.tsv", "p_anchor_cluster.tsv", True),
         )
-        self.assertEqual(runtime.calls[6], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
+        self.assertEqual(runtime.calls[8], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 
     def test_write_clusters_gene_set_writer_uses_betas_uncorrected_without_stale_alias(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
@@ -462,6 +471,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         lines = content.strip().splitlines()
         self.assertGreaterEqual(len(lines), 3)
         self.assertTrue(lines[1].startswith("gs2\t0.9"))
+
 
     def test_workflow_required_inputs_contract_for_f1_to_f9(self) -> None:
         cases = [
@@ -599,7 +609,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 pheno_capture_input="weighted_thresholded",
             )
             result = eaggl.eaggl_factor.run_main_pheno_projection_stage(domain, runtime, options)
-            runtime.write_clusters(None, None, str(pheno_clusters))
+            runtime.write_trait_factor_links(str(pheno_clusters))
 
             import gzip
 
@@ -609,13 +619,12 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertTrue(result.ran)
         self.assertEqual(result.output_path, str(pheno_clusters))
         self.assertEqual(runtime.phenos, ["TraitA", "TraitB"])
-        self.assertEqual(runtime.exp_pheno_factors.shape, (2, 2))
-        self.assertGreater(runtime.exp_pheno_factors[0, 0], runtime.exp_pheno_factors[0, 1])
-        self.assertGreater(runtime.exp_pheno_factors[1, 1], runtime.exp_pheno_factors[1, 0])
-        self.assertIn("capture_strength", content)
-        self.assertIn("capture_basis", content)
-        self.assertIn("TraitA", content)
-        self.assertIn("TraitB", content)
+        self.assertEqual(runtime.trait_linkage_joint.shape, (2, 2))
+        self.assertGreater(runtime.trait_linkage_joint[0, 0], runtime.trait_linkage_joint[0, 1])
+        self.assertGreater(runtime.trait_linkage_joint[1, 1], runtime.trait_linkage_joint[1, 0])
+        self.assertIn("trait\tfactor\tis_anchor\tjoint\tmarginal", content)
+        self.assertIn("TraitA\tFactor1", content)
+        self.assertIn("TraitB\tFactor2", content)
 
     def test_load_existing_factor_gene_set_clusters_sets_gene_set_factor_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -678,7 +687,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 pheno_capture_input="weighted_thresholded",
             )
             result = eaggl.eaggl_factor.run_main_pheno_projection_stage(domain, runtime, options)
-            runtime.write_clusters(None, None, str(pheno_clusters))
+            runtime.write_trait_factor_links(str(pheno_clusters))
 
             import gzip
 
@@ -688,13 +697,12 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertTrue(result.ran)
         self.assertEqual(result.output_path, str(pheno_clusters))
         self.assertEqual(runtime.phenos, ["TraitA", "TraitB"])
-        self.assertEqual(runtime.exp_pheno_factors.shape, (2, 2))
-        self.assertGreater(runtime.exp_pheno_factors[0, 0], runtime.exp_pheno_factors[0, 1])
-        self.assertGreater(runtime.exp_pheno_factors[1, 1], runtime.exp_pheno_factors[1, 0])
-        self.assertIn("capture_basis", content)
+        self.assertEqual(runtime.trait_linkage_joint.shape, (2, 2))
+        self.assertGreater(runtime.trait_linkage_joint[0, 0], runtime.trait_linkage_joint[0, 1])
+        self.assertGreater(runtime.trait_linkage_joint[1, 1], runtime.trait_linkage_joint[1, 0])
         self.assertIn("gene_sets", content)
-        self.assertIn("TraitA", content)
-        self.assertIn("TraitB", content)
+        self.assertIn("TraitA\tFactor1", content)
+        self.assertIn("TraitB\tFactor2", content)
 
     def test_projection_only_factor_phewas_stage_gate_does_not_require_factor_fit(self) -> None:
         self.assertTrue(

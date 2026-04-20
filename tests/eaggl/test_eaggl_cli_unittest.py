@@ -147,6 +147,10 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--factor-phewas-modes"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phewas-full-output"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--pheno-capture-input"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--trait-factor-links-out"]["category"], "engineering")
+        self.assertEqual(metadata["--trait-factor-links-out"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--trait-linkage-source"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--no-trait-linkage"]["public_visibility"], "normal")
 
     def test_non_factor_modes_fail_with_routing_message(self) -> None:
         proc = self._run("gibbs")
@@ -276,7 +280,8 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--factor-gene-clusters-in", "gene_clusters.out.gz")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires --run-factor-phewas or --pheno-clusters-out", err)
+        self.assertIn("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in", err)
+
 
     def test_projection_only_pheno_clusters_requires_gene_phewas_input(self) -> None:
         proc = self._run(
@@ -289,6 +294,13 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in", err)
+
+    def test_invalid_trait_linkage_source_returns_usage_error(self) -> None:
+        proc = self._run("factor", "--trait-linkage-source", "definitely_invalid")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--trait-linkage-source must be one of: auto, combined, log_bf, prior", err)
+        self.assertNotIn("Traceback", err)
 
     def test_projection_only_gene_set_pheno_clusters_requires_gene_set_inputs(self) -> None:
         proc = self._run(
@@ -350,6 +362,26 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["factor_gene_clusters_in"], "gene_clusters.out.gz")
         self.assertEqual(payload["options"]["gene_phewas_bfs_in"], "gene_phewas.tsv")
         self.assertEqual(payload["options"]["pheno_clusters_out"], "pheno_clusters.tsv.gz")
+
+    def test_projection_only_trait_factor_links_flag_round_trip(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--gene-phewas-stats-in",
+            "gene_phewas.tsv",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
+            "--trait-linkage-source",
+            "log_bf",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["factor_gene_clusters_in"], "gene_clusters.out.gz")
+        self.assertEqual(payload["options"]["gene_phewas_bfs_in"], "gene_phewas.tsv")
+        self.assertEqual(payload["options"]["trait_factor_links_out"], "trait_factor_links.tsv.gz")
+        self.assertEqual(payload["options"]["trait_linkage_source"], "log_bf")
 
     def test_projection_only_can_request_pheno_clusters_and_factor_phewas(self) -> None:
         proc = self._run(

@@ -121,6 +121,8 @@ class FactorExecutionConfig:
     keep_original_loadings: bool = False
     project_phenos_from_gene_sets: bool = False
     pheno_capture_input: str = "weighted_thresholded"
+    trait_linkage_source: str = "auto"
+    no_trait_linkage: bool = False
 
     def to_run_kwargs(self):
         return {
@@ -195,6 +197,8 @@ class FactorExecutionConfig:
             "keep_original_loadings": self.keep_original_loadings,
             "project_phenos_from_gene_sets": self.project_phenos_from_gene_sets,
             "pheno_capture_input": self.pheno_capture_input,
+            "trait_linkage_source": self.trait_linkage_source,
+            "no_trait_linkage": self.no_trait_linkage,
         }
 
 
@@ -884,6 +888,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         keep_original_loadings=getattr(options, "keep_original_loadings", False),
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
         pheno_capture_input=getattr(options, "pheno_capture_input", "weighted_thresholded"),
+        trait_linkage_source=getattr(options, "trait_linkage_source", "auto"),
+        no_trait_linkage=bool(getattr(options, "no_trait_linkage", False)),
     )
 
 
@@ -902,7 +908,10 @@ def run_main_factor_stage(domain, runtime, options, mode_state, factor_input_sta
 def run_main_pheno_projection_stage(domain, runtime, options):
     if runtime.num_factors() <= 0:
         domain.log("No factors; not projecting pheno clusters")
-        return PhewasStageResult(ran=False, output_path=options.pheno_clusters_out)
+        return PhewasStageResult(
+            ran=False,
+            output_path=getattr(options, "trait_factor_links_out", None) or options.pheno_clusters_out,
+        )
 
     if options.project_phenos_from_gene_sets:
         if runtime.X_phewas_beta_uncorrected is None:
@@ -936,12 +945,16 @@ def run_main_pheno_projection_stage(domain, runtime, options):
     eaggl_factor_runtime.project_phenos_from_loaded_factors(
         runtime,
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
+        trait_linkage_source=getattr(options, "trait_linkage_source", "auto"),
         pheno_capture_input=options.pheno_capture_input,
         bail_fn=domain.bail,
         log_fn=domain.log,
         info_level=domain.INFO,
     )
-    return PhewasStageResult(ran=True, output_path=options.pheno_clusters_out)
+    return PhewasStageResult(
+        ran=True,
+        output_path=getattr(options, "trait_factor_links_out", None) or options.pheno_clusters_out,
+    )
 
 
 def run_main_factor_phewas_stage(domain, runtime, options):
@@ -1005,5 +1018,11 @@ def should_run_main_factor_phewas_stage(mode_state):
 def should_run_main_pheno_projection_stage(mode_state, options):
     return bool(
         mode_state.get("factor_projection_only")
-        and options.pheno_clusters_out is not None
+        and not getattr(options, "no_trait_linkage", False)
+        and (
+            options.pheno_clusters_out is not None
+            or getattr(options, "trait_factor_links_out", None) is not None
+            or options.gene_phewas_bfs_in is not None
+            or options.gene_set_phewas_stats_in is not None
+        )
     )

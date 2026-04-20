@@ -18,6 +18,8 @@ if str(SRC_ROOT) not in sys.path:
 from eaggl import phenotype_annotation as eaggl_phenotype_annotation  # noqa: E402
 from eaggl import phewas as eaggl_phewas  # noqa: E402
 from eaggl import factor_runtime as eaggl_factor_runtime  # noqa: E402
+from eaggl import state as eaggl_state  # noqa: E402
+from eaggl import trait_linkage as eaggl_trait_linkage  # noqa: E402
 from pegs_shared import output_tables as pegs_output_tables  # noqa: E402
 
 
@@ -126,6 +128,55 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         )
         np.testing.assert_array_equal(weighted, feature_by_pheno)
         np.testing.assert_array_equal(binary, np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 0.0]]))
+
+    def test_canonical_trait_linkage_returns_joint_and_marginal_scores(self) -> None:
+        basis = np.array(
+            [
+                [2.0, 0.0],
+                [0.0, 3.0],
+            ]
+        )
+        feature_by_trait = np.array(
+            [
+                [8.0, 1.0],
+                [2.0, 9.0],
+            ]
+        )
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
+                W,
+                X_new,
+                max_sum=max_sum,
+                max_value=max_value,
+            ),
+            basis,
+            feature_by_trait,
+        )
+        self.assertEqual(linkage["joint"].shape, (2, 2))
+        self.assertEqual(linkage["marginal"].shape, (2, 2))
+        self.assertGreater(linkage["joint"][0, 0], linkage["joint"][0, 1])
+        self.assertGreater(linkage["joint"][1, 1], linkage["joint"][1, 0])
+        self.assertTrue(np.all(linkage["joint"] >= 0))
+        self.assertTrue(np.all(np.sum(linkage["joint"], axis=1) <= 1.00001))
+
+    def test_trait_linkage_source_auto_prefers_combined_then_log_bf_then_prior(self) -> None:
+        selected, label = eaggl_trait_linkage.resolve_trait_linkage_source(
+            "auto",
+            combined=np.array([[1.0]]),
+            log_bf=np.array([[2.0]]),
+            prior=np.array([[3.0]]),
+        )
+        np.testing.assert_array_equal(selected, np.array([[1.0]]))
+        self.assertEqual(label, "combined")
+
+        selected, label = eaggl_trait_linkage.resolve_trait_linkage_source(
+            "auto",
+            combined=None,
+            log_bf=np.array([[2.0]]),
+            prior=np.array([[3.0]]),
+        )
+        np.testing.assert_array_equal(selected, np.array([[2.0]]))
+        self.assertEqual(label, "log_bf")
 
 
 class FactorPhewasSurfaceTest(unittest.TestCase):

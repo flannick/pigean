@@ -254,6 +254,8 @@ def open_gz(file, flag=None):
     )
 
 
+
+
 def _read_gene_phewas_bfs(
     state,
     gene_phewas_bfs_in,
@@ -631,7 +633,9 @@ class GeneSignalHugeState:
 class FactorModelState:
     exp_lambdak: object | None = None
     factor_anchor_relevance: object | None = None
+    factor_anchor_marginal_relevance: object | None = None
     factor_relevance: object | None = None
+    factor_marginal_relevance: object | None = None
     factor_labels: object | None = None
     factor_labels_gene_sets: object | None = None
     factor_labels_genes: object | None = None
@@ -654,6 +658,13 @@ class FactorModelState:
     pheno_capture_strength: object | None = None
     pheno_capture_basis: object | None = None
     pheno_capture_input: object | None = None
+    trait_linkage_joint: object | None = None
+    trait_linkage_marginal: object | None = None
+    trait_linkage_residual: object | None = None
+    trait_linkage_strength: object | None = None
+    trait_linkage_is_anchor: object | None = None
+    trait_linkage_basis: object | None = None
+    trait_linkage_score_source: object | None = None
     factor_phewas_result_blocks: object | None = None
     factor_phewas_Y_betas: object | None = None
     factor_phewas_Y_ses: object | None = None
@@ -1029,7 +1040,9 @@ class EagglState(object):
         #stores factored matrices
         self.exp_lambdak = None #anchor-agnostic factor relevance weights (does the factor exist)
         self.factor_anchor_relevance = None #relevance of each factor to each anchor
+        self.factor_anchor_marginal_relevance = None #standalone relevance of each factor to each anchor
         self.factor_relevance = None #max relevance of each factor across anchors
+        self.factor_marginal_relevance = None #max standalone relevance of each factor across anchors
 
         #these are specific to the anchor-agnostic loadings
         self.factor_labels = None
@@ -1062,6 +1075,13 @@ class EagglState(object):
         self.pheno_capture_strength = None
         self.pheno_capture_basis = None
         self.pheno_capture_input = None
+        self.trait_linkage_joint = None
+        self.trait_linkage_marginal = None
+        self.trait_linkage_residual = None
+        self.trait_linkage_strength = None
+        self.trait_linkage_is_anchor = None
+        self.trait_linkage_basis = None
+        self.trait_linkage_score_source = None
         self.factor_phewas_result_blocks = None
 
         self.factor_phewas_Y_betas = None #phewas statistics
@@ -1199,6 +1219,7 @@ class EagglState(object):
                     params_fh.write("%s\t%s\t%s\n" % (param, i + 1, values[i]))
                         
             params_fh.close()
+
 
     def _project_H_with_fixed_W(self, W, V_new, P_gene_set, P_gene_new, phi=0.0, lambdak=None, n_iter=100, tol=1e-5, normalize_genes=False, cap_genes=False, add_intercept=False):
         """
@@ -2306,9 +2327,22 @@ class EagglState(object):
                 if anchors is not None:
                     header = "%s\t%s" % (header, "anchor")
                     header = "%s\t%s" % (header, "relevance")
+                    header = "%s\t%s" % (header, "joint")
+                    header = "%s\t%s" % (header, "marginal")
                 else:
                     header = "%s\t%s" % (header, "lambda")
                     header = "%s\t%s" % (header, "any_relevance")
+                    num_anchor_traits = (
+                        self.factor_anchor_relevance.shape[1]
+                        if self.factor_anchor_relevance is not None and len(self.factor_anchor_relevance.shape) == 2
+                        else 0
+                    )
+                    if num_anchor_traits == 1:
+                        header = "%s\t%s" % (header, "anchor_joint")
+                        header = "%s\t%s" % (header, "anchor_marginal")
+                    elif num_anchor_traits > 1:
+                        header = "%s\t%s" % (header, "anchor_any_joint")
+                        header = "%s\t%s" % (header, "anchor_any_marginal")
 
                 if self.factor_top_genes is not None or self.factor_anchor_top_genes is not None:
                     header = "%s\t%s" % (header, "top_genes")
@@ -2332,7 +2366,15 @@ class EagglState(object):
                         line = "%s\t%s" % (line, self.factor_labels[i])
                         if anchors is not None:
                             line = "%s\t%s" % (line, anchors[j])
-                            line = "%s\t%.3g" % (line, self.factor_anchor_relevance[i,j])
+                            joint_value = self.factor_anchor_relevance[i,j]
+                            marginal_value = (
+                                self.factor_anchor_marginal_relevance[i,j]
+                                if self.factor_anchor_marginal_relevance is not None
+                                else joint_value
+                            )
+                            line = "%s\t%.3g" % (line, joint_value)
+                            line = "%s\t%.3g" % (line, joint_value)
+                            line = "%s\t%.3g" % (line, marginal_value)
                             if self.factor_anchor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_genes[i][j]))
                             line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_gene_sets[i][j]))
@@ -2341,6 +2383,19 @@ class EagglState(object):
                         else:
                             line = "%s\t%.3g" % (line, self.exp_lambdak[i])
                             line = "%s\t%.3g" % (line, self.factor_relevance[i])
+                            num_anchor_traits = (
+                                self.factor_anchor_relevance.shape[1]
+                                if self.factor_anchor_relevance is not None and len(self.factor_anchor_relevance.shape) == 2
+                                else 0
+                            )
+                            if num_anchor_traits > 0:
+                                line = "%s\t%.3g" % (line, self.factor_relevance[i])
+                                line = "%s\t%.3g" % (
+                                    line,
+                                    self.factor_marginal_relevance[i]
+                                    if self.factor_marginal_relevance is not None
+                                    else self.factor_relevance[i],
+                                )
                             if self.factor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_top_genes[i]))
                                 if self.factor_labels_genes:
@@ -2355,6 +2410,64 @@ class EagglState(object):
 
 
                         output_fh.write("%s\n" % (line))
+
+    def write_trait_factor_links(self, output_file=None):
+        if output_file is None:
+            return
+        if self.trait_linkage_joint is None or self.trait_linkage_marginal is None:
+            return
+        if self.phenos is None:
+            return
+
+        log("Writing trait-factor links to %s" % output_file, INFO)
+        with open_gz(output_file, "w") as output_fh:
+            header = [
+                "trait",
+                "factor",
+                "is_anchor",
+                "joint",
+                "marginal",
+                "trait_strength",
+                "joint_residual",
+                "score_source",
+                "basis",
+            ]
+            output_fh.write("%s\n" % "\t".join(header))
+            is_anchor = (
+                np.asarray(self.trait_linkage_is_anchor, dtype=bool)
+                if self.trait_linkage_is_anchor is not None
+                else np.full(len(self.phenos), False, dtype=bool)
+            )
+            strengths = (
+                np.asarray(self.trait_linkage_strength, dtype=float)
+                if self.trait_linkage_strength is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            residuals = (
+                np.asarray(self.trait_linkage_residual, dtype=float)
+                if self.trait_linkage_residual is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            basis = "" if self.trait_linkage_basis is None else str(self.trait_linkage_basis)
+            score_source = "" if self.trait_linkage_score_source is None else str(self.trait_linkage_score_source)
+            for trait_index, trait_name in enumerate(self.phenos):
+                for factor_index in range(self.num_factors()):
+                    output_fh.write(
+                        "%s\n"
+                        % "\t".join(
+                            [
+                                str(trait_name),
+                                "Factor%d" % (factor_index + 1),
+                                "1" if bool(is_anchor[trait_index]) else "0",
+                                "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
+                                "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
+                                "%.6g" % float(strengths[trait_index]),
+                                "%.6g" % float(residuals[trait_index]),
+                                score_source,
+                                basis,
+                            ]
+                        )
+                    )
 
     def write_consensus_factor_diagnostics(self, output_file=None):
         if output_file is None:

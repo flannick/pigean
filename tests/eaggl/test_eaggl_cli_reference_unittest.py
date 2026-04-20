@@ -393,6 +393,10 @@ class EagglCliReferenceTest(unittest.TestCase):
             "gene_set_clusters.tsv",
             "--gene-clusters-out",
             "gene_clusters.tsv",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv",
+            "--trait-linkage-source",
+            "combined",
             "--pheno-clusters-out",
             "pheno_clusters.tsv",
             "--gene-set-anchor-clusters-out",
@@ -459,6 +463,9 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertTrue(opts["label_individually"])
         self.assertEqual(opts["factors_out"], "factors.tsv")
         self.assertEqual(opts["factor_metrics_out"], "factor_metrics.tsv")
+        self.assertEqual(opts["trait_factor_links_out"], "trait_factor_links.tsv")
+        self.assertEqual(opts["trait_linkage_source"], "combined")
+        self.assertEqual(opts["pheno_clusters_out"], "pheno_clusters.tsv")
         self.assertEqual(opts["consensus_stats_out"], "consensus.tsv")
         self.assertEqual(opts["params_out"], "params.tsv")
 
@@ -518,6 +525,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--factor-phewas-gene-clusters-in": ["test_projection_only_factor_phewas_flag_round_trip"],
             "--factor-phewas-thresholded-combined-cutoff": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-se": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
+            "--factor-gene-clusters-in": ["test_projection_only_pheno_clusters_flag_round_trip", "test_projection_only_trait_factor_links_flag_round_trip"],
+            "--factor-gene-set-clusters-in": ["test_projection_only_gene_set_pheno_clusters_flag_round_trip"],
             "--project-phenos-from-gene-sets": ["test_reference_phewas_and_schema_flags_round_trip"],
             "--pheno-capture-input": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--gene-stats-id-col": ["test_reference_phewas_and_schema_flags_round_trip"],
@@ -584,6 +593,9 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--consensus-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-set-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--trait-factor-links-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--trait-linkage-source": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--no-trait-linkage": ["test_cli_manifest_tiers_cover_recent_factor_and_gene_list_flags"],
             "--pheno-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-set-anchor-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-anchor-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
