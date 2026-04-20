@@ -205,6 +205,8 @@ class FactorStageHelpersTest(unittest.TestCase):
             blockwise_warm_start=True,
             blockwise_max_blocks=None,
             blockwise_report_out=None,
+            trait_linkage_source="auto",
+            no_trait_linkage=False,
             bail_fn=None,
             warn_fn=None,
             log_fn=None,
@@ -223,6 +225,8 @@ class FactorStageHelpersTest(unittest.TestCase):
                     "blockwise_warm_start": blockwise_warm_start,
                     "blockwise_max_blocks": blockwise_max_blocks,
                     "blockwise_report_out": blockwise_report_out,
+                    "trait_linkage_source": trait_linkage_source,
+                    "no_trait_linkage": no_trait_linkage,
                 }
             )
             return "stubbed"
@@ -239,6 +243,8 @@ class FactorStageHelpersTest(unittest.TestCase):
                 online_warm_start=False,
                 online_max_blocks=4,
                 online_report_out="legacy_report.tsv.gz",
+                trait_linkage_source="combined",
+                no_trait_linkage=True,
             )
 
         self.assertEqual(result, "stubbed")
@@ -250,6 +256,8 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertFalse(captured["blockwise_warm_start"])
         self.assertEqual(captured["blockwise_max_blocks"], 4)
         self.assertEqual(captured["blockwise_report_out"], "legacy_report.tsv.gz")
+        self.assertEqual(captured["trait_linkage_source"], "combined")
+        self.assertTrue(captured["no_trait_linkage"])
 
     def test_zero_uncorrected_filter_hook_accepts_shared_runtime_kwargs(self) -> None:
         runtime = SimpleNamespace(p_values=None, gene_sets=[])
