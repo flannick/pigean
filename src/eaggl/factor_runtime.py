@@ -2372,6 +2372,7 @@ def _finalize_factor_outputs(
     state,
     *,
     factor_gene_set_x_pheno,
+    factor_top_loading_type,
     lmm_auth_key,
     lmm_model,
     lmm_provider,
@@ -2513,7 +2514,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -3279,6 +3280,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     _finalize_factor_outputs(
         state,
         factor_gene_set_x_pheno=factor_gene_set_x_pheno,
+        factor_top_loading_type=factor_top_loading_type,
         lmm_auth_key=lmm_auth_key,
         lmm_model=lmm_model,
         lmm_provider=lmm_provider,
