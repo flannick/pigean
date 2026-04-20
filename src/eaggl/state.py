@@ -254,6 +254,39 @@ def open_gz(file, flag=None):
     )
 
 
+def _derive_clustering_params_paths(output_file):
+    if output_file is None:
+        return (None, None)
+    if output_file.endswith(".json.gz"):
+        json_path = output_file
+        tsv_path = output_file[:-8] + ".tsv.gz"
+    elif output_file.endswith(".tsv.gz"):
+        tsv_path = output_file
+        json_path = output_file[:-7] + ".json.gz"
+    elif output_file.endswith(".json"):
+        json_path = output_file
+        tsv_path = output_file[:-5] + ".tsv.gz"
+    elif output_file.endswith(".tsv"):
+        tsv_path = output_file
+        json_path = output_file[:-4] + ".json.gz"
+    else:
+        json_path = output_file + ".json.gz"
+        tsv_path = output_file + ".tsv.gz"
+    return json_path, tsv_path
+
+
+def _flatten_clustering_payload(prefix, value):
+    if isinstance(value, dict):
+        flat = []
+        for key in sorted(value.keys()):
+            next_prefix = key if prefix is None else prefix + "." + str(key)
+            flat.extend(_flatten_clustering_payload(next_prefix, value[key]))
+        return flat
+    if isinstance(value, (list, tuple, set)):
+        if isinstance(value, set):
+            value = sorted(list(value))
+        return [(prefix, json.dumps(value, sort_keys=True))]
+    return [(prefix, value)]
 
 
 def _read_gene_phewas_bfs(
@@ -1220,6 +1253,22 @@ class EagglState(object):
                         
             params_fh.close()
 
+    def write_clustering_params(self, output_file, payload):
+        if output_file is None:
+            return None
+        json_path, tsv_path = _derive_clustering_params_paths(output_file)
+        if json_path is not None:
+            log("Writing clustering provenance JSON to %s" % json_path, INFO)
+            with open_gz(json_path, "w") as output_fh:
+                output_fh.write(json.dumps(pegs_json_safe(payload), indent=2, sort_keys=True))
+                output_fh.write("\n")
+        if tsv_path is not None:
+            log("Writing clustering provenance TSV to %s" % tsv_path, INFO)
+            with open_gz(tsv_path, "w") as output_fh:
+                output_fh.write("Field\tValue\n")
+                for field_name, value in _flatten_clustering_payload(None, pegs_json_safe(payload)):
+                    output_fh.write("%s\t%s\n" % (field_name, value))
+        return {"json": json_path, "tsv": tsv_path}
 
     def _project_H_with_fixed_W(self, W, V_new, P_gene_set, P_gene_new, phi=0.0, lambdak=None, n_iter=100, tol=1e-5, normalize_genes=False, cap_genes=False, add_intercept=False):
         """

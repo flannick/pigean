@@ -180,7 +180,6 @@ class EagglCliReferenceTest(unittest.TestCase):
             "factor",
             "--anchor-phenos",
             "T2D,T2D_ALT",
-            "--anchor-any-pheno",
             "--gene-phewas-stats-in",
             "gene_phewas.tsv",
             "--gene-set-phewas-stats-in",
@@ -189,13 +188,24 @@ class EagglCliReferenceTest(unittest.TestCase):
         )
         pheno_payload = json.loads(pheno_anchor.stdout)
         self.assertEqual(pheno_payload["options"]["anchor_phenos"], ["T2D", "T2D_ALT"])
-        self.assertTrue(pheno_payload["options"]["anchor_any_pheno"])
+        self.assertFalse(pheno_payload["options"]["anchor_any_pheno"])
+
+        any_pheno_anchor = self._run_ok(
+            "factor",
+            "--anchor-any-pheno",
+            "--gene-phewas-stats-in",
+            "gene_phewas.tsv",
+            "--gene-set-phewas-stats-in",
+            "gene_set_phewas.tsv",
+            "--print-effective-config",
+        )
+        any_pheno_payload = json.loads(any_pheno_anchor.stdout)
+        self.assertTrue(any_pheno_payload["options"]["anchor_any_pheno"])
 
         gene_anchor = self._run_ok(
             "factor",
             "--anchor-genes",
             "INS,GCK",
-            "--anchor-any-gene",
             "--gene-phewas-stats-in",
             "gene_phewas.tsv",
             "--gene-set-phewas-stats-in",
@@ -204,7 +214,19 @@ class EagglCliReferenceTest(unittest.TestCase):
         )
         gene_payload = json.loads(gene_anchor.stdout)
         self.assertEqual(sorted(gene_payload["options"]["anchor_genes"]), ["GCK", "INS"])
-        self.assertTrue(gene_payload["options"]["anchor_any_gene"])
+        self.assertFalse(gene_payload["options"]["anchor_any_gene"])
+
+        any_gene_anchor = self._run_ok(
+            "factor",
+            "--anchor-any-gene",
+            "--gene-phewas-stats-in",
+            "gene_phewas.tsv",
+            "--gene-set-phewas-stats-in",
+            "gene_set_phewas.tsv",
+            "--print-effective-config",
+        )
+        any_gene_payload = json.loads(any_gene_anchor.stdout)
+        self.assertTrue(any_gene_payload["options"]["anchor_any_gene"])
 
         gene_set_anchor = self._run_ok(
             "factor",
@@ -409,6 +431,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "factor_phewas.tsv",
             "--gene-pheno-stats-out",
             "gene_pheno.tsv",
+            "--clustering-params-out",
+            "clustering_params.tsv.gz",
             "--params-out",
             "params.tsv",
             "--print-effective-config",
@@ -467,6 +491,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["trait_linkage_source"], "combined")
         self.assertEqual(opts["pheno_clusters_out"], "pheno_clusters.tsv")
         self.assertEqual(opts["consensus_stats_out"], "consensus.tsv")
+        self.assertEqual(opts["clustering_params_out"], "clustering_params.tsv.gz")
         self.assertEqual(opts["params_out"], "params.tsv")
 
     def test_reference_learn_phi_defaults_include_sentinel_prune(self) -> None:
@@ -602,6 +627,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--pheno-anchor-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-phewas-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-pheno-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--clustering-params-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--params-out": ["test_reference_factor_and_labeling_flags_round_trip"],
         }
         missing = [flag for flag in documented_flags if flag not in flag_to_tests]

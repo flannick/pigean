@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `237`
+- Total options: `243`
 - `method_required`: `16`
-- `method_optional`: `133`
-- `engineering`: `71`
+- `method_optional`: `137`
+- `engineering`: `73`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `197`
+- visibility `expert`: `199`
 - visibility `hidden`: `8`
-- visibility `normal`: `32`
+- visibility `normal`: `36`
 
 ## Method Required
 
@@ -79,6 +79,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-prune-phenos-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_num` | `None` | - |
 | `--factor-prune-phenos-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_val` | `None` | - |
 | `--factor-runs` | `normal` | `yes` | `core_help` | `factor_runs` | `1` | run repeated random restarts for factorization; without consensus keep only the best run |
+| `--factor-top-loading-type` | `expert` | `yes` | `expert_help` | `factor_top_loading_type` | `combined` | - |
 | `--filter-gene-set-p` | `expert` | `yes` | `expert_help` | `filter_gene_set_p` | `None` | - |
 | `--filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
@@ -119,21 +120,21 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--lmm-provider` | `expert` | `yes` | `advanced_workflows` | `lmm_provider` | `openai` | choose the LLM provider used for optional labeling |
 | `--max-for-linear` | `expert` | `yes` | `expert_help` | `max_for_linear` | `None` | - |
 | `--max-frac-sem-betas` | `expert` | `yes` | `expert_help` | `max_frac_sem_betas` | `0.01` | - |
-| `--max-gene-set-read-p` | `expert` | `yes` | `expert_help` | `max_gene_set_read_p` | `0.05` | - |
-| `--max-gene-set-size` | `expert` | `yes` | `expert_help` | `max_gene_set_size` | `30000` | - |
+| `--max-gene-set-read-p` | `expert` | `yes` | `expert_help` | `max_gene_set_read_p` | `1.0` | - |
+| `--max-gene-set-size` | `expert` | `yes` | `expert_help` | `max_gene_set_size` | `2147483647` | - |
 | `--max-no-write-gene-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_gene_set_beta` | `0` | - |
 | `--max-no-write-gene-pheno` | `expert` | `yes` | `expert_help` | `max_no_write_gene_pheno` | `0` | - |
 | `--max-no-write-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta` | `None` | - |
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
 | `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
 | `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | - |
-| `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `5000` | - |
-| `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `5000` | - |
+| `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `None` | - |
+| `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `None` | - |
 | `--max-num-gene-sets-initial` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_initial` | `None` | - |
 | `--max-num-iter-betas` | `expert` | `yes` | `expert_help` | `max_num_iter_betas` | `1100` | - |
 | `--min-gene-phewas-read-value` | `expert` | `yes` | `advanced_workflows` | `min_gene_phewas_read_value` | `1` | - |
-| `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `1e-20` | - |
-| `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `1e-20` | - |
+| `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `None` | - |
+| `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `None` | - |
 | `--min-gene-set-size` | `expert` | `yes` | `expert_help` | `min_gene_set_size` | `None` | - |
 | `--min-lambda-threshold` | `normal` | `yes` | `core_help` | `min_lambda_threshold` | `0.001` | - |
 | `--min-num-iter-betas` | `expert` | `yes` | `expert_help` | `min_num_iter_betas` | `10` | - |
@@ -147,6 +148,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
+| `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable canonical trait linkage even when trait inputs are available |
 | `--no-transpose` | `expert` | `yes` | `expert_help` | `no_transpose` | `-` | - |
 | `--num-chains` | `expert` | `yes` | `expert_help` | `num_chains` | `10` | - |
 | `--num-chains-betas` | `expert` | `yes` | `expert_help` | `num_chains_betas` | `4` | - |
@@ -166,12 +168,14 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
-| `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
+| `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.0` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
+| `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `auto` | choose the support surface for canonical trait linkage: auto, combined, log_bf, or prior |
 | `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |
 | `--weighted-prune-gene-sets` | `expert` | `yes` | `expert_help` | `weighted_prune_gene_sets` | `None` | - |
+| `--x-list-unlabeled-batching` | `expert` | `yes` | `expert_help` | `x_list_unlabeled_batching` | `per_file` | - |
 | `--x-sparsify` | `expert` | `yes` | `expert_help` | `x_sparsify` | `[50,100,250,1000]` | - |
 
 ## Engineering
@@ -181,6 +185,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--batch-separator` | `expert` | `no` | `expert_help` | `batch_separator` | `@` | - |
 | `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
 | `--blockwise-report-out` | `expert` | `no` | `expert_help` | `blockwise_report_out` | `None` | write per-epoch blockwise diagnostics |
+| `--clustering-params-out` | `normal` | `no` | `core_help` | `clustering_params_out` | `None` | write structured clustering workflow provenance as paired JSON and TSV summaries |
 | `--config` | `expert` | `no` | `core_help` | `config` | `None` | load a JSON config file; explicit CLI flags override config values |
 | `--consensus-stats-out` | `normal` | `no` | `core_help` | `consensus_stats_out` | `None` | write per-run and per-factor diagnostics for restart or consensus factorization |
 | `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
@@ -248,6 +253,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |
 | `--priors-num-gene-batches` | `expert` | `no` | `expert_help` | `priors_num_gene_batches` | `20` | - |
 | `--seed` | `expert` | `no` | `core_help` | `seed` | `None` | set explicit random seed for deterministic reproducibility checks |
+| `--trait-factor-links-out` | `normal` | `no` | `core_help` | `trait_factor_links_out` | `None` | write the canonical long-form trait-factor linkage table |
 | `--warnings-file` | `expert` | `no` | `core_help` | `warnings_file` | `None` | write warning messages to this file |
 
 ## Compat Alias

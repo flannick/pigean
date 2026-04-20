@@ -215,6 +215,7 @@ parser.add_option("","--max-no-write-gene-pheno",type=float,default=0) #write on
 
 #output for parameters
 parser.add_option("","--params-out",default=None)
+parser.add_option("","--clustering-params-out",default=None)
 
 #control output / logging
 parser.add_option("","--log-file",default=None)
@@ -512,6 +513,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--pheno-capture-input": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
     "--trait-linkage-source": "choose the support surface for canonical trait linkage: auto, combined, log_bf, or prior",
     "--no-trait-linkage": "disable canonical trait linkage even when trait inputs are available",
+    "--clustering-params-out": "write structured clustering workflow provenance as paired JSON and TSV summaries",
     "--run-phewas": "run the optional gene-level phewas output stage",
     "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
     "--seed": "set explicit random seed for deterministic reproducibility checks",
@@ -639,6 +641,7 @@ _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--pheno-anchor-clusters-out",
     "--pheno-clusters-out",
     "--phewas-stats-out",
+    "--clustering-params-out",
 }
 
 _METHOD_REQUIRED_FLAGS = {
@@ -814,6 +817,10 @@ def _build_cli_manifest_metadata():
             _semantic = False
             if _primary_flag in _ADVANCED_WORKFLOW_OUTPUT_FLAGS:
                 _doc_target = "advanced_workflows"
+            if _primary_flag == "--clustering-params-out":
+                _visibility = "normal"
+                _doc_target = "core_help"
+                _help_group = "core"
         elif _is_engineering_selector_flag(_primary_flag):
             _category = "engineering"
             _visibility = "expert"
@@ -1120,6 +1127,7 @@ _has_potentially_ignored_factor_inputs = _eaggl_workflows.has_potentially_ignore
 _warn_for_factor_workflow_inputs = lambda _options, _workflow: _eaggl_workflows.warn_for_factor_workflow_inputs(_options, _workflow, warn)
 _format_anchor_values_for_label = _eaggl_workflows.format_anchor_values_for_label
 _classify_factor_workflow = _eaggl_workflows.classify_factor_workflow
+_validate_factor_workflow_selection = lambda _options, _workflow, _projection_only: _eaggl_workflows.validate_factor_workflow_selection(_options, _workflow, _projection_only, bail)
 
 
 def _apply_eaggl_bundle_inputs(_options):
@@ -1476,6 +1484,7 @@ def _bootstrap_cli(argv=None):
 
         if error is not None:
             bail("Cannot run factoring type: %s. %s" % (factor_type, error))
+        _validate_factor_workflow_selection(parsed_options, parsed_factor_workflow, projection_only_factor_inputs)
         if projection_only_factor_inputs:
             parsed_run_factor = False
             log(

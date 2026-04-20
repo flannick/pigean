@@ -127,6 +127,7 @@ def _options(**overrides):
         pheno_anchor_clusters_out=None,
         gene_pheno_stats_out=None,
         max_no_write_gene_pheno=0.0,
+        clustering_params_out=None,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -472,6 +473,31 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertGreaterEqual(len(lines), 3)
         self.assertTrue(lines[1].startswith("gs2\t0.9"))
 
+    def test_write_clustering_params_writes_json_and_tsv_siblings(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        payload = {
+            "workflow_id": "F1",
+            "routing_family": "default_stats",
+            "trait_linkage": {"enabled": True, "basis": "gene", "source": "combined"},
+            "inputs": {"gene_stats_in": "gene_stats.tsv.gz"},
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_path = Path(tmpdir) / "clustering_params"
+            written = runtime.write_clustering_params(str(base_path), payload)
+
+            import gzip
+
+            with gzip.open(written["json"], "rt", encoding="utf-8") as fh:
+                json_content = fh.read()
+            with gzip.open(written["tsv"], "rt", encoding="utf-8") as fh:
+                tsv_content = fh.read()
+
+        self.assertEqual(written["json"], str(base_path) + ".json.gz")
+        self.assertEqual(written["tsv"], str(base_path) + ".tsv.gz")
+        self.assertIn('"workflow_id": "F1"', json_content)
+        self.assertIn("Field\tValue", tsv_content)
+        self.assertIn("trait_linkage.source\tcombined", tsv_content)
 
     def test_workflow_required_inputs_contract_for_f1_to_f9(self) -> None:
         cases = [
