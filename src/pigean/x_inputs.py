@@ -38,6 +38,7 @@ def run_main_adaptive_read_x(
     )
     track_filtered_beta_uncorrected = options.track_filtered_beta_uncorrected
     state.track_filtered_beta_uncorrected = track_filtered_beta_uncorrected
+    state.deterministic_mode = bool(getattr(options, "deterministic", False))
     xin_to_p_noninf_ind = build_xin_to_p_noninf_index_map_fn(
         options.X_in,
         options.X_list,
