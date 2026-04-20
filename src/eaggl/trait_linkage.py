@@ -25,6 +25,13 @@ def _sanitize_nonfinite(matrix):
     return np.nan_to_num(_as_dense_2d(matrix), nan=0.0, posinf=0.0, neginf=0.0)
 
 
+def _compute_positive_counts(matrix):
+    dense = _as_dense_2d(matrix)
+    if dense is None:
+        return None
+    return np.asarray(np.sum(dense > 0, axis=0), dtype=int)
+
+
 def resolve_trait_linkage_source(
     requested_source,
     *,
@@ -62,30 +69,46 @@ def compute_trait_linkage(
     basis,
     feature_by_trait,
     *,
+    full_feature_by_trait=None,
     threshold_mode="weighted_thresholded",
     eps=1e-12,
 ):
     dense_basis = _as_dense_2d(basis)
     dense_feature_by_trait = _sanitize_nonfinite(feature_by_trait)
+    dense_full_feature_by_trait = _sanitize_nonfinite(
+        full_feature_by_trait if full_feature_by_trait is not None else feature_by_trait
+    )
 
-    if dense_basis is None or dense_feature_by_trait is None:
+    if dense_basis is None or dense_feature_by_trait is None or dense_full_feature_by_trait is None:
         return None
     if dense_basis.shape[0] != dense_feature_by_trait.shape[0]:
         raise ValueError(
             "Trait linkage basis/target mismatch: %s vs %s"
             % (dense_basis.shape, dense_feature_by_trait.shape)
         )
+    if dense_full_feature_by_trait.shape[1] != dense_feature_by_trait.shape[1]:
+        raise ValueError(
+            "Trait linkage full/retained target mismatch: %s vs %s"
+            % (dense_full_feature_by_trait.shape, dense_feature_by_trait.shape)
+        )
 
     prepared = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
         dense_feature_by_trait,
         threshold_mode,
     )
-    strengths = eaggl_phenotype_annotation.compute_profile_strengths(prepared)
+    prepared_full = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
+        dense_full_feature_by_trait,
+        threshold_mode,
+    )
+    total_strengths = eaggl_phenotype_annotation.compute_profile_strengths(prepared_full)
+    retained_strengths = eaggl_phenotype_annotation.compute_profile_strengths(prepared)
+    total_feature_counts = _compute_positive_counts(prepared_full)
+    retained_feature_counts = _compute_positive_counts(prepared)
     normalized_basis = dense_basis / np.maximum(
         np.sum(dense_basis, axis=0, keepdims=True),
         eps,
     )
-    normalized_targets = prepared / np.maximum(strengths[np.newaxis, :], eps)
+    normalized_targets = prepared / np.maximum(total_strengths[np.newaxis, :], eps)
 
     joint = np.asarray(
         nnls_project_fn(normalized_basis, normalized_targets.T, max_sum=1.0),
@@ -104,10 +127,20 @@ def compute_trait_linkage(
             marginal[:, factor_index] = factor_scores[:, 0]
 
     residual = np.maximum(0.0, 1.0 - np.sum(joint, axis=1))
+    retained_fraction = retained_strengths / np.maximum(total_strengths, eps)
+    low_retention_flag = np.logical_or(
+        retained_feature_counts < 5,
+        retained_fraction < 0.1,
+    )
 
     return {
         "prepared_feature_by_trait": prepared,
-        "strength": np.asarray(strengths, dtype=float),
+        "strength": np.asarray(total_strengths, dtype=float),
+        "retained_strength": np.asarray(retained_strengths, dtype=float),
+        "retained_fraction": np.asarray(retained_fraction, dtype=float),
+        "total_feature_count": np.asarray(total_feature_counts, dtype=int),
+        "retained_feature_count": np.asarray(retained_feature_counts, dtype=int),
+        "low_retention_flag": np.asarray(low_retention_flag, dtype=bool),
         "joint": joint,
         "marginal": marginal,
         "residual": residual,

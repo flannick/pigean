@@ -619,7 +619,8 @@ class FactorStageHelpersTest(unittest.TestCase):
                 "\t".join(["Gene", "used_to_factor", "cluster", "label", "Factor1", "Factor2"])
                 + "\n"
                 + "GENE1\tTrue\tFactor1\timmune\t1.0\t0.0\n"
-                + "GENE2\tTrue\tFactor2\tmetabolic\t0.0\t1.0\n",
+                + "GENE2\tTrue\tFactor2\tmetabolic\t0.0\t1.0\n"
+                + "GENE3\tFalse\tFactor1\timmune\t0.1\t0.1\n",
                 encoding="utf-8",
             )
             gene_phewas = tmpdir_path / "gene_phewas.tsv"
@@ -627,8 +628,10 @@ class FactorStageHelpersTest(unittest.TestCase):
                 "Gene\tPheno\tcombined\tlog_bf\tprior\n"
                 "GENE1\tTraitA\t2.0\t1.0\t0.1\n"
                 "GENE2\tTraitA\t0.0\t0.0\t0.0\n"
+                "GENE3\tTraitA\t8.0\t4.0\t0.5\n"
                 "GENE1\tTraitB\t0.0\t0.0\t0.0\n"
-                "GENE2\tTraitB\t3.0\t1.5\t0.2\n",
+                "GENE2\tTraitB\t3.0\t1.5\t0.2\n"
+                "GENE3\tTraitB\t0.0\t0.0\t0.0\n",
                 encoding="utf-8",
             )
             pheno_clusters = tmpdir_path / "pheno_clusters.out.gz"
@@ -656,7 +659,19 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(runtime.trait_linkage_joint.shape, (2, 2))
         self.assertGreater(runtime.trait_linkage_joint[0, 0], runtime.trait_linkage_joint[0, 1])
         self.assertGreater(runtime.trait_linkage_joint[1, 1], runtime.trait_linkage_joint[1, 0])
+        np.testing.assert_allclose(runtime.trait_linkage_strength, [10.0, 3.0], atol=1e-8)
+        np.testing.assert_allclose(runtime.trait_linkage_retained_strength, [2.0, 3.0], atol=1e-8)
+        np.testing.assert_allclose(runtime.trait_linkage_retained_fraction, [0.2, 1.0], atol=1e-8)
+        np.testing.assert_array_equal(runtime.trait_linkage_total_feature_count, [2, 1])
+        np.testing.assert_array_equal(runtime.trait_linkage_retained_feature_count, [1, 1])
+        np.testing.assert_array_equal(runtime.trait_linkage_low_retention_flag, [True, True])
+        self.assertLess(runtime.trait_linkage_joint[0, 0], 0.25)
         self.assertIn("trait\tfactor\tis_anchor\tjoint\tmarginal", content)
+        self.assertIn("retained_trait_strength", content)
+        self.assertIn("retained_fraction", content)
+        self.assertIn("total_feature_count", content)
+        self.assertIn("retained_feature_count", content)
+        self.assertIn("low_retention_flag", content)
         self.assertIn("TraitA\tFactor1", content)
         self.assertIn("TraitB\tFactor2", content)
 

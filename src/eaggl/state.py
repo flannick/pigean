@@ -695,6 +695,11 @@ class FactorModelState:
     trait_linkage_marginal: object | None = None
     trait_linkage_residual: object | None = None
     trait_linkage_strength: object | None = None
+    trait_linkage_retained_strength: object | None = None
+    trait_linkage_retained_fraction: object | None = None
+    trait_linkage_total_feature_count: object | None = None
+    trait_linkage_retained_feature_count: object | None = None
+    trait_linkage_low_retention_flag: object | None = None
     trait_linkage_is_anchor: object | None = None
     trait_linkage_basis: object | None = None
     trait_linkage_score_source: object | None = None
@@ -1112,6 +1117,11 @@ class EagglState(object):
         self.trait_linkage_marginal = None
         self.trait_linkage_residual = None
         self.trait_linkage_strength = None
+        self.trait_linkage_retained_strength = None
+        self.trait_linkage_retained_fraction = None
+        self.trait_linkage_total_feature_count = None
+        self.trait_linkage_retained_feature_count = None
+        self.trait_linkage_low_retention_flag = None
         self.trait_linkage_is_anchor = None
         self.trait_linkage_basis = None
         self.trait_linkage_score_source = None
@@ -2479,6 +2489,11 @@ class EagglState(object):
                 "joint",
                 "marginal",
                 "trait_strength",
+                "retained_trait_strength",
+                "retained_fraction",
+                "total_feature_count",
+                "retained_feature_count",
+                "low_retention_flag",
                 "joint_residual",
                 "score_source",
                 "basis",
@@ -2499,6 +2514,31 @@ class EagglState(object):
                 if self.trait_linkage_residual is not None
                 else np.zeros(len(self.phenos), dtype=float)
             )
+            retained_strengths = (
+                np.asarray(self.trait_linkage_retained_strength, dtype=float)
+                if self.trait_linkage_retained_strength is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            retained_fractions = (
+                np.asarray(self.trait_linkage_retained_fraction, dtype=float)
+                if self.trait_linkage_retained_fraction is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            total_feature_counts = (
+                np.asarray(self.trait_linkage_total_feature_count, dtype=int)
+                if self.trait_linkage_total_feature_count is not None
+                else np.zeros(len(self.phenos), dtype=int)
+            )
+            retained_feature_counts = (
+                np.asarray(self.trait_linkage_retained_feature_count, dtype=int)
+                if self.trait_linkage_retained_feature_count is not None
+                else np.zeros(len(self.phenos), dtype=int)
+            )
+            low_retention_flags = (
+                np.asarray(self.trait_linkage_low_retention_flag, dtype=bool)
+                if self.trait_linkage_low_retention_flag is not None
+                else np.zeros(len(self.phenos), dtype=bool)
+            )
             basis = "" if self.trait_linkage_basis is None else str(self.trait_linkage_basis)
             score_source = "" if self.trait_linkage_score_source is None else str(self.trait_linkage_score_source)
             for trait_index, trait_name in enumerate(self.phenos):
@@ -2513,6 +2553,11 @@ class EagglState(object):
                                 "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
                                 "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
                                 "%.6g" % float(strengths[trait_index]),
+                                "%.6g" % float(retained_strengths[trait_index]),
+                                "%.6g" % float(retained_fractions[trait_index]),
+                                str(int(total_feature_counts[trait_index])),
+                                str(int(retained_feature_counts[trait_index])),
+                                "1" if bool(low_retention_flags[trait_index]) else "0",
                                 "%.6g" % float(residuals[trait_index]),
                                 score_source,
                                 basis,

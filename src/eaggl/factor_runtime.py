@@ -860,6 +860,7 @@ def _resolve_trait_linkage_inputs(
     if feature_by_trait is None:
         return None
 
+    feature_by_trait_full = feature_by_trait
     basis, feature_by_trait = _align_projection_inputs_to_mask(
         basis,
         feature_by_trait,
@@ -869,6 +870,7 @@ def _resolve_trait_linkage_inputs(
         "basis": basis,
         "basis_name": basis_name,
         "feature_by_trait": feature_by_trait,
+        "full_feature_by_trait": feature_by_trait_full,
         "score_source": source_name,
         "pheno_capture_input": pheno_capture_input,
     }
@@ -899,6 +901,7 @@ def _apply_canonical_trait_linkage(
         state._nnls_project_matrix,
         linkage_inputs["basis"],
         linkage_inputs["feature_by_trait"],
+        full_feature_by_trait=linkage_inputs["full_feature_by_trait"],
         threshold_mode=pheno_capture_input,
     )
     if linkage_result is None:
@@ -912,6 +915,11 @@ def _apply_canonical_trait_linkage(
     state.trait_linkage_marginal = linkage_result["marginal"]
     state.trait_linkage_residual = linkage_result["residual"]
     state.trait_linkage_strength = linkage_result["strength"]
+    state.trait_linkage_retained_strength = linkage_result["retained_strength"]
+    state.trait_linkage_retained_fraction = linkage_result["retained_fraction"]
+    state.trait_linkage_total_feature_count = linkage_result["total_feature_count"]
+    state.trait_linkage_retained_feature_count = linkage_result["retained_feature_count"]
+    state.trait_linkage_low_retention_flag = linkage_result["low_retention_flag"]
     state.trait_linkage_basis = linkage_inputs["basis_name"]
     state.trait_linkage_score_source = linkage_inputs["score_source"]
     if state.anchor_pheno_mask is not None:
