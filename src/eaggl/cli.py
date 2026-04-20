@@ -307,6 +307,7 @@ parser.add_option("","--lmm-model",default="gpt-4o-mini",type=str) #choose model
 parser.add_option("","--label-gene-sets-only",default=False,action="store_true") #use only gene sets (rather than genes and gene sets) for label
 parser.add_option("","--label-include-phenos",default=False,action="store_true") #add phenos to the labels (if --label-gene-sets-only is specified, the labelling will use just gene sets and phenos but skip genes). When doing phenotype based factoring, this (confusingly) adds genes rather than phenos, since phenotypes are the default thing used to label
 parser.add_option("","--label-individually",default=False,action="store_true") #generate separate labels from genes, phenos, and gene sets separately
+parser.add_option("","--factor-top-loading-type",default="combined",type=str) #metric used for top genes/gene sets in factors.out and factor labels: raw, specific, or combined
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization

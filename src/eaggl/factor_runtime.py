@@ -2410,9 +2410,9 @@ def _finalize_factor_outputs(
             state.exp_gene_set_factors[state.exp_gene_set_factors < np.max(state.exp_gene_set_factors) * threshold] = 0
 
     num_top = 5
-    exp_gene_factors_for_top = state.get_factor_loadings(state.exp_gene_factors, loading_type="combined")
-    exp_pheno_factors_for_top = state.get_factor_loadings(state.exp_pheno_factors, loading_type="combined")
-    exp_gene_set_factors_for_top = state.get_factor_loadings(state.exp_gene_set_factors, loading_type="combined")
+    exp_gene_factors_for_top = state.get_factor_loadings(state.exp_gene_factors, loading_type=factor_top_loading_type)
+    exp_pheno_factors_for_top = state.get_factor_loadings(state.exp_pheno_factors, loading_type=factor_top_loading_type)
+    exp_gene_set_factors_for_top = state.get_factor_loadings(state.exp_gene_set_factors, loading_type=factor_top_loading_type)
 
     top_anchor_gene_or_pheno_inds = None
     top_anchor_pheno_or_gene_inds = None
@@ -2472,19 +2472,13 @@ def _finalize_factor_outputs(
         top_gene_or_pheno_inds = top_capture_inds
         if exp_gene_factors_for_top is not None:
             top_pheno_or_gene_inds = np.swapaxes(
-                np.argsort(
-                    -(1 - np.prod(1 - ((exp_gene_factors_for_top).T[:, :, np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
-                    axis=1,
-                )[:, :num_top],
+                np.argsort(-(exp_gene_factors_for_top).T, axis=1)[:, :num_top],
                 0,
                 1,
             )
     else:
         top_gene_or_pheno_inds = np.swapaxes(
-            np.argsort(
-                -(1 - np.prod(1 - ((exp_gene_factors_for_top).T[:, :, np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
-                axis=1,
-            )[:, :num_top],
+            np.argsort(-(exp_gene_factors_for_top).T, axis=1)[:, :num_top],
             0,
             1,
         )
@@ -2492,7 +2486,7 @@ def _finalize_factor_outputs(
             top_pheno_or_gene_inds = top_capture_inds
 
     top_gene_set_inds = np.swapaxes(
-        np.argsort(-(1 - np.prod(1 - (exp_gene_set_factors_for_top.T[:, :, np.newaxis] * state.gene_set_prob_factor_vector[np.newaxis, :, :]), axis=2)), axis=1)[:, :num_top],
+        np.argsort(-(exp_gene_set_factors_for_top).T, axis=1)[:, :num_top],
         0,
         1,
     )
@@ -3494,7 +3488,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -3519,6 +3513,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--consensus-min-run-support must be in (0, 1]")
     if consensus_nmf and factor_runs < 2:
         bail("--consensus-nmf requires --factor-runs >= 2")
+    if factor_top_loading_type not in {"raw", "specific", "combined"}:
+        bail("--factor-top-loading-type must be one of: raw, specific, combined")
     if learn_phi:
         if phi <= 0:
             bail("--learn-phi requires --phi > 0")
@@ -3583,6 +3579,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "label_gene_sets_only": label_gene_sets_only,
         "label_include_phenos": label_include_phenos,
         "label_individually": label_individually,
+        "factor_top_loading_type": factor_top_loading_type,
         "keep_original_loadings": keep_original_loadings,
         "project_phenos_from_gene_sets": project_phenos_from_gene_sets,
         "pheno_capture_input": pheno_capture_input,

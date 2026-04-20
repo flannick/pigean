@@ -117,6 +117,7 @@ class FactorExecutionConfig:
     label_gene_sets_only: bool = False
     label_include_phenos: bool = False
     label_individually: bool = False
+    factor_top_loading_type: str = "combined"
     keep_original_loadings: bool = False
     project_phenos_from_gene_sets: bool = False
     pheno_capture_input: str = "weighted_thresholded"
@@ -190,6 +191,7 @@ class FactorExecutionConfig:
             "label_gene_sets_only": self.label_gene_sets_only,
             "label_include_phenos": self.label_include_phenos,
             "label_individually": self.label_individually,
+            "factor_top_loading_type": self.factor_top_loading_type,
             "keep_original_loadings": self.keep_original_loadings,
             "project_phenos_from_gene_sets": self.project_phenos_from_gene_sets,
             "pheno_capture_input": self.pheno_capture_input,
@@ -878,6 +880,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         label_gene_sets_only=options.label_gene_sets_only,
         label_include_phenos=options.label_include_phenos,
         label_individually=options.label_individually,
+        factor_top_loading_type=getattr(options, "factor_top_loading_type", "combined"),
         keep_original_loadings=getattr(options, "keep_original_loadings", False),
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
         pheno_capture_input=getattr(options, "pheno_capture_input", "weighted_thresholded"),
