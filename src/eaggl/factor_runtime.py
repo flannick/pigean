@@ -1163,6 +1163,8 @@ def _build_factor_param_record(
     keep_original_loadings,
     project_phenos_from_gene_sets,
     pheno_capture_input,
+    trait_linkage_source,
+    no_trait_linkage,
 ):
     anchor_gene_mask_present, anchor_gene_mask_total, anchor_gene_mask_selected = _summarize_mask(anchor_gene_mask)
     anchor_pheno_mask_present, anchor_pheno_mask_total, anchor_pheno_mask_selected = _summarize_mask(anchor_pheno_mask)
@@ -1236,6 +1238,8 @@ def _build_factor_param_record(
         "keep_original_loadings": bool(keep_original_loadings),
         "project_phenos_from_gene_sets": bool(project_phenos_from_gene_sets),
         "pheno_capture_input": pheno_capture_input,
+        "trait_linkage_source": trait_linkage_source,
+        "no_trait_linkage": bool(no_trait_linkage),
     }
 
 

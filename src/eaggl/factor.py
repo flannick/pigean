@@ -743,9 +743,13 @@ def run_phewas_with_common_args(domain, runtime, options, gene_phewas_bfs_in, ru
         batch_size=300 if run_for_factors else None,
         min_gene_factor_weight=min_gene_factor_weight,
     )
+    run_kwargs = phewas_config.to_run_kwargs()
+    if hasattr(runtime, "run_phewas"):
+        runtime.run_phewas(**run_kwargs)
+        return
     eaggl_phewas.run_phewas(
         runtime,
-        **phewas_config.to_run_kwargs(),
+        **run_kwargs,
         options=options,
         bail_fn=domain.bail,
         warn_fn=domain.warn,
@@ -757,11 +761,16 @@ def run_phewas_with_common_args(domain, runtime, options, gene_phewas_bfs_in, ru
 
 
 def run_main_phewas_stage(domain, runtime, options):
+    run_phewas_input = getattr(
+        options,
+        "run_phewas_input",
+        getattr(options, "run_phewas_from_gene_phewas_stats_in", None),
+    )
     decision = resolve_gene_phewas_stage_decision(
         domain,
         runtime,
-        options.run_phewas_input,
-        [options.gene_phewas_bfs_in],
+        run_phewas_input,
+        [getattr(options, "gene_phewas_bfs_in", None)],
     )
     domain.log("PheWAS stage 'phewas': mode=%s reason=%s" % (decision.mode, decision.reason), domain.INFO)
     bfs_to_use = decision.resolved_input
@@ -962,27 +971,38 @@ def run_main_factor_phewas_stage(domain, runtime, options):
         domain.log("No factors; not performing factor phewas")
         return PhewasStageResult(ran=False, output_path=options.factor_phewas_stats_out)
 
+    run_factor_phewas_input = getattr(
+        options,
+        "run_factor_phewas_input",
+        getattr(options, "factor_phewas_from_gene_phewas_stats_in", None),
+    )
+    run_phewas_input = getattr(
+        options,
+        "run_phewas_input",
+        getattr(options, "run_phewas_from_gene_phewas_stats_in", None),
+    )
     decision = resolve_gene_phewas_stage_decision(
         domain,
         runtime,
-        options.run_factor_phewas_input,
-        [options.gene_phewas_bfs_in, options.run_phewas_input],
+        run_factor_phewas_input,
+        [getattr(options, "gene_phewas_bfs_in", None), run_phewas_input],
     )
     domain.log(
         "PheWAS stage 'factor_phewas': mode=%s reason=%s" % (decision.mode, decision.reason),
         domain.INFO,
     )
     requested_modes = eaggl_phewas.resolve_requested_factor_phewas_modes(options)
-    runtime._record_params(
-        {
-            "factor_phewas_mode": options.factor_phewas_mode,
-            "factor_phewas_modes": ",".join(requested_modes),
-            "factor_phewas_anchor_covariate": options.factor_phewas_anchor_covariate,
-            "factor_phewas_thresholded_combined_cutoff": options.factor_phewas_thresholded_combined_cutoff,
-            "factor_phewas_se": options.factor_phewas_se,
-        },
-        overwrite=True,
-    )
+    if hasattr(runtime, "_record_params"):
+        runtime._record_params(
+            {
+                "factor_phewas_mode": getattr(options, "factor_phewas_mode", "marginal_anchor_adjusted_binary"),
+                "factor_phewas_modes": ",".join(requested_modes),
+                "factor_phewas_anchor_covariate": getattr(options, "factor_phewas_anchor_covariate", "direct"),
+                "factor_phewas_thresholded_combined_cutoff": getattr(options, "factor_phewas_thresholded_combined_cutoff", 1.0),
+                "factor_phewas_se": getattr(options, "factor_phewas_se", "robust"),
+            },
+            overwrite=True,
+        )
     bfs_to_use = decision.resolved_input
     run_phewas_with_common_args(
         domain,
