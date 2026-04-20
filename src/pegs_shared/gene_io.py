@@ -107,10 +107,10 @@ def parse_gene_set_statistics_file(
 
             cols = line.strip("\n").split()
             if (
-                id_col > len(cols)
-                or (beta_tilde_col is not None and beta_tilde_col > len(cols))
-                or (p_col is not None and p_col > len(cols))
-                or (se_col is not None and se_col > len(cols))
+                id_col >= len(cols)
+                or (beta_tilde_col is not None and beta_tilde_col >= len(cols))
+                or (p_col is not None and p_col >= len(cols))
+                or (se_col is not None and se_col >= len(cols))
             ):
                 warn_fn("Skipping due to too few columns in line: %s" % line)
                 continue

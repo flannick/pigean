@@ -816,10 +816,10 @@ def load_and_apply_gene_set_phewas_statistics_to_runtime(
                     continue
 
                 if (
-                    id_col > len(cols)
-                    or pheno_col > len(cols)
-                    or (beta_col is not None and beta_col > len(cols))
-                    or (beta_uncorrected_col is not None and beta_uncorrected_col > len(cols))
+                    id_col >= len(cols)
+                    or pheno_col >= len(cols)
+                    or (beta_col is not None and beta_col >= len(cols))
+                    or (beta_uncorrected_col is not None and beta_uncorrected_col >= len(cols))
                 ):
                     warn_fn("Skipping due to too few columns in line: %s" % line)
                     continue

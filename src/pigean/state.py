@@ -2043,7 +2043,7 @@ class PigeanState(object):
             not_enough_info = 0
             for line in gwas_fh:
                 cols = line.strip('\n').split(split_char)
-                if (chrom_col is not None and chrom_col > len(cols)) or (pos_col is not None and pos_col > len(cols)) or (locus_col is not None and locus_col > len(cols)) or (p_col is not None and p_col > len(cols)) or (se_col is not None and se_col > len(cols)) or (n_col is not None and n_col > len(cols)) or (freq_col is not None and freq_col > len(cols) or (filter_col is not None and filter_col > len(cols))):
+                if (chrom_col is not None and chrom_col >= len(cols)) or (pos_col is not None and pos_col >= len(cols)) or (locus_col is not None and locus_col >= len(cols)) or (p_col is not None and p_col >= len(cols)) or (se_col is not None and se_col >= len(cols)) or (n_col is not None and n_col >= len(cols)) or (freq_col is not None and freq_col >= len(cols) or (filter_col is not None and filter_col >= len(cols))):
                     warn("Skipping line due to too few columns: %s" % line)
                     continue
 
@@ -2857,7 +2857,7 @@ class PigeanState(object):
             for line in exomes_fh:
 
                 cols = line.strip('\n').split(delim)
-                if gene_col > len(cols) or (p_col is not None and p_col > len(cols)) or (se_col is not None and se_col > len(cols)) or (beta_col is not None and beta_col > len(cols)) or (n_col is not None and n_col > len(cols)):
+                if gene_col >= len(cols) or (p_col is not None and p_col >= len(cols)) or (se_col is not None and se_col >= len(cols)) or (beta_col is not None and beta_col >= len(cols)) or (n_col is not None and n_col >= len(cols)):
                     warn("Skipping due to too few columns in line: %s" % line)
                     continue
 
@@ -3749,7 +3749,7 @@ class PigeanState(object):
             ignored = 0
             for line in betas_fh:
                 cols = line.strip('\n').split()
-                if id_col > len(cols) or beta_col > len(cols):
+                if id_col >= len(cols) or beta_col >= len(cols):
                     warn("Skipping due to too few columns in line: %s" % line)
                     continue
 
