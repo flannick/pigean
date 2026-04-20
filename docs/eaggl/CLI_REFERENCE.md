@@ -208,6 +208,7 @@ Notes:
 Operational notes:
 - canonical trait linkage is the primary user-facing phenotype annotation layer and is interpreted as normalized thresholded-profile linkage, not calibrated posterior probability
 - canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal` and `joint` relevance weights from the same normalized inputs: marginal is the one-factor bounded projection and joint is the all-factor constrained projection
+- the target profile is normalized by total thresholded trait strength before masking, not by retained masked strength
 - capture operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
 - `--pheno-capture-input weighted_thresholded` is the default and uses retained combined-support values above the threshold; `binary_thresholded` is an expert sensitivity mode
 - `--trait-linkage-source auto` chooses one support surface per run in the order `combined`, then `log_bf`, then `prior`
@@ -381,7 +382,11 @@ The mathematical model and workflow formalization live in:
 For post-factor phenotype interpretation:
 - `trait_factor_links.out` is the primary phenotype annotation artifact
 - it reports both `marginal` and `joint` relevance weights from the same normalized thresholded phenotype profile, with `marginal` treating each factor alone and `joint` letting all factors compete under a shared sum constraint
-- `trait_strength` is the retained high-confidence support mass, or retained hit count under binary capture mode
+- `trait_strength` is the total thresholded support mass before masking, or the total thresholded hit count under binary capture mode
+- `retained_trait_strength` is the masked retained support mass used in the solve
+- `retained_fraction = retained_trait_strength / trait_strength`
+- `total_feature_count` and `retained_feature_count` report the same diagnostic on thresholded feature counts
+- `low_retention_flag` marks traits whose retained support is very sparse on the current factor basis
 - `joint_residual` is the uncaptured normalized trait mass after the joint competitive projection
 - `pheno_clusters.out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
 - `factor_phewas_stats.out` is a secondary enrichment table rather than the main phenotype-labeling surface
