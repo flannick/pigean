@@ -8,7 +8,7 @@ This document maps each supported factoring workflow to:
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
 Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode.
-Phenotype projection is the primary annotation layer and is interpreted as phenotype capture. Factor-PheWAS is a secondary expert-only enrichment regression.
+Canonical trait linkage is the primary annotation layer and reports marginal and joint linkage weights from the same normalized thresholded support surface. Factor-PheWAS is a secondary expert-only enrichment regression.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
 
@@ -82,7 +82,7 @@ Phenotype annotation policy:
 
 1. use canonical trait linkage for the primary public phenotype annotation layer
 2. write the long-form linkage table with `--trait-factor-links-out`; `--pheno-clusters-out` remains accepted as a compatibility alias for one release
-3. interpret trait linkage as capture of the thresholded high-confidence phenotype profile shape, not of a fully observed unthresholded phenotype surface
+3. interpret trait linkage as linkage of the thresholded high-confidence phenotype profile shape, not of a fully observed unthresholded phenotype surface
 4. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
 5. use `--trait-linkage-source auto` by default; this chooses one support surface per run in the order `combined`, then `log_bf`, then `prior`
 6. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis

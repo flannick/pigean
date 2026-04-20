@@ -30,7 +30,7 @@ Typical user workflow:
 1. build or load the matrix and PIGEAN-derived evidence to factor
 2. choose the anchoring workflow
 3. fit the ARD nonnegative factor model
-4. optionally annotate factors with phenotype capture weights
+4. optionally annotate factors with canonical trait-linkage weights
 5. optionally run factor-PheWAS as a secondary expert enrichment analysis
 6. optionally label the factors
 
@@ -206,8 +206,8 @@ Notes:
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
 
 Operational notes:
-- canonical trait linkage is the primary user-facing phenotype annotation layer and is interpreted as normalized phenotype capture, not calibrated posterior probability
-- canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal` and `joint` relevance weights from the same normalized inputs
+- canonical trait linkage is the primary user-facing phenotype annotation layer and is interpreted as normalized thresholded-profile linkage, not calibrated posterior probability
+- canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal` and `joint` relevance weights from the same normalized inputs: marginal is the one-factor bounded projection and joint is the all-factor constrained projection
 - capture operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
 - `--pheno-capture-input weighted_thresholded` is the default and uses retained combined-support values above the threshold; `binary_thresholded` is an expert sensitivity mode
 - `--trait-linkage-source auto` chooses one support surface per run in the order `combined`, then `log_bf`, then `prior`
@@ -380,7 +380,7 @@ The mathematical model and workflow formalization live in:
 
 For post-factor phenotype interpretation:
 - `trait_factor_links.out` is the primary phenotype annotation artifact
-- it reports both `marginal` and `joint` relevance weights from the same normalized thresholded phenotype profile
+- it reports both `marginal` and `joint` relevance weights from the same normalized thresholded phenotype profile, with `marginal` treating each factor alone and `joint` letting all factors compete under a shared sum constraint
 - `trait_strength` is the retained high-confidence support mass, or retained hit count under binary capture mode
 - `joint_residual` is the uncaptured normalized trait mass after the joint competitive projection
 - `pheno_clusters.out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
