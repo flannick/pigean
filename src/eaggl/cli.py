@@ -195,7 +195,7 @@ parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_l
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
 parser.add_option("","--run-factor-phewas",action="store_true",default=False) #run the optional factor-level phewas stage
 parser.add_option("","--factor-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run projection-only factor outputs without refitting
-parser.add_option("","--factor-gene-set-clusters-in",default=None) #load an existing gene_set_clusters.out(.gz) file and run projection-only gene-set-basis phenotype outputs without refitting
+parser.add_option("","--factor-gene-set-clusters-in",default=None) #load an existing gene_set_clusters.out(.gz) file and run projection-only gene-set-basis trait linkage outputs without refitting
 parser.add_option("","--factor-phewas-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run only the factor-phewas projection stage
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",dest="factor_phewas_legacy_input",default=None) #compatibility alias: implies --run-factor-phewas and sets the stage-specific gene phewas input
 parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
@@ -382,8 +382,8 @@ parser.add_option("","--gene-phewas-bfs-pheno-col",default=None)
 parser.add_option("","--gene-phewas-stats-pheno-col",default=None,dest="gene_phewas_bfs_pheno_col")
 parser.add_option("","--min-gene-phewas-read-value",type="float",default=1)
 parser.add_option("","--gene-phewas-id-to-X-id",default=None) #mapping from gene ids in the phewas file to gene ids in the gmt
-parser.add_option("","--project-phenos-from-gene-sets",action='store_true',default=False) #use gene set scores to project pheno loadings rather than gene scores. Note that this will also have the side effect of conditioning the regression only on the gene sets in the model rather than all gene sets
-parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type=str) #capture input profile for pheno clusters: weighted_thresholded or binary_thresholded
+parser.add_option("","--project-phenos-from-gene-sets",action='store_true',default=False) #use the gene-set basis for canonical trait linkage instead of the gene basis. This also conditions projection on the retained modeled gene sets rather than the full gene universe
+parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type=str) #trait-linkage input profile: weighted_thresholded or binary_thresholded
 parser.add_option("","--trait-linkage-source",default="combined",type=str) #trait linkage support surface: combined by default; expert override: auto, log_bf, prior
 parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #strict threshold applied to the selected trait-linkage source surface
 parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
@@ -458,7 +458,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--run-factor-phewas": "run the optional factor-level phewas stage",
     "--factor-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in",
     "--factor-gene-clusters-in": "load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors",
-    "--factor-gene-set-clusters-in": "load an existing gene_set_clusters.out(.gz) table for projection-only phenotype capture from the gene-set factor basis",
+    "--factor-gene-set-clusters-in": "load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis",
     "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
     "--factor-phewas-modes": "expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table",
     "--factor-phewas-anchor-covariate": "choose the anchor covariate for binary factor-phewas modes: direct, combined, or none",
@@ -510,8 +510,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--lmm-provider": "choose the LLM provider used for optional labeling",
     "--log-file": "write structured run logs to this file",
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
-    "--project-phenos-from-gene-sets": "project phenotype loadings from gene-set scores instead of gene scores",
-    "--pheno-capture-input": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
+    "--project-phenos-from-gene-sets": "project canonical trait linkage from the gene-set basis instead of the gene basis",
+    "--pheno-capture-input": "choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
     "--trait-linkage-source": "choose the support surface for canonical trait linkage: combined by default, with optional expert overrides",
     "--trait-linkage-threshold": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
     "--no-trait-linkage": "disable canonical trait linkage even when trait inputs are available",

@@ -339,6 +339,8 @@ For reporting, EAGGL writes:
 \item `factor_total_mass` = $S_k^{(b)}$ in the factor summary output
 \end{itemize}
 
+The effective-size diagnostics complement the raw thresholded feature counts. A phenotype can have many retained nonzero genes but still have `trait_n_eff` or `retained_n_eff` close to $1$ when most of its support is concentrated on one or a few genes. These quantities therefore expose concentration of support mass rather than only thresholded breadth.
+
 \paragraph{Interpretation.}
 Canonical trait linkage is a descriptive quantity. The marginal fractions answer:
 \begin{quote}

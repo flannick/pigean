@@ -18,7 +18,7 @@ PIGEAN is the trait-to-gene and trait-to-gene-set inference layer.
 
 EAGGL is the latent-mechanism layer that follows PIGEAN.
 - At a high level, it factorizes the weighted gene-by-annotation structure into a smaller number of latent mechanisms.
-- It then annotates those factors with genes, gene sets, and optionally phenotype capture or factor-level phenotype enrichment.
+- It then annotates those factors with genes, gene sets, canonical trait linkage summaries, and optionally expert factor-level phenotype enrichment.
 - The mathematical writeup is in:
   - `docs/eaggl/methods.tex`
 

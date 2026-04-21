@@ -194,11 +194,11 @@ Notes:
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
 | `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in`; also required by the gene-set-anchored workflow |
 | `--run-factor-phewas` | compute factor-level phenotype enrichment regression from `--gene-phewas-stats-in` |
-| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only phenotype clusters, factor-PheWAS, or both without refitting factors |
-| `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only phenotype clusters from the gene-set basis |
+| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only canonical trait linkage, factor-PheWAS, or both without refitting factors |
+| `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only canonical trait linkage from the gene-set basis |
 | `--factor-phewas-gene-clusters-in` | compatibility alias for the older factor-PheWAS-only projection command |
-| `--project-phenos-from-gene-sets` | compute phenotype capture on the gene-set basis instead of the gene basis |
-| `--pheno-capture-input` | choose whether phenotype capture uses retained weighted thresholded support or binary thresholded hits |
+| `--project-phenos-from-gene-sets` | compute canonical trait linkage on the gene-set basis instead of the gene basis |
+| `--pheno-capture-input` | choose whether canonical trait linkage uses retained weighted thresholded support or binary thresholded hits |
 | `--trait-factor-links-out` | write the canonical long-form trait-factor linkage table |
 | `--trait-linkage-source` | choose the support surface for canonical trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
 | `--trait-linkage-threshold` | strict threshold for canonical trait linkage support (`source_value > threshold`) |
@@ -211,7 +211,7 @@ Operational notes:
 - canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal_fraction` and `joint_fraction` from the same internal matching inputs: `marginal_fraction` is the one-factor bounded projection and `joint_fraction` is the all-factor constrained projection
 - the target profile is normalized by total thresholded trait strength before masking, not by retained masked strength
 - raw trait support and raw factor loadings are not required to sum to `1`; only copied internal vectors are normalized for matching
-- capture operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
+- trait linkage operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
 - `--pheno-capture-input weighted_thresholded` is the default and uses retained source-support values that strictly exceed `--trait-linkage-threshold`; `binary_thresholded` is an expert sensitivity mode
 - canonical linkage defaults to `--trait-linkage-source combined` and `--trait-linkage-threshold 1.0` (strict `> 1.0`)
 - if `--trait-linkage-source auto` is requested, one support surface is chosen per run in the order `combined`, then `log_bf`, then `prior`
@@ -391,6 +391,7 @@ For post-factor phenotype interpretation:
 - `retained_fraction = retained_trait_support / trait_total_support`
 - `trait_n_eff = (\sum_g s_t(g))^2 / \sum_g s_t(g)^2` reports the support-weighted effective number of genes contributing to the thresholded trait signal
 - `retained_n_eff` applies the same effective-size calculation after masking to the factorized gene universe
+- `trait_n_eff` and `retained_n_eff` are concentration diagnostics: they can be much smaller than `total_feature_count` or `retained_feature_count` when a small number of genes carries most of the support
 - `joint_support_mass = trait_total_support * joint_fraction`
 - `marginal_support_mass = trait_total_support * marginal_fraction`
 - `total_feature_count` and `retained_feature_count` report the same diagnostic on thresholded feature counts

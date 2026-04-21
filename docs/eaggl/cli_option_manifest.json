@@ -1014,7 +1014,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 198,
-      "summary": "load an existing gene_set_clusters.out(.gz) table for projection-only phenotype capture from the gene-set factor basis",
+      "summary": "load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis",
       "type": null,
       "usage_references": 40
     },
@@ -4395,7 +4395,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 386,
-      "summary": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
+      "summary": "choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
       "type": "str",
       "usage_references": 24
     },
@@ -4668,7 +4668,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 385,
-      "summary": "project phenotype loadings from gene-set scores instead of gene scores",
+      "summary": "project canonical trait linkage from the gene-set basis instead of the gene basis",
       "type": null,
       "usage_references": 38
     },
