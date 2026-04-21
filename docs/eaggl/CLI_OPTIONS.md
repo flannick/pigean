@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `243`
+- Total options: `250`
 - `method_required`: `16`
-- `method_optional`: `139`
-- `engineering`: `71`
+- `method_optional`: `144`
+- `engineering`: `73`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `203`
+- visibility `expert`: `205`
 - visibility `hidden`: `8`
-- visibility `normal`: `32`
+- visibility `normal`: `37`
 
 ## Method Required
 
@@ -65,7 +65,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--discovery-redundancy-weighting-mode` | `expert` | `yes` | `expert_help` | `discovery_redundancy_weighting_mode` | `effective_size` | - |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
 | `--factor-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_clusters_in` | `None` | load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors |
-| `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only phenotype capture from the gene-set factor basis |
+| `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
 | `--factor-phewas-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_gene_clusters_in` | `None` | compatibility alias for --factor-gene-clusters-in plus --run-factor-phewas |
@@ -81,6 +81,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-prune-phenos-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_num` | `None` | - |
 | `--factor-prune-phenos-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_val` | `None` | - |
 | `--factor-runs` | `normal` | `yes` | `core_help` | `factor_runs` | `1` | run repeated random restarts for factorization; without consensus keep only the best run |
+| `--factor-top-loading-type` | `expert` | `yes` | `expert_help` | `factor_top_loading_type` | `combined` | - |
 | `--filter-gene-set-p` | `expert` | `yes` | `expert_help` | `filter_gene_set_p` | `None` | - |
 | `--filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
@@ -152,6 +153,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
+| `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable canonical trait linkage even when trait inputs are available |
 | `--no-transpose` | `expert` | `yes` | `expert_help` | `no_transpose` | `-` | - |
 | `--num-chains` | `expert` | `yes` | `expert_help` | `num_chains` | `10` | - |
 | `--num-chains-betas` | `expert` | `yes` | `expert_help` | `num_chains_betas` | `4` | - |
@@ -159,10 +161,10 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--ols` | `expert` | `yes` | `expert_help` | `ols` | `-` | - |
 | `--p-noninf` | `expert` | `yes` | `expert_help` | `p_noninf` | `None` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
-| `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
+| `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
 | `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | - |
-| `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project phenotype loadings from gene-set scores instead of gene scores |
+| `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project canonical trait linkage from the gene-set basis instead of the gene basis |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
@@ -173,6 +175,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.0` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
+| `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend |
+| `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the support surface for canonical trait linkage: combined by default, with optional expert overrides |
+| `--trait-linkage-threshold` | `normal` | `yes` | `core_help` | `trait_linkage_threshold` | `1.0` | strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold) |
 | `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |
@@ -187,6 +192,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--batch-separator` | `expert` | `no` | `expert_help` | `batch_separator` | `@` | - |
 | `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
 | `--blockwise-report-out` | `expert` | `no` | `expert_help` | `blockwise_report_out` | `None` | write per-epoch blockwise diagnostics |
+| `--clustering-params-out` | `normal` | `no` | `core_help` | `clustering_params_out` | `None` | write structured clustering workflow provenance as paired JSON and TSV summaries |
 | `--config` | `expert` | `no` | `core_help` | `config` | `None` | load a JSON config file; explicit CLI flags override config values |
 | `--consensus-stats-out` | `normal` | `no` | `core_help` | `consensus_stats_out` | `None` | write per-run and per-factor diagnostics for restart or consensus factorization |
 | `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
@@ -254,6 +260,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |
 | `--priors-num-gene-batches` | `expert` | `no` | `expert_help` | `priors_num_gene_batches` | `20` | - |
 | `--seed` | `expert` | `no` | `core_help` | `seed` | `None` | set explicit random seed for deterministic reproducibility checks |
+| `--trait-factor-links-out` | `normal` | `no` | `core_help` | `trait_factor_links_out` | `None` | write the canonical long-form trait-factor linkage table |
 | `--warnings-file` | `expert` | `no` | `core_help` | `warnings_file` | `None` | write warning messages to this file |
 
 ## Compat Alias

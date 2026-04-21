@@ -13,6 +13,7 @@ import scipy
 import scipy.sparse as sparse
 
 from . import phenotype_annotation as eaggl_phenotype_annotation
+from . import trait_linkage as eaggl_trait_linkage
 
 
 @dataclass
@@ -855,6 +856,7 @@ def _prepare_pre_projection_checkpoint_state(state):
         "mean_shifts",
         "scale_factors",
         "gene_set_in_discovery_mask",
+        "gene_set_factor_gene_set_mask",
         "gene_set_discovery_family_id",
         "gene_set_discovery_representative_mask",
         "gene_set_discovery_family_size",
@@ -886,6 +888,7 @@ def _prepare_pre_projection_checkpoint_state(state):
             setattr(checkpoint_state, attr, value[:, discovery_indices])
 
     checkpoint_state.gene_set_in_discovery_mask = np.full(len(discovery_indices), True, dtype=bool)
+    checkpoint_state.gene_set_factor_gene_set_mask = checkpoint_state.gene_set_in_discovery_mask
     return checkpoint_state
 
 
@@ -987,83 +990,201 @@ def _align_projection_inputs_to_mask(basis, feature_by_target, mask):
     return basis, feature_by_target
 
 
+def _resolve_trait_linkage_inputs(
+    state,
+    *,
+    use_gene_set_basis,
+    trait_linkage_source,
+    trait_linkage_threshold,
+    trait_linkage_computation_mode,
+    pheno_capture_input,
+    log_fn,
+    info_level,
+):
+    if use_gene_set_basis:
+        basis = state.exp_gene_set_factors
+        basis_mask = state.gene_set_factor_gene_set_mask
+        if basis is None or state.phenos is None or state.X_phewas_beta_uncorrected is None:
+            return None
+        combined = state.X_phewas_beta_uncorrected.T
+        log_bf = state.X_phewas_beta.T if state.X_phewas_beta is not None else None
+        prior = None
+        basis_name = "gene_sets"
+        context_label = "gene-set trait linkage"
+    else:
+        basis = state.exp_gene_factors
+        basis_mask = state.gene_factor_gene_mask
+        if basis is None or state.phenos is None:
+            return None
+        combined = state.gene_pheno_combined_prior_Ys
+        log_bf = state.gene_pheno_Y
+        prior = state.gene_pheno_priors
+        basis_name = "genes"
+        context_label = "gene trait linkage"
+
+    feature_by_trait, source_name = eaggl_trait_linkage.resolve_trait_linkage_source(
+        trait_linkage_source,
+        combined=combined,
+        log_bf=log_bf,
+        prior=prior,
+        log_fn=log_fn,
+        info_level=info_level,
+        context_label=context_label,
+    )
+    if feature_by_trait is None:
+        return None
+
+    feature_by_trait_full = feature_by_trait
+    return {
+        "basis": basis,
+        "basis_mask": basis_mask,
+        "basis_name": basis_name,
+        "feature_by_trait": feature_by_trait,
+        "full_feature_by_trait": feature_by_trait_full,
+        "score_source": source_name,
+        "pheno_capture_input": pheno_capture_input,
+        "trait_linkage_threshold": trait_linkage_threshold,
+        "trait_linkage_computation_mode": trait_linkage_computation_mode,
+    }
+
+
+def _apply_canonical_trait_linkage(
+    state,
+    *,
+    use_gene_set_basis,
+    trait_linkage_source,
+    trait_linkage_threshold,
+    trait_linkage_computation_mode,
+    pheno_capture_input,
+    update_anchor_relevance,
+    log_fn,
+    info_level,
+):
+    linkage_inputs = _resolve_trait_linkage_inputs(
+        state,
+        use_gene_set_basis=use_gene_set_basis,
+        trait_linkage_source=trait_linkage_source,
+        trait_linkage_threshold=trait_linkage_threshold,
+        trait_linkage_computation_mode=trait_linkage_computation_mode,
+        pheno_capture_input=pheno_capture_input,
+        log_fn=log_fn,
+        info_level=info_level,
+    )
+    if linkage_inputs is None:
+        return False
+
+    linkage_result = eaggl_trait_linkage.compute_trait_linkage(
+        state._nnls_project_matrix,
+        linkage_inputs["basis"],
+        linkage_inputs["feature_by_trait"],
+        full_feature_by_trait=linkage_inputs["full_feature_by_trait"],
+        basis_mask=linkage_inputs["basis_mask"],
+        threshold_mode=pheno_capture_input,
+        threshold_value=trait_linkage_threshold,
+        strict_threshold=True,
+        computation_mode=trait_linkage_computation_mode,
+    )
+    if linkage_result is None:
+        return False
+
+    state.exp_pheno_factors = linkage_result["joint"]
+    state.pheno_capture_strength = linkage_result["trait_total_support"]
+    state.pheno_capture_basis = linkage_inputs["basis_name"]
+    state.pheno_capture_input = pheno_capture_input
+    state.trait_linkage_factor_total_mass = linkage_result["factor_total_mass"]
+    state.trait_linkage_joint = linkage_result["joint"]
+    state.trait_linkage_marginal = linkage_result["marginal"]
+    state.trait_linkage_residual = linkage_result["residual"]
+    state.trait_linkage_strength = linkage_result["trait_total_support"]
+    state.trait_linkage_retained_strength = linkage_result["retained_trait_support"]
+    state.trait_linkage_retained_fraction = linkage_result["retained_fraction"]
+    state.trait_linkage_total_feature_count = linkage_result["total_feature_count"]
+    state.trait_linkage_retained_feature_count = linkage_result["retained_feature_count"]
+    state.trait_linkage_n_eff = linkage_result["trait_n_eff"]
+    state.trait_linkage_retained_n_eff = linkage_result["retained_n_eff"]
+    state.trait_linkage_low_retention_flag = linkage_result["low_retention_flag"]
+    state.trait_linkage_basis = linkage_inputs["basis_name"]
+    state.trait_linkage_score_source = linkage_inputs["score_source"]
+    if state.anchor_pheno_mask is not None:
+        state.trait_linkage_is_anchor = np.asarray(state.anchor_pheno_mask, dtype=bool)
+    else:
+        state.trait_linkage_is_anchor = np.full(len(state.phenos), False, dtype=bool)
+
+    if update_anchor_relevance and state.anchor_pheno_mask is not None:
+        anchor_mask = np.asarray(state.anchor_pheno_mask, dtype=bool)
+        if np.any(anchor_mask):
+            anchor_joint = linkage_result["joint"][anchor_mask, :].T
+            anchor_marginal = linkage_result["marginal"][anchor_mask, :].T
+            state.factor_anchor_relevance = anchor_joint
+            state.factor_anchor_marginal_relevance = anchor_marginal
+            state.factor_relevance = _compute_any_anchor_relevance(anchor_joint)
+            state.factor_marginal_relevance = _compute_any_anchor_relevance(anchor_marginal)
+    return True
+
+
 def project_phenos_from_loaded_factors(
     state,
     *,
     project_phenos_from_gene_sets=False,
+    trait_linkage_source="combined",
+    trait_linkage_threshold=1.0,
+    trait_linkage_computation_mode="sparse_full",
     pheno_capture_input="weighted_thresholded",
     bail_fn,
     log_fn,
     info_level,
 ):
-    """Project phenotype profiles onto precomputed gene or gene-set factor loadings."""
+    """Compute canonical trait linkage from precomputed gene or gene-set factors."""
     if project_phenos_from_gene_sets:
         if state.exp_gene_set_factors is None:
-            bail_fn("Projection-only gene-set pheno clusters require --factor-gene-set-clusters-in")
+            bail_fn("Projection-only gene-set trait linkage requires --factor-gene-set-clusters-in")
         if state.X_phewas_beta_uncorrected is None:
-            bail_fn("Projection-only gene-set pheno clusters require --gene-set-phewas-stats-in")
-        if state.phenos is None or len(state.phenos) == 0:
-            bail_fn("Projection-only gene-set pheno clusters require phenotypes from --gene-set-phewas-stats-in")
-        basis = state.exp_gene_set_factors
-        basis_mask = state.gene_set_in_discovery_mask
-        feature_by_pheno = state.X_phewas_beta_uncorrected.T
-        basis_name = "gene_sets"
-        source_name = "X_phewas_beta_uncorrected"
+            bail_fn("Projection-only gene-set trait linkage requires --gene-set-phewas-stats-in")
     else:
         if state.exp_gene_factors is None:
-            bail_fn("Projection-only pheno clusters require gene factor loadings from --factor-gene-clusters-in")
-        if state.phenos is None or len(state.phenos) == 0:
-            bail_fn("Projection-only pheno clusters require phenotypes from --gene-phewas-stats-in")
-
-        feature_by_pheno = None
-        source_name = None
-        if state.gene_pheno_combined_prior_Ys is not None:
-            feature_by_pheno = state.gene_pheno_combined_prior_Ys
-            source_name = "gene_pheno_combined_prior_Ys"
-        elif state.gene_pheno_Y is not None:
-            feature_by_pheno = state.gene_pheno_Y
-            source_name = "gene_pheno_Y"
-        elif state.gene_pheno_priors is not None:
-            feature_by_pheno = state.gene_pheno_priors
-            source_name = "gene_pheno_priors"
-        else:
+            bail_fn("Projection-only trait linkage requires gene factor loadings from --factor-gene-clusters-in")
+        if state.gene_pheno_combined_prior_Ys is None and state.gene_pheno_Y is None and state.gene_pheno_priors is None:
             bail_fn(
-                "Projection-only pheno clusters require --gene-phewas-stats-in with combined, log_bf, or prior values"
+                "Projection-only trait linkage requires --gene-phewas-stats-in with combined, log_bf, or prior values"
             )
-        basis = state.exp_gene_factors
-        basis_mask = state.gene_in_discovery_mask
-        basis_name = "genes"
+    if state.phenos is None or len(state.phenos) == 0:
+        bail_fn("Projection-only trait linkage requires phenotype names from the corresponding PheWAS input")
 
-    basis, feature_by_pheno = _align_projection_inputs_to_mask(
-        basis,
-        feature_by_pheno,
-        basis_mask,
-    )
-    prepared_feature_by_pheno = _prepare_pheno_capture_input_matrix(
-        feature_by_pheno,
-        pheno_capture_input,
-    )
-    state.exp_pheno_factors = _project_pheno_capture_matrix(
+    applied = _apply_canonical_trait_linkage(
         state,
-        basis,
-        prepared_feature_by_pheno,
-        basis_name=basis_name,
+        use_gene_set_basis=project_phenos_from_gene_sets,
+        trait_linkage_source=trait_linkage_source,
+        trait_linkage_threshold=trait_linkage_threshold,
+        trait_linkage_computation_mode=trait_linkage_computation_mode,
+        pheno_capture_input=pheno_capture_input,
+        update_anchor_relevance=True,
+        log_fn=log_fn,
+        info_level=info_level,
     )
-    state.pheno_in_discovery_mask = np.full(len(state.phenos), False, dtype=bool)
-    state.pheno_capture_input = pheno_capture_input
+    if not applied:
+        bail_fn("Projection-only trait linkage could not resolve a usable support surface")
+
+    state.pheno_factor_pheno_mask = np.full(len(state.phenos), False, dtype=bool)
     state._record_params(
         {
             "factor_projection_only_pheno_clusters": True,
-            "factor_projection_only_pheno_capture_basis": basis_name,
+            "factor_projection_only_pheno_capture_basis": state.trait_linkage_basis,
             "factor_projection_only_pheno_capture_input": pheno_capture_input,
-            "factor_projection_only_pheno_source": source_name,
+            "factor_projection_only_pheno_source": state.trait_linkage_score_source,
+            "factor_projection_only_pheno_threshold": trait_linkage_threshold,
+            "factor_projection_only_pheno_computation_mode": trait_linkage_computation_mode,
             "factor_projection_only_num_phenos": len(state.phenos),
         },
         overwrite=True,
     )
     log_fn(
-        "Projected %d phenotypes onto %d precomputed %s factors using %s"
-        % (len(state.phenos), basis.shape[1], basis_name, source_name),
+        "Computed canonical trait linkage for %d phenotypes onto %d precomputed %s factors using %s"
+        % (
+            len(state.phenos),
+            state.exp_pheno_factors.shape[1],
+            state.trait_linkage_basis,
+            state.trait_linkage_score_source,
+        ),
         info_level,
     )
     return state.exp_pheno_factors
@@ -1072,6 +1193,9 @@ def project_phenos_from_loaded_factors(
 def project_phenos_from_loaded_gene_factors(
     state,
     *,
+    trait_linkage_source="combined",
+    trait_linkage_threshold=1.0,
+    trait_linkage_computation_mode="sparse_full",
     pheno_capture_input="weighted_thresholded",
     bail_fn,
     log_fn,
@@ -1081,6 +1205,9 @@ def project_phenos_from_loaded_gene_factors(
     return project_phenos_from_loaded_factors(
         state,
         project_phenos_from_gene_sets=False,
+        trait_linkage_source=trait_linkage_source,
+        trait_linkage_threshold=trait_linkage_threshold,
+        trait_linkage_computation_mode=trait_linkage_computation_mode,
         pheno_capture_input=pheno_capture_input,
         bail_fn=bail_fn,
         log_fn=log_fn,
@@ -1242,6 +1369,10 @@ def _build_factor_param_record(
     keep_original_loadings,
     project_phenos_from_gene_sets,
     pheno_capture_input,
+    trait_linkage_source,
+    trait_linkage_threshold,
+    trait_linkage_computation_mode,
+    no_trait_linkage,
 ):
     anchor_gene_mask_present, anchor_gene_mask_total, anchor_gene_mask_selected = _summarize_mask(anchor_gene_mask)
     anchor_pheno_mask_present, anchor_pheno_mask_total, anchor_pheno_mask_selected = _summarize_mask(anchor_pheno_mask)
@@ -1320,6 +1451,10 @@ def _build_factor_param_record(
         "keep_original_loadings": bool(keep_original_loadings),
         "project_phenos_from_gene_sets": bool(project_phenos_from_gene_sets),
         "pheno_capture_input": pheno_capture_input,
+        "trait_linkage_source": trait_linkage_source,
+        "trait_linkage_threshold": float(trait_linkage_threshold),
+        "trait_linkage_computation_mode": trait_linkage_computation_mode,
+        "no_trait_linkage": bool(no_trait_linkage),
     }
 
 
@@ -2816,6 +2951,7 @@ def _finalize_factor_outputs(
     state,
     *,
     factor_gene_set_x_pheno,
+    factor_top_loading_type,
     lmm_auth_key,
     lmm_model,
     lmm_provider,
@@ -2837,11 +2973,21 @@ def _finalize_factor_outputs(
 
     state.exp_lambdak = state.exp_lambdak[reorder_inds]
     state.factor_anchor_relevance = state.factor_anchor_relevance[reorder_inds, :]
+    if state.factor_anchor_marginal_relevance is not None:
+        state.factor_anchor_marginal_relevance = state.factor_anchor_marginal_relevance[reorder_inds, :]
     state.factor_relevance = state.factor_relevance[reorder_inds]
+    if state.factor_marginal_relevance is not None:
+        state.factor_marginal_relevance = state.factor_marginal_relevance[reorder_inds]
     if state.exp_gene_factors is not None:
         state.exp_gene_factors = state.exp_gene_factors[:, reorder_inds]
     if state.exp_pheno_factors is not None:
         state.exp_pheno_factors = state.exp_pheno_factors[:, reorder_inds]
+    if state.trait_linkage_joint is not None:
+        state.trait_linkage_joint = state.trait_linkage_joint[:, reorder_inds]
+    if state.trait_linkage_marginal is not None:
+        state.trait_linkage_marginal = state.trait_linkage_marginal[:, reorder_inds]
+    if state.trait_linkage_factor_total_mass is not None:
+        state.trait_linkage_factor_total_mass = state.trait_linkage_factor_total_mass[reorder_inds]
     state.exp_gene_set_factors = state.exp_gene_set_factors[:, reorder_inds]
 
     threshold = 1e-5
@@ -2854,9 +3000,9 @@ def _finalize_factor_outputs(
             state.exp_gene_set_factors[state.exp_gene_set_factors < np.max(state.exp_gene_set_factors) * threshold] = 0
 
     num_top = 5
-    exp_gene_factors_for_top = state.get_factor_loadings(state.exp_gene_factors, loading_type="combined")
-    exp_pheno_factors_for_top = state.get_factor_loadings(state.exp_pheno_factors, loading_type="combined")
-    exp_gene_set_factors_for_top = state.get_factor_loadings(state.exp_gene_set_factors, loading_type="combined")
+    exp_gene_factors_for_top = state.get_factor_loadings(state.exp_gene_factors, loading_type=factor_top_loading_type)
+    exp_pheno_factors_for_top = state.get_factor_loadings(state.exp_pheno_factors, loading_type=factor_top_loading_type)
+    exp_gene_set_factors_for_top = state.get_factor_loadings(state.exp_gene_set_factors, loading_type=factor_top_loading_type)
 
     top_anchor_gene_or_pheno_inds = None
     top_anchor_pheno_or_gene_inds = None
@@ -2916,19 +3062,13 @@ def _finalize_factor_outputs(
         top_gene_or_pheno_inds = top_capture_inds
         if exp_gene_factors_for_top is not None:
             top_pheno_or_gene_inds = np.swapaxes(
-                np.argsort(
-                    -(1 - np.prod(1 - ((exp_gene_factors_for_top).T[:, :, np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
-                    axis=1,
-                )[:, :num_top],
+                np.argsort(-(exp_gene_factors_for_top).T, axis=1)[:, :num_top],
                 0,
                 1,
             )
     else:
         top_gene_or_pheno_inds = np.swapaxes(
-            np.argsort(
-                -(1 - np.prod(1 - ((exp_gene_factors_for_top).T[:, :, np.newaxis] * (state.gene_prob_factor_vector)[np.newaxis, :, :]), axis=2)),
-                axis=1,
-            )[:, :num_top],
+            np.argsort(-(exp_gene_factors_for_top).T, axis=1)[:, :num_top],
             0,
             1,
         )
@@ -2936,7 +3076,7 @@ def _finalize_factor_outputs(
             top_pheno_or_gene_inds = top_capture_inds
 
     top_gene_set_inds = np.swapaxes(
-        np.argsort(-(1 - np.prod(1 - (exp_gene_set_factors_for_top.T[:, :, np.newaxis] * state.gene_set_prob_factor_vector[np.newaxis, :, :]), axis=2)), axis=1)[:, :num_top],
+        np.argsort(-(exp_gene_set_factors_for_top).T, axis=1)[:, :num_top],
         0,
         1,
     )
@@ -2963,7 +3103,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -3599,17 +3739,20 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
 
     if factor_gene_set_x_pheno:
         state.pheno_in_discovery_mask = gene_or_pheno_mask
+        state.pheno_factor_pheno_mask = state.pheno_in_discovery_mask
         state.exp_pheno_factors = exp_gene_or_pheno_factors
         state.pheno_prob_factor_vector = gene_or_pheno_prob_vector
         state.gene_prob_factor_vector = None
     else:
         state.gene_in_discovery_mask = gene_or_pheno_mask
+        state.gene_factor_gene_mask = state.gene_in_discovery_mask
         state.exp_gene_factors = exp_gene_or_pheno_factors
         state.gene_prob_factor_vector = gene_or_pheno_prob_vector
         state.pheno_prob_factor_vector = None
 
     state.gene_set_prob_factor_vector = gene_set_prob_vector
     state.gene_set_in_discovery_mask = discovery_plan.in_discovery_mask_full
+    state.gene_set_factor_gene_set_mask = state.gene_set_in_discovery_mask
     state.gene_set_discovery_family_id = discovery_plan.discovery_family_id_full
     state.gene_set_discovery_representative_mask = discovery_plan.discovery_representative_mask_full
     state.gene_set_discovery_family_size = discovery_plan.discovery_family_size_full
@@ -3676,7 +3819,13 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     if state.exp_gene_factors is None and state.exp_gene_set_factors is None:
         bail("Something went wrong: both gene factors and gene set factors are empty")
 
-    if state.X_phewas_beta_uncorrected is not None and state.pheno_prob_factor_vector is not None:
+    run_legacy_pheno_capture = bool(no_trait_linkage)
+
+    if (
+        run_legacy_pheno_capture
+        and state.X_phewas_beta_uncorrected is not None
+        and state.pheno_prob_factor_vector is not None
+    ):
         if project_phenos_from_gene_sets or state.exp_gene_factors is None:
             pheno_matrix_to_project = state.X_phewas_beta_uncorrected.T
             if not run_transpose:
@@ -3716,7 +3865,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         if keep_original_loadings:
             full_pheno_factor_values[state.pheno_in_discovery_mask,:] = state.exp_pheno_factors
         state.pheno_capture_input = pheno_capture_input
-    elif state.exp_pheno_factors is not None:
+    elif run_legacy_pheno_capture and state.exp_pheno_factors is not None:
         state.pheno_capture_basis = "native"
         if state.X_phewas_beta_uncorrected is not None:
             feature_by_pheno = state.X_phewas_beta_uncorrected.T
@@ -3760,9 +3909,23 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     state.factor_anchor_relevance = state._nnls_project_matrix(matrix_to_mult, vector_to_mult.T, max_value=1).T
     state.factor_relevance = _compute_any_anchor_relevance(state.factor_anchor_relevance)
 
+    if not no_trait_linkage:
+        _apply_canonical_trait_linkage(
+            state,
+            use_gene_set_basis=bool(project_phenos_from_gene_sets or factor_gene_set_x_pheno or state.exp_gene_factors is None),
+            trait_linkage_source=trait_linkage_source,
+            trait_linkage_threshold=trait_linkage_threshold,
+            trait_linkage_computation_mode=trait_linkage_computation_mode,
+            pheno_capture_input=pheno_capture_input,
+            update_anchor_relevance=state.anchor_pheno_mask is not None,
+            log_fn=log,
+            info_level=INFO,
+        )
+
     _finalize_factor_outputs(
         state,
         factor_gene_set_x_pheno=factor_gene_set_x_pheno,
+        factor_top_loading_type=factor_top_loading_type,
         lmm_auth_key=lmm_auth_key,
         lmm_model=lmm_model,
         lmm_provider=lmm_provider,
@@ -3972,7 +4135,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -3997,6 +4160,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--consensus-min-run-support must be in (0, 1]")
     if consensus_nmf and factor_runs < 2:
         bail("--consensus-nmf requires --factor-runs >= 2")
+    if factor_top_loading_type not in {"raw", "specific", "combined"}:
+        bail("--factor-top-loading-type must be one of: raw, specific, combined")
     if learn_phi:
         if phi <= 0:
             bail("--learn-phi requires --phi > 0")
@@ -4078,9 +4243,14 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "label_gene_sets_only": label_gene_sets_only,
         "label_include_phenos": label_include_phenos,
         "label_individually": label_individually,
+        "factor_top_loading_type": factor_top_loading_type,
         "keep_original_loadings": keep_original_loadings,
         "project_phenos_from_gene_sets": project_phenos_from_gene_sets,
         "pheno_capture_input": pheno_capture_input,
+        "trait_linkage_source": trait_linkage_source,
+        "trait_linkage_threshold": trait_linkage_threshold,
+        "trait_linkage_computation_mode": trait_linkage_computation_mode,
+        "no_trait_linkage": no_trait_linkage,
         "factor_backend": factor_backend,
         "blockwise_gene_set_block_size": blockwise_gene_set_block_size,
         "blockwise_epochs": blockwise_epochs,
@@ -4174,6 +4344,10 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             keep_original_loadings=keep_original_loadings,
             project_phenos_from_gene_sets=project_phenos_from_gene_sets,
             pheno_capture_input=pheno_capture_input,
+            trait_linkage_source=trait_linkage_source,
+            trait_linkage_threshold=trait_linkage_threshold,
+            trait_linkage_computation_mode=trait_linkage_computation_mode,
+            no_trait_linkage=no_trait_linkage,
         ),
         overwrite=True,
     )

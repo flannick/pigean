@@ -12,25 +12,65 @@ def _as_dense_feature_matrix(matrix):
     return np.asarray(matrix, dtype=float)
 
 
+def _sanitize_nonfinite_feature_matrix(matrix):
+    if matrix is None:
+        return None
+    if sparse.issparse(matrix):
+        sanitized = matrix.tocsr(copy=True).astype(float)
+        if sanitized.nnz > 0:
+            sanitized.data = np.nan_to_num(sanitized.data, nan=0.0, posinf=0.0, neginf=0.0)
+            sanitized.eliminate_zeros()
+        return sanitized
+    return np.nan_to_num(np.asarray(matrix, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+
+
 def compute_profile_strengths(feature_by_profile):
-    dense = _as_dense_feature_matrix(feature_by_profile)
-    if dense is None:
+    matrix = _sanitize_nonfinite_feature_matrix(feature_by_profile)
+    if matrix is None:
         return None
-    if dense.ndim == 1:
-        dense = dense[:, np.newaxis]
-    return np.asarray(np.sum(dense, axis=0), dtype=float)
+    if sparse.issparse(matrix):
+        if matrix.ndim != 2:
+            raise ValueError("Profile strengths expect a 2D sparse matrix")
+        return np.asarray(matrix.sum(axis=0)).ravel().astype(float)
+    if matrix.ndim == 1:
+        matrix = matrix[:, np.newaxis]
+    return np.asarray(np.sum(matrix, axis=0), dtype=float)
 
 
-def prepare_thresholded_profile_input(feature_by_profile, mode):
-    dense = _as_dense_feature_matrix(feature_by_profile)
-    if dense is None:
+def prepare_thresholded_profile_input(
+    feature_by_profile,
+    mode,
+    *,
+    threshold_value=0.0,
+    strict_threshold=True,
+):
+    matrix = _sanitize_nonfinite_feature_matrix(feature_by_profile)
+    if matrix is None:
         return None
-    if dense.ndim == 1:
-        dense = dense[:, np.newaxis]
+    if sparse.issparse(matrix):
+        thresholded = matrix.tocsr(copy=True)
+        if thresholded.ndim != 2:
+            raise ValueError("Thresholded profile input expects a 2D sparse matrix")
+        if thresholded.nnz > 0:
+            if strict_threshold:
+                keep_mask = thresholded.data > threshold_value
+            else:
+                keep_mask = thresholded.data >= threshold_value
+            thresholded.data = np.where(keep_mask, thresholded.data, 0.0)
+            if mode == "binary_thresholded":
+                thresholded.data = np.where(keep_mask, 1.0, 0.0)
+            thresholded.eliminate_zeros()
+        return thresholded
+    if matrix.ndim == 1:
+        matrix = matrix[:, np.newaxis]
+    if strict_threshold:
+        support_mask = matrix > threshold_value
+    else:
+        support_mask = matrix >= threshold_value
     if mode == "weighted_thresholded":
-        return np.asarray(np.maximum(dense, 0.0), dtype=float)
+        return np.asarray(matrix * support_mask, dtype=float)
     if mode == "binary_thresholded":
-        return np.asarray(dense > 0, dtype=float)
+        return np.asarray(support_mask, dtype=float)
     raise ValueError("Unknown phenotype capture input mode: %s" % mode)
 
 

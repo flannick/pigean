@@ -255,6 +255,41 @@ def open_gz(file, flag=None):
     )
 
 
+def _derive_clustering_params_paths(output_file):
+    if output_file is None:
+        return (None, None)
+    if output_file.endswith(".json.gz"):
+        json_path = output_file
+        tsv_path = output_file[:-8] + ".tsv.gz"
+    elif output_file.endswith(".tsv.gz"):
+        tsv_path = output_file
+        json_path = output_file[:-7] + ".json.gz"
+    elif output_file.endswith(".json"):
+        json_path = output_file
+        tsv_path = output_file[:-5] + ".tsv.gz"
+    elif output_file.endswith(".tsv"):
+        tsv_path = output_file
+        json_path = output_file[:-4] + ".json.gz"
+    else:
+        json_path = output_file + ".json.gz"
+        tsv_path = output_file + ".tsv.gz"
+    return json_path, tsv_path
+
+
+def _flatten_clustering_payload(prefix, value):
+    if isinstance(value, dict):
+        flat = []
+        for key in sorted(value.keys()):
+            next_prefix = key if prefix is None else prefix + "." + str(key)
+            flat.extend(_flatten_clustering_payload(next_prefix, value[key]))
+        return flat
+    if isinstance(value, (list, tuple, set)):
+        if isinstance(value, set):
+            value = sorted(list(value))
+        return [(prefix, json.dumps(value, sort_keys=True))]
+    return [(prefix, value)]
+
+
 def _read_gene_phewas_bfs(
     state,
     gene_phewas_bfs_in,
@@ -267,6 +302,8 @@ def _read_gene_phewas_bfs(
     gene_phewas_bfs_prior_col=None,
     phewas_gene_to_X_gene_in=None,
     min_value=None,
+    min_value_source="auto",
+    strict_min_value=False,
     max_num_entries_at_once=None,
 ):
     cached = dict(locals())
@@ -300,6 +337,8 @@ def _read_gene_phewas_bfs(
         gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
         phewas_gene_to_x_gene=phewas_gene_to_X_gene,
         min_value=min_value,
+        min_value_source=min_value_source,
+        strict_min_value=strict_min_value,
         max_num_entries_at_once=max_num_entries_at_once,
         open_text_fn=open_gz,
         get_col_fn=_get_col,
@@ -699,7 +738,9 @@ class GeneSignalHugeState:
 class FactorModelState:
     exp_lambdak: object | None = None
     factor_anchor_relevance: object | None = None
+    factor_anchor_marginal_relevance: object | None = None
     factor_relevance: object | None = None
+    factor_marginal_relevance: object | None = None
     factor_labels: object | None = None
     factor_labels_gene_sets: object | None = None
     factor_labels_genes: object | None = None
@@ -710,6 +751,9 @@ class FactorModelState:
     factor_anchor_top_gene_sets: object | None = None
     factor_anchor_top_genes: object | None = None
     factor_anchor_top_phenos: object | None = None
+    gene_factor_gene_mask: object | None = None
+    gene_set_factor_gene_set_mask: object | None = None
+    pheno_factor_pheno_mask: object | None = None
     gene_in_discovery_mask: object | None = None
     gene_set_in_discovery_mask: object | None = None
     pheno_in_discovery_mask: object | None = None
@@ -728,6 +772,21 @@ class FactorModelState:
     pheno_capture_strength: object | None = None
     pheno_capture_basis: object | None = None
     pheno_capture_input: object | None = None
+    trait_linkage_factor_total_mass: object | None = None
+    trait_linkage_joint: object | None = None
+    trait_linkage_marginal: object | None = None
+    trait_linkage_residual: object | None = None
+    trait_linkage_strength: object | None = None
+    trait_linkage_retained_strength: object | None = None
+    trait_linkage_retained_fraction: object | None = None
+    trait_linkage_total_feature_count: object | None = None
+    trait_linkage_retained_feature_count: object | None = None
+    trait_linkage_n_eff: object | None = None
+    trait_linkage_retained_n_eff: object | None = None
+    trait_linkage_low_retention_flag: object | None = None
+    trait_linkage_is_anchor: object | None = None
+    trait_linkage_basis: object | None = None
+    trait_linkage_score_source: object | None = None
     factor_phewas_result_blocks: object | None = None
     factor_phewas_Y_betas: object | None = None
     factor_phewas_Y_ses: object | None = None
@@ -1103,7 +1162,9 @@ class EagglState(object):
         #stores factored matrices
         self.exp_lambdak = None #anchor-agnostic factor relevance weights (does the factor exist)
         self.factor_anchor_relevance = None #relevance of each factor to each anchor
+        self.factor_anchor_marginal_relevance = None #standalone relevance of each factor to each anchor
         self.factor_relevance = None #max relevance of each factor across anchors
+        self.factor_marginal_relevance = None #max standalone relevance of each factor across anchors
 
         #these are specific to the anchor-agnostic loadings
         self.factor_labels = None
@@ -1121,6 +1182,9 @@ class EagglState(object):
         self.factor_anchor_top_phenos = None
 
         #masks used to select inputs to the factoring
+        self.gene_factor_gene_mask = None
+        self.gene_set_factor_gene_set_mask = None
+        self.pheno_factor_pheno_mask = None  #only used in factor pheno mode or factor phewas mode
         self.gene_in_discovery_mask = None
         self.gene_set_in_discovery_mask = None
         self.pheno_in_discovery_mask = None  #only used in factor pheno mode or factor phewas mode
@@ -1142,6 +1206,21 @@ class EagglState(object):
         self.pheno_capture_strength = None
         self.pheno_capture_basis = None
         self.pheno_capture_input = None
+        self.trait_linkage_factor_total_mass = None
+        self.trait_linkage_joint = None
+        self.trait_linkage_marginal = None
+        self.trait_linkage_residual = None
+        self.trait_linkage_strength = None
+        self.trait_linkage_retained_strength = None
+        self.trait_linkage_retained_fraction = None
+        self.trait_linkage_total_feature_count = None
+        self.trait_linkage_retained_feature_count = None
+        self.trait_linkage_n_eff = None
+        self.trait_linkage_retained_n_eff = None
+        self.trait_linkage_low_retention_flag = None
+        self.trait_linkage_is_anchor = None
+        self.trait_linkage_basis = None
+        self.trait_linkage_score_source = None
         self.factor_phewas_result_blocks = None
 
         self.factor_phewas_Y_betas = None #phewas statistics
@@ -1280,6 +1359,23 @@ class EagglState(object):
                         
             params_fh.close()
 
+    def write_clustering_params(self, output_file, payload):
+        if output_file is None:
+            return None
+        json_path, tsv_path = _derive_clustering_params_paths(output_file)
+        if json_path is not None:
+            log("Writing clustering provenance JSON to %s" % json_path, INFO)
+            with open_gz(json_path, "w") as output_fh:
+                output_fh.write(json.dumps(pegs_json_safe(payload), indent=2, sort_keys=True))
+                output_fh.write("\n")
+        if tsv_path is not None:
+            log("Writing clustering provenance TSV to %s" % tsv_path, INFO)
+            with open_gz(tsv_path, "w") as output_fh:
+                output_fh.write("Field\tValue\n")
+                for field_name, value in _flatten_clustering_payload(None, pegs_json_safe(payload)):
+                    output_fh.write("%s\t%s\n" % (field_name, value))
+        return {"json": json_path, "tsv": tsv_path}
+
     def _project_H_with_fixed_W(self, W, V_new, P_gene_set, P_gene_new, phi=0.0, lambdak=None, n_iter=100, tol=1e-5, normalize_genes=False, cap_genes=False, add_intercept=False):
         """
         Projects new genes onto the learned NMF factors W using update rules consistent with the original NMF algorithm.
@@ -1413,20 +1509,20 @@ class EagglState(object):
             orig_vector = True
             X_new = X_new[np.newaxis, :]
 
-        # Initialize H_new with random positive values
+        # Deterministic positive initialization keeps projection-only annotation reproducible.
         n_components = W.shape[1]
         n_samples = X_new.shape[0]
-        H_new = np.random.rand(n_samples, n_components)
+        H_new = np.full((n_samples, n_components), 1.0 / max(n_components, 1), dtype=float)
 
         # Precompute W^T * W for efficiency
         WT_W = W.T @ W
         if sparse.issparse(WT_W):
             WT_W = WT_W.toarray()
+        numerator = X_new @ W
 
         # Iterative update
         for i in range(max_iter):
             # Compute numerator and denominator
-            numerator = X_new @ W
             denominator = H_new @ WT_W + 1e-10  # Small epsilon to avoid division by zero
 
             # Update H_new
@@ -1452,11 +1548,10 @@ class EagglState(object):
 
             # Check for convergence
             norm = np.linalg.norm(H_new_update - H_new, 'fro')
+            H_new = H_new_update
 
             if norm < tol:
                 break
-
-            H_new = H_new_update
 
         if orig_vector:
             H_new = np.squeeze(H_new, axis=0)
@@ -1680,7 +1775,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False):
         if max_num_discovery_gene_sets is None and max_num_gene_sets is not None:
             warn("max_num_gene_sets is deprecated for factor-stage discovery; mapping it to max_num_discovery_gene_sets")
             max_num_discovery_gene_sets = max_num_gene_sets
@@ -1771,9 +1866,14 @@ class EagglState(object):
             "label_gene_sets_only": label_gene_sets_only,
             "label_include_phenos": label_include_phenos,
             "label_individually": label_individually,
+            "factor_top_loading_type": factor_top_loading_type,
             "keep_original_loadings": keep_original_loadings,
             "project_phenos_from_gene_sets": project_phenos_from_gene_sets,
             "pheno_capture_input": pheno_capture_input,
+            "trait_linkage_source": trait_linkage_source,
+            "trait_linkage_threshold": trait_linkage_threshold,
+            "trait_linkage_computation_mode": trait_linkage_computation_mode,
+            "no_trait_linkage": no_trait_linkage,
             "bail_fn": bail,
             "warn_fn": warn,
             "log_fn": log,
@@ -2122,6 +2222,7 @@ class EagglState(object):
             "label",
             "lambda",
             "any_relevance",
+            "factor_total_mass",
             "gene_mass",
             "gene_mass_fraction",
             "gene_effective_support",
@@ -2271,6 +2372,11 @@ class EagglState(object):
         }
 
     def _collect_factor_metrics_records(self):
+        factor_total_mass = (
+            np.asarray(self.trait_linkage_factor_total_mass, dtype=float)
+            if self.trait_linkage_factor_total_mass is not None
+            else None
+        )
         gene_set_masses = None
         if self.exp_gene_set_factors is not None and self.exp_gene_set_factors.size > 0:
             gene_set_factors = np.asarray(self.exp_gene_set_factors, dtype=float)
@@ -2326,6 +2432,11 @@ class EagglState(object):
                 "label": "" if self.factor_labels is None else str(self.factor_labels[i]),
                 "lambda": "%.6g" % float(self.exp_lambdak[i]) if self.exp_lambdak is not None else "NA",
                 "any_relevance": "%.6g" % float(self.factor_relevance[i]) if self.factor_relevance is not None else "NA",
+                "factor_total_mass": (
+                    "%.6g" % float(factor_total_mass[i])
+                    if factor_total_mass is not None and i < len(factor_total_mass)
+                    else "NA"
+                ),
                 "gene_mass": "%.6g" % gene_metrics["mass"],
                 "gene_mass_fraction": "%.6g" % gene_metrics["mass_fraction"],
                 "gene_effective_support": "%.6g" % gene_metrics["effective_support"],
@@ -2393,14 +2504,34 @@ class EagglState(object):
         if factors_output_file is not None:
             log("Writing factors to %s" % factors_output_file, INFO)
             with open_gz(factors_output_file, 'w') as output_fh:
+                factor_total_mass = (
+                    np.asarray(self.trait_linkage_factor_total_mass, dtype=float)
+                    if self.trait_linkage_factor_total_mass is not None
+                    else None
+                )
                 header = "Factor"
                 header = "%s\t%s" % (header, "label")
                 if anchors is not None:
                     header = "%s\t%s" % (header, "anchor")
                     header = "%s\t%s" % (header, "relevance")
+                    header = "%s\t%s" % (header, "joint")
+                    header = "%s\t%s" % (header, "marginal")
+                    header = "%s\t%s" % (header, "factor_total_mass")
                 else:
                     header = "%s\t%s" % (header, "lambda")
                     header = "%s\t%s" % (header, "any_relevance")
+                    num_anchor_traits = (
+                        self.factor_anchor_relevance.shape[1]
+                        if self.factor_anchor_relevance is not None and len(self.factor_anchor_relevance.shape) == 2
+                        else 0
+                    )
+                    if num_anchor_traits == 1:
+                        header = "%s\t%s" % (header, "anchor_joint")
+                        header = "%s\t%s" % (header, "anchor_marginal")
+                    elif num_anchor_traits > 1:
+                        header = "%s\t%s" % (header, "anchor_any_joint")
+                        header = "%s\t%s" % (header, "anchor_any_marginal")
+                    header = "%s\t%s" % (header, "factor_total_mass")
 
                 if self.factor_top_genes is not None or self.factor_anchor_top_genes is not None:
                     header = "%s\t%s" % (header, "top_genes")
@@ -2424,7 +2555,21 @@ class EagglState(object):
                         line = "%s\t%s" % (line, self.factor_labels[i])
                         if anchors is not None:
                             line = "%s\t%s" % (line, anchors[j])
-                            line = "%s\t%.3g" % (line, self.factor_anchor_relevance[i,j])
+                            joint_value = self.factor_anchor_relevance[i,j]
+                            marginal_value = (
+                                self.factor_anchor_marginal_relevance[i,j]
+                                if self.factor_anchor_marginal_relevance is not None
+                                else joint_value
+                            )
+                            line = "%s\t%.3g" % (line, joint_value)
+                            line = "%s\t%.3g" % (line, joint_value)
+                            line = "%s\t%.3g" % (line, marginal_value)
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_total_mass[i])
+                                if factor_total_mass is not None and i < len(factor_total_mass)
+                                else "NA",
+                            )
                             if self.factor_anchor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_genes[i][j]))
                             line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_gene_sets[i][j]))
@@ -2433,6 +2578,25 @@ class EagglState(object):
                         else:
                             line = "%s\t%.3g" % (line, self.exp_lambdak[i])
                             line = "%s\t%.3g" % (line, self.factor_relevance[i])
+                            num_anchor_traits = (
+                                self.factor_anchor_relevance.shape[1]
+                                if self.factor_anchor_relevance is not None and len(self.factor_anchor_relevance.shape) == 2
+                                else 0
+                            )
+                            if num_anchor_traits > 0:
+                                line = "%s\t%.3g" % (line, self.factor_relevance[i])
+                                line = "%s\t%.3g" % (
+                                    line,
+                                    self.factor_marginal_relevance[i]
+                                    if self.factor_marginal_relevance is not None
+                                    else self.factor_relevance[i],
+                                )
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_total_mass[i])
+                                if factor_total_mass is not None and i < len(factor_total_mass)
+                                else "NA",
+                            )
                             if self.factor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_top_genes[i]))
                                 if self.factor_labels_genes:
@@ -2447,6 +2611,117 @@ class EagglState(object):
 
 
                         output_fh.write("%s\n" % (line))
+
+    def write_trait_factor_links(self, output_file=None):
+        if output_file is None:
+            return
+        if self.trait_linkage_joint is None or self.trait_linkage_marginal is None:
+            return
+        if self.phenos is None:
+            return
+
+        log("Writing trait-factor links to %s" % output_file, INFO)
+        with open_gz(output_file, "w") as output_fh:
+            header = [
+                "trait",
+                "factor",
+                "is_anchor",
+                "joint_coefficient",
+                "marginal_coefficient",
+                "trait_total_support",
+                "retained_trait_support",
+                "retained_fraction",
+                "total_feature_count",
+                "retained_feature_count",
+                "trait_n_eff",
+                "retained_n_eff",
+                "low_retention_flag",
+                "joint_coefficient_support_mass",
+                "marginal_coefficient_support_mass",
+                "joint_residual",
+                "score_source",
+                "basis",
+            ]
+            output_fh.write("%s\n" % "\t".join(header))
+            is_anchor = (
+                np.asarray(self.trait_linkage_is_anchor, dtype=bool)
+                if self.trait_linkage_is_anchor is not None
+                else np.full(len(self.phenos), False, dtype=bool)
+            )
+            strengths = (
+                np.asarray(self.trait_linkage_strength, dtype=float)
+                if self.trait_linkage_strength is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            residuals = (
+                np.asarray(self.trait_linkage_residual, dtype=float)
+                if self.trait_linkage_residual is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            retained_strengths = (
+                np.asarray(self.trait_linkage_retained_strength, dtype=float)
+                if self.trait_linkage_retained_strength is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            retained_fractions = (
+                np.asarray(self.trait_linkage_retained_fraction, dtype=float)
+                if self.trait_linkage_retained_fraction is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            total_feature_counts = (
+                np.asarray(self.trait_linkage_total_feature_count, dtype=int)
+                if self.trait_linkage_total_feature_count is not None
+                else np.zeros(len(self.phenos), dtype=int)
+            )
+            retained_feature_counts = (
+                np.asarray(self.trait_linkage_retained_feature_count, dtype=int)
+                if self.trait_linkage_retained_feature_count is not None
+                else np.zeros(len(self.phenos), dtype=int)
+            )
+            trait_n_eff = (
+                np.asarray(self.trait_linkage_n_eff, dtype=float)
+                if self.trait_linkage_n_eff is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            retained_n_eff = (
+                np.asarray(self.trait_linkage_retained_n_eff, dtype=float)
+                if self.trait_linkage_retained_n_eff is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            low_retention_flags = (
+                np.asarray(self.trait_linkage_low_retention_flag, dtype=bool)
+                if self.trait_linkage_low_retention_flag is not None
+                else np.zeros(len(self.phenos), dtype=bool)
+            )
+            basis = "" if self.trait_linkage_basis is None else str(self.trait_linkage_basis)
+            score_source = "" if self.trait_linkage_score_source is None else str(self.trait_linkage_score_source)
+            for trait_index, trait_name in enumerate(self.phenos):
+                for factor_index in range(self.num_factors()):
+                    output_fh.write(
+                        "%s\n"
+                        % "\t".join(
+                            [
+                                str(trait_name),
+                                "Factor%d" % (factor_index + 1),
+                                "1" if bool(is_anchor[trait_index]) else "0",
+                                "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
+                                "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
+                                "%.6g" % float(strengths[trait_index]),
+                                "%.6g" % float(retained_strengths[trait_index]),
+                                "%.6g" % float(retained_fractions[trait_index]),
+                                str(int(total_feature_counts[trait_index])),
+                                str(int(retained_feature_counts[trait_index])),
+                                "%.6g" % float(trait_n_eff[trait_index]),
+                                "%.6g" % float(retained_n_eff[trait_index]),
+                                "1" if bool(low_retention_flags[trait_index]) else "0",
+                                "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
+                                "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
+                                "%.6g" % float(residuals[trait_index]),
+                                score_source,
+                                basis,
+                            ]
+                        )
+                    )
 
     def write_consensus_factor_diagnostics(self, output_file=None):
         if output_file is None:
@@ -4759,6 +5034,8 @@ class EagglState(object):
 
         if self.gene_in_discovery_mask is not None:
             self.gene_in_discovery_mask = self.gene_in_discovery_mask[[index_map_rev[x] for x in range(self.gene_pheno_combined_prior_Ys.shape[0])]]
+        if self.gene_factor_gene_mask is not None:
+            self.gene_factor_gene_mask = self.gene_factor_gene_mask[[index_map_rev[x] for x in range(self.gene_pheno_combined_prior_Ys.shape[0])]]
 
         if self.gene_prob_factor_vector is not None:
             self.gene_prob_factor_vector = self.gene_prob_factor_vector[[index_map_rev[x] for x in range(self.gene_prob_factor_vector.shape[0])]]
@@ -5000,6 +5277,8 @@ class EagglState(object):
             self.exp_gene_factors = self.exp_gene_factors[gene_mask,:]
         if self.gene_in_discovery_mask is not None:
             self.gene_in_discovery_mask = self.gene_in_discovery_mask[gene_mask]
+        if self.gene_factor_gene_mask is not None:
+            self.gene_factor_gene_mask = self.gene_factor_gene_mask[gene_mask]
 
         if not skip_Y:
             if self.Y is not None:
@@ -5245,6 +5524,8 @@ class EagglState(object):
             self.exp_gene_set_factors = self.exp_gene_set_factors[subset_mask,:]
         if self.gene_set_in_discovery_mask is not None:
             self.gene_set_in_discovery_mask = self.gene_set_in_discovery_mask[subset_mask]
+        if self.gene_set_factor_gene_set_mask is not None:
+            self.gene_set_factor_gene_set_mask = self.gene_set_factor_gene_set_mask[subset_mask]
         if self.gene_set_discovery_family_id is not None:
             self.gene_set_discovery_family_id = self.gene_set_discovery_family_id[subset_mask]
         if self.gene_set_discovery_representative_mask is not None:

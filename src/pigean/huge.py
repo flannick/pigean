@@ -472,7 +472,7 @@ def read_huge_s2g_probabilities(
 
         for line in s2g_fh:
             cols = line.strip("\n").split()
-            if chrom_col > len(cols) or pos_col > len(cols) or gene_col > len(cols) or (prob_col is not None and prob_col > len(cols)):
+            if chrom_col >= len(cols) or pos_col >= len(cols) or gene_col >= len(cols) or (prob_col is not None and prob_col >= len(cols)):
                 warn_fn("Skipping due to too few columns in line: %s" % line)
                 continue
 
@@ -576,7 +576,7 @@ def read_huge_input_credible_sets(
 
         for line in credible_sets_fh:
             cols = line.strip("\n").split()
-            if (id_col is not None and id_col > len(cols)) or (chrom_col is not None and chrom_col > len(cols)) or (pos_col is not None and pos_col > len(cols)) or (ppa_col is not None and ppa_col > len(cols)):
+            if (id_col is not None and id_col >= len(cols)) or (chrom_col is not None and chrom_col >= len(cols)) or (pos_col is not None and pos_col >= len(cols)) or (ppa_col is not None and ppa_col >= len(cols)):
                 warn_fn("Skipping due to too few columns in line: %s" % line)
                 continue
 

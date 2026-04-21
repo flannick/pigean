@@ -448,6 +448,8 @@ def load_and_apply_gene_phewas_bfs_to_runtime(
     gene_phewas_bfs_prior_col=None,
     phewas_gene_to_x_gene=None,
     min_value=None,
+    min_value_source="auto",
+    strict_min_value=False,
     max_num_entries_at_once=None,
     open_text_fn=None,
     get_col_fn=None,
@@ -473,6 +475,8 @@ def load_and_apply_gene_phewas_bfs_to_runtime(
         gene_phewas_bfs_combined_col=gene_phewas_bfs_combined_col,
         gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
         min_value=min_value,
+        min_value_source=min_value_source,
+        strict_min_value=strict_min_value,
         max_num_entries_at_once=max_num_entries_at_once,
         existing_phenos=runtime.phenos,
         existing_pheno_to_ind=runtime.pheno_to_ind,
@@ -816,10 +820,10 @@ def load_and_apply_gene_set_phewas_statistics_to_runtime(
                     continue
 
                 if (
-                    id_col > len(cols)
-                    or pheno_col > len(cols)
-                    or (beta_col is not None and beta_col > len(cols))
-                    or (beta_uncorrected_col is not None and beta_uncorrected_col > len(cols))
+                    id_col >= len(cols)
+                    or pheno_col >= len(cols)
+                    or (beta_col is not None and beta_col >= len(cols))
+                    or (beta_uncorrected_col is not None and beta_uncorrected_col >= len(cols))
                 ):
                     warn_fn("Skipping due to too few columns in line: %s" % line)
                     continue

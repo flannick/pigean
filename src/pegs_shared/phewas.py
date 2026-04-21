@@ -580,6 +580,8 @@ def parse_gene_phewas_bfs_file(
     gene_phewas_bfs_combined_col,
     gene_phewas_bfs_prior_col,
     min_value,
+    min_value_source="auto",
+    strict_min_value=False,
     max_num_entries_at_once,
     existing_phenos,
     existing_pheno_to_ind,
@@ -608,6 +610,24 @@ def parse_gene_phewas_bfs_file(
     final_Ys = None
     final_combineds = None
     final_priors = None
+
+    allowed_min_value_sources = {"auto", "combined", "log_bf", "prior"}
+    if min_value_source not in allowed_min_value_sources:
+        bail_fn(
+            "Unsupported gene-phewas minimum-value source %s; expected one of %s"
+            % (min_value_source, ", ".join(sorted(allowed_min_value_sources)))
+        )
+
+    def _passes_min_value(candidate_value, *, candidate_source):
+        if min_value is None:
+            return True
+        if candidate_value is None:
+            return True
+        if min_value_source != "auto" and candidate_source != min_value_source:
+            return True
+        if strict_min_value:
+            return candidate_value > min_value
+        return candidate_value >= min_value
 
     for delim in [None, "\t"]:
         success = True
@@ -707,7 +727,7 @@ def parse_gene_phewas_bfs_file(
                             )
                         continue
 
-                    if min_value is not None and combined < min_value:
+                    if not _passes_min_value(combined, candidate_source="combined"):
                         num_filtered += 1
                         continue
                     cur_combined = combined
@@ -724,7 +744,7 @@ def parse_gene_phewas_bfs_file(
                             )
                         continue
 
-                    if min_value is not None and combined_col is None and bf < min_value:
+                    if combined_col is None and not _passes_min_value(bf, candidate_source="log_bf"):
                         num_filtered += 1
                         continue
                     cur_Y = bf
@@ -741,7 +761,9 @@ def parse_gene_phewas_bfs_file(
                             )
                         continue
 
-                    if min_value is not None and combined_col is None and bf_col is None and prior < min_value:
+                    if combined_col is None and bf_col is None and not _passes_min_value(
+                        prior, candidate_source="prior"
+                    ):
                         num_filtered += 1
                         continue
                     cur_prior = prior

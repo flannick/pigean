@@ -123,9 +123,14 @@ class FactorExecutionConfig:
     label_gene_sets_only: bool = False
     label_include_phenos: bool = False
     label_individually: bool = False
+    factor_top_loading_type: str = "combined"
     keep_original_loadings: bool = False
     project_phenos_from_gene_sets: bool = False
     pheno_capture_input: str = "weighted_thresholded"
+    trait_linkage_source: str = "combined"
+    trait_linkage_threshold: float = 1.0
+    trait_linkage_computation_mode: str = "sparse_full"
+    no_trait_linkage: bool = False
 
     def to_run_kwargs(self):
         return {
@@ -201,9 +206,14 @@ class FactorExecutionConfig:
             "label_gene_sets_only": self.label_gene_sets_only,
             "label_include_phenos": self.label_include_phenos,
             "label_individually": self.label_individually,
+            "factor_top_loading_type": self.factor_top_loading_type,
             "keep_original_loadings": self.keep_original_loadings,
             "project_phenos_from_gene_sets": self.project_phenos_from_gene_sets,
             "pheno_capture_input": self.pheno_capture_input,
+            "trait_linkage_source": self.trait_linkage_source,
+            "trait_linkage_threshold": self.trait_linkage_threshold,
+            "trait_linkage_computation_mode": self.trait_linkage_computation_mode,
+            "no_trait_linkage": self.no_trait_linkage,
         }
 
 
@@ -493,10 +503,9 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
             loadings.append(row_loadings)
             raw_in_discovery = row.get("in_discovery")
             if raw_in_discovery is None or raw_in_discovery == "":
-                domain.bail(
-                    "Projection-only gene clusters now require an in_discovery column in %s"
-                    % gene_clusters_in
-                )
+                raw_in_discovery = row.get("used_to_factor")
+            if raw_in_discovery is None or raw_in_discovery == "":
+                raw_in_discovery = "true"
             in_discovery_values.append(str(raw_in_discovery).strip().lower() in set(["1", "true", "t", "yes", "y"]))
 
             combined_values.append(
@@ -525,6 +534,7 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
     runtime.exp_gene_factors = factor_matrix
     runtime.exp_lambdak = np.ones(num_factors, dtype=float)
     runtime.gene_in_discovery_mask = np.asarray(in_discovery_values, dtype=bool)
+    runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
     runtime.factor_labels = [
         labels_by_factor_index.get(i, "Factor%d" % (i + 1))
         for i in range(num_factors)
@@ -620,10 +630,9 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
 
             raw_in_discovery = row.get("in_discovery")
             if raw_in_discovery is None or raw_in_discovery == "":
-                domain.bail(
-                    "Projection-only gene-set clusters now require an in_discovery column in %s"
-                    % gene_set_clusters_in
-                )
+                raw_in_discovery = row.get("used_to_factor")
+            if raw_in_discovery is None or raw_in_discovery == "":
+                raw_in_discovery = "true"
             in_discovery_values.append(str(raw_in_discovery).strip().lower() in set(["1", "true", "t", "yes", "y"]))
             discovery_family_ids.append(row.get("discovery_family_id", "NA"))
             raw_representative = row.get("discovery_representative", "")
@@ -671,6 +680,7 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
     runtime.exp_gene_set_factors = factor_matrix
     runtime.exp_lambdak = np.ones(num_factors, dtype=float)
     runtime.gene_set_in_discovery_mask = np.asarray(in_discovery_values, dtype=bool)
+    runtime.gene_set_factor_gene_set_mask = runtime.gene_set_in_discovery_mask
     runtime.gene_set_discovery_family_id = np.asarray(discovery_family_ids, dtype=object)
     runtime.gene_set_discovery_representative_mask = np.asarray(discovery_representative_values, dtype=bool)
     runtime.gene_set_discovery_family_size = np.asarray(discovery_family_sizes, dtype=int)
@@ -747,7 +757,9 @@ def load_factor_phewas_inputs(domain, runtime, options):
             gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
             gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
             phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-            min_value=options.min_gene_phewas_read_value,
+            min_value=options.trait_linkage_threshold,
+            min_value_source=getattr(options, "trait_linkage_source", "combined"),
+            strict_min_value=True,
             max_num_entries_at_once=options.max_read_entries_at_once,
         )
         factor_input_data.loaded_gene_phewas_bfs = True
@@ -785,9 +797,13 @@ def run_phewas_with_common_args(domain, runtime, options, gene_phewas_bfs_in, ru
         batch_size=300 if run_for_factors else None,
         min_gene_factor_weight=min_gene_factor_weight,
     )
+    run_kwargs = phewas_config.to_run_kwargs()
+    if hasattr(runtime, "run_phewas"):
+        runtime.run_phewas(**run_kwargs)
+        return
     eaggl_phewas.run_phewas(
         runtime,
-        **phewas_config.to_run_kwargs(),
+        **run_kwargs,
         options=options,
         bail_fn=domain.bail,
         warn_fn=domain.warn,
@@ -799,11 +815,16 @@ def run_phewas_with_common_args(domain, runtime, options, gene_phewas_bfs_in, ru
 
 
 def run_main_phewas_stage(domain, runtime, options):
+    run_phewas_input = getattr(
+        options,
+        "run_phewas_input",
+        getattr(options, "run_phewas_from_gene_phewas_stats_in", None),
+    )
     decision = resolve_gene_phewas_stage_decision(
         domain,
         runtime,
-        options.run_phewas_input,
-        [options.gene_phewas_bfs_in],
+        run_phewas_input,
+        [getattr(options, "gene_phewas_bfs_in", None)],
     )
     domain.log("PheWAS stage 'phewas': mode=%s reason=%s" % (decision.mode, decision.reason), domain.INFO)
     bfs_to_use = decision.resolved_input
@@ -953,9 +974,14 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         label_gene_sets_only=options.label_gene_sets_only,
         label_include_phenos=options.label_include_phenos,
         label_individually=options.label_individually,
+        factor_top_loading_type=getattr(options, "factor_top_loading_type", "combined"),
         keep_original_loadings=getattr(options, "keep_original_loadings", False),
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
         pheno_capture_input=getattr(options, "pheno_capture_input", "weighted_thresholded"),
+        trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
+        trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
+        trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "sparse_full"),
+        no_trait_linkage=bool(getattr(options, "no_trait_linkage", False)),
     )
 
 
@@ -974,7 +1000,10 @@ def run_main_factor_stage(domain, runtime, options, mode_state, factor_input_sta
 def run_main_pheno_projection_stage(domain, runtime, options):
     if runtime.num_factors() <= 0:
         domain.log("No factors; not projecting pheno clusters")
-        return PhewasStageResult(ran=False, output_path=options.pheno_clusters_out)
+        return PhewasStageResult(
+            ran=False,
+            output_path=getattr(options, "trait_factor_links_out", None) or options.pheno_clusters_out,
+        )
 
     if options.project_phenos_from_gene_sets:
         if runtime.X_phewas_beta_uncorrected is None:
@@ -1001,19 +1030,27 @@ def run_main_pheno_projection_stage(domain, runtime, options):
             gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
             gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
             phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-            min_value=options.min_gene_phewas_read_value,
+            min_value=options.trait_linkage_threshold,
+            min_value_source=getattr(options, "trait_linkage_source", "combined"),
+            strict_min_value=True,
             max_num_entries_at_once=options.max_read_entries_at_once,
         )
 
     eaggl_factor_runtime.project_phenos_from_loaded_factors(
         runtime,
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
+        trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
+        trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
+        trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "sparse_full"),
         pheno_capture_input=options.pheno_capture_input,
         bail_fn=domain.bail,
         log_fn=domain.log,
         info_level=domain.INFO,
     )
-    return PhewasStageResult(ran=True, output_path=options.pheno_clusters_out)
+    return PhewasStageResult(
+        ran=True,
+        output_path=getattr(options, "trait_factor_links_out", None) or options.pheno_clusters_out,
+    )
 
 
 def run_main_factor_phewas_stage(domain, runtime, options):
@@ -1021,27 +1058,38 @@ def run_main_factor_phewas_stage(domain, runtime, options):
         domain.log("No factors; not performing factor phewas")
         return PhewasStageResult(ran=False, output_path=options.factor_phewas_stats_out)
 
+    run_factor_phewas_input = getattr(
+        options,
+        "run_factor_phewas_input",
+        getattr(options, "factor_phewas_from_gene_phewas_stats_in", None),
+    )
+    run_phewas_input = getattr(
+        options,
+        "run_phewas_input",
+        getattr(options, "run_phewas_from_gene_phewas_stats_in", None),
+    )
     decision = resolve_gene_phewas_stage_decision(
         domain,
         runtime,
-        options.run_factor_phewas_input,
-        [options.gene_phewas_bfs_in, options.run_phewas_input],
+        run_factor_phewas_input,
+        [getattr(options, "gene_phewas_bfs_in", None), run_phewas_input],
     )
     domain.log(
         "PheWAS stage 'factor_phewas': mode=%s reason=%s" % (decision.mode, decision.reason),
         domain.INFO,
     )
     requested_modes = eaggl_phewas.resolve_requested_factor_phewas_modes(options)
-    runtime._record_params(
-        {
-            "factor_phewas_mode": options.factor_phewas_mode,
-            "factor_phewas_modes": ",".join(requested_modes),
-            "factor_phewas_anchor_covariate": options.factor_phewas_anchor_covariate,
-            "factor_phewas_thresholded_combined_cutoff": options.factor_phewas_thresholded_combined_cutoff,
-            "factor_phewas_se": options.factor_phewas_se,
-        },
-        overwrite=True,
-    )
+    if hasattr(runtime, "_record_params"):
+        runtime._record_params(
+            {
+                "factor_phewas_mode": getattr(options, "factor_phewas_mode", "marginal_anchor_adjusted_binary"),
+                "factor_phewas_modes": ",".join(requested_modes),
+                "factor_phewas_anchor_covariate": getattr(options, "factor_phewas_anchor_covariate", "direct"),
+                "factor_phewas_thresholded_combined_cutoff": getattr(options, "factor_phewas_thresholded_combined_cutoff", 1.0),
+                "factor_phewas_se": getattr(options, "factor_phewas_se", "robust"),
+            },
+            overwrite=True,
+        )
     bfs_to_use = decision.resolved_input
     run_phewas_with_common_args(
         domain,
@@ -1077,5 +1125,11 @@ def should_run_main_factor_phewas_stage(mode_state):
 def should_run_main_pheno_projection_stage(mode_state, options):
     return bool(
         mode_state.get("factor_projection_only")
-        and options.pheno_clusters_out is not None
+        and not getattr(options, "no_trait_linkage", False)
+        and (
+            options.pheno_clusters_out is not None
+            or getattr(options, "trait_factor_links_out", None) is not None
+            or options.gene_phewas_bfs_in is not None
+            or options.gene_set_phewas_stats_in is not None
+        )
     )

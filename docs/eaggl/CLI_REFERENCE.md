@@ -30,7 +30,7 @@ Typical user workflow:
 1. build or load the matrix and PIGEAN-derived evidence to factor
 2. choose the anchoring workflow
 3. fit the ARD nonnegative factor model
-4. optionally annotate factors with phenotype capture weights
+4. optionally annotate factors with canonical trait-linkage weights
 5. optionally run factor-PheWAS as a secondary expert enrichment analysis
 6. optionally label the factors
 
@@ -106,7 +106,7 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
-  --pheno-clusters-out results/pheno_clusters.out \
+  --trait-factor-links-out results/trait_factor_links.out \
   --params-out results/params.out
 ```
 
@@ -194,23 +194,35 @@ Notes:
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
 | `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in`; also required by the gene-set-anchored workflow |
 | `--run-factor-phewas` | compute factor-level phenotype enrichment regression from `--gene-phewas-stats-in` |
-| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only phenotype clusters, factor-PheWAS, or both without refitting factors |
-| `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only phenotype clusters from the gene-set basis |
+| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only canonical trait linkage, factor-PheWAS, or both without refitting factors |
+| `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only canonical trait linkage from the gene-set basis |
 | `--factor-phewas-gene-clusters-in` | compatibility alias for the older factor-PheWAS-only projection command |
-| `--project-phenos-from-gene-sets` | compute phenotype capture on the gene-set basis instead of the gene basis |
-| `--pheno-capture-input` | choose whether phenotype capture uses retained weighted thresholded support or binary thresholded hits |
+| `--project-phenos-from-gene-sets` | compute canonical trait linkage on the gene-set basis instead of the gene basis |
+| `--pheno-capture-input` | choose whether canonical trait linkage uses retained weighted thresholded support or binary thresholded hits |
+| `--trait-factor-links-out` | write the canonical long-form trait-factor linkage table |
+| `--trait-linkage-source` | choose the support surface for canonical trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
+| `--trait-linkage-threshold` | strict threshold for canonical trait linkage support (`source_value > threshold`) |
+| `--trait-linkage-computation-mode` | choose the linkage computation backend: `sparse_full` by default, or `dense_full` as a debug comparison backend |
+| `--no-trait-linkage` | disable canonical trait linkage even when trait inputs are available |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
 
 Operational notes:
-- phenotype projection is the primary user-facing phenotype annotation layer and is interpreted as phenotype capture, not phenotype relevance
-- capture operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
-- `--pheno-capture-input weighted_thresholded` is the default and uses retained combined-support values above the threshold; `binary_thresholded` is an expert sensitivity mode
+- canonical trait linkage is the primary user-facing phenotype annotation layer and is interpreted as support-normalized trait-factor projection coefficients, not calibrated posterior probability or exact captured-support mass
+- canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal_coefficient` and `joint_coefficient` from the same internal matching inputs: `marginal_coefficient` is the one-factor bounded projection and `joint_coefficient` is the all-factor constrained projection
+- the target profile is normalized by total thresholded trait strength before masking, not by retained masked strength
+- raw trait support and raw factor loadings are not required to sum to `1`; only copied internal vectors are normalized for matching
+- trait linkage operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
+- `--pheno-capture-input weighted_thresholded` is the default and uses retained source-support values that strictly exceed `--trait-linkage-threshold`; `binary_thresholded` is an expert sensitivity mode
+- canonical linkage defaults to `--trait-linkage-source combined` and `--trait-linkage-threshold 1.0` (strict `> 1.0`)
+- canonical linkage defaults to `--trait-linkage-computation-mode sparse_full`; `dense_full` remains available as an expert/debug comparison backend without changing the corrected linkage math
+- if `--trait-linkage-source auto` is requested, one support surface is chosen per run in the order `combined`, then `log_bf`, then `prior`
 - factor-PheWAS is a secondary expert analysis for factor-specific phenotype enrichment
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
 - projection-only gene-basis phenotype clusters and factor-PheWAS use the raw `Factor1..FactorK` columns from `gene_clusters.out(.gz)` as the gene-factor loading matrix; any `combined`, `log_bf`, or `prior` columns in that file are reused as anchor covariates unless overridden by `--gene-stats-in`
-- projection-only gene-basis phenotype clusters require `--gene-phewas-stats-in` and write `pheno_clusters.out(.gz)` through the same cluster writer used after a normal factorization
-- projection-only gene-set-basis phenotype clusters use the raw `Factor1..FactorK` columns from `gene_set_clusters.out(.gz)` with `--gene-set-phewas-stats-in`; request this with `--project-phenos-from-gene-sets`
+- projection-only gene-basis trait linkage requires `--gene-phewas-stats-in` and writes the long-form `trait_factor_links.out(.gz)` table
+- projection-only gene-set-basis trait linkage uses the raw `Factor1..FactorK` columns from `gene_set_clusters.out(.gz)` with `--gene-set-phewas-stats-in`; request this with `--project-phenos-from-gene-sets`
+- `--pheno-clusters-out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
 - projection-only reuse expects the standard non-anchor `gene_clusters.out(.gz)` and `gene_set_clusters.out(.gz)` tables with one row per gene or gene set
 - if you request multiple factor-PheWAS models in one run, `factor_phewas_stats.out` appends them together and labels each row with `model_name`, `factor_model_scope`, `outcome_surface`, and `anchor_covariate`
 - `--factor-phewas-full-output` restores the broader legacy continuous and sensitivity outputs for expert diagnostics
@@ -368,7 +380,8 @@ Labeling details and the rationale for keeping labeling integrated into `factor`
 | `--factors-anchor-out` | anchor-specific factor output |
 | `--gene-set-clusters-out` | gene-set cluster output |
 | `--gene-clusters-out` | gene cluster output |
-| `--pheno-clusters-out` | phenotype cluster output |
+| `--trait-factor-links-out` | canonical long-form trait-factor linkage output |
+| `--pheno-clusters-out` | compatibility alias that writes the same canonical trait-factor linkage payload |
 | `--gene-set-anchor-clusters-out` | anchor-side gene-set clusters |
 | `--gene-anchor-clusters-out` | anchor-side gene clusters |
 | `--pheno-anchor-clusters-out` | anchor-side phenotype clusters |
@@ -383,9 +396,22 @@ The mathematical model and workflow formalization live in:
 - `docs/eaggl/methods.tex`
 
 For post-factor phenotype interpretation:
-- `pheno_clusters.out` is the primary phenotype annotation artifact
-- its factor columns are phenotype-capture weights on a thresholded phenotype profile
-- `capture_strength` is the retained high-confidence support mass, or retained hit count under binary capture mode
+- `trait_factor_links.out` is the primary phenotype annotation artifact
+- raw trait support and raw factor loadings are not forced to sum to `1`; EAGGL preserves total support and total factor mass separately and only normalizes copied internal vectors for matching
+- it reports both `marginal_coefficient` and `joint_coefficient` from the same internal matching step, with `marginal_coefficient` treating each factor alone and `joint_coefficient` letting all factors compete under a shared sum constraint
+- `trait_total_support` is the full thresholded trait support before masking, or the total thresholded hit count under binary capture mode
+- `retained_trait_support` is the masked retained support available on the fitted factor basis
+- `retained_fraction = retained_trait_support / trait_total_support`
+- `trait_n_eff = (\sum_g s_t(g))^2 / \sum_g s_t(g)^2` reports the support-weighted effective number of genes contributing to the thresholded trait signal
+- `retained_n_eff` applies the same effective-size calculation after masking to the factorized gene universe
+- `trait_n_eff` and `retained_n_eff` are concentration diagnostics: they can be much smaller than `total_feature_count` or `retained_feature_count` when a small number of genes carries most of the support
+- `joint_coefficient_support_mass = trait_total_support * joint_coefficient`, a coefficient-scaled support total rather than exact captured-support mass
+- `marginal_coefficient_support_mass = trait_total_support * marginal_coefficient`, a coefficient-scaled support total rather than exact captured-support mass
+- `total_feature_count` and `retained_feature_count` report the same diagnostic on thresholded feature counts
+- `low_retention_flag` marks traits whose retained support is very sparse or highly concentrated on the current factor basis
+- `joint_residual` is the uncaptured normalized trait mass after the joint competitive projection
+- `factor_total_mass` in `factors.out` reports the raw total mass of each factor on the canonical linkage basis used for that run
+- `pheno_clusters.out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
 - `factor_phewas_stats.out` is a secondary enrichment table rather than the main phenotype-labeling surface
 
 Use this split:

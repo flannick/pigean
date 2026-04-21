@@ -39,6 +39,12 @@ class EagglMainDomain(object):
     def _enforce_factor_only_input_boundary(self, options, mode_state):
         return eaggl_workflows.enforce_factor_only_input_boundary(options, mode_state, self.bail)
 
+    def _build_clustering_provenance(self, options, mode_state, outputs_written=None):
+        return eaggl_workflows.build_clustering_provenance(options, mode_state, outputs_written=outputs_written)
+
+    def _format_clustering_provenance_summary(self, provenance):
+        return eaggl_workflows.format_clustering_provenance_summary(provenance)
+
     def _run_main_factor_only_pipeline(self, runtime, options, mode_state):
         return eaggl_factor.run_main_factor_only_pipeline(self, runtime, options, mode_state)
 

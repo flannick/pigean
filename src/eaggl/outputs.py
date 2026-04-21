@@ -11,6 +11,7 @@ class FactorOutputPlan:
     consensus_stats_out: str | None = None
     gene_set_clusters_out: str | None = None
     gene_clusters_out: str | None = None
+    trait_factor_links_out: str | None = None
     pheno_clusters_out: str | None = None
     gene_set_anchor_clusters_out: str | None = None
     gene_anchor_clusters_out: str | None = None
@@ -56,6 +57,7 @@ def build_factor_output_plan(options):
         consensus_stats_out=options.consensus_stats_out,
         gene_set_clusters_out=options.gene_set_clusters_out,
         gene_clusters_out=options.gene_clusters_out,
+        trait_factor_links_out=getattr(options, "trait_factor_links_out", None),
         pheno_clusters_out=options.pheno_clusters_out,
         gene_set_anchor_clusters_out=options.gene_set_anchor_clusters_out,
         gene_anchor_clusters_out=options.gene_anchor_clusters_out,
@@ -77,13 +79,19 @@ def write_factor_outputs_for_plan(runtime, output_plan):
     if (
         output_plan.gene_set_clusters_out is not None
         or output_plan.gene_clusters_out is not None
-        or output_plan.pheno_clusters_out is not None
     ):
         runtime.write_clusters(
             output_plan.gene_set_clusters_out,
             output_plan.gene_clusters_out,
-            output_plan.pheno_clusters_out,
+            None,
         )
+    trait_factor_link_paths = []
+    if output_plan.trait_factor_links_out is not None:
+        trait_factor_link_paths.append(output_plan.trait_factor_links_out)
+    if output_plan.pheno_clusters_out is not None:
+        trait_factor_link_paths.append(output_plan.pheno_clusters_out)
+    for output_path in dict.fromkeys(trait_factor_link_paths):
+        runtime.write_trait_factor_links(output_path)
     if (
         output_plan.gene_set_anchor_clusters_out is not None
         or output_plan.gene_anchor_clusters_out is not None
