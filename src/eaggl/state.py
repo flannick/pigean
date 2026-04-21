@@ -2513,17 +2513,29 @@ class EagglState(object):
 
                         output_fh.write("%s\n" % (line))
 
-    def write_trait_factor_links(self, output_file=None):
+    def write_trait_factor_links(self, output_file=None, output_detail="main"):
         if output_file is None:
             return
         if self.trait_linkage_joint is None or self.trait_linkage_marginal is None:
             return
         if self.phenos is None:
             return
+        if output_detail not in {"main", "full", "debug"}:
+            raise ValueError("Trait-factor linkage output detail must be one of: main, full, debug")
 
         log("Writing trait-factor links to %s" % output_file, INFO)
         with open_gz(output_file, "w") as output_fh:
-            header = [
+            main_header = [
+                "trait",
+                "factor",
+                "joint_fraction",
+                "marginal_fraction",
+                "joint_support_mass",
+                "marginal_support_mass",
+                "low_retention_flag",
+                "trait_neff",
+            ]
+            full_header = [
                 "trait",
                 "factor",
                 "is_anchor",
@@ -2543,6 +2555,7 @@ class EagglState(object):
                 "score_source",
                 "basis",
             ]
+            header = main_header if output_detail == "main" else full_header
             output_fh.write("%s\n" % "\t".join(header))
             is_anchor = (
                 np.asarray(self.trait_linkage_is_anchor, dtype=bool)
@@ -2598,31 +2611,40 @@ class EagglState(object):
             score_source = "" if self.trait_linkage_score_source is None else str(self.trait_linkage_score_source)
             for trait_index, trait_name in enumerate(self.phenos):
                 for factor_index in range(self.num_factors()):
-                    output_fh.write(
-                        "%s\n"
-                        % "\t".join(
-                            [
-                                str(trait_name),
-                                "Factor%d" % (factor_index + 1),
-                                "1" if bool(is_anchor[trait_index]) else "0",
-                                "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
-                                "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
-                                "%.6g" % float(strengths[trait_index]),
-                                "%.6g" % float(retained_strengths[trait_index]),
-                                "%.6g" % float(retained_fractions[trait_index]),
-                                str(int(total_feature_counts[trait_index])),
-                                str(int(retained_feature_counts[trait_index])),
-                                "%.6g" % float(trait_n_eff[trait_index]),
-                                "%.6g" % float(retained_n_eff[trait_index]),
-                                "1" if bool(low_retention_flags[trait_index]) else "0",
-                                "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
-                                "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
-                                "%.6g" % float(residuals[trait_index]),
-                                score_source,
-                                basis,
-                            ]
-                        )
-                    )
+                    main_values = [
+                        str(trait_name),
+                        "Factor%d" % (factor_index + 1),
+                        "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
+                        "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
+                        "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
+                        "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
+                        "1" if bool(low_retention_flags[trait_index]) else "0",
+                        "%.6g" % float(trait_n_eff[trait_index]),
+                    ]
+                    if output_detail == "main":
+                        values = main_values
+                    else:
+                        values = [
+                            str(trait_name),
+                            "Factor%d" % (factor_index + 1),
+                            "1" if bool(is_anchor[trait_index]) else "0",
+                            "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
+                            "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
+                            "%.6g" % float(strengths[trait_index]),
+                            "%.6g" % float(retained_strengths[trait_index]),
+                            "%.6g" % float(retained_fractions[trait_index]),
+                            str(int(total_feature_counts[trait_index])),
+                            str(int(retained_feature_counts[trait_index])),
+                            "%.6g" % float(trait_n_eff[trait_index]),
+                            "%.6g" % float(retained_n_eff[trait_index]),
+                            "1" if bool(low_retention_flags[trait_index]) else "0",
+                            "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
+                            "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
+                            "%.6g" % float(residuals[trait_index]),
+                            score_source,
+                            basis,
+                        ]
+                    output_fh.write("%s\n" % "\t".join(values))
 
     def write_consensus_factor_diagnostics(self, output_file=None):
         if output_file is None:

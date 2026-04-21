@@ -374,6 +374,13 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("--trait-linkage-computation-mode must be one of: dense_full, sparse_full", err)
         self.assertNotIn("Traceback", err)
 
+    def test_invalid_trait_factor_links_output_detail_returns_usage_error(self) -> None:
+        proc = self._run("factor", "--trait-factor-links-output-detail", "definitely_invalid")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--trait-factor-links-output-detail must be one of: main, full, debug", err)
+        self.assertNotIn("Traceback", err)
+
     def test_projection_only_gene_set_pheno_clusters_requires_gene_set_inputs(self) -> None:
         proc = self._run(
             "factor",
@@ -818,6 +825,8 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
             "binary_thresholded",
             "--trait-linkage-computation-mode",
             "sparse_full",
+            "--trait-factor-links-output-detail",
+            "full",
             "--print-effective-config",
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
@@ -832,6 +841,7 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
         self.assertEqual(opts["factor_phewas_se"], "none")
         self.assertEqual(opts["pheno_capture_input"], "binary_thresholded")
         self.assertEqual(opts["trait_linkage_computation_mode"], "sparse_full")
+        self.assertEqual(opts["trait_factor_links_output_detail"], "full")
 
     def test_read_correlations_fails_fast_when_gls_cholesky_is_initialized(self) -> None:
         repo_root = self._repo_root()

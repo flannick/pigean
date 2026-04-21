@@ -116,6 +116,7 @@ def _options(**overrides):
         trait_linkage_source="combined",
         trait_linkage_threshold=1.0,
         trait_linkage_computation_mode="sparse_full",
+        trait_factor_links_output_detail="main",
         no_trait_linkage=False,
         factors_out=None,
         factor_metrics_out=None,
@@ -155,8 +156,8 @@ class _RuntimeStub:
     def write_clusters(self, gene_set_out, gene_out, pheno_out, write_anchor_specific=False):
         self.calls.append(("write_clusters", gene_set_out, gene_out, pheno_out, write_anchor_specific))
 
-    def write_trait_factor_links(self, out):
-        self.calls.append(("write_trait_factor_links", out))
+    def write_trait_factor_links(self, out, output_detail="main"):
+        self.calls.append(("write_trait_factor_links", out, output_detail))
 
     def write_gene_pheno_statistics(self, out, min_value_to_print=0):
         self.calls.append(("write_gene_pheno_statistics", out, min_value_to_print))
@@ -454,8 +455,8 @@ class FactorStageHelpersTest(unittest.TestCase):
             runtime.calls[4],
             ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False),
         )
-        self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv"))
-        self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "p_cluster.tsv"))
+        self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv", "main"))
+        self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "p_cluster.tsv", "main"))
         self.assertEqual(
             runtime.calls[7],
             ("write_clusters", "gs_anchor_cluster.tsv", "g_anchor_cluster.tsv", "p_anchor_cluster.tsv", True),
@@ -656,12 +657,16 @@ class FactorStageHelpersTest(unittest.TestCase):
                 pheno_capture_input="weighted_thresholded",
             )
             result = eaggl.eaggl_factor.run_main_pheno_projection_stage(domain, runtime, options)
-            runtime.write_trait_factor_links(str(pheno_clusters))
+            runtime.write_trait_factor_links(str(pheno_clusters), output_detail="full")
+            concise_links = tmpdir_path / "trait_links.main.out.gz"
+            runtime.write_trait_factor_links(str(concise_links))
 
             import gzip
 
             with gzip.open(pheno_clusters, "rt", encoding="utf-8") as fh:
                 content = fh.read()
+            with gzip.open(concise_links, "rt", encoding="utf-8") as fh:
+                concise_content = fh.read()
 
         self.assertTrue(result.ran)
         self.assertEqual(result.output_path, str(pheno_clusters))
@@ -692,6 +697,9 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("marginal_coefficient_support_mass", content)
         self.assertIn("TraitA\tFactor1", content)
         self.assertIn("TraitB\tFactor2", content)
+        self.assertIn("trait\tfactor\tjoint_fraction\tmarginal_fraction\tjoint_support_mass\tmarginal_support_mass\tlow_retention_flag\ttrait_neff", concise_content)
+        self.assertNotIn("trait_total_support", concise_content.splitlines()[0])
+        self.assertNotIn("is_anchor", concise_content.splitlines()[0])
 
     def test_projection_only_anchor_and_external_trait_linkage_share_normalization_logic(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -796,7 +804,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 pheno_capture_input="weighted_thresholded",
             )
             result = eaggl.eaggl_factor.run_main_pheno_projection_stage(domain, runtime, options)
-            runtime.write_trait_factor_links(str(pheno_clusters))
+            runtime.write_trait_factor_links(str(pheno_clusters), output_detail="full")
 
             import gzip
 

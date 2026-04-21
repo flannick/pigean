@@ -203,6 +203,7 @@ Notes:
 | `--trait-linkage-source` | choose the support surface for canonical trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
 | `--trait-linkage-threshold` | strict threshold for canonical trait linkage support (`source_value > threshold`) |
 | `--trait-linkage-computation-mode` | choose the linkage computation backend: `sparse_full` by default, or `dense_full` as a debug comparison backend |
+| `--trait-factor-links-output-detail` | choose `trait_factor_links.out` column detail: `main` for concise coefficients, `full`/`debug` for retained-support diagnostics |
 | `--no-trait-linkage` | disable canonical trait linkage even when trait inputs are available |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
@@ -210,6 +211,7 @@ Notes:
 Operational notes:
 - canonical trait linkage is the primary user-facing phenotype annotation layer and is interpreted as support-normalized trait-factor projection coefficients, not calibrated posterior probability or exact captured-support mass
 - canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal_coefficient` and `joint_coefficient` from the same internal matching inputs: `marginal_coefficient` is the one-factor bounded projection and `joint_coefficient` is the all-factor constrained projection
+- `--trait-factor-links-output-detail main` is the default concise schema: `trait`, `factor`, `joint_fraction`, `marginal_fraction`, `joint_support_mass`, `marginal_support_mass`, `low_retention_flag`, and `trait_neff`; use `full` or `debug` to include retained-support diagnostics and explicit coefficient names
 - the target profile is normalized by total thresholded trait strength before masking, not by retained masked strength
 - raw trait support and raw factor loadings are not required to sum to `1`; only copied internal vectors are normalized for matching
 - trait linkage operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
@@ -386,6 +388,8 @@ The mathematical model and workflow formalization live in:
 
 For post-factor phenotype interpretation:
 - `trait_factor_links.out` is the primary phenotype annotation artifact
+- `--trait-factor-links-output-detail main` writes `trait`, `factor`, `joint_fraction`, `marginal_fraction`, `joint_support_mass`, `marginal_support_mass`, `low_retention_flag`, and `trait_neff`
+- `--trait-factor-links-output-detail full` adds retained-support diagnostics, effective-size diagnostics, coefficient-scaled support totals, and joint residual
 - raw trait support and raw factor loadings are not forced to sum to `1`; EAGGL preserves total support and total factor mass separately and only normalizes copied internal vectors for matching
 - it reports both `marginal_coefficient` and `joint_coefficient` from the same internal matching step, with `marginal_coefficient` treating each factor alone and `joint_coefficient` letting all factors compete under a shared sum constraint
 - `trait_total_support` is the full thresholded trait support before masking, or the total thresholded hit count under binary capture mode

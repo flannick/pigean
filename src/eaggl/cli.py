@@ -174,6 +174,7 @@ parser.add_option("","--factors-anchor-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--trait-factor-links-out",default=None)
+parser.add_option("","--trait-factor-links-output-detail",default="main") #column detail level for trait-factor linkage output: main, full, or debug
 parser.add_option("","--pheno-clusters-out",default=None)
 parser.add_option("","--gene-set-anchor-clusters-out",default=None)
 parser.add_option("","--gene-anchor-clusters-out",default=None)
@@ -499,6 +500,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factors-anchor-out": "write anchor-specific factorization outputs",
     "--factors-out": "write the main factor loading output table",
     "--trait-factor-links-out": "write the canonical long-form trait-factor linkage table",
+    "--trait-factor-links-output-detail": "choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions",
     "--gene-set-stats-in": "load gene-set statistics exported from PIGEAN",
     "--gene-stats-in": "load gene-level statistics exported from PIGEAN",
     "--gene-phewas-bfs-in": "load gene-phewas statistics for projection and anchor workflows",
@@ -706,6 +708,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--phi",
     "--trait-linkage-source",
     "--trait-linkage-threshold",
+    "--trait-factor-links-output-detail",
     "--no-trait-linkage",
     "--X-in",
     "--X-list",
@@ -1352,6 +1355,8 @@ def _bootstrap_cli(argv=None):
         bail("--trait-linkage-threshold must be >= 0")
     if parsed_options.trait_linkage_computation_mode not in set(["dense_full", "sparse_full"]):
         bail("--trait-linkage-computation-mode must be one of: dense_full, sparse_full")
+    if parsed_options.trait_factor_links_output_detail not in set(["main", "full", "debug"]):
+        bail("--trait-factor-links-output-detail must be one of: main, full, debug")
     if parsed_options.factor_runs < 1:
         bail("--factor-runs must be at least 1")
     allowed_factor_phewas_modes = set([
