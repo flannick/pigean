@@ -66,6 +66,11 @@ def _options(**overrides):
         factor_prune_genes_num=None,
         factor_prune_gene_sets_val=None,
         factor_prune_gene_sets_num=None,
+        max_num_discovery_gene_sets=None,
+        no_auto_discovery_subset=False,
+        discovery_redundancy_weighting_mode="effective_size",
+        no_discovery_redundancy_weighting=False,
+        discovery_redundancy_threshold=0.35,
         anchor_any_pheno=False,
         anchor_any_gene=False,
         anchor_gene_set=False,
@@ -417,6 +422,14 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.gene_or_pheno_filter_type, "gene_set_phewas_betas_uncorrected")
         self.assertEqual(cfg.pheno_capture_input, "binary_thresholded")
 
+    def test_build_factor_execution_config_defaults_to_effective_size_weighting(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
+        cfg = eaggl._build_factor_execution_config(_options(), workflow, factor_inputs)
+        self.assertEqual(cfg.discovery_redundancy_weighting_mode, "effective_size")
+        self.assertTrue(cfg.discovery_redundancy_weighting)
+
+
     def test_run_main_factor_stage_executes_runtime_and_reports_workflow(self) -> None:
         runtime = _RuntimeStub()
         options = _options()
@@ -476,7 +489,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         runtime.exp_pheno_factors = None
         runtime.betas = None
         runtime.betas_uncorrected = np.array([0.1, 0.9])
-        runtime.gene_set_factor_gene_set_mask = None
+        runtime.gene_set_in_discovery_mask = None
         runtime.factor_labels = ["label1", "label2"]
         runtime.gene_sets = ["gs1", "gs2"]
         runtime.anchor_pheno_mask = None
@@ -562,7 +575,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                         "combined",
                         "log_bf",
                         "prior",
-                        "used_to_factor",
+                        "in_discovery",
                         "cluster",
                         "label",
                         "Factor1",
@@ -602,7 +615,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             gene_clusters = Path(tmpdir) / "gene_clusters.out"
             gene_clusters.write_text(
-                "\t".join(["Gene", "used_to_factor", "cluster", "label", "Factor1", "Factor2"])
+                "\t".join(["Gene", "in_discovery", "cluster", "label", "Factor1", "Factor2"])
                 + "\n"
                 + "GENE1\tTrue\tFactor1\timmune\t0.8\t0.2\n"
                 + "GENE2\tFalse\tFactor2\tmetabolic\t0.1\t0.9\n",
@@ -620,14 +633,14 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(result["num_genes"], 2)
         self.assertEqual(result["num_factors"], 2)
         np.testing.assert_allclose(runtime.exp_gene_factors, [[0.8, 0.2], [0.1, 0.9]])
-        np.testing.assert_array_equal(runtime.gene_factor_gene_mask, [True, False])
+        np.testing.assert_array_equal(runtime.gene_in_discovery_mask, [True, False])
 
     def test_projection_only_pheno_cluster_stage_projects_from_gene_factors(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             gene_clusters = tmpdir_path / "gene_clusters.out"
             gene_clusters.write_text(
-                "\t".join(["Gene", "used_to_factor", "cluster", "label", "Factor1", "Factor2"])
+                "\t".join(["Gene", "in_discovery", "cluster", "label", "Factor1", "Factor2"])
                 + "\n"
                 + "GENE1\tTrue\tFactor1\timmune\t1.0\t0.0\n"
                 + "GENE2\tTrue\tFactor2\tmetabolic\t0.0\t1.0\n"
@@ -747,10 +760,10 @@ class FactorStageHelpersTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             gene_set_clusters = Path(tmpdir) / "gene_set_clusters.out"
             gene_set_clusters.write_text(
-                "\t".join(["Gene_Set", "beta_uncorrected", "used_to_factor", "cluster", "label", "Factor1", "Factor2"])
+                "\t".join(["Gene_Set", "beta_uncorrected", "in_discovery", "discovery_family_id", "discovery_representative", "discovery_family_size", "discovery_weight", "discovery_family_mean_similarity", "discovery_family_effective_size", "cluster", "label", "Factor1", "Factor2"])
                 + "\n"
-                + "GS1\t0.8\tTrue\tFactor1\timmune\t0.9\t0.1\n"
-                + "GS2\t0.4\tFalse\tFactor2\tmetabolic\t0.2\t0.8\n",
+                + "GS1\t0.8\tTrue\t0\tTrue\t2\t0.6\t1.0\t1.0\tFactor1\timmune\t0.9\t0.1\n"
+                + "GS2\t0.4\tFalse\t0\tFalse\t2\t0.6\t1.0\t1.0\tFactor2\tmetabolic\t0.2\t0.8\n",
                 encoding="utf-8",
             )
 
@@ -767,8 +780,10 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(runtime.gene_sets, ["GS1", "GS2"])
         self.assertEqual(runtime.gene_set_to_ind["GS2"], 1)
         np.testing.assert_allclose(runtime.exp_gene_set_factors, [[0.9, 0.1], [0.2, 0.8]])
-        np.testing.assert_array_equal(runtime.gene_set_factor_gene_set_mask, [True, False])
+        np.testing.assert_array_equal(runtime.gene_set_in_discovery_mask, [True, False])
         np.testing.assert_allclose(runtime.betas_uncorrected, [0.8, 0.4])
+        np.testing.assert_allclose(runtime.gene_set_discovery_family_mean_similarity, [1.0, 1.0])
+        np.testing.assert_allclose(runtime.gene_set_discovery_family_effective_size, [1.0, 1.0])
         self.assertEqual(runtime.factor_labels, ["immune", "metabolic"])
 
     def test_projection_only_pheno_cluster_stage_projects_from_gene_set_factors(self) -> None:
@@ -776,10 +791,10 @@ class FactorStageHelpersTest(unittest.TestCase):
             tmpdir_path = Path(tmpdir)
             gene_set_clusters = tmpdir_path / "gene_set_clusters.out"
             gene_set_clusters.write_text(
-                "\t".join(["Gene_Set", "used_to_factor", "cluster", "label", "Factor1", "Factor2"])
+                "\t".join(["Gene_Set", "in_discovery", "discovery_family_id", "discovery_representative", "discovery_family_size", "discovery_weight", "discovery_family_mean_similarity", "discovery_family_effective_size", "cluster", "label", "Factor1", "Factor2"])
                 + "\n"
-                + "GS1\tTrue\tFactor1\timmune\t1.0\t0.0\n"
-                + "GS2\tTrue\tFactor2\tmetabolic\t0.0\t1.0\n",
+                + "GS1\tTrue\t0\tTrue\t1\t1.0\tNA\t1.0\tFactor1\timmune\t1.0\t0.0\n"
+                + "GS2\tTrue\t1\tTrue\t1\t1.0\tNA\t1.0\tFactor2\tmetabolic\t0.0\t1.0\n",
                 encoding="utf-8",
             )
             gene_set_phewas = tmpdir_path / "gene_set_phewas.tsv"

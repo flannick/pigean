@@ -762,12 +762,53 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 return "%s\t%.3g\t%.3g" % (line, value_arr[idx] / scale_factor, value_arr[idx])
             return "%s\t%.3g" % (line, value_arr[idx] / scale_factor)
 
+        has_discovery_metadata = getattr(runtime, "gene_set_in_discovery_mask", None) is not None
+
+        def _append_discovery_metadata(line, idx, *, is_retained):
+            if not has_discovery_metadata:
+                return line
+            if not is_retained:
+                return "%s\tNA\tNA\tNA\tNA\tNA\tNA\tNA" % line
+            family_id = runtime.gene_set_discovery_family_id[idx] if getattr(runtime, "gene_set_discovery_family_id", None) is not None else "NA"
+            representative = runtime.gene_set_discovery_representative_mask[idx] if getattr(runtime, "gene_set_discovery_representative_mask", None) is not None else "NA"
+            family_size = runtime.gene_set_discovery_family_size[idx] if getattr(runtime, "gene_set_discovery_family_size", None) is not None else "NA"
+            discovery_weight = runtime.gene_set_discovery_weight[idx] if getattr(runtime, "gene_set_discovery_weight", None) is not None else "NA"
+            discovery_family_mean_similarity = runtime.gene_set_discovery_family_mean_similarity[idx] if getattr(runtime, "gene_set_discovery_family_mean_similarity", None) is not None else np.nan
+            discovery_family_effective_size = runtime.gene_set_discovery_family_effective_size[idx] if getattr(runtime, "gene_set_discovery_family_effective_size", None) is not None else np.nan
+            in_discovery = runtime.gene_set_in_discovery_mask[idx]
+            family_id_value = family_id if int(family_id) >= 0 else "NA"
+            family_size_value = family_size if int(family_size) > 0 else "NA"
+            weight_value = "%.6g" % float(discovery_weight) if np.isfinite(float(discovery_weight)) else "NA"
+            mean_similarity_value = "%.6g" % float(discovery_family_mean_similarity) if np.isfinite(float(discovery_family_mean_similarity)) else "NA"
+            effective_size_value = "%.6g" % float(discovery_family_effective_size) if np.isfinite(float(discovery_family_effective_size)) else "NA"
+            return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (
+                line,
+                in_discovery,
+                family_id_value,
+                representative,
+                family_size_value,
+                weight_value,
+                mean_similarity_value,
+                effective_size_value,
+            )
+
         is_main_detail = output_detail == "main"
 
         header = "Gene_Set"
         if runtime.gene_set_labels is not None:
             header = "%s\t%s" % (header, "label")
         header = "%s\t%s" % (header, "filter_reason")
+        if has_discovery_metadata:
+            header = "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (
+                header,
+                "in_discovery",
+                "discovery_family_id",
+                "discovery_representative",
+                "discovery_family_size",
+                "discovery_weight",
+                "discovery_family_mean_similarity",
+                "discovery_family_effective_size",
+            )
         if runtime.X_orig is not None:
             col_sums = runtime.get_col_sums(runtime.X_orig)
             header = "%s\t%s" % (header, "N")
@@ -865,6 +906,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
             if runtime.gene_set_labels is not None:
                 line = "%s\t%s" % (line, runtime.gene_set_labels[i])
             line = "%s\t%s" % (line, "kept")
+            line = _append_discovery_metadata(line, i, is_retained=True)
             if runtime.X_orig is not None:
                 line = "%s\t%d" % (line, col_sums[i])
                 line = "%s\t%.3g" % (line, runtime.scale_factors[i])
@@ -984,6 +1026,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 if getattr(runtime, "gene_set_filter_reason_missing", None) is not None and i < len(runtime.gene_set_filter_reason_missing):
                     missing_reason = runtime.gene_set_filter_reason_missing[i]
                 line = "%s\t%s" % (line, missing_reason)
+                line = _append_discovery_metadata(line, i, is_retained=False)
                 line = "%s\t%d" % (line, col_sums_missing[i])
                 line = "%s\t%.3g" % (line, runtime.scale_factors_missing[i])
 
@@ -1084,6 +1127,7 @@ def write_gene_set_statistics(runtime, output_file, max_no_write_gene_set_beta=N
                 if getattr(runtime, "gene_set_filter_reason_ignored", None) is not None and i < len(runtime.gene_set_filter_reason_ignored):
                     ignored_reason = runtime.gene_set_filter_reason_ignored[i]
                 line = "%s\t%s" % (line, ignored_reason)
+                line = _append_discovery_metadata(line, i, is_retained=False)
 
                 line = "%s\t%d" % (line, runtime.col_sums_ignored[i])
                 line = "%s\t%.3g" % (line, runtime.scale_factors_ignored[i])

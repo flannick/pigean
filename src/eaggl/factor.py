@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import re
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -84,6 +85,11 @@ class FactorExecutionConfig:
     factor_metrics_out: str | None = None
     gene_set_clusters_out: str | None = None
     gene_clusters_out: str | None = None
+    max_num_discovery_gene_sets: int | None = None
+    auto_discovery_subset: bool = True
+    discovery_redundancy_weighting: bool = True
+    discovery_redundancy_weighting_mode: str = "effective_size"
+    discovery_redundancy_threshold: float = 0.35
     learn_phi_prune_genes_num: int | None = 1000
     learn_phi_prune_gene_sets_num: int | None = 1000
     learn_phi_max_num_iterations: int | None = None
@@ -158,6 +164,11 @@ class FactorExecutionConfig:
             "factor_metrics_out": self.factor_metrics_out,
             "gene_set_clusters_out": self.gene_set_clusters_out,
             "gene_clusters_out": self.gene_clusters_out,
+            "max_num_discovery_gene_sets": self.max_num_discovery_gene_sets,
+            "auto_discovery_subset": self.auto_discovery_subset,
+            "discovery_redundancy_weighting": self.discovery_redundancy_weighting,
+            "discovery_redundancy_weighting_mode": self.discovery_redundancy_weighting_mode,
+            "discovery_redundancy_threshold": self.discovery_redundancy_threshold,
             "learn_phi_prune_genes_num": self.learn_phi_prune_genes_num,
             "learn_phi_prune_gene_sets_num": self.learn_phi_prune_gene_sets_num,
             "learn_phi_max_num_iterations": self.learn_phi_max_num_iterations,
@@ -443,7 +454,7 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
     genes = []
     gene_to_ind = {}
     loadings = []
-    used_to_factor_values = []
+    in_discovery_values = []
     combined_values = []
     y_values = []
     prior_values = []
@@ -490,11 +501,12 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
                 )
                 row_loadings.append(0.0 if value is None else value)
             loadings.append(row_loadings)
-            raw_used_to_factor = row.get("used_to_factor")
-            if raw_used_to_factor is None or raw_used_to_factor == "":
-                used_to_factor_values.append(True)
-            else:
-                used_to_factor_values.append(str(raw_used_to_factor).strip().lower() in set(["1", "true", "t", "yes", "y"]))
+            raw_in_discovery = row.get("in_discovery")
+            if raw_in_discovery is None or raw_in_discovery == "":
+                raw_in_discovery = row.get("used_to_factor")
+            if raw_in_discovery is None or raw_in_discovery == "":
+                raw_in_discovery = "true"
+            in_discovery_values.append(str(raw_in_discovery).strip().lower() in set(["1", "true", "t", "yes", "y"]))
 
             combined_values.append(
                 _coerce_optional_float(row.get("combined"), field_name="combined", row_name=gene, domain=domain)
@@ -521,7 +533,8 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
     runtime.gene_to_ind = gene_to_ind
     runtime.exp_gene_factors = factor_matrix
     runtime.exp_lambdak = np.ones(num_factors, dtype=float)
-    runtime.gene_factor_gene_mask = np.asarray(used_to_factor_values, dtype=bool)
+    runtime.gene_in_discovery_mask = np.asarray(in_discovery_values, dtype=bool)
+    runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
     runtime.factor_labels = [
         labels_by_factor_index.get(i, "Factor%d" % (i + 1))
         for i in range(num_factors)
@@ -562,7 +575,13 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
     gene_sets = []
     gene_set_to_ind = {}
     loadings = []
-    used_to_factor_values = []
+    in_discovery_values = []
+    discovery_family_ids = []
+    discovery_representative_values = []
+    discovery_family_sizes = []
+    discovery_weights = []
+    discovery_family_mean_similarities = []
+    discovery_family_effective_sizes = []
     beta_values = []
     beta_uncorrected_values = []
     labels_by_factor_index = {}
@@ -609,11 +628,27 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
                 row_loadings.append(0.0 if value is None else value)
             loadings.append(row_loadings)
 
-            raw_used_to_factor = row.get("used_to_factor")
-            if raw_used_to_factor is None or raw_used_to_factor == "":
-                used_to_factor_values.append(True)
-            else:
-                used_to_factor_values.append(str(raw_used_to_factor).strip().lower() in set(["1", "true", "t", "yes", "y"]))
+            raw_in_discovery = row.get("in_discovery")
+            if raw_in_discovery is None or raw_in_discovery == "":
+                raw_in_discovery = row.get("used_to_factor")
+            if raw_in_discovery is None or raw_in_discovery == "":
+                raw_in_discovery = "true"
+            in_discovery_values.append(str(raw_in_discovery).strip().lower() in set(["1", "true", "t", "yes", "y"]))
+            discovery_family_ids.append(row.get("discovery_family_id", "NA"))
+            raw_representative = row.get("discovery_representative", "")
+            discovery_representative_values.append(str(raw_representative).strip().lower() in set(["1", "true", "t", "yes", "y"]))
+            raw_family_size = row.get("discovery_family_size", "")
+            discovery_family_sizes.append(int(raw_family_size) if raw_family_size not in (None, "", "NA") else -1)
+            raw_weight = row.get("discovery_weight", "")
+            discovery_weights.append(float(raw_weight) if raw_weight not in (None, "", "NA") else np.nan)
+            raw_mean_similarity = row.get("discovery_family_mean_similarity", "")
+            discovery_family_mean_similarities.append(
+                float(raw_mean_similarity) if raw_mean_similarity not in (None, "", "NA") else np.nan
+            )
+            raw_effective_size = row.get("discovery_family_effective_size", "")
+            discovery_family_effective_sizes.append(
+                float(raw_effective_size) if raw_effective_size not in (None, "", "NA") else np.nan
+            )
 
             beta_values.append(
                 _coerce_optional_float(row.get("beta"), field_name="beta", row_name=gene_set, domain=domain)
@@ -644,7 +679,20 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
     runtime.gene_set_to_ind = gene_set_to_ind
     runtime.exp_gene_set_factors = factor_matrix
     runtime.exp_lambdak = np.ones(num_factors, dtype=float)
-    runtime.gene_set_factor_gene_set_mask = np.asarray(used_to_factor_values, dtype=bool)
+    runtime.gene_set_in_discovery_mask = np.asarray(in_discovery_values, dtype=bool)
+    runtime.gene_set_factor_gene_set_mask = runtime.gene_set_in_discovery_mask
+    runtime.gene_set_discovery_family_id = np.asarray(discovery_family_ids, dtype=object)
+    runtime.gene_set_discovery_representative_mask = np.asarray(discovery_representative_values, dtype=bool)
+    runtime.gene_set_discovery_family_size = np.asarray(discovery_family_sizes, dtype=int)
+    runtime.gene_set_discovery_weight = np.asarray(discovery_weights, dtype=float)
+    runtime.gene_set_discovery_family_mean_similarity = np.asarray(
+        discovery_family_mean_similarities,
+        dtype=float,
+    )
+    runtime.gene_set_discovery_family_effective_size = np.asarray(
+        discovery_family_effective_sizes,
+        dtype=float,
+    )
     if getattr(runtime, "factor_labels", None) is None:
         runtime.factor_labels = [
             labels_by_factor_index.get(i, "Factor%d" % (i + 1))
@@ -827,6 +875,28 @@ def resolve_factor_gene_or_pheno_filter_value(options, workflow):
 
 
 def build_factor_execution_config(options, workflow, factor_inputs):
+    max_num_discovery_gene_sets = getattr(options, "max_num_discovery_gene_sets", None)
+    legacy_factor_cap = getattr(options, "factor_prune_gene_sets_num", None)
+    if max_num_discovery_gene_sets is None and legacy_factor_cap is not None:
+        warnings.warn(
+            "--factor-prune-gene-sets-num is deprecated for discovery selection; use --max-num-discovery-gene-sets",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        max_num_discovery_gene_sets = legacy_factor_cap
+    if getattr(options, "factor_prune_gene_sets_val", None) is not None:
+        warnings.warn(
+            "--factor-prune-gene-sets-val is deprecated and ignored for discovery selection",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    discovery_redundancy_weighting_mode = getattr(
+        options,
+        "discovery_redundancy_weighting_mode",
+        "effective_size",
+    )
+    if getattr(options, "no_discovery_redundancy_weighting", False):
+        discovery_redundancy_weighting_mode = "none"
     return FactorExecutionConfig(
         max_num_factors=options.max_num_factors,
         phi=options.phi,
@@ -858,6 +928,11 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         factor_metrics_out=getattr(options, "factor_metrics_out", None),
         gene_set_clusters_out=getattr(options, "gene_set_clusters_out", None),
         gene_clusters_out=getattr(options, "gene_clusters_out", None),
+        max_num_discovery_gene_sets=max_num_discovery_gene_sets,
+        auto_discovery_subset=not getattr(options, "no_auto_discovery_subset", False),
+        discovery_redundancy_weighting=discovery_redundancy_weighting_mode != "none",
+        discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
+        discovery_redundancy_threshold=getattr(options, "discovery_redundancy_threshold", 0.35),
         learn_phi_prune_genes_num=getattr(options, "learn_phi_prune_genes_num", 1000),
         learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", 1000),
         learn_phi_max_num_iterations=getattr(options, "learn_phi_max_num_iterations", None),

@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `246`
+- Total options: `251`
 - `method_required`: `16`
-- `method_optional`: `140`
+- `method_optional`: `145`
 - `engineering`: `73`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `200`
+- visibility `expert`: `205`
 - visibility `hidden`: `8`
 - visibility `normal`: `38`
 
@@ -61,6 +61,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--discovery-redundancy-threshold` | `expert` | `yes` | `expert_help` | `discovery_redundancy_threshold` | `0.35` | - |
+| `--discovery-redundancy-weighting-mode` | `expert` | `yes` | `expert_help` | `discovery_redundancy_weighting_mode` | `effective_size` | - |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
 | `--factor-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_clusters_in` | `None` | load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors |
 | `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis |
@@ -127,6 +129,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--max-no-write-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta` | `None` | - |
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
 | `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
+| `--max-num-discovery-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_discovery_gene_sets` | `None` | - |
 | `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | - |
 | `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `None` | - |
 | `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `None` | - |
@@ -141,10 +144,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
 | `--no-add-top` | `expert` | `yes` | `expert_help` | `add_top` | `True` | - |
 | `--no-adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
+| `--no-auto-discovery-subset` | `expert` | `yes` | `expert_help` | `no_auto_discovery_subset` | `False` | - |
 | `--no-blockwise-shuffle-blocks` | `expert` | `yes` | `expert_help` | `blockwise_shuffle_blocks` | `-` | - |
 | `--no-blockwise-warm-start` | `expert` | `yes` | `expert_help` | `blockwise_warm_start` | `-` | - |
 | `--no-cap-weights` | `expert` | `yes` | `expert_help` | `cap_weights` | `True` | - |
 | `--no-correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--no-discovery-redundancy-weighting` | `expert` | `yes` | `expert_help` | `no_discovery_redundancy_weighting` | `False` | - |
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |

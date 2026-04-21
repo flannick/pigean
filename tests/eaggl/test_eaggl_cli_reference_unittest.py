@@ -95,6 +95,16 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(payload["options"]["debug_level"], 4)
         self.assertEqual(payload["options"]["max_gb"], 5)
 
+    def test_reference_default_discovery_weighting_mode_is_effective_size(self) -> None:
+        proc = self._run_ok("factor", "--print-effective-config")
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["discovery_redundancy_weighting_mode"], "effective_size")
+
+    def test_reference_default_discovery_threshold_is_point_three_five(self) -> None:
+        proc = self._run_ok("factor", "--print-effective-config")
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["discovery_redundancy_threshold"], 0.35)
+
     def test_reference_matrix_and_bundle_flags_round_trip(self) -> None:
         x_list = self.tmpdir / "x_inputs.list"
         x_list.write_text("alpha.tsv\n", encoding="utf-8")
@@ -361,6 +371,14 @@ class EagglCliReferenceTest(unittest.TestCase):
             "6",
             "--blockwise-report-out",
             "blockwise.tsv",
+            "--max-num-discovery-gene-sets",
+            "55",
+            "--no-auto-discovery-subset",
+            "--discovery-redundancy-weighting-mode",
+            "effective_size",
+            "--no-discovery-redundancy-weighting",
+            "--discovery-redundancy-threshold",
+            "0.6",
             "--learn-phi-prune-genes-num",
             "900",
             "--learn-phi-prune-gene-sets-num",
@@ -463,6 +481,11 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertFalse(opts["blockwise_warm_start"])
         self.assertEqual(opts["blockwise_max_blocks"], 6)
         self.assertEqual(opts["blockwise_report_out"], "blockwise.tsv")
+        self.assertEqual(opts["max_num_discovery_gene_sets"], 55)
+        self.assertTrue(opts["no_auto_discovery_subset"])
+        self.assertEqual(opts["discovery_redundancy_weighting_mode"], "effective_size")
+        self.assertTrue(opts["no_discovery_redundancy_weighting"])
+        self.assertEqual(opts["discovery_redundancy_threshold"], 0.6)
         self.assertEqual(opts["learn_phi_prune_genes_num"], 900)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
         self.assertEqual(opts["learn_phi_max_num_iterations"], 50)
@@ -552,6 +575,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--factor-phewas-modes": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-anchor-covariate": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-gene-clusters-in": ["test_projection_only_factor_phewas_flag_round_trip"],
+            "--factor-gene-clusters-in": ["test_projection_only_factor_phewas_flag_round_trip"],
+            "--factor-gene-set-clusters-in": ["test_projection_only_factor_phewas_flag_round_trip"],
             "--factor-phewas-thresholded-combined-cutoff": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-se": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-gene-clusters-in": ["test_projection_only_pheno_clusters_flag_round_trip", "test_projection_only_trait_factor_links_flag_round_trip"],
@@ -596,6 +621,11 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--blockwise-warm-start": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--blockwise-max-blocks": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--blockwise-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--max-num-discovery-gene-sets": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--no-auto-discovery-subset": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--discovery-redundancy-weighting-mode": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--no-discovery-redundancy-weighting": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--discovery-redundancy-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-nmf": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-min-factor-cosine": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],

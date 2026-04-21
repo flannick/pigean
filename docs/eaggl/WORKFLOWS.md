@@ -35,6 +35,13 @@ Useful common outputs:
 --params-out results/params.out
 ```
 
+Discovery-stage note:
+
+1. EAGGL now distinguishes retained annotations, discovery annotations, and projected annotations.
+2. By default, factor discovery is learned on redundancy-balanced discovery families, and the resulting outputs mark discovery rows with `in_discovery`.
+3. Discovery-family diagnostics now include `discovery_family_mean_similarity` and `discovery_family_effective_size` alongside `discovery_family_size` and `discovery_weight`.
+4. All retained gene sets are still projected and written after discovery, so adding correlated annotations mostly deepens annotation rather than redefining `W`.
+
 Debug workflow selection without running factorization:
 
 ```bash
