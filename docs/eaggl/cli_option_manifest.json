@@ -50,7 +50,7 @@
       "source_line": 91,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 170
+      "usage_references": 174
     },
     {
       "action": "append",
@@ -71,7 +71,7 @@
       "source_line": 92,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 85
+      "usage_references": 88
     },
     {
       "action": "append",
@@ -92,7 +92,7 @@
       "source_line": 93,
       "summary": "load one or more dense gene-set matrix files directly",
       "type": null,
-      "usage_references": 53
+      "usage_references": 56
     },
     {
       "action": "append",
@@ -113,7 +113,7 @@
       "source_line": 94,
       "summary": "load a file listing dense gene-set matrix inputs",
       "type": null,
-      "usage_references": 45
+      "usage_references": 48
     },
     {
       "action": "store_true",
@@ -260,7 +260,7 @@
       "source_line": 393,
       "summary": "anchor factorization to any gene in the loaded gene-phewas inputs",
       "type": null,
-      "usage_references": 29
+      "usage_references": 32
     },
     {
       "action": "store_true",
@@ -281,7 +281,7 @@
       "source_line": 391,
       "summary": "anchor factorization to any phenotype in the loaded phewas inputs",
       "type": null,
-      "usage_references": 57
+      "usage_references": 60
     },
     {
       "action": "store_true",
@@ -302,7 +302,7 @@
       "source_line": 394,
       "summary": "run gene-set anchoring using the loaded phenotype evidence",
       "type": null,
-      "usage_references": 27
+      "usage_references": 28
     },
     {
       "action": "callback",
@@ -323,7 +323,7 @@
       "source_line": 392,
       "summary": "anchor factorization to one or more genes",
       "type": "string",
-      "usage_references": 54
+      "usage_references": 58
     },
     {
       "action": "callback",
@@ -344,7 +344,7 @@
       "source_line": 390,
       "summary": "anchor factorization to one or more phenotypes",
       "type": "string",
-      "usage_references": 42
+      "usage_references": 46
     },
     {
       "action": null,
@@ -617,7 +617,7 @@
       "source_line": 218,
       "summary": "write structured clustering workflow provenance as paired JSON and TSV summaries",
       "type": null,
-      "usage_references": 8
+      "usage_references": 16
     },
     {
       "action": null,
@@ -995,7 +995,7 @@
       "source_line": 197,
       "summary": "load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors",
       "type": null,
-      "usage_references": 55
+      "usage_references": 64
     },
     {
       "action": null,
@@ -1016,7 +1016,7 @@
       "source_line": 198,
       "summary": "load an existing gene_set_clusters.out(.gz) table for projection-only phenotype capture from the gene-set factor basis",
       "type": null,
-      "usage_references": 35
+      "usage_references": 40
     },
     {
       "action": null,
@@ -1436,7 +1436,7 @@
       "source_line": 312,
       "summary": null,
       "type": "str",
-      "usage_references": 2
+      "usage_references": 4
     },
     {
       "action": null,
@@ -1751,7 +1751,7 @@
       "source_line": 126,
       "summary": "provide a standalone EAGGL input gene list directly on the command line",
       "type": "string",
-      "usage_references": 338
+      "usage_references": 342
     },
     {
       "action": null,
@@ -1793,7 +1793,7 @@
       "source_line": 125,
       "summary": "read a standalone EAGGL input gene list from a file and synthesize enrichment weights internally",
       "type": null,
-      "usage_references": 84
+      "usage_references": 86
     },
     {
       "action": null,
@@ -2150,7 +2150,7 @@
       "source_line": 372,
       "summary": null,
       "type": null,
-      "usage_references": 229
+      "usage_references": 236
     },
     {
       "action": null,
@@ -2402,7 +2402,7 @@
       "source_line": 365,
       "summary": "load gene-set phewas statistics for projection and anchor workflows",
       "type": null,
-      "usage_references": 149
+      "usage_references": 152
     },
     {
       "action": null,
@@ -2549,7 +2549,7 @@
       "source_line": 133,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 82
+      "usage_references": 88
     },
     {
       "action": null,
@@ -2675,7 +2675,7 @@
       "source_line": 146,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 140
+      "usage_references": 146
     },
     {
       "action": null,
@@ -4187,7 +4187,7 @@
       "source_line": 388,
       "summary": "disable canonical trait linkage even when trait inputs are available",
       "type": null,
-      "usage_references": 8
+      "usage_references": 16
     },
     {
       "action": "store_true",
@@ -4418,7 +4418,7 @@
       "source_line": 177,
       "summary": null,
       "type": null,
-      "usage_references": 42
+      "usage_references": 38
     },
     {
       "action": null,
@@ -4628,7 +4628,7 @@
       "source_line": 229,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 161
+      "usage_references": 164
     },
     {
       "action": null,
@@ -4754,7 +4754,7 @@
       "source_line": 196,
       "summary": "run the optional factor-level phewas stage",
       "type": null,
-      "usage_references": 59
+      "usage_references": 58
     },
     {
       "action": "store_true",
@@ -4943,7 +4943,7 @@
       "source_line": 176,
       "summary": "write the canonical long-form trait-factor linkage table",
       "type": null,
-      "usage_references": 23
+      "usage_references": 46
     },
     {
       "action": null,
@@ -4964,7 +4964,7 @@
       "source_line": 387,
       "summary": "choose the support surface for canonical trait linkage: auto, combined, log_bf, or prior",
       "type": "str",
-      "usage_references": 14
+      "usage_references": 28
     },
     {
       "action": null,
