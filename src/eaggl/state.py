@@ -1423,20 +1423,20 @@ class EagglState(object):
             orig_vector = True
             X_new = X_new[np.newaxis, :]
 
-        # Initialize H_new with random positive values
+        # Deterministic positive initialization keeps projection-only annotation reproducible.
         n_components = W.shape[1]
         n_samples = X_new.shape[0]
-        H_new = np.random.rand(n_samples, n_components)
+        H_new = np.full((n_samples, n_components), 1.0 / max(n_components, 1), dtype=float)
 
         # Precompute W^T * W for efficiency
         WT_W = W.T @ W
         if sparse.issparse(WT_W):
             WT_W = WT_W.toarray()
+        numerator = X_new @ W
 
         # Iterative update
         for i in range(max_iter):
             # Compute numerator and denominator
-            numerator = X_new @ W
             denominator = H_new @ WT_W + 1e-10  # Small epsilon to avoid division by zero
 
             # Update H_new
@@ -1462,11 +1462,10 @@ class EagglState(object):
 
             # Check for convergence
             norm = np.linalg.norm(H_new_update - H_new, 'fro')
+            H_new = H_new_update
 
             if norm < tol:
                 break
-
-            H_new = H_new_update
 
         if orig_vector:
             H_new = np.squeeze(H_new, axis=0)
@@ -2528,8 +2527,8 @@ class EagglState(object):
                 "trait",
                 "factor",
                 "is_anchor",
-                "joint_fraction",
-                "marginal_fraction",
+                "joint_coefficient",
+                "marginal_coefficient",
                 "trait_total_support",
                 "retained_trait_support",
                 "retained_fraction",
@@ -2538,8 +2537,8 @@ class EagglState(object):
                 "trait_n_eff",
                 "retained_n_eff",
                 "low_retention_flag",
-                "joint_support_mass",
-                "marginal_support_mass",
+                "joint_coefficient_support_mass",
+                "marginal_coefficient_support_mass",
                 "joint_residual",
                 "score_source",
                 "basis",

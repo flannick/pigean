@@ -261,24 +261,27 @@ def compute_trait_linkage(
         nnls_project_fn(normalized_factor_basis_retained, normalized_trait_support_for_projection.T, max_sum=1.0),
         dtype=float,
     )
-    marginal = np.zeros_like(joint, dtype=float)
-    for factor_index in range(normalized_factor_basis_retained.shape[1]):
-        factor_basis = normalized_factor_basis_retained[:, factor_index : factor_index + 1]
-        factor_scores = np.asarray(
-            nnls_project_fn(factor_basis, normalized_trait_support_for_projection.T, max_value=1.0),
-            dtype=float,
-        )
-        if factor_scores.ndim == 1:
-            marginal[:, factor_index] = factor_scores
-        else:
-            marginal[:, factor_index] = factor_scores[:, 0]
+    marginal_numerator = normalized_trait_support_for_projection.T @ normalized_factor_basis_retained
+    if sparse.issparse(marginal_numerator):
+        marginal_numerator = marginal_numerator.toarray()
+    marginal_numerator = np.asarray(marginal_numerator, dtype=float)
+    marginal_denominator = np.sum(np.square(normalized_factor_basis_retained), axis=0, dtype=float)
+    marginal = np.zeros_like(marginal_numerator, dtype=float)
+    np.divide(
+        marginal_numerator,
+        marginal_denominator[np.newaxis, :],
+        out=marginal,
+        where=marginal_denominator[np.newaxis, :] > eps,
+    )
+    marginal = np.clip(marginal, 0.0, 1.0)
 
     residual = np.maximum(0.0, 1.0 - np.sum(joint, axis=1))
     retained_fraction = retained_trait_support / np.maximum(total_trait_support, eps)
-    low_retention_flag = np.logical_or(
+    low_retention_flag = np.logical_or.reduce((
         retained_feature_counts < 5,
         retained_fraction < 0.1,
-    )
+        retained_n_eff < 5.0,
+    ))
 
     return {
         "prepared_feature_by_trait": masked_trait_support,

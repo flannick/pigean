@@ -3336,7 +3336,13 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     if state.exp_gene_factors is None and state.exp_gene_set_factors is None:
         bail("Something went wrong: both gene factors and gene set factors are empty")
 
-    if state.X_phewas_beta_uncorrected is not None and state.pheno_prob_factor_vector is not None:
+    run_legacy_pheno_capture = bool(no_trait_linkage)
+
+    if (
+        run_legacy_pheno_capture
+        and state.X_phewas_beta_uncorrected is not None
+        and state.pheno_prob_factor_vector is not None
+    ):
         if project_phenos_from_gene_sets or state.exp_gene_factors is None:
             pheno_matrix_to_project = state.X_phewas_beta_uncorrected.T
             if not run_transpose:
@@ -3376,7 +3382,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         if keep_original_loadings:
             full_pheno_factor_values[state.pheno_factor_pheno_mask,:] = state.exp_pheno_factors
         state.pheno_capture_input = pheno_capture_input
-    elif state.exp_pheno_factors is not None:
+    elif run_legacy_pheno_capture and state.exp_pheno_factors is not None:
         state.pheno_capture_basis = "native"
         if state.X_phewas_beta_uncorrected is not None:
             feature_by_pheno = state.X_phewas_beta_uncorrected.T

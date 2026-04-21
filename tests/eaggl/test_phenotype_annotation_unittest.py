@@ -25,6 +25,28 @@ from pegs_shared import output_tables as pegs_output_tables  # noqa: E402
 
 
 class PhenotypeAnnotationTest(unittest.TestCase):
+    def test_nnls_project_matrix_returns_converged_update_before_break(self) -> None:
+        runtime = eaggl_state.EagglState(background_prior=0.05, batch_size=10)
+        basis = np.eye(2)
+        target = np.array([[0.25, 0.75]])
+
+        projected = runtime._nnls_project_matrix(basis, target, max_iter=1, tol=1e9)
+
+        np.testing.assert_allclose(projected, target, atol=1e-8)
+
+    def test_nnls_project_matrix_is_deterministic_and_keeps_constraints(self) -> None:
+        runtime = eaggl_state.EagglState(background_prior=0.05, batch_size=10)
+        basis = np.eye(2)
+        target = np.array([[10.0, 4.0], [3.0, 9.0]])
+
+        first = runtime._nnls_project_matrix(basis, target, max_iter=20, max_sum=1.0)
+        second = runtime._nnls_project_matrix(basis, target, max_iter=20, max_sum=1.0)
+        capped = runtime._nnls_project_matrix(basis, target, max_iter=20, max_value=0.25)
+
+        np.testing.assert_allclose(first, second, atol=1e-12)
+        self.assertTrue(np.all(np.sum(first, axis=1) <= 1.0000001))
+        self.assertTrue(np.all(capped <= 0.2500001))
+
     def test_compositional_projection_separates_strength_from_capture_shape(self) -> None:
         basis = np.array(
             [
@@ -182,6 +204,23 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         self.assertTrue(np.all(linkage["joint"] >= 0))
         self.assertTrue(np.all(np.sum(linkage["joint"], axis=1) <= 1.00001))
 
+    def test_canonical_trait_linkage_uses_closed_form_marginal_coefficients(self) -> None:
+        basis = np.eye(2)
+        feature_by_trait = np.array([[2.0], [1.0]])
+
+        def _joint_only_nnls(W, X_new, max_sum=None, max_value=None):
+            self.assertIsNone(max_value)
+            return np.zeros((X_new.shape[0], W.shape[1]))
+
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            _joint_only_nnls,
+            basis,
+            feature_by_trait,
+            threshold_value=0.0,
+        )
+
+        np.testing.assert_allclose(linkage["marginal"], [[2.0 / 3.0, 1.0 / 3.0]], atol=1e-8)
+
     def test_canonical_trait_linkage_normalizes_by_total_strength_before_masking(self) -> None:
         basis = np.array([[1.0]])
         masked_feature_by_trait = np.array([[2.0]])
@@ -242,6 +281,26 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_allclose(linkage["retained_n_eff"], [1.0], atol=1e-8)
         np.testing.assert_allclose(linkage["joint"], [[0.5]], atol=1e-6)
         np.testing.assert_allclose(linkage["marginal"], [[0.5]], atol=1e-6)
+
+    def test_canonical_trait_linkage_low_retention_uses_retained_effective_size(self) -> None:
+        basis = np.ones((5, 1))
+        feature_by_trait = np.array([[96.0], [1.0], [1.0], [1.0], [1.0]])
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
+                W,
+                X_new,
+                max_sum=max_sum,
+                max_value=max_value,
+            ),
+            basis,
+            feature_by_trait,
+            threshold_value=0.0,
+        )
+
+        np.testing.assert_array_equal(linkage["retained_feature_count"], [5])
+        np.testing.assert_allclose(linkage["retained_fraction"], [1.0], atol=1e-8)
+        self.assertLess(linkage["retained_n_eff"][0], 5.0)
+        np.testing.assert_array_equal(linkage["low_retention_flag"], [True])
 
     def test_sparse_full_trait_linkage_matches_dense_full_outputs(self) -> None:
         basis = np.array([[1.0], [1.0], [1.0]])
