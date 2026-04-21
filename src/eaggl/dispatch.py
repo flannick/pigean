@@ -20,6 +20,7 @@ def run_main_pipeline(domain, options):
             "trait_linkage_basis": clustering_provenance.get("trait_linkage", {}).get("basis"),
             "trait_linkage_source": clustering_provenance.get("trait_linkage", {}).get("source"),
             "trait_linkage_threshold": clustering_provenance.get("trait_linkage", {}).get("threshold"),
+            "trait_linkage_computation_mode": clustering_provenance.get("trait_linkage", {}).get("computation_mode"),
             "clustering_anchor_mode": clustering_provenance.get("anchor_mode"),
         },
         overwrite=True,

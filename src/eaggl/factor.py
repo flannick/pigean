@@ -123,6 +123,7 @@ class FactorExecutionConfig:
     pheno_capture_input: str = "weighted_thresholded"
     trait_linkage_source: str = "combined"
     trait_linkage_threshold: float = 1.0
+    trait_linkage_computation_mode: str = "dense_full"
     no_trait_linkage: bool = False
 
     def to_run_kwargs(self):
@@ -200,6 +201,7 @@ class FactorExecutionConfig:
             "pheno_capture_input": self.pheno_capture_input,
             "trait_linkage_source": self.trait_linkage_source,
             "trait_linkage_threshold": self.trait_linkage_threshold,
+            "trait_linkage_computation_mode": self.trait_linkage_computation_mode,
             "no_trait_linkage": self.no_trait_linkage,
         }
 
@@ -903,6 +905,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         pheno_capture_input=getattr(options, "pheno_capture_input", "weighted_thresholded"),
         trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
         trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
+        trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "dense_full"),
         no_trait_linkage=bool(getattr(options, "no_trait_linkage", False)),
     )
 
@@ -963,6 +966,7 @@ def run_main_pheno_projection_stage(domain, runtime, options):
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
         trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
         trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
+        trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "dense_full"),
         pheno_capture_input=options.pheno_capture_input,
         bail_fn=domain.bail,
         log_fn=domain.log,

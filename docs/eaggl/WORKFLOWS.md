@@ -98,11 +98,12 @@ Phenotype annotation policy:
 6. use `trait_n_eff` and `retained_n_eff` when raw thresholded feature counts overstate breadth; these effective-size diagnostics shrink toward the number of genes carrying most of the support mass
 7. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
 8. default to `--trait-linkage-source combined` with `--trait-linkage-threshold 1.0` (strict `source_value > 1.0`); use `--trait-linkage-source auto` only when you explicitly want fallback resolution (`combined`, then `log_bf`, then `prior`)
-9. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis
-10. treat `--run-factor-phewas` as a secondary expert workflow
-11. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`
-12. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
-13. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
+9. default to `--trait-linkage-computation-mode dense_full` for continuity; use `sparse_full` when you want to benchmark the sparse-aware full-space equivalent against the current dense implementation
+10. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis
+11. treat `--run-factor-phewas` as a secondary expert workflow
+12. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`
+13. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
+14. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
 13. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
 14. to rerun canonical trait linkage from existing EAGGL factors on the gene basis, pass `--factor-gene-clusters-in results/gene_clusters.out.gz`; add `--trait-factor-links-out ...` to write the canonical long-form linkage table, `--run-factor-phewas --factor-phewas-stats-out ...` to write factor-PheWAS, or both in the same command
 15. `--factor-phewas-gene-clusters-in` remains accepted as a compatibility alias for the factor-PheWAS-only projection path, but `--factor-gene-clusters-in` is the canonical precomputed-factor input

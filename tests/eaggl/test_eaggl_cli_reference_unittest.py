@@ -489,6 +489,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["factor_metrics_out"], "factor_metrics.tsv")
         self.assertEqual(opts["trait_factor_links_out"], "trait_factor_links.tsv")
         self.assertEqual(opts["trait_linkage_source"], "combined")
+        self.assertEqual(opts["trait_linkage_computation_mode"], "dense_full")
         self.assertEqual(opts["pheno_clusters_out"], "pheno_clusters.tsv")
         self.assertEqual(opts["consensus_stats_out"], "consensus.tsv")
         self.assertEqual(opts["clustering_params_out"], "clustering_params.tsv.gz")
@@ -619,6 +620,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-set-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-factor-links-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--trait-linkage-computation-mode": ["test_factor_phewas_and_capture_defaults_round_trip", "test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-source": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-trait-linkage": ["test_cli_manifest_tiers_cover_recent_factor_and_gene_list_flags"],

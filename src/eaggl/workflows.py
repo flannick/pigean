@@ -366,6 +366,7 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
             "basis": trait_linkage_basis,
             "source": getattr(options, "trait_linkage_source", "combined"),
             "threshold": getattr(options, "trait_linkage_threshold", 1.0),
+            "computation_mode": getattr(options, "trait_linkage_computation_mode", "dense_full"),
             "capture_input": getattr(options, "pheno_capture_input", None),
         },
         "factor_phewas": {
@@ -415,13 +416,14 @@ def format_clustering_provenance_summary(provenance):
             "run" if provenance.get("clustering_executed") else "skipped",
             provenance.get("factorization_source"),
         ),
-        "EAGGL anchors=%s%s trait_linkage=%s(%s,%s)"
+        "EAGGL anchors=%s%s trait_linkage=%s(%s,%s,%s)"
         % (
             provenance.get("anchor_mode"),
             (" %s" % json.dumps(provenance.get("anchor_values"))) if provenance.get("anchor_values") else "",
             "on" if trait_linkage.get("enabled") else "off",
             trait_linkage.get("basis"),
             trait_linkage.get("source"),
+            trait_linkage.get("computation_mode"),
         ),
         "EAGGL outputs=%s"
         % (", ".join(output_targets) if len(output_targets) > 0 else "none"),

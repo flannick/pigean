@@ -386,6 +386,7 @@ parser.add_option("","--project-phenos-from-gene-sets",action='store_true',defau
 parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type=str) #trait-linkage input profile: weighted_thresholded or binary_thresholded
 parser.add_option("","--trait-linkage-source",default="combined",type=str) #trait linkage support surface: combined by default; expert override: auto, log_bf, prior
 parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #strict threshold applied to the selected trait-linkage source surface
+parser.add_option("","--trait-linkage-computation-mode",default="dense_full",type=str) #trait linkage computation backend: dense_full (current dense full-space solve) or sparse_full (sparse-aware full-space equivalent)
 parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
 
 parser.add_option("","--anchor-phenos",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple pheno anchoring
@@ -514,6 +515,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--pheno-capture-input": "choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
     "--trait-linkage-source": "choose the support surface for canonical trait linkage: combined by default, with optional expert overrides",
     "--trait-linkage-threshold": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
+    "--trait-linkage-computation-mode": "choose the canonical trait-linkage computation backend: dense_full keeps the current dense full-space implementation, while sparse_full keeps the same corrected math with sparse-aware projection inputs",
     "--no-trait-linkage": "disable canonical trait linkage even when trait inputs are available",
     "--clustering-params-out": "write structured clustering workflow provenance as paired JSON and TSV summaries",
     "--run-phewas": "run the optional gene-level phewas output stage",
@@ -625,6 +627,7 @@ _EXPERT_METHOD_FLAGS = {
     "--phi",
     "--pheno-capture-input",
     "--project-phenos-from-gene-sets",
+    "--trait-linkage-computation-mode",
     "--trait-linkage-source",
     "--trait-linkage-threshold",
     "--no-trait-linkage",
@@ -1347,6 +1350,8 @@ def _bootstrap_cli(argv=None):
         bail("--trait-linkage-source must be one of: combined, log_bf, prior, auto")
     if parsed_options.trait_linkage_threshold < 0:
         bail("--trait-linkage-threshold must be >= 0")
+    if parsed_options.trait_linkage_computation_mode not in set(["dense_full", "sparse_full"]):
+        bail("--trait-linkage-computation-mode must be one of: dense_full, sparse_full")
     if parsed_options.factor_runs < 1:
         bail("--factor-runs must be at least 1")
     allowed_factor_phewas_modes = set([

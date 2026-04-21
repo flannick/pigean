@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import numpy as np
+from scipy import sparse
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -241,6 +242,52 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_allclose(linkage["retained_n_eff"], [1.0], atol=1e-8)
         np.testing.assert_allclose(linkage["joint"], [[0.5]], atol=1e-6)
         np.testing.assert_allclose(linkage["marginal"], [[0.5]], atol=1e-6)
+
+    def test_sparse_full_trait_linkage_matches_dense_full_outputs(self) -> None:
+        basis = np.array([[1.0], [1.0], [1.0]])
+        full_feature_by_trait = sparse.csr_matrix(np.array([[2.0], [2.0], [0.5]]))
+        basis_mask = np.array([True, False, True])
+
+        dense_linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
+                W,
+                X_new,
+                max_sum=max_sum,
+                max_value=max_value,
+            ),
+            basis,
+            full_feature_by_trait.toarray(),
+            full_feature_by_trait=full_feature_by_trait.toarray(),
+            basis_mask=basis_mask,
+            threshold_mode="weighted_thresholded",
+            threshold_value=1.0,
+            strict_threshold=True,
+            computation_mode="dense_full",
+        )
+        sparse_linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
+                W,
+                X_new,
+                max_sum=max_sum,
+                max_value=max_value,
+            ),
+            basis,
+            full_feature_by_trait,
+            full_feature_by_trait=full_feature_by_trait,
+            basis_mask=basis_mask,
+            threshold_mode="weighted_thresholded",
+            threshold_value=1.0,
+            strict_threshold=True,
+            computation_mode="sparse_full",
+        )
+
+        np.testing.assert_allclose(sparse_linkage["trait_total_support"], dense_linkage["trait_total_support"], atol=1e-8)
+        np.testing.assert_allclose(sparse_linkage["retained_trait_support"], dense_linkage["retained_trait_support"], atol=1e-8)
+        np.testing.assert_allclose(sparse_linkage["retained_fraction"], dense_linkage["retained_fraction"], atol=1e-8)
+        np.testing.assert_allclose(sparse_linkage["trait_n_eff"], dense_linkage["trait_n_eff"], atol=1e-8)
+        np.testing.assert_allclose(sparse_linkage["retained_n_eff"], dense_linkage["retained_n_eff"], atol=1e-8)
+        np.testing.assert_allclose(sparse_linkage["joint"], dense_linkage["joint"], atol=1e-8)
+        np.testing.assert_allclose(sparse_linkage["marginal"], dense_linkage["marginal"], atol=1e-8)
 
     def test_canonical_trait_linkage_preserves_factor_total_mass_separately_from_matching_copy(self) -> None:
         basis = np.array([[2.0], [6.0]])

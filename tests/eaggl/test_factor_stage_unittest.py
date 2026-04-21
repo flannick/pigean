@@ -115,6 +115,7 @@ def _options(**overrides):
         pheno_capture_input="weighted_thresholded",
         trait_linkage_source="combined",
         trait_linkage_threshold=1.0,
+        trait_linkage_computation_mode="dense_full",
         no_trait_linkage=False,
         factors_out=None,
         factor_metrics_out=None,
@@ -208,6 +209,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             blockwise_report_out=None,
             trait_linkage_source="combined",
             trait_linkage_threshold=1.0,
+            trait_linkage_computation_mode="dense_full",
             no_trait_linkage=False,
             bail_fn=None,
             warn_fn=None,
@@ -229,6 +231,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                     "blockwise_report_out": blockwise_report_out,
                     "trait_linkage_source": trait_linkage_source,
                     "trait_linkage_threshold": trait_linkage_threshold,
+                    "trait_linkage_computation_mode": trait_linkage_computation_mode,
                     "no_trait_linkage": no_trait_linkage,
                 }
             )
@@ -248,6 +251,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 online_report_out="legacy_report.tsv.gz",
                 trait_linkage_source="combined",
                 trait_linkage_threshold=0.75,
+                trait_linkage_computation_mode="sparse_full",
                 no_trait_linkage=True,
             )
 
@@ -262,6 +266,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(captured["blockwise_report_out"], "legacy_report.tsv.gz")
         self.assertEqual(captured["trait_linkage_source"], "combined")
         self.assertEqual(captured["trait_linkage_threshold"], 0.75)
+        self.assertEqual(captured["trait_linkage_computation_mode"], "sparse_full")
         self.assertTrue(captured["no_trait_linkage"])
 
     def test_zero_uncorrected_filter_hook_accepts_shared_runtime_kwargs(self) -> None:
