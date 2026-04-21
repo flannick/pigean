@@ -32,6 +32,17 @@ def _compute_positive_counts(matrix):
     return np.asarray(np.sum(dense > 0, axis=0), dtype=int)
 
 
+def _compute_effective_feature_count(matrix, *, eps=1e-12):
+    dense = _as_dense_2d(matrix)
+    if dense is None:
+        return None
+    support_sums = np.sum(dense, axis=0, dtype=float)
+    support_square_sums = np.sum(np.square(dense), axis=0, dtype=float)
+    n_eff = np.square(support_sums) / np.maximum(support_square_sums, eps)
+    n_eff = np.where(support_sums > 0.0, n_eff, 0.0)
+    return np.asarray(n_eff, dtype=float)
+
+
 def _build_full_basis_matrix(dense_basis, basis_mask, *, expected_num_rows):
     if basis_mask is None:
         if dense_basis.shape[0] != expected_num_rows:
@@ -144,6 +155,8 @@ def compute_trait_linkage(
     retained_trait_support = eaggl_phenotype_annotation.compute_profile_strengths(masked_trait_support)
     total_feature_counts = _compute_positive_counts(full_trait_support)
     retained_feature_counts = _compute_positive_counts(masked_trait_support)
+    trait_n_eff = _compute_effective_feature_count(full_trait_support, eps=eps)
+    retained_n_eff = _compute_effective_feature_count(masked_trait_support, eps=eps)
 
     factor_total_mass = np.sum(full_basis, axis=0, keepdims=True)
     normalized_factor_basis = full_basis / np.maximum(factor_total_mass, eps)
@@ -183,6 +196,8 @@ def compute_trait_linkage(
         "retained_fraction": np.asarray(retained_fraction, dtype=float),
         "total_feature_count": np.asarray(total_feature_counts, dtype=int),
         "retained_feature_count": np.asarray(retained_feature_counts, dtype=int),
+        "trait_n_eff": np.asarray(trait_n_eff, dtype=float),
+        "retained_n_eff": np.asarray(retained_n_eff, dtype=float),
         "low_retention_flag": np.asarray(low_retention_flag, dtype=bool),
         "factor_total_mass": np.asarray(np.ravel(factor_total_mass), dtype=float),
         "joint": joint,

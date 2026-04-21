@@ -923,6 +923,8 @@ def _apply_canonical_trait_linkage(
     state.trait_linkage_retained_fraction = linkage_result["retained_fraction"]
     state.trait_linkage_total_feature_count = linkage_result["total_feature_count"]
     state.trait_linkage_retained_feature_count = linkage_result["retained_feature_count"]
+    state.trait_linkage_n_eff = linkage_result["trait_n_eff"]
+    state.trait_linkage_retained_n_eff = linkage_result["retained_n_eff"]
     state.trait_linkage_low_retention_flag = linkage_result["low_retention_flag"]
     state.trait_linkage_basis = linkage_inputs["basis_name"]
     state.trait_linkage_score_source = linkage_inputs["score_source"]

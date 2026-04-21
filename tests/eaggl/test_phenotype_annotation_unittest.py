@@ -205,6 +205,8 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_allclose(linkage["retained_fraction"], [0.2], atol=1e-8)
         np.testing.assert_array_equal(linkage["total_feature_count"], [2])
         np.testing.assert_array_equal(linkage["retained_feature_count"], [1])
+        np.testing.assert_allclose(linkage["trait_n_eff"], [100.0 / 68.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["retained_n_eff"], [1.0], atol=1e-8)
         np.testing.assert_array_equal(linkage["low_retention_flag"], [True])
         np.testing.assert_allclose(linkage["normalized_trait_support"], [[0.2], [0.0]], atol=1e-8)
         np.testing.assert_allclose(np.sum(linkage["normalized_trait_support"], axis=0), linkage["retained_fraction"], atol=1e-8)
@@ -235,6 +237,8 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_allclose(linkage["trait_total_support"], [4.0], atol=1e-8)
         np.testing.assert_allclose(linkage["retained_trait_support"], [2.0], atol=1e-8)
         np.testing.assert_allclose(linkage["retained_fraction"], [0.5], atol=1e-8)
+        np.testing.assert_allclose(linkage["trait_n_eff"], [2.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["retained_n_eff"], [1.0], atol=1e-8)
         np.testing.assert_allclose(linkage["joint"], [[0.5]], atol=1e-6)
         np.testing.assert_allclose(linkage["marginal"], [[0.5]], atol=1e-6)
 

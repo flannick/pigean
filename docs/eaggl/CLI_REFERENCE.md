@@ -389,6 +389,8 @@ For post-factor phenotype interpretation:
 - `trait_total_support` is the full thresholded trait support before masking, or the total thresholded hit count under binary capture mode
 - `retained_trait_support` is the masked retained support available on the fitted factor basis
 - `retained_fraction = retained_trait_support / trait_total_support`
+- `trait_n_eff = (\sum_g s_t(g))^2 / \sum_g s_t(g)^2` reports the support-weighted effective number of genes contributing to the thresholded trait signal
+- `retained_n_eff` applies the same effective-size calculation after masking to the factorized gene universe
 - `joint_support_mass = trait_total_support * joint_fraction`
 - `marginal_support_mass = trait_total_support * marginal_fraction`
 - `total_feature_count` and `retained_feature_count` report the same diagnostic on thresholded feature counts

@@ -704,6 +704,8 @@ class FactorModelState:
     trait_linkage_retained_fraction: object | None = None
     trait_linkage_total_feature_count: object | None = None
     trait_linkage_retained_feature_count: object | None = None
+    trait_linkage_n_eff: object | None = None
+    trait_linkage_retained_n_eff: object | None = None
     trait_linkage_low_retention_flag: object | None = None
     trait_linkage_is_anchor: object | None = None
     trait_linkage_basis: object | None = None
@@ -1127,6 +1129,8 @@ class EagglState(object):
         self.trait_linkage_retained_fraction = None
         self.trait_linkage_total_feature_count = None
         self.trait_linkage_retained_feature_count = None
+        self.trait_linkage_n_eff = None
+        self.trait_linkage_retained_n_eff = None
         self.trait_linkage_low_retention_flag = None
         self.trait_linkage_is_anchor = None
         self.trait_linkage_basis = None
@@ -2530,6 +2534,8 @@ class EagglState(object):
                 "retained_fraction",
                 "total_feature_count",
                 "retained_feature_count",
+                "trait_n_eff",
+                "retained_n_eff",
                 "low_retention_flag",
                 "joint_support_mass",
                 "marginal_support_mass",
@@ -2573,6 +2579,16 @@ class EagglState(object):
                 if self.trait_linkage_retained_feature_count is not None
                 else np.zeros(len(self.phenos), dtype=int)
             )
+            trait_n_eff = (
+                np.asarray(self.trait_linkage_n_eff, dtype=float)
+                if self.trait_linkage_n_eff is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
+            retained_n_eff = (
+                np.asarray(self.trait_linkage_retained_n_eff, dtype=float)
+                if self.trait_linkage_retained_n_eff is not None
+                else np.zeros(len(self.phenos), dtype=float)
+            )
             low_retention_flags = (
                 np.asarray(self.trait_linkage_low_retention_flag, dtype=bool)
                 if self.trait_linkage_low_retention_flag is not None
@@ -2596,6 +2612,8 @@ class EagglState(object):
                                 "%.6g" % float(retained_fractions[trait_index]),
                                 str(int(total_feature_counts[trait_index])),
                                 str(int(retained_feature_counts[trait_index])),
+                                "%.6g" % float(trait_n_eff[trait_index]),
+                                "%.6g" % float(retained_n_eff[trait_index]),
                                 "1" if bool(low_retention_flags[trait_index]) else "0",
                                 "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
                                 "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),

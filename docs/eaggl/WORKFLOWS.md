@@ -88,6 +88,8 @@ Phenotype annotation policy:
    - `trait_total_support`
    - `retained_trait_support`
    - `retained_fraction`
+   - `trait_n_eff`
+   - `retained_n_eff`
    - `total_feature_count`
    - `retained_feature_count`
    - `low_retention_flag`
