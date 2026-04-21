@@ -50,7 +50,7 @@
       "source_line": 91,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 101
+      "usage_references": 89
     },
     {
       "action": "append",
@@ -932,7 +932,7 @@
       "source_line": 227,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 50
+      "usage_references": 48
     },
     {
       "action": null,
@@ -953,7 +953,7 @@
       "source_line": 408,
       "summary": null,
       "type": "float",
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": null,
@@ -974,7 +974,7 @@
       "source_line": 406,
       "summary": null,
       "type": "choice",
-      "usage_references": 9
+      "usage_references": 7
     },
     {
       "action": null,
@@ -1079,7 +1079,7 @@
       "source_line": 172,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 3
     },
     {
       "action": null,
@@ -1520,7 +1520,7 @@
       "source_line": 171,
       "summary": "write the main factor loading output table",
       "type": null,
-      "usage_references": 33
+      "usage_references": 31
     },
     {
       "action": null,
@@ -1646,7 +1646,7 @@
       "source_line": 175,
       "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 13
     },
     {
       "action": null,
@@ -1898,7 +1898,7 @@
       "source_line": 156,
       "summary": null,
       "type": null,
-      "usage_references": 74
+      "usage_references": 72
     },
     {
       "action": null,
@@ -2297,7 +2297,7 @@
       "source_line": 174,
       "summary": null,
       "type": null,
-      "usage_references": 16
+      "usage_references": 14
     },
     {
       "action": null,
@@ -2591,7 +2591,7 @@
       "source_line": 133,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 47
+      "usage_references": 45
     },
     {
       "action": null,
@@ -2675,7 +2675,7 @@
       "source_line": 149,
       "summary": null,
       "type": null,
-      "usage_references": 23
+      "usage_references": 21
     },
     {
       "action": null,
@@ -2696,7 +2696,7 @@
       "source_line": 147,
       "summary": null,
       "type": null,
-      "usage_references": 27
+      "usage_references": 25
     },
     {
       "action": null,
@@ -2717,7 +2717,7 @@
       "source_line": 146,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 76
+      "usage_references": 74
     },
     {
       "action": null,
@@ -2738,7 +2738,7 @@
       "source_line": 148,
       "summary": null,
       "type": null,
-      "usage_references": 26
+      "usage_references": 24
     },
     {
       "action": null,
@@ -2906,7 +2906,7 @@
       "source_line": 224,
       "summary": "reduce progress logging noise during long runs",
       "type": null,
-      "usage_references": 12
+      "usage_references": 10
     },
     {
       "action": null,
@@ -3536,7 +3536,7 @@
       "source_line": 221,
       "summary": "write structured run logs to this file",
       "type": null,
-      "usage_references": 11
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3767,7 +3767,7 @@
       "source_line": 263,
       "summary": null,
       "type": "int",
-      "usage_references": 9
+      "usage_references": 8
     },
     {
       "action": null,
@@ -3788,7 +3788,7 @@
       "source_line": 314,
       "summary": null,
       "type": "int",
-      "usage_references": 10
+      "usage_references": 8
     },
     {
       "action": null,
@@ -4439,7 +4439,7 @@
       "source_line": 217,
       "summary": null,
       "type": null,
-      "usage_references": 52
+      "usage_references": 50
     },
     {
       "action": "store_true",
@@ -4607,7 +4607,7 @@
       "source_line": 315,
       "summary": null,
       "type": "float",
-      "usage_references": 16
+      "usage_references": 14
     },
     {
       "action": null,
@@ -5195,7 +5195,7 @@
       "source_line": 222,
       "summary": "write warning messages to this file",
       "type": null,
-      "usage_references": 11
+      "usage_references": 9
     },
     {
       "action": null,
