@@ -459,6 +459,8 @@ def read_gene_phewas_bfs(
     gene_phewas_bfs_prior_col=None,
     phewas_gene_to_X_gene_in=None,
     min_value=None,
+    min_value_source="auto",
+    strict_min_value=False,
     max_num_entries_at_once=None,
     **kwargs
 ):
@@ -495,6 +497,8 @@ def read_gene_phewas_bfs(
         gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
         phewas_gene_to_x_gene=phewas_gene_to_X_gene,
         min_value=min_value,
+        min_value_source=min_value_source,
+        strict_min_value=strict_min_value,
         max_num_entries_at_once=max_num_entries_at_once,
         open_text_fn=domain.open_gz,
         get_col_fn=state._get_col,

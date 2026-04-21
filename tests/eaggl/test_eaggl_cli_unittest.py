@@ -364,7 +364,7 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--trait-linkage-source", "definitely_invalid")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--trait-linkage-source must be one of: auto, combined, log_bf, prior", err)
+        self.assertIn("--trait-linkage-source must be one of: combined, log_bf, prior, auto", err)
         self.assertNotIn("Traceback", err)
 
     def test_projection_only_gene_set_pheno_clusters_requires_gene_set_inputs(self) -> None:

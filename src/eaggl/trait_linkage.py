@@ -32,6 +32,40 @@ def _compute_positive_counts(matrix):
     return np.asarray(np.sum(dense > 0, axis=0), dtype=int)
 
 
+def _build_full_basis_matrix(dense_basis, basis_mask, *, expected_num_rows):
+    if basis_mask is None:
+        if dense_basis.shape[0] != expected_num_rows:
+            raise ValueError(
+                "Trait linkage basis rows %s must match feature rows %s when no basis mask is provided"
+                % (dense_basis.shape[0], expected_num_rows)
+            )
+        return np.asarray(dense_basis, dtype=float), np.full(expected_num_rows, True, dtype=bool)
+
+    mask = np.asarray(basis_mask, dtype=bool)
+    if mask.ndim != 1:
+        raise ValueError("Trait linkage basis mask must be 1D")
+    if mask.shape[0] != expected_num_rows:
+        raise ValueError(
+            "Trait linkage basis mask length %s must match feature rows %s"
+            % (mask.shape[0], expected_num_rows)
+        )
+
+    if dense_basis.shape[0] == mask.shape[0]:
+        full_basis = np.asarray(dense_basis, dtype=float).copy()
+    elif dense_basis.shape[0] == int(np.sum(mask)):
+        full_basis = np.zeros((mask.shape[0], dense_basis.shape[1]), dtype=float)
+        full_basis[mask, :] = np.asarray(dense_basis, dtype=float)
+    else:
+        raise ValueError(
+            "Trait linkage basis rows %s must match mask length %s or kept rows %s"
+            % (dense_basis.shape[0], mask.shape[0], int(np.sum(mask)))
+        )
+
+    # Keep linkage on the retained factorized universe while still solving in the full objective space.
+    full_basis[~mask, :] = 0.0
+    return full_basis, mask
+
+
 def resolve_trait_linkage_source(
     requested_source,
     *,
@@ -70,10 +104,13 @@ def compute_trait_linkage(
     feature_by_trait,
     *,
     full_feature_by_trait=None,
+    basis_mask=None,
     threshold_mode="weighted_thresholded",
+    threshold_value=1.0,
+    strict_threshold=True,
     eps=1e-12,
 ):
-    dense_basis = _as_dense_2d(basis)
+    dense_basis = _sanitize_nonfinite(basis)
     dense_feature_by_trait = _sanitize_nonfinite(feature_by_trait)
     dense_full_feature_by_trait = _sanitize_nonfinite(
         full_feature_by_trait if full_feature_by_trait is not None else feature_by_trait
@@ -81,35 +118,36 @@ def compute_trait_linkage(
 
     if dense_basis is None or dense_feature_by_trait is None or dense_full_feature_by_trait is None:
         return None
-    if dense_basis.shape[0] != dense_feature_by_trait.shape[0]:
-        raise ValueError(
-            "Trait linkage basis/target mismatch: %s vs %s"
-            % (dense_basis.shape, dense_feature_by_trait.shape)
-        )
     if dense_full_feature_by_trait.shape[1] != dense_feature_by_trait.shape[1]:
         raise ValueError(
-            "Trait linkage full/retained target mismatch: %s vs %s"
+            "Trait linkage full/target column mismatch: %s vs %s"
             % (dense_full_feature_by_trait.shape, dense_feature_by_trait.shape)
         )
 
-    masked_trait_support = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
-        dense_feature_by_trait,
-        threshold_mode,
+    full_basis, retained_basis_mask = _build_full_basis_matrix(
+        dense_basis,
+        basis_mask,
+        expected_num_rows=dense_full_feature_by_trait.shape[0],
     )
+
     full_trait_support = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
         dense_full_feature_by_trait,
         threshold_mode,
+        threshold_value=threshold_value,
+        strict_threshold=strict_threshold,
     )
+    masked_full_trait_support = np.asarray(full_trait_support, dtype=float).copy()
+    masked_full_trait_support[~retained_basis_mask, :] = 0.0
+    masked_trait_support = np.asarray(masked_full_trait_support[retained_basis_mask, :], dtype=float)
+
     total_trait_support = eaggl_phenotype_annotation.compute_profile_strengths(full_trait_support)
     retained_trait_support = eaggl_phenotype_annotation.compute_profile_strengths(masked_trait_support)
     total_feature_counts = _compute_positive_counts(full_trait_support)
     retained_feature_counts = _compute_positive_counts(masked_trait_support)
-    factor_total_mass = np.sum(dense_basis, axis=0, keepdims=True)
-    normalized_factor_basis = dense_basis / np.maximum(
-        factor_total_mass,
-        eps,
-    )
-    normalized_trait_support = masked_trait_support / np.maximum(total_trait_support[np.newaxis, :], eps)
+
+    factor_total_mass = np.sum(full_basis, axis=0, keepdims=True)
+    normalized_factor_basis = full_basis / np.maximum(factor_total_mass, eps)
+    normalized_trait_support = masked_full_trait_support / np.maximum(total_trait_support[np.newaxis, :], eps)
 
     joint = np.asarray(
         nnls_project_fn(normalized_factor_basis, normalized_trait_support.T, max_sum=1.0),

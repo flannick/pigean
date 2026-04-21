@@ -254,7 +254,7 @@ After fitting the main factorization, EAGGL can relate latent factors to additio
 
 \subsection{Canonical trait linkage by support-preserving thresholded projection}
 
-The external gene-by-phenotype support table can be very large. In practice, EAGGL therefore consumes a sparse thresholded representation that retains only high-confidence entries. The phenotype profile used for post-factor annotation is therefore not the full unthresholded phenotype surface. It is the thresholded support profile on a single chosen support surface. Publicly, EAGGL chooses exactly one support source per run in the order `combined`, then `log_bf`, then `prior`, unless the user explicitly overrides this with `--trait-linkage-source`.
+The external gene-by-phenotype support table can be very large. In practice, EAGGL therefore consumes a sparse thresholded representation that retains only high-confidence entries. The phenotype profile used for post-factor annotation is therefore not the full unthresholded phenotype surface. It is the thresholded support profile on a single chosen support surface. Publicly, EAGGL defaults to `--trait-linkage-source combined` and `--trait-linkage-threshold 1.0`, using a strict threshold rule (`source value > \tau`). Expert overrides can choose `log_bf`, `prior`, or `auto` fallback resolution.
 
 Let $b$ denote a feature basis shared by the factors and a trait-specific support vector. In the public workflow, $b$ is the gene basis whenever gene-factor loadings are available. EAGGL uses the gene-set basis only as an expert or fallback mode when the gene basis is unavailable or the user explicitly requests `--project-phenos-from-gene-sets`. Let
 \[
@@ -266,7 +266,7 @@ s_t^{(b)} \in \mathbb{R}_+^{F_b}
 \]
 denote the raw thresholded trait-support profile for phenotype $t$ on that same basis. These raw trait and factor vectors are not interpreted as biological probability distributions and are not required to sum to $1$. Their total support and total mass are meaningful quantities that are preserved separately from the copied normalized vectors used for trait-factor matching.
 
-By default, EAGGL uses a \emph{weighted thresholded} profile: retained combined-support values are used for entries above the cutoff and zero otherwise. As an expert sensitivity analysis, one may instead use a \emph{binary thresholded} profile, in which retained entries are coded as $1$ and absent entries as $0$ before normalization.
+By default, EAGGL uses a \emph{weighted thresholded} profile: retained source-support values are used for entries that strictly exceed the selected threshold and zero otherwise. As an expert sensitivity analysis, one may instead use a \emph{binary thresholded} profile, in which retained entries are coded as $1$ and absent entries as $0$ before normalization.
 
 For linkage, EAGGL first computes the total thresholded trait support on the full thresholded support surface, before applying the factor mask. Define the total thresholded trait support
 \begin{equation}
@@ -277,7 +277,7 @@ where $s_t^{(b,\mathrm{full})}$ denotes the full thresholded support surface on 
 \[
 s_{t,\mathcal{M}}^{(b)}
 \]
-denote the masked thresholded support profile restricted to the retained factor basis rows. The NNLS solve is performed on this masked profile, but the normalization denominator remains the full thresholded trait strength. Thus the normalized masked trait profile is
+denote the masked thresholded support profile restricted to the retained factor basis rows. EAGGL then builds a full-space matching target by zeroing support outside $\mathcal{M}_b$, and keeps the normalization denominator as the full thresholded trait strength. Thus the normalized masked trait profile is
 \begin{equation}
 q_t^{(b)} = \frac{s_{t,\mathcal{M}}^{(b)}}{A_t^{(b)} + \epsilon},
 \label{eq:eaggl_pheno_profile_normalized}

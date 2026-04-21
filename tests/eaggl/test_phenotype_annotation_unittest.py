@@ -129,6 +129,28 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_array_equal(weighted, feature_by_pheno)
         np.testing.assert_array_equal(binary, np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 0.0]]))
 
+    def test_prepare_thresholded_profile_input_applies_strict_threshold(self) -> None:
+        feature_by_pheno = np.array(
+            [
+                [1.0, 0.99],
+                [1.01, 2.0],
+            ]
+        )
+        weighted = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
+            feature_by_pheno,
+            "weighted_thresholded",
+            threshold_value=1.0,
+            strict_threshold=True,
+        )
+        binary = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
+            feature_by_pheno,
+            "binary_thresholded",
+            threshold_value=1.0,
+            strict_threshold=True,
+        )
+        np.testing.assert_array_equal(weighted, np.array([[0.0, 0.0], [1.01, 2.0]]))
+        np.testing.assert_array_equal(binary, np.array([[0.0, 0.0], [1.0, 1.0]]))
+
     def test_canonical_trait_linkage_returns_joint_and_marginal_scores(self) -> None:
         basis = np.array(
             [
@@ -173,6 +195,7 @@ class PhenotypeAnnotationTest(unittest.TestCase):
             basis,
             masked_feature_by_trait,
             full_feature_by_trait=full_feature_by_trait,
+            basis_mask=np.array([True, False]),
         )
 
         np.testing.assert_allclose(linkage["joint"], [[0.2]], atol=1e-8)
@@ -183,11 +206,37 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_array_equal(linkage["total_feature_count"], [2])
         np.testing.assert_array_equal(linkage["retained_feature_count"], [1])
         np.testing.assert_array_equal(linkage["low_retention_flag"], [True])
-        np.testing.assert_allclose(linkage["normalized_trait_support"], [[0.2]], atol=1e-8)
+        np.testing.assert_allclose(linkage["normalized_trait_support"], [[0.2], [0.0]], atol=1e-8)
         np.testing.assert_allclose(np.sum(linkage["normalized_trait_support"], axis=0), linkage["retained_fraction"], atol=1e-8)
         np.testing.assert_allclose(linkage["factor_total_mass"], [1.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["normalized_factor_basis"], [[1.0]], atol=1e-8)
+        np.testing.assert_allclose(linkage["normalized_factor_basis"], [[1.0], [0.0]], atol=1e-8)
         np.testing.assert_allclose(linkage["residual"], [0.8], atol=1e-8)
+
+    def test_canonical_trait_linkage_uses_source_threshold_and_full_space_objective(self) -> None:
+        basis = np.array([[1.0], [1.0], [1.0]])
+        full_feature_by_trait = np.array([[2.0], [2.0], [0.5]])
+        basis_mask = np.array([True, False, True])
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
+                W,
+                X_new,
+                max_sum=max_sum,
+                max_value=max_value,
+            ),
+            basis,
+            full_feature_by_trait,
+            full_feature_by_trait=full_feature_by_trait,
+            basis_mask=basis_mask,
+            threshold_mode="weighted_thresholded",
+            threshold_value=1.0,
+            strict_threshold=True,
+        )
+
+        np.testing.assert_allclose(linkage["trait_total_support"], [4.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["retained_trait_support"], [2.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["retained_fraction"], [0.5], atol=1e-8)
+        np.testing.assert_allclose(linkage["joint"], [[0.5]], atol=1e-6)
+        np.testing.assert_allclose(linkage["marginal"], [[0.5]], atol=1e-6)
 
     def test_canonical_trait_linkage_preserves_factor_total_mass_separately_from_matching_copy(self) -> None:
         basis = np.array([[2.0], [6.0]])

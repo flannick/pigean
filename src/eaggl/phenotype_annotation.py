@@ -21,16 +21,26 @@ def compute_profile_strengths(feature_by_profile):
     return np.asarray(np.sum(dense, axis=0), dtype=float)
 
 
-def prepare_thresholded_profile_input(feature_by_profile, mode):
+def prepare_thresholded_profile_input(
+    feature_by_profile,
+    mode,
+    *,
+    threshold_value=0.0,
+    strict_threshold=True,
+):
     dense = _as_dense_feature_matrix(feature_by_profile)
     if dense is None:
         return None
     if dense.ndim == 1:
         dense = dense[:, np.newaxis]
+    if strict_threshold:
+        support_mask = dense > threshold_value
+    else:
+        support_mask = dense >= threshold_value
     if mode == "weighted_thresholded":
-        return np.asarray(np.maximum(dense, 0.0), dtype=float)
+        return np.asarray(dense * support_mask, dtype=float)
     if mode == "binary_thresholded":
-        return np.asarray(dense > 0, dtype=float)
+        return np.asarray(support_mask, dtype=float)
     raise ValueError("Unknown phenotype capture input mode: %s" % mode)
 
 

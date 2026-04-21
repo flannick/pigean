@@ -620,6 +620,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-factor-links-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-source": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--trait-linkage-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-trait-linkage": ["test_cli_manifest_tiers_cover_recent_factor_and_gene_list_flags"],
             "--pheno-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-set-anchor-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],

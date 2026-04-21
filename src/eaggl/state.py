@@ -301,6 +301,8 @@ def _read_gene_phewas_bfs(
     gene_phewas_bfs_prior_col=None,
     phewas_gene_to_X_gene_in=None,
     min_value=None,
+    min_value_source="auto",
+    strict_min_value=False,
     max_num_entries_at_once=None,
 ):
     cached = dict(locals())
@@ -334,6 +336,8 @@ def _read_gene_phewas_bfs(
         gene_phewas_bfs_prior_col=gene_phewas_bfs_prior_col,
         phewas_gene_to_x_gene=phewas_gene_to_X_gene,
         min_value=min_value,
+        min_value_source=min_value_source,
+        strict_min_value=strict_min_value,
         max_num_entries_at_once=max_num_entries_at_once,
         open_text_fn=open_gz,
         get_col_fn=_get_col,
@@ -1677,7 +1681,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="auto", no_trait_linkage=False):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, no_trait_linkage=False):
         blockwise_gene_set_block_size = blockwise_gene_set_block_size if blockwise_gene_set_block_size is not None else (online_block_size if online_block_size is not None else 5000)
         blockwise_epochs = blockwise_epochs if blockwise_epochs is not None else online_epochs
         blockwise_shuffle_blocks = blockwise_shuffle_blocks if blockwise_shuffle_blocks is not None else online_shuffle_blocks
@@ -1765,6 +1769,7 @@ class EagglState(object):
             "project_phenos_from_gene_sets": project_phenos_from_gene_sets,
             "pheno_capture_input": pheno_capture_input,
             "trait_linkage_source": trait_linkage_source,
+            "trait_linkage_threshold": trait_linkage_threshold,
             "no_trait_linkage": no_trait_linkage,
             "bail_fn": bail,
             "warn_fn": warn,

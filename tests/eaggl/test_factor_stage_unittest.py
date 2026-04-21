@@ -113,7 +113,8 @@ def _options(**overrides):
         keep_original_loadings=False,
         project_phenos_from_gene_sets=False,
         pheno_capture_input="weighted_thresholded",
-        trait_linkage_source="auto",
+        trait_linkage_source="combined",
+        trait_linkage_threshold=1.0,
         no_trait_linkage=False,
         factors_out=None,
         factor_metrics_out=None,
@@ -205,7 +206,8 @@ class FactorStageHelpersTest(unittest.TestCase):
             blockwise_warm_start=True,
             blockwise_max_blocks=None,
             blockwise_report_out=None,
-            trait_linkage_source="auto",
+            trait_linkage_source="combined",
+            trait_linkage_threshold=1.0,
             no_trait_linkage=False,
             bail_fn=None,
             warn_fn=None,
@@ -226,6 +228,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                     "blockwise_max_blocks": blockwise_max_blocks,
                     "blockwise_report_out": blockwise_report_out,
                     "trait_linkage_source": trait_linkage_source,
+                    "trait_linkage_threshold": trait_linkage_threshold,
                     "no_trait_linkage": no_trait_linkage,
                 }
             )
@@ -244,6 +247,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 online_max_blocks=4,
                 online_report_out="legacy_report.tsv.gz",
                 trait_linkage_source="combined",
+                trait_linkage_threshold=0.75,
                 no_trait_linkage=True,
             )
 
@@ -257,6 +261,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(captured["blockwise_max_blocks"], 4)
         self.assertEqual(captured["blockwise_report_out"], "legacy_report.tsv.gz")
         self.assertEqual(captured["trait_linkage_source"], "combined")
+        self.assertEqual(captured["trait_linkage_threshold"], 0.75)
         self.assertTrue(captured["no_trait_linkage"])
 
     def test_zero_uncorrected_filter_hook_accepts_shared_runtime_kwargs(self) -> None:

@@ -384,7 +384,8 @@ parser.add_option("","--min-gene-phewas-read-value",type="float",default=1)
 parser.add_option("","--gene-phewas-id-to-X-id",default=None) #mapping from gene ids in the phewas file to gene ids in the gmt
 parser.add_option("","--project-phenos-from-gene-sets",action='store_true',default=False) #use gene set scores to project pheno loadings rather than gene scores. Note that this will also have the side effect of conditioning the regression only on the gene sets in the model rather than all gene sets
 parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type=str) #capture input profile for pheno clusters: weighted_thresholded or binary_thresholded
-parser.add_option("","--trait-linkage-source",default="auto",type=str) #trait linkage support surface: auto, combined, log_bf, prior
+parser.add_option("","--trait-linkage-source",default="combined",type=str) #trait linkage support surface: combined by default; expert override: auto, log_bf, prior
+parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #strict threshold applied to the selected trait-linkage source surface
 parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
 
 parser.add_option("","--anchor-phenos",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple pheno anchoring
@@ -511,7 +512,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--project-phenos-from-gene-sets": "project phenotype loadings from gene-set scores instead of gene scores",
     "--pheno-capture-input": "choose the phenotype-capture input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
-    "--trait-linkage-source": "choose the support surface for canonical trait linkage: auto, combined, log_bf, or prior",
+    "--trait-linkage-source": "choose the support surface for canonical trait linkage: combined by default, with optional expert overrides",
+    "--trait-linkage-threshold": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
     "--no-trait-linkage": "disable canonical trait linkage even when trait inputs are available",
     "--clustering-params-out": "write structured clustering workflow provenance as paired JSON and TSV summaries",
     "--run-phewas": "run the optional gene-level phewas output stage",
@@ -624,6 +626,7 @@ _EXPERT_METHOD_FLAGS = {
     "--pheno-capture-input",
     "--project-phenos-from-gene-sets",
     "--trait-linkage-source",
+    "--trait-linkage-threshold",
     "--no-trait-linkage",
     "--run-phewas",
 }
@@ -699,6 +702,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--min-lambda-threshold",
     "--phi",
     "--trait-linkage-source",
+    "--trait-linkage-threshold",
     "--no-trait-linkage",
     "--X-in",
     "--X-list",
@@ -1340,7 +1344,9 @@ def _bootstrap_cli(argv=None):
     if parsed_options.pheno_capture_input not in set(["weighted_thresholded", "binary_thresholded"]):
         bail("--pheno-capture-input must be one of: weighted_thresholded, binary_thresholded")
     if parsed_options.trait_linkage_source not in set(["auto", "combined", "log_bf", "prior"]):
-        bail("--trait-linkage-source must be one of: auto, combined, log_bf, prior")
+        bail("--trait-linkage-source must be one of: combined, log_bf, prior, auto")
+    if parsed_options.trait_linkage_threshold < 0:
+        bail("--trait-linkage-threshold must be >= 0")
     if parsed_options.factor_runs < 1:
         bail("--factor-runs must be at least 1")
     allowed_factor_phewas_modes = set([

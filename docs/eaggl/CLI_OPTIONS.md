@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `243`
+- Total options: `244`
 - `method_required`: `16`
-- `method_optional`: `137`
+- `method_optional`: `138`
 - `engineering`: `73`
 - `compat_alias`: `11`
 - `debug_only`: `6`
 - visibility `expert`: `199`
 - visibility `hidden`: `8`
-- visibility `normal`: `36`
+- visibility `normal`: `37`
 
 ## Method Required
 
@@ -170,7 +170,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.0` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
-| `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `auto` | choose the support surface for canonical trait linkage: auto, combined, log_bf, or prior |
+| `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the support surface for canonical trait linkage: combined by default, with optional expert overrides |
+| `--trait-linkage-threshold` | `normal` | `yes` | `core_help` | `trait_linkage_threshold` | `1.0` | strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold) |
 | `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |

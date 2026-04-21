@@ -121,7 +121,8 @@ class FactorExecutionConfig:
     keep_original_loadings: bool = False
     project_phenos_from_gene_sets: bool = False
     pheno_capture_input: str = "weighted_thresholded"
-    trait_linkage_source: str = "auto"
+    trait_linkage_source: str = "combined"
+    trait_linkage_threshold: float = 1.0
     no_trait_linkage: bool = False
 
     def to_run_kwargs(self):
@@ -198,6 +199,7 @@ class FactorExecutionConfig:
             "project_phenos_from_gene_sets": self.project_phenos_from_gene_sets,
             "pheno_capture_input": self.pheno_capture_input,
             "trait_linkage_source": self.trait_linkage_source,
+            "trait_linkage_threshold": self.trait_linkage_threshold,
             "no_trait_linkage": self.no_trait_linkage,
         }
 
@@ -705,7 +707,9 @@ def load_factor_phewas_inputs(domain, runtime, options):
             gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
             gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
             phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-            min_value=options.min_gene_phewas_read_value,
+            min_value=options.trait_linkage_threshold,
+            min_value_source=getattr(options, "trait_linkage_source", "combined"),
+            strict_min_value=True,
             max_num_entries_at_once=options.max_read_entries_at_once,
         )
         factor_input_data.loaded_gene_phewas_bfs = True
@@ -897,7 +901,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         keep_original_loadings=getattr(options, "keep_original_loadings", False),
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
         pheno_capture_input=getattr(options, "pheno_capture_input", "weighted_thresholded"),
-        trait_linkage_source=getattr(options, "trait_linkage_source", "auto"),
+        trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
+        trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
         no_trait_linkage=bool(getattr(options, "no_trait_linkage", False)),
     )
 
@@ -947,14 +952,17 @@ def run_main_pheno_projection_stage(domain, runtime, options):
             gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
             gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
             phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-            min_value=options.min_gene_phewas_read_value,
+            min_value=options.trait_linkage_threshold,
+            min_value_source=getattr(options, "trait_linkage_source", "combined"),
+            strict_min_value=True,
             max_num_entries_at_once=options.max_read_entries_at_once,
         )
 
     eaggl_factor_runtime.project_phenos_from_loaded_factors(
         runtime,
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
-        trait_linkage_source=getattr(options, "trait_linkage_source", "auto"),
+        trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
+        trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
         pheno_capture_input=options.pheno_capture_input,
         bail_fn=domain.bail,
         log_fn=domain.log,

@@ -200,7 +200,8 @@ Notes:
 | `--project-phenos-from-gene-sets` | compute phenotype capture on the gene-set basis instead of the gene basis |
 | `--pheno-capture-input` | choose whether phenotype capture uses retained weighted thresholded support or binary thresholded hits |
 | `--trait-factor-links-out` | write the canonical long-form trait-factor linkage table |
-| `--trait-linkage-source` | choose the support surface for canonical trait linkage: `auto`, `combined`, `log_bf`, or `prior` |
+| `--trait-linkage-source` | choose the support surface for canonical trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
+| `--trait-linkage-threshold` | strict threshold for canonical trait linkage support (`source_value > threshold`) |
 | `--no-trait-linkage` | disable canonical trait linkage even when trait inputs are available |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
@@ -211,8 +212,9 @@ Operational notes:
 - the target profile is normalized by total thresholded trait strength before masking, not by retained masked strength
 - raw trait support and raw factor loadings are not required to sum to `1`; only copied internal vectors are normalized for matching
 - capture operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
-- `--pheno-capture-input weighted_thresholded` is the default and uses retained combined-support values above the threshold; `binary_thresholded` is an expert sensitivity mode
-- `--trait-linkage-source auto` chooses one support surface per run in the order `combined`, then `log_bf`, then `prior`
+- `--pheno-capture-input weighted_thresholded` is the default and uses retained source-support values that strictly exceed `--trait-linkage-threshold`; `binary_thresholded` is an expert sensitivity mode
+- canonical linkage defaults to `--trait-linkage-source combined` and `--trait-linkage-threshold 1.0` (strict `> 1.0`)
+- if `--trait-linkage-source auto` is requested, one support surface is chosen per run in the order `combined`, then `log_bf`, then `prior`
 - factor-PheWAS is a secondary expert analysis for factor-specific phenotype enrichment
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
 - projection-only gene-basis phenotype clusters and factor-PheWAS use the raw `Factor1..FactorK` columns from `gene_clusters.out(.gz)` as the gene-factor loading matrix; any `combined`, `log_bf`, or `prior` columns in that file are reused as anchor covariates unless overridden by `--gene-stats-in`

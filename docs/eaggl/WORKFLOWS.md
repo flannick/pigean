@@ -83,7 +83,7 @@ Phenotype annotation policy:
 1. use canonical trait linkage for the primary public phenotype annotation layer
 2. write the long-form linkage table with `--trait-factor-links-out`; `--pheno-clusters-out` remains accepted as a compatibility alias for one release
 3. interpret trait linkage as linkage of the thresholded high-confidence phenotype support shape, not of a fully observed unthresholded phenotype surface or a biological probability distribution
-4. canonical linkage divides masked thresholded trait support by total thresholded trait support before masking, while still solving on the retained factor basis
+4. canonical linkage forms a masked full-space target (`s_mask / A`) by dividing masked thresholded trait support by total thresholded trait support before masking, then solves the joint/marginal projections in that full objective space
 5. use the retained diagnostics in `trait_factor_links.out.gz` to judge whether a trait is poorly represented on the current factor basis:
    - `trait_total_support`
    - `retained_trait_support`
@@ -94,7 +94,7 @@ Phenotype annotation policy:
    - `joint_support_mass`
    - `marginal_support_mass`
 6. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
-7. use `--trait-linkage-source auto` by default; this chooses one support surface per run in the order `combined`, then `log_bf`, then `prior`
+7. default to `--trait-linkage-source combined` with `--trait-linkage-threshold 1.0` (strict `source_value > 1.0`); use `--trait-linkage-source auto` only when you explicitly want fallback resolution (`combined`, then `log_bf`, then `prior`)
 8. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis
 9. treat `--run-factor-phewas` as a secondary expert workflow
 10. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`

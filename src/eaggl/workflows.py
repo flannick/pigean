@@ -364,7 +364,8 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
         "trait_linkage": {
             "enabled": trait_linkage_enabled,
             "basis": trait_linkage_basis,
-            "source": getattr(options, "trait_linkage_source", "auto"),
+            "source": getattr(options, "trait_linkage_source", "combined"),
+            "threshold": getattr(options, "trait_linkage_threshold", 1.0),
             "capture_input": getattr(options, "pheno_capture_input", None),
         },
         "factor_phewas": {
