@@ -177,13 +177,34 @@ class PhenotypeAnnotationTest(unittest.TestCase):
 
         np.testing.assert_allclose(linkage["joint"], [[0.2]], atol=1e-8)
         np.testing.assert_allclose(linkage["marginal"], [[0.2]], atol=1e-8)
-        np.testing.assert_allclose(linkage["strength"], [10.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["retained_strength"], [2.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["trait_total_support"], [10.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["retained_trait_support"], [2.0], atol=1e-8)
         np.testing.assert_allclose(linkage["retained_fraction"], [0.2], atol=1e-8)
         np.testing.assert_array_equal(linkage["total_feature_count"], [2])
         np.testing.assert_array_equal(linkage["retained_feature_count"], [1])
         np.testing.assert_array_equal(linkage["low_retention_flag"], [True])
+        np.testing.assert_allclose(linkage["normalized_trait_support"], [[0.2]], atol=1e-8)
+        np.testing.assert_allclose(np.sum(linkage["normalized_trait_support"], axis=0), linkage["retained_fraction"], atol=1e-8)
+        np.testing.assert_allclose(linkage["factor_total_mass"], [1.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["normalized_factor_basis"], [[1.0]], atol=1e-8)
         np.testing.assert_allclose(linkage["residual"], [0.8], atol=1e-8)
+
+    def test_canonical_trait_linkage_preserves_factor_total_mass_separately_from_matching_copy(self) -> None:
+        basis = np.array([[2.0], [6.0]])
+        masked_feature_by_trait = np.array([[1.0], [0.0]])
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
+                W,
+                X_new,
+                max_sum=max_sum,
+                max_value=max_value,
+            ),
+            basis,
+            masked_feature_by_trait,
+        )
+
+        np.testing.assert_allclose(linkage["factor_total_mass"], [8.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["normalized_factor_basis"], [[0.25], [0.75]], atol=1e-8)
 
     def test_trait_linkage_source_auto_prefers_combined_then_log_bf_then_prior(self) -> None:
         selected, label = eaggl_trait_linkage.resolve_trait_linkage_source(

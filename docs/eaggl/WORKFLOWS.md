@@ -8,7 +8,7 @@ This document maps each supported factoring workflow to:
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
 Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode.
-Canonical trait linkage is the primary annotation layer and reports marginal and joint linkage weights from the same normalized thresholded support surface. Factor-PheWAS is a secondary expert-only enrichment regression.
+Canonical trait linkage is the primary annotation layer and reports support-capture fractions from the same internal trait-factor matching step. Raw trait support and raw factor loadings keep their original totals; only copied internal vectors are normalized for matching. Factor-PheWAS is a secondary expert-only enrichment regression.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
 
@@ -82,14 +82,17 @@ Phenotype annotation policy:
 
 1. use canonical trait linkage for the primary public phenotype annotation layer
 2. write the long-form linkage table with `--trait-factor-links-out`; `--pheno-clusters-out` remains accepted as a compatibility alias for one release
-3. interpret trait linkage as linkage of the thresholded high-confidence phenotype profile shape, not of a fully observed unthresholded phenotype surface
-4. canonical linkage normalizes by total thresholded trait strength before masking, while still solving on the retained factor basis
+3. interpret trait linkage as linkage of the thresholded high-confidence phenotype support shape, not of a fully observed unthresholded phenotype surface or a biological probability distribution
+4. canonical linkage divides masked thresholded trait support by total thresholded trait support before masking, while still solving on the retained factor basis
 5. use the retained diagnostics in `trait_factor_links.out.gz` to judge whether a trait is poorly represented on the current factor basis:
-   - `retained_trait_strength`
+   - `trait_total_support`
+   - `retained_trait_support`
    - `retained_fraction`
    - `total_feature_count`
    - `retained_feature_count`
    - `low_retention_flag`
+   - `joint_support_mass`
+   - `marginal_support_mass`
 6. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
 7. use `--trait-linkage-source auto` by default; this chooses one support surface per run in the order `combined`, then `log_bf`, then `prior`
 8. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis

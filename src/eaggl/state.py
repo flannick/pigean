@@ -691,6 +691,7 @@ class FactorModelState:
     pheno_capture_strength: object | None = None
     pheno_capture_basis: object | None = None
     pheno_capture_input: object | None = None
+    trait_linkage_factor_total_mass: object | None = None
     trait_linkage_joint: object | None = None
     trait_linkage_marginal: object | None = None
     trait_linkage_residual: object | None = None
@@ -1113,6 +1114,7 @@ class EagglState(object):
         self.pheno_capture_strength = None
         self.pheno_capture_basis = None
         self.pheno_capture_input = None
+        self.trait_linkage_factor_total_mass = None
         self.trait_linkage_joint = None
         self.trait_linkage_marginal = None
         self.trait_linkage_residual = None
@@ -2112,6 +2114,7 @@ class EagglState(object):
             "label",
             "lambda",
             "any_relevance",
+            "factor_total_mass",
             "gene_mass",
             "gene_mass_fraction",
             "gene_effective_support",
@@ -2261,6 +2264,11 @@ class EagglState(object):
         }
 
     def _collect_factor_metrics_records(self):
+        factor_total_mass = (
+            np.asarray(self.trait_linkage_factor_total_mass, dtype=float)
+            if self.trait_linkage_factor_total_mass is not None
+            else None
+        )
         gene_set_masses = None
         if self.exp_gene_set_factors is not None and self.exp_gene_set_factors.size > 0:
             gene_set_factors = np.asarray(self.exp_gene_set_factors, dtype=float)
@@ -2316,6 +2324,11 @@ class EagglState(object):
                 "label": "" if self.factor_labels is None else str(self.factor_labels[i]),
                 "lambda": "%.6g" % float(self.exp_lambdak[i]) if self.exp_lambdak is not None else "NA",
                 "any_relevance": "%.6g" % float(self.factor_relevance[i]) if self.factor_relevance is not None else "NA",
+                "factor_total_mass": (
+                    "%.6g" % float(factor_total_mass[i])
+                    if factor_total_mass is not None and i < len(factor_total_mass)
+                    else "NA"
+                ),
                 "gene_mass": "%.6g" % gene_metrics["mass"],
                 "gene_mass_fraction": "%.6g" % gene_metrics["mass_fraction"],
                 "gene_effective_support": "%.6g" % gene_metrics["effective_support"],
@@ -2383,6 +2396,11 @@ class EagglState(object):
         if factors_output_file is not None:
             log("Writing factors to %s" % factors_output_file, INFO)
             with open_gz(factors_output_file, 'w') as output_fh:
+                factor_total_mass = (
+                    np.asarray(self.trait_linkage_factor_total_mass, dtype=float)
+                    if self.trait_linkage_factor_total_mass is not None
+                    else None
+                )
                 header = "Factor"
                 header = "%s\t%s" % (header, "label")
                 if anchors is not None:
@@ -2390,6 +2408,7 @@ class EagglState(object):
                     header = "%s\t%s" % (header, "relevance")
                     header = "%s\t%s" % (header, "joint")
                     header = "%s\t%s" % (header, "marginal")
+                    header = "%s\t%s" % (header, "factor_total_mass")
                 else:
                     header = "%s\t%s" % (header, "lambda")
                     header = "%s\t%s" % (header, "any_relevance")
@@ -2404,6 +2423,7 @@ class EagglState(object):
                     elif num_anchor_traits > 1:
                         header = "%s\t%s" % (header, "anchor_any_joint")
                         header = "%s\t%s" % (header, "anchor_any_marginal")
+                    header = "%s\t%s" % (header, "factor_total_mass")
 
                 if self.factor_top_genes is not None or self.factor_anchor_top_genes is not None:
                     header = "%s\t%s" % (header, "top_genes")
@@ -2436,6 +2456,12 @@ class EagglState(object):
                             line = "%s\t%.3g" % (line, joint_value)
                             line = "%s\t%.3g" % (line, joint_value)
                             line = "%s\t%.3g" % (line, marginal_value)
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_total_mass[i])
+                                if factor_total_mass is not None and i < len(factor_total_mass)
+                                else "NA",
+                            )
                             if self.factor_anchor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_genes[i][j]))
                             line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_gene_sets[i][j]))
@@ -2457,6 +2483,12 @@ class EagglState(object):
                                     if self.factor_marginal_relevance is not None
                                     else self.factor_relevance[i],
                                 )
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_total_mass[i])
+                                if factor_total_mass is not None and i < len(factor_total_mass)
+                                else "NA",
+                            )
                             if self.factor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_top_genes[i]))
                                 if self.factor_labels_genes:
@@ -2486,14 +2518,16 @@ class EagglState(object):
                 "trait",
                 "factor",
                 "is_anchor",
-                "joint",
-                "marginal",
-                "trait_strength",
-                "retained_trait_strength",
+                "joint_fraction",
+                "marginal_fraction",
+                "trait_total_support",
+                "retained_trait_support",
                 "retained_fraction",
                 "total_feature_count",
                 "retained_feature_count",
                 "low_retention_flag",
+                "joint_support_mass",
+                "marginal_support_mass",
                 "joint_residual",
                 "score_source",
                 "basis",
@@ -2558,6 +2592,8 @@ class EagglState(object):
                                 str(int(total_feature_counts[trait_index])),
                                 str(int(retained_feature_counts[trait_index])),
                                 "1" if bool(low_retention_flags[trait_index]) else "0",
+                                "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
+                                "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
                                 "%.6g" % float(residuals[trait_index]),
                                 score_source,
                                 basis,

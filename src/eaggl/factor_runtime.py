@@ -908,14 +908,15 @@ def _apply_canonical_trait_linkage(
         return False
 
     state.exp_pheno_factors = linkage_result["joint"]
-    state.pheno_capture_strength = linkage_result["strength"]
+    state.pheno_capture_strength = linkage_result["trait_total_support"]
     state.pheno_capture_basis = linkage_inputs["basis_name"]
     state.pheno_capture_input = pheno_capture_input
+    state.trait_linkage_factor_total_mass = linkage_result["factor_total_mass"]
     state.trait_linkage_joint = linkage_result["joint"]
     state.trait_linkage_marginal = linkage_result["marginal"]
     state.trait_linkage_residual = linkage_result["residual"]
-    state.trait_linkage_strength = linkage_result["strength"]
-    state.trait_linkage_retained_strength = linkage_result["retained_strength"]
+    state.trait_linkage_strength = linkage_result["trait_total_support"]
+    state.trait_linkage_retained_strength = linkage_result["retained_trait_support"]
     state.trait_linkage_retained_fraction = linkage_result["retained_fraction"]
     state.trait_linkage_total_feature_count = linkage_result["total_feature_count"]
     state.trait_linkage_retained_feature_count = linkage_result["retained_feature_count"]
@@ -2515,6 +2516,8 @@ def _finalize_factor_outputs(
         state.trait_linkage_joint = state.trait_linkage_joint[:, reorder_inds]
     if state.trait_linkage_marginal is not None:
         state.trait_linkage_marginal = state.trait_linkage_marginal[:, reorder_inds]
+    if state.trait_linkage_factor_total_mass is not None:
+        state.trait_linkage_factor_total_mass = state.trait_linkage_factor_total_mass[reorder_inds]
     state.exp_gene_set_factors = state.exp_gene_set_factors[:, reorder_inds]
 
     threshold = 1e-5

@@ -206,9 +206,10 @@ Notes:
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
 
 Operational notes:
-- canonical trait linkage is the primary user-facing phenotype annotation layer and is interpreted as normalized thresholded-profile linkage, not calibrated posterior probability
-- canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal` and `joint` relevance weights from the same normalized inputs: marginal is the one-factor bounded projection and joint is the all-factor constrained projection
+- canonical trait linkage is the primary user-facing phenotype annotation layer and is interpreted as support-preserving trait-factor matching, not calibrated posterior probability
+- canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal_fraction` and `joint_fraction` from the same internal matching inputs: `marginal_fraction` is the one-factor bounded projection and `joint_fraction` is the all-factor constrained projection
 - the target profile is normalized by total thresholded trait strength before masking, not by retained masked strength
+- raw trait support and raw factor loadings are not required to sum to `1`; only copied internal vectors are normalized for matching
 - capture operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
 - `--pheno-capture-input weighted_thresholded` is the default and uses retained combined-support values above the threshold; `binary_thresholded` is an expert sensitivity mode
 - `--trait-linkage-source auto` chooses one support surface per run in the order `combined`, then `log_bf`, then `prior`
@@ -381,13 +382,17 @@ The mathematical model and workflow formalization live in:
 
 For post-factor phenotype interpretation:
 - `trait_factor_links.out` is the primary phenotype annotation artifact
-- it reports both `marginal` and `joint` relevance weights from the same normalized thresholded phenotype profile, with `marginal` treating each factor alone and `joint` letting all factors compete under a shared sum constraint
-- `trait_strength` is the total thresholded support mass before masking, or the total thresholded hit count under binary capture mode
-- `retained_trait_strength` is the masked retained support mass used in the solve
-- `retained_fraction = retained_trait_strength / trait_strength`
+- raw trait support and raw factor loadings are not forced to sum to `1`; EAGGL preserves total support and total factor mass separately and only normalizes copied internal vectors for matching
+- it reports both `marginal_fraction` and `joint_fraction` from the same internal matching step, with `marginal_fraction` treating each factor alone and `joint_fraction` letting all factors compete under a shared sum constraint
+- `trait_total_support` is the full thresholded trait support before masking, or the total thresholded hit count under binary capture mode
+- `retained_trait_support` is the masked retained support available on the fitted factor basis
+- `retained_fraction = retained_trait_support / trait_total_support`
+- `joint_support_mass = trait_total_support * joint_fraction`
+- `marginal_support_mass = trait_total_support * marginal_fraction`
 - `total_feature_count` and `retained_feature_count` report the same diagnostic on thresholded feature counts
 - `low_retention_flag` marks traits whose retained support is very sparse on the current factor basis
 - `joint_residual` is the uncaptured normalized trait mass after the joint competitive projection
+- `factor_total_mass` in `factors.out` reports the raw total mass of each factor on the canonical linkage basis used for that run
 - `pheno_clusters.out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
 - `factor_phewas_stats.out` is a secondary enrichment table rather than the main phenotype-labeling surface
 

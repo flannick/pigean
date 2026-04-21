@@ -92,33 +92,34 @@ def compute_trait_linkage(
             % (dense_full_feature_by_trait.shape, dense_feature_by_trait.shape)
         )
 
-    prepared = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
+    masked_trait_support = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
         dense_feature_by_trait,
         threshold_mode,
     )
-    prepared_full = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
+    full_trait_support = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
         dense_full_feature_by_trait,
         threshold_mode,
     )
-    total_strengths = eaggl_phenotype_annotation.compute_profile_strengths(prepared_full)
-    retained_strengths = eaggl_phenotype_annotation.compute_profile_strengths(prepared)
-    total_feature_counts = _compute_positive_counts(prepared_full)
-    retained_feature_counts = _compute_positive_counts(prepared)
-    normalized_basis = dense_basis / np.maximum(
-        np.sum(dense_basis, axis=0, keepdims=True),
+    total_trait_support = eaggl_phenotype_annotation.compute_profile_strengths(full_trait_support)
+    retained_trait_support = eaggl_phenotype_annotation.compute_profile_strengths(masked_trait_support)
+    total_feature_counts = _compute_positive_counts(full_trait_support)
+    retained_feature_counts = _compute_positive_counts(masked_trait_support)
+    factor_total_mass = np.sum(dense_basis, axis=0, keepdims=True)
+    normalized_factor_basis = dense_basis / np.maximum(
+        factor_total_mass,
         eps,
     )
-    normalized_targets = prepared / np.maximum(total_strengths[np.newaxis, :], eps)
+    normalized_trait_support = masked_trait_support / np.maximum(total_trait_support[np.newaxis, :], eps)
 
     joint = np.asarray(
-        nnls_project_fn(normalized_basis, normalized_targets.T, max_sum=1.0),
+        nnls_project_fn(normalized_factor_basis, normalized_trait_support.T, max_sum=1.0),
         dtype=float,
     )
     marginal = np.zeros_like(joint, dtype=float)
-    for factor_index in range(normalized_basis.shape[1]):
-        factor_basis = normalized_basis[:, factor_index : factor_index + 1]
+    for factor_index in range(normalized_factor_basis.shape[1]):
+        factor_basis = normalized_factor_basis[:, factor_index : factor_index + 1]
         factor_scores = np.asarray(
-            nnls_project_fn(factor_basis, normalized_targets.T, max_value=1.0),
+            nnls_project_fn(factor_basis, normalized_trait_support.T, max_value=1.0),
             dtype=float,
         )
         if factor_scores.ndim == 1:
@@ -127,20 +128,25 @@ def compute_trait_linkage(
             marginal[:, factor_index] = factor_scores[:, 0]
 
     residual = np.maximum(0.0, 1.0 - np.sum(joint, axis=1))
-    retained_fraction = retained_strengths / np.maximum(total_strengths, eps)
+    retained_fraction = retained_trait_support / np.maximum(total_trait_support, eps)
     low_retention_flag = np.logical_or(
         retained_feature_counts < 5,
         retained_fraction < 0.1,
     )
 
     return {
-        "prepared_feature_by_trait": prepared,
-        "strength": np.asarray(total_strengths, dtype=float),
-        "retained_strength": np.asarray(retained_strengths, dtype=float),
+        "prepared_feature_by_trait": masked_trait_support,
+        "masked_trait_support": masked_trait_support,
+        "full_trait_support": full_trait_support,
+        "normalized_trait_support": np.asarray(normalized_trait_support, dtype=float),
+        "normalized_factor_basis": np.asarray(normalized_factor_basis, dtype=float),
+        "trait_total_support": np.asarray(total_trait_support, dtype=float),
+        "retained_trait_support": np.asarray(retained_trait_support, dtype=float),
         "retained_fraction": np.asarray(retained_fraction, dtype=float),
         "total_feature_count": np.asarray(total_feature_counts, dtype=int),
         "retained_feature_count": np.asarray(retained_feature_counts, dtype=int),
         "low_retention_flag": np.asarray(low_retention_flag, dtype=bool),
+        "factor_total_mass": np.asarray(np.ravel(factor_total_mass), dtype=float),
         "joint": joint,
         "marginal": marginal,
         "residual": residual,
