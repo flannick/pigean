@@ -2627,12 +2627,14 @@ class EagglState(object):
             main_header = [
                 "trait",
                 "factor",
+                "is_anchor",
                 "joint_fraction",
                 "marginal_fraction",
                 "joint_support_mass",
                 "marginal_support_mass",
                 "low_retention_flag",
                 "trait_neff",
+                "retained_n_eff",
             ]
             full_header = [
                 "trait",
@@ -2713,12 +2715,14 @@ class EagglState(object):
                     main_values = [
                         str(trait_name),
                         "Factor%d" % (factor_index + 1),
+                        "1" if bool(is_anchor[trait_index]) else "0",
                         "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
                         "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
                         "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
                         "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
                         "1" if bool(low_retention_flags[trait_index]) else "0",
                         "%.6g" % float(trait_n_eff[trait_index]),
+                        "%.6g" % float(retained_n_eff[trait_index]),
                     ]
                     if output_detail == "main":
                         values = main_values

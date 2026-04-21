@@ -91,7 +91,7 @@ Phenotype annotation policy:
 2. write the long-form linkage table with `--trait-factor-links-out`; `--pheno-clusters-out` remains accepted as a compatibility alias for one release
 3. interpret trait linkage as linkage of the thresholded high-confidence phenotype support shape, not of a fully observed unthresholded phenotype surface or a biological probability distribution
 4. canonical linkage forms a masked full-space target (`s_mask / A`) by dividing masked thresholded trait support by total thresholded trait support before masking, then solves the joint/marginal projections in that full objective space
-5. use `--trait-factor-links-output-detail main` for the concise default table (`trait`, `factor`, `joint_fraction`, `marginal_fraction`, `joint_support_mass`, `marginal_support_mass`, `low_retention_flag`, `trait_neff`) and `--trait-factor-links-output-detail full` when retained diagnostics are needed
+5. use `--trait-factor-links-output-detail main` for the concise default table (`trait`, `factor`, `is_anchor`, `joint_fraction`, `marginal_fraction`, `joint_support_mass`, `marginal_support_mass`, `low_retention_flag`, `trait_neff`, `retained_n_eff`) and `--trait-factor-links-output-detail full` when additional retained diagnostics are needed
 6. use the retained diagnostics in full-detail `trait_factor_links.out.gz` to judge whether a trait is poorly represented or highly concentrated on the current factor basis:
    - `trait_total_support`
    - `retained_trait_support`

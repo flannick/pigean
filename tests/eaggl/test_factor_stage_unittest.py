@@ -710,9 +710,8 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("marginal_coefficient_support_mass", content)
         self.assertIn("TraitA\tFactor1", content)
         self.assertIn("TraitB\tFactor2", content)
-        self.assertIn("trait\tfactor\tjoint_fraction\tmarginal_fraction\tjoint_support_mass\tmarginal_support_mass\tlow_retention_flag\ttrait_neff", concise_content)
+        self.assertIn("trait\tfactor\tis_anchor\tjoint_fraction\tmarginal_fraction\tjoint_support_mass\tmarginal_support_mass\tlow_retention_flag\ttrait_neff\tretained_n_eff", concise_content)
         self.assertNotIn("trait_total_support", concise_content.splitlines()[0])
-        self.assertNotIn("is_anchor", concise_content.splitlines()[0])
 
     def test_projection_only_anchor_and_external_trait_linkage_share_normalization_logic(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
