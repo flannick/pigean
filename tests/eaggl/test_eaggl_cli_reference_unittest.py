@@ -489,7 +489,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["factor_metrics_out"], "factor_metrics.tsv")
         self.assertEqual(opts["trait_factor_links_out"], "trait_factor_links.tsv")
         self.assertEqual(opts["trait_linkage_source"], "combined")
-        self.assertEqual(opts["trait_linkage_computation_mode"], "dense_full")
+        self.assertEqual(opts["trait_linkage_computation_mode"], "sparse_full")
         self.assertEqual(opts["pheno_clusters_out"], "pheno_clusters.tsv")
         self.assertEqual(opts["consensus_stats_out"], "consensus.tsv")
         self.assertEqual(opts["clustering_params_out"], "clustering_params.tsv.gz")

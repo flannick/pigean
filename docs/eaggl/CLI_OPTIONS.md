@@ -170,7 +170,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.0` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
-| `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `dense_full` | choose the canonical trait-linkage computation backend: dense_full keeps the current dense full-space implementation, while sparse_full keeps the same corrected math with sparse-aware projection inputs |
+| `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend |
 | `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the support surface for canonical trait linkage: combined by default, with optional expert overrides |
 | `--trait-linkage-threshold` | `normal` | `yes` | `core_help` | `trait_linkage_threshold` | `1.0` | strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold) |
 | `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |

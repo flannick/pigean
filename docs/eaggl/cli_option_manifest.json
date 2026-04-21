@@ -4948,7 +4948,7 @@
     {
       "action": null,
       "category": "method_optional",
-      "default": "dense_full",
+      "default": "sparse_full",
       "deprecation_timeline": null,
       "dest": "trait_linkage_computation_mode",
       "documentation_target": "advanced_workflows",
@@ -4962,7 +4962,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 389,
-      "summary": "choose the canonical trait-linkage computation backend: dense_full keeps the current dense full-space implementation, while sparse_full keeps the same corrected math with sparse-aware projection inputs",
+      "summary": "choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend",
       "type": "str",
       "usage_references": 11
     },

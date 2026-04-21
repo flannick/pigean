@@ -98,7 +98,7 @@ Phenotype annotation policy:
 6. use `trait_n_eff` and `retained_n_eff` when raw thresholded feature counts overstate breadth; these effective-size diagnostics shrink toward the number of genes carrying most of the support mass
 7. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
 8. default to `--trait-linkage-source combined` with `--trait-linkage-threshold 1.0` (strict `source_value > 1.0`); use `--trait-linkage-source auto` only when you explicitly want fallback resolution (`combined`, then `log_bf`, then `prior`)
-9. default to `--trait-linkage-computation-mode dense_full` for continuity; use `sparse_full` when you want to benchmark the sparse-aware full-space equivalent against the current dense implementation
+9. default to `--trait-linkage-computation-mode sparse_full` for sparse-aware full-space linkage; use `dense_full` only as an expert/debug comparison backend
 10. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis
 11. treat `--run-factor-phewas` as a secondary expert workflow
 12. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`

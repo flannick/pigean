@@ -202,7 +202,7 @@ Notes:
 | `--trait-factor-links-out` | write the canonical long-form trait-factor linkage table |
 | `--trait-linkage-source` | choose the support surface for canonical trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
 | `--trait-linkage-threshold` | strict threshold for canonical trait linkage support (`source_value > threshold`) |
-| `--trait-linkage-computation-mode` | choose the linkage computation backend: `dense_full` for the current dense implementation or `sparse_full` for a sparse-aware equivalent |
+| `--trait-linkage-computation-mode` | choose the linkage computation backend: `sparse_full` by default, or `dense_full` as a debug comparison backend |
 | `--no-trait-linkage` | disable canonical trait linkage even when trait inputs are available |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
@@ -215,7 +215,7 @@ Operational notes:
 - trait linkage operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
 - `--pheno-capture-input weighted_thresholded` is the default and uses retained source-support values that strictly exceed `--trait-linkage-threshold`; `binary_thresholded` is an expert sensitivity mode
 - canonical linkage defaults to `--trait-linkage-source combined` and `--trait-linkage-threshold 1.0` (strict `> 1.0`)
-- canonical linkage defaults to `--trait-linkage-computation-mode dense_full`; use `sparse_full` to benchmark the sparse-aware equivalent on sparse thresholded PheWAS inputs without changing the corrected linkage math
+- canonical linkage defaults to `--trait-linkage-computation-mode sparse_full`; `dense_full` remains available as an expert/debug comparison backend without changing the corrected linkage math
 - if `--trait-linkage-source auto` is requested, one support surface is chosen per run in the order `combined`, then `log_bf`, then `prior`
 - factor-PheWAS is a secondary expert analysis for factor-specific phenotype enrichment
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support

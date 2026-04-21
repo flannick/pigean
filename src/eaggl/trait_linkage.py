@@ -168,7 +168,7 @@ def compute_trait_linkage(
     threshold_mode="weighted_thresholded",
     threshold_value=1.0,
     strict_threshold=True,
-    computation_mode="dense_full",
+    computation_mode="sparse_full",
     eps=1e-12,
 ):
     if computation_mode not in {"dense_full", "sparse_full"}:
@@ -196,7 +196,7 @@ def compute_trait_linkage(
                 % (dense_basis.shape[0], expected_num_rows)
             )
         retained_basis = np.asarray(dense_basis, dtype=float)
-        full_basis = np.asarray(dense_basis, dtype=float) if computation_mode == "dense_full" else None
+        full_basis = np.asarray(dense_basis, dtype=float)
     else:
         retained_basis_mask = np.asarray(basis_mask, dtype=bool)
         if retained_basis_mask.ndim != 1 or retained_basis_mask.shape[0] != expected_num_rows:
@@ -213,13 +213,11 @@ def compute_trait_linkage(
                 "Trait linkage basis rows %s must match mask length %s or kept rows %s"
                 % (dense_basis.shape[0], expected_num_rows, int(np.sum(retained_basis_mask)))
             )
-        full_basis = None
-        if computation_mode == "dense_full":
-            full_basis, retained_basis_mask = _build_full_basis_matrix(
-                dense_basis,
-                retained_basis_mask,
-                expected_num_rows=expected_num_rows,
-            )
+        full_basis, retained_basis_mask = _build_full_basis_matrix(
+            dense_basis,
+            retained_basis_mask,
+            expected_num_rows=expected_num_rows,
+        )
 
     full_trait_support = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
         full_target_feature_by_trait,
@@ -249,11 +247,10 @@ def compute_trait_linkage(
         total_trait_support,
         eps=eps,
     )
+    normalized_factor_basis = full_basis / np.maximum(factor_total_mass, eps)
     if computation_mode == "dense_full":
-        normalized_factor_basis = full_basis / np.maximum(factor_total_mass, eps)
         normalized_trait_support = masked_full_trait_support / np.maximum(total_trait_support[np.newaxis, :], eps)
     else:
-        normalized_factor_basis = normalized_factor_basis_retained
         normalized_trait_support = _normalize_profiles_by_strength(
             masked_full_trait_support,
             total_trait_support,
