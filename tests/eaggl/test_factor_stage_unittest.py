@@ -70,7 +70,7 @@ def _options(**overrides):
         no_auto_discovery_subset=False,
         discovery_redundancy_weighting_mode="effective_size",
         no_discovery_redundancy_weighting=False,
-        discovery_redundancy_threshold=0.5,
+        discovery_redundancy_threshold=0.35,
         anchor_any_pheno=False,
         anchor_any_gene=False,
         anchor_gene_set=False,

@@ -38,7 +38,19 @@ def _clone_runtime_value(value):
 
 def _clone_runtime_state(source):
     cloned = copy.copy(source)
-    cloned.__dict__ = {key: _clone_runtime_value(value) for key, value in source.__dict__.items()}
+    new_values = {key: _clone_runtime_value(value) for key, value in source.__dict__.items()}
+    if hasattr(cloned, "__dict__"):
+        try:
+            cloned.__dict__.clear()
+            cloned.__dict__.update(new_values)
+        except Exception:
+            for key in list(getattr(cloned, "__dict__", {}).keys()):
+                try:
+                    delattr(cloned, key)
+                except Exception:
+                    pass
+            for key, value in new_values.items():
+                setattr(cloned, key, value)
     return cloned
 
 
@@ -177,6 +189,58 @@ def _compute_weight_matrix_for_block(block_probabilities, global_probabilities, 
     return np.asarray(block_probabilities @ global_probabilities.T, dtype=float)
 
 
+def _compute_weighted_discovery_scale_details(V, row_probabilities=None, column_probabilities=None, *, eps=1e-50):
+    if sparse.issparse(V):
+        matrix = V.tocsr()
+    else:
+        matrix = np.asarray(V, dtype=float)
+
+    N, M = matrix.shape
+    total_entries = float(max(1, N * M))
+
+    expanded_row_probabilities = _append_with_any_user_for_blockwise(row_probabilities)
+    expanded_column_probabilities = _append_with_any_user_for_blockwise(column_probabilities)
+    if expanded_row_probabilities is None and expanded_column_probabilities is None:
+        row_scale = np.ones(N, dtype=float)
+    else:
+        if expanded_column_probabilities is not None:
+            mean_column_probabilities = np.mean(np.asarray(expanded_column_probabilities, dtype=float), axis=0)
+        else:
+            row_width = expanded_row_probabilities.shape[1] if expanded_row_probabilities is not None else 1
+            mean_column_probabilities = np.ones(row_width, dtype=float)
+        if expanded_row_probabilities is None:
+            expanded_row_probabilities = np.ones((N, mean_column_probabilities.shape[0]), dtype=float)
+        row_scale = np.asarray(expanded_row_probabilities, dtype=float) @ np.asarray(mean_column_probabilities, dtype=float)
+        row_scale = np.maximum(np.asarray(row_scale, dtype=float).ravel(), eps)
+
+    sqrt_row_scale = np.sqrt(row_scale)
+    if sparse.issparse(matrix):
+        row_sums = np.asarray(matrix.sum(axis=1), dtype=float).ravel()
+        row_sq_sums = np.asarray(matrix.power(2).sum(axis=1), dtype=float).ravel()
+    else:
+        row_sums = np.sum(matrix, axis=1)
+        row_sq_sums = np.sum(matrix ** 2, axis=1)
+
+    raw_mean = float(np.sum(row_sums) / total_entries)
+    raw_second_moment = float(np.sum(row_sq_sums) / total_entries)
+    weighted_mean = float(np.sum(sqrt_row_scale * row_sums) / total_entries)
+    weighted_second_moment = float(np.sum(row_scale * row_sq_sums) / total_entries)
+    raw_std = math.sqrt(max(0.0, raw_second_moment - raw_mean ** 2))
+    weighted_std = math.sqrt(max(0.0, weighted_second_moment - weighted_mean ** 2))
+
+    return {
+        "row_scale": np.asarray(row_scale, dtype=float),
+        "raw_mean": float(raw_mean),
+        "raw_std": float(raw_std),
+        "weighted_mean": float(weighted_mean),
+        "weighted_std": float(weighted_std),
+        "row_scale_min": float(np.min(row_scale)) if row_scale.size > 0 else 0.0,
+        "row_scale_median": float(np.median(row_scale)) if row_scale.size > 0 else 0.0,
+        "row_scale_mean": float(np.mean(row_scale)) if row_scale.size > 0 else 0.0,
+        "row_scale_max": float(np.max(row_scale)) if row_scale.size > 0 else 0.0,
+    }
+
+
 def _initialize_blockwise_gene_factors(num_factors, num_columns, vmax):
     scale = max(float(vmax), 1e-6)
     return np.random.random((int(num_factors), int(num_columns))) * scale
@@ -226,18 +290,15 @@ def _fit_blockwise_global_w(
     K = int(max_num_factors)
     K0 = int(_DEFAULT_BLOCKWISE_K0)
     a0 = float(alpha0)
-    if sparse.issparse(V):
-        total_entries = float(max(1, N * M))
-        data = np.asarray(V.data, dtype=float)
-        mean_V = float(np.sum(data) / total_entries) if data.size > 0 else 0.0
-        second_moment = float(np.sum(np.square(data)) / total_entries) if data.size > 0 else 0.0
-        std_V = math.sqrt(max(0.0, second_moment - mean_V ** 2))
-    else:
-        mean_V = float(np.mean(V)) if N > 0 and M > 0 else 0.0
-        std_V = float(np.std(V)) if N > 0 and M > 0 else 0.0
-    phi_scaled = (std_V ** 2) * float(phi)
+    scale_details = _compute_weighted_discovery_scale_details(
+        V,
+        row_probabilities=gene_set_prob_vector,
+        column_probabilities=gene_or_pheno_prob_vector,
+        eps=eps,
+    )
+    phi_scaled = (float(scale_details["weighted_std"]) ** 2) * float(phi)
     C = (N + M) / 2.0 + a0 + 1.0
-    b0 = 3.14 * (a0 - 1.0) * mean_V / (2.0 * max(1, K0))
+    b0 = 3.14 * (a0 - 1.0) * float(scale_details["weighted_mean"]) / (2.0 * max(1, K0))
     lambda_bound = b0 / C if C != 0 else 0.0
     lambda_cut = lambda_bound * 1.5
 
@@ -675,8 +736,19 @@ def _fit_blockwise_global_w(
         "columns_evaluated": int(total_columns_evaluated),
         "warm_started": bool(warm_started),
         "lambda_cut": float(lambda_cut),
+        "raw_mean_v": float(scale_details["raw_mean"]),
+        "raw_std_v": float(scale_details["raw_std"]),
+        "weighted_mean_v": float(scale_details["weighted_mean"]),
+        "weighted_std_v": float(scale_details["weighted_std"]),
+        "row_scale_min": float(scale_details["row_scale_min"]),
+        "row_scale_median": float(scale_details["row_scale_median"]),
+        "row_scale_mean": float(scale_details["row_scale_mean"]),
+        "row_scale_max": float(scale_details["row_scale_max"]),
         "epoch_error_trace": [float(value) for value in epoch_error_trace],
         "wall_time_sec": float(time.time() - started_at),
+    }
+    state.last_factorization_scale_details = {
+        key: value for key, value in scale_details.items() if key != "row_scale"
     }
     state.last_factorization_blockwise_report = block_reports
 
@@ -737,6 +809,86 @@ def _checkpoint_output_path(path):
     return f"{path}.pre_projection"
 
 
+def _prepare_pre_projection_checkpoint_state(state):
+    checkpoint_state = _clone_runtime_state(state)
+    discovery_mask = getattr(checkpoint_state, "gene_set_in_discovery_mask", None)
+    if discovery_mask is None:
+        return checkpoint_state
+
+    discovery_mask = np.asarray(discovery_mask, dtype=bool)
+    discovery_indices = np.where(discovery_mask)[0]
+    full_gene_set_count = discovery_mask.shape[0]
+
+    if len(getattr(checkpoint_state, "gene_sets", [])) == full_gene_set_count:
+        checkpoint_state.gene_sets = [checkpoint_state.gene_sets[i] for i in discovery_indices]
+
+    row_vector_attrs = [
+        "betas",
+        "betas_uncorrected",
+        "betas_r_hat",
+        "betas_mcse",
+        "betas_uncorrected_r_hat",
+        "betas_uncorrected_mcse",
+        "beta_tildes",
+        "p_values",
+        "z_scores",
+        "ses",
+        "se_inflation_factors",
+        "beta_tildes_orig",
+        "p_values_orig",
+        "z_scores_orig",
+        "ses_orig",
+        "total_qc_metrics",
+        "mean_qc_metrics",
+        "inf_betas",
+        "betas_orig",
+        "betas_uncorrected_orig",
+        "non_inf_avg_cond_betas",
+        "non_inf_avg_postps",
+        "non_inf_avg_cond_betas_orig",
+        "non_inf_avg_postps_orig",
+        "is_dense_gene_set",
+        "gene_set_batches",
+        "gene_set_labels",
+        "ps",
+        "sigma2s",
+        "mean_shifts",
+        "scale_factors",
+        "gene_set_in_discovery_mask",
+        "gene_set_discovery_family_id",
+        "gene_set_discovery_representative_mask",
+        "gene_set_discovery_family_size",
+        "gene_set_discovery_weight",
+        "gene_set_discovery_family_mean_similarity",
+        "gene_set_discovery_family_effective_size",
+    ]
+    for attr in row_vector_attrs:
+        value = getattr(checkpoint_state, attr, None)
+        if value is None:
+            continue
+        if hasattr(value, "shape") and len(value.shape) >= 1 and value.shape[0] == full_gene_set_count:
+            setattr(checkpoint_state, attr, value[discovery_indices])
+
+    row_matrix_attrs = ["gene_set_prob_factor_vector", "gene_set_prob_vector", "exp_gene_set_factors"]
+    for attr in row_matrix_attrs:
+        value = getattr(checkpoint_state, attr, None)
+        if value is None or not hasattr(value, "shape") or len(value.shape) < 2:
+            continue
+        if value.shape[0] == full_gene_set_count:
+            setattr(checkpoint_state, attr, value[discovery_indices, :])
+
+    column_matrix_attrs = ["X_orig", "X_phewas_beta", "X_phewas_beta_uncorrected", "X_orig_missing_genes"]
+    for attr in column_matrix_attrs:
+        value = getattr(checkpoint_state, attr, None)
+        if value is None or not hasattr(value, "shape") or len(value.shape) < 2:
+            continue
+        if value.shape[1] == full_gene_set_count:
+            setattr(checkpoint_state, attr, value[:, discovery_indices])
+
+    checkpoint_state.gene_set_in_discovery_mask = np.full(len(discovery_indices), True, dtype=bool)
+    return checkpoint_state
+
+
 def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clusters_out, gene_clusters_out, log_fn, info_level):
     checkpoint_factor_metrics = _checkpoint_output_path(factor_metrics_out)
     checkpoint_gene_set_clusters = _checkpoint_output_path(gene_set_clusters_out)
@@ -744,12 +896,13 @@ def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clus
     if checkpoint_factor_metrics is None and checkpoint_gene_set_clusters is None and checkpoint_gene_clusters is None:
         return
     log_fn("Writing pre-projection factor checkpoint outputs", info_level)
-    if getattr(state, "factor_labels", None) is None and state.num_factors() > 0:
-        state.factor_labels = ["Factor%d" % (i + 1) for i in range(state.num_factors())]
+    checkpoint_state = _prepare_pre_projection_checkpoint_state(state)
+    if getattr(checkpoint_state, "factor_labels", None) is None and checkpoint_state.num_factors() > 0:
+        checkpoint_state.factor_labels = ["Factor%d" % (i + 1) for i in range(checkpoint_state.num_factors())]
     if checkpoint_factor_metrics is not None:
-        state.write_factor_metrics(checkpoint_factor_metrics)
+        checkpoint_state.write_factor_metrics(checkpoint_factor_metrics)
     if checkpoint_gene_set_clusters is not None or checkpoint_gene_clusters is not None:
-        state.write_clusters(checkpoint_gene_set_clusters, checkpoint_gene_clusters, None)
+        checkpoint_state.write_clusters(checkpoint_gene_set_clusters, checkpoint_gene_clusters, None)
 
 
 def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, log_fn=None, info_level=1):
@@ -1265,13 +1418,25 @@ def _combine_prune_masks(prune_masks, prune_number, sort_rank, tag, *, log_fn=No
     return all_prune_mask
 
 
-def _discovery_similarity_to_leaders(state, candidate_index, leader_indices):
+def _discovery_similarity_to_leaders(
+    state,
+    candidate_index,
+    leader_indices,
+    *,
+    X_orig=None,
+    mean_shifts=None,
+    scale_factors=None,
+):
     if len(leader_indices) == 0:
         return np.zeros(0, dtype=float)
-    candidate_cols = state.X_orig[:, [candidate_index]]
-    leader_cols = state.X_orig[:, leader_indices]
-    mean_shifts = getattr(state, "mean_shifts", np.zeros(state.X_orig.shape[1], dtype=float))
-    scale_factors = getattr(state, "scale_factors", np.ones(state.X_orig.shape[1], dtype=float))
+    if X_orig is None:
+        X_orig = state.X_orig
+    if mean_shifts is None:
+        mean_shifts = getattr(state, "mean_shifts", np.zeros(X_orig.shape[1], dtype=float))
+    if scale_factors is None:
+        scale_factors = getattr(state, "scale_factors", np.ones(X_orig.shape[1], dtype=float))
+    candidate_cols = X_orig[:, [candidate_index]]
+    leader_cols = X_orig[:, leader_indices]
     if hasattr(state, "_compute_V"):
         similarities = state._compute_V(
             candidate_cols,
@@ -1366,6 +1531,9 @@ def _build_discovery_plan(
     retained_gene_set_mask_full,
     gene_set_sort_rank,
     gene_set_prob_vector_full,
+    similarity_X_orig=None,
+    similarity_mean_shifts=None,
+    similarity_scale_factors=None,
     max_num_discovery_gene_sets,
     auto_discovery_subset,
     discovery_redundancy_weighting,
@@ -1422,7 +1590,14 @@ def _build_discovery_plan(
             discovery_family_id_full[candidate_index] = family_id
             continue
 
-        similarities = _discovery_similarity_to_leaders(state, int(candidate_index), leader_indices)
+        similarities = _discovery_similarity_to_leaders(
+            state,
+            int(candidate_index),
+            leader_indices,
+            X_orig=similarity_X_orig,
+            mean_shifts=similarity_mean_shifts,
+            scale_factors=similarity_scale_factors,
+        )
         best_family = int(np.argmax(similarities))
         best_similarity = float(similarities[best_family]) if similarities.size > 0 else -np.inf
 
@@ -2788,7 +2963,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.5, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -3232,11 +3407,21 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
 
     state.gene_set_prob_vector = gene_set_prob_vector
 
+    similarity_X_orig = state.X_orig[gene_or_pheno_mask, :]
+    if hasattr(state, "_calc_X_shift_scale"):
+        (similarity_mean_shifts, similarity_scale_factors) = state._calc_X_shift_scale(similarity_X_orig)
+    else:
+        similarity_mean_shifts = getattr(state, "mean_shifts", np.zeros(similarity_X_orig.shape[1], dtype=float))
+        similarity_scale_factors = getattr(state, "scale_factors", np.ones(similarity_X_orig.shape[1], dtype=float))
+
     discovery_plan = _build_discovery_plan(
         state,
         retained_gene_set_mask_full=gene_set_mask,
         gene_set_sort_rank=gene_set_sort_rank,
         gene_set_prob_vector_full=gene_set_prob_vector,
+        similarity_X_orig=similarity_X_orig,
+        similarity_mean_shifts=similarity_mean_shifts,
+        similarity_scale_factors=similarity_scale_factors,
         max_num_discovery_gene_sets=max_num_discovery_gene_sets,
         auto_discovery_subset=auto_discovery_subset,
         discovery_redundancy_weighting=discovery_redundancy_weighting,
@@ -3357,6 +3542,20 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             "epoch_error_trace": [],
             "wall_time_sec": None,
         }
+        scale_details = getattr(state, "last_factorization_scale_details", None)
+        if scale_details is not None:
+            state.last_factorization_backend_details.update(
+                {
+                    "raw_mean_v": float(scale_details.get("raw_mean", 0.0)),
+                    "raw_std_v": float(scale_details.get("raw_std", 0.0)),
+                    "weighted_mean_v": float(scale_details.get("weighted_mean", 0.0)),
+                    "weighted_std_v": float(scale_details.get("weighted_std", 0.0)),
+                    "row_scale_min": float(scale_details.get("row_scale_min", 0.0)),
+                    "row_scale_median": float(scale_details.get("row_scale_median", 0.0)),
+                    "row_scale_mean": float(scale_details.get("row_scale_mean", 0.0)),
+                    "row_scale_max": float(scale_details.get("row_scale_max", 0.0)),
+                }
+            )
         state.exp_lambdak = result[4]
         exp_gene_or_pheno_factors = result[1].T
         state.exp_gene_set_factors = result[0]
@@ -3364,6 +3563,22 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         likelihood_value = result[2]
         reconstruction_error_value = result[5]
         blockwise_warm_start_payload = None
+
+    scale_details = getattr(state, "last_factorization_scale_details", None)
+    if scale_details is not None:
+        state._record_params(
+            {
+                "discovery_scale_raw_mean_v": float(scale_details.get("raw_mean", 0.0)),
+                "discovery_scale_raw_std_v": float(scale_details.get("raw_std", 0.0)),
+                "discovery_scale_weighted_mean_v": float(scale_details.get("weighted_mean", 0.0)),
+                "discovery_scale_weighted_std_v": float(scale_details.get("weighted_std", 0.0)),
+                "discovery_scale_row_weight_min": float(scale_details.get("row_scale_min", 0.0)),
+                "discovery_scale_row_weight_median": float(scale_details.get("row_scale_median", 0.0)),
+                "discovery_scale_row_weight_mean": float(scale_details.get("row_scale_mean", 0.0)),
+                "discovery_scale_row_weight_max": float(scale_details.get("row_scale_max", 0.0)),
+            },
+            overwrite=True,
+        )
 
     #subset_out the weak factors
     lambda_keep_threshold = float(min_lambda_threshold)
@@ -3757,7 +3972,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.5, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_min_error_gain_per_factor=_LEARN_PHI_MIN_ERROR_GAIN_PER_FACTOR, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level

@@ -15,6 +15,7 @@ Current stable deep-engine slices:
 
 import functools
 import inspect
+import math
 import urllib.request
 
 import optparse
@@ -389,6 +390,73 @@ def _append_with_any_user(P):
     if sparse.issparse(P):
         P = P.todense()
     return np.hstack((P, 1 - np.prod(1 - P, axis=1)[:, np.newaxis]))
+
+
+def _compute_weighted_discovery_scale_details(V, P_gene_set=None, P_gene=None, *, eps=1e-50):
+    V_array = V
+    if sparse.issparse(V_array):
+        V_array = V_array.tocsr()
+    else:
+        V_array = np.asarray(V_array, dtype=float)
+
+    N, M = V_array.shape
+    total_entries = float(max(1, N * M))
+
+    P_gene_set = _append_with_any_user(P_gene_set)
+    P_gene = _append_with_any_user(P_gene)
+
+    if P_gene_set is None and P_gene is None:
+        row_scale = np.ones(N, dtype=float)
+    else:
+        if P_gene is not None:
+            if P_gene.ndim == 1:
+                P_gene = P_gene[:, np.newaxis]
+            U = P_gene.shape[1]
+        else:
+            U = P_gene_set.shape[1] if P_gene_set.ndim > 1 else 1
+            P_gene = np.ones((M, U), dtype=float)
+
+        if P_gene_set is not None:
+            if P_gene_set.ndim == 1:
+                P_gene_set = P_gene_set[:, np.newaxis]
+        else:
+            P_gene_set = np.ones((N, U), dtype=float)
+
+        mean_gene_prob = np.mean(np.asarray(P_gene, dtype=float), axis=0)
+        row_scale = np.asarray(P_gene_set, dtype=float) @ mean_gene_prob
+        row_scale = np.maximum(np.asarray(row_scale, dtype=float).ravel(), eps)
+
+    sqrt_row_scale = np.sqrt(row_scale)
+    if sparse.issparse(V_array):
+        row_sums = np.asarray(V_array.sum(axis=1), dtype=float).ravel()
+        row_sq_sums = np.asarray(V_array.power(2).sum(axis=1), dtype=float).ravel()
+        raw_mean = float(np.sum(row_sums) / total_entries)
+        raw_second_moment = float(np.sum(row_sq_sums) / total_entries)
+        weighted_mean = float(np.sum(sqrt_row_scale * row_sums) / total_entries)
+        weighted_second_moment = float(np.sum(row_scale * row_sq_sums) / total_entries)
+    else:
+        dense_V = np.asarray(V_array, dtype=float)
+        row_sums = np.sum(dense_V, axis=1)
+        row_sq_sums = np.sum(dense_V ** 2, axis=1)
+        raw_mean = float(np.sum(row_sums) / total_entries)
+        raw_second_moment = float(np.sum(row_sq_sums) / total_entries)
+        weighted_mean = float(np.sum(sqrt_row_scale * row_sums) / total_entries)
+        weighted_second_moment = float(np.sum(row_scale * row_sq_sums) / total_entries)
+
+    raw_std = math.sqrt(max(0.0, raw_second_moment - raw_mean ** 2))
+    weighted_std = math.sqrt(max(0.0, weighted_second_moment - weighted_mean ** 2))
+
+    return {
+        "row_scale": np.asarray(row_scale, dtype=float),
+        "raw_mean": float(raw_mean),
+        "raw_std": float(raw_std),
+        "weighted_mean": float(weighted_mean),
+        "weighted_std": float(weighted_std),
+        "row_scale_min": float(np.min(row_scale)) if row_scale.size > 0 else 0.0,
+        "row_scale_median": float(np.median(row_scale)) if row_scale.size > 0 else 0.0,
+        "row_scale_mean": float(np.mean(row_scale)) if row_scale.size > 0 else 0.0,
+        "row_scale_max": float(np.max(row_scale)) if row_scale.size > 0 else 0.0,
+    }
 
 
 @dataclass
@@ -1430,10 +1498,12 @@ class EagglState(object):
 
         V_ap = W @ H + eps  # Initial approximation of V
 
-        # Initialize ARD parameters
-        phi = (np.std(V) ** 2) * phi
+        scale_details = _compute_weighted_discovery_scale_details(V, P_gene_set=P_gene_set, P_gene=P_gene)
+
+        # Initialize ARD parameters using the weighted discovery scale.
+        phi = (float(scale_details["weighted_std"]) ** 2) * phi
         C = (N + M) / 2 + a0 + 1
-        b0 = 3.14 * (a0 - 1) * np.mean(V) / (2 * K0)
+        b0 = 3.14 * (a0 - 1) * float(scale_details["weighted_mean"]) / (2 * K0)
         lambda_bound = b0 / C
         lambdak = (0.5 * (np.sum(W ** 2, axis=0) + np.sum(H ** 2, axis=1)) + b0) / C
         lambda_cut = lambda_bound * 1.5
@@ -1448,6 +1518,9 @@ class EagglState(object):
         self.last_factorization_iterations = 0
         self.last_factorization_converged = False
         self.last_factorization_hit_iteration_cap = False
+        self.last_factorization_scale_details = {
+            key: value for key, value in scale_details.items() if key != "row_scale"
+        }
 
         P_gene_set = _append_with_any_user(P_gene_set)
         P_gene = _append_with_any_user(P_gene)
@@ -1607,7 +1680,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.5, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_k_band_frac=0.9, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_min_error_gain_per_factor=5.0, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded"):
         if max_num_discovery_gene_sets is None and max_num_gene_sets is not None:
             warn("max_num_gene_sets is deprecated for factor-stage discovery; mapping it to max_num_discovery_gene_sets")
             max_num_discovery_gene_sets = max_num_gene_sets

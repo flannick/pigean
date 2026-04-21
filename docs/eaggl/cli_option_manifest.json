@@ -50,7 +50,7 @@
       "source_line": 91,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 95
+      "usage_references": 97
     },
     {
       "action": "append",
@@ -911,12 +911,12 @@
       "source_line": 225,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 48
+      "usage_references": 50
     },
     {
       "action": null,
       "category": "method_optional",
-      "default": "0.5",
+      "default": "0.35",
       "deprecation_timeline": null,
       "dest": "discovery_redundancy_threshold",
       "documentation_target": "expert_help",
@@ -932,7 +932,7 @@
       "source_line": 401,
       "summary": null,
       "type": "float",
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -953,7 +953,7 @@
       "source_line": 399,
       "summary": null,
       "type": "choice",
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -1058,7 +1058,7 @@
       "source_line": 172,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 5
     },
     {
       "action": null,
@@ -1478,7 +1478,7 @@
       "source_line": 171,
       "summary": "write the main factor loading output table",
       "type": null,
-      "usage_references": 32
+      "usage_references": 33
     },
     {
       "action": null,
@@ -1604,7 +1604,7 @@
       "source_line": 175,
       "summary": null,
       "type": null,
-      "usage_references": 14
+      "usage_references": 15
     },
     {
       "action": null,
@@ -1856,7 +1856,7 @@
       "source_line": 156,
       "summary": null,
       "type": null,
-      "usage_references": 71
+      "usage_references": 74
     },
     {
       "action": null,
@@ -1877,7 +1877,7 @@
       "source_line": 117,
       "summary": null,
       "type": null,
-      "usage_references": 33
+      "usage_references": 34
     },
     {
       "action": null,
@@ -2255,7 +2255,7 @@
       "source_line": 174,
       "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 16
     },
     {
       "action": null,
@@ -2549,7 +2549,7 @@
       "source_line": 133,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 40
+      "usage_references": 41
     },
     {
       "action": null,
@@ -2570,7 +2570,7 @@
       "source_line": 163,
       "summary": null,
       "type": null,
-      "usage_references": 41
+      "usage_references": 42
     },
     {
       "action": null,
@@ -2633,7 +2633,7 @@
       "source_line": 149,
       "summary": null,
       "type": null,
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": null,
@@ -2654,7 +2654,7 @@
       "source_line": 147,
       "summary": null,
       "type": null,
-      "usage_references": 26
+      "usage_references": 27
     },
     {
       "action": null,
@@ -2675,7 +2675,7 @@
       "source_line": 146,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 69
+      "usage_references": 70
     },
     {
       "action": null,
@@ -2696,7 +2696,7 @@
       "source_line": 148,
       "summary": null,
       "type": null,
-      "usage_references": 25
+      "usage_references": 26
     },
     {
       "action": null,
@@ -2717,7 +2717,7 @@
       "source_line": 165,
       "summary": null,
       "type": null,
-      "usage_references": 52
+      "usage_references": 53
     },
     {
       "action": null,
@@ -2864,7 +2864,7 @@
       "source_line": 222,
       "summary": "reduce progress logging noise during long runs",
       "type": null,
-      "usage_references": 10
+      "usage_references": 12
     },
     {
       "action": null,
@@ -3494,7 +3494,7 @@
       "source_line": 219,
       "summary": "write structured run logs to this file",
       "type": null,
-      "usage_references": 9
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3746,7 +3746,7 @@
       "source_line": 311,
       "summary": null,
       "type": "int",
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": null,
@@ -4376,7 +4376,7 @@
       "source_line": 216,
       "summary": null,
       "type": null,
-      "usage_references": 50
+      "usage_references": 52
     },
     {
       "action": "store_true",
@@ -4544,7 +4544,7 @@
       "source_line": 312,
       "summary": null,
       "type": "float",
-      "usage_references": 15
+      "usage_references": 16
     },
     {
       "action": null,
@@ -4670,7 +4670,7 @@
       "source_line": 227,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 77
+      "usage_references": 81
     },
     {
       "action": null,
@@ -4859,7 +4859,7 @@
       "source_line": 224,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 25
+      "usage_references": 27
     },
     {
       "action": null,
@@ -5048,7 +5048,7 @@
       "source_line": 220,
       "summary": "write warning messages to this file",
       "type": null,
-      "usage_references": 9
+      "usage_references": 11
     },
     {
       "action": null,

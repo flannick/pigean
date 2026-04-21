@@ -56,6 +56,58 @@ class _CapturedFactorCall(RuntimeError):
 
 
 class PhiAutoFactorRuntimeTest(unittest.TestCase):
+    def test_weighted_discovery_scale_details_follow_row_weighted_objective(self) -> None:
+        matrix = np.array(
+            [
+                [1.0, 2.0],
+                [3.0, 4.0],
+            ],
+            dtype=float,
+        )
+        row_prob = np.array([[1.0], [0.25]], dtype=float)
+        col_prob = np.array([[1.0], [0.5]], dtype=float)
+
+        details = eaggl_factor_runtime._compute_weighted_discovery_scale_details(
+            matrix,
+            row_probabilities=row_prob,
+            column_probabilities=col_prob,
+        )
+
+        expanded_row = np.hstack((row_prob, 1 - np.prod(1 - row_prob, axis=1, keepdims=True)))
+        expanded_col = np.hstack((col_prob, 1 - np.prod(1 - col_prob, axis=1, keepdims=True)))
+        expected_row_scale = expanded_row @ np.mean(expanded_col, axis=0)
+        expected_weighted_matrix = np.sqrt(expected_row_scale)[:, np.newaxis] * matrix
+
+        np.testing.assert_allclose(details["row_scale"], expected_row_scale)
+        self.assertAlmostEqual(details["raw_mean"], float(np.mean(matrix)))
+        self.assertAlmostEqual(details["raw_std"], float(np.std(matrix)))
+        self.assertAlmostEqual(details["weighted_mean"], float(np.mean(expected_weighted_matrix)))
+        self.assertAlmostEqual(details["weighted_std"], float(np.std(expected_weighted_matrix)))
+
+    def test_prepare_pre_projection_checkpoint_state_subsets_to_discovery_rows(self) -> None:
+        state = SimpleNamespace(
+            gene_sets=["gs1", "gs2", "gs3"],
+            gene_set_in_discovery_mask=np.array([True, False, True]),
+            gene_set_discovery_family_id=np.array([0, 1, 0]),
+            gene_set_discovery_representative_mask=np.array([True, True, False]),
+            gene_set_discovery_family_size=np.array([2, 1, 2]),
+            gene_set_discovery_weight=np.array([0.9, 0.1, 0.8]),
+            gene_set_discovery_family_mean_similarity=np.array([0.8, np.nan, 0.8]),
+            gene_set_discovery_family_effective_size=np.array([1.1, 1.0, 1.1]),
+            gene_set_prob_factor_vector=np.array([[0.9], [0.1], [0.8]], dtype=float),
+            exp_gene_set_factors=np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float),
+            betas_uncorrected=np.array([0.2, 0.3, 0.4]),
+        )
+
+        checkpoint_state = eaggl_factor_runtime._prepare_pre_projection_checkpoint_state(state)
+
+        self.assertEqual(checkpoint_state.gene_sets, ["gs1", "gs3"])
+        np.testing.assert_array_equal(checkpoint_state.gene_set_in_discovery_mask, [True, True])
+        np.testing.assert_array_equal(checkpoint_state.gene_set_discovery_family_id, [0, 0])
+        np.testing.assert_array_equal(checkpoint_state.betas_uncorrected, [0.2, 0.4])
+        np.testing.assert_array_equal(checkpoint_state.gene_set_prob_factor_vector[:, 0], [0.9, 0.8])
+        np.testing.assert_array_equal(checkpoint_state.exp_gene_set_factors, [[1.0, 0.0], [0.0, 1.0]])
+
     def test_build_discovery_plan_collapses_exact_duplicate_gene_sets(self) -> None:
         state = EagglState()
         state.X_orig = sparse.csr_matrix(
@@ -294,6 +346,9 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(state.last_factorization_backend_details["block_size"], 2)
         self.assertEqual(state.last_factorization_backend_details["max_total_passes"], 12)
         self.assertGreaterEqual(state.last_factorization_backend_details["global_refinement_passes"], 3)
+        self.assertIn("weighted_mean_v", state.last_factorization_backend_details)
+        self.assertIn("weighted_std_v", state.last_factorization_backend_details)
+        self.assertIn("row_scale_mean", state.last_factorization_backend_details)
         self.assertEqual(state.last_factorization_backend_details["min_refinement_passes"], 2)
         self.assertEqual(state.last_factorization_backend_details["min_shrinkage_refinement_passes"], 2)
         self.assertEqual(state.last_factorization_backend_details["refinement_lambda_freeze_passes"], 1)

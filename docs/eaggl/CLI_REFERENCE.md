@@ -305,7 +305,7 @@ Operational notes:
 | `--no-auto-discovery-subset` | disable the default family-leader discovery subset and instead fit discovery on all retained gene sets |
 | `--discovery-redundancy-weighting-mode` | choose leader-family discovery weighting: `effective_size`, `log_effective_size`, or `none` |
 | `--no-discovery-redundancy-weighting` | disable the default redundancy-balanced discovery weighting |
-| `--discovery-redundancy-threshold` | similarity threshold used when assigning retained gene sets to discovery families; defaults to `0.5` |
+| `--discovery-redundancy-threshold` | similarity threshold used when assigning retained gene sets to discovery families; defaults to `0.35` |
 | `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | deprecated factor-stage discovery controls kept only as compatibility aliases; use the discovery flags above instead |
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |

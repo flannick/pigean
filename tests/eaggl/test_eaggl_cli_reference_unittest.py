@@ -100,6 +100,11 @@ class EagglCliReferenceTest(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["options"]["discovery_redundancy_weighting_mode"], "effective_size")
 
+    def test_reference_default_discovery_threshold_is_point_three_five(self) -> None:
+        proc = self._run_ok("factor", "--print-effective-config")
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["discovery_redundancy_threshold"], 0.35)
+
     def test_reference_matrix_and_bundle_flags_round_trip(self) -> None:
         x_list = self.tmpdir / "x_inputs.list"
         x_list.write_text("alpha.tsv\n", encoding="utf-8")
