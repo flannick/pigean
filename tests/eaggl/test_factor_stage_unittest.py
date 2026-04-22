@@ -39,12 +39,18 @@ def _options(**overrides):
         learn_phi_min_run_support=0.6,
         learn_phi_min_stability=0.85,
         learn_phi_max_fit_loss_frac=0.05,
-        learn_phi_k_band_frac=0.9,
+        learn_phi_target_gene_effective_support=None,
+        learn_phi_size_tolerance_frac=0.25,
+        learn_phi_min_primary_factors=3,
+        learn_phi_max_primary_gene_max_weight_q90=None,
         learn_phi_max_steps=8,
         learn_phi_expand_factor=2.0,
         learn_phi_weight_floor=None,
         learn_phi_report_out=None,
         factor_phi_metrics_out=None,
+        factor_phi_factors_out=None,
+        factor_phi_gene_set_clusters_out=None,
+        factor_phi_gene_clusters_out=None,
         factor_backend="full",
         learn_phi_backend="sentinel_pruned",
         blockwise_gene_set_block_size=5000,
@@ -360,12 +366,18 @@ class FactorStageHelpersTest(unittest.TestCase):
             learn_phi_min_run_support=0.7,
             learn_phi_min_stability=0.9,
             learn_phi_max_fit_loss_frac=0.03,
-            learn_phi_k_band_frac=0.8,
+            learn_phi_target_gene_effective_support=25.0,
+            learn_phi_size_tolerance_frac=0.2,
+            learn_phi_min_primary_factors=4,
+            learn_phi_max_primary_gene_max_weight_q90=0.6,
             learn_phi_max_steps=6,
             learn_phi_expand_factor=5.0,
             learn_phi_weight_floor=0.02,
             learn_phi_report_out="phi.tsv",
             factor_phi_metrics_out="phi_factor_metrics.tsv",
+            factor_phi_factors_out="phi_factors.tsv",
+            factor_phi_gene_set_clusters_out="phi_gene_set_clusters.tsv",
+            factor_phi_gene_clusters_out="phi_gene_clusters.tsv",
             factor_backend="blockwise_global_w",
             learn_phi_backend="blockwise_global_w",
             blockwise_gene_set_block_size=123,
@@ -386,12 +398,18 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_min_run_support, 0.7)
         self.assertEqual(cfg.learn_phi_min_stability, 0.9)
         self.assertEqual(cfg.learn_phi_max_fit_loss_frac, 0.03)
-        self.assertEqual(cfg.learn_phi_k_band_frac, 0.8)
+        self.assertEqual(cfg.learn_phi_target_gene_effective_support, 25.0)
+        self.assertEqual(cfg.learn_phi_size_tolerance_frac, 0.2)
+        self.assertEqual(cfg.learn_phi_min_primary_factors, 4)
+        self.assertEqual(cfg.learn_phi_max_primary_gene_max_weight_q90, 0.6)
         self.assertEqual(cfg.learn_phi_max_steps, 6)
         self.assertEqual(cfg.learn_phi_expand_factor, 5.0)
         self.assertEqual(cfg.learn_phi_weight_floor, 0.02)
         self.assertEqual(cfg.learn_phi_report_out, "phi.tsv")
         self.assertEqual(cfg.factor_phi_metrics_out, "phi_factor_metrics.tsv")
+        self.assertEqual(cfg.factor_phi_factors_out, "phi_factors.tsv")
+        self.assertEqual(cfg.factor_phi_gene_set_clusters_out, "phi_gene_set_clusters.tsv")
+        self.assertEqual(cfg.factor_phi_gene_clusters_out, "phi_gene_clusters.tsv")
         self.assertEqual(cfg.factor_backend, "blockwise_global_w")
         self.assertEqual(cfg.learn_phi_backend, "blockwise_global_w")
         self.assertEqual(cfg.blockwise_gene_set_block_size, 123)

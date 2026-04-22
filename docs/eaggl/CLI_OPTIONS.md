@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `250`
+- Total options: `255`
 - `method_required`: `16`
-- `method_optional`: `144`
-- `engineering`: `73`
+- `method_optional`: `146`
+- `engineering`: `76`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `205`
+- visibility `expert`: `209`
 - visibility `hidden`: `8`
-- visibility `normal`: `37`
+- visibility `normal`: `38`
 
 ## Method Required
 
@@ -101,20 +101,22 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi by structural model selection before the final factorization |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `2.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
-| `--learn-phi-k-band-frac` | `expert` | `yes` | `expert_help` | `learn_phi_k_band_frac` | `0.9` | legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection |
 | `--learn-phi-mass-floor-frac` | `expert` | `yes` | `expert_help` | `learn_phi_mass_floor_frac` | `0.005` | minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring |
-| `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | legacy fallback fit-loss guard used when no phi candidate satisfies the primary redundancy/restart criteria |
+| `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | maximum allowed reconstruction-error loss relative to the best phi-search candidate |
 | `--learn-phi-max-num-iterations` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_num_iterations` | `None` | during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate |
+| `--learn-phi-max-primary-gene-max-weight-q90` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_primary_gene_max_weight_q90` | `None` | optional maximum q90 primary-factor max gene weight allowed during target-size tuning |
 | `--learn-phi-max-redundancy` | `normal` | `yes` | `core_help` | `learn_phi_max_redundancy` | `0.5` | maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available |
 | `--learn-phi-max-redundancy-q90` | `expert` | `yes` | `expert_help` | `learn_phi_max_redundancy_q90` | `0.35` | maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning |
 | `--learn-phi-max-steps` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_steps` | `5` | maximum number of log-space phi search steps after bracketing |
-| `--learn-phi-min-error-gain-per-factor` | `expert` | `yes` | `expert_help` | `learn_phi_min_error_gain_per_factor` | `5.0` | minimum reconstruction-error reduction required per additional effective factor when traversing the automatic phi frontier |
+| `--learn-phi-min-primary-factors` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_primary_factors` | `3` | minimum primary factor count required for a phi candidate during target-size tuning |
 | `--learn-phi-min-run-support` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_run_support` | `0.6` | minimum run-support fraction required for a phi candidate during automatic tuning |
 | `--learn-phi-min-stability` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_stability` | `0.85` | minimum matched-factor cosine stability required for a phi candidate during automatic tuning |
 | `--learn-phi-only` | `expert` | `yes` | `expert_help` | `learn_phi_only` | `False` | stop after automatic phi selection and report writing instead of running the final full-panel factorization |
 | `--learn-phi-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `learn_phi_prune_gene_sets_num` | `1000` | during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi |
 | `--learn-phi-prune-genes-num` | `expert` | `yes` | `expert_help` | `learn_phi_prune_genes_num` | `1000` | during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi |
 | `--learn-phi-runs-per-step` | `expert` | `yes` | `advanced_workflows` | `learn_phi_runs_per_step` | `1` | number of repeated restarts used to score each candidate phi |
+| `--learn-phi-size-tolerance-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_size_tolerance_frac` | `0.25` | fractional tolerance around the requested primary-factor gene effective support |
+| `--learn-phi-target-gene-effective-support` | `normal` | `yes` | `core_help` | `learn_phi_target_gene_effective_support` | `None` | required with --learn-phi; target median effective gene support among primary factors |
 | `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--lmm-auth-key` | `expert` | `yes` | `advanced_workflows` | `lmm_auth_key` | `None` | enable optional LLM-based factor labeling |
@@ -199,6 +201,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--deterministic` | `expert` | `no` | `core_help` | `deterministic` | `False` | force deterministic random seed behavior (seed=0 unless --seed is set) |
 | `--factor-metrics-out` | `expert` | `no` | `expert_help` | `factor_metrics_out` | `None` | - |
 | `--factor-phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `factor_phewas_stats_out` | `None` | - |
+| `--factor-phi-factors-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_factors_out` | `None` | write factors.out-style rows for each investigated phi-search candidate with a leading phi column |
+| `--factor-phi-gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_gene_clusters_out` | `None` | write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column |
+| `--factor-phi-gene-set-clusters-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_gene_set_clusters_out` | `None` | write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column |
 | `--factor-phi-metrics-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_metrics_out` | `None` | write per-factor diagnostics for each investigated phi-search candidate |
 | `--factors-anchor-out` | `normal` | `no` | `core_help` | `factors_anchor_out` | `None` | write anchor-specific factorization outputs |
 | `--factors-out` | `normal` | `no` | `core_help` | `factors_out` | `None` | write the main factor loading output table |

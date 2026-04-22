@@ -64,15 +64,20 @@ class FactorExecutionConfig:
     learn_phi_min_run_support: float = 0.6
     learn_phi_min_stability: float = 0.85
     learn_phi_max_fit_loss_frac: float = 0.05
-    learn_phi_k_band_frac: float = 0.9
+    learn_phi_target_gene_effective_support: float | None = None
+    learn_phi_size_tolerance_frac: float = 0.25
+    learn_phi_min_primary_factors: int = 3
+    learn_phi_max_primary_gene_max_weight_q90: float | None = None
     learn_phi_max_steps: int = 5
     learn_phi_expand_factor: float = 2.0
     learn_phi_weight_floor: float | None = None
     learn_phi_mass_floor_frac: float = 0.005
-    learn_phi_min_error_gain_per_factor: float = 5.0
     learn_phi_only: bool = False
     learn_phi_report_out: str | None = None
     factor_phi_metrics_out: str | None = None
+    factor_phi_factors_out: str | None = None
+    factor_phi_gene_set_clusters_out: str | None = None
+    factor_phi_gene_clusters_out: str | None = None
     factor_backend: str = "full"
     learn_phi_backend: str = "sentinel_pruned"
     blockwise_gene_set_block_size: int = 5000
@@ -143,15 +148,20 @@ class FactorExecutionConfig:
             "learn_phi_min_run_support": self.learn_phi_min_run_support,
             "learn_phi_min_stability": self.learn_phi_min_stability,
             "learn_phi_max_fit_loss_frac": self.learn_phi_max_fit_loss_frac,
-            "learn_phi_k_band_frac": self.learn_phi_k_band_frac,
+            "learn_phi_target_gene_effective_support": self.learn_phi_target_gene_effective_support,
+            "learn_phi_size_tolerance_frac": self.learn_phi_size_tolerance_frac,
+            "learn_phi_min_primary_factors": self.learn_phi_min_primary_factors,
+            "learn_phi_max_primary_gene_max_weight_q90": self.learn_phi_max_primary_gene_max_weight_q90,
             "learn_phi_max_steps": self.learn_phi_max_steps,
             "learn_phi_expand_factor": self.learn_phi_expand_factor,
             "learn_phi_weight_floor": self.learn_phi_weight_floor,
             "learn_phi_mass_floor_frac": self.learn_phi_mass_floor_frac,
-            "learn_phi_min_error_gain_per_factor": self.learn_phi_min_error_gain_per_factor,
             "learn_phi_only": self.learn_phi_only,
             "learn_phi_report_out": self.learn_phi_report_out,
             "factor_phi_metrics_out": self.factor_phi_metrics_out,
+            "factor_phi_factors_out": self.factor_phi_factors_out,
+            "factor_phi_gene_set_clusters_out": self.factor_phi_gene_set_clusters_out,
+            "factor_phi_gene_clusters_out": self.factor_phi_gene_clusters_out,
             "factor_backend": self.factor_backend,
             "learn_phi_backend": self.learn_phi_backend,
             "blockwise_gene_set_block_size": self.blockwise_gene_set_block_size,
@@ -907,15 +917,20 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_min_run_support=options.learn_phi_min_run_support,
         learn_phi_min_stability=options.learn_phi_min_stability,
         learn_phi_max_fit_loss_frac=options.learn_phi_max_fit_loss_frac,
-        learn_phi_k_band_frac=options.learn_phi_k_band_frac,
+        learn_phi_target_gene_effective_support=getattr(options, "learn_phi_target_gene_effective_support", None),
+        learn_phi_size_tolerance_frac=getattr(options, "learn_phi_size_tolerance_frac", 0.25),
+        learn_phi_min_primary_factors=getattr(options, "learn_phi_min_primary_factors", 3),
+        learn_phi_max_primary_gene_max_weight_q90=getattr(options, "learn_phi_max_primary_gene_max_weight_q90", None),
         learn_phi_max_steps=options.learn_phi_max_steps,
         learn_phi_expand_factor=options.learn_phi_expand_factor,
         learn_phi_weight_floor=options.learn_phi_weight_floor,
         learn_phi_mass_floor_frac=getattr(options, "learn_phi_mass_floor_frac", 0.005),
-        learn_phi_min_error_gain_per_factor=getattr(options, "learn_phi_min_error_gain_per_factor", 5.0),
         learn_phi_only=getattr(options, "learn_phi_only", False),
         learn_phi_report_out=options.learn_phi_report_out,
         factor_phi_metrics_out=getattr(options, "factor_phi_metrics_out", None),
+        factor_phi_factors_out=getattr(options, "factor_phi_factors_out", None),
+        factor_phi_gene_set_clusters_out=getattr(options, "factor_phi_gene_set_clusters_out", None),
+        factor_phi_gene_clusters_out=getattr(options, "factor_phi_gene_clusters_out", None),
         factor_backend=getattr(options, "factor_backend", "full"),
         learn_phi_backend=getattr(options, "learn_phi_backend", "sentinel_pruned"),
         blockwise_gene_set_block_size=getattr(options, "blockwise_gene_set_block_size", 5000),

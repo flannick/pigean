@@ -345,8 +345,14 @@ class EagglCliReferenceTest(unittest.TestCase):
             "0.9",
             "--learn-phi-max-fit-loss-frac",
             "0.03",
-            "--learn-phi-k-band-frac",
-            "0.8",
+            "--learn-phi-target-gene-effective-support",
+            "25",
+            "--learn-phi-size-tolerance-frac",
+            "0.2",
+            "--learn-phi-min-primary-factors",
+            "4",
+            "--learn-phi-max-primary-gene-max-weight-q90",
+            "0.6",
             "--learn-phi-max-steps",
             "6",
             "--learn-phi-expand-factor",
@@ -357,6 +363,12 @@ class EagglCliReferenceTest(unittest.TestCase):
             "phi.tsv",
             "--factor-phi-metrics-out",
             "phi_factor_metrics.tsv",
+            "--factor-phi-factors-out",
+            "phi_factors.tsv",
+            "--factor-phi-gene-set-clusters-out",
+            "phi_gene_set_clusters.tsv",
+            "--factor-phi-gene-clusters-out",
+            "phi_gene_clusters.tsv",
             "--factor-backend",
             "blockwise_global_w",
             "--learn-phi-backend",
@@ -465,12 +477,18 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_min_run_support"], 0.7)
         self.assertEqual(opts["learn_phi_min_stability"], 0.9)
         self.assertEqual(opts["learn_phi_max_fit_loss_frac"], 0.03)
-        self.assertEqual(opts["learn_phi_k_band_frac"], 0.8)
+        self.assertEqual(opts["learn_phi_target_gene_effective_support"], 25.0)
+        self.assertEqual(opts["learn_phi_size_tolerance_frac"], 0.2)
+        self.assertEqual(opts["learn_phi_min_primary_factors"], 4)
+        self.assertEqual(opts["learn_phi_max_primary_gene_max_weight_q90"], 0.6)
         self.assertEqual(opts["learn_phi_max_steps"], 6)
         self.assertEqual(opts["learn_phi_expand_factor"], 5.0)
         self.assertEqual(opts["learn_phi_weight_floor"], 0.02)
         self.assertEqual(opts["learn_phi_report_out"], "phi.tsv")
         self.assertEqual(opts["factor_phi_metrics_out"], "phi_factor_metrics.tsv")
+        self.assertEqual(opts["factor_phi_factors_out"], "phi_factors.tsv")
+        self.assertEqual(opts["factor_phi_gene_set_clusters_out"], "phi_gene_set_clusters.tsv")
+        self.assertEqual(opts["factor_phi_gene_clusters_out"], "phi_gene_clusters.tsv")
         self.assertEqual(opts["factor_backend"], "blockwise_global_w")
         self.assertEqual(opts["learn_phi_backend"], "blockwise_global_w")
         self.assertEqual(opts["blockwise_gene_set_block_size"], 1234)
@@ -519,14 +537,17 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["params_out"], "params.tsv")
 
     def test_reference_learn_phi_defaults_include_sentinel_prune(self) -> None:
-        proc = self._run("factor", "--learn-phi", "--print-effective-config")
+        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=proc.stderr)
         opts = json.loads(proc.stdout)["options"]
         self.assertTrue(opts["learn_phi"])
         self.assertEqual(opts["learn_phi_runs_per_step"], 1)
         self.assertEqual(opts["learn_phi_max_redundancy"], 0.5)
         self.assertEqual(opts["learn_phi_max_redundancy_q90"], 0.35)
-        self.assertEqual(opts["learn_phi_k_band_frac"], 0.9)
+        self.assertEqual(opts["learn_phi_target_gene_effective_support"], 25.0)
+        self.assertEqual(opts["learn_phi_size_tolerance_frac"], 0.25)
+        self.assertEqual(opts["learn_phi_min_primary_factors"], 3)
+        self.assertIsNone(opts["learn_phi_max_primary_gene_max_weight_q90"])
         self.assertEqual(opts["learn_phi_expand_factor"], 2.0)
         self.assertEqual(opts["learn_phi_prune_genes_num"], 1000)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
@@ -598,13 +619,19 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-min-stability": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-fit-loss-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--learn-phi-k-band-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-target-gene-effective-support": ["test_reference_factor_and_labeling_flags_round_trip", "test_reference_learn_phi_defaults_include_sentinel_prune"],
+            "--learn-phi-size-tolerance-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-min-primary-factors": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-max-primary-gene-max-weight-q90": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-steps": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-backend": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-phi-metrics-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--factor-phi-factors-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--factor-phi-gene-set-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--factor-phi-gene-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-prune-genes-num": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-prune-gene-sets-num": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-num-iterations": ["test_reference_factor_and_labeling_flags_round_trip"],

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -50,12 +51,93 @@ class _TinyState:
             return 0
         return int(len(self.exp_lambdak))
 
+    def _collect_factor_metrics_records(self):
+        matrix = self.exp_gene_factors if self.exp_gene_factors is not None else self.exp_gene_set_factors
+        if matrix is None:
+            return []
+        matrix = np.asarray(matrix, dtype=float)
+        if matrix.ndim != 2 or matrix.shape[1] == 0:
+            return []
+        records = []
+        relevance = np.ones(matrix.shape[1], dtype=float) if self.factor_relevance is None else np.asarray(self.factor_relevance, dtype=float)
+        relevance_sum = float(np.sum(relevance))
+        for factor_index in range(matrix.shape[1]):
+            weights = np.maximum(matrix[:, factor_index], 0.0)
+            weight_sum = float(np.sum(weights))
+            if weight_sum > 0:
+                normalized = weights / weight_sum
+                support = float(1.0 / np.sum(normalized * normalized))
+                max_weight = float(np.max(normalized))
+                top5_fraction = float(np.sum(np.sort(normalized)[-5:]))
+            else:
+                support = 0.0
+                max_weight = 0.0
+                top5_fraction = 0.0
+            mass_fraction = 0.0 if relevance_sum <= 0 else float(relevance[factor_index] / relevance_sum)
+            records.append(
+                {
+                    "Factor": "Factor%d" % (factor_index + 1),
+                    "combined_mass_fraction": mass_fraction,
+                    "gene_effective_support": support,
+                    "gene_max_weight": max_weight,
+                    "gene_top5_weight_fraction": top5_fraction,
+                }
+            )
+        return records
+
+    def write_matrix_factors(self, factors_output_file=None, write_anchor_specific=False) -> None:
+        if factors_output_file is None:
+            return
+        Path(factors_output_file).write_text("Factor\tEntity\tWeight\nFactor1\tGENE1\t1\n", encoding="utf-8")
+
+    def write_clusters(
+        self,
+        gene_set_clusters_output_file=None,
+        gene_clusters_output_file=None,
+        pheno_clusters_output_file=None,
+        **_kwargs,
+    ) -> None:
+        if gene_set_clusters_output_file is not None:
+            Path(gene_set_clusters_output_file).write_text("Gene_Set\tFactor\nSET1\tFactor1\n", encoding="utf-8")
+        if gene_clusters_output_file is not None:
+            Path(gene_clusters_output_file).write_text("Gene\tFactor\nGENE1\tFactor1\n", encoding="utf-8")
+
 
 class _CapturedFactorCall(RuntimeError):
     pass
 
 
 class PhiAutoFactorRuntimeTest(unittest.TestCase):
+    def test_append_phi_prefixed_table_writes_single_header_and_phi_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "phi_factors.tsv"
+
+            eaggl_factor_runtime._append_phi_prefixed_table(
+                str(output_path),
+                phi=0.1,
+                write_fn=lambda path: Path(path).write_text("Factor\tGene\tWeight\nFactor1\tGENE1\t0.7\n", encoding="utf-8"),
+            )
+            eaggl_factor_runtime._append_phi_prefixed_table(
+                str(output_path),
+                phi=0.2,
+                write_fn=lambda path: Path(path).write_text("Factor\tGene\tWeight\nFactor2\tGENE2\t0.4\n", encoding="utf-8"),
+            )
+            eaggl_factor_runtime._append_phi_prefixed_table(
+                str(output_path),
+                phi=0.4,
+                write_fn=lambda path: Path(path).write_text("Factor\tGene\nFactor3\tGENE3\n", encoding="utf-8"),
+            )
+
+            self.assertEqual(
+                output_path.read_text(encoding="utf-8").splitlines(),
+                [
+                    "phi\tFactor\tGene\tWeight",
+                    "0.1\tFactor1\tGENE1\t0.7",
+                    "0.2\tFactor2\tGENE2\t0.4",
+                    "0.4\tFactor3\tGENE3\t",
+                ],
+            )
+
     def test_weighted_discovery_scale_details_follow_row_weighted_objective(self) -> None:
         matrix = np.array(
             [
@@ -731,6 +813,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 state,
                 phi=0.05,
                 learn_phi=True,
+                learn_phi_target_gene_effective_support=1.0,
                 learn_phi_only=True,
                 bail_fn=lambda msg: (_ for _ in ()).throw(AssertionError(msg)),
                 warn_fn=lambda *args, **kwargs: None,
@@ -965,11 +1048,12 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertAlmostEqual(profile["redundancy_max"], 1.0)
         self.assertAlmostEqual(profile["redundancy_q90"], 1.0)
 
-    def test_select_phi_candidate_prefers_effective_k_tail_band_over_weaker_simple_candidate(self) -> None:
+    def test_select_phi_candidate_prefers_largest_phi_within_target_size_tolerance(self) -> None:
         candidates = [
             {
                 "phi": 0.05,
                 "modal_factor_count": 4,
+                "primary_factor_count": 4,
                 "run_support": 1.0,
                 "stability": 0.95,
                 "stability_defined": True,
@@ -978,14 +1062,17 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "redundancy": 0.31,
                 "redundancy_max": 0.31,
                 "redundancy_q90": 0.23,
-                "best_error": 40.0,
+                "best_error": 37.0,
                 "best_evidence": 8.0,
                 "effective_factor_count": 3.8,
                 "mass_ge_floor_factor_count": 4,
+                "primary_gene_effective_support_median": 21.0,
+                "primary_gene_max_weight_q90": 0.2,
             },
             {
                 "phi": 0.02,
                 "modal_factor_count": 5,
+                "primary_factor_count": 5,
                 "run_support": 1.0,
                 "stability": 0.95,
                 "stability_defined": True,
@@ -999,10 +1086,13 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "effective_factor_count": 4.7,
                 "mass_ge_floor_factor_count": 5,
                 "tail_fraction": 0.02,
+                "primary_gene_effective_support_median": 20.0,
+                "primary_gene_max_weight_q90": 0.2,
             },
             {
                 "phi": 1.0,
                 "modal_factor_count": 2,
+                "primary_factor_count": 2,
                 "run_support": 1.0,
                 "stability": 0.95,
                 "stability_defined": True,
@@ -1016,6 +1106,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "effective_factor_count": 2.0,
                 "mass_ge_floor_factor_count": 2,
                 "tail_fraction": 0.01,
+                "primary_gene_effective_support_median": 35.0,
+                "primary_gene_max_weight_q90": 0.3,
             },
         ]
         selected, reason = eaggl_factor_runtime._select_phi_candidate(
@@ -1025,12 +1117,14 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             min_run_support=0.6,
             min_stability=0.85,
             max_fit_loss_frac=0.05,
-            k_band_frac=0.9,
+            target_gene_effective_support=20.0,
+            size_tolerance_frac=0.25,
+            min_primary_factors=3,
+            max_primary_gene_max_weight_q90=None,
             runs_per_step=3,
-            min_error_gain_per_factor=5.0,
         )
-        self.assertEqual(reason, "effective_k_tail_band")
-        self.assertEqual(selected["phi"], 0.02)
+        self.assertEqual(reason, "target_gene_effective_support_in_tolerance")
+        self.assertEqual(selected["phi"], 0.05)
         self.assertEqual(selected["selection_pool"], "uncapped")
         self.assertGreaterEqual(selected["selection_frontier_size"], 1)
         self.assertIsNone(selected["selection_marginal_gain"])
@@ -1095,6 +1189,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 phi=0.1,
                 learn_phi=True,
                 learn_phi_runs_per_step=3,
+                learn_phi_target_gene_effective_support=1.0,
                 learn_phi_max_redundancy=0.6,
                 learn_phi_min_run_support=0.6,
                 learn_phi_min_stability=0.85,
@@ -1114,7 +1209,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertTrue(state.params["learn_phi"])
         self.assertGreaterEqual(state.params["learn_phi_selected_phi"], 0.05)
         self.assertLess(state.params["learn_phi_selected_phi"], 0.5)
-        self.assertEqual(state.params["learn_phi_selection_reason"], "effective_k_tail_band")
+        self.assertEqual(state.params["learn_phi_selection_reason"], "target_gene_effective_support_in_tolerance")
         self.assertEqual(state.params["learn_phi_redundancy_basis_target"], "gene")
         self.assertEqual(state.params["learn_phi_redundancy_basis"], "gene")
         self.assertEqual(state.params["learn_phi_selection_pool"], "uncapped")
@@ -1168,6 +1263,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 phi=0.1,
                 learn_phi=True,
                 learn_phi_runs_per_step=1,
+                learn_phi_target_gene_effective_support=1.0,
+                learn_phi_min_primary_factors=1,
                 learn_phi_max_steps=1,
                 learn_phi_prune_gene_sets_num=11,
                 learn_phi_max_num_iterations=7,
@@ -1222,6 +1319,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 phi=0.1,
                 learn_phi=True,
                 learn_phi_runs_per_step=1,
+                learn_phi_target_gene_effective_support=1.0,
+                learn_phi_min_primary_factors=1,
                 learn_phi_max_steps=1,
                 learn_phi_prune_genes_num=13,
                 learn_phi_prune_gene_sets_num=11,
@@ -1267,26 +1366,45 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "factor_gene_set_x_pheno": False,
             }
 
-        with mock.patch.object(eaggl_factor_runtime, "_run_factor_with_seed", side_effect=_stub_run_factor_with_seed):
-            candidate = eaggl_factor_runtime._evaluate_phi_candidate(
-                state,
-                phi=0.1,
-                seed=0,
-                runs_per_step=1,
-                factor_kwargs={},
-                weight_floor=0.0,
-                prune_genes_num=None,
-                prune_gene_sets_num=None,
-                max_num_iterations=None,
-                log_fn=lambda message, level: messages.append((message, level)),
-                info_level=1,
-            )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            factors_out = Path(tmpdir) / "phi_factors.tsv"
+            gene_set_clusters_out = Path(tmpdir) / "phi_gene_set_clusters.tsv"
+            gene_clusters_out = Path(tmpdir) / "phi_gene_clusters.tsv"
+            with mock.patch.object(eaggl_factor_runtime, "_run_factor_with_seed", side_effect=_stub_run_factor_with_seed):
+                candidate = eaggl_factor_runtime._evaluate_phi_candidate(
+                    state,
+                    phi=0.1,
+                    seed=0,
+                    runs_per_step=1,
+                    factor_kwargs={},
+                    weight_floor=0.0,
+                    prune_genes_num=None,
+                    prune_gene_sets_num=None,
+                    max_num_iterations=None,
+                    factor_phi_factors_out=str(factors_out),
+                    factor_phi_gene_set_clusters_out=str(gene_set_clusters_out),
+                    factor_phi_gene_clusters_out=str(gene_clusters_out),
+                    log_fn=lambda message, level: messages.append((message, level)),
+                    info_level=1,
+                )
 
-        self.assertEqual(candidate["modal_factor_count"], 2)
-        self.assertEqual(candidate["redundancy_basis"], "gene")
-        self.assertTrue(any("Automatic phi candidate 0.1 summary:" in message for message, _ in messages))
-        self.assertTrue(any("redundancy_max[gene]=" in message for message, _ in messages))
-        self.assertTrue(any("redundancy_q90=" in message for message, _ in messages))
+            self.assertEqual(candidate["modal_factor_count"], 2)
+            self.assertEqual(candidate["redundancy_basis"], "gene")
+            self.assertTrue(any("Automatic phi candidate 0.1 summary:" in message for message, _ in messages))
+            self.assertTrue(any("redundancy_max[gene]=" in message for message, _ in messages))
+            self.assertTrue(any("redundancy_q90=" in message for message, _ in messages))
+            self.assertEqual(
+                factors_out.read_text(encoding="utf-8").splitlines(),
+                ["phi\tFactor\tEntity\tWeight", "0.1\tFactor1\tGENE1\t1"],
+            )
+            self.assertEqual(
+                gene_set_clusters_out.read_text(encoding="utf-8").splitlines(),
+                ["phi\tGene_Set\tFactor", "0.1\tSET1\tFactor1"],
+            )
+            self.assertEqual(
+                gene_clusters_out.read_text(encoding="utf-8").splitlines(),
+                ["phi\tGene\tFactor", "0.1\tGENE1\tFactor1"],
+            )
 
     def test_write_phi_search_report_handles_string_redundancy_basis(self) -> None:
         from tempfile import TemporaryDirectory
@@ -1349,9 +1467,10 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 selected_phi=0.025,
             )
             text = report.read_text()
-        self.assertIn("phi\tselected\treference_run_index\tFactor\tlabel\tcombined_mass_fraction", text)
-        self.assertIn("0.025\t1\t0\tFactor1\talpha\t0.01", text)
-        self.assertIn("0.025\t1\t0\tFactor2\tbeta\t0.02", text)
+        self.assertIn("phi\tselected\treference_run_index\tcandidate_primary_gene_effective_support_median", text)
+        self.assertIn("\tFactor\tlabel\tcombined_mass_fraction", text)
+        self.assertIn("0.025\t1\t0\t\t\t\t\t\t\t\tFactor1\talpha\t0.01", text)
+        self.assertIn("0.025\t1\t0\t\t\t\t\t\t\t\tFactor2\tbeta\t0.02", text)
 
     def test_learn_phi_starts_at_initial_phi_and_caps_total_expansions(self) -> None:
         state = _TinyState()
@@ -1371,6 +1490,9 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             max_num_iterations,
             log_fn,
             info_level,
+            factor_phi_factors_out=None,
+            factor_phi_gene_set_clusters_out=None,
+            factor_phi_gene_clusters_out=None,
         ):
             evaluated_phis.append(float(phi))
             if phi <= 0.02:
@@ -1414,7 +1536,10 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 min_run_support=0.6,
                 min_stability=0.85,
                 max_fit_loss_frac=0.05,
-                k_band_frac=0.9,
+                target_gene_effective_support=10.0,
+                size_tolerance_frac=0.25,
+                min_primary_factors=1,
+                max_primary_gene_max_weight_q90=None,
                 max_steps=3,
                 expand_factor=2.0,
                 weight_floor=0.0,
