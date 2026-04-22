@@ -1775,7 +1775,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False):
         if max_num_discovery_gene_sets is None and max_num_gene_sets is not None:
             warn("max_num_gene_sets is deprecated for factor-stage discovery; mapping it to max_num_discovery_gene_sets")
             max_num_discovery_gene_sets = max_num_gene_sets
@@ -1839,6 +1839,7 @@ class EagglState(object):
             "factor_metrics_out": factor_metrics_out,
             "gene_set_clusters_out": gene_set_clusters_out,
             "gene_clusters_out": gene_clusters_out,
+            "cluster_row_min_max_loading": cluster_row_min_max_loading,
             "learn_phi_prune_genes_num": learn_phi_prune_genes_num,
             "learn_phi_prune_gene_sets_num": learn_phi_prune_gene_sets_num,
             "learn_phi_max_num_iterations": learn_phi_max_num_iterations,
@@ -2765,7 +2766,7 @@ class EagglState(object):
                     )
                 )
 
-    def write_clusters(self, gene_set_clusters_output_file=None, gene_clusters_output_file=None, pheno_clusters_output_file=None, write_anchor_specific=False, anchor_genes=None):
+    def write_clusters(self, gene_set_clusters_output_file=None, gene_clusters_output_file=None, pheno_clusters_output_file=None, write_anchor_specific=False, anchor_genes=None, cluster_row_min_max_loading=0.01):
 
         if self.num_factors() == 0:
             log("No factors; not writing clusters")
@@ -2793,6 +2794,16 @@ class EagglState(object):
 
         ordered_inds = range(self.num_factors())
         num_users = len(anchors) if anchors is not None else 1
+        cluster_row_min_max_loading = 0.0 if cluster_row_min_max_loading is None else float(cluster_row_min_max_loading)
+
+        def passes_cluster_row_loading_filter(row_loadings):
+            if cluster_row_min_max_loading <= 0:
+                return True
+            row_loadings = np.asarray(row_loadings, dtype=float)
+            if row_loadings.size == 0:
+                return False
+            row_loadings = np.where(np.isfinite(row_loadings), row_loadings, 0.0)
+            return float(np.max(row_loadings)) >= cluster_row_min_max_loading
 
         if gene_set_clusters_output_file is not None and self.exp_gene_set_factors is not None:
             
@@ -2910,9 +2921,13 @@ class EagglState(object):
                             line = "%s\t%s" % (line, anchors[j])
                             multiplier = self.gene_set_prob_factor_vector[orig_i,j]
 
+                        row_raw_loadings = multiplier * raw_gene_set_factor_loadings[i, :]
+                        if not passes_cluster_row_loading_filter(row_raw_loadings):
+                            continue
+
                         cluster = np.argmax(values_for_cluster[i,:] * multiplier)
 
-                        output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % (multiplier * raw_gene_set_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * specific_gene_set_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * combined_gene_set_factor_loadings[i,k]) for k in ordered_inds])))
+                        output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % row_raw_loadings[k] for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * specific_gene_set_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * combined_gene_set_factor_loadings[i,k]) for k in ordered_inds])))
 
         if gene_clusters_output_file is not None and self.exp_gene_factors is not None:
 
@@ -2997,8 +3012,12 @@ class EagglState(object):
                         if gene_anchors:
                             line = "%s\t%s" % (line, anchor_mask[i])
  
+                        row_raw_loadings = multiplier * raw_gene_factor_loadings[i, :]
+                        if not passes_cluster_row_loading_filter(row_raw_loadings):
+                            continue
+
                         cluster = np.argmax(values_for_cluster[i,:] * multiplier)
-                        output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % (multiplier * raw_gene_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * specific_gene_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * combined_gene_factor_loadings[i,k]) for k in ordered_inds])))
+                        output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % row_raw_loadings[k] for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * specific_gene_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * combined_gene_factor_loadings[i,k]) for k in ordered_inds])))
 
         if pheno_clusters_output_file is not None and self.exp_pheno_factors is not None:
 

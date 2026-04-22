@@ -157,9 +157,11 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--factor-phi-factors-out"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phi-gene-set-clusters-out"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phi-gene-clusters-out"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--cluster-row-min-max-loading"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phi-factors-out"]["public_visibility"], "expert")
         self.assertEqual(metadata["--factor-phi-gene-set-clusters-out"]["public_visibility"], "expert")
         self.assertEqual(metadata["--factor-phi-gene-clusters-out"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--cluster-row-min-max-loading"]["public_visibility"], "expert")
 
         self.assertEqual(metadata["--factor-phewas-modes"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phewas-full-output"]["documentation_target"], "advanced_workflows")

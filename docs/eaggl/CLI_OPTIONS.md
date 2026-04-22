@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `255`
+- Total options: `256`
 - `method_required`: `16`
-- `method_optional`: `146`
+- `method_optional`: `147`
 - `engineering`: `76`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `209`
+- visibility `expert`: `210`
 - visibility `hidden`: `8`
 - visibility `normal`: `38`
 
@@ -56,6 +56,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--blockwise-max-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_max_blocks` | `None` | optionally cap the number of processed blocks per epoch for debugging blockwise runs |
 | `--blockwise-shuffle-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_shuffle_blocks` | `True` | shuffle block order between epochs in blockwise_global_w mode |
 | `--blockwise-warm-start` | `expert` | `yes` | `advanced_workflows` | `blockwise_warm_start` | `True` | warm-start neighboring phi candidates when using blockwise_global_w phi search |
+| `--cluster-row-min-max-loading` | `expert` | `yes` | `advanced_workflows` | `cluster_row_min_max_loading` | `0.01` | minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows |
 | `--consensus-aggregation` | `normal` | `yes` | `core_help` | `consensus_aggregation` | `median` | choose how matched factors are aggregated across restarts in consensus mode |
 | `--consensus-min-factor-cosine` | `normal` | `yes` | `core_help` | `consensus_min_factor_cosine` | `0.7` | minimum cosine similarity needed to align a restart factor to the reference factor |
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |

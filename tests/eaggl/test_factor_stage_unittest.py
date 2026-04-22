@@ -133,6 +133,7 @@ def _options(**overrides):
         factors_anchor_out=None,
         gene_set_clusters_out=None,
         gene_clusters_out=None,
+        cluster_row_min_max_loading=0.01,
         trait_factor_links_out=None,
         pheno_clusters_out=None,
         gene_set_anchor_clusters_out=None,
@@ -163,8 +164,8 @@ class _RuntimeStub:
     def write_consensus_factor_diagnostics(self, out):
         self.calls.append(("write_consensus_factor_diagnostics", out))
 
-    def write_clusters(self, gene_set_out, gene_out, pheno_out, write_anchor_specific=False):
-        self.calls.append(("write_clusters", gene_set_out, gene_out, pheno_out, write_anchor_specific))
+    def write_clusters(self, gene_set_out, gene_out, pheno_out, write_anchor_specific=False, cluster_row_min_max_loading=0.01):
+        self.calls.append(("write_clusters", gene_set_out, gene_out, pheno_out, write_anchor_specific, cluster_row_min_max_loading))
 
     def write_trait_factor_links(self, out):
         self.calls.append(("write_trait_factor_links", out))
@@ -378,6 +379,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             factor_phi_factors_out="phi_factors.tsv",
             factor_phi_gene_set_clusters_out="phi_gene_set_clusters.tsv",
             factor_phi_gene_clusters_out="phi_gene_clusters.tsv",
+            cluster_row_min_max_loading=0.02,
             factor_backend="blockwise_global_w",
             learn_phi_backend="blockwise_global_w",
             blockwise_gene_set_block_size=123,
@@ -410,6 +412,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.factor_phi_factors_out, "phi_factors.tsv")
         self.assertEqual(cfg.factor_phi_gene_set_clusters_out, "phi_gene_set_clusters.tsv")
         self.assertEqual(cfg.factor_phi_gene_clusters_out, "phi_gene_clusters.tsv")
+        self.assertEqual(cfg.cluster_row_min_max_loading, 0.02)
         self.assertEqual(cfg.factor_backend, "blockwise_global_w")
         self.assertEqual(cfg.learn_phi_backend, "blockwise_global_w")
         self.assertEqual(cfg.blockwise_gene_set_block_size, 123)
@@ -474,6 +477,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             gene_pheno_stats_out="gene_pheno.tsv",
             consensus_stats_out="consensus.tsv",
             max_no_write_gene_pheno=0.2,
+            cluster_row_min_max_loading=0.02,
         )
         eaggl._write_main_factor_outputs(runtime, options)
         self.assertEqual(len(runtime.calls), 9)
@@ -483,13 +487,13 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(runtime.calls[3], ("write_consensus_factor_diagnostics", "consensus.tsv"))
         self.assertEqual(
             runtime.calls[4],
-            ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False),
+            ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False, 0.02),
         )
         self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv"))
         self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "p_cluster.tsv"))
         self.assertEqual(
             runtime.calls[7],
-            ("write_clusters", "gs_anchor_cluster.tsv", "g_anchor_cluster.tsv", "p_anchor_cluster.tsv", True),
+            ("write_clusters", "gs_anchor_cluster.tsv", "g_anchor_cluster.tsv", "p_anchor_cluster.tsv", True, 0.02),
         )
         self.assertEqual(runtime.calls[8], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 
@@ -521,6 +525,63 @@ class FactorStageHelpersTest(unittest.TestCase):
         lines = content.strip().splitlines()
         self.assertGreaterEqual(len(lines), 3)
         self.assertTrue(lines[1].startswith("gs2\t0.9"))
+
+    def test_write_clusters_skips_gene_and_gene_set_rows_below_loading_threshold(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.exp_lambdak = [1.0, 1.0]
+        runtime.exp_gene_set_factors = np.array(
+            [
+                [0.001, 0.002],
+                [0.2, 0.001],
+            ],
+            dtype=float,
+        )
+        runtime.exp_gene_factors = np.array(
+            [
+                [0.003, 0.004],
+                [0.001, 0.3],
+            ],
+            dtype=float,
+        )
+        runtime.exp_pheno_factors = None
+        runtime.betas = None
+        runtime.betas_uncorrected = np.array([0.1, 0.2])
+        runtime.combined_prior_Ys = np.array([1.0, 2.0])
+        runtime.gene_set_in_discovery_mask = None
+        runtime.gene_in_discovery_mask = None
+        runtime.factor_labels = ["label1", "label2"]
+        runtime.gene_sets = ["low_gs", "high_gs"]
+        runtime.genes = ["low_gene", "high_gene"]
+        runtime.anchor_pheno_mask = None
+        runtime.anchor_gene_mask = None
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gene_set_path = Path(tmpdir) / "gene_set_clusters.tsv"
+            gene_path = Path(tmpdir) / "gene_clusters.tsv"
+            runtime.write_clusters(
+                gene_set_clusters_output_file=str(gene_set_path),
+                gene_clusters_output_file=str(gene_path),
+                cluster_row_min_max_loading=0.01,
+            )
+            gene_set_content = gene_set_path.read_text()
+            gene_content = gene_path.read_text()
+
+            unfiltered_gene_set_path = Path(tmpdir) / "gene_set_clusters_unfiltered.tsv"
+            unfiltered_gene_path = Path(tmpdir) / "gene_clusters_unfiltered.tsv"
+            runtime.write_clusters(
+                gene_set_clusters_output_file=str(unfiltered_gene_set_path),
+                gene_clusters_output_file=str(unfiltered_gene_path),
+                cluster_row_min_max_loading=0.0,
+            )
+            unfiltered_gene_set_content = unfiltered_gene_set_path.read_text()
+            unfiltered_gene_content = unfiltered_gene_path.read_text()
+
+        self.assertNotIn("low_gs\t", gene_set_content)
+        self.assertIn("high_gs\t", gene_set_content)
+        self.assertNotIn("low_gene\t", gene_content)
+        self.assertIn("high_gene\t", gene_content)
+        self.assertIn("low_gs\t", unfiltered_gene_set_content)
+        self.assertIn("low_gene\t", unfiltered_gene_content)
 
     def test_write_clustering_params_writes_json_and_tsv_siblings(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)

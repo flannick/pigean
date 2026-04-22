@@ -90,6 +90,7 @@ class FactorExecutionConfig:
     factor_metrics_out: str | None = None
     gene_set_clusters_out: str | None = None
     gene_clusters_out: str | None = None
+    cluster_row_min_max_loading: float = 0.01
     max_num_discovery_gene_sets: int | None = None
     auto_discovery_subset: bool = True
     discovery_redundancy_weighting: bool = True
@@ -174,6 +175,7 @@ class FactorExecutionConfig:
             "factor_metrics_out": self.factor_metrics_out,
             "gene_set_clusters_out": self.gene_set_clusters_out,
             "gene_clusters_out": self.gene_clusters_out,
+            "cluster_row_min_max_loading": self.cluster_row_min_max_loading,
             "max_num_discovery_gene_sets": self.max_num_discovery_gene_sets,
             "auto_discovery_subset": self.auto_discovery_subset,
             "discovery_redundancy_weighting": self.discovery_redundancy_weighting,
@@ -943,6 +945,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         factor_metrics_out=getattr(options, "factor_metrics_out", None),
         gene_set_clusters_out=getattr(options, "gene_set_clusters_out", None),
         gene_clusters_out=getattr(options, "gene_clusters_out", None),
+        cluster_row_min_max_loading=getattr(options, "cluster_row_min_max_loading", 0.01),
         max_num_discovery_gene_sets=max_num_discovery_gene_sets,
         auto_discovery_subset=not getattr(options, "no_auto_discovery_subset", False),
         discovery_redundancy_weighting=discovery_redundancy_weighting_mode != "none",

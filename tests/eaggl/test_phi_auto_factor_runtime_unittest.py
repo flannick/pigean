@@ -1493,6 +1493,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             factor_phi_factors_out=None,
             factor_phi_gene_set_clusters_out=None,
             factor_phi_gene_clusters_out=None,
+            cluster_row_min_max_loading=0.01,
         ):
             evaluated_phis.append(float(phi))
             if phi <= 0.02:

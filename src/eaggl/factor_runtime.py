@@ -893,7 +893,7 @@ def _prepare_pre_projection_checkpoint_state(state):
     return checkpoint_state
 
 
-def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clusters_out, gene_clusters_out, log_fn, info_level):
+def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clusters_out, gene_clusters_out, cluster_row_min_max_loading=0.01, log_fn, info_level):
     checkpoint_factor_metrics = _checkpoint_output_path(factor_metrics_out)
     checkpoint_gene_set_clusters = _checkpoint_output_path(gene_set_clusters_out)
     checkpoint_gene_clusters = _checkpoint_output_path(gene_clusters_out)
@@ -906,7 +906,12 @@ def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clus
     if checkpoint_factor_metrics is not None:
         checkpoint_state.write_factor_metrics(checkpoint_factor_metrics)
     if checkpoint_gene_set_clusters is not None or checkpoint_gene_clusters is not None:
-        checkpoint_state.write_clusters(checkpoint_gene_set_clusters, checkpoint_gene_clusters, None)
+        checkpoint_state.write_clusters(
+            checkpoint_gene_set_clusters,
+            checkpoint_gene_clusters,
+            None,
+            cluster_row_min_max_loading=cluster_row_min_max_loading,
+        )
 
 
 def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, log_fn=None, info_level=1):
@@ -1448,6 +1453,7 @@ def _build_factor_param_record(
     factor_phi_factors_out,
     factor_phi_gene_set_clusters_out,
     factor_phi_gene_clusters_out,
+    cluster_row_min_max_loading,
     factor_backend,
     learn_phi_backend,
     blockwise_gene_set_block_size,
@@ -1532,6 +1538,7 @@ def _build_factor_param_record(
         "factor_phi_factors_out": factor_phi_factors_out,
         "factor_phi_gene_set_clusters_out": factor_phi_gene_set_clusters_out,
         "factor_phi_gene_clusters_out": factor_phi_gene_clusters_out,
+        "cluster_row_min_max_loading": float(cluster_row_min_max_loading),
         "factor_backend": factor_backend,
         "learn_phi_backend": learn_phi_backend,
         "blockwise_gene_set_block_size": int(blockwise_gene_set_block_size),
@@ -2459,6 +2466,7 @@ def _evaluate_phi_candidate(
     factor_phi_factors_out=None,
     factor_phi_gene_set_clusters_out=None,
     factor_phi_gene_clusters_out=None,
+    cluster_row_min_max_loading=0.01,
     log_fn,
     info_level,
 ):
@@ -2523,12 +2531,18 @@ def _evaluate_phi_candidate(
         _append_phi_prefixed_table(
             factor_phi_gene_set_clusters_out,
             phi=phi,
-            write_fn=lambda path: reference_state.write_clusters(gene_set_clusters_output_file=path),
+            write_fn=lambda path: reference_state.write_clusters(
+                gene_set_clusters_output_file=path,
+                cluster_row_min_max_loading=cluster_row_min_max_loading,
+            ),
         )
         _append_phi_prefixed_table(
             factor_phi_gene_clusters_out,
             phi=phi,
-            write_fn=lambda path: reference_state.write_clusters(gene_clusters_output_file=path),
+            write_fn=lambda path: reference_state.write_clusters(
+                gene_clusters_output_file=path,
+                cluster_row_min_max_loading=cluster_row_min_max_loading,
+            ),
         )
     best_error = candidate.get("best_error")
     best_evidence = candidate.get("best_evidence")
@@ -3070,6 +3084,7 @@ def _learn_phi(
     factor_phi_factors_out=None,
     factor_phi_gene_set_clusters_out=None,
     factor_phi_gene_clusters_out=None,
+    cluster_row_min_max_loading=0.01,
     prune_genes_num,
     prune_gene_sets_num,
     max_num_iterations,
@@ -3120,6 +3135,7 @@ def _learn_phi(
             "factor_phi_factors_out": factor_phi_factors_out,
             "factor_phi_gene_set_clusters_out": factor_phi_gene_set_clusters_out,
             "factor_phi_gene_clusters_out": factor_phi_gene_clusters_out,
+            "cluster_row_min_max_loading": cluster_row_min_max_loading,
             "log_fn": log_fn,
             "info_level": info_level,
         }
@@ -3495,7 +3511,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -4157,6 +4173,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         factor_metrics_out=factor_metrics_out,
         gene_set_clusters_out=gene_set_clusters_out,
         gene_clusters_out=gene_clusters_out,
+        cluster_row_min_max_loading=cluster_row_min_max_loading,
         log_fn=log,
         info_level=INFO,
     )
@@ -4527,7 +4544,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -4544,6 +4561,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--blockwise-epochs must be at least 1")
     if blockwise_max_blocks is not None and int(blockwise_max_blocks) < 1:
         bail("--blockwise-max-blocks must be at least 1")
+    if float(cluster_row_min_max_loading) < 0:
+        bail("--cluster-row-min-max-loading must be nonnegative")
     if consensus_aggregation not in {"median", "mean"}:
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < consensus_min_factor_cosine <= 1):
@@ -4660,6 +4679,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "factor_metrics_out": factor_metrics_out,
         "gene_set_clusters_out": gene_set_clusters_out,
         "gene_clusters_out": gene_clusters_out,
+        "cluster_row_min_max_loading": cluster_row_min_max_loading,
         "bail_fn": bail_fn,
         "warn_fn": warn_fn,
         "log_fn": log_fn,
@@ -4703,6 +4723,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             factor_phi_factors_out=factor_phi_factors_out,
             factor_phi_gene_set_clusters_out=factor_phi_gene_set_clusters_out,
             factor_phi_gene_clusters_out=factor_phi_gene_clusters_out,
+            cluster_row_min_max_loading=cluster_row_min_max_loading,
             factor_backend=factor_backend,
             learn_phi_backend=learn_phi_backend,
             blockwise_gene_set_block_size=blockwise_gene_set_block_size,
@@ -4799,6 +4820,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             factor_phi_factors_out=factor_phi_factors_out,
             factor_phi_gene_set_clusters_out=factor_phi_gene_set_clusters_out,
             factor_phi_gene_clusters_out=factor_phi_gene_clusters_out,
+            cluster_row_min_max_loading=cluster_row_min_max_loading,
             prune_genes_num=learn_phi_prune_genes_num,
             prune_gene_sets_num=learn_phi_prune_gene_sets_num,
             max_num_iterations=learn_phi_max_num_iterations,

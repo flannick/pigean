@@ -173,6 +173,7 @@ parser.add_option("","--factor-metrics-out",default=None)
 parser.add_option("","--factors-anchor-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
+parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
 parser.add_option("","--trait-factor-links-out",default=None)
 parser.add_option("","--pheno-clusters-out",default=None)
 parser.add_option("","--gene-set-anchor-clusters-out",default=None)
@@ -509,6 +510,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-factors-out": "write factors.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--factor-phi-gene-set-clusters-out": "write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
+    "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
     "--factors-anchor-out": "write anchor-specific factorization outputs",
@@ -637,6 +639,7 @@ _EXPERT_METHOD_FLAGS = {
     "--factor-phi-factors-out",
     "--factor-phi-gene-set-clusters-out",
     "--factor-phi-gene-clusters-out",
+    "--cluster-row-min-max-loading",
     "--learn-phi-runs-per-step",
     "--learn-phi-size-tolerance-frac",
     "--learn-phi-weight-floor",
@@ -1458,6 +1461,8 @@ def _bootstrap_cli(argv=None):
         bail("--blockwise-epochs must be at least 1")
     if parsed_options.blockwise_max_blocks is not None and parsed_options.blockwise_max_blocks < 1:
         bail("--blockwise-max-blocks must be at least 1")
+    if parsed_options.cluster_row_min_max_loading < 0:
+        bail("--cluster-row-min-max-loading must be nonnegative")
     if parsed_options.learn_phi:
         if parsed_options.phi <= 0:
             bail("--learn-phi requires --phi > 0")
