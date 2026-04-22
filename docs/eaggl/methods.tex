@@ -84,7 +84,7 @@ together with a factor-specific ARD prior
 \lambda_k \sim \text{InvGamma}(a_0, b_0).
 \label{eq:eaggl_ard_prior}
 \end{equation}
-Here $\phi$ controls the baseline sparsity of the factor loadings, while $a_0$ and $b_0$ control the tendency of entire factors to be shrunk away. Small values of $\lambda_k$ correspond to factors that explain little of the observed matrix after accounting for the regularization, and are therefore removed.
+Here $\phi$ controls the baseline sparsity of the factor loadings, while $a_0$ and $b_0$ control the tendency of entire factors to be shrunk toward low relevance. Small values of $\lambda_k$ correspond to factors that explain little of the observed matrix after accounting for the regularization. ARD is a soft relevance shrinkage mechanism rather than a guarantee that every low-mass column is driven exactly to zero.
 
 Up to additive constants, maximizing the posterior is equivalent to minimizing
 \begin{equation}
@@ -117,7 +117,7 @@ C = \frac{N + M}{2} + a_0 + 1.
 \end{equation}
 Thus, EAGGL uses the same basic intuition as other Bayesian nonnegative matrix factorization procedures with ARD: the reconstruction term encourages faithful explanation of the observed matrix, while the ARD penalty favors retaining only factors whose contribution is large enough to overcome whole-factor shrinkage.
 
-The number of retained mechanisms is therefore not simply the user-specified maximum candidate rank. Rather, EAGGL begins from a candidate rank $K$ and then discards factors with very small posterior relevance scales or nearly zero total loading. In this way, the effective number of mechanisms is learned adaptively.
+The number of retained mechanisms is therefore not simply the user-specified maximum candidate rank. Rather, EAGGL begins from a candidate rank $K$ and then uses both the posterior relevance scales and post-fit loading mass to distinguish interpretable factors from the low-mass ARD tail. In this way, the effective number of mechanisms is learned adaptively while retaining explicit diagnostics for the fitted tail.
 
 \subsection{Single-trait gene-by-annotation factorization}
 
@@ -455,6 +455,8 @@ Candidates must be non-collapsed, have enough primary factors, satisfy restart a
 
 The selected $\phi$, candidate diagnostics, search thresholds, primary-factor gene-support summaries, redundancy summaries, factor-mass summaries, and convergence diagnostics are written to the run log and parameter output. Per-factor diagnostics for each tested $\phi$ can also be written for audit and review.
 
+EAGGL separates fitted factors from reported factors. Let $m_k$ denote the combined nonnegative gene and annotation loading mass for factor $k$, and let $\pi_k=m_k/\sum_{\ell}m_{\ell}$. A factor is classified as primary when $\pi_k \ge 0.005$, secondary when $0.001 \le \pi_k < 0.005$, and filtered otherwise. The default user-facing factor and cluster outputs print only primary factors, because low-mass secondary and filtered factors usually represent the ARD tail rather than interpretable mechanisms. The exhaustive factor-metrics outputs remain available for auditing all fitted columns. The \texttt{factors.out(.gz)} table records both \texttt{factor\_tier} and \texttt{combined\_mass\_fraction} next to \texttt{lambda}; widening the output scope can include secondary or all factors without changing the fitted model or renumbering factor identifiers.
+
 \subsection{Optimizations for scaling EAGGL to large phenotype panels}
 
 Although the model is defined in terms of weighted nonnegative factorization, a direct implementation that explicitly constructs separate dense matrices for every anchor user would be inefficient. EAGGL therefore uses the weighted objective of Eq.~\eqref{eq:eaggl_weighted_likelihood} directly, rather than materializing large user-specific tensors. This preserves the model while substantially reducing memory use.
@@ -475,7 +477,7 @@ The default effective-size discovery support for anchor user $u$ is
 \end{equation}
 Thus exact duplicates contribute approximately one representative unit, whereas weakly redundant families can contribute closer to their family size. The conservative \texttt{log\_effective\_size} mode uses $q_{r_c}^{(u)}(1+\log m_{c,\mathrm{eff}})$, and \texttt{none} uses the representative support $q_{r_c}^{(u)}$ without a family-size multiplier. EAGGL records \texttt{in\_discovery}, \texttt{discovery\_family\_size}, \texttt{discovery\_family\_mean\_similarity}, \texttt{discovery\_family\_effective\_size}, and \texttt{discovery\_weight} in cluster outputs so the discovery objective can be audited directly.
 
-Because discovery support weights change the data term scale, the implementation computes internal ARD scaling quantities from the row-weighted discovery matrix rather than the raw discovery matrix. Equivalently, if $V$ is the discovery matrix and $D$ is the diagonal matrix of discovery row weights, scale-dependent quantities use $D^{1/2}V$. This keeps the effective $\phi$ scaling, ARD prior floor, and related heuristics aligned with the weighted objective. Finally, output cluster tables omit gene and gene-set rows whose maximum raw factor loading is below the configurable \texttt{--cluster-row-min-max-loading} threshold; this is a reporting filter and does not alter the fitted factor matrices.
+Because discovery support weights change the data term scale, the implementation computes internal ARD scaling quantities from the row-weighted discovery matrix rather than the raw discovery matrix. Equivalently, if $V$ is the discovery matrix and $D$ is the diagonal matrix of discovery row weights, scale-dependent quantities use $D^{1/2}V$. This keeps the effective $\phi$ scaling, ARD prior floor, and related heuristics aligned with the weighted objective. Finally, output cluster tables first apply the requested factor output scope and then omit gene and gene-set rows whose maximum raw factor loading among the printed factors is below the configurable \texttt{--cluster-row-min-max-loading} threshold; these are reporting filters and do not alter the fitted factor matrices.
 
 \subsection{Interpretation and labeling of latent mechanisms}
 

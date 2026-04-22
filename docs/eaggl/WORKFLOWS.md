@@ -81,6 +81,14 @@ Likewise, the final factorization can run with either:
 
 Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffle-blocks`, `--blockwise-warm-start`, `--blockwise-max-blocks`, and `--blockwise-report-out` to tune or audit the blockwise backend. When `--learn-phi-backend blockwise_global_w` is used, neighboring phi candidates are warm-started from the closest previously fitted phi on the log scale when possible. Use `--factor-phi-metrics-out`, `--factor-phi-factors-out`, `--factor-phi-gene-set-clusters-out`, and `--factor-phi-gene-clusters-out` when you want audit tables for every tested phi candidate. Cluster output rows whose maximum raw factor loading is below `--cluster-row-min-max-loading` are omitted from reported cluster files.
 
+Factor output policy:
+
+1. `factors.out`, `factors_anchor.out`, `gene_set_clusters.out`, and `gene_clusters.out` print only primary factors by default.
+2. Primary factors have `combined_mass_fraction >= 0.005`; secondary factors have `combined_mass_fraction >= 0.001`; smaller factors are treated as filtered tail factors.
+3. Use `--factor-output-scope primary_secondary` or `--factor-output-scope all` when you need to inspect the secondary or full ARD tail.
+4. `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive diagnostics over all raw fitted factors.
+5. Factor identifiers are preserved rather than renumbered after filtering.
+
 PheWAS matrix inputs (for phenotype/gene anchor workflows):
 
 1. `--gene-phewas-stats-in`

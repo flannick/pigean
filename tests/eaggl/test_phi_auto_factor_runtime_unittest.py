@@ -85,7 +85,7 @@ class _TinyState:
             )
         return records
 
-    def write_matrix_factors(self, factors_output_file=None, write_anchor_specific=False) -> None:
+    def write_matrix_factors(self, factors_output_file=None, write_anchor_specific=False, factor_output_scope="primary") -> None:
         if factors_output_file is None:
             return
         Path(factors_output_file).write_text("Factor\tEntity\tWeight\nFactor1\tGENE1\t1\n", encoding="utf-8")
@@ -1494,6 +1494,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             factor_phi_gene_set_clusters_out=None,
             factor_phi_gene_clusters_out=None,
             cluster_row_min_max_loading=0.01,
+            factor_output_scope="primary",
         ):
             evaluated_phis.append(float(phi))
             if phi <= 0.02:

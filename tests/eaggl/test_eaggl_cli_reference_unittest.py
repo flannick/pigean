@@ -447,6 +447,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "gene_clusters.tsv",
             "--cluster-row-min-max-loading",
             "0.02",
+            "--factor-output-scope",
+            "all",
             "--trait-factor-links-out",
             "trait_factor_links.tsv",
             "--trait-linkage-source",
@@ -492,6 +494,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["factor_phi_gene_set_clusters_out"], "phi_gene_set_clusters.tsv")
         self.assertEqual(opts["factor_phi_gene_clusters_out"], "phi_gene_clusters.tsv")
         self.assertEqual(opts["cluster_row_min_max_loading"], 0.02)
+        self.assertEqual(opts["factor_output_scope"], "all")
         self.assertEqual(opts["factor_backend"], "blockwise_global_w")
         self.assertEqual(opts["learn_phi_backend"], "blockwise_global_w")
         self.assertEqual(opts["blockwise_gene_set_block_size"], 1234)
@@ -680,6 +683,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-set-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--cluster-row-min-max-loading": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--factor-output-scope": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-factor-links-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-computation-mode": ["test_factor_phewas_and_capture_defaults_round_trip", "test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-source": ["test_reference_factor_and_labeling_flags_round_trip"],

@@ -340,6 +340,7 @@ Operational notes:
 | `--blockwise-max-blocks` | optional debugging cap on the number of processed blocks per epoch |
 | `--blockwise-report-out` | write per-epoch blockwise diagnostics |
 | `--cluster-row-min-max-loading` | minimum row-wise maximum raw factor loading required to print gene and gene-set cluster rows; defaults to `0.01` |
+| `--factor-output-scope` | choose which factor tiers are printed in user-facing factor and cluster outputs: `primary` (default), `primary_secondary`, or `all` |
 
 Notes:
 
@@ -348,6 +349,9 @@ Notes:
 - `log_effective_size` remains the conservative fallback, and `none` disables redundancy weighting entirely.
 - `--no-discovery-redundancy-weighting` is a compatibility shortcut for `--discovery-redundancy-weighting-mode none`.
 - `--no-auto-discovery-subset` currently disables weighted leader-family corrections and falls back to unweighted retained-row discovery.
+- By default, `factors.out`, `factors_anchor.out`, and cluster outputs print only primary factors, defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
+- `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive over all raw fitted factors. The optional `factor_phi_*` output tables follow `--factor-output-scope`, matching the final user-facing output policy for each tested phi.
+- Factor labels are not renumbered when output filtering is active: if `Factor7` is primary, it remains `Factor7`.
 
 ### Factor-PheWAS controls
 
@@ -430,6 +434,7 @@ For post-factor phenotype interpretation:
 - `low_retention_flag` marks traits whose retained support is very sparse or highly concentrated on the current factor basis
 - `joint_residual` is the uncaptured normalized trait mass after the joint competitive projection
 - `factor_total_mass` in `factors.out` reports the raw total mass of each factor on the canonical linkage basis used for that run
+- `factor_tier` and `combined_mass_fraction` in `factors.out` report the post-fit interpretability tier next to `lambda`; the default user-facing outputs include only primary factors unless `--factor-output-scope` is widened
 - `pheno_clusters.out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
 - `factor_phewas_stats.out` is a secondary enrichment table rather than the main phenotype-labeling surface
 

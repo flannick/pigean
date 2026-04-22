@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `256`
+- Total options: `257`
 - `method_required`: `16`
-- `method_optional`: `147`
+- `method_optional`: `148`
 - `engineering`: `76`
 - `compat_alias`: `11`
 - `debug_only`: `6`
 - visibility `expert`: `210`
 - visibility `hidden`: `8`
-- visibility `normal`: `38`
+- visibility `normal`: `39`
 
 ## Method Required
 
@@ -67,6 +67,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
 | `--factor-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_clusters_in` | `None` | load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors |
 | `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis |
+| `--factor-output-scope` | `normal` | `yes` | `core_help` | `factor_output_scope` | `primary` | choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
 | `--factor-phewas-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_gene_clusters_in` | `None` | compatibility alias for --factor-gene-clusters-in plus --run-factor-phewas |

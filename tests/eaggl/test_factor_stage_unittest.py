@@ -134,6 +134,7 @@ def _options(**overrides):
         gene_set_clusters_out=None,
         gene_clusters_out=None,
         cluster_row_min_max_loading=0.01,
+        factor_output_scope="primary",
         trait_factor_links_out=None,
         pheno_clusters_out=None,
         gene_set_anchor_clusters_out=None,
@@ -155,8 +156,8 @@ class _RuntimeStub:
     def run_factor(self, **kwargs):
         self.run_factor_kwargs = kwargs
 
-    def write_matrix_factors(self, out, write_anchor_specific=False):
-        self.calls.append(("write_matrix_factors", out, write_anchor_specific))
+    def write_matrix_factors(self, out, write_anchor_specific=False, factor_output_scope="primary"):
+        self.calls.append(("write_matrix_factors", out, write_anchor_specific, factor_output_scope))
 
     def write_factor_metrics(self, out):
         self.calls.append(("write_factor_metrics", out))
@@ -164,8 +165,26 @@ class _RuntimeStub:
     def write_consensus_factor_diagnostics(self, out):
         self.calls.append(("write_consensus_factor_diagnostics", out))
 
-    def write_clusters(self, gene_set_out, gene_out, pheno_out, write_anchor_specific=False, cluster_row_min_max_loading=0.01):
-        self.calls.append(("write_clusters", gene_set_out, gene_out, pheno_out, write_anchor_specific, cluster_row_min_max_loading))
+    def write_clusters(
+        self,
+        gene_set_out,
+        gene_out,
+        pheno_out,
+        write_anchor_specific=False,
+        cluster_row_min_max_loading=0.01,
+        factor_output_scope="primary",
+    ):
+        self.calls.append(
+            (
+                "write_clusters",
+                gene_set_out,
+                gene_out,
+                pheno_out,
+                write_anchor_specific,
+                cluster_row_min_max_loading,
+                factor_output_scope,
+            )
+        )
 
     def write_trait_factor_links(self, out):
         self.calls.append(("write_trait_factor_links", out))
@@ -380,6 +399,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             factor_phi_gene_set_clusters_out="phi_gene_set_clusters.tsv",
             factor_phi_gene_clusters_out="phi_gene_clusters.tsv",
             cluster_row_min_max_loading=0.02,
+            factor_output_scope="all",
             factor_backend="blockwise_global_w",
             learn_phi_backend="blockwise_global_w",
             blockwise_gene_set_block_size=123,
@@ -413,6 +433,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.factor_phi_gene_set_clusters_out, "phi_gene_set_clusters.tsv")
         self.assertEqual(cfg.factor_phi_gene_clusters_out, "phi_gene_clusters.tsv")
         self.assertEqual(cfg.cluster_row_min_max_loading, 0.02)
+        self.assertEqual(cfg.factor_output_scope, "all")
         self.assertEqual(cfg.factor_backend, "blockwise_global_w")
         self.assertEqual(cfg.learn_phi_backend, "blockwise_global_w")
         self.assertEqual(cfg.blockwise_gene_set_block_size, 123)
@@ -449,6 +470,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.discovery_redundancy_weighting_mode, "effective_size")
         self.assertEqual(cfg.discovery_similarity_threshold, 0.35)
         self.assertTrue(cfg.discovery_redundancy_weighting)
+        self.assertEqual(cfg.factor_output_scope, "primary")
 
 
     def test_run_main_factor_stage_executes_runtime_and_reports_workflow(self) -> None:
@@ -479,22 +501,31 @@ class FactorStageHelpersTest(unittest.TestCase):
             consensus_stats_out="consensus.tsv",
             max_no_write_gene_pheno=0.2,
             cluster_row_min_max_loading=0.02,
+            factor_output_scope="primary_secondary",
         )
         eaggl._write_main_factor_outputs(runtime, options)
         self.assertEqual(len(runtime.calls), 9)
-        self.assertEqual(runtime.calls[0], ("write_matrix_factors", "factors.tsv", False))
+        self.assertEqual(runtime.calls[0], ("write_matrix_factors", "factors.tsv", False, "primary_secondary"))
         self.assertEqual(runtime.calls[1], ("write_factor_metrics", "factor_metrics.tsv"))
-        self.assertEqual(runtime.calls[2], ("write_matrix_factors", "factors_anchor.tsv", True))
+        self.assertEqual(runtime.calls[2], ("write_matrix_factors", "factors_anchor.tsv", True, "primary_secondary"))
         self.assertEqual(runtime.calls[3], ("write_consensus_factor_diagnostics", "consensus.tsv"))
         self.assertEqual(
             runtime.calls[4],
-            ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False, 0.02),
+            ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False, 0.02, "primary_secondary"),
         )
         self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv"))
         self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "p_cluster.tsv"))
         self.assertEqual(
             runtime.calls[7],
-            ("write_clusters", "gs_anchor_cluster.tsv", "g_anchor_cluster.tsv", "p_anchor_cluster.tsv", True, 0.02),
+            (
+                "write_clusters",
+                "gs_anchor_cluster.tsv",
+                "g_anchor_cluster.tsv",
+                "p_anchor_cluster.tsv",
+                True,
+                0.02,
+                "primary_secondary",
+            ),
         )
         self.assertEqual(runtime.calls[8], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 
@@ -918,7 +949,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             runtime.trait_linkage_factor_total_mass = np.array([3.0, 7.0])
             runtime.factor_top_gene_sets = [["GS1"], ["GS2"]]
             runtime.factor_top_genes = [["GENE1"], ["GENE2"]]
-            runtime.write_matrix_factors(str(output_path))
+            runtime.write_matrix_factors(str(output_path), factor_output_scope="all")
 
             import gzip
 
@@ -926,7 +957,80 @@ class FactorStageHelpersTest(unittest.TestCase):
                 content = fh.read()
 
         self.assertIn("factor_total_mass", content.splitlines()[0])
-        self.assertIn("Factor1\timmune\t1\t0.25\t3", content)
+        self.assertIn("lambda\tfactor_tier\tcombined_mass_fraction\tany_relevance", content.splitlines()[0])
+        self.assertIn("Factor1\timmune\t1\tfiltered\t0\t0.25\t3", content)
+
+    def test_write_factor_outputs_default_to_primary_factor_scope(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.exp_lambdak = np.array([1.0, 2.0, 3.0])
+        runtime.factor_labels = ["primary_label", "secondary_label", "filtered_label"]
+        runtime.factor_relevance = np.array([1.0, 1.0, 1.0])
+        runtime.exp_gene_factors = np.array([[10.0, 0.02, 0.001]], dtype=float)
+        runtime.exp_gene_set_factors = np.array([[10.0, 0.02, 0.001]], dtype=float)
+        runtime.exp_pheno_factors = None
+        runtime.factor_top_genes = [["GENE1"], ["GENE2"], ["GENE3"]]
+        runtime.factor_top_gene_sets = [["GS1"], ["GS2"], ["GS3"]]
+        runtime.genes = ["gene_row"]
+        runtime.gene_sets = ["gene_set_row"]
+        runtime.combined_prior_Ys = np.array([1.0])
+        runtime.betas_uncorrected = np.array([1.0])
+        runtime.gene_in_discovery_mask = None
+        runtime.gene_set_in_discovery_mask = None
+        runtime.anchor_pheno_mask = None
+        runtime.anchor_gene_mask = None
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            factors_primary = tmpdir_path / "factors_primary.tsv.gz"
+            factors_primary_secondary = tmpdir_path / "factors_primary_secondary.tsv.gz"
+            factors_all = tmpdir_path / "factors_all.tsv.gz"
+            gene_set_clusters_primary = tmpdir_path / "gene_set_clusters_primary.tsv.gz"
+            gene_clusters_primary = tmpdir_path / "gene_clusters_primary.tsv.gz"
+            gene_set_clusters_all = tmpdir_path / "gene_set_clusters_all.tsv.gz"
+            gene_clusters_all = tmpdir_path / "gene_clusters_all.tsv.gz"
+
+            runtime.write_matrix_factors(str(factors_primary))
+            runtime.write_matrix_factors(str(factors_primary_secondary), factor_output_scope="primary_secondary")
+            runtime.write_matrix_factors(str(factors_all), factor_output_scope="all")
+            runtime.write_clusters(
+                gene_set_clusters_output_file=str(gene_set_clusters_primary),
+                gene_clusters_output_file=str(gene_clusters_primary),
+            )
+            runtime.write_clusters(
+                gene_set_clusters_output_file=str(gene_set_clusters_all),
+                gene_clusters_output_file=str(gene_clusters_all),
+                factor_output_scope="all",
+            )
+
+            import gzip
+
+            with gzip.open(factors_primary, "rt", encoding="utf-8") as fh:
+                primary_text = fh.read()
+            with gzip.open(factors_primary_secondary, "rt", encoding="utf-8") as fh:
+                primary_secondary_text = fh.read()
+            with gzip.open(factors_all, "rt", encoding="utf-8") as fh:
+                all_text = fh.read()
+            with gzip.open(gene_set_clusters_primary, "rt", encoding="utf-8") as fh:
+                primary_gene_set_clusters = fh.read()
+            with gzip.open(gene_clusters_primary, "rt", encoding="utf-8") as fh:
+                primary_gene_clusters = fh.read()
+            with gzip.open(gene_set_clusters_all, "rt", encoding="utf-8") as fh:
+                all_gene_set_clusters = fh.read()
+            with gzip.open(gene_clusters_all, "rt", encoding="utf-8") as fh:
+                all_gene_clusters = fh.read()
+
+        self.assertIn("Factor1\tprimary_label\t1\tprimary", primary_text)
+        self.assertNotIn("Factor2\tsecondary_label", primary_text)
+        self.assertNotIn("Factor3\tfiltered_label", primary_text)
+        self.assertIn("Factor2\tsecondary_label\t2\tsecondary", primary_secondary_text)
+        self.assertNotIn("Factor3\tfiltered_label", primary_secondary_text)
+        self.assertIn("Factor3\tfiltered_label\t3\tfiltered", all_text)
+        self.assertIn("Factor1", primary_gene_set_clusters.splitlines()[0])
+        self.assertNotIn("Factor2", primary_gene_set_clusters.splitlines()[0])
+        self.assertIn("Factor1", primary_gene_clusters.splitlines()[0])
+        self.assertNotIn("Factor2", primary_gene_clusters.splitlines()[0])
+        self.assertIn("Factor3", all_gene_set_clusters.splitlines()[0])
+        self.assertIn("Factor3", all_gene_clusters.splitlines()[0])
 
     def test_projection_only_factor_phewas_stage_gate_does_not_require_factor_fit(self) -> None:
         self.assertTrue(

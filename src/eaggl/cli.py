@@ -174,6 +174,7 @@ parser.add_option("","--factors-anchor-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
+parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="primary") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
 parser.add_option("","--pheno-clusters-out",default=None)
 parser.add_option("","--gene-set-anchor-clusters-out",default=None)
@@ -512,6 +513,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-gene-set-clusters-out": "write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
+    "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
     "--factors-anchor-out": "write anchor-specific factorization outputs",
@@ -716,6 +718,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--consensus-stats-out",
     "--beta0",
     "--factor-backend",
+    "--factor-output-scope",
     "--eaggl-bundle-in",
     "--factor-runs",
     "--factors-anchor-out",
