@@ -214,7 +214,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             auto_discovery_subset=True,
             discovery_redundancy_weighting=False,
             discovery_redundancy_weighting_mode="none",
-            discovery_redundancy_threshold=0.5,
+            discovery_similarity_threshold=0.5,
         )
 
         np.testing.assert_array_equal(plan.in_discovery_mask_full, [True, False, True])
@@ -248,7 +248,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             auto_discovery_subset=True,
             discovery_redundancy_weighting=True,
             discovery_redundancy_weighting_mode="effective_size",
-            discovery_redundancy_threshold=0.5,
+            discovery_similarity_threshold=0.5,
         )
 
         np.testing.assert_array_equal(plan.in_discovery_mask_full, [True, False, True])
@@ -271,7 +271,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             auto_discovery_subset=True,
             discovery_redundancy_weighting=False,
             discovery_redundancy_weighting_mode="none",
-            discovery_redundancy_threshold=0.5,
+            discovery_similarity_threshold=0.5,
         )
 
         self.assertEqual(int(np.sum(plan.retained_gene_set_mask_full)), 4)
@@ -300,7 +300,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             auto_discovery_subset=False,
             discovery_redundancy_weighting=True,
             discovery_redundancy_weighting_mode="none",
-            discovery_redundancy_threshold=0.5,
+            discovery_similarity_threshold=0.5,
         )
 
         np.testing.assert_array_equal(plan.in_discovery_mask_full, [True, True, True])

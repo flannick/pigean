@@ -95,7 +95,7 @@ class FactorExecutionConfig:
     auto_discovery_subset: bool = True
     discovery_redundancy_weighting: bool = True
     discovery_redundancy_weighting_mode: str = "effective_size"
-    discovery_redundancy_threshold: float = 0.35
+    discovery_similarity_threshold: float = 0.35
     learn_phi_prune_genes_num: int | None = 1000
     learn_phi_prune_gene_sets_num: int | None = 1000
     learn_phi_max_num_iterations: int | None = None
@@ -180,7 +180,7 @@ class FactorExecutionConfig:
             "auto_discovery_subset": self.auto_discovery_subset,
             "discovery_redundancy_weighting": self.discovery_redundancy_weighting,
             "discovery_redundancy_weighting_mode": self.discovery_redundancy_weighting_mode,
-            "discovery_redundancy_threshold": self.discovery_redundancy_threshold,
+            "discovery_similarity_threshold": self.discovery_similarity_threshold,
             "learn_phi_prune_genes_num": self.learn_phi_prune_genes_num,
             "learn_phi_prune_gene_sets_num": self.learn_phi_prune_gene_sets_num,
             "learn_phi_max_num_iterations": self.learn_phi_max_num_iterations,
@@ -950,7 +950,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         auto_discovery_subset=not getattr(options, "no_auto_discovery_subset", False),
         discovery_redundancy_weighting=discovery_redundancy_weighting_mode != "none",
         discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
-        discovery_redundancy_threshold=getattr(options, "discovery_redundancy_threshold", 0.35),
+        discovery_similarity_threshold=getattr(options, "discovery_similarity_threshold", 0.35),
         learn_phi_prune_genes_num=getattr(options, "learn_phi_prune_genes_num", 1000),
         learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", 1000),
         learn_phi_max_num_iterations=getattr(options, "learn_phi_max_num_iterations", None),

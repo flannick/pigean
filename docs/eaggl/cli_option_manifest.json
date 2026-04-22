@@ -617,7 +617,7 @@
       "source_line": 176,
       "summary": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
       "type": "float",
-      "usage_references": 9
+      "usage_references": 11
     },
     {
       "action": null,
@@ -958,27 +958,6 @@
     {
       "action": null,
       "category": "method_optional",
-      "default": "0.35",
-      "deprecation_timeline": null,
-      "dest": "discovery_redundancy_threshold",
-      "documentation_target": "expert_help",
-      "flags": [
-        "",
-        "--discovery-redundancy-threshold"
-      ],
-      "help": null,
-      "primary_flag": "--discovery-redundancy-threshold",
-      "public_visibility": "expert",
-      "replacement": null,
-      "scientific_semantic_impact": "yes",
-      "source_line": 414,
-      "summary": null,
-      "type": "float",
-      "usage_references": 7
-    },
-    {
-      "action": null,
-      "category": "method_optional",
       "default": "effective_size",
       "deprecation_timeline": null,
       "dest": "discovery_redundancy_weighting_mode",
@@ -996,6 +975,27 @@
       "summary": null,
       "type": "choice",
       "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0.35",
+      "deprecation_timeline": null,
+      "dest": "discovery_similarity_threshold",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--discovery-similarity-threshold"
+      ],
+      "help": null,
+      "primary_flag": "--discovery-similarity-threshold",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 414,
+      "summary": "similarity threshold used to assign retained gene sets to discovery families",
+      "type": "float",
+      "usage_references": 8
     },
     {
       "action": null,
@@ -1331,7 +1331,7 @@
       "source_line": 335,
       "summary": "write factors.out-style rows for each investigated phi-search candidate with a leading phi column",
       "type": null,
-      "usage_references": 8
+      "usage_references": 10
     },
     {
       "action": null,
@@ -1352,7 +1352,7 @@
       "source_line": 337,
       "summary": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
       "type": null,
-      "usage_references": 8
+      "usage_references": 10
     },
     {
       "action": null,
@@ -1373,7 +1373,7 @@
       "source_line": 336,
       "summary": "write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
       "type": null,
-      "usage_references": 8
+      "usage_references": 10
     },
     {
       "action": null,
@@ -1394,7 +1394,7 @@
       "source_line": 334,
       "summary": "write per-factor diagnostics for each investigated phi-search candidate",
       "type": null,
-      "usage_references": 7
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3135,9 +3135,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 317,
-      "summary": "automatically tune phi by structural model selection before the final factorization",
+      "summary": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
       "type": null,
-      "usage_references": 229
+      "usage_references": 238
     },
     {
       "action": null,
@@ -3198,7 +3198,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 331,
-      "summary": "minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring",
+      "summary": "minimum factor mass fraction used to define primary factors during phi search",
       "type": "float",
       "usage_references": 4
     },
@@ -3263,7 +3263,7 @@
       "source_line": 327,
       "summary": "optional maximum q90 primary-factor max gene weight allowed during target-size tuning",
       "type": "float",
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3347,7 +3347,7 @@
       "source_line": 326,
       "summary": "minimum primary factor count required for a phi candidate during target-size tuning",
       "type": "int",
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -3515,7 +3515,7 @@
       "source_line": 325,
       "summary": "fractional tolerance around the requested primary-factor gene effective support",
       "type": "float",
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3536,7 +3536,7 @@
       "source_line": 324,
       "summary": "required with --learn-phi; target median effective gene support among primary factors",
       "type": "float",
-      "usage_references": 21
+      "usage_references": 25
     },
     {
       "action": null,

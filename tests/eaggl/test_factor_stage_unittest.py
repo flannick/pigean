@@ -76,7 +76,7 @@ def _options(**overrides):
         no_auto_discovery_subset=False,
         discovery_redundancy_weighting_mode="effective_size",
         no_discovery_redundancy_weighting=False,
-        discovery_redundancy_threshold=0.35,
+        discovery_similarity_threshold=0.35,
         anchor_any_pheno=False,
         anchor_any_gene=False,
         anchor_gene_set=False,
@@ -447,6 +447,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
         cfg = eaggl._build_factor_execution_config(_options(), workflow, factor_inputs)
         self.assertEqual(cfg.discovery_redundancy_weighting_mode, "effective_size")
+        self.assertEqual(cfg.discovery_similarity_threshold, 0.35)
         self.assertTrue(cfg.discovery_redundancy_weighting)
 
 

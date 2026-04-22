@@ -38,9 +38,10 @@ Useful common outputs:
 Discovery-stage note:
 
 1. EAGGL now distinguishes retained annotations, discovery annotations, and projected annotations.
-2. By default, factor discovery is learned on redundancy-balanced discovery families, and the resulting outputs mark discovery rows with `in_discovery`.
+2. By default, factor discovery is learned on redundancy-balanced discovery families using `--discovery-similarity-threshold 0.35`, and the resulting outputs mark discovery rows with `in_discovery`.
 3. Discovery-family diagnostics now include `discovery_family_mean_similarity` and `discovery_family_effective_size` alongside `discovery_family_size` and `discovery_weight`.
-4. All retained gene sets are still projected and written after discovery, so adding correlated annotations mostly deepens annotation rather than redefining `W`.
+4. The default discovery weighting is `effective_size`, which uses representative support multiplied by an effective family size instead of the removed family-average weighting.
+5. All retained gene sets are still projected and written after discovery, so adding correlated annotations mostly deepens annotation rather than redefining `W`.
 
 Debug workflow selection without running factorization:
 
@@ -59,7 +60,7 @@ Core matrix/stat inputs (direct mode):
 Use `--X-in` for a direct `.gmt` sparse matrix file. Use `--X-list` only for a text file that lists matrix inputs. If a direct `.gmt` is passed to `--X-list`, EAGGL accepts it for compatibility but warns and treats it like `--X-in`.
 
 Consensus cNMF is part of the normal factor workflow surface: add `--factor-runs N --consensus-nmf` to any of the factor workflows below when you want restart aggregation instead of a single fitted run.
-Automatic phi tuning is also part of the normal factor workflow surface: add `--learn-phi` to any of the factor workflows below when you want EAGGL to search for a less redundant, restart-stable `phi` before the final reported factorization. The selected `phi`, the redundancy basis, and the search thresholds are written to `--params-out`, and `--learn-phi-report-out` writes the full per-candidate diagnostics table. Redundancy is measured on gene loadings when they are available, with fallback to gene-set or phenotype loadings only when gene loadings are absent. The search records both the worst nearest-neighbor overlap (`redundancy_max`) and a global tail-overlap summary (`redundancy_q90`), treats capped solutions explicitly, and computes factor-mass diagnostics (`effective_factor_count` and `mass_ge_floor_factor_count`) plus convergence diagnostics (`final_delambda`, `final_iterations`, and hit-iteration-cap summaries) for each candidate. Among acceptable uncapped candidates, selection now follows a fit/complexity frontier: EAGGL orders candidates by increasing retained mechanism complexity and keeps adding complexity only while the improvement in reconstruction error per additional retained mechanism stays above the marginal-gain threshold. This avoids the older near-maximal-K bias once redundancy is no longer the active constraint. The default redundancy thresholds are `--learn-phi-max-redundancy 0.5` and `--learn-phi-max-redundancy-q90 0.35`.
+Automatic phi tuning is also part of the normal factor workflow surface: add `--learn-phi --learn-phi-target-gene-effective-support S` to any of the factor workflows below when you want EAGGL to search for a `phi` whose primary factors have median effective gene support near the requested size `S`. The selected `phi`, target-size diagnostics, the redundancy basis, and the search thresholds are written to `--params-out`, and `--learn-phi-report-out` writes the full per-candidate diagnostics table. Redundancy is measured on gene loadings when they are available, with fallback to gene-set or phenotype loadings only when gene loadings are absent. The search records both the worst nearest-neighbor overlap (`redundancy_max`) and a global tail-overlap summary (`redundancy_q90`), treats capped solutions explicitly, and computes factor-mass diagnostics (`raw_factor_count`, `primary_factor_count`, and `effective_factor_count`) plus convergence diagnostics (`final_delambda`, `final_iterations`, and hit-iteration-cap summaries) for each candidate. Among acceptable candidates, selection minimizes log-scale mismatch to the target median primary-factor gene effective support; candidates within the configured size tolerance prefer the largest `phi`. The default redundancy thresholds are `--learn-phi-max-redundancy 0.5` and `--learn-phi-max-redundancy-q90 0.35`.
 
 EAGGL now exposes two scalable phi-search backends:
 
@@ -78,7 +79,7 @@ Likewise, the final factorization can run with either:
 2. `--factor-backend blockwise_global_w`
    - a blockwise solve over the full retained gene-set collection with one shared global gene-factor basis
 
-Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffle-blocks`, `--blockwise-warm-start`, `--blockwise-max-blocks`, and `--blockwise-report-out` to tune or audit the blockwise backend. When `--learn-phi-backend blockwise_global_w` is used, neighboring phi candidates are warm-started from the closest previously fitted phi on the log scale when possible.
+Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffle-blocks`, `--blockwise-warm-start`, `--blockwise-max-blocks`, and `--blockwise-report-out` to tune or audit the blockwise backend. When `--learn-phi-backend blockwise_global_w` is used, neighboring phi candidates are warm-started from the closest previously fitted phi on the log scale when possible. Use `--factor-phi-metrics-out`, `--factor-phi-factors-out`, `--factor-phi-gene-set-clusters-out`, and `--factor-phi-gene-clusters-out` when you want audit tables for every tested phi candidate. Cluster output rows whose maximum raw factor loading is below `--cluster-row-min-max-loading` are omitted from reported cluster files.
 
 PheWAS matrix inputs (for phenotype/gene anchor workflows):
 

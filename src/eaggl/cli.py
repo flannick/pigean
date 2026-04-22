@@ -411,7 +411,7 @@ parser.add_option("","--factor-prune-gene-sets-val",type='float',default=None) #
 parser.add_option("","--no-auto-discovery-subset",action="store_true",default=False) #during EAGGL factorization, use all retained gene sets rather than only family leaders for discovery
 parser.add_option("","--discovery-redundancy-weighting-mode",type="choice",choices=["effective_size","log_effective_size","none"],default="effective_size") #leader-family redundancy weighting mode for discovery support
 parser.add_option("","--no-discovery-redundancy-weighting",action="store_true",default=False) #during EAGGL factorization, disable redundancy-balanced discovery weights
-parser.add_option("","--discovery-redundancy-threshold",type="float",default=0.35) #similarity threshold used to assign retained gene sets to discovery families
+parser.add_option("","--discovery-similarity-threshold",type="float",default=0.35) #similarity threshold used to assign retained gene sets to discovery families
 
 
 parser.add_option("","--add-gene-sets-by-enrichment-p",type='float',default=None) #when running multiple gene anchoring, add in gene sets that pass the enrichment filters. Filter according to p-value
@@ -487,10 +487,11 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--positive-controls-all-in": "compatibility alias for standalone EAGGL gene-list background handling",
     "--positive-controls-in": "compatibility alias for --gene-list-in",
     "--positive-controls-list": "compatibility alias for --gene-list",
-    "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
+    "--discovery-similarity-threshold": "similarity threshold used to assign retained gene sets to discovery families",
+    "--learn-phi": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
     "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best phi-search candidate",
-    "--learn-phi-mass-floor-frac": "minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring",
+    "--learn-phi-mass-floor-frac": "minimum factor mass fraction used to define primary factors during phi search",
     "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available",
     "--learn-phi-max-redundancy-q90": "maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning",
     "--learn-phi-max-num-iterations": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
@@ -1504,8 +1505,8 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-max-num-iterations must be at least 1")
     if parsed_options.max_num_discovery_gene_sets is not None and parsed_options.max_num_discovery_gene_sets < 1:
         bail("--max-num-discovery-gene-sets must be at least 1")
-    if not (0 <= parsed_options.discovery_redundancy_threshold <= 1):
-        bail("--discovery-redundancy-threshold must be in [0, 1]")
+    if not (0 <= parsed_options.discovery_similarity_threshold <= 1):
+        bail("--discovery-similarity-threshold must be in [0, 1]")
 
     if len(parsed_args) < 1:
         bail(usage)

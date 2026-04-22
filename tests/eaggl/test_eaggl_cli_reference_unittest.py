@@ -103,7 +103,7 @@ class EagglCliReferenceTest(unittest.TestCase):
     def test_reference_default_discovery_threshold_is_point_three_five(self) -> None:
         proc = self._run_ok("factor", "--print-effective-config")
         payload = json.loads(proc.stdout)
-        self.assertEqual(payload["options"]["discovery_redundancy_threshold"], 0.35)
+        self.assertEqual(payload["options"]["discovery_similarity_threshold"], 0.35)
 
     def test_reference_matrix_and_bundle_flags_round_trip(self) -> None:
         x_list = self.tmpdir / "x_inputs.list"
@@ -389,7 +389,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--discovery-redundancy-weighting-mode",
             "effective_size",
             "--no-discovery-redundancy-weighting",
-            "--discovery-redundancy-threshold",
+            "--discovery-similarity-threshold",
             "0.6",
             "--learn-phi-prune-genes-num",
             "900",
@@ -504,7 +504,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertTrue(opts["no_auto_discovery_subset"])
         self.assertEqual(opts["discovery_redundancy_weighting_mode"], "effective_size")
         self.assertTrue(opts["no_discovery_redundancy_weighting"])
-        self.assertEqual(opts["discovery_redundancy_threshold"], 0.6)
+        self.assertEqual(opts["discovery_similarity_threshold"], 0.6)
         self.assertEqual(opts["learn_phi_prune_genes_num"], 900)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
         self.assertEqual(opts["learn_phi_max_num_iterations"], 50)
@@ -652,7 +652,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--no-auto-discovery-subset": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--discovery-redundancy-weighting-mode": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-discovery-redundancy-weighting": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--discovery-redundancy-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--discovery-similarity-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-nmf": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-min-factor-cosine": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],

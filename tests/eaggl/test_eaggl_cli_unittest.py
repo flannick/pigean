@@ -237,6 +237,13 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("--learn-phi-size-tolerance-frac must be nonnegative", err)
         self.assertNotIn("Traceback", err)
 
+    def test_removed_discovery_redundancy_threshold_flag_is_rejected(self) -> None:
+        proc = self._run("factor", "--discovery-redundancy-threshold", "0.5")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("no such option: --discovery-redundancy-threshold", err)
+        self.assertNotIn("Traceback", err)
+
     def test_invalid_phi_search_shortcut_settings_return_usage_error(self) -> None:
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-prune-genes-num", "0")
         self.assertEqual(proc.returncode, 2)

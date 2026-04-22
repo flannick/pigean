@@ -1479,7 +1479,7 @@ def _build_factor_param_record(
     auto_discovery_subset,
     discovery_redundancy_weighting,
     discovery_redundancy_weighting_mode,
-    discovery_redundancy_threshold,
+    discovery_similarity_threshold,
     anchor_pheno_mask,
     anchor_gene_mask,
     anchor_any_pheno,
@@ -1563,7 +1563,7 @@ def _build_factor_param_record(
         "auto_discovery_subset": bool(auto_discovery_subset),
         "discovery_redundancy_weighting": bool(discovery_redundancy_weighting),
         "discovery_redundancy_weighting_mode": str(discovery_redundancy_weighting_mode),
-        "discovery_redundancy_threshold": float(discovery_redundancy_threshold),
+        "discovery_similarity_threshold": float(discovery_similarity_threshold),
         "anchor_any_pheno": bool(anchor_any_pheno),
         "anchor_any_gene": bool(anchor_any_gene),
         "anchor_gene_set": bool(anchor_gene_set),
@@ -1808,7 +1808,7 @@ def _build_discovery_plan(
     auto_discovery_subset,
     discovery_redundancy_weighting,
     discovery_redundancy_weighting_mode,
-    discovery_redundancy_threshold,
+    discovery_similarity_threshold,
 ):
     discovery_redundancy_weighting_mode = _resolve_discovery_weighting_mode(
         discovery_redundancy_weighting,
@@ -1871,11 +1871,11 @@ def _build_discovery_plan(
         best_family = int(np.argmax(similarities))
         best_similarity = float(similarities[best_family]) if similarities.size > 0 else -np.inf
 
-        allow_new_family = best_similarity < float(discovery_redundancy_threshold)
+        allow_new_family = best_similarity < float(discovery_similarity_threshold)
         if auto_discovery_subset and max_num_discovery_gene_sets is not None:
             allow_new_family = allow_new_family and len(leader_indices) < int(max_num_discovery_gene_sets)
         if not auto_discovery_subset:
-            allow_new_family = best_similarity < float(discovery_redundancy_threshold)
+            allow_new_family = best_similarity < float(discovery_similarity_threshold)
 
         if allow_new_family:
             family_id = len(leader_indices)
@@ -3511,7 +3511,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -3974,10 +3974,10 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         auto_discovery_subset=auto_discovery_subset,
         discovery_redundancy_weighting=discovery_redundancy_weighting,
         discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
-        discovery_redundancy_threshold=discovery_redundancy_threshold,
+        discovery_similarity_threshold=discovery_similarity_threshold,
     )
 
-    state._record_params({"max_num_factors": max_num_factors, "alpha0": alpha0, "phi": phi, "gene_set_filter_type": gene_set_filter_type, "gene_set_filter_value": gene_set_filter_value, "gene_or_pheno_filter_type": gene_or_pheno_filter_type, "gene_or_pheno_filter_value": gene_or_pheno_filter_value, "pheno_prune_value": pheno_prune_value, "pheno_prune_number": pheno_prune_number, "gene_set_prune_value": gene_set_prune_value, "gene_set_prune_number": gene_set_prune_number, "max_num_discovery_gene_sets": max_num_discovery_gene_sets, "auto_discovery_subset": auto_discovery_subset, "discovery_redundancy_weighting": discovery_redundancy_weighting, "discovery_redundancy_weighting_mode": discovery_redundancy_weighting_mode, "discovery_redundancy_threshold": discovery_redundancy_threshold, "num_retained_gene_sets": int(np.sum(gene_set_mask)), "num_discovery_gene_sets": int(discovery_plan.discovery_row_indices_full.size), "run_transpose": run_transpose})
+    state._record_params({"max_num_factors": max_num_factors, "alpha0": alpha0, "phi": phi, "gene_set_filter_type": gene_set_filter_type, "gene_set_filter_value": gene_set_filter_value, "gene_or_pheno_filter_type": gene_or_pheno_filter_type, "gene_or_pheno_filter_value": gene_or_pheno_filter_value, "pheno_prune_value": pheno_prune_value, "pheno_prune_number": pheno_prune_number, "gene_set_prune_value": gene_set_prune_value, "gene_set_prune_number": gene_set_prune_number, "max_num_discovery_gene_sets": max_num_discovery_gene_sets, "auto_discovery_subset": auto_discovery_subset, "discovery_redundancy_weighting": discovery_redundancy_weighting, "discovery_redundancy_weighting_mode": discovery_redundancy_weighting_mode, "discovery_similarity_threshold": discovery_similarity_threshold, "num_retained_gene_sets": int(np.sum(gene_set_mask)), "num_discovery_gene_sets": int(discovery_plan.discovery_row_indices_full.size), "run_transpose": run_transpose})
 
 
     matrix = state.X_phewas_beta_uncorrected.T if factor_gene_set_x_pheno else state.X_orig.T
@@ -4544,7 +4544,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_redundancy_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -4616,8 +4616,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--max-num-discovery-gene-sets must be at least 1")
     if discovery_redundancy_weighting_mode not in {"effective_size", "log_effective_size", "none"}:
         bail("--discovery-redundancy-weighting-mode must be one of: effective_size, log_effective_size, none")
-    if not (0 <= float(discovery_redundancy_threshold) <= 1):
-        bail("--discovery-redundancy-threshold must be in [0, 1]")
+    if not (0 <= float(discovery_similarity_threshold) <= 1):
+        bail("--discovery-similarity-threshold must be in [0, 1]")
     if learn_phi_prune_gene_sets_num is not None:
         warnings.warn(
             "learn_phi_prune_gene_sets_num is deprecated and ignored; learn-phi now uses the same discovery plan as the final fit",
@@ -4644,7 +4644,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "auto_discovery_subset": auto_discovery_subset,
         "discovery_redundancy_weighting": discovery_redundancy_weighting,
         "discovery_redundancy_weighting_mode": discovery_redundancy_weighting_mode,
-        "discovery_redundancy_threshold": discovery_redundancy_threshold,
+        "discovery_similarity_threshold": discovery_similarity_threshold,
         "anchor_pheno_mask": anchor_pheno_mask,
         "anchor_gene_mask": anchor_gene_mask,
         "anchor_any_pheno": anchor_any_pheno,
@@ -4749,7 +4749,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             auto_discovery_subset=auto_discovery_subset,
             discovery_redundancy_weighting=discovery_redundancy_weighting,
             discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
-            discovery_redundancy_threshold=discovery_redundancy_threshold,
+            discovery_similarity_threshold=discovery_similarity_threshold,
             anchor_pheno_mask=anchor_pheno_mask,
             anchor_gene_mask=anchor_gene_mask,
             anchor_any_pheno=anchor_any_pheno,

@@ -62,8 +62,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
-| `--discovery-redundancy-threshold` | `expert` | `yes` | `expert_help` | `discovery_redundancy_threshold` | `0.35` | - |
 | `--discovery-redundancy-weighting-mode` | `expert` | `yes` | `expert_help` | `discovery_redundancy_weighting_mode` | `effective_size` | - |
+| `--discovery-similarity-threshold` | `expert` | `yes` | `expert_help` | `discovery_similarity_threshold` | `0.35` | similarity threshold used to assign retained gene sets to discovery families |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
 | `--factor-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_clusters_in` | `None` | load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors |
 | `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis |
@@ -99,10 +99,10 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
-| `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi by structural model selection before the final factorization |
+| `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi to a requested primary-factor gene effective support before the final factorization |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `2.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
-| `--learn-phi-mass-floor-frac` | `expert` | `yes` | `expert_help` | `learn_phi_mass_floor_frac` | `0.005` | minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring |
+| `--learn-phi-mass-floor-frac` | `expert` | `yes` | `expert_help` | `learn_phi_mass_floor_frac` | `0.005` | minimum factor mass fraction used to define primary factors during phi search |
 | `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | maximum allowed reconstruction-error loss relative to the best phi-search candidate |
 | `--learn-phi-max-num-iterations` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_num_iterations` | `None` | during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate |
 | `--learn-phi-max-primary-gene-max-weight-q90` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_primary_gene_max_weight_q90` | `None` | optional maximum q90 primary-factor max gene weight allowed during target-size tuning |
