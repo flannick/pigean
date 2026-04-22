@@ -1092,8 +1092,13 @@ def _apply_canonical_trait_linkage(
     state.pheno_capture_basis = linkage_inputs["basis_name"]
     state.pheno_capture_input = pheno_capture_input
     state.trait_linkage_factor_total_mass = linkage_result["factor_total_mass"]
+    state.trait_linkage_factor_n_eff = linkage_result["factor_n_eff"]
+    state.trait_linkage_factor_top_share = linkage_result["factor_top_share"]
+    state.trait_linkage_factor_top10_share = linkage_result["factor_top10_share"]
+    state.trait_linkage_broad_factor_flag = linkage_result["broad_factor_flag"]
     state.trait_linkage_joint = linkage_result["joint"]
     state.trait_linkage_marginal = linkage_result["marginal"]
+    state.trait_linkage_marginal_overlap = linkage_result["marginal_overlap"]
     state.trait_linkage_residual = linkage_result["residual"]
     state.trait_linkage_strength = linkage_result["trait_total_support"]
     state.trait_linkage_retained_strength = linkage_result["retained_trait_support"]
@@ -2986,8 +2991,18 @@ def _finalize_factor_outputs(
         state.trait_linkage_joint = state.trait_linkage_joint[:, reorder_inds]
     if state.trait_linkage_marginal is not None:
         state.trait_linkage_marginal = state.trait_linkage_marginal[:, reorder_inds]
+    if state.trait_linkage_marginal_overlap is not None:
+        state.trait_linkage_marginal_overlap = state.trait_linkage_marginal_overlap[:, reorder_inds]
     if state.trait_linkage_factor_total_mass is not None:
         state.trait_linkage_factor_total_mass = state.trait_linkage_factor_total_mass[reorder_inds]
+    if state.trait_linkage_factor_n_eff is not None:
+        state.trait_linkage_factor_n_eff = state.trait_linkage_factor_n_eff[reorder_inds]
+    if state.trait_linkage_factor_top_share is not None:
+        state.trait_linkage_factor_top_share = state.trait_linkage_factor_top_share[reorder_inds]
+    if state.trait_linkage_factor_top10_share is not None:
+        state.trait_linkage_factor_top10_share = state.trait_linkage_factor_top10_share[reorder_inds]
+    if state.trait_linkage_broad_factor_flag is not None:
+        state.trait_linkage_broad_factor_flag = state.trait_linkage_broad_factor_flag[reorder_inds]
     state.exp_gene_set_factors = state.exp_gene_set_factors[:, reorder_inds]
 
     threshold = 1e-5

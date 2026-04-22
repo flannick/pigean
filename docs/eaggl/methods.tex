@@ -307,6 +307,11 @@ q_t^{(b)} - b_{\bullet k}^{(b)} c
 \right\|_2^2,
 \label{eq:eaggl_trait_linkage_marginal}
 \end{equation}
+and the marginal overlap companion is the direct shape overlap
+\begin{equation}
+o_{tk}^{(b)} = \left(q_t^{(b)}\right)^\top b_{\bullet k}^{(b)}.
+\label{eq:eaggl_trait_linkage_marginal_overlap}
+\end{equation}
 and the \emph{joint coefficient} is the all-factor competitive projection
 \begin{equation}
 j_t^{(b)}
@@ -323,7 +328,7 @@ We also report the uncaptured normalized mass
 \label{eq:eaggl_trait_linkage_residual}
 \end{equation}
 
-The coefficient $m_{tk}^{(b)}$ is interpreted as a standalone support-normalized projection coefficient linking phenotype $t$ to factor $k$ when that factor is viewed alone. The coefficient $j_{tk}^{(b)}$ is interpreted as the corresponding competitive projection coefficient for factor $k$ after the other factors compete. These coefficients are not exact overlap or captured-support masses. In contrast to a projection normalized only on the retained masked slice, Eqs.~\eqref{eq:eaggl_trait_linkage_marginal} and \eqref{eq:eaggl_trait_linkage_joint} preserve the scale of the full thresholded trait while still solving on the retained factor basis. Broad phenotypes can therefore have large total thresholded support $A_t^{(b)}$ without automatically receiving inflated linkage coefficients when only a small masked subset of their support survives into the factor basis.
+The coefficient $m_{tk}^{(b)}$ is interpreted as a standalone support-normalized projection coefficient linking phenotype $t$ to factor $k$ when that factor is viewed alone. Because it is divided by the factor self-norm, it remains coefficient-like and can be sensitive to factor breadth. The overlap $o_{tk}^{(b)}$ is a direct shape-overlap metric and is less affected by broad factor profiles. The coefficient $j_{tk}^{(b)}$ is interpreted as the corresponding competitive projection coefficient for factor $k$ after the other factors compete. These coefficients are not exact overlap or captured-support masses. In contrast to a projection normalized only on the retained masked slice, Eqs.~\eqref{eq:eaggl_trait_linkage_marginal} and \eqref{eq:eaggl_trait_linkage_joint} preserve the scale of the full thresholded trait while still solving on the retained factor basis. Broad phenotypes can therefore have large total thresholded support $A_t^{(b)}$ without automatically receiving inflated linkage coefficients when only a small masked subset of their support survives into the factor basis.
 
 For reporting, EAGGL writes:
 \begin{itemize}
@@ -334,9 +339,15 @@ For reporting, EAGGL writes:
 \item `retained_n_eff` = $\left(\sum_f s_{t,\mathcal{M}f}^{(b)}\right)^2 \big/ \sum_f \left(s_{t,\mathcal{M}f}^{(b)}\right)^2$
 \item `joint_coefficient` = $j_{tk}^{(b)}$
 \item `marginal_coefficient` = $m_{tk}^{(b)}$
+\item `marginal_overlap` = $o_{tk}^{(b)}$
 \item `joint_coefficient_support_mass` = `trait_total_support` $\times$ `joint_coefficient`, a coefficient-scaled support total rather than an exact captured-support mass
 \item `marginal_coefficient_support_mass` = `trait_total_support` $\times$ `marginal_coefficient`, a coefficient-scaled support total rather than an exact captured-support mass
+\item `marginal_overlap_support_mass` = `trait_total_support` $\times$ `marginal_overlap`, an overlap-scaled support total
 \item `factor_total_mass` = $S_k^{(b)}$ in the factor summary output
+\item `factor_n_eff` = $\left(\sum_f W_{fk}^{(b)}\right)^2 \big/ \sum_f \left(W_{fk}^{(b)}\right)^2$
+\item `factor_top_share` = $\max_f W_{fk}^{(b)} / S_k^{(b)}$
+\item `factor_top10_share` = top-10 loading mass divided by $S_k^{(b)}$
+\item `broad_factor_flag` = 1 when `factor_n_eff` $\ge 500$ and `factor_top_share` $\le 0.01$
 \end{itemize}
 
 The effective-size diagnostics complement the raw thresholded feature counts. A phenotype can have many retained nonzero genes but still have `trait_n_eff` or `retained_n_eff` close to $1$ when most of its support is concentrated on one or a few genes. These quantities therefore expose concentration of support mass rather than only thresholded breadth.

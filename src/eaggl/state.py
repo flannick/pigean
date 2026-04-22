@@ -773,8 +773,13 @@ class FactorModelState:
     pheno_capture_basis: object | None = None
     pheno_capture_input: object | None = None
     trait_linkage_factor_total_mass: object | None = None
+    trait_linkage_factor_n_eff: object | None = None
+    trait_linkage_factor_top_share: object | None = None
+    trait_linkage_factor_top10_share: object | None = None
+    trait_linkage_broad_factor_flag: object | None = None
     trait_linkage_joint: object | None = None
     trait_linkage_marginal: object | None = None
+    trait_linkage_marginal_overlap: object | None = None
     trait_linkage_residual: object | None = None
     trait_linkage_strength: object | None = None
     trait_linkage_retained_strength: object | None = None
@@ -1207,8 +1212,13 @@ class EagglState(object):
         self.pheno_capture_basis = None
         self.pheno_capture_input = None
         self.trait_linkage_factor_total_mass = None
+        self.trait_linkage_factor_n_eff = None
+        self.trait_linkage_factor_top_share = None
+        self.trait_linkage_factor_top10_share = None
+        self.trait_linkage_broad_factor_flag = None
         self.trait_linkage_joint = None
         self.trait_linkage_marginal = None
+        self.trait_linkage_marginal_overlap = None
         self.trait_linkage_residual = None
         self.trait_linkage_strength = None
         self.trait_linkage_retained_strength = None
@@ -2509,6 +2519,26 @@ class EagglState(object):
                     if self.trait_linkage_factor_total_mass is not None
                     else None
                 )
+                factor_n_eff = (
+                    np.asarray(self.trait_linkage_factor_n_eff, dtype=float)
+                    if self.trait_linkage_factor_n_eff is not None
+                    else None
+                )
+                factor_top_share = (
+                    np.asarray(self.trait_linkage_factor_top_share, dtype=float)
+                    if self.trait_linkage_factor_top_share is not None
+                    else None
+                )
+                factor_top10_share = (
+                    np.asarray(self.trait_linkage_factor_top10_share, dtype=float)
+                    if self.trait_linkage_factor_top10_share is not None
+                    else None
+                )
+                broad_factor_flag = (
+                    np.asarray(self.trait_linkage_broad_factor_flag, dtype=bool)
+                    if self.trait_linkage_broad_factor_flag is not None
+                    else None
+                )
                 header = "Factor"
                 header = "%s\t%s" % (header, "label")
                 if anchors is not None:
@@ -2517,6 +2547,10 @@ class EagglState(object):
                     header = "%s\t%s" % (header, "joint")
                     header = "%s\t%s" % (header, "marginal")
                     header = "%s\t%s" % (header, "factor_total_mass")
+                    header = "%s\t%s" % (header, "factor_n_eff")
+                    header = "%s\t%s" % (header, "factor_top_share")
+                    header = "%s\t%s" % (header, "factor_top10_share")
+                    header = "%s\t%s" % (header, "broad_factor_flag")
                 else:
                     header = "%s\t%s" % (header, "lambda")
                     header = "%s\t%s" % (header, "any_relevance")
@@ -2532,6 +2566,10 @@ class EagglState(object):
                         header = "%s\t%s" % (header, "anchor_any_joint")
                         header = "%s\t%s" % (header, "anchor_any_marginal")
                     header = "%s\t%s" % (header, "factor_total_mass")
+                    header = "%s\t%s" % (header, "factor_n_eff")
+                    header = "%s\t%s" % (header, "factor_top_share")
+                    header = "%s\t%s" % (header, "factor_top10_share")
+                    header = "%s\t%s" % (header, "broad_factor_flag")
 
                 if self.factor_top_genes is not None or self.factor_anchor_top_genes is not None:
                     header = "%s\t%s" % (header, "top_genes")
@@ -2570,6 +2608,30 @@ class EagglState(object):
                                 if factor_total_mass is not None and i < len(factor_total_mass)
                                 else "NA",
                             )
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_n_eff[i])
+                                if factor_n_eff is not None and i < len(factor_n_eff)
+                                else "NA",
+                            )
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_top_share[i])
+                                if factor_top_share is not None and i < len(factor_top_share)
+                                else "NA",
+                            )
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_top10_share[i])
+                                if factor_top10_share is not None and i < len(factor_top10_share)
+                                else "NA",
+                            )
+                            line = "%s\t%s" % (
+                                line,
+                                "1"
+                                if broad_factor_flag is not None and i < len(broad_factor_flag) and bool(broad_factor_flag[i])
+                                else ("0" if broad_factor_flag is not None and i < len(broad_factor_flag) else "NA"),
+                            )
                             if self.factor_anchor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_genes[i][j]))
                             line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_gene_sets[i][j]))
@@ -2596,6 +2658,30 @@ class EagglState(object):
                                 "%.6g" % float(factor_total_mass[i])
                                 if factor_total_mass is not None and i < len(factor_total_mass)
                                 else "NA",
+                            )
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_n_eff[i])
+                                if factor_n_eff is not None and i < len(factor_n_eff)
+                                else "NA",
+                            )
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_top_share[i])
+                                if factor_top_share is not None and i < len(factor_top_share)
+                                else "NA",
+                            )
+                            line = "%s\t%s" % (
+                                line,
+                                "%.6g" % float(factor_top10_share[i])
+                                if factor_top10_share is not None and i < len(factor_top10_share)
+                                else "NA",
+                            )
+                            line = "%s\t%s" % (
+                                line,
+                                "1"
+                                if broad_factor_flag is not None and i < len(broad_factor_flag) and bool(broad_factor_flag[i])
+                                else ("0" if broad_factor_flag is not None and i < len(broad_factor_flag) else "NA"),
                             )
                             if self.factor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_top_genes[i]))
@@ -2630,8 +2716,10 @@ class EagglState(object):
                 "is_anchor",
                 "joint_fraction",
                 "marginal_fraction",
+                "marginal_overlap",
                 "joint_support_mass",
                 "marginal_support_mass",
+                "marginal_overlap_support_mass",
                 "low_retention_flag",
                 "trait_neff",
                 "retained_n_eff",
@@ -2642,6 +2730,7 @@ class EagglState(object):
                 "is_anchor",
                 "joint_coefficient",
                 "marginal_coefficient",
+                "marginal_overlap",
                 "trait_total_support",
                 "retained_trait_support",
                 "retained_fraction",
@@ -2652,6 +2741,7 @@ class EagglState(object):
                 "low_retention_flag",
                 "joint_coefficient_support_mass",
                 "marginal_coefficient_support_mass",
+                "marginal_overlap_support_mass",
                 "joint_residual",
                 "score_source",
                 "basis",
@@ -2703,6 +2793,11 @@ class EagglState(object):
                 if self.trait_linkage_retained_n_eff is not None
                 else np.zeros(len(self.phenos), dtype=float)
             )
+            marginal_overlap = (
+                np.asarray(self.trait_linkage_marginal_overlap, dtype=float)
+                if self.trait_linkage_marginal_overlap is not None
+                else np.zeros_like(self.trait_linkage_marginal, dtype=float)
+            )
             low_retention_flags = (
                 np.asarray(self.trait_linkage_low_retention_flag, dtype=bool)
                 if self.trait_linkage_low_retention_flag is not None
@@ -2718,8 +2813,10 @@ class EagglState(object):
                         "1" if bool(is_anchor[trait_index]) else "0",
                         "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
                         "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
+                        "%.6g" % float(marginal_overlap[trait_index, factor_index]),
                         "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
                         "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
+                        "%.6g" % float(strengths[trait_index] * marginal_overlap[trait_index, factor_index]),
                         "1" if bool(low_retention_flags[trait_index]) else "0",
                         "%.6g" % float(trait_n_eff[trait_index]),
                         "%.6g" % float(retained_n_eff[trait_index]),
@@ -2733,6 +2830,7 @@ class EagglState(object):
                             "1" if bool(is_anchor[trait_index]) else "0",
                             "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
                             "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
+                            "%.6g" % float(marginal_overlap[trait_index, factor_index]),
                             "%.6g" % float(strengths[trait_index]),
                             "%.6g" % float(retained_strengths[trait_index]),
                             "%.6g" % float(retained_fractions[trait_index]),
@@ -2743,6 +2841,7 @@ class EagglState(object):
                             "1" if bool(low_retention_flags[trait_index]) else "0",
                             "%.6g" % float(strengths[trait_index] * self.trait_linkage_joint[trait_index, factor_index]),
                             "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
+                            "%.6g" % float(strengths[trait_index] * marginal_overlap[trait_index, factor_index]),
                             "%.6g" % float(residuals[trait_index]),
                             score_source,
                             basis,

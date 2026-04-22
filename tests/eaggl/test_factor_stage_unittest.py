@@ -698,6 +698,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         np.testing.assert_array_equal(runtime.trait_linkage_low_retention_flag, [True, True])
         self.assertLess(runtime.trait_linkage_joint[0, 0], 0.25)
         self.assertIn("trait\tfactor\tis_anchor\tjoint_coefficient\tmarginal_coefficient", content)
+        self.assertIn("marginal_overlap", content)
         self.assertIn("trait_total_support", content)
         self.assertIn("retained_trait_support", content)
         self.assertIn("retained_fraction", content)
@@ -708,9 +709,10 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("low_retention_flag", content)
         self.assertIn("joint_coefficient_support_mass", content)
         self.assertIn("marginal_coefficient_support_mass", content)
+        self.assertIn("marginal_overlap_support_mass", content)
         self.assertIn("TraitA\tFactor1", content)
         self.assertIn("TraitB\tFactor2", content)
-        self.assertIn("trait\tfactor\tis_anchor\tjoint_fraction\tmarginal_fraction\tjoint_support_mass\tmarginal_support_mass\tlow_retention_flag\ttrait_neff\tretained_n_eff", concise_content)
+        self.assertIn("trait\tfactor\tis_anchor\tjoint_fraction\tmarginal_fraction\tmarginal_overlap\tjoint_support_mass\tmarginal_support_mass\tmarginal_overlap_support_mass\tlow_retention_flag\ttrait_neff\tretained_n_eff", concise_content)
         self.assertNotIn("trait_total_support", concise_content.splitlines()[0])
 
     def test_projection_only_anchor_and_external_trait_linkage_share_normalization_logic(self) -> None:
@@ -843,6 +845,10 @@ class FactorStageHelpersTest(unittest.TestCase):
             runtime.factor_labels = ["immune", "metabolic"]
             runtime.factor_relevance = np.array([0.25, 0.5])
             runtime.trait_linkage_factor_total_mass = np.array([3.0, 7.0])
+            runtime.trait_linkage_factor_n_eff = np.array([2.0, 600.0])
+            runtime.trait_linkage_factor_top_share = np.array([0.75, 0.005])
+            runtime.trait_linkage_factor_top10_share = np.array([1.0, 0.04])
+            runtime.trait_linkage_broad_factor_flag = np.array([False, True])
             runtime.factor_top_gene_sets = [["GS1"], ["GS2"]]
             runtime.factor_top_genes = [["GENE1"], ["GENE2"]]
             runtime.write_matrix_factors(str(output_path))
@@ -853,7 +859,12 @@ class FactorStageHelpersTest(unittest.TestCase):
                 content = fh.read()
 
         self.assertIn("factor_total_mass", content.splitlines()[0])
-        self.assertIn("Factor1\timmune\t1\t0.25\t3", content)
+        self.assertIn("factor_n_eff", content.splitlines()[0])
+        self.assertIn("factor_top_share", content.splitlines()[0])
+        self.assertIn("factor_top10_share", content.splitlines()[0])
+        self.assertIn("broad_factor_flag", content.splitlines()[0])
+        self.assertIn("Factor1\timmune\t1\t0.25\t3\t2\t0.75\t1\t0", content)
+        self.assertIn("Factor2\tmetabolic\t2\t0.5\t7\t600\t0.005\t0.04\t1", content)
 
     def test_projection_only_factor_phewas_stage_gate_does_not_require_factor_fit(self) -> None:
         self.assertTrue(

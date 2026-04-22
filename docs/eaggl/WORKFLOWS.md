@@ -91,7 +91,7 @@ Phenotype annotation policy:
 2. write the long-form linkage table with `--trait-factor-links-out`; `--pheno-clusters-out` remains accepted as a compatibility alias for one release
 3. interpret trait linkage as linkage of the thresholded high-confidence phenotype support shape, not of a fully observed unthresholded phenotype surface or a biological probability distribution
 4. canonical linkage forms a masked full-space target (`s_mask / A`) by dividing masked thresholded trait support by total thresholded trait support before masking, then solves the joint/marginal projections in that full objective space
-5. use `--trait-factor-links-output-detail main` for the concise default table (`trait`, `factor`, `is_anchor`, `joint_fraction`, `marginal_fraction`, `joint_support_mass`, `marginal_support_mass`, `low_retention_flag`, `trait_neff`, `retained_n_eff`) and `--trait-factor-links-output-detail full` when additional retained diagnostics are needed
+5. use `--trait-factor-links-output-detail main` for the concise default table (`trait`, `factor`, `is_anchor`, `joint_fraction`, `marginal_fraction`, `marginal_overlap`, `joint_support_mass`, `marginal_support_mass`, `marginal_overlap_support_mass`, `low_retention_flag`, `trait_neff`, `retained_n_eff`) and `--trait-factor-links-output-detail full` when additional retained diagnostics are needed
 6. use the retained diagnostics in full-detail `trait_factor_links.out.gz` to judge whether a trait is poorly represented or highly concentrated on the current factor basis:
    - `trait_total_support`
    - `retained_trait_support`
@@ -103,19 +103,24 @@ Phenotype annotation policy:
    - `low_retention_flag`
    - `joint_coefficient_support_mass`
    - `marginal_coefficient_support_mass`
+   - `marginal_overlap`
+   - `marginal_overlap_support_mass`
 7. use `trait_n_eff` and `retained_n_eff` when raw thresholded feature counts overstate breadth; these effective-size diagnostics shrink toward the number of genes carrying most of the support mass
-8. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
-9. default to `--trait-linkage-source combined` with `--trait-linkage-threshold 1.0` (strict `source_value > 1.0`); use `--trait-linkage-source auto` only when you explicitly want fallback resolution (`combined`, then `log_bf`, then `prior`)
-10. default to `--trait-linkage-computation-mode sparse_full` for sparse-aware full-space linkage; use `dense_full` only as an expert/debug comparison backend
-11. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis
-12. treat `--run-factor-phewas` as a secondary expert workflow
-13. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`
-14. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
-15. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
-16. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
-17. to rerun canonical trait linkage from existing EAGGL factors on the gene basis, pass `--factor-gene-clusters-in results/gene_clusters.out.gz`; add `--trait-factor-links-out ...` to write the canonical long-form linkage table, `--run-factor-phewas --factor-phewas-stats-out ...` to write factor-PheWAS, or both in the same command
-18. `--factor-phewas-gene-clusters-in` remains accepted as a compatibility alias for the factor-PheWAS-only projection path, but `--factor-gene-clusters-in` is the canonical precomputed-factor input
-19. to rerun expert trait linkage from the gene-set basis, pass `--project-phenos-from-gene-sets --factor-gene-set-clusters-in results/gene_set_clusters.out.gz --gene-set-phewas-stats-in ... --trait-factor-links-out ...`; this uses the same projection basis as normal EAGGL factorization
+8. use `factor_n_eff`, `factor_top_share`, `factor_top10_share`, and `broad_factor_flag` in `factors.out` to identify broad factors; `broad_factor_flag` marks `factor_n_eff >= 500` and `factor_top_share <= 0.01`
+9. for factor -> trait interpretation, filter on trait QC and rank by `joint_coefficient`, using `marginal_coefficient` or `marginal_overlap` as secondary context
+10. for trait -> factor interpretation, rank by `joint_coefficient`, not marginal alone; optionally require `broad_factor_flag = 0` or inspect `factor_n_eff`
+11. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
+12. default to `--trait-linkage-source combined` with `--trait-linkage-threshold 1.0` (strict `source_value > 1.0`); use `--trait-linkage-source auto` only when you explicitly want fallback resolution (`combined`, then `log_bf`, then `prior`)
+13. default to `--trait-linkage-computation-mode sparse_full` for sparse-aware full-space linkage; use `dense_full` only as an expert/debug comparison backend
+14. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis
+15. treat `--run-factor-phewas` as a secondary expert workflow
+16. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`
+17. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
+18. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
+19. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
+20. to rerun canonical trait linkage from existing EAGGL factors on the gene basis, pass `--factor-gene-clusters-in results/gene_clusters.out.gz`; add `--trait-factor-links-out ...` to write the canonical long-form linkage table, `--run-factor-phewas --factor-phewas-stats-out ...` to write factor-PheWAS, or both in the same command
+21. `--factor-phewas-gene-clusters-in` remains accepted as a compatibility alias for the factor-PheWAS-only projection path, but `--factor-gene-clusters-in` is the canonical precomputed-factor input
+22. to rerun expert trait linkage from the gene-set basis, pass `--project-phenos-from-gene-sets --factor-gene-set-clusters-in results/gene_set_clusters.out.gz --gene-set-phewas-stats-in ... --trait-factor-links-out ...`; this uses the same projection basis as normal EAGGL factorization
 
 Projection-only trait linkage from the gene basis:
 

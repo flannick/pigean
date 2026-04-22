@@ -241,6 +241,35 @@ def compute_trait_linkage(
     retained_n_eff = _compute_effective_feature_count(masked_trait_support, eps=eps)
 
     factor_total_mass = np.sum(retained_basis, axis=0, keepdims=True)
+    clipped_factor_basis = np.maximum(np.asarray(retained_basis, dtype=float), 0.0)
+    factor_positive_mass = np.sum(clipped_factor_basis, axis=0)
+    factor_square_mass = np.sum(np.square(clipped_factor_basis), axis=0)
+    factor_n_eff = np.zeros_like(factor_positive_mass, dtype=float)
+    np.divide(
+        np.square(factor_positive_mass),
+        np.maximum(factor_square_mass, eps),
+        out=factor_n_eff,
+        where=factor_positive_mass > eps,
+    )
+    factor_top_share = np.zeros_like(factor_positive_mass, dtype=float)
+    if clipped_factor_basis.shape[0] > 0:
+        np.divide(
+            np.max(clipped_factor_basis, axis=0),
+            np.maximum(factor_positive_mass, eps),
+            out=factor_top_share,
+            where=factor_positive_mass > eps,
+        )
+    factor_top10_share = np.zeros_like(factor_positive_mass, dtype=float)
+    if clipped_factor_basis.shape[0] > 0:
+        top_count = min(10, clipped_factor_basis.shape[0])
+        top10_mass = np.sum(np.sort(clipped_factor_basis, axis=0)[-top_count:, :], axis=0)
+        np.divide(
+            top10_mass,
+            np.maximum(factor_positive_mass, eps),
+            out=factor_top10_share,
+            where=factor_positive_mass > eps,
+        )
+    broad_factor_flag = np.logical_and(factor_n_eff >= 500.0, factor_top_share <= 0.01)
     normalized_factor_basis_retained = retained_basis / np.maximum(factor_total_mass, eps)
     normalized_trait_support_for_projection = _normalize_profiles_by_strength(
         masked_trait_support,
@@ -265,6 +294,7 @@ def compute_trait_linkage(
     if sparse.issparse(marginal_numerator):
         marginal_numerator = marginal_numerator.toarray()
     marginal_numerator = np.asarray(marginal_numerator, dtype=float)
+    marginal_overlap = np.maximum(marginal_numerator, 0.0)
     marginal_denominator = np.sum(np.square(normalized_factor_basis_retained), axis=0, dtype=float)
     marginal = np.zeros_like(marginal_numerator, dtype=float)
     np.divide(
@@ -298,7 +328,12 @@ def compute_trait_linkage(
         "retained_n_eff": np.asarray(retained_n_eff, dtype=float),
         "low_retention_flag": np.asarray(low_retention_flag, dtype=bool),
         "factor_total_mass": np.asarray(np.ravel(factor_total_mass), dtype=float),
+        "factor_n_eff": np.asarray(factor_n_eff, dtype=float),
+        "factor_top_share": np.asarray(factor_top_share, dtype=float),
+        "factor_top10_share": np.asarray(factor_top10_share, dtype=float),
+        "broad_factor_flag": np.asarray(broad_factor_flag, dtype=bool),
         "joint": joint,
         "marginal": marginal,
+        "marginal_overlap": marginal_overlap,
         "residual": residual,
     }
