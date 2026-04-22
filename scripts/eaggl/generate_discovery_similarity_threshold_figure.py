@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ARTIFACT_DIR = ROOT / "results" / "joint_tau_phi_confirmation_2026-04-21" / "artifacts"
 GROUP_SUMMARY = ARTIFACT_DIR / "joint_tau_phi_group_summary.tsv"
 MATCH_SUMMARY = ARTIFACT_DIR / "tau_neighbor_matched_w_summary.tsv"
-OUT_DIR = ROOT / "docs" / "eaggl" / "figures"
+OUT_DIR = ROOT / "for_paper" / "similarity_threshold"
 OUT_STEM = OUT_DIR / "supp_discovery_similarity_threshold_tuning"
 
 

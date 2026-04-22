@@ -8,9 +8,6 @@ __pycache__/
 # Outputs
 results/
 figures/
-!docs/eaggl/figures/
-!docs/eaggl/figures/supp_discovery_similarity_threshold_tuning.pdf
-!docs/eaggl/figures/supp_discovery_similarity_threshold_tuning.png
 reports/
 logs/
 

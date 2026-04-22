@@ -1,0 +1,10 @@
+\subsection{Selection of the discovery similarity threshold}
+
+We tuned $\rho_{\mathrm{disc}}$ to prevent redundant annotation collections from either duplicating the same biological signal or over-compressing distinct mechanisms. We used the large Asthma, CAD, and FEV1toFVC panels because they span the regimes that motivated the redesign: Asthma previously collapsed under dense annotation additions, CAD retained many factors, and FEV1toFVC was sensitive to discovery choices. For each trait, we ran EAGGL with effective-size discovery weighting across $\rho_{\mathrm{disc}} \in \{0.2,0.3,0.35\}$ and $\phi \in \{0.1,0.2,0.4\}$, using three recorded random seeds per configuration. We recorded discovery family counts, raw retained factors, primary factors, effective factor counts, primary-factor gene effective support, concentrated-factor diagnostics, collapse/cap indicators, and matched-$W$ cosine similarity between neighboring threshold values. Supplementary Fig.~\ref{fig:discovery_similarity_threshold_tuning} summarizes these diagnostics. Lower $\rho_{\mathrm{disc}}$ values produced smaller discovery sets but often shifted the solution into a different granularity regime, especially at $\rho_{\mathrm{disc}}=0.2$, where primary and effective factor counts were reduced despite many raw factors. Moving from $0.3$ to $0.35$ increased discovery rows but preserved non-collapsed fits, improved or maintained primary-factor resolution across traits, and gave more stable neighboring-threshold factor matches than the $0.2$ to $0.3$ transition. We therefore set $\rho_{\mathrm{disc}}=0.35$ as the default for the gene-by-gene-set discovery model, while treating $\phi$ as the user-facing resolution control.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.98\textwidth]{supp_discovery_similarity_threshold_tuning.pdf}
+\caption{Tuning the discovery similarity threshold. Panels show discovery family counts, primary factor counts, effective factor counts, and neighboring-threshold matched-$W$ cosine summaries across large Asthma, CAD, and FEV1toFVC panels.}
+\label{fig:discovery_similarity_threshold_tuning}
+\end{figure}
