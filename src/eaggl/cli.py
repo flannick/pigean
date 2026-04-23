@@ -173,6 +173,8 @@ parser.add_option("","--factor-metrics-out",default=None)
 parser.add_option("","--factors-anchor-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
+parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
+parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="primary") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
 parser.add_option("","--trait-factor-links-output-detail",default="main") #column detail level for trait-factor linkage output: main, full, or debug
 parser.add_option("","--pheno-clusters-out",default=None)
@@ -315,21 +317,27 @@ parser.add_option("","--factor-top-loading-type",default="combined",type=str) #m
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization
-parser.add_option("","--learn-phi-max-redundancy",default=0.5,type=float) #maximum allowed within-run weighted Jaccard overlap between retained factors during phi search, measured on gene loadings when available
+parser.add_option("","--learn-phi-max-redundancy",default=0.5,type=float) #maximum allowed within-run weighted Jaccard overlap between metric-scope factors during phi search, measured on gene loadings when available
 parser.add_option("","--learn-phi-max-redundancy-q90",default=0.35,type=float) #maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during phi search
 parser.add_option("","--learn-phi-runs-per-step",default=1,type=int) #number of repeated restarts used to score each candidate phi
 parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #minimum fraction of runs that must agree on the modal retained factor count during phi search
 parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
-parser.add_option("","--learn-phi-max-fit-loss-frac",default=0.05,type=float) #legacy fallback fit-loss guard used when no phi candidate satisfies the primary redundancy/restart criteria
-parser.add_option("","--learn-phi-k-band-frac",default=0.9,type=float) #legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection
+parser.add_option("","--learn-phi-max-fit-loss-frac",default=0.05,type=float) #maximum allowed reconstruction-error loss relative to the best phi-search candidate
+parser.add_option("","--learn-phi-target-gene-effective-support",default=None,type=float) #required with --learn-phi; target median effective gene support among primary factors
+parser.add_option("","--learn-phi-size-tolerance-frac",default=0.25,type=float) #fractional tolerance around target primary-factor gene effective support
+parser.add_option("","--learn-phi-min-primary-factors",default=3,type=int) #minimum primary factor count required for a phi candidate
+parser.add_option("","--learn-phi-max-primary-gene-max-weight-q90",default=None,type=float) #optional maximum q90 of primary-factor max gene weight during phi search
 parser.add_option("","--learn-phi-max-steps",default=5,type=int) #maximum number of additional phi candidates to evaluate after the initial phi
 parser.add_option("","--learn-phi-expand-factor",default=2.0,type=float) #multiplicative factor used when expanding the phi search bracket
 parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
-parser.add_option("","--learn-phi-mass-floor-frac",default=0.005,type=float) #minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring
-parser.add_option("","--learn-phi-min-error-gain-per-factor",default=5.0,type=float) #minimum reconstruction-error reduction required per additional effective factor when traversing the phi-search frontier
+parser.add_option("","--learn-phi-metric-factor-scope",type="choice",choices=["primary","all"],default="primary") #factor scope used for phi-search redundancy and repeat-stability metrics
+parser.add_option("","--learn-phi-mass-floor-frac",default=0.005,type=float) #minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search
 parser.add_option("","--learn-phi-only",default=False,action="store_true") #stop after automatic phi selection and report writing; skip the final full-panel factorization
 parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
 parser.add_option("","--factor-phi-metrics-out",default=None) #write per-factor diagnostics for each phi-search candidate
+parser.add_option("","--factor-phi-factors-out",default=None) #write factors.out-style rows for each phi-search candidate with a leading phi column
+parser.add_option("","--factor-phi-gene-set-clusters-out",default=None) #write gene_set_clusters.out-style rows for each phi-search candidate with a leading phi column
+parser.add_option("","--factor-phi-gene-clusters-out",default=None) #write gene_clusters.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--factor-backend",default="full",type=str) #factorization backend: full or blockwise_global_w
 parser.add_option("","--learn-phi-backend",default="sentinel_pruned",type=str) #phi-search backend: sentinel_pruned or blockwise_global_w
 parser.add_option("","--blockwise-gene-set-block-size",default=5000,type=int) #number of retained gene sets per block for blockwise_global_w
@@ -341,7 +349,7 @@ parser.add_option("","--no-blockwise-warm-start",dest="blockwise_warm_start",act
 parser.add_option("","--blockwise-max-blocks",default=None,type=int) #optional debugging cap on processed blocks per epoch
 parser.add_option("","--blockwise-report-out",default=None) #write detailed per-epoch blockwise diagnostics
 parser.add_option("","--learn-phi-prune-genes-num",default=1000,type=int) #during phi search only, prune to at most this many genes before candidate NMF evaluation
-parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
+parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #deprecated compatibility knob; ignored because phi search now uses the same discovery plan as the final fit
 parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #during phi search only, cap the NMF iteration budget used for each tested phi candidate
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
 parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
@@ -406,7 +414,7 @@ parser.add_option("","--factor-prune-gene-sets-val",type='float',default=None) #
 parser.add_option("","--no-auto-discovery-subset",action="store_true",default=False) #during EAGGL factorization, use all retained gene sets rather than only family leaders for discovery
 parser.add_option("","--discovery-redundancy-weighting-mode",type="choice",choices=["effective_size","log_effective_size","none"],default="effective_size") #leader-family redundancy weighting mode for discovery support
 parser.add_option("","--no-discovery-redundancy-weighting",action="store_true",default=False) #during EAGGL factorization, disable redundancy-balanced discovery weights
-parser.add_option("","--discovery-redundancy-threshold",type="float",default=0.35) #similarity threshold used to assign retained gene sets to discovery families
+parser.add_option("","--discovery-similarity-threshold",type="float",default=0.35) #similarity threshold used to assign retained gene sets to discovery families
 
 
 parser.add_option("","--add-gene-sets-by-enrichment-p",type='float',default=None) #when running multiple gene anchoring, add in gene sets that pass the enrichment filters. Filter according to p-value
@@ -482,24 +490,33 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--positive-controls-all-in": "compatibility alias for standalone EAGGL gene-list background handling",
     "--positive-controls-in": "compatibility alias for --gene-list-in",
     "--positive-controls-list": "compatibility alias for --gene-list",
-    "--learn-phi": "automatically tune phi by structural model selection before the final factorization",
+    "--discovery-similarity-threshold": "similarity threshold used to assign retained gene sets to discovery families",
+    "--learn-phi": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
-    "--learn-phi-max-fit-loss-frac": "legacy fallback fit-loss guard used when no phi candidate satisfies the primary redundancy/restart criteria",
-    "--learn-phi-mass-floor-frac": "minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring",
-    "--learn-phi-min-error-gain-per-factor": "minimum reconstruction-error reduction required per additional effective factor when traversing the automatic phi frontier",
-    "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available",
+    "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best phi-search candidate",
+    "--learn-phi-mass-floor-frac": "minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search",
+    "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between metric-scope factors during automatic phi tuning, measured on gene loadings when available",
     "--learn-phi-max-redundancy-q90": "maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning",
     "--learn-phi-max-num-iterations": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
     "--learn-phi-max-steps": "maximum number of log-space phi search steps after bracketing",
     "--learn-phi-backend": "choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets",
     "--learn-phi-only": "stop after automatic phi selection and report writing instead of running the final full-panel factorization",
-    "--learn-phi-k-band-frac": "legacy compatibility placeholder retained in params/docs; no longer used in primary phi selection",
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
     "--learn-phi-min-stability": "minimum matched-factor cosine stability required for a phi candidate during automatic tuning",
+    "--learn-phi-metric-factor-scope": "choose whether phi-selection redundancy and repeat-stability metrics use primary factors or all fitted factors",
+    "--learn-phi-target-gene-effective-support": "required with --learn-phi; target median effective gene support among primary factors",
+    "--learn-phi-size-tolerance-frac": "fractional tolerance around the requested primary-factor gene effective support",
+    "--learn-phi-min-primary-factors": "minimum primary factor count required for a phi candidate during target-size tuning",
+    "--learn-phi-max-primary-gene-max-weight-q90": "optional maximum q90 primary-factor max gene weight allowed during target-size tuning",
     "--learn-phi-prune-genes-num": "during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi",
-    "--learn-phi-prune-gene-sets-num": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
+    "--learn-phi-prune-gene-sets-num": "deprecated compatibility knob; ignored because phi search now uses the same discovery plan as the final fit",
     "--learn-phi-report-out": "write per-candidate phi search diagnostics",
     "--factor-phi-metrics-out": "write per-factor diagnostics for each investigated phi-search candidate",
+    "--factor-phi-factors-out": "write factors.out-style rows for each investigated phi-search candidate with a leading phi column",
+    "--factor-phi-gene-set-clusters-out": "write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
+    "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
+    "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
+    "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
     "--factors-anchor-out": "write anchor-specific factorization outputs",
@@ -619,12 +636,20 @@ _EXPERT_METHOD_FLAGS = {
     "--learn-phi-max-fit-loss-frac",
     "--learn-phi-max-num-iterations",
     "--learn-phi-max-steps",
+    "--learn-phi-max-primary-gene-max-weight-q90",
+    "--learn-phi-min-primary-factors",
     "--learn-phi-min-run-support",
     "--learn-phi-min-stability",
+    "--learn-phi-metric-factor-scope",
     "--learn-phi-prune-gene-sets-num",
     "--learn-phi-report-out",
     "--factor-phi-metrics-out",
+    "--factor-phi-factors-out",
+    "--factor-phi-gene-set-clusters-out",
+    "--factor-phi-gene-clusters-out",
+    "--cluster-row-min-max-loading",
     "--learn-phi-runs-per-step",
+    "--learn-phi-size-tolerance-frac",
     "--learn-phi-weight-floor",
     "--lmm-auth-key",
     "--lmm-model",
@@ -643,6 +668,9 @@ _EXPERT_METHOD_FLAGS = {
 
 _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--factor-phi-metrics-out",
+    "--factor-phi-factors-out",
+    "--factor-phi-gene-set-clusters-out",
+    "--factor-phi-gene-clusters-out",
     "--factor-phewas-stats-out",
     "--consensus-stats-out",
     "--gene-anchor-clusters-out",
@@ -695,6 +723,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--consensus-stats-out",
     "--beta0",
     "--factor-backend",
+    "--factor-output-scope",
     "--eaggl-bundle-in",
     "--factor-runs",
     "--factors-anchor-out",
@@ -708,6 +737,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--learn-phi",
     "--learn-phi-backend",
     "--learn-phi-max-redundancy",
+    "--learn-phi-target-gene-effective-support",
     "--max-num-factors",
     "--min-lambda-threshold",
     "--phi",
@@ -1443,9 +1473,15 @@ def _bootstrap_cli(argv=None):
         bail("--blockwise-epochs must be at least 1")
     if parsed_options.blockwise_max_blocks is not None and parsed_options.blockwise_max_blocks < 1:
         bail("--blockwise-max-blocks must be at least 1")
+    if parsed_options.cluster_row_min_max_loading < 0:
+        bail("--cluster-row-min-max-loading must be nonnegative")
     if parsed_options.learn_phi:
         if parsed_options.phi <= 0:
             bail("--learn-phi requires --phi > 0")
+        if parsed_options.learn_phi_target_gene_effective_support is None:
+            bail("--learn-phi requires --learn-phi-target-gene-effective-support")
+        if parsed_options.learn_phi_target_gene_effective_support <= 0:
+            bail("--learn-phi-target-gene-effective-support must be positive")
         if not (0 < parsed_options.learn_phi_max_redundancy <= 1):
             bail("--learn-phi-max-redundancy must be in (0, 1]")
         if not (0 < parsed_options.learn_phi_max_redundancy_q90 <= 1):
@@ -1458,18 +1494,22 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-min-stability must be in (0, 1]")
         if parsed_options.learn_phi_max_fit_loss_frac < 0:
             bail("--learn-phi-max-fit-loss-frac must be >= 0")
-        if not (0 < parsed_options.learn_phi_k_band_frac <= 1):
-            bail("--learn-phi-k-band-frac must be in (0, 1]")
+        if parsed_options.learn_phi_size_tolerance_frac < 0:
+            bail("--learn-phi-size-tolerance-frac must be nonnegative")
+        if parsed_options.learn_phi_min_primary_factors < 1:
+            bail("--learn-phi-min-primary-factors must be at least 1")
+        if parsed_options.learn_phi_max_primary_gene_max_weight_q90 is not None and not (0 < parsed_options.learn_phi_max_primary_gene_max_weight_q90 <= 1):
+            bail("--learn-phi-max-primary-gene-max-weight-q90 must be in (0, 1]")
         if parsed_options.learn_phi_max_steps < 1:
             bail("--learn-phi-max-steps must be at least 1")
         if parsed_options.learn_phi_expand_factor <= 1:
             bail("--learn-phi-expand-factor must be > 1")
         if parsed_options.learn_phi_weight_floor is not None and parsed_options.learn_phi_weight_floor < 0:
             bail("--learn-phi-weight-floor must be >= 0")
+        if parsed_options.learn_phi_metric_factor_scope not in set(["primary", "all"]):
+            bail("--learn-phi-metric-factor-scope must be one of: primary, all")
         if not (0 < parsed_options.learn_phi_mass_floor_frac <= 1):
             bail("--learn-phi-mass-floor-frac must be in (0, 1]")
-        if parsed_options.learn_phi_min_error_gain_per_factor < 0:
-            bail("--learn-phi-min-error-gain-per-factor must be >= 0")
         if parsed_options.learn_phi_prune_genes_num is not None and parsed_options.learn_phi_prune_genes_num < 1:
             bail("--learn-phi-prune-genes-num must be at least 1")
         if parsed_options.learn_phi_prune_gene_sets_num is not None and parsed_options.learn_phi_prune_gene_sets_num < 1:
@@ -1478,8 +1518,8 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-max-num-iterations must be at least 1")
     if parsed_options.max_num_discovery_gene_sets is not None and parsed_options.max_num_discovery_gene_sets < 1:
         bail("--max-num-discovery-gene-sets must be at least 1")
-    if not (0 <= parsed_options.discovery_redundancy_threshold <= 1):
-        bail("--discovery-redundancy-threshold must be in [0, 1]")
+    if not (0 <= parsed_options.discovery_similarity_threshold <= 1):
+        bail("--discovery-similarity-threshold must be in [0, 1]")
 
     if len(parsed_args) < 1:
         bail(usage)

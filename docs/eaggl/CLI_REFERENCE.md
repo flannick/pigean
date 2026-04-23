@@ -80,6 +80,7 @@ Automatic phi-tuning workflow from bundled PIGEAN outputs:
 PYTHONPATH=src python -m eaggl factor \
   --eaggl-bundle-in path/to/pigean_to_eaggl.tar.gz \
   --learn-phi \
+  --learn-phi-target-gene-effective-support 100 \
   --learn-phi-max-num-iterations 50 \
   --learn-phi-report-out results/phi_search.tsv \
   --factors-out results/factors.out \
@@ -88,7 +89,7 @@ PYTHONPATH=src python -m eaggl factor \
   --params-out results/params.out
 ```
 
-`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics. Current `--learn-phi` diagnostics include the redundancy basis, candidate capped-status, nearest-neighbor overlap summaries (`redundancy_max` and `redundancy_q90`), factor-mass summaries (`effective_factor_count` and `mass_ge_floor_factor_count`), and convergence diagnostics such as final `delambda` and whether the scout fit hit the iteration cap.
+`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics. Current `--learn-phi` diagnostics include the target factor size, primary-factor gene-support summaries, the redundancy basis, candidate capped-status, nearest-neighbor overlap summaries (`redundancy_max` and `redundancy_q90`), factor-mass summaries (`effective_factor_count` and `primary_factor_count`), and convergence diagnostics such as final `delambda` and whether the scout fit hit the iteration cap.
 
 Scalable backend note:
 - `--factor-backend full|blockwise_global_w` selects the final factorization backend.
@@ -284,7 +285,11 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | Flag | Meaning |
 |---|---|
 | `--learn-phi` | enable structural auto-tuning of `phi` before the final reported factorization |
-| `--learn-phi-max-redundancy` | maximum within-run weighted Jaccard overlap allowed between retained factors in the selected solution, measured on gene loadings when available; the default `0.5` is intended as a rough \"share at most about half\" rule |
+| `--learn-phi-target-gene-effective-support` | required with `--learn-phi`; target median effective gene support among primary factors |
+| `--learn-phi-size-tolerance-frac` | fractional tolerance around the target primary-factor gene effective support; defaults to `0.25` |
+| `--learn-phi-min-primary-factors` | minimum primary factor count required for a candidate; defaults to `3` |
+| `--learn-phi-max-primary-gene-max-weight-q90` | optional spike guardrail: maximum 90th percentile of primary-factor maximum gene weight |
+| `--learn-phi-max-redundancy` | maximum within-run weighted Jaccard overlap allowed between metric-scope factors in the selected solution, measured on gene loadings when available; the default `0.5` is intended as a rough \"share at most about half\" rule |
 | `--learn-phi-runs-per-step` | number of restart fits used to score each tested `phi` candidate; defaults to `1` for cheaper search, with larger values as an expert stability check |
 | `--learn-phi-min-run-support` | minimum fraction of restart runs that must agree on the modal retained factor count |
 | `--learn-phi-min-stability` | minimum mean matched-factor cosine across the modal restart runs |
@@ -293,22 +298,29 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-backend` | choose between the legacy sentinel-pruned phi search and the blockwise-global-W phi search over all retained gene sets |
 | `--learn-phi-expand-factor` | multiplicative factor used when widening the search bracket away from the initial `--phi` |
 | `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
+| `--learn-phi-metric-factor-scope` | choose whether phi-selection redundancy and repeat-stability metrics use `primary` factors (default) or `all` fitted factors; independent of printed output scope |
 | `--learn-phi-report-out` | optional per-candidate diagnostics table for all tested `phi` values |
+| `--factor-phi-metrics-out` | optional per-factor diagnostics table for each tested `phi` |
+| `--factor-phi-factors-out` | optional `factors.out`-style rows for each tested `phi`, with a leading `phi` column |
+| `--factor-phi-gene-set-clusters-out` | optional `gene_set_clusters.out`-style rows for each tested `phi`, with a leading `phi` column |
+| `--factor-phi-gene-clusters-out` | optional `gene_clusters.out`-style rows for each tested `phi`, with a leading `phi` column |
 | `--learn-phi-prune-genes-num` | expert shortcut: during phi search only, correlation-prune to at most this many representative genes before candidate NMF evaluation; defaults to `1000` |
 | `--learn-phi-prune-gene-sets-num` | deprecated expert knob retained for compatibility; phi search now uses the same discovery plan as the final fit and this option is ignored |
 | `--learn-phi-max-num-iterations` | expert shortcut: during phi search only, cap candidate NMF iterations separately from the final factorization |
 
 Operational notes:
 - `--phi` remains the initial guess. With `--learn-phi`, EAGGL treats it as the starting point for search rather than the final fixed value.
+- `--learn-phi` requires `--learn-phi-target-gene-effective-support`; the user-facing target is the median effective gene support among primary factors.
 - Auto-tuning uses `--learn-phi-runs-per-step` during search, then runs the normal final factorization with the selected `phi`.
 - The default search uses one restart per candidate `phi`. Increase `--learn-phi-runs-per-step` only when you explicitly want a more expensive restart-stability check during selection.
-- The selected `phi`, the search thresholds, the redundancy basis, and per-candidate diagnostics are written to both the run log and `--params-out`. Use `--learn-phi-report-out` when you also want the full candidate table as a separate artifact.
-- The default search is structural model selection, not held-out cross-validation. It now gates on redundancy and restart behavior, then chooses `phi` from the resulting fit/complexity frontier using the marginal improvement in reconstruction error per additional retained mechanism, rather than a near-maximal factor-count band.
-- Candidate complexity is summarized using both the raw retained factor count and factor-mass diagnostics. In particular, `effective_factor_count` is the inverse-participation-ratio style mass summary `(sum m_k)^2 / sum m_k^2`, and `mass_ge_floor_factor_count` counts factors whose mass fraction is at least `1%`.
+- The selected `phi`, target-size summaries, search thresholds, the redundancy basis, and per-candidate diagnostics are written to both the run log and `--params-out`. Use `--learn-phi-report-out` when you also want the full candidate table as a separate artifact.
+- The default search is target-size model selection, not held-out cross-validation. It gates on collapse, primary-factor count, restart behavior, redundancy, capped status, fit loss, and optional spike diagnostics, then chooses the candidate whose median primary-factor gene effective support is closest to the requested target on log scale.
+- If any candidate is within the configured size tolerance, EAGGL chooses the largest `phi` in that in-tolerance set. Otherwise it chooses the closest target-size match, using larger `phi`, lower tail fraction, lower filtered fraction, lower redundancy, better fit, and lower spike metrics as tie-breakers.
+- Candidate factor mass is still reported. `effective_factor_count` is the inverse-participation-ratio style mass summary `(sum m_k)^2 / sum m_k^2`, and `primary_factor_count` counts factors whose mass fraction exceeds the configured primary-factor floor.
 - The search report also records whether the scout factorization converged before the candidate iteration cap, via `final_delambda`, `final_iterations`, `converged_fraction`, and `hit_iteration_cap_fraction`.
 - By default, `--learn-phi-backend sentinel_pruned` evaluates candidates on a lightweight sentinel panel. `--learn-phi-prune-genes-num` still affects that gene-side shortcut, but gene-set discovery now follows the same retained-to-discovery plan used by the final fit.
 - `--learn-phi-backend blockwise_global_w` instead evaluates all retained gene sets in blocks while keeping one shared global gene-factor basis and one shared ARD state.
-- The default search budget is `5` additional candidate evaluations after the initial `--phi`. Those evaluations may be spent on upward expansion, downward expansion, or midpoint refinement once the search brackets a capped or zero-factor boundary.
+- The default search budget is `5` additional candidate evaluations after the initial `--phi`. Target-aware bracketing proposes larger `phi` values when fitted factors are too small and smaller `phi` values when fitted factors are too large, then refines with geometric midpoints once the target is bracketed.
 - `--learn-phi-prune-genes-num` and `--learn-phi-max-num-iterations` apply only while scoring phi candidates. Gene-set discovery selection itself is shared between learn-phi and the final reported factorization.
 
 ### Factor pruning, weighting, and post-processing
@@ -319,7 +331,7 @@ Operational notes:
 | `--no-auto-discovery-subset` | disable the default family-leader discovery subset and instead fit discovery on all retained gene sets |
 | `--discovery-redundancy-weighting-mode` | choose leader-family discovery weighting: `effective_size`, `log_effective_size`, or `none` |
 | `--no-discovery-redundancy-weighting` | disable the default redundancy-balanced discovery weighting |
-| `--discovery-redundancy-threshold` | similarity threshold used when assigning retained gene sets to discovery families; defaults to `0.35` |
+| `--discovery-similarity-threshold` | similarity threshold used when assigning retained gene sets to discovery families; defaults to `0.35` |
 | `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | deprecated factor-stage discovery controls kept only as compatibility aliases; use the discovery flags above instead |
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |
@@ -329,13 +341,26 @@ Operational notes:
 | `--blockwise-shuffle-blocks` | shuffle gene-set block order between blockwise epochs |
 | `--blockwise-warm-start` | warm-start neighboring phi candidates in blockwise phi search |
 | `--blockwise-max-blocks` | optional debugging cap on the number of processed blocks per epoch |
+| `--blockwise-report-out` | write per-epoch blockwise diagnostics |
+| `--cluster-row-min-max-loading` | minimum row-wise maximum raw factor loading required to print gene and gene-set cluster rows; defaults to `0.01` |
+| `--factor-output-scope` | choose which factor tiers are printed in user-facing factor and cluster outputs: `primary` (default), `primary_secondary`, or `all` |
 
 Notes:
 
-- The current default weighting mode is `effective_size`. `log_effective_size` remains the conservative fallback, and `none` disables redundancy weighting entirely.
+- The discovery similarity threshold is denoted `rho_disc` in the methods documentation. The default is `0.35` for the gene-by-gene-set discovery model.
+- The current default weighting mode is `effective_size`: each family leader uses representative support multiplied by the family effective size, `|F| / (1 + (|F|-1) * mean_similarity_to_leader)`.
+- `log_effective_size` remains the conservative fallback, and `none` disables redundancy weighting entirely.
 - `--no-discovery-redundancy-weighting` is a compatibility shortcut for `--discovery-redundancy-weighting-mode none`.
 - `--no-auto-discovery-subset` currently disables weighted leader-family corrections and falls back to unweighted retained-row discovery.
-| `--blockwise-report-out` | write per-epoch blockwise diagnostics |
+- By default, `factors.out`, `factors_anchor.out`, and cluster outputs print only primary factors, defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
+- Automatic phi-selection metrics are also primary-scoped by default: redundancy and repeat-stability matching ignore the low-mass ARD tail unless `--learn-phi-metric-factor-scope all` is set. This option is separate from `--factor-output-scope`, which only controls printed factor and cluster rows.
+- `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive over all raw fitted factors. The optional `factor_phi_*` output tables follow `--factor-output-scope`, matching the final user-facing output policy for each tested phi.
+- Factor labels are not renumbered when output filtering is active: if `Factor7` is primary, it remains `Factor7`.
+
+### Factor-PheWAS controls
+
+| Flag | Meaning |
+|---|---|
 | `--factor-phewas-mode` | choose the factor-PheWAS model class; default is marginal binary enrichment with direct anchor adjustment |
 | `--factor-phewas-modes` | expert comma-separated list of model classes to run in one pass and append into the same factor-PheWAS output file |
 | `--factor-phewas-anchor-covariate` | choose the anchor covariate for factor-PheWAS; default is `direct`, with `combined` and `none` as expert options |
@@ -417,6 +442,7 @@ For post-factor phenotype interpretation:
 - `low_retention_flag` marks traits whose retained support is very sparse or highly concentrated on the current factor basis
 - `joint_residual` is the uncaptured normalized trait mass after the joint competitive projection
 - `factor_total_mass` in `factors.out` reports the raw total mass of each factor on the canonical linkage basis used for that run
+- `factor_tier` and `combined_mass_fraction` in `factors.out` report the post-fit interpretability tier next to `lambda`; the default user-facing outputs include only primary factors unless `--factor-output-scope` is widened
 - `factor_n_eff`, `factor_top_share`, `factor_top10_share`, and `broad_factor_flag` in `factors.out` summarize factor breadth on the retained projection basis; `broad_factor_flag` marks factors with `factor_n_eff >= 500` and `factor_top_share <= 0.01`
 - `--gene-stats-in` / `--gene-set-stats-in` runs treat the input statistics as an implicit `input_gene_stats` anchor; `factors.out` writes `anchor_any_joint` / `anchor_any_marginal` only when both canonical anchor joint and marginal summaries are available; the legacy `any_relevance` alias is no longer emitted
 - for factor-to-trait interpretation, filter on trait QC and rank by `joint_coefficient`, using `marginal_coefficient` and `marginal_overlap` as secondary context

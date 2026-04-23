@@ -19,6 +19,8 @@ class FactorOutputPlan:
     pheno_anchor_clusters_out: str | None = None
     gene_pheno_stats_out: str | None = None
     max_no_write_gene_pheno: object = None
+    cluster_row_min_max_loading: float = 0.01
+    factor_output_scope: str = "primary"
 
 
 def write_main_primary_outputs(runtime, options):
@@ -66,16 +68,18 @@ def build_factor_output_plan(options):
         pheno_anchor_clusters_out=options.pheno_anchor_clusters_out,
         gene_pheno_stats_out=options.gene_pheno_stats_out,
         max_no_write_gene_pheno=options.max_no_write_gene_pheno,
+        cluster_row_min_max_loading=getattr(options, "cluster_row_min_max_loading", 0.01),
+        factor_output_scope=getattr(options, "factor_output_scope", "primary"),
     )
 
 
 def write_factor_outputs_for_plan(runtime, output_plan):
     if output_plan.factors_out is not None:
-        runtime.write_matrix_factors(output_plan.factors_out)
+        runtime.write_matrix_factors(output_plan.factors_out, factor_output_scope=output_plan.factor_output_scope)
     if output_plan.factor_metrics_out is not None:
         runtime.write_factor_metrics(output_plan.factor_metrics_out)
     if output_plan.factors_anchor_out is not None:
-        runtime.write_matrix_factors(output_plan.factors_anchor_out, write_anchor_specific=True)
+        runtime.write_matrix_factors(output_plan.factors_anchor_out, write_anchor_specific=True, factor_output_scope=output_plan.factor_output_scope)
     if output_plan.consensus_stats_out is not None:
         runtime.write_consensus_factor_diagnostics(output_plan.consensus_stats_out)
     if (
@@ -86,6 +90,8 @@ def write_factor_outputs_for_plan(runtime, output_plan):
             output_plan.gene_set_clusters_out,
             output_plan.gene_clusters_out,
             None,
+            cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
+            factor_output_scope=output_plan.factor_output_scope,
         )
     trait_factor_link_paths = []
     if output_plan.trait_factor_links_out is not None:
@@ -104,6 +110,8 @@ def write_factor_outputs_for_plan(runtime, output_plan):
             output_plan.gene_anchor_clusters_out,
             output_plan.pheno_anchor_clusters_out,
             write_anchor_specific=True,
+            cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
+            factor_output_scope=output_plan.factor_output_scope,
         )
     if output_plan.gene_pheno_stats_out is not None:
         runtime.write_gene_pheno_statistics(
