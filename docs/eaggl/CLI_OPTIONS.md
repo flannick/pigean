@@ -103,7 +103,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi to a requested primary-factor gene effective support before the final factorization |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `2.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
-| `--learn-phi-mass-floor-frac` | `expert` | `yes` | `expert_help` | `learn_phi_mass_floor_frac` | `0.005` | minimum factor mass fraction used to define primary factors during phi search |
+| `--learn-phi-mass-floor-frac` | `expert` | `yes` | `expert_help` | `learn_phi_mass_floor_frac` | `0.005` | minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search |
 | `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | maximum allowed reconstruction-error loss relative to the best phi-search candidate |
 | `--learn-phi-max-num-iterations` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_num_iterations` | `None` | during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate |
 | `--learn-phi-max-primary-gene-max-weight-q90` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_primary_gene_max_weight_q90` | `None` | optional maximum q90 primary-factor max gene weight allowed during target-size tuning |
@@ -115,7 +115,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-min-run-support` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_run_support` | `0.6` | minimum run-support fraction required for a phi candidate during automatic tuning |
 | `--learn-phi-min-stability` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_stability` | `0.85` | minimum matched-factor cosine stability required for a phi candidate during automatic tuning |
 | `--learn-phi-only` | `expert` | `yes` | `expert_help` | `learn_phi_only` | `False` | stop after automatic phi selection and report writing instead of running the final full-panel factorization |
-| `--learn-phi-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `learn_phi_prune_gene_sets_num` | `1000` | during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi |
+| `--learn-phi-prune-gene-sets-num` | `expert` | `yes` | `advanced_workflows` | `learn_phi_prune_gene_sets_num` | `1000` | deprecated compatibility knob; ignored because phi search now uses the same discovery plan as the final fit |
 | `--learn-phi-prune-genes-num` | `expert` | `yes` | `expert_help` | `learn_phi_prune_genes_num` | `1000` | during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi |
 | `--learn-phi-runs-per-step` | `expert` | `yes` | `advanced_workflows` | `learn_phi_runs_per_step` | `1` | number of repeated restarts used to score each candidate phi |
 | `--learn-phi-size-tolerance-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_size_tolerance_frac` | `0.25` | fractional tolerance around the requested primary-factor gene effective support |

@@ -331,7 +331,7 @@ parser.add_option("","--learn-phi-max-steps",default=5,type=int) #maximum number
 parser.add_option("","--learn-phi-expand-factor",default=2.0,type=float) #multiplicative factor used when expanding the phi search bracket
 parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
 parser.add_option("","--learn-phi-metric-factor-scope",type="choice",choices=["primary","all"],default="primary") #factor scope used for phi-search redundancy and repeat-stability metrics
-parser.add_option("","--learn-phi-mass-floor-frac",default=0.005,type=float) #minimum factor mass fraction counted as a substantial mechanism during phi-search complexity scoring
+parser.add_option("","--learn-phi-mass-floor-frac",default=0.005,type=float) #minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search
 parser.add_option("","--learn-phi-only",default=False,action="store_true") #stop after automatic phi selection and report writing; skip the final full-panel factorization
 parser.add_option("","--learn-phi-report-out",default=None) #write per-candidate phi search diagnostics to this file
 parser.add_option("","--factor-phi-metrics-out",default=None) #write per-factor diagnostics for each phi-search candidate
@@ -349,7 +349,7 @@ parser.add_option("","--no-blockwise-warm-start",dest="blockwise_warm_start",act
 parser.add_option("","--blockwise-max-blocks",default=None,type=int) #optional debugging cap on processed blocks per epoch
 parser.add_option("","--blockwise-report-out",default=None) #write detailed per-epoch blockwise diagnostics
 parser.add_option("","--learn-phi-prune-genes-num",default=1000,type=int) #during phi search only, prune to at most this many genes before candidate NMF evaluation
-parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #during phi search only, prune to at most this many relatively uncorrelated gene sets before candidate NMF evaluation
+parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #deprecated compatibility knob; ignored because phi search now uses the same discovery plan as the final fit
 parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #during phi search only, cap the NMF iteration budget used for each tested phi candidate
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
 parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
@@ -494,7 +494,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
     "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best phi-search candidate",
-    "--learn-phi-mass-floor-frac": "minimum factor mass fraction used to define primary factors during phi search",
+    "--learn-phi-mass-floor-frac": "minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search",
     "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between metric-scope factors during automatic phi tuning, measured on gene loadings when available",
     "--learn-phi-max-redundancy-q90": "maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning",
     "--learn-phi-max-num-iterations": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
@@ -509,7 +509,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-min-primary-factors": "minimum primary factor count required for a phi candidate during target-size tuning",
     "--learn-phi-max-primary-gene-max-weight-q90": "optional maximum q90 primary-factor max gene weight allowed during target-size tuning",
     "--learn-phi-prune-genes-num": "during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi",
-    "--learn-phi-prune-gene-sets-num": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
+    "--learn-phi-prune-gene-sets-num": "deprecated compatibility knob; ignored because phi search now uses the same discovery plan as the final fit",
     "--learn-phi-report-out": "write per-candidate phi search diagnostics",
     "--factor-phi-metrics-out": "write per-factor diagnostics for each investigated phi-search candidate",
     "--factor-phi-factors-out": "write factors.out-style rows for each investigated phi-search candidate with a leading phi column",

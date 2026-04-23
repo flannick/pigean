@@ -3219,7 +3219,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 334,
-      "summary": "minimum factor mass fraction used to define primary factors during phi search",
+      "summary": "minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search",
       "type": "float",
       "usage_references": 4
     },
@@ -3471,7 +3471,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 352,
-      "summary": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
+      "summary": "deprecated compatibility knob; ignored because phi search now uses the same discovery plan as the final fit",
       "type": "int",
       "usage_references": 11
     },

@@ -1625,13 +1625,21 @@ def _extract_overlap_basis_matrix(state):
     return ("none", None)
 
 
-def _metric_factor_indices_from_mass_profile(mass_profile, metric_factor_scope):
+def _resolve_factor_mass_floors(primary_mass_floor):
+    primary_mass_floor = float(primary_mass_floor)
+    secondary_mass_floor = min(float(_SECONDARY_FACTOR_MASS_FLOOR), primary_mass_floor)
+    return primary_mass_floor, secondary_mass_floor
+
+
+def _metric_factor_indices_from_mass_profile(mass_profile, metric_factor_scope, *, primary_mass_floor=None):
     mass_fractions = np.asarray(mass_profile.get("mass_fractions", []), dtype=float)
     if str(metric_factor_scope) == "all":
         return np.arange(mass_fractions.size, dtype=int)
     if str(metric_factor_scope) != "primary":
         raise ValueError("metric_factor_scope must be one of: primary, all")
-    return np.where(mass_fractions >= float(_PRIMARY_FACTOR_MASS_FLOOR))[0].astype(int)
+    if primary_mass_floor is None:
+        primary_mass_floor = _PRIMARY_FACTOR_MASS_FLOOR
+    return np.where(mass_fractions >= float(primary_mass_floor))[0].astype(int)
 
 
 def _select_factor_columns(matrix, factor_indices):
@@ -1988,11 +1996,27 @@ def _build_discovery_plan(
     )
 
 
-def _compute_within_run_factor_redundancy_profile(state, weight_floor, *, metric_factor_scope="primary", mass_profile=None):
+def _compute_within_run_factor_redundancy_profile(
+    state,
+    weight_floor,
+    *,
+    metric_factor_scope="primary",
+    mass_profile=None,
+    primary_mass_floor=None,
+):
     redundancy_basis, canonical = _extract_overlap_basis_matrix(state)
+    if primary_mass_floor is None:
+        primary_mass_floor = _DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC
     if mass_profile is None:
-        mass_profile = _compute_factor_mass_profile(state, mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC)
-    factor_indices = _metric_factor_indices_from_mass_profile(mass_profile, metric_factor_scope)
+        mass_profile = _compute_factor_mass_profile(
+            state,
+            mass_floor_frac=primary_mass_floor,
+        )
+    factor_indices = _metric_factor_indices_from_mass_profile(
+        mass_profile,
+        metric_factor_scope,
+        primary_mass_floor=primary_mass_floor,
+    )
     canonical = _select_factor_columns(canonical, factor_indices)
     if canonical is None or canonical.shape[1] <= 1:
         return {
@@ -2084,8 +2108,7 @@ def _compute_factor_mass_profile(state, *, mass_floor_frac):
     else:
         effective_factor_count = float((total_mass ** 2) / denom)
 
-    primary_mass_floor = _PRIMARY_FACTOR_MASS_FLOOR
-    secondary_mass_floor = _SECONDARY_FACTOR_MASS_FLOOR
+    primary_mass_floor, secondary_mass_floor = _resolve_factor_mass_floors(mass_floor_frac)
     sorted_mass_fractions = np.sort(mass_fractions)[::-1]
     return {
         "factor_masses": factor_masses,
@@ -2307,7 +2330,11 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
         for index in modal_indices
     ]
     run_metric_factor_indices = {
-        int(index): _metric_factor_indices_from_mass_profile(run_mass_profiles[offset], metric_factor_scope)
+        int(index): _metric_factor_indices_from_mass_profile(
+            run_mass_profiles[offset],
+            metric_factor_scope,
+            primary_mass_floor=mass_floor_frac,
+        )
         for offset, index in enumerate(modal_indices)
     }
 
@@ -2355,6 +2382,7 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
             weight_floor,
             metric_factor_scope=metric_factor_scope,
             mass_profile=run_mass_profiles[offset],
+            primary_mass_floor=mass_floor_frac,
         )
         for offset, index in enumerate(modal_indices)
     ]
@@ -2376,7 +2404,10 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
     for index in modal_indices:
         if hasattr(run_states[index], "_collect_factor_metrics_records"):
             run_primary_size_profiles.append(
-                _summarize_primary_factor_size_from_records(run_states[index]._collect_factor_metrics_records())
+                _summarize_primary_factor_size_from_records(
+                    run_states[index]._collect_factor_metrics_records(),
+                    primary_mass_floor=mass_floor_frac,
+                )
             )
     primary_gene_effective_support_medians = [
         profile.get("primary_gene_effective_support_median")

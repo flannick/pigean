@@ -625,8 +625,28 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertTrue(np.isfinite(profile["effective_factor_count"]))
         self.assertGreater(profile["effective_factor_count"], 0.0)
         self.assertEqual(profile["mass_ge_floor_factor_count"], 2)
+        self.assertEqual(profile["primary_factor_count"], 2)
         self.assertTrue(np.isfinite(profile["max_mass_fraction"]))
         self.assertTrue(np.isfinite(profile["top5_mass_fraction"]))
+
+    def test_compute_factor_mass_profile_uses_mass_floor_for_primary_count(self) -> None:
+        state = SimpleNamespace(
+            exp_gene_set_factors=np.array(
+                [
+                    [99.1, 0.9, 0.0],
+                ],
+                dtype=float,
+            ),
+            exp_gene_factors=None,
+            exp_pheno_factors=None,
+        )
+
+        profile = eaggl_factor_runtime._compute_factor_mass_profile(state, mass_floor_frac=0.01)
+
+        self.assertEqual(profile["mass_ge_floor_factor_count"], 1)
+        self.assertEqual(profile["primary_factor_count"], 1)
+        self.assertEqual(profile["secondary_factor_count"], 1)
+        self.assertEqual(profile["filtered_factor_count"], 1)
 
     def test_compute_factor_mass_profile_returns_full_schema_for_zero_factors(self) -> None:
         state = SimpleNamespace(
@@ -1086,6 +1106,61 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(all_profile["metric_factor_scope"], "all")
         self.assertEqual(all_profile["metric_factor_count"], 3)
         self.assertAlmostEqual(all_profile["redundancy_max"], 1.0)
+
+    def test_redundancy_metric_scope_primary_uses_mass_floor_frac(self) -> None:
+        state = SimpleNamespace(
+            exp_gene_set_factors=np.array(
+                [
+                    [99.1, 0.9],
+                ],
+                dtype=float,
+            ),
+            exp_gene_factors=np.array(
+                [
+                    [99.1, 0.9],
+                ],
+                dtype=float,
+            ),
+            exp_pheno_factors=None,
+        )
+        mass_profile = eaggl_factor_runtime._compute_factor_mass_profile(state, mass_floor_frac=0.01)
+
+        primary_profile = eaggl_factor_runtime._compute_within_run_factor_redundancy_profile(
+            state,
+            weight_floor=0.0,
+            metric_factor_scope="primary",
+            mass_profile=mass_profile,
+            primary_mass_floor=0.01,
+        )
+
+        self.assertEqual(primary_profile["metric_factor_scope"], "primary")
+        self.assertEqual(primary_profile["metric_factor_count"], 1)
+        self.assertAlmostEqual(primary_profile["redundancy_max"], 0.0)
+
+    def test_summarize_primary_factor_size_from_records_uses_mass_floor_frac(self) -> None:
+        records = [
+            {
+                "combined_mass_fraction": "0.009",
+                "gene_effective_support": "9",
+                "gene_max_weight": "0.9",
+                "gene_top5_weight_fraction": "1.0",
+            },
+            {
+                "combined_mass_fraction": "0.02",
+                "gene_effective_support": "20",
+                "gene_max_weight": "0.4",
+                "gene_top5_weight_fraction": "0.7",
+            },
+        ]
+
+        summary = eaggl_factor_runtime._summarize_primary_factor_size_from_records(
+            records,
+            primary_mass_floor=0.01,
+        )
+
+        self.assertEqual(summary["primary_gene_effective_support_median"], 20.0)
+        self.assertEqual(summary["primary_gene_max_weight_q90"], 0.4)
+        self.assertEqual(summary["primary_gene_top5_weight_fraction_median"], 0.7)
 
     def test_select_phi_candidate_prefers_largest_phi_within_target_size_tolerance(self) -> None:
         candidates = [
