@@ -208,7 +208,7 @@ Thus, the gene-anchored workflows and the phenotype-anchored workflows are not d
 
 \subsection{Implicit factor relevance and any-anchor summaries}
 
-After fitting, EAGGL reports factor-level relevance scores that summarize how strongly each factor is supported by the selected trait or anchor set. These are downstream summaries derived from the fitted factor basis and are not themselves part of the factorization objective. In non-phenotype-anchored workflows, this implicit factor relevance remains the legacy bounded nonnegative regression summary used for the `any_relevance` column in `factors.out(.gz)`.
+After fitting, EAGGL can compute factor-level relevance scores that summarize how strongly each factor is supported by the selected trait or anchor set. These are downstream summaries derived from the fitted factor basis and are not themselves part of the factorization objective. In the default `--gene-stats-in` / `--gene-set-stats-in` workflow, the input statistics define an implicit anchor named `input_gene_stats`; no separate anchor flag is required. The public factor output no longer reports the legacy `any_relevance` alias; anchor summaries are exposed through the canonical `anchor_any_joint` and `anchor_any_marginal` columns only when both joint and marginal anchor linkage summaries are available.
 
 For the gene-by-annotation workflow family, let $W \in \mathbb{R}_+^{N \times K}$ denote the fitted gene-by-factor matrix, and let $p^{(u)} \in [0,1]^N$ denote the gene-level support vector for anchor user $u$. The anchor-specific relevance of the factors to user $u$ is defined by bounded nonnegative regression:
 \begin{equation}
@@ -245,7 +245,7 @@ r_k^{\mathrm{any}}
 \end{equation}
 This has the intended semantics that $r_k^{\mathrm{any}}$ is a bounded coefficient summary of how strongly factor $k$ links to at least one selected anchor under the relevance model above. In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific relevance itself.
 
-When anchor phenotypes are present and canonical trait linkage is also computed, EAGGL reports `anchor_any_joint` and `anchor_any_marginal` summaries in `factors.out(.gz)` derived from the canonical linkage calculations in Section~\ref{sec:postfactor_revised}. The per-anchor `factors_anchor.out(.gz)` table reports the corresponding `joint` and `marginal` values for each anchor separately. During the transition period, `any_relevance` remains as a compatibility field and coincides with the anchor-any joint projection coefficient summary in those phenotype-anchored linkage runs.
+When anchor phenotypes are present and canonical trait linkage is also computed, EAGGL reports `anchor_any_joint` and `anchor_any_marginal` summaries in `factors.out(.gz)` derived from the canonical linkage calculations in Section~\ref{sec:postfactor_revised}. If only the older joint-style relevance calculation is available, these anchor-any columns are not emitted rather than aliasing marginal to joint. The per-anchor `factors_anchor.out(.gz)` table reports the corresponding `joint` and `marginal` values for each anchor separately, using `NA` for marginal when no marginal summary was computed.
 
 \section{Trait linkage and factor-specific phenotype enrichment}
 \label{sec:postfactor_revised}

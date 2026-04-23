@@ -314,8 +314,14 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
     )
     selected_anchor_modes = get_selected_anchor_modes(options)
     if len(selected_anchor_modes) == 0:
-        anchor_mode = "none"
-        anchor_values = []
+        if not bool(mode_state.get("factor_projection_only")) and (
+            options.gene_stats_in is not None or options.gene_set_stats_in is not None
+        ):
+            anchor_mode = "default_stats"
+            anchor_values = ["input_gene_stats"]
+        else:
+            anchor_mode = "none"
+            anchor_values = []
     else:
         anchor_mode = selected_anchor_modes[0][0]
         anchor_value = selected_anchor_modes[0][1]

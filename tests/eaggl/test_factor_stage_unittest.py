@@ -17,6 +17,7 @@ if str(SRC_ROOT) not in sys.path:
 
 sys.argv = ["eaggl.py", "factor"]
 import eaggl.main_support as eaggl  # noqa: E402
+import eaggl.workflows as eaggl_workflows  # noqa: E402
 
 
 def _options(**overrides):
@@ -77,6 +78,12 @@ def _options(**overrides):
         factor_phewas_full_output=False,
         factor_gene_clusters_in=None,
         factor_gene_set_clusters_in=None,
+        X_in=None,
+        X_list=None,
+        Xd_in=None,
+        Xd_list=None,
+        gene_stats_in=None,
+        gene_set_stats_in=None,
         min_gene_set_read_beta=1e-20,
         min_gene_set_read_beta_uncorrected=1e-20,
         anchor_genes=None,
@@ -531,6 +538,19 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("Field\tValue", tsv_content)
         self.assertIn("trait_linkage.source\tcombined", tsv_content)
 
+    def test_default_stats_provenance_reports_input_anchor(self) -> None:
+        options = _options(gene_stats_in="gene_stats.tsv.gz", gene_set_stats_in="gene_set_stats.tsv.gz")
+        workflow = eaggl_workflows.classify_factor_workflow(options)
+        provenance = eaggl_workflows.build_clustering_provenance(
+            options,
+            {"run_factor": True, "factor_projection_only": False, "factor_workflow": workflow},
+        )
+
+        self.assertEqual(provenance["factorization_source"], "default_stats")
+        self.assertEqual(provenance["anchor_mode"], "default_stats")
+        self.assertEqual(provenance["anchor_values"], ["input_gene_stats"])
+        self.assertEqual(provenance["anchor_count"], 1)
+
     def test_workflow_required_inputs_contract_for_f1_to_f9(self) -> None:
         cases = [
             ("F1", _options(), []),
@@ -863,8 +883,8 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("factor_top_share", content.splitlines()[0])
         self.assertIn("factor_top10_share", content.splitlines()[0])
         self.assertIn("broad_factor_flag", content.splitlines()[0])
-        self.assertIn("Factor1\timmune\t1\t0.25\t3\t2\t0.75\t1\t0", content)
-        self.assertIn("Factor2\tmetabolic\t2\t0.5\t7\t600\t0.005\t0.04\t1", content)
+        self.assertIn("Factor1\timmune\t1\t3\t2\t0.75\t1\t0", content)
+        self.assertIn("Factor2\tmetabolic\t2\t7\t600\t0.005\t0.04\t1", content)
 
     def test_write_matrix_factors_uses_clean_anchor_summary_columns(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -895,7 +915,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 factors_anchor_header = fh.readline().strip().split("\t")
                 factors_anchor_row = fh.readline()
 
-        self.assertIn("any_relevance", factors_header)
+        self.assertNotIn("any_relevance", factors_header)
         self.assertIn("anchor_any_joint", factors_header)
         self.assertIn("anchor_any_marginal", factors_header)
         self.assertNotIn("anchor_joint", factors_header)
@@ -903,6 +923,38 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(factors_anchor_header[:5], ["Factor", "label", "anchor", "joint", "marginal"])
         self.assertNotIn("relevance", factors_anchor_header)
         self.assertIn("Factor1\timmune\tTraitA\t0.4\t0.7", factors_anchor_row)
+
+    def test_write_matrix_factors_does_not_alias_missing_anchor_marginal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            factors_path = Path(tmpdir) / "factors.out.gz"
+            factors_anchor_path = Path(tmpdir) / "factors_anchor.out.gz"
+            runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+            runtime.exp_lambdak = np.array([1.0])
+            runtime.factor_labels = ["immune"]
+            runtime.factor_relevance = np.array([0.4])
+            runtime.factor_anchor_relevance = np.array([[0.4]])
+            runtime.anchor_pheno_mask = np.array([True])
+            runtime.phenos = ["TraitA"]
+            runtime.factor_top_gene_sets = [["GS1"]]
+            runtime.factor_top_genes = [["GENE1"]]
+            runtime.factor_anchor_top_gene_sets = [[["GS1"]]]
+            runtime.factor_anchor_top_genes = [[["GENE1"]]]
+
+            runtime.write_matrix_factors(str(factors_path))
+            runtime.write_matrix_factors(str(factors_anchor_path), write_anchor_specific=True)
+
+            import gzip
+
+            with gzip.open(factors_path, "rt", encoding="utf-8") as fh:
+                factors_header = fh.readline().strip().split("\t")
+            with gzip.open(factors_anchor_path, "rt", encoding="utf-8") as fh:
+                factors_anchor_header = fh.readline().strip().split("\t")
+                factors_anchor_row = fh.readline()
+
+        self.assertNotIn("anchor_any_joint", factors_header)
+        self.assertNotIn("anchor_any_marginal", factors_header)
+        self.assertEqual(factors_anchor_header[:5], ["Factor", "label", "anchor", "joint", "marginal"])
+        self.assertIn("Factor1\timmune\tTraitA\t0.4\tNA", factors_anchor_row)
 
     def test_projection_only_factor_phewas_stage_gate_does_not_require_factor_fit(self) -> None:
         self.assertTrue(

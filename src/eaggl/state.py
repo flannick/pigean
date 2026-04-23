@@ -2231,7 +2231,6 @@ class EagglState(object):
             "Factor",
             "label",
             "lambda",
-            "any_relevance",
             "factor_total_mass",
             "gene_mass",
             "gene_mass_fraction",
@@ -2441,7 +2440,6 @@ class EagglState(object):
                 "Factor": "Factor%d" % (i + 1),
                 "label": "" if self.factor_labels is None else str(self.factor_labels[i]),
                 "lambda": "%.6g" % float(self.exp_lambdak[i]) if self.exp_lambdak is not None else "NA",
-                "any_relevance": "%.6g" % float(self.factor_relevance[i]) if self.factor_relevance is not None else "NA",
                 "factor_total_mass": (
                     "%.6g" % float(factor_total_mass[i])
                     if factor_total_mass is not None and i < len(factor_total_mass)
@@ -2539,6 +2537,17 @@ class EagglState(object):
                     if self.trait_linkage_broad_factor_flag is not None
                     else None
                 )
+                num_anchor_traits = (
+                    self.factor_anchor_relevance.shape[1]
+                    if self.factor_anchor_relevance is not None and len(self.factor_anchor_relevance.shape) == 2
+                    else 0
+                )
+                has_anchor_any_summary = (
+                    anchors is None
+                    and num_anchor_traits > 0
+                    and self.factor_relevance is not None
+                    and self.factor_marginal_relevance is not None
+                )
                 header = "Factor"
                 header = "%s\t%s" % (header, "label")
                 if anchors is not None:
@@ -2552,13 +2561,7 @@ class EagglState(object):
                     header = "%s\t%s" % (header, "broad_factor_flag")
                 else:
                     header = "%s\t%s" % (header, "lambda")
-                    header = "%s\t%s" % (header, "any_relevance")
-                    num_anchor_traits = (
-                        self.factor_anchor_relevance.shape[1]
-                        if self.factor_anchor_relevance is not None and len(self.factor_anchor_relevance.shape) == 2
-                        else 0
-                    )
-                    if num_anchor_traits > 0:
+                    if has_anchor_any_summary:
                         header = "%s\t%s" % (header, "anchor_any_joint")
                         header = "%s\t%s" % (header, "anchor_any_marginal")
                     header = "%s\t%s" % (header, "factor_total_mass")
@@ -2593,10 +2596,13 @@ class EagglState(object):
                             marginal_value = (
                                 self.factor_anchor_marginal_relevance[i,j]
                                 if self.factor_anchor_marginal_relevance is not None
-                                else joint_value
+                                else None
                             )
                             line = "%s\t%.3g" % (line, joint_value)
-                            line = "%s\t%.3g" % (line, marginal_value)
+                            line = "%s\t%s" % (
+                                line,
+                                "%.3g" % marginal_value if marginal_value is not None else "NA",
+                            )
                             line = "%s\t%s" % (
                                 line,
                                 "%.6g" % float(factor_total_mass[i])
@@ -2634,20 +2640,9 @@ class EagglState(object):
                                 line = "%s\t%s" % (line, ",".join(self.factor_anchor_top_phenos[i][j]))
                         else:
                             line = "%s\t%.3g" % (line, self.exp_lambdak[i])
-                            line = "%s\t%.3g" % (line, self.factor_relevance[i])
-                            num_anchor_traits = (
-                                self.factor_anchor_relevance.shape[1]
-                                if self.factor_anchor_relevance is not None and len(self.factor_anchor_relevance.shape) == 2
-                                else 0
-                            )
-                            if num_anchor_traits > 0:
+                            if has_anchor_any_summary:
                                 line = "%s\t%.3g" % (line, self.factor_relevance[i])
-                                line = "%s\t%.3g" % (
-                                    line,
-                                    self.factor_marginal_relevance[i]
-                                    if self.factor_marginal_relevance is not None
-                                    else self.factor_relevance[i],
-                                )
+                                line = "%s\t%.3g" % (line, self.factor_marginal_relevance[i])
                             line = "%s\t%s" % (
                                 line,
                                 "%.6g" % float(factor_total_mass[i])
@@ -2927,7 +2922,6 @@ class EagglState(object):
                 if anchors is None:
                     if self.betas is None and self.betas_uncorrected is None:
                         any_prob = 1 - np.prod(1 - self.gene_set_prob_factor_vector, axis=1)
-                        header = "%s\t%s" % (header, "any_relevance")
                         master_key_fn = lambda k: -any_prob[k]
 
                 if self.betas is not None or (pheno_anchors and self.X_phewas_beta is not None):
@@ -2981,8 +2975,6 @@ class EagglState(object):
                         line = self.gene_sets[orig_i]
 
                         if anchors is None:
-                            if any_prob is not None:
-                                line = "%s\t%.3g" % (line, any_prob[orig_i])
                             if self.betas is not None:
                                 line = "%s\t%.3g" % (line, self.betas[orig_i])
                             if self.betas_uncorrected is not None:
@@ -3044,7 +3036,6 @@ class EagglState(object):
                 if anchors is None:
                     if self.combined_prior_Ys is None and self.Y is None and self.priors is None:
                         any_prob = 1 - np.prod(1 - self.gene_prob_factor_vector, axis=1)
-                        header = "%s\t%s" % (header, "any_relevance")
                         master_key_fn = lambda k: -any_prob[k]
 
                 if self.combined_prior_Ys is not None or (pheno_anchors and self.gene_pheno_combined_prior_Ys is not None):
@@ -3089,9 +3080,6 @@ class EagglState(object):
                         assert(orig_i == i)
 
                         line = self.genes[orig_i]
-
-                        if anchors is None and any_prob is not None:
-                            line = "%s\t%.3g" % (line, any_prob[orig_i])
 
                         if self.combined_prior_Ys is not None or (pheno_anchors and self.gene_pheno_combined_prior_Ys is not None):
                             line = "%s\t%.3g" % (line, self.gene_pheno_combined_prior_Ys[orig_i,anchor_inds[j]] if pheno_anchors and self.gene_pheno_combined_prior_Ys is not None else self.combined_prior_Ys[orig_i])
@@ -3155,7 +3143,6 @@ class EagglState(object):
                         )
                     elif anchors is None and pheno_combined_prior_Ys is None and pheno_Y is None and pheno_priors is None:
                         any_prob = 1 - np.prod(1 - self.pheno_prob_factor_vector, axis=1)
-                        header = "%s\t%s" % (header, "any_relevance")
                         master_key_fn = lambda k: -any_prob[k]
 
                     if pheno_combined_prior_Ys is not None:
@@ -3208,8 +3195,6 @@ class EagglState(object):
                                 line = "%s\t%s" % (line, self.pheno_capture_basis)
                             if self.pheno_capture_input is not None:
                                 line = "%s\t%s" % (line, self.pheno_capture_input)
-                        if not gene_anchors and anchors is None and any_prob is not None:
-                            line = "%s\t%.3g" % (line, any_prob[orig_i])
 
                         if pheno_combined_prior_Ys is not None or (gene_anchors and self.gene_pheno_combined_prior_Ys is not None):
                             line = "%s\t%.3g" % (line, self.gene_pheno_combined_prior_Ys[anchor_inds[j], orig_i] if gene_anchors and self.gene_pheno_combined_prior_Ys is not None else pheno_combined_prior_Ys[orig_i])

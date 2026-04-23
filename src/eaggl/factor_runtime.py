@@ -3308,8 +3308,21 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
                 else:
                     state.X_phewas_beta_uncorrected = betas_uncorrected.T
 
+                state.default_pheno = "input_gene_stats"
                 state.phenos.append(state.default_pheno)
-                state.default_pheno_mask = np.append(np.full(len(state.phenos), False), True)
+                state.default_pheno_mask = np.full(len(state.phenos), False, dtype=bool)
+                state.default_pheno_mask[-1] = True
+                anchor_pheno_mask = state.default_pheno_mask
+                state.anchor_pheno_mask = np.copy(anchor_pheno_mask)
+                state._record_params(
+                    {
+                        "anchor_mode": "default_stats",
+                        "anchor_pheno_mask_present": True,
+                        "anchor_pheno_mask_total": int(len(anchor_pheno_mask)),
+                        "anchor_pheno_mask_selected": int(np.sum(anchor_pheno_mask)),
+                    },
+                    overwrite=True,
+                )
 
                 #we need to update these as well
                 state.pheno_Y_vs_input_Y_beta = np.append(state.pheno_Y_vs_input_Y_beta, 0) if state.pheno_Y_vs_input_Y_beta is not None else None

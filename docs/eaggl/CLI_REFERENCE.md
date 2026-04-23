@@ -418,7 +418,7 @@ For post-factor phenotype interpretation:
 - `joint_residual` is the uncaptured normalized trait mass after the joint competitive projection
 - `factor_total_mass` in `factors.out` reports the raw total mass of each factor on the canonical linkage basis used for that run
 - `factor_n_eff`, `factor_top_share`, `factor_top10_share`, and `broad_factor_flag` in `factors.out` summarize factor breadth on the retained projection basis; `broad_factor_flag` marks factors with `factor_n_eff >= 500` and `factor_top_share <= 0.01`
-- `factors.out` keeps `any_relevance` for compatibility and writes `anchor_any_joint` / `anchor_any_marginal` when anchors are available; per-anchor `factors_anchor.out` writes `joint` and `marginal` without a duplicate `relevance` column
+- `--gene-stats-in` / `--gene-set-stats-in` runs treat the input statistics as an implicit `input_gene_stats` anchor; `factors.out` writes `anchor_any_joint` / `anchor_any_marginal` only when both canonical anchor joint and marginal summaries are available; the legacy `any_relevance` alias is no longer emitted
 - for factor-to-trait interpretation, filter on trait QC and rank by `joint_coefficient`, using `marginal_coefficient` and `marginal_overlap` as secondary context
 - for trait-to-factor interpretation, rank by `joint_coefficient` rather than marginal alone, and inspect or filter broad factors with `broad_factor_flag`
 - `pheno_clusters.out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
