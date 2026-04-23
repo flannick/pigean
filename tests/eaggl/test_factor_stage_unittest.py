@@ -17,6 +17,7 @@ if str(SRC_ROOT) not in sys.path:
 
 sys.argv = ["eaggl.py", "factor"]
 import eaggl.main_support as eaggl  # noqa: E402
+import eaggl.workflows as eaggl_workflows  # noqa: E402
 
 
 def _options(**overrides):
@@ -84,6 +85,12 @@ def _options(**overrides):
         factor_phewas_full_output=False,
         factor_gene_clusters_in=None,
         factor_gene_set_clusters_in=None,
+        X_in=None,
+        X_list=None,
+        Xd_in=None,
+        Xd_list=None,
+        gene_stats_in=None,
+        gene_set_stats_in=None,
         min_gene_set_read_beta=1e-20,
         min_gene_set_read_beta_uncorrected=1e-20,
         anchor_genes=None,
@@ -128,6 +135,7 @@ def _options(**overrides):
         trait_linkage_source="combined",
         trait_linkage_threshold=1.0,
         trait_linkage_computation_mode="sparse_full",
+        trait_factor_links_output_detail="main",
         no_trait_linkage=False,
         factors_out=None,
         factor_metrics_out=None,
@@ -187,8 +195,8 @@ class _RuntimeStub:
             )
         )
 
-    def write_trait_factor_links(self, out):
-        self.calls.append(("write_trait_factor_links", out))
+    def write_trait_factor_links(self, out, output_detail="main"):
+        self.calls.append(("write_trait_factor_links", out, output_detail))
 
     def write_gene_pheno_statistics(self, out, min_value_to_print=0):
         self.calls.append(("write_gene_pheno_statistics", out, min_value_to_print))
@@ -516,8 +524,8 @@ class FactorStageHelpersTest(unittest.TestCase):
             runtime.calls[4],
             ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False, 0.02, "primary_secondary"),
         )
-        self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv"))
-        self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "p_cluster.tsv"))
+        self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv", "main"))
+        self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "p_cluster.tsv", "main"))
         self.assertEqual(
             runtime.calls[7],
             (
@@ -643,6 +651,19 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn('"workflow_id": "F1"', json_content)
         self.assertIn("Field\tValue", tsv_content)
         self.assertIn("trait_linkage.source\tcombined", tsv_content)
+
+    def test_default_stats_provenance_reports_input_anchor(self) -> None:
+        options = _options(gene_stats_in="gene_stats.tsv.gz", gene_set_stats_in="gene_set_stats.tsv.gz")
+        workflow = eaggl_workflows.classify_factor_workflow(options)
+        provenance = eaggl_workflows.build_clustering_provenance(
+            options,
+            {"run_factor": True, "factor_projection_only": False, "factor_workflow": workflow},
+        )
+
+        self.assertEqual(provenance["factorization_source"], "default_stats")
+        self.assertEqual(provenance["anchor_mode"], "default_stats")
+        self.assertEqual(provenance["anchor_values"], ["input_gene_stats"])
+        self.assertEqual(provenance["anchor_count"], 1)
 
     def test_workflow_required_inputs_contract_for_f1_to_f9(self) -> None:
         cases = [
@@ -783,12 +804,16 @@ class FactorStageHelpersTest(unittest.TestCase):
                 pheno_capture_input="weighted_thresholded",
             )
             result = eaggl.eaggl_factor.run_main_pheno_projection_stage(domain, runtime, options)
-            runtime.write_trait_factor_links(str(pheno_clusters))
+            runtime.write_trait_factor_links(str(pheno_clusters), output_detail="full")
+            concise_links = tmpdir_path / "trait_links.main.out.gz"
+            runtime.write_trait_factor_links(str(concise_links))
 
             import gzip
 
             with gzip.open(pheno_clusters, "rt", encoding="utf-8") as fh:
                 content = fh.read()
+            with gzip.open(concise_links, "rt", encoding="utf-8") as fh:
+                concise_content = fh.read()
 
         self.assertTrue(result.ran)
         self.assertEqual(result.output_path, str(pheno_clusters))
@@ -807,6 +832,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         np.testing.assert_array_equal(runtime.trait_linkage_low_retention_flag, [True, True])
         self.assertLess(runtime.trait_linkage_joint[0, 0], 0.25)
         self.assertIn("trait\tfactor\tis_anchor\tjoint_coefficient\tmarginal_coefficient", content)
+        self.assertIn("marginal_overlap", content)
         self.assertIn("trait_total_support", content)
         self.assertIn("retained_trait_support", content)
         self.assertIn("retained_fraction", content)
@@ -817,8 +843,11 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("low_retention_flag", content)
         self.assertIn("joint_coefficient_support_mass", content)
         self.assertIn("marginal_coefficient_support_mass", content)
+        self.assertIn("marginal_overlap_support_mass", content)
         self.assertIn("TraitA\tFactor1", content)
         self.assertIn("TraitB\tFactor2", content)
+        self.assertIn("trait\tfactor\tis_anchor\tjoint_fraction\tmarginal_fraction\tmarginal_overlap\tjoint_support_mass\tmarginal_support_mass\tmarginal_overlap_support_mass\tlow_retention_flag\ttrait_neff\tretained_n_eff", concise_content)
+        self.assertNotIn("trait_total_support", concise_content.splitlines()[0])
 
     def test_projection_only_anchor_and_external_trait_linkage_share_normalization_logic(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -925,7 +954,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 pheno_capture_input="weighted_thresholded",
             )
             result = eaggl.eaggl_factor.run_main_pheno_projection_stage(domain, runtime, options)
-            runtime.write_trait_factor_links(str(pheno_clusters))
+            runtime.write_trait_factor_links(str(pheno_clusters), output_detail="full")
 
             import gzip
 
@@ -950,6 +979,10 @@ class FactorStageHelpersTest(unittest.TestCase):
             runtime.factor_labels = ["immune", "metabolic"]
             runtime.factor_relevance = np.array([0.25, 0.5])
             runtime.trait_linkage_factor_total_mass = np.array([3.0, 7.0])
+            runtime.trait_linkage_factor_n_eff = np.array([2.0, 600.0])
+            runtime.trait_linkage_factor_top_share = np.array([0.75, 0.005])
+            runtime.trait_linkage_factor_top10_share = np.array([1.0, 0.04])
+            runtime.trait_linkage_broad_factor_flag = np.array([False, True])
             runtime.factor_top_gene_sets = [["GS1"], ["GS2"]]
             runtime.factor_top_genes = [["GENE1"], ["GENE2"]]
             runtime.write_matrix_factors(str(output_path), factor_output_scope="all")
@@ -960,8 +993,14 @@ class FactorStageHelpersTest(unittest.TestCase):
                 content = fh.read()
 
         self.assertIn("factor_total_mass", content.splitlines()[0])
-        self.assertIn("lambda\tfactor_tier\tcombined_mass_fraction\tany_relevance", content.splitlines()[0])
-        self.assertIn("Factor1\timmune\t1\tfiltered\t0\t0.25\t3", content)
+        self.assertIn("lambda\tfactor_tier\tcombined_mass_fraction", content.splitlines()[0])
+        self.assertNotIn("any_relevance", content.splitlines()[0])
+        self.assertIn("factor_n_eff", content.splitlines()[0])
+        self.assertIn("factor_top_share", content.splitlines()[0])
+        self.assertIn("factor_top10_share", content.splitlines()[0])
+        self.assertIn("broad_factor_flag", content.splitlines()[0])
+        self.assertIn("Factor1\timmune\t1\tfiltered\t0\t3\t2\t0.75\t1\t0", content)
+        self.assertIn("Factor2\tmetabolic\t2\tfiltered\t0\t7\t600\t0.005\t0.04\t1", content)
 
     def test_write_factor_outputs_default_to_primary_factor_scope(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
@@ -1034,6 +1073,77 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertNotIn("Factor2", primary_gene_clusters.splitlines()[0])
         self.assertIn("Factor3", all_gene_set_clusters.splitlines()[0])
         self.assertIn("Factor3", all_gene_clusters.splitlines()[0])
+
+    def test_write_matrix_factors_uses_clean_anchor_summary_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            factors_path = Path(tmpdir) / "factors.out.gz"
+            factors_anchor_path = Path(tmpdir) / "factors_anchor.out.gz"
+            runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+            runtime.exp_lambdak = np.array([1.0])
+            runtime.factor_labels = ["immune"]
+            runtime.factor_relevance = np.array([0.4])
+            runtime.factor_marginal_relevance = np.array([0.7])
+            runtime.factor_anchor_relevance = np.array([[0.4]])
+            runtime.factor_anchor_marginal_relevance = np.array([[0.7]])
+            runtime.anchor_pheno_mask = np.array([True])
+            runtime.phenos = ["TraitA"]
+            runtime.factor_top_gene_sets = [["GS1"]]
+            runtime.factor_top_genes = [["GENE1"]]
+            runtime.factor_anchor_top_gene_sets = [[["GS1"]]]
+            runtime.factor_anchor_top_genes = [[["GENE1"]]]
+
+            runtime.write_matrix_factors(str(factors_path), factor_output_scope="all")
+            runtime.write_matrix_factors(str(factors_anchor_path), write_anchor_specific=True, factor_output_scope="all")
+
+            import gzip
+
+            with gzip.open(factors_path, "rt", encoding="utf-8") as fh:
+                factors_header = fh.readline().strip().split("\t")
+            with gzip.open(factors_anchor_path, "rt", encoding="utf-8") as fh:
+                factors_anchor_header = fh.readline().strip().split("\t")
+                factors_anchor_row = fh.readline()
+
+        self.assertNotIn("any_relevance", factors_header)
+        self.assertIn("anchor_any_joint", factors_header)
+        self.assertIn("anchor_any_marginal", factors_header)
+        self.assertNotIn("anchor_joint", factors_header)
+        self.assertNotIn("anchor_marginal", factors_header)
+        self.assertEqual(factors_anchor_header[:5], ["Factor", "label", "anchor", "joint", "marginal"])
+        self.assertNotIn("relevance", factors_anchor_header)
+        self.assertIn("Factor1\timmune\tTraitA\t0.4\t0.7", factors_anchor_row)
+
+    def test_write_matrix_factors_does_not_alias_missing_anchor_marginal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            factors_path = Path(tmpdir) / "factors.out.gz"
+            factors_anchor_path = Path(tmpdir) / "factors_anchor.out.gz"
+            runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+            runtime.exp_lambdak = np.array([1.0])
+            runtime.factor_labels = ["immune"]
+            runtime.factor_relevance = np.array([0.4])
+            runtime.factor_anchor_relevance = np.array([[0.4]])
+            runtime.anchor_pheno_mask = np.array([True])
+            runtime.phenos = ["TraitA"]
+            runtime.factor_top_gene_sets = [["GS1"]]
+            runtime.factor_top_genes = [["GENE1"]]
+            runtime.factor_anchor_top_gene_sets = [[["GS1"]]]
+            runtime.factor_anchor_top_genes = [[["GENE1"]]]
+
+            runtime.write_matrix_factors(str(factors_path), factor_output_scope="all")
+            runtime.write_matrix_factors(str(factors_anchor_path), write_anchor_specific=True, factor_output_scope="all")
+
+            import gzip
+
+            with gzip.open(factors_path, "rt", encoding="utf-8") as fh:
+                factors_header = fh.readline().strip().split("\t")
+            with gzip.open(factors_anchor_path, "rt", encoding="utf-8") as fh:
+                factors_anchor_header = fh.readline().strip().split("\t")
+                factors_anchor_row = fh.readline()
+
+        self.assertNotIn("anchor_any_joint", factors_header)
+        self.assertNotIn("anchor_any_marginal", factors_header)
+        self.assertEqual(factors_anchor_header[:5], ["Factor", "label", "anchor", "joint", "marginal"])
+        self.assertIn("Factor1\timmune\tTraitA\t0.4\tNA", factors_anchor_row)
+
 
     def test_projection_only_factor_phewas_stage_gate_does_not_require_factor_fit(self) -> None:
         self.assertTrue(

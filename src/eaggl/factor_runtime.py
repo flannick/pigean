@@ -1099,8 +1099,13 @@ def _apply_canonical_trait_linkage(
     state.pheno_capture_basis = linkage_inputs["basis_name"]
     state.pheno_capture_input = pheno_capture_input
     state.trait_linkage_factor_total_mass = linkage_result["factor_total_mass"]
+    state.trait_linkage_factor_n_eff = linkage_result["factor_n_eff"]
+    state.trait_linkage_factor_top_share = linkage_result["factor_top_share"]
+    state.trait_linkage_factor_top10_share = linkage_result["factor_top10_share"]
+    state.trait_linkage_broad_factor_flag = linkage_result["broad_factor_flag"]
     state.trait_linkage_joint = linkage_result["joint"]
     state.trait_linkage_marginal = linkage_result["marginal"]
+    state.trait_linkage_marginal_overlap = linkage_result["marginal_overlap"]
     state.trait_linkage_residual = linkage_result["residual"]
     state.trait_linkage_strength = linkage_result["trait_total_support"]
     state.trait_linkage_retained_strength = linkage_result["retained_trait_support"]
@@ -3470,8 +3475,18 @@ def _finalize_factor_outputs(
         state.trait_linkage_joint = state.trait_linkage_joint[:, reorder_inds]
     if state.trait_linkage_marginal is not None:
         state.trait_linkage_marginal = state.trait_linkage_marginal[:, reorder_inds]
+    if state.trait_linkage_marginal_overlap is not None:
+        state.trait_linkage_marginal_overlap = state.trait_linkage_marginal_overlap[:, reorder_inds]
     if state.trait_linkage_factor_total_mass is not None:
         state.trait_linkage_factor_total_mass = state.trait_linkage_factor_total_mass[reorder_inds]
+    if state.trait_linkage_factor_n_eff is not None:
+        state.trait_linkage_factor_n_eff = state.trait_linkage_factor_n_eff[reorder_inds]
+    if state.trait_linkage_factor_top_share is not None:
+        state.trait_linkage_factor_top_share = state.trait_linkage_factor_top_share[reorder_inds]
+    if state.trait_linkage_factor_top10_share is not None:
+        state.trait_linkage_factor_top10_share = state.trait_linkage_factor_top10_share[reorder_inds]
+    if state.trait_linkage_broad_factor_flag is not None:
+        state.trait_linkage_broad_factor_flag = state.trait_linkage_broad_factor_flag[reorder_inds]
     state.exp_gene_set_factors = state.exp_gene_set_factors[:, reorder_inds]
 
     threshold = 1e-5
@@ -3777,8 +3792,21 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
                 else:
                     state.X_phewas_beta_uncorrected = betas_uncorrected.T
 
+                state.default_pheno = "input_gene_stats"
                 state.phenos.append(state.default_pheno)
-                state.default_pheno_mask = np.append(np.full(len(state.phenos), False), True)
+                state.default_pheno_mask = np.full(len(state.phenos), False, dtype=bool)
+                state.default_pheno_mask[-1] = True
+                anchor_pheno_mask = state.default_pheno_mask
+                state.anchor_pheno_mask = np.copy(anchor_pheno_mask)
+                state._record_params(
+                    {
+                        "anchor_mode": "default_stats",
+                        "anchor_pheno_mask_present": True,
+                        "anchor_pheno_mask_total": int(len(anchor_pheno_mask)),
+                        "anchor_pheno_mask_selected": int(np.sum(anchor_pheno_mask)),
+                    },
+                    overwrite=True,
+                )
 
                 #we need to update these as well
                 state.pheno_Y_vs_input_Y_beta = np.append(state.pheno_Y_vs_input_Y_beta, 0) if state.pheno_Y_vs_input_Y_beta is not None else None

@@ -205,8 +205,8 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         self.assertTrue(np.all(np.sum(linkage["joint"], axis=1) <= 1.00001))
 
     def test_canonical_trait_linkage_uses_closed_form_marginal_coefficients(self) -> None:
-        basis = np.eye(2)
-        feature_by_trait = np.array([[2.0], [1.0]])
+        basis = np.array([[1.0], [1.0]])
+        feature_by_trait = np.array([[2.0], [0.0]])
 
         def _joint_only_nnls(W, X_new, max_sum=None, max_value=None):
             self.assertIsNone(max_value)
@@ -219,7 +219,28 @@ class PhenotypeAnnotationTest(unittest.TestCase):
             threshold_value=0.0,
         )
 
-        np.testing.assert_allclose(linkage["marginal"], [[2.0 / 3.0, 1.0 / 3.0]], atol=1e-8)
+        np.testing.assert_allclose(linkage["marginal_overlap"], [[0.5]], atol=1e-8)
+        np.testing.assert_allclose(linkage["marginal"], [[1.0]], atol=1e-8)
+
+    def test_canonical_trait_linkage_reports_factor_breadth_diagnostics(self) -> None:
+        basis = np.column_stack([
+            np.ones(600, dtype=float),
+            np.r_[100.0, np.zeros(599, dtype=float)],
+        ])
+        feature_by_trait = np.ones((600, 1), dtype=float)
+
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
+            basis,
+            feature_by_trait,
+            threshold_value=0.0,
+        )
+
+        np.testing.assert_allclose(linkage["factor_total_mass"], [600.0, 100.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["factor_n_eff"], [600.0, 1.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["factor_top_share"], [1.0 / 600.0, 1.0], atol=1e-8)
+        np.testing.assert_allclose(linkage["factor_top10_share"], [10.0 / 600.0, 1.0], atol=1e-8)
+        np.testing.assert_array_equal(linkage["broad_factor_flag"], [True, False])
 
     def test_canonical_trait_linkage_normalizes_by_total_strength_before_masking(self) -> None:
         basis = np.array([[1.0]])

@@ -12,6 +12,7 @@ class FactorOutputPlan:
     gene_set_clusters_out: str | None = None
     gene_clusters_out: str | None = None
     trait_factor_links_out: str | None = None
+    trait_factor_links_output_detail: str = "main"
     pheno_clusters_out: str | None = None
     gene_set_anchor_clusters_out: str | None = None
     gene_anchor_clusters_out: str | None = None
@@ -60,6 +61,7 @@ def build_factor_output_plan(options):
         gene_set_clusters_out=options.gene_set_clusters_out,
         gene_clusters_out=options.gene_clusters_out,
         trait_factor_links_out=getattr(options, "trait_factor_links_out", None),
+        trait_factor_links_output_detail=getattr(options, "trait_factor_links_output_detail", "main"),
         pheno_clusters_out=options.pheno_clusters_out,
         gene_set_anchor_clusters_out=options.gene_set_anchor_clusters_out,
         gene_anchor_clusters_out=options.gene_anchor_clusters_out,
@@ -97,7 +99,7 @@ def write_factor_outputs_for_plan(runtime, output_plan):
     if output_plan.pheno_clusters_out is not None:
         trait_factor_link_paths.append(output_plan.pheno_clusters_out)
     for output_path in dict.fromkeys(trait_factor_link_paths):
-        runtime.write_trait_factor_links(output_path)
+        runtime.write_trait_factor_links(output_path, output_detail=output_plan.trait_factor_links_output_detail)
     if (
         output_plan.gene_set_anchor_clusters_out is not None
         or output_plan.gene_anchor_clusters_out is not None

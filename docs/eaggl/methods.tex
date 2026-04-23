@@ -208,7 +208,7 @@ Thus, the gene-anchored workflows and the phenotype-anchored workflows are not d
 
 \subsection{Implicit factor relevance and any-anchor summaries}
 
-After fitting, EAGGL reports factor-level relevance scores that summarize how strongly each factor is supported by the selected trait or anchor set. These are downstream summaries derived from the fitted factor basis and are not themselves part of the factorization objective. In non-phenotype-anchored workflows, this implicit factor relevance remains the legacy bounded nonnegative regression summary used for the \texttt{any\_relevance} column in \texttt{factors.out(.gz)}.
+After fitting, EAGGL can compute factor-level relevance scores that summarize how strongly each factor is supported by the selected trait or anchor set. These are downstream summaries derived from the fitted factor basis and are not themselves part of the factorization objective. In the default \texttt{--gene-stats-in} / \texttt{--gene-set-stats-in} workflow, the input statistics define an implicit anchor named \texttt{input\_gene\_stats}; no separate anchor flag is required. The public factor output no longer reports the legacy \texttt{any\_relevance} alias; anchor summaries are exposed through the canonical \texttt{anchor\_any\_joint} and \texttt{anchor\_any\_marginal} columns only when both joint and marginal anchor linkage summaries are available.
 
 For the gene-by-annotation workflow family, let $W \in \mathbb{R}_+^{N \times K}$ denote the fitted gene-by-factor matrix, and let $p^{(u)} \in [0,1]^N$ denote the gene-level support vector for anchor user $u$. The anchor-specific relevance of the factors to user $u$ is defined by bounded nonnegative regression:
 \begin{equation}
@@ -245,7 +245,7 @@ r_k^{\mathrm{any}}
 \end{equation}
 This has the intended semantics that $r_k^{\mathrm{any}}$ is a bounded coefficient summary of how strongly factor $k$ links to at least one selected anchor under the relevance model above. In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific relevance itself.
 
-When anchor phenotypes are present and canonical trait linkage is also computed, EAGGL additionally reports \texttt{anchor\_joint}, \texttt{anchor\_marginal}, \texttt{anchor\_any\_joint}, and \texttt{anchor\_any\_marginal} summaries derived from the canonical linkage calculations in Section~\ref{sec:postfactor_revised}. During the transition period, \texttt{any\_relevance} remains as a compatibility field and coincides with the anchor-any joint projection coefficient summary in those phenotype-anchored linkage runs.
+When anchor phenotypes are present and canonical trait linkage is also computed, EAGGL reports \texttt{anchor\_any\_joint} and \texttt{anchor\_any\_marginal} summaries in \texttt{factors.out(.gz)} derived from the canonical linkage calculations in Section~\ref{sec:postfactor_revised}. If only the older joint-style relevance calculation is available, these anchor-any columns are not emitted rather than aliasing marginal to joint. The per-anchor \texttt{factors\_anchor.out(.gz)} table reports the corresponding \texttt{joint} and \texttt{marginal} values for each anchor separately, using \texttt{NA} for marginal when no marginal summary was computed.
 
 \section{Trait linkage and factor-specific phenotype enrichment}
 \label{sec:postfactor_revised}
@@ -307,6 +307,11 @@ q_t^{(b)} - b_{\bullet k}^{(b)} c
 \right\|_2^2,
 \label{eq:eaggl_trait_linkage_marginal}
 \end{equation}
+and the marginal overlap companion is the direct shape overlap
+\begin{equation}
+o_{tk}^{(b)} = \left(q_t^{(b)}\right)^\top b_{\bullet k}^{(b)}.
+\label{eq:eaggl_trait_linkage_marginal_overlap}
+\end{equation}
 and the \emph{joint coefficient} is the all-factor competitive projection
 \begin{equation}
 j_t^{(b)}
@@ -323,7 +328,7 @@ We also report the uncaptured normalized mass
 \label{eq:eaggl_trait_linkage_residual}
 \end{equation}
 
-The coefficient $m_{tk}^{(b)}$ is interpreted as a standalone support-normalized projection coefficient linking phenotype $t$ to factor $k$ when that factor is viewed alone. The coefficient $j_{tk}^{(b)}$ is interpreted as the corresponding competitive projection coefficient for factor $k$ after the other factors compete. These coefficients are not exact overlap or captured-support masses. In contrast to a projection normalized only on the retained masked slice, Eqs.~\eqref{eq:eaggl_trait_linkage_marginal} and \eqref{eq:eaggl_trait_linkage_joint} preserve the scale of the full thresholded trait while still solving on the retained factor basis. Broad phenotypes can therefore have large total thresholded support $A_t^{(b)}$ without automatically receiving inflated linkage coefficients when only a small masked subset of their support survives into the factor basis.
+The coefficient $m_{tk}^{(b)}$ is interpreted as a standalone support-normalized projection coefficient linking phenotype $t$ to factor $k$ when that factor is viewed alone. Because it is divided by the factor self-norm, it remains coefficient-like and can be sensitive to factor breadth. The overlap $o_{tk}^{(b)}$ is a direct shape-overlap metric and is less affected by broad factor profiles. The coefficient $j_{tk}^{(b)}$ is interpreted as the corresponding competitive projection coefficient for factor $k$ after the other factors compete. These coefficients are not exact overlap or captured-support masses. In contrast to a projection normalized only on the retained masked slice, Eqs.~\eqref{eq:eaggl_trait_linkage_marginal} and \eqref{eq:eaggl_trait_linkage_joint} preserve the scale of the full thresholded trait while still solving on the retained factor basis. Broad phenotypes can therefore have large total thresholded support $A_t^{(b)}$ without automatically receiving inflated linkage coefficients when only a small masked subset of their support survives into the factor basis.
 
 For reporting, EAGGL writes:
 \begin{itemize}
@@ -334,9 +339,16 @@ For reporting, EAGGL writes:
 \item \texttt{retained\_n\_eff} = $\left(\sum_f s_{t,\mathcal{M}f}^{(b)}\right)^2 \big/ \sum_f \left(s_{t,\mathcal{M}f}^{(b)}\right)^2$
 \item \texttt{joint\_coefficient} = $j_{tk}^{(b)}$
 \item \texttt{marginal\_coefficient} = $m_{tk}^{(b)}$
+\item \texttt{marginal\_overlap} = $o_{tk}^{(b)}$
 \item \texttt{joint\_coefficient\_support\_mass} = \texttt{trait\_total\_support} $\times$ \texttt{joint\_coefficient}, a coefficient-scaled support total rather than an exact captured-support mass
 \item \texttt{marginal\_coefficient\_support\_mass} = \texttt{trait\_total\_support} $\times$ \texttt{marginal\_coefficient}, a coefficient-scaled support total rather than an exact captured-support mass
+\item \texttt{marginal\_overlap\_support\_mass} = \texttt{trait\_total\_support} $\times$ \texttt{marginal\_overlap}, an overlap-scaled support total
+\item \texttt{factor\_tier} and \texttt{combined\_mass\_fraction} report the post-fit interpretation tier and global factor mass fraction.
 \item \texttt{factor\_total\_mass} = $S_k^{(b)}$ in the factor summary output
+\item \texttt{factor\_n\_eff} = $\left(\sum_f W_{fk}^{(b)}\right)^2 \big/ \sum_f \left(W_{fk}^{(b)}\right)^2$
+\item \texttt{factor\_top\_share} = $\max_f W_{fk}^{(b)} / S_k^{(b)}$
+\item \texttt{factor\_top10\_share} = top-10 loading mass divided by $S_k^{(b)}$
+\item \texttt{broad\_factor\_flag} = 1 when \texttt{factor\_n\_eff} $\ge 500$ and \texttt{factor\_top\_share} $\le 0.01$
 \end{itemize}
 
 The effective-size diagnostics complement the raw thresholded feature counts. A phenotype can have many retained nonzero genes but still have \texttt{trait\_n\_eff} or \texttt{retained\_n\_eff} close to $1$ when most of its support is concentrated on one or a few genes. These quantities therefore expose concentration of support mass rather than only thresholded breadth.

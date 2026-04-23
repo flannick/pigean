@@ -453,6 +453,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "all",
             "--trait-factor-links-out",
             "trait_factor_links.tsv",
+            "--trait-factor-links-output-detail",
+            "full",
             "--trait-linkage-source",
             "combined",
             "--pheno-clusters-out",
@@ -538,6 +540,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["factors_out"], "factors.tsv")
         self.assertEqual(opts["factor_metrics_out"], "factor_metrics.tsv")
         self.assertEqual(opts["trait_factor_links_out"], "trait_factor_links.tsv")
+        self.assertEqual(opts["trait_factor_links_output_detail"], "full")
         self.assertEqual(opts["trait_linkage_source"], "combined")
         self.assertEqual(opts["trait_linkage_computation_mode"], "sparse_full")
         self.assertEqual(opts["pheno_clusters_out"], "pheno_clusters.tsv")
@@ -689,6 +692,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--cluster-row-min-max-loading": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-output-scope": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-factor-links-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--trait-factor-links-output-detail": ["test_reference_factor_and_labeling_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--trait-linkage-computation-mode": ["test_factor_phewas_and_capture_defaults_round_trip", "test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-source": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
