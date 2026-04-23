@@ -71,6 +71,7 @@ class FactorExecutionConfig:
     learn_phi_max_steps: int = 5
     learn_phi_expand_factor: float = 2.0
     learn_phi_weight_floor: float | None = None
+    learn_phi_metric_factor_scope: str = "primary"
     learn_phi_mass_floor_frac: float = 0.005
     learn_phi_only: bool = False
     learn_phi_report_out: str | None = None
@@ -157,6 +158,7 @@ class FactorExecutionConfig:
             "learn_phi_max_steps": self.learn_phi_max_steps,
             "learn_phi_expand_factor": self.learn_phi_expand_factor,
             "learn_phi_weight_floor": self.learn_phi_weight_floor,
+            "learn_phi_metric_factor_scope": self.learn_phi_metric_factor_scope,
             "learn_phi_mass_floor_frac": self.learn_phi_mass_floor_frac,
             "learn_phi_only": self.learn_phi_only,
             "learn_phi_report_out": self.learn_phi_report_out,
@@ -928,6 +930,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_max_steps=options.learn_phi_max_steps,
         learn_phi_expand_factor=options.learn_phi_expand_factor,
         learn_phi_weight_floor=options.learn_phi_weight_floor,
+        learn_phi_metric_factor_scope=getattr(options, "learn_phi_metric_factor_scope", "primary"),
         learn_phi_mass_floor_frac=getattr(options, "learn_phi_mass_floor_frac", 0.005),
         learn_phi_only=getattr(options, "learn_phi_only", False),
         learn_phi_report_out=options.learn_phi_report_out,

@@ -1048,6 +1048,45 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertAlmostEqual(profile["redundancy_max"], 1.0)
         self.assertAlmostEqual(profile["redundancy_q90"], 1.0)
 
+    def test_redundancy_metric_scope_ignores_filtered_tail_by_default(self) -> None:
+        state = SimpleNamespace(
+            exp_gene_set_factors=np.array(
+                [
+                    [1.0, 0.0, 0.001],
+                    [0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                ],
+                dtype=float,
+            ),
+            exp_gene_factors=np.array(
+                [
+                    [1.0, 0.0, 0.001],
+                    [0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                ],
+                dtype=float,
+            ),
+            exp_pheno_factors=None,
+        )
+
+        primary_profile = eaggl_factor_runtime._compute_within_run_factor_redundancy_profile(
+            state,
+            weight_floor=0.0,
+            metric_factor_scope="primary",
+        )
+        all_profile = eaggl_factor_runtime._compute_within_run_factor_redundancy_profile(
+            state,
+            weight_floor=0.0,
+            metric_factor_scope="all",
+        )
+
+        self.assertEqual(primary_profile["metric_factor_scope"], "primary")
+        self.assertEqual(primary_profile["metric_factor_count"], 2)
+        self.assertAlmostEqual(primary_profile["redundancy_max"], 0.0)
+        self.assertEqual(all_profile["metric_factor_scope"], "all")
+        self.assertEqual(all_profile["metric_factor_count"], 3)
+        self.assertAlmostEqual(all_profile["redundancy_max"], 1.0)
+
     def test_select_phi_candidate_prefers_largest_phi_within_target_size_tolerance(self) -> None:
         candidates = [
             {
@@ -1212,6 +1251,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(state.params["learn_phi_selection_reason"], "target_gene_effective_support_in_tolerance")
         self.assertEqual(state.params["learn_phi_redundancy_basis_target"], "gene")
         self.assertEqual(state.params["learn_phi_redundancy_basis"], "gene")
+        self.assertEqual(state.params["learn_phi_metric_factor_scope"], "primary")
         self.assertEqual(state.params["learn_phi_selection_pool"], "uncapped")
         self.assertEqual(state.num_factors(), 3)
         np.testing.assert_allclose(state.exp_gene_set_factors, np.eye(3), atol=1e-8)
@@ -1219,6 +1259,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertIn("learn_phi_candidate_phi", state.param_history)
         self.assertGreaterEqual(len(state.param_history["learn_phi_candidate_phi"]), 2)
         self.assertTrue(all(value == "gene" for value in state.param_history["learn_phi_candidate_redundancy_basis"]))
+        self.assertTrue(all(value == "primary" for value in state.param_history["learn_phi_candidate_metric_factor_scope"]))
         self.assertIn("learn_phi_candidate_redundancy_q90", state.param_history)
         self.assertAlmostEqual(final_runs[-1], state.params["learn_phi_selected_phi"])
         self.assertEqual(state.params["beta0"], 1.0)
@@ -1484,6 +1525,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             runs_per_step,
             factor_kwargs,
             weight_floor,
+            metric_factor_scope,
             mass_floor_frac,
             prune_genes_num,
             prune_gene_sets_num,
@@ -1513,6 +1555,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "run_support": 1.0,
                 "stability": None,
                 "stability_defined": False,
+                "metric_factor_scope": str(metric_factor_scope),
                 "num_modal_runs": 1,
                 "redundancy_basis": "gene" if factor_count > 0 else "none",
                 "redundancy": 0.2 if factor_count > 0 else 0.0,

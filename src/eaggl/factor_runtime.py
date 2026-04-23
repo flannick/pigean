@@ -1447,6 +1447,7 @@ def _build_factor_param_record(
     learn_phi_max_steps,
     learn_phi_expand_factor,
     learn_phi_weight_floor,
+    learn_phi_metric_factor_scope,
     learn_phi_mass_floor_frac,
     learn_phi_only,
     learn_phi_report_out,
@@ -1533,6 +1534,7 @@ def _build_factor_param_record(
         "learn_phi_max_steps": int(learn_phi_max_steps),
         "learn_phi_expand_factor": float(learn_phi_expand_factor),
         "learn_phi_weight_floor": None if learn_phi_weight_floor is None else float(learn_phi_weight_floor),
+        "learn_phi_metric_factor_scope": str(learn_phi_metric_factor_scope),
         "learn_phi_mass_floor_frac": float(learn_phi_mass_floor_frac),
         "learn_phi_only": bool(learn_phi_only),
         "learn_phi_report_out": learn_phi_report_out,
@@ -1616,6 +1618,28 @@ def _extract_overlap_basis_matrix(state):
     if state.exp_pheno_factors is not None and state.exp_pheno_factors.size > 0:
         return ("pheno", state.exp_pheno_factors)
     return ("none", None)
+
+
+def _metric_factor_indices_from_mass_profile(mass_profile, metric_factor_scope):
+    mass_fractions = np.asarray(mass_profile.get("mass_fractions", []), dtype=float)
+    if str(metric_factor_scope) == "all":
+        return np.arange(mass_fractions.size, dtype=int)
+    if str(metric_factor_scope) != "primary":
+        raise ValueError("metric_factor_scope must be one of: primary, all")
+    return np.where(mass_fractions >= float(_PRIMARY_FACTOR_MASS_FLOOR))[0].astype(int)
+
+
+def _select_factor_columns(matrix, factor_indices):
+    if matrix is None:
+        return None
+    matrix = np.asarray(matrix, dtype=float)
+    factor_indices = np.asarray(factor_indices, dtype=int)
+    if matrix.ndim != 2:
+        return matrix
+    if factor_indices.size == 0:
+        return matrix[:, :0]
+    valid_indices = factor_indices[(factor_indices >= 0) & (factor_indices < matrix.shape[1])]
+    return matrix[:, valid_indices]
 
 
 def _prepare_factor_vector_for_overlap(vector, weight_floor):
@@ -1959,11 +1983,17 @@ def _build_discovery_plan(
     )
 
 
-def _compute_within_run_factor_redundancy_profile(state, weight_floor):
+def _compute_within_run_factor_redundancy_profile(state, weight_floor, *, metric_factor_scope="primary", mass_profile=None):
     redundancy_basis, canonical = _extract_overlap_basis_matrix(state)
+    if mass_profile is None:
+        mass_profile = _compute_factor_mass_profile(state, mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC)
+    factor_indices = _metric_factor_indices_from_mass_profile(mass_profile, metric_factor_scope)
+    canonical = _select_factor_columns(canonical, factor_indices)
     if canonical is None or canonical.shape[1] <= 1:
         return {
             "redundancy_basis": redundancy_basis,
+            "metric_factor_scope": str(metric_factor_scope),
+            "metric_factor_count": 0 if canonical is None else int(canonical.shape[1]),
             "redundancy_max": 0.0,
             "redundancy_q90": 0.0,
             "redundancy_mean": 0.0,
@@ -1989,6 +2019,8 @@ def _compute_within_run_factor_redundancy_profile(state, weight_floor):
     overlap_array = np.asarray(nearest_neighbor_overlaps, dtype=float)
     return {
         "redundancy_basis": redundancy_basis,
+        "metric_factor_scope": str(metric_factor_scope),
+        "metric_factor_count": int(canonical.shape[1]),
         "redundancy_max": float(np.max(overlap_array)) if overlap_array.size > 0 else 0.0,
         "redundancy_q90": float(np.quantile(overlap_array, 0.9)) if overlap_array.size > 0 else 0.0,
         "redundancy_mean": float(np.mean(overlap_array)) if overlap_array.size > 0 else 0.0,
@@ -2262,9 +2294,17 @@ def _match_factor_cosines(reference_matrix, other_matrix):
     return [float(similarity[ref_index, other_index]) for ref_index, other_index in zip(ref_inds, other_inds)]
 
 
-def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, mass_floor_frac, max_num_factors):
+def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, mass_floor_frac, max_num_factors, metric_factor_scope="primary"):
     modal_factor_count, modal_indices = _collect_run_indices_by_modal_factor_count(run_states, run_summaries)
     reference_index = min(modal_indices, key=lambda idx: _best_run_sort_key(run_summaries[idx]))
+    run_mass_profiles = [
+        _compute_factor_mass_profile(run_states[index], mass_floor_frac=mass_floor_frac)
+        for index in modal_indices
+    ]
+    run_metric_factor_indices = {
+        int(index): _metric_factor_indices_from_mass_profile(run_mass_profiles[offset], metric_factor_scope)
+        for offset, index in enumerate(modal_indices)
+    }
 
     best_error = None
     best_evidence = None
@@ -2277,12 +2317,21 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
             best_evidence = evidence if best_evidence is None else min(best_evidence, evidence)
 
     matched_cosines = []
-    reference_matrix = _extract_canonical_factor_matrix(run_states[reference_index])
+    reference_matrix = _select_factor_columns(
+        _extract_canonical_factor_matrix(run_states[reference_index]),
+        run_metric_factor_indices[int(reference_index)],
+    )
     for index in modal_indices:
         if index == reference_index:
             continue
         matched_cosines.extend(
-            _match_factor_cosines(reference_matrix, _extract_canonical_factor_matrix(run_states[index]))
+            _match_factor_cosines(
+                reference_matrix,
+                _select_factor_columns(
+                    _extract_canonical_factor_matrix(run_states[index]),
+                    run_metric_factor_indices[int(index)],
+                ),
+            )
         )
 
     if len(modal_indices) <= 1:
@@ -2296,18 +2345,19 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
         stability_defined = True
 
     run_redundancy_profiles = [
-        _compute_within_run_factor_redundancy_profile(run_states[index], weight_floor)
-        for index in modal_indices
+        _compute_within_run_factor_redundancy_profile(
+            run_states[index],
+            weight_floor,
+            metric_factor_scope=metric_factor_scope,
+            mass_profile=run_mass_profiles[offset],
+        )
+        for offset, index in enumerate(modal_indices)
     ]
     redundancy_basis_values = [str(profile.get("redundancy_basis", "unknown")) for profile in run_redundancy_profiles]
     redundancy_basis = redundancy_basis_values[0] if len(set(redundancy_basis_values)) == 1 else "mixed"
     redundancy_max_values = [float(profile["redundancy_max"]) for profile in run_redundancy_profiles]
     redundancy_q90_values = [float(profile["redundancy_q90"]) for profile in run_redundancy_profiles]
     redundancy_mean_values = [float(profile["redundancy_mean"]) for profile in run_redundancy_profiles]
-    run_mass_profiles = [
-        _compute_factor_mass_profile(run_states[index], mass_floor_frac=mass_floor_frac)
-        for index in modal_indices
-    ]
     effective_factor_counts = [float(profile["effective_factor_count"]) for profile in run_mass_profiles]
     mass_ge_floor_factor_counts = [int(profile["mass_ge_floor_factor_count"]) for profile in run_mass_profiles]
     primary_factor_counts = [int(profile["primary_factor_count"]) for profile in run_mass_profiles]
@@ -2402,6 +2452,7 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
         "phi": float(phi),
         "modal_factor_count": int(modal_factor_count),
         "run_support": float(len(modal_indices)) / float(max(1, len(run_states))),
+        "metric_factor_scope": str(metric_factor_scope),
         "stability": None if stability is None else float(stability),
         "stability_defined": bool(stability_defined),
         "num_modal_runs": int(len(modal_indices)),
@@ -2467,6 +2518,7 @@ def _evaluate_phi_candidate(
     learn_phi_backend="sentinel_pruned",
     weight_floor,
     mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC,
+    metric_factor_scope="primary",
     prune_genes_num,
     prune_gene_sets_num,
     max_num_iterations,
@@ -2520,6 +2572,7 @@ def _evaluate_phi_candidate(
         weight_floor=weight_floor,
         mass_floor_frac=mass_floor_frac,
         max_num_factors=int(factor_kwargs.get("max_num_factors", 0)),
+        metric_factor_scope=metric_factor_scope,
     )
     candidate["run_summaries"] = copy.deepcopy(run_summaries)
     candidate["backend"] = str(learn_phi_backend if learn_phi_backend == "blockwise_global_w" else factor_kwargs.get("factor_backend", "full"))
@@ -2558,13 +2611,14 @@ def _evaluate_phi_candidate(
     best_error = candidate.get("best_error")
     best_evidence = candidate.get("best_evidence")
     log_fn(
-        "Automatic phi candidate %.6g summary: K_eff=%d, K_mass=%.3g, K_mass_ge_floor=%d, capped=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, redundancy_mean=%.3g, stability=%s, run_support=%.3g, best_error=%s, best_evidence=%s, final_delambda=%s, final_iterations=%s, converged_fraction=%s, hit_iteration_cap_fraction=%s"
+        "Automatic phi candidate %.6g summary: K_eff=%d, K_mass=%.3g, K_mass_ge_floor=%d, capped=%s, metric_factor_scope=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, redundancy_mean=%.3g, stability=%s, run_support=%.3g, best_error=%s, best_evidence=%s, final_delambda=%s, final_iterations=%s, converged_fraction=%s, hit_iteration_cap_fraction=%s"
         % (
             float(candidate["phi"]),
             int(candidate["modal_factor_count"]),
             float(candidate.get("effective_factor_count", 0.0)),
             int(candidate.get("mass_ge_floor_factor_count", 0)),
             bool(candidate.get("capped", False)),
+            str(candidate.get("metric_factor_scope", metric_factor_scope)),
             str(candidate.get("redundancy_basis", "unknown")),
             float(candidate["redundancy_max"]),
             float(candidate["redundancy_q90"]),
@@ -2789,6 +2843,7 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
         "tail_fraction",
         "filtered_fraction",
         "mass_floor_frac",
+        "metric_factor_scope",
         "max_mass_fraction",
         "top5_mass_fraction",
         "primary_gene_effective_support_median",
@@ -2860,6 +2915,7 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
                 "tail_fraction": float(candidate.get("tail_fraction", 0.0)),
                 "filtered_fraction": float(candidate.get("filtered_fraction", 0.0)),
                 "mass_floor_frac": float(candidate.get("mass_floor_frac", _DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC)),
+                "metric_factor_scope": str(candidate.get("metric_factor_scope", "primary")),
                 "max_mass_fraction": float(candidate.get("max_mass_fraction", 0.0)),
                 "top5_mass_fraction": float(candidate.get("top5_mass_fraction", 0.0)),
                 "primary_gene_effective_support_median": candidate.get("primary_gene_effective_support_median"),
@@ -2958,6 +3014,7 @@ def _record_phi_search_params(
     selection_reason,
     candidates,
     weight_floor,
+    metric_factor_scope,
     max_redundancy,
     max_redundancy_q90,
     runs_per_step,
@@ -2999,6 +3056,7 @@ def _record_phi_search_params(
             "learn_phi_max_steps": int(max_steps),
             "learn_phi_expand_factor": float(expand_factor),
             "learn_phi_weight_floor": float(weight_floor),
+            "learn_phi_metric_factor_scope": str(metric_factor_scope),
             "learn_phi_prune_genes_num": None if prune_genes_num is None else int(prune_genes_num),
             "learn_phi_prune_gene_sets_num": None if prune_gene_sets_num is None else int(prune_gene_sets_num),
             "learn_phi_max_num_iterations": None if max_num_iterations is None else int(max_num_iterations),
@@ -3018,6 +3076,7 @@ def _record_phi_search_params(
     )
     metric_map = {
         "learn_phi_candidate_phi": "phi",
+        "learn_phi_candidate_metric_factor_scope": "metric_factor_scope",
         "learn_phi_candidate_modal_factor_count": "modal_factor_count",
         "learn_phi_candidate_effective_factor_count": "effective_factor_count",
         "learn_phi_candidate_mass_ge_floor_factor_count": "mass_ge_floor_factor_count",
@@ -3087,6 +3146,7 @@ def _learn_phi(
     max_steps,
     expand_factor,
     weight_floor,
+    metric_factor_scope="primary",
     mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC,
     learn_phi_backend="sentinel_pruned",
     blockwise_warm_start=True,
@@ -3140,6 +3200,7 @@ def _learn_phi(
             "runs_per_step": runs_per_step,
             "factor_kwargs": factor_kwargs,
             "weight_floor": weight_floor,
+            "metric_factor_scope": metric_factor_scope,
             "mass_floor_frac": mass_floor_frac,
             "prune_genes_num": prune_genes_num,
             "prune_gene_sets_num": prune_gene_sets_num,
@@ -3286,6 +3347,7 @@ def _learn_phi(
         selection_reason=selection_reason,
         candidates=candidates,
         weight_floor=weight_floor,
+        metric_factor_scope=metric_factor_scope,
         max_redundancy=max_redundancy,
         max_redundancy_q90=max_redundancy_q90,
         runs_per_step=runs_per_step,
@@ -3316,7 +3378,7 @@ def _learn_phi(
         selected_phi=selected_candidate["phi"],
     )
     log_fn(
-        "Selected phi %.6g by target-size automatic tuning [%s]: target_gene_effective_support=%.6g, primary_gene_effective_support_median=%s, target_error_log=%s, backend=%s, K_eff=%d, K_mass=%.3g, primary_factors=%d, capped=%s, pool=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, stability=%s, run_support=%.3g"
+        "Selected phi %.6g by target-size automatic tuning [%s]: target_gene_effective_support=%.6g, primary_gene_effective_support_median=%s, target_error_log=%s, backend=%s, K_eff=%d, K_mass=%.3g, primary_factors=%d, capped=%s, pool=%s, metric_factor_scope=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, stability=%s, run_support=%.3g"
         % (
             float(selected_candidate["phi"]),
             selection_reason,
@@ -3329,6 +3391,7 @@ def _learn_phi(
             int(selected_candidate.get("primary_factor_count", 0)),
             bool(selected_candidate.get("capped", False)),
             str(selected_candidate.get("selection_pool", "unknown")),
+            str(selected_candidate.get("metric_factor_scope", metric_factor_scope)),
             str(selected_candidate.get("redundancy_basis", "unknown")),
             float(selected_candidate.get("redundancy_max", selected_candidate.get("redundancy", 0.0))),
             float(selected_candidate.get("redundancy_q90", 0.0)),
@@ -4558,7 +4621,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -4579,6 +4642,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--cluster-row-min-max-loading must be nonnegative")
     if str(factor_output_scope) not in {"primary", "primary_secondary", "all"}:
         bail("--factor-output-scope must be one of: primary, primary_secondary, all")
+    if str(learn_phi_metric_factor_scope) not in {"primary", "all"}:
+        bail("--learn-phi-metric-factor-scope must be one of: primary, all")
     if consensus_aggregation not in {"median", "mean"}:
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < consensus_min_factor_cosine <= 1):
@@ -4733,6 +4798,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             learn_phi_max_steps=learn_phi_max_steps,
             learn_phi_expand_factor=learn_phi_expand_factor,
             learn_phi_weight_floor=learn_phi_weight_floor,
+            learn_phi_metric_factor_scope=learn_phi_metric_factor_scope,
             learn_phi_mass_floor_frac=learn_phi_mass_floor_frac,
             learn_phi_only=learn_phi_only,
             learn_phi_report_out=learn_phi_report_out,
@@ -4830,6 +4896,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             max_steps=learn_phi_max_steps,
             expand_factor=learn_phi_expand_factor,
             weight_floor=weight_floor,
+            metric_factor_scope=str(learn_phi_metric_factor_scope),
             mass_floor_frac=float(learn_phi_mass_floor_frac),
             learn_phi_backend=learn_phi_backend,
             blockwise_warm_start=blockwise_warm_start,

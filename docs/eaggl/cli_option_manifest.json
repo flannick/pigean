@@ -3,12 +3,12 @@
     "compat_alias": 11,
     "debug_only": 6,
     "engineering": 76,
-    "method_optional": 148,
+    "method_optional": 149,
     "method_required": 16
   },
   "entrypoint": "src/eaggl/cli.py",
   "module": "eaggl.cli",
-  "num_options": 257,
+  "num_options": 258,
   "options": [
     {
       "action": null,
@@ -173,7 +173,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 418,
+      "source_line": 419,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -194,7 +194,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 419,
+      "source_line": 420,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -236,7 +236,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 352,
+      "source_line": 353,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -257,7 +257,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 403,
+      "source_line": 404,
       "summary": "anchor factorization to any gene in the loaded gene-phewas inputs",
       "type": null,
       "usage_references": 16
@@ -278,7 +278,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 401,
+      "source_line": 402,
       "summary": "anchor factorization to any phenotype in the loaded phewas inputs",
       "type": null,
       "usage_references": 30
@@ -299,7 +299,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 404,
+      "source_line": 405,
       "summary": "run gene-set anchoring using the loaded phenotype evidence",
       "type": null,
       "usage_references": 14
@@ -320,7 +320,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 402,
+      "source_line": 403,
       "summary": "anchor factorization to one or more genes",
       "type": "string",
       "usage_references": 29
@@ -341,7 +341,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 400,
+      "source_line": 401,
       "summary": "anchor factorization to one or more phenotypes",
       "type": "string",
       "usage_references": 23
@@ -425,7 +425,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 353,
+      "source_line": 354,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -488,7 +488,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 342,
+      "source_line": 343,
       "summary": "set the number of global block passes used by the scalable blockwise backend",
       "type": "int",
       "usage_references": 9
@@ -509,7 +509,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 341,
+      "source_line": 342,
       "summary": "set how many retained gene sets are solved per block in blockwise_global_w mode",
       "type": "int",
       "usage_references": 9
@@ -530,7 +530,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 347,
+      "source_line": 348,
       "summary": "optionally cap the number of processed blocks per epoch for debugging blockwise runs",
       "type": "int",
       "usage_references": 9
@@ -551,7 +551,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 348,
+      "source_line": 349,
       "summary": "write per-epoch blockwise diagnostics",
       "type": null,
       "usage_references": 7
@@ -572,7 +572,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 343,
+      "source_line": 344,
       "summary": "shuffle block order between epochs in blockwise_global_w mode",
       "type": null,
       "usage_references": 6
@@ -593,7 +593,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 345,
+      "source_line": 346,
       "summary": "warm-start neighboring phi candidates when using blockwise_global_w phi search",
       "type": null,
       "usage_references": 6
@@ -677,7 +677,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 358,
+      "source_line": 359,
       "summary": "choose how matched factors are aggregated across restarts in consensus mode",
       "type": "str",
       "usage_references": 10
@@ -698,7 +698,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 356,
+      "source_line": 357,
       "summary": "minimum cosine similarity needed to align a restart factor to the reference factor",
       "type": "float",
       "usage_references": 10
@@ -719,7 +719,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 357,
+      "source_line": 358,
       "summary": "minimum restart support fraction required to keep a consensus factor",
       "type": "float",
       "usage_references": 10
@@ -740,7 +740,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 355,
+      "source_line": 356,
       "summary": "build a consensus factorization from multiple random restarts instead of keeping only the best run",
       "type": null,
       "usage_references": 15
@@ -761,7 +761,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 365,
+      "source_line": 366,
       "summary": "write per-run and per-factor diagnostics for restart or consensus factorization",
       "type": null,
       "usage_references": 9
@@ -803,7 +803,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 440,
+      "source_line": 441,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -845,7 +845,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 436,
+      "source_line": 437,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -866,7 +866,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 441,
+      "source_line": 442,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -887,7 +887,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 439,
+      "source_line": 440,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -908,7 +908,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 438,
+      "source_line": 439,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -929,7 +929,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 437,
+      "source_line": 438,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -971,7 +971,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 413,
+      "source_line": 414,
       "summary": null,
       "type": "choice",
       "usage_references": 7
@@ -992,7 +992,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 415,
+      "source_line": 416,
       "summary": "similarity threshold used to assign retained gene sets to discovery families",
       "type": "float",
       "usage_references": 8
@@ -1034,7 +1034,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 339,
+      "source_line": 340,
       "summary": "choose the final factorization backend: full or blockwise_global_w",
       "type": "str",
       "usage_references": 16
@@ -1121,7 +1121,7 @@
       "source_line": 177,
       "summary": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
       "type": "choice",
-      "usage_references": 13
+      "usage_references": 14
     },
     {
       "action": null,
@@ -1349,7 +1349,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 336,
+      "source_line": 337,
       "summary": "write factors.out-style rows for each investigated phi-search candidate with a leading phi column",
       "type": null,
       "usage_references": 10
@@ -1370,7 +1370,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 338,
+      "source_line": 339,
       "summary": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
       "type": null,
       "usage_references": 10
@@ -1391,7 +1391,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 337,
+      "source_line": 338,
       "summary": "write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
       "type": null,
       "usage_references": 10
@@ -1412,7 +1412,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 335,
+      "source_line": 336,
       "summary": "write per-factor diagnostics for each investigated phi-search candidate",
       "type": null,
       "usage_references": 9
@@ -1433,7 +1433,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 410,
+      "source_line": 411,
       "summary": null,
       "type": "int",
       "usage_references": 8
@@ -1454,7 +1454,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 411,
+      "source_line": 412,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -1475,7 +1475,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 408,
+      "source_line": 409,
       "summary": null,
       "type": "int",
       "usage_references": 5
@@ -1496,7 +1496,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 409,
+      "source_line": 410,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -1517,7 +1517,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 406,
+      "source_line": 407,
       "summary": null,
       "type": "int",
       "usage_references": 8
@@ -1538,7 +1538,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 407,
+      "source_line": 408,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -1559,7 +1559,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 354,
+      "source_line": 355,
       "summary": "run repeated random restarts for factorization; without consensus keep only the best run",
       "type": "int",
       "usage_references": 17
@@ -1706,7 +1706,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 430,
+      "source_line": 431,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1853,7 +1853,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 360,
+      "source_line": 361,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -2105,7 +2105,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 385,
+      "source_line": 386,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -2126,7 +2126,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 381,
+      "source_line": 382,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -2147,7 +2147,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 379,
+      "source_line": 380,
       "summary": "load gene-phewas statistics for projection and anchor workflows",
       "type": null,
       "usage_references": 25
@@ -2168,7 +2168,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 383,
+      "source_line": 384,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -2189,7 +2189,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 389,
+      "source_line": 390,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -2210,7 +2210,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 387,
+      "source_line": 388,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2231,7 +2231,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 392,
+      "source_line": 393,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2252,7 +2252,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 386,
+      "source_line": 387,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2273,7 +2273,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 382,
+      "source_line": 383,
       "summary": null,
       "type": null,
       "usage_references": 14
@@ -2294,7 +2294,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 380,
+      "source_line": 381,
       "summary": null,
       "type": null,
       "usage_references": 118
@@ -2315,7 +2315,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 384,
+      "source_line": 385,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2336,7 +2336,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 390,
+      "source_line": 391,
       "summary": null,
       "type": null,
       "usage_references": 14
@@ -2357,7 +2357,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 388,
+      "source_line": 389,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -2420,7 +2420,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 359,
+      "source_line": 360,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -2462,7 +2462,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 362,
+      "source_line": 363,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -2483,7 +2483,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 375,
+      "source_line": 376,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2504,7 +2504,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 376,
+      "source_line": 377,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2525,7 +2525,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 374,
+      "source_line": 375,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -2546,7 +2546,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 373,
+      "source_line": 374,
       "summary": "load gene-set phewas statistics for projection and anchor workflows",
       "type": null,
       "usage_references": 76
@@ -2567,7 +2567,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 377,
+      "source_line": 378,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -3158,7 +3158,7 @@
       "source_line": 318,
       "summary": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
       "type": null,
-      "usage_references": 238
+      "usage_references": 249
     },
     {
       "action": null,
@@ -3176,7 +3176,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 340,
+      "source_line": 341,
       "summary": "choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets",
       "type": "str",
       "usage_references": 18
@@ -3218,7 +3218,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 332,
+      "source_line": 333,
       "summary": "minimum factor mass fraction used to define primary factors during phi search",
       "type": "float",
       "usage_references": 4
@@ -3260,7 +3260,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 351,
+      "source_line": 352,
       "summary": "during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate",
       "type": "int",
       "usage_references": 13
@@ -3303,7 +3303,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 319,
-      "summary": "maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available",
+      "summary": "maximum allowed weighted Jaccard overlap between metric-scope factors during automatic phi tuning, measured on gene loadings when available",
       "type": "float",
       "usage_references": 23
     },
@@ -3348,6 +3348,27 @@
       "summary": "maximum number of log-space phi search steps after bracketing",
       "type": "int",
       "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "primary",
+      "deprecation_timeline": null,
+      "dest": "learn_phi_metric_factor_scope",
+      "documentation_target": "advanced_workflows",
+      "flags": [
+        "",
+        "--learn-phi-metric-factor-scope"
+      ],
+      "help": null,
+      "primary_flag": "--learn-phi-metric-factor-scope",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 332,
+      "summary": "choose whether phi-selection redundancy and repeat-stability metrics use primary factors or all fitted factors",
+      "type": "choice",
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3428,7 +3449,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 333,
+      "source_line": 334,
       "summary": "stop after automatic phi selection and report writing instead of running the final full-panel factorization",
       "type": null,
       "usage_references": 3
@@ -3449,7 +3470,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 350,
+      "source_line": 351,
       "summary": "during automatic phi tuning only, correlation-prune the gene-set panel to at most this many representative gene sets before scoring each candidate phi",
       "type": "int",
       "usage_references": 11
@@ -3470,7 +3491,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 349,
+      "source_line": 350,
       "summary": "during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi",
       "type": "int",
       "usage_references": 12
@@ -3491,7 +3512,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 334,
+      "source_line": 335,
       "summary": "write per-candidate phi search diagnostics",
       "type": null,
       "usage_references": 10
@@ -3722,7 +3743,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 431,
+      "source_line": 432,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -4016,7 +4037,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 427,
+      "source_line": 428,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -4058,7 +4079,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 391,
+      "source_line": 392,
       "summary": null,
       "type": "float",
       "usage_references": 10
@@ -4142,7 +4163,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 364,
+      "source_line": 365,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -4163,7 +4184,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 426,
+      "source_line": 427,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -4247,7 +4268,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 412,
+      "source_line": 413,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -4268,7 +4289,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 344,
+      "source_line": 345,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -4289,7 +4310,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 346,
+      "source_line": 347,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -4352,7 +4373,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 414,
+      "source_line": 415,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -4436,7 +4457,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 398,
+      "source_line": 399,
       "summary": "disable canonical trait linkage even when trait inputs are available",
       "type": null,
       "usage_references": 8
@@ -4457,7 +4478,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 363,
+      "source_line": 364,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -4478,7 +4499,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 423,
+      "source_line": 424,
       "summary": null,
       "type": "int",
       "usage_references": 18
@@ -4499,7 +4520,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 428,
+      "source_line": 429,
       "summary": null,
       "type": "int",
       "usage_references": 11
@@ -4646,7 +4667,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 394,
+      "source_line": 395,
       "summary": "choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
       "type": "str",
       "usage_references": 12
@@ -4688,7 +4709,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 361,
+      "source_line": 362,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -4919,7 +4940,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 393,
+      "source_line": 394,
       "summary": "project canonical trait linkage from the gene-set basis instead of the gene basis",
       "type": null,
       "usage_references": 19
@@ -4982,7 +5003,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 429,
+      "source_line": 430,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -5213,7 +5234,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 397,
+      "source_line": 398,
       "summary": "choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend",
       "type": "str",
       "usage_references": 11
@@ -5234,7 +5255,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 395,
+      "source_line": 396,
       "summary": "choose the support surface for canonical trait linkage: combined by default, with optional expert overrides",
       "type": "str",
       "usage_references": 16
@@ -5255,7 +5276,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 396,
+      "source_line": 397,
       "summary": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
       "type": "float",
       "usage_references": 10
@@ -5318,7 +5339,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 432,
+      "source_line": 433,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -5409,7 +5430,7 @@
     }
   ],
   "visibilities": {
-    "expert": 210,
+    "expert": 211,
     "hidden": 8,
     "normal": 39
   }

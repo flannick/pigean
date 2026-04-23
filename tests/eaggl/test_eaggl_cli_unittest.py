@@ -150,6 +150,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--learn-phi-size-tolerance-frac"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-min-primary-factors"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-max-primary-gene-max-weight-q90"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--learn-phi-metric-factor-scope"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-prune-genes-num"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-prune-gene-sets-num"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-max-num-iterations"]["public_visibility"], "expert")

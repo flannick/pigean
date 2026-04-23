@@ -287,7 +287,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-size-tolerance-frac` | fractional tolerance around the target primary-factor gene effective support; defaults to `0.25` |
 | `--learn-phi-min-primary-factors` | minimum primary factor count required for a candidate; defaults to `3` |
 | `--learn-phi-max-primary-gene-max-weight-q90` | optional spike guardrail: maximum 90th percentile of primary-factor maximum gene weight |
-| `--learn-phi-max-redundancy` | maximum within-run weighted Jaccard overlap allowed between retained factors in the selected solution, measured on gene loadings when available; the default `0.5` is intended as a rough \"share at most about half\" rule |
+| `--learn-phi-max-redundancy` | maximum within-run weighted Jaccard overlap allowed between metric-scope factors in the selected solution, measured on gene loadings when available; the default `0.5` is intended as a rough \"share at most about half\" rule |
 | `--learn-phi-runs-per-step` | number of restart fits used to score each tested `phi` candidate; defaults to `1` for cheaper search, with larger values as an expert stability check |
 | `--learn-phi-min-run-support` | minimum fraction of restart runs that must agree on the modal retained factor count |
 | `--learn-phi-min-stability` | minimum mean matched-factor cosine across the modal restart runs |
@@ -296,6 +296,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-backend` | choose between the legacy sentinel-pruned phi search and the blockwise-global-W phi search over all retained gene sets |
 | `--learn-phi-expand-factor` | multiplicative factor used when widening the search bracket away from the initial `--phi` |
 | `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
+| `--learn-phi-metric-factor-scope` | choose whether phi-selection redundancy and repeat-stability metrics use `primary` factors (default) or `all` fitted factors; independent of printed output scope |
 | `--learn-phi-report-out` | optional per-candidate diagnostics table for all tested `phi` values |
 | `--factor-phi-metrics-out` | optional per-factor diagnostics table for each tested `phi` |
 | `--factor-phi-factors-out` | optional `factors.out`-style rows for each tested `phi`, with a leading `phi` column |
@@ -350,6 +351,7 @@ Notes:
 - `--no-discovery-redundancy-weighting` is a compatibility shortcut for `--discovery-redundancy-weighting-mode none`.
 - `--no-auto-discovery-subset` currently disables weighted leader-family corrections and falls back to unweighted retained-row discovery.
 - By default, `factors.out`, `factors_anchor.out`, and cluster outputs print only primary factors, defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
+- Automatic phi-selection metrics are also primary-scoped by default: redundancy and repeat-stability matching ignore the low-mass ARD tail unless `--learn-phi-metric-factor-scope all` is set. This option is separate from `--factor-output-scope`, which only controls printed factor and cluster rows.
 - `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive over all raw fitted factors. The optional `factor_phi_*` output tables follow `--factor-output-scope`, matching the final user-facing output policy for each tested phi.
 - Factor labels are not renumbered when output filtering is active: if `Factor7` is primary, it remains `Factor7`.
 

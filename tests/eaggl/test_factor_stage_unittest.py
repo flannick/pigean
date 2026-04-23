@@ -46,6 +46,7 @@ def _options(**overrides):
         learn_phi_max_steps=8,
         learn_phi_expand_factor=2.0,
         learn_phi_weight_floor=None,
+        learn_phi_metric_factor_scope="primary",
         learn_phi_report_out=None,
         factor_phi_metrics_out=None,
         factor_phi_factors_out=None,
@@ -393,6 +394,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             learn_phi_max_steps=6,
             learn_phi_expand_factor=5.0,
             learn_phi_weight_floor=0.02,
+            learn_phi_metric_factor_scope="all",
             learn_phi_report_out="phi.tsv",
             factor_phi_metrics_out="phi_factor_metrics.tsv",
             factor_phi_factors_out="phi_factors.tsv",
@@ -427,6 +429,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_max_steps, 6)
         self.assertEqual(cfg.learn_phi_expand_factor, 5.0)
         self.assertEqual(cfg.learn_phi_weight_floor, 0.02)
+        self.assertEqual(cfg.learn_phi_metric_factor_scope, "all")
         self.assertEqual(cfg.learn_phi_report_out, "phi.tsv")
         self.assertEqual(cfg.factor_phi_metrics_out, "phi_factor_metrics.tsv")
         self.assertEqual(cfg.factor_phi_factors_out, "phi_factors.tsv")

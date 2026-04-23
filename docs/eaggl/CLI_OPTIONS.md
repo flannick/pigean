@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `257`
+- Total options: `258`
 - `method_required`: `16`
-- `method_optional`: `148`
+- `method_optional`: `149`
 - `engineering`: `76`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `210`
+- visibility `expert`: `211`
 - visibility `hidden`: `8`
 - visibility `normal`: `39`
 
@@ -107,9 +107,10 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | maximum allowed reconstruction-error loss relative to the best phi-search candidate |
 | `--learn-phi-max-num-iterations` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_num_iterations` | `None` | during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate |
 | `--learn-phi-max-primary-gene-max-weight-q90` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_primary_gene_max_weight_q90` | `None` | optional maximum q90 primary-factor max gene weight allowed during target-size tuning |
-| `--learn-phi-max-redundancy` | `normal` | `yes` | `core_help` | `learn_phi_max_redundancy` | `0.5` | maximum allowed weighted Jaccard overlap between retained factors during automatic phi tuning, measured on gene loadings when available |
+| `--learn-phi-max-redundancy` | `normal` | `yes` | `core_help` | `learn_phi_max_redundancy` | `0.5` | maximum allowed weighted Jaccard overlap between metric-scope factors during automatic phi tuning, measured on gene loadings when available |
 | `--learn-phi-max-redundancy-q90` | `expert` | `yes` | `expert_help` | `learn_phi_max_redundancy_q90` | `0.35` | maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning |
 | `--learn-phi-max-steps` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_steps` | `5` | maximum number of log-space phi search steps after bracketing |
+| `--learn-phi-metric-factor-scope` | `expert` | `yes` | `advanced_workflows` | `learn_phi_metric_factor_scope` | `primary` | choose whether phi-selection redundancy and repeat-stability metrics use primary factors or all fitted factors |
 | `--learn-phi-min-primary-factors` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_primary_factors` | `3` | minimum primary factor count required for a phi candidate during target-size tuning |
 | `--learn-phi-min-run-support` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_run_support` | `0.6` | minimum run-support fraction required for a phi candidate during automatic tuning |
 | `--learn-phi-min-stability` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_stability` | `0.85` | minimum matched-factor cosine stability required for a phi candidate during automatic tuning |
