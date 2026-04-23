@@ -245,7 +245,7 @@ r_k^{\mathrm{any}}
 \end{equation}
 This has the intended semantics that $r_k^{\mathrm{any}}$ is a bounded coefficient summary of how strongly factor $k$ links to at least one selected anchor under the relevance model above. In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific relevance itself.
 
-When anchor phenotypes are present and canonical trait linkage is also computed, EAGGL additionally reports `anchor_joint`, `anchor_marginal`, `anchor_any_joint`, and `anchor_any_marginal` summaries derived from the canonical linkage calculations in Section~\ref{sec:postfactor_revised}. During the transition period, `any_relevance` remains as a compatibility field and coincides with the anchor-any joint projection coefficient summary in those phenotype-anchored linkage runs.
+When anchor phenotypes are present and canonical trait linkage is also computed, EAGGL reports `anchor_any_joint` and `anchor_any_marginal` summaries in `factors.out(.gz)` derived from the canonical linkage calculations in Section~\ref{sec:postfactor_revised}. The per-anchor `factors_anchor.out(.gz)` table reports the corresponding `joint` and `marginal` values for each anchor separately. During the transition period, `any_relevance` remains as a compatibility field and coincides with the anchor-any joint projection coefficient summary in those phenotype-anchored linkage runs.
 
 \section{Trait linkage and factor-specific phenotype enrichment}
 \label{sec:postfactor_revised}

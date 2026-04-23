@@ -866,6 +866,44 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("Factor1\timmune\t1\t0.25\t3\t2\t0.75\t1\t0", content)
         self.assertIn("Factor2\tmetabolic\t2\t0.5\t7\t600\t0.005\t0.04\t1", content)
 
+    def test_write_matrix_factors_uses_clean_anchor_summary_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            factors_path = Path(tmpdir) / "factors.out.gz"
+            factors_anchor_path = Path(tmpdir) / "factors_anchor.out.gz"
+            runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+            runtime.exp_lambdak = np.array([1.0])
+            runtime.factor_labels = ["immune"]
+            runtime.factor_relevance = np.array([0.4])
+            runtime.factor_marginal_relevance = np.array([0.7])
+            runtime.factor_anchor_relevance = np.array([[0.4]])
+            runtime.factor_anchor_marginal_relevance = np.array([[0.7]])
+            runtime.anchor_pheno_mask = np.array([True])
+            runtime.phenos = ["TraitA"]
+            runtime.factor_top_gene_sets = [["GS1"]]
+            runtime.factor_top_genes = [["GENE1"]]
+            runtime.factor_anchor_top_gene_sets = [[["GS1"]]]
+            runtime.factor_anchor_top_genes = [[["GENE1"]]]
+
+            runtime.write_matrix_factors(str(factors_path))
+            runtime.write_matrix_factors(str(factors_anchor_path), write_anchor_specific=True)
+
+            import gzip
+
+            with gzip.open(factors_path, "rt", encoding="utf-8") as fh:
+                factors_header = fh.readline().strip().split("\t")
+            with gzip.open(factors_anchor_path, "rt", encoding="utf-8") as fh:
+                factors_anchor_header = fh.readline().strip().split("\t")
+                factors_anchor_row = fh.readline()
+
+        self.assertIn("any_relevance", factors_header)
+        self.assertIn("anchor_any_joint", factors_header)
+        self.assertIn("anchor_any_marginal", factors_header)
+        self.assertNotIn("anchor_joint", factors_header)
+        self.assertNotIn("anchor_marginal", factors_header)
+        self.assertEqual(factors_anchor_header[:5], ["Factor", "label", "anchor", "joint", "marginal"])
+        self.assertNotIn("relevance", factors_anchor_header)
+        self.assertIn("Factor1\timmune\tTraitA\t0.4\t0.7", factors_anchor_row)
+
     def test_projection_only_factor_phewas_stage_gate_does_not_require_factor_fit(self) -> None:
         self.assertTrue(
             eaggl.eaggl_factor.should_run_main_factor_phewas_stage(

@@ -2543,7 +2543,6 @@ class EagglState(object):
                 header = "%s\t%s" % (header, "label")
                 if anchors is not None:
                     header = "%s\t%s" % (header, "anchor")
-                    header = "%s\t%s" % (header, "relevance")
                     header = "%s\t%s" % (header, "joint")
                     header = "%s\t%s" % (header, "marginal")
                     header = "%s\t%s" % (header, "factor_total_mass")
@@ -2559,10 +2558,7 @@ class EagglState(object):
                         if self.factor_anchor_relevance is not None and len(self.factor_anchor_relevance.shape) == 2
                         else 0
                     )
-                    if num_anchor_traits == 1:
-                        header = "%s\t%s" % (header, "anchor_joint")
-                        header = "%s\t%s" % (header, "anchor_marginal")
-                    elif num_anchor_traits > 1:
+                    if num_anchor_traits > 0:
                         header = "%s\t%s" % (header, "anchor_any_joint")
                         header = "%s\t%s" % (header, "anchor_any_marginal")
                     header = "%s\t%s" % (header, "factor_total_mass")
@@ -2599,7 +2595,6 @@ class EagglState(object):
                                 if self.factor_anchor_marginal_relevance is not None
                                 else joint_value
                             )
-                            line = "%s\t%.3g" % (line, joint_value)
                             line = "%s\t%.3g" % (line, joint_value)
                             line = "%s\t%.3g" % (line, marginal_value)
                             line = "%s\t%s" % (
