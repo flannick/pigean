@@ -492,6 +492,7 @@ class XReadPostOptions:
     retain_all_beta_uncorrected: bool
     independent_betas_only: bool
     track_filtered_beta_uncorrected: bool
+    track_filtered_beta_uncorrected_mode: str
 
 
 @dataclass
@@ -588,6 +589,7 @@ class ReadXPipelineConfig:
     retain_all_beta_uncorrected: bool = False
     independent_betas_only: bool = False
     track_filtered_beta_uncorrected: bool = False
+    track_filtered_beta_uncorrected_mode: str = "none"
 
 
 @dataclass

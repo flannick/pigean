@@ -37,7 +37,9 @@ def run_main_adaptive_read_x(
         options.retain_all_beta_uncorrected or options.independent_betas_only
     )
     track_filtered_beta_uncorrected = options.track_filtered_beta_uncorrected
+    track_filtered_beta_uncorrected_mode = options.track_filtered_beta_uncorrected_mode
     state.track_filtered_beta_uncorrected = track_filtered_beta_uncorrected
+    state.track_filtered_beta_uncorrected_mode = track_filtered_beta_uncorrected_mode
     state.deterministic_mode = bool(getattr(options, "deterministic", False))
     xin_to_p_noninf_ind = build_xin_to_p_noninf_index_map_fn(
         options.X_in,
@@ -136,6 +138,7 @@ def run_main_adaptive_read_x(
             retain_all_beta_uncorrected=retain_all_beta_uncorrected,
             independent_betas_only=pure_betas_run and options.independent_betas_only,
             track_filtered_beta_uncorrected=track_filtered_beta_uncorrected,
+            track_filtered_beta_uncorrected_mode=track_filtered_beta_uncorrected_mode,
         )
         run_read_x_stage_fn(state, options.X_in, **read_x_kwargs)
 

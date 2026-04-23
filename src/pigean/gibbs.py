@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Callable
 
 import numpy as np
@@ -1695,6 +1696,7 @@ def _run_single_gibbs_iteration(
     log_bf_state,
     callbacks,
 ):
+    iteration_start = time.perf_counter()
     (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
     iter_state, gene_set_mask_m = callbacks.prepare_gibbs_iteration_state_fn(
         state=state,
@@ -1723,7 +1725,7 @@ def _run_single_gibbs_iteration(
     )
     (log_bf_state, should_break) = _extract_gibbs_iteration_update_state(iteration_update)
 
-    return _finalize_gibbs_iteration_after_correction(
+    iteration_run = _finalize_gibbs_iteration_after_correction(
         finalize_context=_build_gibbs_iteration_finalize_context(
             state=state,
             epoch_control=epoch_control,
@@ -1742,6 +1744,16 @@ def _run_single_gibbs_iteration(
         ),
         callbacks=callbacks,
     )
+    callbacks.log_fn(
+        "Gibbs iteration %d (global %d) timing: iteration_total=%.2fs"
+        % (
+            iter_state["epoch_iter_num"],
+            iter_state["total_iter_num"],
+            time.perf_counter() - iteration_start,
+        ),
+        callbacks.info_level,
+    )
+    return iteration_run
 
 
 def _run_gibbs_epoch_iterations(

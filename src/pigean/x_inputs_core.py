@@ -710,6 +710,27 @@ def maybe_filter_zero_uncorrected_betas_after_x_read_for_runtime(
     return sort_rank
 
 
+def _resolve_track_filtered_beta_uncorrected_mode(runtime_state):
+    mode = getattr(runtime_state, "track_filtered_beta_uncorrected_mode", None)
+    if mode is None:
+        return "all" if getattr(runtime_state, "track_filtered_beta_uncorrected", False) else "none"
+    mode = str(mode).strip().lower()
+    if mode == "":
+        return "all" if getattr(runtime_state, "track_filtered_beta_uncorrected", False) else "none"
+    return mode
+
+
+def _should_track_ignored_beta_uncorrected(runtime_state, filter_reason):
+    mode = _resolve_track_filtered_beta_uncorrected_mode(runtime_state)
+    if mode == "none":
+        return False
+    if mode == "all":
+        return True
+    if mode == "cap_only":
+        return str(filter_reason) == "max_num_gene_sets_cap"
+    return False
+
+
 def maybe_reduce_gene_sets_to_max_after_x_read_for_runtime(
     runtime_state,
     skip_betas,
@@ -1531,9 +1552,17 @@ def apply_prefilter_and_record(
         runtime_state.gene_set_filter_reason_ignored = runtime_state.gene_set_filter_reason_ignored + [
             _prefilter_reason_for_index(i) for i in range(len(gene_sets)) if p_value_ignore[i]
         ]
+        ignored_track_mask = np.array(
+            [
+                _should_track_ignored_beta_uncorrected(runtime_state, _prefilter_reason_for_index(i))
+                for i in range(len(gene_sets))
+                if p_value_ignore[i]
+            ],
+            dtype=bool,
+        )
         runtime_state.gene_set_track_beta_uncorrected_ignored = np.append(
             runtime_state.gene_set_track_beta_uncorrected_ignored,
-            np.full(int(np.sum(p_value_ignore)), False, dtype=bool),
+            ignored_track_mask,
         )
         gene_sets = [gene_sets[i] for i in range(len(gene_sets)) if p_value_mask[i]]
 

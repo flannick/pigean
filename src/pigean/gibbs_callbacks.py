@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import time
 
 import numpy as np
 
@@ -9,6 +10,9 @@ from .gibbs import GibbsOrchestrationCallbacks
 
 
 def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_level):
+    def _fmt_elapsed(seconds):
+        return "%.2fs" % seconds
+
     def prepare_gibbs_run_inputs(state, num_chains, top_gene_prior):
         legacy_module._snapshot_pre_gibbs_state(state)
 
@@ -233,6 +237,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         }
 
     def prepare_gibbs_iteration_state(state, iteration_num, iteration_state_config, log_bf_m, log_bf_raw_m):
+        prepare_start = time.perf_counter()
         iter_state = legacy_module._prepare_gibbs_iteration_inputs(
             state=state,
             iteration_num=iteration_num,
@@ -240,13 +245,28 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             log_bf_raw_m=log_bf_raw_m,
             iteration_input_config=iteration_state_config,
         )
+        prepare_inputs_elapsed = time.perf_counter() - prepare_start
         iter_state = dict(iter_state)
-        return legacy_module._augment_gibbs_iteration_state_with_uncorrected_and_mask(
+        augment_start = time.perf_counter()
+        (iter_state, gene_set_mask_m) = legacy_module._augment_gibbs_iteration_state_with_uncorrected_and_mask(
             state=state,
             iter_state=iter_state,
             prefilter_config=iteration_state_config["prefilter_config"],
             inner_beta_kwargs=iteration_state_config["inner_beta_kwargs"],
         )
+        augment_elapsed = time.perf_counter() - augment_start
+        log_fn(
+            "Gibbs iteration %d (global %d) timing: prepare_inputs=%s; augment_uncorrected_and_mask=%s; prep_total=%s"
+            % (
+                iter_state["epoch_iter_num"],
+                iter_state["total_iter_num"],
+                _fmt_elapsed(prepare_inputs_elapsed),
+                _fmt_elapsed(augment_elapsed),
+                _fmt_elapsed(time.perf_counter() - prepare_start),
+            ),
+            info_level,
+        )
+        return (iter_state, gene_set_mask_m)
 
     def run_gibbs_iteration_correction_and_updates(correction_context):
         state = correction_context["state"]
@@ -265,6 +285,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
 
         (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
         restart_controls = legacy_module._build_gibbs_low_beta_restart_controls(correction_config)
+        correction_start = time.perf_counter()
         iteration_betas_priors = legacy_module._compute_gibbs_iteration_betas_and_priors(
             state,
             iter_state=iter_state,
@@ -277,6 +298,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
             gene_prior_terms_trace_genes=gene_prior_terms_trace_genes,
         )
+        betas_priors_elapsed = time.perf_counter() - correction_start
         full_betas_sample_m = iteration_betas_priors["full_betas_sample_m"]
         full_postp_sample_m = iteration_betas_priors["full_postp_sample_m"]
         full_betas_mean_m = iteration_betas_priors["full_betas_mean_m"]
@@ -295,10 +317,22 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             iteration_num=iteration_num,
             full_betas_mean_m=full_betas_mean_m,
         )
+        all_sums_elapsed = time.perf_counter() - correction_start - betas_priors_elapsed
         should_break = legacy_module._apply_gibbs_all_iteration_update(
             epoch_runtime=epoch_runtime,
             epoch_control=epoch_control,
             all_iteration_update=all_iteration_update,
+        )
+        log_fn(
+            "Gibbs iteration %d (global %d) timing: corrected_betas_and_priors=%s; update_all_sums=%s; correction_total=%s"
+            % (
+                iter_state["epoch_iter_num"],
+                iter_state["total_iter_num"],
+                _fmt_elapsed(betas_priors_elapsed),
+                _fmt_elapsed(all_sums_elapsed),
+                _fmt_elapsed(time.perf_counter() - correction_start),
+            ),
+            info_level,
         )
         return {
             "full_betas_sample_m": full_betas_sample_m,
@@ -327,6 +361,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         log_bf_state = progress_update_context["log_bf_state"]
         (log_bf_m, _log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
 
+        progress_start = time.perf_counter()
         progress_context = legacy_module._build_gibbs_iteration_progress_context(
             progress_runtime_config=progress_runtime_config,
             iteration_update=iteration_update,
@@ -367,7 +402,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             full_postp_sample_m=progress_context["full_postp_sample_m"],
         )
 
-        return legacy_module._finalize_gibbs_iteration_progress(
+        progress_update = legacy_module._finalize_gibbs_iteration_progress(
             state=state,
             gene_set_stats_trace_fh=gene_set_stats_trace_fh,
             gene_prior_terms_trace_fh=gene_prior_terms_trace_fh,
@@ -386,6 +421,16 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             epoch_control=epoch_control,
             post_burn_update=post_burn_update,
         )
+        log_fn(
+            "Gibbs iteration %d (global %d) timing: progress_and_diagnostics=%s"
+            % (
+                iter_state["epoch_iter_num"],
+                iter_state["total_iter_num"],
+                _fmt_elapsed(time.perf_counter() - progress_start),
+            ),
+            info_level,
+        )
+        return progress_update
 
     return GibbsOrchestrationCallbacks(
         prepare_gibbs_run_inputs_fn=prepare_gibbs_run_inputs,

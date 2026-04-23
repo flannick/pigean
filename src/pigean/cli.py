@@ -308,8 +308,9 @@ parser.add_option("","--max-for-linear",type='float',default=None) #if linear re
 parser.add_option("","--use-sampling-for-betas",type='int',default=None) #rather than taking top X% of gene sets to be positive during gene set statistics, sample from probability distribution
 parser.add_option("","--retain-all-beta-uncorrected",action='store_true',default=False) #for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap
 parser.add_option("","--independent-betas-only",action='store_true',default=False) #for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve
-parser.add_option("","--track-filtered-beta-uncorrected",action='store_true',dest="track_filtered_beta_uncorrected",default=None) #for betas/gibbs runs, preserve and track independent beta_uncorrected for gene sets that pass p prefilter but are later filtered out (default for betas/gibbs)
-parser.add_option("","--no-track-filtered-beta-uncorrected",action='store_false',dest="track_filtered_beta_uncorrected") #for betas/gibbs runs, disable tracking of filtered beta_uncorrected sidecars
+parser.add_option("","--track-filtered-beta-uncorrected-mode",type="string",default=None) #for betas/gibbs runs, choose which ignored gene sets keep tracked beta_uncorrected sidecars: none, all, or cap_only (default)
+parser.add_option("","--track-filtered-beta-uncorrected",action='store_true',dest="track_filtered_beta_uncorrected",default=None) #compatibility alias for --track-filtered-beta-uncorrected-mode all
+parser.add_option("","--no-track-filtered-beta-uncorrected",action='store_false',dest="track_filtered_beta_uncorrected") #compatibility alias for --track-filtered-beta-uncorrected-mode none
 
 
 #other control
@@ -582,8 +583,9 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--exomes-in": "load exome burden statistics as an additional HuGE evidence source",
     "--retain-all-beta-uncorrected": "for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap",
     "--independent-betas-only": "for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve",
-    "--track-filtered-beta-uncorrected": "for betas/gibbs runs, preserve and track independent beta_uncorrected for gene sets that pass p prefilter but are later filtered out (default for betas/gibbs)",
-    "--no-track-filtered-beta-uncorrected": "for betas/gibbs runs, explicitly disable filtered beta_uncorrected tracking",
+    "--track-filtered-beta-uncorrected-mode": "for betas/gibbs runs, choose which ignored gene sets keep tracked beta_uncorrected sidecars: none, all, or cap_only (default)",
+    "--track-filtered-beta-uncorrected": "compatibility alias for --track-filtered-beta-uncorrected-mode all",
+    "--no-track-filtered-beta-uncorrected": "compatibility alias for --track-filtered-beta-uncorrected-mode none",
     "--sim-log-bf-noise-sigma-mult": "simulation-only noise scale for generated log Bayes factors",
     "--sim-only-positive": "simulation-only: constrain synthetic effects to positive values",
     "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
@@ -724,6 +726,7 @@ _SET_B_METHOD_FLAGS = {
     "--no-cross-val",
     "--phewas-stats-out",
     "--retain-all-beta-uncorrected",
+    "--track-filtered-beta-uncorrected-mode",
     "--no-track-filtered-beta-uncorrected",
     "--track-filtered-beta-uncorrected",
     "--run-phewas",
@@ -816,7 +819,9 @@ _COMPAT_ALIAS_FLAGS = {
     "--positive-controls-list",
     "--positive-controls-no-header",
     "--positive-controls-prob-col",
+    "--no-track-filtered-beta-uncorrected",
     "--run-phewas-from-gene-phewas-stats-in",
+    "--track-filtered-beta-uncorrected",
 }
 
 _HIDDEN_COMPAT_ALIAS_FLAGS = {
@@ -826,7 +831,9 @@ _HIDDEN_COMPAT_ALIAS_FLAGS = {
     "--gene-phewas-bfs-log-bf-col",
     "--gene-phewas-bfs-pheno-col",
     "--gene-phewas-bfs-prior-col",
+    "--no-track-filtered-beta-uncorrected",
     "--run-phewas-from-gene-phewas-stats-in",
+    "--track-filtered-beta-uncorrected",
 }
 
 _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
@@ -1751,8 +1758,22 @@ def _bootstrap_cli(argv=None):
         bail("Option --independent-betas-only currently supports only betas mode")
     if parsed_options.retain_all_beta_uncorrected and parsed_mode != "betas":
         bail("Option --retain-all-beta-uncorrected currently supports only betas mode")
-    if parsed_options.track_filtered_beta_uncorrected is None:
-        parsed_options.track_filtered_beta_uncorrected = parsed_mode in set(["betas", "gibbs"])
+    allowed_track_modes = set(["none", "all", "cap_only"])
+    if parsed_options.track_filtered_beta_uncorrected_mode is not None:
+        parsed_options.track_filtered_beta_uncorrected_mode = parsed_options.track_filtered_beta_uncorrected_mode.strip().lower()
+        if parsed_options.track_filtered_beta_uncorrected_mode not in allowed_track_modes:
+            bail(
+                "Option --track-filtered-beta-uncorrected-mode must be one of: %s"
+                % ", ".join(sorted(allowed_track_modes))
+            )
+    if parsed_options.track_filtered_beta_uncorrected is not None and parsed_options.track_filtered_beta_uncorrected_mode is not None:
+        bail("Options --track-filtered-beta-uncorrected/--no-track-filtered-beta-uncorrected conflict with --track-filtered-beta-uncorrected-mode")
+    if parsed_options.track_filtered_beta_uncorrected_mode is None:
+        if parsed_options.track_filtered_beta_uncorrected is None:
+            parsed_options.track_filtered_beta_uncorrected_mode = "cap_only" if parsed_mode in set(["betas", "gibbs"]) else "none"
+        else:
+            parsed_options.track_filtered_beta_uncorrected_mode = "all" if parsed_options.track_filtered_beta_uncorrected else "none"
+    parsed_options.track_filtered_beta_uncorrected = parsed_options.track_filtered_beta_uncorrected_mode != "none"
     if parsed_options.track_filtered_beta_uncorrected and parsed_mode not in set(["betas", "gibbs"]):
         bail("Option --track-filtered-beta-uncorrected currently supports only betas and gibbs modes")
     if parsed_options.independent_betas_only and not parsed_options.retain_all_beta_uncorrected:

@@ -199,12 +199,17 @@ Count tables are expected to contain `gene`, `revel`, `count`, and `total`, plus
 |---|---|
 | `--retain-all-beta-uncorrected` | in pure `betas` runs, preserve independent `beta_uncorrected` values for gene sets dropped only by the expensive `--max-num-gene-sets` cap |
 | `--independent-betas-only` | in pure `betas` runs, compute only independent `beta_uncorrected` and skip the covariance-backed corrected-beta solve |
+| `--track-filtered-beta-uncorrected-mode` | in `betas`/`gibbs` runs, choose which ignored gene sets keep tracked `beta_uncorrected` sidecars: `none`, `all`, or `cap_only` |
 
 Notes:
 - These flags are aimed at large expanded-X seeded `betas` reruns where the raw regression stage is cheap but the final covariance-backed beta solve is what forces aggressive top-N truncation.
 - `--retain-all-beta-uncorrected` keeps the expensive corrected `beta` path capped, but it still writes real independent `beta_uncorrected` values for capped-out rows in `gene_set_stats.out`.
 - `--independent-betas-only` implies `--retain-all-beta-uncorrected`.
-- Both flags currently support only pure `betas` mode.
+- `--track-filtered-beta-uncorrected-mode cap_only` is the default in `betas` and `gibbs`. It preserves tracked `beta_uncorrected` sidecars only for gene sets that were dropped by the expensive `--max-num-gene-sets` cap, not for rows filtered earlier by p-value or zero-beta prefilters.
+- `--track-filtered-beta-uncorrected-mode all` restores the broader legacy behavior for every ignored row that makes it into the ignored sidecar pool.
+- `--track-filtered-beta-uncorrected-mode none` disables tracked ignored-sidecar beta updates.
+- `--retain-all-beta-uncorrected` and `--independent-betas-only` currently support only pure `betas` mode.
+- `--track-filtered-beta-uncorrected-mode` currently supports `betas` and `gibbs`.
 
 ### Core filters and outputs
 

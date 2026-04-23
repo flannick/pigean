@@ -29,7 +29,12 @@ Notes:
     - skip the covariance-backed corrected-beta solve entirely
     - write only the cheap independent `beta_uncorrected` path
     - implies `--retain-all-beta-uncorrected`
-- These controls currently apply only to pure `betas` mode, not `priors` or outer `gibbs`.
+- In `betas` and `gibbs`, `--track-filtered-beta-uncorrected-mode` controls which ignored rows still get tracked independent `beta_uncorrected` sidecars:
+  - `cap_only` (default): only rows dropped by `--max-num-gene-sets`
+  - `all`: every ignored row
+  - `none`: disable tracked ignored-sidecar updates
+- The boolean aliases `--track-filtered-beta-uncorrected` and `--no-track-filtered-beta-uncorrected` remain as compatibility shims for `all` and `none`.
+- `--retain-all-beta-uncorrected` and `--independent-betas-only` still apply only to pure `betas` mode, not `priors` or outer `gibbs`.
 
 ## 2) Precomputed gene-set statistics input (`--gene-set-stats-in`)
 

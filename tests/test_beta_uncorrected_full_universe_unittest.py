@@ -108,6 +108,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
     def test_track_filtered_beta_uncorrected_routes_later_filtered_rows_to_ignored_sidecar(self) -> None:
         runtime = self._build_runtime()
         runtime.track_filtered_beta_uncorrected = True
+        runtime.track_filtered_beta_uncorrected_mode = "all"
 
         runtime.subset_gene_sets(
             np.array([True, False, True]),
@@ -126,6 +127,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
     def test_tracked_ignored_uncorrected_betas_are_computed_for_ignored_rows(self) -> None:
         runtime = self._build_runtime()
         runtime.track_filtered_beta_uncorrected = True
+        runtime.track_filtered_beta_uncorrected_mode = "all"
         runtime.subset_gene_sets(
             np.array([True, False, True]),
             keep_missing=False,
@@ -164,6 +166,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
     def test_tracked_ignored_uncorrected_betas_accept_tracked_only_ignored_metadata(self) -> None:
         runtime = self._build_runtime()
         runtime.track_filtered_beta_uncorrected = True
+        runtime.track_filtered_beta_uncorrected_mode = "all"
         runtime.gene_sets_ignored = ["PREFILTER1", "TRACKED1", "PREFILTER2", "TRACKED2", "PREFILTER3"]
         runtime.gene_set_track_beta_uncorrected_ignored = np.array([False, True, False, True, False])
         runtime.X_orig_ignored_gene_sets = sparse.csc_matrix(np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]]))
@@ -209,6 +212,7 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
     def test_tracked_ignored_uncorrected_betas_collapse_two_dimensional_means(self) -> None:
         runtime = self._build_runtime()
         runtime.track_filtered_beta_uncorrected = True
+        runtime.track_filtered_beta_uncorrected_mode = "all"
         runtime.gene_sets_ignored = ["TRACKED1", "TRACKED2"]
         runtime.gene_set_track_beta_uncorrected_ignored = np.array([True, True])
         runtime.X_orig_ignored_gene_sets = sparse.csc_matrix(np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]]))
@@ -431,6 +435,36 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
             tracked_rows,
             msg="Expected at least one capped-out ignored row with preserved nonzero beta_uncorrected and zero beta",
         )
+
+    def test_cap_only_tracking_does_not_mark_non_cap_ignored_rows(self) -> None:
+        runtime = self._build_runtime()
+        runtime.track_filtered_beta_uncorrected = True
+        runtime.track_filtered_beta_uncorrected_mode = "cap_only"
+
+        runtime.subset_gene_sets(
+            np.array([True, False, True]),
+            keep_missing=False,
+            ignore_missing=True,
+            skip_V=True,
+            filter_reason="correlation_pruning",
+        )
+
+        np.testing.assert_array_equal(runtime.gene_set_track_beta_uncorrected_ignored, np.array([False]))
+
+    def test_cap_only_tracking_marks_max_cap_ignored_rows(self) -> None:
+        runtime = self._build_runtime()
+        runtime.track_filtered_beta_uncorrected = True
+        runtime.track_filtered_beta_uncorrected_mode = "cap_only"
+
+        runtime.subset_gene_sets(
+            np.array([True, False, True]),
+            keep_missing=False,
+            ignore_missing=True,
+            skip_V=True,
+            filter_reason="max_num_gene_sets_cap",
+        )
+
+        np.testing.assert_array_equal(runtime.gene_set_track_beta_uncorrected_ignored, np.array([True]))
 
     def test_independent_betas_only_skips_corrected_beta_columns(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

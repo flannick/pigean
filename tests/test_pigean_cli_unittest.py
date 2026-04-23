@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import subprocess
 import sys
@@ -880,6 +881,9 @@ print(json.dumps(mask.tolist()))
         self.assertIn("read precomputed HuGE statistics cache", proc.stdout)
         self.assertIn("--retain-all-beta-uncorrected", proc.stdout)
         self.assertIn("--independent-betas-only", proc.stdout)
+        self.assertIn("--track-filtered-beta-uncorrected-mode", proc.stdout)
+        self.assertIsNone(re.search(r"(?m)^  --track-filtered-beta-uncorrected(?:\\s|$)", proc.stdout))
+        self.assertIsNone(re.search(r"(?m)^  --no-track-filtered-beta-uncorrected(?:\\s|$)", proc.stdout))
 
     def test_cli_manifest_tiers_cover_gene_list_and_recent_set_b_flags(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -915,6 +919,13 @@ print(json.dumps(mask.tolist()))
         self.assertEqual(metadata["--independent-betas-only"]["category"], "method_optional")
         self.assertEqual(metadata["--independent-betas-only"]["public_visibility"], "expert")
         self.assertEqual(metadata["--independent-betas-only"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--track-filtered-beta-uncorrected-mode"]["category"], "method_optional")
+        self.assertEqual(metadata["--track-filtered-beta-uncorrected-mode"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--track-filtered-beta-uncorrected-mode"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--track-filtered-beta-uncorrected"]["category"], "compat_alias")
+        self.assertEqual(metadata["--track-filtered-beta-uncorrected"]["public_visibility"], "hidden")
+        self.assertEqual(metadata["--no-track-filtered-beta-uncorrected"]["category"], "compat_alias")
+        self.assertEqual(metadata["--no-track-filtered-beta-uncorrected"]["public_visibility"], "hidden")
 
     def test_independent_betas_only_requires_betas_mode(self) -> None:
         proc = self._run("gibbs", "--independent-betas-only")
@@ -934,18 +945,39 @@ print(json.dumps(mask.tolist()))
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
         self.assertTrue(payload["options"]["track_filtered_beta_uncorrected"])
+        self.assertEqual(payload["options"]["track_filtered_beta_uncorrected_mode"], "cap_only")
 
     def test_track_filtered_beta_uncorrected_can_be_disabled_explicitly(self) -> None:
         proc = self._run("gibbs", "--no-track-filtered-beta-uncorrected", "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
         self.assertFalse(payload["options"]["track_filtered_beta_uncorrected"])
+        self.assertEqual(payload["options"]["track_filtered_beta_uncorrected_mode"], "none")
+
+    def test_track_filtered_beta_uncorrected_mode_can_be_set_explicitly(self) -> None:
+        proc = self._run("gibbs", "--track-filtered-beta-uncorrected-mode", "all", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["track_filtered_beta_uncorrected"])
+        self.assertEqual(payload["options"]["track_filtered_beta_uncorrected_mode"], "all")
+
+    def test_track_filtered_beta_uncorrected_mode_conflicts_with_boolean_aliases(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--track-filtered-beta-uncorrected-mode",
+            "cap_only",
+            "--no-track-filtered-beta-uncorrected",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("conflict", err)
 
     def test_track_filtered_beta_uncorrected_stays_off_outside_betas_and_gibbs(self) -> None:
         proc = self._run("sim", "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
         self.assertFalse(payload["options"]["track_filtered_beta_uncorrected"])
+        self.assertEqual(payload["options"]["track_filtered_beta_uncorrected_mode"], "none")
 
     def test_huge_statistics_out_requires_gwas_in(self) -> None:
         proc = self._run("gibbs", "--huge-statistics-out", "cache_prefix")

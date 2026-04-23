@@ -621,6 +621,7 @@ class PigeanState(object):
         self.debug_only_avg_huge = False
         self.debug_just_check_header = False
         self.track_filtered_beta_uncorrected = False
+        self.track_filtered_beta_uncorrected_mode = "none"
         self._gibbs_sum_betas_uncorrected_ignored_m = None
         self._gibbs_sum_betas_uncorrected2_ignored_m = None
         self._gibbs_sum_postps_ignored_m = None
@@ -6619,11 +6620,7 @@ class PigeanState(object):
         if ignore_missing:
             keep_missing = False
             num_removed = int(np.sum(remove_mask))
-            track_ignored_uncorrected = bool(
-                getattr(self, "track_filtered_beta_uncorrected", False)
-                and filter_reason is not None
-                and not str(filter_reason).startswith("prefilter_")
-            )
+            track_ignored_uncorrected = _should_track_ignored_beta_uncorrected(self, filter_reason)
 
             if self.gene_sets is not None:
                 if self.gene_sets_ignored is None:
@@ -10468,6 +10465,27 @@ def _accumulate_gibbs_ignored_uncorrected_iteration(state, ignored_uncorrected_b
     state._gibbs_num_sum_beta_ignored_m += 1
 
 
+def _resolve_track_filtered_beta_uncorrected_mode(runtime_state):
+    mode = getattr(runtime_state, "track_filtered_beta_uncorrected_mode", None)
+    if mode is None:
+        return "all" if getattr(runtime_state, "track_filtered_beta_uncorrected", False) else "none"
+    mode = str(mode).strip().lower()
+    if mode == "":
+        return "all" if getattr(runtime_state, "track_filtered_beta_uncorrected", False) else "none"
+    return mode
+
+
+def _should_track_ignored_beta_uncorrected(runtime_state, filter_reason):
+    mode = _resolve_track_filtered_beta_uncorrected_mode(runtime_state)
+    if mode == "none":
+        return False
+    if mode == "all":
+        return True
+    if mode == "cap_only":
+        return str(filter_reason) == "max_num_gene_sets_cap"
+    return False
+
+
 def _sample_gibbs_iteration_y_state(
     state,
     priors_for_Y_m,
@@ -10614,6 +10632,11 @@ def _augment_gibbs_iteration_state_with_uncorrected_and_mask(
     prefilter_config,
     inner_beta_kwargs,
 ):
+    augment_start = time.perf_counter()
+    epoch_iter_num = iter_state.get("epoch_iter_num")
+    total_iter_num = iter_state.get("total_iter_num")
+
+    uncorrected_start = time.perf_counter()
     uncorrected_setup = pigean_model.compute_gibbs_uncorrected_betas_and_defaults(
         state,
         full_beta_tildes_m=iter_state["full_beta_tildes_m"],
@@ -10625,14 +10648,19 @@ def _augment_gibbs_iteration_state_with_uncorrected_and_mask(
         full_sigma2s_m=iter_state["full_sigma2s_m"],
         **inner_beta_kwargs,
     )
+    uncorrected_elapsed = time.perf_counter() - uncorrected_start
     iter_state.update(uncorrected_setup)
+
+    ignored_start = time.perf_counter()
     iter_state["ignored_uncorrected_setup"] = pigean_model.compute_gibbs_tracked_ignored_uncorrected_betas(
         state,
         iter_state["Y_sample_m"],
         iter_state["y_corr_sparse"],
         inner_beta_kwargs_linear=pigean_model.build_non_inf_beta_sampler_kwargs(inner_beta_kwargs),
     )
+    ignored_elapsed = time.perf_counter() - ignored_start
 
+    mask_start = time.perf_counter()
     (
         gene_set_mask_m,
         iter_state["default_betas_sample_m"],
@@ -10649,6 +10677,21 @@ def _augment_gibbs_iteration_state_with_uncorrected_and_mask(
         default_betas_mean_m=iter_state["default_betas_mean_m"],
         default_postp_mean_m=iter_state["default_postp_mean_m"],
     )
+    mask_elapsed = time.perf_counter() - mask_start
+
+    if epoch_iter_num is not None and total_iter_num is not None:
+        log(
+            "Gibbs iteration %d (global %d) timing: uncorrected_defaults=%0.2fs; tracked_ignored_uncorrected=%0.2fs; gene_set_mask_prefilter=%0.2fs; augment_internal_total=%0.2fs"
+            % (
+                epoch_iter_num,
+                total_iter_num,
+                uncorrected_elapsed,
+                ignored_elapsed,
+                mask_elapsed,
+                time.perf_counter() - augment_start,
+            ),
+            INFO,
+        )
 
     return (iter_state, gene_set_mask_m)
 

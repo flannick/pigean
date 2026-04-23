@@ -337,6 +337,7 @@ def build_read_x_post_options(local_vars, *, batches, num_ignored_gene_sets, ign
         retain_all_beta_uncorrected=local_vars["retain_all_beta_uncorrected"],
         independent_betas_only=local_vars["independent_betas_only"],
         track_filtered_beta_uncorrected=local_vars["track_filtered_beta_uncorrected"],
+        track_filtered_beta_uncorrected_mode=local_vars["track_filtered_beta_uncorrected_mode"],
     )
 
 

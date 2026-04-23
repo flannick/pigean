@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `346`
+- Total options: `349`
 - `method_required`: `20`
-- `method_optional`: `189`
+- `method_optional`: `190`
 - `engineering`: `110`
 - `experimental`: `2`
-- `compat_alias`: `17`
+- `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `305`
-- visibility `hidden`: `7`
+- visibility `expert`: `306`
+- visibility `hidden`: `9`
 - visibility `normal`: `34`
 
 ## Method Required
@@ -223,7 +223,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--top-gene-prior` | `expert` | `yes` | `expert_help` | `top_gene_prior` | `None` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
 | `--total-num-iter-gibbs` | `normal` | `yes` | `core_help` | `total_num_iter_gibbs` | `None` | total outer Gibbs iteration budget across all restart epochs |
-| `--track-filtered-beta-uncorrected` | `expert` | `yes` | `advanced_workflows` | `track_filtered_beta_uncorrected` | `False` | for betas/gibbs runs, preserve and track independent beta_uncorrected for gene sets that pass p prefilter but are later filtered out |
+| `--track-filtered-beta-uncorrected-mode` | `expert` | `yes` | `advanced_workflows` | `track_filtered_beta_uncorrected_mode` | `None` | for betas/gibbs runs, choose which ignored gene sets keep tracked beta_uncorrected sidecars: none, all, or cap_only (default) |
 | `--update-hyper` | `normal` | `yes` | `core_help` | `update_hyper` | `None` | choose whether outer Gibbs updates p, sigma, both, or neither during adaptation |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence` | `-` | - |
@@ -233,6 +233,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--warm-start` | `normal` | `yes` | `core_help` | `warm_start` | `True` | reuse previous-iteration beta state when warm-starting outer Gibbs updates |
 | `--weighted-prune-gene-sets` | `expert` | `yes` | `expert_help` | `weighted_prune_gene_sets` | `None` | - |
 | `--write-gibbs-global-filtered-summaries` | `normal` | `yes` | `core_help` | `write_gibbs_global_filtered_summaries` | `False` | append globally filtered Gibbs sensitivity columns to gene-set outputs without changing the primary raw summary |
+| `--x-list-unlabeled-batching` | `expert` | `yes` | `expert_help` | `x_list_unlabeled_batching` | `per_file` | - |
 | `--x-sparsify` | `expert` | `yes` | `expert_help` | `x_sparsify` | `[50,100,250,1000]` | - |
 
 ## Engineering
@@ -368,6 +369,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-phewas-bfs-pheno-col` | `hidden` | `no` | `internal_only` | `gene_phewas_bfs_pheno_col` | `None` | phenotype column for advanced gene-phewas input |
 | `--gene-phewas-bfs-prior-col` | `hidden` | `no` | `internal_only` | `gene_phewas_bfs_prior_col` | `None` | prior column for advanced gene-phewas input |
 | `--increase-hyper-if-betas-below` | `expert` | `no` | `expert_help` | `increase_hyper_if_betas_below` | `None` | - |
+| `--no-track-filtered-beta-uncorrected` | `hidden` | `no` | `internal_only` | `track_filtered_beta_uncorrected` | `-` | compatibility alias for --track-filtered-beta-uncorrected-mode none |
 | `--positive-controls-all-id-col` | `expert` | `no` | `expert_help` | `positive_controls_all_id_col` | `None` | compatibility alias for --gene-list-all-id-col |
 | `--positive-controls-all-in` | `expert` | `no` | `expert_help` | `positive_controls_all_in` | `None` | compatibility alias for --gene-list-all-in |
 | `--positive-controls-all-no-header` | `expert` | `no` | `expert_help` | `positive_controls_all_has_header` | `True` | compatibility alias for --gene-list-all-no-header |
@@ -378,6 +380,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--positive-controls-no-header` | `expert` | `no` | `expert_help` | `positive_controls_has_header` | `True` | compatibility alias for --gene-list-no-header |
 | `--positive-controls-prob-col` | `expert` | `no` | `expert_help` | `positive_controls_prob_col` | `None` | compatibility alias for --gene-list-prob-col |
 | `--run-phewas-from-gene-phewas-stats-in` | `hidden` | `no` | `internal_only` | `run_phewas_legacy_input` | `None` | compatibility alias for --run-phewas plus --gene-phewas-stats-in |
+| `--track-filtered-beta-uncorrected` | `hidden` | `no` | `internal_only` | `track_filtered_beta_uncorrected` | `None` | compatibility alias for --track-filtered-beta-uncorrected-mode all |
 
 ## Debug Only
 
