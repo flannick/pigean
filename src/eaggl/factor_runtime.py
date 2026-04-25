@@ -298,9 +298,9 @@ def _fit_blockwise_global_w(
         column_probabilities=gene_or_pheno_prob_vector,
         eps=eps,
     )
-    phi_scaled = (float(scale_details["weighted_std"]) ** 2) * float(phi)
+    phi_scaled = (float(scale_details["raw_std"]) ** 2) * float(phi)
     C = (N + M) / 2.0 + a0 + 1.0
-    b0 = 3.14 * (a0 - 1.0) * float(scale_details["weighted_mean"]) / (2.0 * max(1, K0))
+    b0 = 3.14 * (a0 - 1.0) * float(scale_details["raw_mean"]) / (2.0 * max(1, K0))
     lambda_bound = b0 / C if C != 0 else 0.0
     lambda_cut = lambda_bound * 1.5
 

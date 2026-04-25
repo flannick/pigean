@@ -1610,9 +1610,9 @@ class EagglState(object):
         scale_details = _compute_weighted_discovery_scale_details(V, P_gene_set=P_gene_set, P_gene=P_gene)
 
         # Initialize ARD parameters using the weighted discovery scale.
-        phi = (float(scale_details["weighted_std"]) ** 2) * phi
+        phi = (float(scale_details["raw_std"]) ** 2) * phi
         C = (N + M) / 2 + a0 + 1
-        b0 = 3.14 * (a0 - 1) * float(scale_details["weighted_mean"]) / (2 * K0)
+        b0 = 3.14 * (a0 - 1) * float(scale_details["raw_mean"]) / (2 * K0)
         lambda_bound = b0 / C
         lambdak = (0.5 * (np.sum(W ** 2, axis=0) + np.sum(H ** 2, axis=1)) + b0) / C
         lambda_cut = lambda_bound * 1.5

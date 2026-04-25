@@ -272,7 +272,7 @@ parser.add_option("","--add-ext",default=False,action="store_true") #add the top
 parser.add_option("","--no-add-top",default=True,action="store_false",dest="add_top") #add the top extremes as a gene set
 parser.add_option("","--no-add-bottom",default=True,action="store_false",dest="add_bottom") #add the bottom extremes as a gene set
 
-parser.add_option("","--threshold-weights",type='float',default=0.0) #weights below this fraction of top weight are set to 0
+parser.add_option("","--threshold-weights",type='float',default=0.5) #weights below this fraction of top weight are set to 0
 parser.add_option("","--no-cap-weights",default=True,action="store_false",dest="cap_weights") #after normalizing weights by dividing by average, don't set those above 1 to have value 1
 parser.add_option("","--max-gene-set-size",type=int,default=2147483647) #maximum number of genes in a gene set to consider
 parser.add_option("","--add-all-genes",default=False,action="store_true") #add all genes from any gene set to the model, as opposed to just genes in the input --gwas-in or --exomes-in etc. Recommended to not normally use, since gene sets often are contaminated with genes that will bias toward significant associations. However, if you are passing in gene-values for only a small number of genes, and implicitly assuming that the remaining genes are zero, this can be used as a convenience feature rather than adding 0s for the desired genes
