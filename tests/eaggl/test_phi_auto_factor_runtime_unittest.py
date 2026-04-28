@@ -1193,6 +1193,58 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(summary["primary_gene_max_weight_q90"], 0.4)
         self.assertEqual(summary["primary_gene_top5_weight_fraction_median"], 0.7)
 
+    def test_summarize_phi_candidate_uses_mass_floor_frac_for_primary_size_summary(self) -> None:
+        class _StateWithRecords(SimpleNamespace):
+            def _collect_factor_metrics_records(self_inner):
+                return [
+                    {
+                        "combined_mass_fraction": "0.009",
+                        "gene_effective_support": "9",
+                        "gene_max_jaccard": "0.9",
+                        "gene_max_weight": "0.9",
+                        "gene_top5_weight_fraction": "1.0",
+                    },
+                    {
+                        "combined_mass_fraction": "0.02",
+                        "gene_effective_support": "20",
+                        "gene_max_jaccard": "0.4",
+                        "gene_max_weight": "0.4",
+                        "gene_top5_weight_fraction": "0.7",
+                    },
+                ]
+
+        state = _StateWithRecords(
+            exp_gene_set_factors=np.array([[99.1, 0.9]], dtype=float),
+            exp_gene_factors=np.array([[99.1, 0.9]], dtype=float),
+            exp_pheno_factors=None,
+        )
+        run_summaries = [
+            {
+                "num_factors": 2,
+                "reconstruction_error": 12.0,
+                "evidence": 3.0,
+                "converged": True,
+                "hit_iteration_cap": False,
+                "backend": "full",
+                "backend_details": {},
+            }
+        ]
+
+        summary = eaggl_factor_runtime._summarize_phi_candidate(
+            [state],
+            run_summaries,
+            phi=0.1,
+            weight_floor=0.0,
+            mass_floor_frac=0.01,
+            max_num_factors=2,
+            metric_factor_scope="primary",
+        )
+
+        self.assertEqual(summary["primary_factor_count"], 1)
+        self.assertEqual(summary["primary_gene_effective_support_median"], 20.0)
+        self.assertEqual(summary["primary_gene_max_jaccard_vs_all_q90"], 0.4)
+        self.assertEqual(summary["primary_mass_floor"], 0.01)
+
     def test_select_phi_candidate_prefers_largest_phi_within_target_size_tolerance_even_with_fit_warning(self) -> None:
         candidates = [
             {

@@ -2525,6 +2525,8 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
         "filtered_fraction": float(np.median(np.asarray(filtered_fractions, dtype=float))) if len(filtered_fractions) > 0 else 0.0,
         "max_mass_fraction": float(np.median(np.asarray(max_mass_fractions, dtype=float))) if len(max_mass_fractions) > 0 else 0.0,
         "top5_mass_fraction": float(np.median(np.asarray(top5_mass_fractions, dtype=float))) if len(top5_mass_fractions) > 0 else 0.0,
+        "primary_mass_floor": float(mass_floor_frac),
+        "secondary_mass_floor": float(min(float(_SECONDARY_FACTOR_MASS_FLOOR), float(mass_floor_frac))),
         "primary_gene_effective_support_median": _median_optional(primary_gene_effective_support_medians),
         "primary_gene_effective_support_q25": _median_optional(primary_gene_effective_support_q25s),
         "primary_gene_effective_support_q75": _median_optional(primary_gene_effective_support_q75s),
