@@ -185,11 +185,12 @@ PYTHONPATH=src ../../.venv/bin/python -m pytest \
 ## Architecture summary
 
 Current architecture:
+- Both flat legacy runtime files have been retired; the package-owned `python -m pigean` and `python -m eaggl` entrypoints are canonical.
 - `src/pigean/app.py` and `src/eaggl/app.py` are the package-owned runtime entry modules
 - `src/pigean/dispatch.py`, `src/pigean/pipeline.py`, `src/pigean/gibbs.py`, `src/pigean/huge.py`, and `src/pigean/model.py` own the stage-level PIGEAN flow
 - `src/eaggl/dispatch.py`, `src/eaggl/factor.py`, `src/eaggl/phewas.py`, `src/eaggl/regression.py`, and `src/eaggl/io.py` own the stage-level EAGGL flow
 - `src/pigean/main_support.py` and `src/eaggl/main_support.py` are narrow package-owned support layers for entry/runtime wiring
-- `src/pigean/state.py` and `src/eaggl/state.py` are the remaining deep runtime-coupled modules and the canonical deep engines
+- `src/pigean/state.py` and `src/eaggl/state.py` are the remaining deep runtime-coupled modules and the canonical deep engines; further splitting should be seam-driven
 - `src/pigean/state.py` is organized around:
   - `PhewasLabelState`
   - `GeneSetRegressionState`
