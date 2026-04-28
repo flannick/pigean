@@ -322,7 +322,8 @@ parser.add_option("","--learn-phi-max-redundancy-q90",default=0.35,type=float) #
 parser.add_option("","--learn-phi-runs-per-step",default=1,type=int) #number of repeated restarts used to score each candidate phi
 parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #minimum fraction of runs that must agree on the modal retained factor count during phi search
 parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
-parser.add_option("","--learn-phi-max-fit-loss-frac",default=0.05,type=float) #maximum allowed reconstruction-error loss relative to the best phi-search candidate
+parser.add_option("","--learn-phi-fit-loss-warning-frac","--learn-phi-max-fit-loss-frac",dest="learn_phi_fit_loss_warning_frac",default=0.05,type=float) #reconstruction-error warning threshold relative to the best phi-search candidate during phi selection
+parser.add_option("","--learn-phi-max-severe-fit-loss-frac",default=1.0,type=float) #hard severe-underfit threshold relative to the best phi-search candidate during phi selection
 parser.add_option("","--learn-phi-target-gene-effective-support",default=None,type=float) #required with --learn-phi; target median effective gene support among primary factors
 parser.add_option("","--learn-phi-size-tolerance-frac",default=0.25,type=float) #fractional tolerance around target primary-factor gene effective support
 parser.add_option("","--learn-phi-min-primary-factors",default=3,type=int) #minimum primary factor count required for a phi candidate
@@ -493,7 +494,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--discovery-similarity-threshold": "similarity threshold used to assign retained gene sets to discovery families",
     "--learn-phi": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
     "--learn-phi-expand-factor": "set the multiplicative expansion factor used to bracket phi during automatic phi tuning",
-    "--learn-phi-max-fit-loss-frac": "maximum allowed reconstruction-error loss relative to the best phi-search candidate",
+    "--learn-phi-fit-loss-warning-frac": "reconstruction-error warning threshold relative to the best phi-search candidate during automatic phi tuning",
+    "--learn-phi-max-severe-fit-loss-frac": "hard severe-underfit threshold relative to the best phi-search candidate during automatic phi tuning",
     "--learn-phi-mass-floor-frac": "minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search",
     "--learn-phi-max-redundancy": "maximum allowed weighted Jaccard overlap between metric-scope factors during automatic phi tuning, measured on gene loadings when available",
     "--learn-phi-max-redundancy-q90": "maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning",
@@ -519,6 +521,11 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
+    "--max-num-factors": "maximum starting factor budget before shrinkage removes unsupported factors",
+    "--alpha0": "shape parameter for the ARD factor-precision prior; larger values encourage sparser retained factors",
+    "--beta0": "scale parameter for the ARD factor-precision prior",
+    "--min-lambda-threshold": "drop factors whose inferred lambda mass falls below this threshold after fitting",
+    "--phi": "base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors",
     "--factors-anchor-out": "write anchor-specific factorization outputs",
     "--factors-out": "write the main factor loading output table",
     "--trait-factor-links-out": "write the canonical long-form trait-factor linkage table",
@@ -633,7 +640,8 @@ _EXPERT_METHOD_FLAGS = {
     "--blockwise-warm-start",
     "--learn-phi-expand-factor",
     "--learn-phi-backend",
-    "--learn-phi-max-fit-loss-frac",
+    "--learn-phi-fit-loss-warning-frac",
+    "--learn-phi-max-severe-fit-loss-frac",
     "--learn-phi-max-num-iterations",
     "--learn-phi-max-steps",
     "--learn-phi-max-primary-gene-max-weight-q90",
@@ -1492,8 +1500,10 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-min-run-support must be in (0, 1]")
         if not (0 < parsed_options.learn_phi_min_stability <= 1):
             bail("--learn-phi-min-stability must be in (0, 1]")
-        if parsed_options.learn_phi_max_fit_loss_frac < 0:
-            bail("--learn-phi-max-fit-loss-frac must be >= 0")
+        if parsed_options.learn_phi_fit_loss_warning_frac < 0:
+            bail("--learn-phi-fit-loss-warning-frac must be >= 0")
+        if parsed_options.learn_phi_max_severe_fit_loss_frac < 0:
+            bail("--learn-phi-max-severe-fit-loss-frac must be >= 0")
         if parsed_options.learn_phi_size_tolerance_frac < 0:
             bail("--learn-phi-size-tolerance-frac must be nonnegative")
         if parsed_options.learn_phi_min_primary_factors < 1:

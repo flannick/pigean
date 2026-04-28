@@ -3243,7 +3243,7 @@
       "source_line": 260,
       "summary": "write the final gene-level statistics table",
       "type": null,
-      "usage_references": 104
+      "usage_references": 105
     },
     {
       "action": null,
@@ -3264,7 +3264,7 @@
       "source_line": 261,
       "summary": "control whether gene-stats-out writes only the selected universe or all tracked genes outside it; choices: universe, all (current is a compatibility alias for all)",
       "type": null,
-      "usage_references": 24
+      "usage_references": 25
     },
     {
       "action": null,
@@ -3348,7 +3348,7 @@
       "source_line": 182,
       "summary": "use the union of genes across input gene sets as the analysis universe",
       "type": null,
-      "usage_references": 24
+      "usage_references": 28
     },
     {
       "action": "store_true",
@@ -5448,7 +5448,7 @@
       "source_line": 313,
       "summary": "compatibility alias for --track-filtered-beta-uncorrected-mode none",
       "type": null,
-      "usage_references": 17
+      "usage_references": 16
     },
     {
       "action": "store_false",
@@ -6036,7 +6036,7 @@
       "source_line": 300,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 167
+      "usage_references": 168
     },
     {
       "action": null,
@@ -7065,7 +7065,7 @@
       "source_line": 312,
       "summary": "compatibility alias for --track-filtered-beta-uncorrected-mode all",
       "type": null,
-      "usage_references": 40
+      "usage_references": 39
     },
     {
       "action": null,

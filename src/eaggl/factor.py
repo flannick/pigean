@@ -63,7 +63,8 @@ class FactorExecutionConfig:
     learn_phi_runs_per_step: int = 1
     learn_phi_min_run_support: float = 0.6
     learn_phi_min_stability: float = 0.85
-    learn_phi_max_fit_loss_frac: float = 0.05
+    learn_phi_fit_loss_warning_frac: float = 0.05
+    learn_phi_max_severe_fit_loss_frac: float = 1.0
     learn_phi_target_gene_effective_support: float | None = None
     learn_phi_size_tolerance_frac: float = 0.25
     learn_phi_min_primary_factors: int = 3
@@ -150,7 +151,8 @@ class FactorExecutionConfig:
             "learn_phi_runs_per_step": self.learn_phi_runs_per_step,
             "learn_phi_min_run_support": self.learn_phi_min_run_support,
             "learn_phi_min_stability": self.learn_phi_min_stability,
-            "learn_phi_max_fit_loss_frac": self.learn_phi_max_fit_loss_frac,
+            "learn_phi_fit_loss_warning_frac": self.learn_phi_fit_loss_warning_frac,
+            "learn_phi_max_severe_fit_loss_frac": self.learn_phi_max_severe_fit_loss_frac,
             "learn_phi_target_gene_effective_support": self.learn_phi_target_gene_effective_support,
             "learn_phi_size_tolerance_frac": self.learn_phi_size_tolerance_frac,
             "learn_phi_min_primary_factors": self.learn_phi_min_primary_factors,
@@ -922,7 +924,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_runs_per_step=options.learn_phi_runs_per_step,
         learn_phi_min_run_support=options.learn_phi_min_run_support,
         learn_phi_min_stability=options.learn_phi_min_stability,
-        learn_phi_max_fit_loss_frac=options.learn_phi_max_fit_loss_frac,
+        learn_phi_fit_loss_warning_frac=options.learn_phi_fit_loss_warning_frac,
+        learn_phi_max_severe_fit_loss_frac=options.learn_phi_max_severe_fit_loss_frac,
         learn_phi_target_gene_effective_support=getattr(options, "learn_phi_target_gene_effective_support", None),
         learn_phi_size_tolerance_frac=getattr(options, "learn_phi_size_tolerance_frac", 0.25),
         learn_phi_min_primary_factors=getattr(options, "learn_phi_min_primary_factors", 3),

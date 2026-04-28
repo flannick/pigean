@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `259`
+- Total options: `260`
 - `method_required`: `16`
-- `method_optional`: `150`
+- `method_optional`: `151`
 - `engineering`: `76`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `211`
+- visibility `expert`: `212`
 - visibility `hidden`: `8`
 - visibility `normal`: `40`
 
@@ -46,9 +46,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--add-gene-sets-by-enrichment-p` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_enrichment_p` | `None` | - |
 | `--add-gene-sets-by-fraction` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_fraction` | `None` | - |
 | `--adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
-| `--alpha0` | `normal` | `yes` | `core_help` | `alpha0` | `10` | - |
+| `--alpha0` | `normal` | `yes` | `core_help` | `alpha0` | `10` | shape parameter for the ARD factor-precision prior; larger values encourage sparser retained factors |
 | `--background-prior` | `expert` | `yes` | `expert_help` | `background_prior` | `0.05` | - |
-| `--beta0` | `normal` | `yes` | `core_help` | `beta0` | `1` | - |
+| `--beta0` | `normal` | `yes` | `core_help` | `beta0` | `1` | scale parameter for the ARD factor-precision prior |
 | `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
 | `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | - |
 | `--blockwise-epochs` | `expert` | `yes` | `advanced_workflows` | `blockwise_epochs` | `3` | set the number of global block passes used by the scalable blockwise backend |
@@ -103,12 +103,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi to a requested primary-factor gene effective support before the final factorization |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `2.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
+| `--learn-phi-fit-loss-warning-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_fit_loss_warning_frac` | `0.05` | reconstruction-error warning threshold relative to the best phi-search candidate during automatic phi tuning |
 | `--learn-phi-mass-floor-frac` | `expert` | `yes` | `expert_help` | `learn_phi_mass_floor_frac` | `0.005` | minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search |
-| `--learn-phi-max-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_fit_loss_frac` | `0.05` | maximum allowed reconstruction-error loss relative to the best phi-search candidate |
 | `--learn-phi-max-num-iterations` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_num_iterations` | `None` | during automatic phi tuning only, cap the NMF iteration budget used for each tested phi candidate |
 | `--learn-phi-max-primary-gene-max-weight-q90` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_primary_gene_max_weight_q90` | `None` | optional maximum q90 primary-factor max gene weight allowed during target-size tuning |
 | `--learn-phi-max-redundancy` | `normal` | `yes` | `core_help` | `learn_phi_max_redundancy` | `0.5` | maximum allowed weighted Jaccard overlap between metric-scope factors during automatic phi tuning, measured on gene loadings when available |
 | `--learn-phi-max-redundancy-q90` | `expert` | `yes` | `expert_help` | `learn_phi_max_redundancy_q90` | `0.35` | maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during automatic phi tuning |
+| `--learn-phi-max-severe-fit-loss-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_severe_fit_loss_frac` | `1.0` | hard severe-underfit threshold relative to the best phi-search candidate during automatic phi tuning |
 | `--learn-phi-max-steps` | `expert` | `yes` | `advanced_workflows` | `learn_phi_max_steps` | `5` | maximum number of log-space phi search steps after bracketing |
 | `--learn-phi-metric-factor-scope` | `expert` | `yes` | `advanced_workflows` | `learn_phi_metric_factor_scope` | `primary` | choose whether phi-selection redundancy and repeat-stability metrics use primary factors or all fitted factors |
 | `--learn-phi-min-primary-factors` | `expert` | `yes` | `advanced_workflows` | `learn_phi_min_primary_factors` | `3` | minimum primary factor count required for a phi candidate during target-size tuning |
@@ -135,7 +136,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
 | `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
 | `--max-num-discovery-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_discovery_gene_sets` | `None` | - |
-| `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | - |
+| `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | maximum starting factor budget before shrinkage removes unsupported factors |
 | `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `None` | - |
 | `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `None` | - |
 | `--max-num-gene-sets-initial` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_initial` | `None` | - |
@@ -144,7 +145,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `None` | - |
 | `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `None` | - |
 | `--min-gene-set-size` | `expert` | `yes` | `expert_help` | `min_gene_set_size` | `None` | - |
-| `--min-lambda-threshold` | `normal` | `yes` | `core_help` | `min_lambda_threshold` | `0.001` | - |
+| `--min-lambda-threshold` | `normal` | `yes` | `core_help` | `min_lambda_threshold` | `0.001` | drop factors whose inferred lambda mass falls below this threshold after fitting |
 | `--min-num-iter-betas` | `expert` | `yes` | `expert_help` | `min_num_iter_betas` | `10` | - |
 | `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
 | `--no-add-top` | `expert` | `yes` | `expert_help` | `add_top` | `True` | - |
@@ -168,7 +169,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
 | `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
-| `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | - |
+| `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors |
 | `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project canonical trait linkage from the gene-set basis instead of the gene basis |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
@@ -178,7 +179,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
-| `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.0` | - |
+| `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
 | `--trait-factor-links-output-detail` | `normal` | `yes` | `core_help` | `trait_factor_links_output_detail` | `main` | choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions |
 | `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend |
