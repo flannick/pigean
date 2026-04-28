@@ -978,6 +978,21 @@ def initialize_y_from_new_gene_universe(
             runtime_state.gene_covariates = runtime_state.gene_covariates[
                 [index_map_rev[x] for x in range(runtime_state.gene_covariates.shape[0])], :
             ]
+        if runtime_state.gene_covariate_zs is not None:
+            index_map_rev = {runtime_state.gene_to_ind[extra_genes[i]]: i for i in range(len(extra_genes))}
+            runtime_state.gene_covariate_zs = runtime_state.gene_covariate_zs[
+                [index_map_rev[x] for x in range(runtime_state.gene_covariate_zs.shape[0])], :
+            ]
+        if runtime_state.gene_covariates_mask is not None:
+            index_map_rev = {runtime_state.gene_to_ind[extra_genes[i]]: i for i in range(len(extra_genes))}
+            runtime_state.gene_covariates_mask = runtime_state.gene_covariates_mask[
+                [index_map_rev[x] for x in range(runtime_state.gene_covariates_mask.shape[0])]
+            ]
+        if runtime_state.gene_covariate_adjustments is not None:
+            index_map_rev = {runtime_state.gene_to_ind[extra_genes[i]]: i for i in range(len(extra_genes))}
+            runtime_state.gene_covariate_adjustments = runtime_state.gene_covariate_adjustments[
+                [index_map_rev[x] for x in range(runtime_state.gene_covariate_adjustments.shape[0])]
+            ]
 
     return (
         Y,
@@ -1088,6 +1103,19 @@ def merge_y_into_existing_gene_universe(
     if runtime_state.gene_covariates is not None:
         add_gene_covariates = np.tile(np.mean(runtime_state.gene_covariates, axis=0), num_add).reshape((num_add, runtime_state.gene_covariates.shape[1]))
         runtime_state.gene_covariates = np.vstack((runtime_state.gene_covariates, add_gene_covariates))
+    if runtime_state.gene_covariate_zs is not None:
+        add_gene_covariate_zs = np.zeros((num_add, runtime_state.gene_covariate_zs.shape[1]))
+        runtime_state.gene_covariate_zs = np.vstack((runtime_state.gene_covariate_zs, add_gene_covariate_zs))
+    if runtime_state.gene_covariates_mask is not None:
+        runtime_state.gene_covariates_mask = np.append(
+            runtime_state.gene_covariates_mask,
+            np.ones(num_add, dtype=runtime_state.gene_covariates_mask.dtype),
+        )
+    if runtime_state.gene_covariate_adjustments is not None:
+        runtime_state.gene_covariate_adjustments = np.append(
+            runtime_state.gene_covariate_adjustments,
+            np.zeros(num_add, dtype=runtime_state.gene_covariate_adjustments.dtype),
+        )
 
     return (
         Y,

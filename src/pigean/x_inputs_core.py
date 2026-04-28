@@ -2088,6 +2088,50 @@ def ensure_gene_universe_for_x(
                 runtime_state.priors_adj = np.append(runtime_state.priors_adj, np.zeros(len(add_genes)))
             if runtime_state.priors_adj_orig is not None and len(runtime_state.priors_adj_orig) == len(runtime_state.genes):
                 runtime_state.priors_adj_orig = np.append(runtime_state.priors_adj_orig, np.zeros(len(add_genes)))
+            if runtime_state.huge_signal_bfs is not None:
+                runtime_state.huge_signal_bfs = sparse.csc_matrix(
+                    (
+                        runtime_state.huge_signal_bfs.data,
+                        runtime_state.huge_signal_bfs.indices,
+                        runtime_state.huge_signal_bfs.indptr,
+                    ),
+                    shape=(runtime_state.huge_signal_bfs.shape[0] + len(add_genes), runtime_state.huge_signal_bfs.shape[1]),
+                )
+            if runtime_state.huge_signal_bfs_for_regression is not None:
+                runtime_state.huge_signal_bfs_for_regression = sparse.csc_matrix(
+                    (
+                        runtime_state.huge_signal_bfs_for_regression.data,
+                        runtime_state.huge_signal_bfs_for_regression.indices,
+                        runtime_state.huge_signal_bfs_for_regression.indptr,
+                    ),
+                    shape=(
+                        runtime_state.huge_signal_bfs_for_regression.shape[0] + len(add_genes),
+                        runtime_state.huge_signal_bfs_for_regression.shape[1],
+                    ),
+                )
+            if runtime_state.gene_covariates is not None:
+                add_gene_covariates = np.tile(
+                    np.mean(runtime_state.gene_covariates, axis=0),
+                    len(add_genes),
+                ).reshape((len(add_genes), runtime_state.gene_covariates.shape[1]))
+                runtime_state.gene_covariates = np.vstack((runtime_state.gene_covariates, add_gene_covariates))
+            if runtime_state.gene_covariate_zs is not None:
+                runtime_state.gene_covariate_zs = np.vstack(
+                    (
+                        runtime_state.gene_covariate_zs,
+                        np.zeros((len(add_genes), runtime_state.gene_covariate_zs.shape[1])),
+                    )
+                )
+            if runtime_state.gene_covariates_mask is not None:
+                runtime_state.gene_covariates_mask = np.append(
+                    runtime_state.gene_covariates_mask,
+                    np.ones(len(add_genes), dtype=runtime_state.gene_covariates_mask.dtype),
+                )
+            if runtime_state.gene_covariate_adjustments is not None:
+                runtime_state.gene_covariate_adjustments = np.append(
+                    runtime_state.gene_covariate_adjustments,
+                    np.zeros(len(add_genes), dtype=runtime_state.gene_covariate_adjustments.dtype),
+                )
             if len(add_genes) > 0 and (
                 runtime_state.y_corr is not None
                 or runtime_state.y_corr_sparse is not None
