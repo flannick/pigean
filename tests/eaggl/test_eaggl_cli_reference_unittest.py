@@ -659,6 +659,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-metric-factor-scope": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-mass-floor-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-phi-metrics-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-phi-factors-out": ["test_reference_factor_and_labeling_flags_round_trip"],

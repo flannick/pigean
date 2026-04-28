@@ -1898,7 +1898,7 @@
       "source_line": 126,
       "summary": "provide a standalone EAGGL input gene list directly on the command line",
       "type": "string",
-      "usage_references": 342
+      "usage_references": 343
     },
     {
       "action": null,
@@ -2864,7 +2864,7 @@
       "source_line": 165,
       "summary": null,
       "type": null,
-      "usage_references": 105
+      "usage_references": 107
     },
     {
       "action": null,
@@ -3158,7 +3158,7 @@
       "source_line": 319,
       "summary": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
       "type": null,
-      "usage_references": 457
+      "usage_references": 461
     },
     {
       "action": null,
@@ -3243,7 +3243,7 @@
       "source_line": 335,
       "summary": "minimum factor mass fraction used to define primary factors and primary-scoped metrics during phi search",
       "type": "float",
-      "usage_references": 8
+      "usage_references": 12
     },
     {
       "action": null,
@@ -4818,7 +4818,7 @@
       "source_line": 124,
       "summary": "compatibility alias for standalone EAGGL gene-list background handling",
       "type": null,
-      "usage_references": 42
+      "usage_references": 43
     },
     {
       "action": null,

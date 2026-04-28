@@ -860,7 +860,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             "primary_gene_effective_support_median": 12.0,
             "primary_gene_effective_support_q25": 11.0,
             "primary_gene_effective_support_q75": 13.0,
-            "primary_gene_max_jaccard_q90": 0.22,
+            "primary_gene_max_jaccard_vs_all_q90": 0.22,
             "primary_gene_max_weight_q90": 0.4,
             "primary_gene_top5_weight_fraction_median": 0.7,
             "target_gene_effective_support": 12.0,
@@ -918,7 +918,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         finally:
             if report_path.exists():
                 report_path.unlink()
-        self.assertIn("primary_gene_max_jaccard_q90", text.splitlines()[0])
+        self.assertIn("primary_gene_max_jaccard_vs_all_q90", text.splitlines()[0])
         self.assertIn("selection_warnings", text.splitlines()[0])
         self.assertIn("backend", text.splitlines()[0])
         self.assertIn("blockwise_num_blocks", text.splitlines()[0])
@@ -1154,6 +1154,17 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(primary_profile["metric_factor_count"], 1)
         self.assertAlmostEqual(primary_profile["redundancy_max"], 0.0)
 
+    def test_metric_factor_indices_default_to_mass_profile_primary_floor(self) -> None:
+        mass_profile = {
+            "mass_fractions": np.array([0.009, 0.02], dtype=float),
+            "primary_mass_floor": 0.01,
+        }
+        indices = eaggl_factor_runtime._metric_factor_indices_from_mass_profile(
+            mass_profile,
+            "primary",
+        )
+        self.assertTrue(np.array_equal(indices, np.array([1], dtype=int)))
+
     def test_summarize_primary_factor_size_from_records_uses_mass_floor_frac(self) -> None:
         records = [
             {
@@ -1178,7 +1189,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         )
 
         self.assertEqual(summary["primary_gene_effective_support_median"], 20.0)
-        self.assertEqual(summary["primary_gene_max_jaccard_q90"], 0.4)
+        self.assertEqual(summary["primary_gene_max_jaccard_vs_all_q90"], 0.4)
         self.assertEqual(summary["primary_gene_max_weight_q90"], 0.4)
         self.assertEqual(summary["primary_gene_top5_weight_fraction_median"], 0.7)
 
@@ -1201,7 +1212,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "effective_factor_count": 3.8,
                 "mass_ge_floor_factor_count": 4,
                 "primary_gene_effective_support_median": 21.0,
-                "primary_gene_max_jaccard_q90": 0.25,
+                "primary_gene_max_jaccard_vs_all_q90": 0.25,
                 "primary_gene_max_weight_q90": 0.2,
             },
             {
@@ -1222,7 +1233,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "mass_ge_floor_factor_count": 5,
                 "tail_fraction": 0.02,
                 "primary_gene_effective_support_median": 20.0,
-                "primary_gene_max_jaccard_q90": 0.18,
+                "primary_gene_max_jaccard_vs_all_q90": 0.18,
                 "primary_gene_max_weight_q90": 0.2,
             },
             {
@@ -1243,7 +1254,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "mass_ge_floor_factor_count": 2,
                 "tail_fraction": 0.01,
                 "primary_gene_effective_support_median": 35.0,
-                "primary_gene_max_jaccard_q90": 0.1,
+                "primary_gene_max_jaccard_vs_all_q90": 0.1,
                 "primary_gene_max_weight_q90": 0.3,
             },
         ]
@@ -1288,7 +1299,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "effective_factor_count": 3.8,
                 "mass_ge_floor_factor_count": 4,
                 "primary_gene_effective_support_median": 20.0,
-                "primary_gene_max_jaccard_q90": 0.2,
+                "primary_gene_max_jaccard_vs_all_q90": 0.2,
                 "primary_gene_max_weight_q90": 0.2,
             },
             {
@@ -1308,7 +1319,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 "effective_factor_count": 3.9,
                 "mass_ge_floor_factor_count": 4,
                 "primary_gene_effective_support_median": 20.0,
-                "primary_gene_max_jaccard_q90": 0.18,
+                "primary_gene_max_jaccard_vs_all_q90": 0.18,
                 "primary_gene_max_weight_q90": 0.2,
             },
         ]
@@ -1330,6 +1341,69 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(selected["phi"], 0.04)
         severe = next(candidate for candidate in candidates if candidate["phi"] == 0.08)
         self.assertIn("severe_fit_loss", severe["selection_violations"])
+
+    def test_select_phi_candidate_excludes_missing_fit_when_severe_guard_is_active(self) -> None:
+        candidates = [
+            {
+                "phi": 0.08,
+                "modal_factor_count": 4,
+                "primary_factor_count": 4,
+                "run_support": 1.0,
+                "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
+                "redundancy": 0.2,
+                "redundancy_max": 0.2,
+                "redundancy_q90": 0.12,
+                "best_error": None,
+                "best_evidence": 8.0,
+                "effective_factor_count": 3.8,
+                "mass_ge_floor_factor_count": 4,
+                "primary_gene_effective_support_median": 20.0,
+                "primary_gene_max_jaccard_vs_all_q90": 0.2,
+                "primary_gene_max_weight_q90": 0.2,
+            },
+            {
+                "phi": 0.04,
+                "modal_factor_count": 4,
+                "primary_factor_count": 4,
+                "run_support": 1.0,
+                "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
+                "redundancy": 0.18,
+                "redundancy_max": 0.18,
+                "redundancy_q90": 0.1,
+                "best_error": 40.0,
+                "best_evidence": 9.0,
+                "effective_factor_count": 3.9,
+                "mass_ge_floor_factor_count": 4,
+                "primary_gene_effective_support_median": 20.0,
+                "primary_gene_max_jaccard_vs_all_q90": 0.18,
+                "primary_gene_max_weight_q90": 0.2,
+            },
+        ]
+        selected, reason = eaggl_factor_runtime._select_phi_candidate(
+            candidates,
+            max_redundancy=0.6,
+            max_redundancy_q90=0.35,
+            min_run_support=0.6,
+            min_stability=0.85,
+            fit_loss_warning_frac=0.05,
+            max_severe_fit_loss_frac=1.0,
+            target_gene_effective_support=20.0,
+            size_tolerance_frac=0.25,
+            min_primary_factors=3,
+            max_primary_gene_max_weight_q90=None,
+            runs_per_step=3,
+        )
+        self.assertEqual(reason, "target_gene_effective_support_in_tolerance")
+        self.assertEqual(selected["phi"], 0.04)
+        missing = next(candidate for candidate in candidates if candidate["phi"] == 0.08)
+        self.assertIn("fit_missing", missing["selection_violations"])
+        self.assertIn("fit_missing", missing["selection_warnings"])
 
     def test_run_factor_with_learn_phi_selects_less_redundant_candidate_before_final_run(self) -> None:
         state = _TinyState()
