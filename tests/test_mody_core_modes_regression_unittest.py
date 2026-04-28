@@ -9,6 +9,12 @@ import time
 import unittest
 from pathlib import Path
 
+ACCEPTED_EXTRA_GENE_SETS = {
+    "mp_abnormal_endocrine_pancreas_morphology",
+    "mp_increased_urine_uric_acid_level",
+    "mp_pancreatic_acinar-to-ductal_metaplasia",
+}
+
 
 class ModyCoreModesRegressionTest(unittest.TestCase):
     @classmethod
@@ -147,6 +153,10 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
             "--params-out",
             str(out_prefix.with_suffix(".params.out")),
         ]
+        if entrypoint.startswith("module:"):
+            cmd.extend(["--output-detail", "full"])
+            if effective_mode == "priors":
+                cmd.extend(["--gene-universe-from-y", "--gene-stats-output-scope", "all"])
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
         src_root = str(cls.repo_root / "src")
@@ -191,6 +201,20 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
                     max_diff = d
         self.assertLessEqual(max_diff, 0.0, msg=f"max_abs_diff={max_diff}")
 
+    def _assert_maps_match_legacy_overlap(
+        self,
+        got: dict[str, tuple[float, ...]],
+        legacy: dict[str, tuple[float, ...]],
+        *,
+        allowed_extra: set[str],
+    ) -> None:
+        self.assertEqual(set(got.keys()) - set(legacy.keys()), allowed_extra)
+        self.assertEqual(set(legacy.keys()) - set(got.keys()), set())
+        self._assert_maps_equal(
+            {key: got[key] for key in legacy},
+            legacy,
+        )
+
     def test_beta_tildes_match_legacy_and_reference(self) -> None:
         new = self._load_metric(self.tmpdir / "beta_tildes_new.gene_set_stats.out", "Gene_Set", ["beta_tilde"])
         legacy = self._load_metric(self.tmpdir / "beta_tildes_legacy.gene_set_stats.out", "Gene_Set", ["beta_tilde"])
@@ -199,7 +223,7 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
             "Gene_Set",
             ["beta_tilde"],
         )
-        self._assert_maps_equal(new, legacy)
+        self._assert_maps_match_legacy_overlap(new, legacy, allowed_extra=ACCEPTED_EXTRA_GENE_SETS)
         self._assert_maps_equal(new, ref)
 
     def test_betas_match_legacy_and_reference(self) -> None:
@@ -218,7 +242,7 @@ class ModyCoreModesRegressionTest(unittest.TestCase):
             "Gene_Set",
             ["beta", "beta_uncorrected"],
         )
-        self._assert_maps_equal(new, legacy)
+        self._assert_maps_match_legacy_overlap(new, legacy, allowed_extra=ACCEPTED_EXTRA_GENE_SETS)
         self._assert_maps_equal(new, ref)
 
     def test_priors_fast_match_legacy_and_reference(self) -> None:
