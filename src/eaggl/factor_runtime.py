@@ -1444,7 +1444,8 @@ def _build_factor_param_record(
     learn_phi_runs_per_step,
     learn_phi_min_run_support,
     learn_phi_min_stability,
-    learn_phi_max_fit_loss_frac,
+    learn_phi_fit_loss_warning_frac,
+    learn_phi_max_severe_fit_loss_frac,
     learn_phi_target_gene_effective_support,
     learn_phi_size_tolerance_frac,
     learn_phi_min_primary_factors,
@@ -1531,7 +1532,8 @@ def _build_factor_param_record(
         "learn_phi_runs_per_step": int(learn_phi_runs_per_step),
         "learn_phi_min_run_support": float(learn_phi_min_run_support),
         "learn_phi_min_stability": float(learn_phi_min_stability),
-        "learn_phi_max_fit_loss_frac": float(learn_phi_max_fit_loss_frac),
+        "learn_phi_fit_loss_warning_frac": float(learn_phi_fit_loss_warning_frac),
+        "learn_phi_max_severe_fit_loss_frac": float(learn_phi_max_severe_fit_loss_frac),
         "learn_phi_target_gene_effective_support": None if learn_phi_target_gene_effective_support is None else float(learn_phi_target_gene_effective_support),
         "learn_phi_size_tolerance_frac": float(learn_phi_size_tolerance_frac),
         "learn_phi_min_primary_factors": int(learn_phi_min_primary_factors),
@@ -1638,7 +1640,7 @@ def _metric_factor_indices_from_mass_profile(mass_profile, metric_factor_scope, 
     if str(metric_factor_scope) != "primary":
         raise ValueError("metric_factor_scope must be one of: primary, all")
     if primary_mass_floor is None:
-        primary_mass_floor = _PRIMARY_FACTOR_MASS_FLOOR
+        primary_mass_floor = mass_profile.get("primary_mass_floor", _PRIMARY_FACTOR_MASS_FLOOR)
     return np.where(mass_fractions >= float(primary_mass_floor))[0].astype(int)
 
 
@@ -2085,6 +2087,9 @@ def _compute_factor_mass_profile(state, *, mass_floor_frac):
             "filtered_fraction": 0.0,
             "max_mass_fraction": 0.0,
             "top5_mass_fraction": 0.0,
+            "mass_floor_frac": float(mass_floor_frac),
+            "primary_mass_floor": float(mass_floor_frac),
+            "secondary_mass_floor": float(min(float(_SECONDARY_FACTOR_MASS_FLOOR), float(mass_floor_frac))),
         }
 
     if len(component_masses) == 1:
@@ -2122,6 +2127,9 @@ def _compute_factor_mass_profile(state, *, mass_floor_frac):
         "filtered_fraction": float(np.mean(mass_fractions < secondary_mass_floor)) if mass_fractions.size > 0 else 0.0,
         "max_mass_fraction": float(sorted_mass_fractions[0]) if sorted_mass_fractions.size > 0 else 0.0,
         "top5_mass_fraction": float(np.sum(sorted_mass_fractions[:5])) if sorted_mass_fractions.size > 0 else 0.0,
+        "mass_floor_frac": float(mass_floor_frac),
+        "primary_mass_floor": float(primary_mass_floor),
+        "secondary_mass_floor": float(secondary_mass_floor),
     }
 
 
@@ -2252,6 +2260,7 @@ def _coerce_candidate_float(value, default=None):
 def _summarize_primary_factor_size_from_records(records, *, primary_mass_floor=_PRIMARY_FACTOR_MASS_FLOOR):
     gene_supports = []
     gene_max_weights = []
+    gene_max_jaccards = []
     gene_top5_weight_fractions = []
     for record in records or []:
         mass_fraction = _coerce_candidate_float(record.get("combined_mass_fraction"), 0.0)
@@ -2263,17 +2272,22 @@ def _summarize_primary_factor_size_from_records(records, *, primary_mass_floor=_
         gene_max_weight = _coerce_candidate_float(record.get("gene_max_weight"))
         if gene_max_weight is not None:
             gene_max_weights.append(float(gene_max_weight))
+        gene_max_jaccard = _coerce_candidate_float(record.get("gene_max_jaccard"))
+        if gene_max_jaccard is not None:
+            gene_max_jaccards.append(float(gene_max_jaccard))
         top5_weight_fraction = _coerce_candidate_float(record.get("gene_top5_weight_fraction"))
         if top5_weight_fraction is not None:
             gene_top5_weight_fractions.append(float(top5_weight_fraction))
 
     support_array = np.asarray(gene_supports, dtype=float)
     max_weight_array = np.asarray(gene_max_weights, dtype=float)
+    max_jaccard_array = np.asarray(gene_max_jaccards, dtype=float)
     top5_array = np.asarray(gene_top5_weight_fractions, dtype=float)
     return {
         "primary_gene_effective_support_median": float(np.median(support_array)) if support_array.size > 0 else None,
         "primary_gene_effective_support_q25": float(np.quantile(support_array, 0.25)) if support_array.size > 0 else None,
         "primary_gene_effective_support_q75": float(np.quantile(support_array, 0.75)) if support_array.size > 0 else None,
+        "primary_gene_max_jaccard_vs_all_q90": float(np.quantile(max_jaccard_array, 0.9)) if max_jaccard_array.size > 0 else None,
         "primary_gene_max_weight_q90": float(np.quantile(max_weight_array, 0.9)) if max_weight_array.size > 0 else None,
         "primary_gene_top5_weight_fraction_median": float(np.median(top5_array)) if top5_array.size > 0 else None,
     }
@@ -2421,6 +2435,10 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
         profile.get("primary_gene_effective_support_q75")
         for profile in run_primary_size_profiles
     ]
+    primary_gene_max_jaccard_q90s = [
+        profile.get("primary_gene_max_jaccard_vs_all_q90")
+        for profile in run_primary_size_profiles
+    ]
     primary_gene_max_weight_q90s = [
         profile.get("primary_gene_max_weight_q90")
         for profile in run_primary_size_profiles
@@ -2507,9 +2525,12 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
         "filtered_fraction": float(np.median(np.asarray(filtered_fractions, dtype=float))) if len(filtered_fractions) > 0 else 0.0,
         "max_mass_fraction": float(np.median(np.asarray(max_mass_fractions, dtype=float))) if len(max_mass_fractions) > 0 else 0.0,
         "top5_mass_fraction": float(np.median(np.asarray(top5_mass_fractions, dtype=float))) if len(top5_mass_fractions) > 0 else 0.0,
+        "primary_mass_floor": float(mass_floor_frac),
+        "secondary_mass_floor": float(min(float(_SECONDARY_FACTOR_MASS_FLOOR), float(mass_floor_frac))),
         "primary_gene_effective_support_median": _median_optional(primary_gene_effective_support_medians),
         "primary_gene_effective_support_q25": _median_optional(primary_gene_effective_support_q25s),
         "primary_gene_effective_support_q75": _median_optional(primary_gene_effective_support_q75s),
+        "primary_gene_max_jaccard_vs_all_q90": _median_optional(primary_gene_max_jaccard_q90s),
         "primary_gene_max_weight_q90": _median_optional(primary_gene_max_weight_q90s),
         "primary_gene_top5_weight_fraction_median": _median_optional(primary_gene_top5_weight_fraction_medians),
         "mass_floor_frac": float(mass_floor_frac),
@@ -2688,7 +2709,7 @@ def _candidate_target_size_error(candidate, target_gene_effective_support):
     return abs(math.log(float(size_value)) - math.log(target))
 
 
-def _candidate_fit_limit(candidates, max_fit_loss_frac):
+def _candidate_fit_limit(candidates, fit_loss_frac):
     finite_errors = [
         float(candidate["best_error"])
         for candidate in candidates
@@ -2696,7 +2717,7 @@ def _candidate_fit_limit(candidates, max_fit_loss_frac):
     ]
     if len(finite_errors) == 0:
         return None
-    return min(finite_errors) * (1.0 + float(max_fit_loss_frac))
+    return min(finite_errors) * (1.0 + float(fit_loss_frac))
 
 
 def _candidate_target_acceptability_violations(
@@ -2707,7 +2728,7 @@ def _candidate_target_acceptability_violations(
     min_run_support,
     min_stability,
     runs_per_step,
-    fit_limit,
+    severe_fit_limit,
     target_gene_effective_support,
     min_primary_factors,
     max_primary_gene_max_weight_q90,
@@ -2732,16 +2753,28 @@ def _candidate_target_acceptability_violations(
             violations.append("stability_undefined")
         elif candidate.get("stability") is None or float(candidate["stability"]) < float(min_stability):
             violations.append("stability")
-    if fit_limit is not None:
-        if candidate.get("best_error") is None:
+    if severe_fit_limit is not None:
+        best_error = _coerce_candidate_float(candidate.get("best_error"))
+        if best_error is None:
             violations.append("fit_missing")
-        elif float(candidate["best_error"]) > float(fit_limit) + 1e-12:
-            violations.append("fit_loss")
+        elif best_error > float(severe_fit_limit) + 1e-12:
+            violations.append("severe_fit_loss")
     if max_primary_gene_max_weight_q90 is not None:
         spike_value = _coerce_candidate_float(candidate.get("primary_gene_max_weight_q90"))
         if spike_value is None or spike_value > float(max_primary_gene_max_weight_q90):
             violations.append("primary_gene_spike")
     return violations
+
+
+def _candidate_selection_warnings(candidate, *, fit_warning_limit):
+    warnings = []
+    if fit_warning_limit is not None:
+        best_error = _coerce_candidate_float(candidate.get("best_error"))
+        if best_error is None:
+            warnings.append("fit_missing")
+        elif best_error > float(fit_warning_limit) + 1e-12:
+            warnings.append("fit_loss")
+    return warnings
 
 
 def _select_phi_candidate(
@@ -2751,14 +2784,16 @@ def _select_phi_candidate(
     max_redundancy_q90,
     min_run_support,
     min_stability,
-    max_fit_loss_frac,
+    fit_loss_warning_frac,
+    max_severe_fit_loss_frac,
     target_gene_effective_support,
     size_tolerance_frac,
     min_primary_factors,
     max_primary_gene_max_weight_q90,
     runs_per_step,
 ):
-    fit_limit = _candidate_fit_limit(candidates, max_fit_loss_frac)
+    fit_warning_limit = _candidate_fit_limit(candidates, fit_loss_warning_frac)
+    severe_fit_limit = _candidate_fit_limit(candidates, max_severe_fit_loss_frac)
     for candidate in candidates:
         size_error = _candidate_target_size_error(candidate, target_gene_effective_support)
         candidate["target_gene_effective_support_error_log"] = size_error
@@ -2768,7 +2803,11 @@ def _select_phi_candidate(
             if _candidate_target_size_value(candidate) is None
             else float(_candidate_target_size_value(candidate)) / float(target_gene_effective_support)
         )
-        candidate["selection_fit_limit"] = fit_limit
+        candidate["selection_fit_warning_limit"] = fit_warning_limit
+        candidate["selection_severe_fit_limit"] = severe_fit_limit
+        candidate["selection_warnings"] = ",".join(
+            _candidate_selection_warnings(candidate, fit_warning_limit=fit_warning_limit)
+        )
 
     acceptable = []
     for candidate in candidates:
@@ -2779,7 +2818,7 @@ def _select_phi_candidate(
             min_run_support=min_run_support,
             min_stability=min_stability,
             runs_per_step=runs_per_step,
-            fit_limit=fit_limit,
+            severe_fit_limit=severe_fit_limit,
             target_gene_effective_support=target_gene_effective_support,
             min_primary_factors=min_primary_factors,
             max_primary_gene_max_weight_q90=max_primary_gene_max_weight_q90,
@@ -2808,8 +2847,8 @@ def _select_phi_candidate(
                     float(candidate.get("tail_fraction", 0.0)),
                     float(candidate.get("filtered_fraction", 0.0)),
                     float(candidate.get("redundancy_q90", 0.0)),
-                    float("inf") if candidate.get("best_error") is None else float(candidate["best_error"]),
                     float("inf") if candidate.get("primary_gene_max_weight_q90") is None else float(candidate["primary_gene_max_weight_q90"]),
+                    float("inf") if candidate.get("best_error") is None else float(candidate["best_error"]),
                 ),
             )
             selected["selection_target_tolerance_log"] = float(tolerance_log)
@@ -2827,8 +2866,8 @@ def _select_phi_candidate(
                 float(candidate.get("tail_fraction", 0.0)),
                 float(candidate.get("filtered_fraction", 0.0)),
                 float(candidate.get("redundancy_q90", 0.0)),
-                float("inf") if candidate.get("best_error") is None else float(candidate["best_error"]),
                 float("inf") if candidate.get("primary_gene_max_weight_q90") is None else float(candidate["primary_gene_max_weight_q90"]),
+                float("inf") if candidate.get("best_error") is None else float(candidate["best_error"]),
             ),
         )
         selected["selection_target_tolerance_log"] = float(tolerance_log)
@@ -2844,17 +2883,17 @@ def _select_phi_candidate(
         size_error = candidate.get("target_gene_effective_support_error_log")
         size_error = float("inf") if size_error is None else float(size_error)
         fit_violation = 0.0
-        if fit_limit is not None and candidate.get("best_error") is not None:
-            fit_violation = max(0.0, float(candidate["best_error"]) - float(fit_limit))
+        if fit_warning_limit is not None and candidate.get("best_error") is not None:
+            fit_violation = max(0.0, float(candidate["best_error"]) - float(fit_warning_limit))
         return (
             violation_count,
             1 if bool(candidate.get("capped", False)) else 0,
             max(0.0, float(candidate.get("redundancy_q90", 0.0)) - float(max_redundancy_q90)),
             max(0.0, float(candidate.get("redundancy_max", 0.0)) - float(max_redundancy)),
             max(0.0, float(min_run_support) - float(candidate.get("run_support", 0.0))),
-            fit_violation,
             size_error,
             -float(candidate.get("phi", 0.0)),
+            fit_violation,
         )
 
     selected = min(candidates, key=_fallback_sort_key)
@@ -2879,18 +2918,24 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
         "tail_fraction",
         "filtered_fraction",
         "mass_floor_frac",
+        "primary_mass_floor",
+        "secondary_mass_floor",
         "metric_factor_scope",
         "max_mass_fraction",
         "top5_mass_fraction",
         "primary_gene_effective_support_median",
         "primary_gene_effective_support_q25",
         "primary_gene_effective_support_q75",
+        "primary_gene_max_jaccard_vs_all_q90",
         "primary_gene_max_weight_q90",
         "primary_gene_top5_weight_fraction_median",
         "target_gene_effective_support",
         "target_gene_effective_support_error_log",
         "target_gene_effective_support_ratio",
+        "selection_fit_warning_limit",
+        "selection_severe_fit_limit",
         "selection_violations",
+        "selection_warnings",
         "selection_target_tolerance_log",
         "selection_target_in_tolerance_size",
         "capped",
@@ -2951,18 +2996,24 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
                 "tail_fraction": float(candidate.get("tail_fraction", 0.0)),
                 "filtered_fraction": float(candidate.get("filtered_fraction", 0.0)),
                 "mass_floor_frac": float(candidate.get("mass_floor_frac", _DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC)),
+                "primary_mass_floor": candidate.get("primary_mass_floor"),
+                "secondary_mass_floor": candidate.get("secondary_mass_floor"),
                 "metric_factor_scope": str(candidate.get("metric_factor_scope", "primary")),
                 "max_mass_fraction": float(candidate.get("max_mass_fraction", 0.0)),
                 "top5_mass_fraction": float(candidate.get("top5_mass_fraction", 0.0)),
                 "primary_gene_effective_support_median": candidate.get("primary_gene_effective_support_median"),
                 "primary_gene_effective_support_q25": candidate.get("primary_gene_effective_support_q25"),
                 "primary_gene_effective_support_q75": candidate.get("primary_gene_effective_support_q75"),
+                "primary_gene_max_jaccard_vs_all_q90": candidate.get("primary_gene_max_jaccard_vs_all_q90"),
                 "primary_gene_max_weight_q90": candidate.get("primary_gene_max_weight_q90"),
                 "primary_gene_top5_weight_fraction_median": candidate.get("primary_gene_top5_weight_fraction_median"),
                 "target_gene_effective_support": candidate.get("target_gene_effective_support"),
                 "target_gene_effective_support_error_log": candidate.get("target_gene_effective_support_error_log"),
                 "target_gene_effective_support_ratio": candidate.get("target_gene_effective_support_ratio"),
+                "selection_fit_warning_limit": candidate.get("selection_fit_warning_limit"),
+                "selection_severe_fit_limit": candidate.get("selection_severe_fit_limit"),
                 "selection_violations": candidate.get("selection_violations", ""),
+                "selection_warnings": candidate.get("selection_warnings", ""),
                 "selection_target_tolerance_log": candidate.get("selection_target_tolerance_log"),
                 "selection_target_in_tolerance_size": candidate.get("selection_target_in_tolerance_size"),
                 "capped": bool(candidate.get("capped", False)),
@@ -3011,8 +3062,11 @@ def _write_phi_factor_metrics_report(report_path, candidates, *, selected_phi):
         "candidate_primary_gene_effective_support_median",
         "candidate_primary_gene_effective_support_q25",
         "candidate_primary_gene_effective_support_q75",
+        "candidate_primary_gene_max_jaccard_vs_all_q90",
         "candidate_primary_gene_max_weight_q90",
         "candidate_primary_gene_top5_weight_fraction_median",
+        "candidate_primary_mass_floor",
+        "candidate_secondary_mass_floor",
         "candidate_target_gene_effective_support_error_log",
         "candidate_target_gene_effective_support_ratio",
     ]
@@ -3024,8 +3078,11 @@ def _write_phi_factor_metrics_report(report_path, candidates, *, selected_phi):
                 "" if candidate.get("primary_gene_effective_support_median") is None else "%.12g" % float(candidate["primary_gene_effective_support_median"]),
                 "" if candidate.get("primary_gene_effective_support_q25") is None else "%.12g" % float(candidate["primary_gene_effective_support_q25"]),
                 "" if candidate.get("primary_gene_effective_support_q75") is None else "%.12g" % float(candidate["primary_gene_effective_support_q75"]),
+                "" if candidate.get("primary_gene_max_jaccard_vs_all_q90") is None else "%.12g" % float(candidate["primary_gene_max_jaccard_vs_all_q90"]),
                 "" if candidate.get("primary_gene_max_weight_q90") is None else "%.12g" % float(candidate["primary_gene_max_weight_q90"]),
                 "" if candidate.get("primary_gene_top5_weight_fraction_median") is None else "%.12g" % float(candidate["primary_gene_top5_weight_fraction_median"]),
+                "" if candidate.get("primary_mass_floor") is None else "%.12g" % float(candidate["primary_mass_floor"]),
+                "" if candidate.get("secondary_mass_floor") is None else "%.12g" % float(candidate["secondary_mass_floor"]),
                 "" if candidate.get("target_gene_effective_support_error_log") is None else "%.12g" % float(candidate["target_gene_effective_support_error_log"]),
                 "" if candidate.get("target_gene_effective_support_ratio") is None else "%.12g" % float(candidate["target_gene_effective_support_ratio"]),
             ]
@@ -3056,7 +3113,8 @@ def _record_phi_search_params(
     runs_per_step,
     min_run_support,
     min_stability,
-    max_fit_loss_frac,
+    fit_loss_warning_frac,
+    max_severe_fit_loss_frac,
     target_gene_effective_support,
     size_tolerance_frac,
     min_primary_factors,
@@ -3080,7 +3138,8 @@ def _record_phi_search_params(
             "learn_phi_runs_per_step": int(runs_per_step),
             "learn_phi_min_run_support": float(min_run_support),
             "learn_phi_min_stability": float(min_stability),
-            "learn_phi_max_fit_loss_frac": float(max_fit_loss_frac),
+            "learn_phi_fit_loss_warning_frac": float(fit_loss_warning_frac),
+            "learn_phi_max_severe_fit_loss_frac": float(max_severe_fit_loss_frac),
             "learn_phi_target_gene_effective_support": float(target_gene_effective_support),
             "learn_phi_size_tolerance_frac": float(size_tolerance_frac),
             "learn_phi_min_primary_factors": int(min_primary_factors),
@@ -3103,10 +3162,16 @@ def _record_phi_search_params(
             "learn_phi_selected_primary_gene_effective_support_median": selected_candidate.get("primary_gene_effective_support_median"),
             "learn_phi_selected_primary_gene_effective_support_q25": selected_candidate.get("primary_gene_effective_support_q25"),
             "learn_phi_selected_primary_gene_effective_support_q75": selected_candidate.get("primary_gene_effective_support_q75"),
+            "learn_phi_selected_primary_gene_max_jaccard_vs_all_q90": selected_candidate.get("primary_gene_max_jaccard_vs_all_q90"),
             "learn_phi_selected_primary_gene_max_weight_q90": selected_candidate.get("primary_gene_max_weight_q90"),
             "learn_phi_selected_primary_gene_top5_weight_fraction_median": selected_candidate.get("primary_gene_top5_weight_fraction_median"),
             "learn_phi_selected_target_gene_effective_support_error_log": selected_candidate.get("target_gene_effective_support_error_log"),
             "learn_phi_selected_target_gene_effective_support_ratio": selected_candidate.get("target_gene_effective_support_ratio"),
+            "learn_phi_selected_selection_fit_warning_limit": selected_candidate.get("selection_fit_warning_limit"),
+            "learn_phi_selected_selection_severe_fit_limit": selected_candidate.get("selection_severe_fit_limit"),
+            "learn_phi_selected_selection_warnings": selected_candidate.get("selection_warnings", ""),
+            "learn_phi_selected_primary_mass_floor": selected_candidate.get("primary_mass_floor"),
+            "learn_phi_selected_secondary_mass_floor": selected_candidate.get("secondary_mass_floor"),
         },
         overwrite=True,
     )
@@ -3126,12 +3191,18 @@ def _record_phi_search_params(
         "learn_phi_candidate_primary_gene_effective_support_median": "primary_gene_effective_support_median",
         "learn_phi_candidate_primary_gene_effective_support_q25": "primary_gene_effective_support_q25",
         "learn_phi_candidate_primary_gene_effective_support_q75": "primary_gene_effective_support_q75",
+        "learn_phi_candidate_primary_gene_max_jaccard_vs_all_q90": "primary_gene_max_jaccard_vs_all_q90",
         "learn_phi_candidate_primary_gene_max_weight_q90": "primary_gene_max_weight_q90",
         "learn_phi_candidate_primary_gene_top5_weight_fraction_median": "primary_gene_top5_weight_fraction_median",
+        "learn_phi_candidate_primary_mass_floor": "primary_mass_floor",
+        "learn_phi_candidate_secondary_mass_floor": "secondary_mass_floor",
         "learn_phi_candidate_target_gene_effective_support": "target_gene_effective_support",
         "learn_phi_candidate_target_gene_effective_support_error_log": "target_gene_effective_support_error_log",
         "learn_phi_candidate_target_gene_effective_support_ratio": "target_gene_effective_support_ratio",
+        "learn_phi_candidate_selection_fit_warning_limit": "selection_fit_warning_limit",
+        "learn_phi_candidate_selection_severe_fit_limit": "selection_severe_fit_limit",
         "learn_phi_candidate_selection_violations": "selection_violations",
+        "learn_phi_candidate_selection_warnings": "selection_warnings",
         "learn_phi_candidate_capped": "capped",
         "learn_phi_candidate_num_modal_runs": "num_modal_runs",
         "learn_phi_candidate_run_support": "run_support",
@@ -3174,7 +3245,8 @@ def _learn_phi(
     max_redundancy_q90,
     min_run_support,
     min_stability,
-    max_fit_loss_frac,
+    fit_loss_warning_frac,
+    max_severe_fit_loss_frac,
     target_gene_effective_support,
     size_tolerance_frac,
     min_primary_factors,
@@ -3369,7 +3441,8 @@ def _learn_phi(
         max_redundancy_q90=max_redundancy_q90,
         min_run_support=min_run_support,
         min_stability=min_stability,
-        max_fit_loss_frac=max_fit_loss_frac,
+        fit_loss_warning_frac=fit_loss_warning_frac,
+        max_severe_fit_loss_frac=max_severe_fit_loss_frac,
         target_gene_effective_support=target_gene_effective_support,
         size_tolerance_frac=size_tolerance_frac,
         min_primary_factors=min_primary_factors,
@@ -3389,7 +3462,8 @@ def _learn_phi(
         runs_per_step=runs_per_step,
         min_run_support=min_run_support,
         min_stability=min_stability,
-        max_fit_loss_frac=max_fit_loss_frac,
+        fit_loss_warning_frac=fit_loss_warning_frac,
+        max_severe_fit_loss_frac=max_severe_fit_loss_frac,
         target_gene_effective_support=target_gene_effective_support,
         size_tolerance_frac=size_tolerance_frac,
         min_primary_factors=min_primary_factors,
@@ -3414,7 +3488,7 @@ def _learn_phi(
         selected_phi=selected_candidate["phi"],
     )
     log_fn(
-        "Selected phi %.6g by target-size automatic tuning [%s]: target_gene_effective_support=%.6g, primary_gene_effective_support_median=%s, target_error_log=%s, backend=%s, K_eff=%d, K_mass=%.3g, primary_factors=%d, capped=%s, pool=%s, metric_factor_scope=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, stability=%s, run_support=%.3g"
+        "Selected phi %.6g by target-size automatic tuning [%s]: target_gene_effective_support=%.6g, primary_gene_effective_support_median=%s, target_error_log=%s, backend=%s, K_eff=%d, K_mass=%.3g, primary_factors=%d, capped=%s, pool=%s, metric_factor_scope=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, gene_max_jaccard_q90=%s, primary_gene_max_weight_q90=%s, stability=%s, run_support=%.3g, selection_warnings=%s"
         % (
             float(selected_candidate["phi"]),
             selection_reason,
@@ -3431,8 +3505,11 @@ def _learn_phi(
             str(selected_candidate.get("redundancy_basis", "unknown")),
             float(selected_candidate.get("redundancy_max", selected_candidate.get("redundancy", 0.0))),
             float(selected_candidate.get("redundancy_q90", 0.0)),
+            "NA" if selected_candidate.get("primary_gene_max_jaccard_vs_all_q90") is None else "%.3g" % float(selected_candidate["primary_gene_max_jaccard_vs_all_q90"]),
+            "NA" if selected_candidate.get("primary_gene_max_weight_q90") is None else "%.3g" % float(selected_candidate["primary_gene_max_weight_q90"]),
             "NA" if selected_candidate.get("stability") is None else "%.3g" % float(selected_candidate["stability"]),
             float(selected_candidate["run_support"]),
+            str(selected_candidate.get("selection_warnings", "")),
         ),
         info_level,
     )
@@ -4680,7 +4757,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_max_fit_loss_frac=0.05, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -4730,8 +4807,10 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bail("--learn-phi-min-run-support must be in (0, 1]")
         if not (0 < learn_phi_min_stability <= 1):
             bail("--learn-phi-min-stability must be in (0, 1]")
-        if learn_phi_max_fit_loss_frac < 0:
-            bail("--learn-phi-max-fit-loss-frac must be >= 0")
+        if learn_phi_fit_loss_warning_frac < 0:
+            bail("--learn-phi-fit-loss-warning-frac must be >= 0")
+        if learn_phi_max_severe_fit_loss_frac < 0:
+            bail("--learn-phi-max-severe-fit-loss-frac must be >= 0")
         if learn_phi_size_tolerance_frac < 0:
             bail("--learn-phi-size-tolerance-frac must be nonnegative")
         if learn_phi_min_primary_factors < 1:
@@ -4849,7 +4928,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             learn_phi_runs_per_step=learn_phi_runs_per_step,
             learn_phi_min_run_support=learn_phi_min_run_support,
             learn_phi_min_stability=learn_phi_min_stability,
-            learn_phi_max_fit_loss_frac=learn_phi_max_fit_loss_frac,
+            learn_phi_fit_loss_warning_frac=learn_phi_fit_loss_warning_frac,
+            learn_phi_max_severe_fit_loss_frac=learn_phi_max_severe_fit_loss_frac,
             learn_phi_target_gene_effective_support=learn_phi_target_gene_effective_support,
             learn_phi_size_tolerance_frac=learn_phi_size_tolerance_frac,
             learn_phi_min_primary_factors=learn_phi_min_primary_factors,
@@ -4947,7 +5027,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             max_redundancy_q90=learn_phi_max_redundancy_q90,
             min_run_support=learn_phi_min_run_support,
             min_stability=learn_phi_min_stability,
-            max_fit_loss_frac=learn_phi_max_fit_loss_frac,
+            fit_loss_warning_frac=learn_phi_fit_loss_warning_frac,
+            max_severe_fit_loss_frac=learn_phi_max_severe_fit_loss_frac,
             target_gene_effective_support=float(learn_phi_target_gene_effective_support),
             size_tolerance_frac=float(learn_phi_size_tolerance_frac),
             min_primary_factors=int(learn_phi_min_primary_factors),

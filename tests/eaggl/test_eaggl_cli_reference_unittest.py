@@ -343,8 +343,10 @@ class EagglCliReferenceTest(unittest.TestCase):
             "0.7",
             "--learn-phi-min-stability",
             "0.9",
-            "--learn-phi-max-fit-loss-frac",
+            "--learn-phi-fit-loss-warning-frac",
             "0.03",
+            "--learn-phi-max-severe-fit-loss-frac",
+            "0.9",
             "--learn-phi-target-gene-effective-support",
             "25",
             "--learn-phi-size-tolerance-frac",
@@ -484,7 +486,8 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_runs_per_step"], 7)
         self.assertEqual(opts["learn_phi_min_run_support"], 0.7)
         self.assertEqual(opts["learn_phi_min_stability"], 0.9)
-        self.assertEqual(opts["learn_phi_max_fit_loss_frac"], 0.03)
+        self.assertEqual(opts["learn_phi_fit_loss_warning_frac"], 0.03)
+        self.assertEqual(opts["learn_phi_max_severe_fit_loss_frac"], 0.9)
         self.assertEqual(opts["learn_phi_target_gene_effective_support"], 25.0)
         self.assertEqual(opts["learn_phi_size_tolerance_frac"], 0.2)
         self.assertEqual(opts["learn_phi_min_primary_factors"], 4)
@@ -564,6 +567,20 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_prune_genes_num"], 1000)
         self.assertEqual(opts["learn_phi_prune_gene_sets_num"], 1000)
 
+    def test_reference_legacy_fit_loss_flag_alias_maps_to_warning_threshold(self) -> None:
+        proc = self._run(
+            "factor",
+            "--learn-phi",
+            "--learn-phi-max-fit-loss-frac",
+            "0.07",
+            "--learn-phi-target-gene-effective-support",
+            "25",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        opts = json.loads(proc.stdout)["options"]
+        self.assertEqual(opts["learn_phi_fit_loss_warning_frac"], 0.07)
+
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
         documented_flags = sorted(set(re.findall(r"`(--[A-Za-z0-9-]+)`", self.doc_path.read_text(encoding="utf-8"))))
         flag_to_tests = {
@@ -630,7 +647,9 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-runs-per-step": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-min-run-support": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-min-stability": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--learn-phi-max-fit-loss-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-fit-loss-warning-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-max-fit-loss-frac": ["test_reference_legacy_fit_loss_flag_alias_maps_to_warning_threshold"],
+            "--learn-phi-max-severe-fit-loss-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-target-gene-effective-support": ["test_reference_factor_and_labeling_flags_round_trip", "test_reference_learn_phi_defaults_include_sentinel_prune"],
             "--learn-phi-size-tolerance-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-min-primary-factors": ["test_reference_factor_and_labeling_flags_round_trip"],
@@ -640,6 +659,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-metric-factor-scope": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-mass-floor-frac": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-report-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-phi-metrics-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-phi-factors-out": ["test_reference_factor_and_labeling_flags_round_trip"],

@@ -3090,6 +3090,8 @@ class PigeanState(object):
 
                     if self.gene_label_map is not None and gene in self.gene_label_map:
                         gene = self.gene_label_map[gene]
+                    if gene == "NA":
+                        continue
 
                     if hold_out_chrom is not None and gene in self.gene_to_chrom and self.gene_to_chrom[gene] == hold_out_chrom:
                         continue
@@ -3130,7 +3132,7 @@ class PigeanState(object):
             genes = []
             gene_to_ind = {}
 
-        positive_controls = np.array([np.nan] * len(genes))
+        positive_controls = np.zeros(len(genes), dtype=float)
         
         extra_positive_controls = []
         extra_genes = []
@@ -5367,8 +5369,8 @@ class PigeanState(object):
         if init_betas_t is not None:
             sampled_beta_t = init_betas_t
         else:
-            initial_sd = np.std(beta_tildes_m)
-            if initial_sd == 0:
+            initial_sd = np.nanstd(np.nan_to_num(beta_tildes_m, nan=0.0, posinf=0.0, neginf=0.0))
+            if not np.isfinite(initial_sd) or initial_sd <= 0:
                 initial_sd = 1
             sampled_beta_t = scipy.stats.norm.rvs(0, initial_sd, chain_parallel_gene_set_shape)
 

@@ -471,6 +471,8 @@ def load_gene_ids_from_file(
             gene = cols[id_col]
             if gene_label_map is not None and gene in gene_label_map:
                 gene = gene_label_map[gene]
+            if gene == "NA":
+                continue
             if gene in seen:
                 continue
             seen.add(gene)

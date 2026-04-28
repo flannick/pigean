@@ -39,7 +39,8 @@ def _options(**overrides):
         learn_phi_runs_per_step=1,
         learn_phi_min_run_support=0.6,
         learn_phi_min_stability=0.85,
-        learn_phi_max_fit_loss_frac=0.05,
+        learn_phi_fit_loss_warning_frac=0.05,
+        learn_phi_max_severe_fit_loss_frac=1.0,
         learn_phi_target_gene_effective_support=None,
         learn_phi_size_tolerance_frac=0.25,
         learn_phi_min_primary_factors=3,
@@ -394,7 +395,8 @@ class FactorStageHelpersTest(unittest.TestCase):
             learn_phi_runs_per_step=7,
             learn_phi_min_run_support=0.7,
             learn_phi_min_stability=0.9,
-            learn_phi_max_fit_loss_frac=0.03,
+            learn_phi_fit_loss_warning_frac=0.03,
+            learn_phi_max_severe_fit_loss_frac=0.9,
             learn_phi_target_gene_effective_support=25.0,
             learn_phi_size_tolerance_frac=0.2,
             learn_phi_min_primary_factors=4,
@@ -429,7 +431,8 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_runs_per_step, 7)
         self.assertEqual(cfg.learn_phi_min_run_support, 0.7)
         self.assertEqual(cfg.learn_phi_min_stability, 0.9)
-        self.assertEqual(cfg.learn_phi_max_fit_loss_frac, 0.03)
+        self.assertEqual(cfg.learn_phi_fit_loss_warning_frac, 0.03)
+        self.assertEqual(cfg.learn_phi_max_severe_fit_loss_frac, 0.9)
         self.assertEqual(cfg.learn_phi_target_gene_effective_support, 25.0)
         self.assertEqual(cfg.learn_phi_size_tolerance_frac, 0.2)
         self.assertEqual(cfg.learn_phi_min_primary_factors, 4)

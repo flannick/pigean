@@ -85,6 +85,7 @@ class T2DInputSubsetMatrixTest(unittest.TestCase):
     def _run_subset(self, name: str, *, gwas: bool, exomes: bool, pc_mode: str | None, counts: bool):
         out_prefix = self.tmpdir / name
         cmd = self._base_cmd(out_prefix)
+        needs_explicit_gene_universe = bool(exomes or counts)
         if gwas:
             cmd.extend(
                 [
@@ -116,6 +117,14 @@ class T2DInputSubsetMatrixTest(unittest.TestCase):
                 ]
             )
         if pc_mode is not None:
+            if gwas or needs_explicit_gene_universe:
+                all_path = self.model_data / "NCBI37.3.plink.gene.loc"
+                all_id_col = "6"
+                all_no_header = True
+            else:
+                all_path = self.fixture_root / "toy_positive_controls_all.tsv"
+                all_id_col = "gene"
+                all_no_header = False
             if pc_mode in {"list", "both"}:
                 cmd.extend(["--positive-controls-list", self.positive_controls_csv])
             if pc_mode in {"file", "both"}:
@@ -129,9 +138,21 @@ class T2DInputSubsetMatrixTest(unittest.TestCase):
             cmd.extend(
                 [
                     "--positive-controls-all-in",
-                    str(self.fixture_root / "toy_positive_controls_all.tsv"),
+                    str(all_path),
                     "--positive-controls-all-id-col",
-                    "gene",
+                    all_id_col,
+                ]
+            )
+            if all_no_header:
+                cmd.append("--positive-controls-all-no-header")
+        if needs_explicit_gene_universe and pc_mode is None:
+            cmd.extend(
+                [
+                    "--gene-universe-in",
+                    str(self.model_data / "NCBI37.3.plink.gene.loc"),
+                    "--gene-universe-id-col",
+                    "6",
+                    "--gene-universe-no-header",
                 ]
             )
         if counts:
@@ -196,7 +217,10 @@ class T2DInputSubsetMatrixTest(unittest.TestCase):
                 if exomes:
                     self.assertIn("Reading --exomes-in file", combined)
                 if pc_mode is not None:
-                    self.assertIn("Reading --gene-list-in file", combined)
+                    self.assertTrue(
+                        ("Reading --gene-list-in file" in combined)
+                        or ("compatibility alias --gene-list-all-in/--positive-controls-all-in as --gene-universe-in" in combined)
+                    )
                 if counts:
                     self.assertIn("Reading case counts from", combined)
                     self.assertIn("Reading ctrl counts from", combined)
@@ -264,7 +288,7 @@ class T2DInputSubsetMatrixTest(unittest.TestCase):
             float(both_rows["HNF1A"]["positive_control"]),
             places=9,
         )
-        self.assertEqual(float(list_rows["TCF7L2"]["positive_control"]), 0.0)
+        self.assertEqual(list_rows["TCF7L2"]["positive_control"], "NA")
         self.assertGreater(float(both_rows["TCF7L2"]["positive_control"]), 0.0)
 
 

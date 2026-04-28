@@ -319,6 +319,8 @@ def run_multi_y_pipeline(services, options, mode):
                     trait_options.gene_stats_log_bf_col = "log_bf"
                     trait_options.gene_stats_combined_col = "combined" if batch_combined is not None else None
                     trait_options.gene_stats_prior_col = "prior" if batch_priors is not None else None
+                    trait_options.gene_universe_from_x = True
+                    trait_options.gene_universe_from_y = False
                     trait_options.params_out = None
                     trait_gene_set_stats_out = os.path.join(tmpdir, "%06d_%s.gene_set_stats.out" % (begin + batch_offset, trait_safe))
                     trait_options.gene_set_stats_out = trait_gene_set_stats_out

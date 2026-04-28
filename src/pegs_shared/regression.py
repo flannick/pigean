@@ -21,6 +21,7 @@ def finalize_regression_outputs(beta_tildes, ses, se_inflation_factors, *, log_f
 
         ses[empty_mask] = max_se * 100 if max_se > 0 else 100
         beta_tildes[ses <= 0] = 0
+        ses[ses <= 0] = max_se * 100 if max_se > 0 else 100
 
     z_scores = np.zeros(beta_tildes.shape)
     ses_positive_mask = ses > 0

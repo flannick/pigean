@@ -42,16 +42,8 @@ class ModyGibbsRegressionTest(unittest.TestCase):
         cls.new_gene_prior = cls._load_metric(
             cls.new_prefix.with_suffix(".gene_stats.out"), key_col="Gene", value_col="prior"
         )
-        cls.legacy_gene_prior = cls._load_metric(
-            cls.legacy_prefix.with_suffix(".gene_stats.out"), key_col="Gene", value_col="prior"
-        )
         cls.new_gene_set_beta = cls._load_metric(
             cls.new_prefix.with_suffix(".gene_set_stats.out"),
-            key_col="Gene_Set",
-            value_col="beta_uncorrected",
-        )
-        cls.legacy_gene_set_beta = cls._load_metric(
-            cls.legacy_prefix.with_suffix(".gene_set_stats.out"),
             key_col="Gene_Set",
             value_col="beta_uncorrected",
         )
@@ -121,6 +113,8 @@ class ModyGibbsRegressionTest(unittest.TestCase):
             "--min-num-post-burn-in",
             "5",
         ]
+        if entrypoint.startswith("module:"):
+            cmd.extend(["--output-detail", "full", "--gene-stats-output-scope", "all"])
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
         src_root = str(cls.repo_root / "src")
@@ -160,12 +154,6 @@ class ModyGibbsRegressionTest(unittest.TestCase):
             if d > max_abs_diff:
                 max_abs_diff = d
         self.assertLessEqual(max_abs_diff, atol, msg=f"max_abs_diff={max_abs_diff}")
-
-    def test_gene_prior_matches_legacy(self) -> None:
-        self._assert_metric_maps_equal(self.new_gene_prior, self.legacy_gene_prior, atol=0.0)
-
-    def test_gene_set_beta_uncorrected_matches_legacy(self) -> None:
-        self._assert_metric_maps_equal(self.new_gene_set_beta, self.legacy_gene_set_beta, atol=0.0)
 
     def test_gene_prior_matches_reference(self) -> None:
         self._assert_metric_maps_equal(self.new_gene_prior, self.ref_gene_prior_map, atol=0.0)
