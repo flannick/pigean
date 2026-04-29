@@ -141,6 +141,16 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--factor-phewas-from-gene-phewas-stats-in"]["public_visibility"], "hidden")
 
         self.assertEqual(metadata["--factor-runs"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--discovery-model"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--gene-gene-beta-source"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-pair-prior"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-pair-prior-effective-size"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-logbf-base"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-diagonal-weight"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-matrix-floor"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-excess-probability"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-row-sum-cap"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-sparsity"]["public_visibility"], "expert")
         self.assertEqual(metadata["--consensus-nmf"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-max-redundancy"]["public_visibility"], "normal")
@@ -218,7 +228,23 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-target-gene-effective-support must be positive", err)
+
+    def test_invalid_gene_gene_settings_return_usage_error(self) -> None:
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-pair-prior", "1.0")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-gene-pair-prior must be in (0, 1)", err)
+
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--factor-backend", "blockwise_global_w")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--discovery-model gene_by_gene currently requires --factor-backend full", err)
         self.assertNotIn("Traceback", err)
+
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-matrix-floor", "-1")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-gene-matrix-floor must be >= 0", err)
 
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy", "1.2")
         self.assertEqual(proc.returncode, 2)
@@ -231,6 +257,32 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-redundancy-q90 must be in (0, 1]", err)
         self.assertNotIn("Traceback", err)
+
+    def test_gene_by_gene_uses_smaller_default_initial_phi_unless_overridden(self) -> None:
+        proc = self._run(
+            "factor",
+            "--deterministic",
+            "--discovery-model",
+            "gene_by_gene",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["discovery_model"], "gene_by_gene")
+        self.assertEqual(payload["options"]["phi"], 0.01)
+
+        proc = self._run(
+            "factor",
+            "--deterministic",
+            "--discovery-model",
+            "gene_by_gene",
+            "--phi",
+            "0.002",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["phi"], 0.002)
 
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-size-tolerance-frac", "-0.1")
         self.assertEqual(proc.returncode, 2)

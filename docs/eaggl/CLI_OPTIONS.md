@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `260`
+- Total options: `272`
 - `method_required`: `16`
-- `method_optional`: `151`
+- `method_optional`: `163`
 - `engineering`: `76`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `212`
+- visibility `expert`: `223`
 - visibility `hidden`: `8`
-- visibility `normal`: `40`
+- visibility `normal`: `41`
 
 ## Method Required
 
@@ -62,6 +62,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--discovery-model` | `normal` | `yes` | `core_help` | `discovery_model` | `gene_by_annotation` | - |
 | `--discovery-redundancy-weighting-mode` | `expert` | `yes` | `expert_help` | `discovery_redundancy_weighting_mode` | `effective_size` | - |
 | `--discovery-similarity-threshold` | `expert` | `yes` | `expert_help` | `discovery_similarity_threshold` | `0.35` | similarity threshold used to assign retained gene sets to discovery families |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
@@ -90,6 +91,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
 | `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `1` | - |
+| `--gene-gene-beta-source` | `expert` | `yes` | `advanced_workflows` | `gene_gene_beta_source` | `beta` | - |
+| `--gene-gene-diagonal-weight` | `expert` | `yes` | `advanced_workflows` | `gene_gene_diagonal_weight` | `0.0` | - |
+| `--gene-gene-excess-probability` | `expert` | `yes` | `advanced_workflows` | `gene_gene_excess_probability` | `True` | - |
+| `--gene-gene-logbf-base` | `expert` | `yes` | `advanced_workflows` | `gene_gene_logbf_base` | `natural` | - |
+| `--gene-gene-matrix-floor` | `expert` | `yes` | `expert_help` | `gene_gene_matrix_floor` | `0.001` | - |
+| `--gene-gene-pair-prior` | `expert` | `yes` | `advanced_workflows` | `gene_gene_pair_prior` | `None` | - |
+| `--gene-gene-pair-prior-effective-size` | `expert` | `yes` | `advanced_workflows` | `gene_gene_pair_prior_effective_size` | `None` | - |
+| `--gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `True` | - |
+| `--gene-gene-sparsity` | `expert` | `yes` | `advanced_workflows` | `gene_gene_sparsity` | `0.0` | - |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | - |
@@ -157,6 +167,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--no-discovery-redundancy-weighting` | `expert` | `yes` | `expert_help` | `no_discovery_redundancy_weighting` | `False` | - |
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
+| `--no-gene-gene-excess-probability` | `expert` | `yes` | `advanced_workflows` | `gene_gene_excess_probability` | `-` | - |
+| `--no-gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `-` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable canonical trait linkage even when trait inputs are available |

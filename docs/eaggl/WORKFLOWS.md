@@ -42,6 +42,11 @@ Discovery-stage note:
 3. Discovery-family diagnostics now include `discovery_family_mean_similarity` and `discovery_family_effective_size` alongside `discovery_family_size` and `discovery_weight`.
 4. The default discovery weighting is `effective_size`, which uses representative support multiplied by an effective family size instead of the removed family-average weighting.
 5. All retained gene sets are still projected and written after discovery, so adding correlated annotations mostly deepens annotation rather than redefining `W`.
+6. `--discovery-model gene_by_annotation` is the default retained-annotation workflow described above.
+7. `--discovery-model gene_by_gene` instead builds a retained-gene by retained-gene pairwise matrix from corrected annotation betas, fits a symmetric nonnegative factorization in gene space, and then projects retained gene sets onto the learned gene factors.
+8. In `gene_by_gene` mode, all retained gene sets contribute to pairwise evidence; discovery-family leader subsetting and redundancy weighting are ignored.
+9. In `gene_by_gene` mode, v1 currently requires `--factor-backend full`, `--learn-phi-backend sentinel_pruned`, and the default transposed factor matrix.
+10. In `gene_by_gene` mode, if `--phi` is not explicitly set, EAGGL starts factor learning and any `--learn-phi` search from `0.01` rather than `0.05`.
 
 Debug workflow selection without running factorization:
 
@@ -78,6 +83,13 @@ Likewise, the final factorization can run with either:
    - the original in-memory solve
 2. `--factor-backend blockwise_global_w`
    - a blockwise solve over the full retained gene-set collection with one shared global gene-factor basis
+
+The symmetric `--discovery-model gene_by_gene` mode is separate from those rectangular backends:
+
+1. it uses corrected `beta` values by default (`--gene-gene-beta-source beta`)
+2. it converts retained shared-annotation evidence into pairwise probabilities before factoring
+3. it currently supports only `--factor-backend full`
+4. it ignores discovery-family subsetting and weighting flags because pairwise evidence is built from all retained gene sets
 
 Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffle-blocks`, `--blockwise-warm-start`, `--blockwise-max-blocks`, and `--blockwise-report-out` to tune or audit the blockwise backend. When `--learn-phi-backend blockwise_global_w` is used, neighboring phi candidates are warm-started from the closest previously fitted phi on the log scale when possible. Use `--factor-phi-metrics-out`, `--factor-phi-factors-out`, `--factor-phi-gene-set-clusters-out`, and `--factor-phi-gene-clusters-out` when you want audit tables for every tested phi candidate. Cluster output rows whose maximum raw factor loading is below `--cluster-row-min-max-loading` are omitted from reported cluster files.
 
@@ -186,6 +198,19 @@ $PYTHON -m eaggl factor \
   --gene-stats-in /path/to/gene_stats.out \
   --gene-set-stats-in /path/to/gene_set_stats.out \
   --factors-out results/F1.factors.out
+```
+
+Gene-by-gene variant:
+
+```bash
+$PYTHON -m eaggl factor \
+  --X-in /path/to/X.tsv.gz \
+  --gene-stats-in /path/to/gene_stats.out \
+  --gene-set-stats-in /path/to/gene_set_stats.out \
+  --discovery-model gene_by_gene \
+  --factor-backend full \
+  --learn-phi-backend sentinel_pruned \
+  --factors-out results/F1.gene_gene.factors.out
 ```
 
 ### F2: Standalone Gene-list Enrichment

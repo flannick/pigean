@@ -55,6 +55,16 @@ class FactorExecutionConfig:
     phi: float
     alpha0: float
     beta0: float
+    discovery_model: str = "gene_by_annotation"
+    gene_gene_beta_source: str = "beta"
+    gene_gene_pair_prior: float | None = None
+    gene_gene_pair_prior_effective_size: float | None = None
+    gene_gene_logbf_base: str = "natural"
+    gene_gene_diagonal_weight: float = 0.0
+    gene_gene_matrix_floor: float = 1e-3
+    gene_gene_excess_probability: bool = True
+    gene_gene_row_sum_cap: bool = True
+    gene_gene_sparsity: float = 0.0
     gene_set_filter_type: str | None = None
     gene_or_pheno_filter_type: str | None = None
     learn_phi: bool = False
@@ -145,6 +155,16 @@ class FactorExecutionConfig:
         return {
             "max_num_factors": self.max_num_factors,
             "phi": self.phi,
+            "discovery_model": self.discovery_model,
+            "gene_gene_beta_source": self.gene_gene_beta_source,
+            "gene_gene_pair_prior": self.gene_gene_pair_prior,
+            "gene_gene_pair_prior_effective_size": self.gene_gene_pair_prior_effective_size,
+            "gene_gene_logbf_base": self.gene_gene_logbf_base,
+            "gene_gene_diagonal_weight": self.gene_gene_diagonal_weight,
+            "gene_gene_matrix_floor": self.gene_gene_matrix_floor,
+            "gene_gene_excess_probability": self.gene_gene_excess_probability,
+            "gene_gene_row_sum_cap": self.gene_gene_row_sum_cap,
+            "gene_gene_sparsity": self.gene_gene_sparsity,
             "learn_phi": self.learn_phi,
             "learn_phi_max_redundancy": self.learn_phi_max_redundancy,
             "learn_phi_max_redundancy_q90": self.learn_phi_max_redundancy_q90,
@@ -918,6 +938,16 @@ def build_factor_execution_config(options, workflow, factor_inputs):
     return FactorExecutionConfig(
         max_num_factors=options.max_num_factors,
         phi=options.phi,
+        discovery_model=getattr(options, "discovery_model", "gene_by_annotation"),
+        gene_gene_beta_source=getattr(options, "gene_gene_beta_source", "beta"),
+        gene_gene_pair_prior=getattr(options, "gene_gene_pair_prior", None),
+        gene_gene_pair_prior_effective_size=getattr(options, "gene_gene_pair_prior_effective_size", None),
+        gene_gene_logbf_base=getattr(options, "gene_gene_logbf_base", "natural"),
+        gene_gene_diagonal_weight=getattr(options, "gene_gene_diagonal_weight", 0.0),
+        gene_gene_matrix_floor=getattr(options, "gene_gene_matrix_floor", 1e-3),
+        gene_gene_excess_probability=getattr(options, "gene_gene_excess_probability", True),
+        gene_gene_row_sum_cap=getattr(options, "gene_gene_row_sum_cap", True),
+        gene_gene_sparsity=getattr(options, "gene_gene_sparsity", 0.0),
         learn_phi=options.learn_phi,
         learn_phi_max_redundancy=options.learn_phi_max_redundancy,
         learn_phi_max_redundancy_q90=options.learn_phi_max_redundancy_q90,

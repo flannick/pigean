@@ -1761,6 +1761,152 @@ class EagglState(object):
         # Return the results
         return W, H, n_like[-1], n_evid[-1], n_lambda[-1], n_error[-1]
 
+    def _bayes_sym_nmf_l2_extension(
+        self,
+        M,
+        pair_weights=None,
+        K0=30,
+        phi=0.05,
+        a0=10,
+        b0=None,
+        max_iter=100,
+        rel_tol=1e-4,
+        min_lambda_threshold=1e-3,
+        seed=None,
+        row_sum_cap=True,
+        sparsity=0.0,
+        diagonal_weight=0.0,
+        log_fn=None,
+    ):
+        eps = 1e-50
+        matrix = np.asarray(M, dtype=float)
+        if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+            raise ValueError("Symmetric NMF requires a square 2D matrix")
+        if seed is not None:
+            np.random.seed(int(seed))
+
+        matrix = np.nan_to_num(matrix, nan=0.0, posinf=1.0, neginf=0.0)
+        matrix = np.maximum(matrix, 0.0)
+        num_genes = int(matrix.shape[0])
+        num_factors = int(K0)
+        vmax = float(np.max(matrix)) if matrix.size > 0 else 0.0
+        scale = max(vmax, 1e-6)
+        W = np.random.random((num_genes, num_factors)) * scale
+
+        if pair_weights is None:
+            A = np.ones_like(matrix, dtype=float)
+            if diagonal_weight != 1.0:
+                np.fill_diagonal(A, float(diagonal_weight))
+        else:
+            A = np.asarray(pair_weights, dtype=float)
+            if A.shape != matrix.shape:
+                raise ValueError("pair_weights must match M shape")
+        A = np.nan_to_num(A, nan=0.0, posinf=0.0, neginf=0.0)
+        A = np.maximum(A, 0.0)
+
+        raw_mean = float(np.mean(matrix)) if matrix.size > 0 else 0.0
+        raw_std = float(np.std(matrix)) if matrix.size > 0 else 0.0
+        phi_eff = (raw_std ** 2) * float(phi)
+        C_sym = float(num_genes) / 2.0 + float(a0) + 1.0
+        if b0 is None:
+            b0 = 3.14 * (float(a0) - 1.0) * raw_mean / max(2.0 * float(max(1, K0)), eps)
+        b0 = float(max(b0, eps))
+        lambda_bound = b0 / C_sym
+        lambdak = (0.5 * np.sum(W ** 2, axis=0) + b0) / C_sym
+        lambda_cut = 1.5 * lambda_bound
+
+        delambda = 1.0
+        like = None
+        evid = None
+        error = None
+        iteration = 0
+        self.last_factorization_scale_details = {
+            "raw_mean": float(raw_mean),
+            "raw_std": float(raw_std),
+            "weighted_mean": float(raw_mean),
+            "weighted_std": float(raw_std),
+            "row_scale_min": 1.0,
+            "row_scale_median": 1.0,
+            "row_scale_mean": 1.0,
+            "row_scale_max": 1.0,
+        }
+        self.last_factorization_final_delambda = None
+        self.last_factorization_iterations = 0
+        self.last_factorization_converged = False
+        self.last_factorization_hit_iteration_cap = False
+
+        for iteration in range(1, int(max_iter) + 1):
+            R = W @ W.T
+            weighted_target = A * matrix
+            weighted_reconstruction = A * R
+            numerator = weighted_target @ W
+            denominator = weighted_reconstruction @ W + phi_eff * W / (lambdak[np.newaxis, :] + eps) + float(sparsity) + eps
+            W *= numerator / denominator
+            W = np.nan_to_num(W, nan=0.0, posinf=0.0, neginf=0.0)
+            W = np.maximum(W, 0.0)
+
+            if row_sum_cap:
+                W = np.clip(W, 0.0, 1.0)
+                row_sums = np.sum(W, axis=1)
+                over_mask = row_sums > 1.0
+                if np.any(over_mask):
+                    W[over_mask, :] /= row_sums[over_mask][:, np.newaxis]
+
+            lambdak_new = (0.5 * np.sum(W ** 2, axis=0) + b0) / C_sym
+            delambda = float(np.max(np.abs(lambdak_new - lambdak) / (lambdak + eps)))
+            lambdak = lambdak_new
+
+            R = W @ W.T
+            residual = matrix - R
+            like = float(0.5 * np.sum(A * (residual ** 2)))
+            regularization = float(
+                phi_eff
+                * np.sum((0.5 * np.sum(W ** 2, axis=0) + b0) / (lambdak + eps) + C_sym * np.log(lambdak + eps))
+                + float(sparsity) * np.sum(W)
+            )
+            evid = like + regularization
+            error = float(np.sum(A * (residual ** 2)))
+
+            if iteration % 25 == 0 or iteration == 1 or delambda < rel_tol:
+                factors_non_zero = int(np.sum(lambdak >= lambda_cut))
+                active_lambda = lambdak[lambdak >= lambda_cut]
+                lambda_source = active_lambda if active_lambda.size > 0 else lambdak
+                lambda_q10, lambda_median, lambda_q90 = np.quantile(lambda_source, [0.1, 0.5, 0.9])
+                row_support = np.sum(W > 1e-6, axis=0)
+                support_source = np.where(lambdak >= lambda_cut)[0]
+                if support_source.size > 0:
+                    row_support = row_support[support_source]
+                gene_support_median = float(np.median(row_support)) if row_support.size > 0 else 0.0
+                gene_support_q90 = float(np.quantile(row_support, 0.9)) if row_support.size > 0 else 0.0
+                if log_fn is not None:
+                    log_fn(
+                        "SymNMF iteration=%d; evid=%.3g; lik=%.3g; err=%.3g; delambda=%.3g; factors=%d; factors_non_zero=%d; lambda_q10=%.3g; lambda_median=%.3g; lambda_q90=%.3g; gene_support_median=%.3g; gene_support_q90=%.3g"
+                        % (
+                            iteration,
+                            evid,
+                            like,
+                            error,
+                            delambda,
+                            int(np.sum(np.sum(W, axis=0) != 0)),
+                            factors_non_zero,
+                            float(lambda_q10),
+                            float(lambda_median),
+                            float(lambda_q90),
+                            gene_support_median,
+                            gene_support_q90,
+                        )
+                    )
+            if delambda < rel_tol:
+                break
+
+        final_iterations = int(iteration)
+        self.last_factorization_final_delambda = float(delambda)
+        self.last_factorization_iterations = final_iterations
+        self.last_factorization_converged = bool(delambda < rel_tol)
+        self.last_factorization_hit_iteration_cap = bool(final_iterations >= int(max_iter) and delambda >= rel_tol)
+        self.last_factorization_lambda_cut = float(lambda_cut)
+        return W, like, evid, lambdak, error
+
     #this code is adapted from https://github.com/gwas-partitioning/bnmf-clustering
     def num_factors(self):
         if self.exp_lambdak is None:
@@ -1789,7 +1935,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0):
         if max_num_discovery_gene_sets is None and max_num_gene_sets is not None:
             warn("max_num_gene_sets is deprecated for factor-stage discovery; mapping it to max_num_discovery_gene_sets")
             max_num_discovery_gene_sets = max_num_gene_sets
@@ -1802,6 +1948,16 @@ class EagglState(object):
         runtime_kwargs = {
             "max_num_factors": max_num_factors,
             "phi": phi,
+            "discovery_model": discovery_model,
+            "gene_gene_beta_source": gene_gene_beta_source,
+            "gene_gene_pair_prior": gene_gene_pair_prior,
+            "gene_gene_pair_prior_effective_size": gene_gene_pair_prior_effective_size,
+            "gene_gene_logbf_base": gene_gene_logbf_base,
+            "gene_gene_diagonal_weight": gene_gene_diagonal_weight,
+            "gene_gene_matrix_floor": gene_gene_matrix_floor,
+            "gene_gene_excess_probability": gene_gene_excess_probability,
+            "gene_gene_row_sum_cap": gene_gene_row_sum_cap,
+            "gene_gene_sparsity": gene_gene_sparsity,
             "alpha0": alpha0,
             "beta0": beta0,
             "seed": seed,

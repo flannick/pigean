@@ -316,6 +316,18 @@ parser.add_option("","--label-individually",default=False,action="store_true") #
 parser.add_option("","--factor-top-loading-type",default="combined",type=str) #metric used for top genes/gene sets in factors.out and factor labels: raw, specific, or combined
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
+parser.add_option("","--discovery-model",type="choice",choices=["gene_by_annotation","gene_by_gene"],default="gene_by_annotation") #factor discovery target: rectangular gene-by-annotation or symmetric gene-by-gene
+parser.add_option("","--gene-gene-beta-source",type="choice",choices=["beta","beta_uncorrected"],default="beta") #gene-by-gene mode only: corrected beta by default; beta_uncorrected is diagnostic
+parser.add_option("","--gene-gene-pair-prior",default=None,type=float) #gene-by-gene mode only: direct pairwise same-mechanism prior
+parser.add_option("","--gene-gene-pair-prior-effective-size",default=None,type=float) #gene-by-gene mode only: target effective mechanism size used to derive the pair prior
+parser.add_option("","--gene-gene-logbf-base",type="choice",choices=["natural","log10"],default="natural") #gene-by-gene mode only: units for shared annotation evidence before logistic calibration
+parser.add_option("","--gene-gene-diagonal-weight",default=0.0,type=float) #gene-by-gene mode only: diagonal fitting weight for symmetric NMF
+parser.add_option("","--gene-gene-matrix-floor",default=1e-3,type=float) #gene-by-gene mode only: zero pair-matrix entries below this value after probability calibration
+parser.add_option("","--gene-gene-excess-probability",dest="gene_gene_excess_probability",default=True,action="store_true") #gene-by-gene mode only: factor excess probability above the pair prior
+parser.add_option("","--no-gene-gene-excess-probability",dest="gene_gene_excess_probability",action="store_false")
+parser.add_option("","--gene-gene-row-sum-cap",dest="gene_gene_row_sum_cap",default=True,action="store_true") #gene-by-gene mode only: project each row of W to sum <= 1 after each update
+parser.add_option("","--no-gene-gene-row-sum-cap",dest="gene_gene_row_sum_cap",action="store_false")
+parser.add_option("","--gene-gene-sparsity",default=0.0,type=float) #gene-by-gene mode only: optional L1 penalty on W
 parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization
 parser.add_option("","--learn-phi-max-redundancy",default=0.5,type=float) #maximum allowed within-run weighted Jaccard overlap between metric-scope factors during phi search, measured on gene loadings when available
 parser.add_option("","--learn-phi-max-redundancy-q90",default=0.35,type=float) #maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during phi search
@@ -589,6 +601,16 @@ _EXPERT_METHOD_FLAGS = {
     "--consensus-min-factor-cosine",
     "--consensus-min-run-support",
     "--consensus-nmf",
+    "--gene-gene-beta-source",
+    "--gene-gene-diagonal-weight",
+    "--gene-gene-excess-probability",
+    "--no-gene-gene-excess-probability",
+    "--gene-gene-logbf-base",
+    "--gene-gene-pair-prior",
+    "--gene-gene-pair-prior-effective-size",
+    "--gene-gene-row-sum-cap",
+    "--no-gene-gene-row-sum-cap",
+    "--gene-gene-sparsity",
     "--run-factor-phewas",
     "--factor-phewas-anchor-covariate",
     "--factor-gene-clusters-in",
@@ -730,6 +752,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--consensus-nmf",
     "--consensus-stats-out",
     "--beta0",
+    "--discovery-model",
     "--factor-backend",
     "--factor-output-scope",
     "--eaggl-bundle-in",
@@ -1160,6 +1183,8 @@ debug_level = 1
 log_fh = None
 warnings_fh = None
 
+_DEFAULT_PHI = 0.05
+_DEFAULT_GENE_BY_GENE_INITIAL_PHI = 0.01
 
 def _noop_log(*_args, **_kwargs):
     return None
@@ -1388,6 +1413,13 @@ def _bootstrap_cli(argv=None):
 
     _normalize_optional_phewas_stage_options(parsed_options, warn)
 
+    if (
+        parsed_options.discovery_model == "gene_by_gene"
+        and "phi" not in parsed_cli_specified_dests
+        and "phi" not in parsed_config_specified_dests
+    ):
+        parsed_options.phi = float(_DEFAULT_GENE_BY_GENE_INITIAL_PHI)
+
     pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
     parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
     if parsed_options.pheno_capture_input not in set(["weighted_thresholded", "binary_thresholded"]):
@@ -1475,6 +1507,8 @@ def _bootstrap_cli(argv=None):
         bail("--factor-backend must be one of: full, blockwise_global_w")
     if parsed_options.learn_phi_backend not in set(["sentinel_pruned", "blockwise_global_w"]):
         bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w")
+    if parsed_options.discovery_model not in set(["gene_by_annotation", "gene_by_gene"]):
+        bail("--discovery-model must be one of: gene_by_annotation, gene_by_gene")
     if parsed_options.blockwise_gene_set_block_size < 1:
         bail("--blockwise-gene-set-block-size must be at least 1")
     if parsed_options.blockwise_epochs < 1:
@@ -1530,6 +1564,23 @@ def _bootstrap_cli(argv=None):
         bail("--max-num-discovery-gene-sets must be at least 1")
     if not (0 <= parsed_options.discovery_similarity_threshold <= 1):
         bail("--discovery-similarity-threshold must be in [0, 1]")
+    if parsed_options.gene_gene_pair_prior is not None and not (0 < parsed_options.gene_gene_pair_prior < 1):
+        bail("--gene-gene-pair-prior must be in (0, 1)")
+    if parsed_options.gene_gene_pair_prior_effective_size is not None and parsed_options.gene_gene_pair_prior_effective_size <= 1:
+        bail("--gene-gene-pair-prior-effective-size must be > 1")
+    if parsed_options.gene_gene_diagonal_weight < 0:
+        bail("--gene-gene-diagonal-weight must be >= 0")
+    if parsed_options.gene_gene_matrix_floor < 0:
+        bail("--gene-gene-matrix-floor must be >= 0")
+    if parsed_options.gene_gene_sparsity < 0:
+        bail("--gene-gene-sparsity must be >= 0")
+    if parsed_options.discovery_model == "gene_by_gene":
+        if parsed_options.factor_backend != "full":
+            bail("--discovery-model gene_by_gene currently requires --factor-backend full")
+        if parsed_options.learn_phi_backend != "sentinel_pruned":
+            bail("--discovery-model gene_by_gene currently requires --learn-phi-backend sentinel_pruned")
+        if parsed_options.no_transpose:
+            bail("--discovery-model gene_by_gene currently requires the default transposed factor matrix")
 
     if len(parsed_args) < 1:
         bail(usage)

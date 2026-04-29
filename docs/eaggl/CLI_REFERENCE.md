@@ -256,7 +256,7 @@ Operational note:
 | Flag | Meaning |
 |---|---|
 | `--max-num-factors` | upper bound on the number of latent factors |
-| `--phi` | primary sparsity / concentration control for the factor model |
+| `--phi` | primary sparsity / concentration control for the factor model; default initial value is `0.05` for `gene_by_annotation` and `0.01` for `gene_by_gene` when `--phi` is not explicitly set |
 | `--alpha0` | ARD hyperparameter controlling factor shrinkage |
 | `--beta0` | companion ARD hyperparameter controlling factor shrinkage scale |
 | `--min-lambda-threshold` | drop weak factors whose relevance falls below this threshold |
@@ -311,6 +311,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 
 Operational notes:
 - `--phi` remains the initial guess. With `--learn-phi`, EAGGL treats it as the starting point for search rather than the final fixed value.
+- When `--discovery-model gene_by_gene` is selected and `--phi` is not explicitly provided, EAGGL starts the search from `0.01` rather than the rectangular-model default `0.05`.
 - `--learn-phi` requires `--learn-phi-target-gene-effective-support`; the user-facing target is the median effective gene support among primary factors.
 - `--learn-phi-mass-floor-frac` defines the primary-factor mass threshold used consistently across target-size summaries, primary-factor counts, primary-scoped redundancy/stability slices, and other primary-scoped phi-search metrics.
 - Auto-tuning uses `--learn-phi-runs-per-step` during search, then runs the normal final factorization with the selected `phi`.
@@ -335,6 +336,7 @@ Operational notes:
 | `--discovery-redundancy-weighting-mode` | choose leader-family discovery weighting: `effective_size`, `log_effective_size`, or `none` |
 | `--no-discovery-redundancy-weighting` | disable the default redundancy-balanced discovery weighting |
 | `--discovery-similarity-threshold` | similarity threshold used when assigning retained gene sets to discovery families; defaults to `0.35` |
+| `--discovery-model` | choose whether discovery is learned from the default rectangular gene-by-annotation matrix (`gene_by_annotation`) or from a symmetric gene-by-gene pairwise matrix (`gene_by_gene`) |
 | `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | deprecated factor-stage discovery controls kept only as compatibility aliases; use the discovery flags above instead |
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |
@@ -348,6 +350,19 @@ Operational notes:
 | `--cluster-row-min-max-loading` | minimum row-wise maximum raw factor loading required to print gene and gene-set cluster rows; defaults to `0.01` |
 | `--factor-output-scope` | choose which factor tiers are printed in user-facing factor and cluster outputs: `primary` (default), `primary_secondary`, or `all` |
 
+Gene-by-gene expert controls:
+
+| Flag | Meaning |
+|---|---|
+| `--gene-gene-beta-source` | choose the annotation effect surface used to build pairwise evidence; default is corrected `beta`, while `beta_uncorrected` is diagnostic only |
+| `--gene-gene-pair-prior` | set the direct prior probability that two retained genes share a mechanism before observing shared annotation evidence |
+| `--gene-gene-pair-prior-effective-size` | set the effective mechanism size used to derive the pair prior when no direct prior is supplied |
+| `--gene-gene-logbf-base` | declare whether the shared annotation evidence is already in natural-log units or in `log10` units before logistic calibration |
+| `--gene-gene-diagonal-weight` | set the diagonal fitting weight in the symmetric objective; the default `0.0` suppresses self-pairs |
+| `--gene-gene-excess-probability` / `--no-gene-gene-excess-probability` | factor excess pairwise probability above the pair prior (default) or the raw calibrated pairwise probability |
+| `--gene-gene-row-sum-cap` / `--no-gene-gene-row-sum-cap` | keep each gene’s mechanism memberships approximately disjoint by capping the row sum of `W` at `1` after each update |
+| `--gene-gene-sparsity` | optional L1 penalty on the symmetric gene-by-gene loading matrix |
+
 Notes:
 
 - The discovery similarity threshold is denoted `rho_disc` in the methods documentation. The default is `0.35` for the gene-by-gene-set discovery model.
@@ -355,6 +370,9 @@ Notes:
 - `log_effective_size` remains the conservative fallback, and `none` disables redundancy weighting entirely.
 - `--no-discovery-redundancy-weighting` is a compatibility shortcut for `--discovery-redundancy-weighting-mode none`.
 - `--no-auto-discovery-subset` currently disables weighted leader-family corrections and falls back to unweighted retained-row discovery.
+- `--discovery-model gene_by_gene` uses all retained gene sets to construct pairwise gene evidence, so discovery-family subsetting and redundancy weighting flags are ignored in that mode.
+- `--discovery-model gene_by_gene` currently requires `--factor-backend full`, `--learn-phi-backend sentinel_pruned`, and the default transposed factor matrix.
+- In `gene_by_gene` mode, corrected `beta` is the default pairwise evidence surface and no additional gene-set-size normalization is applied before symmetric factorization.
 - By default, `factors.out`, `factors_anchor.out`, and cluster outputs print only primary factors, defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
 - Automatic phi-selection metrics are also primary-scoped by default: redundancy and repeat-stability matching ignore the low-mass ARD tail unless `--learn-phi-metric-factor-scope all` is set. This option is separate from `--factor-output-scope`, which only controls printed factor and cluster rows.
 - `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive over all raw fitted factors. The optional `factor_phi_*` output tables follow `--factor-output-scope`, matching the final user-facing output policy for each tested phi.
