@@ -5260,8 +5260,15 @@ class EagglState(object):
     #calculate V between X_orig and X_orig2
     #X_orig2 can be dense or sparse, but if it is sparse than X_orig must also be sparse
     def _compute_V(self, X_orig, mean_shifts, scale_factors, rows = None, X_orig2 = None, mean_shifts2 = None, scale_factors2 = None, gene_weights=None):
+        def _ensure_2d_column_if_dense(matrix):
+            if isinstance(matrix, np.ndarray) and matrix.ndim == 1:
+                return matrix[:, np.newaxis]
+            return matrix
+
+        X_orig = _ensure_2d_column_if_dense(X_orig)
         if X_orig2 is None:
             X_orig2 = X_orig
+        X_orig2 = _ensure_2d_column_if_dense(X_orig2)
         if mean_shifts2 is None:
             mean_shifts2 = mean_shifts
         if scale_factors2 is None:
@@ -5300,6 +5307,14 @@ class EagglState(object):
     #if have sort_values, will greedily add from lowest value to higher value
     def _compute_gene_set_batches(self, V=None, X_orig=None, mean_shifts=None, scale_factors=None, use_sum=True, max_allowed_batch_correlation=None, find_correlated_instead=None, sort_values=None, resort_as_added=False, stop_at=None, tag="gene sets"):
         gene_set_masks = []
+
+        def _ensure_2d_corr_matrix(matrix):
+            matrix = np.asarray(matrix, dtype=float)
+            if matrix.ndim == 0:
+                return matrix.reshape((1, 1))
+            if matrix.ndim == 1:
+                return matrix[np.newaxis, :]
+            return matrix
 
         if max_allowed_batch_correlation is None:
             if use_sum:
@@ -5425,7 +5440,16 @@ class EagglState(object):
                     assert(scale_factors.shape == mean_shifts.shape)
 
                     if find_correlated_instead:
-                        cur_V = self._compute_V(X_orig[:,first_gene_set], mean_shifts[first_gene_set], scale_factors[first_gene_set], X_orig2=X_orig[:,not_included_gene_sets], mean_shifts2=mean_shifts[not_included_gene_sets], scale_factors2=scale_factors[not_included_gene_sets])
+                        cur_V = _ensure_2d_corr_matrix(
+                            self._compute_V(
+                                X_orig[:,first_gene_set],
+                                mean_shifts[first_gene_set],
+                                scale_factors[first_gene_set],
+                                X_orig2=X_orig[:,not_included_gene_sets],
+                                mean_shifts2=mean_shifts[not_included_gene_sets],
+                                scale_factors2=scale_factors[not_included_gene_sets],
+                            )
+                        )
                         #sort by decreasing V
                         index_map = np.where(not_included_gene_sets)[0]
                         ordered_indices = index_map[np.argsort(-cur_V[0,:])]
@@ -5443,7 +5467,13 @@ class EagglState(object):
 
                         V_to_generate_mask[first_gene_set] = True
                         if cur_V is None or options.debug_old_batch:
-                            cur_V = self._compute_V(X_orig[:,V_to_generate_mask], mean_shifts[V_to_generate_mask], scale_factors[V_to_generate_mask])
+                            cur_V = _ensure_2d_corr_matrix(
+                                self._compute_V(
+                                    X_orig[:,V_to_generate_mask],
+                                    mean_shifts[V_to_generate_mask],
+                                    scale_factors[V_to_generate_mask],
+                                )
+                            )
                             working_idx = np.where(V_to_generate_mask)[0]
                         else:
                             new_full_idx   = np.where(V_to_generate_mask)[0]
@@ -5459,11 +5489,26 @@ class EagglState(object):
                             keep_pos     = np.nonzero(keep_mask)[0]
                             to_keep_full = old_full_idx[keep_pos]
 
-                            cur_V = cur_V[np.ix_(keep_pos, keep_pos)]
+                            cur_V = _ensure_2d_corr_matrix(cur_V[np.ix_(keep_pos, keep_pos)])
 
                             if to_add_full.size:
-                                V_cross = self._compute_V(X_orig[:, to_keep_full], mean_shifts[to_keep_full], scale_factors[to_keep_full], X_orig2 = X_orig[:, to_add_full], mean_shifts2 = mean_shifts[to_add_full], scale_factors2 = scale_factors[to_add_full])
-                                V_new = self._compute_V(X_orig[:, to_add_full], mean_shifts[to_add_full], scale_factors[to_add_full])
+                                V_cross = _ensure_2d_corr_matrix(
+                                    self._compute_V(
+                                        X_orig[:, to_keep_full],
+                                        mean_shifts[to_keep_full],
+                                        scale_factors[to_keep_full],
+                                        X_orig2 = X_orig[:, to_add_full],
+                                        mean_shifts2 = mean_shifts[to_add_full],
+                                        scale_factors2 = scale_factors[to_add_full],
+                                    )
+                                )
+                                V_new = _ensure_2d_corr_matrix(
+                                    self._compute_V(
+                                        X_orig[:, to_add_full],
+                                        mean_shifts[to_add_full],
+                                        scale_factors[to_add_full],
+                                    )
+                                )
 
                                 cur_V = np.block([
                                     [cur_V,     V_cross],

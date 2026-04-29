@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `273`
+- Total options: `274`
 - `method_required`: `16`
-- `method_optional`: `163`
+- `method_optional`: `164`
 - `engineering`: `77`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `224`
+- visibility `expert`: `225`
 - visibility `hidden`: `8`
 - visibility `normal`: `41`
 
@@ -90,7 +90,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
-| `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `1` | - |
+| `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `None` | threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5 |
 | `--gene-gene-beta-source` | `expert` | `yes` | `advanced_workflows` | `gene_gene_beta_source` | `beta` | - |
 | `--gene-gene-diagonal-weight` | `expert` | `yes` | `advanced_workflows` | `gene_gene_diagonal_weight` | `0.0` | - |
 | `--gene-gene-excess-probability` | `expert` | `yes` | `advanced_workflows` | `gene_gene_excess_probability` | `True` | - |
@@ -146,6 +146,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
 | `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
 | `--max-num-discovery-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_discovery_gene_sets` | `None` | - |
+| `--max-num-discovery-genes` | `expert` | `yes` | `advanced_workflows` | `max_num_discovery_genes` | `None` | maximum number of genes retained for factor discovery after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden |
 | `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | maximum starting factor budget before shrinkage removes unsupported factors |
 | `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `None` | - |
 | `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `None` | - |

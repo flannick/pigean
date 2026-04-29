@@ -430,17 +430,54 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             hold_out_chrom=options.hold_out_chrom,
         )
         gene_read_threshold = None
+        gene_filter_type = None
+        max_num_discovery_genes = None
         if not mode_state["factor_gene_set_x_pheno"]:
+            gene_filter_type = resolve_factor_gene_or_pheno_filter_type(options, current_workflow)
             gene_read_threshold = resolve_factor_gene_or_pheno_filter_value(options, current_workflow)
-        if gene_read_threshold is not None and runtime.combined_prior_Ys is not None:
-            gene_keep_mask = runtime.combined_prior_Ys > gene_read_threshold
-            if np.sum(~gene_keep_mask) > 0:
-                domain.log(
-                    "Subsetting to %d genes passing combined > %.3g before factorization"
-                    % (int(np.sum(gene_keep_mask)), float(gene_read_threshold)),
-                    domain.INFO,
+            max_num_discovery_genes = resolve_factor_max_num_discovery_genes(options, current_workflow)
+        if gene_read_threshold is not None:
+            gene_filter_vector = resolve_factor_gene_filter_vector(runtime, gene_filter_type)
+            if gene_filter_vector is not None:
+                gene_filter_vector = np.asarray(gene_filter_vector, dtype=float)
+                gene_keep_mask, num_above_threshold = build_pre_factor_gene_keep_mask(
+                    gene_filter_vector,
+                    gene_read_threshold,
+                    max_num_genes=max_num_discovery_genes,
                 )
-                runtime._subset_genes(gene_keep_mask, skip_V=True, skip_scale_factors=True)
+                if (
+                    max_num_discovery_genes is not None
+                    and num_above_threshold > int(max_num_discovery_genes)
+                ):
+                    domain.log(
+                        "Capping pre-factor genes to top %d by %s after threshold %.3g (kept %d of %d passing genes)"
+                        % (
+                            int(max_num_discovery_genes),
+                            str(gene_filter_type),
+                            float(gene_read_threshold),
+                            int(np.sum(gene_keep_mask)),
+                            int(num_above_threshold),
+                        ),
+                        domain.INFO,
+                    )
+                runtime._record_params(
+                    {
+                        "pre_factor_gene_filter_type": gene_filter_type,
+                        "pre_factor_gene_filter_value": float(gene_read_threshold),
+                        "pre_factor_max_num_discovery_genes": max_num_discovery_genes,
+                        "pre_factor_num_genes_before": int(len(gene_filter_vector)),
+                        "pre_factor_num_genes_above_threshold": int(num_above_threshold),
+                        "pre_factor_num_genes_kept": int(np.sum(gene_keep_mask)),
+                    },
+                    overwrite=True,
+                )
+                if np.sum(~gene_keep_mask) > 0:
+                    domain.log(
+                        "Subsetting to %d genes passing %s > %.3g before factorization"
+                        % (int(np.sum(gene_keep_mask)), str(gene_filter_type), float(gene_read_threshold)),
+                        domain.INFO,
+                    )
+                    runtime._subset_genes(gene_keep_mask, skip_V=True, skip_scale_factors=True)
 
     if workflow_id != "F2" and options.gene_set_stats_in is not None:
         domain._read_gene_set_statistics(
@@ -909,7 +946,68 @@ def resolve_factor_gene_or_pheno_filter_value(options, workflow):
         factor_gene_set_x_pheno = workflow.factor_gene_set_x_pheno
     if factor_gene_set_x_pheno:
         return options.pheno_filter_value
-    return options.gene_filter_value
+    if options.gene_filter_value is not None:
+        return options.gene_filter_value
+    if getattr(options, "discovery_model", "gene_by_annotation") == "gene_by_gene":
+        return 0.5
+    return 1.0
+
+
+def resolve_factor_gene_or_pheno_filter_type(options, workflow):
+    if options.anchor_gene_set:
+        return "gene_set_phewas_betas_uncorrected"
+    if isinstance(workflow, dict):
+        factor_gene_set_x_pheno = workflow.get("factor_gene_set_x_pheno", False)
+    else:
+        factor_gene_set_x_pheno = workflow.factor_gene_set_x_pheno
+    if factor_gene_set_x_pheno:
+        return "gene_phewas_combined"
+    if getattr(options, "discovery_model", "gene_by_annotation") == "gene_by_gene":
+        return "priors"
+    return "combined_prior_Ys"
+
+
+def resolve_factor_max_num_discovery_genes(options, workflow):
+    if getattr(options, "max_num_discovery_genes", None) is not None:
+        return options.max_num_discovery_genes
+    if options.anchor_gene_set:
+        return None
+    if isinstance(workflow, dict):
+        factor_gene_set_x_pheno = workflow.get("factor_gene_set_x_pheno", False)
+    else:
+        factor_gene_set_x_pheno = workflow.factor_gene_set_x_pheno
+    if factor_gene_set_x_pheno:
+        return None
+    if getattr(options, "discovery_model", "gene_by_annotation") == "gene_by_gene":
+        return 1000
+    return None
+
+
+def resolve_factor_gene_filter_vector(runtime, filter_type):
+    if filter_type in (None, "combined_prior_Ys", "gene_phewas_combined"):
+        return getattr(runtime, "combined_prior_Ys", None)
+    if filter_type == "priors":
+        return getattr(runtime, "priors", None)
+    if filter_type == "Y":
+        return getattr(runtime, "Y", None)
+    return None
+
+
+def build_pre_factor_gene_keep_mask(score_vector, threshold, max_num_genes=None):
+    if score_vector is None or threshold is None:
+        return None, 0
+    score_vector = np.asarray(score_vector, dtype=float)
+    keep_mask = score_vector > float(threshold)
+    num_above_threshold = int(np.sum(keep_mask))
+    if max_num_genes is not None and num_above_threshold > int(max_num_genes):
+        passing_indices = np.flatnonzero(keep_mask)
+        passing_scores = np.asarray(score_vector[passing_indices], dtype=float)
+        order = np.argsort(-passing_scores, kind="mergesort")
+        capped_indices = passing_indices[order[: int(max_num_genes)]]
+        capped_mask = np.zeros_like(keep_mask, dtype=bool)
+        capped_mask[capped_indices] = True
+        keep_mask = capped_mask
+    return keep_mask, num_above_threshold
 
 
 def build_factor_execution_config(options, workflow, factor_inputs):
@@ -935,10 +1033,15 @@ def build_factor_execution_config(options, workflow, factor_inputs):
     )
     if getattr(options, "no_discovery_redundancy_weighting", False):
         discovery_redundancy_weighting_mode = "none"
+    discovery_model = getattr(options, "discovery_model", "gene_by_annotation")
+    resolved_max_num_discovery_genes = resolve_factor_max_num_discovery_genes(options, workflow)
+    learn_phi_prune_genes_num = getattr(options, "learn_phi_prune_genes_num", 1000)
+    if discovery_model == "gene_by_gene":
+        learn_phi_prune_genes_num = resolved_max_num_discovery_genes
     return FactorExecutionConfig(
         max_num_factors=options.max_num_factors,
         phi=options.phi,
-        discovery_model=getattr(options, "discovery_model", "gene_by_annotation"),
+        discovery_model=discovery_model,
         gene_gene_beta_source=getattr(options, "gene_gene_beta_source", "beta"),
         gene_gene_pair_prior=getattr(options, "gene_gene_pair_prior", None),
         gene_gene_pair_prior_effective_size=getattr(options, "gene_gene_pair_prior_effective_size", None),
@@ -990,7 +1093,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         discovery_redundancy_weighting=discovery_redundancy_weighting_mode != "none",
         discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
         discovery_similarity_threshold=getattr(options, "discovery_similarity_threshold", 0.35),
-        learn_phi_prune_genes_num=getattr(options, "learn_phi_prune_genes_num", 1000),
+        learn_phi_prune_genes_num=learn_phi_prune_genes_num,
         learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", 1000),
         learn_phi_max_num_iterations=getattr(options, "learn_phi_max_num_iterations", None),
         alpha0=options.alpha0,
@@ -1004,11 +1107,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         consensus_stats_out=options.consensus_stats_out,
         gene_set_filter_type="betas_uncorrected",
         gene_set_filter_value=options.gene_set_filter_value,
-        gene_or_pheno_filter_type=(
-            "gene_set_phewas_betas_uncorrected"
-            if options.anchor_gene_set
-            else ("gene_phewas_combined" if workflow.factor_gene_set_x_pheno else "combined_prior_Ys")
-        ),
+        gene_or_pheno_filter_type=resolve_factor_gene_or_pheno_filter_type(options, workflow),
         gene_or_pheno_filter_value=resolve_factor_gene_or_pheno_filter_value(options, workflow),
         pheno_prune_value=options.factor_prune_phenos_val,
         pheno_prune_number=options.factor_prune_phenos_num,

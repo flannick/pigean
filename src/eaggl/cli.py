@@ -373,9 +373,10 @@ parser.add_option("","--consensus-min-factor-cosine",default=0.7,type=float) #mi
 parser.add_option("","--consensus-min-run-support",default=0.5,type=float) #minimum fraction of runs that must support a consensus factor
 parser.add_option("","--consensus-aggregation",default="median",type=str) #aggregation rule for matched factor loadings across runs
 parser.add_option("","--gene-set-filter-value",type=float,default=0.01) #choose value of filter for gene sets. Will use beta uncorrected if available, otherwise beta, otherwise no filter
-parser.add_option("","--gene-filter-value",type=float,default=1) #choose value of filter for genes. Will use combined if available, then priors, then Y, then nothing. Used only when anchoring to a pheno(s) (or default)
+parser.add_option("","--gene-filter-value",type=float,default=None) #choose value of pre-factor filter for genes on the resolved gene score surface
 parser.add_option("","--pheno-filter-value",type=float,default=1) #choose value of filter for phenos. Used only when anchoring to genes
 parser.add_option("","--gene-set-pheno-filter-value",type=float,default=0.01) #choose value of filter for gene set anchoring
+parser.add_option("","--max-num-discovery-genes",type=int,default=None) #cap pre-factor retained genes after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden
 parser.add_option("","--no-transpose",action='store_true') #factor original X rather than tranpose
 parser.add_option("","--min-lambda-threshold",type=float,default=1e-3) #remove factors with lambdak values below this threshold, or sum(gene loadings) below this threshold, or sum(gene set loadings) below this threshold
 parser.add_option("","--consensus-stats-out",default=None) #write consensus/restart diagnostics for factorization
@@ -532,6 +533,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--gene-clusters-full-out": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
     "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
+    "--gene-filter-value": "threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5",
+    "--max-num-discovery-genes": "maximum number of genes retained for factor discovery after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden",
     "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
@@ -613,6 +616,7 @@ _EXPERT_METHOD_FLAGS = {
     "--gene-gene-row-sum-cap",
     "--no-gene-gene-row-sum-cap",
     "--gene-gene-sparsity",
+    "--max-num-discovery-genes",
     "--run-factor-phewas",
     "--factor-phewas-anchor-covariate",
     "--factor-gene-clusters-in",
@@ -1518,6 +1522,8 @@ def _bootstrap_cli(argv=None):
         bail("--blockwise-epochs must be at least 1")
     if parsed_options.blockwise_max_blocks is not None and parsed_options.blockwise_max_blocks < 1:
         bail("--blockwise-max-blocks must be at least 1")
+    if parsed_options.max_num_discovery_genes is not None and parsed_options.max_num_discovery_genes < 1:
+        bail("--max-num-discovery-genes must be at least 1")
     if parsed_options.cluster_row_min_max_loading < 0:
         bail("--cluster-row-min-max-loading must be nonnegative")
     if parsed_options.learn_phi:

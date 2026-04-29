@@ -65,10 +65,12 @@ def _options(**overrides):
         learn_phi_prune_genes_num=1000,
         learn_phi_prune_gene_sets_num=1000,
         learn_phi_max_num_iterations=None,
+        discovery_model="gene_by_annotation",
         gene_set_filter_value=0.0,
         gene_set_pheno_filter_value=0.25,
         pheno_filter_value=0.2,
         gene_filter_value=0.1,
+        max_num_discovery_genes=None,
         factor_prune_phenos_val=None,
         factor_prune_phenos_num=None,
         factor_prune_genes_val=None,
@@ -373,6 +375,36 @@ class FactorStageHelpersTest(unittest.TestCase):
         val = eaggl._resolve_factor_gene_or_pheno_filter_value(options, workflow)
         self.assertEqual(val, 0.5)
 
+    def test_gene_by_gene_defaults_to_prior_threshold_and_prior_surface(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        options = _options(discovery_model="gene_by_gene", gene_filter_value=None)
+        self.assertEqual(eaggl._resolve_factor_gene_or_pheno_filter_value(options, workflow), 0.5)
+        self.assertEqual(eaggl._resolve_factor_gene_or_pheno_filter_type(options, workflow), "priors")
+        self.assertEqual(eaggl._resolve_factor_max_num_discovery_genes(options, workflow), 1000)
+
+    def test_explicit_gene_filter_and_cap_override_gene_by_gene_defaults(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        options = _options(
+            discovery_model="gene_by_gene",
+            gene_filter_value=0.25,
+            max_num_discovery_genes=125,
+        )
+        self.assertEqual(eaggl._resolve_factor_gene_or_pheno_filter_value(options, workflow), 0.25)
+        self.assertEqual(eaggl._resolve_factor_max_num_discovery_genes(options, workflow), 125)
+
+    def test_build_pre_factor_gene_keep_mask_caps_top_passing_scores(self) -> None:
+        scores = np.array([0.05, 0.3, 0.8, 0.7, 0.2, 0.6], dtype=float)
+        keep_mask, num_above_threshold = eaggl._build_pre_factor_gene_keep_mask(
+            scores,
+            threshold=0.1,
+            max_num_genes=3,
+        )
+        self.assertEqual(num_above_threshold, 5)
+        np.testing.assert_array_equal(
+            keep_mask,
+            np.array([False, False, True, True, False, True], dtype=bool),
+        )
+
     def test_build_factor_execution_config_carries_masks(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F6", factor_gene_set_x_pheno=True)
         factor_inputs = eaggl.FactorInputs(anchor_gene_mask=[True, False], anchor_pheno_mask=[False, True])
@@ -388,6 +420,28 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.gene_or_pheno_filter_type, "gene_phewas_combined")
         self.assertEqual(cfg.max_num_iterations, 100)
         self.assertEqual(cfg.rel_tol, 1e-4)
+
+    def test_build_factor_execution_config_uses_gene_by_gene_defaults(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
+        options = _options(discovery_model="gene_by_gene", gene_filter_value=None, max_num_discovery_genes=None)
+        cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
+        self.assertEqual(cfg.discovery_model, "gene_by_gene")
+        self.assertEqual(cfg.gene_or_pheno_filter_type, "priors")
+        self.assertEqual(cfg.gene_or_pheno_filter_value, 0.5)
+        self.assertEqual(cfg.learn_phi_prune_genes_num, 1000)
+
+    def test_build_factor_execution_config_gene_by_gene_shares_discovery_gene_cap_with_phi_search(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
+        options = _options(
+            discovery_model="gene_by_gene",
+            gene_filter_value=None,
+            max_num_discovery_genes=125,
+            learn_phi_prune_genes_num=900,
+        )
+        cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
+        self.assertEqual(cfg.learn_phi_prune_genes_num, 125)
 
     def test_build_factor_execution_config_carries_phi_learning_controls(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)

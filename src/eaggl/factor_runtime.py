@@ -1052,12 +1052,16 @@ def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clus
         )
 
 
-def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, log_fn=None, info_level=1):
-    candidates = [
-        ("combined_prior_Ys", combined_prior_Ys),
-        ("Y", Y),
-        ("priors", priors),
-    ]
+def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, preferred_label=None, log_fn=None, info_level=1):
+    candidate_map = {
+        "combined_prior_Ys": combined_prior_Ys,
+        "Y": Y,
+        "priors": priors,
+    }
+    candidate_order = ["combined_prior_Ys", "Y", "priors"]
+    if preferred_label in candidate_map:
+        candidate_order = [preferred_label] + [label for label in candidate_order if label != preferred_label]
+    candidates = [(label, candidate_map[label]) for label in candidate_order]
     first_available_label = None
     fallback_choice = None
     for label, matrix in candidates:
@@ -4133,10 +4137,18 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         num_users = np.sum(anchor_pheno_mask)
 
     #get one dimensional vectors with probabilities
+    preferred_anchor_source = None
+    if gene_or_pheno_filter_type in set(["combined_prior_Ys", "gene_phewas_combined"]):
+        preferred_anchor_source = "combined_prior_Ys"
+    elif gene_or_pheno_filter_type == "priors":
+        preferred_anchor_source = "priors"
+    elif gene_or_pheno_filter_type == "Y":
+        preferred_anchor_source = "Y"
     gene_or_pheno_full_vector, gene_or_pheno_filter_type = _choose_gene_or_pheno_anchor_source(
         combined_prior_Ys,
         priors,
         Y,
+        preferred_label=preferred_anchor_source,
         log_fn=log,
         info_level=INFO,
     )
@@ -4197,7 +4209,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             gene_sort_rank_source = gene_or_pheno_full_vector
             if gene_sort_rank_source is not None:
                 gene_sort_rank_source = np.nan_to_num(
-                    np.asarray(gene_sort_rank_source, dtype=float),
+                    np.ravel(np.asarray(gene_sort_rank_source, dtype=float)),
                     nan=-np.inf,
                     posinf=np.inf,
                     neginf=-np.inf,
