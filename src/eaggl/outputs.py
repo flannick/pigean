@@ -11,6 +11,7 @@ class FactorOutputPlan:
     consensus_stats_out: str | None = None
     gene_set_clusters_out: str | None = None
     gene_clusters_out: str | None = None
+    gene_clusters_full_out: str | None = None
     trait_factor_links_out: str | None = None
     trait_factor_links_output_detail: str = "main"
     pheno_clusters_out: str | None = None
@@ -60,6 +61,7 @@ def build_factor_output_plan(options):
         consensus_stats_out=options.consensus_stats_out,
         gene_set_clusters_out=options.gene_set_clusters_out,
         gene_clusters_out=options.gene_clusters_out,
+        gene_clusters_full_out=getattr(options, "gene_clusters_full_out", None),
         trait_factor_links_out=getattr(options, "trait_factor_links_out", None),
         trait_factor_links_output_detail=getattr(options, "trait_factor_links_output_detail", "main"),
         pheno_clusters_out=options.pheno_clusters_out,
@@ -90,6 +92,12 @@ def write_factor_outputs_for_plan(runtime, output_plan):
             output_plan.gene_set_clusters_out,
             output_plan.gene_clusters_out,
             None,
+            cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
+            factor_output_scope=output_plan.factor_output_scope,
+        )
+    if output_plan.gene_clusters_full_out is not None:
+        runtime.write_full_gene_clusters(
+            output_plan.gene_clusters_full_out,
             cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
             factor_output_scope=output_plan.factor_output_scope,
         )

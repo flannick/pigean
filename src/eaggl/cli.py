@@ -173,6 +173,7 @@ parser.add_option("","--factor-metrics-out",default=None)
 parser.add_option("","--factors-anchor-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
+parser.add_option("","--gene-clusters-full-out",default=None)
 parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
 parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="primary") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
@@ -529,6 +530,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-factors-out": "write factors.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--factor-phi-gene-set-clusters-out": "write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
+    "--gene-clusters-full-out": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
     "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
     "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
@@ -705,6 +707,7 @@ _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--consensus-stats-out",
     "--gene-anchor-clusters-out",
     "--gene-clusters-out",
+    "--gene-clusters-full-out",
     "--gene-pheno-stats-out",
     "--gene-set-anchor-clusters-out",
     "--gene-set-clusters-out",

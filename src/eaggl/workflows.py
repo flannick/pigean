@@ -400,6 +400,7 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
             "factors_anchor_out": getattr(options, "factors_anchor_out", None),
             "gene_set_clusters_out": getattr(options, "gene_set_clusters_out", None),
             "gene_clusters_out": getattr(options, "gene_clusters_out", None),
+            "gene_clusters_full_out": getattr(options, "gene_clusters_full_out", None),
             "trait_factor_links_out": getattr(options, "trait_factor_links_out", None),
             "pheno_clusters_out": getattr(options, "pheno_clusters_out", None),
             "factor_phewas_stats_out": getattr(options, "factor_phewas_stats_out", None),

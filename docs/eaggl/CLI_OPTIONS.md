@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `272`
+- Total options: `273`
 - `method_required`: `16`
 - `method_optional`: `163`
-- `engineering`: `76`
+- `engineering`: `77`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `223`
+- visibility `expert`: `224`
 - visibility `hidden`: `8`
 - visibility `normal`: `41`
 
@@ -226,6 +226,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factors-out` | `normal` | `no` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
 | `--file-separator` | `expert` | `no` | `expert_help` | `file_separator` | `None` | - |
 | `--gene-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_anchor_clusters_out` | `None` | - |
+| `--gene-clusters-full-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_out` | `None` | write a projected gene cluster table for all input genes, including genes filtered before factorization |
 | `--gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_out` | `None` | - |
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |

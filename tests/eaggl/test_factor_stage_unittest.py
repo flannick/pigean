@@ -143,6 +143,7 @@ def _options(**overrides):
         factors_anchor_out=None,
         gene_set_clusters_out=None,
         gene_clusters_out=None,
+        gene_clusters_full_out=None,
         cluster_row_min_max_loading=0.01,
         factor_output_scope="primary",
         trait_factor_links_out=None,
@@ -195,6 +196,9 @@ class _RuntimeStub:
                 factor_output_scope,
             )
         )
+
+    def write_full_gene_clusters(self, out, cluster_row_min_max_loading=0.01, factor_output_scope="primary"):
+        self.calls.append(("write_full_gene_clusters", out, cluster_row_min_max_loading, factor_output_scope))
 
     def write_trait_factor_links(self, out, output_detail="main"):
         self.calls.append(("write_trait_factor_links", out, output_detail))
@@ -506,6 +510,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             factors_anchor_out="factors_anchor.tsv",
             gene_set_clusters_out="gs_cluster.tsv",
             gene_clusters_out="g_cluster.tsv",
+            gene_clusters_full_out="g_cluster_full.tsv",
             trait_factor_links_out="trait_links.tsv",
             pheno_clusters_out="p_cluster.tsv",
             gene_set_anchor_clusters_out="gs_anchor_cluster.tsv",
@@ -518,7 +523,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             factor_output_scope="primary_secondary",
         )
         eaggl._write_main_factor_outputs(runtime, options)
-        self.assertEqual(len(runtime.calls), 9)
+        self.assertEqual(len(runtime.calls), 10)
         self.assertEqual(runtime.calls[0], ("write_matrix_factors", "factors.tsv", False, "primary_secondary"))
         self.assertEqual(runtime.calls[1], ("write_factor_metrics", "factor_metrics.tsv"))
         self.assertEqual(runtime.calls[2], ("write_matrix_factors", "factors_anchor.tsv", True, "primary_secondary"))
@@ -527,10 +532,11 @@ class FactorStageHelpersTest(unittest.TestCase):
             runtime.calls[4],
             ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False, 0.02, "primary_secondary"),
         )
-        self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv", "main"))
-        self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "p_cluster.tsv", "main"))
+        self.assertEqual(runtime.calls[5], ("write_full_gene_clusters", "g_cluster_full.tsv", 0.02, "primary_secondary"))
+        self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "trait_links.tsv", "main"))
+        self.assertEqual(runtime.calls[7], ("write_trait_factor_links", "p_cluster.tsv", "main"))
         self.assertEqual(
-            runtime.calls[7],
+            runtime.calls[8],
             (
                 "write_clusters",
                 "gs_anchor_cluster.tsv",
@@ -541,7 +547,7 @@ class FactorStageHelpersTest(unittest.TestCase):
                 "primary_secondary",
             ),
         )
-        self.assertEqual(runtime.calls[8], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
+        self.assertEqual(runtime.calls[9], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 
     def test_write_clusters_gene_set_writer_uses_betas_uncorrected_without_stale_alias(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
@@ -628,6 +634,51 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("high_gene\t", gene_content)
         self.assertIn("low_gs\t", unfiltered_gene_set_content)
         self.assertIn("low_gene\t", unfiltered_gene_content)
+
+    def test_write_full_gene_clusters_includes_filtered_genes_with_projected_values(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.params = {"phi": 0.0, "rel_tol": 1e-4, "run_transpose": True}
+        runtime.exp_lambdak = np.array([1.0, 1.0])
+        runtime.factor_labels = ["label1", "label2"]
+        runtime.exp_gene_set_factors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+        runtime.exp_gene_factors = np.array([[9.0, 0.0], [0.0, 9.0]], dtype=float)
+        runtime.gene_set_prob_factor_vector = None
+        runtime.gene_prob_factor_vector = None
+        runtime.gene_set_in_discovery_mask = np.array([True, True], dtype=bool)
+        runtime.gene_in_discovery_mask = np.array([True, False], dtype=bool)
+        runtime.X_orig = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+        runtime.X_orig_missing_genes = np.array([[0.25, 0.75]], dtype=float)
+        runtime.gene_sets = ["gs1", "gs2"]
+        runtime.genes = ["retained_a", "retained_b"]
+        runtime.genes_missing = ["filtered_c"]
+        runtime.combined_prior_Ys = np.array([2.0, 1.0], dtype=float)
+        runtime.combined_prior_Ys_missing = np.array([0.5], dtype=float)
+        runtime.Y = np.array([1.5, 0.5], dtype=float)
+        runtime.Y_missing = np.array([0.25], dtype=float)
+        runtime.priors = np.array([0.2, 0.1], dtype=float)
+        runtime.priors_missing = [0.05]
+
+        retained_projection = np.array([[0.8, 0.2], [0.1, 0.9]], dtype=float)
+        missing_projection = np.array([[0.3, 0.7]], dtype=float)
+        with mock.patch.object(
+            runtime,
+            "_project_H_with_fixed_W",
+            side_effect=[retained_projection, missing_projection],
+        ):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                out_path = Path(tmpdir) / "gene_clusters_full.tsv.gz"
+                runtime.write_full_gene_clusters(str(out_path), cluster_row_min_max_loading=0.0)
+
+                import gzip
+
+                with gzip.open(out_path, "rt", encoding="utf-8") as fh:
+                    content = fh.read()
+
+        self.assertIn("filtered_c\t0.5\t0.25\t0.05\tFalse", content)
+        self.assertIn("retained_a\t2\t1.5\t0.2\tTrue\tFactor1\tlabel1\t0.8\t0.2\t0.8\t0.2\t0.8\t0.2", content)
+        self.assertIn("retained_b\t1\t0.5\t0.1\tFalse\tFactor2\tlabel2\t0.1\t0.9\t0.1\t0.9\t0.1\t0.9", content)
+        self.assertIn("filtered_c\t0.5\t0.25\t0.05\tFalse\tFactor2\tlabel2\t0.3\t0.7\t0.3\t0.7\t0.3\t0.7", content)
+        self.assertNotIn("retained_a\t2\t1.5\t0.2\tTrue\tFactor1\tlabel1\t9", content)
 
     def test_write_clustering_params_writes_json_and_tsv_siblings(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
