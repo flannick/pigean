@@ -11,6 +11,8 @@ from . import gene_list_inputs as eaggl_gene_list_inputs
 from . import factor_runtime as eaggl_factor_runtime
 from . import phewas as eaggl_phewas
 
+_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS = 30.0
+
 
 @dataclass
 class FactorOnlyStageResult:
@@ -75,6 +77,7 @@ class FactorExecutionConfig:
     learn_phi_min_stability: float = 0.85
     learn_phi_fit_loss_warning_frac: float = 0.05
     learn_phi_max_severe_fit_loss_frac: float = 1.0
+    learn_phi_target_gene_mass: float | None = None
     learn_phi_target_gene_effective_support: float | None = None
     learn_phi_size_tolerance_frac: float = 0.25
     learn_phi_min_primary_factors: int = 3
@@ -173,6 +176,7 @@ class FactorExecutionConfig:
             "learn_phi_min_stability": self.learn_phi_min_stability,
             "learn_phi_fit_loss_warning_frac": self.learn_phi_fit_loss_warning_frac,
             "learn_phi_max_severe_fit_loss_frac": self.learn_phi_max_severe_fit_loss_frac,
+            "learn_phi_target_gene_mass": self.learn_phi_target_gene_mass,
             "learn_phi_target_gene_effective_support": self.learn_phi_target_gene_effective_support,
             "learn_phi_size_tolerance_frac": self.learn_phi_size_tolerance_frac,
             "learn_phi_min_primary_factors": self.learn_phi_min_primary_factors,
@@ -1036,8 +1040,16 @@ def build_factor_execution_config(options, workflow, factor_inputs):
     discovery_model = getattr(options, "discovery_model", "gene_by_annotation")
     resolved_max_num_discovery_genes = resolve_factor_max_num_discovery_genes(options, workflow)
     learn_phi_prune_genes_num = getattr(options, "learn_phi_prune_genes_num", 1000)
+    learn_phi_target_gene_mass = getattr(options, "learn_phi_target_gene_mass", None)
+    learn_phi_target_gene_effective_support = getattr(options, "learn_phi_target_gene_effective_support", None)
     if discovery_model == "gene_by_gene":
         learn_phi_prune_genes_num = resolved_max_num_discovery_genes
+        if (
+            getattr(options, "learn_phi", False)
+            and learn_phi_target_gene_mass is None
+            and learn_phi_target_gene_effective_support is None
+        ):
+            learn_phi_target_gene_mass = float(_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS)
     return FactorExecutionConfig(
         max_num_factors=options.max_num_factors,
         phi=options.phi,
@@ -1059,7 +1071,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_min_stability=options.learn_phi_min_stability,
         learn_phi_fit_loss_warning_frac=options.learn_phi_fit_loss_warning_frac,
         learn_phi_max_severe_fit_loss_frac=options.learn_phi_max_severe_fit_loss_frac,
-        learn_phi_target_gene_effective_support=getattr(options, "learn_phi_target_gene_effective_support", None),
+        learn_phi_target_gene_mass=learn_phi_target_gene_mass,
+        learn_phi_target_gene_effective_support=learn_phi_target_gene_effective_support,
         learn_phi_size_tolerance_frac=getattr(options, "learn_phi_size_tolerance_frac", 0.25),
         learn_phi_min_primary_factors=getattr(options, "learn_phi_min_primary_factors", 3),
         learn_phi_max_primary_gene_max_weight_q90=getattr(options, "learn_phi_max_primary_gene_max_weight_q90", None),

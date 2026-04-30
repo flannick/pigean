@@ -156,6 +156,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--learn-phi-max-redundancy"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-max-redundancy-q90"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-runs-per-step"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--learn-phi-target-gene-mass"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-target-gene-effective-support"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-size-tolerance-frac"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-min-primary-factors"]["public_visibility"], "expert")
@@ -223,8 +224,25 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--learn-phi")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--learn-phi requires --learn-phi-target-gene-effective-support", err)
+        self.assertIn("--learn-phi requires either --learn-phi-target-gene-mass or --learn-phi-target-gene-effective-support", err)
         self.assertNotIn("Traceback", err)
+
+        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-mass", "-1")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-target-gene-mass must be positive", err)
+
+        proc = self._run(
+            "factor",
+            "--learn-phi",
+            "--learn-phi-target-gene-mass",
+            "100",
+            "--learn-phi-target-gene-effective-support",
+            "25",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-target-gene-mass and --learn-phi-target-gene-effective-support are mutually exclusive", err)
 
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "-1")
         self.assertEqual(proc.returncode, 2)

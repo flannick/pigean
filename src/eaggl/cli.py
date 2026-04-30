@@ -337,6 +337,7 @@ parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #mini
 parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
 parser.add_option("","--learn-phi-fit-loss-warning-frac","--learn-phi-max-fit-loss-frac",dest="learn_phi_fit_loss_warning_frac",default=0.05,type=float) #reconstruction-error warning threshold relative to the best phi-search candidate during phi selection
 parser.add_option("","--learn-phi-max-severe-fit-loss-frac",default=1.0,type=float) #hard severe-underfit threshold relative to the best phi-search candidate during phi selection
+parser.add_option("","--learn-phi-target-gene-mass",default=None,type=float) #optional with --learn-phi; target median gene mass among primary factors
 parser.add_option("","--learn-phi-target-gene-effective-support",default=None,type=float) #required with --learn-phi; target median effective gene support among primary factors
 parser.add_option("","--learn-phi-size-tolerance-frac",default=0.25,type=float) #fractional tolerance around target primary-factor gene effective support
 parser.add_option("","--learn-phi-min-primary-factors",default=3,type=int) #minimum primary factor count required for a phi candidate
@@ -520,6 +521,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
     "--learn-phi-min-stability": "minimum matched-factor cosine stability required for a phi candidate during automatic tuning",
     "--learn-phi-metric-factor-scope": "choose whether phi-selection redundancy and repeat-stability metrics use primary factors or all fitted factors",
+    "--learn-phi-target-gene-mass": "optional with --learn-phi; target median primary-factor gene mass used for phi selection",
     "--learn-phi-target-gene-effective-support": "required with --learn-phi; target median effective gene support among primary factors",
     "--learn-phi-size-tolerance-frac": "fractional tolerance around the requested primary-factor gene effective support",
     "--learn-phi-min-primary-factors": "minimum primary factor count required for a phi candidate during target-size tuning",
@@ -775,6 +777,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--learn-phi",
     "--learn-phi-backend",
     "--learn-phi-max-redundancy",
+    "--learn-phi-target-gene-mass",
     "--learn-phi-target-gene-effective-support",
     "--max-num-factors",
     "--min-lambda-threshold",
@@ -1192,6 +1195,7 @@ warnings_fh = None
 
 _DEFAULT_PHI = 0.05
 _DEFAULT_GENE_BY_GENE_INITIAL_PHI = 0.01
+_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS = 30.0
 
 def _noop_log(*_args, **_kwargs):
     return None
@@ -1420,12 +1424,17 @@ def _bootstrap_cli(argv=None):
 
     _normalize_optional_phewas_stage_options(parsed_options, warn)
 
-    if (
-        parsed_options.discovery_model == "gene_by_gene"
-        and "phi" not in parsed_cli_specified_dests
-        and "phi" not in parsed_config_specified_dests
-    ):
-        parsed_options.phi = float(_DEFAULT_GENE_BY_GENE_INITIAL_PHI)
+    if parsed_options.discovery_model == "gene_by_gene":
+        if "phi" not in parsed_cli_specified_dests and "phi" not in parsed_config_specified_dests:
+            parsed_options.phi = float(_DEFAULT_GENE_BY_GENE_INITIAL_PHI)
+        if (
+            parsed_options.learn_phi
+            and parsed_options.learn_phi_target_gene_mass is None
+            and parsed_options.learn_phi_target_gene_effective_support is None
+        ):
+            parsed_options.learn_phi_target_gene_mass = float(
+                _DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS
+            )
 
     pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
     parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
@@ -1529,9 +1538,25 @@ def _bootstrap_cli(argv=None):
     if parsed_options.learn_phi:
         if parsed_options.phi <= 0:
             bail("--learn-phi requires --phi > 0")
-        if parsed_options.learn_phi_target_gene_effective_support is None:
-            bail("--learn-phi requires --learn-phi-target-gene-effective-support")
-        if parsed_options.learn_phi_target_gene_effective_support <= 0:
+        if (
+            parsed_options.learn_phi_target_gene_mass is None
+            and parsed_options.learn_phi_target_gene_effective_support is None
+        ):
+            bail("--learn-phi requires either --learn-phi-target-gene-mass or --learn-phi-target-gene-effective-support")
+        if (
+            parsed_options.learn_phi_target_gene_mass is not None
+            and parsed_options.learn_phi_target_gene_effective_support is not None
+        ):
+            bail("--learn-phi-target-gene-mass and --learn-phi-target-gene-effective-support are mutually exclusive")
+        if (
+            parsed_options.learn_phi_target_gene_mass is not None
+            and parsed_options.learn_phi_target_gene_mass <= 0
+        ):
+            bail("--learn-phi-target-gene-mass must be positive")
+        if (
+            parsed_options.learn_phi_target_gene_effective_support is not None
+            and parsed_options.learn_phi_target_gene_effective_support <= 0
+        ):
             bail("--learn-phi-target-gene-effective-support must be positive")
         if not (0 < parsed_options.learn_phi_max_redundancy <= 1):
             bail("--learn-phi-max-redundancy must be in (0, 1]")
