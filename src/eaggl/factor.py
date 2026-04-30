@@ -293,20 +293,200 @@ def build_main_mode_state(domain):
     }
 
 
+def projection_only_requested_targets(options):
+    return {
+        "pheno": bool(
+            getattr(options, "pheno_clusters_out", None) is not None
+            or getattr(options, "trait_factor_links_out", None) is not None
+        ),
+        "gene": bool(
+            getattr(options, "gene_clusters_full_out", None) is not None
+        ),
+        "gene_set": bool(getattr(options, "gene_set_clusters_out", None) is not None),
+    }
+
+
+def projection_only_x_required(options):
+    targets = projection_only_requested_targets(options)
+    has_gene_basis = getattr(options, "factor_gene_clusters_in", None) is not None
+    has_gene_set_basis = getattr(options, "factor_gene_set_clusters_in", None) is not None
+    return bool(
+        (has_gene_basis and targets["gene_set"])
+        or (has_gene_basis and getattr(options, "gene_clusters_full_out", None) is not None)
+        or (has_gene_set_basis and targets["gene"])
+    )
+
+
+def _has_x_source(options):
+    return any(
+        x is not None
+        for x in [options.X_in, options.X_list, options.Xd_in, options.Xd_list]
+    )
+
+
+def _project_gene_set_factors_from_loaded_gene_factors(domain, runtime, loaded_genes, loaded_gene_factors):
+    if runtime.X_orig is None:
+        domain.bail("--gene-set-clusters-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+    common_gene_indices = []
+    common_factor_indices = []
+    for factor_index, gene in enumerate(loaded_genes):
+        matrix_index = runtime.gene_to_ind.get(gene) if runtime.gene_to_ind is not None else None
+        if matrix_index is not None:
+            common_gene_indices.append(matrix_index)
+            common_factor_indices.append(factor_index)
+    if len(common_gene_indices) == 0:
+        domain.bail("Could not align any genes between --factor-gene-clusters-in and X matrix for gene-set projection")
+    basis = np.asarray(loaded_gene_factors, dtype=float)[common_factor_indices, :]
+    matrix = runtime.X_orig[common_gene_indices, :]
+    runtime.exp_gene_set_factors = runtime._project_H_with_fixed_W(
+        basis,
+        matrix,
+        None,
+        None,
+        phi=0.0,
+        tol=1e-4,
+        cap_genes=True,
+        normalize_genes=False,
+    )
+    runtime.gene_set_in_discovery_mask = np.full(len(runtime.gene_sets), False, dtype=bool)
+    runtime.gene_set_factor_gene_set_mask = runtime.gene_set_in_discovery_mask
+    runtime._record_params(
+        {
+            "factor_projection_only_gene_set_clusters": True,
+            "factor_projection_only_gene_set_basis": "genes",
+            "factor_projection_only_gene_set_aligned_genes": len(common_gene_indices),
+        },
+        overwrite=True,
+    )
+
+
+def _project_gene_factors_from_loaded_gene_set_factors(domain, runtime, loaded_gene_sets, loaded_gene_set_factors):
+    if runtime.X_orig is None:
+        domain.bail("--gene-clusters-out from --factor-gene-set-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+    common_gene_set_indices = []
+    common_factor_indices = []
+    for factor_index, gene_set in enumerate(loaded_gene_sets):
+        matrix_index = runtime.gene_set_to_ind.get(gene_set) if runtime.gene_set_to_ind is not None else None
+        if matrix_index is not None:
+            common_gene_set_indices.append(matrix_index)
+            common_factor_indices.append(factor_index)
+    if len(common_gene_set_indices) == 0:
+        domain.bail("Could not align any gene sets between --factor-gene-set-clusters-in and X matrix for gene projection")
+    basis = np.asarray(loaded_gene_set_factors, dtype=float)[common_factor_indices, :]
+    matrix = runtime.X_orig[:, common_gene_set_indices].T
+    runtime.exp_gene_factors = runtime._project_H_with_fixed_W(
+        basis,
+        matrix,
+        None,
+        None,
+        phi=0.0,
+        tol=1e-4,
+        cap_genes=True,
+        normalize_genes=False,
+    )
+    runtime.gene_in_discovery_mask = np.full(len(runtime.genes), False, dtype=bool)
+    runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
+    runtime._record_params(
+        {
+            "factor_projection_only_gene_clusters": True,
+            "factor_projection_only_gene_basis": "gene_sets",
+            "factor_projection_only_gene_aligned_gene_sets": len(common_gene_set_indices),
+        },
+        overwrite=True,
+    )
+
+
 def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     if mode_state.get("factor_projection_only"):
+        loaded_genes = None
+        loaded_gene_factors = None
+        loaded_gene_sets = None
+        loaded_gene_set_factors = None
         if options.factor_gene_clusters_in is not None:
             load_existing_factor_gene_clusters(
                 domain,
                 runtime,
                 options.factor_gene_clusters_in,
             )
+            loaded_genes = list(runtime.genes)
+            loaded_gene_factors = np.asarray(runtime.exp_gene_factors, dtype=float)
         if options.factor_gene_set_clusters_in is not None:
             load_existing_factor_gene_set_clusters(
                 domain,
                 runtime,
                 options.factor_gene_set_clusters_in,
             )
+            loaded_gene_sets = list(runtime.gene_sets)
+            loaded_gene_set_factors = np.asarray(runtime.exp_gene_set_factors, dtype=float)
+        if projection_only_x_required(options):
+            domain._run_read_x_stage(
+                runtime,
+                options.X_in,
+                Xd_in=options.Xd_in,
+                X_list=options.X_list,
+                Xd_list=options.Xd_list,
+                V_in=options.V_in,
+                min_gene_set_size=options.min_gene_set_size,
+                max_gene_set_size=options.max_gene_set_size,
+                add_all_genes=options.add_all_genes,
+                prune_gene_sets=options.prune_gene_sets,
+                weighted_prune_gene_sets=options.weighted_prune_gene_sets,
+                prune_deterministically=options.prune_deterministically,
+                x_sparsify=options.x_sparsify,
+                add_ext=options.add_ext,
+                add_top=options.add_top,
+                add_bottom=options.add_bottom,
+                filter_negative=options.filter_negative,
+                threshold_weights=options.threshold_weights,
+                cap_weights=options.cap_weights,
+                permute_gene_sets=options.permute_gene_sets,
+                max_gene_set_p=options.max_gene_set_read_p,
+                filter_gene_set_p=None,
+                max_num_gene_sets_initial=options.max_num_gene_sets_initial,
+                max_num_gene_sets=options.max_num_gene_sets,
+                max_num_gene_sets_hyper=options.max_num_gene_sets_hyper,
+                skip_betas=True,
+                batch_separator=options.batch_separator,
+                x_list_unlabeled_batching=options.x_list_unlabeled_batching,
+                ignore_genes=options.ignore_genes,
+                file_separator=options.file_separator,
+                show_progress=not options.hide_progress,
+                max_num_entries_at_once=options.max_read_entries_at_once,
+            )
+            if loaded_gene_factors is not None and projection_only_requested_targets(options)["gene_set"]:
+                _project_gene_set_factors_from_loaded_gene_factors(
+                    domain,
+                    runtime,
+                    loaded_genes,
+                    loaded_gene_factors,
+                )
+            if loaded_gene_factors is not None and getattr(options, "gene_clusters_full_out", None) is not None:
+                if runtime.exp_gene_set_factors is None:
+                    _project_gene_set_factors_from_loaded_gene_factors(
+                        domain,
+                        runtime,
+                        loaded_genes,
+                        loaded_gene_factors,
+                    )
+                _project_gene_factors_from_loaded_gene_set_factors(
+                    domain,
+                    runtime,
+                    list(runtime.gene_sets),
+                    np.asarray(runtime.exp_gene_set_factors, dtype=float),
+                )
+            elif loaded_gene_factors is not None:
+                runtime.genes = loaded_genes
+                runtime.gene_to_ind = {gene: i for i, gene in enumerate(loaded_genes)}
+                runtime.exp_gene_factors = loaded_gene_factors
+                runtime.gene_in_discovery_mask = np.full(len(loaded_genes), True, dtype=bool)
+                runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
+            if loaded_gene_set_factors is not None and getattr(options, "gene_clusters_full_out", None) is not None:
+                _project_gene_factors_from_loaded_gene_set_factors(
+                    domain,
+                    runtime,
+                    loaded_gene_sets,
+                    loaded_gene_set_factors,
+                )
         if options.gene_stats_in is not None:
             domain._run_read_y_stage(
                 runtime,
@@ -1174,7 +1354,15 @@ def run_main_pheno_projection_stage(domain, runtime, options):
             output_path=getattr(options, "trait_factor_links_out", None) or options.pheno_clusters_out,
         )
 
-    if options.project_phenos_from_gene_sets:
+    project_from_gene_sets = bool(
+        options.project_phenos_from_gene_sets
+        or (
+            getattr(options, "factor_gene_set_clusters_in", None) is not None
+            and getattr(options, "factor_gene_clusters_in", None) is None
+        )
+    )
+
+    if project_from_gene_sets:
         if runtime.X_phewas_beta_uncorrected is None:
             domain._read_gene_set_phewas_statistics(
                 runtime,
@@ -1207,7 +1395,7 @@ def run_main_pheno_projection_stage(domain, runtime, options):
 
     eaggl_factor_runtime.project_phenos_from_loaded_factors(
         runtime,
-        project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
+        project_phenos_from_gene_sets=project_from_gene_sets,
         trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
         trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
         trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "sparse_full"),
@@ -1298,7 +1486,5 @@ def should_run_main_pheno_projection_stage(mode_state, options):
         and (
             options.pheno_clusters_out is not None
             or getattr(options, "trait_factor_links_out", None) is not None
-            or options.gene_phewas_bfs_in is not None
-            or options.gene_set_phewas_stats_in is not None
         )
     )

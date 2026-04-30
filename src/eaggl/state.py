@@ -1574,6 +1574,153 @@ class EagglState(object):
 
         return H_new
 
+    def _gene_gene_projection_beta_vector(self, gene_set_mask):
+        beta_source = self.params.get("gene_gene_beta_source", "beta_uncorrected")
+        if isinstance(beta_source, list):
+            beta_source = beta_source[0] if len(beta_source) > 0 else "beta_uncorrected"
+        if beta_source == "beta":
+            if getattr(self, "betas", None) is None:
+                raise ValueError("Corrected betas are unavailable for gene-by-gene full-gene projection")
+            beta_vector = np.asarray(self.betas, dtype=float)
+        else:
+            if getattr(self, "betas_uncorrected", None) is None:
+                raise ValueError("beta_uncorrected gene-set statistics are unavailable for gene-by-gene full-gene projection")
+            beta_vector = np.asarray(self.betas_uncorrected, dtype=float)
+
+        scale_factors = np.asarray(
+            getattr(self, "scale_factors", np.ones(beta_vector.shape[0], dtype=float)),
+            dtype=float,
+        )
+        scale_factors = np.where(scale_factors == 0, 1.0, scale_factors)
+        beta_vector = np.nan_to_num(beta_vector / scale_factors, nan=0.0, posinf=0.0, neginf=0.0)
+        return beta_vector[np.asarray(gene_set_mask, dtype=bool)]
+
+    def _gene_gene_cross_pair_matrix(self, row_gene_matrix, discovery_gene_matrix, gene_set_mask):
+        gene_set_mask = np.asarray(gene_set_mask, dtype=bool)
+        beta_vector = self._gene_gene_projection_beta_vector(gene_set_mask)
+
+        row_gene_matrix = row_gene_matrix[:, gene_set_mask]
+        discovery_gene_matrix = discovery_gene_matrix[:, gene_set_mask]
+        if not sparse.issparse(row_gene_matrix):
+            row_gene_matrix = sparse.csr_matrix(np.asarray(row_gene_matrix, dtype=float))
+        if not sparse.issparse(discovery_gene_matrix):
+            discovery_gene_matrix = sparse.csr_matrix(np.asarray(discovery_gene_matrix, dtype=float))
+        row_gene_matrix = row_gene_matrix.tocsr()
+        discovery_gene_matrix = discovery_gene_matrix.tocsr()
+
+        L = (row_gene_matrix.multiply(beta_vector.reshape((1, -1))) @ discovery_gene_matrix.T).toarray()
+        logbf_base = self.params.get("gene_gene_logbf_base", "log10")
+        if isinstance(logbf_base, list):
+            logbf_base = logbf_base[0] if len(logbf_base) > 0 else "log10"
+        if str(logbf_base) == "log10":
+            L = float(math.log(10.0)) * L
+
+        pair_prior = self.params.get("gene_gene_pair_prior", getattr(self, "background_prior", 0.05))
+        if isinstance(pair_prior, list):
+            pair_prior = pair_prior[0] if len(pair_prior) > 0 else self.background_prior
+        pair_prior = float(pair_prior)
+        pair_logit = scipy.special.logit(pair_prior)
+        P = scipy.special.expit(pair_logit + L)
+
+        excess_probability = self.params.get("gene_gene_excess_probability", True)
+        if isinstance(excess_probability, list):
+            excess_probability = excess_probability[0] if len(excess_probability) > 0 else True
+        if bool(excess_probability):
+            M = np.clip((P - pair_prior) / max(1.0 - pair_prior, 1e-12), 0.0, 1.0)
+        else:
+            M = np.clip(P, 0.0, 1.0)
+
+        matrix_floor = self.params.get("gene_gene_matrix_floor", 0.0)
+        if isinstance(matrix_floor, list):
+            matrix_floor = matrix_floor[0] if len(matrix_floor) > 0 else 0.0
+        matrix_floor = float(matrix_floor)
+        if matrix_floor > 0.0:
+            M[M < matrix_floor] = 0.0
+        return M
+
+    def _project_gene_gene_rows_to_discovery_factors(
+        self,
+        row_gene_matrix,
+        discovery_gene_matrix,
+        discovery_gene_factors,
+        gene_set_mask=None,
+        cap_genes=True,
+    ):
+        discovery_gene_factors = np.asarray(discovery_gene_factors, dtype=float)
+        if discovery_gene_factors.ndim != 2:
+            raise ValueError("discovery gene factors must be a two-dimensional matrix")
+        if discovery_gene_factors.shape[0] == 0 or discovery_gene_factors.shape[1] == 0:
+            return np.zeros((row_gene_matrix.shape[0], discovery_gene_factors.shape[1]), dtype=float)
+        if gene_set_mask is None:
+            gene_set_mask = np.ones(row_gene_matrix.shape[1], dtype=bool)
+
+        cross_pair_matrix = self._gene_gene_cross_pair_matrix(
+            row_gene_matrix,
+            discovery_gene_matrix,
+            gene_set_mask,
+        )
+        gram = discovery_gene_factors.T @ discovery_gene_factors
+        ridge = 1e-8 * max(1.0, float(np.trace(gram)))
+        coef = cross_pair_matrix @ discovery_gene_factors @ np.linalg.pinv(
+            gram + ridge * np.eye(gram.shape[0], dtype=float)
+        )
+        coef = np.nan_to_num(coef, nan=0.0, posinf=0.0, neginf=0.0)
+        coef = np.clip(coef, 0.0, None)
+        if cap_genes:
+            row_sums = np.sum(coef, axis=1)
+            over_mask = row_sums > 1.0
+            if np.any(over_mask):
+                coef[over_mask, :] = coef[over_mask, :] / row_sums[over_mask, np.newaxis]
+        return coef
+
+    def project_full_gene_factors_gene_by_gene(self, retained_discovery_gene_factors=None, cap_genes=True):
+        if self.gene_in_discovery_mask is None or self.X_orig is None:
+            return None
+        discovery_mask = np.asarray(self.gene_in_discovery_mask, dtype=bool)
+        if retained_discovery_gene_factors is None:
+            exp_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+            if exp_gene_factors.shape[0] == int(np.sum(discovery_mask)):
+                retained_discovery_gene_factors = exp_gene_factors
+            else:
+                retained_discovery_gene_factors = exp_gene_factors[discovery_mask, :]
+        gene_set_mask = (
+            np.asarray(self.gene_set_in_discovery_mask, dtype=bool)
+            if self.gene_set_in_discovery_mask is not None
+            else np.ones(self.X_orig.shape[1], dtype=bool)
+        )
+        full_gene_factors = self._project_gene_gene_rows_to_discovery_factors(
+            self.X_orig,
+            self.X_orig[discovery_mask, :],
+            retained_discovery_gene_factors,
+            gene_set_mask=gene_set_mask,
+            cap_genes=cap_genes,
+        )
+        full_gene_factors[discovery_mask, :] = retained_discovery_gene_factors
+        return full_gene_factors
+
+    def project_missing_gene_factors_gene_by_gene(self, retained_discovery_gene_factors=None, cap_genes=True):
+        if self.X_orig_missing_genes is None or self.gene_in_discovery_mask is None or self.X_orig is None:
+            return None
+        discovery_mask = np.asarray(self.gene_in_discovery_mask, dtype=bool)
+        if retained_discovery_gene_factors is None:
+            exp_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+            if exp_gene_factors.shape[0] == int(np.sum(discovery_mask)):
+                retained_discovery_gene_factors = exp_gene_factors
+            else:
+                retained_discovery_gene_factors = exp_gene_factors[discovery_mask, :]
+        gene_set_mask = (
+            np.asarray(self.gene_set_in_discovery_mask, dtype=bool)
+            if self.gene_set_in_discovery_mask is not None
+            else np.ones(self.X_orig.shape[1], dtype=bool)
+        )
+        return self._project_gene_gene_rows_to_discovery_factors(
+            self.X_orig_missing_genes,
+            self.X_orig[discovery_mask, :],
+            retained_discovery_gene_factors,
+            gene_set_mask=gene_set_mask,
+            cap_genes=cap_genes,
+        )
+
     def _bayes_nmf_l2_extension(self, V0, P_gene_set=None, P_gene=None, n_iter=10000, a0=10, tol=1e-7, K=15,
                                 K0=15, phi=1.0, cap_genes=False, normalize_genes=False, cap_gene_sets=False, normalize_gene_sets=False):
         """
@@ -3509,6 +3656,7 @@ class EagglState(object):
         run_transpose = bool(_coerce_param_value("run_transpose", True))
         phi = float(_coerce_param_value("phi", 0.0))
         rel_tol = float(_coerce_param_value("rel_tol", 1e-4))
+        discovery_model = str(_coerce_param_value("discovery_model", "gene_by_annotation"))
 
         gene_set_prob_factor_vector = _as_2d_or_none(self.gene_set_prob_factor_vector)
         gene_set_in_discovery_mask = (
@@ -3523,19 +3671,25 @@ class EagglState(object):
             else None
         )
 
-        retained_gene_matrix_to_project = self.X_orig.T
-        if not run_transpose:
-            retained_gene_matrix_to_project = retained_gene_matrix_to_project.T
-        retained_projected_gene_factors = self._project_H_with_fixed_W(
-            basis_gene_set_factors,
-            retained_gene_matrix_to_project[gene_set_in_discovery_mask, :],
-            basis_gene_set_prob_vector,
-            _as_2d_or_none(self.gene_prob_factor_vector),
-            phi=phi,
-            tol=rel_tol,
-            cap_genes=True,
-            normalize_genes=False,
-        )
+        if discovery_model == "gene_by_gene":
+            if self.exp_gene_factors is not None and self.exp_gene_factors.shape[0] == len(self.genes):
+                retained_projected_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+            else:
+                retained_projected_gene_factors = self.project_full_gene_factors_gene_by_gene(cap_genes=True)
+        else:
+            retained_gene_matrix_to_project = self.X_orig.T
+            if not run_transpose:
+                retained_gene_matrix_to_project = retained_gene_matrix_to_project.T
+            retained_projected_gene_factors = self._project_H_with_fixed_W(
+                basis_gene_set_factors,
+                retained_gene_matrix_to_project[gene_set_in_discovery_mask, :],
+                basis_gene_set_prob_vector,
+                _as_2d_or_none(self.gene_prob_factor_vector),
+                phi=phi,
+                tol=rel_tol,
+                cap_genes=True,
+                normalize_genes=False,
+            )
 
         all_genes = list(self.genes)
         all_in_discovery = (
@@ -3556,7 +3710,10 @@ class EagglState(object):
                     self._nnls_project_matrix(gene_set_prob_factor_vector, self.X_orig_missing_genes)
                 )
 
-            if self.X_orig_missing_genes is not None:
+            if self.X_orig_missing_genes is not None and discovery_model == "gene_by_gene":
+                missing_projected_gene_factors = self.project_missing_gene_factors_gene_by_gene(cap_genes=True)
+                projected_gene_factors.append(np.asarray(missing_projected_gene_factors, dtype=float))
+            elif self.X_orig_missing_genes is not None:
                 missing_gene_matrix_to_project = self.X_orig_missing_genes.T
                 if not run_transpose:
                     missing_gene_matrix_to_project = missing_gene_matrix_to_project.T

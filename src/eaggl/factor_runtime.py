@@ -4869,7 +4869,14 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     #this code projects to the additional dimensions
 
     #all gene factor values
-    full_gene_factor_values = state._project_H_with_fixed_W(state.exp_gene_set_factors, gene_matrix_to_project[state.gene_set_in_discovery_mask,:], state.gene_set_prob_factor_vector[state.gene_set_in_discovery_mask,:], state.gene_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+    if _state_discovery_model(state) == "gene_by_gene" and not factor_gene_set_x_pheno:
+        full_gene_factor_values = state.project_full_gene_factors_gene_by_gene(
+            retained_discovery_gene_factors=state.exp_gene_factors,
+            cap_genes=cap,
+        )
+        state._record_params({"factor_gene_projection_from": "direct_gene_gene"})
+    else:
+        full_gene_factor_values = state._project_H_with_fixed_W(state.exp_gene_set_factors, gene_matrix_to_project[state.gene_set_in_discovery_mask,:], state.gene_set_prob_factor_vector[state.gene_set_in_discovery_mask,:], state.gene_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
     if not factor_gene_set_x_pheno and keep_original_loadings:
         full_gene_factor_values[state.gene_in_discovery_mask,:] = state.exp_gene_factors
 

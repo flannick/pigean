@@ -393,7 +393,21 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--factor-gene-clusters-in", "gene_clusters.out.gz")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in", err)
+        self.assertIn("requires at least one requested projection output", err)
+
+    def test_projection_only_rejects_ambiguous_factor_basis_inputs(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("are mutually exclusive for projection-only mode", err)
 
     def test_anchor_phenos_conflicts_with_gene_stats_inputs(self) -> None:
         proc = self._run(
@@ -441,7 +455,7 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("projection-only inputs and cannot be combined with --X-in/--X-list/--Xd-in/--Xd-list", err)
+        self.assertIn("can only be combined with --X-in/--X-list/--Xd-in/--Xd-list when projecting across gene and gene-set bases", err)
 
     def test_projection_only_conflicts_with_gene_set_stats_input(self) -> None:
         proc = self._run(
@@ -469,7 +483,53 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in", err)
+        self.assertIn("--factor-gene-clusters-in with phenotype projection requires --gene-phewas-stats-in", err)
+
+    def test_projection_only_cross_basis_outputs_require_x_matrix(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--gene-set-clusters-out",
+            "gene_set_clusters.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-set-clusters-out or --gene-clusters-full-out from --factor-gene-clusters-in requires --X-in", err)
+
+        proc = self._run(
+            "factor",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--gene-clusters-out",
+            "gene_clusters.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-clusters-out is reserved for original fitted gene loadings", err)
+
+        proc = self._run(
+            "factor",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--gene-clusters-full-out",
+            "gene_clusters_full.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in", err)
+
+    def test_projection_only_gene_clusters_out_is_reserved_for_original_loadings(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--gene-clusters-out",
+            "projected_gene_clusters.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-clusters-out is reserved for original fitted gene loadings", err)
 
     def test_invalid_trait_linkage_source_returns_usage_error(self) -> None:
         proc = self._run("factor", "--trait-linkage-source", "definitely_invalid")
@@ -515,7 +575,7 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--project-phenos-from-gene-sets with precomputed factors requires --gene-set-phewas-stats-in", err)
+        self.assertIn("--factor-gene-set-clusters-in with phenotype projection requires --gene-set-phewas-stats-in", err)
 
     def test_projection_only_factor_phewas_flag_round_trip(self) -> None:
         proc = self._run(

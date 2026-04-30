@@ -50,7 +50,7 @@
       "source_line": 91,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 175
+      "usage_references": 181
     },
     {
       "action": "append",
@@ -71,7 +71,7 @@
       "source_line": 92,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 88
+      "usage_references": 92
     },
     {
       "action": "append",
@@ -92,7 +92,7 @@
       "source_line": 93,
       "summary": "load one or more dense gene-set matrix files directly",
       "type": null,
-      "usage_references": 56
+      "usage_references": 60
     },
     {
       "action": "append",
@@ -113,7 +113,7 @@
       "source_line": 94,
       "summary": "load a file listing dense gene-set matrix inputs",
       "type": null,
-      "usage_references": 48
+      "usage_references": 52
     },
     {
       "action": "store_true",
@@ -1079,7 +1079,7 @@
       "source_line": 201,
       "summary": "load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors",
       "type": null,
-      "usage_references": 65
+      "usage_references": 71
     },
     {
       "action": null,
@@ -1100,7 +1100,7 @@
       "source_line": 202,
       "summary": "load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis",
       "type": null,
-      "usage_references": 41
+      "usage_references": 51
     },
     {
       "action": null,
@@ -1772,7 +1772,7 @@
       "source_line": 176,
       "summary": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
       "type": null,
-      "usage_references": 5
+      "usage_references": 12
     },
     {
       "action": null,
@@ -1793,7 +1793,7 @@
       "source_line": 175,
       "summary": null,
       "type": null,
-      "usage_references": 24
+      "usage_references": 31
     },
     {
       "action": null,
@@ -2528,7 +2528,7 @@
       "source_line": 398,
       "summary": null,
       "type": null,
-      "usage_references": 236
+      "usage_references": 235
     },
     {
       "action": null,
@@ -2633,7 +2633,7 @@
       "source_line": 174,
       "summary": null,
       "type": null,
-      "usage_references": 26
+      "usage_references": 31
     },
     {
       "action": null,
@@ -4797,7 +4797,7 @@
       "source_line": 416,
       "summary": "disable canonical trait linkage even when trait inputs are available",
       "type": null,
-      "usage_references": 16
+      "usage_references": 15
     },
     {
       "action": "store_true",
@@ -5028,7 +5028,7 @@
       "source_line": 181,
       "summary": null,
       "type": null,
-      "usage_references": 38
+      "usage_references": 35
     },
     {
       "action": null,
@@ -5280,7 +5280,7 @@
       "source_line": 411,
       "summary": "project canonical trait linkage from the gene-set basis instead of the gene basis",
       "type": null,
-      "usage_references": 38
+      "usage_references": 36
     },
     {
       "action": "store_true",
@@ -5364,7 +5364,7 @@
       "source_line": 200,
       "summary": "run the optional factor-level phewas stage",
       "type": null,
-      "usage_references": 58
+      "usage_references": 57
     },
     {
       "action": "store_true",
@@ -5553,7 +5553,7 @@
       "source_line": 179,
       "summary": "write the canonical long-form trait-factor linkage table",
       "type": null,
-      "usage_references": 61
+      "usage_references": 62
     },
     {
       "action": null,

@@ -198,8 +198,8 @@ parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_l
 
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
 parser.add_option("","--run-factor-phewas",action="store_true",default=False) #run the optional factor-level phewas stage
-parser.add_option("","--factor-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run projection-only factor outputs without refitting
-parser.add_option("","--factor-gene-set-clusters-in",default=None) #load an existing gene_set_clusters.out(.gz) file and run projection-only gene-set-basis trait linkage outputs without refitting
+parser.add_option("","--factor-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file as a gene-factor basis for projection-only phenotype, gene, or gene-set outputs without refitting
+parser.add_option("","--factor-gene-set-clusters-in",default=None) #load an existing gene_set_clusters.out(.gz) file as a gene-set-factor basis for projection-only phenotype, gene, or gene-set outputs without refitting
 parser.add_option("","--factor-phewas-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run only the factor-phewas projection stage
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",dest="factor_phewas_legacy_input",default=None) #compatibility alias: implies --run-factor-phewas and sets the stage-specific gene phewas input
 parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
@@ -1493,25 +1493,46 @@ def _bootstrap_cli(argv=None):
         or parsed_options.factor_gene_set_clusters_in is not None
     )
     if projection_only_factor_inputs:
+        if parsed_options.factor_gene_clusters_in is not None and parsed_options.factor_gene_set_clusters_in is not None:
+            bail("--factor-gene-clusters-in and --factor-gene-set-clusters-in are mutually exclusive for projection-only mode")
+        projection_requests = {
+            "pheno": bool(parsed_options.pheno_clusters_out is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None),
+            "gene": bool(getattr(parsed_options, "gene_clusters_full_out", None) is not None),
+            "gene_set": bool(parsed_options.gene_set_clusters_out is not None),
+        }
+        if parsed_options.gene_clusters_out is not None:
+            bail("--gene-clusters-out is reserved for original fitted gene loadings; use --gene-clusters-full-out for projection-only gene loadings")
         if (
             not parsed_options.run_factor_phewas
-            and parsed_options.pheno_clusters_out is None
-            and getattr(parsed_options, "trait_factor_links_out", None) is None
-            and parsed_options.no_trait_linkage
+            and not any(projection_requests.values())
         ):
-            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires --run-factor-phewas, --trait-factor-links-out, or --pheno-clusters-out unless --no-trait-linkage is not set")
+            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires at least one requested projection output: --pheno-clusters-out/--trait-factor-links-out, --gene-clusters-out/--gene-clusters-full-out, or --gene-set-clusters-out")
         if parsed_options.run_factor_phewas and parsed_options.factor_gene_clusters_in is None:
             bail("--run-factor-phewas with precomputed factors requires --factor-gene-clusters-in")
-        if parsed_options.pheno_clusters_out is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None or not parsed_options.no_trait_linkage:
-            if parsed_options.project_phenos_from_gene_sets:
-                if parsed_options.factor_gene_set_clusters_in is None:
-                    bail("--project-phenos-from-gene-sets with precomputed factors requires --factor-gene-set-clusters-in")
+        if projection_requests["pheno"]:
+            if parsed_options.project_phenos_from_gene_sets and parsed_options.factor_gene_clusters_in is not None:
+                bail("--project-phenos-from-gene-sets with precomputed factors requires --factor-gene-set-clusters-in")
+            if parsed_options.factor_gene_set_clusters_in is not None:
+                parsed_options.project_phenos_from_gene_sets = True
                 if parsed_options.gene_set_phewas_stats_in is None:
-                    bail("--project-phenos-from-gene-sets with precomputed factors requires --gene-set-phewas-stats-in")
+                    bail("--factor-gene-set-clusters-in with phenotype projection requires --gene-set-phewas-stats-in")
             elif parsed_options.gene_phewas_bfs_in is None:
-                bail("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in")
-            elif parsed_options.factor_gene_clusters_in is None:
-                bail("--gene-based precomputed pheno projection requires --factor-gene-clusters-in")
+                bail("--factor-gene-clusters-in with phenotype projection requires --gene-phewas-stats-in")
+        has_x_source = any(
+            x is not None
+            for x in [parsed_options.X_in, parsed_options.X_list, parsed_options.Xd_in, parsed_options.Xd_list]
+        )
+        if (
+            parsed_options.factor_gene_clusters_in is not None
+            and not has_x_source
+            and (
+                projection_requests["gene_set"]
+                or getattr(parsed_options, "gene_clusters_full_out", None) is not None
+            )
+        ):
+            bail("--gene-set-clusters-out or --gene-clusters-full-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+        if projection_requests["gene"] and parsed_options.factor_gene_set_clusters_in is not None and not has_x_source:
+            bail("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
     if parsed_options.consensus_aggregation not in set(["median", "mean"]):
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < parsed_options.consensus_min_factor_cosine <= 1):

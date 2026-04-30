@@ -734,6 +734,61 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("filtered_c\t0.5\t0.25\t0.05\tFalse\tFactor2\tlabel2\t0.3\t0.7\t0.3\t0.7\t0.3\t0.7", content)
         self.assertNotIn("retained_a\t2\t1.5\t0.2\tTrue\tFactor1\tlabel1\t9", content)
 
+    def test_gene_by_gene_full_clusters_project_filtered_genes_directly_against_discovery_genes(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.params = {
+            "discovery_model": "gene_by_gene",
+            "phi": 0.0,
+            "rel_tol": 1e-4,
+            "run_transpose": True,
+            "gene_gene_beta_source": "beta_uncorrected",
+            "gene_gene_pair_prior": 0.1,
+            "gene_gene_logbf_base": "natural",
+            "gene_gene_matrix_floor": 0.001,
+            "gene_gene_excess_probability": True,
+        }
+        runtime.exp_lambdak = np.array([1.0, 1.0])
+        runtime.factor_labels = ["label1", "label2"]
+        runtime.exp_gene_set_factors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+        runtime.exp_gene_factors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+        runtime.gene_set_prob_factor_vector = None
+        runtime.gene_prob_factor_vector = None
+        runtime.gene_set_in_discovery_mask = np.array([True, True], dtype=bool)
+        runtime.gene_in_discovery_mask = np.array([True, True, False], dtype=bool)
+        runtime.X_orig = np.array(
+            [
+                [1.0, 0.0],
+                [0.0, 1.0],
+                [1.0, 0.0],
+            ],
+            dtype=float,
+        )
+        runtime.X_orig_missing_genes = np.array([[1.0, 0.0]], dtype=float)
+        runtime.betas_uncorrected = np.array([5.0, 5.0], dtype=float)
+        runtime.scale_factors = np.array([1.0, 1.0], dtype=float)
+        runtime.gene_sets = ["gs1", "gs2"]
+        runtime.genes = ["disc_a", "disc_b", "retained_c"]
+        runtime.genes_missing = ["filtered_d"]
+        runtime.combined_prior_Ys = np.array([2.0, 1.8, 0.4], dtype=float)
+        runtime.combined_prior_Ys_missing = np.array([0.3], dtype=float)
+        runtime.Y = np.array([1.5, 1.4, 0.2], dtype=float)
+        runtime.Y_missing = np.array([0.1], dtype=float)
+        runtime.priors = np.array([0.8, 0.7, 0.2], dtype=float)
+        runtime.priors_missing = [0.1]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = Path(tmpdir) / "gene_clusters_full.tsv.gz"
+            runtime.write_full_gene_clusters(str(out_path), cluster_row_min_max_loading=0.0)
+
+            import gzip
+
+            with gzip.open(out_path, "rt", encoding="utf-8") as fh:
+                content = fh.read()
+
+        self.assertIn("retained_c\t0.4\t0.2\t0.2\tFalse\tFactor1\tlabel1", content)
+        self.assertIn("filtered_d\t0.3\t0.1\t0.1\tFalse\tFactor1\tlabel1", content)
+        self.assertNotIn("nan", content.lower())
+
     def test_write_clustering_params_writes_json_and_tsv_siblings(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
         payload = {
@@ -1078,6 +1133,58 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIn("gene_sets", content)
         self.assertIn("TraitA\tFactor1", content)
         self.assertIn("TraitB\tFactor2", content)
+
+    def test_projection_only_projects_gene_sets_from_loaded_gene_factors(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.params = {}
+        runtime.genes = ["G1", "G2", "G3"]
+        runtime.gene_to_ind = {"G1": 0, "G2": 1, "G3": 2}
+        runtime.gene_sets = ["GS1", "GS2"]
+        runtime.gene_set_to_ind = {"GS1": 0, "GS2": 1}
+        runtime.X_orig = np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]], dtype=float)
+        runtime.exp_lambdak = np.ones(2, dtype=float)
+        loaded_genes = ["G1", "G2"]
+        loaded_gene_factors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+
+        domain = eaggl.build_main_domain()
+        eaggl.eaggl_factor._project_gene_set_factors_from_loaded_gene_factors(
+            domain,
+            runtime,
+            loaded_genes,
+            loaded_gene_factors,
+        )
+
+        self.assertEqual(runtime.exp_gene_set_factors.shape, (2, 2))
+        self.assertGreater(runtime.exp_gene_set_factors[0, 0], runtime.exp_gene_set_factors[0, 1])
+        self.assertGreater(runtime.exp_gene_set_factors[1, 1], runtime.exp_gene_set_factors[1, 0])
+        np.testing.assert_array_equal(runtime.gene_set_in_discovery_mask, [False, False])
+
+    def test_projection_only_projects_genes_from_loaded_gene_set_factors(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.params = {}
+        runtime.genes = ["G1", "G2", "G3"]
+        runtime.gene_to_ind = {"G1": 0, "G2": 1, "G3": 2}
+        runtime.gene_sets = ["GS1", "GS2", "GS3"]
+        runtime.gene_set_to_ind = {"GS1": 0, "GS2": 1, "GS3": 2}
+        runtime.X_orig = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]], dtype=float)
+        runtime.exp_lambdak = np.ones(2, dtype=float)
+        loaded_gene_sets = ["GS1", "GS2"]
+        loaded_gene_set_factors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+
+        domain = eaggl.build_main_domain()
+        eaggl.eaggl_factor._project_gene_factors_from_loaded_gene_set_factors(
+            domain,
+            runtime,
+            loaded_gene_sets,
+            loaded_gene_set_factors,
+        )
+
+        self.assertEqual(runtime.exp_gene_factors.shape, (3, 2))
+        self.assertGreater(runtime.exp_gene_factors[0, 0], runtime.exp_gene_factors[0, 1])
+        self.assertGreater(runtime.exp_gene_factors[1, 1], runtime.exp_gene_factors[1, 0])
+        self.assertGreater(runtime.exp_gene_factors[2, 0], 0.0)
+        self.assertGreater(runtime.exp_gene_factors[2, 1], 0.0)
+        np.testing.assert_array_equal(runtime.gene_in_discovery_mask, [False, False, False])
 
     def test_write_matrix_factors_reports_factor_total_mass(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
