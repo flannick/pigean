@@ -72,7 +72,7 @@
       "source_line": 72,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 174
+      "usage_references": 175
     },
     {
       "action": "append",
@@ -1563,7 +1563,7 @@
       "source_line": 298,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 92
+      "usage_references": 94
     },
     {
       "action": null,
@@ -2319,7 +2319,7 @@
       "source_line": 172,
       "summary": "specify gene-list genes directly on the command line",
       "type": "string",
-      "usage_references": 342
+      "usage_references": 343
     },
     {
       "action": null,
@@ -2361,7 +2361,7 @@
       "source_line": 175,
       "summary": "load the full background gene universe for the gene-list input",
       "type": null,
-      "usage_references": 26
+      "usage_references": 27
     },
     {
       "action": "store_false",
@@ -3054,7 +3054,7 @@
       "source_line": 219,
       "summary": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
       "type": null,
-      "usage_references": 89
+      "usage_references": 90
     },
     {
       "action": null,
@@ -3201,7 +3201,7 @@
       "source_line": 235,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 147
+      "usage_references": 148
     },
     {
       "action": null,
@@ -3243,7 +3243,7 @@
       "source_line": 260,
       "summary": "write the final gene-level statistics table",
       "type": null,
-      "usage_references": 105
+      "usage_references": 107
     },
     {
       "action": null,
@@ -3264,7 +3264,7 @@
       "source_line": 261,
       "summary": "control whether gene-stats-out writes only the selected universe or all tracked genes outside it; choices: universe, all (current is a compatibility alias for all)",
       "type": null,
-      "usage_references": 25
+      "usage_references": 27
     },
     {
       "action": null,
@@ -3348,7 +3348,7 @@
       "source_line": 182,
       "summary": "use the union of genes across input gene sets as the analysis universe",
       "type": null,
-      "usage_references": 28
+      "usage_references": 24
     },
     {
       "action": "store_true",
@@ -3369,7 +3369,7 @@
       "source_line": 181,
       "summary": "use only genes present in the input Y values as the analysis universe",
       "type": null,
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": null,
@@ -3390,7 +3390,7 @@
       "source_line": 179,
       "summary": "ID column in the explicit gene-universe file shared across Y input modes",
       "type": null,
-      "usage_references": 16
+      "usage_references": 21
     },
     {
       "action": null,
@@ -3411,7 +3411,7 @@
       "source_line": 178,
       "summary": "load an explicit gene universe shared across Y input modes",
       "type": null,
-      "usage_references": 38
+      "usage_references": 44
     },
     {
       "action": "store_false",
@@ -3432,7 +3432,7 @@
       "source_line": 180,
       "summary": "declare that the explicit gene-universe file has no header row",
       "type": null,
-      "usage_references": 14
+      "usage_references": 19
     },
     {
       "action": null,
@@ -5616,7 +5616,7 @@
       "source_line": 269,
       "summary": "choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions",
       "type": null,
-      "usage_references": 12
+      "usage_references": 14
     },
     {
       "action": "append",
@@ -5826,7 +5826,7 @@
       "source_line": 189,
       "summary": "compatibility alias for --gene-list-all-in",
       "type": null,
-      "usage_references": 42
+      "usage_references": 43
     },
     {
       "action": "store_false",
@@ -5847,7 +5847,7 @@
       "source_line": 191,
       "summary": "compatibility alias for --gene-list-all-no-header",
       "type": null,
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": null,
@@ -6036,7 +6036,7 @@
       "source_line": 300,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 168
+      "usage_references": 170
     },
     {
       "action": null,

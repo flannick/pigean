@@ -535,6 +535,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--gene-clusters-full-out": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
     "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
+    "--discovery-model": "choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery",
     "--gene-filter-value": "threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5",
     "--max-num-discovery-genes": "maximum number of genes retained for factor discovery after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden",
     "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",

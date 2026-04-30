@@ -972,9 +972,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 320,
-      "summary": null,
+      "summary": "choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery",
       "type": "choice",
-      "usage_references": 30
+      "usage_references": 31
     },
     {
       "action": null,

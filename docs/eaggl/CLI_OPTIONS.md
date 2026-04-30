@@ -62,7 +62,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
-| `--discovery-model` | `normal` | `yes` | `core_help` | `discovery_model` | `gene_by_annotation` | - |
+| `--discovery-model` | `normal` | `yes` | `core_help` | `discovery_model` | `gene_by_annotation` | choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery |
 | `--discovery-redundancy-weighting-mode` | `expert` | `yes` | `expert_help` | `discovery_redundancy_weighting_mode` | `effective_size` | - |
 | `--discovery-similarity-threshold` | `expert` | `yes` | `expert_help` | `discovery_similarity_threshold` | `0.35` | similarity threshold used to assign retained gene sets to discovery families |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
