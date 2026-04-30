@@ -68,6 +68,7 @@ def apply_gene_covariates_and_correct_huge(
     if runtime_state.gene_covariates is None:
         return
 
+    align_huge_gene_level_state_to_active_genes(runtime_state, bail_fn=bail_fn)
     prepare_gene_covariate_regression_state(
         runtime_state,
         log_fn=log_fn,
@@ -123,6 +124,34 @@ def apply_huge_correction_with_covariates(runtime_state):
                 runtime_state.gene_to_gwas_huge_score[runtime_state.genes[i]] = Y_huge[i]
 
         runtime_state.combine_huge_scores()
+
+
+def align_huge_gene_level_state_to_active_genes(runtime_state, *, bail_fn):
+    if runtime_state.genes is None or runtime_state.gene_covariates is None:
+        return
+
+    num_genes = len(runtime_state.genes)
+    num_covariate_rows = runtime_state.gene_covariates.shape[0]
+    if num_covariate_rows == num_genes:
+        return
+    if num_covariate_rows < num_genes:
+        bail_fn(
+            "HuGE gene covariates have %d rows but the active gene universe has %d genes"
+            % (num_covariate_rows, num_genes)
+        )
+
+    # HuGE construction orders active-universe genes first, followed by genes outside
+    # the explicit universe. Drop those extras before correction on active Y vectors.
+    runtime_state.gene_covariates = runtime_state.gene_covariates[:num_genes, :]
+    if runtime_state.huge_signal_bfs is not None:
+        runtime_state.huge_signal_bfs = runtime_state.huge_signal_bfs[:num_genes, :]
+    if runtime_state.huge_signal_bfs_for_regression is not None:
+        runtime_state.huge_signal_bfs_for_regression = runtime_state.huge_signal_bfs_for_regression[:num_genes, :]
+
+    runtime_state.gene_covariate_zs = None
+    runtime_state.gene_covariates_mask = None
+    runtime_state.gene_covariates_mat_inv = None
+    runtime_state.gene_covariate_adjustments = None
 
 
 def prepare_gene_covariate_regression_state(runtime_state, *, log_fn, trace_level, bail_fn):
