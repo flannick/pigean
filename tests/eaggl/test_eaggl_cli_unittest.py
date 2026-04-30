@@ -141,11 +141,22 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--factor-phewas-from-gene-phewas-stats-in"]["public_visibility"], "hidden")
 
         self.assertEqual(metadata["--factor-runs"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--discovery-model"]["public_visibility"], "normal")
+        self.assertEqual(metadata["--gene-gene-beta-source"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-pair-prior"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-pair-prior-effective-size"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-logbf-base"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-diagonal-weight"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-matrix-floor"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-excess-probability"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-row-sum-cap"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-sparsity"]["public_visibility"], "expert")
         self.assertEqual(metadata["--consensus-nmf"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-max-redundancy"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-max-redundancy-q90"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-runs-per-step"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--learn-phi-target-gene-mass"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-target-gene-effective-support"]["public_visibility"], "normal")
         self.assertEqual(metadata["--learn-phi-size-tolerance-frac"]["public_visibility"], "expert")
         self.assertEqual(metadata["--learn-phi-min-primary-factors"]["public_visibility"], "expert")
@@ -158,10 +169,12 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--factor-phi-factors-out"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phi-gene-set-clusters-out"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phi-gene-clusters-out"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--gene-clusters-full-out"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--cluster-row-min-max-loading"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phi-factors-out"]["public_visibility"], "expert")
         self.assertEqual(metadata["--factor-phi-gene-set-clusters-out"]["public_visibility"], "expert")
         self.assertEqual(metadata["--factor-phi-gene-clusters-out"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-clusters-full-out"]["public_visibility"], "expert")
         self.assertEqual(metadata["--cluster-row-min-max-loading"]["public_visibility"], "expert")
 
         self.assertEqual(metadata["--factor-phewas-modes"]["documentation_target"], "advanced_workflows")
@@ -211,14 +224,47 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--learn-phi")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--learn-phi requires --learn-phi-target-gene-effective-support", err)
+        self.assertIn("--learn-phi requires either --learn-phi-target-gene-mass or --learn-phi-target-gene-effective-support", err)
         self.assertNotIn("Traceback", err)
+
+        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-mass", "-1")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-target-gene-mass must be positive", err)
+
+        proc = self._run(
+            "factor",
+            "--learn-phi",
+            "--learn-phi-target-gene-mass",
+            "100",
+            "--learn-phi-target-gene-effective-support",
+            "25",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--learn-phi-target-gene-mass and --learn-phi-target-gene-effective-support are mutually exclusive", err)
 
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "-1")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-target-gene-effective-support must be positive", err)
+
+    def test_invalid_gene_gene_settings_return_usage_error(self) -> None:
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-pair-prior", "1.0")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-gene-pair-prior must be in (0, 1)", err)
+
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--factor-backend", "blockwise_global_w")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--discovery-model gene_by_gene currently requires --factor-backend full", err)
         self.assertNotIn("Traceback", err)
+
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-matrix-floor", "-1")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-gene-matrix-floor must be >= 0", err)
 
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy", "1.2")
         self.assertEqual(proc.returncode, 2)
@@ -231,6 +277,32 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-redundancy-q90 must be in (0, 1]", err)
         self.assertNotIn("Traceback", err)
+
+    def test_gene_by_gene_uses_smaller_default_initial_phi_unless_overridden(self) -> None:
+        proc = self._run(
+            "factor",
+            "--deterministic",
+            "--discovery-model",
+            "gene_by_gene",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["discovery_model"], "gene_by_gene")
+        self.assertEqual(payload["options"]["phi"], 0.01)
+
+        proc = self._run(
+            "factor",
+            "--deterministic",
+            "--discovery-model",
+            "gene_by_gene",
+            "--phi",
+            "0.002",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["phi"], 0.002)
 
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-size-tolerance-frac", "-0.1")
         self.assertEqual(proc.returncode, 2)
@@ -321,7 +393,21 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--factor-gene-clusters-in", "gene_clusters.out.gz")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in", err)
+        self.assertIn("requires at least one requested projection output", err)
+
+    def test_projection_only_rejects_ambiguous_factor_basis_inputs(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("are mutually exclusive for projection-only mode", err)
 
     def test_anchor_phenos_conflicts_with_gene_stats_inputs(self) -> None:
         proc = self._run(
@@ -369,7 +455,7 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("projection-only inputs and cannot be combined with --X-in/--X-list/--Xd-in/--Xd-list", err)
+        self.assertIn("can only be combined with --X-in/--X-list/--Xd-in/--Xd-list when projecting across gene and gene-set bases", err)
 
     def test_projection_only_conflicts_with_gene_set_stats_input(self) -> None:
         proc = self._run(
@@ -397,7 +483,53 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in", err)
+        self.assertIn("--factor-gene-clusters-in with phenotype projection requires --gene-phewas-stats-in", err)
+
+    def test_projection_only_cross_basis_outputs_require_x_matrix(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--gene-set-clusters-out",
+            "gene_set_clusters.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-set-clusters-out or --gene-clusters-full-out from --factor-gene-clusters-in requires --X-in", err)
+
+        proc = self._run(
+            "factor",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--gene-clusters-out",
+            "gene_clusters.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-clusters-out is reserved for original fitted gene loadings", err)
+
+        proc = self._run(
+            "factor",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--gene-clusters-full-out",
+            "gene_clusters_full.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in", err)
+
+    def test_projection_only_gene_clusters_out_is_reserved_for_original_loadings(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--gene-clusters-out",
+            "projected_gene_clusters.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-clusters-out is reserved for original fitted gene loadings", err)
 
     def test_invalid_trait_linkage_source_returns_usage_error(self) -> None:
         proc = self._run("factor", "--trait-linkage-source", "definitely_invalid")
@@ -443,7 +575,7 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--project-phenos-from-gene-sets with precomputed factors requires --gene-set-phewas-stats-in", err)
+        self.assertIn("--factor-gene-set-clusters-in with phenotype projection requires --gene-set-phewas-stats-in", err)
 
     def test_projection_only_factor_phewas_flag_round_trip(self) -> None:
         proc = self._run(

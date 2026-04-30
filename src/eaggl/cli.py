@@ -173,6 +173,7 @@ parser.add_option("","--factor-metrics-out",default=None)
 parser.add_option("","--factors-anchor-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
+parser.add_option("","--gene-clusters-full-out",default=None)
 parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
 parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="primary") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
@@ -197,8 +198,8 @@ parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_l
 
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
 parser.add_option("","--run-factor-phewas",action="store_true",default=False) #run the optional factor-level phewas stage
-parser.add_option("","--factor-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run projection-only factor outputs without refitting
-parser.add_option("","--factor-gene-set-clusters-in",default=None) #load an existing gene_set_clusters.out(.gz) file and run projection-only gene-set-basis trait linkage outputs without refitting
+parser.add_option("","--factor-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file as a gene-factor basis for projection-only phenotype, gene, or gene-set outputs without refitting
+parser.add_option("","--factor-gene-set-clusters-in",default=None) #load an existing gene_set_clusters.out(.gz) file as a gene-set-factor basis for projection-only phenotype, gene, or gene-set outputs without refitting
 parser.add_option("","--factor-phewas-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run only the factor-phewas projection stage
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",dest="factor_phewas_legacy_input",default=None) #compatibility alias: implies --run-factor-phewas and sets the stage-specific gene phewas input
 parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
@@ -316,6 +317,18 @@ parser.add_option("","--label-individually",default=False,action="store_true") #
 parser.add_option("","--factor-top-loading-type",default="combined",type=str) #metric used for top genes/gene sets in factors.out and factor labels: raw, specific, or combined
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
+parser.add_option("","--discovery-model",type="choice",choices=["gene_by_annotation","gene_by_gene"],default="gene_by_annotation") #factor discovery target: rectangular gene-by-annotation or symmetric gene-by-gene
+parser.add_option("","--gene-gene-beta-source",type="choice",choices=["beta","beta_uncorrected"],default="beta") #gene-by-gene mode only: corrected beta by default; beta_uncorrected is diagnostic
+parser.add_option("","--gene-gene-pair-prior",default=None,type=float) #gene-by-gene mode only: direct pairwise same-mechanism prior
+parser.add_option("","--gene-gene-pair-prior-effective-size",default=None,type=float) #gene-by-gene mode only: target effective mechanism size used to derive the pair prior
+parser.add_option("","--gene-gene-logbf-base",type="choice",choices=["natural","log10"],default="natural") #gene-by-gene mode only: units for shared annotation evidence before logistic calibration
+parser.add_option("","--gene-gene-diagonal-weight",default=0.0,type=float) #gene-by-gene mode only: diagonal fitting weight for symmetric NMF
+parser.add_option("","--gene-gene-matrix-floor",default=1e-3,type=float) #gene-by-gene mode only: zero pair-matrix entries below this value after probability calibration
+parser.add_option("","--gene-gene-excess-probability",dest="gene_gene_excess_probability",default=True,action="store_true") #gene-by-gene mode only: factor excess probability above the pair prior
+parser.add_option("","--no-gene-gene-excess-probability",dest="gene_gene_excess_probability",action="store_false")
+parser.add_option("","--gene-gene-row-sum-cap",dest="gene_gene_row_sum_cap",default=True,action="store_true") #gene-by-gene mode only: project each row of W to sum <= 1 after each update
+parser.add_option("","--no-gene-gene-row-sum-cap",dest="gene_gene_row_sum_cap",action="store_false")
+parser.add_option("","--gene-gene-sparsity",default=0.0,type=float) #gene-by-gene mode only: optional L1 penalty on W
 parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization
 parser.add_option("","--learn-phi-max-redundancy",default=0.5,type=float) #maximum allowed within-run weighted Jaccard overlap between metric-scope factors during phi search, measured on gene loadings when available
 parser.add_option("","--learn-phi-max-redundancy-q90",default=0.35,type=float) #maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during phi search
@@ -324,6 +337,7 @@ parser.add_option("","--learn-phi-min-run-support",default=0.6,type=float) #mini
 parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minimum mean matched-factor cosine similarity across modal runs during phi search
 parser.add_option("","--learn-phi-fit-loss-warning-frac","--learn-phi-max-fit-loss-frac",dest="learn_phi_fit_loss_warning_frac",default=0.05,type=float) #reconstruction-error warning threshold relative to the best phi-search candidate during phi selection
 parser.add_option("","--learn-phi-max-severe-fit-loss-frac",default=1.0,type=float) #hard severe-underfit threshold relative to the best phi-search candidate during phi selection
+parser.add_option("","--learn-phi-target-gene-mass",default=None,type=float) #optional with --learn-phi; target median gene mass among primary factors
 parser.add_option("","--learn-phi-target-gene-effective-support",default=None,type=float) #required with --learn-phi; target median effective gene support among primary factors
 parser.add_option("","--learn-phi-size-tolerance-frac",default=0.25,type=float) #fractional tolerance around target primary-factor gene effective support
 parser.add_option("","--learn-phi-min-primary-factors",default=3,type=int) #minimum primary factor count required for a phi candidate
@@ -360,9 +374,10 @@ parser.add_option("","--consensus-min-factor-cosine",default=0.7,type=float) #mi
 parser.add_option("","--consensus-min-run-support",default=0.5,type=float) #minimum fraction of runs that must support a consensus factor
 parser.add_option("","--consensus-aggregation",default="median",type=str) #aggregation rule for matched factor loadings across runs
 parser.add_option("","--gene-set-filter-value",type=float,default=0.01) #choose value of filter for gene sets. Will use beta uncorrected if available, otherwise beta, otherwise no filter
-parser.add_option("","--gene-filter-value",type=float,default=1) #choose value of filter for genes. Will use combined if available, then priors, then Y, then nothing. Used only when anchoring to a pheno(s) (or default)
+parser.add_option("","--gene-filter-value",type=float,default=None) #choose value of pre-factor filter for genes on the resolved gene score surface
 parser.add_option("","--pheno-filter-value",type=float,default=1) #choose value of filter for phenos. Used only when anchoring to genes
 parser.add_option("","--gene-set-pheno-filter-value",type=float,default=0.01) #choose value of filter for gene set anchoring
+parser.add_option("","--max-num-discovery-genes",type=int,default=None) #cap pre-factor retained genes after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden
 parser.add_option("","--no-transpose",action='store_true') #factor original X rather than tranpose
 parser.add_option("","--min-lambda-threshold",type=float,default=1e-3) #remove factors with lambdak values below this threshold, or sum(gene loadings) below this threshold, or sum(gene set loadings) below this threshold
 parser.add_option("","--consensus-stats-out",default=None) #write consensus/restart diagnostics for factorization
@@ -506,6 +521,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-min-run-support": "minimum run-support fraction required for a phi candidate during automatic tuning",
     "--learn-phi-min-stability": "minimum matched-factor cosine stability required for a phi candidate during automatic tuning",
     "--learn-phi-metric-factor-scope": "choose whether phi-selection redundancy and repeat-stability metrics use primary factors or all fitted factors",
+    "--learn-phi-target-gene-mass": "optional with --learn-phi; target median primary-factor gene mass used for phi selection",
     "--learn-phi-target-gene-effective-support": "required with --learn-phi; target median effective gene support among primary factors",
     "--learn-phi-size-tolerance-frac": "fractional tolerance around the requested primary-factor gene effective support",
     "--learn-phi-min-primary-factors": "minimum primary factor count required for a phi candidate during target-size tuning",
@@ -517,7 +533,11 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-factors-out": "write factors.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--factor-phi-gene-set-clusters-out": "write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
+    "--gene-clusters-full-out": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
     "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
+    "--discovery-model": "choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery",
+    "--gene-filter-value": "threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5",
+    "--max-num-discovery-genes": "maximum number of genes retained for factor discovery after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden",
     "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
     "--learn-phi-runs-per-step": "number of repeated restarts used to score each candidate phi",
     "--learn-phi-weight-floor": "weights below this are treated as zero when measuring factor redundancy during phi tuning",
@@ -589,6 +609,17 @@ _EXPERT_METHOD_FLAGS = {
     "--consensus-min-factor-cosine",
     "--consensus-min-run-support",
     "--consensus-nmf",
+    "--gene-gene-beta-source",
+    "--gene-gene-diagonal-weight",
+    "--gene-gene-excess-probability",
+    "--no-gene-gene-excess-probability",
+    "--gene-gene-logbf-base",
+    "--gene-gene-pair-prior",
+    "--gene-gene-pair-prior-effective-size",
+    "--gene-gene-row-sum-cap",
+    "--no-gene-gene-row-sum-cap",
+    "--gene-gene-sparsity",
+    "--max-num-discovery-genes",
     "--run-factor-phewas",
     "--factor-phewas-anchor-covariate",
     "--factor-gene-clusters-in",
@@ -683,6 +714,7 @@ _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--consensus-stats-out",
     "--gene-anchor-clusters-out",
     "--gene-clusters-out",
+    "--gene-clusters-full-out",
     "--gene-pheno-stats-out",
     "--gene-set-anchor-clusters-out",
     "--gene-set-clusters-out",
@@ -730,6 +762,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--consensus-nmf",
     "--consensus-stats-out",
     "--beta0",
+    "--discovery-model",
     "--factor-backend",
     "--factor-output-scope",
     "--eaggl-bundle-in",
@@ -745,6 +778,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--learn-phi",
     "--learn-phi-backend",
     "--learn-phi-max-redundancy",
+    "--learn-phi-target-gene-mass",
     "--learn-phi-target-gene-effective-support",
     "--max-num-factors",
     "--min-lambda-threshold",
@@ -1160,6 +1194,9 @@ debug_level = 1
 log_fh = None
 warnings_fh = None
 
+_DEFAULT_PHI = 0.05
+_DEFAULT_GENE_BY_GENE_INITIAL_PHI = 0.01
+_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS = 30.0
 
 def _noop_log(*_args, **_kwargs):
     return None
@@ -1388,6 +1425,18 @@ def _bootstrap_cli(argv=None):
 
     _normalize_optional_phewas_stage_options(parsed_options, warn)
 
+    if parsed_options.discovery_model == "gene_by_gene":
+        if "phi" not in parsed_cli_specified_dests and "phi" not in parsed_config_specified_dests:
+            parsed_options.phi = float(_DEFAULT_GENE_BY_GENE_INITIAL_PHI)
+        if (
+            parsed_options.learn_phi
+            and parsed_options.learn_phi_target_gene_mass is None
+            and parsed_options.learn_phi_target_gene_effective_support is None
+        ):
+            parsed_options.learn_phi_target_gene_mass = float(
+                _DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS
+            )
+
     pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
     parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
     if parsed_options.pheno_capture_input not in set(["weighted_thresholded", "binary_thresholded"]):
@@ -1444,25 +1493,46 @@ def _bootstrap_cli(argv=None):
         or parsed_options.factor_gene_set_clusters_in is not None
     )
     if projection_only_factor_inputs:
+        if parsed_options.factor_gene_clusters_in is not None and parsed_options.factor_gene_set_clusters_in is not None:
+            bail("--factor-gene-clusters-in and --factor-gene-set-clusters-in are mutually exclusive for projection-only mode")
+        projection_requests = {
+            "pheno": bool(parsed_options.pheno_clusters_out is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None),
+            "gene": bool(getattr(parsed_options, "gene_clusters_full_out", None) is not None),
+            "gene_set": bool(parsed_options.gene_set_clusters_out is not None),
+        }
+        if parsed_options.gene_clusters_out is not None:
+            bail("--gene-clusters-out is reserved for original fitted gene loadings; use --gene-clusters-full-out for projection-only gene loadings")
         if (
             not parsed_options.run_factor_phewas
-            and parsed_options.pheno_clusters_out is None
-            and getattr(parsed_options, "trait_factor_links_out", None) is None
-            and parsed_options.no_trait_linkage
+            and not any(projection_requests.values())
         ):
-            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires --run-factor-phewas, --trait-factor-links-out, or --pheno-clusters-out unless --no-trait-linkage is not set")
+            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires at least one requested projection output: --pheno-clusters-out/--trait-factor-links-out, --gene-clusters-out/--gene-clusters-full-out, or --gene-set-clusters-out")
         if parsed_options.run_factor_phewas and parsed_options.factor_gene_clusters_in is None:
             bail("--run-factor-phewas with precomputed factors requires --factor-gene-clusters-in")
-        if parsed_options.pheno_clusters_out is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None or not parsed_options.no_trait_linkage:
-            if parsed_options.project_phenos_from_gene_sets:
-                if parsed_options.factor_gene_set_clusters_in is None:
-                    bail("--project-phenos-from-gene-sets with precomputed factors requires --factor-gene-set-clusters-in")
+        if projection_requests["pheno"]:
+            if parsed_options.project_phenos_from_gene_sets and parsed_options.factor_gene_clusters_in is not None:
+                bail("--project-phenos-from-gene-sets with precomputed factors requires --factor-gene-set-clusters-in")
+            if parsed_options.factor_gene_set_clusters_in is not None:
+                parsed_options.project_phenos_from_gene_sets = True
                 if parsed_options.gene_set_phewas_stats_in is None:
-                    bail("--project-phenos-from-gene-sets with precomputed factors requires --gene-set-phewas-stats-in")
+                    bail("--factor-gene-set-clusters-in with phenotype projection requires --gene-set-phewas-stats-in")
             elif parsed_options.gene_phewas_bfs_in is None:
-                bail("--factor-gene-clusters-in with --pheno-clusters-out requires --gene-phewas-stats-in")
-            elif parsed_options.factor_gene_clusters_in is None:
-                bail("--gene-based precomputed pheno projection requires --factor-gene-clusters-in")
+                bail("--factor-gene-clusters-in with phenotype projection requires --gene-phewas-stats-in")
+        has_x_source = any(
+            x is not None
+            for x in [parsed_options.X_in, parsed_options.X_list, parsed_options.Xd_in, parsed_options.Xd_list]
+        )
+        if (
+            parsed_options.factor_gene_clusters_in is not None
+            and not has_x_source
+            and (
+                projection_requests["gene_set"]
+                or getattr(parsed_options, "gene_clusters_full_out", None) is not None
+            )
+        ):
+            bail("--gene-set-clusters-out or --gene-clusters-full-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+        if projection_requests["gene"] and parsed_options.factor_gene_set_clusters_in is not None and not has_x_source:
+            bail("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
     if parsed_options.consensus_aggregation not in set(["median", "mean"]):
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < parsed_options.consensus_min_factor_cosine <= 1):
@@ -1475,20 +1545,40 @@ def _bootstrap_cli(argv=None):
         bail("--factor-backend must be one of: full, blockwise_global_w")
     if parsed_options.learn_phi_backend not in set(["sentinel_pruned", "blockwise_global_w"]):
         bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w")
+    if parsed_options.discovery_model not in set(["gene_by_annotation", "gene_by_gene"]):
+        bail("--discovery-model must be one of: gene_by_annotation, gene_by_gene")
     if parsed_options.blockwise_gene_set_block_size < 1:
         bail("--blockwise-gene-set-block-size must be at least 1")
     if parsed_options.blockwise_epochs < 1:
         bail("--blockwise-epochs must be at least 1")
     if parsed_options.blockwise_max_blocks is not None and parsed_options.blockwise_max_blocks < 1:
         bail("--blockwise-max-blocks must be at least 1")
+    if parsed_options.max_num_discovery_genes is not None and parsed_options.max_num_discovery_genes < 1:
+        bail("--max-num-discovery-genes must be at least 1")
     if parsed_options.cluster_row_min_max_loading < 0:
         bail("--cluster-row-min-max-loading must be nonnegative")
     if parsed_options.learn_phi:
         if parsed_options.phi <= 0:
             bail("--learn-phi requires --phi > 0")
-        if parsed_options.learn_phi_target_gene_effective_support is None:
-            bail("--learn-phi requires --learn-phi-target-gene-effective-support")
-        if parsed_options.learn_phi_target_gene_effective_support <= 0:
+        if (
+            parsed_options.learn_phi_target_gene_mass is None
+            and parsed_options.learn_phi_target_gene_effective_support is None
+        ):
+            bail("--learn-phi requires either --learn-phi-target-gene-mass or --learn-phi-target-gene-effective-support")
+        if (
+            parsed_options.learn_phi_target_gene_mass is not None
+            and parsed_options.learn_phi_target_gene_effective_support is not None
+        ):
+            bail("--learn-phi-target-gene-mass and --learn-phi-target-gene-effective-support are mutually exclusive")
+        if (
+            parsed_options.learn_phi_target_gene_mass is not None
+            and parsed_options.learn_phi_target_gene_mass <= 0
+        ):
+            bail("--learn-phi-target-gene-mass must be positive")
+        if (
+            parsed_options.learn_phi_target_gene_effective_support is not None
+            and parsed_options.learn_phi_target_gene_effective_support <= 0
+        ):
             bail("--learn-phi-target-gene-effective-support must be positive")
         if not (0 < parsed_options.learn_phi_max_redundancy <= 1):
             bail("--learn-phi-max-redundancy must be in (0, 1]")
@@ -1530,6 +1620,23 @@ def _bootstrap_cli(argv=None):
         bail("--max-num-discovery-gene-sets must be at least 1")
     if not (0 <= parsed_options.discovery_similarity_threshold <= 1):
         bail("--discovery-similarity-threshold must be in [0, 1]")
+    if parsed_options.gene_gene_pair_prior is not None and not (0 < parsed_options.gene_gene_pair_prior < 1):
+        bail("--gene-gene-pair-prior must be in (0, 1)")
+    if parsed_options.gene_gene_pair_prior_effective_size is not None and parsed_options.gene_gene_pair_prior_effective_size <= 1:
+        bail("--gene-gene-pair-prior-effective-size must be > 1")
+    if parsed_options.gene_gene_diagonal_weight < 0:
+        bail("--gene-gene-diagonal-weight must be >= 0")
+    if parsed_options.gene_gene_matrix_floor < 0:
+        bail("--gene-gene-matrix-floor must be >= 0")
+    if parsed_options.gene_gene_sparsity < 0:
+        bail("--gene-gene-sparsity must be >= 0")
+    if parsed_options.discovery_model == "gene_by_gene":
+        if parsed_options.factor_backend != "full":
+            bail("--discovery-model gene_by_gene currently requires --factor-backend full")
+        if parsed_options.learn_phi_backend != "sentinel_pruned":
+            bail("--discovery-model gene_by_gene currently requires --learn-phi-backend sentinel_pruned")
+        if parsed_options.no_transpose:
+            bail("--discovery-model gene_by_gene currently requires the default transposed factor matrix")
 
     if len(parsed_args) < 1:
         bail(usage)

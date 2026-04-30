@@ -31,6 +31,143 @@ class DiscoveryPlan:
     discovery_row_indices_full: object
     retained_row_indices_full: object
 
+
+_DEFAULT_GENE_GENE_PAIR_EFFECTIVE_SIZE = 50.0
+
+
+def _state_discovery_model(state):
+    return str(getattr(state, "discovery_model", "gene_by_annotation") or "gene_by_annotation")
+
+
+def _discovery_model_prefers_gene_basis(state):
+    return _state_discovery_model(state) == "gene_by_gene"
+
+
+def _resolve_gene_gene_pair_prior(
+    num_genes,
+    explicit_pair_prior=None,
+    effective_size=None,
+    background_prior=None,
+):
+    del background_prior
+    if explicit_pair_prior is not None:
+        pair_prior = float(explicit_pair_prior)
+        if not (0.0 < pair_prior < 1.0):
+            raise ValueError("gene-gene pair prior must be in (0, 1)")
+        return pair_prior, "explicit_prior"
+
+    if effective_size is None:
+        effective_size = _DEFAULT_GENE_GENE_PAIR_EFFECTIVE_SIZE
+        source = "default_effective_size"
+    else:
+        source = "effective_size"
+    effective_size = float(effective_size)
+    if effective_size <= 1.0:
+        raise ValueError("gene-gene pair prior effective size must be > 1")
+    denom = max(1.0, float(int(num_genes)) - 1.0)
+    pair_prior = (effective_size - 1.0) / denom
+    pair_prior = min(max(pair_prior, 1e-8), 0.95)
+    return float(pair_prior), source
+
+
+def _build_gene_gene_pair_matrix(
+    state,
+    *,
+    gene_mask,
+    gene_set_mask,
+    beta_source,
+    pair_prior,
+    logbf_base,
+    matrix_floor,
+    excess_probability,
+    diagonal_weight,
+    log_fn,
+    info_level,
+):
+    if beta_source == "beta":
+        if getattr(state, "betas", None) is None:
+            raise ValueError("Corrected betas are unavailable; rerun with corrected gene-set statistics or use --gene-gene-beta-source beta_uncorrected explicitly")
+        beta_vector = np.asarray(state.betas, dtype=float)
+        beta_source_label = "beta"
+    else:
+        if getattr(state, "betas_uncorrected", None) is None:
+            raise ValueError("beta_uncorrected gene-set statistics are unavailable for gene-by-gene discovery")
+        beta_vector = np.asarray(state.betas_uncorrected, dtype=float)
+        beta_source_label = "beta_uncorrected"
+
+    scale_factors = np.asarray(getattr(state, "scale_factors", np.ones(beta_vector.shape[0], dtype=float)), dtype=float)
+    scale_factors = np.where(scale_factors == 0, 1.0, scale_factors)
+    beta_vector = beta_vector / scale_factors
+    beta_vector = np.nan_to_num(beta_vector, nan=0.0, posinf=0.0, neginf=0.0)
+    beta_vector = beta_vector[np.asarray(gene_set_mask, dtype=bool)]
+
+    X_retained = state.X_orig[np.asarray(gene_mask, dtype=bool), :][:, np.asarray(gene_set_mask, dtype=bool)]
+    if not sparse.issparse(X_retained):
+        X_retained = sparse.csr_matrix(np.asarray(X_retained, dtype=float))
+    X_retained = X_retained.tocsr()
+
+    X_beta = X_retained.multiply(beta_vector.reshape((1, -1)))
+    L = (X_beta @ X_retained.T).toarray()
+    L = 0.5 * (L + L.T)
+    if str(logbf_base) == "log10":
+        L = float(math.log(10.0)) * L
+
+    pair_logit = scipy.special.logit(float(pair_prior))
+    P = scipy.special.expit(pair_logit + L)
+    if excess_probability:
+        M = np.clip((P - float(pair_prior)) / max(1.0 - float(pair_prior), 1e-12), 0.0, 1.0)
+    else:
+        M = np.clip(P, 0.0, 1.0)
+    if float(matrix_floor) > 0.0:
+        M[M < float(matrix_floor)] = 0.0
+
+    diag_before = np.diag(M).copy()
+    if float(diagonal_weight) == 0.0:
+        np.fill_diagonal(M, 0.0)
+
+    diagnostics = {
+        "num_active_genes": int(np.sum(gene_mask)),
+        "num_retained_gene_sets": int(np.sum(gene_set_mask)),
+        "beta_source": beta_source_label,
+        "beta_positive_count": int(np.sum(beta_vector > 0)),
+        "beta_negative_count": int(np.sum(beta_vector < 0)),
+        "pair_prior": float(pair_prior),
+        "pair_logbf_base": str(logbf_base),
+        "pair_matrix_floor": float(matrix_floor),
+        "pair_excess_probability": bool(excess_probability),
+        "diagonal_weight": float(diagonal_weight),
+        "L_mean": float(np.mean(L)) if L.size > 0 else 0.0,
+        "L_std": float(np.std(L)) if L.size > 0 else 0.0,
+        "L_min": float(np.min(L)) if L.size > 0 else 0.0,
+        "L_max": float(np.max(L)) if L.size > 0 else 0.0,
+        "P_mean": float(np.mean(P)) if P.size > 0 else 0.0,
+        "P_std": float(np.std(P)) if P.size > 0 else 0.0,
+        "P_min": float(np.min(P)) if P.size > 0 else 0.0,
+        "P_max": float(np.max(P)) if P.size > 0 else 0.0,
+        "M_density": float(np.mean(M > 0)) if M.size > 0 else 0.0,
+        "M_mean": float(np.mean(M)) if M.size > 0 else 0.0,
+        "M_std": float(np.std(M)) if M.size > 0 else 0.0,
+        "M_min": float(np.min(M)) if M.size > 0 else 0.0,
+        "M_max": float(np.max(M)) if M.size > 0 else 0.0,
+        "diag_before_mean": float(np.mean(diag_before)) if diag_before.size > 0 else 0.0,
+    }
+    if log_fn is not None:
+        log_fn(
+            "Built gene-gene pair matrix: genes=%d retained_gene_sets=%d beta_source=%s pair_prior=%.6g M_density=%.6g M_mean=%.6g matrix_floor=%.6g diagonal_weight=%.6g"
+            % (
+                diagnostics["num_active_genes"],
+                diagnostics["num_retained_gene_sets"],
+                diagnostics["beta_source"],
+                diagnostics["pair_prior"],
+                diagnostics["M_density"],
+                diagnostics["M_mean"],
+                diagnostics["pair_matrix_floor"],
+                diagnostics["diagonal_weight"],
+            ),
+            info_level,
+        )
+    return np.asarray(M, dtype=float), diagnostics
+
 def _clone_runtime_value(value):
     try:
         return copy.deepcopy(value)
@@ -915,12 +1052,16 @@ def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clus
         )
 
 
-def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, log_fn=None, info_level=1):
-    candidates = [
-        ("combined_prior_Ys", combined_prior_Ys),
-        ("Y", Y),
-        ("priors", priors),
-    ]
+def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, preferred_label=None, log_fn=None, info_level=1):
+    candidate_map = {
+        "combined_prior_Ys": combined_prior_Ys,
+        "Y": Y,
+        "priors": priors,
+    }
+    candidate_order = ["combined_prior_Ys", "Y", "priors"]
+    if preferred_label in candidate_map:
+        candidate_order = [preferred_label] + [label for label in candidate_order if label != preferred_label]
+    candidates = [(label, candidate_map[label]) for label in candidate_order]
     first_available_label = None
     fallback_choice = None
     for label, matrix in candidates:
@@ -1431,6 +1572,16 @@ def _build_factor_param_record(
     phi,
     alpha0,
     beta0,
+    discovery_model,
+    gene_gene_beta_source,
+    gene_gene_pair_prior,
+    gene_gene_pair_prior_effective_size,
+    gene_gene_logbf_base,
+    gene_gene_diagonal_weight,
+    gene_gene_matrix_floor,
+    gene_gene_excess_probability,
+    gene_gene_row_sum_cap,
+    gene_gene_sparsity,
     seed,
     factor_runs,
     consensus_nmf,
@@ -1446,6 +1597,7 @@ def _build_factor_param_record(
     learn_phi_min_stability,
     learn_phi_fit_loss_warning_frac,
     learn_phi_max_severe_fit_loss_frac,
+    learn_phi_target_gene_mass,
     learn_phi_target_gene_effective_support,
     learn_phi_size_tolerance_frac,
     learn_phi_min_primary_factors,
@@ -1519,6 +1671,16 @@ def _build_factor_param_record(
         "phi": float(phi),
         "alpha0": float(alpha0),
         "beta0": float(beta0),
+        "discovery_model": str(discovery_model),
+        "gene_gene_beta_source": str(gene_gene_beta_source),
+        "gene_gene_pair_prior": None if gene_gene_pair_prior is None else float(gene_gene_pair_prior),
+        "gene_gene_pair_prior_effective_size": None if gene_gene_pair_prior_effective_size is None else float(gene_gene_pair_prior_effective_size),
+        "gene_gene_logbf_base": str(gene_gene_logbf_base),
+        "gene_gene_diagonal_weight": float(gene_gene_diagonal_weight),
+        "gene_gene_matrix_floor": float(gene_gene_matrix_floor),
+        "gene_gene_excess_probability": bool(gene_gene_excess_probability),
+        "gene_gene_row_sum_cap": bool(gene_gene_row_sum_cap),
+        "gene_gene_sparsity": float(gene_gene_sparsity),
         "seed": int(seed) if seed is not None else None,
         "factor_runs": int(factor_runs),
         "consensus_nmf": bool(consensus_nmf),
@@ -1534,6 +1696,7 @@ def _build_factor_param_record(
         "learn_phi_min_stability": float(learn_phi_min_stability),
         "learn_phi_fit_loss_warning_frac": float(learn_phi_fit_loss_warning_frac),
         "learn_phi_max_severe_fit_loss_frac": float(learn_phi_max_severe_fit_loss_frac),
+        "learn_phi_target_gene_mass": None if learn_phi_target_gene_mass is None else float(learn_phi_target_gene_mass),
         "learn_phi_target_gene_effective_support": None if learn_phi_target_gene_effective_support is None else float(learn_phi_target_gene_effective_support),
         "learn_phi_size_tolerance_frac": float(learn_phi_size_tolerance_frac),
         "learn_phi_min_primary_factors": int(learn_phi_min_primary_factors),
@@ -1608,6 +1771,11 @@ def _build_factor_param_record(
 
 
 def _extract_canonical_factor_matrix(state):
+    if _discovery_model_prefers_gene_basis(state):
+        if state.exp_gene_factors is not None and state.exp_gene_factors.size > 0:
+            return state.exp_gene_factors
+        if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0:
+            return state.exp_gene_set_factors
     if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0:
         return state.exp_gene_set_factors
     if state.exp_gene_factors is not None and state.exp_gene_factors.size > 0:
@@ -1618,6 +1786,11 @@ def _extract_canonical_factor_matrix(state):
 
 
 def _extract_overlap_basis_matrix(state):
+    if _discovery_model_prefers_gene_basis(state):
+        if state.exp_gene_factors is not None and state.exp_gene_factors.size > 0:
+            return ("gene", state.exp_gene_factors)
+        if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0:
+            return ("gene_set", state.exp_gene_set_factors)
     if state.exp_gene_factors is not None and state.exp_gene_factors.size > 0:
         return ("gene", state.exp_gene_factors)
     if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0:
@@ -2258,6 +2431,7 @@ def _coerce_candidate_float(value, default=None):
 
 
 def _summarize_primary_factor_size_from_records(records, *, primary_mass_floor=_PRIMARY_FACTOR_MASS_FLOOR):
+    gene_masses = []
     gene_supports = []
     gene_max_weights = []
     gene_max_jaccards = []
@@ -2266,6 +2440,9 @@ def _summarize_primary_factor_size_from_records(records, *, primary_mass_floor=_
         mass_fraction = _coerce_candidate_float(record.get("combined_mass_fraction"), 0.0)
         if mass_fraction is None or mass_fraction < float(primary_mass_floor):
             continue
+        gene_mass = _coerce_candidate_float(record.get("gene_mass"))
+        if gene_mass is not None and gene_mass > 0:
+            gene_masses.append(float(gene_mass))
         gene_support = _coerce_candidate_float(record.get("gene_effective_support"))
         if gene_support is not None and gene_support > 0:
             gene_supports.append(float(gene_support))
@@ -2279,11 +2456,15 @@ def _summarize_primary_factor_size_from_records(records, *, primary_mass_floor=_
         if top5_weight_fraction is not None:
             gene_top5_weight_fractions.append(float(top5_weight_fraction))
 
+    mass_array = np.asarray(gene_masses, dtype=float)
     support_array = np.asarray(gene_supports, dtype=float)
     max_weight_array = np.asarray(gene_max_weights, dtype=float)
     max_jaccard_array = np.asarray(gene_max_jaccards, dtype=float)
     top5_array = np.asarray(gene_top5_weight_fractions, dtype=float)
     return {
+        "primary_gene_mass_median": float(np.median(mass_array)) if mass_array.size > 0 else None,
+        "primary_gene_mass_q25": float(np.quantile(mass_array, 0.25)) if mass_array.size > 0 else None,
+        "primary_gene_mass_q75": float(np.quantile(mass_array, 0.75)) if mass_array.size > 0 else None,
         "primary_gene_effective_support_median": float(np.median(support_array)) if support_array.size > 0 else None,
         "primary_gene_effective_support_q25": float(np.quantile(support_array, 0.25)) if support_array.size > 0 else None,
         "primary_gene_effective_support_q75": float(np.quantile(support_array, 0.75)) if support_array.size > 0 else None,
@@ -2427,6 +2608,18 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
         profile.get("primary_gene_effective_support_median")
         for profile in run_primary_size_profiles
     ]
+    primary_gene_mass_medians = [
+        profile.get("primary_gene_mass_median")
+        for profile in run_primary_size_profiles
+    ]
+    primary_gene_mass_q25s = [
+        profile.get("primary_gene_mass_q25")
+        for profile in run_primary_size_profiles
+    ]
+    primary_gene_mass_q75s = [
+        profile.get("primary_gene_mass_q75")
+        for profile in run_primary_size_profiles
+    ]
     primary_gene_effective_support_q25s = [
         profile.get("primary_gene_effective_support_q25")
         for profile in run_primary_size_profiles
@@ -2527,6 +2720,9 @@ def _summarize_phi_candidate(run_states, run_summaries, *, phi, weight_floor, ma
         "top5_mass_fraction": float(np.median(np.asarray(top5_mass_fractions, dtype=float))) if len(top5_mass_fractions) > 0 else 0.0,
         "primary_mass_floor": float(mass_floor_frac),
         "secondary_mass_floor": float(min(float(_SECONDARY_FACTOR_MASS_FLOOR), float(mass_floor_frac))),
+        "primary_gene_mass_median": _median_optional(primary_gene_mass_medians),
+        "primary_gene_mass_q25": _median_optional(primary_gene_mass_q25s),
+        "primary_gene_mass_q75": _median_optional(primary_gene_mass_q75s),
         "primary_gene_effective_support_median": _median_optional(primary_gene_effective_support_medians),
         "primary_gene_effective_support_q25": _median_optional(primary_gene_effective_support_q25s),
         "primary_gene_effective_support_q75": _median_optional(primary_gene_effective_support_q75s),
@@ -2694,16 +2890,19 @@ def _evaluate_phi_candidate(
     return candidate
 
 
-def _candidate_target_size_value(candidate):
-    value = _coerce_candidate_float(candidate.get("primary_gene_effective_support_median"))
+def _candidate_target_size_value(candidate, target_metric="gene_effective_support"):
+    if target_metric == "gene_mass":
+        value = _coerce_candidate_float(candidate.get("primary_gene_mass_median"))
+    else:
+        value = _coerce_candidate_float(candidate.get("primary_gene_effective_support_median"))
     return value if value is not None and value > 0 else None
 
 
-def _candidate_target_size_error(candidate, target_gene_effective_support):
-    size_value = _candidate_target_size_value(candidate)
+def _candidate_target_size_error(candidate, target_value, *, target_metric="gene_effective_support"):
+    size_value = _candidate_target_size_value(candidate, target_metric=target_metric)
     if size_value is None:
         return None
-    target = float(target_gene_effective_support)
+    target = float(target_value)
     if target <= 0:
         return None
     return abs(math.log(float(size_value)) - math.log(target))
@@ -2729,6 +2928,7 @@ def _candidate_target_acceptability_violations(
     min_stability,
     runs_per_step,
     severe_fit_limit,
+    target_metric,
     target_gene_effective_support,
     min_primary_factors,
     max_primary_gene_max_weight_q90,
@@ -2738,7 +2938,7 @@ def _candidate_target_acceptability_violations(
         violations.append("zero_factor")
     if int(candidate.get("primary_factor_count", 0)) < int(min_primary_factors):
         violations.append("too_few_primary_factors")
-    if _candidate_target_size_value(candidate) is None:
+    if _candidate_target_size_value(candidate, target_metric=target_metric) is None:
         violations.append("undefined_target_size")
     if float(candidate.get("redundancy_max", 0.0)) > float(max_redundancy):
         violations.append("redundancy_max")
@@ -2786,23 +2986,44 @@ def _select_phi_candidate(
     min_stability,
     fit_loss_warning_frac,
     max_severe_fit_loss_frac,
+    target_gene_mass,
     target_gene_effective_support,
     size_tolerance_frac,
     min_primary_factors,
     max_primary_gene_max_weight_q90,
     runs_per_step,
 ):
+    if target_gene_mass is not None:
+        target_metric = "gene_mass"
+        target_value = float(target_gene_mass)
+        target_value_field = "target_gene_mass"
+        target_error_field = "target_gene_mass_error_log"
+        target_ratio_field = "target_gene_mass_ratio"
+        target_reason_in_tolerance = "target_gene_mass_in_tolerance"
+        target_reason_closest = "target_gene_mass_closest"
+    else:
+        target_metric = "gene_effective_support"
+        target_value = float(target_gene_effective_support)
+        target_value_field = "target_gene_effective_support"
+        target_error_field = "target_gene_effective_support_error_log"
+        target_ratio_field = "target_gene_effective_support_ratio"
+        target_reason_in_tolerance = "target_gene_effective_support_in_tolerance"
+        target_reason_closest = "target_gene_effective_support_closest"
     fit_warning_limit = _candidate_fit_limit(candidates, fit_loss_warning_frac)
     severe_fit_limit = _candidate_fit_limit(candidates, max_severe_fit_loss_frac)
     for candidate in candidates:
-        size_error = _candidate_target_size_error(candidate, target_gene_effective_support)
-        candidate["target_gene_effective_support_error_log"] = size_error
-        candidate["target_gene_effective_support"] = float(target_gene_effective_support)
-        candidate["target_gene_effective_support_ratio"] = (
+        size_error = _candidate_target_size_error(candidate, target_value, target_metric=target_metric)
+        candidate[target_error_field] = size_error
+        candidate[target_value_field] = target_value
+        candidate[target_ratio_field] = (
             None
-            if _candidate_target_size_value(candidate) is None
-            else float(_candidate_target_size_value(candidate)) / float(target_gene_effective_support)
+            if _candidate_target_size_value(candidate, target_metric=target_metric) is None
+            else float(_candidate_target_size_value(candidate, target_metric=target_metric)) / target_value
         )
+        candidate["selection_target_metric"] = target_metric
+        candidate["selection_target_value"] = target_value
+        candidate["selection_target_error_log"] = size_error
+        candidate["selection_target_ratio"] = candidate[target_ratio_field]
         candidate["selection_fit_warning_limit"] = fit_warning_limit
         candidate["selection_severe_fit_limit"] = severe_fit_limit
         candidate["selection_warnings"] = ",".join(
@@ -2819,6 +3040,7 @@ def _select_phi_candidate(
             min_stability=min_stability,
             runs_per_step=runs_per_step,
             severe_fit_limit=severe_fit_limit,
+            target_metric=target_metric,
             target_gene_effective_support=target_gene_effective_support,
             min_primary_factors=min_primary_factors,
             max_primary_gene_max_weight_q90=max_primary_gene_max_weight_q90,
@@ -2835,15 +3057,15 @@ def _select_phi_candidate(
         in_tolerance = [
             candidate
             for candidate in selection_pool
-            if candidate.get("target_gene_effective_support_error_log") is not None
-            and float(candidate["target_gene_effective_support_error_log"]) <= tolerance_log + 1e-12
+            if candidate.get(target_error_field) is not None
+            and float(candidate[target_error_field]) <= tolerance_log + 1e-12
         ]
         if len(in_tolerance) > 0:
             selected = min(
                 in_tolerance,
                 key=lambda candidate: (
                     -float(candidate.get("phi", 0.0)),
-                    float(candidate.get("target_gene_effective_support_error_log", float("inf"))),
+                    float(candidate.get(target_error_field, float("inf"))),
                     float(candidate.get("tail_fraction", 0.0)),
                     float(candidate.get("filtered_fraction", 0.0)),
                     float(candidate.get("redundancy_q90", 0.0)),
@@ -2856,12 +3078,12 @@ def _select_phi_candidate(
             selected["selection_pool"] = selection_pool_name
             selected["selection_frontier_size"] = int(len(in_tolerance))
             selected["selection_marginal_gain"] = None
-            return selected, "target_gene_effective_support_in_tolerance"
+            return selected, target_reason_in_tolerance
 
         selected = min(
             selection_pool,
             key=lambda candidate: (
-                float(candidate.get("target_gene_effective_support_error_log", float("inf"))),
+                float(candidate.get(target_error_field, float("inf"))),
                 -float(candidate.get("phi", 0.0)),
                 float(candidate.get("tail_fraction", 0.0)),
                 float(candidate.get("filtered_fraction", 0.0)),
@@ -2875,12 +3097,12 @@ def _select_phi_candidate(
         selected["selection_pool"] = selection_pool_name
         selected["selection_frontier_size"] = int(len(selection_pool))
         selected["selection_marginal_gain"] = None
-        return selected, "target_gene_effective_support_closest"
+        return selected, target_reason_closest
 
     def _fallback_sort_key(candidate):
         violations = candidate.get("selection_violations", "")
         violation_count = len([value for value in str(violations).split(",") if value])
-        size_error = candidate.get("target_gene_effective_support_error_log")
+        size_error = candidate.get(target_error_field)
         size_error = float("inf") if size_error is None else float(size_error)
         fit_violation = 0.0
         if fit_warning_limit is not None and candidate.get("best_error") is not None:
@@ -2923,12 +3145,19 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
         "metric_factor_scope",
         "max_mass_fraction",
         "top5_mass_fraction",
+        "primary_gene_mass_median",
+        "primary_gene_mass_q25",
+        "primary_gene_mass_q75",
         "primary_gene_effective_support_median",
         "primary_gene_effective_support_q25",
         "primary_gene_effective_support_q75",
         "primary_gene_max_jaccard_vs_all_q90",
         "primary_gene_max_weight_q90",
         "primary_gene_top5_weight_fraction_median",
+        "selection_target_metric",
+        "selection_target_value",
+        "selection_target_error_log",
+        "selection_target_ratio",
         "target_gene_effective_support",
         "target_gene_effective_support_error_log",
         "target_gene_effective_support_ratio",
@@ -3001,12 +3230,19 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
                 "metric_factor_scope": str(candidate.get("metric_factor_scope", "primary")),
                 "max_mass_fraction": float(candidate.get("max_mass_fraction", 0.0)),
                 "top5_mass_fraction": float(candidate.get("top5_mass_fraction", 0.0)),
+                "primary_gene_mass_median": candidate.get("primary_gene_mass_median"),
+                "primary_gene_mass_q25": candidate.get("primary_gene_mass_q25"),
+                "primary_gene_mass_q75": candidate.get("primary_gene_mass_q75"),
                 "primary_gene_effective_support_median": candidate.get("primary_gene_effective_support_median"),
                 "primary_gene_effective_support_q25": candidate.get("primary_gene_effective_support_q25"),
                 "primary_gene_effective_support_q75": candidate.get("primary_gene_effective_support_q75"),
                 "primary_gene_max_jaccard_vs_all_q90": candidate.get("primary_gene_max_jaccard_vs_all_q90"),
                 "primary_gene_max_weight_q90": candidate.get("primary_gene_max_weight_q90"),
                 "primary_gene_top5_weight_fraction_median": candidate.get("primary_gene_top5_weight_fraction_median"),
+                "selection_target_metric": candidate.get("selection_target_metric"),
+                "selection_target_value": candidate.get("selection_target_value"),
+                "selection_target_error_log": candidate.get("selection_target_error_log"),
+                "selection_target_ratio": candidate.get("selection_target_ratio"),
                 "target_gene_effective_support": candidate.get("target_gene_effective_support"),
                 "target_gene_effective_support_error_log": candidate.get("target_gene_effective_support_error_log"),
                 "target_gene_effective_support_ratio": candidate.get("target_gene_effective_support_ratio"),
@@ -3059,6 +3295,9 @@ def _write_phi_factor_metrics_report(report_path, candidates, *, selected_phi):
     if metric_columns is None:
         metric_columns = []
     candidate_columns = [
+        "candidate_primary_gene_mass_median",
+        "candidate_primary_gene_mass_q25",
+        "candidate_primary_gene_mass_q75",
         "candidate_primary_gene_effective_support_median",
         "candidate_primary_gene_effective_support_q25",
         "candidate_primary_gene_effective_support_q75",
@@ -3067,6 +3306,10 @@ def _write_phi_factor_metrics_report(report_path, candidates, *, selected_phi):
         "candidate_primary_gene_top5_weight_fraction_median",
         "candidate_primary_mass_floor",
         "candidate_secondary_mass_floor",
+        "candidate_selection_target_metric",
+        "candidate_selection_target_value",
+        "candidate_selection_target_error_log",
+        "candidate_selection_target_ratio",
         "candidate_target_gene_effective_support_error_log",
         "candidate_target_gene_effective_support_ratio",
     ]
@@ -3075,6 +3318,9 @@ def _write_phi_factor_metrics_report(report_path, candidates, *, selected_phi):
         for candidate in sorted(candidates, key=lambda row: float(row["phi"])):
             selected_flag = "1" if math.isclose(float(candidate["phi"]), float(selected_phi), rel_tol=1e-12, abs_tol=1e-15) else "0"
             candidate_values = [
+                "" if candidate.get("primary_gene_mass_median") is None else "%.12g" % float(candidate["primary_gene_mass_median"]),
+                "" if candidate.get("primary_gene_mass_q25") is None else "%.12g" % float(candidate["primary_gene_mass_q25"]),
+                "" if candidate.get("primary_gene_mass_q75") is None else "%.12g" % float(candidate["primary_gene_mass_q75"]),
                 "" if candidate.get("primary_gene_effective_support_median") is None else "%.12g" % float(candidate["primary_gene_effective_support_median"]),
                 "" if candidate.get("primary_gene_effective_support_q25") is None else "%.12g" % float(candidate["primary_gene_effective_support_q25"]),
                 "" if candidate.get("primary_gene_effective_support_q75") is None else "%.12g" % float(candidate["primary_gene_effective_support_q75"]),
@@ -3083,6 +3329,10 @@ def _write_phi_factor_metrics_report(report_path, candidates, *, selected_phi):
                 "" if candidate.get("primary_gene_top5_weight_fraction_median") is None else "%.12g" % float(candidate["primary_gene_top5_weight_fraction_median"]),
                 "" if candidate.get("primary_mass_floor") is None else "%.12g" % float(candidate["primary_mass_floor"]),
                 "" if candidate.get("secondary_mass_floor") is None else "%.12g" % float(candidate["secondary_mass_floor"]),
+                "" if candidate.get("selection_target_metric") is None else str(candidate["selection_target_metric"]),
+                "" if candidate.get("selection_target_value") is None else "%.12g" % float(candidate["selection_target_value"]),
+                "" if candidate.get("selection_target_error_log") is None else "%.12g" % float(candidate["selection_target_error_log"]),
+                "" if candidate.get("selection_target_ratio") is None else "%.12g" % float(candidate["selection_target_ratio"]),
                 "" if candidate.get("target_gene_effective_support_error_log") is None else "%.12g" % float(candidate["target_gene_effective_support_error_log"]),
                 "" if candidate.get("target_gene_effective_support_ratio") is None else "%.12g" % float(candidate["target_gene_effective_support_ratio"]),
             ]
@@ -3115,6 +3365,7 @@ def _record_phi_search_params(
     min_stability,
     fit_loss_warning_frac,
     max_severe_fit_loss_frac,
+    target_gene_mass,
     target_gene_effective_support,
     size_tolerance_frac,
     min_primary_factors,
@@ -3140,7 +3391,9 @@ def _record_phi_search_params(
             "learn_phi_min_stability": float(min_stability),
             "learn_phi_fit_loss_warning_frac": float(fit_loss_warning_frac),
             "learn_phi_max_severe_fit_loss_frac": float(max_severe_fit_loss_frac),
-            "learn_phi_target_gene_effective_support": float(target_gene_effective_support),
+            "learn_phi_target_metric": str(selected_candidate.get("selection_target_metric", "gene_effective_support")),
+            "learn_phi_target_gene_mass": None if target_gene_mass is None else float(target_gene_mass),
+            "learn_phi_target_gene_effective_support": None if target_gene_effective_support is None else float(target_gene_effective_support),
             "learn_phi_size_tolerance_frac": float(size_tolerance_frac),
             "learn_phi_min_primary_factors": int(min_primary_factors),
             "learn_phi_max_primary_gene_max_weight_q90": (
@@ -3167,6 +3420,12 @@ def _record_phi_search_params(
             "learn_phi_selected_primary_gene_top5_weight_fraction_median": selected_candidate.get("primary_gene_top5_weight_fraction_median"),
             "learn_phi_selected_target_gene_effective_support_error_log": selected_candidate.get("target_gene_effective_support_error_log"),
             "learn_phi_selected_target_gene_effective_support_ratio": selected_candidate.get("target_gene_effective_support_ratio"),
+            "learn_phi_selected_primary_gene_mass_median": selected_candidate.get("primary_gene_mass_median"),
+            "learn_phi_selected_primary_gene_mass_q25": selected_candidate.get("primary_gene_mass_q25"),
+            "learn_phi_selected_primary_gene_mass_q75": selected_candidate.get("primary_gene_mass_q75"),
+            "learn_phi_selected_selection_target_value": selected_candidate.get("selection_target_value"),
+            "learn_phi_selected_selection_target_error_log": selected_candidate.get("selection_target_error_log"),
+            "learn_phi_selected_selection_target_ratio": selected_candidate.get("selection_target_ratio"),
             "learn_phi_selected_selection_fit_warning_limit": selected_candidate.get("selection_fit_warning_limit"),
             "learn_phi_selected_selection_severe_fit_limit": selected_candidate.get("selection_severe_fit_limit"),
             "learn_phi_selected_selection_warnings": selected_candidate.get("selection_warnings", ""),
@@ -3188,6 +3447,9 @@ def _record_phi_search_params(
         "learn_phi_candidate_filtered_fraction": "filtered_fraction",
         "learn_phi_candidate_max_mass_fraction": "max_mass_fraction",
         "learn_phi_candidate_top5_mass_fraction": "top5_mass_fraction",
+        "learn_phi_candidate_primary_gene_mass_median": "primary_gene_mass_median",
+        "learn_phi_candidate_primary_gene_mass_q25": "primary_gene_mass_q25",
+        "learn_phi_candidate_primary_gene_mass_q75": "primary_gene_mass_q75",
         "learn_phi_candidate_primary_gene_effective_support_median": "primary_gene_effective_support_median",
         "learn_phi_candidate_primary_gene_effective_support_q25": "primary_gene_effective_support_q25",
         "learn_phi_candidate_primary_gene_effective_support_q75": "primary_gene_effective_support_q75",
@@ -3196,6 +3458,10 @@ def _record_phi_search_params(
         "learn_phi_candidate_primary_gene_top5_weight_fraction_median": "primary_gene_top5_weight_fraction_median",
         "learn_phi_candidate_primary_mass_floor": "primary_mass_floor",
         "learn_phi_candidate_secondary_mass_floor": "secondary_mass_floor",
+        "learn_phi_candidate_selection_target_metric": "selection_target_metric",
+        "learn_phi_candidate_selection_target_value": "selection_target_value",
+        "learn_phi_candidate_selection_target_error_log": "selection_target_error_log",
+        "learn_phi_candidate_selection_target_ratio": "selection_target_ratio",
         "learn_phi_candidate_target_gene_effective_support": "target_gene_effective_support",
         "learn_phi_candidate_target_gene_effective_support_error_log": "target_gene_effective_support_error_log",
         "learn_phi_candidate_target_gene_effective_support_ratio": "target_gene_effective_support_ratio",
@@ -3247,6 +3513,7 @@ def _learn_phi(
     min_stability,
     fit_loss_warning_frac,
     max_severe_fit_loss_frac,
+    target_gene_mass,
     target_gene_effective_support,
     size_tolerance_frac,
     min_primary_factors,
@@ -3282,6 +3549,8 @@ def _learn_phi(
     )
 
     remaining_evaluations = int(max_steps)
+    target_metric = "gene_mass" if target_gene_mass is not None else "gene_effective_support"
+    target_value = float(target_gene_mass) if target_gene_mass is not None else float(target_gene_effective_support)
 
     def _evaluate(phi_value, *, consume_budget=True):
         nonlocal remaining_evaluations
@@ -3349,11 +3618,11 @@ def _learn_phi(
         return proposal
 
     def _candidate_size_side(candidate):
-        size_value = _candidate_target_size_value(candidate)
+        size_value = _candidate_target_size_value(candidate, target_metric=target_metric)
         if size_value is not None:
-            if math.isclose(math.log(float(size_value)), math.log(float(target_gene_effective_support)), rel_tol=0.0, abs_tol=1e-12):
+            if math.isclose(math.log(float(size_value)), math.log(target_value), rel_tol=0.0, abs_tol=1e-12):
                 return 0
-            return -1 if float(size_value) < float(target_gene_effective_support) else 1
+            return -1 if float(size_value) < target_value else 1
         if int(candidate.get("modal_factor_count", 0)) <= 0:
             return 1
         if bool(candidate.get("capped", False)):
@@ -3364,16 +3633,16 @@ def _learn_phi(
         sized_candidates = [
             candidate
             for candidate in sorted(candidates_by_phi.values(), key=lambda row: float(row["phi"]))
-            if _candidate_target_size_value(candidate) is not None
+            if _candidate_target_size_value(candidate, target_metric=target_metric) is not None
         ]
         if len(sized_candidates) < 2:
             return None
         brackets = []
         for lower_candidate, upper_candidate in zip(sized_candidates[:-1], sized_candidates[1:]):
-            lower_size = float(_candidate_target_size_value(lower_candidate))
-            upper_size = float(_candidate_target_size_value(upper_candidate))
-            lower_delta = lower_size - float(target_gene_effective_support)
-            upper_delta = upper_size - float(target_gene_effective_support)
+            lower_size = float(_candidate_target_size_value(lower_candidate, target_metric=target_metric))
+            upper_size = float(_candidate_target_size_value(upper_candidate, target_metric=target_metric))
+            lower_delta = lower_size - target_value
+            upper_delta = upper_size - target_value
             if lower_delta == 0.0 or upper_delta == 0.0 or lower_delta * upper_delta < 0:
                 brackets.append((abs(math.log(float(upper_candidate["phi"])) - math.log(float(lower_candidate["phi"]))), lower_candidate, upper_candidate))
         if len(brackets) == 0:
@@ -3385,10 +3654,14 @@ def _learn_phi(
 
     def _propose_expansion():
         sorted_candidates = sorted(candidates_by_phi.values(), key=lambda row: float(row["phi"]))
-        sized_candidates = [candidate for candidate in sorted_candidates if _candidate_target_size_value(candidate) is not None]
+        sized_candidates = [
+            candidate
+            for candidate in sorted_candidates
+            if _candidate_target_size_value(candidate, target_metric=target_metric) is not None
+        ]
         if len(sized_candidates) > 0:
-            below = [candidate for candidate in sized_candidates if float(_candidate_target_size_value(candidate)) < float(target_gene_effective_support)]
-            above = [candidate for candidate in sized_candidates if float(_candidate_target_size_value(candidate)) > float(target_gene_effective_support)]
+            below = [candidate for candidate in sized_candidates if float(_candidate_target_size_value(candidate, target_metric=target_metric)) < target_value]
+            above = [candidate for candidate in sized_candidates if float(_candidate_target_size_value(candidate, target_metric=target_metric)) > target_value]
             if len(below) > 0 and len(above) == 0:
                 return _new_phi(max(float(candidate["phi"]) for candidate in sorted_candidates) * expand_factor)
             if len(above) > 0 and len(below) == 0:
@@ -3443,6 +3716,7 @@ def _learn_phi(
         min_stability=min_stability,
         fit_loss_warning_frac=fit_loss_warning_frac,
         max_severe_fit_loss_frac=max_severe_fit_loss_frac,
+        target_gene_mass=target_gene_mass,
         target_gene_effective_support=target_gene_effective_support,
         size_tolerance_frac=size_tolerance_frac,
         min_primary_factors=min_primary_factors,
@@ -3464,6 +3738,7 @@ def _learn_phi(
         min_stability=min_stability,
         fit_loss_warning_frac=fit_loss_warning_frac,
         max_severe_fit_loss_frac=max_severe_fit_loss_frac,
+        target_gene_mass=target_gene_mass,
         target_gene_effective_support=target_gene_effective_support,
         size_tolerance_frac=size_tolerance_frac,
         min_primary_factors=min_primary_factors,
@@ -3487,14 +3762,20 @@ def _learn_phi(
         candidates,
         selected_phi=selected_candidate["phi"],
     )
+    if target_metric == "gene_mass":
+        selected_target_summary = selected_candidate.get("primary_gene_mass_median")
+    else:
+        selected_target_summary = selected_candidate.get("primary_gene_effective_support_median")
     log_fn(
-        "Selected phi %.6g by target-size automatic tuning [%s]: target_gene_effective_support=%.6g, primary_gene_effective_support_median=%s, target_error_log=%s, backend=%s, K_eff=%d, K_mass=%.3g, primary_factors=%d, capped=%s, pool=%s, metric_factor_scope=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, gene_max_jaccard_q90=%s, primary_gene_max_weight_q90=%s, stability=%s, run_support=%.3g, selection_warnings=%s"
+        "Selected phi %.6g by target-size automatic tuning [%s]: target_%s=%.6g, primary_%s_median=%s, target_error_log=%s, backend=%s, K_eff=%d, K_mass=%.3g, primary_factors=%d, capped=%s, pool=%s, metric_factor_scope=%s, redundancy_max[%s]=%.3g, redundancy_q90=%.3g, gene_max_jaccard_q90=%s, primary_gene_max_weight_q90=%s, stability=%s, run_support=%.3g, selection_warnings=%s"
         % (
             float(selected_candidate["phi"]),
             selection_reason,
-            float(target_gene_effective_support),
-            "NA" if selected_candidate.get("primary_gene_effective_support_median") is None else "%.6g" % float(selected_candidate["primary_gene_effective_support_median"]),
-            "NA" if selected_candidate.get("target_gene_effective_support_error_log") is None else "%.6g" % float(selected_candidate["target_gene_effective_support_error_log"]),
+            str(target_metric),
+            float(target_value),
+            str(target_metric),
+            "NA" if selected_target_summary is None else "%.6g" % float(selected_target_summary),
+            "NA" if selected_candidate.get("selection_target_error_log") is None else "%.6g" % float(selected_candidate["selection_target_error_log"]),
             str(selected_candidate.get("backend", learn_phi_backend)),
             int(selected_candidate["modal_factor_count"]),
             float(selected_candidate.get("effective_factor_count", 0.0)),
@@ -3710,7 +3991,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -3720,6 +4001,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
 
     if state.X_orig is None:
         bail("Cannot run factoring without X")
+    state.discovery_model = str(discovery_model)
 
     # Persist explicit anchor masks for downstream output writers.
     state.anchor_pheno_mask = np.copy(anchor_pheno_mask) if anchor_pheno_mask is not None else None
@@ -3965,10 +4247,18 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         num_users = np.sum(anchor_pheno_mask)
 
     #get one dimensional vectors with probabilities
+    preferred_anchor_source = None
+    if gene_or_pheno_filter_type in set(["combined_prior_Ys", "gene_phewas_combined"]):
+        preferred_anchor_source = "combined_prior_Ys"
+    elif gene_or_pheno_filter_type == "priors":
+        preferred_anchor_source = "priors"
+    elif gene_or_pheno_filter_type == "Y":
+        preferred_anchor_source = "Y"
     gene_or_pheno_full_vector, gene_or_pheno_filter_type = _choose_gene_or_pheno_anchor_source(
         combined_prior_Ys,
         priors,
         Y,
+        preferred_label=preferred_anchor_source,
         log_fn=log,
         info_level=INFO,
     )
@@ -4029,7 +4319,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             gene_sort_rank_source = gene_or_pheno_full_vector
             if gene_sort_rank_source is not None:
                 gene_sort_rank_source = np.nan_to_num(
-                    np.asarray(gene_sort_rank_source, dtype=float),
+                    np.ravel(np.asarray(gene_sort_rank_source, dtype=float)),
                     nan=-np.inf,
                     posinf=np.inf,
                     neginf=-np.inf,
@@ -4167,162 +4457,314 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
 
     state.gene_set_prob_vector = gene_set_prob_vector
 
-    similarity_X_orig = state.X_orig[gene_or_pheno_mask, :]
-    if hasattr(state, "_calc_X_shift_scale"):
-        (similarity_mean_shifts, similarity_scale_factors) = state._calc_X_shift_scale(similarity_X_orig)
-    else:
-        similarity_mean_shifts = getattr(state, "mean_shifts", np.zeros(similarity_X_orig.shape[1], dtype=float))
-        similarity_scale_factors = getattr(state, "scale_factors", np.ones(similarity_X_orig.shape[1], dtype=float))
+    if str(discovery_model) == "gene_by_gene":
+        if factor_gene_set_x_pheno:
+            bail("--discovery-model gene_by_gene is currently supported only for gene-space discovery, not phenotype-anchored or gene-set-anchored matrix factoring")
+        if max_num_discovery_gene_sets is not None:
+            warn("--max-num-discovery-gene-sets is ignored for --discovery-model gene_by_gene")
+        if not auto_discovery_subset:
+            warn("--no-auto-discovery-subset has no effect for --discovery-model gene_by_gene because all retained gene sets are used")
+        if discovery_redundancy_weighting_mode != "effective_size" or not discovery_redundancy_weighting:
+            warn("Discovery-family redundancy weighting controls are ignored for --discovery-model gene_by_gene")
 
-    discovery_plan = _build_discovery_plan(
-        state,
-        retained_gene_set_mask_full=gene_set_mask,
-        gene_set_sort_rank=gene_set_sort_rank,
-        gene_set_prob_vector_full=gene_set_prob_vector,
-        similarity_X_orig=similarity_X_orig,
-        similarity_mean_shifts=similarity_mean_shifts,
-        similarity_scale_factors=similarity_scale_factors,
-        max_num_discovery_gene_sets=max_num_discovery_gene_sets,
-        auto_discovery_subset=auto_discovery_subset,
-        discovery_redundancy_weighting=discovery_redundancy_weighting,
-        discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
-        discovery_similarity_threshold=discovery_similarity_threshold,
-    )
-
-    state._record_params({"max_num_factors": max_num_factors, "alpha0": alpha0, "phi": phi, "gene_set_filter_type": gene_set_filter_type, "gene_set_filter_value": gene_set_filter_value, "gene_or_pheno_filter_type": gene_or_pheno_filter_type, "gene_or_pheno_filter_value": gene_or_pheno_filter_value, "pheno_prune_value": pheno_prune_value, "pheno_prune_number": pheno_prune_number, "gene_set_prune_value": gene_set_prune_value, "gene_set_prune_number": gene_set_prune_number, "max_num_discovery_gene_sets": max_num_discovery_gene_sets, "auto_discovery_subset": auto_discovery_subset, "discovery_redundancy_weighting": discovery_redundancy_weighting, "discovery_redundancy_weighting_mode": discovery_redundancy_weighting_mode, "discovery_similarity_threshold": discovery_similarity_threshold, "factor_output_scope": factor_output_scope, "factor_primary_mass_floor": _PRIMARY_FACTOR_MASS_FLOOR, "factor_secondary_mass_floor": _SECONDARY_FACTOR_MASS_FLOOR, "num_retained_gene_sets": int(np.sum(gene_set_mask)), "num_discovery_gene_sets": int(discovery_plan.discovery_row_indices_full.size), "run_transpose": run_transpose})
-
-
-    matrix = state.X_phewas_beta_uncorrected.T if factor_gene_set_x_pheno else state.X_orig.T
-
-    matrix = matrix[discovery_plan.discovery_row_indices_full,:][:,gene_or_pheno_mask]
-    matrix[matrix < 0] = 0
-    if not run_transpose:
-        matrix = matrix.T
-
-    if factor_backend not in {"full", "blockwise_global_w"}:
-        bail("Unknown factor backend '%s'" % factor_backend)
-    if factor_backend == "blockwise_global_w" and not run_transpose:
-        bail("--factor-backend blockwise_global_w currently requires the default transposed factor matrix")
-
-    log("Running matrix factorization with backend=%s" % factor_backend)
-    if np.sum(~gene_or_pheno_mask) > 0 or np.sum(~gene_set_mask) > 0 or discovery_plan.discovery_row_indices_full.size != int(np.sum(gene_set_mask)):
-        log("Filtered original matrix from (%s, %s) to (%s, %s)" % (len(gene_or_pheno_mask), len(gene_set_mask), sum(gene_or_pheno_mask), discovery_plan.discovery_row_indices_full.size))
-    log("Matrix to factor shape: (%s, %s)" % (matrix.shape), DEBUG)
-
-    if np.max(matrix.shape) == 0:
-        log("Skipping factoring since there aren't enough significant genes and gene sets")
-        return
-
-    if np.min(matrix.shape) == 0:
-        log("Empty genes or gene sets! Skipping factoring")
-        return
-
-    #constrain loadings to be at most 1, but don't require them to sum to 1
-    normalize_genes = False
-    normalize_gene_sets = False
-    cap = True
-
-    effective_block_count = int(
-        min(
-            math.ceil(float(matrix.shape[0]) / float(max(1, blockwise_gene_set_block_size))),
-            int(blockwise_max_blocks) if blockwise_max_blocks is not None else math.ceil(float(matrix.shape[0]) / float(max(1, blockwise_gene_set_block_size))),
+        retained_row_indices = np.where(gene_set_mask)[0]
+        discovery_plan = DiscoveryPlan(
+            retained_gene_set_mask_full=np.asarray(gene_set_mask, dtype=bool),
+            in_discovery_mask_full=np.asarray(gene_set_mask, dtype=bool),
+            discovery_family_id_full=np.full(len(gene_set_mask), -1, dtype=int),
+            discovery_representative_mask_full=np.asarray(gene_set_mask, dtype=bool),
+            discovery_family_size_full=np.where(np.asarray(gene_set_mask, dtype=bool), 1, 0),
+            discovery_family_mean_similarity_full=np.zeros(len(gene_set_mask), dtype=float),
+            discovery_family_effective_size_full=np.where(np.asarray(gene_set_mask, dtype=bool), 1.0, 0.0),
+            discovery_weight_full=np.where(np.asarray(gene_set_mask, dtype=bool), 1.0, 0.0),
+            discovery_prob_vector=np.asarray(gene_set_prob_vector[gene_set_mask, :], dtype=float),
+            discovery_row_indices_full=np.asarray(retained_row_indices, dtype=int),
+            retained_row_indices_full=np.asarray(retained_row_indices, dtype=int),
         )
-    ) if matrix.shape[0] > 0 else 0
-
-    delegated_single_block_to_full = bool(
-        factor_backend == "blockwise_global_w" and effective_block_count <= 1
-    )
-    if delegated_single_block_to_full:
-        log(
-            "Delegating single-block blockwise_global_w run to the full solver for exact equivalence",
-            INFO,
+        pair_effective_size = (
+            gene_gene_pair_prior_effective_size
+            if gene_gene_pair_prior_effective_size is not None
+            else learn_phi_target_gene_effective_support
         )
-
-    if factor_backend == "blockwise_global_w" and not delegated_single_block_to_full:
-        blockwise_started_at = time.time()
-        blockwise_pass_metrics_dir = _derive_blockwise_pass_metrics_dir(factor_metrics_out, blockwise_report_out)
-        result = _fit_blockwise_global_w(
+        pair_prior, pair_prior_source = _resolve_gene_gene_pair_prior(
+            int(np.sum(gene_or_pheno_mask)),
+            explicit_pair_prior=gene_gene_pair_prior,
+            effective_size=pair_effective_size,
+            background_prior=getattr(state, "background_prior", None),
+        )
+        pair_matrix, pair_diagnostics = _build_gene_gene_pair_matrix(
             state,
-            matrix,
-            gene_set_prob_vector=discovery_plan.discovery_prob_vector,
-            gene_or_pheno_prob_vector=gene_or_pheno_prob_vector[gene_or_pheno_mask, :],
-            max_num_factors=max_num_factors,
-            max_num_iterations=max_num_iterations,
-            alpha0=alpha0,
-            phi=phi,
-            rel_tol=rel_tol,
-            min_lambda_threshold=min_lambda_threshold,
-            block_size=blockwise_gene_set_block_size,
-            epochs=blockwise_epochs,
-            shuffle_blocks=blockwise_shuffle_blocks,
-            max_blocks=blockwise_max_blocks,
-            warm_start_state=blockwise_warm_start_state,
-            warm_start_enabled=blockwise_warm_start,
-            cap_genes=cap,
-            cap_gene_sets=cap,
-            report_out=blockwise_report_out,
-            pass_metrics_dir=blockwise_pass_metrics_dir,
+            gene_mask=gene_or_pheno_mask,
+            gene_set_mask=gene_set_mask,
+            beta_source=gene_gene_beta_source,
+            pair_prior=pair_prior,
+            logbf_base=gene_gene_logbf_base,
+            matrix_floor=gene_gene_matrix_floor,
+            excess_probability=gene_gene_excess_probability,
+            diagonal_weight=gene_gene_diagonal_weight,
             log_fn=log,
             info_level=INFO,
         )
-        state.last_factorization_backend = "blockwise_global_w"
-        state.last_factorization_backend_details["wall_time_sec"] = float(time.time() - blockwise_started_at)
-        state.exp_lambdak = np.asarray(result["lambdak"], dtype=float)
-        exp_gene_or_pheno_factors = np.asarray(result["gene_or_pheno_factors"], dtype=float)
-        state.exp_gene_set_factors = np.asarray(result["gene_set_factors"], dtype=float)
-        evidence_value = result["evidence"]
-        likelihood_value = result["likelihood"]
-        reconstruction_error_value = result["reconstruction_error"]
-        blockwise_warm_start_payload = result.get("warm_start_payload")
-    else:
-        result = state._bayes_nmf_l2_extension(
-            matrix.toarray(),
-            discovery_plan.discovery_prob_vector,
-            gene_or_pheno_prob_vector[gene_or_pheno_mask,:],
-            n_iter=max_num_iterations,
-            a0=alpha0,
-            K=max_num_factors,
-            tol=rel_tol,
-            phi=phi,
-            cap_genes=cap,
-            cap_gene_sets=cap,
-            normalize_genes=normalize_genes,
-            normalize_gene_sets=normalize_gene_sets,
+        state._record_params(
+            {
+                "max_num_factors": max_num_factors,
+                "alpha0": alpha0,
+                "phi": phi,
+                "discovery_model": str(discovery_model),
+                "gene_set_filter_type": gene_set_filter_type,
+                "gene_set_filter_value": gene_set_filter_value,
+                "gene_or_pheno_filter_type": gene_or_pheno_filter_type,
+                "gene_or_pheno_filter_value": gene_or_pheno_filter_value,
+                "pheno_prune_value": pheno_prune_value,
+                "pheno_prune_number": pheno_prune_number,
+                "gene_set_prune_value": gene_set_prune_value,
+                "gene_set_prune_number": gene_set_prune_number,
+                "max_num_discovery_gene_sets": None,
+                "auto_discovery_subset": False,
+                "discovery_redundancy_weighting": False,
+                "discovery_redundancy_weighting_mode": "none",
+                "discovery_similarity_threshold": discovery_similarity_threshold,
+                "factor_output_scope": factor_output_scope,
+                "factor_primary_mass_floor": _PRIMARY_FACTOR_MASS_FLOOR,
+                "factor_secondary_mass_floor": _SECONDARY_FACTOR_MASS_FLOOR,
+                "num_retained_gene_sets": int(np.sum(gene_set_mask)),
+                "num_discovery_gene_sets": int(np.sum(gene_set_mask)),
+                "run_transpose": run_transpose,
+                "gene_gene_beta_source": str(gene_gene_beta_source),
+                "gene_gene_pair_prior": float(pair_prior),
+                "gene_gene_pair_prior_source": str(pair_prior_source),
+                "gene_gene_pair_prior_effective_size": None if pair_effective_size is None else float(pair_effective_size),
+                "gene_gene_logbf_base": str(gene_gene_logbf_base),
+                "gene_gene_diagonal_weight": float(gene_gene_diagonal_weight),
+                "gene_gene_matrix_floor": float(gene_gene_matrix_floor),
+                "gene_gene_excess_probability": bool(gene_gene_excess_probability),
+                "gene_gene_row_sum_cap": bool(gene_gene_row_sum_cap),
+                "gene_gene_sparsity": float(gene_gene_sparsity),
+                "gene_gene_active_genes": int(pair_diagnostics["num_active_genes"]),
+                "gene_gene_retained_gene_sets": int(pair_diagnostics["num_retained_gene_sets"]),
+                "gene_gene_beta_positive_count": int(pair_diagnostics["beta_positive_count"]),
+                "gene_gene_beta_negative_count": int(pair_diagnostics["beta_negative_count"]),
+                "gene_gene_L_mean": float(pair_diagnostics["L_mean"]),
+                "gene_gene_L_std": float(pair_diagnostics["L_std"]),
+                "gene_gene_L_min": float(pair_diagnostics["L_min"]),
+                "gene_gene_L_max": float(pair_diagnostics["L_max"]),
+                "gene_gene_P_mean": float(pair_diagnostics["P_mean"]),
+                "gene_gene_P_std": float(pair_diagnostics["P_std"]),
+                "gene_gene_P_min": float(pair_diagnostics["P_min"]),
+                "gene_gene_P_max": float(pair_diagnostics["P_max"]),
+                "gene_gene_M_density": float(pair_diagnostics["M_density"]),
+                "gene_gene_M_mean": float(pair_diagnostics["M_mean"]),
+                "gene_gene_M_std": float(pair_diagnostics["M_std"]),
+                "gene_gene_M_min": float(pair_diagnostics["M_min"]),
+                "gene_gene_M_max": float(pair_diagnostics["M_max"]),
+            }
         )
-        state.last_factorization_backend = "blockwise_global_w" if delegated_single_block_to_full else "full"
+        log("Running symmetric gene-by-gene factorization", INFO)
+        log("Pair matrix to factor shape: (%s, %s)" % (pair_matrix.shape), DEBUG)
+        if np.max(pair_matrix.shape) == 0 or np.min(pair_matrix.shape) == 0:
+            log("Skipping factoring since there aren't enough retained genes or gene sets")
+            return
+
+        normalize_genes = False
+        normalize_gene_sets = False
+        cap = True
+        result = state._bayes_sym_nmf_l2_extension(
+            pair_matrix,
+            K0=max_num_factors,
+            phi=phi,
+            a0=alpha0,
+            max_iter=max_num_iterations,
+            rel_tol=rel_tol,
+            min_lambda_threshold=min_lambda_threshold,
+            seed=None,
+            row_sum_cap=gene_gene_row_sum_cap,
+            sparsity=gene_gene_sparsity,
+            diagonal_weight=gene_gene_diagonal_weight,
+            log_fn=log,
+        )
+        state.last_factorization_backend = "symnmf_gene_by_gene"
         state.last_factorization_backend_details = {
-            "backend": "blockwise_global_w" if delegated_single_block_to_full else "full",
-            "delegated_to_full_solver": bool(delegated_single_block_to_full),
+            "backend": "symnmf_gene_by_gene",
+            "delegated_to_full_solver": False,
             "num_blocks": 1,
-            "block_size": int(matrix.shape[0]),
+            "block_size": int(pair_matrix.shape[0]),
             "epochs": int(max_num_iterations),
-            "columns_evaluated": int(matrix.shape[0]),
+            "columns_evaluated": int(pair_matrix.shape[0]),
             "warm_started": False,
-            "lambda_cut": None,
+            "lambda_cut": getattr(state, "last_factorization_lambda_cut", None),
             "epoch_error_trace": [],
             "wall_time_sec": None,
         }
-        scale_details = getattr(state, "last_factorization_scale_details", None)
-        if scale_details is not None:
-            state.last_factorization_backend_details.update(
-                {
-                    "raw_mean_v": float(scale_details.get("raw_mean", 0.0)),
-                    "raw_std_v": float(scale_details.get("raw_std", 0.0)),
-                    "weighted_mean_v": float(scale_details.get("weighted_mean", 0.0)),
-                    "weighted_std_v": float(scale_details.get("weighted_std", 0.0)),
-                    "row_scale_min": float(scale_details.get("row_scale_min", 0.0)),
-                    "row_scale_median": float(scale_details.get("row_scale_median", 0.0)),
-                    "row_scale_mean": float(scale_details.get("row_scale_mean", 0.0)),
-                    "row_scale_max": float(scale_details.get("row_scale_max", 0.0)),
-                }
-            )
-        state.exp_lambdak = result[4]
-        exp_gene_or_pheno_factors = result[1].T
-        state.exp_gene_set_factors = result[0]
-        evidence_value = result[3]
-        likelihood_value = result[2]
-        reconstruction_error_value = result[5]
+        state.exp_lambdak = np.asarray(result[3], dtype=float)
+        exp_gene_or_pheno_factors = np.asarray(result[0], dtype=float)
+        state.exp_gene_set_factors = state._project_H_with_fixed_W(
+            exp_gene_or_pheno_factors,
+            state.X_orig[gene_or_pheno_mask, :][:, gene_set_mask],
+            gene_or_pheno_prob_vector[gene_or_pheno_mask, :],
+            gene_set_prob_vector[gene_set_mask, :],
+            phi=phi,
+            tol=rel_tol,
+            cap_genes=cap,
+            normalize_genes=normalize_gene_sets,
+        )
+        evidence_value = result[2]
+        likelihood_value = result[1]
+        reconstruction_error_value = result[4]
         blockwise_warm_start_payload = None
+    else:
+        similarity_X_orig = state.X_orig[gene_or_pheno_mask, :]
+        if hasattr(state, "_calc_X_shift_scale"):
+            (similarity_mean_shifts, similarity_scale_factors) = state._calc_X_shift_scale(similarity_X_orig)
+        else:
+            similarity_mean_shifts = getattr(state, "mean_shifts", np.zeros(similarity_X_orig.shape[1], dtype=float))
+            similarity_scale_factors = getattr(state, "scale_factors", np.ones(similarity_X_orig.shape[1], dtype=float))
+
+        discovery_plan = _build_discovery_plan(
+            state,
+            retained_gene_set_mask_full=gene_set_mask,
+            gene_set_sort_rank=gene_set_sort_rank,
+            gene_set_prob_vector_full=gene_set_prob_vector,
+            similarity_X_orig=similarity_X_orig,
+            similarity_mean_shifts=similarity_mean_shifts,
+            similarity_scale_factors=similarity_scale_factors,
+            max_num_discovery_gene_sets=max_num_discovery_gene_sets,
+            auto_discovery_subset=auto_discovery_subset,
+            discovery_redundancy_weighting=discovery_redundancy_weighting,
+            discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
+            discovery_similarity_threshold=discovery_similarity_threshold,
+        )
+
+        state._record_params({"max_num_factors": max_num_factors, "alpha0": alpha0, "phi": phi, "discovery_model": str(discovery_model), "gene_set_filter_type": gene_set_filter_type, "gene_set_filter_value": gene_set_filter_value, "gene_or_pheno_filter_type": gene_or_pheno_filter_type, "gene_or_pheno_filter_value": gene_or_pheno_filter_value, "pheno_prune_value": pheno_prune_value, "pheno_prune_number": pheno_prune_number, "gene_set_prune_value": gene_set_prune_value, "gene_set_prune_number": gene_set_prune_number, "max_num_discovery_gene_sets": max_num_discovery_gene_sets, "auto_discovery_subset": auto_discovery_subset, "discovery_redundancy_weighting": discovery_redundancy_weighting, "discovery_redundancy_weighting_mode": discovery_redundancy_weighting_mode, "discovery_similarity_threshold": discovery_similarity_threshold, "factor_output_scope": factor_output_scope, "factor_primary_mass_floor": _PRIMARY_FACTOR_MASS_FLOOR, "factor_secondary_mass_floor": _SECONDARY_FACTOR_MASS_FLOOR, "num_retained_gene_sets": int(np.sum(gene_set_mask)), "num_discovery_gene_sets": int(discovery_plan.discovery_row_indices_full.size), "run_transpose": run_transpose})
+
+        matrix = state.X_phewas_beta_uncorrected.T if factor_gene_set_x_pheno else state.X_orig.T
+        matrix = matrix[discovery_plan.discovery_row_indices_full,:][:,gene_or_pheno_mask]
+        matrix[matrix < 0] = 0
+        if not run_transpose:
+            matrix = matrix.T
+
+        if factor_backend not in {"full", "blockwise_global_w"}:
+            bail("Unknown factor backend '%s'" % factor_backend)
+        if factor_backend == "blockwise_global_w" and not run_transpose:
+            bail("--factor-backend blockwise_global_w currently requires the default transposed factor matrix")
+
+        log("Running matrix factorization with backend=%s" % factor_backend)
+        if np.sum(~gene_or_pheno_mask) > 0 or np.sum(~gene_set_mask) > 0 or discovery_plan.discovery_row_indices_full.size != int(np.sum(gene_set_mask)):
+            log("Filtered original matrix from (%s, %s) to (%s, %s)" % (len(gene_or_pheno_mask), len(gene_set_mask), sum(gene_or_pheno_mask), discovery_plan.discovery_row_indices_full.size))
+        log("Matrix to factor shape: (%s, %s)" % (matrix.shape), DEBUG)
+
+        if np.max(matrix.shape) == 0:
+            log("Skipping factoring since there aren't enough significant genes and gene sets")
+            return
+
+        if np.min(matrix.shape) == 0:
+            log("Empty genes or gene sets! Skipping factoring")
+            return
+
+        normalize_genes = False
+        normalize_gene_sets = False
+        cap = True
+
+        effective_block_count = int(
+            min(
+                math.ceil(float(matrix.shape[0]) / float(max(1, blockwise_gene_set_block_size))),
+                int(blockwise_max_blocks) if blockwise_max_blocks is not None else math.ceil(float(matrix.shape[0]) / float(max(1, blockwise_gene_set_block_size))),
+            )
+        ) if matrix.shape[0] > 0 else 0
+
+        delegated_single_block_to_full = bool(
+            factor_backend == "blockwise_global_w" and effective_block_count <= 1
+        )
+        if delegated_single_block_to_full:
+            log(
+                "Delegating single-block blockwise_global_w run to the full solver for exact equivalence",
+                INFO,
+            )
+
+        if factor_backend == "blockwise_global_w" and not delegated_single_block_to_full:
+            blockwise_started_at = time.time()
+            blockwise_pass_metrics_dir = _derive_blockwise_pass_metrics_dir(factor_metrics_out, blockwise_report_out)
+            result = _fit_blockwise_global_w(
+                state,
+                matrix,
+                gene_set_prob_vector=discovery_plan.discovery_prob_vector,
+                gene_or_pheno_prob_vector=gene_or_pheno_prob_vector[gene_or_pheno_mask, :],
+                max_num_factors=max_num_factors,
+                max_num_iterations=max_num_iterations,
+                alpha0=alpha0,
+                phi=phi,
+                rel_tol=rel_tol,
+                min_lambda_threshold=min_lambda_threshold,
+                block_size=blockwise_gene_set_block_size,
+                epochs=blockwise_epochs,
+                shuffle_blocks=blockwise_shuffle_blocks,
+                max_blocks=blockwise_max_blocks,
+                warm_start_state=blockwise_warm_start_state,
+                warm_start_enabled=blockwise_warm_start,
+                cap_genes=cap,
+                cap_gene_sets=cap,
+                report_out=blockwise_report_out,
+                pass_metrics_dir=blockwise_pass_metrics_dir,
+                log_fn=log,
+                info_level=INFO,
+            )
+            state.last_factorization_backend = "blockwise_global_w"
+            state.last_factorization_backend_details["wall_time_sec"] = float(time.time() - blockwise_started_at)
+            state.exp_lambdak = np.asarray(result["lambdak"], dtype=float)
+            exp_gene_or_pheno_factors = np.asarray(result["gene_or_pheno_factors"], dtype=float)
+            state.exp_gene_set_factors = np.asarray(result["gene_set_factors"], dtype=float)
+            evidence_value = result["evidence"]
+            likelihood_value = result["likelihood"]
+            reconstruction_error_value = result["reconstruction_error"]
+            blockwise_warm_start_payload = result.get("warm_start_payload")
+        else:
+            result = state._bayes_nmf_l2_extension(
+                matrix.toarray(),
+                discovery_plan.discovery_prob_vector,
+                gene_or_pheno_prob_vector[gene_or_pheno_mask,:],
+                n_iter=max_num_iterations,
+                a0=alpha0,
+                K=max_num_factors,
+                tol=rel_tol,
+                phi=phi,
+                cap_genes=cap,
+                cap_gene_sets=cap,
+                normalize_genes=normalize_genes,
+                normalize_gene_sets=normalize_gene_sets,
+            )
+            state.last_factorization_backend = "blockwise_global_w" if delegated_single_block_to_full else "full"
+            state.last_factorization_backend_details = {
+                "backend": "blockwise_global_w" if delegated_single_block_to_full else "full",
+                "delegated_to_full_solver": bool(delegated_single_block_to_full),
+                "num_blocks": 1,
+                "block_size": int(matrix.shape[0]),
+                "epochs": int(max_num_iterations),
+                "columns_evaluated": int(matrix.shape[0]),
+                "warm_started": False,
+                "lambda_cut": None,
+                "epoch_error_trace": [],
+                "wall_time_sec": None,
+            }
+            scale_details = getattr(state, "last_factorization_scale_details", None)
+            if scale_details is not None:
+                state.last_factorization_backend_details.update(
+                    {
+                        "raw_mean_v": float(scale_details.get("raw_mean", 0.0)),
+                        "raw_std_v": float(scale_details.get("raw_std", 0.0)),
+                        "weighted_mean_v": float(scale_details.get("weighted_mean", 0.0)),
+                        "weighted_std_v": float(scale_details.get("weighted_std", 0.0)),
+                        "row_scale_min": float(scale_details.get("row_scale_min", 0.0)),
+                        "row_scale_median": float(scale_details.get("row_scale_median", 0.0)),
+                        "row_scale_mean": float(scale_details.get("row_scale_mean", 0.0)),
+                        "row_scale_max": float(scale_details.get("row_scale_max", 0.0)),
+                    }
+                )
+            state.exp_lambdak = result[4]
+            exp_gene_or_pheno_factors = result[1].T
+            state.exp_gene_set_factors = result[0]
+            evidence_value = result[3]
+            likelihood_value = result[2]
+            reconstruction_error_value = result[5]
+            blockwise_warm_start_payload = None
 
     scale_details = getattr(state, "last_factorization_scale_details", None)
     if scale_details is not None:
@@ -4427,7 +4869,14 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     #this code projects to the additional dimensions
 
     #all gene factor values
-    full_gene_factor_values = state._project_H_with_fixed_W(state.exp_gene_set_factors, gene_matrix_to_project[state.gene_set_in_discovery_mask,:], state.gene_set_prob_factor_vector[state.gene_set_in_discovery_mask,:], state.gene_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
+    if _state_discovery_model(state) == "gene_by_gene" and not factor_gene_set_x_pheno:
+        full_gene_factor_values = state.project_full_gene_factors_gene_by_gene(
+            retained_discovery_gene_factors=state.exp_gene_factors,
+            cap_genes=cap,
+        )
+        state._record_params({"factor_gene_projection_from": "direct_gene_gene"})
+    else:
+        full_gene_factor_values = state._project_H_with_fixed_W(state.exp_gene_set_factors, gene_matrix_to_project[state.gene_set_in_discovery_mask,:], state.gene_set_prob_factor_vector[state.gene_set_in_discovery_mask,:], state.gene_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_genes)
     if not factor_gene_set_x_pheno and keep_original_loadings:
         full_gene_factor_values[state.gene_in_discovery_mask,:] = state.exp_gene_factors
 
@@ -4595,14 +5044,14 @@ def _run_factor_with_seed(state, *, seed, run_index, factor_kwargs):
 
 
 def _collect_consensus_matches(run_states, run_summaries, reference_index, min_factor_cosine):
-    reference_factors = run_states[reference_index].exp_gene_set_factors
+    reference_factors = _extract_canonical_factor_matrix(run_states[reference_index])
     reference_norm = _normalize_factor_columns(reference_factors)
     factor_matches = {idx: [(reference_index, idx, 1.0)] for idx in range(reference_factors.shape[1])}
 
     for run_index, run_state in enumerate(run_states):
         if run_index == reference_index:
             continue
-        run_factors = run_state.exp_gene_set_factors
+        run_factors = _extract_canonical_factor_matrix(run_state)
         if run_factors is None or run_factors.size == 0:
             continue
         run_norm = _normalize_factor_columns(run_factors)
@@ -4625,7 +5074,7 @@ def _apply_consensus_solution(
     min_factor_cosine,
     factor_kwargs,
 ):
-    eligible_indices = [idx for idx, state in enumerate(run_states) if state.exp_gene_set_factors is not None and state.exp_gene_set_factors.size > 0 and state.num_factors() > 0]
+    eligible_indices = [idx for idx, state in enumerate(run_states) if _extract_canonical_factor_matrix(state) is not None and state.num_factors() > 0]
     if len(eligible_indices) == 0:
         return _clone_runtime_state(run_states[min(range(len(run_summaries)), key=lambda idx: _best_run_sort_key(run_summaries[idx]))]), {
             "mode": "consensus",
@@ -4653,7 +5102,8 @@ def _apply_consensus_solution(
     factor_support_rows = []
     total_runs = max(1, len(run_states))
 
-    for reference_factor_index in range(run_states[reference_index].exp_gene_set_factors.shape[1]):
+    reference_factor_matrix = _extract_canonical_factor_matrix(run_states[reference_index])
+    for reference_factor_index in range(reference_factor_matrix.shape[1]):
         matched = factor_matches.get(reference_factor_index, [])
         support_fraction = float(len(matched)) / float(total_runs)
         factor_support_rows.append(
@@ -4757,10 +5207,17 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
+    if (
+        learn_phi
+        and str(discovery_model) == "gene_by_gene"
+        and learn_phi_target_gene_mass is None
+        and learn_phi_target_gene_effective_support is None
+    ):
+        learn_phi_target_gene_mass = 30.0
 
     if factor_runs < 1:
         bail("--factor-runs must be at least 1")
@@ -4793,9 +5250,13 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
     if learn_phi:
         if phi <= 0:
             bail("--learn-phi requires --phi > 0")
-        if learn_phi_target_gene_effective_support is None:
-            bail("--learn-phi requires --learn-phi-target-gene-effective-support")
-        if float(learn_phi_target_gene_effective_support) <= 0:
+        if learn_phi_target_gene_mass is None and learn_phi_target_gene_effective_support is None:
+            bail("--learn-phi requires either --learn-phi-target-gene-mass or --learn-phi-target-gene-effective-support")
+        if learn_phi_target_gene_mass is not None and learn_phi_target_gene_effective_support is not None:
+            bail("--learn-phi-target-gene-mass and --learn-phi-target-gene-effective-support cannot both be set")
+        if learn_phi_target_gene_mass is not None and float(learn_phi_target_gene_mass) <= 0:
+            bail("--learn-phi-target-gene-mass must be positive")
+        if learn_phi_target_gene_effective_support is not None and float(learn_phi_target_gene_effective_support) <= 0:
             bail("--learn-phi-target-gene-effective-support must be positive")
         if not (0 < learn_phi_max_redundancy <= 1):
             bail("--learn-phi-max-redundancy must be in (0, 1]")
@@ -4837,6 +5298,29 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--discovery-redundancy-weighting-mode must be one of: effective_size, log_effective_size, none")
     if not (0 <= float(discovery_similarity_threshold) <= 1):
         bail("--discovery-similarity-threshold must be in [0, 1]")
+    if str(discovery_model) not in {"gene_by_annotation", "gene_by_gene"}:
+        bail("--discovery-model must be one of: gene_by_annotation, gene_by_gene")
+    if str(gene_gene_beta_source) not in {"beta", "beta_uncorrected"}:
+        bail("--gene-gene-beta-source must be one of: beta, beta_uncorrected")
+    if str(gene_gene_logbf_base) not in {"natural", "log10"}:
+        bail("--gene-gene-logbf-base must be one of: natural, log10")
+    if gene_gene_pair_prior is not None and not (0 < float(gene_gene_pair_prior) < 1):
+        bail("--gene-gene-pair-prior must be in (0, 1)")
+    if gene_gene_pair_prior_effective_size is not None and float(gene_gene_pair_prior_effective_size) <= 1:
+        bail("--gene-gene-pair-prior-effective-size must be > 1")
+    if float(gene_gene_diagonal_weight) < 0:
+        bail("--gene-gene-diagonal-weight must be >= 0")
+    if float(gene_gene_matrix_floor) < 0:
+        bail("--gene-gene-matrix-floor must be >= 0")
+    if float(gene_gene_sparsity) < 0:
+        bail("--gene-gene-sparsity must be >= 0")
+    if str(discovery_model) == "gene_by_gene":
+        if factor_backend != "full":
+            bail("--discovery-model gene_by_gene currently requires --factor-backend full")
+        if learn_phi_backend != "sentinel_pruned":
+            bail("--discovery-model gene_by_gene currently requires --learn-phi-backend sentinel_pruned")
+        if not run_transpose:
+            bail("--discovery-model gene_by_gene currently requires the default transposed factor matrix")
     if learn_phi_prune_gene_sets_num is not None:
         warnings.warn(
             "learn_phi_prune_gene_sets_num is deprecated and ignored; learn-phi now uses the same discovery plan as the final fit",
@@ -4847,6 +5331,16 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
     factor_kwargs = {
         "max_num_factors": max_num_factors,
         "phi": phi,
+        "discovery_model": discovery_model,
+        "gene_gene_beta_source": gene_gene_beta_source,
+        "gene_gene_pair_prior": gene_gene_pair_prior,
+        "gene_gene_pair_prior_effective_size": gene_gene_pair_prior_effective_size,
+        "gene_gene_logbf_base": gene_gene_logbf_base,
+        "gene_gene_diagonal_weight": gene_gene_diagonal_weight,
+        "gene_gene_matrix_floor": gene_gene_matrix_floor,
+        "gene_gene_excess_probability": gene_gene_excess_probability,
+        "gene_gene_row_sum_cap": gene_gene_row_sum_cap,
+        "gene_gene_sparsity": gene_gene_sparsity,
         "alpha0": alpha0,
         "beta0": beta0,
         "gene_set_filter_type": gene_set_filter_type,
@@ -4900,6 +5394,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "gene_clusters_out": gene_clusters_out,
         "cluster_row_min_max_loading": cluster_row_min_max_loading,
         "factor_output_scope": factor_output_scope,
+        "learn_phi_target_gene_mass": learn_phi_target_gene_mass,
+        "learn_phi_target_gene_effective_support": learn_phi_target_gene_effective_support,
         "bail_fn": bail_fn,
         "warn_fn": warn_fn,
         "log_fn": log_fn,
@@ -4922,6 +5418,16 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             consensus_min_run_support=consensus_min_run_support,
             consensus_aggregation=consensus_aggregation,
             consensus_stats_out=consensus_stats_out,
+            discovery_model=discovery_model,
+            gene_gene_beta_source=gene_gene_beta_source,
+            gene_gene_pair_prior=gene_gene_pair_prior,
+            gene_gene_pair_prior_effective_size=gene_gene_pair_prior_effective_size,
+            gene_gene_logbf_base=gene_gene_logbf_base,
+            gene_gene_diagonal_weight=gene_gene_diagonal_weight,
+            gene_gene_matrix_floor=gene_gene_matrix_floor,
+            gene_gene_excess_probability=gene_gene_excess_probability,
+            gene_gene_row_sum_cap=gene_gene_row_sum_cap,
+            gene_gene_sparsity=gene_gene_sparsity,
             learn_phi=learn_phi,
             learn_phi_max_redundancy=learn_phi_max_redundancy,
             learn_phi_max_redundancy_q90=learn_phi_max_redundancy_q90,
@@ -4930,6 +5436,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             learn_phi_min_stability=learn_phi_min_stability,
             learn_phi_fit_loss_warning_frac=learn_phi_fit_loss_warning_frac,
             learn_phi_max_severe_fit_loss_frac=learn_phi_max_severe_fit_loss_frac,
+            learn_phi_target_gene_mass=learn_phi_target_gene_mass,
             learn_phi_target_gene_effective_support=learn_phi_target_gene_effective_support,
             learn_phi_size_tolerance_frac=learn_phi_size_tolerance_frac,
             learn_phi_min_primary_factors=learn_phi_min_primary_factors,
@@ -4999,7 +5506,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         overwrite=True,
     )
     log(
-        "Factor config: phi=%.6g alpha0=%.6g beta0=%.6g max_num_factors=%d factor_runs=%d consensus_nmf=%s learn_phi=%s factor_backend=%s learn_phi_backend=%s max_num_iterations=%d rel_tol=%.3g"
+        "Factor config: phi=%.6g alpha0=%.6g beta0=%.6g max_num_factors=%d factor_runs=%d consensus_nmf=%s learn_phi=%s factor_backend=%s learn_phi_backend=%s discovery_model=%s max_num_iterations=%d rel_tol=%.3g"
         % (
             float(phi),
             float(alpha0),
@@ -5010,6 +5517,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bool(learn_phi),
             str(factor_backend),
             str(learn_phi_backend),
+            str(discovery_model),
             int(max_num_iterations),
             float(rel_tol),
         ),
@@ -5029,7 +5537,14 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             min_stability=learn_phi_min_stability,
             fit_loss_warning_frac=learn_phi_fit_loss_warning_frac,
             max_severe_fit_loss_frac=learn_phi_max_severe_fit_loss_frac,
-            target_gene_effective_support=float(learn_phi_target_gene_effective_support),
+            target_gene_mass=(
+                None if learn_phi_target_gene_mass is None else float(learn_phi_target_gene_mass)
+            ),
+            target_gene_effective_support=(
+                None
+                if learn_phi_target_gene_effective_support is None
+                else float(learn_phi_target_gene_effective_support)
+            ),
             size_tolerance_frac=float(learn_phi_size_tolerance_frac),
             min_primary_factors=int(learn_phi_min_primary_factors),
             max_primary_gene_max_weight_q90=learn_phi_max_primary_gene_max_weight_q90,

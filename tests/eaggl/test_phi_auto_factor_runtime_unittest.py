@@ -669,6 +669,121 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(profile["max_mass_fraction"], 0.0)
         self.assertEqual(profile["top5_mass_fraction"], 0.0)
 
+    def test_resolve_gene_gene_pair_prior_prefers_explicit_value(self) -> None:
+        prior, source = eaggl_factor_runtime._resolve_gene_gene_pair_prior(
+            10,
+            explicit_pair_prior=0.2,
+            effective_size=5,
+        )
+        self.assertEqual(source, "explicit_prior")
+        self.assertAlmostEqual(prior, 0.2)
+
+    def test_resolve_gene_gene_pair_prior_maps_effective_size(self) -> None:
+        prior, source = eaggl_factor_runtime._resolve_gene_gene_pair_prior(
+            11,
+            effective_size=6,
+        )
+        self.assertEqual(source, "effective_size")
+        self.assertAlmostEqual(prior, 0.5)
+
+    def test_build_gene_gene_pair_matrix_uses_beta_and_excess_probability(self) -> None:
+        state = SimpleNamespace(
+            X_orig=sparse.csr_matrix(
+                np.array(
+                    [
+                        [1.0, 1.0],
+                        [1.0, 0.0],
+                    ],
+                    dtype=float,
+                )
+            ),
+            betas=np.array([2.0, -1.0], dtype=float),
+            betas_uncorrected=np.array([2.0, -1.0], dtype=float),
+            scale_factors=np.ones(2, dtype=float),
+        )
+        matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+            state,
+            gene_mask=np.array([True, True]),
+            gene_set_mask=np.array([True, True]),
+            beta_source="beta",
+            pair_prior=0.2,
+            logbf_base="natural",
+            matrix_floor=0.0,
+            excess_probability=True,
+            diagonal_weight=0.0,
+            log_fn=None,
+            info_level=1,
+        )
+        expected_L = np.array([[1.0, 2.0], [2.0, 2.0]], dtype=float)
+        expected_P = 1.0 / (1.0 + np.exp(-(np.log(0.2 / 0.8) + expected_L)))
+        expected_M = np.clip((expected_P - 0.2) / 0.8, 0.0, 1.0)
+        np.fill_diagonal(expected_M, 0.0)
+        np.testing.assert_allclose(matrix, expected_M)
+        self.assertEqual(diagnostics["beta_positive_count"], 1)
+        self.assertEqual(diagnostics["beta_negative_count"], 1)
+
+    def test_build_gene_gene_pair_matrix_applies_matrix_floor(self) -> None:
+        state = SimpleNamespace(
+            X_orig=sparse.csr_matrix(
+                np.array(
+                    [
+                        [1.0, 0.0],
+                        [1.0, 1.0],
+                    ],
+                    dtype=float,
+                )
+            ),
+            betas=np.array([0.001, 0.0], dtype=float),
+            betas_uncorrected=np.array([0.001, 0.0], dtype=float),
+            scale_factors=np.ones(2, dtype=float),
+        )
+        matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+            state,
+            gene_mask=np.array([True, True]),
+            gene_set_mask=np.array([True, True]),
+            beta_source="beta",
+            pair_prior=0.2,
+            logbf_base="natural",
+            matrix_floor=1e-3,
+            excess_probability=True,
+            diagonal_weight=0.0,
+            log_fn=None,
+            info_level=1,
+        )
+        self.assertEqual(diagnostics["pair_matrix_floor"], 1e-3)
+        self.assertEqual(float(matrix[0, 1]), 0.0)
+        self.assertEqual(float(matrix[1, 0]), 0.0)
+
+    def test_bayes_sym_nmf_l2_extension_caps_row_sums(self) -> None:
+        state = EagglState.__new__(EagglState)
+        M = np.array(
+            [
+                [0.0, 0.8, 0.0, 0.0],
+                [0.8, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.7],
+                [0.0, 0.0, 0.7, 0.0],
+            ],
+            dtype=float,
+        )
+        W, like, evid, lambdak, error = state._bayes_sym_nmf_l2_extension(
+            M,
+            K0=3,
+            phi=0.05,
+            max_iter=30,
+            rel_tol=1e-5,
+            row_sum_cap=True,
+            sparsity=0.0,
+            diagonal_weight=0.0,
+            log_fn=None,
+        )
+        self.assertEqual(W.shape, (4, 3))
+        self.assertTrue(np.all(W >= 0))
+        self.assertTrue(np.all(np.sum(W, axis=1) <= 1.000001))
+        self.assertEqual(lambdak.shape, (3,))
+        self.assertTrue(np.isfinite(like))
+        self.assertTrue(np.isfinite(evid))
+        self.assertTrue(np.isfinite(error))
+
     def test_run_factor_single_forwards_max_num_iterations_to_nmf(self) -> None:
         calls = {}
 
@@ -717,6 +832,79 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             )
 
         self.assertEqual(calls["n_iter"], 7)
+
+    def test_run_factor_single_gene_by_gene_populates_projected_gene_set_factors(self) -> None:
+        state = EagglState.__new__(EagglState)
+        state.X_orig = sparse.csr_matrix(
+            np.array(
+                [
+                    [1.0, 0.0, 1.0],
+                    [1.0, 0.0, 0.0],
+                    [0.0, 1.0, 1.0],
+                ],
+                dtype=float,
+            )
+        )
+        state.X_phewas_beta = None
+        state.X_phewas_beta_uncorrected = None
+        state.gene_pheno_combined_prior_Ys = None
+        state.gene_pheno_priors = None
+        state.gene_pheno_Y = None
+        state.combined_prior_Ys = None
+        state.priors = None
+        state.Y = np.array([2.0, 1.5, 0.7], dtype=float)
+        state.betas = np.array([1.2, 0.8, 0.5], dtype=float)
+        state.betas_uncorrected = np.array([1.2, 0.8, 0.5], dtype=float)
+        state.scale_factors = np.ones(3, dtype=float)
+        state.background_log_bf = 0.0
+        state.gene_sets = ["gs1", "gs2", "gs3"]
+        state.genes = ["g1", "g2", "g3"]
+        state.phenos = []
+        state.default_pheno = "default"
+        state.exp_gene_factors = None
+        state.exp_gene_set_factors = None
+        state.exp_pheno_factors = None
+        state.params = {}
+        state.param_keys = []
+
+        with mock.patch.object(
+            eaggl_factor_runtime,
+            "_write_pre_projection_checkpoint",
+            side_effect=lambda *args, **kwargs: None,
+        ), mock.patch.object(
+            eaggl_factor_runtime,
+            "_apply_canonical_trait_linkage",
+            side_effect=lambda *args, **kwargs: None,
+        ), mock.patch.object(
+            eaggl_factor_runtime,
+            "_finalize_factor_outputs",
+            side_effect=lambda *args, **kwargs: None,
+        ), mock.patch.object(
+            eaggl_factor_runtime,
+            "_build_factor_run_summary",
+            side_effect=lambda state, **kwargs: {"num_factors": state.num_factors()},
+        ):
+            summary = eaggl_factor_runtime._run_factor_single(
+                state,
+                discovery_model="gene_by_gene",
+                max_num_factors=2,
+                max_num_iterations=10,
+                bail_fn=lambda msg: (_ for _ in ()).throw(AssertionError(msg)),
+                warn_fn=lambda *args, **kwargs: None,
+                log_fn=lambda *args, **kwargs: None,
+                info_level=1,
+                debug_level=2,
+                trace_level=3,
+                labeling_module=np,
+            )
+
+        self.assertEqual(summary["num_factors"], state.num_factors())
+        self.assertEqual(state.discovery_model, "gene_by_gene")
+        self.assertIsNotNone(state.exp_gene_factors)
+        self.assertIsNotNone(state.exp_gene_set_factors)
+        self.assertEqual(state.exp_gene_factors.shape[0], len(state.genes))
+        self.assertEqual(state.exp_gene_set_factors.shape[0], len(state.gene_sets))
+        self.assertEqual(state.params["gene_gene_pair_prior_source"], "default_effective_size")
 
     def test_run_factor_single_single_block_blockwise_delegates_to_full_solver(self) -> None:
         calls = {}
@@ -1169,6 +1357,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         records = [
             {
                 "combined_mass_fraction": "0.009",
+                "gene_mass": "9",
                 "gene_effective_support": "9",
                 "gene_max_jaccard": "0.9",
                 "gene_max_weight": "0.9",
@@ -1176,6 +1365,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             },
             {
                 "combined_mass_fraction": "0.02",
+                "gene_mass": "20",
                 "gene_effective_support": "20",
                 "gene_max_jaccard": "0.4",
                 "gene_max_weight": "0.4",
@@ -1189,6 +1379,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         )
 
         self.assertEqual(summary["primary_gene_effective_support_median"], 20.0)
+        self.assertEqual(summary["primary_gene_mass_median"], 20.0)
         self.assertEqual(summary["primary_gene_max_jaccard_vs_all_q90"], 0.4)
         self.assertEqual(summary["primary_gene_max_weight_q90"], 0.4)
         self.assertEqual(summary["primary_gene_top5_weight_fraction_median"], 0.7)
@@ -1199,6 +1390,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 return [
                     {
                         "combined_mass_fraction": "0.009",
+                        "gene_mass": "9",
                         "gene_effective_support": "9",
                         "gene_max_jaccard": "0.9",
                         "gene_max_weight": "0.9",
@@ -1206,6 +1398,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                     },
                     {
                         "combined_mass_fraction": "0.02",
+                        "gene_mass": "20",
                         "gene_effective_support": "20",
                         "gene_max_jaccard": "0.4",
                         "gene_max_weight": "0.4",
@@ -1242,8 +1435,74 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
 
         self.assertEqual(summary["primary_factor_count"], 1)
         self.assertEqual(summary["primary_gene_effective_support_median"], 20.0)
+        self.assertEqual(summary["primary_gene_mass_median"], 20.0)
         self.assertEqual(summary["primary_gene_max_jaccard_vs_all_q90"], 0.4)
         self.assertEqual(summary["primary_mass_floor"], 0.01)
+
+    def test_select_phi_candidate_can_target_gene_mass(self) -> None:
+        candidates = [
+            {
+                "phi": 0.05,
+                "modal_factor_count": 4,
+                "primary_factor_count": 4,
+                "run_support": 1.0,
+                "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
+                "redundancy": 0.2,
+                "redundancy_max": 0.2,
+                "redundancy_q90": 0.15,
+                "best_error": 10.0,
+                "best_evidence": 8.0,
+                "effective_factor_count": 3.8,
+                "mass_ge_floor_factor_count": 4,
+                "primary_gene_mass_median": 140.0,
+                "primary_gene_effective_support_median": 220.0,
+                "primary_gene_max_jaccard_vs_all_q90": 0.2,
+                "primary_gene_max_weight_q90": 0.2,
+            },
+            {
+                "phi": 0.1,
+                "modal_factor_count": 4,
+                "primary_factor_count": 4,
+                "run_support": 1.0,
+                "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
+                "redundancy": 0.2,
+                "redundancy_max": 0.2,
+                "redundancy_q90": 0.15,
+                "best_error": 10.0,
+                "best_evidence": 8.0,
+                "effective_factor_count": 3.8,
+                "mass_ge_floor_factor_count": 4,
+                "primary_gene_mass_median": 105.0,
+                "primary_gene_effective_support_median": 220.0,
+                "primary_gene_max_jaccard_vs_all_q90": 0.2,
+                "primary_gene_max_weight_q90": 0.2,
+            },
+        ]
+        selected, reason = eaggl_factor_runtime._select_phi_candidate(
+            candidates,
+            max_redundancy=0.6,
+            max_redundancy_q90=0.35,
+            min_run_support=0.6,
+            min_stability=0.85,
+            fit_loss_warning_frac=0.05,
+            max_severe_fit_loss_frac=1.0,
+            target_gene_mass=100.0,
+            target_gene_effective_support=None,
+            size_tolerance_frac=0.25,
+            min_primary_factors=3,
+            max_primary_gene_max_weight_q90=None,
+            runs_per_step=3,
+        )
+        self.assertEqual(reason, "target_gene_mass_in_tolerance")
+        self.assertEqual(selected["phi"], 0.1)
+        self.assertEqual(selected["selection_target_metric"], "gene_mass")
+        self.assertAlmostEqual(selected["target_gene_mass_ratio"], 1.05)
 
     def test_select_phi_candidate_prefers_largest_phi_within_target_size_tolerance_even_with_fit_warning(self) -> None:
         candidates = [
@@ -1318,6 +1577,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             min_stability=0.85,
             fit_loss_warning_frac=0.05,
             max_severe_fit_loss_frac=2.0,
+            target_gene_mass=None,
             target_gene_effective_support=20.0,
             size_tolerance_frac=0.25,
             min_primary_factors=3,
@@ -1383,6 +1643,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             min_stability=0.85,
             fit_loss_warning_frac=0.05,
             max_severe_fit_loss_frac=1.0,
+            target_gene_mass=None,
             target_gene_effective_support=20.0,
             size_tolerance_frac=0.25,
             min_primary_factors=3,
@@ -1445,6 +1706,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             min_stability=0.85,
             fit_loss_warning_frac=0.05,
             max_severe_fit_loss_frac=1.0,
+            target_gene_mass=None,
             target_gene_effective_support=20.0,
             size_tolerance_frac=0.25,
             min_primary_factors=3,
@@ -1799,7 +2061,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             )
             text = report.read_text()
         lines = text.splitlines()
-        self.assertIn("phi\tselected\treference_run_index\tcandidate_primary_gene_effective_support_median", text)
+        self.assertIn("phi\tselected\treference_run_index\tcandidate_primary_gene_mass_median", text)
+        self.assertIn("candidate_primary_gene_effective_support_median", text)
         self.assertIn("\tFactor\tlabel\tcombined_mass_fraction", text)
         self.assertEqual(lines[1].split("\t")[-3:], ["Factor1", "alpha", "0.01"])
         self.assertEqual(lines[2].split("\t")[-3:], ["Factor2", "beta", "0.02"])
@@ -1873,6 +2136,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 min_stability=0.85,
                 fit_loss_warning_frac=0.05,
                 max_severe_fit_loss_frac=1.0,
+                target_gene_mass=None,
                 target_gene_effective_support=10.0,
                 size_tolerance_frac=0.25,
                 min_primary_factors=1,

@@ -1143,6 +1143,8 @@ class EagglState(object):
         self.Y_mcse = None
         self.priors_missing = None
         self.priors_adj_missing = None
+        self.combined_prior_Ys_missing = None
+        self.Y_missing = None
 
         self.gene_N = None
         self.gene_ignored_N = None #number of ignored gene sets gene is in
@@ -1572,6 +1574,153 @@ class EagglState(object):
 
         return H_new
 
+    def _gene_gene_projection_beta_vector(self, gene_set_mask):
+        beta_source = self.params.get("gene_gene_beta_source", "beta_uncorrected")
+        if isinstance(beta_source, list):
+            beta_source = beta_source[0] if len(beta_source) > 0 else "beta_uncorrected"
+        if beta_source == "beta":
+            if getattr(self, "betas", None) is None:
+                raise ValueError("Corrected betas are unavailable for gene-by-gene full-gene projection")
+            beta_vector = np.asarray(self.betas, dtype=float)
+        else:
+            if getattr(self, "betas_uncorrected", None) is None:
+                raise ValueError("beta_uncorrected gene-set statistics are unavailable for gene-by-gene full-gene projection")
+            beta_vector = np.asarray(self.betas_uncorrected, dtype=float)
+
+        scale_factors = np.asarray(
+            getattr(self, "scale_factors", np.ones(beta_vector.shape[0], dtype=float)),
+            dtype=float,
+        )
+        scale_factors = np.where(scale_factors == 0, 1.0, scale_factors)
+        beta_vector = np.nan_to_num(beta_vector / scale_factors, nan=0.0, posinf=0.0, neginf=0.0)
+        return beta_vector[np.asarray(gene_set_mask, dtype=bool)]
+
+    def _gene_gene_cross_pair_matrix(self, row_gene_matrix, discovery_gene_matrix, gene_set_mask):
+        gene_set_mask = np.asarray(gene_set_mask, dtype=bool)
+        beta_vector = self._gene_gene_projection_beta_vector(gene_set_mask)
+
+        row_gene_matrix = row_gene_matrix[:, gene_set_mask]
+        discovery_gene_matrix = discovery_gene_matrix[:, gene_set_mask]
+        if not sparse.issparse(row_gene_matrix):
+            row_gene_matrix = sparse.csr_matrix(np.asarray(row_gene_matrix, dtype=float))
+        if not sparse.issparse(discovery_gene_matrix):
+            discovery_gene_matrix = sparse.csr_matrix(np.asarray(discovery_gene_matrix, dtype=float))
+        row_gene_matrix = row_gene_matrix.tocsr()
+        discovery_gene_matrix = discovery_gene_matrix.tocsr()
+
+        L = (row_gene_matrix.multiply(beta_vector.reshape((1, -1))) @ discovery_gene_matrix.T).toarray()
+        logbf_base = self.params.get("gene_gene_logbf_base", "log10")
+        if isinstance(logbf_base, list):
+            logbf_base = logbf_base[0] if len(logbf_base) > 0 else "log10"
+        if str(logbf_base) == "log10":
+            L = float(math.log(10.0)) * L
+
+        pair_prior = self.params.get("gene_gene_pair_prior", getattr(self, "background_prior", 0.05))
+        if isinstance(pair_prior, list):
+            pair_prior = pair_prior[0] if len(pair_prior) > 0 else self.background_prior
+        pair_prior = float(pair_prior)
+        pair_logit = scipy.special.logit(pair_prior)
+        P = scipy.special.expit(pair_logit + L)
+
+        excess_probability = self.params.get("gene_gene_excess_probability", True)
+        if isinstance(excess_probability, list):
+            excess_probability = excess_probability[0] if len(excess_probability) > 0 else True
+        if bool(excess_probability):
+            M = np.clip((P - pair_prior) / max(1.0 - pair_prior, 1e-12), 0.0, 1.0)
+        else:
+            M = np.clip(P, 0.0, 1.0)
+
+        matrix_floor = self.params.get("gene_gene_matrix_floor", 0.0)
+        if isinstance(matrix_floor, list):
+            matrix_floor = matrix_floor[0] if len(matrix_floor) > 0 else 0.0
+        matrix_floor = float(matrix_floor)
+        if matrix_floor > 0.0:
+            M[M < matrix_floor] = 0.0
+        return M
+
+    def _project_gene_gene_rows_to_discovery_factors(
+        self,
+        row_gene_matrix,
+        discovery_gene_matrix,
+        discovery_gene_factors,
+        gene_set_mask=None,
+        cap_genes=True,
+    ):
+        discovery_gene_factors = np.asarray(discovery_gene_factors, dtype=float)
+        if discovery_gene_factors.ndim != 2:
+            raise ValueError("discovery gene factors must be a two-dimensional matrix")
+        if discovery_gene_factors.shape[0] == 0 or discovery_gene_factors.shape[1] == 0:
+            return np.zeros((row_gene_matrix.shape[0], discovery_gene_factors.shape[1]), dtype=float)
+        if gene_set_mask is None:
+            gene_set_mask = np.ones(row_gene_matrix.shape[1], dtype=bool)
+
+        cross_pair_matrix = self._gene_gene_cross_pair_matrix(
+            row_gene_matrix,
+            discovery_gene_matrix,
+            gene_set_mask,
+        )
+        gram = discovery_gene_factors.T @ discovery_gene_factors
+        ridge = 1e-8 * max(1.0, float(np.trace(gram)))
+        coef = cross_pair_matrix @ discovery_gene_factors @ np.linalg.pinv(
+            gram + ridge * np.eye(gram.shape[0], dtype=float)
+        )
+        coef = np.nan_to_num(coef, nan=0.0, posinf=0.0, neginf=0.0)
+        coef = np.clip(coef, 0.0, None)
+        if cap_genes:
+            row_sums = np.sum(coef, axis=1)
+            over_mask = row_sums > 1.0
+            if np.any(over_mask):
+                coef[over_mask, :] = coef[over_mask, :] / row_sums[over_mask, np.newaxis]
+        return coef
+
+    def project_full_gene_factors_gene_by_gene(self, retained_discovery_gene_factors=None, cap_genes=True):
+        if self.gene_in_discovery_mask is None or self.X_orig is None:
+            return None
+        discovery_mask = np.asarray(self.gene_in_discovery_mask, dtype=bool)
+        if retained_discovery_gene_factors is None:
+            exp_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+            if exp_gene_factors.shape[0] == int(np.sum(discovery_mask)):
+                retained_discovery_gene_factors = exp_gene_factors
+            else:
+                retained_discovery_gene_factors = exp_gene_factors[discovery_mask, :]
+        gene_set_mask = (
+            np.asarray(self.gene_set_in_discovery_mask, dtype=bool)
+            if self.gene_set_in_discovery_mask is not None
+            else np.ones(self.X_orig.shape[1], dtype=bool)
+        )
+        full_gene_factors = self._project_gene_gene_rows_to_discovery_factors(
+            self.X_orig,
+            self.X_orig[discovery_mask, :],
+            retained_discovery_gene_factors,
+            gene_set_mask=gene_set_mask,
+            cap_genes=cap_genes,
+        )
+        full_gene_factors[discovery_mask, :] = retained_discovery_gene_factors
+        return full_gene_factors
+
+    def project_missing_gene_factors_gene_by_gene(self, retained_discovery_gene_factors=None, cap_genes=True):
+        if self.X_orig_missing_genes is None or self.gene_in_discovery_mask is None or self.X_orig is None:
+            return None
+        discovery_mask = np.asarray(self.gene_in_discovery_mask, dtype=bool)
+        if retained_discovery_gene_factors is None:
+            exp_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+            if exp_gene_factors.shape[0] == int(np.sum(discovery_mask)):
+                retained_discovery_gene_factors = exp_gene_factors
+            else:
+                retained_discovery_gene_factors = exp_gene_factors[discovery_mask, :]
+        gene_set_mask = (
+            np.asarray(self.gene_set_in_discovery_mask, dtype=bool)
+            if self.gene_set_in_discovery_mask is not None
+            else np.ones(self.X_orig.shape[1], dtype=bool)
+        )
+        return self._project_gene_gene_rows_to_discovery_factors(
+            self.X_orig_missing_genes,
+            self.X_orig[discovery_mask, :],
+            retained_discovery_gene_factors,
+            gene_set_mask=gene_set_mask,
+            cap_genes=cap_genes,
+        )
+
     def _bayes_nmf_l2_extension(self, V0, P_gene_set=None, P_gene=None, n_iter=10000, a0=10, tol=1e-7, K=15,
                                 K0=15, phi=1.0, cap_genes=False, normalize_genes=False, cap_gene_sets=False, normalize_gene_sets=False):
         """
@@ -1761,6 +1910,152 @@ class EagglState(object):
         # Return the results
         return W, H, n_like[-1], n_evid[-1], n_lambda[-1], n_error[-1]
 
+    def _bayes_sym_nmf_l2_extension(
+        self,
+        M,
+        pair_weights=None,
+        K0=30,
+        phi=0.05,
+        a0=10,
+        b0=None,
+        max_iter=100,
+        rel_tol=1e-4,
+        min_lambda_threshold=1e-3,
+        seed=None,
+        row_sum_cap=True,
+        sparsity=0.0,
+        diagonal_weight=0.0,
+        log_fn=None,
+    ):
+        eps = 1e-50
+        matrix = np.asarray(M, dtype=float)
+        if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+            raise ValueError("Symmetric NMF requires a square 2D matrix")
+        if seed is not None:
+            np.random.seed(int(seed))
+
+        matrix = np.nan_to_num(matrix, nan=0.0, posinf=1.0, neginf=0.0)
+        matrix = np.maximum(matrix, 0.0)
+        num_genes = int(matrix.shape[0])
+        num_factors = int(K0)
+        vmax = float(np.max(matrix)) if matrix.size > 0 else 0.0
+        scale = max(vmax, 1e-6)
+        W = np.random.random((num_genes, num_factors)) * scale
+
+        if pair_weights is None:
+            A = np.ones_like(matrix, dtype=float)
+            if diagonal_weight != 1.0:
+                np.fill_diagonal(A, float(diagonal_weight))
+        else:
+            A = np.asarray(pair_weights, dtype=float)
+            if A.shape != matrix.shape:
+                raise ValueError("pair_weights must match M shape")
+        A = np.nan_to_num(A, nan=0.0, posinf=0.0, neginf=0.0)
+        A = np.maximum(A, 0.0)
+
+        raw_mean = float(np.mean(matrix)) if matrix.size > 0 else 0.0
+        raw_std = float(np.std(matrix)) if matrix.size > 0 else 0.0
+        phi_eff = (raw_std ** 2) * float(phi)
+        C_sym = float(num_genes) / 2.0 + float(a0) + 1.0
+        if b0 is None:
+            b0 = 3.14 * (float(a0) - 1.0) * raw_mean / max(2.0 * float(max(1, K0)), eps)
+        b0 = float(max(b0, eps))
+        lambda_bound = b0 / C_sym
+        lambdak = (0.5 * np.sum(W ** 2, axis=0) + b0) / C_sym
+        lambda_cut = 1.5 * lambda_bound
+
+        delambda = 1.0
+        like = None
+        evid = None
+        error = None
+        iteration = 0
+        self.last_factorization_scale_details = {
+            "raw_mean": float(raw_mean),
+            "raw_std": float(raw_std),
+            "weighted_mean": float(raw_mean),
+            "weighted_std": float(raw_std),
+            "row_scale_min": 1.0,
+            "row_scale_median": 1.0,
+            "row_scale_mean": 1.0,
+            "row_scale_max": 1.0,
+        }
+        self.last_factorization_final_delambda = None
+        self.last_factorization_iterations = 0
+        self.last_factorization_converged = False
+        self.last_factorization_hit_iteration_cap = False
+
+        for iteration in range(1, int(max_iter) + 1):
+            R = W @ W.T
+            weighted_target = A * matrix
+            weighted_reconstruction = A * R
+            numerator = weighted_target @ W
+            denominator = weighted_reconstruction @ W + phi_eff * W / (lambdak[np.newaxis, :] + eps) + float(sparsity) + eps
+            W *= numerator / denominator
+            W = np.nan_to_num(W, nan=0.0, posinf=0.0, neginf=0.0)
+            W = np.maximum(W, 0.0)
+
+            if row_sum_cap:
+                W = np.clip(W, 0.0, 1.0)
+                row_sums = np.sum(W, axis=1)
+                over_mask = row_sums > 1.0
+                if np.any(over_mask):
+                    W[over_mask, :] /= row_sums[over_mask][:, np.newaxis]
+
+            lambdak_new = (0.5 * np.sum(W ** 2, axis=0) + b0) / C_sym
+            delambda = float(np.max(np.abs(lambdak_new - lambdak) / (lambdak + eps)))
+            lambdak = lambdak_new
+
+            R = W @ W.T
+            residual = matrix - R
+            like = float(0.5 * np.sum(A * (residual ** 2)))
+            regularization = float(
+                phi_eff
+                * np.sum((0.5 * np.sum(W ** 2, axis=0) + b0) / (lambdak + eps) + C_sym * np.log(lambdak + eps))
+                + float(sparsity) * np.sum(W)
+            )
+            evid = like + regularization
+            error = float(np.sum(A * (residual ** 2)))
+
+            if iteration % 25 == 0 or iteration == 1 or delambda < rel_tol:
+                factors_non_zero = int(np.sum(lambdak >= lambda_cut))
+                active_lambda = lambdak[lambdak >= lambda_cut]
+                lambda_source = active_lambda if active_lambda.size > 0 else lambdak
+                lambda_q10, lambda_median, lambda_q90 = np.quantile(lambda_source, [0.1, 0.5, 0.9])
+                row_support = np.sum(W > 1e-6, axis=0)
+                support_source = np.where(lambdak >= lambda_cut)[0]
+                if support_source.size > 0:
+                    row_support = row_support[support_source]
+                gene_support_median = float(np.median(row_support)) if row_support.size > 0 else 0.0
+                gene_support_q90 = float(np.quantile(row_support, 0.9)) if row_support.size > 0 else 0.0
+                if log_fn is not None:
+                    log_fn(
+                        "SymNMF iteration=%d; evid=%.3g; lik=%.3g; err=%.3g; delambda=%.3g; factors=%d; factors_non_zero=%d; lambda_q10=%.3g; lambda_median=%.3g; lambda_q90=%.3g; gene_support_median=%.3g; gene_support_q90=%.3g"
+                        % (
+                            iteration,
+                            evid,
+                            like,
+                            error,
+                            delambda,
+                            int(np.sum(np.sum(W, axis=0) != 0)),
+                            factors_non_zero,
+                            float(lambda_q10),
+                            float(lambda_median),
+                            float(lambda_q90),
+                            gene_support_median,
+                            gene_support_q90,
+                        )
+                    )
+            if delambda < rel_tol:
+                break
+
+        final_iterations = int(iteration)
+        self.last_factorization_final_delambda = float(delambda)
+        self.last_factorization_iterations = final_iterations
+        self.last_factorization_converged = bool(delambda < rel_tol)
+        self.last_factorization_hit_iteration_cap = bool(final_iterations >= int(max_iter) and delambda >= rel_tol)
+        self.last_factorization_lambda_cut = float(lambda_cut)
+        return W, like, evid, lambdak, error
+
     #this code is adapted from https://github.com/gwas-partitioning/bnmf-clustering
     def num_factors(self):
         if self.exp_lambdak is None:
@@ -1789,7 +2084,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0):
         if max_num_discovery_gene_sets is None and max_num_gene_sets is not None:
             warn("max_num_gene_sets is deprecated for factor-stage discovery; mapping it to max_num_discovery_gene_sets")
             max_num_discovery_gene_sets = max_num_gene_sets
@@ -1802,6 +2097,16 @@ class EagglState(object):
         runtime_kwargs = {
             "max_num_factors": max_num_factors,
             "phi": phi,
+            "discovery_model": discovery_model,
+            "gene_gene_beta_source": gene_gene_beta_source,
+            "gene_gene_pair_prior": gene_gene_pair_prior,
+            "gene_gene_pair_prior_effective_size": gene_gene_pair_prior_effective_size,
+            "gene_gene_logbf_base": gene_gene_logbf_base,
+            "gene_gene_diagonal_weight": gene_gene_diagonal_weight,
+            "gene_gene_matrix_floor": gene_gene_matrix_floor,
+            "gene_gene_excess_probability": gene_gene_excess_probability,
+            "gene_gene_row_sum_cap": gene_gene_row_sum_cap,
+            "gene_gene_sparsity": gene_gene_sparsity,
             "alpha0": alpha0,
             "beta0": beta0,
             "seed": seed,
@@ -1819,6 +2124,7 @@ class EagglState(object):
             "learn_phi_min_stability": learn_phi_min_stability,
             "learn_phi_fit_loss_warning_frac": learn_phi_fit_loss_warning_frac,
             "learn_phi_max_severe_fit_loss_frac": learn_phi_max_severe_fit_loss_frac,
+            "learn_phi_target_gene_mass": learn_phi_target_gene_mass,
             "learn_phi_target_gene_effective_support": learn_phi_target_gene_effective_support,
             "learn_phi_size_tolerance_frac": learn_phi_size_tolerance_frac,
             "learn_phi_min_primary_factors": learn_phi_min_primary_factors,
@@ -3299,6 +3605,202 @@ class EagglState(object):
                             continue
                         cluster = ordered_inds[int(np.argmax(cluster_scores))]
                         output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % value for value in row_raw_loadings]), "\t".join(["%.4g" % (multiplier * specific_pheno_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * combined_pheno_factor_loadings[i,k]) for k in ordered_inds])))
+
+
+    def write_full_gene_clusters(self, gene_clusters_output_file=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary"):
+        if gene_clusters_output_file is None:
+            return
+        if self.num_factors() == 0 or self.exp_gene_set_factors is None or self.X_orig is None:
+            log("No projected full-gene clusters available; not writing %s" % gene_clusters_output_file)
+            return
+
+        def _coerce_param_value(param_name, default_value):
+            value = self.params.get(param_name, default_value)
+            if isinstance(value, list):
+                return value[0] if len(value) > 0 else default_value
+            return default_value if value is None else value
+
+        def _as_2d_or_none(values):
+            if values is None:
+                return None
+            if sparse.issparse(values):
+                values = values.toarray()
+            values = np.asarray(values, dtype=float)
+            if values.ndim == 1:
+                values = values[:, np.newaxis]
+            return values
+
+        def _format_optional_numeric(value):
+            if value is None:
+                return "NA"
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                return "NA"
+            if not np.isfinite(value):
+                return "NA"
+            return "%.3g" % value
+
+        ordered_inds = self._factor_output_indices(factor_output_scope)
+        cluster_row_min_max_loading = 0.0 if cluster_row_min_max_loading is None else float(cluster_row_min_max_loading)
+
+        def passes_cluster_row_loading_filter(row_loadings):
+            if cluster_row_min_max_loading <= 0:
+                return True
+            row_loadings = np.asarray(row_loadings, dtype=float)
+            if row_loadings.size == 0:
+                return False
+            row_loadings = np.where(np.isfinite(row_loadings), row_loadings, 0.0)
+            return float(np.max(row_loadings)) >= cluster_row_min_max_loading
+
+        run_transpose = bool(_coerce_param_value("run_transpose", True))
+        phi = float(_coerce_param_value("phi", 0.0))
+        rel_tol = float(_coerce_param_value("rel_tol", 1e-4))
+        discovery_model = str(_coerce_param_value("discovery_model", "gene_by_annotation"))
+
+        gene_set_prob_factor_vector = _as_2d_or_none(self.gene_set_prob_factor_vector)
+        gene_set_in_discovery_mask = (
+            np.asarray(self.gene_set_in_discovery_mask, dtype=bool)
+            if self.gene_set_in_discovery_mask is not None
+            else np.ones(self.exp_gene_set_factors.shape[0], dtype=bool)
+        )
+        basis_gene_set_factors = np.asarray(self.exp_gene_set_factors, dtype=float)[gene_set_in_discovery_mask, :]
+        basis_gene_set_prob_vector = (
+            gene_set_prob_factor_vector[gene_set_in_discovery_mask, :]
+            if gene_set_prob_factor_vector is not None
+            else None
+        )
+
+        if discovery_model == "gene_by_gene":
+            if self.exp_gene_factors is not None and self.exp_gene_factors.shape[0] == len(self.genes):
+                retained_projected_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+            else:
+                retained_projected_gene_factors = self.project_full_gene_factors_gene_by_gene(cap_genes=True)
+        else:
+            retained_gene_matrix_to_project = self.X_orig.T
+            if not run_transpose:
+                retained_gene_matrix_to_project = retained_gene_matrix_to_project.T
+            retained_projected_gene_factors = self._project_H_with_fixed_W(
+                basis_gene_set_factors,
+                retained_gene_matrix_to_project[gene_set_in_discovery_mask, :],
+                basis_gene_set_prob_vector,
+                _as_2d_or_none(self.gene_prob_factor_vector),
+                phi=phi,
+                tol=rel_tol,
+                cap_genes=True,
+                normalize_genes=False,
+            )
+
+        all_genes = list(self.genes)
+        all_in_discovery = (
+            np.asarray(self.gene_in_discovery_mask, dtype=bool)
+            if self.gene_in_discovery_mask is not None
+            else np.zeros(len(self.genes), dtype=bool)
+        )
+        projected_gene_factors = [np.asarray(retained_projected_gene_factors, dtype=float)]
+
+        combined_values = np.asarray(self.combined_prior_Ys, dtype=float) if self.combined_prior_Ys is not None else None
+        y_values = np.asarray(self.Y, dtype=float) if self.Y is not None else None
+        prior_values = np.asarray(self.priors, dtype=float) if self.priors is not None else None
+
+        if self.genes_missing is not None and len(self.genes_missing) > 0:
+            missing_gene_prob_factor_vector = None
+            if gene_set_prob_factor_vector is not None and self.X_orig_missing_genes is not None:
+                missing_gene_prob_factor_vector = _as_2d_or_none(
+                    self._nnls_project_matrix(gene_set_prob_factor_vector, self.X_orig_missing_genes)
+                )
+
+            if self.X_orig_missing_genes is not None and discovery_model == "gene_by_gene":
+                missing_projected_gene_factors = self.project_missing_gene_factors_gene_by_gene(cap_genes=True)
+                projected_gene_factors.append(np.asarray(missing_projected_gene_factors, dtype=float))
+            elif self.X_orig_missing_genes is not None:
+                missing_gene_matrix_to_project = self.X_orig_missing_genes.T
+                if not run_transpose:
+                    missing_gene_matrix_to_project = missing_gene_matrix_to_project.T
+                missing_projected_gene_factors = self._project_H_with_fixed_W(
+                    basis_gene_set_factors,
+                    missing_gene_matrix_to_project[gene_set_in_discovery_mask, :],
+                    basis_gene_set_prob_vector,
+                    missing_gene_prob_factor_vector,
+                    phi=phi,
+                    tol=rel_tol,
+                    cap_genes=True,
+                    normalize_genes=False,
+                )
+                projected_gene_factors.append(np.asarray(missing_projected_gene_factors, dtype=float))
+            else:
+                projected_gene_factors.append(np.zeros((len(self.genes_missing), self.exp_gene_set_factors.shape[1]), dtype=float))
+
+            all_genes.extend(list(self.genes_missing))
+            all_in_discovery = np.concatenate((all_in_discovery, np.zeros(len(self.genes_missing), dtype=bool)))
+            if combined_values is not None:
+                combined_missing = (
+                    np.asarray(self.combined_prior_Ys_missing, dtype=float)
+                    if self.combined_prior_Ys_missing is not None
+                    else np.full(len(self.genes_missing), np.nan, dtype=float)
+                )
+                combined_values = np.concatenate((combined_values, combined_missing))
+            if y_values is not None:
+                y_missing = (
+                    np.asarray(self.Y_missing, dtype=float)
+                    if self.Y_missing is not None
+                    else np.full(len(self.genes_missing), np.nan, dtype=float)
+                )
+                y_values = np.concatenate((y_values, y_missing))
+            if prior_values is not None:
+                prior_missing = (
+                    np.asarray(self.priors_missing, dtype=float)
+                    if self.priors_missing is not None
+                    else np.full(len(self.genes_missing), np.nan, dtype=float)
+                )
+                prior_values = np.concatenate((prior_values, prior_missing))
+
+        full_projected_gene_factors = np.vstack(projected_gene_factors)
+        raw_gene_factor_loadings = self.get_factor_loadings(full_projected_gene_factors, loading_type='raw')
+        specific_gene_factor_loadings = self.get_factor_loadings(full_projected_gene_factors, loading_type='specific')
+        combined_gene_factor_loadings = self.get_factor_loadings(full_projected_gene_factors, loading_type='combined')
+
+        master_key_fn = None
+        if combined_values is not None:
+            master_key_fn = lambda k: -combined_values[k]
+        elif y_values is not None:
+            master_key_fn = lambda k: -y_values[k]
+        elif prior_values is not None:
+            master_key_fn = lambda k: -prior_values[k]
+        else:
+            master_key_fn = lambda k: k
+
+        log("Writing full projected gene clusters to %s" % (gene_clusters_output_file), INFO)
+        with open_gz(gene_clusters_output_file, 'w') as output_fh:
+            header = "Gene"
+            if combined_values is not None:
+                header = "%s\t%s" % (header, "combined")
+            if y_values is not None:
+                header = "%s\t%s" % (header, "log_bf")
+            if prior_values is not None:
+                header = "%s\t%s" % (header, "prior")
+            header = "%s\t%s" % (header, "in_discovery")
+            output_fh.write("%s\t%s\t%s\t%s\t%s\t%s\n" % (header, "cluster", "label", "\t".join(["Factor%d" % (i+1) for i in ordered_inds]), "\t".join(["Relative_Factor%d" % (i+1) for i in ordered_inds]), "\t".join(["Combined_Factor%d" % (i+1) for i in ordered_inds])))
+
+            for i in sorted(range(full_projected_gene_factors.shape[0]), key=master_key_fn):
+                line = all_genes[i]
+                if combined_values is not None:
+                    line = "%s\t%s" % (line, _format_optional_numeric(combined_values[i]))
+                if y_values is not None:
+                    line = "%s\t%s" % (line, _format_optional_numeric(y_values[i]))
+                if prior_values is not None:
+                    line = "%s\t%s" % (line, _format_optional_numeric(prior_values[i]))
+                line = "%s\t%s" % (line, bool(all_in_discovery[i]))
+
+                row_raw_loadings = raw_gene_factor_loadings[i, ordered_inds]
+                if not passes_cluster_row_loading_filter(row_raw_loadings):
+                    continue
+
+                cluster_scores = full_projected_gene_factors[i, ordered_inds]
+                if len(ordered_inds) == 0 or np.max(cluster_scores) <= 0:
+                    continue
+                cluster = ordered_inds[int(np.argmax(cluster_scores))]
+                output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % value for value in row_raw_loadings]), "\t".join(["%.4g" % specific_gene_factor_loadings[i,k] for k in ordered_inds]), "\t".join(["%.4g" % combined_gene_factor_loadings[i,k] for k in ordered_inds])))
 
 
     def write_gene_pheno_statistics(self, output_file=None, min_value_to_print=0):
@@ -4916,8 +5418,15 @@ class EagglState(object):
     #calculate V between X_orig and X_orig2
     #X_orig2 can be dense or sparse, but if it is sparse than X_orig must also be sparse
     def _compute_V(self, X_orig, mean_shifts, scale_factors, rows = None, X_orig2 = None, mean_shifts2 = None, scale_factors2 = None, gene_weights=None):
+        def _ensure_2d_column_if_dense(matrix):
+            if isinstance(matrix, np.ndarray) and matrix.ndim == 1:
+                return matrix[:, np.newaxis]
+            return matrix
+
+        X_orig = _ensure_2d_column_if_dense(X_orig)
         if X_orig2 is None:
             X_orig2 = X_orig
+        X_orig2 = _ensure_2d_column_if_dense(X_orig2)
         if mean_shifts2 is None:
             mean_shifts2 = mean_shifts
         if scale_factors2 is None:
@@ -4956,6 +5465,14 @@ class EagglState(object):
     #if have sort_values, will greedily add from lowest value to higher value
     def _compute_gene_set_batches(self, V=None, X_orig=None, mean_shifts=None, scale_factors=None, use_sum=True, max_allowed_batch_correlation=None, find_correlated_instead=None, sort_values=None, resort_as_added=False, stop_at=None, tag="gene sets"):
         gene_set_masks = []
+
+        def _ensure_2d_corr_matrix(matrix):
+            matrix = np.asarray(matrix, dtype=float)
+            if matrix.ndim == 0:
+                return matrix.reshape((1, 1))
+            if matrix.ndim == 1:
+                return matrix[np.newaxis, :]
+            return matrix
 
         if max_allowed_batch_correlation is None:
             if use_sum:
@@ -5081,7 +5598,16 @@ class EagglState(object):
                     assert(scale_factors.shape == mean_shifts.shape)
 
                     if find_correlated_instead:
-                        cur_V = self._compute_V(X_orig[:,first_gene_set], mean_shifts[first_gene_set], scale_factors[first_gene_set], X_orig2=X_orig[:,not_included_gene_sets], mean_shifts2=mean_shifts[not_included_gene_sets], scale_factors2=scale_factors[not_included_gene_sets])
+                        cur_V = _ensure_2d_corr_matrix(
+                            self._compute_V(
+                                X_orig[:,first_gene_set],
+                                mean_shifts[first_gene_set],
+                                scale_factors[first_gene_set],
+                                X_orig2=X_orig[:,not_included_gene_sets],
+                                mean_shifts2=mean_shifts[not_included_gene_sets],
+                                scale_factors2=scale_factors[not_included_gene_sets],
+                            )
+                        )
                         #sort by decreasing V
                         index_map = np.where(not_included_gene_sets)[0]
                         ordered_indices = index_map[np.argsort(-cur_V[0,:])]
@@ -5099,7 +5625,13 @@ class EagglState(object):
 
                         V_to_generate_mask[first_gene_set] = True
                         if cur_V is None or options.debug_old_batch:
-                            cur_V = self._compute_V(X_orig[:,V_to_generate_mask], mean_shifts[V_to_generate_mask], scale_factors[V_to_generate_mask])
+                            cur_V = _ensure_2d_corr_matrix(
+                                self._compute_V(
+                                    X_orig[:,V_to_generate_mask],
+                                    mean_shifts[V_to_generate_mask],
+                                    scale_factors[V_to_generate_mask],
+                                )
+                            )
                             working_idx = np.where(V_to_generate_mask)[0]
                         else:
                             new_full_idx   = np.where(V_to_generate_mask)[0]
@@ -5115,11 +5647,26 @@ class EagglState(object):
                             keep_pos     = np.nonzero(keep_mask)[0]
                             to_keep_full = old_full_idx[keep_pos]
 
-                            cur_V = cur_V[np.ix_(keep_pos, keep_pos)]
+                            cur_V = _ensure_2d_corr_matrix(cur_V[np.ix_(keep_pos, keep_pos)])
 
                             if to_add_full.size:
-                                V_cross = self._compute_V(X_orig[:, to_keep_full], mean_shifts[to_keep_full], scale_factors[to_keep_full], X_orig2 = X_orig[:, to_add_full], mean_shifts2 = mean_shifts[to_add_full], scale_factors2 = scale_factors[to_add_full])
-                                V_new = self._compute_V(X_orig[:, to_add_full], mean_shifts[to_add_full], scale_factors[to_add_full])
+                                V_cross = _ensure_2d_corr_matrix(
+                                    self._compute_V(
+                                        X_orig[:, to_keep_full],
+                                        mean_shifts[to_keep_full],
+                                        scale_factors[to_keep_full],
+                                        X_orig2 = X_orig[:, to_add_full],
+                                        mean_shifts2 = mean_shifts[to_add_full],
+                                        scale_factors2 = scale_factors[to_add_full],
+                                    )
+                                )
+                                V_new = _ensure_2d_corr_matrix(
+                                    self._compute_V(
+                                        X_orig[:, to_add_full],
+                                        mean_shifts[to_add_full],
+                                        scale_factors[to_add_full],
+                                    )
+                                )
 
                                 cur_V = np.block([
                                     [cur_V,     V_cross],
@@ -5410,6 +5957,8 @@ class EagglState(object):
         if overwrite_missing:
             self.genes_missing = None
             self.priors_missing = None
+            self.combined_prior_Ys_missing = None
+            self.Y_missing = None
             self.gene_N_missing = None
             self.gene_ignored_N_missing = None
             self.X_orig_missing_genes = None
@@ -5468,6 +6017,7 @@ class EagglState(object):
             self.gene_factor_gene_mask = self.gene_factor_gene_mask[gene_mask]
 
         if not skip_Y:
+            removed_Y = self.Y[remove_mask] if self.Y is not None else None
             if self.Y is not None:
                 self._set_Y(self.Y[gene_mask], self.Y_for_regression[gene_mask] if self.Y_for_regression is not None else None, self.Y_exomes[gene_mask] if self.Y_exomes is not None else None, self.Y_positive_controls[gene_mask] if self.Y_positive_controls is not None else None, self.Y_case_counts[gene_mask] if self.Y_case_counts is not None else None, Y_corr_m=self.y_corr[:,gene_mask] if self.y_corr is not None else None, store_corr_sparse=self.y_corr_sparse is not None, skip_V=skip_V)
 
@@ -5500,6 +6050,10 @@ class EagglState(object):
             if self.priors_adj is not None:
                 self.priors_adj = self.priors_adj[gene_mask]
             if self.combined_prior_Ys is not None:
+                self.combined_prior_Ys_missing = np.concatenate((
+                    self.combined_prior_Ys_missing if self.combined_prior_Ys_missing is not None else np.array([], dtype=float),
+                    self.combined_prior_Ys[remove_mask],
+                ))
                 self.combined_prior_Ys = self.combined_prior_Ys[gene_mask]
             if self.combined_prior_Ys_r_hat is not None:
                 self.combined_prior_Ys_r_hat = self.combined_prior_Ys_r_hat[gene_mask]
@@ -5513,6 +6067,11 @@ class EagglState(object):
                 self.Y_r_hat = self.Y_r_hat[gene_mask]
             if self.Y_mcse is not None:
                 self.Y_mcse = self.Y_mcse[gene_mask]
+            if removed_Y is not None:
+                self.Y_missing = np.concatenate((
+                    self.Y_missing if self.Y_missing is not None else np.array([], dtype=float),
+                    removed_Y,
+                ))
             if self.Y_orig is not None:
                 self.Y_orig = self.Y_orig[gene_mask]
             if self.Y_for_regression_orig is not None:

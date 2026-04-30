@@ -238,10 +238,23 @@ def validate_factor_workflow_selection(options, workflow, projection_only, bail_
     )
 
     if projection_only:
-        if has_x_source:
+        projection_needs_x = bool(
+            (
+                getattr(options, "factor_gene_clusters_in", None) is not None
+                and (
+                    getattr(options, "gene_set_clusters_out", None) is not None
+                    or getattr(options, "gene_clusters_full_out", None) is not None
+                )
+            )
+            or (
+                getattr(options, "factor_gene_set_clusters_in", None) is not None
+                and getattr(options, "gene_clusters_full_out", None) is not None
+            )
+        )
+        if has_x_source and not projection_needs_x:
             bail_fn(
                 "--factor-gene-clusters-in/--factor-gene-set-clusters-in are projection-only inputs and "
-                "cannot be combined with --X-in/--X-list/--Xd-in/--Xd-list."
+                "can only be combined with --X-in/--X-list/--Xd-in/--Xd-list when projecting across gene and gene-set bases."
             )
         if standalone_gene_list:
             bail_fn(
@@ -400,6 +413,7 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
             "factors_anchor_out": getattr(options, "factors_anchor_out", None),
             "gene_set_clusters_out": getattr(options, "gene_set_clusters_out", None),
             "gene_clusters_out": getattr(options, "gene_clusters_out", None),
+            "gene_clusters_full_out": getattr(options, "gene_clusters_full_out", None),
             "trait_factor_links_out": getattr(options, "trait_factor_links_out", None),
             "pheno_clusters_out": getattr(options, "pheno_clusters_out", None),
             "factor_phewas_stats_out": getattr(options, "factor_phewas_stats_out", None),

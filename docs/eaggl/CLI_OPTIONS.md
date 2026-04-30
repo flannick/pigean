@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `260`
+- Total options: `275`
 - `method_required`: `16`
-- `method_optional`: `151`
-- `engineering`: `76`
+- `method_optional`: `165`
+- `engineering`: `77`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `212`
+- visibility `expert`: `225`
 - visibility `hidden`: `8`
-- visibility `normal`: `40`
+- visibility `normal`: `42`
 
 ## Method Required
 
@@ -62,6 +62,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
 | `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
+| `--discovery-model` | `normal` | `yes` | `core_help` | `discovery_model` | `gene_by_annotation` | choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery |
 | `--discovery-redundancy-weighting-mode` | `expert` | `yes` | `expert_help` | `discovery_redundancy_weighting_mode` | `effective_size` | - |
 | `--discovery-similarity-threshold` | `expert` | `yes` | `expert_help` | `discovery_similarity_threshold` | `0.35` | similarity threshold used to assign retained gene sets to discovery families |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
@@ -89,7 +90,16 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
-| `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `1` | - |
+| `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `None` | threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5 |
+| `--gene-gene-beta-source` | `expert` | `yes` | `advanced_workflows` | `gene_gene_beta_source` | `beta` | - |
+| `--gene-gene-diagonal-weight` | `expert` | `yes` | `advanced_workflows` | `gene_gene_diagonal_weight` | `0.0` | - |
+| `--gene-gene-excess-probability` | `expert` | `yes` | `advanced_workflows` | `gene_gene_excess_probability` | `True` | - |
+| `--gene-gene-logbf-base` | `expert` | `yes` | `advanced_workflows` | `gene_gene_logbf_base` | `natural` | - |
+| `--gene-gene-matrix-floor` | `expert` | `yes` | `expert_help` | `gene_gene_matrix_floor` | `0.001` | - |
+| `--gene-gene-pair-prior` | `expert` | `yes` | `advanced_workflows` | `gene_gene_pair_prior` | `None` | - |
+| `--gene-gene-pair-prior-effective-size` | `expert` | `yes` | `advanced_workflows` | `gene_gene_pair_prior_effective_size` | `None` | - |
+| `--gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `True` | - |
+| `--gene-gene-sparsity` | `expert` | `yes` | `advanced_workflows` | `gene_gene_sparsity` | `0.0` | - |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | - |
@@ -121,6 +131,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-runs-per-step` | `expert` | `yes` | `advanced_workflows` | `learn_phi_runs_per_step` | `1` | number of repeated restarts used to score each candidate phi |
 | `--learn-phi-size-tolerance-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_size_tolerance_frac` | `0.25` | fractional tolerance around the requested primary-factor gene effective support |
 | `--learn-phi-target-gene-effective-support` | `normal` | `yes` | `core_help` | `learn_phi_target_gene_effective_support` | `None` | required with --learn-phi; target median effective gene support among primary factors |
+| `--learn-phi-target-gene-mass` | `normal` | `yes` | `core_help` | `learn_phi_target_gene_mass` | `None` | optional with --learn-phi; target median primary-factor gene mass used for phi selection |
 | `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--lmm-auth-key` | `expert` | `yes` | `advanced_workflows` | `lmm_auth_key` | `None` | enable optional LLM-based factor labeling |
@@ -136,6 +147,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
 | `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
 | `--max-num-discovery-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_discovery_gene_sets` | `None` | - |
+| `--max-num-discovery-genes` | `expert` | `yes` | `advanced_workflows` | `max_num_discovery_genes` | `None` | maximum number of genes retained for factor discovery after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden |
 | `--max-num-factors` | `normal` | `yes` | `core_help` | `max_num_factors` | `30` | maximum starting factor budget before shrinkage removes unsupported factors |
 | `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `None` | - |
 | `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `None` | - |
@@ -157,6 +169,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--no-discovery-redundancy-weighting` | `expert` | `yes` | `expert_help` | `no_discovery_redundancy_weighting` | `False` | - |
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
+| `--no-gene-gene-excess-probability` | `expert` | `yes` | `advanced_workflows` | `gene_gene_excess_probability` | `-` | - |
+| `--no-gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `-` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable canonical trait linkage even when trait inputs are available |
@@ -214,6 +228,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factors-out` | `normal` | `no` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
 | `--file-separator` | `expert` | `no` | `expert_help` | `file_separator` | `None` | - |
 | `--gene-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_anchor_clusters_out` | `None` | - |
+| `--gene-clusters-full-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_out` | `None` | write a projected gene cluster table for all input genes, including genes filtered before factorization |
 | `--gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_out` | `None` | - |
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |

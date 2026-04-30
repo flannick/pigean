@@ -11,6 +11,8 @@ from . import gene_list_inputs as eaggl_gene_list_inputs
 from . import factor_runtime as eaggl_factor_runtime
 from . import phewas as eaggl_phewas
 
+_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS = 30.0
+
 
 @dataclass
 class FactorOnlyStageResult:
@@ -55,6 +57,16 @@ class FactorExecutionConfig:
     phi: float
     alpha0: float
     beta0: float
+    discovery_model: str = "gene_by_annotation"
+    gene_gene_beta_source: str = "beta"
+    gene_gene_pair_prior: float | None = None
+    gene_gene_pair_prior_effective_size: float | None = None
+    gene_gene_logbf_base: str = "natural"
+    gene_gene_diagonal_weight: float = 0.0
+    gene_gene_matrix_floor: float = 1e-3
+    gene_gene_excess_probability: bool = True
+    gene_gene_row_sum_cap: bool = True
+    gene_gene_sparsity: float = 0.0
     gene_set_filter_type: str | None = None
     gene_or_pheno_filter_type: str | None = None
     learn_phi: bool = False
@@ -65,6 +77,7 @@ class FactorExecutionConfig:
     learn_phi_min_stability: float = 0.85
     learn_phi_fit_loss_warning_frac: float = 0.05
     learn_phi_max_severe_fit_loss_frac: float = 1.0
+    learn_phi_target_gene_mass: float | None = None
     learn_phi_target_gene_effective_support: float | None = None
     learn_phi_size_tolerance_frac: float = 0.25
     learn_phi_min_primary_factors: int = 3
@@ -145,6 +158,16 @@ class FactorExecutionConfig:
         return {
             "max_num_factors": self.max_num_factors,
             "phi": self.phi,
+            "discovery_model": self.discovery_model,
+            "gene_gene_beta_source": self.gene_gene_beta_source,
+            "gene_gene_pair_prior": self.gene_gene_pair_prior,
+            "gene_gene_pair_prior_effective_size": self.gene_gene_pair_prior_effective_size,
+            "gene_gene_logbf_base": self.gene_gene_logbf_base,
+            "gene_gene_diagonal_weight": self.gene_gene_diagonal_weight,
+            "gene_gene_matrix_floor": self.gene_gene_matrix_floor,
+            "gene_gene_excess_probability": self.gene_gene_excess_probability,
+            "gene_gene_row_sum_cap": self.gene_gene_row_sum_cap,
+            "gene_gene_sparsity": self.gene_gene_sparsity,
             "learn_phi": self.learn_phi,
             "learn_phi_max_redundancy": self.learn_phi_max_redundancy,
             "learn_phi_max_redundancy_q90": self.learn_phi_max_redundancy_q90,
@@ -153,6 +176,7 @@ class FactorExecutionConfig:
             "learn_phi_min_stability": self.learn_phi_min_stability,
             "learn_phi_fit_loss_warning_frac": self.learn_phi_fit_loss_warning_frac,
             "learn_phi_max_severe_fit_loss_frac": self.learn_phi_max_severe_fit_loss_frac,
+            "learn_phi_target_gene_mass": self.learn_phi_target_gene_mass,
             "learn_phi_target_gene_effective_support": self.learn_phi_target_gene_effective_support,
             "learn_phi_size_tolerance_frac": self.learn_phi_size_tolerance_frac,
             "learn_phi_min_primary_factors": self.learn_phi_min_primary_factors,
@@ -269,20 +293,200 @@ def build_main_mode_state(domain):
     }
 
 
+def projection_only_requested_targets(options):
+    return {
+        "pheno": bool(
+            getattr(options, "pheno_clusters_out", None) is not None
+            or getattr(options, "trait_factor_links_out", None) is not None
+        ),
+        "gene": bool(
+            getattr(options, "gene_clusters_full_out", None) is not None
+        ),
+        "gene_set": bool(getattr(options, "gene_set_clusters_out", None) is not None),
+    }
+
+
+def projection_only_x_required(options):
+    targets = projection_only_requested_targets(options)
+    has_gene_basis = getattr(options, "factor_gene_clusters_in", None) is not None
+    has_gene_set_basis = getattr(options, "factor_gene_set_clusters_in", None) is not None
+    return bool(
+        (has_gene_basis and targets["gene_set"])
+        or (has_gene_basis and getattr(options, "gene_clusters_full_out", None) is not None)
+        or (has_gene_set_basis and targets["gene"])
+    )
+
+
+def _has_x_source(options):
+    return any(
+        x is not None
+        for x in [options.X_in, options.X_list, options.Xd_in, options.Xd_list]
+    )
+
+
+def _project_gene_set_factors_from_loaded_gene_factors(domain, runtime, loaded_genes, loaded_gene_factors):
+    if runtime.X_orig is None:
+        domain.bail("--gene-set-clusters-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+    common_gene_indices = []
+    common_factor_indices = []
+    for factor_index, gene in enumerate(loaded_genes):
+        matrix_index = runtime.gene_to_ind.get(gene) if runtime.gene_to_ind is not None else None
+        if matrix_index is not None:
+            common_gene_indices.append(matrix_index)
+            common_factor_indices.append(factor_index)
+    if len(common_gene_indices) == 0:
+        domain.bail("Could not align any genes between --factor-gene-clusters-in and X matrix for gene-set projection")
+    basis = np.asarray(loaded_gene_factors, dtype=float)[common_factor_indices, :]
+    matrix = runtime.X_orig[common_gene_indices, :]
+    runtime.exp_gene_set_factors = runtime._project_H_with_fixed_W(
+        basis,
+        matrix,
+        None,
+        None,
+        phi=0.0,
+        tol=1e-4,
+        cap_genes=True,
+        normalize_genes=False,
+    )
+    runtime.gene_set_in_discovery_mask = np.full(len(runtime.gene_sets), False, dtype=bool)
+    runtime.gene_set_factor_gene_set_mask = runtime.gene_set_in_discovery_mask
+    runtime._record_params(
+        {
+            "factor_projection_only_gene_set_clusters": True,
+            "factor_projection_only_gene_set_basis": "genes",
+            "factor_projection_only_gene_set_aligned_genes": len(common_gene_indices),
+        },
+        overwrite=True,
+    )
+
+
+def _project_gene_factors_from_loaded_gene_set_factors(domain, runtime, loaded_gene_sets, loaded_gene_set_factors):
+    if runtime.X_orig is None:
+        domain.bail("--gene-clusters-out from --factor-gene-set-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+    common_gene_set_indices = []
+    common_factor_indices = []
+    for factor_index, gene_set in enumerate(loaded_gene_sets):
+        matrix_index = runtime.gene_set_to_ind.get(gene_set) if runtime.gene_set_to_ind is not None else None
+        if matrix_index is not None:
+            common_gene_set_indices.append(matrix_index)
+            common_factor_indices.append(factor_index)
+    if len(common_gene_set_indices) == 0:
+        domain.bail("Could not align any gene sets between --factor-gene-set-clusters-in and X matrix for gene projection")
+    basis = np.asarray(loaded_gene_set_factors, dtype=float)[common_factor_indices, :]
+    matrix = runtime.X_orig[:, common_gene_set_indices].T
+    runtime.exp_gene_factors = runtime._project_H_with_fixed_W(
+        basis,
+        matrix,
+        None,
+        None,
+        phi=0.0,
+        tol=1e-4,
+        cap_genes=True,
+        normalize_genes=False,
+    )
+    runtime.gene_in_discovery_mask = np.full(len(runtime.genes), False, dtype=bool)
+    runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
+    runtime._record_params(
+        {
+            "factor_projection_only_gene_clusters": True,
+            "factor_projection_only_gene_basis": "gene_sets",
+            "factor_projection_only_gene_aligned_gene_sets": len(common_gene_set_indices),
+        },
+        overwrite=True,
+    )
+
+
 def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     if mode_state.get("factor_projection_only"):
+        loaded_genes = None
+        loaded_gene_factors = None
+        loaded_gene_sets = None
+        loaded_gene_set_factors = None
         if options.factor_gene_clusters_in is not None:
             load_existing_factor_gene_clusters(
                 domain,
                 runtime,
                 options.factor_gene_clusters_in,
             )
+            loaded_genes = list(runtime.genes)
+            loaded_gene_factors = np.asarray(runtime.exp_gene_factors, dtype=float)
         if options.factor_gene_set_clusters_in is not None:
             load_existing_factor_gene_set_clusters(
                 domain,
                 runtime,
                 options.factor_gene_set_clusters_in,
             )
+            loaded_gene_sets = list(runtime.gene_sets)
+            loaded_gene_set_factors = np.asarray(runtime.exp_gene_set_factors, dtype=float)
+        if projection_only_x_required(options):
+            domain._run_read_x_stage(
+                runtime,
+                options.X_in,
+                Xd_in=options.Xd_in,
+                X_list=options.X_list,
+                Xd_list=options.Xd_list,
+                V_in=options.V_in,
+                min_gene_set_size=options.min_gene_set_size,
+                max_gene_set_size=options.max_gene_set_size,
+                add_all_genes=options.add_all_genes,
+                prune_gene_sets=options.prune_gene_sets,
+                weighted_prune_gene_sets=options.weighted_prune_gene_sets,
+                prune_deterministically=options.prune_deterministically,
+                x_sparsify=options.x_sparsify,
+                add_ext=options.add_ext,
+                add_top=options.add_top,
+                add_bottom=options.add_bottom,
+                filter_negative=options.filter_negative,
+                threshold_weights=options.threshold_weights,
+                cap_weights=options.cap_weights,
+                permute_gene_sets=options.permute_gene_sets,
+                max_gene_set_p=options.max_gene_set_read_p,
+                filter_gene_set_p=None,
+                max_num_gene_sets_initial=options.max_num_gene_sets_initial,
+                max_num_gene_sets=options.max_num_gene_sets,
+                max_num_gene_sets_hyper=options.max_num_gene_sets_hyper,
+                skip_betas=True,
+                batch_separator=options.batch_separator,
+                x_list_unlabeled_batching=options.x_list_unlabeled_batching,
+                ignore_genes=options.ignore_genes,
+                file_separator=options.file_separator,
+                show_progress=not options.hide_progress,
+                max_num_entries_at_once=options.max_read_entries_at_once,
+            )
+            if loaded_gene_factors is not None and projection_only_requested_targets(options)["gene_set"]:
+                _project_gene_set_factors_from_loaded_gene_factors(
+                    domain,
+                    runtime,
+                    loaded_genes,
+                    loaded_gene_factors,
+                )
+            if loaded_gene_factors is not None and getattr(options, "gene_clusters_full_out", None) is not None:
+                if runtime.exp_gene_set_factors is None:
+                    _project_gene_set_factors_from_loaded_gene_factors(
+                        domain,
+                        runtime,
+                        loaded_genes,
+                        loaded_gene_factors,
+                    )
+                _project_gene_factors_from_loaded_gene_set_factors(
+                    domain,
+                    runtime,
+                    list(runtime.gene_sets),
+                    np.asarray(runtime.exp_gene_set_factors, dtype=float),
+                )
+            elif loaded_gene_factors is not None:
+                runtime.genes = loaded_genes
+                runtime.gene_to_ind = {gene: i for i, gene in enumerate(loaded_genes)}
+                runtime.exp_gene_factors = loaded_gene_factors
+                runtime.gene_in_discovery_mask = np.full(len(loaded_genes), True, dtype=bool)
+                runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
+            if loaded_gene_set_factors is not None and getattr(options, "gene_clusters_full_out", None) is not None:
+                _project_gene_factors_from_loaded_gene_set_factors(
+                    domain,
+                    runtime,
+                    loaded_gene_sets,
+                    loaded_gene_set_factors,
+                )
         if options.gene_stats_in is not None:
             domain._run_read_y_stage(
                 runtime,
@@ -410,17 +614,54 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             hold_out_chrom=options.hold_out_chrom,
         )
         gene_read_threshold = None
+        gene_filter_type = None
+        max_num_discovery_genes = None
         if not mode_state["factor_gene_set_x_pheno"]:
+            gene_filter_type = resolve_factor_gene_or_pheno_filter_type(options, current_workflow)
             gene_read_threshold = resolve_factor_gene_or_pheno_filter_value(options, current_workflow)
-        if gene_read_threshold is not None and runtime.combined_prior_Ys is not None:
-            gene_keep_mask = runtime.combined_prior_Ys > gene_read_threshold
-            if np.sum(~gene_keep_mask) > 0:
-                domain.log(
-                    "Subsetting to %d genes passing combined > %.3g before factorization"
-                    % (int(np.sum(gene_keep_mask)), float(gene_read_threshold)),
-                    domain.INFO,
+            max_num_discovery_genes = resolve_factor_max_num_discovery_genes(options, current_workflow)
+        if gene_read_threshold is not None:
+            gene_filter_vector = resolve_factor_gene_filter_vector(runtime, gene_filter_type)
+            if gene_filter_vector is not None:
+                gene_filter_vector = np.asarray(gene_filter_vector, dtype=float)
+                gene_keep_mask, num_above_threshold = build_pre_factor_gene_keep_mask(
+                    gene_filter_vector,
+                    gene_read_threshold,
+                    max_num_genes=max_num_discovery_genes,
                 )
-                runtime._subset_genes(gene_keep_mask, skip_V=True, skip_scale_factors=True)
+                if (
+                    max_num_discovery_genes is not None
+                    and num_above_threshold > int(max_num_discovery_genes)
+                ):
+                    domain.log(
+                        "Capping pre-factor genes to top %d by %s after threshold %.3g (kept %d of %d passing genes)"
+                        % (
+                            int(max_num_discovery_genes),
+                            str(gene_filter_type),
+                            float(gene_read_threshold),
+                            int(np.sum(gene_keep_mask)),
+                            int(num_above_threshold),
+                        ),
+                        domain.INFO,
+                    )
+                runtime._record_params(
+                    {
+                        "pre_factor_gene_filter_type": gene_filter_type,
+                        "pre_factor_gene_filter_value": float(gene_read_threshold),
+                        "pre_factor_max_num_discovery_genes": max_num_discovery_genes,
+                        "pre_factor_num_genes_before": int(len(gene_filter_vector)),
+                        "pre_factor_num_genes_above_threshold": int(num_above_threshold),
+                        "pre_factor_num_genes_kept": int(np.sum(gene_keep_mask)),
+                    },
+                    overwrite=True,
+                )
+                if np.sum(~gene_keep_mask) > 0:
+                    domain.log(
+                        "Subsetting to %d genes passing %s > %.3g before factorization"
+                        % (int(np.sum(gene_keep_mask)), str(gene_filter_type), float(gene_read_threshold)),
+                        domain.INFO,
+                    )
+                    runtime._subset_genes(gene_keep_mask, skip_V=True, skip_scale_factors=True)
 
     if workflow_id != "F2" and options.gene_set_stats_in is not None:
         domain._read_gene_set_statistics(
@@ -889,7 +1130,68 @@ def resolve_factor_gene_or_pheno_filter_value(options, workflow):
         factor_gene_set_x_pheno = workflow.factor_gene_set_x_pheno
     if factor_gene_set_x_pheno:
         return options.pheno_filter_value
-    return options.gene_filter_value
+    if options.gene_filter_value is not None:
+        return options.gene_filter_value
+    if getattr(options, "discovery_model", "gene_by_annotation") == "gene_by_gene":
+        return 0.5
+    return 1.0
+
+
+def resolve_factor_gene_or_pheno_filter_type(options, workflow):
+    if options.anchor_gene_set:
+        return "gene_set_phewas_betas_uncorrected"
+    if isinstance(workflow, dict):
+        factor_gene_set_x_pheno = workflow.get("factor_gene_set_x_pheno", False)
+    else:
+        factor_gene_set_x_pheno = workflow.factor_gene_set_x_pheno
+    if factor_gene_set_x_pheno:
+        return "gene_phewas_combined"
+    if getattr(options, "discovery_model", "gene_by_annotation") == "gene_by_gene":
+        return "priors"
+    return "combined_prior_Ys"
+
+
+def resolve_factor_max_num_discovery_genes(options, workflow):
+    if getattr(options, "max_num_discovery_genes", None) is not None:
+        return options.max_num_discovery_genes
+    if options.anchor_gene_set:
+        return None
+    if isinstance(workflow, dict):
+        factor_gene_set_x_pheno = workflow.get("factor_gene_set_x_pheno", False)
+    else:
+        factor_gene_set_x_pheno = workflow.factor_gene_set_x_pheno
+    if factor_gene_set_x_pheno:
+        return None
+    if getattr(options, "discovery_model", "gene_by_annotation") == "gene_by_gene":
+        return 1000
+    return None
+
+
+def resolve_factor_gene_filter_vector(runtime, filter_type):
+    if filter_type in (None, "combined_prior_Ys", "gene_phewas_combined"):
+        return getattr(runtime, "combined_prior_Ys", None)
+    if filter_type == "priors":
+        return getattr(runtime, "priors", None)
+    if filter_type == "Y":
+        return getattr(runtime, "Y", None)
+    return None
+
+
+def build_pre_factor_gene_keep_mask(score_vector, threshold, max_num_genes=None):
+    if score_vector is None or threshold is None:
+        return None, 0
+    score_vector = np.asarray(score_vector, dtype=float)
+    keep_mask = score_vector > float(threshold)
+    num_above_threshold = int(np.sum(keep_mask))
+    if max_num_genes is not None and num_above_threshold > int(max_num_genes):
+        passing_indices = np.flatnonzero(keep_mask)
+        passing_scores = np.asarray(score_vector[passing_indices], dtype=float)
+        order = np.argsort(-passing_scores, kind="mergesort")
+        capped_indices = passing_indices[order[: int(max_num_genes)]]
+        capped_mask = np.zeros_like(keep_mask, dtype=bool)
+        capped_mask[capped_indices] = True
+        keep_mask = capped_mask
+    return keep_mask, num_above_threshold
 
 
 def build_factor_execution_config(options, workflow, factor_inputs):
@@ -915,9 +1217,32 @@ def build_factor_execution_config(options, workflow, factor_inputs):
     )
     if getattr(options, "no_discovery_redundancy_weighting", False):
         discovery_redundancy_weighting_mode = "none"
+    discovery_model = getattr(options, "discovery_model", "gene_by_annotation")
+    resolved_max_num_discovery_genes = resolve_factor_max_num_discovery_genes(options, workflow)
+    learn_phi_prune_genes_num = getattr(options, "learn_phi_prune_genes_num", 1000)
+    learn_phi_target_gene_mass = getattr(options, "learn_phi_target_gene_mass", None)
+    learn_phi_target_gene_effective_support = getattr(options, "learn_phi_target_gene_effective_support", None)
+    if discovery_model == "gene_by_gene":
+        learn_phi_prune_genes_num = resolved_max_num_discovery_genes
+        if (
+            getattr(options, "learn_phi", False)
+            and learn_phi_target_gene_mass is None
+            and learn_phi_target_gene_effective_support is None
+        ):
+            learn_phi_target_gene_mass = float(_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS)
     return FactorExecutionConfig(
         max_num_factors=options.max_num_factors,
         phi=options.phi,
+        discovery_model=discovery_model,
+        gene_gene_beta_source=getattr(options, "gene_gene_beta_source", "beta"),
+        gene_gene_pair_prior=getattr(options, "gene_gene_pair_prior", None),
+        gene_gene_pair_prior_effective_size=getattr(options, "gene_gene_pair_prior_effective_size", None),
+        gene_gene_logbf_base=getattr(options, "gene_gene_logbf_base", "natural"),
+        gene_gene_diagonal_weight=getattr(options, "gene_gene_diagonal_weight", 0.0),
+        gene_gene_matrix_floor=getattr(options, "gene_gene_matrix_floor", 1e-3),
+        gene_gene_excess_probability=getattr(options, "gene_gene_excess_probability", True),
+        gene_gene_row_sum_cap=getattr(options, "gene_gene_row_sum_cap", True),
+        gene_gene_sparsity=getattr(options, "gene_gene_sparsity", 0.0),
         learn_phi=options.learn_phi,
         learn_phi_max_redundancy=options.learn_phi_max_redundancy,
         learn_phi_max_redundancy_q90=options.learn_phi_max_redundancy_q90,
@@ -926,7 +1251,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_min_stability=options.learn_phi_min_stability,
         learn_phi_fit_loss_warning_frac=options.learn_phi_fit_loss_warning_frac,
         learn_phi_max_severe_fit_loss_frac=options.learn_phi_max_severe_fit_loss_frac,
-        learn_phi_target_gene_effective_support=getattr(options, "learn_phi_target_gene_effective_support", None),
+        learn_phi_target_gene_mass=learn_phi_target_gene_mass,
+        learn_phi_target_gene_effective_support=learn_phi_target_gene_effective_support,
         learn_phi_size_tolerance_frac=getattr(options, "learn_phi_size_tolerance_frac", 0.25),
         learn_phi_min_primary_factors=getattr(options, "learn_phi_min_primary_factors", 3),
         learn_phi_max_primary_gene_max_weight_q90=getattr(options, "learn_phi_max_primary_gene_max_weight_q90", None),
@@ -960,7 +1286,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         discovery_redundancy_weighting=discovery_redundancy_weighting_mode != "none",
         discovery_redundancy_weighting_mode=discovery_redundancy_weighting_mode,
         discovery_similarity_threshold=getattr(options, "discovery_similarity_threshold", 0.35),
-        learn_phi_prune_genes_num=getattr(options, "learn_phi_prune_genes_num", 1000),
+        learn_phi_prune_genes_num=learn_phi_prune_genes_num,
         learn_phi_prune_gene_sets_num=getattr(options, "learn_phi_prune_gene_sets_num", 1000),
         learn_phi_max_num_iterations=getattr(options, "learn_phi_max_num_iterations", None),
         alpha0=options.alpha0,
@@ -974,11 +1300,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         consensus_stats_out=options.consensus_stats_out,
         gene_set_filter_type="betas_uncorrected",
         gene_set_filter_value=options.gene_set_filter_value,
-        gene_or_pheno_filter_type=(
-            "gene_set_phewas_betas_uncorrected"
-            if options.anchor_gene_set
-            else ("gene_phewas_combined" if workflow.factor_gene_set_x_pheno else "combined_prior_Ys")
-        ),
+        gene_or_pheno_filter_type=resolve_factor_gene_or_pheno_filter_type(options, workflow),
         gene_or_pheno_filter_value=resolve_factor_gene_or_pheno_filter_value(options, workflow),
         pheno_prune_value=options.factor_prune_phenos_val,
         pheno_prune_number=options.factor_prune_phenos_num,
@@ -1032,7 +1354,15 @@ def run_main_pheno_projection_stage(domain, runtime, options):
             output_path=getattr(options, "trait_factor_links_out", None) or options.pheno_clusters_out,
         )
 
-    if options.project_phenos_from_gene_sets:
+    project_from_gene_sets = bool(
+        options.project_phenos_from_gene_sets
+        or (
+            getattr(options, "factor_gene_set_clusters_in", None) is not None
+            and getattr(options, "factor_gene_clusters_in", None) is None
+        )
+    )
+
+    if project_from_gene_sets:
         if runtime.X_phewas_beta_uncorrected is None:
             domain._read_gene_set_phewas_statistics(
                 runtime,
@@ -1065,7 +1395,7 @@ def run_main_pheno_projection_stage(domain, runtime, options):
 
     eaggl_factor_runtime.project_phenos_from_loaded_factors(
         runtime,
-        project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
+        project_phenos_from_gene_sets=project_from_gene_sets,
         trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
         trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
         trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "sparse_full"),
@@ -1156,7 +1486,5 @@ def should_run_main_pheno_projection_stage(mode_state, options):
         and (
             options.pheno_clusters_out is not None
             or getattr(options, "trait_factor_links_out", None) is not None
-            or options.gene_phewas_bfs_in is not None
-            or options.gene_set_phewas_stats_in is not None
         )
     )

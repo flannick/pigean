@@ -160,6 +160,212 @@ p_i^{(\mathrm{standalone})}
 \]
 All genes appearing in any retained annotation are then kept in the final factoring matrix. The factorization itself is unchanged; only the way the gene-level and annotation-level support vectors are constructed differs from the standard PIGEAN-driven path.
 
+% Suggested insertion point:
+% Add this section to docs/eaggl/methods.tex after the existing single-trait
+% gene-by-annotation factorization / redundancy-balanced discovery material and
+% before phenotype-anchored extensions or downstream trait-linkage sections.
+
+\subsection{Gene-by-gene symmetric mechanism discovery}
+\label{sec:eaggl_gene_gene_symnmf}
+
+The standard gene-by-annotation EAGGL model discovers mechanisms by factorizing a
+weighted gene-by-annotation matrix. This makes annotation rows active observations in
+mechanism discovery. As an alternative, EAGGL can discover mechanisms directly in gene
+space by first constructing a nonnegative gene-by-gene matrix of pairwise
+mechanism-sharing evidence, and then applying a symmetric nonnegative factorization to
+that matrix. In this formulation, the latent mechanisms are functions from genes to
+probabilities of membership, while annotations are used to construct pairwise evidence
+and are projected onto the learned mechanisms afterward.
+
+\paragraph{Latent mechanisms.}
+Let $z_{ik}\in\{0,1\}$ indicate whether gene $i$ belongs to latent mechanism $k$.
+The fitted loading
+\[
+W_{ik}\in[0,1]
+\]
+is interpreted as an approximate posterior probability or membership score for the
+event $z_{ik}=1$. We assume that mechanisms are sparse, nonnegative, and approximately
+disjoint at the level of a single gene. Under exact disjointness,
+\begin{equation}
+\Pr\{\text{gene } i \text{ belongs to any discovered mechanism}\}
+= \sum_k W_{ik}.
+\label{eq:eaggl_gene_gene_gene_union}
+\end{equation}
+For two genes, the probability that they share at least one mechanism is
+\begin{equation}
+\Pr\{i,j\text{ share a discovered mechanism}\}
+= 1 - \prod_k\left(1 - W_{ik} W_{jk}\right).
+\label{eq:eaggl_gene_gene_pair_union_exact}
+\end{equation}
+When mechanisms are sparse, this union probability is well approximated by the first
+order expansion
+\begin{equation}
+1 - \prod_k\left(1 - W_{ik} W_{jk}\right)
+\approx \sum_k W_{ik} W_{jk}.
+\label{eq:eaggl_gene_gene_pair_union_approx}
+\end{equation}
+This approximation motivates a symmetric nonnegative factorization of a pairwise
+gene-gene probability matrix.
+
+\paragraph{Shared annotation log-evidence.}
+In the PIGEAN annotation model, corrected annotation effects enter the informed gene
+prior on the log-odds scale,
+\begin{equation}
+\log\frac{y_i}{1-y_i}
+= \sum_s X_{is}\beta_s + \alpha_i + \log\frac{\pi}{1-\pi},
+\label{eq:eaggl_gene_gene_pigean_prior}
+\end{equation}
+where $X_{is}$ is the value of annotation $s$ for gene $i$, and $\beta_s$ is the
+posterior corrected annotation effect. The $\beta_s$ values are therefore measured on
+the scale of additive log-odds or log Bayes-factor contributions to gene relevance.
+They already include the PIGEAN correction for correlated annotations and the
+annotation-specific regularization that accounts for broad or profligate annotations.
+The gene-by-gene discovery model therefore does not apply an additional gene-set-size
+normalization to $X$ by default.
+
+For a pair of genes $i$ and $j$, EAGGL defines the shared annotation log-evidence
+\begin{equation}
+L_{ij}
+= \sum_s X_{is} X_{js} \beta_s.
+\label{eq:eaggl_gene_gene_shared_logbf}
+\end{equation}
+This quantity is interpreted as the annotation-derived log Bayes factor for the event
+that genes $i$ and $j$ are jointly relevant through a common mechanism. Negative
+corrected annotation effects are retained in this log-evidence calculation: they lower
+pairwise support toward the prior, rather than being truncated before calibration.
+
+\paragraph{Conversion to pairwise probability.}
+Let $\pi_{\mathrm{pair}}$ denote the prior probability that two retained genes are
+jointly disease-relevant through the same mechanism, before observing their shared
+annotation evidence. The posterior probability is obtained by the usual posterior-odds
+conversion,
+\begin{equation}
+P_{ij}^{\mathrm{same}}
+= \sigma\left(\operatorname{logit}(\pi_{\mathrm{pair}}) + L_{ij}\right),
+\qquad
+\sigma(x)=\frac{1}{1+e^{-x}}.
+\label{eq:eaggl_gene_gene_pair_probability}
+\end{equation}
+Equivalently,
+\begin{equation}
+\frac{P_{ij}^{\mathrm{same}}}{1-P_{ij}^{\mathrm{same}}}
+=
+\frac{\pi_{\mathrm{pair}}}{1-\pi_{\mathrm{pair}}}\exp(L_{ij}).
+\label{eq:eaggl_gene_gene_pair_odds}
+\end{equation}
+If annotation effects are stored in a logarithm base other than the natural base, the
+implementation first converts $L_{ij}$ to natural-log units before applying
+Eq.~\eqref{eq:eaggl_gene_gene_pair_probability}.
+
+The prior $\pi_{\mathrm{pair}}$ controls only the calibration of pairwise probability.
+When the user supplies a target mechanism size $S^\star$, a natural default is
+\begin{equation}
+\pi_{\mathrm{pair}}
+\approx \frac{S^\star-1}{N_{\mathrm{active}}-1},
+\label{eq:eaggl_gene_gene_pair_prior_from_size}
+\end{equation}
+where $N_{\mathrm{active}}$ is the number of retained genes. This is the probability
+that, conditional on a reference gene, a second randomly selected retained gene is in
+the same mechanism under an equal-size, approximately disjoint mechanism model. The
+pair prior can also be set directly.
+
+Because a uniform prior background can otherwise be captured by one broad factor, EAGGL
+fits the excess pairwise mechanism probability
+\begin{equation}
+M_{ij}
+= \left[\frac{P_{ij}^{\mathrm{same}} - \pi_{\mathrm{pair}}}{1-\pi_{\mathrm{pair}}}\right]_+,
+\qquad i\ne j,
+\label{eq:eaggl_gene_gene_excess_probability}
+\end{equation}
+where $[x]_+=\max(x,0)$. Thus $M_{ij}\in[0,1]$ represents the annotation-driven excess
+probability that the pair shares a disease-relevant mechanism. The diagonal entries are
+excluded or downweighted during fitting, because self-evidence $M_{ii}$ can otherwise
+encourage one-gene factors. After this calibration, entries with $M_{ij}<10^{-3}$ are
+set to zero by default so that negligible numerical excess probabilities do not create
+spurious weak edges in the symmetric factorization target.
+
+\paragraph{Symmetric nonnegative factorization.}
+Given the nonnegative pairwise target matrix $M$, EAGGL estimates a nonnegative
+gene-by-mechanism loading matrix $W$ by minimizing
+\begin{equation}
+\mathcal{L}_{\mathrm{sym}}(W,\lambda)
+=
+\frac{1}{2}
+\sum_{i<j} A_{ij}
+\left(
+M_{ij} - \sum_k W_{ik}W_{jk}
+\right)^2
++
+\frac{\phi}{2}
+\sum_k
+\frac{\|W_{\cdot k}\|_2^2 + 2b_0}{\lambda_k}
++
+C_{\mathrm{sym}}\sum_k \log\lambda_k
++
+\rho\sum_{i,k} W_{ik}.
+\label{eq:eaggl_gene_gene_symnmf_objective}
+\end{equation}
+Here $A_{ij}$ is an optional pairwise fitting weight with $A_{ii}=0$, $\lambda_k$ is
+the ARD relevance scale for mechanism $k$, and $\rho$ is an optional within-factor
+sparsity penalty. The ARD update is the symmetric analogue of the gene-by-annotation
+update,
+\begin{equation}
+\lambda_k
+=
+\frac{\frac{1}{2}\|W_{\cdot k}\|_2^2 + b_0}{C_{\mathrm{sym}}},
+\qquad
+C_{\mathrm{sym}} = \frac{N_{\mathrm{active}}}{2}+a_0+1.
+\label{eq:eaggl_gene_gene_lambda_update}
+\end{equation}
+Nonnegativity is enforced throughout. For probability-scale interpretation, the
+implementation can additionally project each row onto the simplex-like constraint
+\begin{equation}
+0\le W_{ik}\le 1,
+\qquad
+\sum_k W_{ik}\le 1.
+\label{eq:eaggl_gene_gene_row_sum_constraint}
+\end{equation}
+Under this constraint, Eq.~\eqref{eq:eaggl_gene_gene_pair_union_approx} makes
+$\sum_k W_{ik}W_{jk}$ an approximation to the posterior probability that genes $i$ and
+$j$ share at least one discovered mechanism beyond the pairwise prior background.
+
+\paragraph{Role of direct gene support.}
+Direct genetic support and annotation-derived support are kept separate in this model.
+The matrix $M$ is built from the corrected annotation effects $\beta_s$, which already
+encode annotation-derived evidence. Multiplying $M$ by the combined gene posterior
+probability would double-count the annotation-derived part of the PIGEAN model.
+Instead, direct genetic support can be used for reporting, post-fit prioritization, or
+optional sensitivity analyses. For example, after fitting $W$, EAGGL can summarize the
+direct genetic support of mechanism $k$ by
+\begin{equation}
+R_k^{\mathrm{direct}}
+= \sum_i W_{ik} p_i^{\mathrm{direct}},
+\label{eq:eaggl_gene_gene_direct_relevance}
+\end{equation}
+where $p_i^{\mathrm{direct}}$ is the posterior support derived from direct gene-level
+association evidence alone.
+
+\paragraph{Projecting annotations onto gene mechanisms.}
+After estimating $W$, all retained annotations are projected onto the learned gene
+mechanisms for interpretation. For annotation $s$, EAGGL solves
+\begin{equation}
+h_s^\star
+=
+\arg\min_{h_s\ge 0}
+\sum_i \eta_i
+\left(
+X_{is} - \sum_k W_{ik}h_{sk}
+\right)^2
++ r(h_s),
+\label{eq:eaggl_gene_gene_annotation_projection}
+\end{equation}
+using the same fixed-basis nonnegative projection machinery used in the rectangular
+EAGGL workflow. The fitted annotation loadings $h_{sk}$ provide gene-set labels and
+interpretation for each mechanism. Thus, annotations influence discovery through the
+pairwise evidence matrix, and additional annotations can be projected afterward to
+deepen interpretation without directly redefining the learned gene mechanisms.
+
+
 \subsection{Phenotype-anchored extensions of the gene-by-annotation model}
 
 In some applications, one wishes to condition factorization on several anchor phenotypes rather than on a single default trait. Let $P_{it}$ denote a nonnegative gene-by-phenotype support matrix and $Q_{jt}$ denote a nonnegative annotation-by-phenotype support matrix derived from phenotype-resolved statistics. If the anchor phenotype set is $A \subseteq \{1,\ldots,T\}$, then each $t \in A$ defines an anchor user, with
