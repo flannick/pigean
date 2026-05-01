@@ -1157,7 +1157,93 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(runtime.exp_gene_set_factors.shape, (2, 2))
         self.assertGreater(runtime.exp_gene_set_factors[0, 0], runtime.exp_gene_set_factors[0, 1])
         self.assertGreater(runtime.exp_gene_set_factors[1, 1], runtime.exp_gene_set_factors[1, 0])
+        np.testing.assert_allclose(runtime.gene_set_prob_factor_vector, runtime.exp_gene_set_factors)
         np.testing.assert_array_equal(runtime.gene_set_in_discovery_mask, [False, False])
+
+    def test_projection_only_x_read_disables_score_dependent_gene_set_filters(self) -> None:
+        runtime = _ProjectionOnlyRuntimeStub()
+        runtime.exp_gene_set_factors = None
+        captured = {}
+        test_case = self
+
+        class _Domain:
+            def _run_read_x_stage(self, runtime_arg, X_in, **kwargs):
+                test_case.assertIsNone(runtime_arg.exp_gene_factors)
+                test_case.assertIsNone(runtime_arg.Y)
+                test_case.assertIsNone(runtime_arg.priors)
+                test_case.assertIsNone(runtime_arg.combined_prior_Ys)
+                captured["X_in"] = X_in
+                captured["kwargs"] = kwargs
+                runtime_arg.gene_sets = ["GS1"]
+                runtime_arg.exp_gene_set_factors = np.array([[1.0]], dtype=float)
+
+            def bail(self, message):
+                raise AssertionError(message)
+
+        def _load_gene_factors(domain, runtime_arg, _path):
+            runtime_arg.genes = ["G1"]
+            runtime_arg.gene_to_ind = {"G1": 0}
+            runtime_arg.exp_gene_factors = np.array([[1.0]], dtype=float)
+            runtime_arg.exp_lambdak = np.ones(1, dtype=float)
+            runtime_arg.Y = np.array([0.25], dtype=float)
+            runtime_arg.priors = np.array([0.1], dtype=float)
+            runtime_arg.combined_prior_Ys = np.array([0.35], dtype=float)
+
+        options = _options(
+            factor_gene_clusters_in="gene_clusters.tsv.gz",
+            X_in="annotations.tsv.gz",
+            gene_set_clusters_out="gene_set_clusters.tsv.gz",
+            gene_clusters_full_out="gene_clusters_full.tsv.gz",
+            V_in=None,
+            min_gene_set_size=1,
+            max_gene_set_size=30000,
+            add_all_genes=False,
+            prune_gene_sets=0.8,
+            weighted_prune_gene_sets=0.5,
+            prune_deterministically=True,
+            x_sparsify=[50],
+            add_ext=False,
+            add_top=True,
+            add_bottom=True,
+            filter_negative=True,
+            threshold_weights=0.5,
+            cap_weights=True,
+            permute_gene_sets=False,
+            max_gene_set_read_p=0.05,
+            max_num_gene_sets_initial=10,
+            max_num_gene_sets=20,
+            max_num_gene_sets_hyper=30,
+            batch_separator="@",
+            x_list_unlabeled_batching="per_file",
+            ignore_genes=None,
+            file_separator=None,
+            hide_progress=True,
+        )
+
+        with mock.patch.object(eaggl.eaggl_factor, "load_existing_factor_gene_clusters", new=_load_gene_factors):
+            with mock.patch.object(eaggl.eaggl_factor, "_project_gene_set_factors_from_loaded_gene_factors"):
+                with mock.patch.object(eaggl.eaggl_factor, "_project_gene_factors_from_loaded_gene_set_factors"):
+                    eaggl.eaggl_factor.run_main_factor_only_pipeline(
+                        _Domain(),
+                        runtime,
+                        options,
+                        {"factor_projection_only": True},
+                    )
+
+        self.assertEqual(captured["X_in"], "annotations.tsv.gz")
+        read_kwargs = captured["kwargs"]
+        self.assertIsNone(read_kwargs["filter_gene_set_p"])
+        self.assertIsNone(read_kwargs["increase_filter_gene_set_p"])
+        self.assertIsNone(read_kwargs["filter_gene_set_metric_z"])
+        self.assertIsNone(read_kwargs["max_gene_set_p"])
+        self.assertIsNone(read_kwargs["max_num_gene_sets_initial"])
+        self.assertIsNone(read_kwargs["max_num_gene_sets"])
+        self.assertIsNone(read_kwargs["max_num_gene_sets_hyper"])
+        self.assertIsNone(read_kwargs["prune_gene_sets"])
+        self.assertIsNone(read_kwargs["weighted_prune_gene_sets"])
+        self.assertFalse(read_kwargs["prune_deterministically"])
+        self.assertTrue(read_kwargs["add_all_genes"])
+        self.assertTrue(read_kwargs["skip_betas"])
 
     def test_projection_only_projects_genes_from_loaded_gene_set_factors(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
@@ -1184,6 +1270,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertGreater(runtime.exp_gene_factors[1, 1], runtime.exp_gene_factors[1, 0])
         self.assertGreater(runtime.exp_gene_factors[2, 0], 0.0)
         self.assertGreater(runtime.exp_gene_factors[2, 1], 0.0)
+        np.testing.assert_allclose(runtime.gene_prob_factor_vector, runtime.exp_gene_factors)
         np.testing.assert_array_equal(runtime.gene_in_discovery_mask, [False, False, False])
 
     def test_write_matrix_factors_reports_factor_total_mass(self) -> None:

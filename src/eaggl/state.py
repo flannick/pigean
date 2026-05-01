@@ -3671,11 +3671,15 @@ class EagglState(object):
             else None
         )
 
-        if discovery_model == "gene_by_gene":
-            if self.exp_gene_factors is not None and self.exp_gene_factors.shape[0] == len(self.genes):
-                retained_projected_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
-            else:
-                retained_projected_gene_factors = self.project_full_gene_factors_gene_by_gene(cap_genes=True)
+        has_projection_only_gene_factors = bool(self.params.get("factor_projection_only_gene_clusters", False))
+        if (
+            has_projection_only_gene_factors
+            and self.exp_gene_factors is not None
+            and self.exp_gene_factors.shape[0] == len(self.genes)
+        ):
+            retained_projected_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+        elif discovery_model == "gene_by_gene":
+            retained_projected_gene_factors = self.project_full_gene_factors_gene_by_gene(cap_genes=True)
         else:
             retained_gene_matrix_to_project = self.X_orig.T
             if not run_transpose:

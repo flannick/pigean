@@ -317,6 +317,28 @@ def projection_only_x_required(options):
     )
 
 
+def _clear_loaded_gene_state_before_projection_x_read(runtime):
+    for attr in [
+        "exp_gene_factors",
+        "gene_in_discovery_mask",
+        "gene_factor_gene_mask",
+        "Y",
+        "Y_for_regression",
+        "Y_uncorrected",
+        "Y_orig",
+        "Y_for_regression_orig",
+        "priors",
+        "priors_orig",
+        "priors_adj",
+        "priors_adj_orig",
+        "combined_prior_Ys",
+        "combined_prior_Ys_adj",
+        "combined_Ds",
+    ]:
+        if hasattr(runtime, attr):
+            setattr(runtime, attr, None)
+
+
 def _has_x_source(options):
     return any(
         x is not None
@@ -348,6 +370,7 @@ def _project_gene_set_factors_from_loaded_gene_factors(domain, runtime, loaded_g
         cap_genes=True,
         normalize_genes=False,
     )
+    runtime.gene_set_prob_factor_vector = np.asarray(runtime.exp_gene_set_factors, dtype=float)
     runtime.gene_set_in_discovery_mask = np.full(len(runtime.gene_sets), False, dtype=bool)
     runtime.gene_set_factor_gene_set_mask = runtime.gene_set_in_discovery_mask
     runtime._record_params(
@@ -384,6 +407,7 @@ def _project_gene_factors_from_loaded_gene_set_factors(domain, runtime, loaded_g
         cap_genes=True,
         normalize_genes=False,
     )
+    runtime.gene_prob_factor_vector = np.asarray(runtime.exp_gene_factors, dtype=float)
     runtime.gene_in_discovery_mask = np.full(len(runtime.genes), False, dtype=bool)
     runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
     runtime._record_params(
@@ -419,6 +443,10 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             loaded_gene_sets = list(runtime.gene_sets)
             loaded_gene_set_factors = np.asarray(runtime.exp_gene_set_factors, dtype=float)
         if projection_only_x_required(options):
+            projection_targets = projection_only_requested_targets(options)
+            # Projection-only X reads provide a target matrix for fixed-factor projection;
+            # they must not run association/QC filters that require fitted gene scores.
+            _clear_loaded_gene_state_before_projection_x_read(runtime)
             domain._run_read_x_stage(
                 runtime,
                 options.X_in,
@@ -428,10 +456,10 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
                 V_in=options.V_in,
                 min_gene_set_size=options.min_gene_set_size,
                 max_gene_set_size=options.max_gene_set_size,
-                add_all_genes=options.add_all_genes,
-                prune_gene_sets=options.prune_gene_sets,
-                weighted_prune_gene_sets=options.weighted_prune_gene_sets,
-                prune_deterministically=options.prune_deterministically,
+                add_all_genes=options.add_all_genes or projection_targets["gene"],
+                prune_gene_sets=None,
+                weighted_prune_gene_sets=None,
+                prune_deterministically=False,
                 x_sparsify=options.x_sparsify,
                 add_ext=options.add_ext,
                 add_top=options.add_top,
@@ -440,11 +468,13 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
                 threshold_weights=options.threshold_weights,
                 cap_weights=options.cap_weights,
                 permute_gene_sets=options.permute_gene_sets,
-                max_gene_set_p=options.max_gene_set_read_p,
+                max_gene_set_p=None,
                 filter_gene_set_p=None,
-                max_num_gene_sets_initial=options.max_num_gene_sets_initial,
-                max_num_gene_sets=options.max_num_gene_sets,
-                max_num_gene_sets_hyper=options.max_num_gene_sets_hyper,
+                increase_filter_gene_set_p=None,
+                filter_gene_set_metric_z=None,
+                max_num_gene_sets_initial=None,
+                max_num_gene_sets=None,
+                max_num_gene_sets_hyper=None,
                 skip_betas=True,
                 batch_separator=options.batch_separator,
                 x_list_unlabeled_batching=options.x_list_unlabeled_batching,
