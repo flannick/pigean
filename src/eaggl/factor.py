@@ -346,6 +346,19 @@ def _has_x_source(options):
     )
 
 
+def _resolve_gene_set_read_beta_uncorrected_threshold(options):
+    gene_set_read_beta_uncorrected_threshold = options.min_gene_set_read_beta_uncorrected
+    if options.gene_set_filter_value is not None:
+        if gene_set_read_beta_uncorrected_threshold is None:
+            gene_set_read_beta_uncorrected_threshold = options.gene_set_filter_value
+        else:
+            gene_set_read_beta_uncorrected_threshold = max(
+                gene_set_read_beta_uncorrected_threshold,
+                options.gene_set_filter_value,
+            )
+    return gene_set_read_beta_uncorrected_threshold
+
+
 def _project_gene_set_factors_from_loaded_gene_factors(domain, runtime, loaded_genes, loaded_gene_factors):
     if runtime.X_orig is None:
         domain.bail("--gene-set-clusters-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
@@ -444,8 +457,36 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             loaded_gene_set_factors = np.asarray(runtime.exp_gene_set_factors, dtype=float)
         if projection_only_x_required(options):
             projection_targets = projection_only_requested_targets(options)
+            gene_set_ids = None
+            if options.gene_set_stats_in is not None:
+                gene_set_read_p_threshold = None
+                if options.max_gene_set_read_p is not None and options.max_gene_set_read_p < 1:
+                    gene_set_read_p_threshold = options.max_gene_set_read_p
+                gene_set_ids = domain._read_gene_set_statistics(
+                    runtime,
+                    options.gene_set_stats_in,
+                    stats_id_col=options.gene_set_stats_id_col,
+                    stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
+                    stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
+                    stats_p_col=options.gene_set_stats_p_col,
+                    stats_se_col=options.gene_set_stats_se_col,
+                    stats_beta_col=options.gene_set_stats_beta_col,
+                    stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
+                    ignore_negative_exp_beta=options.ignore_negative_exp_beta,
+                    max_gene_set_p=gene_set_read_p_threshold,
+                    min_gene_set_beta=options.min_gene_set_read_beta,
+                    min_gene_set_beta_uncorrected=_resolve_gene_set_read_beta_uncorrected_threshold(options),
+                    return_only_ids=True,
+                )
+                domain.log(
+                    "Projection-only X read restricted to %d gene sets from --gene-set-stats-in"
+                    % len(gene_set_ids),
+                    domain.INFO,
+                )
             # Projection-only X reads provide a target matrix for fixed-factor projection;
             # they must not run association/QC filters that require fitted gene scores.
+            # Precomputed gene-set stats, when provided, are only used above to select
+            # gene-set IDs before X ingestion.
             _clear_loaded_gene_state_before_projection_x_read(runtime)
             domain._run_read_x_stage(
                 runtime,
@@ -456,6 +497,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
                 V_in=options.V_in,
                 min_gene_set_size=options.min_gene_set_size,
                 max_gene_set_size=options.max_gene_set_size,
+                only_ids=gene_set_ids,
                 add_all_genes=options.add_all_genes or projection_targets["gene"],
                 prune_gene_sets=None,
                 weighted_prune_gene_sets=None,
@@ -540,15 +582,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     gene_set_read_p_threshold = None
     if options.max_gene_set_read_p is not None and options.max_gene_set_read_p < 1:
         gene_set_read_p_threshold = options.max_gene_set_read_p
-    gene_set_read_beta_uncorrected_threshold = options.min_gene_set_read_beta_uncorrected
-    if options.gene_set_filter_value is not None:
-        if gene_set_read_beta_uncorrected_threshold is None:
-            gene_set_read_beta_uncorrected_threshold = options.gene_set_filter_value
-        else:
-            gene_set_read_beta_uncorrected_threshold = max(
-                gene_set_read_beta_uncorrected_threshold,
-                options.gene_set_filter_value,
-            )
+    gene_set_read_beta_uncorrected_threshold = _resolve_gene_set_read_beta_uncorrected_threshold(options)
     if factor_uses_phewas_gene_set_ids:
         if options.gene_set_phewas_stats_in is None:
             domain.bail("Need --gene-set-phewas-stats-in")

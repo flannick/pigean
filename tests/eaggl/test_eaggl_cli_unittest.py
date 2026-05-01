@@ -519,6 +519,30 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in", err)
 
+    def test_projection_only_cross_basis_allows_gene_set_stats_filter(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--X-in",
+            "annotations.tsv.gz",
+            "--gene-set-clusters-out",
+            "gene_set_clusters.tsv.gz",
+            "--gene-set-stats-in",
+            "gene_set_stats.tsv.gz",
+            "--gene-set-stats-beta-uncorrected-col",
+            "beta_uncorrected",
+            "--min-gene-set-read-beta-uncorrected",
+            "0.01",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["factor_gene_clusters_in"], "gene_clusters.out.gz")
+        self.assertEqual(payload["options"]["gene_set_stats_in"], "gene_set_stats.tsv.gz")
+        self.assertEqual(payload["options"]["gene_set_stats_beta_uncorrected_col"], "beta_uncorrected")
+        self.assertEqual(payload["options"]["min_gene_set_read_beta_uncorrected"], 0.01)
+
     def test_projection_only_gene_clusters_out_is_reserved_for_original_loadings(self) -> None:
         proc = self._run(
             "factor",

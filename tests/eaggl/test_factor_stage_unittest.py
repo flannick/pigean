@@ -94,6 +94,15 @@ def _options(**overrides):
         Xd_list=None,
         gene_stats_in=None,
         gene_set_stats_in=None,
+        gene_set_stats_id_col="Gene_Set",
+        gene_set_stats_exp_beta_tilde_col=None,
+        gene_set_stats_beta_tilde_col=None,
+        gene_set_stats_p_col=None,
+        gene_set_stats_se_col=None,
+        gene_set_stats_beta_col=None,
+        gene_set_stats_beta_uncorrected_col=None,
+        ignore_negative_exp_beta=False,
+        max_gene_set_read_p=0.05,
         min_gene_set_read_beta=1e-20,
         min_gene_set_read_beta_uncorrected=1e-20,
         anchor_genes=None,
@@ -1244,6 +1253,80 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertFalse(read_kwargs["prune_deterministically"])
         self.assertTrue(read_kwargs["add_all_genes"])
         self.assertTrue(read_kwargs["skip_betas"])
+
+    def test_projection_only_x_read_honors_gene_set_stats_beta_uncorrected_filter(self) -> None:
+        runtime = _ProjectionOnlyRuntimeStub()
+        captured = {}
+        test_case = self
+
+        class _Domain:
+            INFO = 1
+
+            def _read_gene_set_statistics(self, runtime_arg, stats_in, **kwargs):
+                captured["stats_in"] = stats_in
+                captured["stats_kwargs"] = kwargs
+                test_case.assertTrue(kwargs["return_only_ids"])
+                return {"GS_KEEP"}
+
+            def _run_read_x_stage(self, runtime_arg, X_in, **kwargs):
+                captured["X_in"] = X_in
+                captured["read_kwargs"] = kwargs
+                runtime_arg.gene_sets = ["GS_KEEP"]
+                runtime_arg.gene_set_to_ind = {"GS_KEEP": 0}
+                runtime_arg.X_orig = np.array([[1.0]], dtype=float)
+
+            def log(self, *_args, **_kwargs):
+                return None
+
+            def bail(self, message):
+                raise AssertionError(message)
+
+        def _load_gene_factors(domain, runtime_arg, _path):
+            runtime_arg.genes = ["G1"]
+            runtime_arg.gene_to_ind = {"G1": 0}
+            runtime_arg.exp_gene_factors = np.array([[1.0]], dtype=float)
+
+        options = _options(
+            factor_gene_clusters_in="gene_clusters.tsv.gz",
+            X_in="annotations.tsv.gz",
+            gene_set_clusters_out="gene_set_clusters.tsv.gz",
+            gene_set_stats_in="gene_set_stats.tsv.gz",
+            gene_set_stats_beta_uncorrected_col="beta_uncorrected",
+            min_gene_set_read_beta_uncorrected=0.01,
+            gene_set_filter_value=None,
+            max_gene_set_read_p=None,
+            V_in=None,
+            min_gene_set_size=1,
+            max_gene_set_size=30000,
+            add_all_genes=False,
+            x_sparsify=[50],
+            add_ext=False,
+            add_top=True,
+            add_bottom=True,
+            filter_negative=True,
+            threshold_weights=0.5,
+            cap_weights=True,
+            permute_gene_sets=False,
+            batch_separator="@",
+            x_list_unlabeled_batching="per_file",
+            ignore_genes=None,
+            file_separator=None,
+            hide_progress=True,
+        )
+
+        with mock.patch.object(eaggl.eaggl_factor, "load_existing_factor_gene_clusters", new=_load_gene_factors):
+            with mock.patch.object(eaggl.eaggl_factor, "_project_gene_set_factors_from_loaded_gene_factors"):
+                eaggl.eaggl_factor.run_main_factor_only_pipeline(
+                    _Domain(),
+                    runtime,
+                    options,
+                    {"factor_projection_only": True},
+                )
+
+        self.assertEqual(captured["stats_in"], "gene_set_stats.tsv.gz")
+        self.assertEqual(captured["stats_kwargs"]["min_gene_set_beta_uncorrected"], 0.01)
+        self.assertEqual(captured["stats_kwargs"]["stats_beta_uncorrected_col"], "beta_uncorrected")
+        self.assertEqual(captured["read_kwargs"]["only_ids"], {"GS_KEEP"})
 
     def test_projection_only_projects_genes_from_loaded_gene_set_factors(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)

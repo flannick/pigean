@@ -267,10 +267,11 @@ def validate_factor_workflow_selection(options, workflow, projection_only, bail_
                 "choose either projection-only outputs from precomputed factors or a refit clustering workflow."
             )
         if options.gene_set_stats_in is not None:
-            bail_fn(
-                "--factor-gene-clusters-in/--factor-gene-set-clusters-in skip clustering and cannot be combined with "
-                "--gene-set-stats-in. Use --gene-stats-in only as auxiliary metadata if needed."
-            )
+            if not projection_needs_x:
+                bail_fn(
+                    "--factor-gene-clusters-in/--factor-gene-set-clusters-in skip clustering and cannot be combined with "
+                    "--gene-set-stats-in unless projecting across gene and gene-set bases with --X-in/--X-list/--Xd-in/--Xd-list."
+                )
         return
 
     if standalone_gene_list and len(selected_anchor_modes) > 0:
