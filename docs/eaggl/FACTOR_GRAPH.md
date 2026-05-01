@@ -17,6 +17,9 @@ PYTHONPATH=src python -m eaggl.factor_graph \
 - Drag blank space to pan and use the `+` / `-` buttons to zoom.
 - Use **Enable Physics** to relax the deterministic layout with browser-side force physics.
 - Use **Reset Layout** to return to the deterministic layout.
+- Use the filter bar to show/hide factors, genes, or phenotypes.
+- Add one or more case-insensitive text filters to show nodes whose ID, label, or type contains any requested substring; comma-separated entries are treated as OR filters.
+- Node labels are truncated to 20 characters by default, with the full label shown on hover. Use `--label-max-chars` to change the displayed length, or `--label-max-chars 0` to disable truncation.
 
 To start with physics enabled:
 
@@ -42,6 +45,8 @@ With `--eaggl-dir`, the tool looks for standard EAGGL outputs:
 - `gene_clusters_full.out.gz` or `gene_clusters.out.gz`
 - `trait_factor_links.out.gz` or `pheno_clusters.out.gz`
 
+Phenotype nodes are included when a trait-factor linkage file is present in `--eaggl-dir` or passed explicitly with `--trait-factor-links-in`.
+
 You can also pass explicit paths:
 
 ```bash
@@ -51,6 +56,18 @@ PYTHONPATH=src python -m eaggl.factor_graph \
   --trait-factor-links-in results/trait_factor_links.out.gz \
   --html-out results/factor_graph.html
 ```
+
+To show a bounded number of phenotype nodes per factor:
+
+```bash
+PYTHONPATH=src python -m eaggl.factor_graph \
+  --eaggl-dir results/eaggl_seed000 \
+  --trait-factor-links-in results/trait_factor_links.out.gz \
+  --max-num-trait-nodes-per-factor 3 \
+  --html-out results/eaggl_seed000/factor_graph.with_traits.html
+```
+
+By default, phenotype nodes are also filtered to traits with `trait_neff > 25` when `trait_neff` or `trait_n_eff` is available in the linkage table. Override this with `--trait-min-neff`, for example `--trait-min-neff 0` to disable the effective-size filter.
 
 ## Visual Encoding
 
@@ -68,6 +85,8 @@ PYTHONPATH=src python -m eaggl.factor_graph \
 --max-num-trait-nodes-per-factor 10
 --gene-min-loading 0.01
 --trait-min-loading 0.005
+--trait-min-neff 25
+--label-max-chars 20
 --gene-min-loading-frac 0.5
 --trait-min-loading-frac 0.5
 ```

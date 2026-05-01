@@ -39,6 +39,7 @@ class EntityInfo:
 class GraphConfig:
     gene_min_loading: float = 0.01
     trait_min_loading: float = 0.005
+    trait_min_neff: float = 25.0
     gene_min_loading_frac: float = 0.5
     trait_min_loading_frac: float = 0.5
     max_num_gene_nodes_per_factor: int = 5
@@ -46,6 +47,7 @@ class GraphConfig:
     coordinate_scale: float = 5.0
     node_size_scale: float = 2.0
     edge_max_width: float = 5.0
+    label_max_chars: int = 20
     colors_red_blue: bool = False
     seed: int = 0
 
@@ -258,11 +260,13 @@ def read_trait_links(
     *,
     factors: list[str],
     min_loading: float,
+    min_neff: float | None,
     min_loading_frac: float,
     max_num_per_factor: int,
 ) -> list[EntityInfo]:
     by_trait: dict[str, dict[str, float]] = {}
     trait_strength: dict[str, float] = {}
+    trait_neff: dict[str, float] = {}
     with open_text(path) as fh:
         header_line = fh.readline()
         if not header_line:
@@ -293,7 +297,11 @@ def read_trait_links(
             value = max(0.0, _safe_float(cols[value_i], 0.0))
             by_trait.setdefault(trait, {})[factor] = value
             if strength_i is not None and strength_i < len(cols):
-                trait_strength[trait] = max(trait_strength.get(trait, 0.0), _safe_float(cols[strength_i], 1.0))
+                neff = _safe_float(cols[strength_i], 1.0)
+                trait_strength[trait] = max(trait_strength.get(trait, 0.0), neff)
+                trait_neff[trait] = max(trait_neff.get(trait, 0.0), neff)
+    if min_neff is not None and strength_i is not None:
+        by_trait = {trait: loadings for trait, loadings in by_trait.items() if trait_neff.get(trait, 0.0) > min_neff}
     entities = [
         EntityInfo(
             entity_id=trait,
@@ -367,6 +375,15 @@ def rgb_to_hex(rgb: Iterable[float], alpha: float | None = None) -> str:
     if alpha is not None and alpha < 1:
         result += "%02x" % max(0, min(255, int(alpha * 255)))
     return result
+
+
+def truncate_label(label: str, max_chars: int | None) -> str:
+    label = str(label)
+    if max_chars is None or max_chars <= 0 or len(label) <= max_chars:
+        return label
+    if max_chars <= 3:
+        return "." * max_chars
+    return label[: max_chars - 3] + "..."
 
 
 def _classical_mds(distance: np.ndarray, *, seed: int = 0) -> np.ndarray:
@@ -453,6 +470,7 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
             {
                 "id": factor_info.factor,
                 "label": factor_info.label,
+                "display_label": truncate_label(factor_info.label, config.label_max_chars),
                 "kind": "factor",
                 "shape": "square",
                 "x": float(x),
@@ -472,6 +490,7 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
             {
                 "id": entity.entity_id,
                 "label": entity.label,
+                "display_label": truncate_label(entity.label, config.label_max_chars),
                 "kind": entity.kind,
                 "shape": "diamond" if entity.kind == "trait" else "circle",
                 "x": float(x),
@@ -597,7 +616,7 @@ def _static_svg_markup(graph: dict) -> str:
             % (source["x"], source["y"], target["x"], target["y"], edge["color"], edge["width"])
         )
     for node in nodes:
-        label = html.escape(str(node["label"]))
+        label = html.escape(str(node.get("display_label", node["label"])))
         svg_parts.append(_shape_svg(node))
         if node["kind"] == "factor" or node["radius"] > 9:
             svg_parts.append(
@@ -618,6 +637,8 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
   const labelsLayer = document.getElementById("labels-layer");
   const tooltip = document.getElementById("tooltip");
   const nodeById = new Map(graph.nodes.map(node => [node.id, node]));
+  const activeNodeTypes = new Set(["factor", "gene", "trait"]);
+  const textFilters = [];
   let physicsEnabled = __PHYSICS_ENABLED__;
   let running = physicsEnabled;
   let viewBox = {x: 0, y: 0, w: graph.viewport.width, h: graph.viewport.height};
@@ -695,6 +716,7 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       group.addEventListener("pointermove", event => showTooltip(event, node));
       group.addEventListener("pointerleave", hideTooltip);
       node._shape = shape;
+      node._group = group;
       nodesLayer.appendChild(group);
       if (node.kind === "factor" || node.radius > 9) {
         const label = makeSvg("text", {
@@ -703,11 +725,12 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
           "font-family": "sans-serif",
           "pointer-events": "none"
         });
-        label.textContent = node.label;
+        label.textContent = node.display_label || node.label;
         node._label = label;
         labelsLayer.appendChild(label);
       }
     }
+    applyFilters();
     update();
   }
 
@@ -750,14 +773,64 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       edge._el.setAttribute("y1", source.y);
       edge._el.setAttribute("x2", target.x);
       edge._el.setAttribute("y2", target.y);
+      edge._el.style.display = source._visible && target._visible ? "" : "none";
     }
     for (const node of graph.nodes) {
       placeNodeShape(node._shape, node);
+      node._group.style.display = node._visible ? "" : "none";
       if (node._label) {
         node._label.setAttribute("x", node.x);
         node._label.setAttribute("y", node.y + node.radius + 14);
+        node._label.style.display = node._visible ? "" : "none";
       }
     }
+  }
+
+  function nodeSearchText(node) {
+    return `${node.id} ${node.label} ${node.kind}`.toLowerCase();
+  }
+
+  function nodePassesFilters(node) {
+    const typeMatch = activeNodeTypes.has(node.kind);
+    const textMatch = textFilters.length === 0 || textFilters.some(term => nodeSearchText(node).includes(term));
+    return typeMatch && textMatch;
+  }
+
+  function renderFilterChips() {
+    const container = document.getElementById("filterChips");
+    container.innerHTML = "";
+    for (const term of textFilters) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "filter-chip";
+      chip.textContent = term + " x";
+      chip.addEventListener("click", () => {
+        const index = textFilters.indexOf(term);
+        if (index >= 0) textFilters.splice(index, 1);
+        applyFilters();
+      });
+      container.appendChild(chip);
+    }
+  }
+
+  function applyFilters() {
+    let visibleCount = 0;
+    for (const node of graph.nodes) {
+      node._visible = nodePassesFilters(node);
+      if (node._visible) visibleCount += 1;
+    }
+    renderFilterChips();
+    document.getElementById("filterStatus").textContent = `${visibleCount} / ${graph.nodes.length} nodes visible`;
+    update();
+  }
+
+  function addTextFilters(rawValue) {
+    for (const rawTerm of rawValue.split(",")) {
+      const term = rawTerm.trim().toLowerCase();
+      if (term && !textFilters.includes(term)) textFilters.push(term);
+    }
+    document.getElementById("nodeFilterInput").value = "";
+    applyFilters();
   }
 
   function tick() {
@@ -827,6 +900,33 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
   svg.addEventListener("pointerleave", () => { draggingNode = null; draggingCanvas = null; lastPointer = null; hideTooltip(); });
   document.getElementById("zoomInButton").addEventListener("click", function() { zoomCenter(0.82); });
   document.getElementById("zoomOutButton").addEventListener("click", function() { zoomCenter(1.22); });
+  document.querySelectorAll(".node-type-filter").forEach(input => {
+    input.addEventListener("change", function() {
+      if (this.checked) {
+        activeNodeTypes.add(this.value);
+      } else {
+        activeNodeTypes.delete(this.value);
+      }
+      applyFilters();
+    });
+  });
+  document.getElementById("addNodeFilterButton").addEventListener("click", function() {
+    addTextFilters(document.getElementById("nodeFilterInput").value);
+  });
+  document.getElementById("nodeFilterInput").addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addTextFilters(this.value);
+    }
+  });
+  document.getElementById("clearNodeFiltersButton").addEventListener("click", function() {
+    textFilters.splice(0, textFilters.length);
+    document.querySelectorAll(".node-type-filter").forEach(input => {
+      input.checked = true;
+      activeNodeTypes.add(input.value);
+    });
+    applyFilters();
+  });
   document.getElementById("togglePhysicsButton").addEventListener("click", function() {
     physicsEnabled = !physicsEnabled;
     running = physicsEnabled;
@@ -872,6 +972,17 @@ def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int 
     <button id="zoomOutButton" type="button">-</button>
     <span>Drag nodes; drag blank space to pan; use +/- to zoom.</span>
   </div>
+  <div class="filters">
+    <strong>Show:</strong>
+    <label><input class="node-type-filter" type="checkbox" value="factor" checked> factors</label>
+    <label><input class="node-type-filter" type="checkbox" value="gene" checked> genes</label>
+    <label><input class="node-type-filter" type="checkbox" value="trait" checked> phenotypes</label>
+    <input id="nodeFilterInput" type="search" placeholder="Add text filter, comma-separated OR terms">
+    <button id="addNodeFilterButton" type="button">Add Filter</button>
+    <button id="clearNodeFiltersButton" type="button">Clear</button>
+    <span id="filterStatus"></span>
+    <span id="filterChips"></span>
+  </div>
 """
         script = _interactive_html_script(physics_enabled=physics)
     else:
@@ -889,8 +1000,11 @@ def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int 
     svg {{ background: white; border: 1px solid #ddd; width: 100%; height: auto; }}
     .meta {{ color: #555; font-size: 13px; margin-bottom: 8px; }}
     .controls {{ display: flex; align-items: center; gap: 8px; margin: 8px 0 12px; color: #555; font-size: 13px; }}
+    .filters {{ display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; color: #555; font-size: 13px; }}
+    .filters input[type="search"] {{ min-width: 280px; padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; }}
     button {{ border: 1px solid #bbb; border-radius: 4px; background: #fff; padding: 6px 10px; cursor: pointer; }}
     button:hover {{ background: #f0f0ea; }}
+    .filter-chip {{ padding: 3px 7px; font-size: 12px; }}
     .node {{ cursor: grab; }}
     .node:active {{ cursor: grabbing; }}
     #tooltip {{ position: fixed; display: none; pointer-events: none; background: rgba(30, 30, 30, 0.88); color: white; padding: 5px 8px; border-radius: 4px; font-size: 12px; z-index: 10; }}
@@ -1001,6 +1115,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
     config = GraphConfig(
         gene_min_loading=args.gene_min_loading,
         trait_min_loading=args.trait_min_loading,
+        trait_min_neff=args.trait_min_neff,
         gene_min_loading_frac=args.gene_min_loading_frac,
         trait_min_loading_frac=args.trait_min_loading_frac,
         max_num_gene_nodes_per_factor=args.max_num_gene_nodes_per_factor,
@@ -1008,6 +1123,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         coordinate_scale=args.coordinate_scale,
         node_size_scale=args.node_size_scale,
         edge_max_width=args.edge_max_width,
+        label_max_chars=args.label_max_chars,
         colors_red_blue=args.colors_red_blue,
         seed=args.seed,
     )
@@ -1031,6 +1147,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
             trait_links_in,
             factors=factors,
             min_loading=config.trait_min_loading,
+            min_neff=config.trait_min_neff,
             min_loading_frac=config.trait_min_loading_frac,
             max_num_per_factor=config.max_num_trait_nodes_per_factor,
         )
@@ -1063,6 +1180,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gene-direct-col", default="log_bf")
     parser.add_argument("--gene-min-loading", type=float, default=0.01)
     parser.add_argument("--trait-min-loading", type=float, default=0.005)
+    parser.add_argument("--trait-min-neff", type=float, default=25.0, help="Minimum trait effective size for phenotype nodes when trait_neff/trait_n_eff is available.")
     parser.add_argument("--gene-min-loading-frac", type=float, default=0.5)
     parser.add_argument("--trait-min-loading-frac", type=float, default=0.5)
     parser.add_argument("--max-num-gene-nodes-per-factor", type=int, default=5)
@@ -1070,6 +1188,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--coordinate-scale", type=float, default=5.0)
     parser.add_argument("--node-size-scale", type=float, default=2.0)
     parser.add_argument("--edge-max-width", type=float, default=5.0)
+    parser.add_argument("--label-max-chars", type=int, default=20, help="Maximum displayed node label length; full labels remain available on hover. Use 0 to disable truncation.")
     parser.add_argument("--colors-red-blue", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
     return parser

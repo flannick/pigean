@@ -47,10 +47,12 @@ class EagglFactorGraphTest(unittest.TestCase):
         _write_gz(
             root / "trait_factor_links.out.gz",
             "trait\tfactor\tis_anchor\tjoint_fraction\tmarginal_fraction\ttrait_neff\n"
-            "TraitA\tFactor1\t0\t0.75\t0.9\t10\n"
-            "TraitA\tFactor2\t0\t0.05\t0.1\t10\n"
-            "TraitB\tFactor1\t0\t0.01\t0.1\t8\n"
-            "TraitB\tFactor2\t0\t0.8\t0.9\t8\n",
+            "TraitA\tFactor1\t0\t0.75\t0.9\t30\n"
+            "TraitA\tFactor2\t0\t0.05\t0.1\t30\n"
+            "TraitB\tFactor1\t0\t0.01\t0.1\t40\n"
+            "TraitB\tFactor2\t0\t0.8\t0.9\t40\n"
+            "TraitLowNeff\tFactor1\t0\t0.9\t0.9\t20\n"
+            "TraitLowNeff\tFactor2\t0\t0.1\t0.1\t20\n",
         )
 
     def test_discover_inputs_prefers_standard_eaggl_outputs(self) -> None:
@@ -80,9 +82,21 @@ class EagglFactorGraphTest(unittest.TestCase):
         self.assertEqual(node_by_id["GENE1"]["shape"], "circle")
         self.assertEqual(node_by_id["TraitA"]["shape"], "diamond")
         self.assertNotIn("GENE3", node_by_id)
+        self.assertNotIn("TraitLowNeff", node_by_id)
         edge_keys = {(edge["from"], edge["to"]) for edge in graph1["edges"]}
         self.assertIn(("Factor1", "GENE1"), edge_keys)
         self.assertIn(("Factor2", "TraitB"), edge_keys)
+
+    def test_trait_neff_filter_can_be_overridden(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(["--eaggl-dir", str(root), "--json-out", str(root / "graph.json"), "--trait-min-neff", "0"])
+            graph = factor_graph.build_graph_from_files(args)
+
+        node_by_id = {node["id"]: node for node in graph["nodes"]}
+        self.assertIn("TraitLowNeff", node_by_id)
 
     def test_module_cli_writes_json_and_html(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -123,6 +137,12 @@ class EagglFactorGraphTest(unittest.TestCase):
         self.assertIn("zoomOutButton", html_text)
         self.assertIn("use +/- to zoom", html_text)
         self.assertNotIn('addEventListener("wheel"', html_text)
+        self.assertIn("nodeFilterInput", html_text)
+        self.assertIn("node-type-filter", html_text)
+        self.assertIn("filterChips", html_text)
+        self.assertIn("phenotypes", html_text)
+        self.assertIn("addTextFilters", html_text)
+        self.assertIn("display_label", html_text)
         self.assertIn('"nodes"', html_text)
         self.assertNotIn("&quot;nodes&quot;", html_text)
         self.assertIn("GENE1", html_text)
@@ -138,6 +158,30 @@ class EagglFactorGraphTest(unittest.TestCase):
         node_by_id = {node["id"]: node for node in graph["nodes"]}
         self.assertEqual(node_by_id["GENE1"]["label"], "GENE1")
         self.assertEqual(node_by_id["Factor1"]["label"], "immune")
+
+    def test_display_labels_are_truncated_but_full_labels_remain(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(["--eaggl-dir", str(root), "--json-out", str(root / "graph.json"), "--label-max-chars", "6"])
+            graph = factor_graph.build_graph_from_files(args)
+
+        node_by_id = {node["id"]: node for node in graph["nodes"]}
+        self.assertEqual(node_by_id["Factor2"]["label"], "metabolic")
+        self.assertEqual(node_by_id["Factor2"]["display_label"], "met...")
+        self.assertEqual(node_by_id["GENE1"]["display_label"], "GENE1")
+
+    def test_display_label_truncation_can_be_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(["--eaggl-dir", str(root), "--json-out", str(root / "graph.json"), "--label-max-chars", "0"])
+            graph = factor_graph.build_graph_from_files(args)
+
+        node_by_id = {node["id"]: node for node in graph["nodes"]}
+        self.assertEqual(node_by_id["Factor2"]["display_label"], "metabolic")
 
     def test_module_cli_can_start_html_with_physics_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
