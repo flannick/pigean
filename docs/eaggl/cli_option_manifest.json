@@ -50,7 +50,7 @@
       "source_line": 91,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 181
+      "usage_references": 183
     },
     {
       "action": "append",
@@ -71,7 +71,7 @@
       "source_line": 92,
       "summary": "load a file listing sparse gene-set matrix inputs",
       "type": null,
-      "usage_references": 92
+      "usage_references": 93
     },
     {
       "action": "append",
@@ -92,7 +92,7 @@
       "source_line": 93,
       "summary": "load one or more dense gene-set matrix files directly",
       "type": null,
-      "usage_references": 60
+      "usage_references": 61
     },
     {
       "action": "append",
@@ -113,7 +113,7 @@
       "source_line": 94,
       "summary": "load a file listing dense gene-set matrix inputs",
       "type": null,
-      "usage_references": 52
+      "usage_references": 53
     },
     {
       "action": "store_true",
@@ -1079,7 +1079,7 @@
       "source_line": 201,
       "summary": "load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors",
       "type": null,
-      "usage_references": 71
+      "usage_references": 72
     },
     {
       "action": null,
@@ -2633,7 +2633,7 @@
       "source_line": 174,
       "summary": null,
       "type": null,
-      "usage_references": 31
+      "usage_references": 32
     },
     {
       "action": null,
@@ -2864,7 +2864,7 @@
       "source_line": 138,
       "summary": null,
       "type": null,
-      "usage_references": 20
+      "usage_references": 21
     },
     {
       "action": null,
@@ -2927,7 +2927,7 @@
       "source_line": 133,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 90
+      "usage_references": 92
     },
     {
       "action": null,
@@ -3053,7 +3053,7 @@
       "source_line": 146,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": null,
-      "usage_references": 148
+      "usage_references": 147
     },
     {
       "action": null,
@@ -4398,7 +4398,7 @@
       "source_line": 269,
       "summary": null,
       "type": "float",
-      "usage_references": 12
+      "usage_references": 13
     },
     {
       "action": null,
@@ -4419,7 +4419,7 @@
       "source_line": 270,
       "summary": null,
       "type": "float",
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -5238,7 +5238,7 @@
       "source_line": 233,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 170
+      "usage_references": 171
     },
     {
       "action": null,
@@ -5427,7 +5427,7 @@
       "source_line": 230,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 50
+      "usage_references": 53
     },
     {
       "action": null,

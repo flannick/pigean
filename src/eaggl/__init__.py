@@ -11,6 +11,7 @@ _PUBLIC_SUBMODULES = frozenset(
         "dispatch",
         "domain",
         "factor",
+        "factor_graph",
         "factor_runtime",
         "io",
         "labeling",
