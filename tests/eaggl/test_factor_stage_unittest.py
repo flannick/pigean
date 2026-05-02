@@ -1169,6 +1169,42 @@ class FactorStageHelpersTest(unittest.TestCase):
         np.testing.assert_allclose(runtime.gene_set_prob_factor_vector, runtime.exp_gene_set_factors)
         np.testing.assert_array_equal(runtime.gene_set_in_discovery_mask, [False, False])
 
+    def test_projection_only_projects_full_genes_directly_from_loaded_gene_factors(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.params = {}
+        runtime.genes = ["G1", "G2", "G3"]
+        runtime.gene_to_ind = {"G1": 0, "G2": 1, "G3": 2}
+        runtime.gene_sets = ["GS1", "GS2"]
+        runtime.gene_set_to_ind = {"GS1": 0, "GS2": 1}
+        runtime.X_orig = np.array(
+            [
+                [1.0, 0.0],
+                [0.0, 1.0],
+                [1.0, 0.0],
+            ],
+            dtype=float,
+        )
+        runtime.scale_factors = np.ones(2, dtype=float)
+        runtime.betas = np.ones(2, dtype=float)
+        loaded_genes = ["G1", "G2"]
+        loaded_gene_factors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+
+        domain = eaggl.build_main_domain()
+        eaggl.eaggl_factor._project_full_gene_factors_from_loaded_gene_factors(
+            domain,
+            runtime,
+            loaded_genes,
+            loaded_gene_factors,
+            gene_gene_beta_source="beta",
+        )
+
+        self.assertEqual(runtime.exp_gene_factors.shape, (3, 2))
+        np.testing.assert_allclose(runtime.exp_gene_factors[0], [1.0, 0.0])
+        np.testing.assert_allclose(runtime.exp_gene_factors[1], [0.0, 1.0])
+        self.assertGreater(runtime.exp_gene_factors[2, 0], runtime.exp_gene_factors[2, 1])
+        np.testing.assert_array_equal(runtime.gene_in_discovery_mask, [True, True, False])
+        self.assertEqual(runtime.params["factor_projection_only_gene_basis"], "genes_direct")
+
     def test_projection_only_x_read_disables_score_dependent_gene_set_filters(self) -> None:
         runtime = _ProjectionOnlyRuntimeStub()
         runtime.exp_gene_set_factors = None
@@ -1202,7 +1238,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             factor_gene_clusters_in="gene_clusters.tsv.gz",
             X_in="annotations.tsv.gz",
             gene_set_clusters_out="gene_set_clusters.tsv.gz",
-            gene_clusters_full_out="gene_clusters_full.tsv.gz",
+            gene_clusters_full_out=None,
             V_in=None,
             min_gene_set_size=1,
             max_gene_set_size=30000,
@@ -1251,7 +1287,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertIsNone(read_kwargs["prune_gene_sets"])
         self.assertIsNone(read_kwargs["weighted_prune_gene_sets"])
         self.assertFalse(read_kwargs["prune_deterministically"])
-        self.assertTrue(read_kwargs["add_all_genes"])
+        self.assertFalse(read_kwargs["add_all_genes"])
         self.assertTrue(read_kwargs["skip_betas"])
 
     def test_projection_only_x_read_honors_gene_set_stats_beta_uncorrected_filter(self) -> None:

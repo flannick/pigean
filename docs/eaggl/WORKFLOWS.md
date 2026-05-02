@@ -142,6 +142,8 @@ Phenotype annotation policy:
 20. to rerun canonical trait linkage from existing EAGGL factors on the gene basis, pass `--factor-gene-clusters-in results/gene_clusters.out.gz`; add `--trait-factor-links-out ...` to write the canonical long-form linkage table, `--run-factor-phewas --factor-phewas-stats-out ...` to write factor-PheWAS, or both in the same command
 21. `--factor-phewas-gene-clusters-in` remains accepted as a compatibility alias for the factor-PheWAS-only projection path, but `--factor-gene-clusters-in` is the canonical precomputed-factor input
 22. to rerun expert trait linkage from the gene-set basis, pass `--project-phenos-from-gene-sets --factor-gene-set-clusters-in results/gene_set_clusters.out.gz --gene-set-phewas-stats-in ... --trait-factor-links-out ...`; this uses the same projection basis as normal EAGGL factorization
+23. to project full genes from existing gene factors, pass `--factor-gene-clusters-in`, `--X-in`, `--gene-set-stats-in`, and `--gene-clusters-full-out`; this reconstructs direct beta-weighted gene-gene evidence
+24. to project full genes via an existing gene-set factor basis, pass `--factor-gene-set-clusters-in`, `--X-in`, and `--gene-clusters-full-out`; EAGGL does not infer this basis from `gene_clusters.out.gz`
 
 Projection-only trait linkage from the gene basis:
 
@@ -167,13 +169,29 @@ Projection-only trait linkage plus factor-PheWAS:
 ```bash
 $PYTHON -m eaggl factor \
   --factor-gene-clusters-in results/gene_clusters.out.gz \
-  --factor-gene-set-clusters-in results/gene_set_clusters.out.gz \
-  --project-phenos-from-gene-sets \
-  --gene-set-phewas-stats-in /path/to/gene_set_phewas_stats.out.gz \
   --gene-phewas-stats-in /path/to/gene_phewas_stats.out.gz \
   --trait-factor-links-out results/trait_factor_links.projected.out.gz \
   --run-factor-phewas \
   --factor-phewas-stats-out results/factor_phewas_stats.out.gz
+```
+
+Projection-only full-gene output from gene factors:
+
+```bash
+$PYTHON -m eaggl factor \
+  --factor-gene-clusters-in results/gene_clusters.out.gz \
+  --X-in /path/to/annotations.gmt \
+  --gene-set-stats-in /path/to/gene_set_stats.out.gz \
+  --gene-clusters-full-out results/gene_clusters_full.projected.out.gz
+```
+
+Projection-only full-gene output from gene-set factors:
+
+```bash
+$PYTHON -m eaggl factor \
+  --factor-gene-set-clusters-in results/gene_set_clusters.out.gz \
+  --X-in /path/to/annotations.gmt \
+  --gene-clusters-full-out results/gene_clusters_full.projected.out.gz
 ```
 
 Bundle mode:

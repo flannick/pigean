@@ -535,6 +535,21 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("require --gene-set-stats-in for projection-only X-backed", err)
 
+    def test_projection_only_full_gene_projection_from_gene_factors_requires_gene_set_stats(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--X-in",
+            "annotations.tsv.gz",
+            "--gene-clusters-full-out",
+            "gene_clusters_full.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("requires --gene-set-stats-in", err)
+        self.assertIn("reconstruct beta-weighted gene-gene evidence", err)
+
     def test_projection_only_cross_basis_allows_gene_set_stats_filter(self) -> None:
         proc = self._run(
             "factor",
@@ -558,6 +573,25 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["gene_set_stats_in"], "gene_set_stats.tsv.gz")
         self.assertEqual(payload["options"]["gene_set_stats_beta_uncorrected_col"], "beta_uncorrected")
         self.assertEqual(payload["options"]["min_gene_set_read_beta_uncorrected"], 0.01)
+
+    def test_projection_only_full_gene_projection_from_gene_factors_allows_gene_set_stats(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--X-in",
+            "annotations.tsv.gz",
+            "--gene-clusters-full-out",
+            "gene_clusters_full.tsv.gz",
+            "--gene-set-stats-in",
+            "gene_set_stats.tsv.gz",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["factor_gene_clusters_in"], "gene_clusters.out.gz")
+        self.assertEqual(payload["options"]["gene_clusters_full_out"], "gene_clusters_full.tsv.gz")
+        self.assertEqual(payload["options"]["gene_set_stats_in"], "gene_set_stats.tsv.gz")
 
     def test_projection_only_gene_clusters_out_is_reserved_for_original_loadings(self) -> None:
         proc = self._run(
@@ -616,6 +650,18 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--factor-gene-set-clusters-in with phenotype projection requires --gene-set-phewas-stats-in", err)
+
+    def test_projection_only_rejects_gene_set_cluster_rewrite(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--gene-set-clusters-out",
+            "gene_set_clusters.projected.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("would only rewrite the precomputed gene-set loadings", err)
 
     def test_projection_only_factor_phewas_flag_round_trip(self) -> None:
         proc = self._run(

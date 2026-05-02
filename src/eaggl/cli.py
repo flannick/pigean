@@ -1502,6 +1502,14 @@ def _bootstrap_cli(argv=None):
         }
         if parsed_options.gene_clusters_out is not None:
             bail("--gene-clusters-out is reserved for original fitted gene loadings; use --gene-clusters-full-out for projection-only gene loadings")
+        if parsed_options.factor_gene_set_clusters_in is not None and projection_requests["gene_set"]:
+            bail(
+                "--gene-set-clusters-out with --factor-gene-set-clusters-in would only rewrite the precomputed "
+                "gene-set loadings; use the input file directly or request a true projection output such as "
+                "--gene-clusters-full-out, --pheno-clusters-out, or --trait-factor-links-out"
+            )
+        if parsed_options.project_phenos_from_gene_sets and not projection_requests["pheno"]:
+            bail("--project-phenos-from-gene-sets only applies when requesting --pheno-clusters-out or --trait-factor-links-out")
         if (
             not parsed_options.run_factor_phewas
             and not any(projection_requests.values())
@@ -1533,6 +1541,16 @@ def _bootstrap_cli(argv=None):
             bail("--gene-set-clusters-out or --gene-clusters-full-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
         if projection_requests["gene"] and parsed_options.factor_gene_set_clusters_in is not None and not has_x_source:
             bail("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+        if (
+            projection_requests["gene"]
+            and parsed_options.factor_gene_clusters_in is not None
+            and parsed_options.gene_set_stats_in is None
+        ):
+            bail(
+                "--gene-clusters-full-out from --factor-gene-clusters-in requires --gene-set-stats-in "
+                "so EAGGL can reconstruct beta-weighted gene-gene evidence for direct full-gene projection. "
+                "To project genes via precomputed gene-set factors instead, pass --factor-gene-set-clusters-in."
+            )
         if has_x_source and (projection_requests["gene"] or projection_requests["gene_set"]):
             requested_gene_set_beta_filter = (
                 parsed_options.min_gene_set_read_beta is not None

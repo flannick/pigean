@@ -3610,7 +3610,16 @@ class EagglState(object):
     def write_full_gene_clusters(self, gene_clusters_output_file=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary"):
         if gene_clusters_output_file is None:
             return
-        if self.num_factors() == 0 or self.exp_gene_set_factors is None or self.X_orig is None:
+        has_projection_only_full_gene_factors = bool(self.params.get("factor_projection_only_gene_clusters", False)) and (
+            self.exp_gene_factors is not None
+            and self.genes is not None
+            and self.exp_gene_factors.shape[0] == len(self.genes)
+        )
+        if (
+            self.num_factors() == 0
+            or self.X_orig is None
+            or (self.exp_gene_set_factors is None and not has_projection_only_full_gene_factors)
+        ):
             log("No projected full-gene clusters available; not writing %s" % gene_clusters_output_file)
             return
 
@@ -3659,23 +3668,25 @@ class EagglState(object):
         discovery_model = str(_coerce_param_value("discovery_model", "gene_by_annotation"))
 
         gene_set_prob_factor_vector = _as_2d_or_none(self.gene_set_prob_factor_vector)
-        gene_set_in_discovery_mask = (
-            np.asarray(self.gene_set_in_discovery_mask, dtype=bool)
-            if self.gene_set_in_discovery_mask is not None
-            else np.ones(self.exp_gene_set_factors.shape[0], dtype=bool)
-        )
-        basis_gene_set_factors = np.asarray(self.exp_gene_set_factors, dtype=float)[gene_set_in_discovery_mask, :]
-        basis_gene_set_prob_vector = (
-            gene_set_prob_factor_vector[gene_set_in_discovery_mask, :]
-            if gene_set_prob_factor_vector is not None
-            else None
-        )
+        if self.exp_gene_set_factors is not None:
+            gene_set_in_discovery_mask = (
+                np.asarray(self.gene_set_in_discovery_mask, dtype=bool)
+                if self.gene_set_in_discovery_mask is not None
+                else np.ones(self.exp_gene_set_factors.shape[0], dtype=bool)
+            )
+            basis_gene_set_factors = np.asarray(self.exp_gene_set_factors, dtype=float)[gene_set_in_discovery_mask, :]
+            basis_gene_set_prob_vector = (
+                gene_set_prob_factor_vector[gene_set_in_discovery_mask, :]
+                if gene_set_prob_factor_vector is not None
+                else None
+            )
+        else:
+            gene_set_in_discovery_mask = None
+            basis_gene_set_factors = None
+            basis_gene_set_prob_vector = None
 
-        has_projection_only_gene_factors = bool(self.params.get("factor_projection_only_gene_clusters", False))
         if (
-            has_projection_only_gene_factors
-            and self.exp_gene_factors is not None
-            and self.exp_gene_factors.shape[0] == len(self.genes)
+            has_projection_only_full_gene_factors
         ):
             retained_projected_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
         elif discovery_model == "gene_by_gene":

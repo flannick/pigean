@@ -433,6 +433,65 @@ def _project_gene_factors_from_loaded_gene_set_factors(domain, runtime, loaded_g
     )
 
 
+def _project_full_gene_factors_from_loaded_gene_factors(
+    domain,
+    runtime,
+    loaded_genes,
+    loaded_gene_factors,
+    *,
+    gene_gene_beta_source="beta",
+):
+    if runtime.X_orig is None:
+        domain.bail("--gene-clusters-full-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+
+    beta_source = str(gene_gene_beta_source)
+    if beta_source == "beta" and getattr(runtime, "betas", None) is None:
+        domain.bail("--gene-clusters-full-out from --factor-gene-clusters-in requires beta values from --gene-set-stats-in")
+    if beta_source == "beta_uncorrected" and getattr(runtime, "betas_uncorrected", None) is None:
+        domain.bail(
+            "--gene-clusters-full-out from --factor-gene-clusters-in requires beta_uncorrected values from --gene-set-stats-in"
+        )
+
+    common_pairs = []
+    for loaded_index, gene in enumerate(loaded_genes):
+        matrix_index = runtime.gene_to_ind.get(gene) if runtime.gene_to_ind is not None else None
+        if matrix_index is not None:
+            common_pairs.append((matrix_index, loaded_index))
+    if len(common_pairs) == 0:
+        domain.bail("Could not align any genes between --factor-gene-clusters-in and X matrix for full-gene projection")
+    common_pairs.sort(key=lambda pair: pair[0])
+
+    discovery_gene_indices = [matrix_index for matrix_index, _loaded_index in common_pairs]
+    loaded_factor_indices = [loaded_index for _matrix_index, loaded_index in common_pairs]
+    retained_discovery_gene_factors = np.asarray(loaded_gene_factors, dtype=float)[loaded_factor_indices, :]
+    discovery_mask = np.full(len(runtime.genes), False, dtype=bool)
+    discovery_mask[discovery_gene_indices] = True
+
+    runtime.exp_gene_factors = retained_discovery_gene_factors
+    runtime.gene_in_discovery_mask = discovery_mask
+    runtime.gene_factor_gene_mask = discovery_mask
+    runtime._record_params(
+        {
+            "discovery_model": "gene_by_gene",
+            "gene_gene_beta_source": beta_source,
+            "factor_projection_only_gene_clusters": True,
+            "factor_projection_only_gene_basis": "genes_direct",
+            "factor_projection_only_gene_aligned_genes": len(common_pairs),
+        },
+        overwrite=True,
+    )
+
+    full_gene_factors = runtime.project_full_gene_factors_gene_by_gene(
+        retained_discovery_gene_factors=retained_discovery_gene_factors,
+        cap_genes=True,
+    )
+    if full_gene_factors is None:
+        domain.bail("Could not compute direct full-gene projection from --factor-gene-clusters-in")
+    runtime.exp_gene_factors = np.asarray(full_gene_factors, dtype=float)
+    runtime.gene_prob_factor_vector = np.asarray(runtime.exp_gene_factors, dtype=float)
+    return runtime.exp_gene_factors
+
+
 def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     if mode_state.get("factor_projection_only"):
         loaded_genes = None
@@ -533,18 +592,28 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
                     loaded_gene_factors,
                 )
             if loaded_gene_factors is not None and getattr(options, "gene_clusters_full_out", None) is not None:
-                if runtime.exp_gene_set_factors is None:
-                    _project_gene_set_factors_from_loaded_gene_factors(
-                        domain,
-                        runtime,
-                        loaded_genes,
-                        loaded_gene_factors,
-                    )
-                _project_gene_factors_from_loaded_gene_set_factors(
+                domain._read_gene_set_statistics(
+                    runtime,
+                    options.gene_set_stats_in,
+                    stats_id_col=options.gene_set_stats_id_col,
+                    stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
+                    stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
+                    stats_p_col=options.gene_set_stats_p_col,
+                    stats_se_col=options.gene_set_stats_se_col,
+                    stats_beta_col=options.gene_set_stats_beta_col,
+                    stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
+                    ignore_negative_exp_beta=options.ignore_negative_exp_beta,
+                    max_gene_set_p=None,
+                    min_gene_set_beta=options.min_gene_set_read_beta,
+                    min_gene_set_beta_uncorrected=_resolve_gene_set_read_beta_uncorrected_threshold(options),
+                    return_only_ids=False,
+                )
+                _project_full_gene_factors_from_loaded_gene_factors(
                     domain,
                     runtime,
-                    list(runtime.gene_sets),
-                    np.asarray(runtime.exp_gene_set_factors, dtype=float),
+                    loaded_genes,
+                    loaded_gene_factors,
+                    gene_gene_beta_source=getattr(options, "gene_gene_beta_source", "beta"),
                 )
             elif loaded_gene_factors is not None:
                 runtime.genes = loaded_genes
