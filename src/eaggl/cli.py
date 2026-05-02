@@ -1533,6 +1533,17 @@ def _bootstrap_cli(argv=None):
             bail("--gene-set-clusters-out or --gene-clusters-full-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
         if projection_requests["gene"] and parsed_options.factor_gene_set_clusters_in is not None and not has_x_source:
             bail("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+        if has_x_source and (projection_requests["gene"] or projection_requests["gene_set"]):
+            requested_gene_set_beta_filter = (
+                parsed_options.min_gene_set_read_beta is not None
+                or parsed_options.min_gene_set_read_beta_uncorrected is not None
+            )
+            if requested_gene_set_beta_filter and parsed_options.gene_set_stats_in is None:
+                bail(
+                    "--min-gene-set-read-beta/--min-gene-set-read-beta-uncorrected require "
+                    "--gene-set-stats-in for projection-only X-backed gene or gene-set outputs; "
+                    "otherwise EAGGL cannot determine which --X-in gene sets pass the beta filter"
+                )
     if parsed_options.consensus_aggregation not in set(["median", "mean"]):
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < parsed_options.consensus_min_factor_cosine <= 1):

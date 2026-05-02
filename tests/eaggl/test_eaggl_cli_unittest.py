@@ -519,6 +519,22 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in", err)
 
+    def test_projection_only_x_beta_filter_requires_gene_set_stats(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--X-in",
+            "annotations.tsv.gz",
+            "--gene-set-clusters-out",
+            "gene_set_clusters.tsv.gz",
+            "--min-gene-set-read-beta-uncorrected",
+            "0.01",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("require --gene-set-stats-in for projection-only X-backed", err)
+
     def test_projection_only_cross_basis_allows_gene_set_stats_filter(self) -> None:
         proc = self._run(
             "factor",
