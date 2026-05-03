@@ -652,6 +652,34 @@ def apply_parsed_gene_set_statistics_to_runtime(
     return None
 
 
+
+def _coerce_gene_set_stats_inputs(stats_in):
+    if stats_in is None:
+        return []
+    if isinstance(stats_in, (list, tuple)):
+        return [str(path) for path in stats_in]
+    return [str(stats_in)]
+
+
+def _merge_parsed_gene_set_statistics(parsed_items, *, warn_fn=None):
+    if warn_fn is None:
+        warn_fn = lambda _m: None
+    records = {}
+    for parsed in parsed_items:
+        for gene_set, values in parsed.records.items():
+            if gene_set in records:
+                warn_fn("Already seen gene set %s; only considering first instance" % gene_set)
+                continue
+            records[gene_set] = values
+    return ParsedGeneSetStats(
+        need_to_take_log=any(parsed.need_to_take_log for parsed in parsed_items),
+        has_beta_tilde=any(parsed.has_beta_tilde for parsed in parsed_items),
+        has_p_or_se=any(parsed.has_p_or_se for parsed in parsed_items),
+        has_beta=any(parsed.has_beta for parsed in parsed_items),
+        has_beta_uncorrected=any(parsed.has_beta_uncorrected for parsed in parsed_items),
+        records=records,
+    )
+
 def load_and_apply_gene_set_statistics_to_runtime(
     runtime,
     stats_in,
@@ -684,25 +712,32 @@ def load_and_apply_gene_set_statistics_to_runtime(
     if warn_fn is None:
         warn_fn = lambda _m: None
 
-    parsed_stats = parse_gene_set_statistics_file(
-        stats_in,
-        stats_id_col=stats_id_col,
-        stats_exp_beta_tilde_col=stats_exp_beta_tilde_col,
-        stats_beta_tilde_col=stats_beta_tilde_col,
-        stats_p_col=stats_p_col,
-        stats_se_col=stats_se_col,
-        stats_beta_col=stats_beta_col,
-        stats_beta_uncorrected_col=stats_beta_uncorrected_col,
-        ignore_negative_exp_beta=ignore_negative_exp_beta,
-        max_gene_set_p=max_gene_set_p,
-        min_gene_set_beta=min_gene_set_beta,
-        min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
-        open_text_fn=open_text_fn,
-        get_col_fn=get_col_fn,
-        log_fn=parse_log_fn,
-        warn_fn=warn_fn,
-        bail_fn=bail_fn,
-    )
+    stats_paths = _coerce_gene_set_stats_inputs(stats_in)
+    if not stats_paths:
+        bail_fn("Require --gene-set-stats-in for this operation")
+    parsed_items = [
+        parse_gene_set_statistics_file(
+            path,
+            stats_id_col=stats_id_col,
+            stats_exp_beta_tilde_col=stats_exp_beta_tilde_col,
+            stats_beta_tilde_col=stats_beta_tilde_col,
+            stats_p_col=stats_p_col,
+            stats_se_col=stats_se_col,
+            stats_beta_col=stats_beta_col,
+            stats_beta_uncorrected_col=stats_beta_uncorrected_col,
+            ignore_negative_exp_beta=ignore_negative_exp_beta,
+            max_gene_set_p=max_gene_set_p,
+            min_gene_set_beta=min_gene_set_beta,
+            min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
+            open_text_fn=open_text_fn,
+            get_col_fn=get_col_fn,
+            log_fn=parse_log_fn,
+            warn_fn=warn_fn,
+            bail_fn=bail_fn,
+        )
+        for path in stats_paths
+    ]
+    parsed_stats = _merge_parsed_gene_set_statistics(parsed_items, warn_fn=warn_fn)
     return apply_parsed_gene_set_statistics_to_runtime(
         runtime,
         parsed_stats,

@@ -1563,6 +1563,50 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertAlmostEqual(rt.betas[1], 0.0)
         np.testing.assert_array_equal(rt.subset_mask, np.array([True, False]))
 
+    def test_load_and_apply_gene_set_statistics_accepts_multiple_files(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.gene_sets = ["SET_A", "SET_B", "SET_C"]
+                self.gene_set_to_ind = {"SET_A": 0, "SET_B": 1, "SET_C": 2}
+                self.scale_factors = np.array([1.0, 1.0, 1.0])
+                self.X_orig = np.zeros((2, 3))
+                self.genes = ["G1", "G2"]
+                self.beta_tildes = None
+                self.betas = None
+
+            def subset_gene_sets(self, subset_mask, keep_missing=True, **_kwargs):
+                self.subset_mask = subset_mask.copy()
+                self.keep_missing = keep_missing
+
+            def _set_X(self, X_orig, genes, gene_sets, skip_N=True):
+                self.last_set_x = (X_orig, genes, gene_sets, skip_N)
+
+        with tempfile.TemporaryDirectory() as td:
+            first = Path(td) / "gene_set_stats_1.tsv"
+            second = Path(td) / "gene_set_stats_2.tsv"
+            first.write_text("Gene_Set\tbeta\nSET_A\t1.5\nSET_B\t2.5\n", encoding="utf-8")
+            second.write_text("Gene_Set\tbeta\nSET_C\t3.5\nSET_A\t9.0\n", encoding="utf-8")
+            warnings = []
+            rt = _Runtime()
+            pegs_utils.load_and_apply_gene_set_statistics_to_runtime(
+                rt,
+                [str(first), str(second)],
+                stats_id_col="Gene_Set",
+                stats_beta_col="beta",
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                warn_fn=warnings.append,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+                parse_log_fn=lambda _m: None,
+                apply_log_fn=lambda _m: None,
+            )
+
+        np.testing.assert_allclose(rt.betas, np.array([1.5, 2.5, 3.5]))
+        np.testing.assert_array_equal(rt.subset_mask, np.array([True, True, True]))
+        self.assertTrue(any("Already seen gene set SET_A" in warning for warning in warnings))
+
     def test_load_and_apply_gene_phewas_bfs_to_runtime(self) -> None:
         class _Runtime:
             def __init__(self) -> None:

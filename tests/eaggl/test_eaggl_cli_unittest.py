@@ -574,6 +574,28 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["gene_set_stats_beta_uncorrected_col"], "beta_uncorrected")
         self.assertEqual(payload["options"]["min_gene_set_read_beta_uncorrected"], 0.01)
 
+    def test_repeated_gene_set_stats_in_values_are_preserved_in_order(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--X-in",
+            "annotations.tsv.gz",
+            "--gene-set-clusters-out",
+            "gene_set_clusters.tsv.gz",
+            "--gene-set-stats-in",
+            "gene_set_stats_a.tsv.gz",
+            "--gene-set-stats-in",
+            "gene_set_stats_b.tsv.gz",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(
+            payload["options"]["gene_set_stats_in"],
+            ["gene_set_stats_a.tsv.gz", "gene_set_stats_b.tsv.gz"],
+        )
+
     def test_projection_only_full_gene_projection_from_gene_factors_allows_gene_set_stats(self) -> None:
         proc = self._run(
             "factor",

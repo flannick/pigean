@@ -80,6 +80,17 @@ usage = "usage: python -m eaggl [factor|naive_factor] [options]"
 get_comma_separated_args = pegs_callback_set_comma_separated_args
 get_comma_separated_args_as_set = pegs_callback_set_comma_separated_args_as_set
 
+
+def append_repeated_path_arg(option, opt_str, value, parser):
+    current = getattr(parser.values, option.dest, None)
+    if current is None:
+        setattr(parser.values, option.dest, value)
+    elif isinstance(current, list):
+        current.append(value)
+    else:
+        setattr(parser.values, option.dest, [current, value])
+
+
 parser = CliOptionParser(usage)
 #gene x gene_set matrix
 #each specification of these files is a different batch
@@ -130,7 +141,7 @@ parser.add_option("","--gene-list-max-fdr-q",type=float,default=0.05)
 
 #association statistics for gene bfs in each gene set (if precomputed)
 #REMINDER: the betas are all in *external* units
-parser.add_option("","--gene-set-stats-in",default=None)
+parser.add_option("","--gene-set-stats-in",type="string",action="callback",callback=append_repeated_path_arg,default=None)
 parser.add_option("","--gene-set-stats-id-col",default="Gene_Set")
 parser.add_option("","--gene-set-stats-exp-beta-tilde-col",default=None)
 parser.add_option("","--gene-set-stats-beta-tilde-col",default=None)

@@ -31,6 +31,22 @@ class PigeanCliTest(unittest.TestCase):
             check=False,
         )
 
+    def test_repeated_gene_set_stats_in_values_are_preserved_in_order(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gene-set-stats-in",
+            "gene_set_stats_a.tsv.gz",
+            "--gene-set-stats-in",
+            "gene_set_stats_b.tsv.gz",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(
+            payload["options"]["gene_set_stats_in"],
+            ["gene_set_stats_a.tsv.gz", "gene_set_stats_b.tsv.gz"],
+        )
+
     def test_removed_gene_bfs_flag_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--gene-bfs-in", "dummy.txt")
         self.assertNotEqual(proc.returncode, 0)
