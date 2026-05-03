@@ -2932,6 +2932,7 @@ def _candidate_target_acceptability_violations(
     target_gene_effective_support,
     min_primary_factors,
     max_primary_gene_max_weight_q90,
+    redundancy_hard_filter=True,
 ):
     violations = []
     if int(candidate.get("modal_factor_count", 0)) <= 0:
@@ -2940,10 +2941,11 @@ def _candidate_target_acceptability_violations(
         violations.append("too_few_primary_factors")
     if _candidate_target_size_value(candidate, target_metric=target_metric) is None:
         violations.append("undefined_target_size")
-    if float(candidate.get("redundancy_max", 0.0)) > float(max_redundancy):
-        violations.append("redundancy_max")
-    if float(candidate.get("redundancy_q90", 0.0)) > float(max_redundancy_q90):
-        violations.append("redundancy_q90")
+    if redundancy_hard_filter:
+        if float(candidate.get("redundancy_max", 0.0)) > float(max_redundancy):
+            violations.append("redundancy_max")
+        if float(candidate.get("redundancy_q90", 0.0)) > float(max_redundancy_q90):
+            violations.append("redundancy_q90")
     if float(candidate.get("run_support", 0.0)) < float(min_run_support):
         violations.append("run_support")
     if runs_per_step > 1:
@@ -2966,7 +2968,14 @@ def _candidate_target_acceptability_violations(
     return violations
 
 
-def _candidate_selection_warnings(candidate, *, fit_warning_limit):
+def _candidate_selection_warnings(
+    candidate,
+    *,
+    fit_warning_limit,
+    max_redundancy=None,
+    max_redundancy_q90=None,
+    redundancy_hard_filter=True,
+):
     warnings = []
     if fit_warning_limit is not None:
         best_error = _coerce_candidate_float(candidate.get("best_error"))
@@ -2974,6 +2983,11 @@ def _candidate_selection_warnings(candidate, *, fit_warning_limit):
             warnings.append("fit_missing")
         elif best_error > float(fit_warning_limit) + 1e-12:
             warnings.append("fit_loss")
+    if not redundancy_hard_filter:
+        if max_redundancy is not None and float(candidate.get("redundancy_max", 0.0)) > float(max_redundancy):
+            warnings.append("redundancy_max")
+        if max_redundancy_q90 is not None and float(candidate.get("redundancy_q90", 0.0)) > float(max_redundancy_q90):
+            warnings.append("redundancy_q90")
     return warnings
 
 
@@ -2992,6 +3006,7 @@ def _select_phi_candidate(
     min_primary_factors,
     max_primary_gene_max_weight_q90,
     runs_per_step,
+    redundancy_hard_filter=True,
 ):
     if target_gene_mass is not None:
         target_metric = "gene_mass"
@@ -3026,8 +3041,15 @@ def _select_phi_candidate(
         candidate["selection_target_ratio"] = candidate[target_ratio_field]
         candidate["selection_fit_warning_limit"] = fit_warning_limit
         candidate["selection_severe_fit_limit"] = severe_fit_limit
+        candidate["selection_redundancy_hard_filter"] = bool(redundancy_hard_filter)
         candidate["selection_warnings"] = ",".join(
-            _candidate_selection_warnings(candidate, fit_warning_limit=fit_warning_limit)
+            _candidate_selection_warnings(
+                candidate,
+                fit_warning_limit=fit_warning_limit,
+                max_redundancy=max_redundancy,
+                max_redundancy_q90=max_redundancy_q90,
+                redundancy_hard_filter=redundancy_hard_filter,
+            )
         )
 
     acceptable = []
@@ -3044,6 +3066,7 @@ def _select_phi_candidate(
             target_gene_effective_support=target_gene_effective_support,
             min_primary_factors=min_primary_factors,
             max_primary_gene_max_weight_q90=max_primary_gene_max_weight_q90,
+            redundancy_hard_filter=redundancy_hard_filter,
         )
         candidate["selection_violations"] = ",".join(violations)
         if len(violations) == 0:
@@ -3163,6 +3186,7 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
         "target_gene_effective_support_ratio",
         "selection_fit_warning_limit",
         "selection_severe_fit_limit",
+        "selection_redundancy_hard_filter",
         "selection_violations",
         "selection_warnings",
         "selection_target_tolerance_log",
@@ -3377,6 +3401,7 @@ def _record_phi_search_params(
     prune_genes_num,
     prune_gene_sets_num,
     max_num_iterations,
+    redundancy_hard_filter=True,
 ):
     state._record_params(
         {
@@ -3386,6 +3411,7 @@ def _record_phi_search_params(
             "learn_phi_selection_reason": selection_reason,
             "learn_phi_max_redundancy": float(max_redundancy),
             "learn_phi_max_redundancy_q90": float(max_redundancy_q90),
+            "learn_phi_redundancy_hard_filter": bool(redundancy_hard_filter),
             "learn_phi_runs_per_step": int(runs_per_step),
             "learn_phi_min_run_support": float(min_run_support),
             "learn_phi_min_stability": float(min_stability),
@@ -3538,6 +3564,7 @@ def _learn_phi(
     factor_kwargs,
     log_fn,
     info_level,
+    redundancy_hard_filter=True,
 ):
     candidates_by_phi = {}
     _reset_phi_prefixed_outputs(
@@ -3722,6 +3749,7 @@ def _learn_phi(
         min_primary_factors=min_primary_factors,
         max_primary_gene_max_weight_q90=max_primary_gene_max_weight_q90,
         runs_per_step=runs_per_step,
+        redundancy_hard_filter=redundancy_hard_filter,
     )
     _record_phi_search_params(
         state,
@@ -3750,6 +3778,7 @@ def _learn_phi(
         prune_genes_num=prune_genes_num,
         prune_gene_sets_num=prune_gene_sets_num,
         max_num_iterations=max_num_iterations,
+        redundancy_hard_filter=redundancy_hard_filter,
     )
     _write_phi_search_report(
         report_out,
@@ -5217,7 +5246,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         and learn_phi_target_gene_mass is None
         and learn_phi_target_gene_effective_support is None
     ):
-        learn_phi_target_gene_mass = 30.0
+        learn_phi_target_gene_mass = 40.0
 
     if factor_runs < 1:
         bail("--factor-runs must be at least 1")
@@ -5568,6 +5597,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             factor_kwargs=factor_kwargs,
             log_fn=log,
             info_level=INFO,
+            redundancy_hard_filter=(str(discovery_model) != "gene_by_gene"),
         )
         phi = float(selected_candidate["phi"])
         factor_kwargs["phi"] = phi

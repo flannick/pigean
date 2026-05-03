@@ -433,12 +433,18 @@ class FactorStageHelpersTest(unittest.TestCase):
     def test_build_factor_execution_config_uses_gene_by_gene_defaults(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
         factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
-        options = _options(discovery_model="gene_by_gene", gene_filter_value=None, max_num_discovery_genes=None)
+        options = _options(
+            discovery_model="gene_by_gene",
+            gene_filter_value=None,
+            max_num_discovery_genes=None,
+            learn_phi=True,
+        )
         cfg = eaggl._build_factor_execution_config(options, workflow, factor_inputs)
         self.assertEqual(cfg.discovery_model, "gene_by_gene")
         self.assertEqual(cfg.gene_or_pheno_filter_type, "priors")
         self.assertEqual(cfg.gene_or_pheno_filter_value, 0.5)
         self.assertEqual(cfg.learn_phi_prune_genes_num, 1000)
+        self.assertEqual(cfg.learn_phi_target_gene_mass, 40.0)
 
     def test_build_factor_execution_config_gene_by_gene_shares_discovery_gene_cap_with_phi_search(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)

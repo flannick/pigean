@@ -11,7 +11,7 @@ from . import gene_list_inputs as eaggl_gene_list_inputs
 from . import factor_runtime as eaggl_factor_runtime
 from . import phewas as eaggl_phewas
 
-_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS = 30.0
+_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS = 40.0
 
 
 @dataclass

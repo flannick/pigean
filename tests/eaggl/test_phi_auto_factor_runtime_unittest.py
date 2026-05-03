@@ -1592,6 +1592,92 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertGreaterEqual(selected["selection_frontier_size"], 1)
         self.assertIsNone(selected["selection_marginal_gain"])
 
+    def test_select_phi_candidate_can_treat_redundancy_as_warning(self) -> None:
+        candidates = [
+            {
+                "phi": 0.08,
+                "modal_factor_count": 4,
+                "primary_factor_count": 4,
+                "run_support": 1.0,
+                "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
+                "redundancy": 0.9,
+                "redundancy_max": 0.9,
+                "redundancy_q90": 0.8,
+                "best_error": 40.0,
+                "best_evidence": 9.0,
+                "effective_factor_count": 3.9,
+                "mass_ge_floor_factor_count": 4,
+                "primary_gene_mass_median": 40.0,
+                "primary_gene_effective_support_median": 20.0,
+                "primary_gene_max_jaccard_vs_all_q90": 0.8,
+                "primary_gene_max_weight_q90": 0.2,
+            },
+            {
+                "phi": 0.04,
+                "modal_factor_count": 4,
+                "primary_factor_count": 4,
+                "run_support": 1.0,
+                "stability": 0.95,
+                "stability_defined": True,
+                "num_modal_runs": 3,
+                "capped": False,
+                "redundancy": 0.2,
+                "redundancy_max": 0.2,
+                "redundancy_q90": 0.1,
+                "best_error": 40.0,
+                "best_evidence": 9.0,
+                "effective_factor_count": 3.9,
+                "mass_ge_floor_factor_count": 4,
+                "primary_gene_mass_median": 80.0,
+                "primary_gene_effective_support_median": 40.0,
+                "primary_gene_max_jaccard_vs_all_q90": 0.1,
+                "primary_gene_max_weight_q90": 0.2,
+            },
+        ]
+        selected, reason = eaggl_factor_runtime._select_phi_candidate(
+            candidates,
+            max_redundancy=0.5,
+            max_redundancy_q90=0.35,
+            min_run_support=0.6,
+            min_stability=0.85,
+            fit_loss_warning_frac=0.05,
+            max_severe_fit_loss_frac=1.0,
+            target_gene_mass=40.0,
+            target_gene_effective_support=None,
+            size_tolerance_frac=0.25,
+            min_primary_factors=3,
+            max_primary_gene_max_weight_q90=None,
+            runs_per_step=3,
+            redundancy_hard_filter=False,
+        )
+        self.assertEqual(reason, "target_gene_mass_in_tolerance")
+        self.assertEqual(selected["phi"], 0.08)
+        self.assertEqual(selected["selection_violations"], "")
+        self.assertEqual(selected["selection_warnings"], "redundancy_max,redundancy_q90")
+        self.assertFalse(selected["selection_redundancy_hard_filter"])
+
+        selected_hard, reason_hard = eaggl_factor_runtime._select_phi_candidate(
+            [candidate.copy() for candidate in candidates],
+            max_redundancy=0.5,
+            max_redundancy_q90=0.35,
+            min_run_support=0.6,
+            min_stability=0.85,
+            fit_loss_warning_frac=0.05,
+            max_severe_fit_loss_frac=1.0,
+            target_gene_mass=40.0,
+            target_gene_effective_support=None,
+            size_tolerance_frac=0.25,
+            min_primary_factors=3,
+            max_primary_gene_max_weight_q90=None,
+            runs_per_step=3,
+            redundancy_hard_filter=True,
+        )
+        self.assertEqual(reason_hard, "target_gene_mass_closest")
+        self.assertEqual(selected_hard["phi"], 0.04)
+
     def test_select_phi_candidate_excludes_severe_underfit_even_if_target_size_matches(self) -> None:
         candidates = [
             {

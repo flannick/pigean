@@ -296,6 +296,18 @@ class EagglCliTest(unittest.TestCase):
             "--deterministic",
             "--discovery-model",
             "gene_by_gene",
+            "--learn-phi",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["learn_phi_target_gene_mass"], 40.0)
+
+        proc = self._run(
+            "factor",
+            "--deterministic",
+            "--discovery-model",
+            "gene_by_gene",
             "--phi",
             "0.002",
             "--print-effective-config",
