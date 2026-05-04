@@ -7,17 +7,12 @@ from dataclasses import dataclass
 class FactorOutputPlan:
     factors_out: str | None = None
     factor_metrics_out: str | None = None
-    factors_anchor_out: str | None = None
     consensus_stats_out: str | None = None
     gene_set_clusters_out: str | None = None
     gene_clusters_out: str | None = None
     gene_clusters_full_out: str | None = None
     trait_factor_links_out: str | None = None
     trait_factor_links_output_detail: str = "main"
-    pheno_clusters_out: str | None = None
-    gene_set_anchor_clusters_out: str | None = None
-    gene_anchor_clusters_out: str | None = None
-    pheno_anchor_clusters_out: str | None = None
     gene_pheno_stats_out: str | None = None
     max_no_write_gene_pheno: object = None
     cluster_row_min_max_loading: float = 0.01
@@ -57,17 +52,12 @@ def build_factor_output_plan(options):
     return FactorOutputPlan(
         factors_out=options.factors_out,
         factor_metrics_out=options.factor_metrics_out,
-        factors_anchor_out=options.factors_anchor_out,
         consensus_stats_out=options.consensus_stats_out,
         gene_set_clusters_out=options.gene_set_clusters_out,
         gene_clusters_out=options.gene_clusters_out,
         gene_clusters_full_out=getattr(options, "gene_clusters_full_out", None),
         trait_factor_links_out=getattr(options, "trait_factor_links_out", None),
         trait_factor_links_output_detail=getattr(options, "trait_factor_links_output_detail", "main"),
-        pheno_clusters_out=options.pheno_clusters_out,
-        gene_set_anchor_clusters_out=options.gene_set_anchor_clusters_out,
-        gene_anchor_clusters_out=options.gene_anchor_clusters_out,
-        pheno_anchor_clusters_out=options.pheno_anchor_clusters_out,
         gene_pheno_stats_out=options.gene_pheno_stats_out,
         max_no_write_gene_pheno=options.max_no_write_gene_pheno,
         cluster_row_min_max_loading=getattr(options, "cluster_row_min_max_loading", 0.01),
@@ -80,8 +70,6 @@ def write_factor_outputs_for_plan(runtime, output_plan):
         runtime.write_matrix_factors(output_plan.factors_out, factor_output_scope=output_plan.factor_output_scope)
     if output_plan.factor_metrics_out is not None:
         runtime.write_factor_metrics(output_plan.factor_metrics_out)
-    if output_plan.factors_anchor_out is not None:
-        runtime.write_matrix_factors(output_plan.factors_anchor_out, write_anchor_specific=True, factor_output_scope=output_plan.factor_output_scope)
     if output_plan.consensus_stats_out is not None:
         runtime.write_consensus_factor_diagnostics(output_plan.consensus_stats_out)
     if (
@@ -104,23 +92,8 @@ def write_factor_outputs_for_plan(runtime, output_plan):
     trait_factor_link_paths = []
     if output_plan.trait_factor_links_out is not None:
         trait_factor_link_paths.append(output_plan.trait_factor_links_out)
-    if output_plan.pheno_clusters_out is not None:
-        trait_factor_link_paths.append(output_plan.pheno_clusters_out)
     for output_path in dict.fromkeys(trait_factor_link_paths):
         runtime.write_trait_factor_links(output_path, output_detail=output_plan.trait_factor_links_output_detail)
-    if (
-        output_plan.gene_set_anchor_clusters_out is not None
-        or output_plan.gene_anchor_clusters_out is not None
-        or output_plan.pheno_anchor_clusters_out is not None
-    ):
-        runtime.write_clusters(
-            output_plan.gene_set_anchor_clusters_out,
-            output_plan.gene_anchor_clusters_out,
-            output_plan.pheno_anchor_clusters_out,
-            write_anchor_specific=True,
-            cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
-            factor_output_scope=output_plan.factor_output_scope,
-        )
     if output_plan.gene_pheno_stats_out is not None:
         runtime.write_gene_pheno_statistics(
             output_plan.gene_pheno_stats_out,

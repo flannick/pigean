@@ -188,8 +188,6 @@ class EagglCliReferenceTest(unittest.TestCase):
 
         pheno_anchor = self._run_ok(
             "factor",
-            "--anchor-phenos",
-            "T2D,T2D_ALT",
             "--gene-phewas-stats-in",
             "gene_phewas.tsv",
             "--gene-set-phewas-stats-in",
@@ -197,59 +195,12 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--print-effective-config",
         )
         pheno_payload = json.loads(pheno_anchor.stdout)
-        self.assertEqual(pheno_payload["options"]["anchor_phenos"], ["T2D", "T2D_ALT"])
-        self.assertFalse(pheno_payload["options"]["anchor_any_pheno"])
+        self.assertEqual(pheno_payload["factor_workflow"]["id"], "F4")
+        self.assertTrue(pheno_payload["factor_workflow"]["use_phewas_for_factoring"])
 
-        any_pheno_anchor = self._run_ok(
-            "factor",
-            "--anchor-any-pheno",
-            "--gene-phewas-stats-in",
-            "gene_phewas.tsv",
-            "--gene-set-phewas-stats-in",
-            "gene_set_phewas.tsv",
-            "--print-effective-config",
-        )
-        any_pheno_payload = json.loads(any_pheno_anchor.stdout)
-        self.assertTrue(any_pheno_payload["options"]["anchor_any_pheno"])
-
-        gene_anchor = self._run_ok(
-            "factor",
-            "--anchor-genes",
-            "INS,GCK",
-            "--gene-phewas-stats-in",
-            "gene_phewas.tsv",
-            "--gene-set-phewas-stats-in",
-            "gene_set_phewas.tsv",
-            "--print-effective-config",
-        )
-        gene_payload = json.loads(gene_anchor.stdout)
-        self.assertEqual(sorted(gene_payload["options"]["anchor_genes"]), ["GCK", "INS"])
-        self.assertFalse(gene_payload["options"]["anchor_any_gene"])
-
-        any_gene_anchor = self._run_ok(
-            "factor",
-            "--anchor-any-gene",
-            "--gene-phewas-stats-in",
-            "gene_phewas.tsv",
-            "--gene-set-phewas-stats-in",
-            "gene_set_phewas.tsv",
-            "--print-effective-config",
-        )
-        any_gene_payload = json.loads(any_gene_anchor.stdout)
-        self.assertTrue(any_gene_payload["options"]["anchor_any_gene"])
-
-        gene_set_anchor = self._run_ok(
-            "factor",
-            "--anchor-gene-set",
-            "--run-phewas",
-            "--gene-phewas-stats-in",
-            "gene_phewas.tsv",
-            "--phewas-stats-out",
-            "phewas.tsv",
-            "--print-effective-config",
-        )
-        gene_set_payload = json.loads(gene_set_anchor.stdout)
-        self.assertTrue(gene_set_payload["options"]["anchor_gene_set"])
+        removed_anchor = self._run("factor", "--anchor-genes", "INS", "--print-effective-config")
+        self.assertEqual(removed_anchor.returncode, 2)
+        self.assertIn("option --anchor-genes has been removed", removed_anchor.stderr)
 
     def test_reference_phewas_and_schema_flags_round_trip(self) -> None:
         proc = self._run_ok(
@@ -441,8 +392,6 @@ class EagglCliReferenceTest(unittest.TestCase):
             "factors.tsv",
             "--factor-metrics-out",
             "factor_metrics.tsv",
-            "--factors-anchor-out",
-            "factors_anchor.tsv",
             "--consensus-stats-out",
             "consensus.tsv",
             "--gene-set-clusters-out",
@@ -459,14 +408,6 @@ class EagglCliReferenceTest(unittest.TestCase):
             "full",
             "--trait-linkage-source",
             "combined",
-            "--pheno-clusters-out",
-            "pheno_clusters.tsv",
-            "--gene-set-anchor-clusters-out",
-            "gene_set_anchor.tsv",
-            "--gene-anchor-clusters-out",
-            "gene_anchor.tsv",
-            "--pheno-anchor-clusters-out",
-            "pheno_anchor.tsv",
             "--factor-phewas-stats-out",
             "factor_phewas.tsv",
             "--gene-pheno-stats-out",
@@ -546,7 +487,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["trait_factor_links_output_detail"], "full")
         self.assertEqual(opts["trait_linkage_source"], "combined")
         self.assertEqual(opts["trait_linkage_computation_mode"], "sparse_full")
-        self.assertEqual(opts["pheno_clusters_out"], "pheno_clusters.tsv")
+        self.assertEqual(opts["trait_factor_links_out"], "trait_factor_links.tsv")
         self.assertEqual(opts["consensus_stats_out"], "consensus.tsv")
         self.assertEqual(opts["clustering_params_out"], "clustering_params.tsv.gz")
         self.assertEqual(opts["params_out"], "params.tsv")
@@ -607,11 +548,6 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--positive-controls-in": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--positive-controls-list": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--positive-controls-all-in": ["test_reference_workflow_selector_flags_round_trip"],
-            "--anchor-phenos": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
-            "--anchor-any-pheno": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
-            "--anchor-genes": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
-            "--anchor-any-gene": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
-            "--anchor-gene-set": ["test_reference_workflow_selector_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--gene-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--gene-set-phewas-stats-in": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
             "--run-phewas": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_workflow_ids_in_effective_config"],
@@ -626,8 +562,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--factor-gene-set-clusters-in": ["test_projection_only_factor_phewas_flag_round_trip"],
             "--factor-phewas-thresholded-combined-cutoff": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--factor-phewas-se": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
-            "--factor-gene-clusters-in": ["test_projection_only_pheno_clusters_flag_round_trip", "test_projection_only_trait_factor_links_flag_round_trip"],
-            "--factor-gene-set-clusters-in": ["test_projection_only_gene_set_pheno_clusters_flag_round_trip"],
+            "--factor-gene-clusters-in": ["test_projection_only_trait_factor_links_flag_round_trip", "test_projection_only_trait_factor_links_flag_round_trip"],
+            "--factor-gene-set-clusters-in": ["test_projection_only_gene_set_trait_factor_links_flag_round_trip"],
             "--project-phenos-from-gene-sets": ["test_reference_phewas_and_schema_flags_round_trip"],
             "--pheno-capture-input": ["test_reference_phewas_and_schema_flags_round_trip", "test_factor_phewas_and_capture_defaults_round_trip"],
             "--gene-stats-id-col": ["test_reference_phewas_and_schema_flags_round_trip"],
@@ -717,7 +653,6 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--label-include-phenos": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--label-individually": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factors-out": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--factors-anchor-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-set-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
@@ -729,10 +664,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--trait-linkage-source": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-trait-linkage": ["test_cli_manifest_tiers_cover_recent_factor_and_gene_list_flags"],
-            "--pheno-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--gene-set-anchor-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--gene-anchor-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--pheno-anchor-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--trait-factor-links-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-phewas-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-pheno-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--clustering-params-out": ["test_reference_factor_and_labeling_flags_round_trip"],

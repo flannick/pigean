@@ -92,12 +92,13 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("--factor-backend", proc.stdout)
         self.assertIn("--learn-phi-backend", proc.stdout)
 
-    def test_default_help_uses_canonical_anchor_flags(self) -> None:
+    def test_default_help_hides_removed_anchor_flags(self) -> None:
         proc = self._run("factor", "--help")
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("--anchor-genes", proc.stdout)
-        self.assertIn("--anchor-phenos", proc.stdout)
         self.assertIn("--gene-list", proc.stdout)
+        self.assertIn("--gene-phewas-stats-in", proc.stdout)
+        self.assertNotIn("--anchor-genes", proc.stdout)
+        self.assertNotIn("--anchor-phenos", proc.stdout)
         self.assertNotIn("--positive-controls-list", proc.stdout)
         self.assertNotIn("--anchor-gene ", proc.stdout)
         self.assertNotIn("--anchor-pheno ", proc.stdout)
@@ -435,7 +436,7 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--anchor-phenos/--anchor-any-pheno select PheWAS-driven factorization", err)
+        self.assertIn("option --anchor-phenos has been removed", err)
 
     def test_anchor_genes_conflicts_with_gene_stats_inputs(self) -> None:
         proc = self._run(
@@ -451,7 +452,7 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--anchor-genes/--anchor-any-gene select PheWAS-driven factorization", err)
+        self.assertIn("option --anchor-genes has been removed", err)
 
     def test_projection_only_conflicts_with_x_input(self) -> None:
         proc = self._run(
@@ -485,13 +486,13 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("cannot be combined with --gene-set-stats-in", err)
 
-    def test_projection_only_pheno_clusters_requires_gene_phewas_input(self) -> None:
+    def test_projection_only_trait_factor_links_requires_gene_phewas_input(self) -> None:
         proc = self._run(
             "factor",
             "--factor-gene-clusters-in",
             "gene_clusters.out.gz",
-            "--pheno-clusters-out",
-            "pheno_clusters.tsv.gz",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
@@ -660,14 +661,14 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("--trait-factor-links-output-detail must be one of: main, full, debug", err)
         self.assertNotIn("Traceback", err)
 
-    def test_projection_only_gene_set_pheno_clusters_requires_gene_set_inputs(self) -> None:
+    def test_projection_only_gene_set_trait_factor_links_requires_gene_set_inputs(self) -> None:
         proc = self._run(
             "factor",
             "--factor-gene-clusters-in",
             "gene_clusters.out.gz",
             "--project-phenos-from-gene-sets",
-            "--pheno-clusters-out",
-            "pheno_clusters.tsv.gz",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
@@ -678,8 +679,8 @@ class EagglCliTest(unittest.TestCase):
             "--factor-gene-set-clusters-in",
             "gene_set_clusters.out.gz",
             "--project-phenos-from-gene-sets",
-            "--pheno-clusters-out",
-            "pheno_clusters.tsv.gz",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
@@ -716,22 +717,22 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["factor_gene_clusters_in"], "gene_clusters.out.gz")
         self.assertEqual(payload["options"]["run_factor_phewas_input"], "gene_phewas.tsv")
 
-    def test_projection_only_pheno_clusters_flag_round_trip(self) -> None:
+    def test_projection_only_trait_factor_links_flag_round_trip(self) -> None:
         proc = self._run(
             "factor",
             "--factor-gene-clusters-in",
             "gene_clusters.out.gz",
             "--gene-phewas-stats-in",
             "gene_phewas.tsv",
-            "--pheno-clusters-out",
-            "pheno_clusters.tsv.gz",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
             "--print-effective-config",
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["options"]["factor_gene_clusters_in"], "gene_clusters.out.gz")
         self.assertEqual(payload["options"]["gene_phewas_bfs_in"], "gene_phewas.tsv")
-        self.assertEqual(payload["options"]["pheno_clusters_out"], "pheno_clusters.tsv.gz")
+        self.assertEqual(payload["options"]["trait_factor_links_out"], "trait_factor_links.tsv.gz")
 
     def test_projection_only_trait_factor_links_flag_round_trip(self) -> None:
         proc = self._run(
@@ -753,7 +754,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["trait_factor_links_out"], "trait_factor_links.tsv.gz")
         self.assertEqual(payload["options"]["trait_linkage_source"], "log_bf")
 
-    def test_projection_only_can_request_pheno_clusters_and_factor_phewas(self) -> None:
+    def test_projection_only_can_request_trait_factor_links_and_factor_phewas(self) -> None:
         proc = self._run(
             "factor",
             "--run-factor-phewas",
@@ -761,8 +762,8 @@ class EagglCliTest(unittest.TestCase):
             "gene_clusters.out.gz",
             "--gene-phewas-stats-in",
             "gene_phewas.tsv",
-            "--pheno-clusters-out",
-            "pheno_clusters.tsv.gz",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
             "--factor-phewas-stats-out",
             "factor_phewas.tsv.gz",
             "--print-effective-config",
@@ -771,10 +772,10 @@ class EagglCliTest(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertTrue(payload["options"]["run_factor_phewas"])
         self.assertEqual(payload["options"]["factor_gene_clusters_in"], "gene_clusters.out.gz")
-        self.assertEqual(payload["options"]["pheno_clusters_out"], "pheno_clusters.tsv.gz")
+        self.assertEqual(payload["options"]["trait_factor_links_out"], "trait_factor_links.tsv.gz")
         self.assertEqual(payload["options"]["factor_phewas_stats_out"], "factor_phewas.tsv.gz")
 
-    def test_projection_only_gene_set_pheno_clusters_flag_round_trip(self) -> None:
+    def test_projection_only_gene_set_trait_factor_links_flag_round_trip(self) -> None:
         proc = self._run(
             "factor",
             "--factor-gene-set-clusters-in",
@@ -782,8 +783,8 @@ class EagglCliTest(unittest.TestCase):
             "--gene-set-phewas-stats-in",
             "gene_set_phewas.tsv",
             "--project-phenos-from-gene-sets",
-            "--pheno-clusters-out",
-            "pheno_clusters.tsv.gz",
+            "--trait-factor-links-out",
+            "trait_factor_links.tsv.gz",
             "--print-effective-config",
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
@@ -791,7 +792,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["factor_gene_set_clusters_in"], "gene_set_clusters.out.gz")
         self.assertEqual(payload["options"]["gene_set_phewas_stats_in"], "gene_set_phewas.tsv")
         self.assertTrue(payload["options"]["project_phenos_from_gene_sets"])
-        self.assertEqual(payload["options"]["pheno_clusters_out"], "pheno_clusters.tsv.gz")
+        self.assertEqual(payload["options"]["trait_factor_links_out"], "trait_factor_links.tsv.gz")
 
     def test_legacy_run_phewas_alias_normalizes_to_run_flag(self) -> None:
         proc = self._run(
@@ -924,65 +925,10 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
             (
                 "F4",
                 [
-                    "--anchor-phenos",
-                    "T2D,T2D_ALT",
                     "--gene-phewas-stats-in",
                     "dummy_gene_phewas.tsv",
                     "--gene-set-phewas-stats-in",
                     "dummy_gene_set_phewas.tsv",
-                ],
-            ),
-            (
-                "F5",
-                [
-                    "--anchor-any-pheno",
-                    "--gene-phewas-stats-in",
-                    "dummy_gene_phewas.tsv",
-                    "--gene-set-phewas-stats-in",
-                    "dummy_gene_set_phewas.tsv",
-                ],
-            ),
-            (
-                "F6",
-                [
-                    "--anchor-genes",
-                    "INS",
-                    "--gene-phewas-stats-in",
-                    "dummy_gene_phewas.tsv",
-                    "--gene-set-phewas-stats-in",
-                    "dummy_gene_set_phewas.tsv",
-                ],
-            ),
-            (
-                "F7",
-                [
-                    "--anchor-genes",
-                    "INS,GCK",
-                    "--gene-phewas-stats-in",
-                    "dummy_gene_phewas.tsv",
-                    "--gene-set-phewas-stats-in",
-                    "dummy_gene_set_phewas.tsv",
-                ],
-            ),
-            (
-                "F8",
-                [
-                    "--anchor-any-gene",
-                    "--gene-phewas-stats-in",
-                    "dummy_gene_phewas.tsv",
-                    "--gene-set-phewas-stats-in",
-                    "dummy_gene_set_phewas.tsv",
-                ],
-            ),
-            (
-                "F9",
-                [
-                    "--anchor-gene-set",
-                    "--run-phewas",
-                    "--gene-phewas-stats-in",
-                    "dummy_gene_phewas.tsv",
-                    "--phewas-stats-out",
-                    "dummy_phewas.tsv",
                 ],
             ),
         ]
@@ -999,12 +945,7 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
                 if expected_id == "F4":
                     self.assertEqual(
                         payload["factor_workflow"]["label"],
-                        "multiple phenotype anchoring (to {'T2D', 'T2D_ALT'})",
-                    )
-                if expected_id == "F7":
-                    self.assertEqual(
-                        payload["factor_workflow"]["label"],
-                        "multiple gene anchoring (to {'GCK', 'INS'})",
+                        "phenotype-input anchoring across all complete input traits",
                     )
 
     def test_standalone_gene_list_flags_round_trip(self) -> None:
@@ -1038,7 +979,7 @@ print(json.dumps({"rc": rc, "mode": payload["mode"], "seed": payload["options"][
         proc = self._run("factor", "--anchor-genes", "INS")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("Require --gene-set-phewas-stats-in and --gene-phewas-stats-in", err)
+        self.assertIn("option --anchor-genes has been removed", err)
 
     def test_eaggl_bundle_in_populates_default_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as td:

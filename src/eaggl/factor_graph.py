@@ -18,6 +18,26 @@ import numpy as np
 FACTOR_PREFIX = "Factor"
 
 
+DEFAULT_DISTINCT_PALETTE = (
+    "#0072B2",  # blue
+    "#D55E00",  # vermilion
+    "#009E73",  # green
+    "#CC79A7",  # rose
+    "#E69F00",  # amber
+    "#56B4E9",  # sky
+    "#7F3C8D",  # plum
+    "#8C6D31",  # umber
+    "#00A6A6",  # teal
+    "#B22222",  # brick
+    "#4B6F44",  # moss
+    "#6B4C9A",  # violet
+    "#C49A00",  # ochre
+    "#1B9E77",  # deep mint
+    "#E7298A",  # magenta
+    "#666666",  # graphite
+)
+
+
 @dataclass(frozen=True)
 class FactorInfo:
     factor: str
@@ -45,6 +65,8 @@ class GraphConfig:
     max_num_gene_nodes_per_factor: int = 5
     max_num_trait_nodes_per_factor: int = 5
     coordinate_scale: float = 5.0
+    trait_coordinate_scale: float = 0.2
+    trait_edge_length_scale: float = 0.2
     node_size_scale: float = 2.0
     edge_max_width: float = 5.0
     label_max_chars: int = 20
@@ -343,18 +365,22 @@ def generate_distinct_colors(n: int, *, start_with_red_blue: bool = False) -> li
                             best_color = candidate
             colors.append(best_color)
         return colors
-    step = 256 / n
-    white_scale = 0.5
-    colors = []
-    for i in range(1, n + 1):
-        colors.append(
-            (
-                1 - white_scale * (1 - int((i * step) % 256) / 256.0),
-                1 - white_scale * (1 - int((i * step * 2) % 256) / 256.0),
-                1 - white_scale * (1 - int((i * step * 3) % 256) / 256.0),
-            )
-        )
+    colors = [_hex_to_rgb(value) for value in DEFAULT_DISTINCT_PALETTE[: min(n, len(DEFAULT_DISTINCT_PALETTE))]]
+    if n <= len(colors):
+        return colors
+    import colorsys
+
+    for i in range(len(colors), n):
+        hue = (0.5 + i * 0.618033988749895) % 1.0
+        saturation = 0.64 if i % 2 else 0.78
+        value = 0.72 if i % 3 else 0.86
+        colors.append(colorsys.hsv_to_rgb(hue, saturation, value))
     return colors
+
+
+def _hex_to_rgb(value: str) -> tuple[float, float, float]:
+    value = value.lstrip("#")
+    return tuple(int(value[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
 
 
 def blend_colors(colors: list[tuple[float, float, float]], weights: Iterable[float], *, opacity: float = 1.0) -> tuple[float, float, float]:
@@ -456,9 +482,23 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
     factor_identity = np.eye(len(factors), dtype=float)
     layout_matrix = np.vstack([entity_matrix, factor_identity]) if len(entities) else factor_identity
     colors = generate_distinct_colors(len(factors), start_with_red_blue=config.colors_red_blue)
-    if entity_matrix.size:
+    trait_colors_by_id: dict[str, tuple[float, float, float]] = {}
+    if traits:
+        trait_colors = generate_distinct_colors(len(traits), start_with_red_blue=config.colors_red_blue)
+        trait_colors_by_id = {trait.entity_id: trait_colors[i] for i, trait in enumerate(traits)}
+        colors = []
+        for factor in factors:
+            factor_trait_weights = [trait.loadings.get(factor, 0.0) for trait in traits]
+            colors.append(blend_colors(trait_colors, factor_trait_weights, opacity=1.0))
+    elif entity_matrix.size:
         colors = _reorder_colors_by_factor_correlation(colors, entity_matrix)
     coords = compute_layout(layout_matrix, coordinate_scale=config.coordinate_scale, seed=config.seed)
+    if traits and 0 <= config.trait_coordinate_scale < 1:
+        factor_coords = coords[len(entities) :]
+        factor_center = np.mean(factor_coords, axis=0) if factor_coords.size else np.zeros(2, dtype=float)
+        for entity_index, entity in enumerate(entities):
+            if entity.kind == "trait":
+                coords[entity_index] = factor_center + config.trait_coordinate_scale * (coords[entity_index] - factor_center)
     nodes = []
     edges = []
     factor_offset = len(entities)
@@ -483,8 +523,12 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
         )
     for entity_index, entity in enumerate(entities):
         weights = [entity.loadings.get(factor, 0.0) for factor in factors]
-        color = blend_colors(colors, weights, opacity=entity.direct)
-        border = blend_colors(colors, weights, opacity=1.0)
+        if entity.kind == "trait" and entity.entity_id in trait_colors_by_id:
+            color = trait_colors_by_id[entity.entity_id]
+            border = color
+        else:
+            color = blend_colors(colors, weights, opacity=entity.direct)
+            border = blend_colors(colors, weights, opacity=1.0)
         x, y = coords[entity_index]
         nodes.append(
             {
@@ -513,11 +557,17 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
                     "kind": "factor_trait" if entity.kind == "trait" else "factor_gene",
                     "weight": float(loading),
                     "width": float(max(0.5, config.edge_max_width * loading)),
-                    "color": nodes[factors.index(factor)]["color"],
+                    "color": rgb_to_hex(trait_colors_by_id[entity.entity_id])
+                    if entity.kind == "trait" and entity.entity_id in trait_colors_by_id
+                    else nodes[factors.index(factor)]["color"],
                 }
             )
     return {
         "schema": "eaggl_factor_graph/v1",
+        "layout": {
+            "trait_coordinate_scale": float(config.trait_coordinate_scale),
+            "trait_edge_length_scale": float(config.trait_edge_length_scale),
+        },
         "factors": factors,
         "factor_labels": [factor_to_label[factor] for factor in factors],
         "nodes": nodes,
@@ -844,7 +894,11 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       const dx = target.x - source.x;
       const dy = target.y - source.y;
       const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-      const desired = 90 + 15 / Math.max(edge.weight || 0.01, 0.01);
+      let desired = 90 + 15 / Math.max(edge.weight || 0.01, 0.01);
+      if (edge.kind === "factor_trait") {
+        const scale = Math.max(0.05, Math.min((graph.layout && graph.layout.trait_edge_length_scale) || 0.2, 1.0));
+        desired = Math.max(35, desired * scale);
+      }
       const force = 0.004 * (dist - desired);
       const fx = force * dx / dist;
       const fy = force * dy / dist;
@@ -868,8 +922,9 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
     }
     for (const node of graph.nodes) {
       if (node.pinned) continue;
-      node.vx = ((node.vx || 0) + (node.fixed_x - node.x) * 0.002 + (centerX - node.x) * 0.0005) * 0.82;
-      node.vy = ((node.vy || 0) + (node.fixed_y - node.y) * 0.002 + (centerY - node.y) * 0.0005) * 0.82;
+      const anchorPull = node.kind === "trait" ? 0.025 : 0.002;
+      node.vx = ((node.vx || 0) + (node.fixed_x - node.x) * anchorPull + (centerX - node.x) * 0.0005) * 0.82;
+      node.vy = ((node.vy || 0) + (node.fixed_y - node.y) * anchorPull + (centerY - node.y) * 0.0005) * 0.82;
       node.x += node.vx;
       node.y += node.vy;
     }
@@ -1121,6 +1176,8 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         max_num_gene_nodes_per_factor=args.max_num_gene_nodes_per_factor,
         max_num_trait_nodes_per_factor=args.max_num_trait_nodes_per_factor,
         coordinate_scale=args.coordinate_scale,
+        trait_coordinate_scale=args.trait_coordinate_scale,
+        trait_edge_length_scale=args.trait_edge_length_scale,
         node_size_scale=args.node_size_scale,
         edge_max_width=args.edge_max_width,
         label_max_chars=args.label_max_chars,
@@ -1186,6 +1243,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-num-gene-nodes-per-factor", type=int, default=5)
     parser.add_argument("--max-num-trait-nodes-per-factor", type=int, default=5)
     parser.add_argument("--coordinate-scale", type=float, default=5.0)
+    parser.add_argument("--trait-coordinate-scale", type=float, default=0.2, help="Scale trait-node displacement from the factor centroid after layout; 1.0 preserves the raw MDS distance.")
+    parser.add_argument("--trait-edge-length-scale", type=float, default=0.2, help="Scale factor-trait spring length in interactive physics; lower values keep phenotype nodes closer to factors.")
     parser.add_argument("--node-size-scale", type=float, default=2.0)
     parser.add_argument("--edge-max-width", type=float, default=5.0)
     parser.add_argument("--label-max-chars", type=int, default=20, help="Maximum displayed node label length; full labels remain available on hover. Use 0 to disable truncation.")

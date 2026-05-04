@@ -76,6 +76,8 @@ def _build_gene_gene_pair_matrix(
     gene_mask,
     gene_set_mask,
     beta_source,
+    beta_values=None,
+    gene_prob_values=None,
     pair_prior,
     logbf_base,
     matrix_floor,
@@ -84,40 +86,77 @@ def _build_gene_gene_pair_matrix(
     log_fn,
     info_level,
 ):
-    if beta_source == "beta":
-        if getattr(state, "betas", None) is None:
-            raise ValueError("Corrected betas are unavailable; rerun with corrected gene-set statistics or use --gene-gene-beta-source beta_uncorrected explicitly")
-        beta_vector = np.asarray(state.betas, dtype=float)
-        beta_source_label = "beta"
+    beta_source_label = str(beta_source)
+    if beta_values is None:
+        if beta_source == "beta":
+            if getattr(state, "betas", None) is None:
+                raise ValueError("Corrected betas are unavailable; rerun with corrected gene-set statistics or use --gene-gene-beta-source beta_uncorrected explicitly")
+            beta_values = np.asarray(state.betas, dtype=float)
+            beta_source_label = "beta"
+        else:
+            if getattr(state, "betas_uncorrected", None) is None:
+                raise ValueError("beta_uncorrected gene-set statistics are unavailable for gene-by-gene discovery")
+            beta_values = np.asarray(state.betas_uncorrected, dtype=float)
+            beta_source_label = "beta_uncorrected"
+    elif sparse.issparse(beta_values):
+        beta_values = beta_values.toarray()
     else:
-        if getattr(state, "betas_uncorrected", None) is None:
-            raise ValueError("beta_uncorrected gene-set statistics are unavailable for gene-by-gene discovery")
-        beta_vector = np.asarray(state.betas_uncorrected, dtype=float)
-        beta_source_label = "beta_uncorrected"
+        beta_values = np.asarray(beta_values, dtype=float)
 
-    scale_factors = np.asarray(getattr(state, "scale_factors", np.ones(beta_vector.shape[0], dtype=float)), dtype=float)
+    beta_matrix = np.asarray(beta_values, dtype=float)
+    if beta_matrix.ndim == 1:
+        beta_matrix = beta_matrix[:, np.newaxis]
+
+    scale_factors = np.asarray(getattr(state, "scale_factors", np.ones(beta_matrix.shape[0], dtype=float)), dtype=float)
     scale_factors = np.where(scale_factors == 0, 1.0, scale_factors)
-    beta_vector = beta_vector / scale_factors
-    beta_vector = np.nan_to_num(beta_vector, nan=0.0, posinf=0.0, neginf=0.0)
-    beta_vector = beta_vector[np.asarray(gene_set_mask, dtype=bool)]
+    beta_matrix = beta_matrix / scale_factors[:, np.newaxis]
+    beta_matrix = np.nan_to_num(beta_matrix, nan=0.0, posinf=0.0, neginf=0.0)
+    beta_matrix = beta_matrix[np.asarray(gene_set_mask, dtype=bool), :]
 
     X_retained = state.X_orig[np.asarray(gene_mask, dtype=bool), :][:, np.asarray(gene_set_mask, dtype=bool)]
     if not sparse.issparse(X_retained):
         X_retained = sparse.csr_matrix(np.asarray(X_retained, dtype=float))
     X_retained = X_retained.tocsr()
 
-    X_beta = X_retained.multiply(beta_vector.reshape((1, -1)))
-    L = (X_beta @ X_retained.T).toarray()
-    L = 0.5 * (L + L.T)
-    if str(logbf_base) == "log10":
-        L = float(math.log(10.0)) * L
-
     pair_logit = scipy.special.logit(float(pair_prior))
+    gene_prob_matrix = None
+    if gene_prob_values is not None:
+        if sparse.issparse(gene_prob_values):
+            gene_prob_matrix = gene_prob_values.toarray()
+        else:
+            gene_prob_matrix = np.asarray(gene_prob_values, dtype=float)
+        if gene_prob_matrix.ndim == 1:
+            gene_prob_matrix = gene_prob_matrix[:, np.newaxis]
+        gene_prob_matrix = np.nan_to_num(gene_prob_matrix, nan=0.0, posinf=1.0, neginf=0.0)
+        gene_prob_matrix = np.clip(gene_prob_matrix[np.asarray(gene_mask, dtype=bool), :], 0.0, 1.0)
+
+    per_anchor_matrices = []
+    per_anchor_L = []
+    for anchor_index in range(beta_matrix.shape[1]):
+        beta_vector = beta_matrix[:, anchor_index]
+        X_beta = X_retained.multiply(beta_vector.reshape((1, -1)))
+        L_anchor = (X_beta @ X_retained.T).toarray()
+        L_anchor = 0.5 * (L_anchor + L_anchor.T)
+        if str(logbf_base) == "log10":
+            L_anchor = float(math.log(10.0)) * L_anchor
+
+        P_anchor = scipy.special.expit(pair_logit + L_anchor)
+        if excess_probability:
+            M_anchor = np.clip((P_anchor - float(pair_prior)) / max(1.0 - float(pair_prior), 1e-12), 0.0, 1.0)
+        else:
+            M_anchor = np.clip(P_anchor, 0.0, 1.0)
+        if gene_prob_matrix is not None:
+            prob_col = gene_prob_matrix[:, min(anchor_index, gene_prob_matrix.shape[1] - 1)]
+            M_anchor = M_anchor * np.outer(prob_col, prob_col)
+        per_anchor_matrices.append(M_anchor)
+        per_anchor_L.append(L_anchor)
+
+    L = np.mean(per_anchor_L, axis=0) if len(per_anchor_L) > 1 else per_anchor_L[0]
     P = scipy.special.expit(pair_logit + L)
-    if excess_probability:
-        M = np.clip((P - float(pair_prior)) / max(1.0 - float(pair_prior), 1e-12), 0.0, 1.0)
+    if len(per_anchor_matrices) > 1:
+        M = 1.0 - np.prod([1.0 - np.clip(anchor_M, 0.0, 1.0) for anchor_M in per_anchor_matrices], axis=0)
     else:
-        M = np.clip(P, 0.0, 1.0)
+        M = per_anchor_matrices[0]
     if float(matrix_floor) > 0.0:
         M[M < float(matrix_floor)] = 0.0
 
@@ -129,8 +168,9 @@ def _build_gene_gene_pair_matrix(
         "num_active_genes": int(np.sum(gene_mask)),
         "num_retained_gene_sets": int(np.sum(gene_set_mask)),
         "beta_source": beta_source_label,
-        "beta_positive_count": int(np.sum(beta_vector > 0)),
-        "beta_negative_count": int(np.sum(beta_vector < 0)),
+        "beta_positive_count": int(np.sum(beta_matrix > 0)),
+        "beta_negative_count": int(np.sum(beta_matrix < 0)),
+        "beta_anchor_count": int(beta_matrix.shape[1]),
         "pair_prior": float(pair_prior),
         "pair_logbf_base": str(logbf_base),
         "pair_matrix_floor": float(matrix_floor),
@@ -4488,7 +4528,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
 
     if str(discovery_model) == "gene_by_gene":
         if factor_gene_set_x_pheno:
-            bail("--discovery-model gene_by_gene is currently supported only for gene-space discovery, not phenotype-anchored or gene-set-anchored matrix factoring")
+            bail("--discovery-model gene_by_gene is currently supported only for gene-space discovery, not rectangular phenotype-input matrix factoring")
         if max_num_discovery_gene_sets is not None:
             warn("--max-num-discovery-gene-sets is ignored for --discovery-model gene_by_gene")
         if not auto_discovery_subset:
@@ -4526,6 +4566,8 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             gene_mask=gene_or_pheno_mask,
             gene_set_mask=gene_set_mask,
             beta_source=gene_gene_beta_source,
+            beta_values=gene_set_vector if anchor_pheno_mask is not None else None,
+            gene_prob_values=gene_or_pheno_prob_vector,
             pair_prior=pair_prior,
             logbf_base=gene_gene_logbf_base,
             matrix_floor=gene_gene_matrix_floor,
@@ -4573,6 +4615,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
                 "gene_gene_retained_gene_sets": int(pair_diagnostics["num_retained_gene_sets"]),
                 "gene_gene_beta_positive_count": int(pair_diagnostics["beta_positive_count"]),
                 "gene_gene_beta_negative_count": int(pair_diagnostics["beta_negative_count"]),
+                "gene_gene_beta_anchor_count": int(pair_diagnostics["beta_anchor_count"]),
                 "gene_gene_L_mean": float(pair_diagnostics["L_mean"]),
                 "gene_gene_L_std": float(pair_diagnostics["L_std"]),
                 "gene_gene_L_min": float(pair_diagnostics["L_min"]),

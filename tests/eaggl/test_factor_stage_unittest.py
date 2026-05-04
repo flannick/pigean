@@ -592,31 +592,17 @@ class FactorStageHelpersTest(unittest.TestCase):
             factor_output_scope="primary_secondary",
         )
         eaggl._write_main_factor_outputs(runtime, options)
-        self.assertEqual(len(runtime.calls), 10)
+        self.assertEqual(len(runtime.calls), 7)
         self.assertEqual(runtime.calls[0], ("write_matrix_factors", "factors.tsv", False, "primary_secondary"))
         self.assertEqual(runtime.calls[1], ("write_factor_metrics", "factor_metrics.tsv"))
-        self.assertEqual(runtime.calls[2], ("write_matrix_factors", "factors_anchor.tsv", True, "primary_secondary"))
-        self.assertEqual(runtime.calls[3], ("write_consensus_factor_diagnostics", "consensus.tsv"))
+        self.assertEqual(runtime.calls[2], ("write_consensus_factor_diagnostics", "consensus.tsv"))
         self.assertEqual(
-            runtime.calls[4],
+            runtime.calls[3],
             ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False, 0.02, "primary_secondary"),
         )
-        self.assertEqual(runtime.calls[5], ("write_full_gene_clusters", "g_cluster_full.tsv", 0.02, "primary_secondary"))
-        self.assertEqual(runtime.calls[6], ("write_trait_factor_links", "trait_links.tsv", "main"))
-        self.assertEqual(runtime.calls[7], ("write_trait_factor_links", "p_cluster.tsv", "main"))
-        self.assertEqual(
-            runtime.calls[8],
-            (
-                "write_clusters",
-                "gs_anchor_cluster.tsv",
-                "g_anchor_cluster.tsv",
-                "p_anchor_cluster.tsv",
-                True,
-                0.02,
-                "primary_secondary",
-            ),
-        )
-        self.assertEqual(runtime.calls[9], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
+        self.assertEqual(runtime.calls[4], ("write_full_gene_clusters", "g_cluster_full.tsv", 0.02, "primary_secondary"))
+        self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv", "main"))
+        self.assertEqual(runtime.calls[6], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 
     def test_write_clusters_gene_set_writer_uses_betas_uncorrected_without_stale_alias(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
@@ -843,17 +829,12 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(provenance["anchor_values"], ["input_gene_stats"])
         self.assertEqual(provenance["anchor_count"], 1)
 
-    def test_workflow_required_inputs_contract_for_f1_to_f9(self) -> None:
+    def test_workflow_required_inputs_contract_for_supported_factor_workflows(self) -> None:
         cases = [
             ("F1", _options(), []),
             ("F2", _options(gene_list=["INS"]), []),
             ("F3", _options(gene_phewas_bfs_in="gene_phewas.tsv"), []),
-            ("F4", _options(anchor_phenos=["T2D"], gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
-            ("F5", _options(anchor_any_pheno=True, gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
-            ("F6", _options(anchor_genes=["INS"], gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
-            ("F7", _options(anchor_genes=["INS", "GCK"], gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
-            ("F8", _options(anchor_any_gene=True, gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
-            ("F9", _options(anchor_gene_set=True, run_phewas=True, run_phewas_input="g.tsv", gene_phewas_bfs_in="g.tsv"), []),
+            ("F4", _options(gene_set_phewas_stats_in="gs.tsv", gene_phewas_bfs_in="g.tsv"), []),
         ]
         for workflow_id, options, expected_missing in cases:
             with self.subTest(workflow=workflow_id):
@@ -865,13 +846,55 @@ class FactorStageHelpersTest(unittest.TestCase):
                     eaggl._FACTOR_WORKFLOW_STRATEGY_META[workflow_id]["factor_gene_set_x_pheno"],
                 )
 
-    def test_workflow_required_inputs_missing_for_f6(self) -> None:
+    def test_removed_anchor_flags_fail_validation(self) -> None:
         workflow = eaggl._classify_factor_workflow(_options(anchor_genes=["INS"]))
-        self.assertEqual(workflow["id"], "F6")
-        self.assertEqual(
-            workflow["missing_required_inputs"],
-            ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
+        errors = []
+        eaggl_workflows.validate_factor_workflow_selection(
+            _options(anchor_genes=["INS"]),
+            workflow,
+            False,
+            errors.append,
         )
+        self.assertIn("Explicit anchor workflow flags were removed", errors[0])
+
+    def test_load_factor_inputs_accepts_labeled_single_trait_stats(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            gene_t1 = tmpdir_path / "gene_t1.tsv"
+            gene_t2 = tmpdir_path / "gene_t2.tsv"
+            gene_set_t1 = tmpdir_path / "gene_set_t1.tsv"
+            gene_set_t2 = tmpdir_path / "gene_set_t2.tsv"
+            gene_t1.write_text("Gene\tlog_bf\tcombined\tprior\nG1\t1.0\t2.0\t0.5\nG2\t0.0\t0.0\t0.0\n", encoding="utf-8")
+            gene_t2.write_text("Gene\tlog_bf\tcombined\tprior\nG1\t0.0\t0.0\t0.0\nG2\t1.5\t3.0\t0.7\n", encoding="utf-8")
+            gene_set_t1.write_text("Gene_Set\tbeta\tbeta_uncorrected\nS1\t0.2\t0.3\nS2\t0.0\t0.0\n", encoding="utf-8")
+            gene_set_t2.write_text("Gene_Set\tbeta\tbeta_uncorrected\nS1\t0.0\t0.0\nS2\t0.4\t0.5\n", encoding="utf-8")
+            runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+            runtime.genes = ["G1", "G2"]
+            runtime.gene_to_ind = {"G1": 0, "G2": 1}
+            runtime.gene_sets = ["S1", "S2"]
+            runtime.gene_set_to_ind = {"S1": 0, "S2": 1}
+            domain = eaggl.build_main_domain()
+            options = _options(
+                gene_stats_in=["T1=%s" % gene_t1, "T2=%s" % gene_t2],
+                gene_set_stats_in=["T1=%s" % gene_set_t1, "T2=%s" % gene_set_t2],
+                gene_stats_id_col="Gene",
+                gene_stats_log_bf_col="log_bf",
+                gene_stats_combined_col="combined",
+                gene_stats_prob_col=None,
+                gene_stats_prior_col="prior",
+                gene_set_stats_id_col="Gene_Set",
+                gene_set_stats_beta_col="beta",
+                gene_set_stats_beta_uncorrected_col="beta_uncorrected",
+                min_gene_set_read_beta_uncorrected=None,
+            )
+            result = eaggl.eaggl_factor.load_factor_phewas_inputs(domain, runtime, options)
+
+        self.assertTrue(result.loaded_gene_phewas_bfs)
+        self.assertTrue(result.loaded_gene_set_phewas_stats)
+        self.assertEqual(runtime.phenos, ["T1", "T2"])
+        np.testing.assert_array_equal(runtime.anchor_pheno_mask, [True, True])
+        np.testing.assert_allclose(runtime.gene_pheno_combined_prior_Ys.toarray(), [[2.0, 0.0], [0.0, 3.0]])
+        np.testing.assert_allclose(runtime.X_phewas_beta.toarray(), [[0.2, 0.0], [0.0, 0.4]])
 
     def test_workflow_classifies_positive_control_aliases_as_f2(self) -> None:
         workflow = eaggl._classify_factor_workflow(_options(positive_controls_list=["INS"]))
@@ -1063,11 +1086,11 @@ class FactorStageHelpersTest(unittest.TestCase):
             result = eaggl.eaggl_factor.run_main_pheno_projection_stage(domain, runtime, options)
 
         self.assertTrue(result.ran)
-        np.testing.assert_array_equal(runtime.trait_linkage_is_anchor, [True, False])
+        np.testing.assert_array_equal(runtime.trait_linkage_is_anchor, [True, True])
         np.testing.assert_allclose(runtime.factor_anchor_relevance[:, 0], runtime.trait_linkage_joint[0, :], atol=1e-8)
         np.testing.assert_allclose(runtime.factor_anchor_marginal_relevance[:, 0], runtime.trait_linkage_marginal[0, :], atol=1e-8)
-        np.testing.assert_allclose(runtime.factor_relevance, runtime.trait_linkage_joint[0, :], atol=1e-8)
-        np.testing.assert_allclose(runtime.factor_marginal_relevance, runtime.trait_linkage_marginal[0, :], atol=1e-8)
+        np.testing.assert_allclose(runtime.factor_relevance, np.max(runtime.trait_linkage_joint, axis=0), atol=1e-8)
+        np.testing.assert_allclose(runtime.factor_marginal_relevance, np.max(runtime.trait_linkage_marginal, axis=0), atol=1e-8)
 
     def test_load_existing_factor_gene_set_clusters_sets_gene_set_factor_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

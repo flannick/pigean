@@ -1574,30 +1574,43 @@ class EagglState(object):
 
         return H_new
 
-    def _gene_gene_projection_beta_vector(self, gene_set_mask):
+    def _gene_gene_projection_beta_matrix(self, gene_set_mask):
         beta_source = self.params.get("gene_gene_beta_source", "beta_uncorrected")
         if isinstance(beta_source, list):
             beta_source = beta_source[0] if len(beta_source) > 0 else "beta_uncorrected"
         if beta_source == "beta":
-            if getattr(self, "betas", None) is None:
+            if getattr(self, "betas", None) is not None:
+                beta_matrix = np.asarray(self.betas, dtype=float)
+            elif getattr(self, "X_phewas_beta", None) is not None:
+                beta_matrix = self.X_phewas_beta.T
+            else:
                 raise ValueError("Corrected betas are unavailable for gene-by-gene full-gene projection")
-            beta_vector = np.asarray(self.betas, dtype=float)
         else:
-            if getattr(self, "betas_uncorrected", None) is None:
+            if getattr(self, "betas_uncorrected", None) is not None:
+                beta_matrix = np.asarray(self.betas_uncorrected, dtype=float)
+            elif getattr(self, "X_phewas_beta_uncorrected", None) is not None:
+                beta_matrix = self.X_phewas_beta_uncorrected.T
+            else:
                 raise ValueError("beta_uncorrected gene-set statistics are unavailable for gene-by-gene full-gene projection")
-            beta_vector = np.asarray(self.betas_uncorrected, dtype=float)
+        if sparse.issparse(beta_matrix):
+            beta_matrix = beta_matrix.toarray()
+        beta_matrix = np.asarray(beta_matrix, dtype=float)
+        if beta_matrix.ndim == 1:
+            beta_matrix = beta_matrix[:, np.newaxis]
+        if self.anchor_pheno_mask is not None and beta_matrix.shape[1] == len(self.anchor_pheno_mask):
+            beta_matrix = beta_matrix[:, np.asarray(self.anchor_pheno_mask, dtype=bool)]
 
         scale_factors = np.asarray(
-            getattr(self, "scale_factors", np.ones(beta_vector.shape[0], dtype=float)),
+            getattr(self, "scale_factors", np.ones(beta_matrix.shape[0], dtype=float)),
             dtype=float,
         )
         scale_factors = np.where(scale_factors == 0, 1.0, scale_factors)
-        beta_vector = np.nan_to_num(beta_vector / scale_factors, nan=0.0, posinf=0.0, neginf=0.0)
-        return beta_vector[np.asarray(gene_set_mask, dtype=bool)]
+        beta_matrix = np.nan_to_num(beta_matrix / scale_factors[:, np.newaxis], nan=0.0, posinf=0.0, neginf=0.0)
+        return beta_matrix[np.asarray(gene_set_mask, dtype=bool), :]
 
     def _gene_gene_cross_pair_matrix(self, row_gene_matrix, discovery_gene_matrix, gene_set_mask):
         gene_set_mask = np.asarray(gene_set_mask, dtype=bool)
-        beta_vector = self._gene_gene_projection_beta_vector(gene_set_mask)
+        beta_matrix = self._gene_gene_projection_beta_matrix(gene_set_mask)
 
         row_gene_matrix = row_gene_matrix[:, gene_set_mask]
         discovery_gene_matrix = discovery_gene_matrix[:, gene_set_mask]
@@ -1608,35 +1621,67 @@ class EagglState(object):
         row_gene_matrix = row_gene_matrix.tocsr()
         discovery_gene_matrix = discovery_gene_matrix.tocsr()
 
-        L = (row_gene_matrix.multiply(beta_vector.reshape((1, -1))) @ discovery_gene_matrix.T).toarray()
         logbf_base = self.params.get("gene_gene_logbf_base", "log10")
         if isinstance(logbf_base, list):
             logbf_base = logbf_base[0] if len(logbf_base) > 0 else "log10"
-        if str(logbf_base) == "log10":
-            L = float(math.log(10.0)) * L
 
         pair_prior = self.params.get("gene_gene_pair_prior", getattr(self, "background_prior", 0.05))
         if isinstance(pair_prior, list):
             pair_prior = pair_prior[0] if len(pair_prior) > 0 else self.background_prior
         pair_prior = float(pair_prior)
         pair_logit = scipy.special.logit(pair_prior)
-        P = scipy.special.expit(pair_logit + L)
 
         excess_probability = self.params.get("gene_gene_excess_probability", True)
         if isinstance(excess_probability, list):
             excess_probability = excess_probability[0] if len(excess_probability) > 0 else True
-        if bool(excess_probability):
-            M = np.clip((P - pair_prior) / max(1.0 - pair_prior, 1e-12), 0.0, 1.0)
-        else:
-            M = np.clip(P, 0.0, 1.0)
 
         matrix_floor = self.params.get("gene_gene_matrix_floor", 0.0)
         if isinstance(matrix_floor, list):
             matrix_floor = matrix_floor[0] if len(matrix_floor) > 0 else 0.0
         matrix_floor = float(matrix_floor)
-        if matrix_floor > 0.0:
-            M[M < matrix_floor] = 0.0
-        return M
+
+        gene_prob_matrix = getattr(self, "gene_prob_factor_vector", None)
+        if gene_prob_matrix is not None:
+            if sparse.issparse(gene_prob_matrix):
+                gene_prob_matrix = gene_prob_matrix.toarray()
+            gene_prob_matrix = np.asarray(gene_prob_matrix, dtype=float)
+            if gene_prob_matrix.ndim == 1:
+                gene_prob_matrix = gene_prob_matrix[:, np.newaxis]
+            if self.anchor_pheno_mask is not None and gene_prob_matrix.shape[1] == len(self.anchor_pheno_mask):
+                gene_prob_matrix = gene_prob_matrix[:, np.asarray(self.anchor_pheno_mask, dtype=bool)]
+            gene_prob_matrix = np.nan_to_num(gene_prob_matrix, nan=0.0, posinf=1.0, neginf=0.0)
+            discovery_mask = np.asarray(self.gene_in_discovery_mask, dtype=bool) if self.gene_in_discovery_mask is not None else None
+            discovery_gene_probs = (
+                gene_prob_matrix[discovery_mask, :]
+                if discovery_mask is not None and gene_prob_matrix.shape[0] == discovery_mask.shape[0]
+                else None
+            )
+            row_gene_probs = gene_prob_matrix if gene_prob_matrix.shape[0] == row_gene_matrix.shape[0] else None
+        else:
+            row_gene_probs = None
+            discovery_gene_probs = None
+
+        anchor_matrices = []
+        for anchor_index in range(beta_matrix.shape[1]):
+            beta_vector = beta_matrix[:, anchor_index]
+            L = (row_gene_matrix.multiply(beta_vector.reshape((1, -1))) @ discovery_gene_matrix.T).toarray()
+            if str(logbf_base) == "log10":
+                L = float(math.log(10.0)) * L
+            P = scipy.special.expit(pair_logit + L)
+            if bool(excess_probability):
+                M = np.clip((P - pair_prior) / max(1.0 - pair_prior, 1e-12), 0.0, 1.0)
+            else:
+                M = np.clip(P, 0.0, 1.0)
+            if row_gene_probs is not None and anchor_index < row_gene_probs.shape[1]:
+                M *= np.clip(row_gene_probs[:, anchor_index], 0.0, 1.0)[:, np.newaxis]
+            if discovery_gene_probs is not None and anchor_index < discovery_gene_probs.shape[1]:
+                M *= np.clip(discovery_gene_probs[:, anchor_index], 0.0, 1.0)[np.newaxis, :]
+            if matrix_floor > 0.0:
+                M[M < matrix_floor] = 0.0
+            anchor_matrices.append(M)
+        if len(anchor_matrices) == 1:
+            return anchor_matrices[0]
+        return 1.0 - np.prod(1.0 - np.stack(anchor_matrices, axis=0), axis=0)
 
     def _project_gene_gene_rows_to_discovery_factors(
         self,

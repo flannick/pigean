@@ -154,7 +154,7 @@ parser.add_option("","--ignore-negative-exp-beta",action='store_true')
 #if you have gene set betas
 
 #gene statistics to use in calculating gene set statistics
-parser.add_option("","--gene-stats-in",dest="gene_stats_in",default=None)
+parser.add_option("","--gene-stats-in",dest="gene_stats_in",type="string",action="callback",callback=append_repeated_path_arg,default=None)
 parser.add_option("","--gene-stats-id-col",default=None,dest="gene_stats_id_col")
 parser.add_option("","--gene-stats-log-bf-col",default=None,dest="gene_stats_log_bf_col")
 parser.add_option("","--gene-stats-combined-col",default=None,dest="gene_stats_combined_col")
@@ -181,7 +181,6 @@ parser.add_option("","--gene-effectors-out",default=None)
 parser.add_option("","--phewas-stats-out",default=None)
 parser.add_option("","--factors-out",default=None)
 parser.add_option("","--factor-metrics-out",default=None)
-parser.add_option("","--factors-anchor-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--gene-clusters-full-out",default=None)
@@ -189,10 +188,6 @@ parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #m
 parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="primary") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
 parser.add_option("","--trait-factor-links-output-detail",default="main") #column detail level for trait-factor linkage output: main, full, or debug
-parser.add_option("","--pheno-clusters-out",default=None)
-parser.add_option("","--gene-set-anchor-clusters-out",default=None)
-parser.add_option("","--gene-anchor-clusters-out",default=None)
-parser.add_option("","--pheno-anchor-clusters-out",default=None)
 parser.add_option("","--factor-phewas-stats-out",default=None)
 
 #for beta calculation against additional traits
@@ -386,27 +381,27 @@ parser.add_option("","--consensus-min-run-support",default=0.5,type=float) #mini
 parser.add_option("","--consensus-aggregation",default="median",type=str) #aggregation rule for matched factor loadings across runs
 parser.add_option("","--gene-set-filter-value",type=float,default=0.01) #choose value of filter for gene sets. Will use beta uncorrected if available, otherwise beta, otherwise no filter
 parser.add_option("","--gene-filter-value",type=float,default=None) #choose value of pre-factor filter for genes on the resolved gene score surface
-parser.add_option("","--pheno-filter-value",type=float,default=1) #choose value of filter for phenos. Used only when anchoring to genes
-parser.add_option("","--gene-set-pheno-filter-value",type=float,default=0.01) #choose value of filter for gene set anchoring
+parser.add_option("","--pheno-filter-value",type=float,default=1) #choose value of phenotype support filter for phenotype-input factoring
+parser.add_option("","--gene-set-pheno-filter-value",type=float,default=0.01) #choose value of gene-set phenotype support filter for phenotype-input factoring
 parser.add_option("","--max-num-discovery-genes",type=int,default=None) #cap pre-factor retained genes after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden
 parser.add_option("","--no-transpose",action='store_true') #factor original X rather than tranpose
 parser.add_option("","--min-lambda-threshold",type=float,default=1e-3) #remove factors with lambdak values below this threshold, or sum(gene loadings) below this threshold, or sum(gene set loadings) below this threshold
 parser.add_option("","--consensus-stats-out",default=None) #write consensus/restart diagnostics for factorization
 
 # Options for controlling factoring behavior.
-# Detailed workflow semantics, examples, and the F1-F9 mapping live in
+# Detailed workflow semantics, examples, and the F1-F4 mapping live in
 # docs/eaggl/WORKFLOWS.md. Keep only workflow-selection metadata and
 # validation logic in code; keep narrative explanations in the docs.
 
 
-parser.add_option("","--gene-set-phewas-stats-in",default=None)
+parser.add_option("","--gene-set-phewas-stats-in",type="string",action="callback",callback=append_repeated_path_arg,default=None)
 parser.add_option("","--gene-set-phewas-stats-id-col",default="Gene_Set")
 parser.add_option("","--gene-set-phewas-stats-beta-col",default=None)
 parser.add_option("","--gene-set-phewas-stats-beta-uncorrected-col",default=None)
 parser.add_option("","--gene-set-phewas-stats-pheno-col",default=None)
 
-parser.add_option("","--gene-phewas-bfs-in",default=None)
-parser.add_option("","--gene-phewas-stats-in",dest="gene_phewas_bfs_in",default=None)
+parser.add_option("","--gene-phewas-bfs-in",type="string",action="callback",callback=append_repeated_path_arg,default=None)
+parser.add_option("","--gene-phewas-stats-in",dest="gene_phewas_bfs_in",type="string",action="callback",callback=append_repeated_path_arg,default=None)
 parser.add_option("","--gene-phewas-bfs-id-col",default=None)
 parser.add_option("","--gene-phewas-stats-id-col",default=None,dest="gene_phewas_bfs_id_col")
 parser.add_option("","--gene-phewas-bfs-log-bf-col",default=None)
@@ -426,18 +421,13 @@ parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #strict
 parser.add_option("","--trait-linkage-computation-mode",default="sparse_full",type=str) #trait linkage computation backend: sparse_full (default sparse-aware full-space solve) or dense_full (debug dense equivalent)
 parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
 
-parser.add_option("","--anchor-phenos",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple pheno anchoring
-parser.add_option("","--anchor-any-pheno",action="store_true",default=False) #flatten all phenotypes into an uber weight
-parser.add_option("","--anchor-genes",type="string",action="callback",callback=get_comma_separated_args_as_set,default=None) #run single or multiple gene anchoring
-parser.add_option("","--anchor-any-gene",action="store_true",default=False) #update phenotype associations to essentially be uniformly 1
-parser.add_option("","--anchor-gene-set",action="store_true",default=False) #run gene set anchoring
 
-parser.add_option("","--factor-prune-phenos-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce phenotypes by including only this many (add an independent set). Phenotypes will be sorted by average probability across genes
-parser.add_option("","--factor-prune-phenos-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce phenotypes by pruning those more correlated than this value. Phenotypes will be sorted by average probability across genes
-parser.add_option("","--factor-prune-genes-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce genes by including only this many (add an independent set). Genes will be sorted by average probability across phenotypes
-parser.add_option("","--factor-prune-genes-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce genes by pruning those more correlated than this value. Genes will be sorted by average probability across phenotypes
-parser.add_option("","--factor-prune-gene-sets-num",type='int',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by including only this many (add an independent set). Gene sets will be sorted by maximum association across phenotypes
-parser.add_option("","--factor-prune-gene-sets-val",type='float',default=None) #when running --anchor-any-pheno or --anchor-any gene, reduce gene sets by pruning those more correlated than this value. Gene sets will be sorted by maximum assoication across phenotypes
+parser.add_option("","--factor-prune-phenos-num",type='int',default=None) #in phenotype-input factoring, reduce phenotypes by including only this many independent phenotypes sorted by average probability across genes
+parser.add_option("","--factor-prune-phenos-val",type='float',default=None) #in phenotype-input factoring, prune phenotypes more correlated than this value after sorting by average probability across genes
+parser.add_option("","--factor-prune-genes-num",type='int',default=None) #in phenotype-input factoring, reduce genes by including only this many independent genes sorted by average probability across phenotypes
+parser.add_option("","--factor-prune-genes-val",type='float',default=None) #in phenotype-input factoring, prune genes more correlated than this value after sorting by average probability across phenotypes
+parser.add_option("","--factor-prune-gene-sets-num",type='int',default=None) #in phenotype-input factoring, reduce gene sets by including only this many independent gene sets sorted by maximum association across phenotypes
+parser.add_option("","--factor-prune-gene-sets-val",type='float',default=None) #in phenotype-input factoring, prune gene sets more correlated than this value after sorting by maximum association across phenotypes
 parser.add_option("","--no-auto-discovery-subset",action="store_true",default=False) #during EAGGL factorization, use all retained gene sets rather than only family leaders for discovery
 parser.add_option("","--discovery-redundancy-weighting-mode",type="choice",choices=["effective_size","log_effective_size","none"],default="effective_size") #leader-family redundancy weighting mode for discovery support
 parser.add_option("","--no-discovery-redundancy-weighting",action="store_true",default=False) #during EAGGL factorization, disable redundancy-balanced discovery weights
@@ -476,11 +466,6 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--X-list": "load a file listing sparse gene-set matrix inputs",
     "--Xd-in": "load one or more dense gene-set matrix files directly",
     "--Xd-list": "load a file listing dense gene-set matrix inputs",
-    "--anchor-any-gene": "anchor factorization to any gene in the loaded gene-phewas inputs",
-    "--anchor-any-pheno": "anchor factorization to any phenotype in the loaded phewas inputs",
-    "--anchor-gene-set": "run gene-set anchoring using the loaded phenotype evidence",
-    "--anchor-genes": "anchor factorization to one or more genes",
-    "--anchor-phenos": "anchor factorization to one or more phenotypes",
     "--config": "load a JSON config file; explicit CLI flags override config values",
     "--debug-level": "set logging verbosity for progress and diagnostic output",
     "--deterministic": "force deterministic random seed behavior (seed=0 unless --seed is set)",
@@ -557,14 +542,13 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--beta0": "scale parameter for the ARD factor-precision prior",
     "--min-lambda-threshold": "drop factors whose inferred lambda mass falls below this threshold after fitting",
     "--phi": "base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors",
-    "--factors-anchor-out": "write anchor-specific factorization outputs",
     "--factors-out": "write the main factor loading output table",
     "--trait-factor-links-out": "write the canonical long-form trait-factor linkage table",
     "--trait-factor-links-output-detail": "choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions",
     "--gene-set-stats-in": "load gene-set statistics exported from PIGEAN",
     "--gene-stats-in": "load gene-level statistics exported from PIGEAN",
-    "--gene-phewas-bfs-in": "load gene-phewas statistics for projection and anchor workflows",
-    "--gene-set-phewas-stats-in": "load gene-set phewas statistics for projection and anchor workflows",
+    "--gene-phewas-bfs-in": "load gene-phewas statistics for projection and phenotype-input factoring workflows",
+    "--gene-set-phewas-stats-in": "load gene-set phewas statistics for projection and phenotype-input factoring workflows",
     "--help-expert": "show expert workflow, projection, and debug flags in addition to the normal public interface",
     "--hide-opts": "suppress printing resolved options at startup",
     "--hide-progress": "reduce progress logging noise during long runs",
@@ -723,15 +707,11 @@ _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--factor-phi-gene-clusters-out",
     "--factor-phewas-stats-out",
     "--consensus-stats-out",
-    "--gene-anchor-clusters-out",
     "--gene-clusters-out",
     "--gene-clusters-full-out",
     "--gene-pheno-stats-out",
-    "--gene-set-anchor-clusters-out",
     "--gene-set-clusters-out",
     "--learn-phi-report-out",
-    "--pheno-anchor-clusters-out",
-    "--pheno-clusters-out",
     "--phewas-stats-out",
     "--clustering-params-out",
 }
@@ -742,12 +722,6 @@ _METHOD_REQUIRED_FLAGS = {
     "--X-list",
     "--Xd-in",
     "--Xd-list",
-    "--anchor-any-gene",
-    "--anchor-any-pheno",
-    "--anchor-gene-set",
-    "--anchor-genes",
-    "--anchor-phenos",
-    "--factors-anchor-out",
     "--factors-out",
     "--trait-factor-links-out",
     "--gene-list",
@@ -761,11 +735,6 @@ _METHOD_REQUIRED_FLAGS = {
 }
 
 _CORE_VISIBLE_METHOD_FLAGS = {
-    "--anchor-any-gene",
-    "--anchor-any-pheno",
-    "--anchor-gene-set",
-    "--anchor-genes",
-    "--anchor-phenos",
     "--alpha0",
     "--consensus-aggregation",
     "--consensus-min-factor-cosine",
@@ -778,7 +747,6 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--factor-output-scope",
     "--eaggl-bundle-in",
     "--factor-runs",
-    "--factors-anchor-out",
     "--factors-out",
     "--trait-factor-links-out",
     "--gene-list",
@@ -1105,12 +1073,6 @@ def _normalize_optional_phewas_stage_options(options, warn_fn):
     options.run_phewas_input = None
     options.run_factor_phewas_input = None
 
-    if getattr(options, "pheno_clusters_out", None) is not None:
-        warn_fn(
-            "Treating compatibility alias --pheno-clusters-out as --trait-factor-links-out; "
-            "the canonical public trait output is now the long-form trait-factor linkage table"
-        )
-
     if getattr(options, "factor_phewas_gene_clusters_in", None) is not None:
         if getattr(options, "factor_gene_clusters_in", None) is None:
             options.factor_gene_clusters_in = options.factor_phewas_gene_clusters_in
@@ -1181,6 +1143,16 @@ REMOVED_OPTION_REPLACEMENTS = {
     "store_cholesky": None,
     "anchor_pheno": "--anchor-phenos",
     "anchor_gene": "--anchor-genes",
+    "anchor_phenos": None,
+    "anchor_any_pheno": None,
+    "anchor_genes": None,
+    "anchor_any_gene": None,
+    "anchor_gene_set": None,
+    "factors_anchor_out": "--factors-out",
+    "gene_set_anchor_clusters_out": "--gene-set-clusters-out",
+    "gene_anchor_clusters_out": "--gene-clusters-out",
+    "pheno_anchor_clusters_out": "--trait-factor-links-out",
+    "pheno_clusters_out": "--trait-factor-links-out",
 }
 
 options = None
@@ -1507,7 +1479,7 @@ def _bootstrap_cli(argv=None):
         if parsed_options.factor_gene_clusters_in is not None and parsed_options.factor_gene_set_clusters_in is not None:
             bail("--factor-gene-clusters-in and --factor-gene-set-clusters-in are mutually exclusive for projection-only mode")
         projection_requests = {
-            "pheno": bool(parsed_options.pheno_clusters_out is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None),
+            "pheno": bool(getattr(parsed_options, "pheno_clusters_out", None) is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None),
             "gene": bool(getattr(parsed_options, "gene_clusters_full_out", None) is not None),
             "gene_set": bool(parsed_options.gene_set_clusters_out is not None),
         }
@@ -1517,15 +1489,15 @@ def _bootstrap_cli(argv=None):
             bail(
                 "--gene-set-clusters-out with --factor-gene-set-clusters-in would only rewrite the precomputed "
                 "gene-set loadings; use the input file directly or request a true projection output such as "
-                "--gene-clusters-full-out, --pheno-clusters-out, or --trait-factor-links-out"
+                "--gene-clusters-full-out or --trait-factor-links-out"
             )
         if parsed_options.project_phenos_from_gene_sets and not projection_requests["pheno"]:
-            bail("--project-phenos-from-gene-sets only applies when requesting --pheno-clusters-out or --trait-factor-links-out")
+            bail("--project-phenos-from-gene-sets only applies when requesting --trait-factor-links-out")
         if (
             not parsed_options.run_factor_phewas
             and not any(projection_requests.values())
         ):
-            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires at least one requested projection output: --pheno-clusters-out/--trait-factor-links-out, --gene-clusters-out/--gene-clusters-full-out, or --gene-set-clusters-out")
+            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires at least one requested projection output: --trait-factor-links-out, --gene-clusters-out/--gene-clusters-full-out, or --gene-set-clusters-out")
         if parsed_options.run_factor_phewas and parsed_options.factor_gene_clusters_in is None:
             bail("--run-factor-phewas with precomputed factors requires --factor-gene-clusters-in")
         if projection_requests["pheno"]:

@@ -183,6 +183,37 @@ class EagglFactorGraphTest(unittest.TestCase):
         node_by_id = {node["id"]: node for node in graph["nodes"]}
         self.assertEqual(node_by_id["Factor2"]["display_label"], "metabolic")
 
+    def test_graph_records_trait_layout_scales(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(["--eaggl-dir", str(root), "--trait-coordinate-scale", "0.3", "--trait-edge-length-scale", "0.4"])
+            graph = factor_graph.build_graph_from_files(args)
+
+        self.assertEqual(graph["layout"]["trait_coordinate_scale"], 0.3)
+        self.assertEqual(graph["layout"]["trait_edge_length_scale"], 0.4)
+
+    def test_trait_coordinate_scale_pulls_traits_toward_factors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            parser = factor_graph.build_parser()
+            compressed_args = parser.parse_args(["--eaggl-dir", str(root), "--trait-min-neff", "0"])
+            raw_args = parser.parse_args(["--eaggl-dir", str(root), "--trait-min-neff", "0", "--trait-coordinate-scale", "1.0"])
+            compressed_graph = factor_graph.build_graph_from_files(compressed_args)
+            raw_graph = factor_graph.build_graph_from_files(raw_args)
+
+        def trait_factor_distance(graph: dict) -> float:
+            node_by_id = {node["id"]: node for node in graph["nodes"]}
+            trait = node_by_id["TraitA"]
+            factors = [node_by_id["Factor1"], node_by_id["Factor2"]]
+            center_x = sum(node["x"] for node in factors) / len(factors)
+            center_y = sum(node["y"] for node in factors) / len(factors)
+            return ((trait["x"] - center_x) ** 2 + (trait["y"] - center_y) ** 2) ** 0.5
+
+        self.assertLess(trait_factor_distance(compressed_graph), trait_factor_distance(raw_graph))
+
     def test_module_cli_can_start_html_with_physics_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

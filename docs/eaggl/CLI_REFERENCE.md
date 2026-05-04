@@ -22,7 +22,7 @@ PYTHONPATH=src python -m eaggl <mode> [...options]
 ```
 
 Common modes:
-- `factor`: canonical EAGGL factor workflow with F1-F9 workflow selection
+- `factor`: canonical EAGGL factor workflow with F1-F4 workflow selection
 - `naive_factor`: simpler baseline factorization path using the same high-level contracts
 
 Typical user workflow:
@@ -96,12 +96,11 @@ Scalable backend note:
 - `--learn-phi-backend sentinel_pruned|blockwise_global_w` selects the phi-search backend.
 - `blockwise_global_w` keeps one shared global gene-factor basis and one shared ARD state across block-local gene-set solves, so all retained gene sets can contribute during phi search and final factorization without requiring one giant in-memory solve.
 
-Phenotype-anchored workflow:
+Phenotype-input anchoring workflow:
 
 ```bash
 PYTHONPATH=src python -m eaggl factor \
   --X-in bundles/current/model_small/data/gene_set_list_mouse_2024.txt \
-  --anchor-phenos T2D,T2D_ALT \
   --gene-phewas-stats-in path/to/gene_phewas_stats.out \
   --gene-set-phewas-stats-in path/to/gene_set_phewas_stats.out \
   --factors-out results/factors.out \
@@ -125,12 +124,7 @@ At a high level:
 - `F1`: default single-phenotype factoring from PIGEAN gene/gene-set stats
 - `F2`: standalone gene-list enrichment and factoring
 - `F3`: default factorization with phenotype projection from PheWAS inputs
-- `F4`: explicit phenotype anchoring
-- `F5`: any-phenotype anchoring
-- `F6`: single-gene anchoring
-- `F7`: multi-gene anchoring
-- `F8`: any-gene anchoring
-- `F9`: gene-set anchoring
+- `F4`: phenotype-input anchoring from matched gene and gene-set phenotype statistics
 
 Use `--print-effective-config` to confirm which workflow the CLI selected.
 
@@ -161,7 +155,7 @@ Use `--print-effective-config` to confirm which workflow the CLI selected.
 | `--gene-map-in` | map input gene identifiers onto the runtime gene space when needed |
 | `--gene-loc-file` | gene location file used by shared read-X/runtime paths when needed |
 
-### Workflow selectors and anchors
+### Workflow Selectors
 
 | Flag | Meaning |
 |---|---|
@@ -173,11 +167,6 @@ Use `--print-effective-config` to confirm which workflow the CLI selected.
 | `--positive-controls-in` | legacy compatibility alias for `--gene-list-in` |
 | `--positive-controls-list` | legacy compatibility alias for `--gene-list` |
 | `--positive-controls-all-in` | legacy compatibility alias; standalone gene-list mode still uses the loaded X-gene universe as the background |
-| `--anchor-phenos` | anchor to one or more named phenotypes |
-| `--anchor-any-pheno` | anchor to an aggregate any-phenotype signal |
-| `--anchor-genes` | anchor to one or more genes |
-| `--anchor-any-gene` | anchor to an aggregate any-gene signal |
-| `--anchor-gene-set` | anchor to the input gene set itself |
 
 Notes:
 - `--gene-list-in` / `--gene-list` are the primary standalone EAGGL workflow selectors
@@ -185,7 +174,7 @@ Notes:
 - retained standalone gene sets are weighted by `-log(P) / sqrt(gene_set_size)` and filtered by `--gene-list-max-fdr-q`
 - `--gene-list` expects a comma-separated list, not a file path
 - `--positive-controls-in` / `--positive-controls-list` remain compatibility aliases for the standalone gene-list workflow and are hidden from the primary help surface
-- anchored phenotype and gene workflows generally require PheWAS inputs in addition to the anchor flag itself
+- phenotype-input anchoring is selected by matched gene and gene-set phenotype inputs; EAGGL uses all complete input phenotypes as anchors
 
 ### PheWAS and projection inputs
 
@@ -193,7 +182,7 @@ Notes:
 |---|---|
 | `--gene-phewas-stats-in` | load gene-by-phenotype statistics |
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
-| `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in`; also required by the gene-set-anchored workflow |
+| `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in` |
 | `--run-factor-phewas` | compute factor-level phenotype enrichment regression from `--gene-phewas-stats-in` |
 | `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only canonical trait linkage, factor-PheWAS, or both without refitting factors |
 | `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only canonical trait linkage from the gene-set basis |
@@ -227,7 +216,6 @@ Operational notes:
 - projection-only full-gene output from `--factor-gene-clusters-in` uses direct beta-weighted gene-gene evidence and therefore requires `--X-in` plus `--gene-set-stats-in`
 - projection-only gene-set-basis trait linkage uses the raw `Factor1..FactorK` columns from `gene_set_clusters.out(.gz)` with `--gene-set-phewas-stats-in`; request this with `--project-phenos-from-gene-sets`
 - projection-only full-gene output from precomputed gene-set factors requires `--factor-gene-set-clusters-in` plus `--X-in`; EAGGL does not silently derive a gene-set factor basis from `gene_clusters.out(.gz)` for this mode
-- `--pheno-clusters-out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
 - projection-only reuse expects the standard non-anchor `gene_clusters.out(.gz)` and `gene_set_clusters.out(.gz)` tables with one row per gene or gene set
 - if you request multiple factor-PheWAS models in one run, `factor_phewas_stats.out` appends them together and labels each row with `model_name`, `factor_model_scope`, `outcome_surface`, and `anchor_covariate`
 - `--factor-phewas-full-output` restores the broader legacy continuous and sensitivity outputs for expert diagnostics
@@ -375,7 +363,7 @@ Notes:
 - `--discovery-model gene_by_gene` uses all retained gene sets to construct pairwise gene evidence, so discovery-family subsetting and redundancy weighting flags are ignored in that mode.
 - `--discovery-model gene_by_gene` currently requires `--factor-backend full`, `--learn-phi-backend sentinel_pruned`, and the default transposed factor matrix.
 - In `gene_by_gene` mode, corrected `beta` is the default pairwise evidence surface and no additional gene-set-size normalization is applied before symmetric factorization.
-- By default, `factors.out`, `factors_anchor.out`, and cluster outputs print only primary factors, defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
+- By default, `factors.out` and cluster outputs print only primary factors, defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
 - Automatic phi-selection metrics are also primary-scoped by default: redundancy and repeat-stability matching ignore the low-mass ARD tail unless `--learn-phi-metric-factor-scope all` is set. This option is separate from `--factor-output-scope`, which only controls printed factor and cluster rows.
 - `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive over all raw fitted factors. The optional `factor_phi_*` output tables follow `--factor-output-scope`, matching the final user-facing output policy for each tested phi.
 - Factor labels are not renumbered when output filtering is active: if `Factor7` is primary, it remains `Factor7`.
@@ -427,14 +415,9 @@ Labeling details and the rationale for keeping labeling integrated into `factor`
 | Flag | Meaning |
 |---|---|
 | `--factors-out` | main factor output table |
-| `--factors-anchor-out` | anchor-specific factor output |
 | `--gene-set-clusters-out` | gene-set cluster output |
 | `--gene-clusters-out` | gene cluster output |
 | `--trait-factor-links-out` | canonical long-form trait-factor linkage output |
-| `--pheno-clusters-out` | compatibility alias that writes the same canonical trait-factor linkage payload |
-| `--gene-set-anchor-clusters-out` | anchor-side gene-set clusters |
-| `--gene-anchor-clusters-out` | anchor-side gene clusters |
-| `--pheno-anchor-clusters-out` | anchor-side phenotype clusters |
 | `--factor-phewas-stats-out` | factor-level PheWAS output |
 | `--gene-pheno-stats-out` | gene-phenotype output |
 | `--consensus-stats-out` | per-run and per-factor diagnostics for restart or consensus factorization |

@@ -15,7 +15,7 @@ Use these documents in order:
    - practical manual for running `python -m eaggl`
    - curated explanation of the main workflows, anchors, factor controls, labeling flags, and outputs
 2. `docs/eaggl/WORKFLOWS.md`
-   - F1-F9 workflow map with minimal runnable command patterns
+   - F1-F4 workflow map with minimal runnable command patterns
 3. `docs/eaggl/methods.tex`
    - theory and mathematical formalization of the EAGGL factor model and workflow families
 4. `docs/eaggl/LABELING.md`

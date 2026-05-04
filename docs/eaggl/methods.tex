@@ -366,9 +366,9 @@ pairwise evidence matrix, and additional annotations can be projected afterward 
 deepen interpretation without directly redefining the learned gene mechanisms.
 
 
-\subsection{Phenotype-anchored extensions of the gene-by-annotation model}
+\subsection{Phenotype-input anchoring of the gene-by-annotation model}
 
-In some applications, one wishes to condition factorization on several anchor phenotypes rather than on a single default trait. Let $P_{it}$ denote a nonnegative gene-by-phenotype support matrix and $Q_{jt}$ denote a nonnegative annotation-by-phenotype support matrix derived from phenotype-resolved statistics. If the anchor phenotype set is $A \subseteq \{1,\ldots,T\}$, then each $t \in A$ defines an anchor user, with
+In some applications, one wishes to condition factorization on several input phenotypes rather than on a single default trait. Let $P_{it}$ denote a nonnegative gene-by-phenotype support matrix and $Q_{jt}$ denote a nonnegative annotation-by-phenotype support matrix derived from phenotype-resolved statistics. EAGGL treats every phenotype with both gene-level and annotation-level support as an anchor. If the complete input phenotype set is $A \subseteq \{1,\ldots,T\}$, then each $t \in A$ defines an anchor user, with
 \[
 p_i^{(u)} = P_{it},
 \qquad
@@ -384,33 +384,7 @@ P_{it} Q_{jt}.
 \end{equation}
 The factorization itself remains the same as Eq.~\eqref{eq:eaggl_basic_factor}. The difference is that the model is now conditioned on a selected phenotype set rather than on a single default trait.
 
-When the goal is to summarize relevance to any phenotype in a large panel rather than to a manually specified subset, the anchor set is first collapsed to a single aggregate user and factorization proceeds under the same weighted model. Thus, the difference between multi-phenotype anchoring and any-phenotype anchoring lies in whether the phenotype-resolved support vectors are retained separately or combined before fitting; the underlying factor model is unchanged.
-
-\subsection{Gene-anchored and gene-set-anchored gene-set by phenotype factorization}
-
-The second major EAGGL workflow family factors a nonnegative gene-set-by-phenotype matrix rather than the original gene-by-annotation matrix. Let $Y_{jt} \ge 0$ denote a matrix whose rows are gene sets and whose columns are phenotypes, typically derived from phenotype-resolved PIGEAN statistics. EAGGL then posits
-\begin{equation}
-Y_{jt}
-\approx
-\sum_{k=1}^K H_{jk} Z_{tk} + \epsilon_{jt},
-\label{eq:eaggl_gene_set_pheno_factor}
-\end{equation}
-where $H_{jk}$ is again the loading of annotation $j$ on factor $k$, while $Z_{tk}$ is now the phenotype loading of factor $k$.
-
-As above, the factorization is fitted under a weighted Gaussian likelihood. Let $q_j^{(u)}$ denote gene-set support and let $r_t^{(u)}$ denote phenotype support induced by anchor user $u$. Then
-\begin{equation}
-\Omega_{jt}
-=
-\sum_{u=1}^U q_j^{(u)} r_t^{(u)}.
-\label{eq:eaggl_gene_anchor_weights}
-\end{equation}
-The anchor users are defined differently for the different workflows in this family:
-\begin{itemize}
-\item In single-gene anchoring and multi-gene anchoring, $u$ indexes one or more selected anchor genes.
-\item In any-gene anchoring, the selected anchor genes are first collapsed into a single aggregate user.
-\item In gene-set anchoring, the user is a supplied anchor gene set that induces phenotype support through the gene-PheWAS statistics.
-\end{itemize}
-Thus, the gene-anchored workflows and the phenotype-anchored workflows are not different factorization algorithms. They are different constructions of the matrix and weights supplied to the same ARD-regularized nonnegative factor model.
+EAGGL no longer exposes separate gene-anchor, gene-set-anchor, or any-anchor public workflows. Those historical modes are retained in git history, but the current public anchoring model is phenotype-input anchoring: users supply one or more phenotype-resolved gene and gene-set evidence tables, EAGGL verifies that the phenotype labels match, and the complete phenotypes jointly define the factorization weights.
 
 \subsection{Implicit factor relevance and any-anchor summaries}
 
@@ -451,7 +425,7 @@ r_k^{\mathrm{any}}
 \end{equation}
 This has the intended semantics that $r_k^{\mathrm{any}}$ is a bounded coefficient summary of how strongly factor $k$ links to at least one selected anchor under the relevance model above. In the single-user case, Eq.~\eqref{eq:eaggl_factor_any_relevance} reduces to the anchor-specific relevance itself.
 
-When anchor phenotypes are present and canonical trait linkage is also computed, EAGGL reports \texttt{anchor\_any\_joint} and \texttt{anchor\_any\_marginal} summaries in \texttt{factors.out(.gz)} derived from the canonical linkage calculations in Section~\ref{sec:postfactor_revised}. If only the older joint-style relevance calculation is available, these anchor-any columns are not emitted rather than aliasing marginal to joint. The per-anchor \texttt{factors\_anchor.out(.gz)} table reports the corresponding \texttt{joint} and \texttt{marginal} values for each anchor separately, using \texttt{NA} for marginal when no marginal summary was computed.
+When anchor phenotypes are present and canonical trait linkage is also computed, EAGGL reports \texttt{anchor\_any\_joint} and \texttt{anchor\_any\_marginal} summaries in \texttt{factors.out(.gz)} derived from the canonical linkage calculations in Section~\ref{sec:postfactor_revised}. If only the older joint-style relevance calculation is available, these anchor-any columns are not emitted rather than aliasing marginal to joint. Per-phenotype factor relationships are reported in the canonical long-form \texttt{trait\_factor\_links.out(.gz)} table.
 
 \section{Trait linkage and factor-specific phenotype enrichment}
 \label{sec:postfactor_revised}
@@ -574,9 +548,7 @@ EAGGL also reports retained-basis diagnostics alongside the linkage scores: tota
 
 \subsection{Choice of projection basis across workflow families}
 
-For the default gene $\times$ gene-set workflow family (F1--F5), the preferred basis for canonical trait linkage is the gene basis. In that case, $W^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $W^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-set support vector.
-
-For the gene-set $\times$ phenotype workflow family (F6--F9), public trait linkage still uses the same projection definition whenever an external trait profile is provided, typically on the gene-set basis. Thus, the canonical linkage definition is common across workflows: EAGGL always projects one thresholded support profile onto a factor basis defined on one shared feature space, then reports both marginal and joint coefficients from those same internal matching inputs.
+For the public gene $\times$ gene-set workflow family, the preferred basis for canonical trait linkage is the gene basis. In that case, $W^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $W^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-set support vector. Thus, the canonical linkage definition is common across workflows: EAGGL always projects one thresholded support profile onto a factor basis defined on one shared feature space, then reports both marginal and joint coefficients from those same internal matching inputs.
 
 \subsection{Factor-specific phenotype enrichment with thresholded binary outcomes}
 

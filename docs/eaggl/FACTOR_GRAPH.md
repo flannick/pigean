@@ -20,6 +20,8 @@ PYTHONPATH=src python -m eaggl.factor_graph \
 - Use the filter bar to show/hide factors, genes, or phenotypes.
 - Add one or more case-insensitive text filters to show nodes whose ID, label, or type contains any requested substring; comma-separated entries are treated as OR filters.
 - Node labels are truncated to 20 characters by default, with the full label shown on hover. Use `--label-max-chars` to change the displayed length, or `--label-max-chars 0` to disable truncation.
+- Trait nodes are pulled toward the factor centroid by default with `--trait-coordinate-scale 0.2`; use `--trait-coordinate-scale 1.0` to preserve the raw MDS position.
+- Interactive physics uses shorter factor-trait springs by default with `--trait-edge-length-scale 0.2`, so anchor phenotypes stay near the factor/gene structure.
 
 To start with physics enabled:
 
@@ -87,6 +89,8 @@ By default, phenotype nodes are also filtered to traits with `trait_neff > 25` w
 --trait-min-loading 0.005
 --trait-min-neff 25
 --label-max-chars 20
+--trait-coordinate-scale 0.2
+--trait-edge-length-scale 0.2
 --gene-min-loading-frac 0.5
 --trait-min-loading-frac 0.5
 ```

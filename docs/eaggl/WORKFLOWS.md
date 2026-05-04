@@ -1,4 +1,4 @@
-# EAGGL Factor Workflows (F1-F9)
+# EAGGL Factor Workflows (F1-F4)
 
 This document maps each supported factoring workflow to:
 
@@ -95,13 +95,13 @@ Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffl
 
 Factor output policy:
 
-1. `factors.out`, `factors_anchor.out`, `gene_set_clusters.out`, and `gene_clusters.out` print only primary factors by default.
+1. `factors.out`, `gene_set_clusters.out`, and `gene_clusters.out` print only primary factors by default.
 2. Primary factors have `combined_mass_fraction >= 0.005`; secondary factors have `combined_mass_fraction >= 0.001`; smaller factors are treated as filtered tail factors.
 3. Use `--factor-output-scope primary_secondary` or `--factor-output-scope all` when you need to inspect the secondary or full ARD tail.
 4. `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive diagnostics over all raw fitted factors.
 5. Factor identifiers are preserved rather than renumbered after filtering.
 
-PheWAS matrix inputs (for phenotype/gene anchor workflows):
+PheWAS matrix inputs:
 
 1. `--gene-phewas-stats-in`
 2. `--gene-set-phewas-stats-in`
@@ -109,7 +109,7 @@ PheWAS matrix inputs (for phenotype/gene anchor workflows):
 Phenotype annotation policy:
 
 1. use canonical trait linkage for the primary public phenotype annotation layer
-2. write the long-form linkage table with `--trait-factor-links-out`; `--pheno-clusters-out` remains accepted as a compatibility alias for one release
+2. write the long-form linkage table with `--trait-factor-links-out`
 3. interpret trait linkage as linkage of the thresholded high-confidence phenotype support shape, not of a fully observed unthresholded phenotype surface or a biological probability distribution
 4. canonical linkage forms a masked full-space target (`s_mask / A`) by dividing masked thresholded trait support by total thresholded trait support before masking, then solves the joint/marginal projections in that full objective space
 5. use `--trait-factor-links-output-detail main` for the concise default table (`trait`, `factor`, `is_anchor`, `joint_fraction`, `marginal_fraction`, `marginal_overlap`, `joint_support_mass`, `marginal_support_mass`, `marginal_overlap_support_mass`, `low_retention_flag`, `trait_neff`, `retained_n_eff`) and `--trait-factor-links-output-detail full` when additional retained diagnostics are needed
@@ -280,129 +280,37 @@ $PYTHON -m eaggl factor \
   --factors-out results/F3.factors.out
 ```
 
-### F4: Multi-Phenotype Anchoring
+### F4: Phenotype-Input Anchoring
 
 Required:
 
-1. `--anchor-phenos <comma-separated phenotypes>`
-2. `--gene-phewas-stats-in`
-3. `--gene-set-phewas-stats-in`
+1. matched gene phenotype statistics and gene-set phenotype statistics
+2. either repeated PheWAS tables with trait labels, or repeated labeled single-trait stats files using `LABEL=path`
+3. every loaded trait must have both gene and gene-set evidence after filtering
 
 Command:
 
 ```bash
 $PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
-  --anchor-phenos T2D,T2D_ALT \
   --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
   --gene-set-phewas-stats-in /path/to/gene_set_phewas_stats.out \
   --factors-out results/F4.factors.out
 ```
 
-### F5: Any-Phenotype Anchoring
-
-Required:
-
-1. `--anchor-any-pheno`
-2. `--gene-phewas-stats-in`
-3. `--gene-set-phewas-stats-in`
-
-Command:
+Single-trait stats can also be supplied as matched labeled pairs:
 
 ```bash
 $PYTHON -m eaggl factor \
   --X-in /path/to/X.tsv.gz \
-  --anchor-any-pheno \
-  --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
-  --gene-set-phewas-stats-in /path/to/gene_set_phewas_stats.out \
-  --factors-out results/F5.factors.out
+  --gene-stats-in T2D=/path/to/t2d.gene_stats.out \
+  --gene-set-stats-in T2D=/path/to/t2d.gene_set_stats.out \
+  --gene-stats-in CAD=/path/to/cad.gene_stats.out \
+  --gene-set-stats-in CAD=/path/to/cad.gene_set_stats.out \
+  --factors-out results/F4.factors.out
 ```
 
-### F6: Single-Gene Anchoring
-
-Required:
-
-1. `--anchor-genes <GENE>`
-2. `--gene-phewas-stats-in`
-3. `--gene-set-phewas-stats-in`
-
-Command:
-
-```bash
-$PYTHON -m eaggl factor \
-  --X-in /path/to/X.tsv.gz \
-  --anchor-genes INS \
-  --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
-  --gene-set-phewas-stats-in /path/to/gene_set_phewas_stats.out \
-  --factors-out results/F6.factors.out
-```
-
-### F7: Multi-Gene Anchoring
-
-Required:
-
-1. `--anchor-genes <comma-separated genes>`
-2. `--gene-phewas-stats-in`
-3. `--gene-set-phewas-stats-in`
-
-Optional expansion knobs:
-
-1. `--add-gene-sets-by-enrichment-p`
-2. `--add-gene-sets-by-fraction`
-3. `--add-gene-sets-by-naive`
-4. `--add-gene-sets-by-gibbs`
-
-Command:
-
-```bash
-$PYTHON -m eaggl factor \
-  --X-in /path/to/X.tsv.gz \
-  --anchor-genes INS,GCK \
-  --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
-  --gene-set-phewas-stats-in /path/to/gene_set_phewas_stats.out \
-  --factors-out results/F7.factors.out
-```
-
-### F8: Any-Gene Anchoring
-
-Required:
-
-1. `--anchor-any-gene`
-2. `--gene-phewas-stats-in`
-3. `--gene-set-phewas-stats-in`
-
-Command:
-
-```bash
-$PYTHON -m eaggl factor \
-  --X-in /path/to/X.tsv.gz \
-  --anchor-any-gene \
-  --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
-  --gene-set-phewas-stats-in /path/to/gene_set_phewas_stats.out \
-  --factors-out results/F8.factors.out
-```
-
-### F9: Gene-set Anchoring
-
-Required:
-
-1. `--anchor-gene-set`
-2. `--run-phewas`
-3. `--gene-phewas-stats-in`
-4. enough evidence input to compute gene/gene-set scores if not precomputed
-
-Command:
-
-```bash
-$PYTHON -m eaggl factor \
-  --X-in /path/to/X.tsv.gz \
-  --anchor-gene-set \
-  --gene-stats-in /path/to/gene_stats.out \
-  --gene-set-stats-in /path/to/gene_set_stats.out \
-  --run-phewas \
-  --gene-phewas-stats-in /path/to/gene_phewas_stats.out \
-  --factors-out results/F9.factors.out
-```
+EAGGL treats all complete input traits as anchors. Legacy explicit phenotype, gene, and gene-set anchor flags have been removed; use phenotype-resolved inputs instead.
 
 ## Workflow Validation and Guardrails
 

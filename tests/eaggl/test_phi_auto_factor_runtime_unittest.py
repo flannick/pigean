@@ -754,6 +754,56 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(float(matrix[0, 1]), 0.0)
         self.assertEqual(float(matrix[1, 0]), 0.0)
 
+    def test_build_gene_gene_pair_matrix_combines_anchor_beta_matrix(self) -> None:
+        state = SimpleNamespace(
+            X_orig=sparse.csr_matrix(
+                np.array(
+                    [
+                        [1.0, 1.0],
+                        [1.0, 0.0],
+                    ],
+                    dtype=float,
+                )
+            ),
+            betas=None,
+            betas_uncorrected=None,
+            scale_factors=np.ones(2, dtype=float),
+        )
+        beta_values = np.array(
+            [
+                [2.0, 0.0],
+                [0.0, 2.0],
+            ],
+            dtype=float,
+        )
+        gene_prob_values = np.ones((2, 2), dtype=float)
+        matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+            state,
+            gene_mask=np.array([True, True]),
+            gene_set_mask=np.array([True, True]),
+            beta_source="beta_uncorrected",
+            beta_values=beta_values,
+            gene_prob_values=gene_prob_values,
+            pair_prior=0.2,
+            logbf_base="natural",
+            matrix_floor=0.0,
+            excess_probability=True,
+            diagonal_weight=0.0,
+            log_fn=None,
+            info_level=1,
+        )
+        pair_logit = np.log(0.2 / 0.8)
+        anchor0_l = np.array([[2.0, 2.0], [2.0, 2.0]], dtype=float)
+        anchor1_l = np.array([[2.0, 0.0], [0.0, 0.0]], dtype=float)
+        anchor0_p = 1.0 / (1.0 + np.exp(-(pair_logit + anchor0_l)))
+        anchor1_p = 1.0 / (1.0 + np.exp(-(pair_logit + anchor1_l)))
+        anchor0_m = np.clip((anchor0_p - 0.2) / 0.8, 0.0, 1.0)
+        anchor1_m = np.clip((anchor1_p - 0.2) / 0.8, 0.0, 1.0)
+        expected = 1.0 - (1.0 - anchor0_m) * (1.0 - anchor1_m)
+        np.fill_diagonal(expected, 0.0)
+        np.testing.assert_allclose(matrix, expected)
+        self.assertEqual(diagnostics["beta_anchor_count"], 2)
+
     def test_bayes_sym_nmf_l2_extension_caps_row_sums(self) -> None:
         state = EagglState.__new__(EagglState)
         M = np.array(

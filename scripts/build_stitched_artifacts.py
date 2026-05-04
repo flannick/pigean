@@ -36,7 +36,8 @@ EAGGL_PROFILE = {
     "entry_module": "eaggl.app",
     "entry_callable": "main",
     "modules": COMMON_MODULES,
-    "packages": COMMON_PACKAGES + ("eaggl",),
+    # EAGGL reuses PIGEAN's shared X-input implementation through pigean.x_inputs_core.
+    "packages": COMMON_PACKAGES + ("eaggl", "pigean"),
 }
 
 PROFILES = {

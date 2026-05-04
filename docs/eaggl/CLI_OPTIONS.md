@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `275`
-- `method_required`: `16`
+- Total options: `265`
+- `method_required`: `11`
 - `method_optional`: `165`
-- `engineering`: `77`
+- `engineering`: `72`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `225`
+- visibility `expert`: `221`
 - visibility `hidden`: `8`
-- visibility `normal`: `42`
+- visibility `normal`: `36`
 
 ## Method Required
 
@@ -23,11 +23,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--X-list` | `normal` | `yes` | `core_help` | `X_list` | `None` | load a file listing sparse gene-set matrix inputs |
 | `--Xd-in` | `normal` | `yes` | `core_help` | `Xd_in` | `None` | load one or more dense gene-set matrix files directly |
 | `--Xd-list` | `normal` | `yes` | `core_help` | `Xd_list` | `None` | load a file listing dense gene-set matrix inputs |
-| `--anchor-any-gene` | `normal` | `yes` | `core_help` | `anchor_any_gene` | `False` | anchor factorization to any gene in the loaded gene-phewas inputs |
-| `--anchor-any-pheno` | `normal` | `yes` | `core_help` | `anchor_any_pheno` | `False` | anchor factorization to any phenotype in the loaded phewas inputs |
-| `--anchor-gene-set` | `normal` | `yes` | `core_help` | `anchor_gene_set` | `False` | run gene-set anchoring using the loaded phenotype evidence |
-| `--anchor-genes` | `normal` | `yes` | `core_help` | `anchor_genes` | `None` | anchor factorization to one or more genes |
-| `--anchor-phenos` | `normal` | `yes` | `core_help` | `anchor_phenos` | `None` | anchor factorization to one or more phenotypes |
 | `--eaggl-bundle-in` | `normal` | `yes` | `core_help` | `eaggl_bundle_in` | `None` | load bundled PIGEAN outputs as default EAGGL inputs |
 | `--gene-list` | `normal` | `yes` | `core_help` | `gene_list` | `None` | provide a standalone EAGGL input gene list directly on the command line |
 | `--gene-list-in` | `normal` | `yes` | `core_help` | `gene_list_in` | `None` | read a standalone EAGGL input gene list from a file and synthesize enrichment weights internally |
@@ -105,7 +100,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | - |
 | `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
 | `--gene-set-pheno-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_pheno_filter_value` | `0.01` | - |
-| `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and anchor workflows |
+| `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and phenotype-input factoring workflows |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
 | `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
@@ -224,10 +219,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-phi-gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_gene_clusters_out` | `None` | write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column |
 | `--factor-phi-gene-set-clusters-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_gene_set_clusters_out` | `None` | write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column |
 | `--factor-phi-metrics-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_metrics_out` | `None` | write per-factor diagnostics for each investigated phi-search candidate |
-| `--factors-anchor-out` | `normal` | `no` | `core_help` | `factors_anchor_out` | `None` | write anchor-specific factorization outputs |
 | `--factors-out` | `normal` | `no` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
 | `--file-separator` | `expert` | `no` | `expert_help` | `file_separator` | `None` | - |
-| `--gene-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_anchor_clusters_out` | `None` | - |
 | `--gene-clusters-full-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_out` | `None` | write a projected gene cluster table for all input genes, including genes filtered before factorization |
 | `--gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_out` | `None` | - |
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
@@ -243,7 +236,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-phewas-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | - |
 | `--gene-phewas-stats-pheno-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_pheno_col` | `None` | - |
 | `--gene-phewas-stats-prior-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_prior_col` | `None` | - |
-| `--gene-set-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_set_anchor_clusters_out` | `None` | - |
 | `--gene-set-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_set_clusters_out` | `None` | - |
 | `--gene-set-overlap-stats-out` | `expert` | `no` | `expert_help` | `gene_set_overlap_stats_out` | `None` | - |
 | `--gene-set-phewas-stats-beta-col` | `expert` | `no` | `expert_help` | `gene_set_phewas_stats_beta_col` | `None` | - |
@@ -276,8 +268,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
 | `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |
 | `--params-out` | `expert` | `no` | `expert_help` | `params_out` | `None` | - |
-| `--pheno-anchor-clusters-out` | `expert` | `no` | `advanced_workflows` | `pheno_anchor_clusters_out` | `None` | - |
-| `--pheno-clusters-out` | `expert` | `no` | `advanced_workflows` | `pheno_clusters_out` | `None` | - |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
 | `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | - |
 | `--pre-filter-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_batch_size` | `None` | - |
@@ -295,7 +285,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-phewas-from-gene-phewas-stats-in` | `hidden` | `yes` | `internal_only` | `factor_phewas_legacy_input` | `None` | compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in |
 | `--gene-phewas-bfs-combined-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_combined_col` | `None` | - |
 | `--gene-phewas-bfs-id-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_id_col` | `None` | - |
-| `--gene-phewas-bfs-in` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and anchor workflows |
+| `--gene-phewas-bfs-in` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and phenotype-input factoring workflows |
 | `--gene-phewas-bfs-log-bf-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_log_bf_col` | `None` | - |
 | `--gene-phewas-bfs-pheno-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_pheno_col` | `None` | - |
 | `--gene-phewas-bfs-prior-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_prior_col` | `None` | - |

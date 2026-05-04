@@ -608,7 +608,9 @@ def apply_parsed_gene_set_statistics_to_runtime(
         log_fn("Subsetting matrices")
         if ignored > 0:
             warn_fn("Ignored %s values from --stats-in file because absent from previously loaded files" % ignored)
-        if np.sum(subset_mask) != len(subset_mask):
+        if np.sum(subset_mask) == len(subset_mask):
+            runtime.subset_gene_sets(subset_mask, keep_missing=True)
+        else:
             warn_fn(
                 "Excluding %s values from previously loaded files because absent from --stats-in file"
                 % (len(subset_mask) - np.sum(subset_mask))
@@ -820,8 +822,8 @@ def load_and_apply_gene_set_phewas_statistics_to_runtime(
 
             gene_sets = []
             gene_set_to_ind = {}
-            phenos = []
-            pheno_to_ind = {}
+            phenos = list(runtime.phenos) if runtime.phenos is not None else []
+            pheno_to_ind = copy.copy(runtime.pheno_to_ind) if runtime.pheno_to_ind is not None else {}
             if max_num_entries_at_once is None:
                 max_num_entries_at_once = 200 * 10000
 
@@ -951,8 +953,36 @@ def load_and_apply_gene_set_phewas_statistics_to_runtime(
 
         runtime._set_X(runtime.X_orig, runtime.genes, runtime.gene_sets, skip_N=True)
 
-    if runtime.phenos is not None:
-        bail_fn("Bug in code: cannot call this function if phenos have already been read")
+    prior_num_phenos = len(runtime.phenos) if runtime.phenos is not None else 0
+    num_added_phenos = len(phenos) - prior_num_phenos
+    if num_added_phenos > 0:
+        if getattr(runtime, "gene_pheno_Y", None) is not None:
+            runtime.gene_pheno_Y = sparse.csc_matrix(
+                sparse.hstack(
+                    (
+                        runtime.gene_pheno_Y,
+                        sparse.csc_matrix((runtime.gene_pheno_Y.shape[0], num_added_phenos)),
+                    )
+                )
+            )
+        if getattr(runtime, "gene_pheno_combined_prior_Ys", None) is not None:
+            runtime.gene_pheno_combined_prior_Ys = sparse.csc_matrix(
+                sparse.hstack(
+                    (
+                        runtime.gene_pheno_combined_prior_Ys,
+                        sparse.csc_matrix((runtime.gene_pheno_combined_prior_Ys.shape[0], num_added_phenos)),
+                    )
+                )
+            )
+        if getattr(runtime, "gene_pheno_priors", None) is not None:
+            runtime.gene_pheno_priors = sparse.csc_matrix(
+                sparse.hstack(
+                    (
+                        runtime.gene_pheno_priors,
+                        sparse.csc_matrix((runtime.gene_pheno_priors.shape[0], num_added_phenos)),
+                    )
+                )
+            )
 
     runtime.phenos = phenos
     runtime.pheno_to_ind = construct_map_to_ind_fn(phenos)

@@ -625,7 +625,8 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertNotIn('### F1: Single Phenotype Anchoring', cli_source)
         self.assertNotIn('Options for phenotype-based anchoring of factoring', cli_source)
         self.assertIn("### F1: Single Phenotype Anchoring", workflow_doc)
-        self.assertIn("### F9: Gene-set Anchoring", workflow_doc)
+        self.assertIn("### F4: Phenotype-Input Anchoring", workflow_doc)
+        self.assertNotIn("### F9: Gene-set Anchoring", workflow_doc)
 
     def test_eaggl_labeling_docs_and_cli_make_integrated_command_boundary_explicit(self) -> None:
         cli_source = (REPO_ROOT / "src" / "eaggl" / "cli.py").read_text(encoding="utf-8")
@@ -731,10 +732,9 @@ class SharedModuleBoundaryTest(unittest.TestCase):
         self.assertEqual(pigean_meta["--increase-hyper-if-betas-below"]["category"], "compat_alias")
         self.assertEqual(pigean_meta["--gene-phewas-stats-in"]["documentation_target"], "advanced_workflows")
 
-        self.assertEqual(eaggl_meta["--anchor-genes"]["category"], "method_required")
-        self.assertEqual(eaggl_meta["--anchor-genes"]["public_visibility"], "normal")
         self.assertEqual(eaggl_meta["--gene-set-stats-id-col"]["category"], "engineering")
         self.assertEqual(eaggl_meta["--gene-phewas-stats-in"]["documentation_target"], "advanced_workflows")
+        self.assertNotIn("--anchor-genes", eaggl_meta)
         self.assertEqual(eaggl_meta["--factor-phewas-stats-out"]["category"], "engineering")
         self.assertEqual(eaggl_meta["--factor-phewas-stats-out"]["documentation_target"], "advanced_workflows")
 

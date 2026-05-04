@@ -6,6 +6,10 @@ import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
+import scipy.sparse as sparse
+
+from pegs_shared.gene_io import parse_gene_bfs_file, parse_gene_set_statistics_file
+from pegs_shared.ydata import sync_phewas_runtime_state
 
 from . import gene_list_inputs as eaggl_gene_list_inputs
 from . import factor_runtime as eaggl_factor_runtime
@@ -523,7 +527,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
                     gene_set_read_p_threshold = options.max_gene_set_read_p
                 gene_set_ids = domain._read_gene_set_statistics(
                     runtime,
-                    options.gene_set_stats_in,
+                    _strip_labeled_path_specs(options.gene_set_stats_in),
                     stats_id_col=options.gene_set_stats_id_col,
                     stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
                     stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
@@ -594,7 +598,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             if loaded_gene_factors is not None and getattr(options, "gene_clusters_full_out", None) is not None:
                 domain._read_gene_set_statistics(
                     runtime,
-                    options.gene_set_stats_in,
+                    _strip_labeled_path_specs(options.gene_set_stats_in),
                     stats_id_col=options.gene_set_stats_id_col,
                     stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
                     stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
@@ -647,31 +651,58 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     workflow_id = current_workflow.get("id") if isinstance(current_workflow, dict) else None
 
     gene_set_ids = None
-    factor_uses_phewas_gene_set_ids = workflow_id in set(["F4", "F5", "F6", "F7", "F8"])
+    factor_uses_phewas_gene_set_ids = bool(current_workflow and current_workflow.get("use_phewas_for_factoring"))
     gene_set_read_p_threshold = None
     if options.max_gene_set_read_p is not None and options.max_gene_set_read_p < 1:
         gene_set_read_p_threshold = options.max_gene_set_read_p
     gene_set_read_beta_uncorrected_threshold = _resolve_gene_set_read_beta_uncorrected_threshold(options)
     if factor_uses_phewas_gene_set_ids:
-        if options.gene_set_phewas_stats_in is None:
-            domain.bail("Need --gene-set-phewas-stats-in")
-        gene_set_ids = domain._read_gene_set_phewas_statistics(
-            runtime,
-            options.gene_set_phewas_stats_in,
-            stats_id_col=options.gene_set_phewas_stats_id_col,
-            stats_pheno_col=options.gene_set_phewas_stats_pheno_col,
-            stats_beta_col=options.gene_set_phewas_stats_beta_col,
-            stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col,
-            min_gene_set_beta=options.min_gene_set_read_beta,
-            min_gene_set_beta_uncorrected=gene_set_read_beta_uncorrected_threshold,
-            return_only_ids=True,
-            phenos_to_match=options.anchor_phenos,
-            max_num_entries_at_once=options.max_read_entries_at_once,
-        )
+        gene_set_ids = set()
+        for gene_set_phewas_in in _as_list(options.gene_set_phewas_stats_in):
+            gene_set_ids.update(
+                domain._read_gene_set_phewas_statistics(
+                    runtime,
+                    gene_set_phewas_in,
+                    stats_id_col=options.gene_set_phewas_stats_id_col,
+                    stats_pheno_col=options.gene_set_phewas_stats_pheno_col,
+                    stats_beta_col=options.gene_set_phewas_stats_beta_col,
+                    stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col,
+                    min_gene_set_beta=options.min_gene_set_read_beta,
+                    min_gene_set_beta_uncorrected=gene_set_read_beta_uncorrected_threshold,
+                    return_only_ids=True,
+                    phenos_to_match=None,
+                    max_num_entries_at_once=options.max_read_entries_at_once,
+                )
+            )
+        for gene_set_stats_in in _parse_labeled_path_specs(
+            domain,
+            options.gene_set_stats_in,
+            option_name="--gene-set-stats-in",
+            default_label=None,
+        ).values() if options.gene_set_stats_in is not None else []:
+            ids = domain._read_gene_set_statistics(
+                runtime,
+                gene_set_stats_in,
+                stats_id_col=options.gene_set_stats_id_col,
+                stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
+                stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
+                stats_p_col=options.gene_set_stats_p_col,
+                stats_se_col=options.gene_set_stats_se_col,
+                stats_beta_col=options.gene_set_stats_beta_col,
+                stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
+                ignore_negative_exp_beta=options.ignore_negative_exp_beta,
+                max_gene_set_p=gene_set_read_p_threshold,
+                min_gene_set_beta=options.min_gene_set_read_beta,
+                min_gene_set_beta_uncorrected=gene_set_read_beta_uncorrected_threshold,
+                return_only_ids=True,
+            )
+            gene_set_ids.update(ids)
+        if len(gene_set_ids) == 0:
+            domain.bail("Phenotype-input anchoring requires --gene-set-phewas-stats-in or labeled --gene-set-stats-in with matching gene sets")
     elif options.gene_set_stats_in is not None:
         gene_set_ids = domain._read_gene_set_statistics(
             runtime,
-            options.gene_set_stats_in,
+            _strip_labeled_path_specs(options.gene_set_stats_in),
             stats_id_col=options.gene_set_stats_id_col,
             stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
             stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
@@ -699,7 +730,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
         min_gene_set_size=options.min_gene_set_size,
         max_gene_set_size=options.max_gene_set_size,
         only_ids=gene_set_ids,
-        only_inc_genes=options.anchor_genes if mode_state["use_phewas_for_factoring"] else None,
+        only_inc_genes=None,
         fraction_inc_genes=options.add_gene_sets_by_fraction,
         add_all_genes=options.add_all_genes,
         prune_gene_sets=options.prune_gene_sets,
@@ -733,10 +764,10 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
 
     if workflow_id == "F2":
         eaggl_gene_list_inputs.build_standalone_gene_list_inputs(domain, runtime, options)
-    elif options.gene_stats_in is not None:
+    elif options.gene_stats_in is not None and not mode_state["use_phewas_for_factoring"]:
         domain._run_read_y_stage(
             runtime,
-            gene_bfs_in=options.gene_stats_in,
+            gene_bfs_in=_strip_labeled_path_specs(options.gene_stats_in),
             show_progress=not options.hide_progress,
             gene_bfs_id_col=options.gene_stats_id_col,
             gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
@@ -796,10 +827,10 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
                     )
                     runtime._subset_genes(gene_keep_mask, skip_V=True, skip_scale_factors=True)
 
-    if workflow_id != "F2" and options.gene_set_stats_in is not None:
+    if workflow_id != "F2" and options.gene_set_stats_in is not None and not mode_state["use_phewas_for_factoring"]:
         domain._read_gene_set_statistics(
             runtime,
-            options.gene_set_stats_in,
+            _strip_labeled_path_specs(options.gene_set_stats_in),
             stats_id_col=options.gene_set_stats_id_col,
             stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
             stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
@@ -1121,12 +1152,328 @@ def load_existing_factor_phewas_gene_clusters(domain, runtime, gene_clusters_in)
     return load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in)
 
 
+def _as_list(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _parse_labeled_path_specs(domain, specs, *, option_name, default_label=None):
+    values = _as_list(specs)
+    result = {}
+    for raw_spec in values:
+        spec = str(raw_spec)
+        if "=" in spec:
+            label, path = spec.split("=", 1)
+            if label == "" or path == "":
+                domain.bail("%s entries must use LABEL=path with non-empty LABEL and path: %s" % (option_name, spec))
+        else:
+            if len(values) > 1 or default_label is None:
+                domain.bail("%s is repeated or used for phenotype anchoring; each entry must use LABEL=path" % option_name)
+            label = default_label
+            path = spec
+        if label in result:
+            domain.bail("Duplicate phenotype label %s in %s" % (label, option_name))
+        result[label] = path
+    return result
+
+
+def _read_trait_labels_from_table(domain, runtime, path, *, pheno_col, default_pheno_col, option_name):
+    labels = set()
+    with domain.open_gz(path) as input_fh:
+        header = input_fh.readline().strip("\n").split()
+        col = runtime._get_col(pheno_col if pheno_col is not None else default_pheno_col, header)
+        for line in input_fh:
+            cols = line.strip("\n").split()
+            if col < len(cols):
+                labels.add(cols[col])
+    if not labels:
+        domain.bail("%s did not contain any phenotype labels after reading %s" % (option_name, path))
+    return labels
+
+
+def _collect_unique_trait_labels(domain, runtime, specs, *, pheno_col, default_pheno_col, option_name):
+    labels = set()
+    for path in _as_list(specs):
+        file_labels = _read_trait_labels_from_table(
+            domain,
+            runtime,
+            path,
+            pheno_col=pheno_col,
+            default_pheno_col=default_pheno_col,
+            option_name=option_name,
+        )
+        duplicates = labels.intersection(file_labels)
+        if duplicates:
+            domain.bail("Duplicate phenotype labels in %s inputs: %s" % (option_name, ", ".join(sorted(duplicates))))
+        labels.update(file_labels)
+    return labels
+
+
+def _strip_labeled_path_specs(specs):
+    paths = []
+    for raw_spec in _as_list(specs):
+        spec = str(raw_spec)
+        if "=" in spec:
+            _label, path = spec.split("=", 1)
+            paths.append(path)
+        else:
+            paths.append(spec)
+    if len(paths) == 0:
+        return None
+    return paths[0] if len(paths) == 1 else paths
+
+
+def _ensure_pheno(runtime, label):
+    if runtime.phenos is None:
+        runtime.phenos = []
+        runtime.pheno_to_ind = {}
+    if label in runtime.pheno_to_ind:
+        return runtime.pheno_to_ind[label], False
+    pheno_index = len(runtime.phenos)
+    runtime.pheno_to_ind[label] = pheno_index
+    runtime.phenos.append(label)
+    return pheno_index, True
+
+
+def _extend_phewas_matrices_for_new_pheno(runtime):
+    if runtime.X_phewas_beta is not None:
+        runtime.X_phewas_beta = sparse.csc_matrix(
+            sparse.vstack((runtime.X_phewas_beta, sparse.csc_matrix((1, runtime.X_phewas_beta.shape[1]))))
+        )
+    if runtime.X_phewas_beta_uncorrected is not None:
+        runtime.X_phewas_beta_uncorrected = sparse.csc_matrix(
+            sparse.vstack((runtime.X_phewas_beta_uncorrected, sparse.csc_matrix((1, runtime.X_phewas_beta_uncorrected.shape[1]))))
+        )
+    if runtime.gene_pheno_Y is not None:
+        runtime.gene_pheno_Y = sparse.csc_matrix(
+            sparse.hstack((runtime.gene_pheno_Y, sparse.csc_matrix((runtime.gene_pheno_Y.shape[0], 1))))
+        )
+    if runtime.gene_pheno_combined_prior_Ys is not None:
+        runtime.gene_pheno_combined_prior_Ys = sparse.csc_matrix(
+            sparse.hstack((runtime.gene_pheno_combined_prior_Ys, sparse.csc_matrix((runtime.gene_pheno_combined_prior_Ys.shape[0], 1))))
+        )
+    if runtime.gene_pheno_priors is not None:
+        runtime.gene_pheno_priors = sparse.csc_matrix(
+            sparse.hstack((runtime.gene_pheno_priors, sparse.csc_matrix((runtime.gene_pheno_priors.shape[0], 1))))
+        )
+
+
+def _set_sparse_column(matrix, values, *, num_rows, col_index, num_cols):
+    rows = []
+    data = []
+    for row_index, value in values.items():
+        if value is None:
+            continue
+        rows.append(row_index)
+        data.append(float(value))
+    new_col = sparse.csc_matrix((data, (rows, [0] * len(rows))), shape=(num_rows, 1))
+    if matrix is None:
+        left = sparse.csc_matrix((num_rows, col_index))
+        right = sparse.csc_matrix((num_rows, max(0, num_cols - col_index - 1)))
+        return sparse.csc_matrix(sparse.hstack((left, new_col, right)))
+    matrix = sparse.csc_matrix(matrix)
+    if matrix.shape[1] < num_cols:
+        matrix = sparse.csc_matrix(
+            sparse.hstack((matrix, sparse.csc_matrix((num_rows, num_cols - matrix.shape[1]))))
+        )
+    parts = []
+    if col_index > 0:
+        parts.append(matrix[:, :col_index])
+    parts.append(new_col)
+    if col_index + 1 < matrix.shape[1]:
+        parts.append(matrix[:, col_index + 1 :])
+    return sparse.csc_matrix(sparse.hstack(parts))
+
+
+def _append_labeled_gene_stats(domain, runtime, label, path, options):
+    pheno_index, added = _ensure_pheno(runtime, label)
+    if added:
+        _extend_phewas_matrices_for_new_pheno(runtime)
+    parsed = parse_gene_bfs_file(
+        path,
+        gene_bfs_id_col=options.gene_stats_id_col,
+        gene_bfs_log_bf_col=options.gene_stats_log_bf_col,
+        gene_bfs_combined_col=options.gene_stats_combined_col,
+        gene_bfs_prob_col=options.gene_stats_prob_col,
+        gene_bfs_prior_col=options.gene_stats_prior_col,
+        background_log_bf=runtime.background_log_bf,
+        gene_label_map=runtime.gene_label_map,
+        open_text_fn=domain.open_gz,
+        get_col_fn=runtime._get_col,
+        log_fn=lambda message: domain.log(message, domain.INFO),
+        warn_fn=domain.warn,
+        bail_fn=domain.bail,
+    )
+    y_values = {}
+    combined_values = {}
+    prior_values = {}
+    for gene, value in parsed.gene_in_bfs.items():
+        if gene in runtime.gene_to_ind:
+            y_values[runtime.gene_to_ind[gene]] = value
+    if parsed.gene_in_combined is not None:
+        for gene, value in parsed.gene_in_combined.items():
+            if gene in runtime.gene_to_ind:
+                combined_values[runtime.gene_to_ind[gene]] = value
+    if parsed.gene_in_priors is not None:
+        for gene, value in parsed.gene_in_priors.items():
+            if gene in runtime.gene_to_ind:
+                prior_values[runtime.gene_to_ind[gene]] = value
+    num_cols = len(runtime.phenos)
+    runtime.gene_pheno_Y = _set_sparse_column(
+        runtime.gene_pheno_Y,
+        y_values,
+        num_rows=len(runtime.genes),
+        col_index=pheno_index,
+        num_cols=num_cols,
+    )
+    if parsed.gene_in_combined is not None:
+        runtime.gene_pheno_combined_prior_Ys = _set_sparse_column(
+            runtime.gene_pheno_combined_prior_Ys,
+            combined_values,
+            num_rows=len(runtime.genes),
+            col_index=pheno_index,
+            num_cols=num_cols,
+        )
+    if parsed.gene_in_priors is not None:
+        runtime.gene_pheno_priors = _set_sparse_column(
+            runtime.gene_pheno_priors,
+            prior_values,
+            num_rows=len(runtime.genes),
+            col_index=pheno_index,
+            num_cols=num_cols,
+        )
+
+
+def _append_labeled_gene_set_stats(domain, runtime, label, path, options, *, min_gene_set_beta_uncorrected):
+    pheno_index, added = _ensure_pheno(runtime, label)
+    if added:
+        _extend_phewas_matrices_for_new_pheno(runtime)
+    parsed = parse_gene_set_statistics_file(
+        path,
+        stats_id_col=options.gene_set_stats_id_col,
+        stats_exp_beta_tilde_col=options.gene_set_stats_exp_beta_tilde_col,
+        stats_beta_tilde_col=options.gene_set_stats_beta_tilde_col,
+        stats_p_col=options.gene_set_stats_p_col,
+        stats_se_col=options.gene_set_stats_se_col,
+        stats_beta_col=options.gene_set_stats_beta_col,
+        stats_beta_uncorrected_col=options.gene_set_stats_beta_uncorrected_col,
+        ignore_negative_exp_beta=options.ignore_negative_exp_beta,
+        max_gene_set_p=options.max_gene_set_read_p if options.max_gene_set_read_p is not None and options.max_gene_set_read_p < 1 else None,
+        min_gene_set_beta=options.min_gene_set_read_beta,
+        min_gene_set_beta_uncorrected=min_gene_set_beta_uncorrected,
+        open_text_fn=domain.open_gz,
+        get_col_fn=runtime._get_col,
+        log_fn=lambda message: domain.log(message, domain.INFO),
+        warn_fn=domain.warn,
+        bail_fn=domain.bail,
+    )
+    beta_values = {}
+    beta_uncorrected_values = {}
+    for gene_set, values in parsed.records.items():
+        if gene_set not in runtime.gene_set_to_ind:
+            continue
+        _beta_tilde, _p, _se, _z, beta, beta_uncorrected = values
+        gene_set_index = runtime.gene_set_to_ind[gene_set]
+        beta_values[gene_set_index] = beta if beta is not None else beta_uncorrected
+        beta_uncorrected_values[gene_set_index] = beta_uncorrected if beta_uncorrected is not None else beta
+    num_cols = len(runtime.phenos)
+    runtime.X_phewas_beta = _set_sparse_column(
+        runtime.X_phewas_beta.T if runtime.X_phewas_beta is not None else None,
+        beta_values,
+        num_rows=len(runtime.gene_sets),
+        col_index=pheno_index,
+        num_cols=num_cols,
+    ).T
+    runtime.X_phewas_beta_uncorrected = _set_sparse_column(
+        runtime.X_phewas_beta_uncorrected.T if runtime.X_phewas_beta_uncorrected is not None else None,
+        beta_uncorrected_values,
+        num_rows=len(runtime.gene_sets),
+        col_index=pheno_index,
+        num_cols=num_cols,
+    ).T
+
+
+def _validate_complete_anchor_traits(domain, runtime):
+    if runtime.phenos is None or len(runtime.phenos) == 0:
+        domain.bail("Phenotype-input anchoring did not load any traits")
+    missing = []
+    for pheno_index, pheno in enumerate(runtime.phenos):
+        has_gene = False
+        if runtime.gene_pheno_Y is not None and runtime.gene_pheno_Y[:, pheno_index].nnz > 0:
+            has_gene = True
+        if runtime.gene_pheno_combined_prior_Ys is not None and runtime.gene_pheno_combined_prior_Ys[:, pheno_index].nnz > 0:
+            has_gene = True
+        if runtime.gene_pheno_priors is not None and runtime.gene_pheno_priors[:, pheno_index].nnz > 0:
+            has_gene = True
+        has_gene_set = False
+        if runtime.X_phewas_beta is not None and runtime.X_phewas_beta[pheno_index, :].nnz > 0:
+            has_gene_set = True
+        if runtime.X_phewas_beta_uncorrected is not None and runtime.X_phewas_beta_uncorrected[pheno_index, :].nnz > 0:
+            has_gene_set = True
+        if not has_gene or not has_gene_set:
+            missing.append("%s(gene=%s,gene_set=%s)" % (pheno, str(has_gene).lower(), str(has_gene_set).lower()))
+    if missing:
+        domain.bail(
+            "Phenotype-input anchoring requires every trait to have both gene and gene-set inputs after filtering; incomplete traits: %s"
+            % ", ".join(missing)
+        )
+
+
 def load_factor_phewas_inputs(domain, runtime, options):
-    factor_input_data = domain._derive_factor_anchor_masks(runtime, options)
-    if options.gene_set_phewas_stats_in is not None:
+    factor_input_data = FactorInputs()
+    gene_stats_by_label = _parse_labeled_path_specs(
+        domain,
+        options.gene_stats_in,
+        option_name="--gene-stats-in",
+        default_label=None,
+    ) if options.gene_stats_in is not None else {}
+    gene_set_stats_by_label = _parse_labeled_path_specs(
+        domain,
+        options.gene_set_stats_in,
+        option_name="--gene-set-stats-in",
+        default_label=None,
+    ) if options.gene_set_stats_in is not None else {}
+    gene_trait_labels = set(gene_stats_by_label)
+    gene_set_trait_labels = set(gene_set_stats_by_label)
+    gene_phewas_trait_labels = _collect_unique_trait_labels(
+        domain,
+        runtime,
+        options.gene_phewas_bfs_in,
+        pheno_col=options.gene_phewas_bfs_pheno_col,
+        default_pheno_col="Pheno",
+        option_name="--gene-phewas-stats-in",
+    )
+    duplicate_gene_labels = gene_trait_labels.intersection(gene_phewas_trait_labels)
+    if duplicate_gene_labels:
+        domain.bail("Duplicate phenotype labels across gene input types: %s" % ", ".join(sorted(duplicate_gene_labels)))
+    gene_trait_labels.update(gene_phewas_trait_labels)
+    gene_set_phewas_trait_labels = _collect_unique_trait_labels(
+        domain,
+        runtime,
+        options.gene_set_phewas_stats_in,
+        pheno_col=options.gene_set_phewas_stats_pheno_col,
+        default_pheno_col="Pheno",
+        option_name="--gene-set-phewas-stats-in",
+    )
+    duplicate_gene_set_labels = gene_set_trait_labels.intersection(gene_set_phewas_trait_labels)
+    if duplicate_gene_set_labels:
+        domain.bail("Duplicate phenotype labels across gene-set input types: %s" % ", ".join(sorted(duplicate_gene_set_labels)))
+    gene_set_trait_labels.update(gene_set_phewas_trait_labels)
+    if gene_trait_labels != gene_set_trait_labels:
+        domain.bail(
+            "Phenotype-input anchoring requires matching complete trait labels for gene and gene-set inputs; "
+            "gene labels=%s gene-set labels=%s"
+            % (sorted(gene_trait_labels), sorted(gene_set_trait_labels))
+        )
+
+    gene_set_phewas_inputs = _as_list(options.gene_set_phewas_stats_in)
+    for gene_set_phewas_in in gene_set_phewas_inputs:
         domain._read_gene_set_phewas_statistics(
             runtime,
-            options.gene_set_phewas_stats_in,
+            gene_set_phewas_in,
             stats_id_col=options.gene_set_phewas_stats_id_col,
             stats_pheno_col=options.gene_set_phewas_stats_pheno_col,
             stats_beta_col=options.gene_set_phewas_stats_beta_col,
@@ -1137,14 +1484,15 @@ def load_factor_phewas_inputs(domain, runtime, options):
         )
         factor_input_data.loaded_gene_set_phewas_stats = True
 
-    if options.gene_phewas_bfs_in:
+    gene_phewas_inputs = _as_list(options.gene_phewas_bfs_in)
+    for gene_phewas_in in gene_phewas_inputs:
         domain._read_gene_phewas_bfs(
             runtime,
-            gene_phewas_bfs_in=options.gene_phewas_bfs_in,
+            gene_phewas_bfs_in=gene_phewas_in,
             gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
             gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-            anchor_genes=options.anchor_genes,
-            anchor_phenos=options.anchor_phenos,
+            anchor_genes=None,
+            anchor_phenos=None,
             gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
             gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
             gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
@@ -1155,6 +1503,28 @@ def load_factor_phewas_inputs(domain, runtime, options):
             max_num_entries_at_once=options.max_read_entries_at_once,
         )
         factor_input_data.loaded_gene_phewas_bfs = True
+
+    if gene_stats_by_label or gene_set_stats_by_label:
+        for label in sorted(gene_stats_by_label):
+            _append_labeled_gene_set_stats(
+                domain,
+                runtime,
+                label,
+                gene_set_stats_by_label[label],
+                options,
+                min_gene_set_beta_uncorrected=options.min_gene_set_read_beta_uncorrected,
+            )
+            _append_labeled_gene_stats(domain, runtime, label, gene_stats_by_label[label], options)
+            factor_input_data.loaded_gene_set_phewas_stats = True
+            factor_input_data.loaded_gene_phewas_bfs = True
+
+    if runtime.phenos is not None:
+        runtime.anchor_pheno_mask = np.full(len(runtime.phenos), True, dtype=bool)
+        runtime.anchor_gene_mask = None
+        factor_input_data.anchor_pheno_mask = runtime.anchor_pheno_mask
+        factor_input_data.anchor_gene_mask = None
+    _validate_complete_anchor_traits(domain, runtime)
+    runtime.phewas_state = sync_phewas_runtime_state(runtime)
     return factor_input_data
 
 
@@ -1255,7 +1625,7 @@ def extract_factor_inputs(factor_input_state):
 
 
 def resolve_factor_gene_or_pheno_filter_value(options, workflow):
-    if options.anchor_gene_set:
+    if getattr(options, "anchor_gene_set", False):
         return options.gene_set_pheno_filter_value
     if isinstance(workflow, dict):
         factor_gene_set_x_pheno = workflow.get("factor_gene_set_x_pheno", False)
@@ -1271,7 +1641,7 @@ def resolve_factor_gene_or_pheno_filter_value(options, workflow):
 
 
 def resolve_factor_gene_or_pheno_filter_type(options, workflow):
-    if options.anchor_gene_set:
+    if getattr(options, "anchor_gene_set", False):
         return "gene_set_phewas_betas_uncorrected"
     if isinstance(workflow, dict):
         factor_gene_set_x_pheno = workflow.get("factor_gene_set_x_pheno", False)
@@ -1287,7 +1657,7 @@ def resolve_factor_gene_or_pheno_filter_type(options, workflow):
 def resolve_factor_max_num_discovery_genes(options, workflow):
     if getattr(options, "max_num_discovery_genes", None) is not None:
         return options.max_num_discovery_genes
-    if options.anchor_gene_set:
+    if getattr(options, "anchor_gene_set", False):
         return None
     if isinstance(workflow, dict):
         factor_gene_set_x_pheno = workflow.get("factor_gene_set_x_pheno", False)
@@ -1443,9 +1813,9 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         gene_set_prune_number=options.factor_prune_gene_sets_num,
         anchor_pheno_mask=factor_inputs.anchor_pheno_mask,
         anchor_gene_mask=factor_inputs.anchor_gene_mask,
-        anchor_any_pheno=options.anchor_any_pheno,
-        anchor_any_gene=options.anchor_any_gene,
-        anchor_gene_set=options.anchor_gene_set,
+        anchor_any_pheno=getattr(options, "anchor_any_pheno", False),
+        anchor_any_gene=getattr(options, "anchor_any_gene", False),
+        anchor_gene_set=getattr(options, "anchor_gene_set", False),
         run_transpose=not options.no_transpose,
         max_num_iterations=getattr(options, "max_num_iterations", 100),
         rel_tol=getattr(options, "rel_tol", 1e-4),
@@ -1484,7 +1854,7 @@ def run_main_pheno_projection_stage(domain, runtime, options):
         domain.log("No factors; not projecting pheno clusters")
         return PhewasStageResult(
             ran=False,
-            output_path=getattr(options, "trait_factor_links_out", None) or options.pheno_clusters_out,
+            output_path=getattr(options, "trait_factor_links_out", None) or getattr(options, "pheno_clusters_out", None),
         )
 
     project_from_gene_sets = bool(
@@ -1497,34 +1867,39 @@ def run_main_pheno_projection_stage(domain, runtime, options):
 
     if project_from_gene_sets:
         if runtime.X_phewas_beta_uncorrected is None:
-            domain._read_gene_set_phewas_statistics(
-                runtime,
-                options.gene_set_phewas_stats_in,
-                stats_id_col=options.gene_set_phewas_stats_id_col,
-                stats_pheno_col=options.gene_set_phewas_stats_pheno_col,
-                stats_beta_col=options.gene_set_phewas_stats_beta_col,
-                stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col,
-                min_gene_set_beta=getattr(options, "min_gene_set_read_beta", None),
-                min_gene_set_beta_uncorrected=getattr(options, "min_gene_set_read_beta_uncorrected", None),
-                max_num_entries_at_once=getattr(options, "max_read_entries_at_once", None),
-            )
+            for gene_set_phewas_in in _as_list(options.gene_set_phewas_stats_in):
+                domain._read_gene_set_phewas_statistics(
+                    runtime,
+                    gene_set_phewas_in,
+                    stats_id_col=options.gene_set_phewas_stats_id_col,
+                    stats_pheno_col=options.gene_set_phewas_stats_pheno_col,
+                    stats_beta_col=options.gene_set_phewas_stats_beta_col,
+                    stats_beta_uncorrected_col=options.gene_set_phewas_stats_beta_uncorrected_col,
+                    min_gene_set_beta=getattr(options, "min_gene_set_read_beta", None),
+                    min_gene_set_beta_uncorrected=getattr(options, "min_gene_set_read_beta_uncorrected", None),
+                    max_num_entries_at_once=getattr(options, "max_read_entries_at_once", None),
+                )
     elif not domain._has_loaded_gene_phewas(runtime):
-        domain._read_gene_phewas_bfs(
-            runtime,
-            gene_phewas_bfs_in=options.gene_phewas_bfs_in,
-            gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-            gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-            anchor_genes=options.anchor_genes,
-            anchor_phenos=options.anchor_phenos,
-            gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-            gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-            gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-            phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-            min_value=options.trait_linkage_threshold,
-            min_value_source=getattr(options, "trait_linkage_source", "combined"),
-            strict_min_value=True,
-            max_num_entries_at_once=options.max_read_entries_at_once,
-        )
+        for gene_phewas_in in _as_list(options.gene_phewas_bfs_in):
+            domain._read_gene_phewas_bfs(
+                runtime,
+                gene_phewas_bfs_in=gene_phewas_in,
+                gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
+                gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
+                anchor_genes=None,
+                anchor_phenos=None,
+                gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
+                gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
+                gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
+                phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
+                min_value=options.trait_linkage_threshold,
+                min_value_source=getattr(options, "trait_linkage_source", "combined"),
+                strict_min_value=True,
+                max_num_entries_at_once=options.max_read_entries_at_once,
+            )
+    if runtime.phenos is not None:
+        runtime.anchor_pheno_mask = np.full(len(runtime.phenos), True, dtype=bool)
+        runtime.anchor_gene_mask = None
 
     eaggl_factor_runtime.project_phenos_from_loaded_factors(
         runtime,
@@ -1539,7 +1914,7 @@ def run_main_pheno_projection_stage(domain, runtime, options):
     )
     return PhewasStageResult(
         ran=True,
-        output_path=getattr(options, "trait_factor_links_out", None) or options.pheno_clusters_out,
+        output_path=getattr(options, "trait_factor_links_out", None) or getattr(options, "pheno_clusters_out", None),
     )
 
 
@@ -1617,7 +1992,7 @@ def should_run_main_pheno_projection_stage(mode_state, options):
         mode_state.get("factor_projection_only")
         and not getattr(options, "no_trait_linkage", False)
         and (
-            options.pheno_clusters_out is not None
+            getattr(options, "pheno_clusters_out", None) is not None
             or getattr(options, "trait_factor_links_out", None) is not None
         )
     )

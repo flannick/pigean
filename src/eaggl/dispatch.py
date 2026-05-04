@@ -43,7 +43,7 @@ def run_main_pipeline(domain, options):
     if mode_state["run_factor"]:
         factor_model_stage_result = domain._run_main_factor_stage(state, options, mode_state, factor_input_state)
 
-    pheno_projection_stage_result = domain.PhewasStageResult(ran=False, output_path=options.pheno_clusters_out)
+    pheno_projection_stage_result = domain.PhewasStageResult(ran=False, output_path=getattr(options, "pheno_clusters_out", None))
     if domain._should_run_main_pheno_projection_stage(mode_state, options):
         pheno_projection_stage_result = domain._run_main_pheno_projection_stage(state, options)
 
@@ -66,16 +66,12 @@ def run_main_pipeline(domain, options):
         "phewas_stats_out": phewas_stage_result.output_path if phewas_stage_result.ran else None,
         "factors_out": options.factors_out,
         "factor_metrics_out": options.factor_metrics_out,
-        "factors_anchor_out": options.factors_anchor_out,
         "consensus_stats_out": options.consensus_stats_out,
         "gene_set_clusters_out": options.gene_set_clusters_out,
         "gene_clusters_out": options.gene_clusters_out,
         "gene_clusters_full_out": getattr(options, "gene_clusters_full_out", None),
         "trait_factor_links_out": options.trait_factor_links_out,
         "pheno_clusters_out": pheno_projection_stage_result.output_path if pheno_projection_stage_result.ran else None,
-        "gene_set_anchor_clusters_out": options.gene_set_anchor_clusters_out,
-        "gene_anchor_clusters_out": options.gene_anchor_clusters_out,
-        "pheno_anchor_clusters_out": options.pheno_anchor_clusters_out,
         "gene_pheno_stats_out": options.gene_pheno_stats_out,
         "factor_phewas_stats_out": factor_phewas_stage_result.output_path if factor_phewas_stage_result.ran else None,
     }

@@ -440,8 +440,8 @@ def derive_factor_anchor_masks(domain, runtime, options):
     return domain.pegs_derive_factor_anchor_masks(
         genes=runtime.genes,
         phenos=runtime.phenos,
-        anchor_genes=options.anchor_genes,
-        anchor_phenos=options.anchor_phenos,
+        anchor_genes=getattr(options, "anchor_genes", None),
+        anchor_phenos=getattr(options, "anchor_phenos", None),
         bail_fn=domain.bail,
     )
 

@@ -26,76 +26,48 @@ FACTOR_WORKFLOW_STRATEGY_META = {
         "warn_ignored_y_inputs_mode": None,
     },
     "F4": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
+        "required_inputs": [],
         "factor_gene_set_x_pheno": False,
         "use_phewas_for_factoring": True,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": "anchor_phenos",
-    },
-    "F5": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": False,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": "anchor_phenos",
-    },
-    "F6": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": True,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": "anchor_genes",
-    },
-    "F7": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": True,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": True,
-        "warn_ignored_y_inputs_mode": "anchor_genes",
-    },
-    "F8": {
-        "required_inputs": ["--gene-set-phewas-stats-in", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": True,
-        "use_phewas_for_factoring": True,
-        "expand_gene_sets": False,
-        "warn_ignored_y_inputs_mode": "anchor_genes",
-    },
-    "F9": {
-        "required_inputs": ["--run-phewas", "--gene-phewas-stats-in"],
-        "factor_gene_set_x_pheno": True,
-        "use_phewas_for_factoring": False,
         "expand_gene_sets": False,
         "warn_ignored_y_inputs_mode": None,
     },
 }
 
 
+def _as_list(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _has_labeled_spec(value):
+    return any("=" in str(item) for item in _as_list(value))
+
+
+def has_multi_pheno_factor_inputs(options):
+    has_phewas_pair = bool(
+        options.gene_phewas_bfs_in is not None
+        and options.gene_set_phewas_stats_in is not None
+    )
+    return bool(
+        has_phewas_pair
+        or len(_as_list(options.gene_stats_in)) > 1
+        or len(_as_list(options.gene_set_stats_in)) > 1
+        or _has_labeled_spec(options.gene_stats_in)
+        or _has_labeled_spec(options.gene_set_stats_in)
+    )
+
+
 def workflow_required_inputs_satisfied(workflow_id, options):
-    required_inputs = FACTOR_WORKFLOW_STRATEGY_META[workflow_id]["required_inputs"]
-    missing_inputs = []
-    for flag in required_inputs:
-        if flag == "--gene-set-phewas-stats-in":
-            if options.gene_set_phewas_stats_in is None:
-                missing_inputs.append(flag)
-        elif flag == "--gene-phewas-stats-in":
-            if options.gene_phewas_bfs_in is None:
-                missing_inputs.append(flag)
-        elif flag == "--run-phewas":
-            if not options.run_phewas:
-                missing_inputs.append(flag)
-        elif flag == "--gene-phewas-stats-in":
-            if options.run_phewas_input is None:
-                missing_inputs.append(flag)
-    return missing_inputs
+    return []
 
 
 def build_factor_workflow_error(workflow_id, missing_inputs):
     if len(missing_inputs) == 0:
         return None
-    if workflow_id in ("F4", "F5", "F6", "F7", "F8"):
-        return "Require --gene-set-phewas-stats-in and --gene-phewas-stats-in"
-    if workflow_id == "F9":
-        return "Require --run-phewas and --gene-phewas-stats-in"
     return "Missing required inputs: %s" % ", ".join(missing_inputs)
 
 
@@ -121,15 +93,15 @@ def has_standalone_gene_list_inputs(options):
 
 def get_selected_anchor_modes(options):
     selected = []
-    if options.anchor_phenos is not None:
+    if getattr(options, "anchor_phenos", None) is not None:
         selected.append(("anchor_phenos", options.anchor_phenos))
-    if options.anchor_any_pheno:
+    if getattr(options, "anchor_any_pheno", False):
         selected.append(("anchor_any_pheno", True))
-    if options.anchor_genes is not None:
+    if getattr(options, "anchor_genes", None) is not None:
         selected.append(("anchor_genes", options.anchor_genes))
-    if options.anchor_any_gene:
+    if getattr(options, "anchor_any_gene", False):
         selected.append(("anchor_any_gene", True))
-    if options.anchor_gene_set:
+    if getattr(options, "anchor_gene_set", False):
         selected.append(("anchor_gene_set", True))
     return selected
 
@@ -138,12 +110,8 @@ def get_routing_family(options, workflow, projection_only=False):
     if projection_only:
         return "projection_only_precomputed"
     workflow_id = workflow.get("id") if isinstance(workflow, dict) else None
-    if workflow_id in set(["F4", "F5"]):
-        return "anchor_phenos_phewas_factoring"
-    if workflow_id in set(["F6", "F7", "F8"]):
-        return "anchor_genes_phewas_factoring"
-    if workflow_id == "F9":
-        return "anchor_gene_set"
+    if workflow_id == "F4":
+        return "phenotype_input_factoring"
     if workflow_id == "F2":
         return "standalone_gene_list"
     if workflow_id == "F3":
@@ -168,32 +136,11 @@ def classify_factor_workflow(options):
     has_gene_phewas = options.gene_phewas_bfs_in is not None
     projection_source = options.gene_set_phewas_stats_in if has_gene_set_phewas else options.gene_phewas_bfs_in
 
-    workflow_id = None
-    workflow_label = None
-
-    if options.anchor_genes is not None and len(options.anchor_genes) == 1:
-        workflow_id = "F6"
-        workflow_label = "single gene anchoring (to %s)" % format_anchor_values_for_label(options.anchor_genes)
-    elif options.anchor_genes is not None and len(options.anchor_genes) > 1:
-        workflow_id = "F7"
-        workflow_label = "multiple gene anchoring (to %s)" % format_anchor_values_for_label(options.anchor_genes)
-    elif options.anchor_any_gene:
-        workflow_id = "F8"
-        workflow_label = "any gene anchoring"
-    elif options.anchor_gene_set:
-        workflow_id = "F9"
-        workflow_label = "gene set anchoring (to input phenotype/gene set)"
-    elif options.anchor_phenos is not None and len(options.anchor_phenos) == 1:
+    if has_multi_pheno_factor_inputs(options):
         workflow_id = "F4"
-        workflow_label = "single phenotype anchoring (to %s) but with phewas statistics used" % format_anchor_values_for_label(options.anchor_phenos)
-    elif options.anchor_phenos is not None and len(options.anchor_phenos) > 1:
-        workflow_id = "F4"
-        workflow_label = "multiple phenotype anchoring (to %s)" % format_anchor_values_for_label(options.anchor_phenos)
-    elif options.anchor_any_pheno:
-        workflow_id = "F5"
-        workflow_label = "any phenotype anchoring"
+        workflow_label = "phenotype-input anchoring across all complete input traits"
     else:
-        workflow_label = "single phenotype anchoring (to %s) using default statistics" % options.anchor_phenos
+        workflow_label = "single phenotype anchoring using default statistics"
         if has_standalone_gene_list_inputs(options):
             workflow_id = "F2"
             workflow_label = "standalone gene-list enrichment"
@@ -223,11 +170,11 @@ def classify_factor_workflow(options):
 
 def validate_factor_workflow_selection(options, workflow, projection_only, bail_fn):
     selected_anchor_modes = get_selected_anchor_modes(options)
-    if len(selected_anchor_modes) > 1:
+    if len(selected_anchor_modes) > 0:
         bail_fn(
-            "Conflicting anchor workflow flags: %s. Select exactly one of "
-            "--anchor-phenos/--anchor-any-pheno/--anchor-genes/--anchor-any-gene/--anchor-gene-set."
-            % ", ".join(["--" + mode[0].replace("_", "-") for mode in selected_anchor_modes])
+            "Explicit anchor workflow flags were removed. Provide phenotype inputs with "
+            "--gene-stats-in LABEL=path/--gene-set-stats-in LABEL=path and/or "
+            "--gene-phewas-stats-in/--gene-set-phewas-stats-in; all complete traits are used as anchors."
         )
 
     workflow_id = workflow.get("id") if isinstance(workflow, dict) else None
@@ -261,11 +208,6 @@ def validate_factor_workflow_selection(options, workflow, projection_only, bail_
                 "--factor-gene-clusters-in/--factor-gene-set-clusters-in cannot be combined with "
                 "--gene-list/--gene-list-in/--positive-controls-* workflows."
             )
-        if len(selected_anchor_modes) > 0:
-            bail_fn(
-                "--factor-gene-clusters-in/--factor-gene-set-clusters-in cannot be combined with anchor workflow flags; "
-                "choose either projection-only outputs from precomputed factors or a refit clustering workflow."
-            )
         if options.gene_set_stats_in is not None:
             if not projection_needs_x:
                 bail_fn(
@@ -274,38 +216,8 @@ def validate_factor_workflow_selection(options, workflow, projection_only, bail_
                 )
         return
 
-    if standalone_gene_list and len(selected_anchor_modes) > 0:
-        bail_fn(
-            "--gene-list/--gene-list-in/--positive-controls-* cannot be combined with anchor workflow flags; "
-            "choose one clustering workflow family."
-        )
-
-    if workflow_id in set(["F4", "F5"]):
-        conflicting = []
-        if options.gene_stats_in is not None:
-            conflicting.append("--gene-stats-in")
-        if options.gene_set_stats_in is not None:
-            conflicting.append("--gene-set-stats-in")
-        if standalone_gene_list:
-            conflicting.append("standalone gene-list flags")
-        if conflicting:
-            bail_fn(
-                "--anchor-phenos/--anchor-any-pheno select PheWAS-driven factorization and cannot be combined with %s."
-                % ", ".join(conflicting)
-            )
-    elif workflow_id in set(["F6", "F7", "F8"]):
-        conflicting = []
-        if options.gene_stats_in is not None:
-            conflicting.append("--gene-stats-in")
-        if options.gene_set_stats_in is not None:
-            conflicting.append("--gene-set-stats-in")
-        if standalone_gene_list:
-            conflicting.append("standalone gene-list flags")
-        if conflicting:
-            bail_fn(
-                "--anchor-genes/--anchor-any-gene select PheWAS-driven factorization and cannot be combined with %s."
-                % ", ".join(conflicting)
-            )
+    if workflow_id == "F4" and standalone_gene_list:
+        bail_fn("Phenotype-input anchoring cannot be combined with standalone gene-list flags.")
     elif workflow_id == "F2":
         conflicting = []
         if options.gene_stats_in is not None:
@@ -326,27 +238,17 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
         workflow,
         projection_only=bool(mode_state.get("factor_projection_only")) if isinstance(mode_state, dict) else False,
     )
-    selected_anchor_modes = get_selected_anchor_modes(options)
-    if len(selected_anchor_modes) == 0:
-        if not bool(mode_state.get("factor_projection_only")) and (
-            options.gene_stats_in is not None or options.gene_set_stats_in is not None
-        ):
-            anchor_mode = "default_stats"
-            anchor_values = ["input_gene_stats"]
-        else:
-            anchor_mode = "none"
-            anchor_values = []
+    if bool(workflow and workflow.get("use_phewas_for_factoring")):
+        anchor_mode = "phenotype_inputs"
+        anchor_values = []
+    elif not bool(mode_state.get("factor_projection_only")) and (
+        options.gene_stats_in is not None or options.gene_set_stats_in is not None
+    ):
+        anchor_mode = "default_stats"
+        anchor_values = ["input_gene_stats"]
     else:
-        anchor_mode = selected_anchor_modes[0][0]
-        anchor_value = selected_anchor_modes[0][1]
-        if isinstance(anchor_value, set):
-            anchor_values = sorted(list(anchor_value))
-        elif isinstance(anchor_value, (tuple, list)):
-            anchor_values = list(anchor_value)
-        elif anchor_value is True:
-            anchor_values = []
-        else:
-            anchor_values = [anchor_value]
+        anchor_mode = "none"
+        anchor_values = []
 
     trait_linkage_enabled = bool(
         not getattr(options, "no_trait_linkage", False)
@@ -355,7 +257,7 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
     )
     trait_linkage_basis = "gene_set" if getattr(options, "project_phenos_from_gene_sets", False) else "gene"
     factorization_source = "precomputed_factor_clusters" if mode_state.get("factor_projection_only") else (
-        "phewas" if bool(workflow and workflow.get("use_phewas_for_factoring")) else "default_stats"
+        "phenotype_inputs" if bool(workflow and workflow.get("use_phewas_for_factoring")) else "default_stats"
     )
 
     return {
@@ -411,12 +313,10 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
         "outputs_requested": {
             "factors_out": getattr(options, "factors_out", None),
             "factor_metrics_out": getattr(options, "factor_metrics_out", None),
-            "factors_anchor_out": getattr(options, "factors_anchor_out", None),
             "gene_set_clusters_out": getattr(options, "gene_set_clusters_out", None),
             "gene_clusters_out": getattr(options, "gene_clusters_out", None),
             "gene_clusters_full_out": getattr(options, "gene_clusters_full_out", None),
             "trait_factor_links_out": getattr(options, "trait_factor_links_out", None),
-            "pheno_clusters_out": getattr(options, "pheno_clusters_out", None),
             "factor_phewas_stats_out": getattr(options, "factor_phewas_stats_out", None),
             "params_out": getattr(options, "params_out", None),
             "clustering_params_out": getattr(options, "clustering_params_out", None),
@@ -457,25 +357,12 @@ def warn_for_factor_workflow_inputs(options, workflow, warn_fn):
         options.add_gene_sets_by_enrichment_p is not None
         or options.add_gene_sets_by_fraction is not None
     )
-    if add_gene_set_flags_present and not workflow["expand_gene_sets"]:
-        warn_fn("Ignoring options to add gene sets based on association with anchor genes because only 1 anchor gene was specified")
-
-    if options.anchor_gene_set:
-        return
+    if add_gene_set_flags_present:
+        warn_fn("Ignoring options to add gene sets based on gene anchoring; explicit gene anchoring was removed")
 
     warning_mode = workflow.get("warn_ignored_y_inputs_mode")
-    if warning_mode == "gene_list":
-        if options.gene_stats_in is not None or options.gene_set_stats_in is not None:
-            warn_fn("Ignoring precomputed gene/gene-set stats in standalone gene-list mode")
-        return
-
-    if not has_potentially_ignored_factor_inputs(options):
-        return
-
-    if warning_mode == "anchor_phenos":
-        warn_fn("Ignoring all arguments for reading Y or reading betas in --anchor-phenos mode")
-    elif warning_mode == "anchor_genes":
-        warn_fn("Ignoring all arguments for reading Y or reading betas in --anchor-genes mode")
+    if warning_mode == "gene_list" and (options.gene_stats_in is not None or options.gene_set_stats_in is not None):
+        warn_fn("Ignoring precomputed gene/gene-set stats in standalone gene-list mode")
 
 
 def enforce_factor_only_input_boundary(options, mode_state, bail_fn):
