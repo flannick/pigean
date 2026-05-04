@@ -66,6 +66,7 @@ class FactorExecutionConfig:
     gene_gene_pair_prior: float | None = None
     gene_gene_pair_prior_effective_size: float | None = None
     gene_gene_logbf_base: str = "natural"
+    gene_gene_anchor_aggregation: str = "multi"
     gene_gene_diagonal_weight: float = 0.0
     gene_gene_matrix_floor: float = 1e-3
     gene_gene_excess_probability: bool = True
@@ -167,6 +168,7 @@ class FactorExecutionConfig:
             "gene_gene_pair_prior": self.gene_gene_pair_prior,
             "gene_gene_pair_prior_effective_size": self.gene_gene_pair_prior_effective_size,
             "gene_gene_logbf_base": self.gene_gene_logbf_base,
+            "gene_gene_anchor_aggregation": self.gene_gene_anchor_aggregation,
             "gene_gene_diagonal_weight": self.gene_gene_diagonal_weight,
             "gene_gene_matrix_floor": self.gene_gene_matrix_floor,
             "gene_gene_excess_probability": self.gene_gene_excess_probability,
@@ -1741,6 +1743,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         gene_gene_pair_prior=getattr(options, "gene_gene_pair_prior", None),
         gene_gene_pair_prior_effective_size=getattr(options, "gene_gene_pair_prior_effective_size", None),
         gene_gene_logbf_base=getattr(options, "gene_gene_logbf_base", "natural"),
+        gene_gene_anchor_aggregation=getattr(options, "gene_gene_anchor_aggregation", "multi"),
         gene_gene_diagonal_weight=getattr(options, "gene_gene_diagonal_weight", 0.0),
         gene_gene_matrix_floor=getattr(options, "gene_gene_matrix_floor", 1e-3),
         gene_gene_excess_probability=getattr(options, "gene_gene_excess_probability", True),

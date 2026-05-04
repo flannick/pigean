@@ -147,6 +147,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--gene-gene-pair-prior"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-pair-prior-effective-size"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-logbf-base"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--gene-gene-anchor-aggregation"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-diagonal-weight"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-matrix-floor"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-excess-probability"]["public_visibility"], "expert")

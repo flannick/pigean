@@ -582,6 +582,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-gene-pair-prior": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-pair-prior-effective-size": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-logbf-base": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--gene-gene-anchor-aggregation": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-diagonal-weight": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-matrix-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-excess-probability": ["test_reference_factor_and_labeling_flags_round_trip"],

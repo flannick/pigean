@@ -754,7 +754,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(float(matrix[0, 1]), 0.0)
         self.assertEqual(float(matrix[1, 0]), 0.0)
 
-    def test_build_gene_gene_pair_matrix_combines_anchor_beta_matrix(self) -> None:
+    def test_build_gene_gene_pair_matrix_defaults_to_multi_anchor_average(self) -> None:
         state = SimpleNamespace(
             X_orig=sparse.csr_matrix(
                 np.array(
@@ -799,10 +799,61 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         anchor1_p = 1.0 / (1.0 + np.exp(-(pair_logit + anchor1_l)))
         anchor0_m = np.clip((anchor0_p - 0.2) / 0.8, 0.0, 1.0)
         anchor1_m = np.clip((anchor1_p - 0.2) / 0.8, 0.0, 1.0)
-        expected = 1.0 - (1.0 - anchor0_m) * (1.0 - anchor1_m)
+        expected = 0.5 * (anchor0_m + anchor1_m)
         np.fill_diagonal(expected, 0.0)
         np.testing.assert_allclose(matrix, expected)
         self.assertEqual(diagnostics["beta_anchor_count"], 2)
+        self.assertEqual(diagnostics["anchor_aggregation"], "multi")
+
+    def test_build_gene_gene_pair_matrix_can_use_any_anchor_union(self) -> None:
+        state = SimpleNamespace(
+            X_orig=sparse.csr_matrix(
+                np.array(
+                    [
+                        [1.0, 1.0],
+                        [1.0, 0.0],
+                    ],
+                    dtype=float,
+                )
+            ),
+            betas=None,
+            betas_uncorrected=None,
+            scale_factors=np.ones(2, dtype=float),
+        )
+        beta_values = np.array(
+            [
+                [2.0, 0.0],
+                [0.0, 2.0],
+            ],
+            dtype=float,
+        )
+        matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+            state,
+            gene_mask=np.array([True, True]),
+            gene_set_mask=np.array([True, True]),
+            beta_source="beta_uncorrected",
+            beta_values=beta_values,
+            gene_prob_values=np.ones((2, 2), dtype=float),
+            pair_prior=0.2,
+            logbf_base="natural",
+            anchor_aggregation="any",
+            matrix_floor=0.0,
+            excess_probability=True,
+            diagonal_weight=0.0,
+            log_fn=None,
+            info_level=1,
+        )
+        pair_logit = np.log(0.2 / 0.8)
+        anchor0_l = np.array([[2.0, 2.0], [2.0, 2.0]], dtype=float)
+        anchor1_l = np.array([[2.0, 0.0], [0.0, 0.0]], dtype=float)
+        anchor0_p = 1.0 / (1.0 + np.exp(-(pair_logit + anchor0_l)))
+        anchor1_p = 1.0 / (1.0 + np.exp(-(pair_logit + anchor1_l)))
+        anchor0_m = np.clip((anchor0_p - 0.2) / 0.8, 0.0, 1.0)
+        anchor1_m = np.clip((anchor1_p - 0.2) / 0.8, 0.0, 1.0)
+        expected = 1.0 - (1.0 - anchor0_m) * (1.0 - anchor1_m)
+        np.fill_diagonal(expected, 0.0)
+        np.testing.assert_allclose(matrix, expected)
+        self.assertEqual(diagnostics["anchor_aggregation"], "any")
 
     def test_bayes_sym_nmf_l2_extension_caps_row_sums(self) -> None:
         state = EagglState.__new__(EagglState)
@@ -2072,6 +2123,23 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(search_call["gene_prune_number"], 13)
         self.assertIsNone(search_call["gene_set_prune_number"])
         self.assertIsNone(final_call["gene_prune_number"])
+
+    def test_row_max_rank_values_collapses_sparse_multi_anchor_matrix(self) -> None:
+        matrix = sparse.csc_matrix(
+            np.array(
+                [
+                    [0.1, 2.0],
+                    [3.0, 0.5],
+                    [0.0, 0.0],
+                ],
+                dtype=float,
+            )
+        )
+
+        np.testing.assert_allclose(
+            eaggl_factor_runtime._row_max_rank_values(matrix),
+            np.array([2.0, 3.0, 0.0], dtype=float),
+        )
 
     def test_evaluate_phi_candidate_logs_candidate_summary(self) -> None:
         state = _TinyState()
