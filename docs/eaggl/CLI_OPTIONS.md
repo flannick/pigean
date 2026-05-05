@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `265`
+- Total options: `266`
 - `method_required`: `11`
-- `method_optional`: `165`
+- `method_optional`: `166`
 - `engineering`: `72`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `221`
+- visibility `expert`: `222`
 - visibility `hidden`: `8`
 - visibility `normal`: `36`
 
@@ -86,6 +86,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
 | `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `None` | threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5 |
+| `--gene-gene-anchor-aggregation` | `expert` | `yes` | `advanced_workflows` | `gene_gene_anchor_aggregation` | `multi` | - |
 | `--gene-gene-beta-source` | `expert` | `yes` | `advanced_workflows` | `gene_gene_beta_source` | `beta` | - |
 | `--gene-gene-diagonal-weight` | `expert` | `yes` | `advanced_workflows` | `gene_gene_diagonal_weight` | `0.0` | - |
 | `--gene-gene-excess-probability` | `expert` | `yes` | `advanced_workflows` | `gene_gene_excess_probability` | `True` | - |

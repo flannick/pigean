@@ -234,6 +234,45 @@ that genes $i$ and $j$ are jointly relevant through a common mechanism. Negative
 corrected annotation effects are retained in this log-evidence calculation: they lower
 pairwise support toward the prior, rather than being truncated before calibration.
 
+\paragraph{Multiple phenotype anchors.}
+When gene-by-gene discovery is anchored on multiple phenotypes, EAGGL still estimates
+one shared gene-factor basis. For anchor phenotype $t$, let
+\begin{equation}
+L_{ij}^{(t)}
+= \sum_s X_{is} X_{js} \beta_s^{(t)}
+\label{eq:eaggl_gene_gene_anchor_logbf}
+\end{equation}
+denote the anchor-specific shared annotation log-evidence. The default multi-anchor
+gene-by-gene model pools evidence on the log scale,
+\begin{equation}
+L_{ij}^{\mathrm{multi}} = \sum_t L_{ij}^{(t)},
+\label{eq:eaggl_gene_gene_multi_anchor_logbf}
+\end{equation}
+and then performs a single calibration to $P_{ij}^{\mathrm{same}}$. Thus an anchor with
+no evidence contributes zero log-evidence rather than diluting support from another
+anchor. If anchor-specific gene relevance probabilities are available, EAGGL gates the
+pooled pair matrix by the noisy union of pairwise direct-support gates,
+\begin{equation}
+G_{ij}^{\mathrm{multi}} =
+1 - \prod_t \left(1 - p_i^{(t)}p_j^{(t)}\right).
+\label{eq:eaggl_gene_gene_multi_anchor_gate}
+\end{equation}
+An expert `any' mode instead computes each anchor's calibrated target matrix
+$M_{ij}^{(t)}$ and combines them as a noisy-OR union,
+\begin{equation}
+M_{ij}^{\mathrm{any}} = 1 - \prod_t \left(1 - M_{ij}^{(t)}\right).
+\label{eq:eaggl_gene_gene_any_anchor}
+\end{equation}
+An expert `mean' mode preserves the previous arithmetic-mean target,
+\begin{equation}
+M_{ij}^{\mathrm{mean}} = \frac{1}{T}\sum_t M_{ij}^{(t)},
+\label{eq:eaggl_gene_gene_mean_anchor}
+\end{equation}
+and is intended for backward-compatible sensitivity analysis. Gene-by-annotation
+multi-anchor EAGGL does not require a corresponding mean or consensus mode because its
+rectangular model already pools anchor-derived weights into a single weighted
+likelihood for one shared factor basis.
+
 \paragraph{Conversion to pairwise probability.}
 Let $\pi_{\mathrm{pair}}$ denote the prior probability that two retained genes are
 jointly disease-relevant through the same mechanism, before observing their shared

@@ -328,7 +328,7 @@ parser.add_option("","--gene-gene-beta-source",type="choice",choices=["beta","be
 parser.add_option("","--gene-gene-pair-prior",default=None,type=float) #gene-by-gene mode only: direct pairwise same-mechanism prior
 parser.add_option("","--gene-gene-pair-prior-effective-size",default=None,type=float) #gene-by-gene mode only: target effective mechanism size used to derive the pair prior
 parser.add_option("","--gene-gene-logbf-base",type="choice",choices=["natural","log10"],default="natural") #gene-by-gene mode only: units for shared annotation evidence before logistic calibration
-parser.add_option("","--gene-gene-anchor-aggregation",type="choice",choices=["multi","any"],default="multi") #gene-by-gene mode only: combine multiple anchor traits as shared multi-anchor slices or as any-anchor union
+parser.add_option("","--gene-gene-anchor-aggregation",type="choice",choices=["multi","any","mean"],default="multi") #gene-by-gene mode only: combine multiple anchor traits as pooled evidence (multi, default), noisy-OR union (any), or backward-compatible arithmetic mean (mean)
 parser.add_option("","--gene-gene-diagonal-weight",default=0.0,type=float) #gene-by-gene mode only: diagonal fitting weight for symmetric NMF
 parser.add_option("","--gene-gene-matrix-floor",default=1e-3,type=float) #gene-by-gene mode only: zero pair-matrix entries below this value after probability calibration
 parser.add_option("","--gene-gene-excess-probability",dest="gene_gene_excess_probability",default=True,action="store_true") #gene-by-gene mode only: factor excess probability above the pair prior
@@ -1644,8 +1644,8 @@ def _bootstrap_cli(argv=None):
         bail("--gene-gene-matrix-floor must be >= 0")
     if parsed_options.gene_gene_sparsity < 0:
         bail("--gene-gene-sparsity must be >= 0")
-    if parsed_options.gene_gene_anchor_aggregation not in {"multi", "any"}:
-        bail("--gene-gene-anchor-aggregation must be one of: multi, any")
+    if parsed_options.gene_gene_anchor_aggregation not in {"multi", "any", "mean"}:
+        bail("--gene-gene-anchor-aggregation must be one of: multi, any, mean")
     if parsed_options.discovery_model == "gene_by_gene":
         if parsed_options.factor_backend != "full":
             bail("--discovery-model gene_by_gene currently requires --factor-backend full")

@@ -268,6 +268,24 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--gene-gene-matrix-floor must be >= 0", err)
 
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-anchor-aggregation", "bogus")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-gene-anchor-aggregation must be one of: multi, any, mean", err)
+
+        for aggregation in ["multi", "any", "mean"]:
+            proc = self._run(
+                "factor",
+                "--discovery-model",
+                "gene_by_gene",
+                "--gene-gene-anchor-aggregation",
+                aggregation,
+                "--print-effective-config",
+            )
+            self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["options"]["gene_gene_anchor_aggregation"], aggregation)
+
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy", "1.2")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")

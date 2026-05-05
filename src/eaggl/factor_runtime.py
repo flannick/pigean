@@ -88,8 +88,8 @@ def _build_gene_gene_pair_matrix(
     anchor_aggregation="multi",
 ):
     anchor_aggregation = str(anchor_aggregation)
-    if anchor_aggregation not in {"multi", "any"}:
-        raise ValueError("gene-gene anchor aggregation must be one of: multi, any")
+    if anchor_aggregation not in {"multi", "any", "mean"}:
+        raise ValueError("gene-gene anchor aggregation must be one of: multi, any, mean")
     beta_source_label = str(beta_source)
     if beta_values is None:
         if beta_source == "beta":
@@ -136,6 +136,7 @@ def _build_gene_gene_pair_matrix(
 
     per_anchor_matrices = []
     per_anchor_L = []
+    per_anchor_gates = []
     for anchor_index in range(beta_matrix.shape[1]):
         beta_vector = beta_matrix[:, anchor_index]
         X_beta = X_retained.multiply(beta_vector.reshape((1, -1)))
@@ -151,18 +152,34 @@ def _build_gene_gene_pair_matrix(
             M_anchor = np.clip(P_anchor, 0.0, 1.0)
         if gene_prob_matrix is not None:
             prob_col = gene_prob_matrix[:, min(anchor_index, gene_prob_matrix.shape[1] - 1)]
-            M_anchor = M_anchor * np.outer(prob_col, prob_col)
+            gate_anchor = np.outer(prob_col, prob_col)
+            per_anchor_gates.append(np.clip(gate_anchor, 0.0, 1.0))
+            M_anchor = M_anchor * gate_anchor
         per_anchor_matrices.append(M_anchor)
         per_anchor_L.append(L_anchor)
 
-    L = np.mean(per_anchor_L, axis=0) if len(per_anchor_L) > 1 else per_anchor_L[0]
-    P = scipy.special.expit(pair_logit + L)
     if len(per_anchor_matrices) > 1:
-        if anchor_aggregation == "any":
+        if anchor_aggregation == "multi":
+            L = np.sum(per_anchor_L, axis=0)
+            P = scipy.special.expit(pair_logit + L)
+            if excess_probability:
+                M = np.clip((P - float(pair_prior)) / max(1.0 - float(pair_prior), 1e-12), 0.0, 1.0)
+            else:
+                M = np.clip(P, 0.0, 1.0)
+            if gene_prob_matrix is not None:
+                gate = 1.0 - np.prod([1.0 - gate_anchor for gate_anchor in per_anchor_gates], axis=0)
+                M = M * gate
+        elif anchor_aggregation == "any":
+            L = np.mean(per_anchor_L, axis=0)
+            P = scipy.special.expit(pair_logit + L)
             M = 1.0 - np.prod([1.0 - np.clip(anchor_M, 0.0, 1.0) for anchor_M in per_anchor_matrices], axis=0)
         else:
+            L = np.mean(per_anchor_L, axis=0)
+            P = scipy.special.expit(pair_logit + L)
             M = np.mean(np.stack(per_anchor_matrices, axis=0), axis=0)
     else:
+        L = per_anchor_L[0]
+        P = scipy.special.expit(pair_logit + L)
         M = per_anchor_matrices[0]
     if float(matrix_floor) > 0.0:
         M[M < float(matrix_floor)] = 0.0
@@ -179,6 +196,11 @@ def _build_gene_gene_pair_matrix(
         "beta_negative_count": int(np.sum(beta_matrix < 0)),
         "beta_anchor_count": int(beta_matrix.shape[1]),
         "anchor_aggregation": anchor_aggregation,
+        "gene_gene_anchor_aggregation_semantics": {
+            "multi": "pooled_log_evidence",
+            "any": "noisy_or",
+            "mean": "arithmetic_mean",
+        }[anchor_aggregation],
         "pair_prior": float(pair_prior),
         "pair_logbf_base": str(logbf_base),
         "pair_matrix_floor": float(matrix_floor),
@@ -5397,8 +5419,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--gene-gene-beta-source must be one of: beta, beta_uncorrected")
     if str(gene_gene_logbf_base) not in {"natural", "log10"}:
         bail("--gene-gene-logbf-base must be one of: natural, log10")
-    if str(gene_gene_anchor_aggregation) not in {"multi", "any"}:
-        bail("--gene-gene-anchor-aggregation must be one of: multi, any")
+    if str(gene_gene_anchor_aggregation) not in {"multi", "any", "mean"}:
+        bail("--gene-gene-anchor-aggregation must be one of: multi, any, mean")
     if gene_gene_pair_prior is not None and not (0 < float(gene_gene_pair_prior) < 1):
         bail("--gene-gene-pair-prior must be in (0, 1)")
     if gene_gene_pair_prior_effective_size is not None and float(gene_gene_pair_prior_effective_size) <= 1:

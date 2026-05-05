@@ -283,6 +283,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "12",
             "--phi",
             "0.1",
+            "--gene-gene-anchor-aggregation",
+            "mean",
             "--learn-phi",
             "--learn-phi-max-redundancy",
             "0.55",
@@ -421,6 +423,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         opts = json.loads(proc.stdout)["options"]
         self.assertEqual(opts["max_num_factors"], 12)
         self.assertEqual(opts["phi"], 0.1)
+        self.assertEqual(opts["gene_gene_anchor_aggregation"], "mean")
         self.assertTrue(opts["learn_phi"])
         self.assertEqual(opts["learn_phi_max_redundancy"], 0.55)
         self.assertEqual(opts["learn_phi_max_redundancy_q90"], 0.25)
