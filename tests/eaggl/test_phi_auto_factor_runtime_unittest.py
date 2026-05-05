@@ -701,7 +701,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             betas_uncorrected=np.array([2.0, -1.0], dtype=float),
             scale_factors=np.ones(2, dtype=float),
         )
-        matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+        matrix, diagnostics, pair_weights = eaggl_factor_runtime._build_gene_gene_pair_matrix(
             state,
             gene_mask=np.array([True, True]),
             gene_set_mask=np.array([True, True]),
@@ -737,7 +737,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             betas_uncorrected=np.array([0.001, 0.0], dtype=float),
             scale_factors=np.ones(2, dtype=float),
         )
-        matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+        matrix, diagnostics, pair_weights = eaggl_factor_runtime._build_gene_gene_pair_matrix(
             state,
             gene_mask=np.array([True, True]),
             gene_set_mask=np.array([True, True]),
@@ -776,8 +776,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         expected_m = np.clip((expected_p - 0.2) / 0.8, 0.0, 1.0)
         np.fill_diagonal(expected_m, 0.0)
 
-        for aggregation in ["multi", "any", "mean"]:
-            matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+        for aggregation in ["multi", "any"]:
+            matrix, diagnostics, pair_weights = eaggl_factor_runtime._build_gene_gene_pair_matrix(
                 state,
                 gene_mask=np.array([True, True]),
                 gene_set_mask=np.array([True, True]),
@@ -794,6 +794,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             )
             np.testing.assert_allclose(matrix, expected_m)
             self.assertEqual(diagnostics["beta_anchor_count"], 1)
+            self.assertIsNone(pair_weights)
 
     def test_build_gene_gene_pair_matrix_multi_does_not_dilute_zero_evidence_anchor(self) -> None:
         state = SimpleNamespace(
@@ -823,9 +824,10 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         single_m = np.clip((single_p - 0.2) / 0.8, 0.0, 1.0)
 
         observed = {}
+        weights_by_mode = {}
         diagnostics_by_mode = {}
-        for aggregation in ["multi", "any", "mean"]:
-            matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+        for aggregation in ["multi", "any"]:
+            matrix, diagnostics, pair_weights = eaggl_factor_runtime._build_gene_gene_pair_matrix(
                 state,
                 gene_mask=np.array([True, True]),
                 gene_set_mask=np.array([True, True]),
@@ -841,13 +843,18 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
                 info_level=1,
             )
             observed[aggregation] = matrix[0, 1]
+            weights_by_mode[aggregation] = pair_weights
             diagnostics_by_mode[aggregation] = diagnostics
 
         self.assertAlmostEqual(observed["multi"], single_m[0, 1])
         self.assertAlmostEqual(observed["any"], single_m[0, 1])
-        self.assertAlmostEqual(observed["mean"], 0.5 * single_m[0, 1])
-        self.assertEqual(diagnostics_by_mode["multi"]["gene_gene_anchor_aggregation_semantics"], "pooled_log_evidence")
-        self.assertEqual(diagnostics_by_mode["mean"]["gene_gene_anchor_aggregation_semantics"], "arithmetic_mean")
+        self.assertIsNotNone(weights_by_mode["multi"])
+        self.assertAlmostEqual(float(weights_by_mode["multi"][0, 1]), single_m[0, 1])
+        self.assertEqual(float(weights_by_mode["multi"][0, 0]), 0.0)
+        self.assertIsNone(weights_by_mode["any"])
+        self.assertTrue(diagnostics_by_mode["multi"]["multi_view_objective_used"])
+        self.assertEqual(diagnostics_by_mode["multi"]["gene_gene_anchor_aggregation_semantics"], "multi_view_weighted_objective")
+        self.assertEqual(diagnostics_by_mode["any"]["gene_gene_anchor_aggregation_semantics"], "noisy_or")
 
     def test_build_gene_gene_pair_matrix_any_anchor_union(self) -> None:
         state = SimpleNamespace(
@@ -871,7 +878,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             ],
             dtype=float,
         )
-        matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+        matrix, diagnostics, pair_weights = eaggl_factor_runtime._build_gene_gene_pair_matrix(
             state,
             gene_mask=np.array([True, True]),
             gene_set_mask=np.array([True, True]),
@@ -899,8 +906,9 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         np.testing.assert_allclose(matrix, expected)
         self.assertEqual(diagnostics["anchor_aggregation"], "any")
         self.assertEqual(diagnostics["gene_gene_anchor_aggregation_semantics"], "noisy_or")
+        self.assertIsNone(pair_weights)
 
-    def test_build_gene_gene_pair_matrix_multi_pools_log_evidence_before_calibration(self) -> None:
+    def test_build_gene_gene_pair_matrix_multi_uses_weighted_sufficient_statistics(self) -> None:
         state = SimpleNamespace(
             X_orig=sparse.csr_matrix(
                 np.array(
@@ -922,7 +930,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             ],
             dtype=float,
         )
-        multi_matrix, diagnostics = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+        multi_matrix, diagnostics, pair_weights = eaggl_factor_runtime._build_gene_gene_pair_matrix(
             state,
             gene_mask=np.array([True, True]),
             gene_set_mask=np.array([True, True]),
@@ -938,34 +946,28 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             log_fn=None,
             info_level=1,
         )
-        mean_matrix, _ = eaggl_factor_runtime._build_gene_gene_pair_matrix(
-            state,
-            gene_mask=np.array([True, True]),
-            gene_set_mask=np.array([True, True]),
-            beta_source="beta_uncorrected",
-            beta_values=beta_values,
-            gene_prob_values=np.ones((2, 2), dtype=float),
-            pair_prior=0.2,
-            logbf_base="natural",
-            anchor_aggregation="mean",
-            matrix_floor=0.0,
-            excess_probability=True,
-            diagonal_weight=0.0,
-            log_fn=None,
-            info_level=1,
-        )
         pair_logit = np.log(0.2 / 0.8)
         anchor0_l = np.array([[2.0, 2.0], [2.0, 2.0]], dtype=float)
         anchor1_l = np.array([[2.0, 0.0], [0.0, 0.0]], dtype=float)
-        pooled_l = anchor0_l + anchor1_l
-        expected_p = 1.0 / (1.0 + np.exp(-(pair_logit + pooled_l)))
-        expected = np.clip((expected_p - 0.2) / 0.8, 0.0, 1.0)
+        anchor0_p = 1.0 / (1.0 + np.exp(-(pair_logit + anchor0_l)))
+        anchor1_p = 1.0 / (1.0 + np.exp(-(pair_logit + anchor1_l)))
+        anchor0_m = np.clip((anchor0_p - 0.2) / 0.8, 0.0, 1.0)
+        anchor1_m = np.clip((anchor1_p - 0.2) / 0.8, 0.0, 1.0)
+        c_sum = anchor0_m + anchor1_m
+        expected = np.zeros_like(c_sum)
+        positive = c_sum > 0.0
+        expected[positive] = (anchor0_m[positive] * anchor0_m[positive] + anchor1_m[positive] * anchor1_m[positive]) / c_sum[positive]
+        expected_weights = c_sum.copy()
         np.fill_diagonal(expected, 0.0)
+        np.fill_diagonal(expected_weights, 0.0)
         np.testing.assert_allclose(multi_matrix, expected)
-        self.assertNotAlmostEqual(float(multi_matrix[0, 1]), float(mean_matrix[0, 1]))
-        self.assertEqual(diagnostics["gene_gene_anchor_aggregation_semantics"], "pooled_log_evidence")
+        np.testing.assert_allclose(pair_weights, expected_weights)
+        arithmetic_mean = 0.5 * (anchor0_m[0, 1] + anchor1_m[0, 1])
+        self.assertNotAlmostEqual(float(multi_matrix[0, 1]), float(arithmetic_mean))
+        self.assertEqual(diagnostics["gene_gene_anchor_aggregation_semantics"], "multi_view_weighted_objective")
+        self.assertEqual(diagnostics["multi_view_confidence_mode"], "target_x_gene_gate")
 
-    def test_build_gene_gene_pair_matrix_multi_uses_non_diluting_union_gene_gate(self) -> None:
+    def test_build_gene_gene_pair_matrix_multi_uses_gene_gate_as_confidence(self) -> None:
         state = SimpleNamespace(
             X_orig=sparse.csr_matrix(
                 np.array(
@@ -994,7 +996,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             ],
             dtype=float,
         )
-        matrix, _ = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+        matrix, _, pair_weights = eaggl_factor_runtime._build_gene_gene_pair_matrix(
             state,
             gene_mask=np.array([True, True]),
             gene_set_mask=np.array([True, True]),
@@ -1016,6 +1018,8 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         expected = np.clip((expected_p - 0.2) / 0.8, 0.0, 1.0)
         np.fill_diagonal(expected, 0.0)
         np.testing.assert_allclose(matrix, expected)
+        self.assertIsNotNone(pair_weights)
+        np.testing.assert_allclose(pair_weights, expected)
 
     def test_bayes_sym_nmf_l2_extension_caps_row_sums(self) -> None:
         state = EagglState.__new__(EagglState)

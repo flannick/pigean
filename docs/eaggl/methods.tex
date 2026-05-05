@@ -243,33 +243,47 @@ L_{ij}^{(t)}
 \label{eq:eaggl_gene_gene_anchor_logbf}
 \end{equation}
 denote the anchor-specific shared annotation log-evidence. The default multi-anchor
-gene-by-gene model pools evidence on the log scale,
+gene-by-gene model first converts each anchor to a calibrated target matrix
+$M_{ij}^{(t)}$ using the same pairwise probability transform described below. It then
+estimates one shared loading matrix $W$ with a weighted multi-view objective,
 \begin{equation}
-L_{ij}^{\mathrm{multi}} = \sum_t L_{ij}^{(t)},
-\label{eq:eaggl_gene_gene_multi_anchor_logbf}
+\frac{1}{2}
+\sum_t \sum_{i<j} C_{ij}^{(t)}
+\left(
+M_{ij}^{(t)} - \sum_k W_{ik}W_{jk}
+\right)^2
++ \operatorname{ARD}(W),
+\label{eq:eaggl_gene_gene_multi_view}
 \end{equation}
-and then performs a single calibration to $P_{ij}^{\mathrm{same}}$. Thus an anchor with
-no evidence contributes zero log-evidence rather than diluting support from another
-anchor. If anchor-specific gene relevance probabilities are available, EAGGL gates the
-pooled pair matrix by the noisy union of pairwise direct-support gates,
+where $C_{ij}^{(t)}$ is an anchor-specific confidence weight. By default, this
+confidence is proportional to the anchor-specific target itself, so an anchor with no
+evidence for an edge has zero or near-zero fitting weight for that edge rather than
+acting as negative evidence against another anchor. If anchor-specific gene relevance
+probabilities are available, EAGGL treats the pairwise direct-support gate
 \begin{equation}
-G_{ij}^{\mathrm{multi}} =
-1 - \prod_t \left(1 - p_i^{(t)}p_j^{(t)}\right).
+G_{ij}^{(t)} = p_i^{(t)}p_j^{(t)}
 \label{eq:eaggl_gene_gene_multi_anchor_gate}
 \end{equation}
-An expert `any' mode instead computes each anchor's calibrated target matrix
-$M_{ij}^{(t)}$ and combines them as a noisy-OR union,
+as additional observation confidence for that anchor. Operationally, EAGGL forms the
+sufficient statistics
+\begin{equation}
+C_{ij}^{\mathrm{sum}} = \sum_t C_{ij}^{(t)}, \qquad
+M_{ij}^{\mathrm{eff}} =
+\frac{\sum_t C_{ij}^{(t)} M_{ij}^{(t)}}{C_{ij}^{\mathrm{sum}}}
+\quad\text{when } C_{ij}^{\mathrm{sum}}>0,
+\label{eq:eaggl_gene_gene_multi_view_sufficient_stats}
+\end{equation}
+sets $M_{ij}^{\mathrm{eff}}=0$ when $C_{ij}^{\mathrm{sum}}=0$, and fits the weighted
+symmetric objective with entry-wise weights $C_{ij}^{\mathrm{sum}}$.
+
+An expert `any' mode instead combines anchor-specific target matrices as a noisy-OR
+union,
 \begin{equation}
 M_{ij}^{\mathrm{any}} = 1 - \prod_t \left(1 - M_{ij}^{(t)}\right).
 \label{eq:eaggl_gene_gene_any_anchor}
 \end{equation}
-An expert `mean' mode preserves the previous arithmetic-mean target,
-\begin{equation}
-M_{ij}^{\mathrm{mean}} = \frac{1}{T}\sum_t M_{ij}^{(t)},
-\label{eq:eaggl_gene_gene_mean_anchor}
-\end{equation}
-and is intended for backward-compatible sensitivity analysis. Gene-by-annotation
-multi-anchor EAGGL does not require a corresponding mean or consensus mode because its
+This is a union target rather than a multi-view objective. Gene-by-annotation
+multi-anchor EAGGL does not require a corresponding aggregation mode because its
 rectangular model already pools anchor-derived weights into a single weighted
 likelihood for one shared factor basis.
 

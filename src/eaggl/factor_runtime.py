@@ -88,8 +88,8 @@ def _build_gene_gene_pair_matrix(
     anchor_aggregation="multi",
 ):
     anchor_aggregation = str(anchor_aggregation)
-    if anchor_aggregation not in {"multi", "any", "mean"}:
-        raise ValueError("gene-gene anchor aggregation must be one of: multi, any, mean")
+    if anchor_aggregation not in {"multi", "any"}:
+        raise ValueError("gene-gene anchor aggregation must be one of: multi, any")
     beta_source_label = str(beta_source)
     if beta_values is None:
         if beta_source == "beta":
@@ -135,8 +135,9 @@ def _build_gene_gene_pair_matrix(
         gene_prob_matrix = np.clip(gene_prob_matrix[np.asarray(gene_mask, dtype=bool), :], 0.0, 1.0)
 
     per_anchor_matrices = []
+    per_anchor_targets = []
+    per_anchor_confidences = []
     per_anchor_L = []
-    per_anchor_gates = []
     for anchor_index in range(beta_matrix.shape[1]):
         beta_vector = beta_matrix[:, anchor_index]
         X_beta = X_retained.multiply(beta_vector.reshape((1, -1)))
@@ -150,43 +151,79 @@ def _build_gene_gene_pair_matrix(
             M_anchor = np.clip((P_anchor - float(pair_prior)) / max(1.0 - float(pair_prior), 1e-12), 0.0, 1.0)
         else:
             M_anchor = np.clip(P_anchor, 0.0, 1.0)
+
+        M_target = np.asarray(M_anchor, dtype=float).copy()
+        if float(matrix_floor) > 0.0:
+            M_target[M_target < float(matrix_floor)] = 0.0
+        confidence_anchor = np.clip(M_target, 0.0, 1.0)
+
         if gene_prob_matrix is not None:
             prob_col = gene_prob_matrix[:, min(anchor_index, gene_prob_matrix.shape[1] - 1)]
             gate_anchor = np.outer(prob_col, prob_col)
-            per_anchor_gates.append(np.clip(gate_anchor, 0.0, 1.0))
+            gate_anchor = np.clip(gate_anchor, 0.0, 1.0)
+            confidence_anchor = confidence_anchor * gate_anchor
             M_anchor = M_anchor * gate_anchor
         per_anchor_matrices.append(M_anchor)
+        per_anchor_targets.append(M_target)
+        per_anchor_confidences.append(confidence_anchor)
         per_anchor_L.append(L_anchor)
 
+    pair_weights = None
+    multi_view_objective_used = False
+    M_eff = None
+    C_sum = None
     if len(per_anchor_matrices) > 1:
         if anchor_aggregation == "multi":
-            L = np.sum(per_anchor_L, axis=0)
-            P = scipy.special.expit(pair_logit + L)
-            if excess_probability:
-                M = np.clip((P - float(pair_prior)) / max(1.0 - float(pair_prior), 1e-12), 0.0, 1.0)
-            else:
-                M = np.clip(P, 0.0, 1.0)
-            if gene_prob_matrix is not None:
-                gate = 1.0 - np.prod([1.0 - gate_anchor for gate_anchor in per_anchor_gates], axis=0)
-                M = M * gate
-        elif anchor_aggregation == "any":
+            target_stack = np.stack(per_anchor_targets, axis=0)
+            confidence_stack = np.stack(per_anchor_confidences, axis=0)
+            C_sum = np.sum(confidence_stack, axis=0)
+            Y_sum = np.sum(confidence_stack * target_stack, axis=0)
+            M_eff = np.zeros_like(C_sum, dtype=float)
+            positive_weight_mask = C_sum > 0.0
+            M_eff[positive_weight_mask] = Y_sum[positive_weight_mask] / C_sum[positive_weight_mask]
+            if float(diagonal_weight) == 0.0:
+                np.fill_diagonal(C_sum, 0.0)
+                np.fill_diagonal(M_eff, 0.0)
+            elif float(diagonal_weight) != 1.0:
+                diag_weights = np.diag(C_sum).copy() * float(diagonal_weight)
+                np.fill_diagonal(C_sum, diag_weights)
             L = np.mean(per_anchor_L, axis=0)
             P = scipy.special.expit(pair_logit + L)
-            M = 1.0 - np.prod([1.0 - np.clip(anchor_M, 0.0, 1.0) for anchor_M in per_anchor_matrices], axis=0)
+            M = M_eff
+            pair_weights = C_sum
+            multi_view_objective_used = True
         else:
             L = np.mean(per_anchor_L, axis=0)
             P = scipy.special.expit(pair_logit + L)
-            M = np.mean(np.stack(per_anchor_matrices, axis=0), axis=0)
+            M = 1.0 - np.prod([1.0 - np.clip(anchor_M, 0.0, 1.0) for anchor_M in per_anchor_matrices], axis=0)
     else:
         L = per_anchor_L[0]
         P = scipy.special.expit(pair_logit + L)
         M = per_anchor_matrices[0]
-    if float(matrix_floor) > 0.0:
+    if not multi_view_objective_used and float(matrix_floor) > 0.0:
         M[M < float(matrix_floor)] = 0.0
 
     diag_before = np.diag(M).copy()
-    if float(diagonal_weight) == 0.0:
+    if not multi_view_objective_used and float(diagonal_weight) == 0.0:
         np.fill_diagonal(M, 0.0)
+    if multi_view_objective_used:
+        diag_weight_before = np.diag(pair_weights).copy() if pair_weights is not None else np.array([], dtype=float)
+    else:
+        diag_weight_before = np.array([], dtype=float)
+
+    per_anchor_nonzero_edge_counts = [int(np.sum(np.asarray(confidence, dtype=float) > 0.0)) for confidence in per_anchor_confidences]
+    per_anchor_mean_target = [float(np.mean(np.asarray(target, dtype=float))) if np.asarray(target).size > 0 else 0.0 for target in per_anchor_targets]
+    per_anchor_mean_confidence = [
+        float(np.mean(np.asarray(confidence, dtype=float))) if np.asarray(confidence).size > 0 else 0.0 for confidence in per_anchor_confidences
+    ]
+    if C_sum is None:
+        C_sum_for_stats = np.zeros_like(M, dtype=float)
+    else:
+        C_sum_for_stats = np.asarray(C_sum, dtype=float)
+    if M_eff is None:
+        M_eff_for_stats = np.asarray(M, dtype=float)
+    else:
+        M_eff_for_stats = np.asarray(M_eff, dtype=float)
 
     diagnostics = {
         "num_active_genes": int(np.sum(gene_mask)),
@@ -196,16 +233,27 @@ def _build_gene_gene_pair_matrix(
         "beta_negative_count": int(np.sum(beta_matrix < 0)),
         "beta_anchor_count": int(beta_matrix.shape[1]),
         "anchor_aggregation": anchor_aggregation,
-        "gene_gene_anchor_aggregation_semantics": {
-            "multi": "pooled_log_evidence",
-            "any": "noisy_or",
-            "mean": "arithmetic_mean",
-        }[anchor_aggregation],
+        "gene_gene_anchor_aggregation_semantics": "multi_view_weighted_objective" if multi_view_objective_used else ("noisy_or" if anchor_aggregation == "any" else "single_view"),
         "pair_prior": float(pair_prior),
         "pair_logbf_base": str(logbf_base),
         "pair_matrix_floor": float(matrix_floor),
         "pair_excess_probability": bool(excess_probability),
         "diagonal_weight": float(diagonal_weight),
+        "multi_view_objective_used": bool(multi_view_objective_used),
+        "multi_view_confidence_mode": "target_x_gene_gate" if multi_view_objective_used and gene_prob_matrix is not None else ("target" if multi_view_objective_used else "not_applicable"),
+        "multi_view_nonzero_weight_fraction": float(np.mean(C_sum_for_stats > 0.0)) if C_sum_for_stats.size > 0 else 0.0,
+        "multi_view_effective_edge_count": int(np.sum(C_sum_for_stats > 0.0)),
+        "multi_view_C_sum_mean": float(np.mean(C_sum_for_stats)) if C_sum_for_stats.size > 0 else 0.0,
+        "multi_view_C_sum_std": float(np.std(C_sum_for_stats)) if C_sum_for_stats.size > 0 else 0.0,
+        "multi_view_C_sum_min": float(np.min(C_sum_for_stats)) if C_sum_for_stats.size > 0 else 0.0,
+        "multi_view_C_sum_max": float(np.max(C_sum_for_stats)) if C_sum_for_stats.size > 0 else 0.0,
+        "multi_view_M_eff_mean": float(np.mean(M_eff_for_stats)) if M_eff_for_stats.size > 0 else 0.0,
+        "multi_view_M_eff_std": float(np.std(M_eff_for_stats)) if M_eff_for_stats.size > 0 else 0.0,
+        "multi_view_M_eff_min": float(np.min(M_eff_for_stats)) if M_eff_for_stats.size > 0 else 0.0,
+        "multi_view_M_eff_max": float(np.max(M_eff_for_stats)) if M_eff_for_stats.size > 0 else 0.0,
+        "multi_view_per_anchor_nonzero_edge_counts": ",".join(str(value) for value in per_anchor_nonzero_edge_counts),
+        "multi_view_per_anchor_mean_target": ",".join("%.8g" % value for value in per_anchor_mean_target),
+        "multi_view_per_anchor_mean_confidence": ",".join("%.8g" % value for value in per_anchor_mean_confidence),
         "L_mean": float(np.mean(L)) if L.size > 0 else 0.0,
         "L_std": float(np.std(L)) if L.size > 0 else 0.0,
         "L_min": float(np.min(L)) if L.size > 0 else 0.0,
@@ -220,15 +268,17 @@ def _build_gene_gene_pair_matrix(
         "M_min": float(np.min(M)) if M.size > 0 else 0.0,
         "M_max": float(np.max(M)) if M.size > 0 else 0.0,
         "diag_before_mean": float(np.mean(diag_before)) if diag_before.size > 0 else 0.0,
+        "diag_weight_before_mean": float(np.mean(diag_weight_before)) if diag_weight_before.size > 0 else 0.0,
     }
     if log_fn is not None:
         log_fn(
-            "Built gene-gene pair matrix: genes=%d retained_gene_sets=%d beta_source=%s anchor_aggregation=%s pair_prior=%.6g M_density=%.6g M_mean=%.6g matrix_floor=%.6g diagonal_weight=%.6g"
+            "Built gene-gene pair matrix: genes=%d retained_gene_sets=%d beta_source=%s anchor_aggregation=%s multi_view=%s pair_prior=%.6g M_density=%.6g M_mean=%.6g matrix_floor=%.6g diagonal_weight=%.6g"
             % (
                 diagnostics["num_active_genes"],
                 diagnostics["num_retained_gene_sets"],
                 diagnostics["beta_source"],
                 diagnostics["anchor_aggregation"],
+                diagnostics["multi_view_objective_used"],
                 diagnostics["pair_prior"],
                 diagnostics["M_density"],
                 diagnostics["M_mean"],
@@ -237,7 +287,9 @@ def _build_gene_gene_pair_matrix(
             ),
             info_level,
         )
-    return np.asarray(M, dtype=float), diagnostics
+    if pair_weights is not None:
+        pair_weights = np.asarray(pair_weights, dtype=float)
+    return np.asarray(M, dtype=float), diagnostics, pair_weights
 
 def _clone_runtime_value(value):
     try:
@@ -4602,7 +4654,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             effective_size=pair_effective_size,
             background_prior=getattr(state, "background_prior", None),
         )
-        pair_matrix, pair_diagnostics = _build_gene_gene_pair_matrix(
+        pair_matrix, pair_diagnostics, pair_weights = _build_gene_gene_pair_matrix(
             state,
             gene_mask=gene_or_pheno_mask,
             gene_set_mask=gene_set_mask,
@@ -4672,6 +4724,21 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
                 "gene_gene_M_std": float(pair_diagnostics["M_std"]),
                 "gene_gene_M_min": float(pair_diagnostics["M_min"]),
                 "gene_gene_M_max": float(pair_diagnostics["M_max"]),
+                "gene_gene_multi_view_objective_used": bool(pair_diagnostics["multi_view_objective_used"]),
+                "gene_gene_multi_view_confidence_mode": str(pair_diagnostics["multi_view_confidence_mode"]),
+                "gene_gene_multi_view_nonzero_weight_fraction": float(pair_diagnostics["multi_view_nonzero_weight_fraction"]),
+                "gene_gene_multi_view_effective_edge_count": int(pair_diagnostics["multi_view_effective_edge_count"]),
+                "gene_gene_multi_view_C_sum_mean": float(pair_diagnostics["multi_view_C_sum_mean"]),
+                "gene_gene_multi_view_C_sum_std": float(pair_diagnostics["multi_view_C_sum_std"]),
+                "gene_gene_multi_view_C_sum_min": float(pair_diagnostics["multi_view_C_sum_min"]),
+                "gene_gene_multi_view_C_sum_max": float(pair_diagnostics["multi_view_C_sum_max"]),
+                "gene_gene_multi_view_M_eff_mean": float(pair_diagnostics["multi_view_M_eff_mean"]),
+                "gene_gene_multi_view_M_eff_std": float(pair_diagnostics["multi_view_M_eff_std"]),
+                "gene_gene_multi_view_M_eff_min": float(pair_diagnostics["multi_view_M_eff_min"]),
+                "gene_gene_multi_view_M_eff_max": float(pair_diagnostics["multi_view_M_eff_max"]),
+                "gene_gene_multi_view_per_anchor_nonzero_edge_counts": str(pair_diagnostics["multi_view_per_anchor_nonzero_edge_counts"]),
+                "gene_gene_multi_view_per_anchor_mean_target": str(pair_diagnostics["multi_view_per_anchor_mean_target"]),
+                "gene_gene_multi_view_per_anchor_mean_confidence": str(pair_diagnostics["multi_view_per_anchor_mean_confidence"]),
             }
         )
         log("Running symmetric gene-by-gene factorization", INFO)
@@ -4695,6 +4762,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             row_sum_cap=gene_gene_row_sum_cap,
             sparsity=gene_gene_sparsity,
             diagonal_weight=gene_gene_diagonal_weight,
+            pair_weights=pair_weights,
             log_fn=log,
         )
         state.last_factorization_backend = "symnmf_gene_by_gene"
@@ -4706,6 +4774,8 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             "epochs": int(max_num_iterations),
             "columns_evaluated": int(pair_matrix.shape[0]),
             "warm_started": False,
+            "multi_view_objective_used": bool(pair_diagnostics.get("multi_view_objective_used", False)),
+            "multi_view_effective_edge_count": int(pair_diagnostics.get("multi_view_effective_edge_count", 0)),
             "lambda_cut": getattr(state, "last_factorization_lambda_cut", None),
             "epoch_error_trace": [],
             "wall_time_sec": None,
@@ -5419,8 +5489,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--gene-gene-beta-source must be one of: beta, beta_uncorrected")
     if str(gene_gene_logbf_base) not in {"natural", "log10"}:
         bail("--gene-gene-logbf-base must be one of: natural, log10")
-    if str(gene_gene_anchor_aggregation) not in {"multi", "any", "mean"}:
-        bail("--gene-gene-anchor-aggregation must be one of: multi, any, mean")
+    if str(gene_gene_anchor_aggregation) not in {"multi", "any"}:
+        bail("--gene-gene-anchor-aggregation must be one of: multi, any")
     if gene_gene_pair_prior is not None and not (0 < float(gene_gene_pair_prior) < 1):
         bail("--gene-gene-pair-prior must be in (0, 1)")
     if gene_gene_pair_prior_effective_size is not None and float(gene_gene_pair_prior_effective_size) <= 1:

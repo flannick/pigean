@@ -271,9 +271,9 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-anchor-aggregation", "bogus")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--gene-gene-anchor-aggregation must be one of: multi, any, mean", err)
+        self.assertIn("--gene-gene-anchor-aggregation must be one of: multi, any", err)
 
-        for aggregation in ["multi", "any", "mean"]:
+        for aggregation in ["multi", "any"]:
             proc = self._run(
                 "factor",
                 "--discovery-model",
@@ -285,6 +285,12 @@ class EagglCliTest(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
             payload = json.loads(proc.stdout)
             self.assertEqual(payload["options"]["gene_gene_anchor_aggregation"], aggregation)
+
+        for removed_aggregation in ["mean", "consensus"]:
+            proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-anchor-aggregation", removed_aggregation)
+            self.assertEqual(proc.returncode, 2)
+            err = (proc.stderr or "") + (proc.stdout or "")
+            self.assertIn("--gene-gene-anchor-aggregation", err)
 
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy", "1.2")
         self.assertEqual(proc.returncode, 2)

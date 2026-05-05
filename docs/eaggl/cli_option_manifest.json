@@ -869,7 +869,7 @@
       "source_line": 326,
       "summary": "choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery",
       "type": "choice",
-      "usage_references": 34
+      "usage_references": 35
     },
     {
       "action": null,
@@ -1772,7 +1772,7 @@
       "source_line": 331,
       "summary": null,
       "type": "choice",
-      "usage_references": 14
+      "usage_references": 16
     },
     {
       "action": null,

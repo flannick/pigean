@@ -348,7 +348,7 @@ Gene-by-gene expert controls:
 | `--gene-gene-pair-prior` | set the direct prior probability that two retained genes share a mechanism before observing shared annotation evidence |
 | `--gene-gene-pair-prior-effective-size` | set the effective mechanism size used to derive the pair prior when no direct prior is supplied |
 | `--gene-gene-logbf-base` | declare whether the shared annotation evidence is already in natural-log units or in `log10` units before logistic calibration |
-| `--gene-gene-anchor-aggregation` | choose how multi-trait gene-by-gene anchors are combined: `multi` pools log-evidence before calibration (default), `any` uses noisy-OR union, and `mean` reproduces the old arithmetic mean of per-anchor pair matrices for expert diagnostics |
+| `--gene-gene-anchor-aggregation` | choose how multi-trait gene-by-gene anchors are combined: `multi` fits one shared `W` with a weighted multi-view objective over anchor-specific pair matrices (default), while `any` uses a noisy-OR union target |
 | `--gene-gene-diagonal-weight` | set the diagonal fitting weight in the symmetric objective; the default `0.0` suppresses self-pairs |
 | `--gene-gene-excess-probability` / `--no-gene-gene-excess-probability` | factor excess pairwise probability above the pair prior (default) or the raw calibrated pairwise probability |
 | `--gene-gene-row-sum-cap` / `--no-gene-gene-row-sum-cap` | keep each gene’s mechanism memberships approximately disjoint by capping the row sum of `W` at `1` after each update |
@@ -364,9 +364,9 @@ Notes:
 - `--discovery-model gene_by_gene` uses all retained gene sets to construct pairwise gene evidence, so discovery-family subsetting and redundancy weighting flags are ignored in that mode.
 - `--discovery-model gene_by_gene` currently requires `--factor-backend full`, `--learn-phi-backend sentinel_pruned`, and the default transposed factor matrix.
 - In `gene_by_gene` mode, corrected `beta` is the default pairwise evidence surface and no additional gene-set-size normalization is applied before symmetric factorization.
-- For multiple anchor traits in `gene_by_gene` mode, the default `--gene-gene-anchor-aggregation multi` adds per-anchor shared-annotation log-evidence before probability calibration, so an anchor with no pair evidence does not dilute support from another anchor.
-- `--gene-gene-anchor-aggregation any` keeps the noisy-OR interpretation that a pair is supported if any anchor supports it; `mean` is a backward-compatible expert mode that averages per-anchor target matrices and is mainly useful for sensitivity checks.
-- Gene-by-annotation multi-anchor fitting does not expose a `mean` mode because it already pools anchor-derived weights into one weighted likelihood for one shared factor basis.
+- For multiple anchor traits in `gene_by_gene` mode, the default `--gene-gene-anchor-aggregation multi` builds anchor-specific pair targets and fits one shared gene-factor basis with per-anchor, per-edge confidence weights. An anchor with no pair evidence receives zero or near-zero confidence for that edge, so it does not dilute support from another anchor.
+- `--gene-gene-anchor-aggregation any` keeps the noisy-OR interpretation that a pair is supported if any anchor supports it, then fits the usual single-view symmetric factorization to that union target.
+- Gene-by-annotation multi-anchor fitting does not expose an additional aggregation mode because it already pools anchor-derived weights into one weighted likelihood for one shared factor basis.
 - By default, `factors.out` and cluster outputs print only primary factors, defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
 - Automatic phi-selection metrics are also primary-scoped by default: redundancy and repeat-stability matching ignore the low-mass ARD tail unless `--learn-phi-metric-factor-scope all` is set. This option is separate from `--factor-output-scope`, which only controls printed factor and cluster rows.
 - `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive over all raw fitted factors. The optional `factor_phi_*` output tables follow `--factor-output-scope`, matching the final user-facing output policy for each tested phi.
