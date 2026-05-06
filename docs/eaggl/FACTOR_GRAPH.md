@@ -17,8 +17,12 @@ PYTHONPATH=src python -m eaggl.factor_graph \
 - Drag blank space to pan and use the `+` / `-` buttons to zoom.
 - Use **Enable Physics** to relax the deterministic layout with browser-side force physics.
 - Use **Reset Layout** to return to the deterministic layout.
-- Use the filter bar to show/hide factors, genes, or phenotypes.
-- Add one or more case-insensitive text filters to show nodes whose ID, label, or type contains any requested substring; comma-separated entries are treated as OR filters.
+- Use the filter bar to target factors, genes, or phenotypes. Text filters hide unmatched nodes of the targeted types while dimming other node types for context.
+- Use the **hide unmatched** checkbox to switch between hiding unmatched targeted nodes and keeping them visible but dimmed. It is unchecked by default.
+- Add one or more case-insensitive text filters to match nodes whose ID, label, or type contains any requested substring; comma-separated entries are treated as OR filters.
+- Use **Add node** to add omitted genes from the embedded cluster-file candidates by autocomplete. The standalone HTML contains the candidate nodes and edges, so this works without a server.
+- Click a node to show embedded provenance. Gene nodes can show per-anchor direct, indirect, and combined support when the original `--gene-phewas-stats-in` file is also passed to `eaggl.factor_graph`, plus all factor loadings within 0.01 of that gene's top factor loading. Factor nodes show per-anchor relevance from `trait_factor_links.out` plus the top five gene and gene-set loadings.
+- Hover over an edge to show its weight, source table, and source field.
 - Node labels are truncated to 20 characters by default, with the full label shown on hover. Use `--label-max-chars` to change the displayed length, or `--label-max-chars 0` to disable truncation.
 - Trait nodes are pulled toward the factor centroid by default with `--trait-coordinate-scale 0.2`; use `--trait-coordinate-scale 1.0` to preserve the raw MDS position.
 - Interactive physics uses shorter factor-trait springs by default with `--trait-edge-length-scale 0.2`, so anchor phenotypes stay near the factor/gene structure.
@@ -55,7 +59,10 @@ You can also pass explicit paths:
 PYTHONPATH=src python -m eaggl.factor_graph \
   --factors-in results/factors.out.gz \
   --gene-clusters-in results/gene_clusters.out.gz \
+  --gene-set-clusters-in results/gene_set_clusters.out.gz \
   --trait-factor-links-in results/trait_factor_links.out.gz \
+  --gene-phewas-stats-in data/gene_phewas_stats.tsv.gz \
+  --gene-set-phewas-stats-in data/gene_set_phewas_stats.tsv.gz \
   --html-out results/factor_graph.html
 ```
 

@@ -147,9 +147,21 @@ class EagglFactorGraphTest(unittest.TestCase):
         self.assertNotIn('addEventListener("wheel"', html_text)
         self.assertIn("nodeFilterInput", html_text)
         self.assertIn("node-type-filter", html_text)
+        self.assertIn("hideUnmatchedCheckbox", html_text)
+        self.assertIn('id="hideUnmatchedCheckbox" type="checkbox">', html_text)
         self.assertIn("filterChips", html_text)
         self.assertIn("phenotypes", html_text)
         self.assertIn("addTextFilters", html_text)
+        self.assertIn("addNodeInput", html_text)
+        self.assertIn("addNodeOptions", html_text)
+        self.assertIn("addCandidateNode", html_text)
+        self.assertIn("candidate_nodes", html_text)
+        self.assertIn("detailsPanel", html_text)
+        self.assertIn("showNodeDetails", html_text)
+        self.assertIn("showEdgeTooltip", html_text)
+        self.assertIn("Near-Top Factor Loadings", html_text)
+        self.assertIn("visibleColumns", html_text)
+        self.assertIn("valueIsPresent", html_text)
         self.assertIn("display_label", html_text)
         self.assertIn('"nodes"', html_text)
         self.assertNotIn("&quot;nodes&quot;", html_text)
@@ -248,6 +260,83 @@ class EagglFactorGraphTest(unittest.TestCase):
             return ((trait["x"] - center_x) ** 2 + (trait["y"] - center_y) ** 2) ** 0.5
 
         self.assertLess(trait_factor_distance(compressed_graph), trait_factor_distance(raw_graph))
+
+    def test_hidden_gene_candidates_are_embedded_for_interactive_add_node(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            _write_gz(
+                root / "gene_clusters.out.gz",
+                "Gene\tcombined\tlog_bf\tprior\tcluster\tlabel\tFactor1\tFactor2\n"
+                "GENE1\t2.0\t1.0\t1.0\tFactor1\timmune\t0.9\t0.1\n"
+                "GENE2\t1.5\t0.2\t1.3\tFactor2\tmetabolic\t0.1\t0.8\n"
+                "GENE4\t1.2\t0.2\t1.0\tFactor1\timmune\t0.7\t0.0\n",
+            )
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(
+                [
+                    "--eaggl-dir",
+                    str(root),
+                    "--json-out",
+                    str(root / "graph.json"),
+                    "--max-num-gene-nodes-per-factor",
+                    "1",
+                ]
+            )
+            graph = factor_graph.build_graph_from_files(args)
+
+        node_by_id = {node["id"]: node for node in graph["nodes"]}
+        candidate_by_id = {node["id"]: node for node in graph["candidate_nodes"]}
+        self.assertIn("GENE1", node_by_id)
+        self.assertIn("GENE2", node_by_id)
+        self.assertNotIn("GENE4", node_by_id)
+        self.assertIn("GENE4", candidate_by_id)
+        self.assertEqual(candidate_by_id["GENE4"]["kind"], "gene")
+        self.assertEqual(candidate_by_id["GENE4"]["provenance"]["near_top_factor_loadings"][0]["factor"], "Factor1")
+        self.assertEqual(candidate_by_id["GENE4"]["provenance"]["near_top_factor_loadings"][0]["factor_display_label"], "immune")
+        candidate_edge_keys = {(edge["from"], edge["to"]) for edge in graph["candidate_edges"]}
+        self.assertIn(("Factor1", "GENE4"), candidate_edge_keys)
+
+    def test_provenance_inputs_are_embedded_in_nodes_and_factors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            _write_gz(
+                root / "gene_phewas.tsv.gz",
+                "Gene\tTrait\tCombined\tDirect\tIndirect\n"
+                "GENE1\tTraitA\t2.5\t1.2\t0.8\n"
+                "GENE1\tTraitB\t0.4\t0.1\t0.3\n",
+            )
+            _write_gz(
+                root / "gene_set_clusters.out.gz",
+                "Gene_Set\tcombined\tlog_bf\tcluster\tlabel\tFactor1\tFactor2\n"
+                "GS1\t1.0\t1.0\tFactor1\tGS label\t0.9\t0.0\n",
+            )
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(
+                [
+                    "--eaggl-dir",
+                    str(root),
+                    "--gene-phewas-stats-in",
+                    str(root / "gene_phewas.tsv.gz"),
+                ]
+            )
+            graph = factor_graph.build_graph_from_files(args)
+
+        node_by_id = {node["id"]: node for node in graph["nodes"]}
+        self.assertEqual(node_by_id["GENE1"]["provenance"]["anchor_support"][0]["anchor"], "TraitA")
+        self.assertAlmostEqual(node_by_id["GENE1"]["provenance"]["anchor_support"][0]["combined"], 2.5)
+        near_top = node_by_id["GENE1"]["provenance"]["near_top_factor_loadings"]
+        self.assertEqual([row["factor"] for row in near_top], ["Factor1"])
+        self.assertEqual([row["factor_display_label"] for row in near_top], ["immune"])
+        self.assertEqual(node_by_id["GENE1"]["provenance"]["near_top_factor_loading_rule"], "loading >= max_loading - 0.01")
+        factor1 = node_by_id["Factor1"]["provenance"]
+        self.assertIn("relevance_by_anchor", factor1)
+        self.assertEqual(factor1["top_gene_loadings"][0]["id"], "GENE1")
+        self.assertEqual(factor1["top_gene_set_loadings"][0]["id"], "GS1")
+        edge = next(edge for edge in graph["edges"] if edge["from"] == "Factor1" and edge["to"] == "GENE1")
+        self.assertEqual(edge["provenance"]["source_table"], "gene_clusters")
+        self.assertEqual(edge["provenance"]["weight_field"], "Factor1")
 
     def test_module_cli_can_start_html_with_physics_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

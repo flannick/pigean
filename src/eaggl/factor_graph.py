@@ -8,7 +8,7 @@ import math
 import os
 import random
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Iterable
 
@@ -53,6 +53,7 @@ class EntityInfo:
     combined: float
     direct: float
     loadings: dict[str, float]
+    provenance: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -193,6 +194,7 @@ def _scale_entity_values(entities: list[EntityInfo]) -> list[EntityInfo]:
                 combined=combined,
                 direct=direct,
                 loadings=entity.loadings,
+                provenance=entity.provenance,
             )
         )
     return scaled
@@ -225,6 +227,7 @@ def _filter_entities_by_factor_rank(
                 combined=entity.combined,
                 direct=entity.direct,
                 loadings=loadings,
+                provenance=entity.provenance,
             )
         )
     if max_num_per_factor is None or max_num_per_factor <= 0:
@@ -241,7 +244,28 @@ def _filter_entities_by_factor_rank(
     return [entity for entity in filtered if entity.entity_id in keep]
 
 
-def read_wide_entities(
+def _threshold_entity_loadings(entity: EntityInfo, *, min_loading: float, min_loading_frac: float) -> EntityInfo | None:
+    max_loading = max(entity.loadings.values(), default=0.0)
+    if max_loading <= min_loading:
+        return None
+    loadings = {
+        factor: (value if value >= min_loading_frac * max_loading and value >= min_loading else 0.0)
+        for factor, value in entity.loadings.items()
+    }
+    if max(loadings.values(), default=0.0) <= 0:
+        return None
+    return EntityInfo(
+        entity_id=entity.entity_id,
+        label=entity.label,
+        kind=entity.kind,
+        combined=entity.combined,
+        direct=entity.direct,
+        loadings=loadings,
+        provenance=entity.provenance,
+    )
+
+
+def _read_wide_entities_raw(
     path: str | Path,
     *,
     kind: str,
@@ -250,9 +274,6 @@ def read_wide_entities(
     label_col: str | None = None,
     combined_col: str | None = None,
     direct_col: str | None = None,
-    min_loading: float,
-    min_loading_frac: float,
-    max_num_per_factor: int,
 ) -> list[EntityInfo]:
     with open_text(path) as fh:
         header_line = fh.readline()
@@ -277,7 +298,46 @@ def read_wide_entities(
                 factor: max(0.0, _safe_float(cols[col_i] if col_i is not None and col_i < len(cols) else None, 0.0))
                 for factor, col_i in factor_cols.items()
             }
-            entities.append(EntityInfo(entity_id=entity_id, label=label, kind=kind, combined=combined, direct=direct, loadings=loadings))
+            provenance: dict[str, object] = {
+                "source_table": f"{kind}_clusters",
+                "source_id": entity_id,
+                "source_fields": {
+                    "id": id_col,
+                    "combined": combined_col or "combined",
+                    "direct": direct_col or "log_bf",
+                    "loadings": "Factor* columns",
+                },
+                "support_summary": {
+                    "combined": combined,
+                    "direct": direct,
+                },
+            }
+            entities.append(EntityInfo(entity_id=entity_id, label=label, kind=kind, combined=combined, direct=direct, loadings=loadings, provenance=provenance))
+    return entities
+
+
+def read_wide_entities(
+    path: str | Path,
+    *,
+    kind: str,
+    factors: list[str],
+    id_col: str,
+    label_col: str | None = None,
+    combined_col: str | None = None,
+    direct_col: str | None = None,
+    min_loading: float,
+    min_loading_frac: float,
+    max_num_per_factor: int,
+) -> list[EntityInfo]:
+    entities = _read_wide_entities_raw(
+        path,
+        kind=kind,
+        factors=factors,
+        id_col=id_col,
+        label_col=label_col,
+        combined_col=combined_col,
+        direct_col=direct_col,
+    )
     entities = _filter_entities_by_factor_rank(
         entities,
         factors,
@@ -285,6 +345,36 @@ def read_wide_entities(
         min_loading_frac=min_loading_frac,
         max_num_per_factor=max_num_per_factor,
     )
+    return _scale_entity_values(entities)
+
+
+def read_wide_entity_candidates(
+    path: str | Path,
+    *,
+    kind: str,
+    factors: list[str],
+    id_col: str,
+    label_col: str | None = None,
+    combined_col: str | None = None,
+    direct_col: str | None = None,
+    min_loading: float,
+    min_loading_frac: float,
+) -> list[EntityInfo]:
+    raw_entities = _read_wide_entities_raw(
+        path,
+        kind=kind,
+        factors=factors,
+        id_col=id_col,
+        label_col=label_col,
+        combined_col=combined_col,
+        direct_col=direct_col,
+    )
+    entities = [
+        thresholded
+        for entity in raw_entities
+        for thresholded in [_threshold_entity_loadings(entity, min_loading=min_loading, min_loading_frac=min_loading_frac)]
+        if thresholded is not None
+    ]
     return _scale_entity_values(entities)
 
 
@@ -343,6 +433,18 @@ def read_trait_links(
             combined=trait_strength.get(trait, 1.0),
             direct=1.0,
             loadings={factor: loadings.get(factor, 0.0) for factor in factors},
+            provenance={
+                "source_table": "trait_factor_links",
+                "source_id": trait,
+                "source_fields": {
+                    "anchor": "trait",
+                    "loadings": "joint_fraction or joint_coefficient",
+                    "effective_size": "trait_neff or trait_n_eff",
+                },
+                "support_summary": {
+                    "trait_neff": trait_neff.get(trait),
+                },
+            },
         )
         for trait, loadings in by_trait.items()
     ]
@@ -354,6 +456,174 @@ def read_trait_links(
         max_num_per_factor=max_num_per_factor,
     )
     return _scale_entity_values(entities)
+
+
+def read_anchor_support_rows(
+    paths: list[str] | None,
+    *,
+    id_col: str,
+    anchor_col: str,
+    combined_col: str | None,
+    direct_col: str | None,
+    indirect_col: str | None,
+    source_label: str,
+) -> dict[str, list[dict[str, object]]]:
+    support: dict[str, list[dict[str, object]]] = {}
+    for path in paths or []:
+        with open_text(path) as fh:
+            header_line = fh.readline()
+            if not header_line:
+                continue
+            header, delim = _split_header(header_line)
+            id_i = _get_col(header, id_col)
+            anchor_i = _get_col(header, anchor_col)
+            combined_i = _get_col(header, combined_col, required=False) if combined_col else None
+            direct_i = _get_col(header, direct_col, required=False) if direct_col else None
+            indirect_i = _get_col(header, indirect_col, required=False) if indirect_col else None
+            for line in fh:
+                cols = line.rstrip("\n").split(delim)
+                if id_i is None or anchor_i is None or max(id_i, anchor_i) >= len(cols):
+                    continue
+                entity_id = cols[id_i]
+                anchor = cols[anchor_i]
+                combined = _safe_float(cols[combined_i], 0.0) if combined_i is not None and combined_i < len(cols) else None
+                direct = _safe_float(cols[direct_i], 0.0) if direct_i is not None and direct_i < len(cols) else None
+                indirect = _safe_float(cols[indirect_i], 0.0) if indirect_i is not None and indirect_i < len(cols) else None
+                row = {
+                    "anchor": anchor,
+                    "combined": combined,
+                    "direct": direct,
+                    "indirect": indirect,
+                    "source": source_label,
+                    "source_fields": {
+                        "combined": combined_col,
+                        "direct": direct_col,
+                        "indirect": indirect_col,
+                    },
+                }
+                support.setdefault(entity_id, []).append(row)
+    for rows in support.values():
+        rows.sort(key=lambda row: str(row.get("anchor", "")))
+    return support
+
+
+def attach_anchor_support(entities: list[EntityInfo], support_by_id: dict[str, list[dict[str, object]]]) -> list[EntityInfo]:
+    if not support_by_id:
+        return entities
+    updated: list[EntityInfo] = []
+    for entity in entities:
+        provenance = dict(entity.provenance)
+        rows = support_by_id.get(entity.entity_id, [])
+        if rows:
+            provenance["anchor_support"] = rows
+        updated.append(replace(entity, provenance=provenance))
+    return updated
+
+
+def read_factor_trait_details(path: str | Path | None, factors: list[str]) -> dict[str, list[dict[str, object]]]:
+    if path is None:
+        return {}
+    details: dict[str, list[dict[str, object]]] = {factor: [] for factor in factors}
+    with open_text(path) as fh:
+        header_line = fh.readline()
+        if not header_line:
+            return details
+        header, delim = _split_header(header_line)
+        trait_i = _get_col(header, "trait", required=False)
+        if trait_i is None:
+            trait_i = _get_col(header, "Pheno", required=False)
+        factor_i = _get_col(header, "factor", required=False)
+        if factor_i is None:
+            factor_i = _get_col(header, "Factor", required=False)
+        if trait_i is None or factor_i is None:
+            return details
+        numeric_fields = [
+            "joint_fraction",
+            "joint_coefficient",
+            "marginal_fraction",
+            "marginal_coefficient",
+            "marginal_overlap",
+            "trait_neff",
+            "trait_n_eff",
+            "joint_coefficient_support_mass",
+            "marginal_coefficient_support_mass",
+            "retained_fraction",
+            "joint_residual",
+        ]
+        numeric_indices = {field_name: _get_col(header, field_name, required=False) for field_name in numeric_fields}
+        string_fields = ["is_anchor", "score_source", "basis"]
+        string_indices = {field_name: _get_col(header, field_name, required=False) for field_name in string_fields}
+        for line in fh:
+            cols = line.rstrip("\n").split(delim)
+            if max(trait_i, factor_i) >= len(cols):
+                continue
+            factor = cols[factor_i]
+            if factor not in details:
+                continue
+            row: dict[str, object] = {"anchor": cols[trait_i], "source_table": "trait_factor_links"}
+            for field_name, idx in numeric_indices.items():
+                if idx is not None and idx < len(cols):
+                    row[field_name] = _safe_float(cols[idx], 0.0)
+            for field_name, idx in string_indices.items():
+                if idx is not None and idx < len(cols):
+                    row[field_name] = cols[idx]
+            details[factor].append(row)
+    for rows in details.values():
+        rows.sort(key=lambda row: (-float(row.get("joint_fraction", row.get("joint_coefficient", 0.0)) or 0.0), str(row.get("anchor", ""))))
+    return details
+
+
+def _top_loadings_by_factor(entities: list[EntityInfo], factors: list[str], *, top_n: int = 5) -> dict[str, list[dict[str, object]]]:
+    result: dict[str, list[dict[str, object]]] = {}
+    for factor in factors:
+        ranked = sorted(
+            (
+                {
+                    "id": entity.entity_id,
+                    "label": entity.label,
+                    "kind": entity.kind,
+                    "loading": float(entity.loadings.get(factor, 0.0)),
+                    "source_table": f"{entity.kind}_clusters",
+                    "source_field": factor,
+                }
+                for entity in entities
+                if entity.loadings.get(factor, 0.0) > 0
+            ),
+            key=lambda row: (-float(row["loading"]), str(row["id"])),
+        )
+        result[factor] = ranked[:top_n]
+    return result
+
+
+def attach_near_top_factor_loadings(
+    entities: list[EntityInfo],
+    factors: list[str],
+    *,
+    factor_labels: dict[str, str] | None = None,
+    label_max_chars: int | None = None,
+    within_top: float = 0.01,
+) -> list[EntityInfo]:
+    factor_labels = factor_labels or {}
+    updated: list[EntityInfo] = []
+    for entity in entities:
+        max_loading = max([entity.loadings.get(factor, 0.0) for factor in factors] + [0.0])
+        threshold = max(0.0, max_loading - within_top)
+        near_top = [
+            {
+                "factor": factor,
+                "factor_label": factor_labels.get(factor, factor),
+                "factor_display_label": truncate_label(factor_labels.get(factor, factor), label_max_chars),
+                "loading": float(entity.loadings.get(factor, 0.0)),
+                "source_field": factor,
+            }
+            for factor in sorted(factors, key=_factor_sort_key)
+            if entity.loadings.get(factor, 0.0) > 0 and entity.loadings.get(factor, 0.0) >= threshold
+        ]
+        provenance = dict(entity.provenance)
+        provenance["near_top_factor_loadings"] = near_top
+        provenance["near_top_factor_loading_rule"] = f"loading >= max_loading - {within_top:g}"
+        updated.append(replace(entity, provenance=provenance))
+    return updated
 
 
 def generate_distinct_colors(n: int, *, start_with_red_blue: bool = False) -> list[tuple[float, float, float]]:
@@ -484,10 +754,24 @@ def _reorder_colors_by_factor_correlation(colors: list[tuple[float, float, float
     return [color if color is not None else colors[i] for i, color in enumerate(reordered)]
 
 
-def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits: list[EntityInfo], config: GraphConfig) -> dict:
+def build_graph(
+    factors_info: list[FactorInfo],
+    genes: list[EntityInfo],
+    traits: list[EntityInfo],
+    config: GraphConfig,
+    *,
+    candidate_genes: list[EntityInfo] | None = None,
+    candidate_traits: list[EntityInfo] | None = None,
+    factor_trait_details: dict[str, list[dict[str, object]]] | None = None,
+    top_gene_loadings_by_factor: dict[str, list[dict[str, object]]] | None = None,
+    top_gene_set_loadings_by_factor: dict[str, list[dict[str, object]]] | None = None,
+) -> dict:
     factors = [factor.factor for factor in factors_info]
     factor_to_label = {factor.factor: factor.label for factor in factors_info}
     max_relevance = max([factor.relevance for factor in factors_info] + [1.0])
+    factor_trait_details = factor_trait_details or {}
+    top_gene_loadings_by_factor = top_gene_loadings_by_factor or {}
+    top_gene_set_loadings_by_factor = top_gene_set_loadings_by_factor or {}
     entities = genes + traits
     entity_matrix = np.asarray([[entity.loadings.get(factor, 0.0) for factor in factors] for entity in entities], dtype=float)
     factor_identity = np.eye(len(factors), dtype=float)
@@ -495,21 +779,26 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
     color_by = str(config.color_by)
     if color_by not in {"auto", "factor", "trait"}:
         _bail("--color-by must be one of: auto, factor, trait")
-    use_trait_weight_colors = bool(
-        traits
-        and (
-            color_by == "trait"
-            or (color_by == "auto" and config.multi_anchor)
-        )
-    )
+    detail_anchor_names: list[str] = []
+    for rows in factor_trait_details.values():
+        for row in rows:
+            is_anchor = str(row.get("is_anchor", "")).strip().lower() in {"1", "true", "yes"}
+            anchor = str(row.get("anchor", ""))
+            if is_anchor and anchor and anchor not in detail_anchor_names:
+                detail_anchor_names.append(anchor)
+    anchor_names_for_coloring = detail_anchor_names or [trait.entity_id for trait in traits]
+    use_trait_weight_colors = bool(anchor_names_for_coloring and (color_by == "trait" or (color_by == "auto" and config.multi_anchor)))
     colors = generate_distinct_colors(len(factors), start_with_red_blue=config.colors_red_blue)
     trait_colors_by_id: dict[str, tuple[float, float, float]] = {}
     if use_trait_weight_colors:
-        trait_colors = generate_distinct_colors(len(traits), start_with_red_blue=config.colors_red_blue)
-        trait_colors_by_id = {trait.entity_id: trait_colors[i] for i, trait in enumerate(traits)}
+        trait_colors = generate_distinct_colors(len(anchor_names_for_coloring), start_with_red_blue=config.colors_red_blue)
+        trait_colors_by_id = {anchor: trait_colors[i] for i, anchor in enumerate(anchor_names_for_coloring)}
         colors = []
         for factor in factors:
-            factor_trait_weights = [trait.loadings.get(factor, 0.0) for trait in traits]
+            raw_by_anchor = {str(row.get("anchor", "")): float(row.get("joint_fraction", row.get("joint_coefficient", 0.0)) or 0.0) for row in factor_trait_details.get(factor, [])}
+            factor_trait_weights = [raw_by_anchor.get(anchor, 0.0) for anchor in anchor_names_for_coloring]
+            if not any(weight > 0 for weight in factor_trait_weights):
+                factor_trait_weights = [trait.loadings.get(factor, 0.0) for trait in traits]
             colors.append(blend_colors(trait_colors, factor_trait_weights, opacity=1.0))
     elif entity_matrix.size:
         colors = _reorder_colors_by_factor_correlation(colors, entity_matrix)
@@ -522,6 +811,7 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
                 coords[entity_index] = factor_center + config.trait_coordinate_scale * (coords[entity_index] - factor_center)
     nodes = []
     edges = []
+    selected_ids = {entity.entity_id for entity in entities}
     factor_offset = len(entities)
     for factor_index, factor_info in enumerate(factors_info):
         color = colors[factor_index]
@@ -540,6 +830,13 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
                 "color": rgb_to_hex(color),
                 "border_color": rgb_to_hex(color),
                 "relevance": float(factor_info.relevance),
+                "provenance": {
+                    "source_table": "factors",
+                    "relevance": float(factor_info.relevance),
+                    "relevance_by_anchor": factor_trait_details.get(factor_info.factor, []),
+                    "top_gene_loadings": top_gene_loadings_by_factor.get(factor_info.factor, []),
+                    "top_gene_set_loadings": top_gene_set_loadings_by_factor.get(factor_info.factor, []),
+                },
             }
         )
     for entity_index, entity in enumerate(entities):
@@ -565,6 +862,7 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
                 "border_color": rgb_to_hex(border),
                 "combined_scaled": float(entity.combined),
                 "direct_scaled": float(entity.direct),
+                "provenance": entity.provenance,
             }
         )
         for factor, loading in sorted(entity.loadings.items(), key=lambda item: _factor_sort_key(item[0])):
@@ -581,6 +879,87 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
                     "color": rgb_to_hex(trait_colors_by_id[entity.entity_id])
                     if entity.kind == "trait" and entity.entity_id in trait_colors_by_id
                     else nodes[factors.index(factor)]["color"],
+                    "provenance": {
+                        "source_table": "trait_factor_links" if entity.kind == "trait" else "gene_clusters",
+                        "weight": float(loading),
+                        "weight_field": "joint_fraction/joint_coefficient" if entity.kind == "trait" else factor,
+                        "threshold_fields": {
+                            "min_loading": config.trait_min_loading if entity.kind == "trait" else config.gene_min_loading,
+                            "min_loading_frac": config.trait_min_loading_frac if entity.kind == "trait" else config.gene_min_loading_frac,
+                        },
+                    },
+                }
+            )
+    candidate_nodes = []
+    candidate_edges = []
+    factor_coord_by_id = {node["id"]: (float(node["x"]), float(node["y"])) for node in nodes if node["kind"] == "factor"}
+    candidate_entities = []
+    if candidate_genes is not None:
+        candidate_entities.extend(candidate_genes)
+    if candidate_traits is not None:
+        candidate_entities.extend(candidate_traits)
+    for entity in candidate_entities:
+        if entity.entity_id in selected_ids:
+            continue
+        weights = [entity.loadings.get(factor, 0.0) for factor in factors]
+        positive = [(factor, weight) for factor, weight in zip(factors, weights) if weight > 0]
+        if not positive:
+            continue
+        weight_sum = sum(weight for _, weight in positive)
+        if weight_sum <= 0:
+            continue
+        x = sum(factor_coord_by_id[factor][0] * weight for factor, weight in positive) / weight_sum
+        y = sum(factor_coord_by_id[factor][1] * weight for factor, weight in positive) / weight_sum
+        jitter_seed = sum(ord(ch) for ch in entity.entity_id) % 360
+        jitter = 0.18 + 0.06 * (len(candidate_nodes) % 5)
+        x += jitter * math.cos(math.radians(jitter_seed))
+        y += jitter * math.sin(math.radians(jitter_seed))
+        if entity.kind == "trait" and entity.entity_id in trait_colors_by_id:
+            color = trait_colors_by_id[entity.entity_id]
+            border = color
+        else:
+            color = blend_colors(colors, weights, opacity=entity.direct)
+            border = blend_colors(colors, weights, opacity=1.0)
+        candidate_nodes.append(
+            {
+                "id": entity.entity_id,
+                "label": entity.label,
+                "display_label": truncate_label(entity.label, config.label_max_chars),
+                "kind": entity.kind,
+                "shape": "diamond" if entity.kind == "trait" else "circle",
+                "x": float(x),
+                "y": float(y),
+                "size": float(18 + 42 * entity.combined * config.node_size_scale * (0.7 if entity.kind == "trait" else 1.0)),
+                "color": rgb_to_hex(color),
+                "border_color": rgb_to_hex(border),
+                "combined_scaled": float(entity.combined),
+                "direct_scaled": float(entity.direct),
+                "provenance": entity.provenance,
+            }
+        )
+        for factor, loading in sorted(entity.loadings.items(), key=lambda item: _factor_sort_key(item[0])):
+            threshold = config.trait_min_loading if entity.kind == "trait" else config.gene_min_loading
+            if loading < threshold:
+                continue
+            candidate_edges.append(
+                {
+                    "from": factor,
+                    "to": entity.entity_id,
+                    "kind": "factor_trait" if entity.kind == "trait" else "factor_gene",
+                    "weight": float(loading),
+                    "width": float(max(0.5, config.edge_max_width * loading)),
+                    "color": rgb_to_hex(trait_colors_by_id[entity.entity_id])
+                    if entity.kind == "trait" and entity.entity_id in trait_colors_by_id
+                    else nodes[factors.index(factor)]["color"],
+                    "provenance": {
+                        "source_table": "trait_factor_links" if entity.kind == "trait" else "gene_clusters",
+                        "weight": float(loading),
+                        "weight_field": "joint_fraction/joint_coefficient" if entity.kind == "trait" else factor,
+                        "threshold_fields": {
+                            "min_loading": config.trait_min_loading if entity.kind == "trait" else config.gene_min_loading,
+                            "min_loading_frac": config.trait_min_loading_frac if entity.kind == "trait" else config.gene_min_loading_frac,
+                        },
+                    },
                 }
             )
     return {
@@ -593,12 +972,15 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
             "color_by": color_by,
             "resolved_color_by": "trait" if use_trait_weight_colors else "factor",
             "multi_anchor": bool(config.multi_anchor),
-            "trait_count_for_coloring": int(len(traits) if use_trait_weight_colors else 0),
+            "trait_count_for_coloring": int(len(anchor_names_for_coloring) if use_trait_weight_colors else 0),
+            "trait_color_weight_source": "trait_factor_links_unfiltered" if use_trait_weight_colors and factor_trait_details else "visible_trait_nodes",
         },
         "factors": factors,
         "factor_labels": [factor_to_label[factor] for factor in factors],
         "nodes": nodes,
         "edges": edges,
+        "candidate_nodes": candidate_nodes,
+        "candidate_edges": candidate_edges,
     }
 
 
@@ -627,19 +1009,25 @@ def _scaled_graph_for_html(graph: dict, *, width: int = 1200, height: int = 900)
         denom = max(max_y - min_y, 1e-9)
         return height - (pad + (y - min_y) / denom * (height - 2 * pad))
 
-    scaled_nodes = []
-    for node in nodes:
+    def scale_node(node: dict) -> dict:
         scaled_node = dict(node)
         scaled_node["fixed_x"] = sx(node["x"])
         scaled_node["fixed_y"] = sy(node["y"])
         scaled_node["x"] = scaled_node["fixed_x"]
         scaled_node["y"] = scaled_node["fixed_y"]
         scaled_node["radius"] = max(6.0, float(node["size"]) / 5.0)
+        return scaled_node
+
+    scaled_nodes = []
+    for node in nodes:
+        scaled_node = scale_node(node)
         scaled_nodes.append(scaled_node)
     return {
         **graph,
         "nodes": scaled_nodes,
         "edges": [dict(edge) for edge in edges],
+        "candidate_nodes": [scale_node(node) for node in graph.get("candidate_nodes", [])],
+        "candidate_edges": [dict(edge) for edge in graph.get("candidate_edges", [])],
         "viewport": {"width": width, "height": height},
     }
 
@@ -714,8 +1102,15 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
   const labelsLayer = document.getElementById("labels-layer");
   const tooltip = document.getElementById("tooltip");
   const nodeById = new Map(graph.nodes.map(node => [node.id, node]));
+  const candidateNodeById = new Map((graph.candidate_nodes || []).map(node => [node.id, node]));
+  const candidateEdgesByNode = new Map();
+  for (const edge of (graph.candidate_edges || [])) {
+    if (!candidateEdgesByNode.has(edge.to)) candidateEdgesByNode.set(edge.to, []);
+    candidateEdgesByNode.get(edge.to).push(edge);
+  }
   const activeNodeTypes = new Set(["factor", "gene", "trait"]);
   const textFilters = [];
+  let hideUnmatched = false;
   let physicsEnabled = __PHYSICS_ENABLED__;
   let running = physicsEnabled;
   let viewBox = {x: 0, y: 0, w: graph.viewport.width, h: graph.viewport.height};
@@ -761,52 +1156,64 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
     }
   }
 
-  function renderInitial() {
-    edgesLayer.innerHTML = "";
-    nodesLayer.innerHTML = "";
-    labelsLayer.innerHTML = "";
-    for (const edge of graph.edges) {
-      const el = makeSvg("line", {
+  function renderEdge(edge) {
+    const el = makeSvg("line", {
         stroke: edge.color,
         "stroke-opacity": 0.45,
         "stroke-width": edge.width,
         "data-source": edge.from,
         "data-target": edge.to
       });
-      edge._el = el;
-      edgesLayer.appendChild(el);
-    }
-    for (const node of graph.nodes) {
-      const group = makeSvg("g", {"class": "node", "data-node-id": node.id});
-      const shape = nodeShape(node);
-      shape.setAttribute("fill", node.color);
-      shape.setAttribute("stroke", node.border_color);
-      shape.setAttribute("stroke-width", 3);
-      group.appendChild(shape);
-      group.addEventListener("pointerdown", event => {
-        draggingNode = node;
-        lastPointer = pointerInSvg(event);
-        group.setPointerCapture(event.pointerId);
-        event.stopPropagation();
+    el.addEventListener("pointerenter", event => showEdgeTooltip(event, edge));
+    el.addEventListener("pointermove", event => showEdgeTooltip(event, edge));
+    el.addEventListener("pointerleave", hideTooltip);
+    edge._el = el;
+    edgesLayer.appendChild(el);
+  }
+
+  function renderNode(node) {
+    const group = makeSvg("g", {"class": "node", "data-node-id": node.id});
+    const shape = nodeShape(node);
+    shape.setAttribute("fill", node.color);
+    shape.setAttribute("stroke", node.border_color);
+    shape.setAttribute("stroke-width", 3);
+    group.appendChild(shape);
+    group.addEventListener("pointerdown", event => {
+      draggingNode = node;
+      lastPointer = pointerInSvg(event);
+      group.setPointerCapture(event.pointerId);
+      event.stopPropagation();
+    });
+    group.addEventListener("pointerenter", event => showTooltip(event, node));
+    group.addEventListener("pointermove", event => showTooltip(event, node));
+    group.addEventListener("pointerleave", hideTooltip);
+    group.addEventListener("click", event => {
+      event.stopPropagation();
+      showNodeDetails(node);
+    });
+    node._shape = shape;
+    node._group = group;
+    nodesLayer.appendChild(group);
+    if (node.kind === "factor" || node.radius > 9) {
+      const label = makeSvg("text", {
+        "text-anchor": "middle",
+        "font-size": 12,
+        "font-family": "sans-serif",
+        "pointer-events": "none"
       });
-      group.addEventListener("pointerenter", event => showTooltip(event, node));
-      group.addEventListener("pointermove", event => showTooltip(event, node));
-      group.addEventListener("pointerleave", hideTooltip);
-      node._shape = shape;
-      node._group = group;
-      nodesLayer.appendChild(group);
-      if (node.kind === "factor" || node.radius > 9) {
-        const label = makeSvg("text", {
-          "text-anchor": "middle",
-          "font-size": 12,
-          "font-family": "sans-serif",
-          "pointer-events": "none"
-        });
-        label.textContent = node.display_label || node.label;
-        node._label = label;
-        labelsLayer.appendChild(label);
-      }
+      label.textContent = node.display_label || node.label;
+      node._label = label;
+      labelsLayer.appendChild(label);
     }
+  }
+
+  function renderInitial() {
+    edgesLayer.innerHTML = "";
+    nodesLayer.innerHTML = "";
+    labelsLayer.innerHTML = "";
+    for (const edge of graph.edges) renderEdge(edge);
+    for (const node of graph.nodes) renderNode(node);
+    refreshAddNodeOptions();
     applyFilters();
     update();
   }
@@ -825,8 +1232,120 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
     tooltip.textContent = `${node.kind}: ${node.label}`;
   }
 
+  function showEdgeTooltip(event, edge) {
+    const provenance = edge.provenance || {};
+    const pieces = [
+      `${edge.kind || "edge"}: ${edge.from} -> ${edge.to}`,
+      `weight=${formatNumber(edge.weight)}`,
+      `source=${provenance.source_table || "unknown"}`,
+      `weight field=${provenance.weight_field || "weight"}`
+    ];
+    tooltip.style.display = "block";
+    tooltip.style.left = `${event.clientX + 12}px`;
+    tooltip.style.top = `${event.clientY + 12}px`;
+    tooltip.textContent = pieces.join("\n");
+  }
+
   function hideTooltip() {
     tooltip.style.display = "none";
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function formatNumber(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "";
+    if (Math.abs(number) >= 100) return number.toFixed(2);
+    if (Math.abs(number) >= 1) return number.toFixed(3);
+    if (Math.abs(number) >= 0.001) return number.toFixed(4);
+    return number.toExponential(3);
+  }
+
+  function valueIsPresent(value) {
+    return value !== null && value !== undefined && value !== "";
+  }
+
+  function tableHtml(rows, columns) {
+    if (!rows || rows.length === 0) return "<p class=\"empty-detail\">No rows available.</p>";
+    const visibleColumns = columns.filter(col =>
+      col.always || rows.some(row => valueIsPresent(row[col.key]))
+    );
+    if (visibleColumns.length === 0) return "<p class=\"empty-detail\">No non-empty fields available.</p>";
+    const head = visibleColumns.map(col => `<th>${escapeHtml(col.label)}</th>`).join("");
+    const body = rows.map(row => {
+      return "<tr>" + visibleColumns.map(col => {
+        const value = row[col.key];
+        const rendered = typeof value === "number" ? formatNumber(value) : value;
+        return `<td>${escapeHtml(rendered)}</td>`;
+      }).join("") + "</tr>";
+    }).join("");
+    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  function showNodeDetails(node) {
+    const panel = document.getElementById("detailsPanel");
+    if (!panel) return;
+    const provenance = node.provenance || {};
+    let html = `<h3>${escapeHtml(node.kind)}: ${escapeHtml(node.label)}</h3>`;
+    html += `<p><strong>ID:</strong> ${escapeHtml(node.id)}</p>`;
+    if (node.kind === "factor") {
+      html += `<p><strong>Overall relevance:</strong> ${formatNumber(provenance.relevance ?? node.relevance)}</p>`;
+      html += "<h4>Relevance By Anchor Trait</h4>";
+      html += tableHtml(provenance.relevance_by_anchor || [], [
+        {key: "anchor", label: "anchor", always: true},
+        {key: "joint_fraction", label: "joint fraction"},
+        {key: "joint_coefficient", label: "joint coefficient"},
+        {key: "marginal_coefficient", label: "marginal coefficient"},
+        {key: "trait_n_eff", label: "trait n eff"},
+        {key: "score_source", label: "source"},
+        {key: "basis", label: "basis"}
+      ]);
+      html += "<h4>Top Gene Loadings</h4>";
+      html += tableHtml(provenance.top_gene_loadings || [], [
+        {key: "id", label: "gene", always: true},
+        {key: "loading", label: "loading"},
+        {key: "source_field", label: "field"}
+      ]);
+      html += "<h4>Top Gene Set Loadings</h4>";
+      html += tableHtml(provenance.top_gene_set_loadings || [], [
+        {key: "id", label: "gene set", always: true},
+        {key: "loading", label: "loading"},
+        {key: "source_field", label: "field"}
+      ]);
+    } else {
+      html += "<h4>Anchor Trait Support</h4>";
+      html += tableHtml(provenance.anchor_support || [], [
+        {key: "anchor", label: "anchor", always: true},
+        {key: "combined", label: "combined"},
+        {key: "direct", label: "direct"},
+        {key: "indirect", label: "indirect"},
+        {key: "source", label: "source"}
+      ]);
+      if (node.kind === "gene") {
+        html += `<h4>Near-Top Factor Loadings</h4>`;
+        html += `<p>${escapeHtml(provenance.near_top_factor_loading_rule || "loading near maximum")}</p>`;
+        html += tableHtml(provenance.near_top_factor_loadings || [], [
+          {key: "factor_display_label", label: "factor", always: true},
+          {key: "loading", label: "loading"},
+          {key: "factor", label: "factor id"},
+          {key: "source_field", label: "field"}
+        ]);
+      }
+      html += "<h4>Cluster-Table Summary</h4>";
+      html += tableHtml([provenance.support_summary || {}], [
+        {key: "combined", label: "combined"},
+        {key: "direct", label: "direct"},
+        {key: "trait_neff", label: "trait neff"}
+      ]);
+    }
+    panel.innerHTML = html;
   }
 
   function zoomAt(point, scale) {
@@ -850,15 +1369,19 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       edge._el.setAttribute("y1", source.y);
       edge._el.setAttribute("x2", target.x);
       edge._el.setAttribute("y2", target.y);
-      edge._el.style.display = source._visible && target._visible ? "" : "none";
+      const edgeVisible = source._visible && target._visible;
+      edge._el.style.display = edgeVisible ? "" : "none";
+      edge._el.style.opacity = edgeVisible ? (source._dimmed || target._dimmed ? "0.18" : "1") : "0";
     }
     for (const node of graph.nodes) {
       placeNodeShape(node._shape, node);
       node._group.style.display = node._visible ? "" : "none";
+      node._group.style.opacity = node._dimmed ? "0.22" : "1";
       if (node._label) {
         node._label.setAttribute("x", node.x);
         node._label.setAttribute("y", node.y + node.radius + 14);
         node._label.style.display = node._visible ? "" : "none";
+        node._label.style.opacity = node._dimmed ? "0.25" : "1";
       }
     }
   }
@@ -867,10 +1390,20 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
     return `${node.id} ${node.label} ${node.kind}`.toLowerCase();
   }
 
-  function nodePassesFilters(node) {
-    const typeMatch = activeNodeTypes.has(node.kind);
-    const textMatch = textFilters.length === 0 || textFilters.some(term => nodeSearchText(node).includes(term));
-    return typeMatch && textMatch;
+  function nodeMatchesText(node) {
+    if (textFilters.length === 0) return true;
+    return textFilters.some(term => nodeSearchText(node).includes(term));
+  }
+
+  function filterStateForNode(node) {
+    const hasTextFilter = textFilters.length > 0;
+    const typeIsTargeted = activeNodeTypes.has(node.kind);
+    if (hasTextFilter && !typeIsTargeted) {
+      return {visible: true, dimmed: true};
+    }
+    const matches = typeIsTargeted && nodeMatchesText(node);
+    if (matches) return {visible: true, dimmed: false};
+    return {visible: !hideUnmatched, dimmed: true};
   }
 
   function renderFilterChips() {
@@ -893,12 +1426,60 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
   function applyFilters() {
     let visibleCount = 0;
     for (const node of graph.nodes) {
-      node._visible = nodePassesFilters(node);
+      const state = filterStateForNode(node);
+      node._visible = state.visible;
+      node._dimmed = state.dimmed;
       if (node._visible) visibleCount += 1;
     }
     renderFilterChips();
-    document.getElementById("filterStatus").textContent = `${visibleCount} / ${graph.nodes.length} nodes visible`;
+    const mode = hideUnmatched ? "hide unmatched" : "dim unmatched";
+    document.getElementById("filterStatus").textContent = `${visibleCount} / ${graph.nodes.length} nodes visible (${mode})`;
     update();
+  }
+
+  function refreshAddNodeOptions() {
+    const dataList = document.getElementById("addNodeOptions");
+    if (!dataList) return;
+    dataList.innerHTML = "";
+    const activeIds = new Set(graph.nodes.map(node => node.id));
+    const candidates = Array.from(candidateNodeById.values())
+      .filter(node => !activeIds.has(node.id))
+      .sort((a, b) => `${a.kind}:${a.label}`.localeCompare(`${b.kind}:${b.label}`))
+      .slice(0, 2000);
+    for (const node of candidates) {
+      const option = document.createElement("option");
+      option.value = node.id;
+      option.label = `${node.kind}: ${node.label}`;
+      dataList.appendChild(option);
+    }
+  }
+
+  function addCandidateNode(rawValue) {
+    const query = String(rawValue || "").trim();
+    if (!query) return;
+    const lower = query.toLowerCase();
+    let node = candidateNodeById.get(query);
+    if (!node) {
+      node = Array.from(candidateNodeById.values()).find(candidate =>
+        !nodeById.has(candidate.id) &&
+        (`${candidate.id} ${candidate.label} ${candidate.kind}`.toLowerCase().includes(lower))
+      );
+    }
+    if (!node || nodeById.has(node.id)) {
+      document.getElementById("addNodeStatus").textContent = node ? "Node is already shown." : "No matching hidden node.";
+      return;
+    }
+    graph.nodes.push(node);
+    nodeById.set(node.id, node);
+    renderNode(node);
+    for (const edge of candidateEdgesByNode.get(node.id) || []) {
+      graph.edges.push(edge);
+      renderEdge(edge);
+    }
+    document.getElementById("addNodeInput").value = "";
+    document.getElementById("addNodeStatus").textContent = `Added ${node.kind}: ${node.label}`;
+    refreshAddNodeOptions();
+    applyFilters();
   }
 
   function addTextFilters(rawValue) {
@@ -992,6 +1573,10 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       applyFilters();
     });
   });
+  document.getElementById("hideUnmatchedCheckbox").addEventListener("change", function() {
+    hideUnmatched = this.checked;
+    applyFilters();
+  });
   document.getElementById("addNodeFilterButton").addEventListener("click", function() {
     addTextFilters(document.getElementById("nodeFilterInput").value);
   });
@@ -1008,6 +1593,15 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       activeNodeTypes.add(input.value);
     });
     applyFilters();
+  });
+  document.getElementById("addNodeButton").addEventListener("click", function() {
+    addCandidateNode(document.getElementById("addNodeInput").value);
+  });
+  document.getElementById("addNodeInput").addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addCandidateNode(this.value);
+    }
   });
   document.getElementById("togglePhysicsButton").addEventListener("click", function() {
     physicsEnabled = !physicsEnabled;
@@ -1055,15 +1649,23 @@ def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int 
     <span>Drag nodes; drag blank space to pan; use +/- to zoom.</span>
   </div>
   <div class="filters">
-    <strong>Show:</strong>
+    <strong>Filter types:</strong>
     <label><input class="node-type-filter" type="checkbox" value="factor" checked> factors</label>
     <label><input class="node-type-filter" type="checkbox" value="gene" checked> genes</label>
     <label><input class="node-type-filter" type="checkbox" value="trait" checked> phenotypes</label>
+    <label><input id="hideUnmatchedCheckbox" type="checkbox"> hide unmatched</label>
     <input id="nodeFilterInput" type="search" placeholder="Add text filter, comma-separated OR terms">
     <button id="addNodeFilterButton" type="button">Add Filter</button>
     <button id="clearNodeFiltersButton" type="button">Clear</button>
     <span id="filterStatus"></span>
     <span id="filterChips"></span>
+  </div>
+  <div class="filters">
+    <strong>Add node:</strong>
+    <input id="addNodeInput" list="addNodeOptions" type="search" placeholder="Type a hidden gene or phenotype">
+    <datalist id="addNodeOptions"></datalist>
+    <button id="addNodeButton" type="button">Add Node</button>
+    <span id="addNodeStatus"></span>
   </div>
 """
         script = _interactive_html_script(physics_enabled=physics)
@@ -1089,6 +1691,14 @@ def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int 
     .filter-chip {{ padding: 3px 7px; font-size: 12px; }}
     .node {{ cursor: grab; }}
     .node:active {{ cursor: grabbing; }}
+    .graph-and-details {{ display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; align-items: start; }}
+    #detailsPanel {{ background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 12px; font-size: 12px; max-height: {height}px; overflow: auto; }}
+    #detailsPanel h3 {{ margin: 0 0 8px; font-size: 15px; }}
+    #detailsPanel h4 {{ margin: 12px 0 6px; font-size: 13px; }}
+    #detailsPanel table {{ border-collapse: collapse; width: 100%; font-size: 11px; }}
+    #detailsPanel th, #detailsPanel td {{ border-bottom: 1px solid #eee; padding: 3px 4px; text-align: left; vertical-align: top; }}
+    #detailsPanel th {{ color: #555; font-weight: 600; }}
+    .empty-detail {{ color: #777; margin: 4px 0; }}
     #tooltip {{ position: fixed; display: none; pointer-events: none; background: rgba(30, 30, 30, 0.88); color: white; padding: 5px 8px; border-radius: 4px; font-size: 12px; z-index: 10; }}
   </style>
 </head>
@@ -1096,9 +1706,12 @@ def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int 
 <div class="wrap">
   <div class="meta">EAGGL factor graph: {num_nodes} nodes, {num_edges} edges</div>
   {controls}
-  <svg id="graph-svg" viewBox="0 0 {width} {height}" role="img" aria-label="EAGGL factor graph">
-    {svg}
-  </svg>
+  <div class="graph-and-details">
+    <svg id="graph-svg" viewBox="0 0 {width} {height}" role="img" aria-label="EAGGL factor graph">
+      {svg}
+    </svg>
+    <aside id="detailsPanel">Click a node to show provenance, anchor support, and top factor loadings.</aside>
+  </div>
 </div>
 <div id="tooltip"></div>
 <script type="application/json" id="eaggl-factor-graph-data">{graph_json}</script>
@@ -1165,13 +1778,14 @@ def write_pdf(graph: dict, path: str | Path, *, width: float = 12.0, height: flo
 
 
 def discover_inputs(eaggl_dir: str | Path | None) -> dict[str, str | None]:
-    result = {"factors": None, "genes": None, "traits": None, "params": None}
+    result = {"factors": None, "genes": None, "gene_sets": None, "traits": None, "params": None}
     if eaggl_dir is None:
         return result
     root = Path(eaggl_dir)
     candidates = {
         "factors": ["factors.out.gz", "factors.out", "factors.tsv.gz", "factors.tsv"],
         "genes": ["gene_clusters_full.out.gz", "gene_clusters.out.gz", "gene_clusters_full.out", "gene_clusters.out"],
+        "gene_sets": ["gene_set_clusters.out.gz", "gene_set_clusters.out", "gene_set_clusters.tsv.gz", "gene_set_clusters.tsv"],
         "traits": ["trait_factor_links.out.gz", "trait_factor_links.out", "pheno_clusters.out.gz", "pheno_clusters.out"],
         "params": ["params.out.gz", "params.out", "params.tsv.gz", "params.tsv"],
     }
@@ -1222,6 +1836,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
     discovered = discover_inputs(args.eaggl_dir)
     factors_in = args.factors_in or discovered["factors"]
     gene_clusters_in = args.gene_clusters_in or discovered["genes"]
+    gene_set_clusters_in = args.gene_set_clusters_in or discovered["gene_sets"]
     trait_links_in = args.trait_factor_links_in or discovered["traits"]
     params = read_params(discovered["params"])
     if factors_in is None:
@@ -1230,6 +1845,25 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         _bail("Need gene or trait cluster inputs; provide --gene-clusters-in/--trait-factor-links-in or an --eaggl-dir with standard outputs")
     factors_info = read_factors(factors_in, id_col=args.factors_id_col, label_col=args.factors_label_col, relevance_col=args.factors_relevance_col)
     factors = [factor.factor for factor in factors_info]
+    factor_labels = {factor.factor: factor.label for factor in factors_info}
+    gene_support = read_anchor_support_rows(
+        args.gene_phewas_stats_in,
+        id_col=args.gene_phewas_stats_id_col,
+        anchor_col=args.gene_phewas_stats_pheno_col,
+        combined_col=args.gene_phewas_stats_combined_col,
+        direct_col=args.gene_phewas_stats_log_bf_col,
+        indirect_col=args.gene_phewas_stats_prior_col,
+        source_label="gene_phewas_stats",
+    )
+    gene_set_support = read_anchor_support_rows(
+        args.gene_set_phewas_stats_in,
+        id_col=args.gene_set_phewas_stats_id_col,
+        anchor_col=args.gene_set_phewas_stats_pheno_col,
+        combined_col=None,
+        direct_col=args.gene_set_phewas_stats_beta_col,
+        indirect_col=args.gene_set_phewas_stats_beta_uncorrected_col,
+        source_label="gene_set_phewas_stats",
+    )
     config = GraphConfig(
         gene_min_loading=args.gene_min_loading,
         trait_min_loading=args.trait_min_loading,
@@ -1250,6 +1884,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         seed=args.seed,
     )
     genes: list[EntityInfo] = []
+    candidate_genes: list[EntityInfo] = []
     if gene_clusters_in is not None:
         genes = read_wide_entities(
             gene_clusters_in,
@@ -1263,6 +1898,35 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
             min_loading_frac=config.gene_min_loading_frac,
             max_num_per_factor=config.max_num_gene_nodes_per_factor,
         )
+        genes = attach_anchor_support(genes, gene_support)
+        genes = attach_near_top_factor_loadings(genes, factors, factor_labels=factor_labels, label_max_chars=args.label_max_chars)
+        candidate_genes = read_wide_entity_candidates(
+            gene_clusters_in,
+            kind="gene",
+            factors=factors,
+            id_col=args.gene_id_col,
+            label_col=args.gene_label_col,
+            combined_col=args.gene_combined_col,
+            direct_col=args.gene_direct_col,
+            min_loading=config.gene_min_loading,
+            min_loading_frac=config.gene_min_loading_frac,
+        )
+        candidate_genes = attach_anchor_support(candidate_genes, gene_support)
+        candidate_genes = attach_near_top_factor_loadings(candidate_genes, factors, factor_labels=factor_labels, label_max_chars=args.label_max_chars)
+    gene_set_candidates: list[EntityInfo] = []
+    if gene_set_clusters_in is not None:
+        gene_set_candidates = read_wide_entity_candidates(
+            gene_set_clusters_in,
+            kind="gene_set",
+            factors=factors,
+            id_col=args.gene_set_id_col,
+            label_col=args.gene_set_label_col,
+            combined_col=args.gene_set_combined_col,
+            direct_col=args.gene_set_direct_col,
+            min_loading=0.0,
+            min_loading_frac=0.0,
+        )
+        gene_set_candidates = attach_anchor_support(gene_set_candidates, gene_set_support)
     traits: list[EntityInfo] = []
     if trait_links_in is not None:
         traits = read_trait_links(
@@ -1273,7 +1937,19 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
             min_loading_frac=config.trait_min_loading_frac,
             max_num_per_factor=config.max_num_trait_nodes_per_factor,
         )
-    return build_graph(factors_info, genes, traits, config)
+    factor_trait_details = read_factor_trait_details(trait_links_in, factors)
+    top_gene_loadings = _top_loadings_by_factor(candidate_genes or genes, factors, top_n=5)
+    top_gene_set_loadings = _top_loadings_by_factor(gene_set_candidates, factors, top_n=5)
+    return build_graph(
+        factors_info,
+        genes,
+        traits,
+        config,
+        candidate_genes=candidate_genes,
+        factor_trait_details=factor_trait_details,
+        top_gene_loadings_by_factor=top_gene_loadings,
+        top_gene_set_loadings_by_factor=top_gene_set_loadings,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1281,7 +1957,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eaggl-dir", default=None, help="Directory containing standard EAGGL output files.")
     parser.add_argument("--factors-in", default=None)
     parser.add_argument("--gene-clusters-in", default=None)
+    parser.add_argument("--gene-set-clusters-in", default=None)
     parser.add_argument("--trait-factor-links-in", default=None)
+    parser.add_argument("--gene-phewas-stats-in", action="append", default=None, help="Optional gene PheWAS stats for node provenance; repeat to read multiple files.")
+    parser.add_argument("--gene-phewas-stats-id-col", default="Gene")
+    parser.add_argument("--gene-phewas-stats-pheno-col", default="Trait")
+    parser.add_argument("--gene-phewas-stats-combined-col", default="Combined")
+    parser.add_argument("--gene-phewas-stats-log-bf-col", default="Direct")
+    parser.add_argument("--gene-phewas-stats-prior-col", default="Indirect")
+    parser.add_argument("--gene-set-phewas-stats-in", action="append", default=None, help="Optional gene-set PheWAS stats for factor top-loading provenance; repeat to read multiple files.")
+    parser.add_argument("--gene-set-phewas-stats-id-col", default="Gene_Set")
+    parser.add_argument("--gene-set-phewas-stats-pheno-col", default="Trait")
+    parser.add_argument("--gene-set-phewas-stats-beta-col", default="beta")
+    parser.add_argument("--gene-set-phewas-stats-beta-uncorrected-col", default="beta_uncorrected")
     parser.add_argument("--html-out", default=None)
     parser.add_argument("--json-out", default=None)
     parser.add_argument("--pdf-out", default=None)
@@ -1300,6 +1988,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gene-label-col", default=None, help="Optional gene label column. Defaults to the gene ID column.")
     parser.add_argument("--gene-combined-col", default="combined")
     parser.add_argument("--gene-direct-col", default="log_bf")
+    parser.add_argument("--gene-set-id-col", default="Gene_Set")
+    parser.add_argument("--gene-set-label-col", default=None)
+    parser.add_argument("--gene-set-combined-col", default="combined")
+    parser.add_argument("--gene-set-direct-col", default="log_bf")
     parser.add_argument("--gene-min-loading", type=float, default=0.01)
     parser.add_argument("--trait-min-loading", type=float, default=0.005)
     parser.add_argument("--trait-min-neff", type=float, default=25.0, help="Minimum trait effective size for phenotype nodes when trait_neff/trait_n_eff is available.")
