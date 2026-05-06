@@ -794,6 +794,22 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             self.assertEqual(diagnostics["beta_anchor_count"], 1)
             self.assertIsNone(pair_weights)
 
+    def test_gene_gene_canonical_active_indices_are_label_order_invariant(self) -> None:
+        state_a = SimpleNamespace(genes=["B", "A", "C"])
+        state_b = SimpleNamespace(genes=["C", "B", "A"])
+
+        ordered_a = eaggl_factor_runtime._canonical_gene_gene_active_indices(
+            state_a,
+            np.array([True, True, False]),
+        )
+        ordered_b = eaggl_factor_runtime._canonical_gene_gene_active_indices(
+            state_b,
+            np.array([False, True, True]),
+        )
+
+        self.assertEqual([state_a.genes[index] for index in ordered_a], ["A", "B"])
+        self.assertEqual([state_b.genes[index] for index in ordered_b], ["A", "B"])
+
     def test_build_gene_gene_pair_matrix_multi_averages_trait_targets(self) -> None:
         state = SimpleNamespace(
             X_orig=sparse.csr_matrix(

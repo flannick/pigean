@@ -3703,10 +3703,16 @@ class EagglState(object):
             and self.genes is not None
             and self.exp_gene_factors.shape[0] == len(self.genes)
         )
+        runtime_full_gene_factors = getattr(self, "exp_gene_factors_full_projected", None)
+        has_runtime_full_gene_factors = (
+            runtime_full_gene_factors is not None
+            and self.genes is not None
+            and np.asarray(runtime_full_gene_factors).shape[0] == len(self.genes)
+        )
         if (
             self.num_factors() == 0
             or self.X_orig is None
-            or (self.exp_gene_set_factors is None and not has_projection_only_full_gene_factors)
+            or (self.exp_gene_set_factors is None and not has_projection_only_full_gene_factors and not has_runtime_full_gene_factors)
         ):
             log("No projected full-gene clusters available; not writing %s" % gene_clusters_output_file)
             return
@@ -3777,6 +3783,8 @@ class EagglState(object):
             has_projection_only_full_gene_factors
         ):
             retained_projected_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
+        elif has_runtime_full_gene_factors:
+            retained_projected_gene_factors = np.asarray(runtime_full_gene_factors, dtype=float)
         elif discovery_model == "gene_by_gene":
             retained_projected_gene_factors = self.project_full_gene_factors_gene_by_gene(cap_genes=True)
         else:

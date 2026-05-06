@@ -81,6 +81,17 @@ def _as_dense_anchor_matrix(matrix):
     return np.clip(np.nan_to_num(matrix, nan=0.0, posinf=1.0, neginf=0.0), 0.0, 1.0)
 
 
+def _canonical_gene_gene_active_indices(state, gene_mask):
+    active_gene_indices = np.where(np.asarray(gene_mask, dtype=bool))[0]
+    if active_gene_indices.size == 0:
+        return active_gene_indices
+    active_gene_order = np.argsort(
+        np.asarray([str(state.genes[index]) for index in active_gene_indices], dtype=object),
+        kind="mergesort",
+    )
+    return active_gene_indices[active_gene_order]
+
+
 def _compute_anchor_weight_matrix(row_probabilities, column_probabilities, num_rows, num_cols, *, anchor_aggregation="multi"):
     anchor_aggregation = str(anchor_aggregation)
     if anchor_aggregation not in {"multi", "any"}:
@@ -134,6 +145,7 @@ def _build_gene_gene_pair_matrix(
     state,
     *,
     gene_mask,
+    gene_indices=None,
     gene_set_mask,
     beta_source,
     beta_values=None,
@@ -179,7 +191,11 @@ def _build_gene_gene_pair_matrix(
     beta_matrix = np.nan_to_num(beta_matrix, nan=0.0, posinf=0.0, neginf=0.0)
     beta_matrix = beta_matrix[np.asarray(gene_set_mask, dtype=bool), :]
 
-    X_retained = state.X_orig[np.asarray(gene_mask, dtype=bool), :][:, np.asarray(gene_set_mask, dtype=bool)]
+    if gene_indices is None:
+        gene_indices = np.where(np.asarray(gene_mask, dtype=bool))[0]
+    gene_indices = np.asarray(gene_indices, dtype=int)
+
+    X_retained = state.X_orig[gene_indices, :][:, np.asarray(gene_set_mask, dtype=bool)]
     if not sparse.issparse(X_retained):
         X_retained = sparse.csr_matrix(np.asarray(X_retained, dtype=float))
     X_retained = X_retained.tocsr()
@@ -187,7 +203,7 @@ def _build_gene_gene_pair_matrix(
     pair_logit = scipy.special.logit(float(pair_prior))
     gene_prob_matrix = _as_dense_anchor_matrix(gene_prob_values)
     if gene_prob_matrix is not None:
-        gene_prob_matrix = gene_prob_matrix[np.asarray(gene_mask, dtype=bool), :]
+        gene_prob_matrix = gene_prob_matrix[gene_indices, :]
 
     per_anchor_targets = []
     per_anchor_L = []
@@ -244,7 +260,7 @@ def _build_gene_gene_pair_matrix(
     per_anchor_mean_target = [float(np.mean(target)) if target.size > 0 else 0.0 for target in per_anchor_targets]
 
     diagnostics = {
-        "num_active_genes": int(np.sum(gene_mask)),
+        "num_active_genes": int(gene_indices.size),
         "num_retained_gene_sets": int(np.sum(gene_set_mask)),
         "beta_source": beta_source_label,
         "beta_positive_count": int(np.sum(beta_matrix > 0)),
@@ -4245,7 +4261,7 @@ def _finalize_factor_outputs(
     log("Found %d factors" % state.num_factors(), INFO)
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_anchor_aggregation=None, gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_anchor_aggregation=None, gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -4758,6 +4774,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             if gene_gene_pair_prior_effective_size is not None
             else learn_phi_target_gene_effective_support
         )
+        ordered_active_gene_indices = _canonical_gene_gene_active_indices(state, gene_or_pheno_mask)
         pair_prior, pair_prior_source = _resolve_gene_gene_pair_prior(
             int(np.sum(gene_or_pheno_mask)),
             explicit_pair_prior=gene_gene_pair_prior,
@@ -4778,6 +4795,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         pair_matrix, pair_diagnostics, pair_weights = _build_gene_gene_pair_matrix(
             state,
             gene_mask=gene_or_pheno_mask,
+            gene_indices=ordered_active_gene_indices,
             gene_set_mask=gene_set_mask,
             beta_source=gene_gene_beta_source,
             beta_values=pair_beta_values,
@@ -4821,6 +4839,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
                 "gene_gene_pair_prior": float(pair_prior),
                 "gene_gene_pair_prior_source": str(pair_prior_source),
                 "gene_gene_pair_prior_effective_size": None if pair_effective_size is None else float(pair_effective_size),
+                "gene_gene_canonical_gene_order": "gene_id",
                 "gene_gene_logbf_base": str(gene_gene_logbf_base),
                 "anchor_aggregation": str(anchor_aggregation),
         "gene_gene_anchor_aggregation": str(anchor_aggregation),
@@ -4870,14 +4889,18 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         cap = True
         result = state._bayes_sym_nmf_l2_extension(
             pair_matrix,
-            matrix_views=pair_diagnostics.get("_per_anchor_targets") if str(anchor_aggregation) == "multi" else None,
+            matrix_views=(
+                pair_diagnostics.get("_per_anchor_targets")
+                if str(anchor_aggregation) == "multi" and int(pair_diagnostics.get("num_anchor_traits", 1)) > 1
+                else None
+            ),
             K0=max_num_factors,
             phi=phi,
             a0=alpha0,
             max_iter=max_num_iterations,
             rel_tol=rel_tol,
             min_lambda_threshold=min_lambda_threshold,
-            seed=None,
+            seed=seed,
             row_sum_cap=gene_gene_row_sum_cap,
             sparsity=gene_gene_sparsity,
             diagonal_weight=gene_gene_diagonal_weight,
@@ -4900,17 +4923,19 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
             "wall_time_sec": None,
         }
         state.exp_lambdak = np.asarray(result[3], dtype=float)
-        exp_gene_or_pheno_factors = np.asarray(result[0], dtype=float)
+        fit_gene_factors = np.asarray(result[0], dtype=float)
         state.exp_gene_set_factors = state._project_H_with_fixed_W(
-            exp_gene_or_pheno_factors,
-            state.X_orig[gene_or_pheno_mask, :][:, gene_set_mask],
-            gene_or_pheno_prob_vector[gene_or_pheno_mask, :],
+            fit_gene_factors,
+            state.X_orig[ordered_active_gene_indices, :][:, gene_set_mask],
+            gene_or_pheno_prob_vector[ordered_active_gene_indices, :],
             gene_set_prob_vector[gene_set_mask, :],
             phi=phi,
             tol=rel_tol,
             cap_genes=cap,
             normalize_genes=normalize_gene_sets,
         )
+        exp_gene_or_pheno_factors = np.zeros((len(state.genes), fit_gene_factors.shape[1]), dtype=float)
+        exp_gene_or_pheno_factors[ordered_active_gene_indices, :] = fit_gene_factors
         evidence_value = result[2]
         likelihood_value = result[1]
         reconstruction_error_value = result[4]
@@ -5186,7 +5211,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
     #all gene factor values
     if _state_discovery_model(state) == "gene_by_gene" and not factor_gene_set_x_pheno:
         full_gene_factor_values = state.project_full_gene_factors_gene_by_gene(
-            retained_discovery_gene_factors=state.exp_gene_factors,
+            retained_discovery_gene_factors=state.exp_gene_factors[state.gene_in_discovery_mask, :],
             cap_genes=cap,
         )
         state._record_params({"factor_gene_projection_from": "direct_gene_gene"})
@@ -5268,13 +5293,24 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, g
         #we have to swap the gene sets and genes, which means transposing the matrix to project and swapping the prios
         full_gene_set_factor_values = state._project_H_with_fixed_W(state.exp_pheno_factors, pheno_matrix_to_project[:,state.pheno_in_discovery_mask].T if run_transpose else pheno_matrix_to_project[state.pheno_in_discovery_mask,:].T, state.pheno_prob_factor_vector[state.pheno_in_discovery_mask,:], state.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
     else:
-        full_gene_set_factor_values = state._project_H_with_fixed_W(state.exp_gene_factors, gene_matrix_to_project[:,state.gene_in_discovery_mask].T if run_transpose else gene_matrix_to_project[state.gene_in_discovery_mask,:].T, state.gene_prob_factor_vector[state.gene_in_discovery_mask,:], state.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
+        gene_basis_for_projection = (
+            state.exp_gene_factors[state.gene_in_discovery_mask, :]
+            if _state_discovery_model(state) == "gene_by_gene" and not factor_gene_set_x_pheno
+            else state.exp_gene_factors
+        )
+        full_gene_set_factor_values = state._project_H_with_fixed_W(gene_basis_for_projection, gene_matrix_to_project[:,state.gene_in_discovery_mask].T if run_transpose else gene_matrix_to_project[state.gene_in_discovery_mask,:].T, state.gene_prob_factor_vector[state.gene_in_discovery_mask,:], state.gene_set_prob_factor_vector, phi=phi, tol=rel_tol, cap_genes=cap, normalize_genes=normalize_gene_sets)
 
     if keep_original_loadings:
         full_gene_set_factor_values[state.gene_set_in_discovery_mask,:] = state.exp_gene_set_factors
 
-    #update these to store the imputed as well
-    state.exp_gene_factors = full_gene_factor_values
+    # Keep gene-by-gene discovery loadings as the canonical factor basis.  Full
+    # gene projection is a separate optional output and must not change phi
+    # metrics or standard gene_clusters semantics.
+    if _state_discovery_model(state) == "gene_by_gene" and not factor_gene_set_x_pheno:
+        state.exp_gene_factors_full_projected = full_gene_factor_values
+        state._record_params({"factor_full_gene_projection_available": True})
+    else:
+        state.exp_gene_factors = full_gene_factor_values
     state.exp_pheno_factors = full_pheno_factor_values
     state.exp_gene_set_factors = full_gene_set_factor_values
 
@@ -5650,6 +5686,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
     factor_kwargs = {
         "max_num_factors": max_num_factors,
         "phi": phi,
+        "seed": seed,
         "discovery_model": discovery_model,
         "gene_gene_beta_source": gene_gene_beta_source,
         "gene_gene_pair_prior": gene_gene_pair_prior,
