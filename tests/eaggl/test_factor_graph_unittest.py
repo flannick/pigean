@@ -55,6 +55,14 @@ class EagglFactorGraphTest(unittest.TestCase):
             "TraitLowNeff\tFactor2\t0\t0.1\t0.1\t20\n",
         )
 
+    def _write_params(self, root: Path, *, num_anchor_traits: int) -> None:
+        _write_gz(
+            root / "params.out.gz",
+            "Parameter\tVersion\tValue\n"
+            "num_anchor_traits\t1\t%d\n"
+            "anchor_trait_names\t1\tTraitA,TraitB\n" % num_anchor_traits,
+        )
+
     def test_discover_inputs_prefers_standard_eaggl_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -193,6 +201,33 @@ class EagglFactorGraphTest(unittest.TestCase):
 
         self.assertEqual(graph["layout"]["trait_coordinate_scale"], 0.3)
         self.assertEqual(graph["layout"]["trait_edge_length_scale"], 0.4)
+
+    def test_auto_color_by_uses_trait_weights_for_multi_anchor_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            self._write_params(root, num_anchor_traits=2)
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(["--eaggl-dir", str(root), "--json-out", str(root / "graph.json")])
+            graph = factor_graph.build_graph_from_files(args)
+
+        self.assertEqual(graph["coloring"]["color_by"], "auto")
+        self.assertEqual(graph["coloring"]["resolved_color_by"], "trait")
+        self.assertEqual(graph["coloring"]["trait_count_for_coloring"], 2)
+        node_by_id = {node["id"]: node for node in graph["nodes"]}
+        self.assertNotEqual(node_by_id["Factor1"]["color"], node_by_id["Factor2"]["color"])
+
+    def test_color_by_factor_overrides_multi_anchor_trait_coloring(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_example_outputs(root)
+            self._write_params(root, num_anchor_traits=2)
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(["--eaggl-dir", str(root), "--json-out", str(root / "graph.json"), "--color-by", "factor"])
+            graph = factor_graph.build_graph_from_files(args)
+
+        self.assertEqual(graph["coloring"]["resolved_color_by"], "factor")
+        self.assertEqual(graph["coloring"]["trait_count_for_coloring"], 0)
 
     def test_trait_coordinate_scale_pulls_traits_toward_factors(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

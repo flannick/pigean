@@ -71,6 +71,8 @@ class GraphConfig:
     edge_max_width: float = 5.0
     label_max_chars: int = 20
     colors_red_blue: bool = False
+    color_by: str = "auto"
+    multi_anchor: bool = False
     seed: int = 0
 
 
@@ -79,10 +81,19 @@ def _bail(message: str) -> None:
 
 
 def open_text(path: str | Path, mode: str = "rt"):
-    path = str(path)
-    if path.endswith(".gz"):
-        return gzip.open(path, mode, encoding="utf-8")
-    return open(path, mode, encoding="utf-8")
+    path_obj = Path(path)
+    path_str = str(path_obj)
+    if "r" in mode and path_str.endswith(".gz"):
+        try:
+            with open(path_obj, "rb") as fh:
+                is_gzip = fh.read(2) == b"\x1f\x8b"
+        except OSError:
+            is_gzip = True
+        if is_gzip:
+            return gzip.open(path_obj, mode, encoding="utf-8")
+    elif "w" in mode and path_str.endswith(".gz"):
+        return gzip.open(path_obj, mode, encoding="utf-8")
+    return open(path_obj, mode, encoding="utf-8")
 
 
 def _split_header(line: str) -> tuple[list[str], str | None]:
@@ -481,9 +492,19 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
     entity_matrix = np.asarray([[entity.loadings.get(factor, 0.0) for factor in factors] for entity in entities], dtype=float)
     factor_identity = np.eye(len(factors), dtype=float)
     layout_matrix = np.vstack([entity_matrix, factor_identity]) if len(entities) else factor_identity
+    color_by = str(config.color_by)
+    if color_by not in {"auto", "factor", "trait"}:
+        _bail("--color-by must be one of: auto, factor, trait")
+    use_trait_weight_colors = bool(
+        traits
+        and (
+            color_by == "trait"
+            or (color_by == "auto" and config.multi_anchor)
+        )
+    )
     colors = generate_distinct_colors(len(factors), start_with_red_blue=config.colors_red_blue)
     trait_colors_by_id: dict[str, tuple[float, float, float]] = {}
-    if traits:
+    if use_trait_weight_colors:
         trait_colors = generate_distinct_colors(len(traits), start_with_red_blue=config.colors_red_blue)
         trait_colors_by_id = {trait.entity_id: trait_colors[i] for i, trait in enumerate(traits)}
         colors = []
@@ -567,6 +588,12 @@ def build_graph(factors_info: list[FactorInfo], genes: list[EntityInfo], traits:
         "layout": {
             "trait_coordinate_scale": float(config.trait_coordinate_scale),
             "trait_edge_length_scale": float(config.trait_edge_length_scale),
+        },
+        "coloring": {
+            "color_by": color_by,
+            "resolved_color_by": "trait" if use_trait_weight_colors else "factor",
+            "multi_anchor": bool(config.multi_anchor),
+            "trait_count_for_coloring": int(len(traits) if use_trait_weight_colors else 0),
         },
         "factors": factors,
         "factor_labels": [factor_to_label[factor] for factor in factors],
@@ -1138,7 +1165,7 @@ def write_pdf(graph: dict, path: str | Path, *, width: float = 12.0, height: flo
 
 
 def discover_inputs(eaggl_dir: str | Path | None) -> dict[str, str | None]:
-    result = {"factors": None, "genes": None, "traits": None}
+    result = {"factors": None, "genes": None, "traits": None, "params": None}
     if eaggl_dir is None:
         return result
     root = Path(eaggl_dir)
@@ -1146,6 +1173,7 @@ def discover_inputs(eaggl_dir: str | Path | None) -> dict[str, str | None]:
         "factors": ["factors.out.gz", "factors.out", "factors.tsv.gz", "factors.tsv"],
         "genes": ["gene_clusters_full.out.gz", "gene_clusters.out.gz", "gene_clusters_full.out", "gene_clusters.out"],
         "traits": ["trait_factor_links.out.gz", "trait_factor_links.out", "pheno_clusters.out.gz", "pheno_clusters.out"],
+        "params": ["params.out.gz", "params.out", "params.tsv.gz", "params.tsv"],
     }
     for key, names in candidates.items():
         for name in names:
@@ -1156,11 +1184,46 @@ def discover_inputs(eaggl_dir: str | Path | None) -> dict[str, str | None]:
     return result
 
 
+def read_params(path: str | Path | None) -> dict[str, str]:
+    if path is None:
+        return {}
+    params_path = Path(path)
+    if not params_path.exists():
+        return {}
+    params: dict[str, str] = {}
+    with open_text(params_path) as fh:
+        for line in fh:
+            cols = line.rstrip("\n").split("\t")
+            if not cols or cols[0] == "Parameter":
+                continue
+            if len(cols) >= 3:
+                params[cols[0]] = cols[2]
+            elif len(cols) >= 2:
+                params[cols[0]] = cols[1]
+    return params
+
+
+def _params_indicate_multi_anchor(params: dict[str, str]) -> bool:
+    raw_count = params.get("num_anchor_traits")
+    if raw_count is not None:
+        try:
+            return int(float(raw_count)) > 1
+        except ValueError:
+            pass
+    names = params.get("anchor_trait_names", "")
+    if names:
+        names = names.strip()
+        if "," in names:
+            return len([value for value in names.split(",") if value.strip()]) > 1
+    return False
+
+
 def build_graph_from_files(args: argparse.Namespace) -> dict:
     discovered = discover_inputs(args.eaggl_dir)
     factors_in = args.factors_in or discovered["factors"]
     gene_clusters_in = args.gene_clusters_in or discovered["genes"]
     trait_links_in = args.trait_factor_links_in or discovered["traits"]
+    params = read_params(discovered["params"])
     if factors_in is None:
         _bail("Need --factors-in or an --eaggl-dir containing factors.out(.gz)")
     if gene_clusters_in is None and trait_links_in is None:
@@ -1182,6 +1245,8 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         edge_max_width=args.edge_max_width,
         label_max_chars=args.label_max_chars,
         colors_red_blue=args.colors_red_blue,
+        color_by=args.color_by,
+        multi_anchor=_params_indicate_multi_anchor(params),
         seed=args.seed,
     )
     genes: list[EntityInfo] = []
@@ -1248,6 +1313,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--node-size-scale", type=float, default=2.0)
     parser.add_argument("--edge-max-width", type=float, default=5.0)
     parser.add_argument("--label-max-chars", type=int, default=20, help="Maximum displayed node label length; full labels remain available on hover. Use 0 to disable truncation.")
+    parser.add_argument(
+        "--color-by",
+        choices=["auto", "factor", "trait"],
+        default="auto",
+        help="Node coloring mode. auto uses trait-weight coloring for multi-anchor EAGGL outputs with trait links, otherwise factor coloring.",
+    )
     parser.add_argument("--colors-red-blue", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
     return parser
