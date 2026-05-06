@@ -102,7 +102,6 @@ def open_gz(file, flag=None):
 
 
 _bind_hyperparameter_properties = eaggl_state._bind_hyperparameter_properties
-_append_with_any_user = eaggl_state._append_with_any_user
 EagglState = eaggl_state.EagglState
 GeneSetData = eaggl_state.GeneSetData
 pegs_prepare_read_x_inputs = eaggl_state.pegs_prepare_read_x_inputs

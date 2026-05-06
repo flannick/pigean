@@ -252,14 +252,17 @@ and given the configured diagonal policy. Labeling a single-trait input changes 
 reported trait name; it does not change the pair target. Denote the resulting
 single-trait target by $T_{ij}^{(t)}$.
 
-The default \texttt{multi} aggregation fits one shared basis against the collection of
-single-trait targets with equal view weight,
+The default \texttt{multi} aggregation fits one shared basis against the equal
+average of all single-trait targets,
 \begin{equation}
 \frac{1}{2T}\sum_t \sum_{i,j}
 \left(T_{ij}^{(t)} - \sum_k W_{ik}W_{jk}\right)^2
 + \mathrm{ARD}(W).
 \label{eq:eaggl_gene_gene_multi_anchor}
 \end{equation}
+Equivalently, this is symmetric factorization of
+$M_{ij}^{\mathrm{multi}} = T^{-1}\sum_t T_{ij}^{(t)}$; anchors with zero target
+entries therefore contribute zero values to the average.
 The explicit \texttt{any} aggregation uses noisy-OR over the same per-trait targets,
 \begin{equation}
 M_{ij}^{\mathrm{any}} = 1 - \prod_t \left(1 - T_{ij}^{(t)}\right),

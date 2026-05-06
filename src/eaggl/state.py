@@ -43,6 +43,8 @@ import pegs_shared.output_tables as pegs_output_tables
 import pegs_shared.regression as pegs_regression
 import pegs_shared.runtime_matrix as pegs_runtime_matrix
 import pegs_shared.types as pegs_types
+
+from . import anchor_aggregation as eaggl_anchor_aggregation
 import pegs_shared.x_runtime as pegs_x_runtime
 import pegs_shared.xdata as pegs_xdata
 import pegs_shared.ydata as pegs_ydata
@@ -427,73 +429,10 @@ def _bind_hyperparameter_properties(state_cls):
         setattr(state_cls, field_name, property(_getter, _setter))
 
 
-def _as_dense_anchor_matrix(P):
-    if P is None:
-        return None
-    if sparse.issparse(P):
-        P = P.toarray()
-    P = np.asarray(P, dtype=float)
-    if P.ndim == 1:
-        P = P[:, np.newaxis]
-    return np.clip(np.nan_to_num(P, nan=0.0, posinf=1.0, neginf=0.0), 0.0, 1.0)
-
-
-def _compute_anchor_weight_matrix(P_gene_set, P_gene, N, M, *, anchor_aggregation="multi"):
-    anchor_aggregation = str(anchor_aggregation)
-    if anchor_aggregation not in {"multi", "any"}:
-        raise ValueError("anchor aggregation must be one of: multi, any")
-    P_gene_set = _as_dense_anchor_matrix(P_gene_set)
-    P_gene = _as_dense_anchor_matrix(P_gene)
-    if P_gene_set is None and P_gene is None:
-        return np.ones((int(N), int(M)), dtype=float)
-    if P_gene_set is None:
-        P_gene_set = np.ones((int(N), int(P_gene.shape[1])), dtype=float)
-    if P_gene is None:
-        P_gene = np.ones((int(M), int(P_gene_set.shape[1])), dtype=float)
-    if P_gene_set.shape[1] != P_gene.shape[1]:
-        raise ValueError("gene and gene-set anchor probability matrices must have the same number of anchor traits")
-    if anchor_aggregation == "multi":
-        return np.asarray(P_gene_set @ P_gene.T, dtype=float)
-    weights = np.ones((int(N), int(M)), dtype=float)
-    for anchor_index in range(P_gene_set.shape[1]):
-        weights *= 1.0 - np.outer(P_gene_set[:, anchor_index], P_gene[:, anchor_index])
-    return 1.0 - weights
-
-
-def _compute_anchor_weight_row_scale(P_gene_set, P_gene, N, M, *, anchor_aggregation="multi"):
-    P_gene_set = _as_dense_anchor_matrix(P_gene_set)
-    P_gene = _as_dense_anchor_matrix(P_gene)
-    if P_gene_set is None and P_gene is None:
-        return np.ones(int(N), dtype=float)
-    if P_gene_set is None:
-        P_gene_set = np.ones((int(N), int(P_gene.shape[1])), dtype=float)
-    if P_gene is None:
-        P_gene = np.ones((int(M), int(P_gene_set.shape[1])), dtype=float)
-    if P_gene_set.shape[1] != P_gene.shape[1]:
-        raise ValueError("gene and gene-set anchor probability matrices must have the same number of anchor traits")
-    if str(anchor_aggregation) == "multi":
-        return np.asarray(P_gene_set @ np.mean(P_gene, axis=0), dtype=float).ravel()
-    out = np.zeros(int(N), dtype=float)
-    chunk_size = 1024
-    for start in range(0, int(N), chunk_size):
-        stop = min(int(N), start + chunk_size)
-        prod = np.ones((stop - start, int(M)), dtype=float)
-        for anchor_index in range(P_gene_set.shape[1]):
-            prod *= 1.0 - np.outer(P_gene_set[start:stop, anchor_index], P_gene[:, anchor_index])
-        out[start:stop] = np.mean(1.0 - prod, axis=1)
-    return out
-
-def _append_with_any_user(P):
-    # Legacy projection/reporting helper. Fitting code must use explicit
-    # `_compute_anchor_weight_matrix(..., anchor_aggregation=...)` instead.
-    if P is None:
-        return None
-    if sparse.issparse(P):
-        P = P.toarray()
-    P = np.asarray(P, dtype=float)
-    if P.ndim == 1:
-        P = P[:, np.newaxis]
-    return np.hstack((P, 1 - np.prod(1 - P, axis=1)[:, np.newaxis]))
+_as_dense_anchor_matrix = eaggl_anchor_aggregation.as_dense_anchor_matrix
+_compute_anchor_weight_matrix = eaggl_anchor_aggregation.compute_anchor_weight_matrix
+_compute_anchor_weight_row_scale = eaggl_anchor_aggregation.compute_anchor_weight_row_scale
+_compute_noisy_or_anchor_summary_for_projection = eaggl_anchor_aggregation.compute_noisy_or_anchor_summary_for_projection
 
 
 def _compute_weighted_discovery_scale_details(V, P_gene_set=None, P_gene=None, *, anchor_aggregation="multi", eps=1e-50):
@@ -1468,8 +1407,8 @@ class EagglState(object):
         if sparse.issparse(V_new):
             V_new = V_new.toarray()
 
-        P_gene_set = _append_with_any_user(P_gene_set)
-        P_gene_new = _append_with_any_user(P_gene_new)
+        P_gene_set = _compute_noisy_or_anchor_summary_for_projection(P_gene_set)
+        P_gene_new = _compute_noisy_or_anchor_summary_for_projection(P_gene_new)
 
         use_extended = P_gene_new is not None or P_gene_set is not None
         if use_extended:
@@ -2164,7 +2103,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_anchor_aggregation=None, gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0):
         if max_num_discovery_gene_sets is None and max_num_gene_sets is not None:
             warn("max_num_gene_sets is deprecated for factor-stage discovery; mapping it to max_num_discovery_gene_sets")
             max_num_discovery_gene_sets = max_num_gene_sets
@@ -2183,7 +2122,6 @@ class EagglState(object):
             "gene_gene_pair_prior": gene_gene_pair_prior,
             "gene_gene_pair_prior_effective_size": gene_gene_pair_prior_effective_size,
             "gene_gene_logbf_base": gene_gene_logbf_base,
-            "gene_gene_anchor_aggregation": gene_gene_anchor_aggregation,
             "gene_gene_diagonal_weight": gene_gene_diagonal_weight,
             "gene_gene_matrix_floor": gene_gene_matrix_floor,
             "gene_gene_excess_probability": gene_gene_excess_probability,

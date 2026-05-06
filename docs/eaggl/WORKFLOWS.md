@@ -92,7 +92,7 @@ The symmetric `--discovery-model gene_by_gene` mode is separate from those recta
 2. it converts retained shared-annotation evidence into pairwise probabilities before factoring
 3. it currently supports only `--factor-backend full`
 4. it ignores discovery-family subsetting and weighting flags because pairwise evidence is built from all retained gene sets
-5. with multiple anchor traits, each trait-specific pair target is built exactly as in single-trait mode; `multi` fits one shared gene-factor basis against those matrices with equal view weight, while `any` uses noisy-OR over those per-anchor target matrices
+5. with multiple anchor traits, each trait-specific pair target is built exactly as in single-trait mode; `multi` factors the equal average of all per-anchor target matrices, while `any` uses noisy-OR union over those matrices
 
 Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffle-blocks`, `--blockwise-warm-start`, `--blockwise-max-blocks`, and `--blockwise-report-out` to tune or audit the blockwise backend. When `--learn-phi-backend blockwise_global_w` is used, neighboring phi candidates are warm-started from the closest previously fitted phi on the log scale when possible. Use `--factor-phi-metrics-out`, `--factor-phi-factors-out`, `--factor-phi-gene-set-clusters-out`, and `--factor-phi-gene-clusters-out` when you want audit tables for every tested phi candidate. Cluster output rows whose maximum raw factor loading is below `--cluster-row-min-max-loading` are omitted from reported cluster files.
 

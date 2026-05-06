@@ -829,6 +829,33 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(provenance["anchor_values"], ["input_gene_stats"])
         self.assertEqual(provenance["anchor_count"], 1)
 
+    def test_single_labeled_stats_pair_routes_as_single_trait(self) -> None:
+        options = _options(gene_stats_in="T2D=gene_stats.tsv.gz", gene_set_stats_in="T2D=gene_set_stats.tsv.gz")
+        workflow = eaggl_workflows.classify_factor_workflow(options)
+
+        self.assertEqual(workflow["id"], "F1")
+        self.assertFalse(workflow["use_phewas_for_factoring"])
+
+    def test_multiple_labeled_stats_pairs_route_as_multi_trait(self) -> None:
+        options = _options(
+            gene_stats_in=["T2D=t2d_gene.tsv.gz", "CAD=cad_gene.tsv.gz"],
+            gene_set_stats_in=["T2D=t2d_gene_set.tsv.gz", "CAD=cad_gene_set.tsv.gz"],
+        )
+        workflow = eaggl_workflows.classify_factor_workflow(options)
+
+        self.assertEqual(workflow["id"], "F4")
+        self.assertTrue(workflow["use_phewas_for_factoring"])
+
+    def test_labeled_stats_pair_requires_matching_complete_labels(self) -> None:
+        options = _options(gene_stats_in="T2D=gene_stats.tsv.gz", gene_set_stats_in="CAD=gene_set_stats.tsv.gz")
+        workflow = eaggl_workflows.classify_factor_workflow(options)
+        errors = []
+
+        eaggl_workflows.validate_factor_workflow_selection(options, workflow, False, errors.append)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("same complete trait labels", errors[0])
+
     def test_workflow_required_inputs_contract_for_supported_factor_workflows(self) -> None:
         cases = [
             ("F1", _options(), []),

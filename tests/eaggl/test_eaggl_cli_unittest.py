@@ -301,6 +301,12 @@ class EagglCliTest(unittest.TestCase):
             err = (proc.stderr or "") + (proc.stdout or "")
             self.assertIn("--anchor-aggregation", err)
 
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-anchor-aggregation", "multi")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("no such option", err)
+        self.assertNotIn("Traceback", err)
+
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy", "1.2")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")

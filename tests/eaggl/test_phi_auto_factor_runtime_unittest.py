@@ -860,6 +860,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         np.testing.assert_allclose(matrix, 0.5 * single)
         self.assertIsNone(pair_weights)
         self.assertFalse(diagnostics["gene_gene_pair_weights_used"])
+        self.assertNotIn("_per_anchor_targets", diagnostics)
 
         any_matrix, any_diagnostics, pair_weights = eaggl_factor_runtime._build_gene_gene_pair_matrix(
             state,
@@ -879,6 +880,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         np.testing.assert_allclose(any_matrix, single)
         self.assertIsNone(pair_weights)
         self.assertFalse(any_diagnostics["gene_gene_pair_weights_used"])
+        self.assertNotIn("_per_anchor_targets", any_diagnostics)
 
     def test_build_gene_gene_pair_matrix_any_anchor_union(self) -> None:
         state = SimpleNamespace(
@@ -996,6 +998,7 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertIsNone(pair_weights)
         self.assertFalse(diagnostics["gene_gene_pair_weights_used"])
         self.assertEqual(diagnostics["gene_gene_target_mode"], "equal_weight_multi_view_single_trait_targets")
+        self.assertNotIn("_per_anchor_targets", diagnostics)
 
     def test_anchor_weight_matrix_invariants(self) -> None:
         p_gene_set = np.array([[0.8], [0.0]], dtype=float)

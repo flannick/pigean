@@ -329,7 +329,6 @@ parser.add_option("","--gene-gene-beta-source",type="choice",choices=["beta"],de
 parser.add_option("","--gene-gene-pair-prior",default=None,type=float) #gene-by-gene mode only: direct pairwise same-mechanism prior
 parser.add_option("","--gene-gene-pair-prior-effective-size",default=None,type=float) #gene-by-gene mode only: target effective mechanism size used to derive the pair prior
 parser.add_option("","--gene-gene-logbf-base",type="choice",choices=["natural","log10"],default="natural") #gene-by-gene mode only: units for shared annotation evidence before logistic calibration
-parser.add_option("","--gene-gene-anchor-aggregation",type="choice",choices=["multi","any"],default=None) #deprecated alias for --anchor-aggregation
 parser.add_option("","--gene-gene-diagonal-weight",default=0.0,type=float) #gene-by-gene mode only: diagonal fitting weight for symmetric NMF
 parser.add_option("","--gene-gene-matrix-floor",default=1e-3,type=float) #gene-by-gene mode only: zero pair-matrix entries below this value after probability calibration
 parser.add_option("","--gene-gene-excess-probability",dest="gene_gene_excess_probability",default=True,action="store_true") #gene-by-gene mode only: factor excess probability above the pair prior
@@ -777,7 +776,6 @@ _CORE_VISIBLE_METHOD_FLAGS = {
 }
 
 _COMPAT_ALIAS_FLAGS = {
-    "--gene-gene-anchor-aggregation",
     "--factor-phewas-from-gene-phewas-stats-in",
     "--gene-phewas-bfs-combined-col",
     "--gene-phewas-bfs-id-col",
@@ -792,8 +790,6 @@ _COMPAT_ALIAS_FLAGS = {
 }
 
 _HIDDEN_COMPAT_ALIAS_FLAGS = {
-    "--gene-gene-anchor-aggregation",
-    "--gene-gene-anchor-aggregation",
     "--factor-phewas-from-gene-phewas-stats-in",
     "--gene-phewas-bfs-combined-col",
     "--gene-phewas-bfs-id-col",
@@ -1651,8 +1647,6 @@ def _bootstrap_cli(argv=None):
         bail("--gene-gene-matrix-floor must be >= 0")
     if parsed_options.gene_gene_sparsity < 0:
         bail("--gene-gene-sparsity must be >= 0")
-    if parsed_options.gene_gene_anchor_aggregation is not None:
-        parsed_options.anchor_aggregation = parsed_options.gene_gene_anchor_aggregation
     if parsed_options.anchor_aggregation not in {"multi", "any"}:
         bail("--anchor-aggregation must be one of: multi, any")
     if parsed_options.discovery_model == "gene_by_gene":

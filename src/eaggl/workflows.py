@@ -47,11 +47,46 @@ def _has_labeled_spec(value):
     return any("=" in str(item) for item in _as_list(value))
 
 
+def _labeled_spec_labels(value):
+    labels = []
+    for item in _as_list(value):
+        spec = str(item)
+        if "=" in spec:
+            label, path = spec.split("=", 1)
+            if label and path:
+                labels.append(label)
+    return labels
+
+
+def _single_complete_labeled_stats_pair(options):
+    gene_labels = _labeled_spec_labels(options.gene_stats_in)
+    gene_set_labels = _labeled_spec_labels(options.gene_set_stats_in)
+    return bool(
+        len(gene_labels) == 1
+        and len(gene_set_labels) == 1
+        and gene_labels[0] == gene_set_labels[0]
+        and len(_as_list(options.gene_stats_in)) == 1
+        and len(_as_list(options.gene_set_stats_in)) == 1
+    )
+
+
+def _labeled_stats_label_mismatch(options):
+    gene_labels = set(_labeled_spec_labels(options.gene_stats_in))
+    gene_set_labels = set(_labeled_spec_labels(options.gene_set_stats_in))
+    if not gene_labels and not gene_set_labels:
+        return None
+    if gene_labels != gene_set_labels:
+        return "Labeled --gene-stats-in and --gene-set-stats-in entries must use the same complete trait labels"
+    return None
+
+
 def has_multi_pheno_factor_inputs(options):
     has_phewas_pair = bool(
         options.gene_phewas_bfs_in is not None
         and options.gene_set_phewas_stats_in is not None
     )
+    if _single_complete_labeled_stats_pair(options) and not has_phewas_pair:
+        return False
     return bool(
         has_phewas_pair
         or len(_as_list(options.gene_stats_in)) > 1
@@ -178,6 +213,9 @@ def validate_factor_workflow_selection(options, workflow, projection_only, bail_
         )
 
     workflow_id = workflow.get("id") if isinstance(workflow, dict) else None
+    labeled_stats_error = _labeled_stats_label_mismatch(options)
+    if labeled_stats_error is not None:
+        bail_fn(labeled_stats_error)
     standalone_gene_list = has_standalone_gene_list_inputs(options)
     has_x_source = any(
         x is not None

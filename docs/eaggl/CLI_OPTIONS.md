@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `267`
+- Total options: `266`
 - `method_required`: `11`
 - `method_optional`: `166`
 - `engineering`: `72`
-- `compat_alias`: `12`
+- `compat_alias`: `11`
 - `debug_only`: `6`
 - visibility `expert`: `221`
-- visibility `hidden`: `9`
+- visibility `hidden`: `8`
 - visibility `normal`: `37`
 
 ## Method Required
@@ -284,7 +284,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
 | `--factor-phewas-from-gene-phewas-stats-in` | `hidden` | `yes` | `internal_only` | `factor_phewas_legacy_input` | `None` | compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in |
-| `--gene-gene-anchor-aggregation` | `hidden` | `yes` | `internal_only` | `gene_gene_anchor_aggregation` | `None` | - |
 | `--gene-phewas-bfs-combined-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_combined_col` | `None` | - |
 | `--gene-phewas-bfs-id-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_id_col` | `None` | - |
 | `--gene-phewas-bfs-in` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and phenotype-input factoring workflows |
