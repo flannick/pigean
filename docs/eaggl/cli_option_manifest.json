@@ -1814,7 +1814,7 @@
       "source_line": 328,
       "summary": null,
       "type": "choice",
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": null,
@@ -2381,7 +2381,7 @@
       "source_line": 412,
       "summary": null,
       "type": null,
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": null,
@@ -2402,7 +2402,7 @@
       "source_line": 408,
       "summary": null,
       "type": null,
-      "usage_references": 28
+      "usage_references": 29
     },
     {
       "action": "callback",
@@ -2423,7 +2423,7 @@
       "source_line": 406,
       "summary": null,
       "type": "string",
-      "usage_references": 206
+      "usage_references": 210
     },
     {
       "action": null,
@@ -2444,7 +2444,7 @@
       "source_line": 410,
       "summary": null,
       "type": null,
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": null,
@@ -2465,7 +2465,7 @@
       "source_line": 416,
       "summary": null,
       "type": null,
-      "usage_references": 28
+      "usage_references": 29
     },
     {
       "action": null,
@@ -2486,7 +2486,7 @@
       "source_line": 414,
       "summary": null,
       "type": null,
-      "usage_references": 20
+      "usage_references": 21
     },
     {
       "action": null,
@@ -2591,7 +2591,7 @@
       "source_line": 401,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -2612,7 +2612,7 @@
       "source_line": 402,
       "summary": null,
       "type": null,
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -2633,7 +2633,7 @@
       "source_line": 400,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 13
     },
     {
       "action": "callback",
@@ -2654,7 +2654,7 @@
       "source_line": 399,
       "summary": "load gene-set phewas statistics for projection and phenotype-input factoring workflows",
       "type": "string",
-      "usage_references": 128
+      "usage_references": 130
     },
     {
       "action": null,
@@ -2675,7 +2675,7 @@
       "source_line": 403,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 13
     },
     {
       "action": null,
@@ -2801,7 +2801,7 @@
       "source_line": 144,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": "string",
-      "usage_references": 110
+      "usage_references": 109
     },
     {
       "action": null,

@@ -344,7 +344,7 @@ Gene-by-gene expert controls:
 
 | Flag | Meaning |
 |---|---|
-| `--gene-gene-beta-source` | choose the annotation effect surface used to build pairwise evidence; default is corrected `beta`, while `beta_uncorrected` is diagnostic only |
+| `--gene-gene-beta-source` | gene-by-gene pairwise evidence source; corrected `beta` is required |
 | `--gene-gene-pair-prior` | set the direct prior probability that two retained genes share a mechanism before observing shared annotation evidence |
 | `--gene-gene-pair-prior-effective-size` | set the effective mechanism size used to derive the pair prior when no direct prior is supplied |
 | `--gene-gene-logbf-base` | declare whether the shared annotation evidence is already in natural-log units or in `log10` units before logistic calibration |

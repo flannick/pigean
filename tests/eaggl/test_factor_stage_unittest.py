@@ -742,7 +742,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             "phi": 0.0,
             "rel_tol": 1e-4,
             "run_transpose": True,
-            "gene_gene_beta_source": "beta_uncorrected",
+            "gene_gene_beta_source": "beta",
             "gene_gene_pair_prior": 0.1,
             "gene_gene_logbf_base": "natural",
             "gene_gene_matrix_floor": 0.001,
@@ -765,7 +765,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             dtype=float,
         )
         runtime.X_orig_missing_genes = np.array([[1.0, 0.0]], dtype=float)
-        runtime.betas_uncorrected = np.array([5.0, 5.0], dtype=float)
+        runtime.betas = np.array([5.0, 5.0], dtype=float)
         runtime.scale_factors = np.array([1.0, 1.0], dtype=float)
         runtime.gene_sets = ["gs1", "gs2"]
         runtime.genes = ["disc_a", "disc_b", "retained_c"]

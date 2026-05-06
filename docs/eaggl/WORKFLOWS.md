@@ -88,7 +88,7 @@ Likewise, the final factorization can run with either:
 
 The symmetric `--discovery-model gene_by_gene` mode is separate from those rectangular backends:
 
-1. it uses corrected `beta` values by default (`--gene-gene-beta-source beta`)
+1. it uses corrected `beta` values for pairwise evidence (`--gene-gene-beta-source beta`)
 2. it converts retained shared-annotation evidence into pairwise probabilities before factoring
 3. it currently supports only `--factor-backend full`
 4. it ignores discovery-family subsetting and weighting flags because pairwise evidence is built from all retained gene sets

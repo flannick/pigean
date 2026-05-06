@@ -1621,23 +1621,17 @@ class EagglState(object):
         return H_new
 
     def _gene_gene_projection_beta_matrix(self, gene_set_mask):
-        beta_source = self.params.get("gene_gene_beta_source", "beta_uncorrected")
+        beta_source = self.params.get("gene_gene_beta_source", "beta")
         if isinstance(beta_source, list):
-            beta_source = beta_source[0] if len(beta_source) > 0 else "beta_uncorrected"
-        if beta_source == "beta":
-            if getattr(self, "betas", None) is not None:
-                beta_matrix = np.asarray(self.betas, dtype=float)
-            elif getattr(self, "X_phewas_beta", None) is not None:
-                beta_matrix = self.X_phewas_beta.T
-            else:
-                raise ValueError("Corrected betas are unavailable for gene-by-gene full-gene projection")
+            beta_source = beta_source[0] if len(beta_source) > 0 else "beta"
+        if beta_source != "beta":
+            raise ValueError("gene-by-gene full-gene projection requires corrected beta values; beta_uncorrected is not supported")
+        if getattr(self, "betas", None) is not None:
+            beta_matrix = np.asarray(self.betas, dtype=float)
+        elif getattr(self, "X_phewas_beta", None) is not None:
+            beta_matrix = self.X_phewas_beta.T
         else:
-            if getattr(self, "betas_uncorrected", None) is not None:
-                beta_matrix = np.asarray(self.betas_uncorrected, dtype=float)
-            elif getattr(self, "X_phewas_beta_uncorrected", None) is not None:
-                beta_matrix = self.X_phewas_beta_uncorrected.T
-            else:
-                raise ValueError("beta_uncorrected gene-set statistics are unavailable for gene-by-gene full-gene projection")
+            raise ValueError("Corrected betas are unavailable for gene-by-gene full-gene projection")
         if sparse.issparse(beta_matrix):
             beta_matrix = beta_matrix.toarray()
         beta_matrix = np.asarray(beta_matrix, dtype=float)

@@ -325,7 +325,7 @@ parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for fac
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--discovery-model",type="choice",choices=["gene_by_annotation","gene_by_gene"],default="gene_by_annotation") #factor discovery target: rectangular gene-by-annotation or symmetric gene-by-gene
 parser.add_option("","--anchor-aggregation",type="choice",choices=["multi","any"],default="multi") #how to combine multiple anchor traits: shared multi-trait mode (multi, default) or noisy-OR union (any); one anchor reduces exactly to single-trait anchoring
-parser.add_option("","--gene-gene-beta-source",type="choice",choices=["beta","beta_uncorrected"],default="beta") #gene-by-gene mode only: corrected beta by default; beta_uncorrected is diagnostic
+parser.add_option("","--gene-gene-beta-source",type="choice",choices=["beta"],default="beta") #gene-by-gene mode only: corrected beta values used to build pairwise evidence
 parser.add_option("","--gene-gene-pair-prior",default=None,type=float) #gene-by-gene mode only: direct pairwise same-mechanism prior
 parser.add_option("","--gene-gene-pair-prior-effective-size",default=None,type=float) #gene-by-gene mode only: target effective mechanism size used to derive the pair prior
 parser.add_option("","--gene-gene-logbf-base",type="choice",choices=["natural","log10"],default="natural") #gene-by-gene mode only: units for shared annotation evidence before logistic calibration
@@ -1403,6 +1403,8 @@ def _bootstrap_cli(argv=None):
     warn = _logging_state["warn"]
 
     _warn_for_direct_gmt_passed_to_x_list(parsed_options, warn)
+    if str(parsed_options.gene_gene_beta_source) != "beta":
+        bail("--gene-gene-beta-source must be beta; beta_uncorrected is not supported for gene-by-gene weights")
 
     parsed_eaggl_bundle_info = _apply_eaggl_bundle_inputs(parsed_options)
     if parsed_eaggl_bundle_info is not None:

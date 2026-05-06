@@ -453,12 +453,10 @@ def _project_full_gene_factors_from_loaded_gene_factors(
         domain.bail("--gene-clusters-full-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
 
     beta_source = str(gene_gene_beta_source)
-    if beta_source == "beta" and getattr(runtime, "betas", None) is None:
+    if beta_source != "beta":
+        domain.bail("--gene-clusters-full-out from --factor-gene-clusters-in requires corrected beta values; beta_uncorrected is not supported for gene-by-gene projection")
+    if getattr(runtime, "betas", None) is None:
         domain.bail("--gene-clusters-full-out from --factor-gene-clusters-in requires beta values from --gene-set-stats-in")
-    if beta_source == "beta_uncorrected" and getattr(runtime, "betas_uncorrected", None) is None:
-        domain.bail(
-            "--gene-clusters-full-out from --factor-gene-clusters-in requires beta_uncorrected values from --gene-set-stats-in"
-        )
 
     common_pairs = []
     for loaded_index, gene in enumerate(loaded_genes):

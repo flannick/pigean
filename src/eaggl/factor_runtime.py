@@ -164,17 +164,13 @@ def _build_gene_gene_pair_matrix(
     if anchor_aggregation not in {"multi", "any"}:
         raise ValueError("anchor aggregation must be one of: multi, any")
     beta_source_label = str(beta_source)
+    if beta_source_label != "beta":
+        raise ValueError("gene-by-gene discovery requires corrected beta values; beta_uncorrected is not supported as a pair-weight source")
     if beta_values is None:
-        if beta_source == "beta":
-            if getattr(state, "betas", None) is None:
-                raise ValueError("Corrected betas are unavailable; rerun with corrected gene-set statistics or use --gene-gene-beta-source beta_uncorrected explicitly")
-            beta_values = np.asarray(state.betas, dtype=float)
-            beta_source_label = "beta"
-        else:
-            if getattr(state, "betas_uncorrected", None) is None:
-                raise ValueError("beta_uncorrected gene-set statistics are unavailable for gene-by-gene discovery")
-            beta_values = np.asarray(state.betas_uncorrected, dtype=float)
-            beta_source_label = "beta_uncorrected"
+        if getattr(state, "betas", None) is None:
+            raise ValueError("Corrected betas are unavailable; rerun with corrected gene-set statistics")
+        beta_values = np.asarray(state.betas, dtype=float)
+        beta_source_label = "beta"
     elif sparse.issparse(beta_values):
         beta_values = beta_values.toarray()
     else:
@@ -4783,12 +4779,9 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
         )
         pair_beta_values = None
         if anchor_pheno_mask is not None:
-            if str(gene_gene_beta_source) == "beta":
-                pair_beta_values = betas
-            else:
-                pair_beta_values = betas_uncorrected
+            pair_beta_values = betas
             if pair_beta_values is None:
-                bail("Requested --gene-gene-beta-source %s but those gene-set statistics are unavailable" % gene_gene_beta_source)
+                bail("Requested gene-by-gene discovery but corrected beta gene-set statistics are unavailable")
             pair_beta_values = pair_beta_values[:, anchor_mask]
             if sparse.issparse(pair_beta_values):
                 pair_beta_values = pair_beta_values.toarray()
@@ -5651,8 +5644,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--discovery-similarity-threshold must be in [0, 1]")
     if str(discovery_model) not in {"gene_by_annotation", "gene_by_gene"}:
         bail("--discovery-model must be one of: gene_by_annotation, gene_by_gene")
-    if str(gene_gene_beta_source) not in {"beta", "beta_uncorrected"}:
-        bail("--gene-gene-beta-source must be one of: beta, beta_uncorrected")
+    if str(gene_gene_beta_source) != "beta":
+        bail("--gene-gene-beta-source must be beta")
     if str(gene_gene_logbf_base) not in {"natural", "log10"}:
         bail("--gene-gene-logbf-base must be one of: natural, log10")
     if gene_gene_anchor_aggregation is not None:

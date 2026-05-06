@@ -215,6 +215,15 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("no such option", err)
         self.assertNotIn("Traceback", err)
 
+    def test_gene_gene_beta_source_rejects_beta_uncorrected(self) -> None:
+        proc = self._run("factor", "--gene-gene-beta-source", "beta_uncorrected")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-gene-beta-source must be beta", err)
+        self.assertIn("beta_uncorrected is not supported", err)
+        self.assertNotIn("EAGGL requires an X matrix input", err)
+        self.assertNotIn("Traceback", err)
+
     def test_missing_config_returns_config_error_without_traceback(self) -> None:
         proc = self._run("factor", "--config", "definitely_missing_config.json")
         self.assertEqual(proc.returncode, 2)
