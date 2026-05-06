@@ -62,11 +62,12 @@ class FactorExecutionConfig:
     alpha0: float
     beta0: float
     discovery_model: str = "gene_by_annotation"
+    anchor_aggregation: str = "multi"
     gene_gene_beta_source: str = "beta"
     gene_gene_pair_prior: float | None = None
     gene_gene_pair_prior_effective_size: float | None = None
     gene_gene_logbf_base: str = "natural"
-    gene_gene_anchor_aggregation: str = "multi"
+    gene_gene_anchor_aggregation: str | None = None
     gene_gene_diagonal_weight: float = 0.0
     gene_gene_matrix_floor: float = 1e-3
     gene_gene_excess_probability: bool = True
@@ -164,6 +165,7 @@ class FactorExecutionConfig:
             "max_num_factors": self.max_num_factors,
             "phi": self.phi,
             "discovery_model": self.discovery_model,
+            "anchor_aggregation": self.anchor_aggregation,
             "gene_gene_beta_source": self.gene_gene_beta_source,
             "gene_gene_pair_prior": self.gene_gene_pair_prior,
             "gene_gene_pair_prior_effective_size": self.gene_gene_pair_prior_effective_size,
@@ -847,7 +849,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
         )
 
     factor_input_state = FactorInputs()
-    if mode_state["run_factor"]:
+    if mode_state["run_factor"] and mode_state["use_phewas_for_factoring"]:
         factor_input_state = load_factor_phewas_inputs(domain, runtime, options)
     return factor_input_state
 
@@ -1735,15 +1737,19 @@ def build_factor_execution_config(options, workflow, factor_inputs):
             and learn_phi_target_gene_effective_support is None
         ):
             learn_phi_target_gene_mass = float(_DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS)
+    gene_prune_number = options.factor_prune_genes_num
+    if discovery_model == "gene_by_gene" and gene_prune_number is None:
+        gene_prune_number = resolved_max_num_discovery_genes
     return FactorExecutionConfig(
         max_num_factors=options.max_num_factors,
         phi=options.phi,
         discovery_model=discovery_model,
+        anchor_aggregation=getattr(options, "anchor_aggregation", getattr(options, "gene_gene_anchor_aggregation", "multi")),
         gene_gene_beta_source=getattr(options, "gene_gene_beta_source", "beta"),
         gene_gene_pair_prior=getattr(options, "gene_gene_pair_prior", None),
         gene_gene_pair_prior_effective_size=getattr(options, "gene_gene_pair_prior_effective_size", None),
         gene_gene_logbf_base=getattr(options, "gene_gene_logbf_base", "natural"),
-        gene_gene_anchor_aggregation=getattr(options, "gene_gene_anchor_aggregation", "multi"),
+        gene_gene_anchor_aggregation=None,
         gene_gene_diagonal_weight=getattr(options, "gene_gene_diagonal_weight", 0.0),
         gene_gene_matrix_floor=getattr(options, "gene_gene_matrix_floor", 1e-3),
         gene_gene_excess_probability=getattr(options, "gene_gene_excess_probability", True),
@@ -1811,7 +1817,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         pheno_prune_value=options.factor_prune_phenos_val,
         pheno_prune_number=options.factor_prune_phenos_num,
         gene_prune_value=options.factor_prune_genes_val,
-        gene_prune_number=options.factor_prune_genes_num,
+        gene_prune_number=gene_prune_number,
         gene_set_prune_value=options.factor_prune_gene_sets_val,
         gene_set_prune_number=options.factor_prune_gene_sets_num,
         anchor_pheno_mask=factor_inputs.anchor_pheno_mask,

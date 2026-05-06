@@ -147,7 +147,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--gene-gene-pair-prior"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-pair-prior-effective-size"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-logbf-base"]["public_visibility"], "expert")
-        self.assertEqual(metadata["--gene-gene-anchor-aggregation"]["public_visibility"], "expert")
+        self.assertEqual(metadata["--anchor-aggregation"]["public_visibility"], "normal")
         self.assertEqual(metadata["--gene-gene-diagonal-weight"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-matrix-floor"]["public_visibility"], "expert")
         self.assertEqual(metadata["--gene-gene-excess-probability"]["public_visibility"], "expert")
@@ -268,29 +268,29 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--gene-gene-matrix-floor must be >= 0", err)
 
-        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-anchor-aggregation", "bogus")
+        proc = self._run("factor", "--discovery-model", "gene_by_gene", "--anchor-aggregation", "bogus")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("--gene-gene-anchor-aggregation must be one of: multi, any", err)
+        self.assertIn("--anchor-aggregation", err)
 
         for aggregation in ["multi", "any"]:
             proc = self._run(
                 "factor",
                 "--discovery-model",
                 "gene_by_gene",
-                "--gene-gene-anchor-aggregation",
+                "--anchor-aggregation",
                 aggregation,
                 "--print-effective-config",
             )
             self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
             payload = json.loads(proc.stdout)
-            self.assertEqual(payload["options"]["gene_gene_anchor_aggregation"], aggregation)
+            self.assertEqual(payload["options"]["anchor_aggregation"], aggregation)
 
         for removed_aggregation in ["mean", "consensus"]:
-            proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-anchor-aggregation", removed_aggregation)
+            proc = self._run("factor", "--discovery-model", "gene_by_gene", "--anchor-aggregation", removed_aggregation)
             self.assertEqual(proc.returncode, 2)
             err = (proc.stderr or "") + (proc.stdout or "")
-            self.assertIn("--gene-gene-anchor-aggregation", err)
+            self.assertIn("--anchor-aggregation", err)
 
         proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy", "1.2")
         self.assertEqual(proc.returncode, 2)

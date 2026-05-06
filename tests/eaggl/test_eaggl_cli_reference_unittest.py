@@ -283,7 +283,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "12",
             "--phi",
             "0.1",
-            "--gene-gene-anchor-aggregation",
+            "--anchor-aggregation",
             "any",
             "--learn-phi",
             "--learn-phi-max-redundancy",
@@ -423,7 +423,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         opts = json.loads(proc.stdout)["options"]
         self.assertEqual(opts["max_num_factors"], 12)
         self.assertEqual(opts["phi"], 0.1)
-        self.assertEqual(opts["gene_gene_anchor_aggregation"], "any")
+        self.assertEqual(opts["anchor_aggregation"], "any")
         self.assertTrue(opts["learn_phi"])
         self.assertEqual(opts["learn_phi_max_redundancy"], 0.55)
         self.assertEqual(opts["learn_phi_max_redundancy_q90"], 0.25)
@@ -585,7 +585,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-gene-pair-prior": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-pair-prior-effective-size": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-logbf-base": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--gene-gene-anchor-aggregation": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--anchor-aggregation": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-diagonal-weight": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-matrix-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-excess-probability": ["test_reference_factor_and_labeling_flags_round_trip"],

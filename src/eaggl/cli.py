@@ -324,11 +324,12 @@ parser.add_option("","--factor-top-loading-type",default="combined",type=str) #m
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--discovery-model",type="choice",choices=["gene_by_annotation","gene_by_gene"],default="gene_by_annotation") #factor discovery target: rectangular gene-by-annotation or symmetric gene-by-gene
+parser.add_option("","--anchor-aggregation",type="choice",choices=["multi","any"],default="multi") #how to combine multiple anchor traits: shared multi-trait mode (multi, default) or noisy-OR union (any); one anchor reduces exactly to single-trait anchoring
 parser.add_option("","--gene-gene-beta-source",type="choice",choices=["beta","beta_uncorrected"],default="beta") #gene-by-gene mode only: corrected beta by default; beta_uncorrected is diagnostic
 parser.add_option("","--gene-gene-pair-prior",default=None,type=float) #gene-by-gene mode only: direct pairwise same-mechanism prior
 parser.add_option("","--gene-gene-pair-prior-effective-size",default=None,type=float) #gene-by-gene mode only: target effective mechanism size used to derive the pair prior
 parser.add_option("","--gene-gene-logbf-base",type="choice",choices=["natural","log10"],default="natural") #gene-by-gene mode only: units for shared annotation evidence before logistic calibration
-parser.add_option("","--gene-gene-anchor-aggregation",type="choice",choices=["multi","any"],default="multi") #gene-by-gene mode only: combine multiple anchor traits using a shared multi-view weighted objective (multi, default) or noisy-OR union target (any)
+parser.add_option("","--gene-gene-anchor-aggregation",type="choice",choices=["multi","any"],default=None) #deprecated alias for --anchor-aggregation
 parser.add_option("","--gene-gene-diagonal-weight",default=0.0,type=float) #gene-by-gene mode only: diagonal fitting weight for symmetric NMF
 parser.add_option("","--gene-gene-matrix-floor",default=1e-3,type=float) #gene-by-gene mode only: zero pair-matrix entries below this value after probability calibration
 parser.add_option("","--gene-gene-excess-probability",dest="gene_gene_excess_probability",default=True,action="store_true") #gene-by-gene mode only: factor excess probability above the pair prior
@@ -533,6 +534,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-clusters-full-out": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
     "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
     "--discovery-model": "choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery",
+    "--anchor-aggregation": "combine multiple anchor traits using shared multi-trait mode (`multi`) or noisy-OR union (`any`); with one anchor both reduce exactly to single-trait anchoring",
     "--gene-filter-value": "threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5",
     "--max-num-discovery-genes": "maximum number of genes retained for factor discovery after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden",
     "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
@@ -609,7 +611,6 @@ _EXPERT_METHOD_FLAGS = {
     "--gene-gene-diagonal-weight",
     "--gene-gene-excess-probability",
     "--no-gene-gene-excess-probability",
-    "--gene-gene-anchor-aggregation",
     "--gene-gene-logbf-base",
     "--gene-gene-pair-prior",
     "--gene-gene-pair-prior-effective-size",
@@ -745,6 +746,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--consensus-stats-out",
     "--beta0",
     "--discovery-model",
+    "--anchor-aggregation",
     "--factor-backend",
     "--factor-output-scope",
     "--eaggl-bundle-in",
@@ -775,6 +777,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
 }
 
 _COMPAT_ALIAS_FLAGS = {
+    "--gene-gene-anchor-aggregation",
     "--factor-phewas-from-gene-phewas-stats-in",
     "--gene-phewas-bfs-combined-col",
     "--gene-phewas-bfs-id-col",
@@ -789,6 +792,8 @@ _COMPAT_ALIAS_FLAGS = {
 }
 
 _HIDDEN_COMPAT_ALIAS_FLAGS = {
+    "--gene-gene-anchor-aggregation",
+    "--gene-gene-anchor-aggregation",
     "--factor-phewas-from-gene-phewas-stats-in",
     "--gene-phewas-bfs-combined-col",
     "--gene-phewas-bfs-id-col",
@@ -1644,8 +1649,10 @@ def _bootstrap_cli(argv=None):
         bail("--gene-gene-matrix-floor must be >= 0")
     if parsed_options.gene_gene_sparsity < 0:
         bail("--gene-gene-sparsity must be >= 0")
-    if parsed_options.gene_gene_anchor_aggregation not in {"multi", "any"}:
-        bail("--gene-gene-anchor-aggregation must be one of: multi, any")
+    if parsed_options.gene_gene_anchor_aggregation is not None:
+        parsed_options.anchor_aggregation = parsed_options.gene_gene_anchor_aggregation
+    if parsed_options.anchor_aggregation not in {"multi", "any"}:
+        bail("--anchor-aggregation must be one of: multi, any")
     if parsed_options.discovery_model == "gene_by_gene":
         if parsed_options.factor_backend != "full":
             bail("--discovery-model gene_by_gene currently requires --factor-backend full")

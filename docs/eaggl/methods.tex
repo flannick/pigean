@@ -57,14 +57,21 @@ X_{ij} - \sum_{k=1}^K W_{ik} H_{jk}
 \right),
 \label{eq:eaggl_weighted_likelihood}
 \end{equation}
-where $\Omega_{ij} \ge 0$ is a cell-specific weight. In the simplest single-trait setting, one can think of $\Omega_{ij}$ as proportional to $p_i q_j$, where $p_i$ is gene support and $q_j$ is annotation support. More generally, when several anchor users are present, EAGGL uses the additive form
+where $\Omega_{ij} \ge 0$ is a cell-specific weight. In the simplest single-trait setting, $\Omega_{ij}=p_iq_j$, where $p_i$ is gene support and $q_j$ is annotation support. With multiple anchor traits, the default \texttt{multi} aggregation uses same-trait additive support,
 \begin{equation}
-\Omega_{ij}
+\Omega_{ij}^{\mathrm{multi}}
 =
-\sum_{u=1}^U p_i^{(u)} q_j^{(u)}.
+\sum_{t=1}^T p_i^{(t)} q_j^{(t)}.
 \label{eq:eaggl_weight_matrix}
 \end{equation}
-This gives higher weight to entries supported simultaneously by the relevant genes and the relevant annotations for the chosen anchor set.
+The explicit \texttt{any} aggregation instead uses cell-level noisy-OR over same-trait co-support,
+\begin{equation}
+\Omega_{ij}^{\mathrm{any}}
+=
+1 - \prod_{t=1}^T \left(1 - p_i^{(t)}q_j^{(t)}\right).
+\label{eq:eaggl_any_weight_matrix}
+\end{equation}
+Both definitions reduce exactly to $p_iq_j$ with one anchor trait, and a trait with zero support everywhere does not change either weight matrix. The noisy-OR is applied to $p_i^{(t)}q_j^{(t)}$ directly, not to separately aggregated gene and annotation probabilities, so it does not create cross-trait support.
 
 Although EAGGL is often motivated heuristically by factorizing a matrix of the form $X_{ij} p_i q_j$, the weighted likelihood in Eq.~\eqref{eq:eaggl_weighted_likelihood} is the more useful mathematical form. It makes explicit that EAGGL seeks a factorization of the underlying annotation matrix while emphasizing entries most relevant to the trait or anchor set. This also avoids repeatedly materializing a different dense weighted matrix for every anchor user.
 
@@ -160,11 +167,6 @@ p_i^{(\mathrm{standalone})}
 \]
 All genes appearing in any retained annotation are then kept in the final factoring matrix. The factorization itself is unchanged; only the way the gene-level and annotation-level support vectors are constructed differs from the standard PIGEAN-driven path.
 
-% Suggested insertion point:
-% Add this section to docs/eaggl/methods.tex after the existing single-trait
-% gene-by-annotation factorization / redundancy-balanced discovery material and
-% before phenotype-anchored extensions or downstream trait-linkage sections.
-
 \subsection{Gene-by-gene symmetric mechanism discovery}
 \label{sec:eaggl_gene_gene_symnmf}
 
@@ -234,6 +236,7 @@ that genes $i$ and $j$ are jointly relevant through a common mechanism. Negative
 corrected annotation effects are retained in this log-evidence calculation: they lower
 pairwise support toward the prior, rather than being truncated before calibration.
 
+
 \paragraph{Multiple phenotype anchors.}
 When gene-by-gene discovery is anchored on multiple phenotypes, EAGGL still estimates
 one shared gene-factor basis. For anchor phenotype $t$, let
@@ -242,50 +245,29 @@ L_{ij}^{(t)}
 = \sum_s X_{is} X_{js} \beta_s^{(t)}
 \label{eq:eaggl_gene_gene_anchor_logbf}
 \end{equation}
-denote the anchor-specific shared annotation log-evidence. The default multi-anchor
-gene-by-gene model first converts each anchor to a calibrated target matrix
-$M_{ij}^{(t)}$ using the same pairwise probability transform described below. It then
-estimates one shared loading matrix $W$ with a weighted multi-view objective,
-\begin{equation}
-\frac{1}{2}
-\sum_t \sum_{i<j} C_{ij}^{(t)}
-\left(
-M_{ij}^{(t)} - \sum_k W_{ik}W_{jk}
-\right)^2
-+ \operatorname{ARD}(W),
-\label{eq:eaggl_gene_gene_multi_view}
-\end{equation}
-where $C_{ij}^{(t)}$ is an anchor-specific confidence weight. By default, this
-confidence is proportional to the anchor-specific target itself, so an anchor with no
-evidence for an edge has zero or near-zero fitting weight for that edge rather than
-acting as negative evidence against another anchor. If anchor-specific gene relevance
-probabilities are available, EAGGL treats the pairwise direct-support gate
-\begin{equation}
-G_{ij}^{(t)} = p_i^{(t)}p_j^{(t)}
-\label{eq:eaggl_gene_gene_multi_anchor_gate}
-\end{equation}
-as additional observation confidence for that anchor. Operationally, EAGGL forms the
-sufficient statistics
-\begin{equation}
-C_{ij}^{\mathrm{sum}} = \sum_t C_{ij}^{(t)}, \qquad
-M_{ij}^{\mathrm{eff}} =
-\frac{\sum_t C_{ij}^{(t)} M_{ij}^{(t)}}{C_{ij}^{\mathrm{sum}}}
-\quad\text{when } C_{ij}^{\mathrm{sum}}>0,
-\label{eq:eaggl_gene_gene_multi_view_sufficient_stats}
-\end{equation}
-sets $M_{ij}^{\mathrm{eff}}=0$ when $C_{ij}^{\mathrm{sum}}=0$, and fits the weighted
-symmetric objective with entry-wise weights $C_{ij}^{\mathrm{sum}}$.
+denote the anchor-specific shared annotation log-evidence. Each anchor is first
+converted exactly as in the single-trait case: the log-evidence is calibrated to a
+pairwise same-mechanism probability, transformed to the configured target scale, floored,
+and given the configured diagonal policy. Labeling a single-trait input changes only the
+reported trait name; it does not change the pair target. Denote the resulting
+single-trait target by $T_{ij}^{(t)}$.
 
-An expert `any' mode instead combines anchor-specific target matrices as a noisy-OR
-union,
+The default \texttt{multi} aggregation fits one shared basis against the collection of
+single-trait targets with equal view weight,
 \begin{equation}
-M_{ij}^{\mathrm{any}} = 1 - \prod_t \left(1 - M_{ij}^{(t)}\right).
+\frac{1}{2T}\sum_t \sum_{i,j}
+\left(T_{ij}^{(t)} - \sum_k W_{ik}W_{jk}\right)^2
++ \mathrm{ARD}(W).
+\label{eq:eaggl_gene_gene_multi_anchor}
+\end{equation}
+The explicit \texttt{any} aggregation uses noisy-OR over the same per-trait targets,
+\begin{equation}
+M_{ij}^{\mathrm{any}} = 1 - \prod_t \left(1 - T_{ij}^{(t)}\right),
 \label{eq:eaggl_gene_gene_any_anchor}
 \end{equation}
-This is a union target rather than a multi-view objective. Gene-by-annotation
-multi-anchor EAGGL does not require a corresponding aggregation mode because its
-rectangular model already pools anchor-derived weights into a single weighted
-likelihood for one shared factor basis.
+and then fits the ordinary symmetric objective
+$M_{ij}^{\mathrm{any}} \approx \sum_k W_{ik}W_{jk}$. With one anchor trait, both
+\texttt{multi} and \texttt{any} reduce exactly to the single-trait target.
 
 \paragraph{Conversion to pairwise probability.}
 Let $\pi_{\mathrm{pair}}$ denote the prior probability that two retained genes are

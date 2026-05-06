@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `266`
+- Total options: `267`
 - `method_required`: `11`
 - `method_optional`: `166`
 - `engineering`: `72`
-- `compat_alias`: `11`
+- `compat_alias`: `12`
 - `debug_only`: `6`
-- visibility `expert`: `222`
-- visibility `hidden`: `8`
-- visibility `normal`: `36`
+- visibility `expert`: `221`
+- visibility `hidden`: `9`
+- visibility `normal`: `37`
 
 ## Method Required
 
@@ -42,6 +42,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--add-gene-sets-by-fraction` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_fraction` | `None` | - |
 | `--adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
 | `--alpha0` | `normal` | `yes` | `core_help` | `alpha0` | `10` | shape parameter for the ARD factor-precision prior; larger values encourage sparser retained factors |
+| `--anchor-aggregation` | `normal` | `yes` | `core_help` | `anchor_aggregation` | `multi` | combine multiple anchor traits using shared multi-trait mode (`multi`) or noisy-OR union (`any`); with one anchor both reduce exactly to single-trait anchoring |
 | `--background-prior` | `expert` | `yes` | `expert_help` | `background_prior` | `0.05` | - |
 | `--beta0` | `normal` | `yes` | `core_help` | `beta0` | `1` | scale parameter for the ARD factor-precision prior |
 | `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
@@ -86,7 +87,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
 | `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `None` | threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5 |
-| `--gene-gene-anchor-aggregation` | `expert` | `yes` | `advanced_workflows` | `gene_gene_anchor_aggregation` | `multi` | - |
 | `--gene-gene-beta-source` | `expert` | `yes` | `advanced_workflows` | `gene_gene_beta_source` | `beta` | - |
 | `--gene-gene-diagonal-weight` | `expert` | `yes` | `advanced_workflows` | `gene_gene_diagonal_weight` | `0.0` | - |
 | `--gene-gene-excess-probability` | `expert` | `yes` | `advanced_workflows` | `gene_gene_excess_probability` | `True` | - |
@@ -284,6 +284,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
 | `--factor-phewas-from-gene-phewas-stats-in` | `hidden` | `yes` | `internal_only` | `factor_phewas_legacy_input` | `None` | compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in |
+| `--gene-gene-anchor-aggregation` | `hidden` | `yes` | `internal_only` | `gene_gene_anchor_aggregation` | `None` | - |
 | `--gene-phewas-bfs-combined-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_combined_col` | `None` | - |
 | `--gene-phewas-bfs-id-col` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_id_col` | `None` | - |
 | `--gene-phewas-bfs-in` | `hidden` | `yes` | `internal_only` | `gene_phewas_bfs_in` | `None` | load gene-phewas statistics for projection and phenotype-input factoring workflows |
