@@ -836,6 +836,16 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(workflow["id"], "F1")
         self.assertFalse(workflow["use_phewas_for_factoring"])
 
+    def test_single_labeled_stats_pair_strips_to_unlabeled_paths_for_f1_reading(self) -> None:
+        self.assertEqual(
+            eaggl.eaggl_factor._strip_labeled_path_specs("T2D=gene_stats.tsv.gz"),
+            "gene_stats.tsv.gz",
+        )
+        self.assertEqual(
+            eaggl.eaggl_factor._strip_labeled_path_specs("T2D=gene_set_stats.tsv.gz"),
+            "gene_set_stats.tsv.gz",
+        )
+
     def test_multiple_labeled_stats_pairs_route_as_multi_trait(self) -> None:
         options = _options(
             gene_stats_in=["T2D=t2d_gene.tsv.gz", "CAD=cad_gene.tsv.gz"],

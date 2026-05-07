@@ -146,6 +146,10 @@ def _build_gene_gene_pair_matrix(
     gene_prob_matrix = _as_dense_anchor_matrix(gene_prob_values)
     if gene_prob_matrix is not None:
         gene_prob_matrix = gene_prob_matrix[gene_indices, :]
+        if gene_prob_matrix.shape[1] != beta_matrix.shape[1]:
+            raise ValueError(
+                "gene-by-gene requires the same number of gene and gene-set anchor traits"
+            )
 
     per_anchor_targets = []
     per_anchor_L = []
@@ -164,7 +168,7 @@ def _build_gene_gene_pair_matrix(
             R_anchor = np.clip(P_anchor, 0.0, 1.0)
 
         if gene_prob_matrix is not None:
-            prob_col = gene_prob_matrix[:, min(anchor_index, gene_prob_matrix.shape[1] - 1)]
+            prob_col = gene_prob_matrix[:, anchor_index]
             gate_anchor = np.clip(np.outer(prob_col, prob_col), 0.0, 1.0)
         else:
             gate_anchor = np.ones_like(R_anchor, dtype=float)

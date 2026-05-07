@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+import inspect
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -794,6 +795,88 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             self.assertEqual(diagnostics["beta_anchor_count"], 1)
             self.assertIsNone(pair_weights)
 
+    def test_build_gene_gene_pair_matrix_single_anchor_multi_equals_any_with_gene_gate(self) -> None:
+        state = SimpleNamespace(
+            X_orig=sparse.csr_matrix(
+                np.array(
+                    [
+                        [1.0, 1.0],
+                        [1.0, 0.0],
+                        [0.0, 1.0],
+                    ],
+                    dtype=float,
+                )
+            ),
+            betas=None,
+            betas_uncorrected=None,
+            scale_factors=np.ones(2, dtype=float),
+        )
+        kwargs = dict(
+            state=state,
+            gene_mask=np.array([True, True, True]),
+            gene_set_mask=np.array([True, True]),
+            beta_source="beta",
+            beta_values=np.array([[1.5], [0.5]], dtype=float),
+            gene_prob_values=np.array([[0.8], [0.5], [0.2]], dtype=float),
+            pair_prior=0.2,
+            logbf_base="natural",
+            matrix_floor=0.0,
+            excess_probability=True,
+            diagonal_weight=0.0,
+            log_fn=None,
+            info_level=1,
+        )
+
+        multi, multi_diag, _ = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+            **kwargs,
+            anchor_aggregation="multi",
+        )
+        any_matrix, any_diag, _ = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+            **kwargs,
+            anchor_aggregation="any",
+        )
+
+        np.testing.assert_allclose(multi, any_matrix)
+        self.assertEqual(multi_diag["beta_anchor_count"], 1)
+        self.assertEqual(any_diag["beta_anchor_count"], 1)
+
+    def test_build_gene_gene_pair_matrix_rejects_gene_beta_anchor_count_mismatch(self) -> None:
+        state = SimpleNamespace(
+            X_orig=sparse.csr_matrix(
+                np.array(
+                    [
+                        [1.0, 1.0],
+                        [1.0, 0.0],
+                    ],
+                    dtype=float,
+                )
+            ),
+            betas=None,
+            betas_uncorrected=None,
+            scale_factors=np.ones(2, dtype=float),
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "same number of gene and gene-set anchor traits",
+        ):
+            eaggl_factor_runtime._build_gene_gene_pair_matrix(
+                state,
+                gene_mask=np.array([True, True]),
+                gene_set_mask=np.array([True, True]),
+                beta_source="beta",
+                beta_values=np.array([[2.0, 0.0], [0.0, 2.0]], dtype=float),
+                gene_prob_values=np.array([[1.0], [1.0]], dtype=float),
+                pair_prior=0.2,
+                logbf_base="natural",
+                anchor_aggregation="multi",
+                matrix_floor=0.0,
+                excess_probability=True,
+                diagonal_weight=0.0,
+                log_fn=None,
+                info_level=1,
+            )
+
     def test_gene_gene_canonical_active_indices_are_label_order_invariant(self) -> None:
         state_a = SimpleNamespace(genes=["B", "A", "C"])
         state_b = SimpleNamespace(genes=["C", "B", "A"])
@@ -1026,6 +1109,27 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             )
             np.testing.assert_allclose(observed, expected_single)
 
+    def test_anchor_weight_single_trait_multi_equals_any(self) -> None:
+        p_gene_set = np.array([[0.8], [0.3]], dtype=float)
+        p_gene = np.array([[0.5], [0.0], [0.2]], dtype=float)
+
+        multi = eaggl_factor_runtime._compute_anchor_weight_matrix(
+            p_gene_set,
+            p_gene,
+            2,
+            3,
+            anchor_aggregation="multi",
+        )
+        any_matrix = eaggl_factor_runtime._compute_anchor_weight_matrix(
+            p_gene_set,
+            p_gene,
+            2,
+            3,
+            anchor_aggregation="any",
+        )
+
+        np.testing.assert_allclose(multi, any_matrix)
+
     def test_anchor_weight_any_has_no_cross_trait_support(self) -> None:
         p_gene_set = np.array([[1.0, 0.0]], dtype=float)
         p_gene = np.array([[0.0, 1.0]], dtype=float)
@@ -1037,6 +1141,11 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
             anchor_aggregation="any",
         )
         self.assertEqual(float(observed[0, 0]), 0.0)
+
+    def test_factor_runtime_fitting_path_does_not_append_hidden_any_anchor(self) -> None:
+        source = inspect.getsource(eaggl_factor_runtime._run_factor_single)
+        self.assertNotIn("compute_noisy_or_anchor_summary_for_projection", source)
+        self.assertNotIn("_append_with_any_user", source)
 
     def test_bayes_sym_nmf_l2_extension_caps_row_sums(self) -> None:
         state = EagglState.__new__(EagglState)
