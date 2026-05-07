@@ -1066,177 +1066,6 @@ def _fit_blockwise_global_w(
     }
 
 
-def _checkpoint_output_path(path):
-    if path is None:
-        return None
-    if path.endswith(".gz"):
-        stem, ext = os.path.splitext(path[:-3])
-        return f"{stem}.pre_projection{ext}.gz"
-    stem, ext = os.path.splitext(path)
-    if ext:
-        return f"{stem}.pre_projection{ext}"
-    return f"{path}.pre_projection"
-
-
-def _prepare_pre_projection_checkpoint_state(state):
-    checkpoint_state = _clone_runtime_state(state)
-    discovery_mask = getattr(checkpoint_state, "gene_set_in_discovery_mask", None)
-    if discovery_mask is None:
-        return checkpoint_state
-
-    discovery_mask = np.asarray(discovery_mask, dtype=bool)
-    discovery_indices = np.where(discovery_mask)[0]
-    full_gene_set_count = discovery_mask.shape[0]
-
-    if len(getattr(checkpoint_state, "gene_sets", [])) == full_gene_set_count:
-        checkpoint_state.gene_sets = [checkpoint_state.gene_sets[i] for i in discovery_indices]
-
-    row_vector_attrs = [
-        "betas",
-        "betas_uncorrected",
-        "betas_r_hat",
-        "betas_mcse",
-        "betas_uncorrected_r_hat",
-        "betas_uncorrected_mcse",
-        "beta_tildes",
-        "p_values",
-        "z_scores",
-        "ses",
-        "se_inflation_factors",
-        "beta_tildes_orig",
-        "p_values_orig",
-        "z_scores_orig",
-        "ses_orig",
-        "total_qc_metrics",
-        "mean_qc_metrics",
-        "inf_betas",
-        "betas_orig",
-        "betas_uncorrected_orig",
-        "non_inf_avg_cond_betas",
-        "non_inf_avg_postps",
-        "non_inf_avg_cond_betas_orig",
-        "non_inf_avg_postps_orig",
-        "is_dense_gene_set",
-        "gene_set_batches",
-        "gene_set_labels",
-        "ps",
-        "sigma2s",
-        "mean_shifts",
-        "scale_factors",
-        "gene_set_in_discovery_mask",
-        "gene_set_factor_gene_set_mask",
-        "gene_set_discovery_family_id",
-        "gene_set_discovery_representative_mask",
-        "gene_set_discovery_family_size",
-        "gene_set_discovery_weight",
-        "gene_set_discovery_family_mean_similarity",
-        "gene_set_discovery_family_effective_size",
-    ]
-    for attr in row_vector_attrs:
-        value = getattr(checkpoint_state, attr, None)
-        if value is None:
-            continue
-        if hasattr(value, "shape") and len(value.shape) >= 1 and value.shape[0] == full_gene_set_count:
-            setattr(checkpoint_state, attr, value[discovery_indices])
-
-    row_matrix_attrs = ["gene_set_prob_factor_vector", "gene_set_prob_vector", "exp_gene_set_factors"]
-    for attr in row_matrix_attrs:
-        value = getattr(checkpoint_state, attr, None)
-        if value is None or not hasattr(value, "shape") or len(value.shape) < 2:
-            continue
-        if value.shape[0] == full_gene_set_count:
-            setattr(checkpoint_state, attr, value[discovery_indices, :])
-
-    column_matrix_attrs = ["X_orig", "X_phewas_beta", "X_phewas_beta_uncorrected", "X_orig_missing_genes"]
-    for attr in column_matrix_attrs:
-        value = getattr(checkpoint_state, attr, None)
-        if value is None or not hasattr(value, "shape") or len(value.shape) < 2:
-            continue
-        if value.shape[1] == full_gene_set_count:
-            setattr(checkpoint_state, attr, value[:, discovery_indices])
-
-    checkpoint_state.gene_set_in_discovery_mask = np.full(len(discovery_indices), True, dtype=bool)
-    checkpoint_state.gene_set_factor_gene_set_mask = checkpoint_state.gene_set_in_discovery_mask
-    return checkpoint_state
-
-
-def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clusters_out, gene_clusters_out, cluster_row_min_max_loading=0.01, factor_output_scope="primary", log_fn, info_level):
-    checkpoint_factor_metrics = _checkpoint_output_path(factor_metrics_out)
-    checkpoint_gene_set_clusters = _checkpoint_output_path(gene_set_clusters_out)
-    checkpoint_gene_clusters = _checkpoint_output_path(gene_clusters_out)
-    if checkpoint_factor_metrics is None and checkpoint_gene_set_clusters is None and checkpoint_gene_clusters is None:
-        return
-    log_fn("Writing pre-projection factor checkpoint outputs", info_level)
-    checkpoint_state = state
-    if getattr(checkpoint_state, "factor_labels", None) is None and checkpoint_state.num_factors() > 0:
-        checkpoint_state.factor_labels = ["Factor%d" % (i + 1) for i in range(checkpoint_state.num_factors())]
-    if checkpoint_factor_metrics is not None:
-        checkpoint_state.write_factor_metrics(checkpoint_factor_metrics)
-    if checkpoint_gene_set_clusters is not None or checkpoint_gene_clusters is not None:
-        checkpoint_state.write_clusters(
-            checkpoint_gene_set_clusters,
-            checkpoint_gene_clusters,
-            None,
-            cluster_row_min_max_loading=cluster_row_min_max_loading,
-            factor_output_scope=factor_output_scope,
-        )
-
-
-def _factor_output_checkpoint_requested(*, factor_metrics_out, gene_set_clusters_out, gene_clusters_out):
-    return (
-        _checkpoint_output_path(factor_metrics_out) is not None
-        or _checkpoint_output_path(gene_set_clusters_out) is not None
-        or _checkpoint_output_path(gene_clusters_out) is not None
-    )
-
-
-def _apply_factor_reorder_to_checkpoint_state(checkpoint_state, reorder_inds):
-    if checkpoint_state is None or reorder_inds is None:
-        return checkpoint_state
-    reorder_inds = np.asarray(reorder_inds, dtype=int)
-    if reorder_inds.size == 0:
-        return checkpoint_state
-
-    vector_attrs = [
-        "exp_lambdak",
-        "factor_relevance",
-        "factor_marginal_relevance",
-        "trait_linkage_factor_total_mass",
-        "trait_linkage_factor_n_eff",
-        "trait_linkage_factor_top_share",
-        "trait_linkage_factor_top10_share",
-        "trait_linkage_broad_factor_flag",
-    ]
-    for attr in vector_attrs:
-        value = getattr(checkpoint_state, attr, None)
-        if value is not None and hasattr(value, "shape") and value.shape[0] == reorder_inds.size:
-            setattr(checkpoint_state, attr, value[reorder_inds])
-
-    row_factor_attrs = [
-        "factor_anchor_relevance",
-        "factor_anchor_marginal_relevance",
-    ]
-    for attr in row_factor_attrs:
-        value = getattr(checkpoint_state, attr, None)
-        if value is not None and hasattr(value, "shape") and len(value.shape) >= 2 and value.shape[0] == reorder_inds.size:
-            setattr(checkpoint_state, attr, value[reorder_inds, :])
-
-    col_factor_attrs = [
-        "exp_gene_factors",
-        "exp_pheno_factors",
-        "exp_gene_set_factors",
-        "trait_linkage_joint",
-        "trait_linkage_marginal",
-        "trait_linkage_marginal_overlap",
-    ]
-    for attr in col_factor_attrs:
-        value = getattr(checkpoint_state, attr, None)
-        if value is not None and hasattr(value, "shape") and len(value.shape) >= 2 and value.shape[1] == reorder_inds.size:
-            setattr(checkpoint_state, attr, value[:, reorder_inds])
-
-    return checkpoint_state
-
-
 def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, preferred_label=None, log_fn=None, info_level=1):
     candidate_map = {
         "combined_prior_Ys": combined_prior_Ys,
@@ -4115,6 +3944,9 @@ def _finalize_factor_outputs(
         state.factor_marginal_relevance = state.factor_marginal_relevance[reorder_inds]
     if state.exp_gene_factors is not None:
         state.exp_gene_factors = state.exp_gene_factors[:, reorder_inds]
+    full_gene_factors = getattr(state, "exp_gene_factors_full_projected", None)
+    if full_gene_factors is not None:
+        state.exp_gene_factors_full_projected = full_gene_factors[:, reorder_inds]
     if state.exp_pheno_factors is not None:
         state.exp_pheno_factors = state.exp_pheno_factors[:, reorder_inds]
     if state.trait_linkage_joint is not None:
@@ -5139,14 +4971,6 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
     state.gene_set_discovery_family_mean_similarity = discovery_plan.discovery_family_mean_similarity_full
     state.gene_set_discovery_family_effective_size = discovery_plan.discovery_family_effective_size_full
 
-    pre_projection_checkpoint_state = None
-    if _factor_output_checkpoint_requested(
-        factor_metrics_out=factor_metrics_out,
-        gene_set_clusters_out=gene_set_clusters_out,
-        gene_clusters_out=gene_clusters_out,
-    ):
-        pre_projection_checkpoint_state = _prepare_pre_projection_checkpoint_state(state)
-
     #now project the additional genes/phenos/gene sets onto the factors
 
     log("Projecting factors", TRACE)
@@ -5334,21 +5158,6 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
         info_level=INFO,
         labeling_module=labeling_module,
     )
-
-    if pre_projection_checkpoint_state is not None:
-        _apply_factor_reorder_to_checkpoint_state(pre_projection_checkpoint_state, reorder_inds)
-        if getattr(state, "factor_labels", None) is not None:
-            pre_projection_checkpoint_state.factor_labels = list(state.factor_labels)
-        _write_pre_projection_checkpoint(
-            pre_projection_checkpoint_state,
-            factor_metrics_out=factor_metrics_out,
-            gene_set_clusters_out=gene_set_clusters_out,
-            gene_clusters_out=gene_clusters_out,
-            cluster_row_min_max_loading=cluster_row_min_max_loading,
-            factor_output_scope=factor_output_scope,
-            log_fn=log,
-            info_level=INFO,
-        )
 
     return _build_factor_run_summary(
         state,

@@ -165,30 +165,6 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertAlmostEqual(details["weighted_mean"], float(np.mean(expected_weighted_matrix)))
         self.assertAlmostEqual(details["weighted_std"], float(np.std(expected_weighted_matrix)))
 
-    def test_prepare_pre_projection_checkpoint_state_subsets_to_discovery_rows(self) -> None:
-        state = SimpleNamespace(
-            gene_sets=["gs1", "gs2", "gs3"],
-            gene_set_in_discovery_mask=np.array([True, False, True]),
-            gene_set_discovery_family_id=np.array([0, 1, 0]),
-            gene_set_discovery_representative_mask=np.array([True, True, False]),
-            gene_set_discovery_family_size=np.array([2, 1, 2]),
-            gene_set_discovery_weight=np.array([0.9, 0.1, 0.8]),
-            gene_set_discovery_family_mean_similarity=np.array([0.8, np.nan, 0.8]),
-            gene_set_discovery_family_effective_size=np.array([1.1, 1.0, 1.1]),
-            gene_set_prob_factor_vector=np.array([[0.9], [0.1], [0.8]], dtype=float),
-            exp_gene_set_factors=np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float),
-            betas_uncorrected=np.array([0.2, 0.3, 0.4]),
-        )
-
-        checkpoint_state = eaggl_factor_runtime._prepare_pre_projection_checkpoint_state(state)
-
-        self.assertEqual(checkpoint_state.gene_sets, ["gs1", "gs3"])
-        np.testing.assert_array_equal(checkpoint_state.gene_set_in_discovery_mask, [True, True])
-        np.testing.assert_array_equal(checkpoint_state.gene_set_discovery_family_id, [0, 0])
-        np.testing.assert_array_equal(checkpoint_state.betas_uncorrected, [0.2, 0.4])
-        np.testing.assert_array_equal(checkpoint_state.gene_set_prob_factor_vector[:, 0], [0.9, 0.8])
-        np.testing.assert_array_equal(checkpoint_state.exp_gene_set_factors, [[1.0, 0.0], [0.0, 1.0]])
-
     def test_build_discovery_plan_collapses_exact_duplicate_gene_sets(self) -> None:
         state = EagglState()
         state.X_orig = sparse.csr_matrix(
@@ -222,6 +198,66 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         np.testing.assert_allclose(plan.discovery_family_effective_size_full[:2], [1.0, 1.0])
         self.assertEqual(float(plan.discovery_prob_vector[0, 0]), 0.9)
         self.assertEqual(float(plan.discovery_prob_vector[1, 0]), 0.4)
+
+    def test_finalize_factor_outputs_reorders_full_gene_projection(self) -> None:
+        class _State:
+            def __init__(self) -> None:
+                self.exp_lambdak = np.array([1.0, 2.0])
+                self.factor_anchor_relevance = np.array([[0.1], [0.9]])
+                self.factor_anchor_marginal_relevance = None
+                self.factor_relevance = np.array([0.1, 0.9])
+                self.factor_marginal_relevance = None
+                self.exp_gene_factors = np.array([[1.0, 2.0], [3.0, 4.0]])
+                self.exp_gene_factors_full_projected = np.array(
+                    [[10.0, 20.0], [30.0, 40.0], [50.0, 60.0]]
+                )
+                self.exp_pheno_factors = None
+                self.exp_gene_set_factors = np.array([[5.0, 6.0], [7.0, 8.0]])
+                self.trait_linkage_joint = None
+                self.trait_linkage_marginal = None
+                self.trait_linkage_marginal_overlap = None
+                self.trait_linkage_factor_total_mass = None
+                self.trait_linkage_factor_n_eff = None
+                self.trait_linkage_factor_top_share = None
+                self.trait_linkage_factor_top10_share = None
+                self.trait_linkage_broad_factor_flag = None
+                self.gene_prob_factor_vector = np.ones((2, 1), dtype=float)
+                self.gene_set_prob_factor_vector = np.ones((2, 1), dtype=float)
+                self.pheno_prob_factor_vector = None
+                self.pheno_capture_strength = None
+                self.factor_labels = None
+
+            def num_factors(self):
+                return 2
+
+            def get_factor_loadings(self, matrix, loading_type="combined"):
+                return matrix
+
+        state = _State()
+
+        reorder = eaggl_factor_runtime._finalize_factor_outputs(
+            state,
+            factor_gene_set_x_pheno=False,
+            factor_top_loading_type="combined",
+            lmm_auth_key=None,
+            lmm_model=None,
+            lmm_provider="openai",
+            label_gene_sets_only=False,
+            label_include_phenos=False,
+            label_individually=False,
+            bail_fn=lambda msg: (_ for _ in ()).throw(AssertionError(msg)),
+            warn_fn=lambda *args, **kwargs: None,
+            log_fn=lambda *args, **kwargs: None,
+            info_level=1,
+            labeling_module=SimpleNamespace(populate_factor_labels=lambda *args, **kwargs: None),
+        )
+
+        np.testing.assert_array_equal(reorder, [1, 0])
+        np.testing.assert_array_equal(state.exp_gene_factors, [[2.0, 1.0], [4.0, 3.0]])
+        np.testing.assert_array_equal(
+            state.exp_gene_factors_full_projected,
+            [[20.0, 10.0], [40.0, 30.0], [60.0, 50.0]],
+        )
 
     def test_build_discovery_plan_effective_size_weighting_preserves_duplicate_leader_support(self) -> None:
         state = EagglState()
@@ -1261,10 +1297,6 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         state.param_keys = []
 
         with mock.patch.object(
-            eaggl_factor_runtime,
-            "_write_pre_projection_checkpoint",
-            side_effect=lambda *args, **kwargs: None,
-        ), mock.patch.object(
             eaggl_factor_runtime,
             "_apply_canonical_trait_linkage",
             side_effect=lambda *args, **kwargs: None,
