@@ -1167,7 +1167,7 @@ def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clus
     if checkpoint_factor_metrics is None and checkpoint_gene_set_clusters is None and checkpoint_gene_clusters is None:
         return
     log_fn("Writing pre-projection factor checkpoint outputs", info_level)
-    checkpoint_state = _prepare_pre_projection_checkpoint_state(state)
+    checkpoint_state = state
     if getattr(checkpoint_state, "factor_labels", None) is None and checkpoint_state.num_factors() > 0:
         checkpoint_state.factor_labels = ["Factor%d" % (i + 1) for i in range(checkpoint_state.num_factors())]
     if checkpoint_factor_metrics is not None:
@@ -1180,6 +1180,61 @@ def _write_pre_projection_checkpoint(state, *, factor_metrics_out, gene_set_clus
             cluster_row_min_max_loading=cluster_row_min_max_loading,
             factor_output_scope=factor_output_scope,
         )
+
+
+def _factor_output_checkpoint_requested(*, factor_metrics_out, gene_set_clusters_out, gene_clusters_out):
+    return (
+        _checkpoint_output_path(factor_metrics_out) is not None
+        or _checkpoint_output_path(gene_set_clusters_out) is not None
+        or _checkpoint_output_path(gene_clusters_out) is not None
+    )
+
+
+def _apply_factor_reorder_to_checkpoint_state(checkpoint_state, reorder_inds):
+    if checkpoint_state is None or reorder_inds is None:
+        return checkpoint_state
+    reorder_inds = np.asarray(reorder_inds, dtype=int)
+    if reorder_inds.size == 0:
+        return checkpoint_state
+
+    vector_attrs = [
+        "exp_lambdak",
+        "factor_relevance",
+        "factor_marginal_relevance",
+        "trait_linkage_factor_total_mass",
+        "trait_linkage_factor_n_eff",
+        "trait_linkage_factor_top_share",
+        "trait_linkage_factor_top10_share",
+        "trait_linkage_broad_factor_flag",
+    ]
+    for attr in vector_attrs:
+        value = getattr(checkpoint_state, attr, None)
+        if value is not None and hasattr(value, "shape") and value.shape[0] == reorder_inds.size:
+            setattr(checkpoint_state, attr, value[reorder_inds])
+
+    row_factor_attrs = [
+        "factor_anchor_relevance",
+        "factor_anchor_marginal_relevance",
+    ]
+    for attr in row_factor_attrs:
+        value = getattr(checkpoint_state, attr, None)
+        if value is not None and hasattr(value, "shape") and len(value.shape) >= 2 and value.shape[0] == reorder_inds.size:
+            setattr(checkpoint_state, attr, value[reorder_inds, :])
+
+    col_factor_attrs = [
+        "exp_gene_factors",
+        "exp_pheno_factors",
+        "exp_gene_set_factors",
+        "trait_linkage_joint",
+        "trait_linkage_marginal",
+        "trait_linkage_marginal_overlap",
+    ]
+    for attr in col_factor_attrs:
+        value = getattr(checkpoint_state, attr, None)
+        if value is not None and hasattr(value, "shape") and len(value.shape) >= 2 and value.shape[1] == reorder_inds.size:
+            setattr(checkpoint_state, attr, value[:, reorder_inds])
+
+    return checkpoint_state
 
 
 def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, preferred_label=None, log_fn=None, info_level=1):
@@ -4191,6 +4246,7 @@ def _finalize_factor_outputs(
     )
 
     log("Found %d factors" % state.num_factors(), INFO)
+    return reorder_inds
 
 
 def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
@@ -5083,16 +5139,13 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
     state.gene_set_discovery_family_mean_similarity = discovery_plan.discovery_family_mean_similarity_full
     state.gene_set_discovery_family_effective_size = discovery_plan.discovery_family_effective_size_full
 
-    _write_pre_projection_checkpoint(
-        state,
+    pre_projection_checkpoint_state = None
+    if _factor_output_checkpoint_requested(
         factor_metrics_out=factor_metrics_out,
         gene_set_clusters_out=gene_set_clusters_out,
         gene_clusters_out=gene_clusters_out,
-        cluster_row_min_max_loading=cluster_row_min_max_loading,
-        factor_output_scope=factor_output_scope,
-        log_fn=log,
-        info_level=INFO,
-    )
+    ):
+        pre_projection_checkpoint_state = _prepare_pre_projection_checkpoint_state(state)
 
     #now project the additional genes/phenos/gene sets onto the factors
 
@@ -5265,7 +5318,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
             info_level=INFO,
         )
 
-    _finalize_factor_outputs(
+    reorder_inds = _finalize_factor_outputs(
         state,
         factor_gene_set_x_pheno=factor_gene_set_x_pheno,
         factor_top_loading_type=factor_top_loading_type,
@@ -5281,6 +5334,21 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
         info_level=INFO,
         labeling_module=labeling_module,
     )
+
+    if pre_projection_checkpoint_state is not None:
+        _apply_factor_reorder_to_checkpoint_state(pre_projection_checkpoint_state, reorder_inds)
+        if getattr(state, "factor_labels", None) is not None:
+            pre_projection_checkpoint_state.factor_labels = list(state.factor_labels)
+        _write_pre_projection_checkpoint(
+            pre_projection_checkpoint_state,
+            factor_metrics_out=factor_metrics_out,
+            gene_set_clusters_out=gene_set_clusters_out,
+            gene_clusters_out=gene_clusters_out,
+            cluster_row_min_max_loading=cluster_row_min_max_loading,
+            factor_output_scope=factor_output_scope,
+            log_fn=log,
+            info_level=INFO,
+        )
 
     return _build_factor_run_summary(
         state,
