@@ -7,6 +7,7 @@ _PUBLIC_SUBMODULES = frozenset(
     [
         "app",
         "cli",
+        "dashboard",
         "dispatch",
         "gibbs",
         "gibbs_callbacks",
