@@ -462,6 +462,39 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("are mutually exclusive for projection-only mode", err)
 
+    def test_projection_only_accepts_dual_basis_for_separate_full_gene_outputs(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--factor-gene-set-clusters-in",
+            "gene_set_clusters.out.gz",
+            "--X-in",
+            "annotations.tsv.gz",
+            "--gene-set-stats-in",
+            "gene_set_stats.tsv.gz",
+            "--gene-clusters-full-out",
+            "gene_clusters_full.direct.tsv.gz",
+            "--gene-clusters-full-via-gene-sets-out",
+            "gene_clusters_full.via_gene_sets.tsv.gz",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, (proc.stderr or "") + (proc.stdout or ""))
+
+    def test_projection_only_via_gene_sets_requires_gene_set_basis(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--X-in",
+            "annotations.tsv.gz",
+            "--gene-clusters-full-via-gene-sets-out",
+            "gene_clusters_full.via_gene_sets.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-clusters-full-via-gene-sets-out requires --factor-gene-set-clusters-in", err)
+
     def test_anchor_phenos_conflicts_with_gene_stats_inputs(self) -> None:
         proc = self._run(
             "factor",

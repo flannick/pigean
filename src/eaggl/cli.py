@@ -184,6 +184,7 @@ parser.add_option("","--factor-metrics-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--gene-clusters-full-out",default=None)
+parser.add_option("","--gene-clusters-full-via-gene-sets-out",default=None) #write full-gene cluster table by projecting genes through factor gene-set loadings
 parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
 parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="primary") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
@@ -531,6 +532,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-gene-set-clusters-out": "write gene_set_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--gene-clusters-full-out": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
+    "--gene-clusters-full-via-gene-sets-out": "write a projected gene cluster table for all input genes using factor gene-set loadings as the projection basis",
     "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
     "--discovery-model": "choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery",
     "--anchor-aggregation": "combine multiple anchor traits using shared multi-trait mode (`multi`) or noisy-OR union (`any`); with one anchor both reduce exactly to single-trait anchoring",
@@ -711,6 +713,7 @@ _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--consensus-stats-out",
     "--gene-clusters-out",
     "--gene-clusters-full-out",
+    "--gene-clusters-full-via-gene-sets-out",
     "--gene-pheno-stats-out",
     "--gene-set-clusters-out",
     "--learn-phi-report-out",
@@ -1481,13 +1484,25 @@ def _bootstrap_cli(argv=None):
         or parsed_options.factor_gene_set_clusters_in is not None
     )
     if projection_only_factor_inputs:
-        if parsed_options.factor_gene_clusters_in is not None and parsed_options.factor_gene_set_clusters_in is not None:
-            bail("--factor-gene-clusters-in and --factor-gene-set-clusters-in are mutually exclusive for projection-only mode")
         projection_requests = {
             "pheno": bool(getattr(parsed_options, "pheno_clusters_out", None) is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None),
             "gene": bool(getattr(parsed_options, "gene_clusters_full_out", None) is not None),
+            "gene_via_gene_sets": bool(getattr(parsed_options, "gene_clusters_full_via_gene_sets_out", None) is not None),
             "gene_set": bool(parsed_options.gene_set_clusters_out is not None),
         }
+        if parsed_options.factor_gene_clusters_in is not None and parsed_options.factor_gene_set_clusters_in is not None:
+            allowed_dual_basis = (
+                projection_requests["gene_via_gene_sets"]
+                and not projection_requests["pheno"]
+                and not projection_requests["gene_set"]
+                and not parsed_options.run_factor_phewas
+            )
+            if not allowed_dual_basis:
+                bail(
+                    "--factor-gene-clusters-in and --factor-gene-set-clusters-in are mutually exclusive for "
+                    "projection-only mode except when writing separate full-gene projections with "
+                    "--gene-clusters-full-out and/or --gene-clusters-full-via-gene-sets-out"
+                )
         if parsed_options.gene_clusters_out is not None:
             bail("--gene-clusters-out is reserved for original fitted gene loadings; use --gene-clusters-full-out for projection-only gene loadings")
         if parsed_options.factor_gene_set_clusters_in is not None and projection_requests["gene_set"]:
@@ -1502,7 +1517,7 @@ def _bootstrap_cli(argv=None):
             not parsed_options.run_factor_phewas
             and not any(projection_requests.values())
         ):
-            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires at least one requested projection output: --trait-factor-links-out, --gene-clusters-out/--gene-clusters-full-out, or --gene-set-clusters-out")
+            bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires at least one requested projection output: --trait-factor-links-out, --gene-clusters-out/--gene-clusters-full-out/--gene-clusters-full-via-gene-sets-out, or --gene-set-clusters-out")
         if parsed_options.run_factor_phewas and parsed_options.factor_gene_clusters_in is None:
             bail("--run-factor-phewas with precomputed factors requires --factor-gene-clusters-in")
         if projection_requests["pheno"]:
@@ -1527,8 +1542,17 @@ def _bootstrap_cli(argv=None):
             )
         ):
             bail("--gene-set-clusters-out or --gene-clusters-full-out from --factor-gene-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
-        if projection_requests["gene"] and parsed_options.factor_gene_set_clusters_in is not None and not has_x_source:
+        if projection_requests["gene_via_gene_sets"] and parsed_options.factor_gene_set_clusters_in is None:
+            bail("--gene-clusters-full-via-gene-sets-out requires --factor-gene-set-clusters-in in projection-only mode")
+        if (
+            projection_requests["gene"]
+            and parsed_options.factor_gene_set_clusters_in is not None
+            and parsed_options.factor_gene_clusters_in is None
+            and not has_x_source
+        ):
             bail("--gene-clusters-full-out from --factor-gene-set-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
+        if projection_requests["gene_via_gene_sets"] and not has_x_source:
+            bail("--gene-clusters-full-via-gene-sets-out from --factor-gene-set-clusters-in requires --X-in/--X-list/--Xd-in/--Xd-list")
         if (
             projection_requests["gene"]
             and parsed_options.factor_gene_clusters_in is not None
@@ -1539,7 +1563,7 @@ def _bootstrap_cli(argv=None):
                 "so EAGGL can reconstruct beta-weighted gene-gene evidence for direct full-gene projection. "
                 "To project genes via precomputed gene-set factors instead, pass --factor-gene-set-clusters-in."
             )
-        if has_x_source and (projection_requests["gene"] or projection_requests["gene_set"]):
+        if has_x_source and (projection_requests["gene"] or projection_requests["gene_via_gene_sets"] or projection_requests["gene_set"]):
             requested_gene_set_beta_filter = (
                 parsed_options.min_gene_set_read_beta is not None
                 or parsed_options.min_gene_set_read_beta_uncorrected is not None

@@ -70,6 +70,7 @@ def run_main_pipeline(domain, options):
         "gene_set_clusters_out": options.gene_set_clusters_out,
         "gene_clusters_out": options.gene_clusters_out,
         "gene_clusters_full_out": getattr(options, "gene_clusters_full_out", None),
+        "gene_clusters_full_via_gene_sets_out": getattr(options, "gene_clusters_full_via_gene_sets_out", None),
         "trait_factor_links_out": options.trait_factor_links_out,
         "pheno_clusters_out": pheno_projection_stage_result.output_path if pheno_projection_stage_result.ran else None,
         "gene_pheno_stats_out": options.gene_pheno_stats_out,

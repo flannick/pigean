@@ -155,6 +155,7 @@ def _options(**overrides):
         gene_set_clusters_out=None,
         gene_clusters_out=None,
         gene_clusters_full_out=None,
+        gene_clusters_full_via_gene_sets_out=None,
         cluster_row_min_max_loading=0.01,
         factor_output_scope="primary",
         trait_factor_links_out=None,
@@ -208,8 +209,14 @@ class _RuntimeStub:
             )
         )
 
-    def write_full_gene_clusters(self, out, cluster_row_min_max_loading=0.01, factor_output_scope="primary"):
-        self.calls.append(("write_full_gene_clusters", out, cluster_row_min_max_loading, factor_output_scope))
+    def write_full_gene_clusters(
+        self,
+        out,
+        cluster_row_min_max_loading=0.01,
+        factor_output_scope="primary",
+        projection_method="auto",
+    ):
+        self.calls.append(("write_full_gene_clusters", out, cluster_row_min_max_loading, factor_output_scope, projection_method))
 
     def write_trait_factor_links(self, out, output_detail="main"):
         self.calls.append(("write_trait_factor_links", out, output_detail))
@@ -600,7 +607,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             runtime.calls[3],
             ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False, 0.02, "primary_secondary"),
         )
-        self.assertEqual(runtime.calls[4], ("write_full_gene_clusters", "g_cluster_full.tsv", 0.02, "primary_secondary"))
+        self.assertEqual(runtime.calls[4], ("write_full_gene_clusters", "g_cluster_full.tsv", 0.02, "primary_secondary", "auto"))
         self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv", "main"))
         self.assertEqual(runtime.calls[6], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 
@@ -1457,6 +1464,56 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertGreater(runtime.exp_gene_factors[2, 1], 0.0)
         np.testing.assert_allclose(runtime.gene_prob_factor_vector, runtime.exp_gene_factors)
         np.testing.assert_array_equal(runtime.gene_in_discovery_mask, [False, False, False])
+        np.testing.assert_allclose(runtime.exp_gene_factors_full_gene_set_projected, runtime.exp_gene_factors)
+
+    def test_projection_only_can_compute_direct_and_gene_set_full_gene_projections(self) -> None:
+        runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+        runtime.params = {}
+        runtime.genes = ["G1", "G2", "G3"]
+        runtime.gene_to_ind = {"G1": 0, "G2": 1, "G3": 2}
+        runtime.gene_sets = ["GS1", "GS2"]
+        runtime.gene_set_to_ind = {"GS1": 0, "GS2": 1}
+        runtime.X_orig = np.array(
+            [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]],
+            dtype=float,
+        )
+        runtime.betas = np.array([1.0, 0.5], dtype=float)
+        runtime.scale_factors = np.ones(2, dtype=float)
+        runtime.gene_set_in_discovery_mask = np.array([True, True], dtype=bool)
+        runtime.exp_lambdak = np.ones(2, dtype=float)
+        loaded_genes = ["G1", "G2"]
+        loaded_gene_factors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+        loaded_gene_sets = ["GS1", "GS2"]
+        loaded_gene_set_factors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+
+        domain = eaggl.build_main_domain()
+        eaggl.eaggl_factor._project_full_gene_factors_from_loaded_gene_factors(
+            domain,
+            runtime,
+            loaded_genes,
+            loaded_gene_factors,
+            gene_gene_beta_source="beta",
+        )
+        direct_projection = np.asarray(runtime.exp_gene_factors_full_projected, dtype=float)
+        runtime.exp_gene_factors = loaded_gene_factors
+        runtime.gene_prob_factor_vector = loaded_gene_factors
+        runtime.gene_in_discovery_mask = np.array([True, True, False], dtype=bool)
+        eaggl.eaggl_factor._project_gene_factors_from_loaded_gene_set_factors(
+            domain,
+            runtime,
+            loaded_gene_sets,
+            loaded_gene_set_factors,
+        )
+
+        self.assertEqual(direct_projection.shape, (3, 2))
+        self.assertEqual(runtime.exp_gene_factors_full_gene_set_projected.shape, (3, 2))
+        np.testing.assert_allclose(runtime.exp_gene_factors_full_projected, direct_projection)
+        self.assertFalse(
+            np.allclose(
+                runtime.exp_gene_factors_full_projected,
+                runtime.exp_gene_factors_full_gene_set_projected,
+            )
+        )
 
     def test_write_matrix_factors_reports_factor_total_mass(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

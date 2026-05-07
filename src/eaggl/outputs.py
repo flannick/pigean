@@ -11,6 +11,7 @@ class FactorOutputPlan:
     gene_set_clusters_out: str | None = None
     gene_clusters_out: str | None = None
     gene_clusters_full_out: str | None = None
+    gene_clusters_full_via_gene_sets_out: str | None = None
     trait_factor_links_out: str | None = None
     trait_factor_links_output_detail: str = "main"
     gene_pheno_stats_out: str | None = None
@@ -56,6 +57,7 @@ def build_factor_output_plan(options):
         gene_set_clusters_out=options.gene_set_clusters_out,
         gene_clusters_out=options.gene_clusters_out,
         gene_clusters_full_out=getattr(options, "gene_clusters_full_out", None),
+        gene_clusters_full_via_gene_sets_out=getattr(options, "gene_clusters_full_via_gene_sets_out", None),
         trait_factor_links_out=getattr(options, "trait_factor_links_out", None),
         trait_factor_links_output_detail=getattr(options, "trait_factor_links_output_detail", "main"),
         gene_pheno_stats_out=options.gene_pheno_stats_out,
@@ -88,6 +90,14 @@ def write_factor_outputs_for_plan(runtime, output_plan):
             output_plan.gene_clusters_full_out,
             cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
             factor_output_scope=output_plan.factor_output_scope,
+            projection_method="auto",
+        )
+    if output_plan.gene_clusters_full_via_gene_sets_out is not None:
+        runtime.write_full_gene_clusters(
+            output_plan.gene_clusters_full_via_gene_sets_out,
+            cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
+            factor_output_scope=output_plan.factor_output_scope,
+            projection_method="gene_set_loadings",
         )
     trait_factor_link_paths = []
     if output_plan.trait_factor_links_out is not None:

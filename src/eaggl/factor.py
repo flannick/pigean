@@ -308,6 +308,9 @@ def projection_only_requested_targets(options):
         "gene": bool(
             getattr(options, "gene_clusters_full_out", None) is not None
         ),
+        "gene_via_gene_sets": bool(
+            getattr(options, "gene_clusters_full_via_gene_sets_out", None) is not None
+        ),
         "gene_set": bool(getattr(options, "gene_set_clusters_out", None) is not None),
     }
 
@@ -319,6 +322,7 @@ def projection_only_x_required(options):
     return bool(
         (has_gene_basis and targets["gene_set"])
         or (has_gene_basis and getattr(options, "gene_clusters_full_out", None) is not None)
+        or targets["gene_via_gene_sets"]
         or (has_gene_set_basis and targets["gene"])
     )
 
@@ -426,6 +430,7 @@ def _project_gene_factors_from_loaded_gene_set_factors(domain, runtime, loaded_g
         cap_genes=True,
         normalize_genes=False,
     )
+    runtime.exp_gene_factors_full_gene_set_projected = np.asarray(runtime.exp_gene_factors, dtype=float)
     runtime.gene_prob_factor_vector = np.asarray(runtime.exp_gene_factors, dtype=float)
     runtime.gene_in_discovery_mask = np.full(len(runtime.genes), False, dtype=bool)
     runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
@@ -433,6 +438,7 @@ def _project_gene_factors_from_loaded_gene_set_factors(domain, runtime, loaded_g
         {
             "factor_projection_only_gene_clusters": True,
             "factor_projection_only_gene_basis": "gene_sets",
+            "factor_projection_only_gene_set_mediated_full_gene_projection": True,
             "factor_projection_only_gene_aligned_gene_sets": len(common_gene_set_indices),
         },
         overwrite=True,
@@ -480,6 +486,7 @@ def _project_full_gene_factors_from_loaded_gene_factors(
             "gene_gene_beta_source": beta_source,
             "factor_projection_only_gene_clusters": True,
             "factor_projection_only_gene_basis": "genes_direct",
+            "factor_projection_only_direct_full_gene_projection": True,
             "factor_projection_only_gene_aligned_genes": len(common_pairs),
         },
         overwrite=True,
@@ -491,9 +498,10 @@ def _project_full_gene_factors_from_loaded_gene_factors(
     )
     if full_gene_factors is None:
         domain.bail("Could not compute direct full-gene projection from --factor-gene-clusters-in")
+    runtime.exp_gene_factors_full_projected = np.asarray(full_gene_factors, dtype=float)
     runtime.exp_gene_factors = np.asarray(full_gene_factors, dtype=float)
-    runtime.gene_prob_factor_vector = np.asarray(runtime.exp_gene_factors, dtype=float)
-    return runtime.exp_gene_factors
+    runtime.gene_prob_factor_vector = np.asarray(runtime.exp_gene_factors_full_projected, dtype=float)
+    return runtime.exp_gene_factors_full_projected
 
 
 def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
@@ -619,13 +627,24 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
                     loaded_gene_factors,
                     gene_gene_beta_source=getattr(options, "gene_gene_beta_source", "beta"),
                 )
+                if loaded_gene_set_factors is not None:
+                    runtime.exp_gene_factors = np.asarray(loaded_gene_factors, dtype=float)
+                    runtime.gene_prob_factor_vector = np.asarray(loaded_gene_factors, dtype=float)
+                    runtime.gene_in_discovery_mask = np.full(len(loaded_genes), True, dtype=bool)
+                    runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
             elif loaded_gene_factors is not None:
                 runtime.genes = loaded_genes
                 runtime.gene_to_ind = {gene: i for i, gene in enumerate(loaded_genes)}
                 runtime.exp_gene_factors = loaded_gene_factors
                 runtime.gene_in_discovery_mask = np.full(len(loaded_genes), True, dtype=bool)
                 runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
-            if loaded_gene_set_factors is not None and getattr(options, "gene_clusters_full_out", None) is not None:
+            if loaded_gene_set_factors is not None and (
+                getattr(options, "gene_clusters_full_via_gene_sets_out", None) is not None
+                or (
+                    getattr(options, "gene_clusters_full_out", None) is not None
+                    and loaded_gene_factors is None
+                )
+            ):
                 _project_gene_factors_from_loaded_gene_set_factors(
                     domain,
                     runtime,

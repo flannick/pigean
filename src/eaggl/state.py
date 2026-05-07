@@ -3627,9 +3627,20 @@ class EagglState(object):
                         output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % value for value in row_raw_loadings]), "\t".join(["%.4g" % (multiplier * specific_pheno_factor_loadings[i,k]) for k in ordered_inds]), "\t".join(["%.4g" % (multiplier * combined_pheno_factor_loadings[i,k]) for k in ordered_inds])))
 
 
-    def write_full_gene_clusters(self, gene_clusters_output_file=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary"):
+    def write_full_gene_clusters(
+        self,
+        gene_clusters_output_file=None,
+        cluster_row_min_max_loading=0.01,
+        factor_output_scope="primary",
+        projection_method="auto",
+    ):
         if gene_clusters_output_file is None:
             return
+        projection_method = str(projection_method or "auto")
+        if projection_method not in set(["auto", "direct_gene_gene", "gene_set_loadings"]):
+            raise ValueError(
+                "projection_method must be one of: auto, direct_gene_gene, gene_set_loadings"
+            )
         has_projection_only_full_gene_factors = bool(self.params.get("factor_projection_only_gene_clusters", False)) and (
             self.exp_gene_factors is not None
             and self.genes is not None
@@ -3641,10 +3652,25 @@ class EagglState(object):
             and self.genes is not None
             and np.asarray(runtime_full_gene_factors).shape[0] == len(self.genes)
         )
+        runtime_full_gene_set_projected_factors = getattr(
+            self,
+            "exp_gene_factors_full_gene_set_projected",
+            None,
+        )
+        has_runtime_gene_set_projected_factors = (
+            runtime_full_gene_set_projected_factors is not None
+            and self.genes is not None
+            and np.asarray(runtime_full_gene_set_projected_factors).shape[0] == len(self.genes)
+        )
         if (
             self.num_factors() == 0
             or self.X_orig is None
-            or (self.exp_gene_set_factors is None and not has_projection_only_full_gene_factors and not has_runtime_full_gene_factors)
+            or (
+                self.exp_gene_set_factors is None
+                and not has_projection_only_full_gene_factors
+                and not has_runtime_full_gene_factors
+                and not has_runtime_gene_set_projected_factors
+            )
         ):
             log("No projected full-gene clusters available; not writing %s" % gene_clusters_output_file)
             return
@@ -3711,12 +3737,31 @@ class EagglState(object):
             basis_gene_set_factors = None
             basis_gene_set_prob_vector = None
 
-        if (
+        if projection_method == "gene_set_loadings" and has_runtime_gene_set_projected_factors:
+            retained_projected_gene_factors = np.asarray(runtime_full_gene_set_projected_factors, dtype=float)
+        elif projection_method == "gene_set_loadings":
+            if basis_gene_set_factors is None:
+                log("No gene-set-factor basis available; not writing %s" % gene_clusters_output_file)
+                return
+            retained_gene_matrix_to_project = self.X_orig.T
+            if not run_transpose:
+                retained_gene_matrix_to_project = retained_gene_matrix_to_project.T
+            retained_projected_gene_factors = self._project_H_with_fixed_W(
+                basis_gene_set_factors,
+                retained_gene_matrix_to_project[gene_set_in_discovery_mask, :],
+                basis_gene_set_prob_vector,
+                _as_2d_or_none(self.gene_prob_factor_vector),
+                phi=phi,
+                tol=rel_tol,
+                cap_genes=True,
+                normalize_genes=False,
+            )
+        elif has_runtime_full_gene_factors:
+            retained_projected_gene_factors = np.asarray(runtime_full_gene_factors, dtype=float)
+        elif (
             has_projection_only_full_gene_factors
         ):
             retained_projected_gene_factors = np.asarray(self.exp_gene_factors, dtype=float)
-        elif has_runtime_full_gene_factors:
-            retained_projected_gene_factors = np.asarray(runtime_full_gene_factors, dtype=float)
         elif discovery_model == "gene_by_gene":
             retained_projected_gene_factors = self.project_full_gene_factors_gene_by_gene(cap_genes=True)
         else:
@@ -3753,7 +3798,22 @@ class EagglState(object):
                     self._nnls_project_matrix(gene_set_prob_factor_vector, self.X_orig_missing_genes)
                 )
 
-            if self.X_orig_missing_genes is not None and discovery_model == "gene_by_gene":
+            if self.X_orig_missing_genes is not None and projection_method == "gene_set_loadings":
+                missing_gene_matrix_to_project = self.X_orig_missing_genes.T
+                if not run_transpose:
+                    missing_gene_matrix_to_project = missing_gene_matrix_to_project.T
+                missing_projected_gene_factors = self._project_H_with_fixed_W(
+                    basis_gene_set_factors,
+                    missing_gene_matrix_to_project[gene_set_in_discovery_mask, :],
+                    basis_gene_set_prob_vector,
+                    missing_gene_prob_factor_vector,
+                    phi=phi,
+                    tol=rel_tol,
+                    cap_genes=True,
+                    normalize_genes=False,
+                )
+                projected_gene_factors.append(np.asarray(missing_projected_gene_factors, dtype=float))
+            elif self.X_orig_missing_genes is not None and discovery_model == "gene_by_gene":
                 missing_projected_gene_factors = self.project_missing_gene_factors_gene_by_gene(cap_genes=True)
                 projected_gene_factors.append(np.asarray(missing_projected_gene_factors, dtype=float))
             elif self.X_orig_missing_genes is not None:

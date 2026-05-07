@@ -194,7 +194,19 @@ Projection-only full-gene output from gene-set factors:
 $PYTHON -m eaggl factor \
   --factor-gene-set-clusters-in results/gene_set_clusters.out.gz \
   --X-in /path/to/annotations.gmt \
-  --gene-clusters-full-out results/gene_clusters_full.projected.out.gz
+  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full.via_gene_sets.out.gz
+```
+
+Projection-only direct and gene-set-mediated full-gene outputs in one command:
+
+```bash
+$PYTHON -m eaggl factor \
+  --factor-gene-clusters-in results/gene_clusters.out.gz \
+  --factor-gene-set-clusters-in results/gene_set_clusters.out.gz \
+  --X-in /path/to/annotations.gmt \
+  --gene-set-stats-in /path/to/gene_set_stats.out.gz \
+  --gene-clusters-full-out results/gene_clusters_full.direct.out.gz \
+  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full.via_gene_sets.out.gz
 ```
 
 Bundle mode:
