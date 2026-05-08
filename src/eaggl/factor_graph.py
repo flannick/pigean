@@ -63,7 +63,8 @@ class GraphConfig:
     trait_min_neff: float = 25.0
     gene_min_loading_frac: float = 0.5
     trait_min_loading_frac: float = 0.5
-    max_num_gene_nodes_per_factor: int = 5
+    max_num_factor_nodes: int = 50
+    max_num_gene_nodes_per_factor: int = 3
     max_num_trait_nodes_per_factor: int = 5
     coordinate_scale: float = 5.0
     trait_coordinate_scale: float = 0.2
@@ -1103,6 +1104,24 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
   const tooltip = document.getElementById("tooltip");
   const nodeById = new Map(graph.nodes.map(node => [node.id, node]));
   const candidateNodeById = new Map((graph.candidate_nodes || []).map(node => [node.id, node]));
+  const neighborsByNode = new Map();
+  const incidentEdgesByNode = new Map();
+  let hoveredNodeId = null;
+  for (const node of graph.nodes) {
+    neighborsByNode.set(node.id, new Set());
+    incidentEdgesByNode.set(node.id, new Set());
+  }
+  graph.edges.forEach((edge, index) => {
+    edge._index = index;
+    if (!neighborsByNode.has(edge.from)) neighborsByNode.set(edge.from, new Set());
+    if (!neighborsByNode.has(edge.to)) neighborsByNode.set(edge.to, new Set());
+    if (!incidentEdgesByNode.has(edge.from)) incidentEdgesByNode.set(edge.from, new Set());
+    if (!incidentEdgesByNode.has(edge.to)) incidentEdgesByNode.set(edge.to, new Set());
+    neighborsByNode.get(edge.from).add(edge.to);
+    neighborsByNode.get(edge.to).add(edge.from);
+    incidentEdgesByNode.get(edge.from).add(index);
+    incidentEdgesByNode.get(edge.to).add(index);
+  });
   const candidateEdgesByNode = new Map();
   for (const edge of (graph.candidate_edges || [])) {
     if (!candidateEdgesByNode.has(edge.to)) candidateEdgesByNode.set(edge.to, []);
@@ -1111,6 +1130,7 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
   const activeNodeTypes = new Set(["factor", "gene", "trait"]);
   const textFilters = [];
   let hideUnmatched = false;
+  let highlightNeighbors = false;
   let physicsEnabled = __PHYSICS_ENABLED__;
   let running = physicsEnabled;
   let viewBox = {x: 0, y: 0, w: graph.viewport.width, h: graph.viewport.height};
@@ -1184,9 +1204,9 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       group.setPointerCapture(event.pointerId);
       event.stopPropagation();
     });
-    group.addEventListener("pointerenter", event => showTooltip(event, node));
+    group.addEventListener("pointerenter", event => { hoveredNodeId = node._hoverEligible ? node.id : null; showTooltip(event, node); update(); });
     group.addEventListener("pointermove", event => showTooltip(event, node));
-    group.addEventListener("pointerleave", hideTooltip);
+    group.addEventListener("pointerleave", () => { hoveredNodeId = null; hideTooltip(); update(); });
     group.addEventListener("click", event => {
       event.stopPropagation();
       showNodeDetails(node);
@@ -1361,6 +1381,8 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
   }
 
   function update() {
+    const hoveredNeighbors = hoveredNodeId ? (neighborsByNode.get(hoveredNodeId) || new Set()) : new Set();
+    const hoveredEdges = hoveredNodeId ? (incidentEdgesByNode.get(hoveredNodeId) || new Set()) : new Set();
     for (const edge of graph.edges) {
       const source = nodeById.get(edge.from);
       const target = nodeById.get(edge.to);
@@ -1371,17 +1393,25 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       edge._el.setAttribute("y2", target.y);
       const edgeVisible = source._visible && target._visible;
       edge._el.style.display = edgeVisible ? "" : "none";
-      edge._el.style.opacity = edgeVisible ? (source._dimmed || target._dimmed ? "0.18" : "1") : "0";
+      const edgeHighlighted = hoveredEdges.has(edge._index);
+      const baseOpacity = source._dimmed || target._dimmed ? 0.18 : 1.0;
+      edge._el.style.opacity = edgeVisible ? (hoveredNodeId ? (edgeHighlighted ? "1" : "0.08") : String(baseOpacity)) : "0";
+      edge._el.setAttribute("stroke-width", edgeHighlighted ? Math.max(Number(edge.width || 1) * 2.2, Number(edge.width || 1) + 2.0) : edge.width);
+      edge._el.setAttribute("stroke-opacity", edgeHighlighted ? "0.9" : "0.45");
     }
     for (const node of graph.nodes) {
       placeNodeShape(node._shape, node);
+      const nodeHighlighted = hoveredNodeId && (node.id === hoveredNodeId || hoveredNeighbors.has(node.id));
+      const filterOpacity = node._filterMatched ? 1 : (node._filterNeighbor ? 0.52 : (node._dimmed ? 0.16 : 1));
       node._group.style.display = node._visible ? "" : "none";
-      node._group.style.opacity = node._dimmed ? "0.22" : "1";
+      node._group.style.opacity = hoveredNodeId ? (nodeHighlighted ? "1" : "0.16") : String(filterOpacity);
+      node._shape.setAttribute("stroke-width", nodeHighlighted ? 5 : 3);
       if (node._label) {
         node._label.setAttribute("x", node.x);
         node._label.setAttribute("y", node.y + node.radius + 14);
         node._label.style.display = node._visible ? "" : "none";
-        node._label.style.opacity = node._dimmed ? "0.25" : "1";
+        node._label.style.opacity = hoveredNodeId ? (nodeHighlighted ? "1" : "0.16") : String(filterOpacity);
+        node._label.style.fontWeight = nodeHighlighted ? "800" : "400";
       }
     }
   }
@@ -1406,6 +1436,15 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
     return {visible: !hideUnmatched, dimmed: true};
   }
 
+  function filterStateForNodeWithNeighbors(node, matchedNodeIds, neighborNodeIds) {
+    const base = filterStateForNode(node);
+    const hasActiveFilter = textFilters.length > 0;
+    if (!highlightNeighbors || !hasActiveFilter || matchedNodeIds.has(node.id)) return base;
+    if (!neighborNodeIds.has(node.id)) return base;
+    if (hideUnmatched) return {visible: true, dimmed: true, neighbor: true};
+    return {visible: true, dimmed: false, neighbor: true};
+  }
+
   function renderFilterChips() {
     const container = document.getElementById("filterChips");
     container.innerHTML = "";
@@ -1425,14 +1464,29 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
 
   function applyFilters() {
     let visibleCount = 0;
+    const matchedNodeIds = new Set();
+    const neighborNodeIds = new Set();
+    if (textFilters.length > 0) {
+      for (const node of graph.nodes) {
+        if (activeNodeTypes.has(node.kind) && nodeMatchesText(node)) {
+          matchedNodeIds.add(node.id);
+          for (const neighbor of (neighborsByNode.get(node.id) || [])) {
+            neighborNodeIds.add(neighbor);
+          }
+        }
+      }
+    }
     for (const node of graph.nodes) {
-      const state = filterStateForNode(node);
+      const state = filterStateForNodeWithNeighbors(node, matchedNodeIds, neighborNodeIds);
       node._visible = state.visible;
       node._dimmed = state.dimmed;
+      node._filterMatched = matchedNodeIds.has(node.id);
+      node._filterNeighbor = Boolean(state.neighbor);
+      node._hoverEligible = textFilters.length === 0 || node._filterMatched;
       if (node._visible) visibleCount += 1;
     }
     renderFilterChips();
-    const mode = hideUnmatched ? "hide unmatched" : "dim unmatched";
+    const mode = `${hideUnmatched ? "hide unmatched" : "dim unmatched"}${highlightNeighbors ? ", highlight neighbors" : ""}`;
     document.getElementById("filterStatus").textContent = `${visibleCount} / ${graph.nodes.length} nodes visible (${mode})`;
     update();
   }
@@ -1577,6 +1631,10 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
     hideUnmatched = this.checked;
     applyFilters();
   });
+  document.getElementById("highlightNeighborsCheckbox").addEventListener("change", function() {
+    highlightNeighbors = this.checked;
+    applyFilters();
+  });
   document.getElementById("addNodeFilterButton").addEventListener("click", function() {
     addTextFilters(document.getElementById("nodeFilterInput").value);
   });
@@ -1654,6 +1712,7 @@ def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int 
     <label><input class="node-type-filter" type="checkbox" value="gene" checked> genes</label>
     <label><input class="node-type-filter" type="checkbox" value="trait" checked> phenotypes</label>
     <label><input id="hideUnmatchedCheckbox" type="checkbox"> hide unmatched</label>
+    <label><input id="highlightNeighborsCheckbox" type="checkbox"> highlight neighbors</label>
     <input id="nodeFilterInput" type="search" placeholder="Add text filter, comma-separated OR terms">
     <button id="addNodeFilterButton" type="button">Add Filter</button>
     <button id="clearNodeFiltersButton" type="button">Clear</button>
@@ -1832,6 +1891,17 @@ def _params_indicate_multi_anchor(params: dict[str, str]) -> bool:
     return False
 
 
+def _limit_factor_nodes(factors_info: list[FactorInfo], max_num_factor_nodes: int | None) -> list[FactorInfo]:
+    if max_num_factor_nodes is None or max_num_factor_nodes <= 0 or len(factors_info) <= max_num_factor_nodes:
+        return factors_info
+    ranked = sorted(
+        enumerate(factors_info),
+        key=lambda item: (-item[1].relevance, _factor_sort_key(item[1].factor), item[0]),
+    )
+    keep_indices = {index for index, _factor in ranked[:max_num_factor_nodes]}
+    return [factor for index, factor in enumerate(factors_info) if index in keep_indices]
+
+
 def build_graph_from_files(args: argparse.Namespace) -> dict:
     discovered = discover_inputs(args.eaggl_dir)
     factors_in = args.factors_in or discovered["factors"]
@@ -1844,6 +1914,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
     if gene_clusters_in is None and trait_links_in is None:
         _bail("Need gene or trait cluster inputs; provide --gene-clusters-in/--trait-factor-links-in or an --eaggl-dir with standard outputs")
     factors_info = read_factors(factors_in, id_col=args.factors_id_col, label_col=args.factors_label_col, relevance_col=args.factors_relevance_col)
+    factors_info = _limit_factor_nodes(factors_info, args.max_num_factor_nodes)
     factors = [factor.factor for factor in factors_info]
     factor_labels = {factor.factor: factor.label for factor in factors_info}
     gene_support = read_anchor_support_rows(
@@ -1870,6 +1941,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         trait_min_neff=args.trait_min_neff,
         gene_min_loading_frac=args.gene_min_loading_frac,
         trait_min_loading_frac=args.trait_min_loading_frac,
+        max_num_factor_nodes=args.max_num_factor_nodes,
         max_num_gene_nodes_per_factor=args.max_num_gene_nodes_per_factor,
         max_num_trait_nodes_per_factor=args.max_num_trait_nodes_per_factor,
         coordinate_scale=args.coordinate_scale,
@@ -1998,7 +2070,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trait-min-neff", type=float, default=25.0, help="Minimum trait effective size for phenotype nodes when trait_neff/trait_n_eff is available.")
     parser.add_argument("--gene-min-loading-frac", type=float, default=0.5)
     parser.add_argument("--trait-min-loading-frac", type=float, default=0.5)
-    parser.add_argument("--max-num-gene-nodes-per-factor", type=int, default=5)
+    parser.add_argument("--max-num-factor-nodes", type=int, default=50, help="Maximum factor nodes to show, ranked by relevance; use 0 to show all factors.")
+    parser.add_argument("--max-num-gene-nodes-per-factor", type=int, default=3)
     parser.add_argument("--max-num-trait-nodes-per-factor", type=int, default=5)
     parser.add_argument("--coordinate-scale", type=float, default=5.0)
     parser.add_argument("--trait-coordinate-scale", type=float, default=0.2, help="Scale trait-node displacement from the factor centroid after layout; 1.0 preserves the raw MDS distance.")

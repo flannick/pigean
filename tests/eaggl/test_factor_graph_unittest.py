@@ -149,6 +149,7 @@ class EagglFactorGraphTest(unittest.TestCase):
         self.assertIn("node-type-filter", html_text)
         self.assertIn("hideUnmatchedCheckbox", html_text)
         self.assertIn('id="hideUnmatchedCheckbox" type="checkbox">', html_text)
+        self.assertIn("highlightNeighborsCheckbox", html_text)
         self.assertIn("filterChips", html_text)
         self.assertIn("phenotypes", html_text)
         self.assertIn("addTextFilters", html_text)
@@ -296,6 +297,42 @@ class EagglFactorGraphTest(unittest.TestCase):
         self.assertEqual(candidate_by_id["GENE4"]["provenance"]["near_top_factor_loadings"][0]["factor_display_label"], "immune")
         candidate_edge_keys = {(edge["from"], edge["to"]) for edge in graph["candidate_edges"]}
         self.assertIn(("Factor1", "GENE4"), candidate_edge_keys)
+
+    def test_factor_node_cap_keeps_most_relevant_factors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_gz(
+                root / "factors.out.gz",
+                "Factor\tlabel\trelevance\n"
+                "Factor1\tlow\t0.1\n"
+                "Factor2\thigh\t0.9\n"
+                "Factor3\tmid\t0.5\n",
+            )
+            _write_gz(
+                root / "gene_clusters.out.gz",
+                "Gene\tcombined\tlog_bf\tprior\tcluster\tlabel\tFactor1\tFactor2\tFactor3\n"
+                "GENE1\t2.0\t1.0\t1.0\tFactor1\tlow\t0.9\t0.0\t0.0\n"
+                "GENE2\t2.0\t1.0\t1.0\tFactor2\thigh\t0.0\t0.9\t0.0\n"
+                "GENE3\t2.0\t1.0\t1.0\tFactor3\tmid\t0.0\t0.0\t0.9\n",
+            )
+            parser = factor_graph.build_parser()
+            args = parser.parse_args(
+                [
+                    "--eaggl-dir",
+                    str(root),
+                    "--max-num-factor-nodes",
+                    "2",
+                    "--json-out",
+                    str(root / "graph.json"),
+                ]
+            )
+            graph = factor_graph.build_graph_from_files(args)
+
+        self.assertEqual(graph["factors"], ["Factor2", "Factor3"])
+        node_ids = {node["id"] for node in graph["nodes"]}
+        self.assertIn("GENE2", node_ids)
+        self.assertIn("GENE3", node_ids)
+        self.assertNotIn("GENE1", node_ids)
 
     def test_provenance_inputs_are_embedded_in_nodes_and_factors(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

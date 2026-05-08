@@ -223,6 +223,11 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertIn("numeric-filter", html)
         self.assertIn("loading-heatmap", html)
         self.assertIn("heatmapMetricSelect", html)
+        self.assertIn("data-heatmap-regex-table", html)
+        self.assertIn("heatmap-regex-label", html)
+        self.assertIn("data-heatmap-tip", html)
+        self.assertIn("bindHeatmapTooltips", html)
+        self.assertIn("factor-tabs", html)
         self.assertIn("refreshEagglTable", html)
         self.assertIn("data-open-row-tab", html)
 

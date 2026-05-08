@@ -90,8 +90,9 @@ By default, phenotype nodes are also filtered to traits with `trait_neff > 25` w
 ## Useful Filters
 
 ```bash
---max-num-gene-nodes-per-factor 10
---max-num-trait-nodes-per-factor 10
+--max-num-factor-nodes 50
+--max-num-gene-nodes-per-factor 3
+--max-num-trait-nodes-per-factor 5
 --gene-min-loading 0.01
 --trait-min-loading 0.005
 --trait-min-neff 25
