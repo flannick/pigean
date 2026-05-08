@@ -88,6 +88,7 @@ class FactorExecutionConfig:
     learn_phi_min_primary_factors: int = 3
     learn_phi_max_primary_gene_max_weight_q90: float | None = None
     learn_phi_max_steps: int = 5
+    learn_phi_values: str | None = None
     learn_phi_expand_factor: float = 2.0
     learn_phi_weight_floor: float | None = None
     learn_phi_metric_factor_scope: str = "primary"
@@ -188,6 +189,7 @@ class FactorExecutionConfig:
             "learn_phi_min_primary_factors": self.learn_phi_min_primary_factors,
             "learn_phi_max_primary_gene_max_weight_q90": self.learn_phi_max_primary_gene_max_weight_q90,
             "learn_phi_max_steps": self.learn_phi_max_steps,
+            "learn_phi_values": self.learn_phi_values,
             "learn_phi_expand_factor": self.learn_phi_expand_factor,
             "learn_phi_weight_floor": self.learn_phi_weight_floor,
             "learn_phi_metric_factor_scope": self.learn_phi_metric_factor_scope,
@@ -1783,6 +1785,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_min_primary_factors=getattr(options, "learn_phi_min_primary_factors", 3),
         learn_phi_max_primary_gene_max_weight_q90=getattr(options, "learn_phi_max_primary_gene_max_weight_q90", None),
         learn_phi_max_steps=options.learn_phi_max_steps,
+        learn_phi_values=getattr(options, "learn_phi_values", None),
         learn_phi_expand_factor=options.learn_phi_expand_factor,
         learn_phi_weight_floor=options.learn_phi_weight_floor,
         learn_phi_metric_factor_scope=getattr(options, "learn_phi_metric_factor_scope", "primary"),

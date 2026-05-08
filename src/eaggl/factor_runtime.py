@@ -1618,6 +1618,7 @@ def _build_factor_param_record(
     learn_phi_min_primary_factors,
     learn_phi_max_primary_gene_max_weight_q90,
     learn_phi_max_steps,
+    learn_phi_values,
     learn_phi_expand_factor,
     learn_phi_weight_floor,
     learn_phi_metric_factor_scope,
@@ -1718,6 +1719,7 @@ def _build_factor_param_record(
         "learn_phi_min_primary_factors": int(learn_phi_min_primary_factors),
         "learn_phi_max_primary_gene_max_weight_q90": None if learn_phi_max_primary_gene_max_weight_q90 is None else float(learn_phi_max_primary_gene_max_weight_q90),
         "learn_phi_max_steps": int(learn_phi_max_steps),
+        "learn_phi_values": learn_phi_values,
         "learn_phi_expand_factor": float(learn_phi_expand_factor),
         "learn_phi_weight_floor": None if learn_phi_weight_floor is None else float(learn_phi_weight_floor),
         "learn_phi_metric_factor_scope": str(learn_phi_metric_factor_scope),
@@ -3429,6 +3431,25 @@ def _write_phi_factor_metrics_report(report_path, candidates, *, selected_phi):
                 )
 
 
+def _parse_explicit_phi_values(values):
+    if values is None:
+        return None
+    if isinstance(values, str):
+        raw_values = [part.strip() for part in values.split(",")]
+    else:
+        raw_values = list(values)
+    parsed = []
+    for raw_value in raw_values:
+        if raw_value in (None, ""):
+            continue
+        value = float(raw_value)
+        if value <= 0:
+            raise ValueError("explicit phi values must be positive")
+        if not any(math.isclose(value, existing, rel_tol=1e-12, abs_tol=1e-15) for existing in parsed):
+            parsed.append(value)
+    return sorted(parsed)
+
+
 def _record_phi_search_params(
     state,
     *,
@@ -3451,6 +3472,7 @@ def _record_phi_search_params(
     min_primary_factors,
     max_primary_gene_max_weight_q90,
     max_steps,
+    explicit_phi_values,
     expand_factor,
     mass_floor_frac,
     learn_phi_backend,
@@ -3484,6 +3506,7 @@ def _record_phi_search_params(
             "learn_phi_mass_floor_frac": float(mass_floor_frac),
             "learn_phi_backend": str(learn_phi_backend),
             "learn_phi_max_steps": int(max_steps),
+            "learn_phi_values": None if explicit_phi_values is None else ",".join("%.12g" % float(value) for value in explicit_phi_values),
             "learn_phi_expand_factor": float(expand_factor),
             "learn_phi_weight_floor": float(weight_floor),
             "learn_phi_metric_factor_scope": str(metric_factor_scope),
@@ -3601,6 +3624,7 @@ def _learn_phi(
     min_primary_factors,
     max_primary_gene_max_weight_q90,
     max_steps,
+    explicit_phi_values=None,
     expand_factor,
     weight_floor,
     metric_factor_scope="primary",
@@ -3623,6 +3647,7 @@ def _learn_phi(
     redundancy_hard_filter=True,
 ):
     candidates_by_phi = {}
+    explicit_phi_values = _parse_explicit_phi_values(explicit_phi_values)
     _reset_phi_prefixed_outputs(
         [
             factor_phi_factors_out,
@@ -3760,35 +3785,44 @@ def _learn_phi(
             return _new_phi(min(float(candidate["phi"]) for candidate in sorted_candidates) / expand_factor)
         return _new_phi(max(float(candidate["phi"]) for candidate in sorted_candidates) * expand_factor)
 
-    _evaluate(initial_phi, consume_budget=False)
+    if explicit_phi_values is not None:
+        log_fn(
+            "Evaluating explicit phi candidate set: %s"
+            % ",".join("%.6g" % float(value) for value in explicit_phi_values),
+            info_level,
+        )
+        for phi_value in explicit_phi_values:
+            _evaluate(phi_value, consume_budget=False)
+    else:
+        _evaluate(initial_phi, consume_budget=False)
 
-    while remaining_evaluations > 0 and _size_bracket() is None:
-        proposal = _propose_expansion()
-        if proposal is None:
-            sorted_phis = sorted(float(candidate["phi"]) for candidate in candidates_by_phi.values())
-            lower_proposal = _new_phi(sorted_phis[0] / expand_factor)
-            upper_proposal = _new_phi(sorted_phis[-1] * expand_factor)
-            proposal = lower_proposal if lower_proposal is not None else upper_proposal
-        if proposal is None:
-            break
-        _evaluate(proposal)
+        while remaining_evaluations > 0 and _size_bracket() is None:
+            proposal = _propose_expansion()
+            if proposal is None:
+                sorted_phis = sorted(float(candidate["phi"]) for candidate in candidates_by_phi.values())
+                lower_proposal = _new_phi(sorted_phis[0] / expand_factor)
+                upper_proposal = _new_phi(sorted_phis[-1] * expand_factor)
+                proposal = lower_proposal if lower_proposal is not None else upper_proposal
+            if proposal is None:
+                break
+            _evaluate(proposal)
 
-    while remaining_evaluations > 0:
-        bracket = _size_bracket()
-        if bracket is None:
-            break
-        low_candidate, high_candidate = bracket
-        low_phi = float(low_candidate["phi"])
-        high_phi = float(high_candidate["phi"])
-        if not (low_phi < high_phi):
-            break
-        mid_phi = math.sqrt(low_phi * high_phi)
-        if math.isclose(mid_phi, low_phi, rel_tol=1e-12, abs_tol=1e-15) or math.isclose(mid_phi, high_phi, rel_tol=1e-12, abs_tol=1e-15):
-            break
-        proposal = _new_phi(mid_phi)
-        if proposal is None:
-            break
-        _evaluate(proposal)
+        while remaining_evaluations > 0:
+            bracket = _size_bracket()
+            if bracket is None:
+                break
+            low_candidate, high_candidate = bracket
+            low_phi = float(low_candidate["phi"])
+            high_phi = float(high_candidate["phi"])
+            if not (low_phi < high_phi):
+                break
+            mid_phi = math.sqrt(low_phi * high_phi)
+            if math.isclose(mid_phi, low_phi, rel_tol=1e-12, abs_tol=1e-15) or math.isclose(mid_phi, high_phi, rel_tol=1e-12, abs_tol=1e-15):
+                break
+            proposal = _new_phi(mid_phi)
+            if proposal is None:
+                break
+            _evaluate(proposal)
 
     candidates = list(candidates_by_phi.values())
     selected_candidate, selection_reason = _select_phi_candidate(
@@ -3829,6 +3863,7 @@ def _learn_phi(
         min_primary_factors=min_primary_factors,
         max_primary_gene_max_weight_q90=max_primary_gene_max_weight_q90,
         max_steps=max_steps,
+        explicit_phi_values=explicit_phi_values,
         expand_factor=expand_factor,
         mass_floor_frac=mass_floor_frac,
         learn_phi_backend=learn_phi_backend,
@@ -5356,7 +5391,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -5429,6 +5464,10 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bail("--learn-phi-max-primary-gene-max-weight-q90 must be in (0, 1]")
         if learn_phi_max_steps < 1:
             bail("--learn-phi-max-steps must be at least 1")
+        try:
+            parsed_learn_phi_values = _parse_explicit_phi_values(learn_phi_values)
+        except (TypeError, ValueError):
+            bail("--learn-phi-values must be a comma-separated list of positive numbers")
         if learn_phi_expand_factor <= 1:
             bail("--learn-phi-expand-factor must be > 1")
         if learn_phi_weight_floor is not None and learn_phi_weight_floor < 0:
@@ -5596,6 +5635,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             learn_phi_min_primary_factors=learn_phi_min_primary_factors,
             learn_phi_max_primary_gene_max_weight_q90=learn_phi_max_primary_gene_max_weight_q90,
             learn_phi_max_steps=learn_phi_max_steps,
+            learn_phi_values=learn_phi_values,
             learn_phi_expand_factor=learn_phi_expand_factor,
             learn_phi_weight_floor=learn_phi_weight_floor,
             learn_phi_metric_factor_scope=learn_phi_metric_factor_scope,
@@ -5703,6 +5743,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             min_primary_factors=int(learn_phi_min_primary_factors),
             max_primary_gene_max_weight_q90=learn_phi_max_primary_gene_max_weight_q90,
             max_steps=learn_phi_max_steps,
+            explicit_phi_values=learn_phi_values,
             expand_factor=learn_phi_expand_factor,
             weight_floor=weight_floor,
             metric_factor_scope=str(learn_phi_metric_factor_scope),

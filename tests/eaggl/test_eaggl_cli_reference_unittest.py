@@ -310,6 +310,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "0.6",
             "--learn-phi-max-steps",
             "6",
+            "--learn-phi-values",
+            "0.005,0.01,0.02",
             "--learn-phi-expand-factor",
             "5",
             "--learn-phi-weight-floor",
@@ -400,6 +402,10 @@ class EagglCliReferenceTest(unittest.TestCase):
             "gene_set_clusters.tsv",
             "--gene-clusters-out",
             "gene_clusters.tsv",
+            "--gene-clusters-full-out",
+            "gene_clusters_full.tsv",
+            "--gene-clusters-full-via-gene-sets-out",
+            "gene_clusters_full_via_gene_sets.tsv",
             "--cluster-row-min-max-loading",
             "0.02",
             "--factor-output-scope",
@@ -437,6 +443,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["learn_phi_min_primary_factors"], 4)
         self.assertEqual(opts["learn_phi_max_primary_gene_max_weight_q90"], 0.6)
         self.assertEqual(opts["learn_phi_max_steps"], 6)
+        self.assertEqual(opts["learn_phi_values"], "0.005,0.01,0.02")
         self.assertEqual(opts["learn_phi_expand_factor"], 5.0)
         self.assertEqual(opts["learn_phi_weight_floor"], 0.02)
         self.assertEqual(opts["learn_phi_metric_factor_scope"], "all")
@@ -445,6 +452,8 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["factor_phi_factors_out"], "phi_factors.tsv")
         self.assertEqual(opts["factor_phi_gene_set_clusters_out"], "phi_gene_set_clusters.tsv")
         self.assertEqual(opts["factor_phi_gene_clusters_out"], "phi_gene_clusters.tsv")
+        self.assertEqual(opts["gene_clusters_full_out"], "gene_clusters_full.tsv")
+        self.assertEqual(opts["gene_clusters_full_via_gene_sets_out"], "gene_clusters_full_via_gene_sets.tsv")
         self.assertEqual(opts["cluster_row_min_max_loading"], 0.02)
         self.assertEqual(opts["factor_output_scope"], "all")
         self.assertEqual(opts["factor_backend"], "blockwise_global_w")
@@ -607,6 +616,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--learn-phi-min-primary-factors": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-primary-gene-max-weight-q90": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-steps": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--learn-phi-values": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-backend": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-expand-factor": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-weight-floor": ["test_reference_factor_and_labeling_flags_round_trip"],
@@ -660,6 +670,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--consensus-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-set-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--gene-clusters-full-out": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--gene-clusters-full-via-gene-sets-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--cluster-row-min-max-loading": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-output-scope": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-factor-links-out": ["test_reference_factor_and_labeling_flags_round_trip"],

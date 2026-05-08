@@ -1631,7 +1631,7 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
 """.replace("__PHYSICS_ENABLED__", "true" if physics_enabled else "false")
 
 
-def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int = 900, interactive: bool = True, physics: bool = False) -> None:
+def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int = 900, interactive: bool = True, physics: bool = True) -> None:
     nodes = graph["nodes"]
     edges = graph["edges"]
     if not nodes:
@@ -1973,7 +1973,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--html-out", default=None)
     parser.add_argument("--json-out", default=None)
     parser.add_argument("--pdf-out", default=None)
-    parser.add_argument("--html-physics", action="store_true", help="Start the interactive HTML with browser-side force physics enabled.")
+    parser.add_argument("--html-physics", action="store_true", default=True, help="Start the interactive HTML with browser-side force physics enabled. This is the default.")
+    parser.add_argument("--no-html-physics", action="store_false", dest="html_physics", help="Start the interactive HTML with browser-side force physics disabled.")
     parser.add_argument(
         "--no-html-interactive",
         action="store_false",

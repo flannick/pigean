@@ -15,7 +15,7 @@ PYTHONPATH=src python -m eaggl.factor_graph \
 
 - Drag nodes to manually pin and inspect local structure.
 - Drag blank space to pan and use the `+` / `-` buttons to zoom.
-- Use **Enable Physics** to relax the deterministic layout with browser-side force physics.
+- Browser-side force physics is enabled on load by default. Use **Disable Physics** to stop the relaxation and keep the current coordinates.
 - Use **Reset Layout** to return to the deterministic layout.
 - Use the filter bar to target factors, genes, or phenotypes. Text filters hide unmatched nodes of the targeted types while dimming other node types for context.
 - Use the **hide unmatched** checkbox to switch between hiding unmatched targeted nodes and keeping them visible but dimmed. It is unchecked by default.
@@ -27,13 +27,13 @@ PYTHONPATH=src python -m eaggl.factor_graph \
 - Trait nodes are pulled toward the factor centroid by default with `--trait-coordinate-scale 0.2`; use `--trait-coordinate-scale 1.0` to preserve the raw MDS position.
 - Interactive physics uses shorter factor-trait springs by default with `--trait-edge-length-scale 0.2`, so anchor phenotypes stay near the factor/gene structure.
 
-To start with physics enabled:
+To start with physics disabled:
 
 ```bash
 PYTHONPATH=src python -m eaggl.factor_graph \
   --eaggl-dir results/eaggl_seed000 \
   --html-out results/eaggl_seed000/factor_graph.html \
-  --html-physics
+  --no-html-physics
 ```
 
 To write a static SVG-only HTML file:

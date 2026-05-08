@@ -287,6 +287,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 | `--learn-phi-fit-loss-warning-frac` | reconstruction-loss warning threshold used during target-size phi selection; the old `--learn-phi-max-fit-loss-frac` spelling remains accepted as a compatibility alias |
 | `--learn-phi-max-severe-fit-loss-frac` | hard severe-underfit threshold relative to the best phi-search candidate; blocks pathological high-phi underfit even when target size is satisfied |
 | `--learn-phi-max-steps` | maximum number of additional `phi` candidates to evaluate after the initial `--phi`; defaults to `5` |
+| `--learn-phi-values` | comma-separated explicit candidate `phi` values to evaluate; when set, EAGGL skips adaptive candidate generation but still applies the normal phi-selection criteria |
 | `--learn-phi-backend` | choose between the legacy sentinel-pruned phi search and the blockwise-global-W phi search over all retained gene sets |
 | `--learn-phi-expand-factor` | multiplicative factor used when widening the search bracket away from the initial `--phi` |
 | `--learn-phi-weight-floor` | factor weights below this are treated as zero when computing redundancy |
@@ -302,6 +303,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 
 Operational notes:
 - `--phi` remains the initial guess. With `--learn-phi`, EAGGL treats it as the starting point for search rather than the final fixed value.
+- Use `--learn-phi-values 0.005,0.01,0.02` to manually specify the phi candidate grid. This overrides adaptive expansion/refinement, but candidate scoring, guardrails, and selection are unchanged.
 - When `--discovery-model gene_by_gene` is selected and `--phi` is not explicitly provided, EAGGL starts the search from `0.01` rather than the rectangular-model default `0.05`.
 - `--learn-phi` requires `--learn-phi-target-gene-effective-support`; the user-facing target is the median effective gene support among primary factors.
 - `--learn-phi-mass-floor-frac` defines the primary-factor mass threshold used consistently across target-size summaries, primary-factor counts, primary-scoped redundancy/stability slices, and other primary-scoped phi-search metrics.

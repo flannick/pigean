@@ -351,6 +351,7 @@ parser.add_option("","--learn-phi-size-tolerance-frac",default=0.25,type=float) 
 parser.add_option("","--learn-phi-min-primary-factors",default=3,type=int) #minimum primary factor count required for a phi candidate
 parser.add_option("","--learn-phi-max-primary-gene-max-weight-q90",default=None,type=float) #optional maximum q90 of primary-factor max gene weight during phi search
 parser.add_option("","--learn-phi-max-steps",default=5,type=int) #maximum number of additional phi candidates to evaluate after the initial phi
+parser.add_option("","--learn-phi-values",default=None) #comma-separated explicit phi candidate values for --learn-phi; overrides adaptive candidate generation
 parser.add_option("","--learn-phi-expand-factor",default=2.0,type=float) #multiplicative factor used when expanding the phi search bracket
 parser.add_option("","--learn-phi-weight-floor",default=None,type=float) #weights below this are treated as zero for phi-search redundancy scoring
 parser.add_option("","--learn-phi-metric-factor-scope",type="choice",choices=["primary","all"],default="primary") #factor scope used for phi-search redundancy and repeat-stability metrics
@@ -524,6 +525,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--learn-phi-size-tolerance-frac": "fractional tolerance around the requested primary-factor gene effective support",
     "--learn-phi-min-primary-factors": "minimum primary factor count required for a phi candidate during target-size tuning",
     "--learn-phi-max-primary-gene-max-weight-q90": "optional maximum q90 primary-factor max gene weight allowed during target-size tuning",
+    "--learn-phi-values": "comma-separated explicit phi candidate values for automatic phi tuning; overrides adaptive candidate generation while preserving selection criteria",
     "--learn-phi-prune-genes-num": "during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi",
     "--learn-phi-prune-gene-sets-num": "deprecated compatibility knob; ignored because phi search now uses the same discovery plan as the final fit",
     "--learn-phi-report-out": "write per-candidate phi search diagnostics",
@@ -679,6 +681,7 @@ _EXPERT_METHOD_FLAGS = {
     "--learn-phi-min-run-support",
     "--learn-phi-min-stability",
     "--learn-phi-metric-factor-scope",
+    "--learn-phi-values",
     "--learn-phi-prune-gene-sets-num",
     "--learn-phi-report-out",
     "--factor-phi-metrics-out",
@@ -1657,6 +1660,21 @@ def _bootstrap_cli(argv=None):
             bail("--learn-phi-prune-gene-sets-num must be at least 1")
         if parsed_options.learn_phi_max_num_iterations is not None and parsed_options.learn_phi_max_num_iterations < 1:
             bail("--learn-phi-max-num-iterations must be at least 1")
+        if parsed_options.learn_phi_values is not None:
+            phi_values = []
+            for raw_value in str(parsed_options.learn_phi_values).split(","):
+                raw_value = raw_value.strip()
+                if raw_value == "":
+                    continue
+                try:
+                    phi_value = float(raw_value)
+                except ValueError:
+                    bail("--learn-phi-values must be a comma-separated list of positive numbers")
+                if phi_value <= 0:
+                    bail("--learn-phi-values must contain only positive values")
+                phi_values.append(phi_value)
+            if len(phi_values) == 0:
+                bail("--learn-phi-values must contain at least one positive value")
     if parsed_options.max_num_discovery_gene_sets is not None and parsed_options.max_num_discovery_gene_sets < 1:
         bail("--max-num-discovery-gene-sets must be at least 1")
     if not (0 <= parsed_options.discovery_similarity_threshold <= 1):

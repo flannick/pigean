@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `267`
+- Total options: `268`
 - `method_required`: `11`
-- `method_optional`: `166`
+- `method_optional`: `167`
 - `engineering`: `73`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `222`
+- visibility `expert`: `223`
 - visibility `hidden`: `8`
 - visibility `normal`: `37`
 
@@ -128,6 +128,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-size-tolerance-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_size_tolerance_frac` | `0.25` | fractional tolerance around the requested primary-factor gene effective support |
 | `--learn-phi-target-gene-effective-support` | `normal` | `yes` | `core_help` | `learn_phi_target_gene_effective_support` | `None` | required with --learn-phi; target median effective gene support among primary factors |
 | `--learn-phi-target-gene-mass` | `normal` | `yes` | `core_help` | `learn_phi_target_gene_mass` | `None` | optional with --learn-phi; target median primary-factor gene mass used for phi selection |
+| `--learn-phi-values` | `expert` | `yes` | `advanced_workflows` | `learn_phi_values` | `None` | comma-separated explicit phi candidate values for automatic phi tuning; overrides adaptive candidate generation while preserving selection criteria |
 | `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--lmm-auth-key` | `expert` | `yes` | `advanced_workflows` | `lmm_auth_key` | `None` | enable optional LLM-based factor labeling |
