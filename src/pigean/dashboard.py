@@ -5,6 +5,7 @@ import csv
 import gzip
 import json
 import math
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -22,6 +23,13 @@ class PigeanRunSpec:
 
 @dataclass(frozen=True)
 class EagglRunSpec:
+    run_id: str
+    mode_id: str
+    path: Path
+
+
+@dataclass(frozen=True)
+class EagglPhiSweepSpec:
     run_id: str
     mode_id: str
     path: Path
@@ -58,7 +66,7 @@ def read_tsv(path: Path, warnings: list[str]) -> list[dict[str, str]]:
     return []
 
 
-def read_optional_text(path: Path, warnings: list[str], *, max_chars: int = 200000) -> str:
+def read_optional_text(path: Path, warnings: list[str], *, max_chars: int | None = 200000) -> str:
     if not path.exists():
         return ""
     try:
@@ -66,7 +74,7 @@ def read_optional_text(path: Path, warnings: list[str], *, max_chars: int = 2000
     except OSError as exc:
         warnings.append(f"could not read {path}: {exc}")
         return ""
-    if len(text) > max_chars:
+    if max_chars is not None and len(text) > max_chars:
         warnings.append(f"truncated embedded text from {path} to {max_chars} characters")
         return text[:max_chars]
     return text
@@ -105,6 +113,16 @@ def parse_eaggl_spec(value: str) -> EagglRunSpec:
     return EagglRunSpec(run_id=run_id, mode_id=mode_id, path=Path(path))
 
 
+def parse_eaggl_phi_sweep_spec(value: str) -> EagglPhiSweepSpec:
+    parts = value.split(":", 2)
+    if len(parts) != 3:
+        raise argparse.ArgumentTypeError("expected RUN_ID:MODE_ID:DIR")
+    run_id, mode_id, path = [part.strip() for part in parts]
+    if not run_id or not mode_id or not path:
+        raise argparse.ArgumentTypeError("expected RUN_ID:MODE_ID:DIR")
+    return EagglPhiSweepSpec(run_id=run_id, mode_id=mode_id, path=Path(path))
+
+
 def parse_run_title(value: str) -> tuple[str, str]:
     if ":" not in value:
         raise argparse.ArgumentTypeError("expected RUN_ID:TITLE")
@@ -112,6 +130,66 @@ def parse_run_title(value: str) -> tuple[str, str]:
     if not run_id.strip() or not title.strip():
         raise argparse.ArgumentTypeError("expected RUN_ID:TITLE")
     return run_id.strip(), title.strip()
+
+
+def _parse_phi_from_name(name: str):
+    match = re.search(r"(?:^|[_-])phi[_-]?([0-9]+(?:p[0-9]+)?(?:\\.[0-9]+)?(?:e[-+]?[0-9]+)?)(?:$|[_-])", name, flags=re.IGNORECASE)
+    if not match:
+        match = re.search(r"([0-9]+p[0-9]+|[0-9]+\\.[0-9]+)", name)
+    if not match:
+        return None
+    raw = match.group(1).replace("p", ".")
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _read_selected_phi_from_report(path: Path):
+    if not path.exists():
+        return None
+    rows = read_tsv(path, [])
+    for row in rows:
+        selected = str(_first(row, ["selected", "is_selected"], "")).strip().lower()
+        if selected in {"1", "true", "t", "yes", "y"}:
+            return parse_float(_first(row, ["phi", "candidate_phi"]))
+    return None
+
+
+def _discover_phi_sweep_runs(spec: EagglPhiSweepSpec) -> list[EagglRunSpec]:
+    root = spec.path
+    candidates: list[tuple[float, Path]] = []
+    if not root.exists():
+        return [EagglRunSpec(spec.run_id, f"{spec.mode_id}_missing", root)]
+    for child in sorted(root.iterdir()):
+        if not child.is_dir():
+            continue
+        run_dir = child / "eaggl" if (child / "eaggl").is_dir() else child
+        if not any((run_dir / name).exists() for name in ("factors.out.gz", "params.out.gz", "params.out", "eaggl.run.log")):
+            continue
+        phi = _parse_phi_from_name(child.name) or _parse_phi_from_name(run_dir.name)
+        if phi is None:
+            continue
+        candidates.append((phi, run_dir))
+    if not candidates and (root / "factors.out.gz").exists():
+        phi = _parse_phi_from_name(root.name)
+        candidates.append((float("nan") if phi is None else phi, root))
+    selected_phi = None
+    for report_name in ("learn_phi_report.tsv", "learn_phi_report.out", "learn_phi_report.out.gz", "phi_report.tsv", "summary.tsv"):
+        selected_phi = _read_selected_phi_from_report(root / report_name)
+        if selected_phi is not None:
+            break
+    specs = []
+    for phi, run_dir in sorted(candidates, key=lambda item: (math.inf if math.isnan(item[0]) else item[0])):
+        phi_label = "unknown" if math.isnan(phi) else ("%g" % phi)
+        mode_id = f"{spec.mode_id}_phi_{phi_label.replace('.', 'p')}"
+        specs.append(EagglRunSpec(spec.run_id, mode_id, run_dir))
+    if selected_phi is not None:
+        specs.sort(key=lambda item: (
+            0 if _parse_phi_from_name(item.mode_id) is not None and math.isclose(float(_parse_phi_from_name(item.mode_id)), float(selected_phi), rel_tol=1e-12, abs_tol=1e-15) else 1,
+            _parse_phi_from_name(item.mode_id) if _parse_phi_from_name(item.mode_id) is not None else math.inf,
+        ))
+    return specs
 
 
 def normalize_gene_rows(rows: list[dict[str, str]], warnings: list[str], *, combined_threshold: float, max_rows: int) -> list[dict]:
@@ -329,7 +407,7 @@ def read_cluster_table(
     threshold: float,
     warnings: list[str],
     *,
-    within_max: float | None,
+    factor_loading_min_max_frac: float | None,
     max_rows_per_factor: int,
 ) -> tuple[list[str], dict[str, list[dict]]]:
     rows = read_tsv(path, warnings)
@@ -361,11 +439,11 @@ def read_cluster_table(
     for factor, records in by_factor.items():
         records.sort(key=lambda item: item.get("loading") or -1e300, reverse=True)
         max_loading = records[0].get("loading") if records else None
-        if max_loading is not None and within_max is not None and within_max >= 0:
+        if max_loading is not None and factor_loading_min_max_frac is not None and factor_loading_min_max_frac >= 0:
             records = [
                 record
                 for record in records
-                if (record.get("loading") or 0.0) >= max(threshold, max_loading - within_max)
+                if (record.get("loading") or 0.0) >= max(threshold, max_loading * factor_loading_min_max_frac)
             ]
         else:
             records = [record for record in records if (record.get("loading") or 0.0) >= threshold]
@@ -375,11 +453,31 @@ def read_cluster_table(
     return factors, dict(by_factor)
 
 
-def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> dict[str, list[dict]]:
+def _is_truthy(value) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "t", "yes", "y"}
+
+
+def _anchor_column_name(trait: str, existing: set[str]) -> str:
+    base = "anchor_" + re.sub(r"[^A-Za-z0-9]+", "_", trait).strip("_").lower()
+    if not base or base == "anchor_":
+        base = "anchor_trait"
+    candidate = base
+    index = 2
+    while candidate in existing:
+        candidate = f"{base}_{index}"
+        index += 1
+    existing.add(candidate)
+    return candidate
+
+
+def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> tuple[dict[str, list[dict]], list[dict], dict[str, dict[str, float]]]:
     if not path.exists():
-        return {}
+        return {}, [], {}
     rows = read_tsv(path, warnings)
     by_factor: dict[str, list[dict]] = defaultdict(list)
+    anchor_traits: dict[str, dict] = {}
+    anchor_values_by_factor: dict[str, dict[str, float]] = defaultdict(dict)
+    used_columns: set[str] = set()
     for row in rows:
         factor = _first(row, ["factor", "Factor"])
         trait = _first(row, ["trait", "Trait", "pheno", "Phenotype"])
@@ -388,21 +486,34 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> 
         neff = parse_float(_first(row, ["trait_neff", "trait_n_eff", "retained_n_eff"]), 0.0) or 0.0
         if neff < min_trait_neff:
             continue
-        by_factor[factor].append(
-            {
-                "trait": trait,
-                "factor": factor,
-                "is_anchor": _first(row, ["is_anchor"]),
-                "joint_fraction": parse_float(row.get("joint_fraction")),
-                "marginal_fraction": parse_float(row.get("marginal_fraction")),
-                "trait_neff": neff,
-                "joint_support_mass": parse_float(row.get("joint_support_mass")),
-                "joint_residual": parse_float(row.get("joint_residual")),
-            }
-        )
+        record = {
+            "trait": trait,
+            "factor": factor,
+            "is_anchor": _first(row, ["is_anchor"]),
+            "joint_fraction": parse_float(row.get("joint_fraction")),
+            "marginal_fraction": parse_float(row.get("marginal_fraction")),
+            "marginal_overlap": parse_float(row.get("marginal_overlap")),
+            "trait_neff": neff,
+            "retained_n_eff": parse_float(row.get("retained_n_eff")),
+            "joint_support_mass": parse_float(row.get("joint_support_mass")),
+            "marginal_support_mass": parse_float(row.get("marginal_support_mass")),
+            "joint_residual": parse_float(row.get("joint_residual")),
+        }
+        by_factor[factor].append(record)
+        if _is_truthy(record["is_anchor"]):
+            if trait not in anchor_traits:
+                anchor_traits[trait] = {
+                    "trait": trait,
+                    "label": trait,
+                    "column": _anchor_column_name(trait, used_columns),
+                    "metric": "joint_fraction",
+                }
+            value = record.get("joint_fraction")
+            if value is not None:
+                anchor_values_by_factor[factor][anchor_traits[trait]["column"]] = value
     for factor in by_factor:
         by_factor[factor].sort(key=lambda item: item.get("joint_fraction") or -1e300, reverse=True)
-    return dict(by_factor)
+    return dict(by_factor), list(anchor_traits.values()), dict(anchor_values_by_factor)
 
 
 def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
@@ -412,31 +523,46 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
         warnings.append(f"EAGGL directory does not exist: {path}")
     factors_path = path / "factors.out.gz"
     gene_clusters_path = path / "gene_clusters.out.gz"
+    gene_loading_source_specs = [
+        ("discovery", "Discovery genes", gene_clusters_path, path / "factor_graph.html"),
+        ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html"),
+        ("full_via_gene_sets", "Full genes: via gene sets", path / "gene_clusters_full_via_gene_sets.out.gz", path / "factor_graph.full_via_gene_sets.html"),
+    ]
     gene_set_clusters_path = path / "gene_set_clusters.out.gz"
     factors_rows = read_tsv(factors_path, warnings) if factors_path.exists() else []
     if not factors_path.exists():
         warnings.append(f"missing EAGGL factors: {factors_path}")
-    _, genes_by_factor = (
-        read_cluster_table(
-            gene_clusters_path,
+    gene_loading_sources: dict[str, dict] = {}
+    for source_id, source_label, source_path, graph_path in gene_loading_source_specs:
+        if not source_path.exists():
+            continue
+        _, source_by_factor = read_cluster_table(
+            source_path,
             "Gene",
             args.factor_loading_threshold,
             warnings,
-            within_max=args.factor_loading_within_max,
+            factor_loading_min_max_frac=args.factor_loading_min_max_frac,
             max_rows_per_factor=args.max_factor_genes,
         )
-        if gene_clusters_path.exists()
-        else ([], {})
-    )
+        gene_loading_sources[source_id] = {
+            "id": source_id,
+            "label": source_label,
+            "path": str(source_path),
+            "factor_graph_html_path": str(graph_path),
+            "factor_graph_available": graph_path.exists(),
+            "factor_graph_html": read_optional_text(graph_path, warnings, max_chars=None),
+            "by_factor": source_by_factor,
+        }
     if not gene_clusters_path.exists():
         warnings.append(f"missing EAGGL gene clusters: {gene_clusters_path}")
+    genes_by_factor = gene_loading_sources.get("discovery", {}).get("by_factor", {})
     _, gene_sets_by_factor = (
         read_cluster_table(
             gene_set_clusters_path,
             "Gene_Set",
             args.factor_loading_threshold,
             warnings,
-            within_max=args.factor_loading_within_max,
+            factor_loading_min_max_frac=args.factor_loading_min_max_frac,
             max_rows_per_factor=args.max_factor_gene_sets,
         )
         if gene_set_clusters_path.exists()
@@ -444,7 +570,7 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     )
     if not gene_set_clusters_path.exists():
         warnings.append(f"missing EAGGL gene-set clusters: {gene_set_clusters_path}")
-    trait_links = read_trait_links(path / "trait_factor_links.out.gz", args.trait_min_neff, warnings)
+    trait_links, anchor_traits, anchor_values = read_trait_links(path / "trait_factor_links.out.gz", args.trait_min_neff, warnings)
     factors = []
     if factors_rows and not any(key in factors_rows[0] for key in ("Factor", "factor")):
         warnings.append("factors table lacks Factor/factor column")
@@ -452,8 +578,7 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
         factor = _first(row, ["Factor", "factor"])
         if not factor:
             continue
-        factors.append(
-            {
+        factor_record = {
                 "factor": factor,
                 "label": _first(row, ["label", "Label"], factor),
                 "lambda": parse_float(row.get("lambda")),
@@ -465,18 +590,23 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
                 "gene_sets": gene_sets_by_factor.get(factor, []),
                 "phenotypes": trait_links.get(factor, []),
             }
-        )
+        factor_record.update(anchor_values.get(factor, {}))
+        factors.append(factor_record)
     factors.sort(key=lambda item: item.get("combined_mass_fraction") or -1e300, reverse=True)
     factor_graph_html_path = path / "factor_graph.html"
+    phi_value = _parse_phi_from_name(spec.mode_id) or _parse_phi_from_name(path.name) or _parse_phi_from_name(path.parent.name)
     return {
         "run_id": spec.run_id,
         "mode_id": spec.mode_id,
-        "title": spec.mode_id.replace("_", " "),
+        "title": ("%s (phi %g)" % (spec.mode_id.replace("_", " "), phi_value)) if phi_value is not None else spec.mode_id.replace("_", " "),
+        "phi": phi_value,
         "summary": "EAGGL run supplied on the dashboard command line.",
         "paths": {
             "run_dir": str(path),
             "factors": str(factors_path),
             "gene_clusters": str(gene_clusters_path),
+            "gene_clusters_full": str(path / "gene_clusters_full.out.gz"),
+            "gene_clusters_full_via_gene_sets": str(path / "gene_clusters_full_via_gene_sets.out.gz"),
             "gene_set_clusters": str(gene_set_clusters_path),
             "trait_factor_links": str(path / "trait_factor_links.out.gz"),
             "factor_graph_html": str(factor_graph_html_path),
@@ -487,7 +617,9 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
         },
         "warnings": warnings,
         "factor_graph_available": factor_graph_html_path.exists(),
-        "factor_graph_html": read_optional_text(factor_graph_html_path, warnings),
+        "factor_graph_html": read_optional_text(factor_graph_html_path, warnings, max_chars=None),
+        "gene_loading_sources": gene_loading_sources,
+        "anchor_traits": anchor_traits,
         "factors": factors,
     }
 
@@ -498,7 +630,13 @@ def build_payload(args: argparse.Namespace) -> dict:
     pigean_runs = [load_pigean_run(spec, args, membership) for spec in args.pigean_run]
     seen_pigean_run_ids = {run["run_id"] for run in pigean_runs}
     eaggl_runs = {}
-    for spec in args.eaggl_run or []:
+    eaggl_specs = list(args.eaggl_run or [])
+    for sweep_spec in args.eaggl_phi_sweep or []:
+        sweep_runs = _discover_phi_sweep_runs(sweep_spec)
+        if not sweep_runs:
+            warnings.append(f"no EAGGL phi-sweep runs found under {sweep_spec.path}")
+        eaggl_specs.extend(sweep_runs)
+    for spec in eaggl_specs:
         if spec.run_id not in seen_pigean_run_ids:
             pigean_runs.append(
                 placeholder_pigean_run(
@@ -519,7 +657,7 @@ def build_payload(args: argparse.Namespace) -> dict:
             "gene_combined": args.gene_threshold,
             "gene_set_beta_uncorrected": args.gene_set_threshold,
             "factor_loading": args.factor_loading_threshold,
-            "factor_loading_within_max": args.factor_loading_within_max,
+            "factor_loading_min_max_frac": args.factor_loading_min_max_frac,
             "trait_neff": args.trait_min_neff,
             "max_provenance_rows_per_entry": args.max_provenance_rows_per_entry,
         },
@@ -546,6 +684,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build a standalone HTML dashboard from supplied PIGEAN and EAGGL outputs.")
     parser.add_argument("--pigean-run", action="append", type=parse_run_spec, default=[], help="PIGEAN run as RUN_ID:DIR; repeat for multiple runs.")
     parser.add_argument("--eaggl-run", action="append", type=parse_eaggl_spec, default=[], help="EAGGL run as RUN_ID:MODE_ID:DIR; repeat for multiple modes/runs.")
+    parser.add_argument("--eaggl-phi-sweep", action="append", type=parse_eaggl_phi_sweep_spec, default=[], help="EAGGL phi sweep bundle as RUN_ID:MODE_ID:DIR. The directory is scanned for per-phi EAGGL output directories.")
     parser.add_argument("--x-input", action="append", type=Path, default=None, help="Optional GMT/gene-set input for gene/gene-set membership expansions; repeatable.")
     parser.add_argument("--title", default="PIGEAN/EAGGL Dashboard")
     parser.add_argument("--run-title", action="append", type=parse_run_title, default=[], help="Display title as RUN_ID:TITLE; repeatable.")
@@ -555,7 +694,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gene-threshold", type=float, default=1.0)
     parser.add_argument("--gene-set-threshold", type=float, default=0.01)
     parser.add_argument("--factor-loading-threshold", type=float, default=0.0)
-    parser.add_argument("--factor-loading-within-max", type=float, default=0.05, help="Keep factor gene/gene-set rows within this absolute loading of the factor-specific maximum; use a negative value to disable.")
+    parser.add_argument("--factor-loading-min-max-frac", type=float, default=0.05, help="Keep factor gene/gene-set rows with loading at least this fraction of the factor-specific maximum; use a negative value to disable.")
     parser.add_argument("--trait-min-neff", type=float, default=200.0)
     parser.add_argument("--max-genes-per-run", type=int, default=5000)
     parser.add_argument("--max-gene-sets-per-run", type=int, default=2500)
@@ -570,8 +709,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     args.run_titles = dict(args.run_title or [])
     args.trait_ids = dict(args.trait_id or [])
-    if not args.pigean_run and not args.eaggl_run:
-        parser.error("Need at least one --pigean-run or --eaggl-run")
+    if not args.pigean_run and not args.eaggl_run and not args.eaggl_phi_sweep:
+        parser.error("Need at least one --pigean-run, --eaggl-run, or --eaggl-phi-sweep")
     if args.html_out is None and args.json_out is None:
         parser.error("Need at least one of --html-out or --json-out")
     payload = build_payload(args)

@@ -32,9 +32,14 @@ For EAGGL directories, the dashboard looks for:
 
 - `factors.out.gz`
 - `gene_clusters.out.gz`
+- optional `gene_clusters_full.out.gz`
+- optional `gene_clusters_full_via_gene_sets.out.gz`
 - `gene_set_clusters.out.gz`
 - optional `trait_factor_links.out.gz`
 - optional `factor_graph.html` and `factor_graph.json`
+- optional source-specific factor graphs:
+  - `factor_graph.full_direct.html`
+  - `factor_graph.full_via_gene_sets.html`
 - optional `params.out`, `eaggl.run.log`, and `eaggl.warnings.log`
 
 Pass `--x-input PATH` one or more times to enable gene/gene-set membership expansions from GMT-like gene-set input files.
@@ -47,7 +52,7 @@ Pass `--x-input PATH` one or more times to enable gene/gene-set membership expan
 --trait-id t2d:"Type_2_diabetes_(T2D)"
 --gene-threshold 1
 --gene-set-threshold 0.01
---factor-loading-within-max 0.05
+--factor-loading-min-max-frac 0.05
 --trait-min-neff 200
 --max-genes-per-run 5000
 --max-gene-sets-per-run 2500
@@ -56,6 +61,8 @@ Pass `--x-input PATH` one or more times to enable gene/gene-set membership expan
 --max-provenance-rows-per-entry 50
 ```
 
-The HTML file embeds the dashboard data and needs no backend. If an EAGGL `factor_graph.html` is present, it is embedded in the factor section.
+The HTML file embeds the dashboard data and needs no backend. If an EAGGL `factor_graph.html` is present, it is embedded in the factor section. If full-gene projection tables are present, the EAGGL panel exposes a gene-loading-source selector so the gene loading table and available source-specific factor graph can switch between discovery genes, direct full-gene projection, and gene-set-routed full-gene projection.
 
-By default, the embedded payload is size-controlled: genes must have combined support at least `1`, gene sets must have `beta_uncorrected` at least `0.01` when that column is available, factor gene/gene-set loadings are retained when they are within `0.05` of the factor-specific maximum loading, phenotype projections require effective size at least `200`, and nested provenance tables are capped at `50` rows per expanded entry.
+Use `--eaggl-phi-sweep RUN_ID:MODE_ID:DIR` to point the dashboard at a directory containing per-phi EAGGL output subdirectories such as `phi_0p005/eaggl/`, `phi_0p01/eaggl/`, and `phi_0p02/eaggl/`. Each per-phi directory is loaded as a separate EAGGL toggle entry. If a per-phi directory has factor graphs or full-gene projections, those controls are available for that phi; if only logs or params exist because no factors were retained, the dashboard records missing factor outputs as warnings instead of failing.
+
+By default, the embedded payload is size-controlled: genes must have combined support at least `1`, gene sets must have `beta_uncorrected` at least `0.01` when that column is available, factor gene/gene-set loadings are retained when they are at least `0.05` times the factor-specific maximum loading, phenotype projections require effective size at least `200`, and nested provenance tables are capped at `50` rows per expanded entry.

@@ -56,6 +56,18 @@ class DashboardPayloadTest(unittest.TestCase):
             "GENE2\t1.4\t0.4\t1.0\tFactor1\timmune\t0.01\t0.1\n",
         )
         _write_gz(
+            root / "gene_clusters_full.out.gz",
+            "Gene\tcombined\tlog_bf\tprior\tcluster\tlabel\tFactor1\tRelative_Factor1\n"
+            "GENE1\t3.0\t1.2\t1.8\tFactor1\timmune\t0.8\t1.0\n"
+            "GENE3\t0.2\t0.1\t0.1\tFactor1\timmune\t0.7\t1.0\n",
+        )
+        _write_gz(
+            root / "gene_clusters_full_via_gene_sets.out.gz",
+            "Gene\tcombined\tlog_bf\tprior\tcluster\tlabel\tFactor1\tRelative_Factor1\n"
+            "GENE1\t3.0\t1.2\t1.8\tFactor1\timmune\t0.6\t1.0\n"
+            "GENE4\t0.3\t0.1\t0.2\tFactor1\timmune\t0.5\t1.0\n",
+        )
+        _write_gz(
             root / "gene_set_clusters.out.gz",
             "Gene_Set\tlabel\tbeta\tbeta_uncorrected\tcluster\tFactor1\tRelative_Factor1\n"
             "SET1\timmune\t0.8\t0.9\tFactor1\t0.8\t1.0\n",
@@ -97,7 +109,14 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertEqual(factor["factor"], "Factor1")
         self.assertEqual(len(factor["genes"]), 1)
         self.assertEqual(len(factor["phenotypes"]), 1)
-        self.assertTrue(payload["eaggl_runs"]["run1::gene_x_gene"]["factor_graph_available"])
+        self.assertIn("anchor_traits", payload["eaggl_runs"]["run1::gene_x_gene"])
+        self.assertEqual(payload["eaggl_runs"]["run1::gene_x_gene"]["anchor_traits"][0]["trait"], "TraitA")
+        self.assertEqual(factor[payload["eaggl_runs"]["run1::gene_x_gene"]["anchor_traits"][0]["column"]], 0.7)
+        eaggl_run = payload["eaggl_runs"]["run1::gene_x_gene"]
+        self.assertTrue(eaggl_run["factor_graph_available"])
+        self.assertEqual(set(eaggl_run["gene_loading_sources"]), {"discovery", "full_direct", "full_via_gene_sets"})
+        self.assertEqual(eaggl_run["gene_loading_sources"]["full_direct"]["by_factor"]["Factor1"][0]["gene"], "GENE1")
+        self.assertEqual(eaggl_run["gene_loading_sources"]["full_via_gene_sets"]["by_factor"]["Factor1"][0]["gene"], "GENE1")
 
     def test_missing_outputs_are_recorded_as_warnings(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -134,6 +153,28 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertEqual(payload["pigean_runs"][0]["run_id"], "run1")
         self.assertTrue(payload["pigean_runs"][0]["warnings"])
         self.assertEqual(payload["eaggl_runs"]["run1::gene_x_gene"]["factors"][0]["factor"], "Factor1")
+
+    def test_phi_sweep_bundle_loads_per_phi_eaggl_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sweep = root / "sweep"
+            for tag in ("0p02", "0p04"):
+                edir = sweep / f"phi_{tag}" / "eaggl"
+                self._write_eaggl_outputs(edir)
+            (sweep / "summary.tsv").write_text("phi\tselected\n0.02\t0\n0.04\t1\n", encoding="utf-8")
+            parser = dashboard.build_parser()
+            args = parser.parse_args([
+                "--eaggl-phi-sweep", f"run1:gene_x_gene:{sweep}",
+                "--json-out", str(root / "dashboard.json"),
+            ])
+            args.run_titles = {}
+            args.trait_ids = {}
+            payload = dashboard.build_payload(args)
+
+        self.assertEqual(len(payload["eaggl_runs"]), 2)
+        keys = list(payload["eaggl_runs"])
+        self.assertEqual(keys[0], "run1::gene_x_gene_phi_0p04")
+        self.assertEqual(payload["eaggl_runs"][keys[0]]["phi"], 0.04)
 
     def test_cli_rejects_malformed_run_specs(self) -> None:
         parser = dashboard.build_parser()
@@ -180,7 +221,10 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertIn("restoreFocus", html)
         self.assertIn("data-column-filter-table", html)
         self.assertIn("numeric-filter", html)
-        self.assertIn("factor_loading_within_max", html)
+        self.assertIn("loading-heatmap", html)
+        self.assertIn("heatmapMetricSelect", html)
+        self.assertIn("refreshEagglTable", html)
+        self.assertIn("data-open-row-tab", html)
 
 
 if __name__ == "__main__":
