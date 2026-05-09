@@ -414,6 +414,10 @@ Operational notes:
 | `--label-gene-sets-only` | label from gene-set content only |
 | `--label-include-phenos` | include phenotype context in labeling prompts |
 | `--label-individually` | label factors independently instead of in one batch |
+| `--gene-sets-for-labeling` | restrict gene-set candidates used for factor labels to identifiers from one or more files; the flag may be repeated |
+| `--gene-sets-for-labeling-id-col` | optional header column for `--gene-sets-for-labeling`; by default the first column is read, so GMT files can be passed directly |
+
+If `--gene-sets-for-labeling` is supplied, EAGGL filters gene-set label candidates before ranking top terms for each factor. If no supplied identifier has positive loading for a factor, EAGGL emits a warning and falls back to the unfiltered gene-set candidates for that factor.
 
 Labeling details and the rationale for keeping labeling integrated into `factor` are documented in `docs/eaggl/LABELING.md`.
 

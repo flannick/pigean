@@ -7,7 +7,7 @@ This document maps each supported factoring workflow to:
 3. a minimal runnable command pattern
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
-Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode.
+Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode. Use `--gene-sets-for-labeling` one or more times to limit factor-label candidates to selected gene-set libraries without changing the fitted loadings.
 Canonical trait linkage is the primary annotation layer and reports support-normalized projection coefficients from the same internal trait-factor matching step. Raw trait support and raw factor loadings keep their original totals; only copied internal vectors are normalized for matching. Factor-PheWAS is a secondary expert-only enrichment regression.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.

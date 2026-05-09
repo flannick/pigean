@@ -715,6 +715,6 @@ If $\mathcal{S}_k$, $\mathcal{G}_k$, and $\mathcal{P}_k$ denote the highest-weig
 \[
 L_k = \mathcal{L}(\mathcal{S}_k, \mathcal{G}_k, \mathcal{P}_k).
 \]
-Such labels may be generated deterministically from the top terms or by a separate language-model-based summarization step. In either case, the labeling procedure is downstream of the core statistical model and should be interpreted as an aid to biological interpretation rather than as part of the inference procedure itself.
+Such labels may be generated deterministically from the top terms or by a separate language-model-based summarization step. In either case, the labeling procedure is downstream of the core statistical model and should be interpreted as an aid to biological interpretation rather than as part of the inference procedure itself. When users provide a designated labeling library, EAGGL restricts the annotation candidates in $\mathcal{S}_k$ to that library before ranking terms for the label; if a factor has no positive-loading annotation in the designated library, the label falls back to the full annotation set so that every factor remains labeled. This filtering changes only the post hoc label summary and not the fitted factors or output loadings.
 
 \end{document}

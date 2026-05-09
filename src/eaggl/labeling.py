@@ -126,9 +126,9 @@ def populate_factor_labels(
     labeling_client = None
 
     for i in range(runtime_state.num_factors()):
-        runtime_state.factor_top_gene_sets.append([runtime_state.gene_sets[j] for j in top_gene_set_inds[:, i]])
+        runtime_state.factor_top_gene_sets.append([runtime_state.gene_sets[j] for j in top_gene_set_inds[:, i] if j >= 0])
         runtime_state.factor_anchor_top_gene_sets.append(
-            [[runtime_state.gene_sets[j] for j in top_anchor_gene_set_inds[:, i, k]] for k in range(top_anchor_gene_set_inds.shape[2])]
+            [[runtime_state.gene_sets[j] for j in top_anchor_gene_set_inds[:, i, k] if j >= 0] for k in range(top_anchor_gene_set_inds.shape[2])]
         )
 
         if factor_gene_set_x_pheno:

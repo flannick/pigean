@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `268`
+- Total options: `270`
 - `method_required`: `11`
-- `method_optional`: `167`
-- `engineering`: `73`
+- `method_optional`: `168`
+- `engineering`: `74`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `223`
+- visibility `expert`: `225`
 - visibility `hidden`: `8`
 - visibility `normal`: `37`
 
@@ -102,6 +102,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
 | `--gene-set-pheno-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_pheno_filter_value` | `0.01` | - |
 | `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and phenotype-input factoring workflows |
+| `--gene-sets-for-labeling` | `expert` | `yes` | `advanced_workflows` | `gene_sets_for_labeling` | `None` | restrict factor-label gene-set candidates to identifiers from one or more files; defaults to first column for GMT compatibility |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
 | `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
@@ -253,6 +254,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-set-stats-out` | `expert` | `no` | `expert_help` | `gene_set_stats_out` | `None` | - |
 | `--gene-set-stats-p-col` | `expert` | `no` | `expert_help` | `gene_set_stats_p_col` | `None` | - |
 | `--gene-set-stats-se-col` | `expert` | `no` | `expert_help` | `gene_set_stats_se_col` | `None` | - |
+| `--gene-sets-for-labeling-id-col` | `expert` | `no` | `expert_help` | `gene_sets_for_labeling_id_col` | `None` | optional header column for --gene-sets-for-labeling inputs; defaults to the first column |
 | `--gene-stats-combined-col` | `expert` | `no` | `expert_help` | `gene_stats_combined_col` | `None` | - |
 | `--gene-stats-id-col` | `expert` | `no` | `expert_help` | `gene_stats_id_col` | `None` | - |
 | `--gene-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_stats_log_bf_col` | `None` | - |

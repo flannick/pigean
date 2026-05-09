@@ -1672,6 +1672,7 @@ def _build_factor_param_record(
     label_gene_sets_only,
     label_include_phenos,
     label_individually,
+    gene_sets_for_labeling,
     keep_original_loadings,
     project_phenos_from_gene_sets,
     pheno_capture_input,
@@ -1778,6 +1779,7 @@ def _build_factor_param_record(
         "label_gene_sets_only": bool(label_gene_sets_only),
         "label_include_phenos": bool(label_include_phenos),
         "label_individually": bool(label_individually),
+        "gene_sets_for_labeling_num_ids": 0 if gene_sets_for_labeling is None else int(len(gene_sets_for_labeling)),
         "keep_original_loadings": bool(keep_original_loadings),
         "project_phenos_from_gene_sets": bool(project_phenos_from_gene_sets),
         "pheno_capture_input": pheno_capture_input,
@@ -3946,6 +3948,47 @@ def _best_run_sort_key(run_summary):
     )
 
 
+def _top_indices_by_factor(scores, num_top, *, allowed_mask=None, gene_sets=None, warn_fn=None, context="factor"):
+    scores = np.asarray(scores, dtype=float)
+    if scores.ndim != 2:
+        raise ValueError("expected a 2D score matrix")
+    num_items, num_factors = scores.shape
+    out = np.full((num_top, num_factors), -1, dtype=int)
+    for factor_index in range(num_factors):
+        order = np.argsort(-scores[:, factor_index])
+        if allowed_mask is not None:
+            filtered = [idx for idx in order if allowed_mask[idx] and scores[idx, factor_index] > 0]
+            if filtered:
+                chosen = filtered[:num_top]
+                out[: len(chosen), factor_index] = chosen
+                continue
+            if warn_fn is not None:
+                warn_fn(
+                    "%s %d has no positive-loading gene sets matching --gene-sets-for-labeling; using unfiltered gene sets for its label"
+                    % (context, factor_index + 1)
+                )
+        chosen = order[: min(num_top, num_items)]
+        out[: len(chosen), factor_index] = chosen
+    return out
+
+
+def _top_anchor_gene_set_indices_by_factor(scores, num_top, *, allowed_mask=None, warn_fn=None):
+    scores = np.asarray(scores, dtype=float)
+    if scores.ndim != 3:
+        raise ValueError("expected a 3D anchor gene-set score matrix")
+    num_items, num_factors, num_anchors = scores.shape
+    out = np.full((num_top, num_factors, num_anchors), -1, dtype=int)
+    for anchor_index in range(num_anchors):
+        out[:, :, anchor_index] = _top_indices_by_factor(
+            scores[:, :, anchor_index],
+            num_top,
+            allowed_mask=allowed_mask,
+            warn_fn=warn_fn,
+            context="anchor %d factor" % (anchor_index + 1),
+        )
+    return out
+
+
 def _finalize_factor_outputs(
     state,
     *,
@@ -3962,6 +4005,7 @@ def _finalize_factor_outputs(
     log_fn,
     info_level,
     labeling_module,
+    gene_sets_for_labeling=None,
 ):
     bail = bail_fn
     warn = warn_fn
@@ -4015,6 +4059,20 @@ def _finalize_factor_outputs(
     exp_gene_factors_for_top = state.get_factor_loadings(state.exp_gene_factors, loading_type=factor_top_loading_type)
     exp_pheno_factors_for_top = state.get_factor_loadings(state.exp_pheno_factors, loading_type=factor_top_loading_type)
     exp_gene_set_factors_for_top = state.get_factor_loadings(state.exp_gene_set_factors, loading_type=factor_top_loading_type)
+    gene_sets_for_labeling = set(gene_sets_for_labeling or [])
+    gene_set_labeling_mask = None
+    if gene_sets_for_labeling:
+        gene_set_labeling_mask = np.array([gene_set in gene_sets_for_labeling for gene_set in state.gene_sets], dtype=bool)
+        matched = int(np.sum(gene_set_labeling_mask))
+        if matched == 0:
+            warn("--gene-sets-for-labeling has no overlap with retained EAGGL gene sets; using unfiltered gene sets for labels")
+            gene_set_labeling_mask = None
+        state._record_params(
+            {
+                "gene_sets_for_labeling_num_ids": int(len(gene_sets_for_labeling)),
+                "gene_sets_for_labeling_num_matched": int(matched),
+            }
+        )
 
     top_anchor_gene_or_pheno_inds = None
     top_anchor_pheno_or_gene_inds = None
@@ -4056,10 +4114,11 @@ def _finalize_factor_outputs(
                 1,
             )
 
-    top_anchor_gene_set_inds = np.swapaxes(
-        np.argsort(-exp_gene_set_factors_for_top.T[:, :, np.newaxis] * state.gene_set_prob_factor_vector[np.newaxis, :, :], axis=1)[:, :num_top, :],
-        0,
-        1,
+    top_anchor_gene_set_inds = _top_anchor_gene_set_indices_by_factor(
+        exp_gene_set_factors_for_top[:, :, np.newaxis] * state.gene_set_prob_factor_vector[:, np.newaxis, :],
+        num_top,
+        allowed_mask=gene_set_labeling_mask,
+        warn_fn=warn,
     )
 
     top_gene_or_pheno_inds = None
@@ -4087,10 +4146,11 @@ def _finalize_factor_outputs(
         if exp_pheno_factors_for_top is not None:
             top_pheno_or_gene_inds = top_capture_inds
 
-    top_gene_set_inds = np.swapaxes(
-        np.argsort(-(exp_gene_set_factors_for_top).T, axis=1)[:, :num_top],
-        0,
-        1,
+    top_gene_set_inds = _top_indices_by_factor(
+        exp_gene_set_factors_for_top,
+        num_top,
+        allowed_mask=gene_set_labeling_mask,
+        warn_fn=warn,
     )
 
     labeling_module.populate_factor_labels(
@@ -4116,7 +4176,7 @@ def _finalize_factor_outputs(
     return reorder_inds
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -5187,6 +5247,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
         label_gene_sets_only=label_gene_sets_only,
         label_include_phenos=label_include_phenos,
         label_individually=label_individually,
+        gene_sets_for_labeling=gene_sets_for_labeling,
         bail_fn=bail,
         warn_fn=warn,
         log_fn=log,
@@ -5365,12 +5426,14 @@ def _apply_consensus_solution(
     _finalize_factor_outputs(
         consensus_state,
         factor_gene_set_x_pheno=bool(run_summaries[reference_index]["factor_gene_set_x_pheno"]),
+        factor_top_loading_type=factor_kwargs["factor_top_loading_type"],
         lmm_auth_key=factor_kwargs["lmm_auth_key"],
         lmm_model=factor_kwargs["lmm_model"],
         lmm_provider=factor_kwargs["lmm_provider"],
         label_gene_sets_only=factor_kwargs["label_gene_sets_only"],
         label_include_phenos=factor_kwargs["label_include_phenos"],
         label_individually=factor_kwargs["label_individually"],
+        gene_sets_for_labeling=factor_kwargs.get("gene_sets_for_labeling"),
         bail_fn=factor_kwargs["bail_fn"],
         warn_fn=factor_kwargs["warn_fn"],
         log_fn=factor_kwargs["log_fn"],
@@ -5391,7 +5454,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -5565,6 +5628,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "label_gene_sets_only": label_gene_sets_only,
         "label_include_phenos": label_include_phenos,
         "label_individually": label_individually,
+        "gene_sets_for_labeling": gene_sets_for_labeling,
         "factor_top_loading_type": factor_top_loading_type,
         "keep_original_loadings": keep_original_loadings,
         "project_phenos_from_gene_sets": project_phenos_from_gene_sets,
@@ -5689,6 +5753,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             label_gene_sets_only=label_gene_sets_only,
             label_include_phenos=label_include_phenos,
             label_individually=label_individually,
+            gene_sets_for_labeling=gene_sets_for_labeling,
             keep_original_loadings=keep_original_loadings,
             project_phenos_from_gene_sets=project_phenos_from_gene_sets,
             pheno_capture_input=pheno_capture_input,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import gzip
 import re
 import warnings
 from dataclasses import dataclass, field
@@ -16,6 +17,44 @@ from . import factor_runtime as eaggl_factor_runtime
 from . import phewas as eaggl_phewas
 
 _DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS = 40.0
+
+
+def _open_maybe_gzip_text(path):
+    if str(path).endswith(".gz"):
+        return gzip.open(path, "rt", encoding="utf-8")
+    return open(path, "r", encoding="utf-8")
+
+
+def _read_gene_sets_for_labeling(paths, *, id_col=None, bail_fn=None):
+    if not paths:
+        return None
+    wanted = set()
+    for path in paths:
+        with _open_maybe_gzip_text(path) as fh:
+            if id_col is None:
+                for line in fh:
+                    line = line.rstrip("\n")
+                    if not line:
+                        continue
+                    value = line.split("\t", 1)[0].strip()
+                    if value:
+                        wanted.add(value)
+                continue
+            header = fh.readline().rstrip("\n").split("\t")
+            try:
+                index = header.index(id_col)
+            except ValueError:
+                message = "--gene-sets-for-labeling-id-col '%s' not found in %s" % (id_col, path)
+                if bail_fn is not None:
+                    bail_fn(message)
+                raise ValueError(message)
+            for line in fh:
+                fields = line.rstrip("\n").split("\t")
+                if index < len(fields):
+                    value = fields[index].strip()
+                    if value:
+                        wanted.add(value)
+    return wanted
 
 
 @dataclass
@@ -151,6 +190,8 @@ class FactorExecutionConfig:
     label_gene_sets_only: bool = False
     label_include_phenos: bool = False
     label_individually: bool = False
+    gene_sets_for_labeling: object = None
+    gene_sets_for_labeling_id_col: object = None
     factor_top_loading_type: str = "combined"
     keep_original_loadings: bool = False
     project_phenos_from_gene_sets: bool = False
@@ -256,6 +297,7 @@ class FactorExecutionConfig:
             "label_gene_sets_only": self.label_gene_sets_only,
             "label_include_phenos": self.label_include_phenos,
             "label_individually": self.label_individually,
+            "gene_sets_for_labeling": self.gene_sets_for_labeling,
             "factor_top_loading_type": self.factor_top_loading_type,
             "keep_original_loadings": self.keep_original_loadings,
             "project_phenos_from_gene_sets": self.project_phenos_from_gene_sets,
@@ -1852,6 +1894,12 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         label_gene_sets_only=options.label_gene_sets_only,
         label_include_phenos=options.label_include_phenos,
         label_individually=options.label_individually,
+        gene_sets_for_labeling=_read_gene_sets_for_labeling(
+            getattr(options, "gene_sets_for_labeling", None),
+            id_col=getattr(options, "gene_sets_for_labeling_id_col", None),
+            bail_fn=None,
+        ),
+        gene_sets_for_labeling_id_col=getattr(options, "gene_sets_for_labeling_id_col", None),
         factor_top_loading_type=getattr(options, "factor_top_loading_type", "combined"),
         keep_original_loadings=getattr(options, "keep_original_loadings", False),
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,

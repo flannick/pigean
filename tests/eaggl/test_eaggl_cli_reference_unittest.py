@@ -392,6 +392,12 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--label-gene-sets-only",
             "--label-include-phenos",
             "--label-individually",
+            "--gene-sets-for-labeling",
+            "mouse.gmt",
+            "--gene-sets-for-labeling",
+            "msigdb.gmt",
+            "--gene-sets-for-labeling-id-col",
+            "Gene_Set",
             "--factors-out",
             "factors.tsv",
             "--factor-metrics-out",
@@ -493,6 +499,8 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertTrue(opts["label_gene_sets_only"])
         self.assertTrue(opts["label_include_phenos"])
         self.assertTrue(opts["label_individually"])
+        self.assertEqual(opts["gene_sets_for_labeling"], ["mouse.gmt", "msigdb.gmt"])
+        self.assertEqual(opts["gene_sets_for_labeling_id_col"], "Gene_Set")
         self.assertEqual(opts["factors_out"], "factors.tsv")
         self.assertEqual(opts["factor_metrics_out"], "factor_metrics.tsv")
         self.assertEqual(opts["trait_factor_links_out"], "trait_factor_links.tsv")
@@ -666,6 +674,8 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--label-gene-sets-only": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--label-include-phenos": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--label-individually": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--gene-sets-for-labeling": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--gene-sets-for-labeling-id-col": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factors-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--consensus-stats-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-set-clusters-out": ["test_reference_factor_and_labeling_flags_round_trip"],
