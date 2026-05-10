@@ -47,8 +47,9 @@ Discovery-stage note:
 8. In `gene_by_gene` mode, all retained gene sets contribute to pairwise evidence; discovery-family leader subsetting and redundancy weighting are ignored.
 9. In `gene_by_gene` mode, v1 currently requires `--factor-backend full`, `--learn-phi-backend sentinel_pruned`, and the default transposed factor matrix.
 10. In `gene_by_gene` mode, if `--phi` is not explicitly set, EAGGL starts factor learning and any `--learn-phi` search from `0.01` rather than `0.05`.
-11. `--anchor-aggregation multi` is the default multi-anchor mode for both discovery models; `any` uses explicit noisy-OR union evidence. With one anchor trait, both modes reduce exactly to ordinary single-trait anchoring.
-12. `gene_by_gene` still learns one shared gene-factor basis and projects annotations onto that basis afterward; it does not write anchor-specific cluster outputs.
+11. `--gene-gene-profligate-correction gamma` is an opt-in gene-by-gene diagnostic/production control that subtracts the fitted log expected pair evidence explained by total full-matrix annotation count before the usual pair-probability calibration. The default `none` path is unchanged.
+12. `--anchor-aggregation multi` is the default multi-anchor mode for both discovery models; `any` uses explicit noisy-OR union evidence. With one anchor trait, both modes reduce exactly to ordinary single-trait anchoring.
+13. `gene_by_gene` still learns one shared gene-factor basis and projects annotations onto that basis afterward; it does not write anchor-specific cluster outputs.
 
 Debug workflow selection without running factorization:
 
@@ -93,6 +94,7 @@ The symmetric `--discovery-model gene_by_gene` mode is separate from those recta
 3. it currently supports only `--factor-backend full`
 4. it ignores discovery-family subsetting and weighting flags because pairwise evidence is built from all retained gene sets
 5. with multiple anchor traits, each trait-specific pair target is built exactly as in single-trait mode; `multi` factors the equal average of all per-anchor target matrices, while `any` uses noisy-OR union over those matrices
+6. optional `--gene-gene-profligate-correction gamma` uses total annotation counts from all read annotation columns, before retained gene-set filtering, to correct the raw pair log evidence for globally annotated genes
 
 Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffle-blocks`, `--blockwise-warm-start`, `--blockwise-max-blocks`, and `--blockwise-report-out` to tune or audit the blockwise backend. When `--learn-phi-backend blockwise_global_w` is used, neighboring phi candidates are warm-started from the closest previously fitted phi on the log scale when possible. Use `--factor-phi-metrics-out`, `--factor-phi-factors-out`, `--factor-phi-gene-set-clusters-out`, and `--factor-phi-gene-clusters-out` when you want audit tables for every tested phi candidate. Cluster output rows whose maximum raw factor loading is below `--cluster-row-min-max-loading` are omitted from reported cluster files.
 

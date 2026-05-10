@@ -236,6 +236,31 @@ that genes $i$ and $j$ are jointly relevant through a common mechanism. Negative
 corrected annotation effects are retained in this log-evidence calculation: they lower
 pairwise support toward the prior, rather than being truncated before calibration.
 
+\paragraph{Optional profligate-gene correction.}
+Some genes have high annotation exposure across many resources and can therefore receive
+large shared-annotation scores with many partners. EAGGL leaves the raw pair
+log-evidence unchanged by default. When requested, it computes a single exposure feature
+for each retained gene from the full read annotation matrix before retained-gene-set
+filtering,
+\begin{equation}
+a_i = \log\left(1 + \#\{s:X_{is}\ne 0\}\right).
+\end{equation}
+For each anchor trait, EAGGL fits a Gamma log-link background model over upper-triangle
+gene pairs,
+\begin{equation}
+\log E_0\{\exp(L_{ij})\}
+= h(a_i,a_j),
+\end{equation}
+where $h$ is a ridge-penalized linear function of an intercept, $a_i+a_j$,
+$|a_i-a_j|$, and $a_i a_j$. The corrected evidence is
+\begin{equation}
+L_{ij}^{\mathrm{corr}} = L_{ij} - h(a_i,a_j).
+\end{equation}
+The downstream conversion to pair probability, excess probability, flooring, diagonal
+handling, and anchor aggregation are then identical to the default path. This correction
+is opt-in and is intended to remove global annotation-count exposure, not to change the
+definition of the pairwise target otherwise.
+
 
 \paragraph{Multiple phenotype anchors.}
 When gene-by-gene discovery is anchored on multiple phenotypes, EAGGL still estimates

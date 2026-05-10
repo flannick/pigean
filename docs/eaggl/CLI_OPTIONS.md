@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `270`
+- Total options: `273`
 - `method_required`: `11`
-- `method_optional`: `168`
+- `method_optional`: `171`
 - `engineering`: `74`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `225`
+- visibility `expert`: `228`
 - visibility `hidden`: `8`
 - visibility `normal`: `37`
 
@@ -94,6 +94,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-gene-matrix-floor` | `expert` | `yes` | `expert_help` | `gene_gene_matrix_floor` | `0.001` | - |
 | `--gene-gene-pair-prior` | `expert` | `yes` | `advanced_workflows` | `gene_gene_pair_prior` | `None` | - |
 | `--gene-gene-pair-prior-effective-size` | `expert` | `yes` | `advanced_workflows` | `gene_gene_pair_prior_effective_size` | `None` | - |
+| `--gene-gene-profligate-correction` | `expert` | `yes` | `advanced_workflows` | `gene_gene_profligate_correction` | `none` | gene-by-gene mode only: opt-in annotation-count correction for profligate genes before probability calibration |
+| `--gene-gene-profligate-correction-max-pairs` | `expert` | `yes` | `advanced_workflows` | `gene_gene_profligate_correction_max_pairs` | `1000000` | maximum deterministic pair sample used to fit the profligate-gene correction |
+| `--gene-gene-profligate-correction-ridge` | `expert` | `yes` | `advanced_workflows` | `gene_gene_profligate_correction_ridge` | `0.001` | ridge penalty used by the profligate-gene correction regression |
 | `--gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `True` | - |
 | `--gene-gene-sparsity` | `expert` | `yes` | `advanced_workflows` | `gene_gene_sparsity` | `0.0` | - |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |

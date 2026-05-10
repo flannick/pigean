@@ -105,6 +105,33 @@ class EagglCliReferenceTest(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["options"]["discovery_similarity_threshold"], 0.35)
 
+    def test_reference_gene_gene_profligate_correction_flags_round_trip(self) -> None:
+        proc = self._run_ok(
+            "factor",
+            "--discovery-model",
+            "gene_by_gene",
+            "--gene-gene-profligate-correction",
+            "gamma",
+            "--gene-gene-profligate-correction-max-pairs",
+            "12345",
+            "--gene-gene-profligate-correction-ridge",
+            "0.02",
+            "--print-effective-config",
+        )
+        opts = json.loads(proc.stdout)["options"]
+        self.assertEqual(opts["gene_gene_profligate_correction"], "gamma")
+        self.assertEqual(opts["gene_gene_profligate_correction_max_pairs"], 12345)
+        self.assertEqual(opts["gene_gene_profligate_correction_ridge"], 0.02)
+
+        invalid_model = self._run(
+            "factor",
+            "--gene-gene-profligate-correction",
+            "gamma",
+            "--print-effective-config",
+        )
+        self.assertEqual(invalid_model.returncode, 2)
+        self.assertIn("--gene-gene-profligate-correction requires --discovery-model gene_by_gene", invalid_model.stderr)
+
     def test_reference_matrix_and_bundle_flags_round_trip(self) -> None:
         x_list = self.tmpdir / "x_inputs.list"
         x_list.write_text("alpha.tsv\n", encoding="utf-8")
@@ -610,6 +637,9 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--gene-gene-row-sum-cap": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-gene-gene-row-sum-cap": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-sparsity": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--gene-gene-profligate-correction": ["test_reference_gene_gene_profligate_correction_flags_round_trip"],
+            "--gene-gene-profligate-correction-max-pairs": ["test_reference_gene_gene_profligate_correction_flags_round_trip"],
+            "--gene-gene-profligate-correction-ridge": ["test_reference_gene_gene_profligate_correction_flags_round_trip"],
             "--learn-phi": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-redundancy": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-redundancy-q90": ["test_reference_factor_and_labeling_flags_round_trip"],

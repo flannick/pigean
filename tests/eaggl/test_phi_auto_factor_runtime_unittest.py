@@ -789,6 +789,97 @@ class PhiAutoFactorRuntimeTest(unittest.TestCase):
         self.assertEqual(float(matrix[0, 1]), 0.0)
         self.assertEqual(float(matrix[1, 0]), 0.0)
 
+    def test_gene_gene_annotation_count_exposure_uses_full_annotation_matrix(self) -> None:
+        state = SimpleNamespace(
+            X_orig=sparse.csr_matrix(
+                np.array(
+                    [
+                        [1.0, 0.0, 2.0, 3.0],
+                        [0.0, 0.0, 4.0, 0.0],
+                        [5.0, 6.0, 0.0, 0.0],
+                    ],
+                    dtype=float,
+                )
+            )
+        )
+
+        exposure, counts = eaggl_factor_runtime._gene_gene_annotation_count_exposure(
+            state,
+            np.array([0, 1, 2]),
+        )
+
+        np.testing.assert_allclose(counts, [3.0, 1.0, 2.0])
+        np.testing.assert_allclose(exposure, np.log1p([3.0, 1.0, 2.0]))
+
+    def test_gamma_log_link_pair_correction_removes_count_exposure_signal(self) -> None:
+        exposure = np.log1p(np.array([1.0, 2.0, 5.0, 9.0, 12.0], dtype=float))
+        design = eaggl_factor_runtime._build_pair_exposure_design(exposure)
+        coef = np.array([0.2, 0.35, -0.1, 0.05], dtype=float)
+        L_anchor = np.tensordot(design, coef, axes=([2], [0]))
+        L_anchor = 0.5 * (L_anchor + L_anchor.T)
+
+        corrected, correction, diagnostics = eaggl_factor_runtime._fit_gamma_log_link_pair_correction(
+            L_anchor,
+            exposure,
+            max_pairs=1000000,
+            ridge=0.0,
+        )
+
+        tri = np.triu_indices(exposure.size, k=1)
+        self.assertTrue(diagnostics["converged"])
+        self.assertEqual(diagnostics["fit_pair_count"], int(len(tri[0])))
+        self.assertLess(float(np.std(corrected[tri])), 1e-5)
+        self.assertGreater(float(np.std(correction[tri])), 0.0)
+
+    def test_build_gene_gene_pair_matrix_gamma_correction_is_opt_in_and_uses_full_counts(self) -> None:
+        state = SimpleNamespace(
+            X_orig=sparse.csr_matrix(
+                np.array(
+                    [
+                        [1.0, 1.0, 1.0],
+                        [1.0, 0.0, 0.0],
+                        [1.0, 1.0, 0.0],
+                    ],
+                    dtype=float,
+                )
+            ),
+            betas=None,
+            betas_uncorrected=None,
+            scale_factors=np.ones(3, dtype=float),
+        )
+        kwargs = dict(
+            state=state,
+            gene_mask=np.array([True, True, True]),
+            gene_set_mask=np.array([True, False, False]),
+            beta_source="beta",
+            beta_values=np.array([[2.0], [0.0], [0.0]], dtype=float),
+            pair_prior=0.2,
+            logbf_base="natural",
+            matrix_floor=0.0,
+            excess_probability=True,
+            diagonal_weight=0.0,
+            log_fn=None,
+            info_level=1,
+        )
+
+        uncorrected, uncorrected_diag, _ = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+            **kwargs,
+            profligate_correction="none",
+        )
+        corrected, corrected_diag, _ = eaggl_factor_runtime._build_gene_gene_pair_matrix(
+            **kwargs,
+            profligate_correction="gamma",
+            profligate_correction_ridge=0.0,
+        )
+
+        self.assertGreater(float(np.max(uncorrected)), 0.0)
+        self.assertFalse(np.allclose(uncorrected, corrected))
+        self.assertEqual(uncorrected_diag["gene_gene_profligate_correction"], "none")
+        self.assertEqual(corrected_diag["gene_gene_profligate_correction"], "gamma")
+        self.assertEqual(corrected_diag["gene_gene_annotation_exposure_source_columns"], 3)
+        self.assertEqual(corrected_diag["gene_gene_annotation_count_max"], 3.0)
+        self.assertNotEqual(corrected_diag["gene_gene_profligate_correction_coefficients"], "")
+
     def test_build_gene_gene_pair_matrix_single_anchor_unchanged_across_aggregations(self) -> None:
         state = SimpleNamespace(
             X_orig=sparse.csr_matrix(
