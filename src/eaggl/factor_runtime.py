@@ -11,7 +11,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import scipy
-import scipy.optimize
 import scipy.sparse as sparse
 
 from . import anchor_aggregation as eaggl_anchor_aggregation
@@ -41,48 +40,37 @@ def _state_discovery_model(state):
     return str(getattr(state, "discovery_model", "gene_by_annotation") or "gene_by_annotation")
 
 
-def _gene_gene_annotation_count_exposure(state, gene_indices):
+def _gene_gene_full_annotation_counts(state, gene_indices):
     X_full = state.X_orig[gene_indices, :]
     if sparse.issparse(X_full):
         counts = np.asarray(X_full.getnnz(axis=1), dtype=float).ravel()
     else:
         counts = np.sum(np.asarray(X_full) != 0, axis=1).astype(float)
+    return counts
+
+
+def _gene_gene_retained_annotation_count_exposure(X_retained):
+    if sparse.issparse(X_retained):
+        counts = np.asarray(X_retained.getnnz(axis=1), dtype=float).ravel()
+    else:
+        counts = np.sum(np.asarray(X_retained) != 0, axis=1).astype(float)
     return np.log1p(counts), counts
 
 
-def _build_pair_exposure_design(exposure):
-    exposure = np.asarray(exposure, dtype=float)
-    xi = exposure[:, np.newaxis]
-    xj = exposure[np.newaxis, :]
-    return np.stack(
-        [
-            np.ones((exposure.shape[0], exposure.shape[0]), dtype=float),
-            xi + xj,
-            np.abs(xi - xj),
-            xi * xj,
-        ],
-        axis=2,
-    )
-
-
-def _fit_gamma_log_link_pair_correction(
+def _fit_linear_log_count_pair_correction(
     L_anchor,
     exposure,
-    *,
-    max_pairs,
-    ridge,
 ):
     L_anchor = np.asarray(L_anchor, dtype=float)
     n = L_anchor.shape[0]
     diagnostics = {
-        "mode": "gamma",
+        "mode": "linear",
         "fit_pair_count": 0,
         "total_pair_count": int(max(0, n * (n - 1) // 2)),
-        "converged": False,
+        "fit_applied": False,
         "message": "",
-        "coefficients": "",
-        "feature_means": "",
-        "feature_scales": "",
+        "intercept": 0.0,
+        "slope": 0.0,
     }
     if n < 2:
         return np.asarray(L_anchor, dtype=float), np.zeros_like(L_anchor, dtype=float), diagnostics
@@ -92,67 +80,25 @@ def _fit_gamma_log_link_pair_correction(
     if total_pairs == 0:
         return np.asarray(L_anchor, dtype=float), np.zeros_like(L_anchor, dtype=float), diagnostics
 
-    max_pairs = int(max_pairs) if max_pairs is not None else total_pairs
-    if max_pairs > 0 and total_pairs > max_pairs:
-        rng = np.random.RandomState(0)
-        chosen = np.sort(rng.choice(total_pairs, size=max_pairs, replace=False))
-        fit_i = tri_i[chosen]
-        fit_j = tri_j[chosen]
-    else:
-        fit_i = tri_i
-        fit_j = tri_j
-
     exposure = np.asarray(exposure, dtype=float)
-    raw_fit = np.column_stack(
-        [
-            np.ones(fit_i.shape[0], dtype=float),
-            exposure[fit_i] + exposure[fit_j],
-            np.abs(exposure[fit_i] - exposure[fit_j]),
-            exposure[fit_i] * exposure[fit_j],
-        ]
-    )
-    means = np.zeros(raw_fit.shape[1], dtype=float)
-    scales = np.ones(raw_fit.shape[1], dtype=float)
-    if raw_fit.shape[1] > 1:
-        means[1:] = np.mean(raw_fit[:, 1:], axis=0)
-        scales[1:] = np.std(raw_fit[:, 1:], axis=0)
-        scales[1:] = np.where(scales[1:] <= 1e-12, 1.0, scales[1:])
-    X_fit = raw_fit.copy()
-    X_fit[:, 1:] = (X_fit[:, 1:] - means[1:]) / scales[1:]
-    y = np.nan_to_num(L_anchor[fit_i, fit_j], nan=0.0, posinf=0.0, neginf=0.0)
-
+    fit_x = np.nan_to_num(exposure[tri_i] + exposure[tri_j], nan=0.0, posinf=0.0, neginf=0.0)
+    y = np.nan_to_num(L_anchor[tri_i, tri_j], nan=0.0, posinf=0.0, neginf=0.0)
     if y.size == 0:
         return np.asarray(L_anchor, dtype=float), np.zeros_like(L_anchor, dtype=float), diagnostics
 
-    intercept0 = float(scipy.special.logsumexp(y) - math.log(max(1, y.size)))
-    coef0 = np.zeros(X_fit.shape[1], dtype=float)
-    coef0[0] = intercept0
-    ridge = max(0.0, float(ridge))
+    x_mean = float(np.mean(fit_x))
+    y_mean = float(np.mean(y))
+    x_var = float(np.mean((fit_x - x_mean) ** 2))
+    if x_var <= 1e-12:
+        slope = 0.0
+        intercept = y_mean
+        message = "constant annotation-count feature; fitted intercept only"
+    else:
+        slope = float(np.mean((fit_x - x_mean) * (y - y_mean)) / x_var)
+        intercept = float(y_mean - slope * x_mean)
+        message = "ok"
 
-    def objective(coef):
-        eta = X_fit @ coef
-        exp_term = np.exp(np.clip(y - eta, -50.0, 50.0))
-        penalty = ridge * float(np.sum(coef[1:] ** 2))
-        return float(np.mean(exp_term + eta) + penalty)
-
-    def gradient(coef):
-        eta = X_fit @ coef
-        exp_term = np.exp(np.clip(y - eta, -50.0, 50.0))
-        grad = (X_fit.T @ (1.0 - exp_term)) / max(1, y.size)
-        grad[1:] += 2.0 * ridge * coef[1:]
-        return grad
-
-    result = scipy.optimize.minimize(
-        objective,
-        coef0,
-        jac=gradient,
-        method="L-BFGS-B",
-        options={"maxiter": 200},
-    )
-    coef = np.asarray(result.x if result.x is not None else coef0, dtype=float)
-    design = _build_pair_exposure_design(exposure)
-    design[:, :, 1:] = (design[:, :, 1:] - means[1:]) / scales[1:]
-    correction = np.tensordot(design, coef, axes=([2], [0]))
+    correction = intercept + slope * (exposure[:, np.newaxis] + exposure[np.newaxis, :])
     correction = 0.5 * (correction + correction.T)
     correction = np.nan_to_num(correction, nan=0.0, posinf=0.0, neginf=0.0)
     corrected = np.asarray(L_anchor, dtype=float) - correction
@@ -160,11 +106,10 @@ def _fit_gamma_log_link_pair_correction(
     diagnostics.update(
         {
             "fit_pair_count": int(y.size),
-            "converged": bool(result.success),
-            "message": str(result.message),
-            "coefficients": ",".join("%.8g" % value for value in coef),
-            "feature_means": ",".join("%.8g" % value for value in means),
-            "feature_scales": ",".join("%.8g" % value for value in scales),
+            "fit_applied": True,
+            "message": message,
+            "intercept": float(intercept),
+            "slope": float(slope),
             "correction_mean": float(np.mean(correction)) if correction.size > 0 else 0.0,
             "correction_std": float(np.std(correction)) if correction.size > 0 else 0.0,
             "corrected_L_mean": float(np.mean(corrected)) if corrected.size > 0 else 0.0,
@@ -240,15 +185,13 @@ def _build_gene_gene_pair_matrix(
     info_level,
     anchor_aggregation="multi",
     profligate_correction="none",
-    profligate_correction_max_pairs=1000000,
-    profligate_correction_ridge=1e-3,
 ):
     anchor_aggregation = str(anchor_aggregation)
     if anchor_aggregation not in {"multi", "any"}:
         raise ValueError("anchor aggregation must be one of: multi, any")
     profligate_correction = str(profligate_correction)
-    if profligate_correction not in {"none", "gamma"}:
-        raise ValueError("gene-gene profligate correction must be one of: none, gamma")
+    if profligate_correction not in {"none", "linear"}:
+        raise ValueError("gene-gene profligate correction must be one of: none, linear")
     beta_source_label = str(beta_source)
     if beta_source_label != "beta":
         raise ValueError("gene-by-gene discovery requires corrected beta values; beta_uncorrected is not supported as a pair-weight source")
@@ -281,7 +224,8 @@ def _build_gene_gene_pair_matrix(
     if not sparse.issparse(X_retained):
         X_retained = sparse.csr_matrix(np.asarray(X_retained, dtype=float))
     X_retained = X_retained.tocsr()
-    annotation_exposure, annotation_counts = _gene_gene_annotation_count_exposure(state, gene_indices)
+    retained_annotation_exposure, retained_annotation_counts = _gene_gene_retained_annotation_count_exposure(X_retained)
+    full_annotation_counts = _gene_gene_full_annotation_counts(state, gene_indices)
 
     pair_logit = scipy.special.logit(float(pair_prior))
     gene_prob_matrix = _as_dense_anchor_matrix(gene_prob_values)
@@ -302,17 +246,15 @@ def _build_gene_gene_pair_matrix(
         L_anchor = 0.5 * (L_anchor + L_anchor.T)
         if str(logbf_base) == "log10":
             L_anchor = float(math.log(10.0)) * L_anchor
-        if profligate_correction == "gamma":
-            L_anchor, _correction, correction_diag = _fit_gamma_log_link_pair_correction(
+        if profligate_correction == "linear":
+            L_anchor, _correction, correction_diag = _fit_linear_log_count_pair_correction(
                 L_anchor,
-                annotation_exposure,
-                max_pairs=profligate_correction_max_pairs,
-                ridge=profligate_correction_ridge,
+                retained_annotation_exposure,
             )
             profligate_diagnostics.append(correction_diag)
-            if not correction_diag.get("converged", False) and log_fn is not None:
+            if not correction_diag.get("fit_applied", False) and log_fn is not None:
                 log_fn(
-                    "Gene-gene profligate correction did not fully converge for anchor %d: %s"
+                    "Gene-gene profligate correction was not fit for anchor %d: %s"
                     % (anchor_index + 1, correction_diag.get("message", "")),
                     info_level,
                 )
@@ -362,14 +304,20 @@ def _build_gene_gene_pair_matrix(
     M_row_sums = np.sum(M, axis=1) if M.size > 0 else np.array([], dtype=float)
     per_anchor_nonzero_edge_counts = [int(np.sum(target > 0.0)) for target in per_anchor_targets]
     per_anchor_mean_target = [float(np.mean(target)) if target.size > 0 else 0.0 for target in per_anchor_targets]
-    annotation_count_summary = {
-        "mean": float(np.mean(annotation_counts)) if annotation_counts.size > 0 else 0.0,
-        "median": float(np.median(annotation_counts)) if annotation_counts.size > 0 else 0.0,
-        "max": float(np.max(annotation_counts)) if annotation_counts.size > 0 else 0.0,
+    retained_annotation_count_summary = {
+        "mean": float(np.mean(retained_annotation_counts)) if retained_annotation_counts.size > 0 else 0.0,
+        "median": float(np.median(retained_annotation_counts)) if retained_annotation_counts.size > 0 else 0.0,
+        "max": float(np.max(retained_annotation_counts)) if retained_annotation_counts.size > 0 else 0.0,
     }
-    profligate_coefficients = ";".join(str(diag.get("coefficients", "")) for diag in profligate_diagnostics)
+    full_annotation_count_summary = {
+        "mean": float(np.mean(full_annotation_counts)) if full_annotation_counts.size > 0 else 0.0,
+        "median": float(np.median(full_annotation_counts)) if full_annotation_counts.size > 0 else 0.0,
+        "max": float(np.max(full_annotation_counts)) if full_annotation_counts.size > 0 else 0.0,
+    }
+    profligate_intercepts = ",".join("%.8g" % float(diag.get("intercept", 0.0)) for diag in profligate_diagnostics)
+    profligate_slopes = ",".join("%.8g" % float(diag.get("slope", 0.0)) for diag in profligate_diagnostics)
     profligate_fit_pair_counts = ",".join(str(diag.get("fit_pair_count", 0)) for diag in profligate_diagnostics)
-    profligate_converged = ",".join(str(bool(diag.get("converged", profligate_correction == "none"))) for diag in profligate_diagnostics)
+    profligate_fit_applied = ",".join(str(bool(diag.get("fit_applied", profligate_correction == "none"))) for diag in profligate_diagnostics)
 
     diagnostics = {
         "num_active_genes": int(gene_indices.size),
@@ -388,16 +336,19 @@ def _build_gene_gene_pair_matrix(
         "pair_excess_probability": bool(excess_probability),
         "diagonal_weight": float(diagonal_weight),
         "gene_gene_profligate_correction": profligate_correction,
-        "gene_gene_profligate_correction_max_pairs": None if profligate_correction_max_pairs is None else int(profligate_correction_max_pairs),
-        "gene_gene_profligate_correction_ridge": float(profligate_correction_ridge),
-        "gene_gene_profligate_correction_feature_names": "intercept,annotation_count_sum,annotation_count_absdiff,annotation_count_product",
+        "gene_gene_profligate_correction_feature_names": "intercept,retained_log1p_annotation_count_sum",
         "gene_gene_profligate_correction_fit_pair_counts": profligate_fit_pair_counts,
-        "gene_gene_profligate_correction_converged": profligate_converged,
-        "gene_gene_profligate_correction_coefficients": profligate_coefficients,
-        "gene_gene_annotation_count_mean": annotation_count_summary["mean"],
-        "gene_gene_annotation_count_median": annotation_count_summary["median"],
-        "gene_gene_annotation_count_max": annotation_count_summary["max"],
-        "gene_gene_annotation_exposure_source_columns": int(state.X_orig.shape[1]),
+        "gene_gene_profligate_correction_fit_applied": profligate_fit_applied,
+        "gene_gene_profligate_correction_intercepts": profligate_intercepts,
+        "gene_gene_profligate_correction_slopes": profligate_slopes,
+        "gene_gene_retained_annotation_count_mean": retained_annotation_count_summary["mean"],
+        "gene_gene_retained_annotation_count_median": retained_annotation_count_summary["median"],
+        "gene_gene_retained_annotation_count_max": retained_annotation_count_summary["max"],
+        "gene_gene_full_annotation_count_mean": full_annotation_count_summary["mean"],
+        "gene_gene_full_annotation_count_median": full_annotation_count_summary["median"],
+        "gene_gene_full_annotation_count_max": full_annotation_count_summary["max"],
+        "gene_gene_retained_annotation_count_source_columns": int(X_retained.shape[1]),
+        "gene_gene_full_annotation_count_source_columns": int(state.X_orig.shape[1]),
         "per_anchor_nonzero_edge_counts": ",".join(str(value) for value in per_anchor_nonzero_edge_counts),
         "per_anchor_mean_target": ",".join("%.8g" % value for value in per_anchor_mean_target),
         "L_mean": float(np.mean(L)) if L.size > 0 else 0.0,
@@ -1775,8 +1726,6 @@ def _build_factor_param_record(
     gene_gene_row_sum_cap,
     gene_gene_sparsity,
     gene_gene_profligate_correction,
-    gene_gene_profligate_correction_max_pairs,
-    gene_gene_profligate_correction_ridge,
     seed,
     factor_runs,
     consensus_nmf,
@@ -1880,8 +1829,6 @@ def _build_factor_param_record(
         "gene_gene_row_sum_cap": bool(gene_gene_row_sum_cap),
         "gene_gene_sparsity": float(gene_gene_sparsity),
         "gene_gene_profligate_correction": str(gene_gene_profligate_correction),
-        "gene_gene_profligate_correction_max_pairs": int(gene_gene_profligate_correction_max_pairs),
-        "gene_gene_profligate_correction_ridge": float(gene_gene_profligate_correction_ridge),
         "seed": int(seed) if seed is not None else None,
         "factor_runs": int(factor_runs),
         "consensus_nmf": bool(consensus_nmf),
@@ -4359,7 +4306,7 @@ def _finalize_factor_outputs(
     return reorder_inds
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", gene_gene_profligate_correction_max_pairs=1000000, gene_gene_profligate_correction_ridge=1e-3, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -4901,8 +4848,6 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
             excess_probability=gene_gene_excess_probability,
             diagonal_weight=gene_gene_diagonal_weight,
             profligate_correction=gene_gene_profligate_correction,
-            profligate_correction_max_pairs=gene_gene_profligate_correction_max_pairs,
-            profligate_correction_ridge=gene_gene_profligate_correction_ridge,
             log_fn=log,
             info_level=INFO,
         )
@@ -5640,7 +5585,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", gene_gene_profligate_correction_max_pairs=1000000, gene_gene_profligate_correction_ridge=1e-3, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -5739,12 +5684,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--discovery-model must be one of: gene_by_annotation, gene_by_gene")
     if str(gene_gene_beta_source) != "beta":
         bail("--gene-gene-beta-source must be beta")
-    if str(gene_gene_profligate_correction) not in {"none", "gamma"}:
-        bail("--gene-gene-profligate-correction must be one of: none, gamma")
-    if int(gene_gene_profligate_correction_max_pairs) < 1:
-        bail("--gene-gene-profligate-correction-max-pairs must be at least 1")
-    if float(gene_gene_profligate_correction_ridge) < 0:
-        bail("--gene-gene-profligate-correction-ridge must be >= 0")
+    if str(gene_gene_profligate_correction) not in {"none", "linear"}:
+        bail("--gene-gene-profligate-correction must be one of: none, linear")
     if str(discovery_model) != "gene_by_gene" and str(gene_gene_profligate_correction) != "none":
         bail("--gene-gene-profligate-correction requires --discovery-model gene_by_gene")
     if str(gene_gene_logbf_base) not in {"natural", "log10"}:
@@ -5791,8 +5732,6 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "gene_gene_row_sum_cap": gene_gene_row_sum_cap,
         "gene_gene_sparsity": gene_gene_sparsity,
         "gene_gene_profligate_correction": gene_gene_profligate_correction,
-        "gene_gene_profligate_correction_max_pairs": gene_gene_profligate_correction_max_pairs,
-        "gene_gene_profligate_correction_ridge": gene_gene_profligate_correction_ridge,
         "alpha0": alpha0,
         "beta0": beta0,
         "gene_set_filter_type": gene_set_filter_type,
@@ -5883,8 +5822,6 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             gene_gene_row_sum_cap=gene_gene_row_sum_cap,
             gene_gene_sparsity=gene_gene_sparsity,
             gene_gene_profligate_correction=gene_gene_profligate_correction,
-            gene_gene_profligate_correction_max_pairs=gene_gene_profligate_correction_max_pairs,
-            gene_gene_profligate_correction_ridge=gene_gene_profligate_correction_ridge,
             learn_phi=learn_phi,
             learn_phi_max_redundancy=learn_phi_max_redundancy,
             learn_phi_max_redundancy_q90=learn_phi_max_redundancy_q90,

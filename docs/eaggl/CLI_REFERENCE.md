@@ -356,9 +356,11 @@ Gene-by-gene expert controls:
 | `--gene-gene-excess-probability` / `--no-gene-gene-excess-probability` | factor excess pairwise probability above the pair prior (default) or the raw calibrated pairwise probability |
 | `--gene-gene-row-sum-cap` / `--no-gene-gene-row-sum-cap` | keep each gene’s mechanism memberships approximately disjoint by capping the row sum of `W` at `1` after each update |
 | `--gene-gene-sparsity` | optional L1 penalty on the symmetric gene-by-gene loading matrix |
-| `--gene-gene-profligate-correction` | optional correction for globally profligate genes before pair-probability calibration; `none` is the default and `gamma` fits a Gamma log-link exposure model using total annotation counts from the full read annotation matrix |
-| `--gene-gene-profligate-correction-max-pairs` | deterministic cap on the number of upper-triangle gene pairs used to fit the optional profligate-gene correction |
-| `--gene-gene-profligate-correction-ridge` | ridge penalty applied to non-intercept coefficients in the optional profligate-gene correction |
+| `--gene-gene-profligate-correction` | optional correction for profligate genes before pair-probability calibration; `none` is the default and `linear` subtracts a simple retained-annotation-count effect from raw pair log evidence |
+| `--annotation-bridge-metrics-out` | write per-annotation bridge diagnostics for the retained gene-by-gene evidence kernel |
+| `--annotation-bridge-suggested-exclude-out` | write annotation IDs whose bridge diagnostics pass the conservative suggested-exclusion flag |
+| `--gene-factor-annotation-contribs-out` | write top annotation contributions explaining gene-factor loadings |
+| `--gene-factor-annotation-contribs-top-n` | cap contribution rows per gene-factor-anchor combination; defaults to `10` |
 
 Notes:
 
@@ -370,7 +372,9 @@ Notes:
 - `--discovery-model gene_by_gene` uses all retained gene sets to construct pairwise gene evidence, so discovery-family subsetting and redundancy weighting flags are ignored in that mode.
 - `--discovery-model gene_by_gene` currently requires `--factor-backend full`, `--learn-phi-backend sentinel_pruned`, and the default transposed factor matrix.
 - In `gene_by_gene` mode, corrected `beta` is the default pairwise evidence surface and no additional gene-set-size normalization is applied before symmetric factorization.
-- `--gene-gene-profligate-correction gamma` is opt-in. It estimates the expected multiplicative pair evidence explained by each gene's total annotation count across the full input annotation matrix, subtracts that fitted log-expectation from `L_ij`, and then applies the same pair-prior calibration and target construction as the default path.
+- `--gene-gene-profligate-correction linear` is opt-in. It fits `L_ij = a + b * (log1p(c_i) + log1p(c_j))` on off-diagonal pairs, where `c_i` is the retained/scored annotation count entering the gene-gene evidence matrix, subtracts the fitted degree effect from `L_ij`, and then applies the same pair-prior calibration and target construction as the default path.
+- `--annotation-bridge-metrics-out` is post-factorization and output-only. It decomposes the fitted gene-by-gene evidence kernel into each retained annotation's exact rank-one contribution, summarizes within-factor and between-factor bridge mass, and reports source-specific ranks using the retained annotation source label from `--X-in`/`--X-list`.
+- `--gene-factor-annotation-contribs-out` can be large; by default it writes only the top `10` positive annotation contributions per gene-factor-anchor combination.
 - For multiple anchor traits in `gene_by_annotation` mode, `--anchor-aggregation multi` uses `sum_t p_i,t q_j,t` as the cell weight. `--anchor-aggregation any` uses cell-level noisy-OR, `1 - product_t (1 - p_i,t q_j,t)`, so gene support from one trait and annotation support from another do not create cross-trait weight.
 - For multiple anchor traits in `gene_by_gene` mode, EAGGL first constructs each per-trait pair target exactly as it would for a single-trait run. `multi` uses the equal average of all per-trait targets, so zero targets dilute support; `any` uses noisy-OR union when support from any anchor should be sufficient.
 - No hidden any pseudo-anchor is appended during fitting; `any` is used only when explicitly requested with `--anchor-aggregation any`.

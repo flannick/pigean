@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `273`
+- Total options: `275`
 - `method_required`: `11`
-- `method_optional`: `171`
-- `engineering`: `74`
+- `method_optional`: `170`
+- `engineering`: `77`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `228`
+- visibility `expert`: `230`
 - visibility `hidden`: `8`
 - visibility `normal`: `37`
 
@@ -86,6 +86,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
+| `--gene-factor-annotation-contribs-top-n` | `expert` | `yes` | `advanced_workflows` | `gene_factor_annotation_contribs_top_n` | `10` | maximum rows per gene-factor-anchor combination for annotation contribution provenance |
 | `--gene-filter-value` | `expert` | `yes` | `expert_help` | `gene_filter_value` | `None` | threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5 |
 | `--gene-gene-beta-source` | `expert` | `yes` | `advanced_workflows` | `gene_gene_beta_source` | `beta` | - |
 | `--gene-gene-diagonal-weight` | `expert` | `yes` | `advanced_workflows` | `gene_gene_diagonal_weight` | `0.0` | - |
@@ -94,9 +95,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-gene-matrix-floor` | `expert` | `yes` | `expert_help` | `gene_gene_matrix_floor` | `0.001` | - |
 | `--gene-gene-pair-prior` | `expert` | `yes` | `advanced_workflows` | `gene_gene_pair_prior` | `None` | - |
 | `--gene-gene-pair-prior-effective-size` | `expert` | `yes` | `advanced_workflows` | `gene_gene_pair_prior_effective_size` | `None` | - |
-| `--gene-gene-profligate-correction` | `expert` | `yes` | `advanced_workflows` | `gene_gene_profligate_correction` | `none` | gene-by-gene mode only: opt-in annotation-count correction for profligate genes before probability calibration |
-| `--gene-gene-profligate-correction-max-pairs` | `expert` | `yes` | `advanced_workflows` | `gene_gene_profligate_correction_max_pairs` | `1000000` | maximum deterministic pair sample used to fit the profligate-gene correction |
-| `--gene-gene-profligate-correction-ridge` | `expert` | `yes` | `advanced_workflows` | `gene_gene_profligate_correction_ridge` | `0.001` | ridge penalty used by the profligate-gene correction regression |
+| `--gene-gene-profligate-correction` | `expert` | `yes` | `advanced_workflows` | `gene_gene_profligate_correction` | `none` | gene-by-gene mode only: opt-in linear annotation-count correction for profligate genes before probability calibration |
 | `--gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `True` | - |
 | `--gene-gene-sparsity` | `expert` | `yes` | `advanced_workflows` | `gene_gene_sparsity` | `0.0` | - |
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
@@ -211,6 +210,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 | Flag | Visibility | Semantic | Doc target | Dest | Default | Notes |
 |---|---|---|---|---|---|---|
+| `--annotation-bridge-metrics-out` | `expert` | `no` | `advanced_workflows` | `annotation_bridge_metrics_out` | `None` | gene-by-gene mode only: write per-annotation bridge diagnostics from the rank-one gene-gene evidence decomposition |
+| `--annotation-bridge-suggested-exclude-out` | `expert` | `no` | `advanced_workflows` | `annotation_bridge_suggested_exclude_out` | `None` | gene-by-gene mode only: write annotation IDs suggested for bridge/profligacy review exclusion |
 | `--batch-separator` | `expert` | `no` | `expert_help` | `batch_separator` | `@` | - |
 | `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
 | `--blockwise-report-out` | `expert` | `no` | `expert_help` | `blockwise_report_out` | `None` | write per-epoch blockwise diagnostics |
@@ -232,6 +233,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_out` | `None` | - |
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |
+| `--gene-factor-annotation-contribs-out` | `expert` | `no` | `advanced_workflows` | `gene_factor_annotation_contribs_out` | `None` | gene-by-gene mode only: write top annotation contributions explaining each gene-factor loading |
 | `--gene-gene-set-stats-out` | `expert` | `no` | `expert_help` | `gene_gene_set_stats_out` | `None` | - |
 | `--gene-list-id-col` | `expert` | `no` | `expert_help` | `gene_list_id_col` | `1` | select the gene column from a standalone EAGGL gene-list file when it has multiple columns |
 | `--gene-list-no-header` | `expert` | `no` | `expert_help` | `gene_list_no_header` | `False` | treat the standalone EAGGL gene-list file as headerless |

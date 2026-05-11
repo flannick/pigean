@@ -240,25 +240,25 @@ pairwise support toward the prior, rather than being truncated before calibratio
 Some genes have high annotation exposure across many resources and can therefore receive
 large shared-annotation scores with many partners. EAGGL leaves the raw pair
 log-evidence unchanged by default. When requested, it computes a single exposure feature
-for each retained gene from the full read annotation matrix before retained-gene-set
-filtering,
+for each retained gene from the retained/scored annotation matrix used to construct
+$L_{ij}$,
 \begin{equation}
-a_i = \log\left(1 + \#\{s:X_{is}\ne 0\}\right).
+a_i = \log\left(1 + \#\{s:X_{is}^{\mathrm{retained}}\ne 0\}\right).
 \end{equation}
-For each anchor trait, EAGGL fits a Gamma log-link background model over upper-triangle
-gene pairs,
+For each anchor trait, EAGGL fits an ordinary least-squares linear background over
+off-diagonal gene pairs,
 \begin{equation}
-\log E_0\{\exp(L_{ij})\}
-= h(a_i,a_j),
+h_{ij} = \alpha + \beta(a_i+a_j).
 \end{equation}
-where $h$ is a ridge-penalized linear function of an intercept, $a_i+a_j$,
-$|a_i-a_j|$, and $a_i a_j$. The corrected evidence is
+The corrected evidence is
 \begin{equation}
-L_{ij}^{\mathrm{corr}} = L_{ij} - h(a_i,a_j).
+L_{ij}^{\mathrm{corr}} = L_{ij} - h_{ij}.
 \end{equation}
+Full read-matrix annotation counts are reported as diagnostics but are not used to fit
+the correction.
 The downstream conversion to pair probability, excess probability, flooring, diagonal
 handling, and anchor aggregation are then identical to the default path. This correction
-is opt-in and is intended to remove global annotation-count exposure, not to change the
+is opt-in and is intended to remove retained annotation-count exposure, not to change the
 definition of the pairwise target otherwise.
 
 
@@ -296,6 +296,27 @@ M_{ij}^{\mathrm{any}} = 1 - \prod_t \left(1 - T_{ij}^{(t)}\right),
 and then fits the ordinary symmetric objective
 $M_{ij}^{\mathrm{any}} \approx \sum_k W_{ik}W_{jk}$. With one anchor trait, both
 \texttt{multi} and \texttt{any} reduce exactly to the single-trait target.
+
+\paragraph{Annotation bridge diagnostics.}
+For gene-by-gene discovery, EAGGL can optionally decompose the fitted pair-evidence
+kernel by annotation after fitting. Each annotation contributes the rank-one kernel
+\begin{equation}
+K^{(s)} = \beta_s x_s x_s^\top,
+\end{equation}
+where $x_s$ is the annotation membership vector. Let $\widetilde w_k$ be factor
+$k$'s gene-loading column normalized to sum to one. The exact contribution of
+annotation $s$ to evidence connecting factors $k$ and $\ell$ is
+\begin{equation}
+C_{s,k,\ell}
+= \widetilde w_k^\top K^{(s)} \widetilde w_\ell
+= \beta_s (x_s^\top \widetilde w_k)(x_s^\top \widetilde w_\ell).
+\end{equation}
+EAGGL reports within-factor mass $\sum_k C_{s,k,k}$, between-factor mass
+$\sum_{k\ne\ell} C_{s,k,\ell}$, the corresponding bridge fraction, an effective
+number of factors based on normalized annotation-factor overlaps, and a separated
+bridge mass that downweights bridges between factors with high weighted-Jaccard gene
+overlap. These diagnostics are output-only: they do not alter the learned factors or
+the pairwise target.
 
 \paragraph{Conversion to pairwise probability.}
 Let $\pi_{\mathrm{pair}}$ denote the prior probability that two retained genes are

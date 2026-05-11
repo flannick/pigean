@@ -185,6 +185,10 @@ parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--gene-clusters-full-out",default=None)
 parser.add_option("","--gene-clusters-full-via-gene-sets-out",default=None) #write full-gene cluster table by projecting genes through factor gene-set loadings
+parser.add_option("","--annotation-bridge-metrics-out",default=None) #gene-by-gene mode only: write annotation bridge diagnostics for retained annotations
+parser.add_option("","--annotation-bridge-suggested-exclude-out",default=None) #gene-by-gene mode only: write suggested bridge-exclusion annotation IDs
+parser.add_option("","--gene-factor-annotation-contribs-out",default=None) #gene-by-gene mode only: write top annotation contributions per gene-factor pair
+parser.add_option("","--gene-factor-annotation-contribs-top-n",default=10,type=int) #maximum annotation contribution rows per gene-factor-anchor combination
 parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
 parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="primary") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
@@ -339,9 +343,7 @@ parser.add_option("","--no-gene-gene-excess-probability",dest="gene_gene_excess_
 parser.add_option("","--gene-gene-row-sum-cap",dest="gene_gene_row_sum_cap",default=True,action="store_true") #gene-by-gene mode only: project each row of W to sum <= 1 after each update
 parser.add_option("","--no-gene-gene-row-sum-cap",dest="gene_gene_row_sum_cap",action="store_false")
 parser.add_option("","--gene-gene-sparsity",default=0.0,type=float) #gene-by-gene mode only: optional L1 penalty on W
-parser.add_option("","--gene-gene-profligate-correction",type="choice",choices=["none","gamma"],default="none") #gene-by-gene mode only: opt-in annotation-count correction for profligate genes
-parser.add_option("","--gene-gene-profligate-correction-max-pairs",default=1000000,type=int) #maximum deterministic pair sample used to fit profligate correction
-parser.add_option("","--gene-gene-profligate-correction-ridge",default=1e-3,type=float) #ridge penalty for profligate correction regression
+parser.add_option("","--gene-gene-profligate-correction",type="choice",choices=["none","linear"],default="none") #gene-by-gene mode only: opt-in linear annotation-count correction for profligate genes
 parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization
 parser.add_option("","--learn-phi-max-redundancy",default=0.5,type=float) #maximum allowed within-run weighted Jaccard overlap between metric-scope factors during phi search, measured on gene loadings when available
 parser.add_option("","--learn-phi-max-redundancy-q90",default=0.35,type=float) #maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during phi search
@@ -540,12 +542,14 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--gene-clusters-full-out": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
     "--gene-clusters-full-via-gene-sets-out": "write a projected gene cluster table for all input genes using factor gene-set loadings as the projection basis",
+    "--annotation-bridge-metrics-out": "gene-by-gene mode only: write per-annotation bridge diagnostics from the rank-one gene-gene evidence decomposition",
+    "--annotation-bridge-suggested-exclude-out": "gene-by-gene mode only: write annotation IDs suggested for bridge/profligacy review exclusion",
+    "--gene-factor-annotation-contribs-out": "gene-by-gene mode only: write top annotation contributions explaining each gene-factor loading",
+    "--gene-factor-annotation-contribs-top-n": "maximum rows per gene-factor-anchor combination for annotation contribution provenance",
     "--cluster-row-min-max-loading": "minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows",
     "--discovery-model": "choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery",
     "--anchor-aggregation": "combine multiple anchor traits using shared multi-trait mode (`multi`) or noisy-OR union (`any`); with one anchor both reduce exactly to single-trait anchoring",
-    "--gene-gene-profligate-correction": "gene-by-gene mode only: opt-in annotation-count correction for profligate genes before probability calibration",
-    "--gene-gene-profligate-correction-max-pairs": "maximum deterministic pair sample used to fit the profligate-gene correction",
-    "--gene-gene-profligate-correction-ridge": "ridge penalty used by the profligate-gene correction regression",
+    "--gene-gene-profligate-correction": "gene-by-gene mode only: opt-in linear annotation-count correction for profligate genes before probability calibration",
     "--gene-filter-value": "threshold applied to the resolved pre-factor gene score surface before factorization; gene_by_gene defaults to prior > 0.5",
     "--max-num-discovery-genes": "maximum number of genes retained for factor discovery after thresholding; gene_by_gene defaults to 1000 unless explicitly overridden",
     "--factor-output-scope": "choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all",
@@ -622,8 +626,6 @@ _EXPERT_METHOD_FLAGS = {
     "--consensus-nmf",
     "--gene-gene-beta-source",
     "--gene-gene-profligate-correction",
-    "--gene-gene-profligate-correction-max-pairs",
-    "--gene-gene-profligate-correction-ridge",
     "--gene-gene-diagonal-weight",
     "--gene-gene-excess-probability",
     "--no-gene-gene-excess-probability",
@@ -701,6 +703,9 @@ _EXPERT_METHOD_FLAGS = {
     "--factor-phi-factors-out",
     "--factor-phi-gene-set-clusters-out",
     "--factor-phi-gene-clusters-out",
+    "--annotation-bridge-metrics-out",
+    "--annotation-bridge-suggested-exclude-out",
+    "--gene-factor-annotation-contribs-out",
     "--cluster-row-min-max-loading",
     "--learn-phi-runs-per-step",
     "--learn-phi-size-tolerance-frac",
@@ -710,6 +715,7 @@ _EXPERT_METHOD_FLAGS = {
     "--lmm-provider",
     "--gene-sets-for-labeling",
     "--gene-sets-for-labeling-id-col",
+    "--gene-factor-annotation-contribs-top-n",
     "--max-num-factors",
     "--min-gene-phewas-read-value",
     "--phi",
@@ -728,6 +734,9 @@ _ADVANCED_WORKFLOW_OUTPUT_FLAGS = {
     "--factor-phi-gene-set-clusters-out",
     "--factor-phi-gene-clusters-out",
     "--factor-phewas-stats-out",
+    "--annotation-bridge-metrics-out",
+    "--annotation-bridge-suggested-exclude-out",
+    "--gene-factor-annotation-contribs-out",
     "--consensus-stats-out",
     "--gene-clusters-out",
     "--gene-clusters-full-out",
@@ -1616,6 +1625,8 @@ def _bootstrap_cli(argv=None):
         bail("--max-num-discovery-genes must be at least 1")
     if parsed_options.cluster_row_min_max_loading < 0:
         bail("--cluster-row-min-max-loading must be nonnegative")
+    if parsed_options.gene_factor_annotation_contribs_top_n < 0:
+        bail("--gene-factor-annotation-contribs-top-n must be nonnegative")
     if parsed_options.learn_phi:
         if parsed_options.phi <= 0:
             bail("--learn-phi requires --phi > 0")
@@ -1704,17 +1715,26 @@ def _bootstrap_cli(argv=None):
         bail("--gene-gene-matrix-floor must be >= 0")
     if parsed_options.gene_gene_sparsity < 0:
         bail("--gene-gene-sparsity must be >= 0")
-    if parsed_options.gene_gene_profligate_correction not in set(["none", "gamma"]):
-        bail("--gene-gene-profligate-correction must be one of: none, gamma")
-    if parsed_options.gene_gene_profligate_correction_max_pairs < 1:
-        bail("--gene-gene-profligate-correction-max-pairs must be at least 1")
-    if parsed_options.gene_gene_profligate_correction_ridge < 0:
-        bail("--gene-gene-profligate-correction-ridge must be >= 0")
+    if parsed_options.gene_gene_profligate_correction not in set(["none", "linear"]):
+        bail("--gene-gene-profligate-correction must be one of: none, linear")
     if (
         parsed_options.discovery_model != "gene_by_gene"
         and parsed_options.gene_gene_profligate_correction != "none"
     ):
         bail("--gene-gene-profligate-correction requires --discovery-model gene_by_gene")
+    requested_annotation_bridge_diagnostics = any(
+        value is not None
+        for value in [
+            parsed_options.annotation_bridge_metrics_out,
+            parsed_options.annotation_bridge_suggested_exclude_out,
+            parsed_options.gene_factor_annotation_contribs_out,
+        ]
+    )
+    if requested_annotation_bridge_diagnostics and parsed_options.discovery_model != "gene_by_gene":
+        bail(
+            "--annotation-bridge-metrics-out, --annotation-bridge-suggested-exclude-out, "
+            "and --gene-factor-annotation-contribs-out require --discovery-model gene_by_gene"
+        )
     if parsed_options.anchor_aggregation not in {"multi", "any"}:
         bail("--anchor-aggregation must be one of: multi, any")
     if parsed_options.discovery_model == "gene_by_gene":

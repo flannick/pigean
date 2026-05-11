@@ -6,6 +6,7 @@ import importlib
 _PUBLIC_SUBMODULES = frozenset(
     [
         "app",
+        "annotation_diagnostics",
         "cli",
         "covariates",
         "dispatch",

@@ -111,26 +111,63 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--discovery-model",
             "gene_by_gene",
             "--gene-gene-profligate-correction",
-            "gamma",
-            "--gene-gene-profligate-correction-max-pairs",
-            "12345",
-            "--gene-gene-profligate-correction-ridge",
-            "0.02",
+            "linear",
             "--print-effective-config",
         )
         opts = json.loads(proc.stdout)["options"]
-        self.assertEqual(opts["gene_gene_profligate_correction"], "gamma")
-        self.assertEqual(opts["gene_gene_profligate_correction_max_pairs"], 12345)
-        self.assertEqual(opts["gene_gene_profligate_correction_ridge"], 0.02)
+        self.assertEqual(opts["gene_gene_profligate_correction"], "linear")
 
         invalid_model = self._run(
             "factor",
             "--gene-gene-profligate-correction",
-            "gamma",
+            "linear",
             "--print-effective-config",
         )
         self.assertEqual(invalid_model.returncode, 2)
         self.assertIn("--gene-gene-profligate-correction requires --discovery-model gene_by_gene", invalid_model.stderr)
+
+        invalid_mode = self._run(
+            "factor",
+            "--discovery-model",
+            "gene_by_gene",
+            "--gene-gene-profligate-correction",
+            "gamma",
+            "--print-effective-config",
+        )
+        self.assertEqual(invalid_mode.returncode, 2)
+        self.assertIn("--gene-gene-profligate-correction must be one of: none, linear", invalid_mode.stderr)
+
+    def test_reference_annotation_bridge_diagnostic_flags_round_trip(self) -> None:
+        proc = self._run_ok(
+            "factor",
+            "--discovery-model",
+            "gene_by_gene",
+            "--annotation-bridge-metrics-out",
+            "annotation_bridge_metrics.tsv.gz",
+            "--annotation-bridge-suggested-exclude-out",
+            "annotation_bridge_suggested_exclude.txt",
+            "--gene-factor-annotation-contribs-out",
+            "gene_factor_annotation_contribs.tsv.gz",
+            "--gene-factor-annotation-contribs-top-n",
+            "7",
+            "--print-effective-config",
+        )
+        opts = json.loads(proc.stdout)["options"]
+        self.assertEqual(opts["annotation_bridge_metrics_out"], "annotation_bridge_metrics.tsv.gz")
+        self.assertEqual(opts["annotation_bridge_suggested_exclude_out"], "annotation_bridge_suggested_exclude.txt")
+        self.assertEqual(opts["gene_factor_annotation_contribs_out"], "gene_factor_annotation_contribs.tsv.gz")
+        self.assertEqual(opts["gene_factor_annotation_contribs_top_n"], 7)
+
+        invalid_model = self._run(
+            "factor",
+            "--discovery-model",
+            "gene_by_annotation",
+            "--annotation-bridge-metrics-out",
+            "annotation_bridge_metrics.tsv.gz",
+            "--print-effective-config",
+        )
+        self.assertEqual(invalid_model.returncode, 2)
+        self.assertIn("require --discovery-model gene_by_gene", invalid_model.stderr)
 
     def test_reference_matrix_and_bundle_flags_round_trip(self) -> None:
         x_list = self.tmpdir / "x_inputs.list"
@@ -638,8 +675,10 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--no-gene-gene-row-sum-cap": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-sparsity": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-gene-profligate-correction": ["test_reference_gene_gene_profligate_correction_flags_round_trip"],
-            "--gene-gene-profligate-correction-max-pairs": ["test_reference_gene_gene_profligate_correction_flags_round_trip"],
-            "--gene-gene-profligate-correction-ridge": ["test_reference_gene_gene_profligate_correction_flags_round_trip"],
+            "--annotation-bridge-metrics-out": ["test_reference_annotation_bridge_diagnostic_flags_round_trip"],
+            "--annotation-bridge-suggested-exclude-out": ["test_reference_annotation_bridge_diagnostic_flags_round_trip"],
+            "--gene-factor-annotation-contribs-out": ["test_reference_annotation_bridge_diagnostic_flags_round_trip"],
+            "--gene-factor-annotation-contribs-top-n": ["test_reference_annotation_bridge_diagnostic_flags_round_trip"],
             "--learn-phi": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-redundancy": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--learn-phi-max-redundancy-q90": ["test_reference_factor_and_labeling_flags_round_trip"],

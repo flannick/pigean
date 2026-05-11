@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from . import annotation_diagnostics
+
 
 @dataclass
 class FactorOutputPlan:
@@ -15,6 +17,10 @@ class FactorOutputPlan:
     trait_factor_links_out: str | None = None
     trait_factor_links_output_detail: str = "main"
     gene_pheno_stats_out: str | None = None
+    annotation_bridge_metrics_out: str | None = None
+    annotation_bridge_suggested_exclude_out: str | None = None
+    gene_factor_annotation_contribs_out: str | None = None
+    gene_factor_annotation_contribs_top_n: int = 10
     max_no_write_gene_pheno: object = None
     cluster_row_min_max_loading: float = 0.01
     factor_output_scope: str = "primary"
@@ -61,6 +67,10 @@ def build_factor_output_plan(options):
         trait_factor_links_out=getattr(options, "trait_factor_links_out", None),
         trait_factor_links_output_detail=getattr(options, "trait_factor_links_output_detail", "main"),
         gene_pheno_stats_out=options.gene_pheno_stats_out,
+        annotation_bridge_metrics_out=getattr(options, "annotation_bridge_metrics_out", None),
+        annotation_bridge_suggested_exclude_out=getattr(options, "annotation_bridge_suggested_exclude_out", None),
+        gene_factor_annotation_contribs_out=getattr(options, "gene_factor_annotation_contribs_out", None),
+        gene_factor_annotation_contribs_top_n=getattr(options, "gene_factor_annotation_contribs_top_n", 10),
         max_no_write_gene_pheno=options.max_no_write_gene_pheno,
         cluster_row_min_max_loading=getattr(options, "cluster_row_min_max_loading", 0.01),
         factor_output_scope=getattr(options, "factor_output_scope", "primary"),
@@ -108,6 +118,22 @@ def write_factor_outputs_for_plan(runtime, output_plan):
         runtime.write_gene_pheno_statistics(
             output_plan.gene_pheno_stats_out,
             min_value_to_print=output_plan.max_no_write_gene_pheno,
+        )
+    if output_plan.annotation_bridge_metrics_out is not None:
+        annotation_diagnostics.write_annotation_bridge_metrics(
+            runtime,
+            output_plan.annotation_bridge_metrics_out,
+        )
+    if output_plan.annotation_bridge_suggested_exclude_out is not None:
+        annotation_diagnostics.write_annotation_bridge_suggested_exclude(
+            runtime,
+            output_plan.annotation_bridge_suggested_exclude_out,
+        )
+    if output_plan.gene_factor_annotation_contribs_out is not None:
+        annotation_diagnostics.write_gene_factor_annotation_contribs(
+            runtime,
+            output_plan.gene_factor_annotation_contribs_out,
+            top_n=output_plan.gene_factor_annotation_contribs_top_n,
         )
 
 

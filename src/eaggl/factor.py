@@ -112,8 +112,6 @@ class FactorExecutionConfig:
     gene_gene_row_sum_cap: bool = True
     gene_gene_sparsity: float = 0.0
     gene_gene_profligate_correction: str = "none"
-    gene_gene_profligate_correction_max_pairs: int = 1000000
-    gene_gene_profligate_correction_ridge: float = 1e-3
     gene_set_filter_type: str | None = None
     gene_or_pheno_filter_type: str | None = None
     learn_phi: bool = False
@@ -220,8 +218,6 @@ class FactorExecutionConfig:
             "gene_gene_row_sum_cap": self.gene_gene_row_sum_cap,
             "gene_gene_sparsity": self.gene_gene_sparsity,
             "gene_gene_profligate_correction": self.gene_gene_profligate_correction,
-            "gene_gene_profligate_correction_max_pairs": self.gene_gene_profligate_correction_max_pairs,
-            "gene_gene_profligate_correction_ridge": self.gene_gene_profligate_correction_ridge,
             "learn_phi": self.learn_phi,
             "learn_phi_max_redundancy": self.learn_phi_max_redundancy,
             "learn_phi_max_redundancy_q90": self.learn_phi_max_redundancy_q90,
@@ -1820,8 +1816,6 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         gene_gene_row_sum_cap=getattr(options, "gene_gene_row_sum_cap", True),
         gene_gene_sparsity=getattr(options, "gene_gene_sparsity", 0.0),
         gene_gene_profligate_correction=getattr(options, "gene_gene_profligate_correction", "none"),
-        gene_gene_profligate_correction_max_pairs=getattr(options, "gene_gene_profligate_correction_max_pairs", 1000000),
-        gene_gene_profligate_correction_ridge=getattr(options, "gene_gene_profligate_correction_ridge", 1e-3),
         learn_phi=options.learn_phi,
         learn_phi_max_redundancy=options.learn_phi_max_redundancy,
         learn_phi_max_redundancy_q90=options.learn_phi_max_redundancy_q90,
