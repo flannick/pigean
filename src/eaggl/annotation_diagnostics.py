@@ -36,6 +36,15 @@ BRIDGE_METRICS_HEADER = [
     "source_rank_bridge_fraction",
     "source_rank_separated_bridge_mass",
     "global_rank_separated_bridge_mass",
+    "source_n_annotations",
+    "source_median_dominant_factor_share",
+    "source_median_factor_neff",
+    "source_bridge_burden",
+    "source_global_bridge_burden",
+    "source_quality_score",
+    "source_required_global_bridge_percentile",
+    "source_separated_bridge_percentile",
+    "global_separated_bridge_percentile",
     "flag_review",
     "flag_suggest_exclude",
     "flag_reason",
@@ -167,6 +176,23 @@ def _rank_desc(values):
     return ranks
 
 
+def _empirical_percentiles(values):
+    values = np.asarray(values, dtype=float)
+    if values.size == 0:
+        return []
+    order = np.argsort(values, kind="mergesort")
+    percentiles = np.zeros(values.size, dtype=float)
+    position = 0
+    while position < values.size:
+        end = position + 1
+        while end < values.size and values[order[end]] == values[order[position]]:
+            end += 1
+        percentile = float(end) / float(values.size)
+        percentiles[order[position:end]] = percentile
+        position = end
+    return percentiles.tolist()
+
+
 def _column_nnz(matrix):
     if sparse.issparse(matrix):
         return np.asarray(matrix.getnnz(axis=0), dtype=int).ravel()
@@ -180,14 +206,16 @@ def _factor_name(index):
 def compute_annotation_bridge_records(
     state,
     *,
-    min_active_genes=10,
-    review_factor_neff=2.0,
-    review_bridge_fraction=0.5,
-    exclude_factor_neff=2.5,
-    exclude_bridge_fraction=0.75,
-    exclude_source_top_frac=0.05,
-    exclude_max_similarity=0.5,
+    min_active_genes=20,
+    base_factor_neff=4.0,
+    base_bridge_fraction=0.80,
+    base_max_similarity=0.60,
+    source_min_annotations=20,
+    review_source_percentile=0.95,
+    small_source_global_percentile=0.99,
+    suggest_exclude_global_rank_max=50,
 ):
+    eps = 1e-12
     discovery_model = str(getattr(state, "discovery_model", None) or (getattr(state, "params", {}) or {}).get("discovery_model", "gene_by_annotation"))
     if discovery_model != "gene_by_gene":
         raise ValueError("annotation bridge diagnostics require --discovery-model gene_by_gene")
@@ -319,46 +347,108 @@ def compute_annotation_bridge_records(
                 "source_rank_bridge_fraction": 0,
                 "source_rank_separated_bridge_mass": 0,
                 "global_rank_separated_bridge_mass": 0,
+                "source_n_annotations": 0,
+                "source_median_dominant_factor_share": 0.0,
+                "source_median_factor_neff": 0.0,
+                "source_bridge_burden": 0.0,
+                "source_global_bridge_burden": 0.0,
+                "source_quality_score": 0.0,
+                "source_required_global_bridge_percentile": 0.0,
+                "source_separated_bridge_percentile": 0.0,
+                "global_separated_bridge_percentile": 0.0,
                 "flag_review": False,
                 "flag_suggest_exclude": False,
                 "flag_reason": "",
             }
             records.append(record)
 
-    global_ranks = _rank_desc([abs(record["separated_bridge_mass"]) for record in records])
+    global_values = [abs(record["separated_bridge_mass"]) for record in records]
+    global_ranks = _rank_desc(global_values)
+    global_percentiles = _empirical_percentiles(global_values)
     for record, rank in zip(records, global_ranks):
         record["global_rank_separated_bridge_mass"] = rank
+    for record, percentile in zip(records, global_percentiles):
+        record["global_separated_bridge_percentile"] = percentile
 
     source_groups = {}
     for index, record in enumerate(records):
         source_groups.setdefault((record["annotation_source"], record["anchor_trait"]), []).append(index)
     for indices in source_groups.values():
         bf_ranks = _rank_desc([records[i]["bridge_fraction"] for i in indices])
-        sep_ranks = _rank_desc([abs(records[i]["separated_bridge_mass"]) for i in indices])
-        source_tail_count = max(1, int(math.ceil(len(indices) * float(exclude_source_top_frac))))
+        source_values = [abs(records[i]["separated_bridge_mass"]) for i in indices]
+        sep_ranks = _rank_desc(source_values)
+        source_percentiles = _empirical_percentiles(source_values)
+        source_n = len(indices)
+        source_median_dominant = float(np.median([records[i]["dominant_factor_share"] for i in indices]))
+        source_median_neff = float(np.median([records[i]["factor_neff"] for i in indices]))
+        source_bridge_burden = float(
+            np.mean(
+                [
+                    (
+                        records[i]["bridge_fraction"] >= float(base_bridge_fraction)
+                        or abs(records[i]["bridge_fraction"] - float(base_bridge_fraction)) <= eps
+                    )
+                    and (
+                        records[i]["factor_neff"] >= float(base_factor_neff)
+                        or abs(records[i]["factor_neff"] - float(base_factor_neff)) <= eps
+                    )
+                    for i in indices
+                ]
+            )
+        )
+        source_global_bridge_burden = float(
+            np.mean([records[i]["global_separated_bridge_percentile"] >= 0.90 for i in indices])
+        )
+        if source_n >= int(source_min_annotations):
+            source_quality = 0.5 * source_median_dominant + 0.5 * (1.0 - source_bridge_burden)
+            source_quality = float(np.clip(source_quality, 0.0, 1.0))
+            required_global_percentile = 0.90 + 0.09 * source_quality
+        else:
+            source_quality = 0.0
+            required_global_percentile = float(small_source_global_percentile)
         for local, record_index in enumerate(indices):
             record = records[record_index]
             record["source_rank_bridge_fraction"] = bf_ranks[local]
             record["source_rank_separated_bridge_mass"] = sep_ranks[local]
+            record["source_n_annotations"] = source_n
+            record["source_median_dominant_factor_share"] = source_median_dominant
+            record["source_median_factor_neff"] = source_median_neff
+            record["source_bridge_burden"] = source_bridge_burden
+            record["source_global_bridge_burden"] = source_global_bridge_burden
+            record["source_quality_score"] = source_quality
+            record["source_required_global_bridge_percentile"] = required_global_percentile
+            record["source_separated_bridge_percentile"] = (
+                source_percentiles[local]
+                if source_n >= int(source_min_annotations)
+                else record["global_separated_bridge_percentile"]
+            )
+            base_bridge = (
+                record["beta"] > 0.0
+                and record["n_genes_active"] >= int(min_active_genes)
+                and (
+                    record["factor_neff"] >= float(base_factor_neff)
+                    or abs(record["factor_neff"] - float(base_factor_neff)) <= eps
+                )
+                and (
+                    record["bridge_fraction"] >= float(base_bridge_fraction)
+                    or abs(record["bridge_fraction"] - float(base_bridge_fraction)) <= eps
+                )
+                and record["max_bridge_factor_similarity"] <= float(base_max_similarity)
+            )
             review_reasons = []
-            if (
-                record["beta"] > 0.0
-                and record["n_genes_active"] >= int(min_active_genes)
-                and record["factor_neff"] >= float(review_factor_neff)
-                and record["bridge_fraction"] >= float(review_bridge_fraction)
-            ):
+            if base_bridge and record["source_separated_bridge_percentile"] >= float(review_source_percentile):
                 record["flag_review"] = True
-                review_reasons.append("broad_positive_bridge")
+                review_reasons.append("source_adaptive_review")
             if (
-                record["beta"] > 0.0
-                and record["n_genes_active"] >= int(min_active_genes)
-                and record["factor_neff"] >= float(exclude_factor_neff)
-                and record["bridge_fraction"] >= float(exclude_bridge_fraction)
-                and record["source_rank_separated_bridge_mass"] <= source_tail_count
-                and record["max_bridge_factor_similarity"] < float(exclude_max_similarity)
+                record["flag_review"]
+                and record["global_separated_bridge_percentile"] >= required_global_percentile
+                and record["global_rank_separated_bridge_mass"] <= int(suggest_exclude_global_rank_max)
             ):
                 record["flag_suggest_exclude"] = True
-                review_reasons.append("source_tail_separated_bridge")
+                if source_n < int(source_min_annotations):
+                    review_reasons.append("small_source_global_extreme")
+                else:
+                    review_reasons.append("source_adaptive_exclude")
             record["flag_reason"] = ";".join(review_reasons)
     return records
 
