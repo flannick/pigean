@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `349`
+- Total options: `356`
 - `method_required`: `20`
-- `method_optional`: `190`
-- `engineering`: `110`
+- `method_optional`: `194`
+- `engineering`: `113`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `306`
+- visibility `expert`: `313`
 - visibility `hidden`: `9`
 - visibility `normal`: `34`
 
@@ -101,6 +101,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | gene ID remapping table for advanced gene-phewas ingestion |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | input gene-phewas statistics table for advanced phewas workflows |
 | `--gene-set-betas-in` | `expert` | `yes` | `expert_help` | `gene_set_betas_in` | `None` | - |
+| `--gene-set-exclude-has-header` | `expert` | `yes` | `expert_help` | `gene_set_exclude_has_header` | `-` | declare that --gene-set-exclude-in has a header row |
+| `--gene-set-exclude-in` | `expert` | `yes` | `expert_help` | `gene_set_exclude_in` | `None` | remove listed annotation/gene-set IDs before recomputing beta-tildes and joint betas |
 | `--gene-set-stats-in` | `normal` | `yes` | `core_help` | `gene_set_stats_in` | `None` | use precomputed gene-set statistics to bypass beta-tilde recomputation |
 | `--gene-stats-in` | `normal` | `yes` | `core_help` | `gene_stats_in` | `None` | use precomputed gene-level statistics as input instead of deriving scores from raw sources |
 | `--gene-universe-from-x` | `expert` | `yes` | `expert_help` | `gene_universe_from_x` | `False` | use the union of genes across input gene sets as the analysis universe |
@@ -183,6 +185,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
 | `--phantom-region-posterior` | `expert` | `yes` | `expert_help` | `phantom_region_posterior` | `False` | - |
 | `--phewas-comparison-set` | `expert` | `yes` | `advanced_workflows` | `phewas_comparison_set` | `matched` | choose gene-level phewas output surface: matched or diagnostic |
+| `--pigean-params-in` | `expert` | `yes` | `expert_help` | `pigean_params_in` | `None` | replay beta-stage hyperparameters and settings from a previous PIGEAN params.out file |
+| `--pigean-rerun-bundle-in` | `expert` | `yes` | `expert_help` | `pigean_rerun_bundle_in` | `None` | load bundled fixed-Y PIGEAN inputs and beta-stage defaults for betas-mode reruns |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in` | `1.1` | - |
@@ -288,6 +292,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-phewas-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | log BF column for advanced gene-phewas input |
 | `--gene-phewas-stats-pheno-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_pheno_col` | `None` | phenotype column for advanced gene-phewas input |
 | `--gene-phewas-stats-prior-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_prior_col` | `None` | prior column for advanced gene-phewas input |
+| `--gene-set-exclude-id-col` | `expert` | `no` | `expert_help` | `gene_set_exclude_id_col` | `None` | ID column for --gene-set-exclude-in; default reads the first column |
+| `--gene-set-exclude-no-header` | `expert` | `no` | `expert_help` | `gene_set_exclude_has_header` | `False` | declare that --gene-set-exclude-in has no header row |
 | `--gene-set-overlap-stats-out` | `expert` | `no` | `expert_help` | `gene_set_overlap_stats_out` | `None` | - |
 | `--gene-set-stats-beta-col` | `expert` | `no` | `expert_help` | `gene_set_stats_beta_col` | `None` | beta column mapping for advanced gene-set stats ingestion |
 | `--gene-set-stats-beta-tilde-col` | `expert` | `no` | `expert_help` | `gene_set_stats_beta_tilde_col` | `None` | beta-tilde column mapping for advanced gene-set stats ingestion |
@@ -340,6 +346,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--params-out` | `normal` | `no` | `core_help` | `params_out` | `None` | write learned hyperparameters and runtime settings |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
 | `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | write optional advanced gene-level phewas output table |
+| `--pigean-rerun-bundle-out` | `expert` | `no` | `expert_help` | `pigean_rerun_bundle_out` | `None` | write bundled fixed-Y PIGEAN inputs for later beta-only annotation-exclusion reruns |
 | `--pre-filter-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_batch_size` | `None` | - |
 | `--pre-filter-small-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_small_batch_size` | `500` | - |
 | `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |

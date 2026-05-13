@@ -11,6 +11,7 @@ from pegs_shared.output_tables import (
 
 from . import main_support as pigean_main_support
 from . import phewas as pigean_phewas
+from . import rerun_bundle as pigean_rerun_bundle
 
 
 def open_gz(file, flag=None):
@@ -171,6 +172,18 @@ def write_eaggl_bundle_if_requested(services, state, options, mode):
     services.log("Finished writing EAGGL handoff bundle %s" % out_path, services.INFO)
 
 
+def write_pigean_rerun_bundle_if_requested(services, state, options, mode):
+    if options.pigean_rerun_bundle_out is None:
+        return
+    pigean_rerun_bundle.write_pigean_rerun_bundle(
+        services=services,
+        state=state,
+        options=options,
+        mode=mode,
+        out_path=options.pigean_rerun_bundle_out,
+    )
+
+
 def write_main_outputs_and_optional_phewas(services, state, options, mode_state, mode):
     if options.gene_set_stats_out:
         state.write_gene_set_statistics(
@@ -215,4 +228,5 @@ def write_main_outputs_and_optional_phewas(services, state, options, mode_state,
 
     if options.params_out:
         state.write_params(options.params_out)
+    write_pigean_rerun_bundle_if_requested(services=services, state=state, options=options, mode=mode)
     write_eaggl_bundle_if_requested(services=services, state=state, options=options, mode=mode)

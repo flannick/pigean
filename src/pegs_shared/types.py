@@ -590,6 +590,8 @@ class ReadXPipelineConfig:
     independent_betas_only: bool = False
     track_filtered_beta_uncorrected: bool = False
     track_filtered_beta_uncorrected_mode: str = "none"
+    gene_set_exclude_ids: list[str] | None = None
+    gene_set_exclude_source: str | None = None
 
 
 @dataclass

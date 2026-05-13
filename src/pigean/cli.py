@@ -13,6 +13,11 @@ except ImportError:
     from pegs_cli_errors import CliConfigError, CliOptionGroup, CliOptionParser, CliUsageError, SUPPRESS_HELP  # type: ignore
 
 try:
+    from . import rerun_bundle as pigean_rerun_bundle
+except ImportError:
+    import pigean.rerun_bundle as pigean_rerun_bundle  # type: ignore
+
+try:
     from pegs_shared.cli import (
         callback_set_comma_separated_args as pegs_callback_set_comma_separated_args,
         callback_set_comma_separated_args_as_float as pegs_callback_set_comma_separated_args_as_float,
@@ -277,6 +282,9 @@ parser.add_option("","--gene-covs-out",default=None)
 parser.add_option("","--gene-effectors-out",default=None)
 parser.add_option("","--phewas-stats-out",default=None)
 parser.add_option("","--eaggl-bundle-out",default=None) #write a bundled handoff tarball for eaggl.py inputs
+parser.add_option("","--pigean-rerun-bundle-out",default=None) #write a bundled fixed-Y beta-stage rerun tarball
+parser.add_option("","--pigean-rerun-bundle-in",default=None) #load defaults from a bundled fixed-Y beta-stage rerun tarball
+parser.add_option("","--pigean-params-in",default=None) #replay beta-stage parameters from a previous PIGEAN params.out file
 parser.add_option("","--output-detail",default="main") #column detail level for gene/gene-set outputs: main, full, or debug
 
 #for beta calculation against additional traits
@@ -295,6 +303,10 @@ parser.add_option("","--max-no-write-gene-gene-set-beta",type=float,default=0) #
 parser.add_option("","--use-beta-uncorrected-for-gene-gene-set-write-filter",action="store_true",default=False) #filter on beta uncorrected rather than beta when filtering gene/gene set pairs to write
 parser.add_option("","--max-no-write-gene-set-beta-uncorrected",type=float,default=None) #do not write gene sets to gene-set-stats-out that have absolute beta values of this or lower
 parser.add_option("","--max-no-write-gene-combined",type=float,default=None) #do not write genes to gene-stats-out that have absolute combined values of this or lower
+parser.add_option("","--gene-set-exclude-in",default=None) #annotation/gene-set IDs to remove before beta-tildes and joint betas are recomputed
+parser.add_option("","--gene-set-exclude-id-col",default=None) #optional ID column for --gene-set-exclude-in; default is first column
+parser.add_option("","--gene-set-exclude-no-header",action="store_false",dest="gene_set_exclude_has_header",default=False) #declare that --gene-set-exclude-in has no header row
+parser.add_option("","--gene-set-exclude-has-header",action="store_true",dest="gene_set_exclude_has_header") #declare that --gene-set-exclude-in has a header row
 
 #output for parameters
 parser.add_option("","--params-out",default=None)
@@ -562,6 +574,9 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--huge-statistics-in": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
     "--huge-statistics-out": "write HuGE statistics cache for faster reruns",
     "--eaggl-bundle-out": "write bundled PIGEAN outputs for direct eaggl.py consumption",
+    "--pigean-rerun-bundle-out": "write bundled fixed-Y PIGEAN inputs for later beta-only annotation-exclusion reruns",
+    "--pigean-rerun-bundle-in": "load bundled fixed-Y PIGEAN inputs and beta-stage defaults for betas-mode reruns",
+    "--pigean-params-in": "replay beta-stage hyperparameters and settings from a previous PIGEAN params.out file",
     "--params-out": "write learned hyperparameters and runtime settings",
     "--gene-list-all-id-col": "ID column in the full background gene-universe file for gene-list inputs",
     "--gene-list-all-in": "load the full background gene universe for the gene-list input",
@@ -602,6 +617,10 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
     "--betas-uncorrected-from-phewas": "compute uncorrected beta path from gene-phewas statistics",
     "--max-no-write-gene-combined": "do not write genes to gene-stats-out when abs(combined) is at or below this threshold",
+    "--gene-set-exclude-in": "remove listed annotation/gene-set IDs before recomputing beta-tildes and joint betas",
+    "--gene-set-exclude-id-col": "ID column for --gene-set-exclude-in; default reads the first column",
+    "--gene-set-exclude-no-header": "declare that --gene-set-exclude-in has no header row",
+    "--gene-set-exclude-has-header": "declare that --gene-set-exclude-in has a header row",
     "--run-phewas": "run the optional gene-level phewas output stage",
     "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
     "--phewas-comparison-set": "choose gene-level phewas output surface: matched or diagnostic",
@@ -1412,6 +1431,24 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
             option_name="--eaggl-bundle-out",
             bail_fn=bail,
         )
+    if _options.pigean_rerun_bundle_out is not None:
+        pegs_get_tar_write_mode_for_bundle_path(
+            _options.pigean_rerun_bundle_out,
+            option_name="--pigean-rerun-bundle-out",
+            bail_fn=bail,
+        )
+    if _options.pigean_rerun_bundle_in is not None and _options.gene_set_stats_in is not None:
+        bail(
+            "Option --pigean-rerun-bundle-in cannot be combined with --gene-set-stats-in; "
+            "rerun bundles recompute beta-tildes and joint betas from X and fixed gene combined scores"
+        )
+    if _options.pigean_rerun_bundle_in is not None and _options.pigean_params_in is not None:
+        bail("Do not pass both --pigean-rerun-bundle-in and --pigean-params-in; both replay beta-stage defaults")
+    if _options.pigean_params_in is not None and _options.gene_set_stats_in is not None:
+        bail(
+            "Option --pigean-params-in cannot be combined with --gene-set-stats-in; "
+            "params replay recomputes beta-tildes and joint betas from X and fixed gene combined scores"
+        )
 
     # Column-mapping flags are advanced adjuncts; fail fast if base input is missing.
     gene_stats_col_flags = (
@@ -1425,6 +1462,13 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         for dest, flag in gene_stats_col_flags:
             if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
                 bail("Option %s requires --gene-stats-in" % flag)
+    if _options.gene_set_exclude_in is None:
+        for dest, flag in (
+            ("gene_set_exclude_id_col", "--gene-set-exclude-id-col"),
+            ("gene_set_exclude_has_header", "--gene-set-exclude-has-header/--gene-set-exclude-no-header"),
+        ):
+            if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
+                bail("Option %s requires --gene-set-exclude-in" % flag)
 
     gene_universe_schema_flags = (
         ("gene_universe_id_col", "--gene-universe-id-col"),
@@ -1765,6 +1809,25 @@ def _bootstrap_cli(argv=None):
     parsed_mode = parsed_args[0]
     if parsed_mode in set(["factor", "naive_factor"]):
         bail("Mode '%s' is not available in pigean.py after repository split; run this in the eaggl repository" % parsed_mode)
+    pigean_rerun_bundle.apply_pigean_rerun_bundle_defaults(
+        parsed_options,
+        parsed_mode,
+        parsed_cli_specified_dests,
+        parsed_config_specified_dests,
+        bail_fn=bail,
+        warn_fn=_early_warn,
+    )
+    pigean_rerun_bundle.apply_pigean_params_defaults(
+        parsed_options,
+        parsed_mode,
+        parsed_cli_specified_dests,
+        parsed_config_specified_dests,
+        bail_fn=bail,
+        warn_fn=_early_warn,
+    )
+    # Bundle defaults can provide seed/deterministic settings after the initial
+    # logging bootstrap, so re-apply seeding with the resolved options.
+    pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
     if parsed_options.independent_betas_only and parsed_mode != "betas":
         bail("Option --independent-betas-only currently supports only betas mode")
     if parsed_options.retain_all_beta_uncorrected and parsed_mode != "betas":

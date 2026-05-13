@@ -36,6 +36,62 @@ Notes:
 - The boolean aliases `--track-filtered-beta-uncorrected` and `--no-track-filtered-beta-uncorrected` remain as compatibility shims for `all` and `none`.
 - `--retain-all-beta-uncorrected` and `--independent-betas-only` still apply only to pure `betas` mode, not `priors` or outer `gibbs`.
 
+## PIGEAN beta-only rerun bundles (`--pigean-rerun-bundle-out` / `--pigean-rerun-bundle-in`)
+
+Purpose: rerun only the joint gene-set beta stage after annotation review, using the original run's fixed combined gene scores and active X matrix.
+
+Initial full run:
+- Run a normal PIGEAN workflow, usually `gibbs`.
+- Request ordinary outputs plus:
+  - `--pigean-rerun-bundle-out <bundle.tar.gz>`
+
+Rerun:
+
+```bash
+PYTHONPATH=src python -m pigean betas \
+  --pigean-rerun-bundle-in original.rerun_bundle.tar.gz \
+  --gene-set-exclude-in annotation_bridge_suggested_exclude.txt \
+  --gene-set-stats-out reduced.gene_set_stats.out.gz \
+  --gene-stats-out reduced.gene_stats.out.gz \
+  --eaggl-bundle-out reduced.eaggl_bundle.tar.gz \
+  --params-out reduced.params.out.gz
+```
+
+Bundle contents:
+- `X.tsv.gz`: active gene x annotation matrix after read/mapping/filtering.
+- `gene_stats.tsv.gz`: original gene stats, including `combined`, used as fixed Y.
+- `gene_universe.tsv.gz`: exact active analysis gene universe.
+- `params.tsv.gz`: resolved parameter snapshot.
+- `gene_set_stats.tsv.gz`: optional reference copy only; it is not loaded as beta input.
+- `manifest.json`: schema, source argv, file hashes, column mappings, learned hyperparameters, and beta-stage defaults.
+
+Semantics:
+- `--pigean-rerun-bundle-in` is valid only with mode `betas`.
+- The rerun does not run outer Gibbs.
+- The rerun uses `Y = gene_stats[combined]`, not prior or direct log-BF columns.
+- Annotation IDs listed in `--gene-set-exclude-in` are removed before beta-tildes and joint betas are recomputed.
+- Bundle defaults are applied unless explicitly overridden by CLI/config.
+- With no excluded annotations, rerun beta estimates should agree closely with the source beta estimates. Exact equality is not promised when the source was a Gibbs posterior summary.
+
+Older runs may not have a rerun bundle. In that case, use the ordinary params file directly and provide the fixed Y and X inputs explicitly:
+
+```bash
+PYTHONPATH=src python -m pigean betas \
+  --pigean-params-in original.params.out \
+  --gene-stats-in original.gene_stats.out.gz \
+  --gene-stats-id-col Gene \
+  --gene-stats-combined-col combined \
+  --gene-universe-from-y \
+  --X-in library1.gmt \
+  --X-in library2.gmt \
+  --gene-set-exclude-in annotation_bridge_suggested_exclude.txt \
+  --gene-set-stats-out reduced.gene_set_stats.out.gz \
+  --gene-stats-out reduced.gene_stats.out.gz \
+  --params-out reduced.params.out
+```
+
+`--pigean-params-in` replays learned `p` and `sigma2` rows from the params file and maps vector values back onto retained gene sets by annotation-library label. It also defaults to `--update-hyper none` unless the user explicitly overrides it. This is a parameter replay mechanism, not an input bundle; the fixed Y input, gene universe, and X inputs still need to be supplied.
+
 ## 2) Precomputed gene-set statistics input (`--gene-set-stats-in`)
 
 Purpose: Reuse precomputed gene-set association statistics instead of recomputing from X and Y.

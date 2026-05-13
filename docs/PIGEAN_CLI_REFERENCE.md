@@ -54,6 +54,7 @@ PYTHONPATH=src python -m pigean gibbs \
   --gwas-n-col N \
   --gene-stats-out results/trait.gene_stats.out \
   --gene-set-stats-out results/trait.gene_set_stats.out \
+  --pigean-rerun-bundle-out results/trait.pigean_rerun_bundle.tar.gz \
   --params-out results/trait.params.out
 ```
 
@@ -192,6 +193,28 @@ Count tables are expected to contain `gene`, `revel`, `count`, and `total`, plus
 | `--gene-stats-output-scope` | choose whether `gene_stats.out` writes the active universe only or the legacy expanded missing-gene view |
 | `--huge-statistics-out` | write a HuGE cache tarball |
 | `--huge-statistics-in` | read a HuGE cache tarball |
+| `--pigean-rerun-bundle-out` | write a fixed-Y beta-stage rerun bundle for later annotation-exclusion sensitivity analyses |
+| `--pigean-rerun-bundle-in` | load a fixed-Y beta-stage rerun bundle in `betas` mode |
+| `--pigean-params-in` | replay beta-stage parameters from an existing PIGEAN `params.out` file in `betas` mode |
+| `--gene-set-exclude-in` | remove listed annotations/gene sets before beta-tildes and joint betas are recomputed |
+| `--gene-set-exclude-id-col` | ID column for `--gene-set-exclude-in`; default reads the first column |
+| `--gene-set-exclude-no-header` | declare that `--gene-set-exclude-in` has no header row |
+
+PIGEAN rerun bundles use schema `pigean_rerun_bundle/v1` and are distinct from EAGGL handoff bundles. A typical sensitivity workflow is:
+
+```bash
+PYTHONPATH=src python -m pigean betas \
+  --pigean-rerun-bundle-in results/trait.pigean_rerun_bundle.tar.gz \
+  --gene-set-exclude-in annotation_bridge_suggested_exclude.txt \
+  --gene-set-stats-out results/trait.reduced.gene_set_stats.out.gz \
+  --gene-stats-out results/trait.reduced.gene_stats.out.gz \
+  --eaggl-bundle-out results/trait.reduced.eaggl_bundle.tar.gz \
+  --params-out results/trait.reduced.params.out.gz
+```
+
+Rerun bundles replay the original active X matrix, active gene universe, fixed `combined` gene-score surface, learned hyperparameters, and beta-stage settings. They do not run outer Gibbs and they do not load the original gene-set statistics as beta input; gene-set beta-tildes and joint betas are recomputed. With no exclusion list, the rerun should closely match the original beta estimates, but exact equality is not guaranteed when the source run was a Gibbs posterior summary.
+
+For older runs that did not write a rerun bundle, `--pigean-params-in previous.params.out` can replay beta-stage settings from the ordinary params file. The user must still provide the fixed Y input, gene universe mode, and X inputs. In `betas` mode, params replay uses the learned `p` and `sigma2` rows from the params file, maps vector values back onto loaded gene sets by annotation-library label, and defaults to `--update-hyper none` unless explicitly overridden.
 
 ### Expert beta-stage controls
 

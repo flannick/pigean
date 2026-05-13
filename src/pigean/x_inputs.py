@@ -14,6 +14,8 @@ from pegs_shared.xdata import (
     xdata_from_input_plan as pegs_xdata_from_input_plan,
 )
 
+from . import rerun_bundle as pigean_rerun_bundle
+
 
 def run_main_adaptive_read_x(
     state,
@@ -38,6 +40,14 @@ def run_main_adaptive_read_x(
     )
     track_filtered_beta_uncorrected = options.track_filtered_beta_uncorrected
     track_filtered_beta_uncorrected_mode = options.track_filtered_beta_uncorrected_mode
+    gene_set_exclude_ids = None
+    if options.gene_set_exclude_in is not None:
+        gene_set_exclude_ids = pigean_rerun_bundle.read_gene_set_exclude_ids(
+            options.gene_set_exclude_in,
+            id_col=options.gene_set_exclude_id_col,
+            has_header=bool(options.gene_set_exclude_has_header),
+            bail_fn=bail_fn,
+        )
     state.track_filtered_beta_uncorrected = track_filtered_beta_uncorrected
     state.track_filtered_beta_uncorrected_mode = track_filtered_beta_uncorrected_mode
     state.deterministic_mode = bool(getattr(options, "deterministic", False))
@@ -139,6 +149,8 @@ def run_main_adaptive_read_x(
             independent_betas_only=pure_betas_run and options.independent_betas_only,
             track_filtered_beta_uncorrected=track_filtered_beta_uncorrected,
             track_filtered_beta_uncorrected_mode=track_filtered_beta_uncorrected_mode,
+            gene_set_exclude_ids=gene_set_exclude_ids,
+            gene_set_exclude_source=options.gene_set_exclude_in,
         )
         run_read_x_stage_fn(state, options.X_in, **read_x_kwargs)
 
@@ -166,6 +178,12 @@ def run_main_adaptive_read_x(
             break
         read_x_retry_state["filter_gene_set_p"] = new_filter_gene_set_p
         read_x_retry_state["force_reread"] = True
+    pigean_rerun_bundle.apply_replayed_params_to_loaded_gene_sets(
+        state,
+        options,
+        bail_fn=bail_fn,
+        log_fn=log_fn,
+    )
 
 
 def run_read_x_stage(runtime, X_in, *, read_x_kwargs, build_read_x_pipeline_config_fn, bail_fn, read_x_pipeline_fn):
@@ -301,6 +319,15 @@ def read_x_pipeline(
         num_ignored_gene_sets=ingestion_state["num_ignored_gene_sets"],
         ignored_for_fraction_inc=ingestion_state["ignored_for_fraction_inc"],
     )
+    if read_x_pipeline_config.gene_set_exclude_ids is not None:
+        pigean_rerun_bundle.apply_gene_set_exclusions(
+            runtime,
+            read_x_pipeline_config.gene_set_exclude_ids,
+            source_path=read_x_pipeline_config.gene_set_exclude_source,
+            warn_fn=warn_fn,
+            log_fn=log_fn,
+            info_level=info_level,
+        )
     post_callbacks = PegsXReadPostCallbacks(
         standardize_qc_metrics_after_x_read_fn=standardize_qc_metrics_after_x_read_fn,
         maybe_correct_gene_set_betas_after_x_read_fn=maybe_correct_gene_set_betas_after_x_read_fn,
