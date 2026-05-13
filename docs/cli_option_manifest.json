@@ -3159,7 +3159,7 @@
       "source_line": 272,
       "summary": "write the final gene-set statistics table",
       "type": null,
-      "usage_references": 89
+      "usage_references": 91
     },
     {
       "action": null,
@@ -5763,7 +5763,7 @@
       "source_line": 312,
       "summary": "write learned hyperparameters and runtime settings",
       "type": null,
-      "usage_references": 102
+      "usage_references": 104
     },
     {
       "action": "store_true",
@@ -5889,7 +5889,7 @@
       "source_line": 287,
       "summary": "replay beta-stage hyperparameters and settings from a previous PIGEAN params.out file",
       "type": null,
-      "usage_references": 14
+      "usage_references": 15
     },
     {
       "action": null,

@@ -278,6 +278,59 @@ class PigeanRerunBundleTest(unittest.TestCase):
         self.assertIn("pigean_params_replay_p_values_applied", params_text)
         self.assertIn("pigean_params_replay_sigma2_values_applied", params_text)
 
+    def test_params_out_records_label_aware_replay_rows(self) -> None:
+        params_out = self.tmpdir / "label_replay.params.tsv"
+        run = self._run(
+            "betas",
+            *self._common_args(),
+            "--gene-set-stats-out",
+            str(self.tmpdir / "label_replay.gene_set_stats.tsv.gz"),
+            "--params-out",
+            str(params_out),
+        )
+        self.assertEqual(run.returncode, 0, msg=(run.stderr or "") + (run.stdout or ""))
+        params_text = params_out.read_text(encoding="utf-8")
+        self.assertIn("hyperparameter_label_order", params_text)
+        self.assertIn("p_by_label__", params_text)
+        self.assertIn("sigma2_by_label__", params_text)
+
+    def test_params_in_prefers_label_aware_replay_rows(self) -> None:
+        params_in = self.tmpdir / "label_replay_input.params.tsv"
+        label = "gene_set_list_mouse_2024"
+        params_in.write_text(
+            "\n".join(
+                [
+                    "Parameter\tVersion\tValue",
+                    "p\t1\t0.99",
+                    "sigma2\t1\t0.99",
+                    "sigma_power\t1\t-2",
+                    f"p_by_label__{label}\t1\t0.02",
+                    f"sigma2_by_label__{label}\t1\t0.004",
+                    "option_filter_gene_set_p\t1\t1",
+                    "option_max_num_gene_sets\t1\t50",
+                    "option_max_num_gene_sets_hyper\t1\t50",
+                    "option_min_gene_set_size\t1\t1",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        params_out = self.tmpdir / "label_replay_output.params.tsv"
+        run = self._run(
+            "betas",
+            *self._common_args(),
+            "--pigean-params-in",
+            str(params_in),
+            "--gene-set-stats-out",
+            str(self.tmpdir / "label_replay_output.gene_set_stats.tsv.gz"),
+            "--params-out",
+            str(params_out),
+        )
+        self.assertEqual(run.returncode, 0, msg=(run.stderr or "") + (run.stdout or ""))
+        params_text = params_out.read_text(encoding="utf-8")
+        self.assertIn("p_by_label__gene_set_list_mouse_2024\t1\t0.02", params_text)
+        self.assertIn("sigma2_by_label__gene_set_list_mouse_2024\t1\t0.004", params_text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -185,6 +185,7 @@ def write_pigean_rerun_bundle_if_requested(services, state, options, mode):
 
 
 def write_main_outputs_and_optional_phewas(services, state, options, mode_state, mode):
+    pigean_rerun_bundle.record_label_hyperparameters(state)
     if options.gene_set_stats_out:
         state.write_gene_set_statistics(
             options.gene_set_stats_out,

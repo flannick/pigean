@@ -130,6 +130,18 @@ def _collapse_param_values(values: list[Any]) -> Any:
     return values
 
 
+def _extract_label_param_map(params: dict[str, list[Any]], prefix: str) -> dict[str, float]:
+    result: dict[str, float] = {}
+    for key, values in params.items():
+        if not key.startswith(prefix):
+            continue
+        label = key[len(prefix) :]
+        if not values:
+            continue
+        result[label] = float(values[-1])
+    return result
+
+
 def _input_label_from_spec(spec: str) -> str:
     text = str(spec)
     if "@" in text:
@@ -152,6 +164,32 @@ def _current_x_labels(options) -> list[str]:
         for spec in specs:
             labels.append(_input_label_from_spec(spec))
     return labels
+
+
+def record_label_hyperparameters(state) -> None:
+    labels = getattr(state, "gene_set_labels", None)
+    if labels is None or len(labels) == 0:
+        return
+    label_order: list[str] = []
+    seen = set()
+    for label in labels:
+        label_text = str(label)
+        if label_text not in seen:
+            seen.add(label_text)
+            label_order.append(label_text)
+    state._record_param("hyperparameter_label_order", "|".join(label_order), overwrite=True)
+    ps = getattr(state, "ps", None)
+    sigma2s = getattr(state, "sigma2s", None)
+    for label in label_order:
+        mask = np.asarray(labels, dtype=object) == label
+        if ps is not None:
+            vals = np.asarray(ps, dtype=float)[mask]
+            if vals.size > 0:
+                state._record_param(f"p_by_label__{label}", float(np.median(vals)), overwrite=True)
+        if sigma2s is not None:
+            vals = np.asarray(sigma2s, dtype=float)[mask]
+            if vals.size > 0:
+                state._record_param(f"sigma2_by_label__{label}", float(np.median(vals)), overwrite=True)
 
 
 def _write_gene_universe(path: str, state) -> None:
@@ -418,6 +456,10 @@ def apply_pigean_params_defaults(options, mode: str, cli_dests: set[str], config
         applied["p_noninf"] = value
         setattr(options, "pigean_replay_ps", value)
         applied["pigean_replay_ps"] = value
+    label_p = _extract_label_param_map(params, "p_by_label__")
+    if label_p:
+        setattr(options, "pigean_replay_ps_by_label", label_p)
+        applied["pigean_replay_ps_by_label"] = label_p
     if "sigma2" in params and "sigma2" not in explicit:
         sigma2_values = [float(x) for x in params["sigma2"]]
         setattr(options, "pigean_replay_sigma2s", sigma2_values)
@@ -425,6 +467,10 @@ def apply_pigean_params_defaults(options, mode: str, cli_dests: set[str], config
         if len(sigma2_values) > 0:
             options.sigma2 = float(np.mean(sigma2_values))
             applied["sigma2"] = options.sigma2
+    label_sigma2 = _extract_label_param_map(params, "sigma2_by_label__")
+    if label_sigma2:
+        setattr(options, "pigean_replay_sigma2s_by_label", label_sigma2)
+        applied["pigean_replay_sigma2s_by_label"] = label_sigma2
     if "sigma_power" in params and "sigma_power" not in explicit:
         value = float(params["sigma_power"][-1])
         options.sigma_power = value
@@ -452,7 +498,15 @@ def apply_pigean_params_defaults(options, mode: str, cli_dests: set[str], config
     return params
 
 
-def _map_replay_values_to_gene_sets(values: Any, labels: np.ndarray, options, name: str, *, bail_fn) -> np.ndarray | None:
+def _map_replay_values_to_gene_sets(values: Any, labels: np.ndarray, x_labels: list[str], name: str, *, bail_fn, values_by_label: dict[str, float] | None = None) -> np.ndarray | None:
+    if values_by_label:
+        missing = sorted({str(label) for label in labels if str(label) not in values_by_label})
+        if missing:
+            bail_fn(
+                f"Replayed {name} label map is missing loaded gene-set labels; first missing labels: "
+                + ", ".join(missing[:5])
+            )
+        return np.asarray([float(values_by_label[str(label)]) for label in labels], dtype=float)
     if values is None:
         return None
     arr = np.asarray(values, dtype=float).reshape(-1)
@@ -462,7 +516,6 @@ def _map_replay_values_to_gene_sets(values: Any, labels: np.ndarray, options, na
         return arr.copy()
     if len(arr) == 1:
         return np.full(len(labels), float(arr[0]), dtype=float)
-    x_labels = _current_x_labels(options)
     if len(arr) != len(x_labels):
         bail_fn(
             f"Replayed {name} has {len(arr)} values, but current inputs have {len(x_labels)} direct X/Xd labels "
@@ -478,23 +531,38 @@ def _map_replay_values_to_gene_sets(values: Any, labels: np.ndarray, options, na
     return np.asarray([label_to_value[str(label)] for label in labels], dtype=float)
 
 
-def apply_replayed_params_to_loaded_gene_sets(state, options, *, bail_fn, log_fn=None) -> None:
+def apply_replayed_params_to_loaded_gene_sets(state, options=None, *, replay_ps=None, replay_sigma2s=None, replay_x_labels=None, replay_ps_by_label=None, replay_sigma2s_by_label=None, bail_fn, log_fn=None) -> None:
     labels = getattr(state, "gene_set_labels", None)
     if labels is None or len(labels) == 0:
         return
+    if options is not None:
+        if replay_ps is None:
+            replay_ps = getattr(options, "pigean_replay_ps", None)
+        if replay_sigma2s is None:
+            replay_sigma2s = getattr(options, "pigean_replay_sigma2s", None)
+        if replay_x_labels is None:
+            replay_x_labels = _current_x_labels(options)
+        if replay_ps_by_label is None:
+            replay_ps_by_label = getattr(options, "pigean_replay_ps_by_label", None)
+        if replay_sigma2s_by_label is None:
+            replay_sigma2s_by_label = getattr(options, "pigean_replay_sigma2s_by_label", None)
+    if replay_x_labels is None:
+        replay_x_labels = []
     ps = _map_replay_values_to_gene_sets(
-        getattr(options, "pigean_replay_ps", None),
+        replay_ps,
         np.asarray(labels),
-        options,
+        list(replay_x_labels),
         "p values",
         bail_fn=bail_fn,
+        values_by_label=replay_ps_by_label,
     )
     sigma2s = _map_replay_values_to_gene_sets(
-        getattr(options, "pigean_replay_sigma2s", None),
+        replay_sigma2s,
         np.asarray(labels),
-        options,
+        list(replay_x_labels),
         "sigma2 values",
         bail_fn=bail_fn,
+        values_by_label=replay_sigma2s_by_label,
     )
     if ps is None and sigma2s is None:
         return

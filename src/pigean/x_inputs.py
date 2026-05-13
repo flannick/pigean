@@ -151,6 +151,11 @@ def run_main_adaptive_read_x(
             track_filtered_beta_uncorrected_mode=track_filtered_beta_uncorrected_mode,
             gene_set_exclude_ids=gene_set_exclude_ids,
             gene_set_exclude_source=options.gene_set_exclude_in,
+            replay_ps=getattr(options, "pigean_replay_ps", None),
+            replay_sigma2s=getattr(options, "pigean_replay_sigma2s", None),
+            replay_ps_by_label=getattr(options, "pigean_replay_ps_by_label", None),
+            replay_sigma2s_by_label=getattr(options, "pigean_replay_sigma2s_by_label", None),
+            replay_x_labels=pigean_rerun_bundle._current_x_labels(options),
         )
         run_read_x_stage_fn(state, options.X_in, **read_x_kwargs)
 
@@ -201,6 +206,7 @@ def read_x_pipeline(
     *,
     open_gz_fn,
     open_dense_fn,
+    bail_fn,
     warn_fn,
     log_fn,
     info_level,
@@ -328,6 +334,16 @@ def read_x_pipeline(
             log_fn=log_fn,
             info_level=info_level,
         )
+    pigean_rerun_bundle.apply_replayed_params_to_loaded_gene_sets(
+        runtime,
+        replay_ps=read_x_pipeline_config.replay_ps,
+        replay_sigma2s=read_x_pipeline_config.replay_sigma2s,
+        replay_ps_by_label=read_x_pipeline_config.replay_ps_by_label,
+        replay_sigma2s_by_label=read_x_pipeline_config.replay_sigma2s_by_label,
+        replay_x_labels=read_x_pipeline_config.replay_x_labels,
+        bail_fn=bail_fn,
+        log_fn=log_fn,
+    )
     post_callbacks = PegsXReadPostCallbacks(
         standardize_qc_metrics_after_x_read_fn=standardize_qc_metrics_after_x_read_fn,
         maybe_correct_gene_set_betas_after_x_read_fn=maybe_correct_gene_set_betas_after_x_read_fn,

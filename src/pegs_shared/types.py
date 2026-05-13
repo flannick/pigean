@@ -592,6 +592,11 @@ class ReadXPipelineConfig:
     track_filtered_beta_uncorrected_mode: str = "none"
     gene_set_exclude_ids: list[str] | None = None
     gene_set_exclude_source: str | None = None
+    replay_ps: object | None = None
+    replay_sigma2s: object | None = None
+    replay_ps_by_label: object | None = None
+    replay_sigma2s_by_label: object | None = None
+    replay_x_labels: list[str] | None = None
 
 
 @dataclass
