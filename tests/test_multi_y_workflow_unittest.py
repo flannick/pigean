@@ -156,6 +156,8 @@ class MultiYWorkflowTest(unittest.TestCase):
         def _fake_inner_run(trait_options, mode, services=None):
             del mode, services
             trait_name = Path(trait_options.gene_stats_in).stem.split("_", 1)[1].split(".")[0]
+            self.assertTrue(trait_options.gene_universe_from_x)
+            self.assertFalse(trait_options.gene_universe_from_y)
             with open(trait_options.gene_set_stats_out, "w", encoding="utf-8") as fh:
                 fh.write("Gene_Set\tbeta_tilde\tP\n")
                 fh.write(f"GS_{trait_name}\t1.5\t0.01\n")
@@ -191,6 +193,11 @@ class MultiYWorkflowTest(unittest.TestCase):
             positive_controls_list=None,
             positive_controls_all_in=None,
             gene_phewas_bfs_in=None,
+            gene_universe_in=None,
+            gene_universe_id_col=None,
+            gene_universe_has_header=True,
+            gene_universe_from_y=False,
+            gene_universe_from_x=False,
             run_phewas_from_gene_phewas_stats_in=None,
             betas_from_phewas=False,
             betas_uncorrected_from_phewas=False,
@@ -253,6 +260,150 @@ class MultiYWorkflowTest(unittest.TestCase):
         self.assertIn("multi_y_enabled", params_text)
         self.assertIn("multi_y_num_traits\t1\t2", params_text)
         self.assertIn("multi_y_phenos_per_batch\t1\t1", params_text)
+        self.assertIn("multi_y_gene_universe_mode\t1\tx", params_text)
+
+    def test_multi_y_explicit_gene_universe_is_preserved_for_trait_runs(self) -> None:
+        from pigean import multi_y as pigean_multi_y  # imported lazily after PYTHONPATH setup
+        from pigean import dispatch as pigean_dispatch
+
+        class _StubState:
+            def __init__(self) -> None:
+                self.genes = ["GENE1", "GENE2", "GENE3"]
+                self.gene_to_ind = {gene: i for i, gene in enumerate(self.genes)}
+                self.gene_label_map = None
+                self.params = {}
+                self.param_keys = []
+
+            def has_gene_sets(self) -> bool:
+                return True
+
+            def _record_params(self, params, overwrite=False, record_only_first_time=False):
+                del record_only_first_time
+                for key, value in params.items():
+                    if value is None:
+                        continue
+                    if overwrite or key not in self.params:
+                        self.params[key] = value
+                        if key not in self.param_keys:
+                            self.param_keys.append(key)
+
+            def write_params(self, output_file):
+                with open(output_file, "w", encoding="utf-8") as fh:
+                    fh.write("Parameter\tVersion\tValue\n")
+                    for key in self.param_keys:
+                        fh.write(f"{key}\t1\t{self.params[key]}\n")
+
+        trait_gene_universe_modes = []
+
+        def _fake_inner_run(trait_options, mode, services=None):
+            del mode, services
+            trait_gene_universe_modes.append(
+                (
+                    trait_options.gene_universe_in,
+                    trait_options.gene_universe_from_x,
+                    trait_options.gene_universe_from_y,
+                )
+            )
+            with open(trait_options.gene_set_stats_out, "w", encoding="utf-8") as fh:
+                fh.write("Gene_Set\tbeta_tilde\tP\n")
+                fh.write("GS_A\t1.5\t0.01\n")
+            return None
+
+        options = SimpleNamespace(
+            multi_y_in=str(self.tmpdir / "stub_multi_y_explicit_universe.tsv"),
+            multi_y_id_col=None,
+            multi_y_pheno_col="Trait",
+            multi_y_log_bf_col="Direct",
+            multi_y_combined_col="Combined",
+            multi_y_prior_col="Prior",
+            multi_y_max_phenos_per_batch=2,
+            gene_set_stats_out=str(self.tmpdir / "stub_multi_y_explicit_universe.gene_set_stats.out"),
+            gene_stats_out=None,
+            params_out=str(self.tmpdir / "stub_multi_y_explicit_universe.params.out"),
+            max_gb=2.0,
+            gwas_in=None,
+            huge_statistics_in=None,
+            huge_statistics_out=None,
+            exomes_in=None,
+            case_counts_in=None,
+            ctrl_counts_in=None,
+            gene_stats_in=None,
+            gene_set_stats_in=None,
+            gene_set_betas_in=None,
+            const_gene_set_beta=None,
+            const_gene_Y=None,
+            positive_controls_in=None,
+            positive_controls_list=None,
+            positive_controls_all_in=None,
+            gene_phewas_bfs_in=None,
+            gene_universe_in=str(self.tmpdir / "explicit_universe.tsv"),
+            gene_universe_id_col="Gene",
+            gene_universe_has_header=True,
+            gene_universe_from_y=False,
+            gene_universe_from_x=False,
+            run_phewas_from_gene_phewas_stats_in=None,
+            betas_from_phewas=False,
+            betas_uncorrected_from_phewas=False,
+            phewas_stats_out=None,
+            phewas_gene_set_stats_out=None,
+        )
+        Path(options.multi_y_in).write_text(
+            "\n".join(
+                [
+                    "Gene\tTrait\tDirect\tCombined\tPrior",
+                    "GENE1\tTRAIT_A\t1.0\t1.2\t0.1",
+                    "GENE2\tTRAIT_B\t1.5\t1.7\t0.2",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        Path(options.gene_universe_in).write_text("Gene\nGENE1\nGENE2\n", encoding="utf-8")
+        services = SimpleNamespace(
+            INFO=1,
+            DEBUG=2,
+            sys=SimpleNamespace(exit=lambda code=0: (_ for _ in ()).throw(SystemExit(code))),
+            log=lambda *args, **kwargs: None,
+            warn=lambda *args, **kwargs: None,
+            bail=lambda message: (_ for _ in ()).throw(AssertionError(message)),
+        )
+
+        with mock.patch.object(pigean_multi_y.pigean_main_support, "build_runtime_state", return_value=_StubState()), \
+            mock.patch.object(pigean_multi_y.pigean_main_support, "configure_hyperparameters_for_main", return_value=None), \
+            mock.patch.object(pigean_multi_y.pigean_main_support, "run_main_adaptive_read_x", return_value=None), \
+            mock.patch.object(
+                pigean_multi_y.pigean_main_support.pigean_y_inputs_core,
+                "initialize_explicit_gene_universe_if_needed",
+                return_value=None,
+            ) as init_universe, \
+            mock.patch.object(
+                pigean_multi_y.pigean_phewas,
+                "prepare_phewas_phenos_from_file",
+                return_value=(["TRAIT_A", "TRAIT_B"], {"TRAIT_A": 0, "TRAIT_B": 1}, {"id_col": 0, "pheno_col": 1, "bf_col": 2, "combined_col": 3, "prior_col": 4}),
+            ), \
+            mock.patch.object(
+                pigean_multi_y.pigean_phewas,
+                "read_phewas_file_batch",
+                return_value=(
+                    np.array([[1.0, 0.0], [0.0, 1.5], [0.0, 0.0]]),
+                    np.array([[1.2, 0.0], [0.0, 1.7], [0.0, 0.0]]),
+                    np.array([[0.1, 0.0], [0.0, 0.2], [0.0, 0.0]]),
+                ),
+            ), \
+            mock.patch.object(pigean_dispatch, "run_main_pipeline", side_effect=_fake_inner_run):
+            result = pigean_multi_y.run_multi_y_pipeline(services=services, options=options, mode="betas")
+
+        self.assertEqual(result.num_traits_completed, 2)
+        init_universe.assert_called_once()
+        self.assertEqual(
+            trait_gene_universe_modes,
+            [
+                (options.gene_universe_in, False, False),
+                (options.gene_universe_in, False, False),
+            ],
+        )
+        params_text = Path(options.params_out).read_text(encoding="utf-8")
+        self.assertIn("multi_y_gene_universe_mode\t1\tfile", params_text)
 
 
 if __name__ == "__main__":

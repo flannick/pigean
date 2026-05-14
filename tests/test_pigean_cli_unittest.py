@@ -455,6 +455,19 @@ class PigeanCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--multi-y-max-phenos-per-batch requires --multi-y-in", err)
 
+    def test_multi_y_rejects_gene_universe_from_y(self) -> None:
+        proc = self._run(
+            "betas",
+            "--multi-y-in",
+            "traits.tsv",
+            "--gene-set-stats-out",
+            "out.tsv",
+            "--gene-universe-from-y",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--gene-universe-from-y is not supported with --multi-y-in", err)
+
     def test_multi_y_effective_config_round_trips(self) -> None:
         proc = self._run(
             "betas",

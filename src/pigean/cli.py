@@ -1562,6 +1562,11 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     else:
         if _options.gene_set_stats_out is None:
             bail("Option --multi-y-in requires --gene-set-stats-out")
+        if _options.gene_universe_from_y:
+            bail(
+                "Option --gene-universe-from-y is not supported with --multi-y-in; "
+                "use --gene-universe-in for an explicit shared universe or omit gene-universe options to use --gene-universe-from-x semantics"
+            )
         if _options.multi_y_max_phenos_per_batch is not None and _options.multi_y_max_phenos_per_batch <= 0:
             bail("Option --multi-y-max-phenos-per-batch must be > 0")
         conflicting_inputs = []

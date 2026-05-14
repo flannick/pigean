@@ -191,6 +191,11 @@ def _write_trait_gene_stats_file(
 
 
 def _record_multi_y_params(state, options, mode, *, columns, num_traits_total, phenos_per_batch):
+    gene_universe_in = getattr(options, "gene_universe_in", None)
+    if gene_universe_in is not None:
+        gene_universe_mode = "file"
+    else:
+        gene_universe_mode = "x"
     state._record_params(
         {
             "multi_y_enabled": True,
@@ -203,8 +208,39 @@ def _record_multi_y_params(state, options, mode, *, columns, num_traits_total, p
             "multi_y_prior_col": columns.prior_col_name,
             "multi_y_num_traits": num_traits_total,
             "multi_y_phenos_per_batch": phenos_per_batch,
+            "multi_y_gene_universe_mode": gene_universe_mode,
+            "multi_y_gene_universe_in": gene_universe_in,
         },
         overwrite=True,
+    )
+
+
+def _initialize_multi_y_gene_universe(seed_state, options, services):
+    if getattr(options, "gene_universe_from_y", False):
+        services.bail(
+            "Option --gene-universe-from-y is not supported with --multi-y-in; "
+            "use --gene-universe-in for an explicit shared universe or omit it to use --gene-universe-from-x semantics"
+        )
+    gene_universe_in = getattr(options, "gene_universe_in", None)
+    if gene_universe_in is None:
+        return
+
+    universe_genes = pigean_main_support.pigean_y_inputs_core.load_gene_ids_from_file(
+        gene_universe_in,
+        gene_ids_id_col=getattr(options, "gene_universe_id_col", None),
+        gene_ids_has_header=getattr(options, "gene_universe_has_header", True),
+        gene_label_map=getattr(seed_state, "gene_label_map", None),
+        open_text_fn=pigean_main_support.open_gz,
+        get_col_fn=pigean_main_support.get_col,
+        log_fn=services.log,
+        warn_fn=services.warn,
+        bail_fn=services.bail,
+    )
+    pigean_main_support.pigean_y_inputs_core.initialize_explicit_gene_universe_if_needed(
+        seed_state,
+        gene_universe_mode="file",
+        gene_universe_genes=universe_genes,
+        log_fn=services.log,
     )
 
 
@@ -218,6 +254,7 @@ def run_multi_y_pipeline(services, options, mode):
     seed_state = pigean_main_support.build_runtime_state(options)
     mode_state = pigean_main_support.build_mode_state(mode, False)
     sigma2_cond = pigean_main_support.configure_hyperparameters_for_main(seed_state, options)
+    _initialize_multi_y_gene_universe(seed_state, options, services)
     pigean_main_support.run_main_adaptive_read_x(seed_state, options, mode_state, sigma2_cond)
 
     if not seed_state.has_gene_sets():
@@ -319,7 +356,7 @@ def run_multi_y_pipeline(services, options, mode):
                     trait_options.gene_stats_log_bf_col = "log_bf"
                     trait_options.gene_stats_combined_col = "combined" if batch_combined is not None else None
                     trait_options.gene_stats_prior_col = "prior" if batch_priors is not None else None
-                    trait_options.gene_universe_from_x = True
+                    trait_options.gene_universe_from_x = getattr(options, "gene_universe_in", None) is None
                     trait_options.gene_universe_from_y = False
                     trait_options.params_out = None
                     trait_gene_set_stats_out = os.path.join(tmpdir, "%06d_%s.gene_set_stats.out" % (begin + batch_offset, trait_safe))
