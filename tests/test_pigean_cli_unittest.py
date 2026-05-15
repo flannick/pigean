@@ -462,6 +462,15 @@ class PigeanCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--multi-y-in requires --gene-set-stats-out", err)
 
+    def test_multi_y_requires_explicit_gene_universe_choice(self) -> None:
+        proc = self._run("betas", "--multi-y-in", "traits.tsv", "--gene-set-stats-out", "out.tsv")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("A gene universe is the set of genes", err)
+        self.assertIn("--gene-universe-in", err)
+        self.assertIn("--gene-universe-from-x", err)
+        self.assertIn("--gene-universe-from-y", err)
+
     def test_multi_y_batch_override_requires_multi_y_input(self) -> None:
         proc = self._run("betas", "--multi-y-max-phenos-per-batch", "2")
         self.assertNotEqual(proc.returncode, 0)
@@ -498,6 +507,7 @@ class PigeanCliTest(unittest.TestCase):
             "Prior",
             "--multi-y-max-phenos-per-batch",
             "3",
+            "--gene-universe-from-x",
             "--gene-set-stats-out",
             "out.tsv",
             "--print-effective-config",
@@ -512,6 +522,7 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["multi_y_combined_col"], "Combined")
         self.assertEqual(options["multi_y_prior_col"], "Prior")
         self.assertEqual(options["multi_y_max_phenos_per_batch"], 3)
+        self.assertTrue(options["gene_universe_from_x"])
 
     def test_gene_stats_combined_write_filter_round_trips(self) -> None:
         proc = self._run(
@@ -1133,6 +1144,7 @@ print(json.dumps(mask.tolist()))
             "gibbs",
             "--gene-stats-in",
             "tests/data/t2d_smoke/mody.gene.list",
+            "--gene-universe-from-y",
             "--print-effective-config",
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))

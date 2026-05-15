@@ -1475,6 +1475,9 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     num_gene_universe_modes = int(_options.gene_universe_in is not None) + int(bool(_options.gene_universe_from_y)) + int(bool(_options.gene_universe_from_x))
     if num_gene_universe_modes > 1:
         bail("Specify at most one of --gene-universe-in, --gene-universe-from-y, or --gene-universe-from-x")
+    if _has_gene_level_y_input(_options) and num_gene_universe_modes == 0:
+        selected_mode = "--multi-y-in" if _options.multi_y_in is not None else "gene-level Y input"
+        bail(_gene_universe_required_message(selected_mode))
     if _options.gene_stats_output_scope not in ("universe", "current", "all"):
         bail("Option --gene-stats-output-scope must be one of: universe, all")
     if _options.output_detail not in ("main", "full", "debug"):
@@ -1552,7 +1555,7 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         if _options.gene_universe_from_y:
             bail(
                 "Option --gene-universe-from-y is not supported with --multi-y-in; "
-                "use --gene-universe-in for an explicit shared universe or omit gene-universe options to use --gene-universe-from-x semantics"
+                "use --gene-universe-in for an explicit shared universe or --gene-universe-from-x to use the union of genes in --X-* inputs"
             )
         if _options.multi_y_max_phenos_per_batch is not None and _options.multi_y_max_phenos_per_batch <= 0:
             bail("Option --multi-y-max-phenos-per-batch must be > 0")
@@ -1593,6 +1596,29 @@ def _validate_positive_control_inputs(_options):
             "to read genes from a file, use --gene-list-in instead "
             "(compatibility alias: --positive-controls-in)"
         )
+
+
+def _has_gene_level_y_input(_options):
+    return (
+        _options.multi_y_in is not None
+        or _options.gene_stats_in is not None
+        or _options.exomes_in is not None
+        or _options.positive_controls_in is not None
+        or _options.positive_controls_list is not None
+        or _options.case_counts_in is not None
+    )
+
+
+def _gene_universe_required_message(selected_mode):
+    return (
+        "A gene universe is the set of genes assigned explicit values before PIGEAN reads or fills Y values. "
+        "This input mode requires an explicit gene universe choice. "
+        "For %s, specify exactly one allowed gene-universe option: "
+        "--gene-universe-in FILE (use this explicit gene list), "
+        "--gene-universe-from-x (use the union of genes in --X-* annotation inputs), "
+        "or --gene-universe-from-y (use only genes present in the Y input; not supported with --multi-y-in)."
+        % selected_mode
+    )
 
 
 def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests):

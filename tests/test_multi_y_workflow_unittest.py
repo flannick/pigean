@@ -145,6 +145,7 @@ class MultiYWorkflowTest(unittest.TestCase):
             str(x_path),
             "--multi-y-in",
             str(multi_y_path),
+            "--gene-universe-from-x",
             "--hide-opts",
             "--deterministic",
             "--min-gene-set-size",
