@@ -13,17 +13,6 @@ _temporary_state_fields = pigean_runtime.temporary_state_fields
 _STATE_FIELDS_SAMPLER_HYPER = pigean_runtime.STATE_FIELDS_SAMPLER_HYPER
 
 
-def run_advanced_set_b_phewas_beta_sampling_if_requested(services, state, options, beta_sampling_kwargs):
-    if not options.betas_uncorrected_from_phewas:
-        return
-    phewas_beta_sampling_kwargs = dict(beta_sampling_kwargs)
-    phewas_beta_sampling_kwargs.update({
-        "run_betas_using_phewas": options.betas_from_phewas,
-        "run_uncorrected_using_phewas": True,
-    })
-    state.calculate_non_inf_betas(state.p, **phewas_beta_sampling_kwargs)
-
-
 def run_advanced_set_b_output_phewas_if_requested(services, state, options):
     requested_input = getattr(
         options,

@@ -157,8 +157,6 @@ def _clear_primary_y_inputs(options):
     options.case_counts_in = None
     options.ctrl_counts_in = None
     options.gene_stats_prob_col = None
-    options.betas_from_phewas = False
-    options.betas_uncorrected_from_phewas = False
     options.run_phewas = False
     options.run_phewas_input = None
     options.run_phewas_legacy_input = None

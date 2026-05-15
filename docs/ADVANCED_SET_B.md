@@ -187,42 +187,9 @@ Operational notes:
   - `tests/test_phewas_stage_reuse_unittest.py`
   - `tests/test_pegs_utils_bundle_unittest.py`
 
-## 5) PheWAS-as-Y beta sampling (`--betas-from-phewas` / `--betas-uncorrected-from-phewas`)
+## 5) Native multi-Y trait batching (`--multi-y-in`)
 
-Purpose: Treat gene-by-phenotype statistics as the Y matrix and compute gene-set beta-tilde / beta outputs per phenotype instead of only for the default single Y vector.
-
-Required inputs:
-- Main mode on the beta path (`beta_tildes`, `betas`, or later stages that consume beta calculations)
-- `--gene-phewas-stats-in <file>`
-- Column mappings:
-  - `--gene-phewas-stats-id-col`
-  - `--gene-phewas-stats-pheno-col`
-  - one or more of `--gene-phewas-stats-log-bf-col`, `--gene-phewas-stats-combined-col`, `--gene-phewas-stats-prior-col`
-- Optional gene-ID remapping:
-  - `--gene-phewas-id-to-X-id`
-- Optional value threshold:
-  - `--min-gene-phewas-read-value`
-
-Primary behavior:
-- `--betas-uncorrected-from-phewas` computes the uncorrected beta path from the loaded gene-by-phenotype matrix.
-- `--betas-from-phewas` additionally computes the corrected/non-infinitesimal beta path from the same PheWAS-derived inputs.
-- If `--betas-from-phewas` is passed, the CLI currently auto-enables `--betas-uncorrected-from-phewas`.
-
-Chain semantics:
-- `--num-chains-betas`, `--max-num-iter-betas`, `--min-num-iter-betas`, and related beta-sampler controls apply to this path as they do to the ordinary beta stage.
-- The runtime stores PheWAS-derived results per phenotype while keeping the full current gene-set axis, even when internal prefiltering skips some gene sets.
-
-Notes:
-- This is distinct from `--run-phewas`, which produces a gene-level PheWAS output table.
-- Compatibility alias:
-  - `--run-phewas-from-gene-phewas-stats-in <file>`
-  - behaves like `--run-phewas --gene-phewas-stats-in <file>`
-- Compatibility aliases also remain accepted for the older `--gene-phewas-bfs-*` selector family, but `--gene-phewas-stats-*` is the canonical documented surface.
-- This path is advanced and currently documented here rather than in the shorter human CLI reference.
-
-## 6) Native multi-Y trait batching (`--multi-y-in`)
-
-Purpose: Run the current `pigean` package once per trait from a long-form multi-trait gene-statistics table, then append trait-labelled outputs into one aggregated file.
+Purpose: Run the current `pigean` package once per trait from a long-form multi-trait gene-statistics table, then append trait-labelled outputs into one aggregated file. This replaces the retired PheWAS-as-Y beta-sampling flags.
 
 Supported modes:
 - `betas`
@@ -260,15 +227,13 @@ Semantics:
 - Each trait is materialized onto the current X gene universe and then run through the ordinary current-package `betas` or `gibbs` path.
 - This is a native orchestration workflow, not a second legacy code path.
 - If a single trait leaves no surviving gene sets after filtering, that trait is skipped and the rest of the batch continues.
-
-Important notes:
-- `--multi-y-in` is intentionally separate from `--betas-from-phewas`.
-- `--betas-from-phewas` computes one multi-phenotype beta surface inside the advanced Set B path.
-- `--multi-y-in` instead runs the ordinary package once per trait and appends trait-labelled outputs.
 - Because the long-form multi-Y inputs are continuous support vectors, the CLI auto-enables `--linear` unless you explicitly pass `--no-linear`.
-- `--multi-y-in` cannot be combined with other primary Y sources such as `--gwas-in`, `--gene-stats-in`, gene-list inputs, or the older PheWAS-as-Y flags.
+- `--multi-y-in` cannot be combined with other primary Y sources such as `--gwas-in`, `--gene-stats-in`, or gene-list inputs.
 
-## 7) Simulation mode (`sim`)
+Retired interface:
+- The old `--betas-from-phewas` and `--betas-uncorrected-from-phewas` flags have been removed. Use `--multi-y-in` for multi-trait beta workflows.
+
+## 6) Simulation mode (`sim`)
 
 Purpose: Simulate gene and gene-set signal from configured hyperparameters.
 
@@ -289,7 +254,7 @@ Primary outputs:
 Notes:
 - `sim` is retained for testing and controlled benchmarking workflows.
 
-## 8) PoPS-style prior modes (`pops`, `naive_pops`)
+## 7) PoPS-style prior modes (`pops`, `naive_pops`)
 
 Purpose: Run PoPS-style settings on PIGEAN pipeline branches.
 

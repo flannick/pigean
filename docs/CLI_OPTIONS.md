@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `356`
+- Total options: `354`
 - `method_required`: `20`
-- `method_optional`: `194`
+- `method_optional`: `192`
 - `engineering`: `113`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `313`
+- visibility `expert`: `311`
 - visibility `hidden`: `9`
 - visibility `normal`: `34`
 
@@ -54,8 +54,6 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--background-prior` | `expert` | `yes` | `expert_help` | `background_prior` | `0.05` | - |
 | `--batch-all-for-hyper` | `expert` | `yes` | `expert_help` | `batch_all_for_hyper` | `-` | - |
 | `--beta-rel-mcse-denom-floor` | `expert` | `yes` | `expert_help` | `beta_rel_mcse_denom_floor` | `0.1` | - |
-| `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | sample betas using loaded gene-phewas statistics instead of default Y |
-| `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | compute uncorrected beta path from gene-phewas statistics |
 | `--burn-in-patience` | `expert` | `yes` | `expert_help` | `burn_in_patience` | `2` | - |
 | `--burn-in-rhat-quantile` | `expert` | `yes` | `expert_help` | `burn_in_rhat_quantile` | `0.9` | - |
 | `--burn-in-stall-delta` | `expert` | `yes` | `expert_help` | `burn_in_stall_delta` | `0.01` | - |

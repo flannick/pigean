@@ -287,10 +287,6 @@ parser.add_option("","--pigean-rerun-bundle-in",default=None) #load defaults fro
 parser.add_option("","--pigean-params-in",default=None) #replay beta-stage parameters from a previous PIGEAN params.out file
 parser.add_option("","--output-detail",default="main") #column detail level for gene/gene-set outputs: main, full, or debug
 
-#for beta calculation against additional traits
-parser.add_option("","--betas-from-phewas",action="store_true",default=False)
-parser.add_option("","--betas-uncorrected-from-phewas",action="store_true",default=False)
-
 
 #run a phewas against the gene scores
 parser.add_option("","--run-phewas",action="store_true",default=False) #run the optional gene-level phewas output stage
@@ -614,8 +610,6 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--no-track-filtered-beta-uncorrected": "compatibility alias for --track-filtered-beta-uncorrected-mode none",
     "--sim-log-bf-noise-sigma-mult": "simulation-only noise scale for generated log Bayes factors",
     "--sim-only-positive": "simulation-only: constrain synthetic effects to positive values",
-    "--betas-from-phewas": "sample betas using loaded gene-phewas statistics instead of default Y",
-    "--betas-uncorrected-from-phewas": "compute uncorrected beta path from gene-phewas statistics",
     "--max-no-write-gene-combined": "do not write genes to gene-stats-out when abs(combined) is at or below this threshold",
     "--gene-set-exclude-in": "remove listed annotation/gene-set IDs before recomputing beta-tildes and joint betas",
     "--gene-set-exclude-id-col": "ID column for --gene-set-exclude-in; default reads the first column",
@@ -711,8 +705,6 @@ _EXPERT_ENGINEERING_FLAGS = {
 }
 
 _SET_B_METHOD_FLAGS = {
-    "--betas-from-phewas",
-    "--betas-uncorrected-from-phewas",
     "--cross-val",
     "--cross-val-folds",
     "--cross-val-max-num-tries",
@@ -1122,6 +1114,8 @@ _is_path_like_dest = pegs_is_path_like_dest
 _json_safe = pegs_json_safe
 
 REMOVED_OPTION_REPLACEMENTS = {
+    "betas_from_phewas": "--multi-y-in",
+    "betas_uncorrected_from_phewas": "--multi-y-in",
     "gene_bfs_in": "--gene-stats-in",
     "gene_bfs_id_col": "--gene-stats-id-col",
     "gene_bfs_log_bf_col": "--gene-stats-log-bf-col",
@@ -1514,15 +1508,10 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     if _options.run_phewas and _options.run_phewas_input is None:
         bail("Option --run-phewas requires --gene-phewas-stats-in")
 
-    has_phewas_consumer = (
-        _options.betas_uncorrected_from_phewas
-        or _options.betas_from_phewas
-        or _options.run_phewas
-    )
+    has_phewas_consumer = _options.run_phewas
     if _options.gene_phewas_bfs_in is not None and not has_phewas_consumer:
         bail(
-            "Option --gene-phewas-stats-in requires either --betas-uncorrected-from-phewas "
-            "(or --betas-from-phewas) or --run-phewas"
+            "Option --gene-phewas-stats-in requires --run-phewas"
         )
 
     gene_phewas_mapping_flags = (
@@ -1537,8 +1526,6 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     if (
         _options.gene_phewas_bfs_in is None
         and not _options.run_phewas
-        and not _options.betas_uncorrected_from_phewas
-        and not _options.betas_from_phewas
     ):
         for dest, flag in gene_phewas_mapping_flags:
             if _is_advanced_option_explicit(dest, _cli_dests, _config_dests):
@@ -1589,10 +1576,6 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
                 conflicting_inputs.append(flag)
         if _options.run_phewas:
             conflicting_inputs.append("--run-phewas")
-        if _options.betas_from_phewas:
-            conflicting_inputs.append("--betas-from-phewas")
-        if _options.betas_uncorrected_from_phewas:
-            conflicting_inputs.append("--betas-uncorrected-from-phewas")
         if conflicting_inputs:
             bail("Option --multi-y-in cannot be combined with %s" % ", ".join(conflicting_inputs))
 
@@ -1879,9 +1862,6 @@ def _bootstrap_cli(argv=None):
         parsed_options.linear = True
         if not _is_option_dest_explicit("max_for_linear", parsed_cli_specified_dests, parsed_config_specified_dests):
             parsed_options.max_for_linear = 1
-    if parsed_options.betas_from_phewas:
-        _early_warn("Enabling --betas-uncorrected-from-phewas because --betas-from-phewas was passed")
-        parsed_options.betas_uncorrected_from_phewas = True
     _normalize_phewas_stage_options(parsed_options, _early_warn)
     _normalize_gene_universe_options(parsed_options, _early_warn)
 

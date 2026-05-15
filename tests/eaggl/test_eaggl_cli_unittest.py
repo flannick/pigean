@@ -18,6 +18,19 @@ if str(SRC_ROOT) not in sys.path:
 
 
 class EagglCliTest(unittest.TestCase):
+
+    def test_removed_betas_from_phewas_points_to_multi_y(self) -> None:
+        proc = self._run("factor", "--betas-from-phewas")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("option --betas-from-phewas has been removed; use --multi-y-in instead", err)
+
+    def test_removed_betas_uncorrected_from_phewas_points_to_multi_y(self) -> None:
+        proc = self._run("factor", "--betas-uncorrected-from-phewas")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("option --betas-uncorrected-from-phewas has been removed; use --multi-y-in instead", err)
+
     def _repo_root(self) -> Path:
         return Path(__file__).resolve().parents[2]
 

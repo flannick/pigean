@@ -86,7 +86,7 @@ def run_main_beta_tilde_stage(services, state, options, mode_state):
         )
         return BetaStageResult(ran=True, source="gene_set_stats_in")
     if needs_gene_set_stats:
-        max_gene_set_p = options.filter_gene_set_p if not options.betas_uncorrected_from_phewas else 1
+        max_gene_set_p = options.filter_gene_set_p
         gene_set_stats_kwargs = dict(
             run_logistic=not options.linear,
             max_for_linear=options.max_for_linear,
@@ -100,13 +100,6 @@ def run_main_beta_tilde_stage(services, state, options, mode_state):
             gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
         )
         state.calculate_gene_set_statistics(max_gene_set_p=max_gene_set_p, **gene_set_stats_kwargs)
-        if options.betas_uncorrected_from_phewas:
-            state.calculate_gene_set_statistics(
-                max_gene_set_p=1,
-                Y=state.gene_pheno_Y,
-                run_using_phewas=True,
-                **gene_set_stats_kwargs,
-            )
         return BetaStageResult(ran=True, source="calculate_gene_set_statistics")
     return BetaStageResult(ran=False, source="skipped")
 
@@ -152,12 +145,6 @@ def run_main_beta_stage(services, state, options, mode_state):
             "independent_only": options.independent_betas_only,
         })
         state.calculate_non_inf_betas(state.p, **beta_sampling_kwargs)
-        pigean_phewas.run_advanced_set_b_phewas_beta_sampling_if_requested(
-            services=services,
-            state=state,
-            options=options,
-            beta_sampling_kwargs=beta_sampling_kwargs,
-        )
         return BetaStageResult(ran=True, source="calculate_non_inf_betas")
     return BetaStageResult(ran=False, source="skipped")
 

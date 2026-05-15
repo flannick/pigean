@@ -95,7 +95,7 @@ def run_main_adaptive_read_x(
             permute_gene_sets=options.permute_gene_sets,
             max_gene_set_p=options.max_gene_set_read_p,
             filter_gene_set_p=read_x_retry_state["filter_gene_set_p"],
-            filter_using_phewas=options.betas_uncorrected_from_phewas,
+            filter_using_phewas=False,
             increase_filter_gene_set_p=options.increase_filter_gene_set_p,
             max_num_gene_sets_initial=options.max_num_gene_sets_initial,
             max_num_gene_sets=options.max_num_gene_sets,

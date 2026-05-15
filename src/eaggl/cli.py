@@ -195,10 +195,6 @@ parser.add_option("","--trait-factor-links-out",default=None)
 parser.add_option("","--trait-factor-links-output-detail",default="main") #column detail level for trait-factor linkage output: main, full, or debug
 parser.add_option("","--factor-phewas-stats-out",default=None)
 
-#for beta calculation against additional traits
-parser.add_option("","--betas-from-phewas",action="store_true",default=False)
-parser.add_option("","--betas-uncorrected-from-phewas",action="store_true",default=False)
-
 
 #for pheno factoring
 parser.add_option("","--gene-pheno-stats-out",default=None)
@@ -618,8 +614,6 @@ _EXPERT_ENGINEERING_FLAGS = {
 }
 
 _EXPERT_METHOD_FLAGS = {
-    "--betas-from-phewas",
-    "--betas-uncorrected-from-phewas",
     "--consensus-aggregation",
     "--consensus-min-factor-cosine",
     "--consensus-min-run-support",
@@ -1141,6 +1135,8 @@ def _normalize_optional_phewas_stage_options(options, warn_fn):
 _json_safe = pegs_json_safe
 
 REMOVED_OPTION_REPLACEMENTS = {
+    "betas_from_phewas": "--multi-y-in",
+    "betas_uncorrected_from_phewas": "--multi-y-in",
     # PIGEAN-owned raw input modes/expansion controls are not supported in EAGGL.
     "gwas_in": "__MOVED_TO_PIGEAN",
     "huge_statistics_in": "__MOVED_TO_PIGEAN",
@@ -1835,9 +1831,6 @@ def _bootstrap_cli(argv=None):
     if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
         warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
         options.ols = True
-
-    if options.betas_from_phewas:
-        options.betas_uncorrected_from_phewas = True
 
     if options.print_effective_config:
         sys.stdout.write(

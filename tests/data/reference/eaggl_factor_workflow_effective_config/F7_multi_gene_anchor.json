@@ -43,8 +43,6 @@
     "batch_separator": "@",
     "batch_size": 5000,
     "beta0": 1,
-    "betas_from_phewas": false,
-    "betas_uncorrected_from_phewas": false,
     "cap_weights": true,
     "config": null,
     "correct_betas_mean": true,

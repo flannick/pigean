@@ -178,26 +178,6 @@ def mode_requires_gene_scores(mode_state):
     )
 
 
-def load_advanced_set_b_y_inputs(state, options, read_gene_phewas_bfs_fn, bail_fn):
-    if not options.betas_uncorrected_from_phewas:
-        return False
-    if not options.gene_phewas_bfs_in:
-        bail_fn("Require --gene-phewas-bfs-in for --betas-from-phewas option")
-    read_gene_phewas_bfs_fn(
-        state,
-        gene_phewas_bfs_in=options.gene_phewas_bfs_in,
-        gene_phewas_bfs_id_col=options.gene_phewas_bfs_id_col,
-        gene_phewas_bfs_pheno_col=options.gene_phewas_bfs_pheno_col,
-        gene_phewas_bfs_log_bf_col=options.gene_phewas_bfs_log_bf_col,
-        gene_phewas_bfs_combined_col=options.gene_phewas_bfs_combined_col,
-        gene_phewas_bfs_prior_col=options.gene_phewas_bfs_prior_col,
-        phewas_gene_to_X_gene_in=options.gene_phewas_id_to_X_id,
-        min_value=options.min_gene_phewas_read_value,
-        max_num_entries_at_once=options.max_read_entries_at_once,
-    )
-    return True
-
-
 def load_main_y_inputs(
     state,
     options,
@@ -236,14 +216,6 @@ def load_main_y_inputs(
         if y_read_contract.has_only_positive_controls():
             options.ols = True
         run_read_y_contract_stage_fn(state, y_read_contract)
-        return False
-
-    if load_advanced_set_b_y_inputs(
-        state,
-        options,
-        read_gene_phewas_bfs_fn=read_gene_phewas_bfs_fn,
-        bail_fn=bail_fn,
-    ):
         return False
 
     return True

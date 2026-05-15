@@ -47,6 +47,19 @@ class PigeanCliTest(unittest.TestCase):
             ["gene_set_stats_a.tsv.gz", "gene_set_stats_b.tsv.gz"],
         )
 
+
+    def test_removed_betas_from_phewas_points_to_multi_y(self) -> None:
+        proc = self._run("gibbs", "--betas-from-phewas")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("option --betas-from-phewas has been removed; use --multi-y-in instead", err)
+
+    def test_removed_betas_uncorrected_from_phewas_points_to_multi_y(self) -> None:
+        proc = self._run("gibbs", "--betas-uncorrected-from-phewas")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("option --betas-uncorrected-from-phewas has been removed; use --multi-y-in instead", err)
+
     def test_removed_gene_bfs_flag_has_replacement_message(self) -> None:
         proc = self._run("gibbs", "--gene-bfs-in", "dummy.txt")
         self.assertNotEqual(proc.returncode, 0)
@@ -1096,7 +1109,7 @@ print(json.dumps(mask.tolist()))
         proc = self._run("gibbs", "--gene-phewas-stats-in", "phewas.tsv")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
-        self.assertIn("Option --gene-phewas-stats-in requires either --betas-uncorrected-from-phewas", err)
+        self.assertIn("Option --gene-phewas-stats-in requires --run-phewas", err)
 
     def test_pops_mode_defaults_are_exposed_in_effective_config(self) -> None:
         proc = self._run("pops", "--deterministic", "--print-effective-config")

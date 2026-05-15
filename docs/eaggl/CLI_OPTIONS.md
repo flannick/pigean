@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `275`
+- Total options: `273`
 - `method_required`: `11`
-- `method_optional`: `170`
+- `method_optional`: `168`
 - `engineering`: `77`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `230`
+- visibility `expert`: `228`
 - visibility `hidden`: `8`
 - visibility `normal`: `37`
 
@@ -45,8 +45,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--anchor-aggregation` | `normal` | `yes` | `core_help` | `anchor_aggregation` | `multi` | combine multiple anchor traits using shared multi-trait mode (`multi`) or noisy-OR union (`any`); with one anchor both reduce exactly to single-trait anchoring |
 | `--background-prior` | `expert` | `yes` | `expert_help` | `background_prior` | `0.05` | - |
 | `--beta0` | `normal` | `yes` | `core_help` | `beta0` | `1` | scale parameter for the ARD factor-precision prior |
-| `--betas-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_from_phewas` | `False` | - |
-| `--betas-uncorrected-from-phewas` | `expert` | `yes` | `advanced_workflows` | `betas_uncorrected_from_phewas` | `False` | - |
 | `--blockwise-epochs` | `expert` | `yes` | `advanced_workflows` | `blockwise_epochs` | `3` | set the number of global block passes used by the scalable blockwise backend |
 | `--blockwise-gene-set-block-size` | `expert` | `yes` | `advanced_workflows` | `blockwise_gene_set_block_size` | `5000` | set how many retained gene sets are solved per block in blockwise_global_w mode |
 | `--blockwise-max-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_max_blocks` | `None` | optionally cap the number of processed blocks per epoch for debugging blockwise runs |

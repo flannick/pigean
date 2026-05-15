@@ -199,8 +199,6 @@ class MultiYWorkflowTest(unittest.TestCase):
             gene_universe_from_y=False,
             gene_universe_from_x=False,
             run_phewas_from_gene_phewas_stats_in=None,
-            betas_from_phewas=False,
-            betas_uncorrected_from_phewas=False,
             phewas_stats_out=None,
             phewas_gene_set_stats_out=None,
         )
@@ -342,8 +340,6 @@ class MultiYWorkflowTest(unittest.TestCase):
             gene_universe_from_y=False,
             gene_universe_from_x=False,
             run_phewas_from_gene_phewas_stats_in=None,
-            betas_from_phewas=False,
-            betas_uncorrected_from_phewas=False,
             phewas_stats_out=None,
             phewas_gene_set_stats_out=None,
         )
