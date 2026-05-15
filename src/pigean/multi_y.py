@@ -344,6 +344,20 @@ def _run_multi_y_vectorized_betas(
         services.bail("Option --multi-y-vectorize-betas does not yet support --use-sampling-for-betas")
     if getattr(options, "independent_betas_only", False):
         services.bail("Option --multi-y-vectorize-betas does not yet support --independent-betas-only")
+    if getattr(options, "filter_negative", False):
+        services.bail(
+            "Option --multi-y-vectorize-betas requires --no-filter-negative because negative beta-tilde filtering is trait-specific and occurs during X read in the unvectorized workflow"
+        )
+    if (
+        getattr(options, "prune_gene_sets", None) is not None
+        and options.prune_gene_sets <= 1
+    ) or (
+        getattr(options, "weighted_prune_gene_sets", None) is not None
+        and options.weighted_prune_gene_sets <= 1
+    ):
+        services.bail(
+            "Option --multi-y-vectorize-betas requires disabled gene-set pruning (--prune-gene-sets > 1 and --weighted-prune-gene-sets > 1) because pruning is performed during X read in the unvectorized workflow"
+        )
 
     update_hyper = bool(getattr(options, "update_hyper_p", False) or getattr(options, "update_hyper_sigma", False))
     if update_hyper:
@@ -449,6 +463,15 @@ def _run_multi_y_vectorized_betas(
                 if se_inflation_factors_m is not None:
                     se_inflation_factors_m = se_inflation_factors_m[:, keep_mask]
 
+                trait_output_keep_m = np.ones(beta_tildes_m.shape, dtype=bool)
+                if options.filter_gene_set_p is not None and options.filter_gene_set_p < 1:
+                    trait_output_keep_m = np.logical_and(
+                        trait_output_keep_m,
+                        p_values_m <= options.filter_gene_set_p,
+                    )
+                if getattr(options, "filter_negative", False):
+                    trait_output_keep_m = np.logical_and(trait_output_keep_m, beta_tildes_m >= 0)
+
                 avg_betas_uncorrected_m, avg_postp_uncorrected_m = batch_state._calculate_non_inf_betas(
                     batch_state.p,
                     beta_tildes=beta_tildes_m,
@@ -467,7 +490,7 @@ def _run_multi_y_vectorized_betas(
                     avg_postp_uncorrected_m,
                     num_batch_traits,
                 )
-                initial_run_mask_m = avg_betas_uncorrected_m != 0
+                initial_run_mask_m = np.logical_and(avg_betas_uncorrected_m != 0, trait_output_keep_m)
                 run_mask = np.any(initial_run_mask_m, axis=0)
                 if np.sum(run_mask) == 0 and p_values_m.shape[1] > 0:
                     run_mask[np.argmin(np.min(p_values_m, axis=0))] = True
@@ -503,8 +526,9 @@ def _run_multi_y_vectorized_betas(
                         tmpdir,
                         "%06d_%s.gene_set_stats.out" % (begin + batch_offset, trait_safe),
                     )
+                    trait_state = copy.deepcopy(batch_state)
                     _set_trait_gene_set_results(
-                        batch_state,
+                        trait_state,
                         batch_offset,
                         beta_tildes_m=beta_tildes_m,
                         ses_m=ses_m,
@@ -515,7 +539,18 @@ def _run_multi_y_vectorized_betas(
                         betas_uncorrected_m=avg_betas_uncorrected_m,
                         postp_m=avg_postp_m,
                     )
-                    batch_state.write_gene_set_statistics(
+                    trait_keep_mask = trait_output_keep_m[batch_offset, :]
+                    if np.sum(~trait_keep_mask) > 0:
+                        removed_negative = np.logical_and(~trait_keep_mask, beta_tildes_m[batch_offset, :] < 0)
+                        filter_reason = "prefilter_negative_beta" if np.any(removed_negative) else "max_gene_set_p"
+                        trait_state.subset_gene_sets(
+                            trait_keep_mask,
+                            keep_missing=True,
+                            ignore_missing=False,
+                            skip_V=True,
+                            filter_reason=filter_reason,
+                        )
+                    trait_state.write_gene_set_statistics(
                         trait_gene_set_stats_out,
                         max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
                         max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,

@@ -196,10 +196,32 @@ class MultiYWorkflowTest(unittest.TestCase):
     def test_multi_y_vectorized_betas_appends_trait_column_and_records_params(self) -> None:
         x_path = self.tmpdir / "multi_y_vectorized_betas.gmt"
         multi_y_path = self.tmpdir / "multi_y_vectorized_betas.tsv"
+        unvectorized_out_path = self.tmpdir / "multi_y_vectorized_betas.unvectorized.gene_set_stats.out"
         out_path = self.tmpdir / "multi_y_vectorized_betas.gene_set_stats.out"
         params_path = self.tmpdir / "multi_y_vectorized_betas.params.out"
         self._write_x(x_path)
         self._write_multi_y(multi_y_path)
+
+        unvectorized_proc = self._run(
+            "betas",
+            *self._common_args(x_path, multi_y_path),
+            "--multi-y-max-phenos-per-batch",
+            "2",
+            "--no-filter-negative",
+            "--prune-gene-sets",
+            "1.1",
+            "--weighted-prune-gene-sets",
+            "1.1",
+            "--output-detail",
+            "full",
+            "--gene-set-stats-out",
+            str(unvectorized_out_path),
+        )
+        self.assertEqual(
+            unvectorized_proc.returncode,
+            0,
+            msg=(unvectorized_proc.stderr or "") + (unvectorized_proc.stdout or ""),
+        )
 
         proc = self._run(
             "betas",
@@ -207,6 +229,13 @@ class MultiYWorkflowTest(unittest.TestCase):
             "--multi-y-vectorize-betas",
             "--multi-y-max-phenos-per-batch",
             "2",
+            "--no-filter-negative",
+            "--prune-gene-sets",
+            "1.1",
+            "--weighted-prune-gene-sets",
+            "1.1",
+            "--output-detail",
+            "full",
             "--gene-set-stats-out",
             str(out_path),
             "--params-out",
@@ -221,6 +250,21 @@ class MultiYWorkflowTest(unittest.TestCase):
             rows = list(reader)
         self.assertGreater(len(rows), 0)
         self.assertEqual({row["trait"] for row in rows}, {"TRAIT_A", "TRAIT_B"})
+
+        with unvectorized_out_path.open(encoding="utf-8") as fh:
+            unvectorized_rows = list(csv.DictReader(fh, delimiter="\t"))
+        unvectorized_by_key = {
+            (row["trait"], row["Gene_Set"]): row
+            for row in unvectorized_rows
+        }
+        for row in rows:
+            key = (row["trait"], row["Gene_Set"])
+            self.assertIn(key, unvectorized_by_key)
+            self.assertAlmostEqual(
+                float(row["beta_tilde_internal"]),
+                float(unvectorized_by_key[key]["beta_tilde_internal"]),
+                places=10,
+            )
 
         params_text = params_path.read_text(encoding="utf-8")
         self.assertIn("multi_y_vectorize_betas\t1\tTrue", params_text)

@@ -215,6 +215,8 @@ Optional expert controls:
   - beta-mode only optimization
   - reads each trait batch once and maps traits to the existing parallel-run dimension of the beta sampler
   - preserves multiple chains within each trait
+  - requires `--no-filter-negative`, because negative beta-tilde filtering is trait-specific in the ordinary per-trait X read path
+  - requires disabled gene-set pruning (`--prune-gene-sets > 1` and `--weighted-prune-gene-sets > 1`), because pruning also occurs during X read
   - if hyperparameter updates are enabled, the update is shared across traits in the vectorized batch and PIGEAN emits a warning
 
 Primary outputs:
