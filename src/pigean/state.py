@@ -6399,35 +6399,47 @@ class PigeanState(object):
 
             n_bins = len(nnz_edges) - 1
 
-            bin_id = np.clip(np.searchsorted(nnz_edges, nnz, side="right") - 1,0, n_bins - 1)
-            idx_by_bin = [np.where(bin_id == b)[0] for b in range(n_bins)]
+            if n_bins <= 0:
+                # All retained gene sets have the same size. The bin-screening
+                # heuristic has no meaningful size strata, so fall back to a
+                # single exact all-vs-all pruning block rather than indexing an
+                # empty bin array.
+                batch1_inds.append(np.arange(num_gene_sets, dtype=int))
+                batch2_inds.append(np.arange(num_gene_sets, dtype=int))
+                must = 1
+                can = 1
+            else:
+                bin_id = np.clip(np.searchsorted(nnz_edges, nnz, side="right") - 1,0, n_bins - 1)
+                idx_by_bin = [np.where(bin_id == b)[0] for b in range(n_bins)]
+                idx_by_bin = [idx for idx in idx_by_bin if len(idx) > 0]
+                n_bins = len(idx_by_bin)
 
-            mu_max = np.zeros(n_bins)
-            mu_min = np.full(n_bins, np.inf)
+                mu_max = np.zeros(n_bins)
+                mu_min = np.full(n_bins, np.inf)
 
-            # scan once over all sets to fill in extrema
-            for i in range(num_gene_sets):
-                b            = bin_id[i]
-                mu_max[b]    = max(mu_max[b], mu[i])
-                mu_min[b]    = min(mu_min[b], mu[i])
+                # scan once over all sets to fill in extrema
+                for b, idx in enumerate(idx_by_bin):
+                    cur_mu = mu[idx]
+                    mu_max[b] = np.max(cur_mu)
+                    mu_min[b] = np.min(cur_mu)
 
-            sigma_max = mu_max * (1 - mu_max) + 1e-10
-            sigma_min = mu_min * (1 - mu_min) + 1e-10
+                sigma_max = mu_max * (1 - mu_max) + 1e-10
+                sigma_min = mu_min * (1 - mu_min) + 1e-10
 
-            must = 0
-            can = 0
-            for p in range(n_bins):
-                all_idx = np.array([], dtype=int)
-                for q in range(p,n_bins):
-                    #assert(mu_max[p] <= mu_min[q])
-                    cor_max = (mu_max[p] - mu_max[p] * mu_min[q]) / np.sqrt(sigma_max[p] * sigma_min[q])
-                    can += 1
-                    if cor_max > prune_value:
-                        must += 1
-                        all_idx = np.append(all_idx, idx_by_bin[q])
-                if len(all_idx) > 0:
-                    batch1_inds.append(idx_by_bin[p])
-                    batch2_inds.append(all_idx)
+                must = 0
+                can = 0
+                for p in range(n_bins):
+                    all_idx = np.array([], dtype=int)
+                    for q in range(p,n_bins):
+                        #assert(mu_max[p] <= mu_min[q])
+                        cor_max = (mu_max[p] - mu_max[p] * mu_min[q]) / np.sqrt(sigma_max[p] * sigma_min[q])
+                        can += 1
+                        if cor_max > prune_value:
+                            must += 1
+                            all_idx = np.append(all_idx, idx_by_bin[q])
+                    if len(all_idx) > 0:
+                        batch1_inds.append(idx_by_bin[p])
+                        batch2_inds.append(all_idx)
 
             log("Looking at %d of %d blocks" % (must, can))
 

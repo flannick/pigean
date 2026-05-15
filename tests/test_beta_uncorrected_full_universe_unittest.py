@@ -124,6 +124,40 @@ class BetaUncorrectedFullUniverseTest(unittest.TestCase):
         self.assertIsNotNone(runtime.X_orig_ignored_gene_sets)
         self.assertEqual(runtime.X_orig_ignored_gene_sets.shape, (3, 1))
 
+    def test_prune_gene_sets_handles_equal_size_sets(self) -> None:
+        runtime = PigeanState(background_prior=0.05, batch_size=10)
+        runtime._set_X(
+            sparse.csc_matrix(
+                np.array(
+                    [
+                        [1, 1, 0, 0],
+                        [1, 1, 0, 0],
+                        [0, 0, 1, 1],
+                        [0, 0, 1, 1],
+                    ],
+                    dtype=float,
+                )
+            ),
+            ["G1", "G2", "G3", "G4"],
+            ["GS1", "GS1_DUP", "GS2", "GS3"],
+            skip_V=True,
+            skip_N=True,
+        )
+
+        keep_mask = runtime._prune_gene_sets(
+            0.8,
+            keep_missing=False,
+            ignore_missing=True,
+            skip_V=True,
+            filter_reason="correlation_pruning",
+        )
+
+        self.assertIsNotNone(keep_mask)
+        self.assertEqual(len(keep_mask), 4)
+        self.assertGreaterEqual(len(runtime.gene_sets), 1)
+        self.assertLess(len(runtime.gene_sets), 4)
+        self.assertIn("GS1", set(runtime.gene_sets).union(set(runtime.gene_sets_ignored or [])))
+
     def test_tracked_ignored_uncorrected_betas_are_computed_for_ignored_rows(self) -> None:
         runtime = self._build_runtime()
         runtime.track_filtered_beta_uncorrected = True
