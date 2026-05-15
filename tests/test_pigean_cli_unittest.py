@@ -494,6 +494,12 @@ class PigeanCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--multi-y-vectorize-betas requires --multi-y-in", err)
 
+    def test_multi_y_trait_blacklist_requires_multi_y_input(self) -> None:
+        proc = self._run("betas", "--multi-y-trait-blacklist-in", "traits.txt")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--multi-y-trait-blacklist-in requires --multi-y-in", err)
+
     def test_multi_y_vectorize_rejects_gibbs_mode(self) -> None:
         proc = self._run(
             "gibbs",
@@ -536,9 +542,13 @@ class PigeanCliTest(unittest.TestCase):
             "Combined",
             "--multi-y-prior-col",
             "Prior",
+            "--multi-y-response-col",
+            "combined",
             "--multi-y-max-phenos-per-batch",
             "3",
             "--multi-y-vectorize-betas",
+            "--multi-y-trait-blacklist-in",
+            "blacklist.txt",
             "--gene-universe-from-x",
             "--gene-set-stats-out",
             "out.tsv",
@@ -553,8 +563,10 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["multi_y_log_bf_col"], "Direct")
         self.assertEqual(options["multi_y_combined_col"], "Combined")
         self.assertEqual(options["multi_y_prior_col"], "Prior")
+        self.assertEqual(options["multi_y_response_col"], "combined")
         self.assertEqual(options["multi_y_max_phenos_per_batch"], 3)
         self.assertTrue(options["multi_y_vectorize_betas"])
+        self.assertEqual(options["multi_y_trait_blacklist_in"], "blacklist.txt")
         self.assertTrue(options["gene_universe_from_x"])
 
     def test_gene_stats_combined_write_filter_round_trips(self) -> None:

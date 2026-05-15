@@ -208,6 +208,14 @@ Required inputs:
   - optional `--multi-y-prior-col` (auto-detects `prior` then `Prior`)
 
 Optional expert controls:
+- `--multi-y-response-col combined|log_bf`
+  - selects the resolved multi-Y column used as the beta-stage response
+  - defaults to `combined`
+  - there is no fallback: if `combined` is requested and no combined column is present, the run fails; pass `--multi-y-response-col log_bf` to use the log-BF/direct column instead
+- `--multi-y-trait-blacklist-in <file>`
+  - excludes matching trait labels before multi-Y batching
+  - expects one trait label per line; for simple tabular files, the first column is used
+  - records requested, matched, and missing blacklist counts in `--params-out`
 - `--multi-y-max-phenos-per-batch <n>`
   - overrides the automatic trait chunk size
   - if omitted, PIGEAN estimates a trait batch size from `--max-gb`

@@ -149,6 +149,36 @@ def _estimate_phenos_per_batch(num_genes, num_value_cols, max_gb):
     return max(1, int(target_bytes / bytes_per_trait))
 
 
+def _load_trait_blacklist(path, *, warn_fn=None):
+    if path is None:
+        return set()
+    if warn_fn is None:
+        warn_fn = lambda _msg: None
+    traits = set()
+    with open_text_with_retry(path) as fh:
+        for line_no, line in enumerate(fh, start=1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            # Accept one-ID-per-line files and simple tabular files. The first
+            # column is the trait identifier by default.
+            trait = line.split("\t", 1)[0].strip()
+            if not trait:
+                warn_fn("Skipping empty trait blacklist entry on line %d of %s" % (line_no, path))
+                continue
+            traits.add(trait)
+    return traits
+
+
+def _filter_blacklisted_phenos(phenos, blacklist):
+    if not blacklist:
+        return list(phenos), 0, len(blacklist)
+    filtered = [pheno for pheno in phenos if pheno not in blacklist]
+    matched = len(phenos) - len(filtered)
+    missing = len(blacklist.difference(phenos))
+    return filtered, matched, missing
+
+
 def _clear_primary_y_inputs(options):
     options.gwas_in = None
     options.huge_statistics_in = None
@@ -191,7 +221,38 @@ def _write_trait_gene_stats_file(
             fh.write("%s\n" % "\t".join(cols))
 
 
-def _record_multi_y_params(state, options, mode, *, columns, num_traits_total, phenos_per_batch):
+def _select_multi_y_response_matrix(batch_Y, batch_combined, options, services):
+    response = getattr(options, "multi_y_response_col", "combined")
+    if response == "combined":
+        if batch_combined is None:
+            services.bail(
+                "Option --multi-y-response-col combined requires a resolved combined column; "
+                "provide --multi-y-combined-col or pass --multi-y-response-col log_bf"
+            )
+        return batch_combined
+    if response == "log_bf":
+        if batch_Y is None:
+            services.bail(
+                "Option --multi-y-response-col log_bf requires a resolved log-BF column; "
+                "provide --multi-y-log-bf-col or pass --multi-y-response-col combined"
+            )
+        return batch_Y
+    services.bail("Unsupported --multi-y-response-col value: %s" % response)
+
+
+def _record_multi_y_params(
+    state,
+    options,
+    mode,
+    *,
+    columns,
+    num_traits_total,
+    phenos_per_batch,
+    num_traits_before_blacklist=None,
+    trait_blacklist_requested=0,
+    trait_blacklist_matched=0,
+    trait_blacklist_missing=0,
+):
     gene_universe_in = getattr(options, "gene_universe_in", None)
     if gene_universe_in is not None:
         gene_universe_mode = "file"
@@ -207,6 +268,14 @@ def _record_multi_y_params(state, options, mode, *, columns, num_traits_total, p
             "multi_y_log_bf_col": columns.log_bf_col_name,
             "multi_y_combined_col": columns.combined_col_name,
             "multi_y_prior_col": columns.prior_col_name,
+            "multi_y_response_col": getattr(options, "multi_y_response_col", "combined"),
+            "multi_y_trait_blacklist_in": getattr(options, "multi_y_trait_blacklist_in", None),
+            "multi_y_trait_blacklist_requested": trait_blacklist_requested,
+            "multi_y_trait_blacklist_matched": trait_blacklist_matched,
+            "multi_y_trait_blacklist_missing": trait_blacklist_missing,
+            "multi_y_num_traits_before_blacklist": num_traits_before_blacklist
+            if num_traits_before_blacklist is not None
+            else num_traits_total,
             "multi_y_num_traits": num_traits_total,
             "multi_y_phenos_per_batch": phenos_per_batch,
             "multi_y_vectorize_betas": bool(getattr(options, "multi_y_vectorize_betas", False)),
@@ -399,7 +468,7 @@ def _run_multi_y_vectorized_betas(
                     services.INFO,
                 )
                 batch_state = copy.deepcopy(seed_state)
-                (batch_Y, _batch_combined, _batch_priors) = pigean_phewas.read_phewas_file_batch(
+                (batch_Y, batch_combined, _batch_priors) = pigean_phewas.read_phewas_file_batch(
                     batch_state,
                     options.multi_y_in,
                     begin=begin,
@@ -413,9 +482,15 @@ def _run_multi_y_vectorized_betas(
                     open_text_fn=open_text_with_retry,
                     warn_fn=services.warn,
                 )
+                batch_response = _select_multi_y_response_matrix(
+                    batch_Y,
+                    batch_combined,
+                    options,
+                    services,
+                )
 
                 batch_state.calculate_gene_set_statistics(
-                    Y=batch_Y.T,
+                    Y=batch_response.T,
                     max_gene_set_p=None,
                     run_logistic=not options.linear,
                     max_for_linear=options.max_for_linear,
@@ -587,6 +662,11 @@ def run_multi_y_pipeline(services, options, mode):
         services.bail("Option --multi-y-in requires --gene-set-stats-out")
 
     columns = _resolve_multi_y_columns(options)
+    if getattr(options, "multi_y_response_col", "combined") == "combined" and columns.combined_col_name is None:
+        services.bail(
+            "Option --multi-y-response-col combined requires a combined column; "
+            "provide --multi-y-combined-col or pass --multi-y-response-col log_bf"
+        )
     seed_state = pigean_main_support.build_runtime_state(options)
     mode_state = pigean_main_support.build_mode_state(mode, False)
     sigma2_cond = pigean_main_support.configure_hyperparameters_for_main(seed_state, options)
@@ -615,6 +695,29 @@ def run_multi_y_pipeline(services, options, mode):
     if len(phenos) == 0:
         services.bail("No phenotypes were found in --multi-y-in")
 
+    num_traits_before_blacklist = len(phenos)
+    trait_blacklist = _load_trait_blacklist(
+        getattr(options, "multi_y_trait_blacklist_in", None),
+        warn_fn=services.warn,
+    )
+    phenos, blacklist_matched, blacklist_missing = _filter_blacklisted_phenos(phenos, trait_blacklist)
+    pheno_to_ind = pigean_main_support.pegs_construct_map_to_ind(phenos)
+    seed_state.phenos = phenos
+    seed_state.pheno_to_ind = pheno_to_ind
+    if trait_blacklist:
+        services.log(
+            "Filtered %d of %d multi-Y traits using blacklist %s; %d requested blacklist traits were not present"
+            % (
+                blacklist_matched,
+                num_traits_before_blacklist,
+                options.multi_y_trait_blacklist_in,
+                blacklist_missing,
+            ),
+            services.INFO,
+        )
+    if len(phenos) == 0:
+        services.bail("All phenotypes from --multi-y-in were removed by --multi-y-trait-blacklist-in")
+
     num_value_cols = 1 + int(columns.combined_col_name is not None) + int(columns.prior_col_name is not None)
     phenos_per_batch = options.multi_y_max_phenos_per_batch
     if phenos_per_batch is None:
@@ -628,6 +731,10 @@ def run_multi_y_pipeline(services, options, mode):
         columns=columns,
         num_traits_total=len(phenos),
         phenos_per_batch=phenos_per_batch,
+        num_traits_before_blacklist=num_traits_before_blacklist,
+        trait_blacklist_requested=len(trait_blacklist),
+        trait_blacklist_matched=blacklist_matched,
+        trait_blacklist_missing=blacklist_missing,
     )
 
     if getattr(options, "multi_y_vectorize_betas", False):
@@ -681,13 +788,19 @@ def run_multi_y_pipeline(services, options, mode):
                     open_text_fn=open_text_with_retry,
                     warn_fn=services.warn,
                 )
+                batch_response = _select_multi_y_response_matrix(
+                    batch_Y,
+                    batch_combined,
+                    options,
+                    services,
+                )
                 for batch_offset, trait in enumerate(phenos[begin:end]):
                     trait_safe = trait.replace("/", "_").replace(" ", "_")
                     trait_gene_stats = os.path.join(tmpdir, "%06d_%s.gene_stats.tsv" % (begin + batch_offset, trait_safe))
                     _write_trait_gene_stats_file(
                         trait_gene_stats,
                         seed_state.genes,
-                        batch_Y[:, batch_offset],
+                        batch_response[:, batch_offset],
                         combined_values=batch_combined[:, batch_offset] if batch_combined is not None else None,
                         prior_values=batch_priors[:, batch_offset] if batch_priors is not None else None,
                     )

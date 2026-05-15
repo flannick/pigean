@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `355`
+- Total options: `357`
 - `method_required`: `20`
 - `method_optional`: `192`
-- `engineering`: `114`
+- `engineering`: `116`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `312`
+- visibility `expert`: `314`
 - visibility `hidden`: `9`
 - visibility `normal`: `34`
 
@@ -340,6 +340,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--multi-y-max-phenos-per-batch` | `expert` | `no` | `expert_help` | `multi_y_max_phenos_per_batch` | `None` | expert override for the number of traits loaded per native multi-Y batch |
 | `--multi-y-pheno-col` | `expert` | `no` | `expert_help` | `multi_y_pheno_col` | `None` | trait column for --multi-y-in |
 | `--multi-y-prior-col` | `expert` | `no` | `expert_help` | `multi_y_prior_col` | `None` | prior-support column for --multi-y-in |
+| `--multi-y-response-col` | `expert` | `no` | `expert_help` | `multi_y_response_col` | `combined` | which resolved multi-Y column is used as the beta-stage response: combined (default) or log_bf |
+| `--multi-y-trait-blacklist-in` | `expert` | `no` | `expert_help` | `multi_y_trait_blacklist_in` | `None` | file of trait labels to exclude from --multi-y-in before batching |
 | `--multi-y-vectorize-betas` | `expert` | `no` | `expert_help` | `multi_y_vectorize_betas` | `False` | expert beta-mode optimization: process traits in each --multi-y-in batch as parallel beta problems |
 | `--output-detail` | `normal` | `no` | `core_help` | `output_detail` | `main` | choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions |
 | `--params-out` | `normal` | `no` | `core_help` | `params_out` | `None` | write learned hyperparameters and runtime settings |

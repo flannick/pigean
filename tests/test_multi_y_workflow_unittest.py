@@ -139,6 +139,39 @@ class MultiYWorkflowTest(unittest.TestCase):
         np.testing.assert_allclose(combined, np.array([[2.5, 0.0], [0.0, 1.2]]))
         np.testing.assert_allclose(priors, np.array([[0.4, 0.0], [0.0, 0.3]]))
 
+    def test_multi_y_response_defaults_to_combined(self) -> None:
+        from pigean import multi_y as pigean_multi_y
+
+        options = SimpleNamespace(multi_y_response_col="combined")
+        services = SimpleNamespace(bail=lambda message: (_ for _ in ()).throw(ValueError(message)))
+        direct = np.array([[1.0, 2.0], [3.0, 4.0]])
+        combined = np.array([[10.0, 20.0], [30.0, 40.0]])
+        selected = pigean_multi_y._select_multi_y_response_matrix(direct, combined, options, services)
+        np.testing.assert_allclose(selected, combined)
+
+    def test_multi_y_response_can_use_log_bf(self) -> None:
+        from pigean import multi_y as pigean_multi_y
+
+        options = SimpleNamespace(multi_y_response_col="log_bf")
+        services = SimpleNamespace(bail=lambda message: (_ for _ in ()).throw(ValueError(message)))
+        direct = np.array([[1.0, 2.0], [3.0, 4.0]])
+        combined = np.array([[10.0, 20.0], [30.0, 40.0]])
+        selected = pigean_multi_y._select_multi_y_response_matrix(direct, combined, options, services)
+        np.testing.assert_allclose(selected, direct)
+
+    def test_multi_y_response_combined_fails_without_combined_column(self) -> None:
+        from pigean import multi_y as pigean_multi_y
+
+        options = SimpleNamespace(multi_y_response_col="combined")
+        services = SimpleNamespace(bail=lambda message: (_ for _ in ()).throw(ValueError(message)))
+        with self.assertRaisesRegex(ValueError, "--multi-y-response-col combined requires"):
+            pigean_multi_y._select_multi_y_response_matrix(
+                np.array([[1.0], [2.0]]),
+                None,
+                options,
+                services,
+            )
+
     def _common_args(self, x_path: Path, multi_y_path: Path) -> list[str]:
         return [
             "--X-in",
@@ -192,6 +225,42 @@ class MultiYWorkflowTest(unittest.TestCase):
             rows = list(reader)
         self.assertGreater(len(rows), 0)
         self.assertEqual({row["trait"] for row in rows}, {"TRAIT_A", "TRAIT_B"})
+
+    def test_multi_y_trait_blacklist_filters_before_batching(self) -> None:
+        x_path = self.tmpdir / "multi_y_blacklist.gmt"
+        multi_y_path = self.tmpdir / "multi_y_blacklist.tsv"
+        blacklist_path = self.tmpdir / "multi_y_blacklist.traits.txt"
+        out_path = self.tmpdir / "multi_y_blacklist.gene_set_stats.out"
+        params_path = self.tmpdir / "multi_y_blacklist.params.out"
+        self._write_x(x_path)
+        self._write_multi_y(multi_y_path)
+        blacklist_path.write_text("TRAIT_B\nMISSING_TRAIT\n", encoding="utf-8")
+
+        proc = self._run(
+            "betas",
+            *self._common_args(x_path, multi_y_path),
+            "--multi-y-trait-blacklist-in",
+            str(blacklist_path),
+            "--multi-y-max-phenos-per-batch",
+            "2",
+            "--gene-set-stats-out",
+            str(out_path),
+            "--params-out",
+            str(params_path),
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+
+        with out_path.open(encoding="utf-8") as fh:
+            rows = list(csv.DictReader(fh, delimiter="\t"))
+        self.assertGreater(len(rows), 0)
+        self.assertEqual({row["trait"] for row in rows}, {"TRAIT_A"})
+
+        params_text = params_path.read_text(encoding="utf-8")
+        self.assertIn("multi_y_num_traits_before_blacklist\t1\t2", params_text)
+        self.assertIn("multi_y_num_traits\t1\t1", params_text)
+        self.assertIn("multi_y_trait_blacklist_requested\t1\t2", params_text)
+        self.assertIn("multi_y_trait_blacklist_matched\t1\t1", params_text)
+        self.assertIn("multi_y_trait_blacklist_missing\t1\t1", params_text)
 
     def test_multi_y_vectorized_betas_appends_trait_column_and_records_params(self) -> None:
         x_path = self.tmpdir / "multi_y_vectorized_betas.gmt"

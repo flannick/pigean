@@ -460,8 +460,10 @@ parser.add_option("","--multi-y-pheno-col",default=None)
 parser.add_option("","--multi-y-log-bf-col",default=None)
 parser.add_option("","--multi-y-combined-col",default=None)
 parser.add_option("","--multi-y-prior-col",default=None)
+parser.add_option("","--multi-y-response-col",choices=("combined", "log_bf"),default="combined")
 parser.add_option("","--multi-y-max-phenos-per-batch",type="int",default=None)
 parser.add_option("","--multi-y-vectorize-betas",action="store_true",default=False)
+parser.add_option("","--multi-y-trait-blacklist-in",default=None)
 
 #simulation parameters
 parser.add_option("","--sim-log-bf-noise-sigma-mult",type=float,default=0) #noise to add to simulations (in standard devs)
@@ -640,8 +642,10 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--multi-y-log-bf-col": "log BF column for --multi-y-in",
     "--multi-y-combined-col": "combined-support column for --multi-y-in",
     "--multi-y-prior-col": "prior-support column for --multi-y-in",
+    "--multi-y-response-col": "which resolved multi-Y column is used as the beta-stage response: combined (default) or log_bf",
     "--multi-y-max-phenos-per-batch": "expert override for the number of traits loaded per native multi-Y batch",
     "--multi-y-vectorize-betas": "expert beta-mode optimization: process traits in each --multi-y-in batch as parallel beta problems",
+    "--multi-y-trait-blacklist-in": "file of trait labels to exclude from --multi-y-in before batching",
     "--hide-opts": "suppress printing resolved options at startup",
     "--hide-progress": "reduce progress logging noise during long runs",
     "--gibbs-summary-mode": "choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask",
@@ -702,6 +706,7 @@ _EXPERT_ENGINEERING_FLAGS = {
     "--max-read-entries-at-once",
     "--multi-y-max-phenos-per-batch",
     "--multi-y-vectorize-betas",
+    "--multi-y-trait-blacklist-in",
     "--pre-filter-batch-size",
     "--pre-filter-small-batch-size",
     "--priors-num-gene-batches",
@@ -747,6 +752,7 @@ _SET_B_METHOD_FLAGS = {
     "--multi-y-log-bf-col",
     "--multi-y-combined-col",
     "--multi-y-prior-col",
+    "--multi-y-response-col",
     "--phewas-comparison-set",
     "--no-cross-val",
     "--phewas-stats-out",
@@ -1546,8 +1552,10 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         ("multi_y_log_bf_col", "--multi-y-log-bf-col"),
         ("multi_y_combined_col", "--multi-y-combined-col"),
         ("multi_y_prior_col", "--multi-y-prior-col"),
+        ("multi_y_response_col", "--multi-y-response-col"),
         ("multi_y_max_phenos_per_batch", "--multi-y-max-phenos-per-batch"),
         ("multi_y_vectorize_betas", "--multi-y-vectorize-betas"),
+        ("multi_y_trait_blacklist_in", "--multi-y-trait-blacklist-in"),
     )
     if _options.multi_y_in is None:
         for dest, flag in multi_y_schema_flags:
