@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `354`
+- Total options: `355`
 - `method_required`: `20`
 - `method_optional`: `192`
-- `engineering`: `113`
+- `engineering`: `114`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `311`
+- visibility `expert`: `312`
 - visibility `hidden`: `9`
 - visibility `normal`: `34`
 
@@ -340,6 +340,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--multi-y-max-phenos-per-batch` | `expert` | `no` | `expert_help` | `multi_y_max_phenos_per_batch` | `None` | expert override for the number of traits loaded per native multi-Y batch |
 | `--multi-y-pheno-col` | `expert` | `no` | `expert_help` | `multi_y_pheno_col` | `None` | trait column for --multi-y-in |
 | `--multi-y-prior-col` | `expert` | `no` | `expert_help` | `multi_y_prior_col` | `None` | prior-support column for --multi-y-in |
+| `--multi-y-vectorize-betas` | `expert` | `no` | `expert_help` | `multi_y_vectorize_betas` | `False` | expert beta-mode optimization: process traits in each --multi-y-in batch as parallel beta problems |
 | `--output-detail` | `normal` | `no` | `core_help` | `output_detail` | `main` | choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions |
 | `--params-out` | `normal` | `no` | `core_help` | `params_out` | `None` | write learned hyperparameters and runtime settings |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |

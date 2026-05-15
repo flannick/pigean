@@ -211,6 +211,11 @@ Optional expert controls:
 - `--multi-y-max-phenos-per-batch <n>`
   - overrides the automatic trait chunk size
   - if omitted, PIGEAN estimates a trait batch size from `--max-gb`
+- `--multi-y-vectorize-betas`
+  - beta-mode only optimization
+  - reads each trait batch once and maps traits to the existing parallel-run dimension of the beta sampler
+  - preserves multiple chains within each trait
+  - if hyperparameter updates are enabled, the update is shared across traits in the vectorized batch and PIGEAN emits a warning
 
 Primary outputs:
 - `--gene-set-stats-out`

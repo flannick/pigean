@@ -5,6 +5,8 @@ import os
 import tempfile
 from dataclasses import dataclass
 
+import numpy as np
+
 from pegs_shared.io_common import detect_table_delimiter, open_text_with_retry, resolve_column_index, split_table_line
 
 from . import main_support as pigean_main_support
@@ -207,6 +209,7 @@ def _record_multi_y_params(state, options, mode, *, columns, num_traits_total, p
             "multi_y_prior_col": columns.prior_col_name,
             "multi_y_num_traits": num_traits_total,
             "multi_y_phenos_per_batch": phenos_per_batch,
+            "multi_y_vectorize_betas": bool(getattr(options, "multi_y_vectorize_betas", False)),
             "multi_y_gene_universe_mode": gene_universe_mode,
             "multi_y_gene_universe_in": gene_universe_in,
         },
@@ -243,9 +246,308 @@ def _initialize_multi_y_gene_universe(seed_state, options, services):
     )
 
 
+def _as_trait_gene_set_matrix(values, num_traits):
+    values = np.asarray(values)
+    if values.ndim == 1:
+        values = values[np.newaxis, :]
+    if values.shape[0] != num_traits:
+        raise ValueError(
+            "Expected %d trait rows in vectorized multi-Y matrix; got %d"
+            % (num_traits, values.shape[0])
+        )
+    return values
+
+
+def _clear_gene_set_result_vectors(state):
+    for attr in (
+        "beta_tildes",
+        "p_values",
+        "z_scores",
+        "ses",
+        "se_inflation_factors",
+        "betas",
+        "betas_uncorrected",
+        "non_inf_avg_postps",
+        "non_inf_avg_cond_betas",
+    ):
+        setattr(state, attr, None)
+
+
+def _apply_vectorized_gene_set_filter(state, options, p_values_m, services):
+    if options.filter_gene_set_p is None or options.filter_gene_set_p >= 1:
+        return np.full(p_values_m.shape[1], True, dtype=bool)
+
+    best_p = np.min(p_values_m, axis=0)
+    keep_mask = np.any(p_values_m <= options.filter_gene_set_p, axis=0)
+    if np.sum(keep_mask) == 0 and len(best_p) > 0:
+        keep_mask[np.argmin(best_p)] = True
+
+    max_num_gene_sets = getattr(options, "max_num_gene_sets", None)
+    if max_num_gene_sets is not None and max_num_gene_sets > 0 and np.sum(keep_mask) > max_num_gene_sets:
+        kept_indices = np.where(keep_mask)[0]
+        ranked_kept = kept_indices[np.argsort(best_p[kept_indices])]
+        capped_keep = np.zeros_like(keep_mask)
+        capped_keep[ranked_kept[:max_num_gene_sets]] = True
+        keep_mask = capped_keep
+
+    services.log(
+        "Keeping %d gene sets that passed the vectorized multi-Y union p threshold of p<%.3g"
+        % (int(np.sum(keep_mask)), options.filter_gene_set_p),
+        services.INFO,
+    )
+    return keep_mask
+
+
+def _set_trait_gene_set_results(
+    state,
+    trait_index,
+    *,
+    beta_tildes_m,
+    ses_m,
+    z_scores_m,
+    p_values_m,
+    se_inflation_factors_m,
+    betas_m,
+    betas_uncorrected_m,
+    postp_m,
+):
+    state.beta_tildes = np.asarray(beta_tildes_m[trait_index, :]).copy()
+    state.ses = np.asarray(ses_m[trait_index, :]).copy()
+    state.z_scores = np.asarray(z_scores_m[trait_index, :]).copy()
+    state.p_values = np.asarray(p_values_m[trait_index, :]).copy()
+    if se_inflation_factors_m is None:
+        state.se_inflation_factors = None
+    else:
+        state.se_inflation_factors = np.asarray(se_inflation_factors_m[trait_index, :]).copy()
+    state.betas = np.asarray(betas_m[trait_index, :]).copy()
+    state.betas_uncorrected = np.asarray(betas_uncorrected_m[trait_index, :]).copy()
+    state.non_inf_avg_postps = np.asarray(postp_m[trait_index, :]).copy()
+    state.non_inf_avg_cond_betas = state.betas.copy()
+    positive_postp = state.non_inf_avg_postps > 0
+    state.non_inf_avg_cond_betas[positive_postp] /= state.non_inf_avg_postps[positive_postp]
+
+
+def _run_multi_y_vectorized_betas(
+    *,
+    services,
+    options,
+    seed_state,
+    mode_state,
+    sigma2_cond,
+    columns,
+    phenos,
+    pheno_to_ind,
+    col_info,
+    phenos_per_batch,
+):
+    if getattr(options, "use_sampling_for_betas", None) not in (None, 0):
+        services.bail("Option --multi-y-vectorize-betas does not yet support --use-sampling-for-betas")
+    if getattr(options, "independent_betas_only", False):
+        services.bail("Option --multi-y-vectorize-betas does not yet support --independent-betas-only")
+
+    update_hyper = bool(getattr(options, "update_hyper_p", False) or getattr(options, "update_hyper_sigma", False))
+    if update_hyper:
+        services.warn(
+            "In vectorized multi-Y betas mode, hyperparameter updates will be shared across all traits; "
+            "use the default unvectorized multi-Y workflow for per-trait hyperparameter updates."
+        )
+    seed_state._record_params(
+        {
+            "multi_y_vectorized_hyper_updates_shared": update_hyper,
+            "multi_y_vectorized_beta_parallel_axis": "traits",
+        },
+        overwrite=True,
+    )
+
+    services.log(
+        "Running vectorized multi-Y betas workflow for %d traits from %s with batch_size=%d"
+        % (len(phenos), options.multi_y_in, phenos_per_batch),
+        services.INFO,
+    )
+
+    gene_set_writer = _AggregatedTraitTableWriter(options.gene_set_stats_out, key_column="Gene_Set")
+    num_traits_completed = 0
+    common_sampler_kwargs = pigean_main_support.build_inner_beta_sampler_common_kwargs(options)
+    common_sampler_kwargs.update(
+        {
+            "max_allowed_batch_correlation": options.max_allowed_batch_correlation,
+        }
+    )
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="pigean_multi_y_vectorized_") as tmpdir:
+            for begin in range(0, len(phenos), phenos_per_batch):
+                end = min(begin + phenos_per_batch, len(phenos))
+                batch_traits = phenos[begin:end]
+                services.log(
+                    "Processing vectorized multi-Y batch %d-%d of %d"
+                    % (begin + 1, end, len(phenos)),
+                    services.INFO,
+                )
+                batch_state = copy.deepcopy(seed_state)
+                (batch_Y, _batch_combined, _batch_priors) = pigean_phewas.read_phewas_file_batch(
+                    batch_state,
+                    options.multi_y_in,
+                    begin=begin,
+                    cur_batch_size=end - begin,
+                    pheno_to_ind=pheno_to_ind,
+                    id_col=col_info["id_col"],
+                    pheno_col=col_info["pheno_col"],
+                    bf_col=col_info["bf_col"],
+                    combined_col=col_info["combined_col"],
+                    prior_col=col_info["prior_col"],
+                    open_text_fn=open_text_with_retry,
+                    warn_fn=services.warn,
+                )
+
+                batch_state.calculate_gene_set_statistics(
+                    Y=batch_Y.T,
+                    max_gene_set_p=None,
+                    run_logistic=not options.linear,
+                    max_for_linear=options.max_for_linear,
+                    run_corrected_ols=not options.ols,
+                    use_sampling_for_betas=options.use_sampling_for_betas,
+                    correct_betas_mean=options.correct_betas_mean,
+                    correct_betas_var=options.correct_betas_var,
+                    gene_loc_file=options.gene_loc_file,
+                    gene_cor_file=options.gene_cor_file,
+                    gene_cor_file_gene_col=options.gene_cor_file_gene_col,
+                    gene_cor_file_cor_start_col=options.gene_cor_file_cor_start_col,
+                    skip_V=True,
+                )
+
+                num_batch_traits = len(batch_traits)
+                beta_tildes_m = _as_trait_gene_set_matrix(batch_state.beta_tildes, num_batch_traits)
+                ses_m = _as_trait_gene_set_matrix(batch_state.ses, num_batch_traits)
+                z_scores_m = _as_trait_gene_set_matrix(batch_state.z_scores, num_batch_traits)
+                p_values_m = _as_trait_gene_set_matrix(batch_state.p_values, num_batch_traits)
+                se_inflation_factors_m = None
+                if batch_state.se_inflation_factors is not None:
+                    se_inflation_factors_m = _as_trait_gene_set_matrix(
+                        batch_state.se_inflation_factors,
+                        num_batch_traits,
+                    )
+
+                keep_mask = _apply_vectorized_gene_set_filter(batch_state, options, p_values_m, services)
+                if np.sum(keep_mask) == 0:
+                    services.log("Skipping vectorized batch because no gene sets survived filtering", services.INFO)
+                    continue
+
+                _clear_gene_set_result_vectors(batch_state)
+                batch_state.subset_gene_sets(
+                    keep_mask,
+                    keep_missing=not getattr(batch_state, "track_filtered_beta_uncorrected", False),
+                    ignore_missing=getattr(batch_state, "track_filtered_beta_uncorrected", False),
+                    skip_V=True,
+                    filter_reason="max_gene_set_p",
+                )
+
+                beta_tildes_m = beta_tildes_m[:, keep_mask]
+                ses_m = ses_m[:, keep_mask]
+                z_scores_m = z_scores_m[:, keep_mask]
+                p_values_m = p_values_m[:, keep_mask]
+                if se_inflation_factors_m is not None:
+                    se_inflation_factors_m = se_inflation_factors_m[:, keep_mask]
+
+                avg_betas_uncorrected_m, avg_postp_uncorrected_m = batch_state._calculate_non_inf_betas(
+                    batch_state.p,
+                    beta_tildes=beta_tildes_m,
+                    ses=ses_m,
+                    assume_independent=True,
+                    V=None,
+                    update_hyper_sigma=False,
+                    update_hyper_p=False,
+                    **common_sampler_kwargs,
+                )
+                avg_betas_uncorrected_m = _as_trait_gene_set_matrix(
+                    avg_betas_uncorrected_m,
+                    num_batch_traits,
+                )
+                avg_postp_uncorrected_m = _as_trait_gene_set_matrix(
+                    avg_postp_uncorrected_m,
+                    num_batch_traits,
+                )
+                initial_run_mask_m = avg_betas_uncorrected_m != 0
+                run_mask = np.any(initial_run_mask_m, axis=0)
+                if np.sum(run_mask) == 0 and p_values_m.shape[1] > 0:
+                    run_mask[np.argmin(np.min(p_values_m, axis=0))] = True
+
+                avg_betas_m = np.zeros_like(avg_betas_uncorrected_m)
+                avg_postp_m = np.zeros_like(avg_postp_uncorrected_m)
+                if np.sum(run_mask) > 0:
+                    corrected_betas_m, corrected_postp_m = batch_state._calculate_non_inf_betas(
+                        batch_state.p,
+                        beta_tildes=beta_tildes_m[:, run_mask],
+                        ses=ses_m[:, run_mask],
+                        X_orig=batch_state.X_orig[:, run_mask],
+                        scale_factors=batch_state.scale_factors[run_mask],
+                        mean_shifts=batch_state.mean_shifts[run_mask],
+                        V=None,
+                        ps=batch_state.ps[run_mask] if batch_state.ps is not None else None,
+                        sigma2s=batch_state.sigma2s[run_mask] if batch_state.sigma2s is not None else None,
+                        is_dense_gene_set=batch_state.is_dense_gene_set[run_mask],
+                        update_hyper_sigma=getattr(options, "update_hyper_sigma", False),
+                        update_hyper_p=getattr(options, "update_hyper_p", False),
+                        **common_sampler_kwargs,
+                    )
+                    corrected_betas_m = _as_trait_gene_set_matrix(corrected_betas_m, num_batch_traits)
+                    corrected_postp_m = _as_trait_gene_set_matrix(corrected_postp_m, num_batch_traits)
+                    avg_betas_m[:, run_mask] = corrected_betas_m
+                    avg_postp_m[:, run_mask] = corrected_postp_m
+                    avg_betas_m[~initial_run_mask_m] = 0
+                    avg_postp_m[~initial_run_mask_m] = 0
+
+                for batch_offset, trait in enumerate(batch_traits):
+                    trait_safe = trait.replace("/", "_").replace(" ", "_")
+                    trait_gene_set_stats_out = os.path.join(
+                        tmpdir,
+                        "%06d_%s.gene_set_stats.out" % (begin + batch_offset, trait_safe),
+                    )
+                    _set_trait_gene_set_results(
+                        batch_state,
+                        batch_offset,
+                        beta_tildes_m=beta_tildes_m,
+                        ses_m=ses_m,
+                        z_scores_m=z_scores_m,
+                        p_values_m=p_values_m,
+                        se_inflation_factors_m=se_inflation_factors_m,
+                        betas_m=avg_betas_m,
+                        betas_uncorrected_m=avg_betas_uncorrected_m,
+                        postp_m=avg_postp_m,
+                    )
+                    batch_state.write_gene_set_statistics(
+                        trait_gene_set_stats_out,
+                        max_no_write_gene_set_beta=options.max_no_write_gene_set_beta,
+                        max_no_write_gene_set_beta_uncorrected=options.max_no_write_gene_set_beta_uncorrected,
+                        output_detail=options.output_detail,
+                    )
+                    rows_written = gene_set_writer.append_from(trait, trait_gene_set_stats_out)
+                    if rows_written == 0:
+                        services.log("Trait %s produced no gene-set rows after write filters" % trait, services.INFO)
+                    num_traits_completed += 1
+    finally:
+        gene_set_writer.close()
+
+    if options.params_out is not None:
+        seed_state._record_params({"multi_y_num_traits_completed": num_traits_completed}, overwrite=True)
+        seed_state.write_params(options.params_out)
+
+    return MultiYPipelineResult(
+        state=seed_state,
+        mode_state=mode_state,
+        sigma2_cond=sigma2_cond,
+        y_not_loaded=False,
+        num_traits_total=len(phenos),
+        num_traits_completed=num_traits_completed,
+        phenos_per_batch=phenos_per_batch,
+    )
+
+
 def run_multi_y_pipeline(services, options, mode):
     if mode not in {"betas", "gibbs"}:
         services.bail("Option --multi-y-in is only supported for modes betas and gibbs")
+    if getattr(options, "multi_y_vectorize_betas", False) and mode != "betas":
+        services.bail("Option --multi-y-vectorize-betas is only supported in betas mode")
     if options.gene_set_stats_out is None:
         services.bail("Option --multi-y-in requires --gene-set-stats-out")
 
@@ -292,6 +594,20 @@ def run_multi_y_pipeline(services, options, mode):
         num_traits_total=len(phenos),
         phenos_per_batch=phenos_per_batch,
     )
+
+    if getattr(options, "multi_y_vectorize_betas", False):
+        return _run_multi_y_vectorized_betas(
+            services=services,
+            options=options,
+            seed_state=seed_state,
+            mode_state=mode_state,
+            sigma2_cond=sigma2_cond,
+            columns=columns,
+            phenos=phenos,
+            pheno_to_ind=pheno_to_ind,
+            col_info=col_info,
+            phenos_per_batch=phenos_per_batch,
+        )
 
     services.log(
         "Running native multi-Y %s workflow for %d traits from %s with batch_size=%d"

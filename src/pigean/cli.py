@@ -461,6 +461,7 @@ parser.add_option("","--multi-y-log-bf-col",default=None)
 parser.add_option("","--multi-y-combined-col",default=None)
 parser.add_option("","--multi-y-prior-col",default=None)
 parser.add_option("","--multi-y-max-phenos-per-batch",type="int",default=None)
+parser.add_option("","--multi-y-vectorize-betas",action="store_true",default=False)
 
 #simulation parameters
 parser.add_option("","--sim-log-bf-noise-sigma-mult",type=float,default=0) #noise to add to simulations (in standard devs)
@@ -640,6 +641,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--multi-y-combined-col": "combined-support column for --multi-y-in",
     "--multi-y-prior-col": "prior-support column for --multi-y-in",
     "--multi-y-max-phenos-per-batch": "expert override for the number of traits loaded per native multi-Y batch",
+    "--multi-y-vectorize-betas": "expert beta-mode optimization: process traits in each --multi-y-in batch as parallel beta problems",
     "--hide-opts": "suppress printing resolved options at startup",
     "--hide-progress": "reduce progress logging noise during long runs",
     "--gibbs-summary-mode": "choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask",
@@ -699,6 +701,7 @@ _EXPERT_ENGINEERING_FLAGS = {
     "--max-gb",
     "--max-read-entries-at-once",
     "--multi-y-max-phenos-per-batch",
+    "--multi-y-vectorize-betas",
     "--pre-filter-batch-size",
     "--pre-filter-small-batch-size",
     "--priors-num-gene-batches",
@@ -1544,6 +1547,7 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         ("multi_y_combined_col", "--multi-y-combined-col"),
         ("multi_y_prior_col", "--multi-y-prior-col"),
         ("multi_y_max_phenos_per_batch", "--multi-y-max-phenos-per-batch"),
+        ("multi_y_vectorize_betas", "--multi-y-vectorize-betas"),
     )
     if _options.multi_y_in is None:
         for dest, flag in multi_y_schema_flags:

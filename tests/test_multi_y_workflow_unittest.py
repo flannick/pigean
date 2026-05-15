@@ -193,6 +193,40 @@ class MultiYWorkflowTest(unittest.TestCase):
         self.assertGreater(len(rows), 0)
         self.assertEqual({row["trait"] for row in rows}, {"TRAIT_A", "TRAIT_B"})
 
+    def test_multi_y_vectorized_betas_appends_trait_column_and_records_params(self) -> None:
+        x_path = self.tmpdir / "multi_y_vectorized_betas.gmt"
+        multi_y_path = self.tmpdir / "multi_y_vectorized_betas.tsv"
+        out_path = self.tmpdir / "multi_y_vectorized_betas.gene_set_stats.out"
+        params_path = self.tmpdir / "multi_y_vectorized_betas.params.out"
+        self._write_x(x_path)
+        self._write_multi_y(multi_y_path)
+
+        proc = self._run(
+            "betas",
+            *self._common_args(x_path, multi_y_path),
+            "--multi-y-vectorize-betas",
+            "--multi-y-max-phenos-per-batch",
+            "2",
+            "--gene-set-stats-out",
+            str(out_path),
+            "--params-out",
+            str(params_path),
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        self.assertTrue(out_path.exists())
+
+        with out_path.open(encoding="utf-8") as fh:
+            reader = csv.DictReader(fh, delimiter="\t")
+            self.assertIn("trait", reader.fieldnames)
+            rows = list(reader)
+        self.assertGreater(len(rows), 0)
+        self.assertEqual({row["trait"] for row in rows}, {"TRAIT_A", "TRAIT_B"})
+
+        params_text = params_path.read_text(encoding="utf-8")
+        self.assertIn("multi_y_vectorize_betas\t1\tTrue", params_text)
+        self.assertIn("multi_y_vectorized_beta_parallel_axis\t1\ttraits", params_text)
+        self.assertIn("multi_y_num_traits_completed\t1\t2", params_text)
+
     def test_multi_y_gibbs_aggregates_gene_and_gene_set_outputs(self) -> None:
         from pigean import multi_y as pigean_multi_y  # imported lazily after PYTHONPATH setup
         from pigean import dispatch as pigean_dispatch

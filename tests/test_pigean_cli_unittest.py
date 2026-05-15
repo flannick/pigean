@@ -106,7 +106,12 @@ class PigeanCliTest(unittest.TestCase):
         self.assertNotIn("Traceback", err)
 
     def test_positive_controls_list_rejects_file_paths(self) -> None:
-        proc = self._run("gibbs", "--positive-controls-list", "tests/data/t2d_smoke/mody.gene.list")
+        proc = self._run(
+            "gibbs",
+            "--positive-controls-list",
+            "tests/data/t2d_smoke/mody.gene.list",
+            "--gene-universe-from-y",
+        )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("expects a comma-separated list of gene symbols", err)
@@ -150,7 +155,13 @@ class PigeanCliTest(unittest.TestCase):
         self.assertFalse(options["gene_universe_has_header"])
 
     def test_positive_controls_alias_still_round_trips_in_effective_config(self) -> None:
-        proc = self._run("gibbs", "--positive-controls-list", "INS", "--print-effective-config")
+        proc = self._run(
+            "gibbs",
+            "--positive-controls-list",
+            "INS",
+            "--gene-universe-from-y",
+            "--print-effective-config",
+        )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["options"]["positive_controls_list"], ["INS"])
@@ -457,7 +468,7 @@ class PigeanCliTest(unittest.TestCase):
         self.assertIn("Reinitializing analysis gene universe from explicit gene-universe file after X load", logs)
 
     def test_multi_y_requires_gene_set_stats_out(self) -> None:
-        proc = self._run("betas", "--multi-y-in", "traits.tsv")
+        proc = self._run("betas", "--multi-y-in", "traits.tsv", "--gene-universe-from-x")
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--multi-y-in requires --gene-set-stats-out", err)
@@ -476,6 +487,26 @@ class PigeanCliTest(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--multi-y-max-phenos-per-batch requires --multi-y-in", err)
+
+    def test_multi_y_vectorize_requires_multi_y_input(self) -> None:
+        proc = self._run("betas", "--multi-y-vectorize-betas")
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--multi-y-vectorize-betas requires --multi-y-in", err)
+
+    def test_multi_y_vectorize_rejects_gibbs_mode(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--multi-y-in",
+            "traits.tsv",
+            "--gene-universe-from-x",
+            "--gene-set-stats-out",
+            "out.tsv",
+            "--multi-y-vectorize-betas",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--multi-y-vectorize-betas is only supported in betas mode", err)
 
     def test_multi_y_rejects_gene_universe_from_y(self) -> None:
         proc = self._run(
@@ -507,6 +538,7 @@ class PigeanCliTest(unittest.TestCase):
             "Prior",
             "--multi-y-max-phenos-per-batch",
             "3",
+            "--multi-y-vectorize-betas",
             "--gene-universe-from-x",
             "--gene-set-stats-out",
             "out.tsv",
@@ -522,6 +554,7 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["multi_y_combined_col"], "Combined")
         self.assertEqual(options["multi_y_prior_col"], "Prior")
         self.assertEqual(options["multi_y_max_phenos_per_batch"], 3)
+        self.assertTrue(options["multi_y_vectorize_betas"])
         self.assertTrue(options["gene_universe_from_x"])
 
     def test_gene_stats_combined_write_filter_round_trips(self) -> None:
