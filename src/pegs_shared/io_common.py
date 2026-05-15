@@ -258,6 +258,82 @@ def open_text_with_retry(filepath, flag=None, *, log_fn=None, bail_fn=None):
     )
 
 
+def split_table_line(line, delimiter):
+    return line.rstrip("\n").split(delimiter)
+
+
+def detect_table_delimiter(
+    path,
+    *,
+    open_text_fn=None,
+    candidate_delimiters=("\t", None),
+    max_rows=100,
+    warn_fn=None,
+):
+    """Detect a simple table delimiter from stable sampled column counts.
+
+    Candidate delimiters are tried in order. The first candidate that produces
+    more than one column and the same column count across sampled non-empty rows
+    is returned. If no candidate is fully consistent, fall back to the first
+    candidate that produced more than one column and warn that later row-level
+    parsing may skip malformed lines.
+    """
+    if open_text_fn is None:
+        open_text_fn = open_text_with_retry
+    if warn_fn is None:
+        warn_fn = lambda _msg: None
+
+    rows = []
+    with open_text_fn(path) as fh:
+        for line in fh:
+            if line.strip("\n") == "":
+                continue
+            rows.append(line.rstrip("\n"))
+            if len(rows) >= max_rows:
+                break
+
+    if len(rows) == 0:
+        return "\t"
+
+    first_multicol = None
+    first_multicol_found = False
+    inconsistency_details = []
+    for delimiter in candidate_delimiters:
+        counts = [len(row.split(delimiter)) for row in rows]
+        if any(count > 1 for count in counts) and not first_multicol_found:
+            first_multicol = delimiter
+            first_multicol_found = True
+        positive_counts = [count for count in counts if count > 1]
+        if len(positive_counts) == len(counts) and len(set(positive_counts)) == 1:
+            return delimiter
+        if any(count > 1 for count in counts):
+            inconsistency_details.append(
+                "%s produced sampled column counts %s"
+                % (
+                    "whitespace" if delimiter is None else repr(delimiter),
+                    ",".join(str(count) for count in sorted(set(counts))),
+                )
+            )
+
+    if first_multicol_found:
+        warn_fn(
+            "Could not find a table delimiter with stable sampled column counts for %s; "
+            "falling back to %s. Some malformed lines may be skipped. %s"
+            % (
+                path,
+                "whitespace" if first_multicol is None else repr(first_multicol),
+                "; ".join(inconsistency_details),
+            )
+        )
+        return first_multicol
+
+    warn_fn(
+        "Could not find a multi-column delimiter for %s; falling back to tab-delimited parsing"
+        % path
+    )
+    return "\t"
+
+
 def read_tsv(path, key_column=None, required_columns=None, *, bail_fn=None):
     if bail_fn is None:
         bail_fn = _default_bail

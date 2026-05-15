@@ -5,7 +5,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 
-from pegs_shared.io_common import open_text_with_retry, resolve_column_index
+from pegs_shared.io_common import detect_table_delimiter, open_text_with_retry, resolve_column_index, split_table_line
 
 from . import main_support as pigean_main_support
 from . import phewas as pigean_phewas
@@ -102,8 +102,9 @@ def _first_present_column(header_cols, explicit_name, fallback_names, *, require
 
 
 def _resolve_multi_y_columns(options):
+    delimiter = detect_table_delimiter(options.multi_y_in, open_text_fn=open_text_with_retry)
     with open_text_with_retry(options.multi_y_in) as fh:
-        header_cols = fh.readline().strip("\n").split()
+        header_cols = split_table_line(fh.readline(), delimiter)
 
     id_col_name = options.multi_y_id_col if options.multi_y_id_col is not None else "Gene"
     resolve_column_index(id_col_name, header_cols)

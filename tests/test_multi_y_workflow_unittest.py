@@ -70,6 +70,75 @@ class MultiYWorkflowTest(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def test_multi_y_reader_prefers_tab_when_free_text_columns_contain_spaces(self) -> None:
+        from pegs_shared import phewas as pegs_phewas
+        from pigean import multi_y as pigean_multi_y
+
+        path = self.tmpdir / "multi_y_free_text_trait.tsv"
+        path.write_text(
+            "\n".join(
+                [
+                    "Trait\tTrait_Internal\tGene\tDirect\tCombined\tIndirect",
+                    "Type 2 diabetes\tT2D\tGENE1\t1.5\t2.5\t0.4",
+                    "Coronary artery disease\tCAD\tGENE2\t0.7\t1.2\t0.3",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        options = SimpleNamespace(
+            multi_y_in=str(path),
+            multi_y_id_col="Gene",
+            multi_y_pheno_col="Trait_Internal",
+            multi_y_log_bf_col="Direct",
+            multi_y_combined_col="Combined",
+            multi_y_prior_col="Indirect",
+        )
+        columns = pigean_multi_y._resolve_multi_y_columns(options)
+        self.assertEqual(columns.id_col_name, "Gene")
+        self.assertEqual(columns.pheno_col_name, "Trait_Internal")
+
+        runtime = SimpleNamespace(
+            genes=["GENE1", "GENE2"],
+            gene_to_ind={"GENE1": 0, "GENE2": 1},
+            gene_label_map=None,
+            phenos=None,
+            pheno_to_ind=None,
+            num_gene_phewas_filtered=0,
+            X_phewas_beta=None,
+            X_phewas_beta_uncorrected=None,
+            gene_pheno_Y=None,
+            gene_pheno_combined_prior_Ys=None,
+            gene_pheno_priors=None,
+        )
+        phenos, pheno_to_ind, col_info = pegs_phewas.prepare_phewas_phenos_from_file(
+            runtime,
+            str(path),
+            gene_phewas_bfs_id_col=columns.id_col_name,
+            gene_phewas_bfs_pheno_col=columns.pheno_col_name,
+            gene_phewas_bfs_log_bf_col=columns.log_bf_col_name,
+            gene_phewas_bfs_combined_col=columns.combined_col_name,
+            gene_phewas_bfs_prior_col=columns.prior_col_name,
+            open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+            warn_fn=lambda _m: None,
+        )
+        self.assertEqual(phenos, ["T2D", "CAD"])
+
+        y, combined, priors = pegs_phewas.read_phewas_file_batch(
+            runtime,
+            str(path),
+            begin=0,
+            cur_batch_size=2,
+            pheno_to_ind=pheno_to_ind,
+            col_info=col_info,
+            open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+            warn_fn=lambda _m: None,
+        )
+        np.testing.assert_allclose(y, np.array([[1.5, 0.0], [0.0, 0.7]]))
+        np.testing.assert_allclose(combined, np.array([[2.5, 0.0], [0.0, 1.2]]))
+        np.testing.assert_allclose(priors, np.array([[0.4, 0.0], [0.0, 0.3]]))
+
     def _common_args(self, x_path: Path, multi_y_path: Path) -> list[str]:
         return [
             "--X-in",

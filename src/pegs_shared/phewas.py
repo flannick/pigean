@@ -4,7 +4,7 @@ import os
 import numpy as np
 import scipy.sparse as sparse
 
-from pegs_shared.io_common import construct_map_to_ind, resolve_column_index
+from pegs_shared.io_common import construct_map_to_ind, detect_table_delimiter, resolve_column_index, split_table_line
 from pegs_shared.types import (
     FactorInputData,
     ParsedGenePhewasBfs,
@@ -248,9 +248,10 @@ def prepare_phewas_phenos_from_file(
         pheno_to_ind = {}
 
     runtime.num_gene_phewas_filtered = 0
+    delimiter = detect_table_delimiter(gene_phewas_bfs_in, open_text_fn=open_text_fn, warn_fn=warn_fn)
     with open_text_fn(gene_phewas_bfs_in) as gene_phewas_bfs_fh:
         log_fn("Fetching phenotypes to use", debug_level)
-        header_cols = gene_phewas_bfs_fh.readline().strip("\n").split()
+        header_cols = split_table_line(gene_phewas_bfs_fh.readline(), delimiter)
         col_info = resolve_phewas_file_columns(
             header_cols=header_cols,
             gene_phewas_bfs_id_col=gene_phewas_bfs_id_col,
@@ -261,7 +262,7 @@ def prepare_phewas_phenos_from_file(
             get_col_fn=get_col_fn,
         )
         for line in gene_phewas_bfs_fh:
-            cols = line.strip("\n").split()
+            cols = split_table_line(line, delimiter)
             if (
                 col_info.id_col >= len(cols)
                 or col_info.pheno_col >= len(cols)
@@ -318,9 +319,10 @@ def read_phewas_file_batch(
     gene_pheno_combined_prior_Ys = np.zeros((len(runtime.genes), cur_batch_size)) if col_info.combined_col is not None else None
     gene_pheno_priors = np.zeros((len(runtime.genes), cur_batch_size)) if col_info.prior_col is not None else None
 
+    delimiter = detect_table_delimiter(gene_phewas_bfs_in, open_text_fn=open_text_fn, warn_fn=warn_fn)
     with open_text_fn(gene_phewas_bfs_in) as gene_phewas_bfs_fh:
         for line in gene_phewas_bfs_fh:
-            cols = line.strip("\n").split()
+            cols = split_table_line(line, delimiter)
             if (
                 col_info.id_col >= len(cols)
                 or col_info.pheno_col >= len(cols)
