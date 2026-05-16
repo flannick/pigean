@@ -318,14 +318,17 @@ bridge mass that downweights bridges between factors with high weighted-Jaccard 
 overlap. These diagnostics are output-only: they do not alter the learned factors or
 the pairwise target.
 
-Suggested annotation exclusions are source-adaptive. EAGGL first identifies positive,
-active annotations that are broad bridges across low-overlap factors, then compares
-their separated bridge mass against both all annotations and annotations from the same
-input source. Sources whose annotations empirically concentrate on one factor require
-more extreme global bridge percentiles for automatic exclusion, whereas broad sources
-use a less stringent global percentile. Small sources require an extreme global
-percentile before automatic exclusion. This policy avoids hardcoded library names while
-retaining a conservative review flag for source-specific outliers.
+Suggested annotation exclusions are source-adaptive. EAGGL first marks positive,
+active annotations that are broad bridges across low-overlap factors as review
+candidates. Automatic exclusion is stricter: an annotation must be a high-impact
+diffuse bridge, rank highly both globally and within its source, and come from a
+source/anchor group that empirically behaves like a broad bridge source. Broad sources
+are identified by a robust source broadness score based on high source bridge burden,
+high global bridge burden, and low source quality, rather than by hardcoded library
+names. Thus `flag_review` is diagnostic, while `flag_suggest_exclude` is the single
+conservative rule used to write the suggested-exclude text file. The same rule is used
+before and after exclusion refits; additional suggested exclusions after a refit reflect
+changes in the fitted PIGEAN/EAGGL model rather than a separate exclusion mode.
 
 \paragraph{Conversion to pairwise probability.}
 Let $\pi_{\mathrm{pair}}$ denote the prior probability that two retained genes are

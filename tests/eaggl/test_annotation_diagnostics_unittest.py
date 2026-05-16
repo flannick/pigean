@@ -172,22 +172,121 @@ class AnnotationDiagnosticsTest(unittest.TestCase):
             specific["source_required_global_bridge_percentile"],
         )
         self.assertTrue(broad["flag_review"])
-        self.assertTrue(broad["flag_suggest_exclude"])
+        self.assertTrue(broad["flag_bridge_candidate"])
+        self.assertFalse(broad["flag_suggest_exclude"])
         self.assertTrue(specific["flag_review"])
+        self.assertTrue(specific["flag_bridge_candidate"])
         self.assertFalse(specific["flag_suggest_exclude"])
         self.assertIn("source_adaptive_review", specific["flag_reason"])
 
-    def test_suggest_exclude_requires_top_global_bridge_rank(self) -> None:
+    def test_strict_broad_source_policy_flags_suggested_excludes(self) -> None:
+        source_metrics = {
+            ("broad", "default"): {
+                "source_bridge_burden": 0.98,
+                "source_global_bridge_burden": 0.30,
+                "source_quality_score": 0.09,
+            },
+            ("specific_a", "default"): {
+                "source_bridge_burden": 0.05,
+                "source_global_bridge_burden": 0.02,
+                "source_quality_score": 0.80,
+            },
+            ("specific_b", "default"): {
+                "source_bridge_burden": 0.04,
+                "source_global_bridge_burden": 0.01,
+                "source_quality_score": 0.82,
+            },
+            ("specific_c", "default"): {
+                "source_bridge_burden": 0.06,
+                "source_global_bridge_burden": 0.02,
+                "source_quality_score": 0.78,
+            },
+        }
+        records = []
+        for source in ["broad", "specific_a", "specific_b", "specific_c"]:
+            records.append(
+                {
+                    "annotation_source": source,
+                    "anchor_trait": "default",
+                    "annotation_id": f"{source}_bridge",
+                    "beta": 1.0,
+                    "n_genes_active": 150,
+                    "source_rank_separated_bridge_mass": 1,
+                    "global_rank_separated_bridge_mass": 10,
+                    "dominant_factor_share": 0.20,
+                    "max_bridge_factor_similarity": 0.20,
+                    "factor_neff": 8.0,
+                    "bridge_fraction": 0.90,
+                }
+            )
+
+        annotation_diagnostics._annotate_strict_broad_source_exclusion_flags(records, source_metrics)
+        broad = next(record for record in records if record["annotation_source"] == "broad")
+        specific = next(record for record in records if record["annotation_source"] == "specific_a")
+
+        self.assertGreaterEqual(broad["source_broadness_score"], 4.0)
+        self.assertTrue(broad["flag_broad_source_outlier"])
+        self.assertTrue(broad["flag_suggest_exclude"])
+        self.assertIn("suggest_exclude", broad["suggested_exclude_reason"])
+        self.assertFalse(specific["flag_broad_source_outlier"])
+        self.assertFalse(specific.get("flag_suggest_exclude", False))
+
+    def test_strict_broad_source_candidate_can_be_non_exclusion(self) -> None:
+        source_metrics = {
+            ("broad", "default"): {
+                "source_bridge_burden": 0.98,
+                "source_global_bridge_burden": 0.30,
+                "source_quality_score": 0.09,
+            },
+            ("specific_a", "default"): {
+                "source_bridge_burden": 0.05,
+                "source_global_bridge_burden": 0.02,
+                "source_quality_score": 0.80,
+            },
+            ("specific_b", "default"): {
+                "source_bridge_burden": 0.04,
+                "source_global_bridge_burden": 0.01,
+                "source_quality_score": 0.82,
+            },
+            ("specific_c", "default"): {
+                "source_bridge_burden": 0.06,
+                "source_global_bridge_burden": 0.02,
+                "source_quality_score": 0.78,
+            },
+        }
+        records = [
+            {
+                "annotation_source": "broad",
+                "anchor_trait": "default",
+                "annotation_id": "review_only",
+                "beta": 1.0,
+                "n_genes_active": 150,
+                "source_rank_separated_bridge_mass": 5,
+                "global_rank_separated_bridge_mass": 20,
+                "dominant_factor_share": 0.20,
+                "max_bridge_factor_similarity": 0.20,
+                "factor_neff": 6.0,
+                "bridge_fraction": 0.82,
+            }
+        ]
+
+        annotation_diagnostics._annotate_strict_broad_source_exclusion_flags(records, source_metrics)
+        record = records[0]
+
+        self.assertTrue(record["flag_broad_source_outlier"])
+        self.assertFalse(record["flag_suggest_exclude"])
+        self.assertIn("strict_broad_source_bridge_candidate", record["suggested_exclude_reason"])
+
+    def test_review_candidate_does_not_imply_suggest_exclude(self) -> None:
         records = annotation_diagnostics.compute_annotation_bridge_records(
             _source_adaptive_state(),
             min_active_genes=5,
-            suggest_exclude_global_rank_max=1,
         )
-        broad = next(record for record in records if record["annotation_id"] == "BROAD_BRIDGE_19")
+        specific = next(record for record in records if record["annotation_id"] == "SPECIFIC_BRIDGE")
 
-        self.assertTrue(broad["flag_review"])
-        self.assertGreater(broad["global_rank_separated_bridge_mass"], 1)
-        self.assertFalse(broad["flag_suggest_exclude"])
+        self.assertTrue(specific["flag_review"])
+        self.assertTrue(specific["flag_bridge_candidate"])
+        self.assertFalse(specific["flag_suggest_exclude"])
 
     def test_small_sources_require_extreme_global_bridge_percentile(self) -> None:
         records = annotation_diagnostics.compute_annotation_bridge_records(
@@ -249,6 +348,10 @@ class AnnotationDiagnosticsTest(unittest.TestCase):
                 self.assertIn("annotation_id", header)
                 self.assertIn("separated_bridge_mass", header)
                 self.assertIn("source_quality_score", header)
+                self.assertIn("source_broadness_score", header)
+                self.assertIn("flag_bridge_candidate", header)
+                self.assertIn("flag_suggest_exclude", header)
+                self.assertIn("suggested_exclude_reason", header)
                 self.assertIn("source_required_global_bridge_percentile", header)
                 self.assertIn("global_separated_bridge_percentile", header)
             with gzip.open(contribs_path, "rt", encoding="utf-8") as fh:

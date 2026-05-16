@@ -45,8 +45,12 @@ BRIDGE_METRICS_HEADER = [
     "source_required_global_bridge_percentile",
     "source_separated_bridge_percentile",
     "global_separated_bridge_percentile",
+    "source_broadness_score",
+    "flag_broad_source_outlier",
     "flag_review",
+    "flag_bridge_candidate",
     "flag_suggest_exclude",
+    "suggested_exclude_reason",
     "flag_reason",
 ]
 
@@ -98,6 +102,25 @@ def _as_dense_matrix(values):
     if values.ndim == 1:
         values = values[:, np.newaxis]
     return values
+
+
+def _robust_z_by_key(values_by_key):
+    keys = list(values_by_key.keys())
+    if not keys:
+        return {}
+    values = np.asarray([float(values_by_key[key]) for key in keys], dtype=float)
+    values = np.nan_to_num(values, nan=0.0, posinf=0.0, neginf=0.0)
+    center = float(np.median(values))
+    abs_dev = np.abs(values - center)
+    scale = float(1.4826 * np.median(abs_dev))
+    if scale <= 0.0:
+        q75, q25 = np.percentile(values, [75.0, 25.0])
+        scale = float((q75 - q25) / 1.349) if q75 > q25 else 0.0
+    if scale <= 0.0:
+        scale = float(np.std(values))
+    if scale <= 0.0:
+        return {key: 0.0 for key in keys}
+    return {key: float((value - center) / scale) for key, value in zip(keys, values)}
 
 
 def _effective_beta_matrix(state):
@@ -356,8 +379,12 @@ def compute_annotation_bridge_records(
                 "source_required_global_bridge_percentile": 0.0,
                 "source_separated_bridge_percentile": 0.0,
                 "global_separated_bridge_percentile": 0.0,
+                "source_broadness_score": 0.0,
+                "flag_broad_source_outlier": False,
                 "flag_review": False,
+                "flag_bridge_candidate": False,
                 "flag_suggest_exclude": False,
+                "suggested_exclude_reason": "",
                 "flag_reason": "",
             }
             records.append(record)
@@ -373,6 +400,7 @@ def compute_annotation_bridge_records(
     source_groups = {}
     for index, record in enumerate(records):
         source_groups.setdefault((record["annotation_source"], record["anchor_trait"]), []).append(index)
+    source_metrics = {}
     for indices in source_groups.values():
         bf_ranks = _rank_desc([records[i]["bridge_fraction"] for i in indices])
         source_values = [abs(records[i]["separated_bridge_mass"]) for i in indices]
@@ -406,6 +434,12 @@ def compute_annotation_bridge_records(
         else:
             source_quality = 0.0
             required_global_percentile = float(small_source_global_percentile)
+        source_key = (records[indices[0]]["annotation_source"], records[indices[0]]["anchor_trait"])
+        source_metrics[source_key] = {
+            "source_bridge_burden": source_bridge_burden,
+            "source_global_bridge_burden": source_global_bridge_burden,
+            "source_quality_score": source_quality,
+        }
         for local, record_index in enumerate(indices):
             record = records[record_index]
             record["source_rank_bridge_fraction"] = bf_ranks[local]
@@ -438,19 +472,72 @@ def compute_annotation_bridge_records(
             review_reasons = []
             if base_bridge and record["source_separated_bridge_percentile"] >= float(review_source_percentile):
                 record["flag_review"] = True
+                record["flag_bridge_candidate"] = True
                 review_reasons.append("source_adaptive_review")
-            if (
-                record["flag_review"]
-                and record["global_separated_bridge_percentile"] >= required_global_percentile
-                and record["global_rank_separated_bridge_mass"] <= int(suggest_exclude_global_rank_max)
-            ):
-                record["flag_suggest_exclude"] = True
-                if source_n < int(source_min_annotations):
-                    review_reasons.append("small_source_global_extreme")
-                else:
-                    review_reasons.append("source_adaptive_exclude")
             record["flag_reason"] = ";".join(review_reasons)
+    _annotate_strict_broad_source_exclusion_flags(records, source_metrics)
     return records
+
+
+def _annotate_strict_broad_source_exclusion_flags(records, source_metrics):
+    if not records or not source_metrics:
+        return
+    anchor_names = sorted({key[1] for key in source_metrics})
+    source_broadness_scores = {}
+    for anchor_name in anchor_names:
+        keys = [key for key in source_metrics if key[1] == anchor_name]
+        bridge_z = _robust_z_by_key({key: source_metrics[key]["source_bridge_burden"] for key in keys})
+        global_bridge_z = _robust_z_by_key({key: source_metrics[key]["source_global_bridge_burden"] for key in keys})
+        quality_z = _robust_z_by_key({key: source_metrics[key]["source_quality_score"] for key in keys})
+        for key in keys:
+            source_broadness_scores[key] = (
+                bridge_z.get(key, 0.0)
+                + global_bridge_z.get(key, 0.0)
+                - quality_z.get(key, 0.0)
+            )
+
+    for record in records:
+        key = (record["annotation_source"], record["anchor_trait"])
+        broadness_score = float(source_broadness_scores.get(key, 0.0))
+        record["source_broadness_score"] = broadness_score
+        record["flag_broad_source_outlier"] = False
+        record["flag_suggest_exclude"] = False
+        record["suggested_exclude_reason"] = ""
+        broad_source = broadness_score >= 4.0
+        record["flag_broad_source_outlier"] = broad_source
+        reasons = []
+        if broad_source:
+            reasons.append("broad_source_outlier")
+        strict_candidate = (
+            broad_source
+            and record["beta"] > 0.0
+            and record["n_genes_active"] >= 100
+            and record["source_rank_separated_bridge_mass"] <= 20
+            and record["global_rank_separated_bridge_mass"] <= 35
+            and record["dominant_factor_share"] <= 0.30
+            and record["max_bridge_factor_similarity"] <= 0.50
+        )
+        if strict_candidate:
+            reasons.append("strict_broad_source_bridge_candidate")
+        diffuse_high_impact = (
+            strict_candidate
+            and record["factor_neff"] >= 7.0
+            and record["bridge_fraction"] >= 0.86
+        )
+        extreme_high_impact = (
+            strict_candidate
+            and record["global_rank_separated_bridge_mass"] <= 15
+            and record["factor_neff"] >= 5.0
+            and record["bridge_fraction"] >= 0.80
+        )
+        if diffuse_high_impact:
+            reasons.append("diffuse_high_impact_bridge")
+        if extreme_high_impact:
+            reasons.append("extreme_high_impact_bridge")
+        if diffuse_high_impact or extreme_high_impact:
+            record["flag_suggest_exclude"] = True
+            reasons.append("suggest_exclude")
+        record["suggested_exclude_reason"] = ";".join(reasons)
 
 
 def compute_gene_factor_annotation_contrib_records(state, *, top_n=10):

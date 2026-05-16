@@ -357,7 +357,7 @@ Gene-by-gene expert controls:
 | `--gene-gene-row-sum-cap` / `--no-gene-gene-row-sum-cap` | keep each gene’s mechanism memberships approximately disjoint by capping the row sum of `W` at `1` after each update |
 | `--gene-gene-sparsity` | optional L1 penalty on the symmetric gene-by-gene loading matrix |
 | `--gene-gene-profligate-correction` | optional correction for profligate genes before pair-probability calibration; `none` is the default and `linear` subtracts a simple retained-annotation-count effect from raw pair log evidence |
-| `--annotation-bridge-metrics-out` | write per-annotation bridge diagnostics for the retained gene-by-gene evidence kernel |
+| `--annotation-bridge-metrics-out` | write per-annotation bridge diagnostics for the retained gene-by-gene evidence kernel, including review candidates and the conservative source-adaptive suggested-exclude flag |
 | `--annotation-bridge-suggested-exclude-out` | write annotation IDs whose bridge diagnostics pass the conservative suggested-exclusion flag |
 | `--gene-factor-annotation-contribs-out` | write top annotation contributions explaining gene-factor loadings |
 | `--gene-factor-annotation-contribs-top-n` | cap contribution rows per gene-factor-anchor combination; defaults to `10` |

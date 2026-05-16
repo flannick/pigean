@@ -251,6 +251,14 @@ $PYTHON -m eaggl factor \
   --annotation-bridge-suggested-exclude-out results/F1.annotation_bridge_suggested_exclude.txt
 ```
 
+`annotation_bridge_metrics.tsv.gz` includes review diagnostics and one conservative
+automatic exclusion flag. `flag_review` / `flag_bridge_candidate` mark broad bridge
+candidates for inspection. `flag_suggest_exclude` marks high-confidence diffuse
+bridges from empirically broad/noisy sources and is the only flag used to write
+`annotation_bridge_suggested_exclude.txt`. The same rule can be rerun after a
+full-Gibbs exclusion refit; newly suggested annotations reflect the changed model,
+not a different exclusion mode.
+
 ### F2: Standalone Gene-list Enrichment
 
 Required:
