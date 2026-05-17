@@ -653,6 +653,7 @@ def build_payload(args: argparse.Namespace) -> dict:
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "run_root": str(Path.cwd()),
         "title": args.title,
+        "default_gene_loading_source": args.default_gene_loading_source,
         "thresholds": {
             "gene_combined": args.gene_threshold,
             "gene_set_beta_uncorrected": args.gene_set_threshold,
@@ -696,6 +697,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--factor-loading-threshold", type=float, default=0.0)
     parser.add_argument("--factor-loading-min-max-frac", type=float, default=0.05, help="Keep factor gene/gene-set rows with loading at least this fraction of the factor-specific maximum; use a negative value to disable.")
     parser.add_argument("--trait-min-neff", type=float, default=200.0)
+    parser.add_argument(
+        "--default-gene-loading-source",
+        choices=("discovery", "full_direct", "full_via_gene_sets"),
+        default="discovery",
+        help="Initial EAGGL gene-loading source when multiple projections are available.",
+    )
     parser.add_argument("--max-genes-per-run", type=int, default=5000)
     parser.add_argument("--max-gene-sets-per-run", type=int, default=2500)
     parser.add_argument("--max-factor-genes", type=int, default=150)
