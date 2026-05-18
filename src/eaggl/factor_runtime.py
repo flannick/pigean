@@ -15,6 +15,7 @@ import scipy.sparse as sparse
 
 from . import anchor_aggregation as eaggl_anchor_aggregation
 from . import phenotype_annotation as eaggl_phenotype_annotation
+from . import phi_selection as eaggl_phi_selection
 from . import trait_linkage as eaggl_trait_linkage
 
 
@@ -1758,6 +1759,21 @@ def _build_factor_param_record(
     factor_phi_factors_out,
     factor_phi_gene_set_clusters_out,
     factor_phi_gene_clusters_out,
+    phi_selection_objective,
+    phi_selection_composite_weights,
+    phi_selection_target_factor_gene_mass,
+    phi_selection_size_log2_width,
+    phi_selection_loading_cap,
+    phi_selection_min_entity_total_loading,
+    phi_selection_bridge_concentration_threshold,
+    phi_selection_coverage_min_loading,
+    phi_selection_gene_coverage_top_frac,
+    phi_selection_gene_coverage_top_n,
+    phi_selection_annotation_coverage_top_frac,
+    phi_selection_annotation_coverage_top_n,
+    phi_selection_tie_tolerance,
+    phi_selection_metrics_wide_out,
+    phi_selection_metrics_long_out,
     cluster_row_min_max_loading,
     factor_output_scope,
     factor_backend,
@@ -1861,6 +1877,21 @@ def _build_factor_param_record(
         "factor_phi_factors_out": factor_phi_factors_out,
         "factor_phi_gene_set_clusters_out": factor_phi_gene_set_clusters_out,
         "factor_phi_gene_clusters_out": factor_phi_gene_clusters_out,
+        "phi_selection_objective": str(phi_selection_objective),
+        "phi_selection_composite_weights": phi_selection_composite_weights,
+        "phi_selection_target_factor_gene_mass": float(phi_selection_target_factor_gene_mass),
+        "phi_selection_size_log2_width": float(phi_selection_size_log2_width),
+        "phi_selection_loading_cap": float(phi_selection_loading_cap),
+        "phi_selection_min_entity_total_loading": float(phi_selection_min_entity_total_loading),
+        "phi_selection_bridge_concentration_threshold": float(phi_selection_bridge_concentration_threshold),
+        "phi_selection_coverage_min_loading": float(phi_selection_coverage_min_loading),
+        "phi_selection_gene_coverage_top_frac": float(phi_selection_gene_coverage_top_frac),
+        "phi_selection_gene_coverage_top_n": None if phi_selection_gene_coverage_top_n is None else int(phi_selection_gene_coverage_top_n),
+        "phi_selection_annotation_coverage_top_frac": float(phi_selection_annotation_coverage_top_frac),
+        "phi_selection_annotation_coverage_top_n": None if phi_selection_annotation_coverage_top_n is None else int(phi_selection_annotation_coverage_top_n),
+        "phi_selection_tie_tolerance": float(phi_selection_tie_tolerance),
+        "phi_selection_metrics_wide_out": phi_selection_metrics_wide_out,
+        "phi_selection_metrics_long_out": phi_selection_metrics_long_out,
         "cluster_row_min_max_loading": float(cluster_row_min_max_loading),
         "factor_output_scope": str(factor_output_scope),
         "factor_primary_mass_floor": float(_PRIMARY_FACTOR_MASS_FLOOR),
@@ -2931,6 +2962,7 @@ def _evaluate_phi_candidate(
     factor_phi_gene_clusters_out=None,
     cluster_row_min_max_loading=0.01,
     factor_output_scope="primary",
+    composite_config=None,
     log_fn,
     info_level,
 ):
@@ -2987,6 +3019,8 @@ def _evaluate_phi_candidate(
         candidate["factor_metric_rows"] = reference_state._collect_factor_metrics_records()
     else:
         candidate["factor_metric_rows"] = []
+    if composite_config is not None:
+        _score_phi_candidate_with_composite(candidate, reference_state, factor_kwargs, composite_config)
     if reference_state.num_factors() > 0:
         _append_phi_prefixed_table(
             factor_phi_factors_out,
@@ -3337,6 +3371,21 @@ def _select_phi_candidate(
     selected["selection_marginal_gain"] = None
     return selected, "fallback_min_target_constraint_violation"
 
+
+def _format_phi_report_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (list, tuple)):
+        return ",".join([_format_phi_report_value(item) for item in value])
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return ""
+        return "%.12g" % value
+    return str(value)
+
+
 def _write_phi_search_report(report_path, candidates, *, selected_phi, selection_reason):
     if report_path is None:
         return
@@ -3379,6 +3428,16 @@ def _write_phi_search_report(report_path, candidates, *, selected_phi, selection
         "selection_redundancy_hard_filter",
         "selection_violations",
         "selection_warnings",
+        "phi_composite_score",
+        "selection_rank",
+        "factor_size_score",
+        "nonoverlap_score",
+        "entity_concentration_score",
+        "coverage_score",
+        "reconstruction_score",
+        "coherence_score",
+        "factor_balance_score",
+        "annotation_bridge_qc_score",
         "selection_target_tolerance_log",
         "selection_target_in_tolerance_size",
         "capped",
@@ -3563,6 +3622,79 @@ def _write_phi_factor_metrics_report(report_path, candidates, *, selected_phi):
                 )
 
 
+def _write_phi_selection_wide_report(report_path, candidates):
+    if report_path is None:
+        return
+    preferred = [
+        "phi",
+        "selected",
+        "selection_rank",
+        "num_factors",
+        "modal_factor_count",
+        "phi_composite_score",
+    ]
+    columns = []
+    for column in preferred:
+        if any(column in candidate for candidate in candidates):
+            columns.append(column)
+    for candidate in candidates:
+        for key in candidate.keys():
+            if (
+                (
+                    key.endswith("_score")
+                    or key.endswith("_weight")
+                    or key.endswith("_weighted_contribution")
+                    or key.startswith("factor_gene_mass")
+                    or key.startswith("gene_")
+                    or key.startswith("annotation_")
+                    or key.startswith("reconstruction_")
+                    or key.startswith("coherence_")
+                    or key.startswith("factor_mass_")
+                )
+                and key not in columns
+            ):
+                columns.append(key)
+    with _open_text_output(report_path) as output_fh:
+        output_fh.write("%s\n" % "\t".join(columns))
+        for candidate in sorted(candidates, key=lambda row: float(row["phi"])):
+            output_fh.write("%s\n" % "\t".join(_format_phi_report_value(candidate.get(column)) for column in columns))
+
+
+def _write_phi_selection_long_report(report_path, candidates):
+    if report_path is None:
+        return
+    columns = [
+        "phi",
+        "selected",
+        "selection_rank",
+        "component",
+        "score",
+        "weight",
+        "normalized_weight",
+        "weighted_contribution",
+        "available",
+        "unavailable_reason",
+    ]
+    with _open_text_output(report_path) as output_fh:
+        output_fh.write("%s\n" % "\t".join(columns))
+        for candidate in sorted(candidates, key=lambda row: float(row["phi"])):
+            selected = bool(candidate.get("selected", False))
+            rank = candidate.get("selection_rank")
+            for row in candidate.get("phi_selection_long_rows") or []:
+                output_fh.write(
+                    "%s\n"
+                    % "\t".join(
+                        _format_phi_report_value(
+                            {
+                                "selected": selected,
+                                "selection_rank": rank,
+                            }.get(column, row.get(column))
+                        )
+                        for column in columns
+                    )
+                )
+
+
 def _parse_explicit_phi_values(values):
     if values is None:
         return None
@@ -3580,6 +3712,86 @@ def _parse_explicit_phi_values(values):
         if not any(math.isclose(value, existing, rel_tol=1e-12, abs_tol=1e-15) for existing in parsed):
             parsed.append(value)
     return sorted(parsed)
+
+
+def _vector_from_state(state, names, expected_len=None, positive=False):
+    for name in names:
+        value = getattr(state, name, None)
+        if value is None:
+            continue
+        if sparse.issparse(value):
+            value = value.toarray()
+        arr = np.asarray(value, dtype=float)
+        if arr.ndim == 2:
+            if 1 in arr.shape:
+                arr = arr.reshape(-1)
+            else:
+                arr = np.max(arr, axis=1)
+        if arr.ndim != 1:
+            continue
+        if expected_len is not None and arr.shape[0] != int(expected_len):
+            continue
+        arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+        if positive:
+            arr = np.maximum(arr, 0.0)
+        return arr
+    return None
+
+
+def _collect_phi_selection_inputs(reference_state, factor_kwargs):
+    discovery_model = str(factor_kwargs.get("discovery_model", getattr(reference_state, "discovery_model", "gene_by_annotation")))
+    gene_loadings = getattr(reference_state, "exp_gene_factors", None)
+    annotation_loadings = getattr(reference_state, "exp_gene_set_factors", None)
+    target_matrix = getattr(reference_state, "_phi_selection_target_matrix", None)
+    target_weight_matrix = getattr(reference_state, "_phi_selection_target_weight_matrix", None)
+    gene_indices = getattr(reference_state, "_phi_selection_target_gene_indices", None)
+    annotation_indices = getattr(reference_state, "_phi_selection_target_annotation_indices", None)
+    gene_importance = _vector_from_state(
+        reference_state,
+        ["combined_prior_Ys", "priors", "Y"],
+        expected_len=len(getattr(reference_state, "genes", [])) if getattr(reference_state, "genes", None) is not None else None,
+        positive=True,
+    )
+    annotation_importance = _vector_from_state(
+        reference_state,
+        ["betas_uncorrected", "betas", "beta_tildes"],
+        expected_len=len(getattr(reference_state, "gene_sets", [])) if getattr(reference_state, "gene_sets", None) is not None else None,
+        positive=True,
+    )
+    return eaggl_phi_selection.PhiSelectionInputs(
+        discovery_model=discovery_model,
+        gene_loadings=gene_loadings,
+        annotation_loadings=annotation_loadings,
+        target_matrix=target_matrix,
+        target_weight_matrix=target_weight_matrix,
+        target_gene_indices=gene_indices,
+        target_annotation_indices=annotation_indices,
+        gene_importance=gene_importance,
+        annotation_importance=annotation_importance,
+        annotation_bridge_metrics=getattr(reference_state, "_phi_selection_annotation_bridge_metrics", None),
+    )
+
+
+def _score_phi_candidate_with_composite(candidate, reference_state, factor_kwargs, composite_config):
+    inputs = _collect_phi_selection_inputs(reference_state, factor_kwargs)
+    wide, long_rows, per_factor_rows = eaggl_phi_selection.score_phi_candidate(
+        float(candidate["phi"]),
+        int(candidate.get("modal_factor_count", reference_state.num_factors())),
+        inputs,
+        composite_config,
+    )
+    candidate.update(wide)
+    candidate["phi_selection_long_rows"] = long_rows
+    factor_rows = candidate.get("factor_metric_rows") or []
+    for index, metrics in enumerate(per_factor_rows):
+        if index < len(factor_rows):
+            factor_rows[index].update(
+                {
+                    key: ("" if value is None else "%.12g" % float(value))
+                    for key, value in metrics.items()
+                }
+            )
+    candidate["factor_metric_rows"] = factor_rows
 
 
 def _record_phi_search_params(
@@ -3612,10 +3824,16 @@ def _record_phi_search_params(
     prune_gene_sets_num,
     max_num_iterations,
     redundancy_hard_filter=True,
+    phi_selection_objective="legacy",
+    phi_selection_config=None,
 ):
+    component_weights = {}
+    if phi_selection_config is not None:
+        component_weights = dict(phi_selection_config.weights)
     state._record_params(
         {
             "learn_phi": True,
+            "phi_selection_objective": str(phi_selection_objective),
             "learn_phi_initial_phi": float(initial_phi),
             "learn_phi_selected_phi": float(selected_candidate["phi"]),
             "learn_phi_selection_reason": selection_reason,
@@ -3668,9 +3886,17 @@ def _record_phi_search_params(
             "learn_phi_selected_selection_warnings": selected_candidate.get("selection_warnings", ""),
             "learn_phi_selected_primary_mass_floor": selected_candidate.get("primary_mass_floor"),
             "learn_phi_selected_secondary_mass_floor": selected_candidate.get("secondary_mass_floor"),
+            "phi_selection_selected_composite_score": selected_candidate.get("phi_composite_score"),
+            "phi_selection_selected_rank": selected_candidate.get("selection_rank"),
+            "phi_selection_component_weights": ",".join("%s=%.12g" % (key, float(component_weights[key])) for key in sorted(component_weights)),
         },
         overwrite=True,
     )
+    for key in sorted(component_weights):
+        state._record_param("phi_selection_weight_%s" % key, float(component_weights[key]))
+    for key, value in selected_candidate.items():
+        if key.endswith("_score") or key.endswith("_weighted_contribution"):
+            state._record_param("phi_selection_selected_%s" % key, value)
     metric_map = {
         "learn_phi_candidate_phi": "phi",
         "learn_phi_candidate_metric_factor_scope": "metric_factor_scope",
@@ -3730,6 +3956,16 @@ def _record_phi_search_params(
         "learn_phi_candidate_blockwise_columns_evaluated": "blockwise_columns_evaluated",
         "learn_phi_candidate_blockwise_warm_started": "blockwise_warm_started",
         "learn_phi_candidate_blockwise_wall_time_sec": "blockwise_wall_time_sec",
+        "learn_phi_candidate_phi_composite_score": "phi_composite_score",
+        "learn_phi_candidate_selection_rank": "selection_rank",
+        "learn_phi_candidate_factor_size_score": "factor_size_score",
+        "learn_phi_candidate_nonoverlap_score": "nonoverlap_score",
+        "learn_phi_candidate_entity_concentration_score": "entity_concentration_score",
+        "learn_phi_candidate_coverage_score": "coverage_score",
+        "learn_phi_candidate_reconstruction_score": "reconstruction_score",
+        "learn_phi_candidate_coherence_score": "coherence_score",
+        "learn_phi_candidate_factor_balance_score": "factor_balance_score",
+        "learn_phi_candidate_annotation_bridge_qc_score": "annotation_bridge_qc_score",
     }
     for candidate in sorted(candidates, key=lambda row: float(row["phi"])):
         for param_name, candidate_key in metric_map.items():
@@ -3768,6 +4004,21 @@ def _learn_phi(
     factor_phi_factors_out=None,
     factor_phi_gene_set_clusters_out=None,
     factor_phi_gene_clusters_out=None,
+    phi_selection_objective="legacy",
+    phi_selection_composite_weights=None,
+    phi_selection_target_factor_gene_mass=100.0,
+    phi_selection_size_log2_width=1.0,
+    phi_selection_loading_cap=1.0,
+    phi_selection_min_entity_total_loading=0.01,
+    phi_selection_bridge_concentration_threshold=0.60,
+    phi_selection_coverage_min_loading=0.05,
+    phi_selection_gene_coverage_top_frac=0.05,
+    phi_selection_gene_coverage_top_n=None,
+    phi_selection_annotation_coverage_top_frac=0.05,
+    phi_selection_annotation_coverage_top_n=None,
+    phi_selection_tie_tolerance=0.01,
+    phi_selection_metrics_wide_out=None,
+    phi_selection_metrics_long_out=None,
     cluster_row_min_max_loading=0.01,
     factor_output_scope="primary",
     prune_genes_num,
@@ -3780,6 +4031,25 @@ def _learn_phi(
 ):
     candidates_by_phi = {}
     explicit_phi_values = _parse_explicit_phi_values(explicit_phi_values)
+    phi_selection_objective = str(phi_selection_objective or "composite")
+    composite_config = None
+    if phi_selection_objective == "composite":
+        composite_config = eaggl_phi_selection.CompositePhiSelectionConfig(
+            weights=eaggl_phi_selection.parse_composite_weights(phi_selection_composite_weights),
+            target_factor_gene_mass=float(phi_selection_target_factor_gene_mass),
+            size_log2_width=float(phi_selection_size_log2_width),
+            loading_cap=float(phi_selection_loading_cap),
+            min_entity_total_loading=float(phi_selection_min_entity_total_loading),
+            bridge_concentration_threshold=float(phi_selection_bridge_concentration_threshold),
+            coverage_min_loading=float(phi_selection_coverage_min_loading),
+            gene_coverage_top_frac=float(phi_selection_gene_coverage_top_frac),
+            gene_coverage_top_n=None if phi_selection_gene_coverage_top_n is None else int(phi_selection_gene_coverage_top_n),
+            annotation_coverage_top_frac=float(phi_selection_annotation_coverage_top_frac),
+            annotation_coverage_top_n=None if phi_selection_annotation_coverage_top_n is None else int(phi_selection_annotation_coverage_top_n),
+            tie_tolerance=float(phi_selection_tie_tolerance),
+        )
+    elif phi_selection_objective != "legacy":
+        raise ValueError("--phi-selection-objective must be one of: legacy, composite")
     _reset_phi_prefixed_outputs(
         [
             factor_phi_factors_out,
@@ -3830,6 +4100,8 @@ def _learn_phi(
             "log_fn": log_fn,
             "info_level": info_level,
         }
+        if composite_config is not None:
+            evaluate_kwargs["composite_config"] = composite_config
         if learn_phi_backend != "sentinel_pruned" or warm_start_payload is not None:
             evaluate_kwargs["learn_phi_backend"] = learn_phi_backend
             evaluate_kwargs["warm_start_payload"] = warm_start_payload
@@ -3957,23 +4229,36 @@ def _learn_phi(
             _evaluate(proposal)
 
     candidates = list(candidates_by_phi.values())
-    selected_candidate, selection_reason = _select_phi_candidate(
-        candidates,
-        max_redundancy=max_redundancy,
-        max_redundancy_q90=max_redundancy_q90,
-        min_run_support=min_run_support,
-        min_stability=min_stability,
-        fit_loss_warning_frac=fit_loss_warning_frac,
-        max_severe_fit_loss_frac=max_severe_fit_loss_frac,
-        target_gene_mass=target_gene_mass,
-        target_gene_effective_support=target_gene_effective_support,
-        size_tolerance_frac=size_tolerance_frac,
-        min_primary_factors=min_primary_factors,
-        max_primary_gene_max_weight_q90=max_primary_gene_max_weight_q90,
-        runs_per_step=runs_per_step,
-        redundancy_hard_filter=redundancy_hard_filter,
-        gene_by_gene_guardrails=str(factor_kwargs.get("discovery_model", "gene_by_annotation")) == "gene_by_gene",
-    )
+    if phi_selection_objective == "composite":
+        selected_candidate, selection_reason = eaggl_phi_selection.select_composite_candidate(
+            candidates,
+            tie_tolerance=float(phi_selection_tie_tolerance),
+        )
+        for candidate in candidates:
+            candidate.setdefault("selection_target_metric", "composite")
+            candidate.setdefault("selection_target_value", None)
+            candidate.setdefault("selection_target_error_log", None)
+            candidate.setdefault("selection_target_ratio", None)
+            candidate.setdefault("selection_violations", "")
+            candidate.setdefault("selection_warnings", "")
+    else:
+        selected_candidate, selection_reason = _select_phi_candidate(
+            candidates,
+            max_redundancy=max_redundancy,
+            max_redundancy_q90=max_redundancy_q90,
+            min_run_support=min_run_support,
+            min_stability=min_stability,
+            fit_loss_warning_frac=fit_loss_warning_frac,
+            max_severe_fit_loss_frac=max_severe_fit_loss_frac,
+            target_gene_mass=target_gene_mass,
+            target_gene_effective_support=target_gene_effective_support,
+            size_tolerance_frac=size_tolerance_frac,
+            min_primary_factors=min_primary_factors,
+            max_primary_gene_max_weight_q90=max_primary_gene_max_weight_q90,
+            runs_per_step=runs_per_step,
+            redundancy_hard_filter=redundancy_hard_filter,
+            gene_by_gene_guardrails=str(factor_kwargs.get("discovery_model", "gene_by_annotation")) == "gene_by_gene",
+        )
     _record_phi_search_params(
         state,
         initial_phi=initial_phi,
@@ -4003,6 +4288,8 @@ def _learn_phi(
         prune_gene_sets_num=prune_gene_sets_num,
         max_num_iterations=max_num_iterations,
         redundancy_hard_filter=redundancy_hard_filter,
+        phi_selection_objective=phi_selection_objective,
+        phi_selection_config=composite_config,
     )
     _write_phi_search_report(
         report_out,
@@ -4015,6 +4302,8 @@ def _learn_phi(
         candidates,
         selected_phi=selected_candidate["phi"],
     )
+    _write_phi_selection_wide_report(phi_selection_metrics_wide_out, candidates)
+    _write_phi_selection_long_report(phi_selection_metrics_long_out, candidates)
     if target_metric == "gene_mass":
         selected_target_summary = selected_candidate.get("primary_gene_mass_median")
     else:
@@ -4923,6 +5212,10 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
         if np.max(pair_matrix.shape) == 0 or np.min(pair_matrix.shape) == 0:
             log("Skipping factoring since there aren't enough retained genes or gene sets")
             return
+        state._phi_selection_target_matrix = np.asarray(pair_matrix, dtype=float)
+        state._phi_selection_target_weight_matrix = None
+        state._phi_selection_target_gene_indices = np.asarray(ordered_active_gene_indices, dtype=int)
+        state._phi_selection_target_annotation_indices = None
 
         normalize_genes = False
         normalize_gene_sets = False
@@ -5032,6 +5325,18 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
         if np.min(matrix.shape) == 0:
             log("Empty genes or gene sets! Skipping factoring")
             return
+        target_matrix_for_phi = matrix.toarray() if sparse.issparse(matrix) else np.asarray(matrix, dtype=float)
+        target_weight_for_phi = _compute_anchor_weight_matrix(
+            discovery_plan.discovery_prob_vector,
+            gene_or_pheno_prob_vector[gene_or_pheno_mask, :],
+            int(target_matrix_for_phi.shape[0]),
+            int(target_matrix_for_phi.shape[1]),
+            anchor_aggregation=anchor_aggregation,
+        )
+        state._phi_selection_target_matrix = np.asarray(target_matrix_for_phi, dtype=float)
+        state._phi_selection_target_weight_matrix = np.asarray(target_weight_for_phi, dtype=float)
+        state._phi_selection_target_gene_indices = np.where(gene_or_pheno_mask)[0]
+        state._phi_selection_target_annotation_indices = np.asarray(discovery_plan.discovery_row_indices_full, dtype=int)
 
         normalize_genes = False
         normalize_gene_sets = False
@@ -5585,17 +5890,20 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, phi_selection_objective="composite", phi_selection_composite_weights=None, phi_selection_target_factor_gene_mass=100.0, phi_selection_size_log2_width=1.0, phi_selection_loading_cap=1.0, phi_selection_min_entity_total_loading=0.01, phi_selection_bridge_concentration_threshold=0.60, phi_selection_coverage_min_loading=0.05, phi_selection_gene_coverage_top_frac=0.05, phi_selection_gene_coverage_top_n=None, phi_selection_annotation_coverage_top_frac=0.05, phi_selection_annotation_coverage_top_n=None, phi_selection_tie_tolerance=0.01, phi_selection_metrics_wide_out=None, phi_selection_metrics_long_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
     if (
         learn_phi
         and str(discovery_model) == "gene_by_gene"
+        and str(phi_selection_objective) == "legacy"
         and learn_phi_target_gene_mass is None
         and learn_phi_target_gene_effective_support is None
     ):
         learn_phi_target_gene_mass = 40.0
+    if learn_phi and str(phi_selection_objective) == "composite" and learn_phi_target_gene_mass is None and learn_phi_target_gene_effective_support is None:
+        learn_phi_target_gene_mass = float(phi_selection_target_factor_gene_mass)
 
     if factor_runs < 1:
         bail("--factor-runs must be at least 1")
@@ -5615,6 +5923,34 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--factor-output-scope must be one of: primary, primary_secondary, all")
     if str(learn_phi_metric_factor_scope) not in {"primary", "all"}:
         bail("--learn-phi-metric-factor-scope must be one of: primary, all")
+    if str(phi_selection_objective) not in {"legacy", "composite"}:
+        bail("--phi-selection-objective must be one of: legacy, composite")
+    try:
+        eaggl_phi_selection.parse_composite_weights(phi_selection_composite_weights)
+    except Exception as exc:
+        bail(str(exc))
+    if float(phi_selection_target_factor_gene_mass) <= 0:
+        bail("--phi-selection-target-factor-gene-mass must be positive")
+    if float(phi_selection_size_log2_width) <= 0:
+        bail("--phi-selection-size-log2-width must be positive")
+    if float(phi_selection_loading_cap) <= 0:
+        bail("--phi-selection-loading-cap must be positive")
+    if float(phi_selection_min_entity_total_loading) < 0:
+        bail("--phi-selection-min-entity-total-loading must be >= 0")
+    if not (0 <= float(phi_selection_bridge_concentration_threshold) <= 1):
+        bail("--phi-selection-bridge-concentration-threshold must be in [0, 1]")
+    if float(phi_selection_coverage_min_loading) <= 0:
+        bail("--phi-selection-coverage-min-loading must be positive")
+    if not (0 < float(phi_selection_gene_coverage_top_frac) <= 1):
+        bail("--phi-selection-gene-coverage-top-frac must be in (0, 1]")
+    if not (0 < float(phi_selection_annotation_coverage_top_frac) <= 1):
+        bail("--phi-selection-annotation-coverage-top-frac must be in (0, 1]")
+    if phi_selection_gene_coverage_top_n is not None and int(phi_selection_gene_coverage_top_n) < 1:
+        bail("--phi-selection-gene-coverage-top-n must be at least 1")
+    if phi_selection_annotation_coverage_top_n is not None and int(phi_selection_annotation_coverage_top_n) < 1:
+        bail("--phi-selection-annotation-coverage-top-n must be at least 1")
+    if float(phi_selection_tie_tolerance) < 0:
+        bail("--phi-selection-tie-tolerance must be >= 0")
     if consensus_aggregation not in {"median", "mean"}:
         bail("--consensus-aggregation must be one of: median, mean")
     if not (0 < consensus_min_factor_cosine <= 1):
@@ -5847,6 +6183,21 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             factor_phi_factors_out=factor_phi_factors_out,
             factor_phi_gene_set_clusters_out=factor_phi_gene_set_clusters_out,
             factor_phi_gene_clusters_out=factor_phi_gene_clusters_out,
+            phi_selection_objective=phi_selection_objective,
+            phi_selection_composite_weights=phi_selection_composite_weights,
+            phi_selection_target_factor_gene_mass=phi_selection_target_factor_gene_mass,
+            phi_selection_size_log2_width=phi_selection_size_log2_width,
+            phi_selection_loading_cap=phi_selection_loading_cap,
+            phi_selection_min_entity_total_loading=phi_selection_min_entity_total_loading,
+            phi_selection_bridge_concentration_threshold=phi_selection_bridge_concentration_threshold,
+            phi_selection_coverage_min_loading=phi_selection_coverage_min_loading,
+            phi_selection_gene_coverage_top_frac=phi_selection_gene_coverage_top_frac,
+            phi_selection_gene_coverage_top_n=phi_selection_gene_coverage_top_n,
+            phi_selection_annotation_coverage_top_frac=phi_selection_annotation_coverage_top_frac,
+            phi_selection_annotation_coverage_top_n=phi_selection_annotation_coverage_top_n,
+            phi_selection_tie_tolerance=phi_selection_tie_tolerance,
+            phi_selection_metrics_wide_out=phi_selection_metrics_wide_out,
+            phi_selection_metrics_long_out=phi_selection_metrics_long_out,
             cluster_row_min_max_loading=cluster_row_min_max_loading,
             factor_output_scope=factor_output_scope,
             factor_backend=factor_backend,

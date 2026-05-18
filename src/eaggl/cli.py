@@ -20,6 +20,10 @@ try:
     from . import labeling as _eaggl_labeling
 except ImportError:
     import labeling as _eaggl_labeling
+try:
+    from . import phi_selection as _eaggl_phi_selection
+except ImportError:
+    import phi_selection as _eaggl_phi_selection
 
 try:
     from pegs_shared.cli import (
@@ -365,6 +369,21 @@ parser.add_option("","--factor-phi-metrics-out",default=None) #write per-factor 
 parser.add_option("","--factor-phi-factors-out",default=None) #write factors.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--factor-phi-gene-set-clusters-out",default=None) #write gene_set_clusters.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--factor-phi-gene-clusters-out",default=None) #write gene_clusters.out-style rows for each phi-search candidate with a leading phi column
+parser.add_option("","--phi-selection-objective",type="choice",choices=["legacy","composite"],default="composite") #phi-selection objective: legacy target-size heuristic or composite multi-metric score
+parser.add_option("","--phi-selection-composite-weights",default=None) #comma-separated composite phi-selection weights, e.g. factor_size=0.15,coverage=0.25
+parser.add_option("","--phi-selection-target-factor-gene-mass",default=100.0,type=float) #target factor gene mass used by composite phi-selection size score
+parser.add_option("","--phi-selection-size-log2-width",default=1.0,type=float) #log2 width around the target factor gene mass for composite size scoring
+parser.add_option("","--phi-selection-loading-cap",default=1.0,type=float) #cap loadings before composite phi-selection scoring
+parser.add_option("","--phi-selection-min-entity-total-loading",default=0.01,type=float) #minimum total loading for an entity to contribute to concentration metrics
+parser.add_option("","--phi-selection-bridge-concentration-threshold",default=0.60,type=float) #entity concentration below this threshold counts as bridging
+parser.add_option("","--phi-selection-coverage-min-loading",default=0.05,type=float) #loading that counts as full high-priority entity coverage
+parser.add_option("","--phi-selection-gene-coverage-top-frac",default=0.05,type=float) #fraction of positive-priority genes used for composite coverage
+parser.add_option("","--phi-selection-gene-coverage-top-n",default=None,type=int) #optional fixed number of top-priority genes used for composite coverage
+parser.add_option("","--phi-selection-annotation-coverage-top-frac",default=0.05,type=float) #fraction of positive-priority annotations used for composite coverage
+parser.add_option("","--phi-selection-annotation-coverage-top-n",default=None,type=int) #optional fixed number of top-priority annotations used for composite coverage
+parser.add_option("","--phi-selection-tie-tolerance",default=0.01,type=float) #composite-score tolerance for tie-breaking by fewer factors, then coverage, then lower phi
+parser.add_option("","--phi-selection-metrics-wide-out",default=None) #write one wide composite phi-selection metrics row per phi candidate
+parser.add_option("","--phi-selection-metrics-long-out",default=None) #write long component-level composite phi-selection metrics per phi candidate
 parser.add_option("","--factor-backend",default="full",type=str) #factorization backend: full or blockwise_global_w
 parser.add_option("","--learn-phi-backend",default="sentinel_pruned",type=str) #phi-search backend: sentinel_pruned or blockwise_global_w
 parser.add_option("","--blockwise-gene-set-block-size",default=5000,type=int) #number of retained gene sets per block for blockwise_global_w
@@ -1444,12 +1463,20 @@ def _bootstrap_cli(argv=None):
             parsed_options.phi = float(_DEFAULT_GENE_BY_GENE_INITIAL_PHI)
         if (
             parsed_options.learn_phi
+            and parsed_options.phi_selection_objective == "legacy"
             and parsed_options.learn_phi_target_gene_mass is None
             and parsed_options.learn_phi_target_gene_effective_support is None
         ):
             parsed_options.learn_phi_target_gene_mass = float(
                 _DEFAULT_GENE_BY_GENE_LEARN_PHI_TARGET_GENE_MASS
             )
+    if (
+        parsed_options.learn_phi
+        and parsed_options.phi_selection_objective == "composite"
+        and parsed_options.learn_phi_target_gene_mass is None
+        and parsed_options.learn_phi_target_gene_effective_support is None
+    ):
+        parsed_options.learn_phi_target_gene_mass = float(parsed_options.phi_selection_target_factor_gene_mass)
 
     pegs_configure_random_seed(parsed_options, random, np, log_fn=log, info_level=INFO)
     parsed_options.x_sparsify = pegs_coerce_option_int_list(parsed_options.x_sparsify, "--x-sparsify", bail)
@@ -1609,6 +1636,34 @@ def _bootstrap_cli(argv=None):
         bail("--factor-backend must be one of: full, blockwise_global_w")
     if parsed_options.learn_phi_backend not in set(["sentinel_pruned", "blockwise_global_w"]):
         bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w")
+    if parsed_options.phi_selection_objective not in set(["legacy", "composite"]):
+        bail("--phi-selection-objective must be one of: legacy, composite")
+    try:
+        _eaggl_phi_selection.parse_composite_weights(parsed_options.phi_selection_composite_weights)
+    except Exception as exc:
+        bail(str(exc))
+    if parsed_options.phi_selection_target_factor_gene_mass <= 0:
+        bail("--phi-selection-target-factor-gene-mass must be positive")
+    if parsed_options.phi_selection_size_log2_width <= 0:
+        bail("--phi-selection-size-log2-width must be positive")
+    if parsed_options.phi_selection_loading_cap <= 0:
+        bail("--phi-selection-loading-cap must be positive")
+    if parsed_options.phi_selection_min_entity_total_loading < 0:
+        bail("--phi-selection-min-entity-total-loading must be >= 0")
+    if not (0 <= parsed_options.phi_selection_bridge_concentration_threshold <= 1):
+        bail("--phi-selection-bridge-concentration-threshold must be in [0, 1]")
+    if parsed_options.phi_selection_coverage_min_loading <= 0:
+        bail("--phi-selection-coverage-min-loading must be positive")
+    if not (0 < parsed_options.phi_selection_gene_coverage_top_frac <= 1):
+        bail("--phi-selection-gene-coverage-top-frac must be in (0, 1]")
+    if not (0 < parsed_options.phi_selection_annotation_coverage_top_frac <= 1):
+        bail("--phi-selection-annotation-coverage-top-frac must be in (0, 1]")
+    if parsed_options.phi_selection_gene_coverage_top_n is not None and parsed_options.phi_selection_gene_coverage_top_n < 1:
+        bail("--phi-selection-gene-coverage-top-n must be at least 1")
+    if parsed_options.phi_selection_annotation_coverage_top_n is not None and parsed_options.phi_selection_annotation_coverage_top_n < 1:
+        bail("--phi-selection-annotation-coverage-top-n must be at least 1")
+    if parsed_options.phi_selection_tie_tolerance < 0:
+        bail("--phi-selection-tie-tolerance must be >= 0")
     if parsed_options.discovery_model not in set(["gene_by_annotation", "gene_by_gene"]):
         bail("--discovery-model must be one of: gene_by_annotation, gene_by_gene")
     if parsed_options.blockwise_gene_set_block_size < 1:

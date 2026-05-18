@@ -139,6 +139,21 @@ class FactorExecutionConfig:
     factor_phi_factors_out: str | None = None
     factor_phi_gene_set_clusters_out: str | None = None
     factor_phi_gene_clusters_out: str | None = None
+    phi_selection_objective: str = "composite"
+    phi_selection_composite_weights: str | None = None
+    phi_selection_target_factor_gene_mass: float = 100.0
+    phi_selection_size_log2_width: float = 1.0
+    phi_selection_loading_cap: float = 1.0
+    phi_selection_min_entity_total_loading: float = 0.01
+    phi_selection_bridge_concentration_threshold: float = 0.60
+    phi_selection_coverage_min_loading: float = 0.05
+    phi_selection_gene_coverage_top_frac: float = 0.05
+    phi_selection_gene_coverage_top_n: int | None = None
+    phi_selection_annotation_coverage_top_frac: float = 0.05
+    phi_selection_annotation_coverage_top_n: int | None = None
+    phi_selection_tie_tolerance: float = 0.01
+    phi_selection_metrics_wide_out: str | None = None
+    phi_selection_metrics_long_out: str | None = None
     factor_backend: str = "full"
     learn_phi_backend: str = "sentinel_pruned"
     blockwise_gene_set_block_size: int = 5000
@@ -243,6 +258,21 @@ class FactorExecutionConfig:
             "factor_phi_factors_out": self.factor_phi_factors_out,
             "factor_phi_gene_set_clusters_out": self.factor_phi_gene_set_clusters_out,
             "factor_phi_gene_clusters_out": self.factor_phi_gene_clusters_out,
+            "phi_selection_objective": self.phi_selection_objective,
+            "phi_selection_composite_weights": self.phi_selection_composite_weights,
+            "phi_selection_target_factor_gene_mass": self.phi_selection_target_factor_gene_mass,
+            "phi_selection_size_log2_width": self.phi_selection_size_log2_width,
+            "phi_selection_loading_cap": self.phi_selection_loading_cap,
+            "phi_selection_min_entity_total_loading": self.phi_selection_min_entity_total_loading,
+            "phi_selection_bridge_concentration_threshold": self.phi_selection_bridge_concentration_threshold,
+            "phi_selection_coverage_min_loading": self.phi_selection_coverage_min_loading,
+            "phi_selection_gene_coverage_top_frac": self.phi_selection_gene_coverage_top_frac,
+            "phi_selection_gene_coverage_top_n": self.phi_selection_gene_coverage_top_n,
+            "phi_selection_annotation_coverage_top_frac": self.phi_selection_annotation_coverage_top_frac,
+            "phi_selection_annotation_coverage_top_n": self.phi_selection_annotation_coverage_top_n,
+            "phi_selection_tie_tolerance": self.phi_selection_tie_tolerance,
+            "phi_selection_metrics_wide_out": self.phi_selection_metrics_wide_out,
+            "phi_selection_metrics_long_out": self.phi_selection_metrics_long_out,
             "factor_backend": self.factor_backend,
             "learn_phi_backend": self.learn_phi_backend,
             "blockwise_gene_set_block_size": self.blockwise_gene_set_block_size,
@@ -1841,6 +1871,21 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         factor_phi_factors_out=getattr(options, "factor_phi_factors_out", None),
         factor_phi_gene_set_clusters_out=getattr(options, "factor_phi_gene_set_clusters_out", None),
         factor_phi_gene_clusters_out=getattr(options, "factor_phi_gene_clusters_out", None),
+        phi_selection_objective=getattr(options, "phi_selection_objective", "composite"),
+        phi_selection_composite_weights=getattr(options, "phi_selection_composite_weights", None),
+        phi_selection_target_factor_gene_mass=getattr(options, "phi_selection_target_factor_gene_mass", 100.0),
+        phi_selection_size_log2_width=getattr(options, "phi_selection_size_log2_width", 1.0),
+        phi_selection_loading_cap=getattr(options, "phi_selection_loading_cap", 1.0),
+        phi_selection_min_entity_total_loading=getattr(options, "phi_selection_min_entity_total_loading", 0.01),
+        phi_selection_bridge_concentration_threshold=getattr(options, "phi_selection_bridge_concentration_threshold", 0.60),
+        phi_selection_coverage_min_loading=getattr(options, "phi_selection_coverage_min_loading", 0.05),
+        phi_selection_gene_coverage_top_frac=getattr(options, "phi_selection_gene_coverage_top_frac", 0.05),
+        phi_selection_gene_coverage_top_n=getattr(options, "phi_selection_gene_coverage_top_n", None),
+        phi_selection_annotation_coverage_top_frac=getattr(options, "phi_selection_annotation_coverage_top_frac", 0.05),
+        phi_selection_annotation_coverage_top_n=getattr(options, "phi_selection_annotation_coverage_top_n", None),
+        phi_selection_tie_tolerance=getattr(options, "phi_selection_tie_tolerance", 0.01),
+        phi_selection_metrics_wide_out=getattr(options, "phi_selection_metrics_wide_out", None),
+        phi_selection_metrics_long_out=getattr(options, "phi_selection_metrics_long_out", None),
         factor_backend=getattr(options, "factor_backend", "full"),
         learn_phi_backend=getattr(options, "learn_phi_backend", "sentinel_pruned"),
         blockwise_gene_set_block_size=getattr(options, "blockwise_gene_set_block_size", 5000),

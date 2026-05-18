@@ -245,7 +245,14 @@ class EagglCliTest(unittest.TestCase):
         self.assertNotIn("Traceback", err)
 
     def test_invalid_phi_learning_settings_return_usage_error(self) -> None:
-        proc = self._run("factor", "--learn-phi")
+        proc = self._run("factor", "--learn-phi", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0)
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["options"]["learn_phi"])
+        self.assertEqual(payload["options"]["phi_selection_objective"], "composite")
+        self.assertEqual(payload["options"]["learn_phi_target_gene_mass"], 100.0)
+
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "legacy")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi requires either --learn-phi-target-gene-mass or --learn-phi-target-gene-effective-support", err)
@@ -272,6 +279,58 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-target-gene-effective-support must be positive", err)
+
+    def test_phi_selection_composite_flags_round_trip_and_validate(self) -> None:
+        proc = self._run(
+            "factor",
+            "--learn-phi",
+            "--phi-selection-objective",
+            "composite",
+            "--phi-selection-composite-weights",
+            "factor_size=0.2,coverage_score=0.4",
+            "--phi-selection-target-factor-gene-mass",
+            "123",
+            "--phi-selection-size-log2-width",
+            "1.5",
+            "--phi-selection-loading-cap",
+            "0.8",
+            "--phi-selection-min-entity-total-loading",
+            "0.02",
+            "--phi-selection-bridge-concentration-threshold",
+            "0.7",
+            "--phi-selection-coverage-min-loading",
+            "0.03",
+            "--phi-selection-gene-coverage-top-frac",
+            "0.1",
+            "--phi-selection-gene-coverage-top-n",
+            "10",
+            "--phi-selection-annotation-coverage-top-frac",
+            "0.2",
+            "--phi-selection-annotation-coverage-top-n",
+            "20",
+            "--phi-selection-tie-tolerance",
+            "0.02",
+            "--phi-selection-metrics-wide-out",
+            "wide.tsv",
+            "--phi-selection-metrics-long-out",
+            "long.tsv",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        opts = json.loads(proc.stdout)["options"]
+        self.assertEqual(opts["phi_selection_objective"], "composite")
+        self.assertEqual(opts["phi_selection_composite_weights"], "factor_size=0.2,coverage_score=0.4")
+        self.assertEqual(opts["learn_phi_target_gene_mass"], 123.0)
+        self.assertEqual(opts["phi_selection_target_factor_gene_mass"], 123.0)
+        self.assertEqual(opts["phi_selection_gene_coverage_top_n"], 10)
+        self.assertEqual(opts["phi_selection_annotation_coverage_top_n"], 20)
+        self.assertEqual(opts["phi_selection_metrics_wide_out"], "wide.tsv")
+        self.assertEqual(opts["phi_selection_metrics_long_out"], "long.tsv")
+
+        proc = self._run("factor", "--phi-selection-composite-weights", "bad=1")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("unknown phi-selection composite weight component", err)
 
     def test_invalid_gene_gene_settings_return_usage_error(self) -> None:
         proc = self._run("factor", "--discovery-model", "gene_by_gene", "--gene-gene-pair-prior", "1.0")
@@ -355,7 +414,7 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
-        self.assertEqual(payload["options"]["learn_phi_target_gene_mass"], 40.0)
+        self.assertEqual(payload["options"]["learn_phi_target_gene_mass"], 100.0)
 
         proc = self._run(
             "factor",

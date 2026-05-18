@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `273`
+- Total options: `288`
 - `method_required`: `11`
-- `method_optional`: `168`
-- `engineering`: `77`
+- `method_optional`: `181`
+- `engineering`: `79`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `228`
+- visibility `expert`: `243`
 - visibility `hidden`: `8`
 - visibility `normal`: `37`
 
@@ -182,6 +182,19 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
 | `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors |
+| `--phi-selection-annotation-coverage-top-frac` | `expert` | `yes` | `expert_help` | `phi_selection_annotation_coverage_top_frac` | `0.05` | - |
+| `--phi-selection-annotation-coverage-top-n` | `expert` | `yes` | `expert_help` | `phi_selection_annotation_coverage_top_n` | `None` | - |
+| `--phi-selection-bridge-concentration-threshold` | `expert` | `yes` | `expert_help` | `phi_selection_bridge_concentration_threshold` | `0.6` | - |
+| `--phi-selection-composite-weights` | `expert` | `yes` | `expert_help` | `phi_selection_composite_weights` | `None` | - |
+| `--phi-selection-coverage-min-loading` | `expert` | `yes` | `expert_help` | `phi_selection_coverage_min_loading` | `0.05` | - |
+| `--phi-selection-gene-coverage-top-frac` | `expert` | `yes` | `expert_help` | `phi_selection_gene_coverage_top_frac` | `0.05` | - |
+| `--phi-selection-gene-coverage-top-n` | `expert` | `yes` | `expert_help` | `phi_selection_gene_coverage_top_n` | `None` | - |
+| `--phi-selection-loading-cap` | `expert` | `yes` | `expert_help` | `phi_selection_loading_cap` | `1.0` | - |
+| `--phi-selection-min-entity-total-loading` | `expert` | `yes` | `expert_help` | `phi_selection_min_entity_total_loading` | `0.01` | - |
+| `--phi-selection-objective` | `expert` | `yes` | `expert_help` | `phi_selection_objective` | `composite` | - |
+| `--phi-selection-size-log2-width` | `expert` | `yes` | `expert_help` | `phi_selection_size_log2_width` | `1.0` | - |
+| `--phi-selection-target-factor-gene-mass` | `expert` | `yes` | `expert_help` | `phi_selection_target_factor_gene_mass` | `100.0` | - |
+| `--phi-selection-tie-tolerance` | `expert` | `yes` | `expert_help` | `phi_selection_tie_tolerance` | `0.01` | - |
 | `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project canonical trait linkage from the gene-set basis instead of the gene basis |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
@@ -278,6 +291,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--params-out` | `expert` | `no` | `expert_help` | `params_out` | `None` | - |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
 | `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | - |
+| `--phi-selection-metrics-long-out` | `expert` | `no` | `expert_help` | `phi_selection_metrics_long_out` | `None` | - |
+| `--phi-selection-metrics-wide-out` | `expert` | `no` | `expert_help` | `phi_selection_metrics_wide_out` | `None` | - |
 | `--pre-filter-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_batch_size` | `None` | - |
 | `--pre-filter-small-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_small_batch_size` | `500` | - |
 | `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |

@@ -697,49 +697,20 @@ Consequently, the main phenotype labels and top-phenotype annotations for a fact
 
 The EAGGL objective is non-convex, and therefore different random initializations can converge to different local optima. For this reason, EAGGL is typically fit under repeated random restarts. The simplest use of repeated restarts is to retain the fitted solution with the best objective value. A more stringent alternative is consensus factorization, in which factors are first matched across runs and then aggregated only if they are reproduced consistently across restarts. Let $H^{(r)}$ denote the annotation loading matrix from restart $r$ after ARD thresholding. In consensus mode, EAGGL normalizes the factor columns, aligns factors across restarts by maximum total similarity, and aggregates matched factors only when they appear in a sufficient fraction of runs.
 
-The hyperparameter $\phi$ also affects the effective number and sparsity of retained factors, even though ARD is responsible for pruning irrelevant components. EAGGL therefore treats $\phi$ as a structural model-selection parameter. In the current public automatic tuning mode, users specify a target median effective gene support for primary factors, and EAGGL searches for a $\phi$ whose fitted mechanisms have that approximate gene-module size.
+The hyperparameter $\phi$ also affects the effective number and sparsity of retained factors, even though ARD is responsible for pruning irrelevant components. EAGGL therefore treats $\phi$ as a structural model-selection parameter. The default automatic selection objective is a composite score over interpretable candidate-level metrics. For candidate $c$ and component $j$, let $q_{cj} \in [0,1]$ be the component score and let $a_{cj}$ indicate that the component is available. EAGGL selects by
+\begin{equation}
+Q_c = \frac{\sum_j a_{cj}\omega_j q_{cj}}{\sum_j a_{cj}\omega_j},
+\label{eq:eaggl_phi_composite_score}
+\end{equation}
+where unavailable components are skipped rather than treated as zero. The default weights are 0.15 for factor size, 0.15 for non-overlap, 0.15 for entity concentration, 0.25 for high-priority coverage, 0.10 for reconstruction, 0.10 for within-factor coherence, 0.05 for factor balance, and 0.05 for annotation bridge quality control. Ties within the configured tolerance prefer fewer factors, then higher coverage, then lower $\phi$.
 
-Let $R$ be the number of restarts, let $K^{(r)}$ be the retained factor count in restart $r$, and let $K_{\mathrm{mode}}$ be the modal retained factor count. Let
-\[
-\mathcal{R}_{\mathrm{mode}} = \{ r : K^{(r)} = K_{\mathrm{mode}} \},
-\]
-and let $m = |\mathcal{R}_{\mathrm{mode}}|$. The restart-support statistic is
+The factor-size component compares each factor's capped nonnegative gene loading mass $S_k=\sum_i \min(W_{ik},c)$ with a target $S_0$:
 \begin{equation}
-s(\phi) = \frac{m}{R}.
-\label{eq:eaggl_restart_support}
+q^{\mathrm{size}}_k = \left[1 + \left(\frac{\log_2((S_k+\epsilon)/(S_0+\epsilon))}{w}\right)^2\right]^{-1},
 \end{equation}
-When $m \ge 2$, factors are aligned across modal restarts by maximum total cosine similarity and restart stability is defined as the mean matched-factor cosine across the modal restart set. When $m < 2$, stability is undefined and the candidate is not considered restart-stable.
+and averages this score over factors. Non-overlap uses the 90th percentile of soft weighted-Jaccard overlaps between factor loading vectors. Entity concentration scores whether genes and, when available, annotations concentrate on one factor rather than bridging many factors. Coverage scores whether high-priority genes and annotations, ranked by the resolved PIGEAN evidence columns, have at least one loading above the configured coverage threshold. Reconstruction and coherence use the actual discovery target: $WW^T$ for gene-by-gene discovery and $HW^T$ for gene-by-annotation discovery, respecting rectangular anchor weights when available. Factor balance is normalized entropy of factor gene mass. Annotation bridge QC is included only when annotation bridge metrics are available.
 
-Within each modal restart, EAGGL measures redundancy on the gene loading matrix when available, with fallback to the gene-set and phenotype loading matrices. These phi-selection metrics are computed over the primary factor set by default so that low-mass ARD-tail columns do not dominate model selection; an audit option can instead score all fitted columns. After clipping negligible weights and renormalizing each factor loading vector, overlap between vectors $u$ and $v$ is measured by weighted Jaccard:
-\begin{equation}
-J_w(u,v) = \frac{\sum_{\ell} \min(u_{\ell}, v_{\ell})}{\sum_{\ell} \max(u_{\ell}, v_{\ell})}.
-\label{eq:eaggl_weighted_jaccard}
-\end{equation}
-For metric-scope factor $k$, let $d_k = \max_{\ell \ne k} J_w(u_k,u_{\ell})$. EAGGL records
-\begin{equation}
-d_{\max} = \max_k d_k, \qquad d_{0.9} = Q_{0.9}(d_1, \ldots, d_K),
-\label{eq:eaggl_redundancy_summaries}
-\end{equation}
-where $Q_{0.9}$ denotes the 90th percentile.
-
-For each candidate, EAGGL also summarizes factor mass. If $m_k$ denotes the total nonnegative loading mass carried by factor $k$, then
-\begin{equation}
-K_{\mathrm{mass}} = \frac{\left(\sum_k m_k\right)^2}{\sum_k m_k^2}
-\label{eq:eaggl_effective_factor_count}
-\end{equation}
-is reported as an effective factor count. Primary factors are those whose mass fraction exceeds the configured primary-factor floor. For primary factor $k$, let normalized gene weights be $\tilde w_{ik}=W_{ik}/\sum_i W_{ik}$. Its effective gene support is
-\begin{equation}
-S_k = \frac{1}{\sum_i \tilde w_{ik}^2}.
-\label{eq:eaggl_factor_gene_effective_support}
-\end{equation}
-The candidate-level size statistic is $S_{\phi}=\mathrm{median}_{k \in \mathcal{P}_{\phi}} S_k$, where $\mathcal{P}_{\phi}$ is the set of primary factors. Given user target $S^\star$, EAGGL scores size mismatch on log scale,
-\begin{equation}
-E_{\phi}=\left|\log S_{\phi}-\log S^\star\right|.
-\label{eq:eaggl_phi_size_error}
-\end{equation}
-Candidates must be non-collapsed, have enough primary factors, satisfy restart and redundancy constraints, and avoid severe underfit. The primary-factor definition is controlled by the configured mass floor fraction and is used consistently for primary-factor counts, primary-scoped redundancy and stability calculations, and target-size summaries. Restart stability is also matched over the same metric factor scope, which is primary by default and independent of the output-printing scope. Ordinary fit loss is treated as a warning-level diagnostic in target-size mode because in-sample reconstruction often favors over-fragmented lower-$\phi$ solutions; however, a separate severe-underfit threshold still blocks pathological high-$\phi$ candidates whose reconstruction error is far worse than the best candidate in the search, and candidates lacking a finite fit measurement are rejected while that severe guard is active. Among acceptable uncapped candidates with defined $S_{\phi}$, EAGGL first restricts to candidates within the configured size tolerance when any exist, then chooses the largest $\phi$ in that tolerance set. If none are in tolerance, it chooses the candidate with smallest $E_{\phi}$, using larger $\phi$, lower tail fraction, lower filtered fraction, lower redundancy, better fit, and lower primary-factor spike diagnostics as late tie-breakers. Candidate values are explored around the initial $\phi$ by target-aware bracketing: if fitted factors are too small, larger $\phi$ values are proposed; if fitted factors are too large, smaller $\phi$ values are proposed; once the target is bracketed, geometric midpoints refine the search.
-
-The selected $\phi$, candidate diagnostics, search thresholds, primary-factor gene-support summaries, redundancy summaries, factor-mass summaries, and convergence diagnostics are written to the run log and parameter output. Per-factor diagnostics for each tested $\phi$ can also be written for audit and review.
+A legacy selector remains available. In legacy mode, users specify a target median effective gene support for primary factors, and EAGGL searches for a $\phi$ whose fitted mechanisms have that approximate gene-module size. Within each modal restart, EAGGL measures redundancy on the gene loading matrix when available, with fallback to the gene-set and phenotype loading matrices. These phi-selection metrics are computed over the primary factor set by default so that low-mass ARD-tail columns do not dominate model selection; an audit option can instead score all fitted columns. Candidate values are explored around the initial $\phi$ by target-aware bracketing. The selected $\phi$, candidate diagnostics, component scores, weights, weighted contributions, search thresholds, factor-mass summaries, and convergence diagnostics are written to the run log and parameter output. Per-factor diagnostics for each tested $\phi$ can also be written for audit and review.
 
 EAGGL separates fitted factors from reported factors. Let $m_k$ denote the combined nonnegative gene and annotation loading mass for factor $k$, and let $\pi_k=m_k/\sum_{\ell}m_{\ell}$. A factor is classified as primary when $\pi_k \ge 0.005$, secondary when $0.001 \le \pi_k < 0.005$, and filtered otherwise. The default user-facing factor and cluster outputs print only primary factors, because low-mass secondary and filtered factors usually represent the ARD tail rather than interpretable mechanisms. This reporting scope is controlled separately from the phi-selection metric scope. The exhaustive factor-metrics outputs remain available for auditing all fitted columns. The \texttt{factors.out(.gz)} table records both \texttt{factor\_tier} and \texttt{combined\_mass\_fraction} next to \texttt{lambda}; widening the output scope can include secondary or all factors without changing the fitted model or renumbering factor identifiers.
 
