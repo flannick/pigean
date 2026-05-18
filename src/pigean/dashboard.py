@@ -835,9 +835,25 @@ def build_payload(args: argparse.Namespace) -> dict:
     return payload
 
 
+def _payload_for_sidecar_json(payload: dict) -> dict:
+    """Keep the optional JSON sidecar compact; the HTML remains self-contained."""
+    sidecar = dict(payload)
+    sidecar["eaggl_runs"] = {}
+    for key, value in (payload.get("eaggl_runs") or {}).items():
+        run = dict(value)
+        run["factor_graph_html"] = ""
+        run["gene_loading_sources"] = {}
+        for source_id, source_value in (value.get("gene_loading_sources") or {}).items():
+            source = dict(source_value)
+            source["factor_graph_html"] = ""
+            run["gene_loading_sources"][source_id] = source
+        sidecar["eaggl_runs"][key] = run
+    return sidecar
+
+
 def write_json(payload: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    path.write_text(json.dumps(_payload_for_sidecar_json(payload), indent=2, sort_keys=True), encoding="utf-8")
 
 
 def write_html(payload: dict, path: Path, *, title: str) -> None:

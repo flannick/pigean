@@ -177,7 +177,8 @@ function groupsForRun(runId) { return (DATA.eaggl_groups || {})[runId] || []; }
 function hasMeaningfulGroups(runId) { return groupsForRun(runId).some(g => (g.mode_ids || []).length > 1); }
 function selectedGroup(runId) { const groups = groupsForRun(runId); if (!hasMeaningfulGroups(runId)) return null; return groups.find(g => g.group_id === state.groupId) || groups[0] || null; }
 function eagglForRun(runId) { const runs = Object.values(DATA.eaggl_runs || {}).filter(r => r.run_id === runId); const group = selectedGroup(runId); if (!group) return runs; const allowed = new Set(group.mode_ids || []); return runs.filter(r => allowed.has(r.mode_id)); }
-function selectedEaggl(runId) { const runs = eagglForRun(runId); return runs.find(r => r.mode_id === state.modeId) || runs[0] || null; }
+function isSelectedPhiRun(run) { const value = String((run?.selected_phi_metrics || {}).selected ?? "").toLowerCase(); return value === "1" || value === "1.0" || value === "true" || value === "yes"; }
+function selectedEaggl(runId) { const runs = eagglForRun(runId); const explicit = runs.find(r => r.mode_id === state.modeId); if (explicit) return explicit; return runs.find(isSelectedPhiRun) || runs[0] || null; }
 function geneLoadingSources(eaggl) { return Object.values(eaggl?.gene_loading_sources || {}); }
 function selectedGeneSource(eaggl) { const sources = geneLoadingSources(eaggl); const defaultId = DATA.default_gene_loading_source || "discovery"; return sources.find(s => s.id === state.geneLoadingSource) || sources.find(s => s.id === defaultId) || sources.find(s => s.id === "discovery") || sources[0] || null; }
 function factorGenesFromSource(eaggl, factor) { const source = selectedGeneSource(eaggl); return (source?.by_factor || {})[factor.factor] || factor.genes || []; }
@@ -239,8 +240,9 @@ function groupMetricHeatmap(runId, activeModeId) {
     const active = r.mode_id === activeModeId;
     const cells = available.map(m => {
       const value = metricNumber(r.metrics[m.key]);
-      const best = value !== null && maxByMetric[m.key] !== null && Math.abs(value - maxByMetric[m.key]) <= 1e-12;
-      const text = value === null ? "NA" : `${best ? "★ " : ""}${fmt(value)}`;
+      const selected = isSelectedPhiRun(r) && m.composite;
+      const best = m.key !== "phi" && value !== null && maxByMetric[m.key] !== null && Math.abs(value - maxByMetric[m.key]) <= 1e-12;
+      const text = value === null ? "NA" : `${selected ? "★ " : ""}${fmt(value)}`;
       return `<td class="phi-metric-cell ${best ? "best" : ""} ${m.composite ? "metric-composite" : ""}">${text}</td>`;
     }).join("");
     return `<tr class="${active ? "phi-metric-row-active" : ""}"><th>${esc(r.title || r.mode_id)}</th>${cells}</tr>`;
