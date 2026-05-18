@@ -573,13 +573,13 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> 
             "trait": trait,
             "factor": factor,
             "is_anchor": _first(row, ["is_anchor"]),
-            "joint_fraction": parse_float(row.get("joint_fraction")),
-            "marginal_fraction": parse_float(row.get("marginal_fraction")),
+            "joint_fraction": parse_float(_first(row, ["joint_fraction", "joint_coefficient"])),
+            "marginal_fraction": parse_float(_first(row, ["marginal_fraction", "marginal_coefficient"])),
             "marginal_overlap": parse_float(row.get("marginal_overlap")),
             "trait_neff": neff,
             "retained_n_eff": parse_float(row.get("retained_n_eff")),
-            "joint_support_mass": parse_float(row.get("joint_support_mass")),
-            "marginal_support_mass": parse_float(row.get("marginal_support_mass")),
+            "joint_support_mass": parse_float(_first(row, ["joint_support_mass", "joint_coefficient_support_mass"])),
+            "marginal_support_mass": parse_float(_first(row, ["marginal_support_mass", "marginal_coefficient_support_mass"])),
             "joint_residual": parse_float(row.get("joint_residual")),
         }
         by_factor[factor].append(record)

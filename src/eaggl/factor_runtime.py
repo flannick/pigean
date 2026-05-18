@@ -1460,6 +1460,11 @@ def project_phenos_from_loaded_factors(
     if not applied:
         bail_fn("Projection-only trait linkage could not resolve a usable support surface")
 
+    # Projection-only linkage interprets all supplied phenotypes as query traits, not
+    # explicit factorization anchors. Some input-loading paths set anchor masks to all
+    # true; suppress that here so output provenance does not label every query trait
+    # as an anchor.
+    state.trait_linkage_is_anchor = np.full(len(state.phenos), False, dtype=bool)
     state.pheno_factor_pheno_mask = np.full(len(state.phenos), False, dtype=bool)
     state._record_params(
         {
