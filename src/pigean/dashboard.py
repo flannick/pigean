@@ -26,6 +26,8 @@ class EagglRunSpec:
     run_id: str
     mode_id: str
     path: Path
+    group_id: str | None = None
+    group_title: str | None = None
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,14 @@ class EagglPhiSweepSpec:
     run_id: str
     mode_id: str
     path: Path
+
+
+@dataclass(frozen=True)
+class EagglGroupSpec:
+    run_id: str
+    mode_id: str
+    group_id: str
+    group_title: str
 
 
 def open_text(path: Path):
@@ -123,6 +133,17 @@ def parse_eaggl_phi_sweep_spec(value: str) -> EagglPhiSweepSpec:
     return EagglPhiSweepSpec(run_id=run_id, mode_id=mode_id, path=Path(path))
 
 
+def parse_eaggl_group_spec(value: str) -> EagglGroupSpec:
+    parts = value.split(":", 3)
+    if len(parts) not in {3, 4}:
+        raise argparse.ArgumentTypeError("expected RUN_ID:MODE_ID:GROUP_ID[:GROUP_TITLE]")
+    run_id, mode_id, group_id = [part.strip() for part in parts[:3]]
+    group_title = parts[3].strip() if len(parts) == 4 else group_id.replace("_", " ")
+    if not run_id or not mode_id or not group_id:
+        raise argparse.ArgumentTypeError("expected RUN_ID:MODE_ID:GROUP_ID[:GROUP_TITLE]")
+    return EagglGroupSpec(run_id=run_id, mode_id=mode_id, group_id=group_id, group_title=group_title or group_id)
+
+
 def parse_run_title(value: str) -> tuple[str, str]:
     if ":" not in value:
         raise argparse.ArgumentTypeError("expected RUN_ID:TITLE")
@@ -156,6 +177,60 @@ def _read_selected_phi_from_report(path: Path):
     return None
 
 
+def _metric_value(value: str):
+    number = parse_float(value)
+    if number is not None:
+        return number
+    if value in (None, ""):
+        return None
+    return value
+
+
+def _first_existing(path: Path, names: Iterable[str]) -> Path | None:
+    for name in names:
+        candidate = path / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def read_factor_metrics(path: Path, warnings: list[str]) -> dict[str, dict]:
+    if not path.exists():
+        return {}
+    rows = read_tsv(path, warnings)
+    metrics: dict[str, dict] = {}
+    for row in rows:
+        factor = _first(row, ["Factor", "factor"])
+        if not factor:
+            continue
+        metrics[factor] = {
+            key: _metric_value(value)
+            for key, value in row.items()
+            if key not in {"Factor", "factor", "label", "Label"} and value not in (None, "")
+        }
+    return metrics
+
+
+def read_selected_phi_metrics(path: Path, warnings: list[str]) -> dict:
+    if not path.exists():
+        return {}
+    rows = read_tsv(path, warnings)
+    if not rows:
+        return {}
+    selected = None
+    for row in rows:
+        flag = str(_first(row, ["selected", "is_selected"], "")).strip().lower()
+        if flag in {"1", "true", "t", "yes", "y"}:
+            selected = row
+            break
+    selected = selected or rows[0]
+    return {
+        key: _metric_value(value)
+        for key, value in selected.items()
+        if value not in (None, "")
+    }
+
+
 def _discover_phi_sweep_runs(spec: EagglPhiSweepSpec) -> list[EagglRunSpec]:
     root = spec.path
     candidates: list[tuple[float, Path]] = []
@@ -183,7 +258,15 @@ def _discover_phi_sweep_runs(spec: EagglPhiSweepSpec) -> list[EagglRunSpec]:
     for phi, run_dir in sorted(candidates, key=lambda item: (math.inf if math.isnan(item[0]) else item[0])):
         phi_label = "unknown" if math.isnan(phi) else ("%g" % phi)
         mode_id = f"{spec.mode_id}_phi_{phi_label.replace('.', 'p')}"
-        specs.append(EagglRunSpec(spec.run_id, mode_id, run_dir))
+        specs.append(
+            EagglRunSpec(
+                spec.run_id,
+                mode_id,
+                run_dir,
+                group_id=spec.mode_id,
+                group_title=f"{spec.mode_id.replace('_', ' ')} phi sweep",
+            )
+        )
     if selected_phi is not None:
         specs.sort(key=lambda item: (
             0 if _parse_phi_from_name(item.mode_id) is not None and math.isclose(float(_parse_phi_from_name(item.mode_id)), float(selected_phi), rel_tol=1e-12, abs_tol=1e-15) else 1,
@@ -516,12 +599,51 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> 
     return dict(by_factor), list(anchor_traits.values()), dict(anchor_values_by_factor)
 
 
+def _metric_summary_for_group(eaggl_run: dict) -> dict:
+    metrics = dict(eaggl_run.get("selected_phi_metrics") or {})
+    if "phi" not in metrics and eaggl_run.get("phi") is not None:
+        metrics["phi"] = eaggl_run.get("phi")
+    if "num_factors" not in metrics and eaggl_run.get("factors") is not None:
+        metrics["num_factors"] = len(eaggl_run.get("factors") or [])
+    if "modal_factor_count" not in metrics and "num_factors" in metrics:
+        metrics["modal_factor_count"] = metrics["num_factors"]
+    return metrics
+
+
 def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     warnings: list[str] = []
     path = spec.path
     if not path.exists():
         warnings.append(f"EAGGL directory does not exist: {path}")
     factors_path = path / "factors.out.gz"
+    factor_metrics_path = _first_existing(
+        path,
+        [
+            "factor_metrics.out.gz",
+            "factor_metrics.out",
+            "factor_metrics.tsv.gz",
+            "factor_metrics.tsv",
+        ],
+    )
+    phi_selection_metrics_path = _first_existing(
+        path,
+        [
+            "phi_selection_metrics_wide.out.gz",
+            "phi_selection_metrics_wide.out",
+            "phi_selection_metrics_wide.tsv.gz",
+            "phi_selection_metrics_wide.tsv",
+            "phi_selection_metrics.out.gz",
+            "phi_selection_metrics.out",
+            "learn_phi_report.out.gz",
+            "learn_phi_report.out",
+            "learn_phi_report.tsv.gz",
+            "learn_phi_report.tsv",
+            "phi_report.tsv.gz",
+            "phi_report.tsv",
+            "summary.tsv.gz",
+            "summary.tsv",
+        ],
+    )
     gene_clusters_path = path / "gene_clusters.out.gz"
     gene_loading_source_specs = [
         ("discovery", "Discovery genes", gene_clusters_path, path / "factor_graph.html"),
@@ -530,6 +652,8 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     ]
     gene_set_clusters_path = path / "gene_set_clusters.out.gz"
     factors_rows = read_tsv(factors_path, warnings) if factors_path.exists() else []
+    factor_metrics = read_factor_metrics(factor_metrics_path, warnings) if factor_metrics_path is not None else {}
+    selected_phi_metrics = read_selected_phi_metrics(phi_selection_metrics_path, warnings) if phi_selection_metrics_path is not None else {}
     if not factors_path.exists():
         warnings.append(f"missing EAGGL factors: {factors_path}")
     gene_loading_sources: dict[str, dict] = {}
@@ -589,7 +713,9 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
                 "genes": genes_by_factor.get(factor, []),
                 "gene_sets": gene_sets_by_factor.get(factor, []),
                 "phenotypes": trait_links.get(factor, []),
+                "metrics": factor_metrics.get(factor, {}),
             }
+        factor_record.update(factor_metrics.get(factor, {}))
         factor_record.update(anchor_values.get(factor, {}))
         factors.append(factor_record)
     factors.sort(key=lambda item: item.get("combined_mass_fraction") or -1e300, reverse=True)
@@ -598,12 +724,16 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     return {
         "run_id": spec.run_id,
         "mode_id": spec.mode_id,
+        "group_id": spec.group_id or spec.mode_id,
+        "group_title": spec.group_title or (spec.group_id or spec.mode_id).replace("_", " "),
         "title": ("%s (phi %g)" % (spec.mode_id.replace("_", " "), phi_value)) if phi_value is not None else spec.mode_id.replace("_", " "),
         "phi": phi_value,
         "summary": "EAGGL run supplied on the dashboard command line.",
         "paths": {
             "run_dir": str(path),
             "factors": str(factors_path),
+            "factor_metrics": str(factor_metrics_path) if factor_metrics_path is not None else str(path / "factor_metrics.out.gz"),
+            "phi_selection_metrics": str(phi_selection_metrics_path) if phi_selection_metrics_path is not None else "",
             "gene_clusters": str(gene_clusters_path),
             "gene_clusters_full": str(path / "gene_clusters_full.out.gz"),
             "gene_clusters_full_via_gene_sets": str(path / "gene_clusters_full_via_gene_sets.out.gz"),
@@ -620,6 +750,7 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
         "factor_graph_html": read_optional_text(factor_graph_html_path, warnings, max_chars=None),
         "gene_loading_sources": gene_loading_sources,
         "anchor_traits": anchor_traits,
+        "selected_phi_metrics": selected_phi_metrics,
         "factors": factors,
     }
 
@@ -630,6 +761,10 @@ def build_payload(args: argparse.Namespace) -> dict:
     pigean_runs = [load_pigean_run(spec, args, membership) for spec in args.pigean_run]
     seen_pigean_run_ids = {run["run_id"] for run in pigean_runs}
     eaggl_runs = {}
+    group_overrides = {
+        (spec.run_id, spec.mode_id): spec
+        for spec in args.eaggl_group or []
+    }
     eaggl_specs = list(args.eaggl_run or [])
     for sweep_spec in args.eaggl_phi_sweep or []:
         sweep_runs = _discover_phi_sweep_runs(sweep_spec)
@@ -637,6 +772,15 @@ def build_payload(args: argparse.Namespace) -> dict:
             warnings.append(f"no EAGGL phi-sweep runs found under {sweep_spec.path}")
         eaggl_specs.extend(sweep_runs)
     for spec in eaggl_specs:
+        group_override = group_overrides.get((spec.run_id, spec.mode_id))
+        if group_override is not None:
+            spec = EagglRunSpec(
+                spec.run_id,
+                spec.mode_id,
+                spec.path,
+                group_id=group_override.group_id,
+                group_title=group_override.group_title,
+            )
         if spec.run_id not in seen_pigean_run_ids:
             pigean_runs.append(
                 placeholder_pigean_run(
@@ -648,6 +792,25 @@ def build_payload(args: argparse.Namespace) -> dict:
             seen_pigean_run_ids.add(spec.run_id)
         loaded = load_eaggl_run(spec, args)
         eaggl_runs[f"{spec.run_id}::{spec.mode_id}"] = loaded
+    eaggl_groups_by_run: dict[str, dict[str, dict]] = defaultdict(dict)
+    for eaggl in eaggl_runs.values():
+        group_id = eaggl.get("group_id") or eaggl.get("mode_id")
+        group = eaggl_groups_by_run[eaggl["run_id"]].setdefault(
+            group_id,
+            {
+                "run_id": eaggl["run_id"],
+                "group_id": group_id,
+                "title": eaggl.get("group_title") or str(group_id).replace("_", " "),
+                "mode_ids": [],
+                "metrics_by_mode": {},
+            },
+        )
+        group["mode_ids"].append(eaggl["mode_id"])
+        group["metrics_by_mode"][eaggl["mode_id"]] = _metric_summary_for_group(eaggl)
+    eaggl_groups = {
+        run_id: list(groups.values())
+        for run_id, groups in eaggl_groups_by_run.items()
+    }
     payload = {
         "schema": "pigean_dashboard/v1",
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -667,6 +830,7 @@ def build_payload(args: argparse.Namespace) -> dict:
         "gene_set_membership_count": len(membership),
         "pigean_runs": pigean_runs,
         "eaggl_runs": eaggl_runs,
+        "eaggl_groups": eaggl_groups,
     }
     return payload
 
@@ -686,6 +850,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pigean-run", action="append", type=parse_run_spec, default=[], help="PIGEAN run as RUN_ID:DIR; repeat for multiple runs.")
     parser.add_argument("--eaggl-run", action="append", type=parse_eaggl_spec, default=[], help="EAGGL run as RUN_ID:MODE_ID:DIR; repeat for multiple modes/runs.")
     parser.add_argument("--eaggl-phi-sweep", action="append", type=parse_eaggl_phi_sweep_spec, default=[], help="EAGGL phi sweep bundle as RUN_ID:MODE_ID:DIR. The directory is scanned for per-phi EAGGL output directories.")
+    parser.add_argument("--eaggl-group", action="append", type=parse_eaggl_group_spec, default=[], help="Assign a standalone EAGGL run to a dashboard group as RUN_ID:MODE_ID:GROUP_ID[:GROUP_TITLE]; repeatable.")
     parser.add_argument("--x-input", action="append", type=Path, default=None, help="Optional GMT/gene-set input for gene/gene-set membership expansions; repeatable.")
     parser.add_argument("--title", default="PIGEAN/EAGGL Dashboard")
     parser.add_argument("--run-title", action="append", type=parse_run_title, default=[], help="Display title as RUN_ID:TITLE; repeatable.")

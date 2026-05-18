@@ -78,6 +78,16 @@ class DashboardPayloadTest(unittest.TestCase):
             "TraitA\tFactor1\t1\t0.7\t0.8\t300\n"
             "TraitLow\tFactor1\t0\t0.9\t0.9\t10\n",
         )
+        _write_gz(
+            root / "factor_metrics.out.gz",
+            "Factor\tlabel\tfactor_gene_mass\tfactor_size_score\tfactor_coherence_score\tgene_effective_support\tgene_max_jaccard\n"
+            "Factor1\timmune\t42\t0.85\t0.77\t12.5\t0.18\n",
+        )
+        _write_gz(
+            root / "learn_phi_report.out.gz",
+            "selected\tselection_reason\tphi\tphi_composite_score\tfactor_size_score\tnonoverlap_score\tcoverage_score\treconstruction_score\tcoherence_score\tfactor_balance_score\n"
+            "1\tcomposite_score\t0.01\t0.91\t0.85\t0.8\t0.95\t0.7\t0.77\t0.6\n",
+        )
         (root / "factor_graph.html").write_text("<html><body>factor graph</body></html>", encoding="utf-8")
 
     def test_payload_loads_complete_pigean_and_eaggl_outputs(self) -> None:
@@ -112,8 +122,13 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertIn("anchor_traits", payload["eaggl_runs"]["run1::gene_x_gene"])
         self.assertEqual(payload["eaggl_runs"]["run1::gene_x_gene"]["anchor_traits"][0]["trait"], "TraitA")
         self.assertEqual(factor[payload["eaggl_runs"]["run1::gene_x_gene"]["anchor_traits"][0]["column"]], 0.7)
+        self.assertEqual(factor["factor_gene_mass"], 42)
+        self.assertEqual(factor["factor_size_score"], 0.85)
+        self.assertEqual(payload["eaggl_runs"]["run1::gene_x_gene"]["selected_phi_metrics"]["phi_composite_score"], 0.91)
         eaggl_run = payload["eaggl_runs"]["run1::gene_x_gene"]
         self.assertTrue(eaggl_run["factor_graph_available"])
+        self.assertIn("eaggl_groups", payload)
+        self.assertEqual(payload["eaggl_groups"]["run1"][0]["mode_ids"], ["gene_x_gene"])
         self.assertEqual(set(eaggl_run["gene_loading_sources"]), {"discovery", "full_direct", "full_via_gene_sets"})
         self.assertEqual(eaggl_run["gene_loading_sources"]["full_direct"]["by_factor"]["Factor1"][0]["gene"], "GENE1")
         self.assertEqual(eaggl_run["gene_loading_sources"]["full_via_gene_sets"]["by_factor"]["Factor1"][0]["gene"], "GENE1")
@@ -175,6 +190,32 @@ class DashboardPayloadTest(unittest.TestCase):
         keys = list(payload["eaggl_runs"])
         self.assertEqual(keys[0], "run1::gene_x_gene_phi_0p04")
         self.assertEqual(payload["eaggl_runs"][keys[0]]["phi"], 0.04)
+        groups = payload["eaggl_groups"]["run1"]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["group_id"], "gene_x_gene")
+        self.assertEqual(set(groups[0]["mode_ids"]), {"gene_x_gene_phi_0p02", "gene_x_gene_phi_0p04"})
+
+    def test_explicit_eaggl_group_combines_standalone_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for mode in ("alpha", "beta"):
+                self._write_eaggl_outputs(root / mode)
+            parser = dashboard.build_parser()
+            args = parser.parse_args([
+                "--eaggl-run", f"run1:alpha:{root / 'alpha'}",
+                "--eaggl-run", f"run1:beta:{root / 'beta'}",
+                "--eaggl-group", "run1:alpha:comparison:Comparison",
+                "--eaggl-group", "run1:beta:comparison:Comparison",
+                "--json-out", str(root / "dashboard.json"),
+            ])
+            args.run_titles = {}
+            args.trait_ids = {}
+            payload = dashboard.build_payload(args)
+
+        groups = payload["eaggl_groups"]["run1"]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["group_id"], "comparison")
+        self.assertEqual(set(groups[0]["mode_ids"]), {"alpha", "beta"})
 
     def test_cli_rejects_malformed_run_specs(self) -> None:
         parser = dashboard.build_parser()
@@ -218,6 +259,10 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertIn("PIGEAN genes", html)
         self.assertIn("Rows <select", html)
         self.assertIn("data-open-row", html)
+        self.assertIn("data-column-info", html)
+        self.assertIn("groupSelect", html)
+        self.assertIn("phi-metric-heatmap", html)
+        self.assertIn("Phi composite columns are run-level selected-candidate metrics", html)
         self.assertIn("restoreFocus", html)
         self.assertIn("data-column-filter-table", html)
         self.assertIn("numeric-filter", html)

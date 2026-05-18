@@ -31,6 +31,7 @@ For PIGEAN directories, the dashboard looks for:
 For EAGGL directories, the dashboard looks for:
 
 - `factors.out.gz`
+- optional `factor_metrics.out.gz`
 - `gene_clusters.out.gz`
 - optional `gene_clusters_full.out.gz`
 - optional `gene_clusters_full_via_gene_sets.out.gz`
@@ -41,6 +42,7 @@ For EAGGL directories, the dashboard looks for:
   - `factor_graph.full_direct.html`
   - `factor_graph.full_via_gene_sets.html`
 - optional `params.out`, `eaggl.run.log`, and `eaggl.warnings.log`
+- optional phi-selection reports such as `phi_selection_metrics_wide.out.gz`, `learn_phi_report.out.gz`, or `summary.tsv`
 
 Pass `--x-input PATH` one or more times to enable gene/gene-set membership expansions from GMT-like gene-set input files.
 
@@ -63,6 +65,16 @@ Pass `--x-input PATH` one or more times to enable gene/gene-set membership expan
 
 The HTML file embeds the dashboard data and needs no backend. If an EAGGL `factor_graph.html` is present, it is embedded in the factor section. If full-gene projection tables are present, the EAGGL panel exposes a gene-loading-source selector so the gene loading table and available source-specific factor graph can switch between discovery genes, direct full-gene projection, and gene-set-routed full-gene projection.
 
-Use `--eaggl-phi-sweep RUN_ID:MODE_ID:DIR` to point the dashboard at a directory containing per-phi EAGGL output subdirectories such as `phi_0p005/eaggl/`, `phi_0p01/eaggl/`, and `phi_0p02/eaggl/`. Each per-phi directory is loaded as a separate EAGGL toggle entry. If a per-phi directory has factor graphs or full-gene projections, those controls are available for that phi; if only logs or params exist because no factors were retained, the dashboard records missing factor outputs as warnings instead of failing.
+Use `--eaggl-phi-sweep RUN_ID:MODE_ID:DIR` to point the dashboard at a directory containing per-phi EAGGL output subdirectories such as `phi_0p005/eaggl/`, `phi_0p01/eaggl/`, and `phi_0p02/eaggl/`. Each per-phi directory is loaded as a separate EAGGL run and automatically grouped under one EAGGL group selector. When per-phi metrics are available, the group panel shows a metric heatmap with the composite score delineated and column maxima starred.
+
+Standalone EAGGL runs can be grouped explicitly:
+
+```bash
+--eaggl-group RUN_ID:MODE_ID:GROUP_ID[:GROUP_TITLE]
+```
+
+If no useful groups are present, the dashboard keeps the simpler single EAGGL-run dropdown behavior.
+
+The EAGGL Factors tab reads `factor_metrics.out.gz` when available and shows factor-level metrics together with selected phi/composite metrics. Column-header info icons describe each metric. Missing metrics are displayed as `NA`.
 
 By default, the embedded payload is size-controlled: genes must have combined support at least `1`, gene sets must have `beta_uncorrected` at least `0.01` when that column is available, factor gene/gene-set loadings are retained when they are at least `0.05` times the factor-specific maximum loading, phenotype projections require effective size at least `200`, and nested provenance tables are capped at `50` rows per expanded entry.
