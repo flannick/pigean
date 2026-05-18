@@ -234,7 +234,6 @@ def _filter_entities_by_factor_rank(
     if max_num_per_factor is None or max_num_per_factor <= 0:
         return []
     keep: set[str] = set()
-    keep_factor_entity_pairs: set[tuple[str, str]] = set()
     for factor in factors:
         ranked = sorted(
             filtered,
@@ -243,29 +242,7 @@ def _filter_entities_by_factor_rank(
         for entity in ranked[:max_num_per_factor]:
             if entity.loadings.get(factor, 0.0) > 0:
                 keep.add(entity.entity_id)
-                keep_factor_entity_pairs.add((factor, entity.entity_id))
-    capped: list[EntityInfo] = []
-    for entity in filtered:
-        if entity.entity_id not in keep:
-            continue
-        loadings = {
-            factor: (value if (factor, entity.entity_id) in keep_factor_entity_pairs else 0.0)
-            for factor, value in entity.loadings.items()
-        }
-        if max(loadings.values(), default=0.0) <= 0:
-            continue
-        capped.append(
-            EntityInfo(
-                entity_id=entity.entity_id,
-                label=entity.label,
-                kind=entity.kind,
-                combined=entity.combined,
-                direct=entity.direct,
-                loadings=loadings,
-                provenance=entity.provenance,
-            )
-        )
-    return capped
+    return [entity for entity in filtered if entity.entity_id in keep]
 
 
 def _threshold_entity_loadings(entity: EntityInfo, *, min_loading: float, min_loading_frac: float) -> EntityInfo | None:
