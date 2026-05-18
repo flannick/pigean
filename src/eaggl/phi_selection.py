@@ -195,6 +195,16 @@ def _factor_size_metrics(Wc, config):
 
 
 def _nonoverlap_metrics(Wc, Hc):
+    if Wc is None or Wc.ndim != 2 or Wc.shape[1] < 2:
+        return None, {
+            "gene_factor_pair_soft_shared_mean": None,
+            "gene_factor_pair_soft_shared_q90": None,
+            "gene_factor_pair_soft_jaccard_mean": None,
+            "gene_factor_pair_soft_jaccard_q90": None,
+            "gene_nonoverlap_score": None,
+            "annotation_nonoverlap_score": None,
+            "nonoverlap_score": None,
+        }
     gene_shared_mean, gene_j_mean, gene_j_q90 = _soft_jaccard_q90(Wc)
     gene_score = _clip01(1.0 - gene_j_q90)
     out = {
@@ -443,6 +453,8 @@ def score_phi_candidate(phi: float, num_factors: int, inputs: PhiSelectionInputs
     score, metrics = _nonoverlap_metrics(Wc, Hc)
     component_scores["nonoverlap"] = score
     wide.update(metrics)
+    if score is None:
+        unavailable["nonoverlap"] = "at least two factors are required"
 
     gene_conc, metrics = _entity_concentration_one(Wc, gene_importance, config, "gene")
     wide.update(metrics)
