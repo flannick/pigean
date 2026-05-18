@@ -24,7 +24,7 @@ PYTHONPATH=src python -m eaggl.factor_graph \
 - Click a node to show embedded provenance. Gene nodes can show per-anchor direct, indirect, and combined support when the original `--gene-phewas-stats-in` file is also passed to `eaggl.factor_graph`, plus all factor loadings within 0.01 of that gene's top factor loading. Factor nodes show per-anchor relevance from `trait_factor_links.out` plus the top five gene and gene-set loadings.
 - Hover over an edge to show its weight, source table, and source field.
 - Node labels are truncated to 20 characters by default, with the full label shown on hover. Use `--label-max-chars` to change the displayed length, or `--label-max-chars 0` to disable truncation.
-- Trait nodes are pulled toward the factor centroid by default with `--trait-coordinate-scale 0.2`; use `--trait-coordinate-scale 1.0` to preserve the raw MDS position.
+- Trait nodes use `--trait-layout-mode anchored_top_factor` by default. This keeps phenotype nodes near the factor or factor pair with strongest linkage and enforces a small minimum radius from the factor centroid, avoiding collapse when trait linkage vectors are broad. Use `--trait-layout-mode mds` to restore raw MDS placement.
 - Interactive physics uses shorter factor-trait springs by default with `--trait-edge-length-scale 0.2`, so anchor phenotypes stay near the factor/gene structure.
 
 To start with physics disabled:
@@ -97,7 +97,9 @@ By default, phenotype nodes are also filtered to traits with `trait_neff > 25` w
 --trait-min-loading 0.005
 --trait-min-neff 25
 --label-max-chars 20
+--trait-layout-mode anchored_top_factor
 --trait-coordinate-scale 0.2
+--trait-min-centroid-distance-frac 0.35
 --trait-edge-length-scale 0.2
 --gene-min-loading-frac 0.5
 --trait-min-loading-frac 0.5

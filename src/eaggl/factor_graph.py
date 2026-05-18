@@ -68,6 +68,8 @@ class GraphConfig:
     max_num_trait_nodes_per_factor: int = 3
     coordinate_scale: float = 5.0
     trait_coordinate_scale: float = 0.2
+    trait_layout_mode: str = "anchored_top_factor"
+    trait_min_centroid_distance_frac: float = 0.35
     trait_edge_length_scale: float = 0.2
     node_size_scale: float = 2.0
     edge_max_width: float = 5.0
@@ -755,6 +757,47 @@ def _reorder_colors_by_factor_correlation(colors: list[tuple[float, float, float
     return [color if color is not None else colors[i] for i, color in enumerate(reordered)]
 
 
+def _place_traits_near_top_factors(
+    coords: np.ndarray,
+    entities: list[EntityInfo],
+    factors: list[str],
+    factor_coords: np.ndarray,
+    *,
+    trait_coordinate_scale: float,
+    min_centroid_distance_frac: float,
+) -> None:
+    if not len(entities) or not len(factors) or factor_coords.size == 0:
+        return
+    factor_center = np.mean(factor_coords, axis=0)
+    factor_distances = np.sqrt(np.sum(np.square(factor_coords - factor_center), axis=1))
+    min_distance = max(0.0, float(min_centroid_distance_frac)) * (float(np.median(factor_distances)) if len(factor_distances) else 0.0)
+    scale = max(0.0, min(float(trait_coordinate_scale), 1.0))
+    for entity_index, entity in enumerate(entities):
+        if entity.kind != "trait":
+            continue
+        weights = np.asarray([max(0.0, entity.loadings.get(factor, 0.0)) for factor in factors], dtype=float)
+        if not np.any(weights > 0):
+            continue
+        ranked = np.argsort(weights)[::-1]
+        support = ranked[: min(2, len(ranked))]
+        support = support[weights[support] > 0]
+        if len(support) == 0:
+            continue
+        local_weights = weights[support]
+        local_weights = local_weights / max(float(np.sum(local_weights)), 1e-12)
+        anchor = np.sum(factor_coords[support, :] * local_weights[:, np.newaxis], axis=0)
+        # Keep some MDS signal, but make the top-factor mixture the stable anchor.
+        coords[entity_index] = anchor + scale * (coords[entity_index] - anchor)
+        offset = coords[entity_index] - factor_center
+        distance = float(np.sqrt(np.sum(np.square(offset))))
+        if min_distance > 0 and distance < min_distance:
+            if distance <= 1e-12:
+                angle = 2.0 * math.pi * (int(support[0]) / max(len(factors), 1))
+                offset = np.asarray([math.cos(angle), math.sin(angle)], dtype=float)
+                distance = 1.0
+            coords[entity_index] = factor_center + offset * (min_distance / distance)
+
+
 def build_graph(
     factors_info: list[FactorInfo],
     genes: list[EntityInfo],
@@ -804,7 +847,16 @@ def build_graph(
     elif entity_matrix.size:
         colors = _reorder_colors_by_factor_correlation(colors, entity_matrix)
     coords = compute_layout(layout_matrix, coordinate_scale=config.coordinate_scale, seed=config.seed)
-    if traits and 0 <= config.trait_coordinate_scale < 1:
+    if traits and config.trait_layout_mode == "anchored_top_factor":
+        _place_traits_near_top_factors(
+            coords,
+            entities,
+            factors,
+            coords[len(entities) :],
+            trait_coordinate_scale=config.trait_coordinate_scale,
+            min_centroid_distance_frac=config.trait_min_centroid_distance_frac,
+        )
+    elif traits and 0 <= config.trait_coordinate_scale < 1:
         factor_coords = coords[len(entities) :]
         factor_center = np.mean(factor_coords, axis=0) if factor_coords.size else np.zeros(2, dtype=float)
         for entity_index, entity in enumerate(entities):
@@ -967,6 +1019,8 @@ def build_graph(
         "schema": "eaggl_factor_graph/v1",
         "layout": {
             "trait_coordinate_scale": float(config.trait_coordinate_scale),
+            "trait_layout_mode": str(config.trait_layout_mode),
+            "trait_min_centroid_distance_frac": float(config.trait_min_centroid_distance_frac),
             "trait_edge_length_scale": float(config.trait_edge_length_scale),
         },
         "coloring": {
@@ -1946,6 +2000,8 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         max_num_trait_nodes_per_factor=args.max_num_trait_nodes_per_factor,
         coordinate_scale=args.coordinate_scale,
         trait_coordinate_scale=args.trait_coordinate_scale,
+        trait_layout_mode=args.trait_layout_mode,
+        trait_min_centroid_distance_frac=args.trait_min_centroid_distance_frac,
         trait_edge_length_scale=args.trait_edge_length_scale,
         node_size_scale=args.node_size_scale,
         edge_max_width=args.edge_max_width,
@@ -2075,6 +2131,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-num-trait-nodes-per-factor", type=int, default=3)
     parser.add_argument("--coordinate-scale", type=float, default=5.0)
     parser.add_argument("--trait-coordinate-scale", type=float, default=0.2, help="Scale trait-node displacement from the factor centroid after layout; 1.0 preserves the raw MDS distance.")
+    parser.add_argument(
+        "--trait-layout-mode",
+        choices=["mds", "anchored_top_factor"],
+        default="anchored_top_factor",
+        help="Place phenotype nodes by raw MDS (`mds`) or anchor them near their strongest factor mixture to avoid centroid collapse (`anchored_top_factor`, default).",
+    )
+    parser.add_argument(
+        "--trait-min-centroid-distance-frac",
+        type=float,
+        default=0.35,
+        help="In anchored trait layout mode, enforce this fraction of the median factor-centroid radius as a minimum phenotype-node radius.",
+    )
     parser.add_argument("--trait-edge-length-scale", type=float, default=0.2, help="Scale factor-trait spring length in interactive physics; lower values keep phenotype nodes closer to factors.")
     parser.add_argument("--node-size-scale", type=float, default=2.0)
     parser.add_argument("--edge-max-width", type=float, default=5.0)
