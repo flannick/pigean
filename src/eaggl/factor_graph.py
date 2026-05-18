@@ -65,7 +65,7 @@ class GraphConfig:
     trait_min_loading_frac: float = 0.5
     max_num_factor_nodes: int = 50
     max_num_gene_nodes_per_factor: int = 3
-    max_num_trait_nodes_per_factor: int = 5
+    max_num_trait_nodes_per_factor: int = 3
     coordinate_scale: float = 5.0
     trait_coordinate_scale: float = 0.2
     trait_edge_length_scale: float = 0.2
@@ -234,6 +234,7 @@ def _filter_entities_by_factor_rank(
     if max_num_per_factor is None or max_num_per_factor <= 0:
         return []
     keep: set[str] = set()
+    keep_factor_entity_pairs: set[tuple[str, str]] = set()
     for factor in factors:
         ranked = sorted(
             filtered,
@@ -242,7 +243,29 @@ def _filter_entities_by_factor_rank(
         for entity in ranked[:max_num_per_factor]:
             if entity.loadings.get(factor, 0.0) > 0:
                 keep.add(entity.entity_id)
-    return [entity for entity in filtered if entity.entity_id in keep]
+                keep_factor_entity_pairs.add((factor, entity.entity_id))
+    capped: list[EntityInfo] = []
+    for entity in filtered:
+        if entity.entity_id not in keep:
+            continue
+        loadings = {
+            factor: (value if (factor, entity.entity_id) in keep_factor_entity_pairs else 0.0)
+            for factor, value in entity.loadings.items()
+        }
+        if max(loadings.values(), default=0.0) <= 0:
+            continue
+        capped.append(
+            EntityInfo(
+                entity_id=entity.entity_id,
+                label=entity.label,
+                kind=entity.kind,
+                combined=entity.combined,
+                direct=entity.direct,
+                loadings=loadings,
+                provenance=entity.provenance,
+            )
+        )
+    return capped
 
 
 def _threshold_entity_loadings(entity: EntityInfo, *, min_loading: float, min_loading_frac: float) -> EntityInfo | None:
@@ -2072,7 +2095,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trait-min-loading-frac", type=float, default=0.5)
     parser.add_argument("--max-num-factor-nodes", type=int, default=50, help="Maximum factor nodes to show, ranked by relevance; use 0 to show all factors.")
     parser.add_argument("--max-num-gene-nodes-per-factor", type=int, default=3)
-    parser.add_argument("--max-num-trait-nodes-per-factor", type=int, default=5)
+    parser.add_argument("--max-num-trait-nodes-per-factor", type=int, default=3)
     parser.add_argument("--coordinate-scale", type=float, default=5.0)
     parser.add_argument("--trait-coordinate-scale", type=float, default=0.2, help="Scale trait-node displacement from the factor centroid after layout; 1.0 preserves the raw MDS distance.")
     parser.add_argument("--trait-edge-length-scale", type=float, default=0.2, help="Scale factor-trait spring length in interactive physics; lower values keep phenotype nodes closer to factors.")
