@@ -90,6 +90,46 @@ def read_optional_text(path: Path, warnings: list[str], *, max_chars: int | None
     return text
 
 
+def read_optional_json(path: Path, warnings: list[str]) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        warnings.append(f"could not read {path}: {exc}")
+    except json.JSONDecodeError as exc:
+        warnings.append(f"could not parse JSON {path}: {exc}")
+    return {}
+
+
+def _strip_graph_provenance(graph: dict) -> dict:
+    """Keep graph geometry/edges while avoiding duplicate dashboard provenance."""
+    if not graph:
+        return {}
+    cleaned = dict(graph)
+    cleaned["nodes"] = []
+    for node in graph.get("nodes", []) or []:
+        item = {key: value for key, value in dict(node).items() if key != "provenance"}
+        cleaned["nodes"].append(item)
+    cleaned["edges"] = []
+    for edge in graph.get("edges", []) or []:
+        item = dict(edge)
+        provenance = dict(item.get("provenance") or {})
+        if provenance:
+            item["provenance"] = {
+                key: provenance.get(key)
+                for key in ("source_table", "weight", "weight_field", "threshold_fields")
+                if key in provenance
+            }
+        cleaned["edges"].append(item)
+    # The standalone factor graph keeps candidate nodes for add-node autocomplete.
+    # The combined dashboard resolves provenance from its own tables and does not
+    # need this large duplicate candidate payload.
+    cleaned["candidate_nodes"] = []
+    cleaned["candidate_edges"] = []
+    return cleaned
+
+
 def _first(row: dict[str, str], names: Iterable[str], default=""):
     for name in names:
         if name in row and row[name] not in (None, ""):
@@ -646,9 +686,9 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     )
     gene_clusters_path = path / "gene_clusters.out.gz"
     gene_loading_source_specs = [
-        ("discovery", "Discovery genes", gene_clusters_path, path / "factor_graph.html"),
-        ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html"),
-        ("full_via_gene_sets", "Full genes: via gene sets", path / "gene_clusters_full_via_gene_sets.out.gz", path / "factor_graph.full_via_gene_sets.html"),
+        ("discovery", "Discovery genes", gene_clusters_path, path / "factor_graph.html", path / "factor_graph.json"),
+        ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html", path / "factor_graph.full_direct.json"),
+        ("full_via_gene_sets", "Full genes: via gene sets", path / "gene_clusters_full_via_gene_sets.out.gz", path / "factor_graph.full_via_gene_sets.html", path / "factor_graph.full_via_gene_sets.json"),
     ]
     gene_set_clusters_path = path / "gene_set_clusters.out.gz"
     factors_rows = read_tsv(factors_path, warnings) if factors_path.exists() else []
@@ -657,7 +697,7 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     if not factors_path.exists():
         warnings.append(f"missing EAGGL factors: {factors_path}")
     gene_loading_sources: dict[str, dict] = {}
-    for source_id, source_label, source_path, graph_path in gene_loading_source_specs:
+    for source_id, source_label, source_path, graph_path, graph_json_path in gene_loading_source_specs:
         if not source_path.exists():
             continue
         _, source_by_factor = read_cluster_table(
@@ -673,8 +713,10 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
             "label": source_label,
             "path": str(source_path),
             "factor_graph_html_path": str(graph_path),
-            "factor_graph_available": graph_path.exists(),
-            "factor_graph_html": read_optional_text(graph_path, warnings, max_chars=None),
+            "factor_graph_json_path": str(graph_json_path),
+            "factor_graph_available": graph_json_path.exists() or graph_path.exists(),
+            "factor_graph_data": _strip_graph_provenance(read_optional_json(graph_json_path, warnings)),
+            "factor_graph_html": "" if graph_json_path.exists() else read_optional_text(graph_path, warnings, max_chars=None),
             "by_factor": source_by_factor,
         }
     if not gene_clusters_path.exists():
@@ -746,8 +788,9 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
             "warnings_log": str(path / "eaggl.warnings.log"),
         },
         "warnings": warnings,
-        "factor_graph_available": factor_graph_html_path.exists(),
-        "factor_graph_html": read_optional_text(factor_graph_html_path, warnings, max_chars=None),
+        "factor_graph_available": (path / "factor_graph.json").exists() or factor_graph_html_path.exists(),
+        "factor_graph_data": _strip_graph_provenance(read_optional_json(path / "factor_graph.json", warnings)),
+        "factor_graph_html": "" if (path / "factor_graph.json").exists() else read_optional_text(factor_graph_html_path, warnings, max_chars=None),
         "gene_loading_sources": gene_loading_sources,
         "anchor_traits": anchor_traits,
         "selected_phi_metrics": selected_phi_metrics,
