@@ -444,17 +444,19 @@ parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type
 parser.add_option("","--trait-linkage-source",default="combined",type=str) #trait linkage support surface: combined by default; expert override: auto, log_bf, prior
 parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #strict threshold applied to the selected trait-linkage source surface
 parser.add_option("","--trait-linkage-computation-mode",default="sparse_full",type=str) #trait linkage computation backend: sparse_full (default sparse-aware full-space solve) or dense_full (debug dense equivalent)
-parser.add_option("","--trait-factor-linkage-evidence-source",default="auto",type=str) #support surface for Bayesian trait-factor effect/evidence scores: auto, log_bf, combined, or prior
-parser.add_option("","--trait-factor-linkage-effect-input-transform",default="weighted_thresholded",type=str) #Bayesian trait-factor effect input transform: raw, weighted_thresholded, or excess_thresholded
-parser.add_option("","--trait-factor-linkage-effect-threshold",default=1.0,type=float) #threshold for weighted/excess Bayesian trait-factor effect input transforms
-parser.add_option("","--trait-factor-linkage-effect-prior-sd",default=1.0,type=float) #prior SD for Bayesian trait-factor effect coefficients
-parser.add_option("","--trait-factor-linkage-effect-min-trait-neff",default=10.0,type=float) #minimum trait effective feature count for Bayesian trait-factor notable flags
-parser.add_option("","--trait-factor-linkage-effect-min-retained-fraction",default=0.1,type=float) #minimum retained support fraction for Bayesian trait-factor notable flags
-parser.add_option("","--trait-factor-linkage-notable-ln-bf",default=3.0,type=float) #minimum ln Bayes factor for Bayesian trait-factor notable flags
-parser.add_option("","--trait-factor-linkage-notable-ln-bf-scale",default=5.0,type=float) #ln Bayes factor scale used in Bayesian trait-factor notable scores
-parser.add_option("","--trait-factor-linkage-membership-normalization",default="max",type=str) #factor membership normalization for Bayesian trait-factor effects: max or raw_capped
-parser.add_option("","--trait-factor-linkage-membership-cap",default=1.0,type=float) #cap for Bayesian trait-factor soft membership values
-parser.add_option("","--trait-factor-linkage-anchor-source",default="auto",type=str) #same-feature anchor support for anchor-conditional effects: auto, combined, log_bf, prior, or none
+parser.add_option("","--trait-factor-linkage-evidence-source",default="auto",type=str) #compatibility option retained for older commands; simplified trait linkage uses --trait-linkage-source
+parser.add_option("","--trait-factor-linkage-effect-input-transform",default="weighted_thresholded",type=str) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-effect-threshold",default=1.0,type=float) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-effect-prior-sd",default=1.0,type=float) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-effect-min-trait-neff",default=10.0,type=float) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-effect-min-retained-fraction",default=0.1,type=float) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-notable-ln-bf",default=3.0,type=float) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-notable-ln-bf-scale",default=5.0,type=float) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-membership-normalization",default="max",type=str) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-membership-cap",default=1.0,type=float) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-anchor-source",default="auto",type=str) #compatibility option retained for older commands
+parser.add_option("","--trait-factor-linkage-factor-gene-threshold",default=0.05,type=float) #zero EAGGL factor gene loadings below this value before factor-trait association/projection
+parser.add_option("","--factor-gmt-out",default=None) #write EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs
 parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
 
 
@@ -603,23 +605,25 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-sets-for-labeling-id-col": "optional header column for --gene-sets-for-labeling inputs; defaults to the first column",
     "--log-file": "write structured run logs to this file",
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
-    "--project-phenos-from-gene-sets": "project canonical trait linkage from the gene-set basis instead of the gene basis",
-    "--pheno-capture-input": "choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
-    "--trait-linkage-source": "choose the support surface for canonical trait linkage: combined by default, with optional expert overrides",
+    "--project-phenos-from-gene-sets": "project simplified trait linkage from the gene-set basis instead of the gene basis",
+    "--pheno-capture-input": "choose the simplified trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
+    "--trait-linkage-source": "choose the response surface for simplified trait linkage: combined by default, with optional expert overrides",
     "--trait-linkage-threshold": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
-    "--trait-linkage-computation-mode": "choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend",
-    "--trait-factor-linkage-evidence-source": "choose the support surface for Bayesian trait-factor effect/evidence scores; auto prefers log_bf, then combined, then prior",
-    "--trait-factor-linkage-effect-input-transform": "choose the transform for Bayesian trait-factor evidence input: raw, weighted_thresholded, or excess_thresholded",
-    "--trait-factor-linkage-effect-threshold": "threshold used by weighted_thresholded and excess_thresholded Bayesian trait-factor evidence transforms",
-    "--trait-factor-linkage-effect-prior-sd": "prior standard deviation for Bayesian trait-factor effect coefficients",
-    "--trait-factor-linkage-effect-min-trait-neff": "minimum trait effective feature count required for Bayesian trait-factor notable flags",
-    "--trait-factor-linkage-effect-min-retained-fraction": "minimum retained support fraction required for Bayesian trait-factor notable flags",
-    "--trait-factor-linkage-notable-ln-bf": "minimum log Bayes factor required for Bayesian trait-factor notable flags",
-    "--trait-factor-linkage-notable-ln-bf-scale": "log Bayes factor scale used to compute Bayesian trait-factor notable scores",
-    "--trait-factor-linkage-membership-normalization": "choose soft factor memberships for Bayesian trait-factor effects: max or raw_capped",
-    "--trait-factor-linkage-membership-cap": "maximum soft membership value for Bayesian trait-factor effects",
-    "--trait-factor-linkage-anchor-source": "choose same-feature anchor support for anchor-conditional Bayesian effects: auto, combined, log_bf, prior, or none",
-    "--no-trait-linkage": "disable canonical trait linkage even when trait inputs are available",
+    "--trait-linkage-computation-mode": "choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend",
+    "--trait-factor-linkage-evidence-source": "compatibility option retained for older commands; simplified trait linkage uses --trait-linkage-source",
+    "--trait-factor-linkage-effect-input-transform": "compatibility option retained for older commands",
+    "--trait-factor-linkage-effect-threshold": "compatibility option retained for older commands",
+    "--trait-factor-linkage-effect-prior-sd": "compatibility option retained for older commands",
+    "--trait-factor-linkage-effect-min-trait-neff": "compatibility option retained for older commands",
+    "--trait-factor-linkage-effect-min-retained-fraction": "compatibility option retained for older commands",
+    "--trait-factor-linkage-notable-ln-bf": "compatibility option retained for older commands",
+    "--trait-factor-linkage-notable-ln-bf-scale": "compatibility option retained for older commands",
+    "--trait-factor-linkage-membership-normalization": "compatibility option retained for older commands",
+    "--trait-factor-linkage-membership-cap": "compatibility option retained for older commands",
+    "--trait-factor-linkage-anchor-source": "compatibility option retained for older commands",
+    "--trait-factor-linkage-factor-gene-threshold": "zero EAGGL factor gene loadings below this threshold before factor-trait association/projection",
+    "--factor-gmt-out": "write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs",
+    "--no-trait-linkage": "disable simplified trait linkage even when trait inputs are available",
     "--clustering-params-out": "write structured clustering workflow provenance as paired JSON and TSV summaries",
     "--run-phewas": "run the optional gene-level phewas output stage",
     "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
@@ -770,6 +774,8 @@ _EXPERT_METHOD_FLAGS = {
     "--trait-factor-linkage-membership-normalization",
     "--trait-factor-linkage-membership-cap",
     "--trait-factor-linkage-anchor-source",
+    "--trait-factor-linkage-factor-gene-threshold",
+    "--factor-gmt-out",
     "--no-trait-linkage",
     "--run-phewas",
 }
@@ -854,6 +860,8 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--trait-factor-linkage-membership-normalization",
     "--trait-factor-linkage-membership-cap",
     "--trait-factor-linkage-anchor-source",
+    "--trait-factor-linkage-factor-gene-threshold",
+    "--factor-gmt-out",
     "--trait-factor-links-output-detail",
     "--no-trait-linkage",
     "--X-in",
@@ -1552,6 +1560,8 @@ def _bootstrap_cli(argv=None):
         bail("--trait-factor-linkage-membership-normalization must be one of: max, raw_capped")
     if parsed_options.trait_factor_linkage_membership_cap <= 0:
         bail("--trait-factor-linkage-membership-cap must be > 0")
+    if parsed_options.trait_factor_linkage_factor_gene_threshold < 0:
+        bail("--trait-factor-linkage-factor-gene-threshold must be >= 0")
     if parsed_options.trait_factor_linkage_anchor_source not in set(["auto", "combined", "log_bf", "prior", "none"]):
         bail("--trait-factor-linkage-anchor-source must be one of: auto, combined, log_bf, prior, none")
     if parsed_options.trait_factor_links_output_detail not in set(["main", "full", "debug"]):

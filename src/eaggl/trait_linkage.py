@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import gzip
 
 import numpy as np
 from scipy import sparse
@@ -196,6 +197,169 @@ def _normal_cdf(values):
     values = np.asarray(values, dtype=float)
     erf_values = np.vectorize(math.erf)(values / math.sqrt(2.0))
     return 0.5 * (1.0 + erf_values)
+
+
+def threshold_factor_gene_basis(basis, threshold=0.05):
+    """Return nonnegative factor loadings with small gene weights zeroed."""
+    dense = np.maximum(_sanitize_nonfinite(basis), 0.0)
+    threshold = 0.0 if threshold is None else float(threshold)
+    if threshold > 0.0:
+        dense = np.where(dense >= threshold, dense, 0.0)
+    return dense
+
+
+def factor_basis_cosines(basis, *, eps=1e-12):
+    """Cosine of each row-loading vector against each factor indicator."""
+    dense = np.maximum(_sanitize_nonfinite(basis), 0.0)
+    row_norms = np.linalg.norm(dense, axis=1, keepdims=True)
+    return np.divide(dense, np.maximum(row_norms, eps), out=np.zeros_like(dense), where=row_norms > eps)
+
+
+def write_factor_gmt(path, genes, factor_names, basis, threshold=0.05):
+    """Export weighted EAGGL factors as a GMT-like factor gene-set file."""
+    if path is None:
+        return
+    W = threshold_factor_gene_basis(basis, threshold)
+    opener = gzip.open if str(path).endswith(".gz") else open
+    with opener(path, "wt") as out:
+        for factor_index, factor_name in enumerate(factor_names):
+            keep = np.flatnonzero(W[:, factor_index] > 0.0)
+            fields = [str(factor_name), "EAGGL_factor"]
+            fields.extend(str(genes[i]) for i in keep)
+            out.write("%s\n" % "\t".join(fields))
+
+
+def _ols_beta_se(y, x, *, eps=1e-12):
+    y = np.nan_to_num(np.asarray(y, dtype=float).ravel(), nan=0.0, posinf=0.0, neginf=0.0)
+    x = np.nan_to_num(np.asarray(x, dtype=float).ravel(), nan=0.0, posinf=0.0, neginf=0.0)
+    if y.shape[0] != x.shape[0] or y.size < 3:
+        return np.nan, np.nan, np.nan, np.nan
+    xc = x - float(np.mean(x))
+    yc = y - float(np.mean(y))
+    denom = float(np.dot(xc, xc))
+    if denom <= eps:
+        return 0.0, np.inf, 0.0, 1.0
+    beta = float(np.dot(xc, yc) / denom)
+    resid = yc - beta * xc
+    sigma2 = float(np.dot(resid, resid) / max(y.size - 2, 1))
+    se = math.sqrt(max(sigma2, eps) / max(denom, eps))
+    z = beta / se if se > eps and np.isfinite(se) else 0.0
+    p = float(math.erfc(abs(z) / math.sqrt(2.0)))
+    return beta, se, z, p
+
+
+def _joint_ridge_betas(Y, W, ridge=1e-6):
+    Y = np.nan_to_num(np.asarray(Y, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+    W = np.nan_to_num(np.asarray(W, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+    if W.size == 0 or Y.size == 0:
+        return np.zeros((Y.shape[1] if Y.ndim == 2 else 0, W.shape[1] if W.ndim == 2 else 0), dtype=float)
+    X = W - np.mean(W, axis=0, keepdims=True)
+    Yc = Y - np.mean(Y, axis=0, keepdims=True)
+    XtX = X.T @ X
+    penalty = float(ridge) * np.eye(XtX.shape[0], dtype=float)
+    try:
+        coef = np.linalg.solve(XtX + penalty, X.T @ Yc)
+    except np.linalg.LinAlgError:
+        coef = np.linalg.pinv(XtX + penalty) @ (X.T @ Yc)
+    return coef.T
+
+
+def compute_factor_trait_links(
+    nnls_project_fn,
+    basis,
+    feature_by_trait,
+    *,
+    basis_mask=None,
+    threshold_mode="weighted_thresholded",
+    threshold_value=1.0,
+    trait_response_source_name="combined",
+    factor_loading_threshold=0.05,
+    computation_mode="sparse_full",
+):
+    """Compute simplified factor-trait links: PIGEAN-style beta stats and NNLS loadings.
+
+    The beta columns are computed from the factor loadings treated as weighted gene-set
+    memberships. `beta_uncorrected` is the marginal slope; `beta` is the joint ridge
+    coefficient across all factors. `beta_tilde`, `se`, `z`, and `p_value` are the
+    marginal regression statistics.
+    """
+    if computation_mode not in {"dense_full", "sparse_full"}:
+        raise ValueError("Unknown trait linkage computation mode: %s" % computation_mode)
+    dense_basis = threshold_factor_gene_basis(basis, factor_loading_threshold)
+    target_feature_by_trait = _sanitize_nonfinite_preserve_sparse(feature_by_trait)
+    if dense_basis is None or target_feature_by_trait is None:
+        return None
+    expected_num_rows = target_feature_by_trait.shape[0]
+    if basis_mask is None:
+        retained_mask = np.full(expected_num_rows, True, dtype=bool)
+        if dense_basis.shape[0] != expected_num_rows:
+            raise ValueError(
+                "Trait linkage basis rows %s must match feature rows %s when no basis mask is provided"
+                % (dense_basis.shape[0], expected_num_rows)
+            )
+        retained_basis = dense_basis
+    else:
+        retained_mask = np.asarray(basis_mask, dtype=bool)
+        if retained_mask.shape[0] != expected_num_rows:
+            raise ValueError("Trait linkage basis mask length must match feature rows")
+        if dense_basis.shape[0] == expected_num_rows:
+            retained_basis = dense_basis[retained_mask, :]
+        elif dense_basis.shape[0] == int(np.sum(retained_mask)):
+            retained_basis = dense_basis
+        else:
+            raise ValueError("Trait linkage basis rows do not match mask length or kept rows")
+
+    full_support = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
+        target_feature_by_trait,
+        threshold_mode,
+        threshold_value=threshold_value,
+        strict_threshold=True,
+    )
+    retained_support = full_support[retained_mask, :]
+    retained_dense = retained_support.toarray() if sparse.issparse(retained_support) else np.asarray(retained_support, dtype=float)
+    retained_dense = np.nan_to_num(retained_dense, nan=0.0, posinf=0.0, neginf=0.0)
+
+    trait_total_support = eaggl_phenotype_annotation.compute_profile_strengths(full_support)
+    trait_n_eff = _compute_effective_feature_count(full_support)
+    retained_n_eff = _compute_effective_feature_count(retained_support)
+
+    beta_tilde = np.zeros((retained_dense.shape[1], retained_basis.shape[1]), dtype=float)
+    se = np.full_like(beta_tilde, np.nan)
+    z = np.zeros_like(beta_tilde)
+    p_value = np.ones_like(beta_tilde)
+    for trait_index in range(retained_dense.shape[1]):
+        y = retained_dense[:, trait_index]
+        for factor_index in range(retained_basis.shape[1]):
+            b, s, zz, pp = _ols_beta_se(y, retained_basis[:, factor_index])
+            beta_tilde[trait_index, factor_index] = b
+            se[trait_index, factor_index] = s
+            z[trait_index, factor_index] = zz
+            p_value[trait_index, factor_index] = pp
+
+    beta_uncorrected = beta_tilde.copy()
+    beta = _joint_ridge_betas(retained_dense, retained_basis)
+    nnls_loadings = np.asarray(
+        nnls_project_fn(retained_basis, retained_dense.T, max_sum=None),
+        dtype=float,
+    )
+    factor_weight_sum = np.sum(retained_basis, axis=0)
+    factor_num_genes = np.sum(retained_basis > 0.0, axis=0).astype(int)
+    return {
+        "nnls": np.maximum(nnls_loadings, 0.0),
+        "beta": beta,
+        "beta_uncorrected": beta_uncorrected,
+        "beta_tilde": beta_tilde,
+        "se": se,
+        "z": z,
+        "p_value": p_value,
+        "trait_total_support": trait_total_support,
+        "trait_n_eff": trait_n_eff,
+        "retained_n_eff": retained_n_eff,
+        "factor_weight_sum": factor_weight_sum,
+        "factor_num_genes": factor_num_genes,
+        "factor_loading_threshold": float(factor_loading_threshold),
+        "trait_response_source": trait_response_source_name,
+    }
 
 
 def _transform_effect_input(matrix, mode, threshold):

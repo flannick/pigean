@@ -8,7 +8,7 @@ This document maps each supported factoring workflow to:
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
 Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode. Use `--gene-sets-for-labeling` one or more times to limit factor-label candidates to selected gene-set libraries without changing the fitted loadings.
-Canonical trait linkage is the primary annotation layer. It reports support-normalized projection coefficients as capture/allocation metrics, and also writes Bayesian factor-effect/evidence columns that estimate marginal, joint, and anchor-conditional trait-support lifts. Raw trait support and raw factor loadings keep their original totals; only copied internal vectors are normalized for matching. Factor-PheWAS is a secondary expert-only enrichment regression.
+Simplified trait linkage is the primary annotation layer. It reports support-normalized projection coefficients as capture/allocation metrics, and also writes factor-as-gene-set beta columns that estimate marginal, joint, and anchor-conditional trait-support lifts. Raw trait support and raw factor loadings keep their original totals; only copied internal vectors are normalized for matching. Factor-PheWAS is a secondary expert-only enrichment regression.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
 
@@ -114,43 +114,12 @@ PheWAS matrix inputs:
 
 Phenotype annotation policy:
 
-1. use canonical trait linkage for the primary public phenotype annotation layer
+1. use simplified trait linkage for the primary public phenotype annotation layer
 2. write the long-form linkage table with `--trait-factor-links-out`
-3. interpret capture fractions as linkage of the thresholded high-confidence phenotype support shape, not of a fully observed unthresholded phenotype surface or a biological probability distribution
-4. canonical linkage forms a masked full-space target (`s_mask / A`) by dividing masked thresholded trait support by total thresholded trait support before masking, then solves the joint/marginal projections in that full objective space
-5. use `--trait-factor-links-output-detail main` for the concise default table with capture aliases and Bayesian effect/evidence summaries; use `full` or `debug` when posterior SDs, probabilities, notability scores, and conditioning diagnostics are needed
-6. use `--trait-factor-linkage-evidence-source` and related `--trait-factor-linkage-*` options to control the Bayesian effect surface without changing the legacy capture source
-7. use the retained diagnostics in full-detail `trait_factor_links.out.gz` to judge whether a trait is poorly represented or highly concentrated on the current factor basis:
-   - `trait_total_support`
-   - `retained_trait_support`
-   - `retained_fraction`
-   - `trait_n_eff`
-   - `retained_n_eff`
-   - `total_feature_count`
-   - `retained_feature_count`
-   - `low_retention_flag`
-   - `joint_coefficient_support_mass`
-   - `marginal_coefficient_support_mass`
-   - `marginal_overlap`
-   - `marginal_overlap_support_mass`
-7. use `trait_n_eff` and `retained_n_eff` when raw thresholded feature counts overstate breadth; these effective-size diagnostics shrink toward the number of genes carrying most of the support mass
-8. use `factor_n_eff`, `factor_top_share`, `factor_top10_share`, and `broad_factor_flag` in `factors.out` to identify broad factors; `broad_factor_flag` marks `factor_n_eff >= 500` and `factor_top_share <= 0.01`
-9. for factor -> trait interpretation, filter on trait QC and rank by `joint_coefficient`, using `marginal_coefficient` or `marginal_overlap` as secondary context
-10. for trait -> factor interpretation, rank by `joint_coefficient`, not marginal alone; optionally require `broad_factor_flag = 0` or inspect `factor_n_eff`
-11. use `--pheno-capture-input weighted_thresholded` by default and `binary_thresholded` only as an expert sensitivity mode
-12. default to `--trait-linkage-source combined` with `--trait-linkage-threshold 1.0` (strict `source_value > 1.0`); use `--trait-linkage-source auto` only when you explicitly want fallback resolution (`combined`, then `log_bf`, then `prior`)
-13. default to `--trait-linkage-computation-mode sparse_full` for sparse-aware full-space linkage; use `dense_full` only as an expert/debug comparison backend
-14. use `--project-phenos-from-gene-sets` only when the gene-set basis is the intended expert or fallback basis
-15. treat `--run-factor-phewas` as a secondary expert workflow
-16. by default factor-PheWAS uses `--factor-phewas-mode marginal_anchor_adjusted_binary`
-17. by default factor-PheWAS uses `--factor-phewas-anchor-covariate direct`
-18. use `--factor-phewas-modes mode1,mode2,...` only for explicit expert comparisons; the requested models are appended into one `factor_phewas_stats.out` table
-19. add `--factor-phewas-full-output` only when you explicitly want the broader legacy continuous and sensitivity diagnostics
-20. to rerun canonical trait linkage from existing EAGGL factors on the gene basis, pass `--factor-gene-clusters-in results/gene_clusters.out.gz`; add `--trait-factor-links-out ...` to write the canonical long-form linkage table, `--run-factor-phewas --factor-phewas-stats-out ...` to write factor-PheWAS, or both in the same command
-21. `--factor-phewas-gene-clusters-in` remains accepted as a compatibility alias for the factor-PheWAS-only projection path, but `--factor-gene-clusters-in` is the canonical precomputed-factor input
-22. to rerun expert trait linkage from the gene-set basis, pass `--project-phenos-from-gene-sets --factor-gene-set-clusters-in results/gene_set_clusters.out.gz --gene-set-phewas-stats-in ... --trait-factor-links-out ...`; this uses the same projection basis as normal EAGGL factorization
-23. to project full genes from existing gene factors, pass `--factor-gene-clusters-in`, `--X-in`, `--gene-set-stats-in`, and `--gene-clusters-full-out`; this reconstructs direct beta-weighted gene-gene evidence
-24. to project full genes via an existing gene-set factor basis, pass `--factor-gene-set-clusters-in`, `--X-in`, and `--gene-clusters-full-out`; EAGGL does not infer this basis from `gene_clusters.out.gz`
+3. interpret `nnls_loading` as projection of the selected thresholded trait support vector onto factors
+4. interpret `beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, and `p_value` as factor-as-gene-set association summaries
+5. use `--trait-factor-linkage-factor-gene-threshold` to set the minimum factor gene loading included in association/projection
+6. use `--factor-gmt-out` to export thresholded factors for a manual PIGEAN `multi-y` run
 
 Projection-only trait linkage from the gene basis:
 
@@ -368,3 +337,9 @@ Post-read filtering does not tighten this threshold.
 1. Deterministic workflow baseline generator: `scripts/freeze_factor_workflow_effective_configs.sh`
 2. Effective-config fixtures: `tests/data/reference/factor_workflow_effective_config/`
 3. PIGEAN handoff details: `docs/eaggl/INTEROP.md`
+
+### Simplified Trait Linkage
+
+EAGGL trait-factor linkage is intentionally limited to two outputs: NNLS projection loadings and factor-as-gene-set beta statistics. Factors are exported or scored as weighted gene sets after zeroing gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). `--factor-gmt-out` writes those thresholded factor gene sets for manual PIGEAN `multi-y` runs.
+
+Gene, gene-set, and phenotype cluster tables now include raw `Factor*` loadings plus `Cosine_Factor*` columns. `Cosine_FactorK` is the cosine similarity between the row's factor-loading vector and the indicator vector for factor `K`.

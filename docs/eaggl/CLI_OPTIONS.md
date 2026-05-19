@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `299`
+- Total options: `301`
 - `method_required`: `11`
-- `method_optional`: `192`
-- `engineering`: `79`
+- `method_optional`: `193`
+- `engineering`: `80`
 - `compat_alias`: `11`
 - `debug_only`: `6`
 - visibility `expert`: `243`
 - visibility `hidden`: `8`
-- visibility `normal`: `48`
+- visibility `normal`: `50`
 
 ## Method Required
 
@@ -171,7 +171,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `-` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
-| `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable canonical trait linkage even when trait inputs are available |
+| `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable simplified trait linkage even when trait inputs are available |
 | `--no-transpose` | `expert` | `yes` | `expert_help` | `no_transpose` | `-` | - |
 | `--num-chains` | `expert` | `yes` | `expert_help` | `num_chains` | `10` | - |
 | `--num-chains-betas` | `expert` | `yes` | `expert_help` | `num_chains_betas` | `4` | - |
@@ -179,7 +179,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--ols` | `expert` | `yes` | `expert_help` | `ols` | `-` | - |
 | `--p-noninf` | `expert` | `yes` | `expert_help` | `p_noninf` | `None` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
-| `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
+| `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the simplified trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
 | `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors |
 | `--phi-selection-annotation-coverage-top-frac` | `expert` | `yes` | `expert_help` | `phi_selection_annotation_coverage_top_frac` | `0.05` | - |
@@ -195,7 +195,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--phi-selection-size-log2-width` | `expert` | `yes` | `expert_help` | `phi_selection_size_log2_width` | `1.0` | - |
 | `--phi-selection-target-factor-gene-mass` | `expert` | `yes` | `expert_help` | `phi_selection_target_factor_gene_mass` | `100.0` | - |
 | `--phi-selection-tie-tolerance` | `expert` | `yes` | `expert_help` | `phi_selection_tie_tolerance` | `0.01` | - |
-| `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project canonical trait linkage from the gene-set basis instead of the gene basis |
+| `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project simplified trait linkage from the gene-set basis instead of the gene basis |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
@@ -206,20 +206,21 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
-| `--trait-factor-linkage-anchor-source` | `normal` | `yes` | `core_help` | `trait_factor_linkage_anchor_source` | `auto` | choose same-feature anchor support for anchor-conditional Bayesian effects: auto, combined, log_bf, prior, or none |
-| `--trait-factor-linkage-effect-input-transform` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_input_transform` | `weighted_thresholded` | choose the transform for Bayesian trait-factor evidence input: raw, weighted_thresholded, or excess_thresholded |
-| `--trait-factor-linkage-effect-min-retained-fraction` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_min_retained_fraction` | `0.1` | minimum retained support fraction required for Bayesian trait-factor notable flags |
-| `--trait-factor-linkage-effect-min-trait-neff` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_min_trait_neff` | `10.0` | minimum trait effective feature count required for Bayesian trait-factor notable flags |
-| `--trait-factor-linkage-effect-prior-sd` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_prior_sd` | `1.0` | prior standard deviation for Bayesian trait-factor effect coefficients |
-| `--trait-factor-linkage-effect-threshold` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_threshold` | `1.0` | threshold used by weighted_thresholded and excess_thresholded Bayesian trait-factor evidence transforms |
-| `--trait-factor-linkage-evidence-source` | `normal` | `yes` | `core_help` | `trait_factor_linkage_evidence_source` | `auto` | choose the support surface for Bayesian trait-factor effect/evidence scores; auto prefers log_bf, then combined, then prior |
-| `--trait-factor-linkage-membership-cap` | `normal` | `yes` | `core_help` | `trait_factor_linkage_membership_cap` | `1.0` | maximum soft membership value for Bayesian trait-factor effects |
-| `--trait-factor-linkage-membership-normalization` | `normal` | `yes` | `core_help` | `trait_factor_linkage_membership_normalization` | `max` | choose soft factor memberships for Bayesian trait-factor effects: max or raw_capped |
-| `--trait-factor-linkage-notable-ln-bf` | `normal` | `yes` | `core_help` | `trait_factor_linkage_notable_ln_bf` | `3.0` | minimum log Bayes factor required for Bayesian trait-factor notable flags |
-| `--trait-factor-linkage-notable-ln-bf-scale` | `normal` | `yes` | `core_help` | `trait_factor_linkage_notable_ln_bf_scale` | `5.0` | log Bayes factor scale used to compute Bayesian trait-factor notable scores |
+| `--trait-factor-linkage-anchor-source` | `normal` | `yes` | `core_help` | `trait_factor_linkage_anchor_source` | `auto` | compatibility option retained for older commands |
+| `--trait-factor-linkage-effect-input-transform` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_input_transform` | `weighted_thresholded` | compatibility option retained for older commands |
+| `--trait-factor-linkage-effect-min-retained-fraction` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_min_retained_fraction` | `0.1` | compatibility option retained for older commands |
+| `--trait-factor-linkage-effect-min-trait-neff` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_min_trait_neff` | `10.0` | compatibility option retained for older commands |
+| `--trait-factor-linkage-effect-prior-sd` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_prior_sd` | `1.0` | compatibility option retained for older commands |
+| `--trait-factor-linkage-effect-threshold` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_threshold` | `1.0` | compatibility option retained for older commands |
+| `--trait-factor-linkage-evidence-source` | `normal` | `yes` | `core_help` | `trait_factor_linkage_evidence_source` | `auto` | compatibility option retained for older commands; simplified trait linkage uses --trait-linkage-source |
+| `--trait-factor-linkage-factor-gene-threshold` | `normal` | `yes` | `core_help` | `trait_factor_linkage_factor_gene_threshold` | `0.05` | zero EAGGL factor gene loadings below this threshold before factor-trait association/projection |
+| `--trait-factor-linkage-membership-cap` | `normal` | `yes` | `core_help` | `trait_factor_linkage_membership_cap` | `1.0` | compatibility option retained for older commands |
+| `--trait-factor-linkage-membership-normalization` | `normal` | `yes` | `core_help` | `trait_factor_linkage_membership_normalization` | `max` | compatibility option retained for older commands |
+| `--trait-factor-linkage-notable-ln-bf` | `normal` | `yes` | `core_help` | `trait_factor_linkage_notable_ln_bf` | `3.0` | compatibility option retained for older commands |
+| `--trait-factor-linkage-notable-ln-bf-scale` | `normal` | `yes` | `core_help` | `trait_factor_linkage_notable_ln_bf_scale` | `5.0` | compatibility option retained for older commands |
 | `--trait-factor-links-output-detail` | `normal` | `yes` | `core_help` | `trait_factor_links_output_detail` | `main` | choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions |
-| `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend |
-| `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the support surface for canonical trait linkage: combined by default, with optional expert overrides |
+| `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend |
+| `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the response surface for simplified trait linkage: combined by default, with optional expert overrides |
 | `--trait-linkage-threshold` | `normal` | `yes` | `core_help` | `trait_linkage_threshold` | `1.0` | strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold) |
 | `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
@@ -242,6 +243,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--consensus-stats-out` | `normal` | `no` | `core_help` | `consensus_stats_out` | `None` | write per-run and per-factor diagnostics for restart or consensus factorization |
 | `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
 | `--deterministic` | `expert` | `no` | `core_help` | `deterministic` | `False` | force deterministic random seed behavior (seed=0 unless --seed is set) |
+| `--factor-gmt-out` | `normal` | `no` | `core_help` | `factor_gmt_out` | `None` | write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs |
 | `--factor-metrics-out` | `expert` | `no` | `expert_help` | `factor_metrics_out` | `None` | - |
 | `--factor-phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `factor_phewas_stats_out` | `None` | - |
 | `--factor-phi-factors-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_factors_out` | `None` | write factors.out-style rows for each investigated phi-search candidate with a leading phi column |

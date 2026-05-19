@@ -404,7 +404,9 @@ def read_trait_links(
         factor_i = _get_col(header, "factor", required=False)
         if factor_i is None:
             factor_i = _get_col(header, "Factor", required=False)
-        value_i = _get_col(header, "joint_fraction", required=False)
+        value_i = _get_col(header, "nnls_loading", required=False)
+        if value_i is None:
+            value_i = _get_col(header, "joint_fraction", required=False)
         if value_i is None:
             value_i = _get_col(header, "joint_coefficient", required=False)
         strength_i = _get_col(header, "trait_neff", required=False)
@@ -441,7 +443,7 @@ def read_trait_links(
                 "source_id": trait,
                 "source_fields": {
                     "anchor": "trait",
-                    "loadings": "joint_fraction or joint_coefficient",
+                    "loadings": "nnls_loading",
                     "effective_size": "trait_neff or trait_n_eff",
                 },
                 "support_summary": {
@@ -541,6 +543,13 @@ def read_factor_trait_details(path: str | Path | None, factors: list[str]) -> di
         if trait_i is None or factor_i is None:
             return details
         numeric_fields = [
+            "nnls_loading",
+            "beta",
+            "beta_uncorrected",
+            "beta_tilde",
+            "se",
+            "z",
+            "p_value",
             "joint_fraction",
             "joint_coefficient",
             "marginal_fraction",
@@ -554,7 +563,7 @@ def read_factor_trait_details(path: str | Path | None, factors: list[str]) -> di
             "joint_residual",
         ]
         numeric_indices = {field_name: _get_col(header, field_name, required=False) for field_name in numeric_fields}
-        string_fields = ["is_anchor", "score_source", "basis"]
+        string_fields = ["is_anchor", "score_source", "basis", "trait_response_source", "factor_gene_basis"]
         string_indices = {field_name: _get_col(header, field_name, required=False) for field_name in string_fields}
         for line in fh:
             cols = line.rstrip("\n").split(delim)
@@ -570,9 +579,12 @@ def read_factor_trait_details(path: str | Path | None, factors: list[str]) -> di
             for field_name, idx in string_indices.items():
                 if idx is not None and idx < len(cols):
                     row[field_name] = cols[idx]
+            if "nnls_loading" in row:
+                row.setdefault("joint_fraction", row["nnls_loading"])
+                row.setdefault("joint_coefficient", row["nnls_loading"])
             details[factor].append(row)
     for rows in details.values():
-        rows.sort(key=lambda row: (-float(row.get("joint_fraction", row.get("joint_coefficient", 0.0)) or 0.0), str(row.get("anchor", ""))))
+        rows.sort(key=lambda row: (-float(row.get("nnls_loading", row.get("joint_fraction", row.get("joint_coefficient", 0.0))) or 0.0), str(row.get("anchor", ""))))
     return details
 
 

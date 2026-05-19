@@ -100,7 +100,7 @@ def _first(row: dict[str, str], names: Iterable[str], default=""):
 def factor_columns(header: list[str] | None) -> list[str]:
     if not header:
         return []
-    return [name for name in header if name.startswith("Factor") and not name.startswith(("Relative_", "Combined_"))]
+    return [name for name in header if name.startswith("Factor") and not name.startswith(("Relative_", "Combined_", "Cosine_"))]
 
 
 def parse_run_spec(value: str) -> PigeanRunSpec:
@@ -507,8 +507,7 @@ def read_cluster_table(
                 "id": entity_id,
                 "gene" if id_key == "Gene" else "gene_set": entity_id,
                 "loading": loading,
-                "relative_loading": parse_float(row.get(f"Relative_{factor}")),
-                "combined_loading": parse_float(row.get(f"Combined_{factor}")),
+                "cosine_loading": parse_float(row.get(f"Cosine_{factor}")),
                 "cluster": _first(row, ["cluster", "Cluster"]),
                 "label": _first(row, ["label", "Label"], entity_id),
                 "combined": parse_float(_first(row, ["combined", "Combined"])),
@@ -573,14 +572,21 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> 
             "trait": trait,
             "factor": factor,
             "is_anchor": _first(row, ["is_anchor"]),
-            "joint_capture_fraction": parse_float(_first(row, ["joint_capture_fraction", "joint_fraction", "joint_coefficient"])),
-            "marginal_capture_fraction": parse_float(_first(row, ["marginal_capture_fraction", "marginal_fraction", "marginal_coefficient"])),
-            "marginal_capture_overlap": parse_float(_first(row, ["marginal_capture_overlap", "marginal_overlap"])),
+            "nnls_loading": parse_float(_first(row, ["nnls_loading", "joint_capture_fraction", "joint_fraction", "joint_coefficient"])),
+            "beta": parse_float(row.get("beta")),
+            "beta_uncorrected": parse_float(row.get("beta_uncorrected")),
+            "beta_tilde": parse_float(row.get("beta_tilde")),
+            "se": parse_float(row.get("se")),
+            "z": parse_float(row.get("z")),
+            "p_value": parse_float(row.get("p_value")),
+            "joint_capture_fraction": parse_float(_first(row, ["nnls_loading", "joint_capture_fraction", "joint_fraction", "joint_coefficient"])),
+            "marginal_capture_fraction": parse_float(_first(row, ["nnls_loading", "marginal_capture_fraction", "marginal_fraction", "marginal_coefficient"])),
+            "marginal_capture_overlap": parse_float(_first(row, ["nnls_loading", "marginal_capture_overlap", "marginal_overlap"])),
             "trait_neff": neff,
             "retained_n_eff": parse_float(row.get("retained_n_eff")),
             "retained_fraction": parse_float(row.get("retained_fraction")),
-            "joint_capture_support_mass": parse_float(_first(row, ["joint_capture_support_mass", "joint_support_mass", "joint_coefficient_support_mass"])),
-            "marginal_capture_support_mass": parse_float(_first(row, ["marginal_capture_support_mass", "marginal_support_mass", "marginal_coefficient_support_mass"])),
+            "joint_capture_support_mass": parse_float(_first(row, ["nnls_loading", "joint_capture_support_mass", "joint_support_mass", "joint_coefficient_support_mass"])),
+            "marginal_capture_support_mass": parse_float(_first(row, ["nnls_loading", "marginal_capture_support_mass", "marginal_support_mass", "marginal_coefficient_support_mass"])),
             "joint_capture_residual": parse_float(_first(row, ["joint_capture_residual", "joint_residual"])),
             "marginal_lift": parse_float(row.get("marginal_lift")),
             "marginal_posterior_lift": parse_float(row.get("marginal_posterior_lift")),
@@ -596,6 +602,8 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> 
             "anchor_conditional_notable": _first(row, ["anchor_conditional_notable"]),
             "anchor_conditional_available": _first(row, ["anchor_conditional_available"]),
             "trait_linkage_evidence_source": _first(row, ["trait_linkage_evidence_source"]),
+            "trait_response_source": _first(row, ["trait_response_source"]),
+            "factor_gene_basis": _first(row, ["factor_gene_basis"]),
         }
         # Backward-compatible aliases used by older graph/dashboard code.
         record["joint_fraction"] = record["joint_capture_fraction"]

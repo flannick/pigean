@@ -226,6 +226,8 @@ class FactorExecutionConfig:
     trait_factor_linkage_membership_normalization: str = "max"
     trait_factor_linkage_membership_cap: float = 1.0
     trait_factor_linkage_anchor_source: str = "auto"
+    trait_factor_linkage_factor_gene_threshold: float = 0.05
+    factor_gmt_out: object = None
     no_trait_linkage: bool = False
 
     def to_run_kwargs(self):
@@ -359,6 +361,8 @@ class FactorExecutionConfig:
             "trait_factor_linkage_membership_normalization": self.trait_factor_linkage_membership_normalization,
             "trait_factor_linkage_membership_cap": self.trait_factor_linkage_membership_cap,
             "trait_factor_linkage_anchor_source": self.trait_factor_linkage_anchor_source,
+            "trait_factor_linkage_factor_gene_threshold": self.trait_factor_linkage_factor_gene_threshold,
+            "factor_gmt_out": self.factor_gmt_out,
             "no_trait_linkage": self.no_trait_linkage,
         }
 
@@ -1988,6 +1992,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         trait_factor_linkage_membership_normalization=getattr(options, "trait_factor_linkage_membership_normalization", "max"),
         trait_factor_linkage_membership_cap=getattr(options, "trait_factor_linkage_membership_cap", 1.0),
         trait_factor_linkage_anchor_source=getattr(options, "trait_factor_linkage_anchor_source", "auto"),
+        trait_factor_linkage_factor_gene_threshold=getattr(options, "trait_factor_linkage_factor_gene_threshold", 0.05),
+        factor_gmt_out=getattr(options, "factor_gmt_out", None),
         no_trait_linkage=bool(getattr(options, "no_trait_linkage", False)),
     )
 
@@ -2073,6 +2079,8 @@ def run_main_pheno_projection_stage(domain, runtime, options):
         trait_factor_linkage_membership_normalization=getattr(options, "trait_factor_linkage_membership_normalization", "max"),
         trait_factor_linkage_membership_cap=getattr(options, "trait_factor_linkage_membership_cap", 1.0),
         trait_factor_linkage_anchor_source=getattr(options, "trait_factor_linkage_anchor_source", "auto"),
+        trait_factor_linkage_factor_gene_threshold=getattr(options, "trait_factor_linkage_factor_gene_threshold", 0.05),
+        factor_gmt_out=getattr(options, "factor_gmt_out", None),
         pheno_capture_input=options.pheno_capture_input,
         bail_fn=domain.bail,
         log_fn=domain.log,

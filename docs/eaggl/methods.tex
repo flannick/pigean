@@ -642,30 +642,6 @@ These are not p-values, and they should not be interpreted as calibrated posteri
 
 EAGGL also reports retained-basis diagnostics alongside the linkage scores: total thresholded trait support, retained masked trait support, retained fraction, total thresholded feature count, retained masked feature count, support effective sizes, and a low-retention flag for traits with very small or highly concentrated retained support.
 
-\subsection{Bayesian trait-factor effect and evidence scores}
-
-The projection coefficients above are capture metrics: the joint coefficients are constrained to sum to at most one across factors, and the marginal coefficients are normalized-overlap scores. EAGGL therefore also reports Bayesian effect/evidence scores in the original selected trait-support units. These scores use a separate evidence surface $Y$ chosen by \texttt{--trait-factor-linkage-evidence-source}; in \texttt{auto} mode EAGGL prefers \texttt{log\_bf}, then \texttt{combined}, then \texttt{prior}. The selected surface can be used raw, thresholded, or converted to excess-over-threshold support.
-
-For each factor $k$, EAGGL constructs a soft membership vector $M_k$ from the nonnegative factor loadings, either by dividing by the factor maximum or by using capped raw loadings. The marginal lift for trait $t$ is
-\[
-\Delta^{\mathrm{marginal}}_{tk}
-=
-\frac{\sum_f M_{fk}Y_{ft}}{\sum_f M_{fk}+\epsilon}
--
-\frac{\sum_f (1-M_{fk})Y_{ft}}{\sum_f (1-M_{fk})+\epsilon}.
-\]
-It then fits the one-covariate model
-\[
-Y_t = \alpha + M_k\beta_{tk} + \varepsilon,
-\qquad
-\beta_{tk} \sim N(0,\sigma_\beta^2),
-\]
-and reports an approximate log Bayes factor, posterior lift, posterior standard deviation, and posterior probability that the lift is positive.
-
-The joint effect score uses the same Bayesian one-covariate calculation after residualizing both $Y_t$ and $M_k$ against the intercept and all other factor memberships. This estimates the effect of factor $k$ conditional on the rest of the factor basis and is not constrained to sum to one. The anchor-conditional effect score similarly residualizes against available same-feature anchor support before testing $M_k$; if no matching anchor support is available, those columns are reported as unavailable rather than imputed.
-
-The \texttt{*_notable} flags are conservative summaries requiring positive posterior lift, sufficient log Bayes factor, adequate trait effective size, adequate retained fraction, and no low-retention flag. They are Bayesian/effect/QC filters, not frequentist p-values.
-
 \subsection{Choice of projection basis across workflow families}
 
 For the public gene $\times$ gene-set workflow family, the preferred basis for canonical trait linkage is the gene basis. In that case, $W^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $W^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-set support vector. Thus, the canonical linkage definition is common across workflows: EAGGL always projects one thresholded support profile onto a factor basis defined on one shared feature space, then reports both marginal and joint coefficients from those same internal matching inputs.
@@ -771,3 +747,9 @@ L_k = \mathcal{L}(\mathcal{S}_k, \mathcal{G}_k, \mathcal{P}_k).
 Such labels may be generated deterministically from the top terms or by a separate language-model-based summarization step. In either case, the labeling procedure is downstream of the core statistical model and should be interpreted as an aid to biological interpretation rather than as part of the inference procedure itself. When users provide a designated labeling library, EAGGL restricts the annotation candidates in $\mathcal{S}_k$ to that library before ranking terms for the label; if a factor has no positive-loading annotation in the designated library, the label falls back to the full annotation set so that every factor remains labeled. This filtering changes only the post hoc label summary and not the fitted factors or output loadings.
 
 \end{document}
+
+\subsection{Simplified trait-factor linkage}
+
+For downstream trait interpretation, EAGGL reports two factor-to-trait summaries. First, each factor is treated as a weighted gene set after setting small gene loadings below a configurable threshold to zero. The resulting factor gene sets are scored against trait support surfaces, yielding factor-level \texttt{beta}, \texttt{beta\_uncorrected}, \texttt{beta\_tilde}, standard error, $z$, and $p$ columns in \texttt{trait\_factor\_links.out}. Second, EAGGL projects each trait support vector onto the factor gene-loading basis by nonnegative least squares and reports the coefficient as \texttt{nnls\_loading}. These two quantities replace the older capture and lift columns in the default trait-factor linkage output.
+
+Cluster output tables contain the raw factor loading for each row and a cosine column for each factor. For row loading vector $v_i$, the reported \texttt{Cosine\_Factor}$k$ value is $v_{ik}/\|v_i\|_2$, i.e. the cosine similarity between the row's full factor-loading vector and the one-hot indicator for factor $k$.

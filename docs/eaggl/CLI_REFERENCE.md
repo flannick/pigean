@@ -184,36 +184,31 @@ Notes:
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
 | `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in` |
 | `--run-factor-phewas` | compute factor-level phenotype enrichment regression from `--gene-phewas-stats-in` |
-| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only canonical trait linkage, factor-PheWAS, or both without refitting factors |
-| `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only canonical trait linkage from the gene-set basis |
+| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only simplified trait linkage, factor-PheWAS, or both without refitting factors |
+| `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only simplified trait linkage from the gene-set basis |
 | `--factor-phewas-gene-clusters-in` | compatibility alias for the older factor-PheWAS-only projection command |
-| `--project-phenos-from-gene-sets` | compute canonical trait linkage on the gene-set basis instead of the gene basis |
-| `--pheno-capture-input` | choose whether canonical trait linkage uses retained weighted thresholded support or binary thresholded hits |
-| `--trait-factor-links-out` | write the canonical long-form trait-factor linkage table |
-| `--trait-linkage-source` | choose the support surface for canonical trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
-| `--trait-linkage-threshold` | strict threshold for canonical trait linkage support (`source_value > threshold`) |
+| `--project-phenos-from-gene-sets` | compute simplified trait linkage on the gene-set basis instead of the gene basis |
+| `--pheno-capture-input` | choose whether simplified trait linkage uses retained weighted thresholded support or binary thresholded hits |
+| `--trait-factor-links-out` | write the simplified long-form trait-factor linkage table |
+| `--trait-linkage-source` | choose the support surface for simplified trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
+| `--trait-linkage-threshold` | strict threshold for simplified trait linkage support (`source_value > threshold`) |
 | `--trait-linkage-computation-mode` | choose the linkage computation backend: `sparse_full` by default, or `dense_full` as a debug comparison backend |
-| `--trait-factor-linkage-evidence-source` | choose the support surface for Bayesian effect/evidence scores; `auto` prefers `log_bf`, then `combined`, then `prior` |
-| `--trait-factor-linkage-effect-input-transform` | transform the evidence surface before effect fitting: `raw`, `weighted_thresholded`, or `excess_thresholded` |
-| `--trait-factor-linkage-effect-prior-sd` | prior SD for Bayesian factor-effect coefficients in selected support units |
-| `--trait-factor-linkage-anchor-source` | same-feature anchor support for anchor-conditional factor effects; use `none` to disable |
-| `--trait-factor-links-output-detail` | choose `trait_factor_links.out` column detail: `main` for concise coefficients, `full`/`debug` for retained-support diagnostics |
-| `--no-trait-linkage` | disable canonical trait linkage even when trait inputs are available |
+| `--trait-factor-linkage-evidence-source` | compatibility option retained for older commands; simplified trait linkage uses `--trait-linkage-source` |
+| `--trait-factor-linkage-effect-input-transform` | compatibility option retained for older commands |
+| `--trait-factor-linkage-effect-prior-sd` | compatibility option retained for older commands |
+| `--trait-factor-linkage-anchor-source` | compatibility option retained for older commands |
+| `--trait-factor-links-output-detail` | accepted for command compatibility; simplified linkage writes one concise schema |
+| `--no-trait-linkage` | disable simplified trait linkage even when trait inputs are available |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
 
 Operational notes:
-- canonical trait linkage is the primary user-facing phenotype annotation layer. The projection coefficients are capture/allocation metrics, not unconstrained trait-association effects.
-- canonical linkage writes one long table with one row per `(trait, factor)` and reports both old projection names and clearer capture aliases: `marginal_capture_fraction` is the one-factor bounded projection and `joint_capture_fraction` is the all-factor constrained projection.
-- Bayesian effect columns are written alongside capture columns. `marginal_lift` is the factor-vs-background support difference, `joint_lift` is the factor effect conditional on all other factors, and `anchor_conditional_lift` is the factor effect after removing available anchor support. The corresponding `*_ln_bf` columns are approximate log Bayes factors for those effects.
-- `posterior_lift` columns are shrunken Bayesian effect estimates. `*_notable` flags require positive posterior lift, adequate log BF, sufficient trait effective size, sufficient retained fraction, and no low-retention flag.
-- `--trait-factor-links-output-detail main` is the default concise schema: `trait`, `factor`, `is_anchor`, `joint_fraction`, `marginal_fraction`, `marginal_overlap`, `joint_support_mass`, `marginal_support_mass`, `marginal_overlap_support_mass`, `low_retention_flag`, `trait_neff`, and `retained_n_eff`; use `full` or `debug` to include additional retained-support diagnostics and explicit coefficient names
-- the target profile is normalized by total thresholded trait strength before masking, not by retained masked strength
-- raw trait support and raw factor loadings are not required to sum to `1`; only copied internal vectors are normalized for matching
-- trait linkage operates on the thresholded phenotype support file, not on a fully observed unthresholded phenotype surface
+- simplified trait linkage writes one long table with one row per `(trait, factor)`
+- `nnls_loading` is the NNLS projection of the thresholded trait support vector onto the factor-loading basis
+- `beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, and `p_value` treat each EAGGL factor as a weighted gene set after applying `--trait-factor-linkage-factor-gene-threshold`
+- use `--factor-gmt-out` to export those thresholded weighted factors for manual PIGEAN `multi-y` runs
+- raw trait support and raw factor loadings are not forced to sum to `1`
 - `--pheno-capture-input weighted_thresholded` is the default and uses retained source-support values that strictly exceed `--trait-linkage-threshold`; `binary_thresholded` is an expert sensitivity mode
-- canonical linkage defaults to `--trait-linkage-source combined` and `--trait-linkage-threshold 1.0` (strict `> 1.0`)
-- canonical linkage defaults to `--trait-linkage-computation-mode sparse_full`; `dense_full` remains available as an expert/debug comparison backend without changing the corrected linkage math
 - if `--trait-linkage-source auto` is requested, one support surface is chosen per run in the order `combined`, then `log_bf`, then `prior`
 - factor-PheWAS is a secondary expert analysis for factor-specific phenotype enrichment
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
@@ -454,10 +449,9 @@ The mathematical model and workflow formalization live in:
 
 For post-factor phenotype interpretation:
 - `trait_factor_links.out` is the primary phenotype annotation artifact
-- `--trait-factor-links-output-detail main` writes the legacy capture columns plus capture aliases and concise Bayesian effect/evidence columns
-- `--trait-factor-links-output-detail full` adds retained-support diagnostics, effective-size diagnostics, coefficient-scaled support totals, posterior SDs, posterior probabilities, notable scores, and anchor-conditional availability
-- raw trait support and raw factor loadings are not forced to sum to `1`; EAGGL preserves total support and total factor mass separately and only normalizes copied internal vectors for matching
-- it reports both `marginal_coefficient` and `joint_coefficient` from the same internal matching step, with `marginal_coefficient` treating each factor alone and `joint_coefficient` letting all factors compete under a shared sum constraint
+- `trait_factor_links.out` writes `nnls_loading` plus factor-as-gene-set beta columns (`beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, `p_value`)
+- `--factor-gmt-out` writes the thresholded factor gene sets used for those scores
+- raw trait support and raw factor loadings are not forced to sum to `1`
 - `marginal_overlap = q_t^T b_k` is a direct shape-overlap metric; unlike `marginal_coefficient`, it is not divided by the factor self-norm and is less sensitive to factor breadth
 - `trait_total_support` is the full thresholded trait support before masking, or the total thresholded hit count under binary capture mode
 - `retained_trait_support` is the masked retained support available on the fitted factor basis
@@ -496,3 +490,9 @@ Current reference tests should cover:
 - workflow ID selection and bundle defaults: `tests/eaggl/test_eaggl_cli_unittest.py`
 - curated EAGGL CLI reference coverage: `tests/eaggl/test_eaggl_cli_reference_unittest.py`
 - generated manifest freshness: `tests/eaggl/test_cli_manifest_unittest.py`
+
+### Simplified Trait-Factor Linkage
+
+`trait_factor_links.out(.gz)` now contains only two factor-to-trait summaries. `nnls_loading` projects each trait support vector onto the EAGGL factor gene-loading basis using NNLS. The beta columns (`beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, `p_value`) treat each EAGGL factor as a weighted gene set after zeroing gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). Use `--factor-gmt-out` to export the same thresholded factor gene sets for an external PIGEAN `multi-y` run.
+
+Cluster files report raw `Factor*` loadings and `Cosine_Factor*`, where cosine is the row loading vector's cosine similarity to the one-hot factor indicator. The previous `Relative_Factor*` and `Combined_Factor*` cluster columns are no longer written.

@@ -701,6 +701,62 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
         self.assertIn("marginal_anchor_adjusted_binary", lines[1])
         self.assertIn("joint_anchor_adjusted_binary", lines[2])
 
+    def test_simplified_factor_trait_links_shapes_and_thresholding(self) -> None:
+        basis = np.array(
+            [
+                [0.10, 0.00],
+                [0.04, 0.50],
+                [0.30, 0.20],
+            ],
+            dtype=float,
+        )
+        feature_by_trait = np.array(
+            [
+                [3.0, 0.0],
+                [0.0, 2.0],
+                [2.0, 1.0],
+            ],
+            dtype=float,
+        )
+
+        def project_fn(W, X_new, max_sum=None):
+            return np.maximum(X_new @ W, 0.0)
+
+        result = eaggl_trait_linkage.compute_factor_trait_links(
+            project_fn,
+            basis,
+            feature_by_trait,
+            factor_loading_threshold=0.05,
+        )
+
+        self.assertEqual(result["nnls"].shape, (2, 2))
+        self.assertEqual(result["beta"].shape, (2, 2))
+        self.assertEqual(result["beta_uncorrected"].shape, (2, 2))
+        self.assertEqual(result["factor_num_genes"].tolist(), [2, 2])
+        self.assertAlmostEqual(float(result["factor_weight_sum"][0]), 0.40)
+
+    def test_factor_basis_cosines_are_row_normalized_raw_loadings(self) -> None:
+        basis = np.array([[3.0, 4.0], [0.0, 0.0]], dtype=float)
+        cosines = eaggl_trait_linkage.factor_basis_cosines(basis)
+        self.assertAlmostEqual(float(cosines[0, 0]), 0.6)
+        self.assertAlmostEqual(float(cosines[0, 1]), 0.8)
+        self.assertEqual(cosines[1, :].tolist(), [0.0, 0.0])
+
+    def test_factor_gmt_export_thresholds_small_gene_loadings(self) -> None:
+        basis = np.array([[0.10, 0.00], [0.04, 0.50], [0.30, 0.20]], dtype=float)
+        with TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "factors.gmt"
+            eaggl_trait_linkage.write_factor_gmt(
+                str(output_path),
+                ["G1", "G2", "G3"],
+                ["Factor1", "Factor2"],
+                basis,
+                threshold=0.05,
+            )
+            lines = output_path.read_text().strip().splitlines()
+        self.assertEqual(lines[0].split("\t"), ["Factor1", "EAGGL_factor", "G1", "G3"])
+        self.assertEqual(lines[1].split("\t"), ["Factor2", "EAGGL_factor", "G2", "G3"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,13 +2,13 @@
   "categories": {
     "compat_alias": 11,
     "debug_only": 6,
-    "engineering": 79,
-    "method_optional": 192,
+    "engineering": 80,
+    "method_optional": 193,
     "method_required": 11
   },
   "entrypoint": "src/eaggl/cli.py",
   "module": "eaggl.cli",
-  "num_options": 299,
+  "num_options": 301,
   "options": [
     {
       "action": null,
@@ -50,7 +50,7 @@
       "source_line": 106,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 199
+      "usage_references": 197
     },
     {
       "action": "append",
@@ -173,7 +173,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 473,
+      "source_line": 475,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -194,7 +194,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 474,
+      "source_line": 476,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -719,7 +719,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 495,
+      "source_line": 497,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -761,7 +761,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 491,
+      "source_line": 493,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -782,7 +782,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 496,
+      "source_line": 498,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -803,7 +803,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 494,
+      "source_line": 496,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -824,7 +824,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 493,
+      "source_line": 495,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -845,7 +845,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 492,
+      "source_line": 494,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -908,7 +908,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 468,
+      "source_line": 470,
       "summary": null,
       "type": "choice",
       "usage_references": 6
@@ -929,7 +929,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 470,
+      "source_line": 472,
       "summary": "similarity threshold used to assign retained gene sets to discovery families",
       "type": "float",
       "usage_references": 8
@@ -995,7 +995,7 @@
       "source_line": 212,
       "summary": "load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors",
       "type": null,
-      "usage_references": 88
+      "usage_references": 85
     },
     {
       "action": null,
@@ -1016,7 +1016,28 @@
       "source_line": 213,
       "summary": "load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis",
       "type": null,
-      "usage_references": 61
+      "usage_references": 59
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "factor_gmt_out",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--factor-gmt-out"
+      ],
+      "help": null,
+      "primary_flag": "--factor-gmt-out",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 459,
+      "summary": "write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs",
+      "type": null,
+      "usage_references": 11
     },
     {
       "action": null,
@@ -1079,7 +1100,7 @@
       "source_line": 218,
       "summary": "choose the anchor covariate for binary factor-phewas modes: direct, combined, or none",
       "type": "str",
-      "usage_references": 20
+      "usage_references": 19
     },
     {
       "action": null,
@@ -1121,7 +1142,7 @@
       "source_line": 222,
       "summary": "expose the full expert factor-phewas surface, including combined and huber variants",
       "type": null,
-      "usage_references": 22
+      "usage_references": 21
     },
     {
       "action": null,
@@ -1142,7 +1163,7 @@
       "source_line": 214,
       "summary": "compatibility alias for --factor-gene-clusters-in plus --run-factor-phewas",
       "type": null,
-      "usage_references": 22
+      "usage_references": 21
     },
     {
       "action": null,
@@ -1184,7 +1205,7 @@
       "source_line": 216,
       "summary": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
       "type": "str",
-      "usage_references": 54
+      "usage_references": 52
     },
     {
       "action": "callback",
@@ -1205,7 +1226,7 @@
       "source_line": 217,
       "summary": "expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table",
       "type": "string",
-      "usage_references": 28
+      "usage_references": 27
     },
     {
       "action": null,
@@ -1247,7 +1268,7 @@
       "source_line": 200,
       "summary": null,
       "type": null,
-      "usage_references": 36
+      "usage_references": 35
     },
     {
       "action": null,
@@ -1370,7 +1391,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 465,
+      "source_line": 467,
       "summary": null,
       "type": "int",
       "usage_references": 15
@@ -1391,7 +1412,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 466,
+      "source_line": 468,
       "summary": null,
       "type": "float",
       "usage_references": 13
@@ -1412,7 +1433,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 463,
+      "source_line": 465,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -1433,7 +1454,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 464,
+      "source_line": 466,
       "summary": null,
       "type": "float",
       "usage_references": 12
@@ -1454,7 +1475,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 461,
+      "source_line": 463,
       "summary": null,
       "type": "int",
       "usage_references": 16
@@ -1475,7 +1496,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 462,
+      "source_line": 464,
       "summary": null,
       "type": "float",
       "usage_references": 14
@@ -1622,7 +1643,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 485,
+      "source_line": 487,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -1646,7 +1667,7 @@
       "source_line": 190,
       "summary": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
       "type": null,
-      "usage_references": 30
+      "usage_references": 28
     },
     {
       "action": null,
@@ -2717,7 +2738,7 @@
       "source_line": 422,
       "summary": "load gene-set phewas statistics for projection and phenotype-input factoring workflows",
       "type": "string",
-      "usage_references": 130
+      "usage_references": 129
     },
     {
       "action": null,
@@ -2864,7 +2885,7 @@
       "source_line": 148,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": "string",
-      "usage_references": 115
+      "usage_references": 114
     },
     {
       "action": null,
@@ -4017,7 +4038,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 486,
+      "source_line": 488,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -4332,7 +4353,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 482,
+      "source_line": 484,
       "summary": null,
       "type": "int",
       "usage_references": 20
@@ -4479,7 +4500,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 481,
+      "source_line": 483,
       "summary": null,
       "type": "int",
       "usage_references": 20
@@ -4563,7 +4584,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 467,
+      "source_line": 469,
       "summary": null,
       "type": null,
       "usage_references": 7
@@ -4668,7 +4689,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 469,
+      "source_line": 471,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -4794,8 +4815,8 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 458,
-      "summary": "disable canonical trait linkage even when trait inputs are available",
+      "source_line": 460,
+      "summary": "disable simplified trait linkage even when trait inputs are available",
       "type": null,
       "usage_references": 15
     },
@@ -4836,7 +4857,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 478,
+      "source_line": 480,
       "summary": null,
       "type": "int",
       "usage_references": 36
@@ -4857,7 +4878,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 483,
+      "source_line": 485,
       "summary": null,
       "type": "int",
       "usage_references": 22
@@ -4984,9 +5005,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 443,
-      "summary": "choose the canonical trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
+      "summary": "choose the simplified trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
       "type": "str",
-      "usage_references": 24
+      "usage_references": 23
     },
     {
       "action": null,
@@ -5551,9 +5572,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 442,
-      "summary": "project canonical trait linkage from the gene-set basis instead of the gene basis",
+      "summary": "project simplified trait linkage from the gene-set basis instead of the gene basis",
       "type": null,
-      "usage_references": 36
+      "usage_references": 34
     },
     {
       "action": "store_true",
@@ -5613,7 +5634,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 484,
+      "source_line": 486,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -5637,7 +5658,7 @@
       "source_line": 211,
       "summary": "run the optional factor-level phewas stage",
       "type": null,
-      "usage_references": 57
+      "usage_references": 55
     },
     {
       "action": "store_true",
@@ -5824,7 +5845,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 457,
-      "summary": "choose same-feature anchor support for anchor-conditional Bayesian effects: auto, combined, log_bf, prior, or none",
+      "summary": "compatibility option retained for older commands",
       "type": "str",
       "usage_references": 8
     },
@@ -5845,7 +5866,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 448,
-      "summary": "choose the transform for Bayesian trait-factor evidence input: raw, weighted_thresholded, or excess_thresholded",
+      "summary": "compatibility option retained for older commands",
       "type": "str",
       "usage_references": 10
     },
@@ -5866,7 +5887,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 452,
-      "summary": "minimum retained support fraction required for Bayesian trait-factor notable flags",
+      "summary": "compatibility option retained for older commands",
       "type": "float",
       "usage_references": 6
     },
@@ -5887,7 +5908,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 451,
-      "summary": "minimum trait effective feature count required for Bayesian trait-factor notable flags",
+      "summary": "compatibility option retained for older commands",
       "type": "float",
       "usage_references": 6
     },
@@ -5908,7 +5929,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 450,
-      "summary": "prior standard deviation for Bayesian trait-factor effect coefficients",
+      "summary": "compatibility option retained for older commands",
       "type": "float",
       "usage_references": 8
     },
@@ -5929,7 +5950,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 449,
-      "summary": "threshold used by weighted_thresholded and excess_thresholded Bayesian trait-factor evidence transforms",
+      "summary": "compatibility option retained for older commands",
       "type": "float",
       "usage_references": 6
     },
@@ -5950,8 +5971,29 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 447,
-      "summary": "choose the support surface for Bayesian trait-factor effect/evidence scores; auto prefers log_bf, then combined, then prior",
+      "summary": "compatibility option retained for older commands; simplified trait linkage uses --trait-linkage-source",
       "type": "str",
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0.05",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_factor_gene_threshold",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-factor-gene-threshold"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-factor-gene-threshold",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 458,
+      "summary": "zero EAGGL factor gene loadings below this threshold before factor-trait association/projection",
+      "type": "float",
       "usage_references": 11
     },
     {
@@ -5971,7 +6013,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 456,
-      "summary": "maximum soft membership value for Bayesian trait-factor effects",
+      "summary": "compatibility option retained for older commands",
       "type": "float",
       "usage_references": 6
     },
@@ -5992,7 +6034,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 455,
-      "summary": "choose soft factor memberships for Bayesian trait-factor effects: max or raw_capped",
+      "summary": "compatibility option retained for older commands",
       "type": "str",
       "usage_references": 6
     },
@@ -6013,7 +6055,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 453,
-      "summary": "minimum log Bayes factor required for Bayesian trait-factor notable flags",
+      "summary": "compatibility option retained for older commands",
       "type": "float",
       "usage_references": 12
     },
@@ -6034,7 +6076,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 454,
-      "summary": "log Bayes factor scale used to compute Bayesian trait-factor notable scores",
+      "summary": "compatibility option retained for older commands",
       "type": "float",
       "usage_references": 6
     },
@@ -6057,7 +6099,7 @@
       "source_line": 198,
       "summary": "write the canonical long-form trait-factor linkage table",
       "type": null,
-      "usage_references": 71
+      "usage_references": 65
     },
     {
       "action": null,
@@ -6078,7 +6120,7 @@
       "source_line": 199,
       "summary": "choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions",
       "type": null,
-      "usage_references": 14
+      "usage_references": 10
     },
     {
       "action": null,
@@ -6097,9 +6139,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 446,
-      "summary": "choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend",
+      "summary": "choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend",
       "type": "str",
-      "usage_references": 11
+      "usage_references": 9
     },
     {
       "action": null,
@@ -6118,7 +6160,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 444,
-      "summary": "choose the support surface for canonical trait linkage: combined by default, with optional expert overrides",
+      "summary": "choose the response surface for simplified trait linkage: combined by default, with optional expert overrides",
       "type": "str",
       "usage_references": 30
     },
@@ -6141,7 +6183,7 @@
       "source_line": 445,
       "summary": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
       "type": "float",
-      "usage_references": 10
+      "usage_references": 8
     },
     {
       "action": null,
@@ -6201,7 +6243,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 487,
+      "source_line": 489,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -6294,6 +6336,6 @@
   "visibilities": {
     "expert": 243,
     "hidden": 8,
-    "normal": 48
+    "normal": 50
   }
 }
