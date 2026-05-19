@@ -215,6 +215,17 @@ class FactorExecutionConfig:
     trait_linkage_source: str = "combined"
     trait_linkage_threshold: float = 1.0
     trait_linkage_computation_mode: str = "sparse_full"
+    trait_factor_linkage_evidence_source: str = "auto"
+    trait_factor_linkage_effect_input_transform: str = "weighted_thresholded"
+    trait_factor_linkage_effect_threshold: float = 1.0
+    trait_factor_linkage_effect_prior_sd: float = 1.0
+    trait_factor_linkage_effect_min_trait_neff: float = 10.0
+    trait_factor_linkage_effect_min_retained_fraction: float = 0.1
+    trait_factor_linkage_notable_ln_bf: float = 3.0
+    trait_factor_linkage_notable_ln_bf_scale: float = 5.0
+    trait_factor_linkage_membership_normalization: str = "max"
+    trait_factor_linkage_membership_cap: float = 1.0
+    trait_factor_linkage_anchor_source: str = "auto"
     no_trait_linkage: bool = False
 
     def to_run_kwargs(self):
@@ -337,6 +348,17 @@ class FactorExecutionConfig:
             "trait_linkage_source": self.trait_linkage_source,
             "trait_linkage_threshold": self.trait_linkage_threshold,
             "trait_linkage_computation_mode": self.trait_linkage_computation_mode,
+            "trait_factor_linkage_evidence_source": self.trait_factor_linkage_evidence_source,
+            "trait_factor_linkage_effect_input_transform": self.trait_factor_linkage_effect_input_transform,
+            "trait_factor_linkage_effect_threshold": self.trait_factor_linkage_effect_threshold,
+            "trait_factor_linkage_effect_prior_sd": self.trait_factor_linkage_effect_prior_sd,
+            "trait_factor_linkage_effect_min_trait_neff": self.trait_factor_linkage_effect_min_trait_neff,
+            "trait_factor_linkage_effect_min_retained_fraction": self.trait_factor_linkage_effect_min_retained_fraction,
+            "trait_factor_linkage_notable_ln_bf": self.trait_factor_linkage_notable_ln_bf,
+            "trait_factor_linkage_notable_ln_bf_scale": self.trait_factor_linkage_notable_ln_bf_scale,
+            "trait_factor_linkage_membership_normalization": self.trait_factor_linkage_membership_normalization,
+            "trait_factor_linkage_membership_cap": self.trait_factor_linkage_membership_cap,
+            "trait_factor_linkage_anchor_source": self.trait_factor_linkage_anchor_source,
             "no_trait_linkage": self.no_trait_linkage,
         }
 
@@ -1955,6 +1977,17 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
         trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
         trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "sparse_full"),
+        trait_factor_linkage_evidence_source=getattr(options, "trait_factor_linkage_evidence_source", "auto"),
+        trait_factor_linkage_effect_input_transform=getattr(options, "trait_factor_linkage_effect_input_transform", "weighted_thresholded"),
+        trait_factor_linkage_effect_threshold=getattr(options, "trait_factor_linkage_effect_threshold", 1.0),
+        trait_factor_linkage_effect_prior_sd=getattr(options, "trait_factor_linkage_effect_prior_sd", 1.0),
+        trait_factor_linkage_effect_min_trait_neff=getattr(options, "trait_factor_linkage_effect_min_trait_neff", 10.0),
+        trait_factor_linkage_effect_min_retained_fraction=getattr(options, "trait_factor_linkage_effect_min_retained_fraction", 0.1),
+        trait_factor_linkage_notable_ln_bf=getattr(options, "trait_factor_linkage_notable_ln_bf", 3.0),
+        trait_factor_linkage_notable_ln_bf_scale=getattr(options, "trait_factor_linkage_notable_ln_bf_scale", 5.0),
+        trait_factor_linkage_membership_normalization=getattr(options, "trait_factor_linkage_membership_normalization", "max"),
+        trait_factor_linkage_membership_cap=getattr(options, "trait_factor_linkage_membership_cap", 1.0),
+        trait_factor_linkage_anchor_source=getattr(options, "trait_factor_linkage_anchor_source", "auto"),
         no_trait_linkage=bool(getattr(options, "no_trait_linkage", False)),
     )
 
@@ -2029,6 +2062,17 @@ def run_main_pheno_projection_stage(domain, runtime, options):
         trait_linkage_source=getattr(options, "trait_linkage_source", "combined"),
         trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
         trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "sparse_full"),
+        trait_factor_linkage_evidence_source=getattr(options, "trait_factor_linkage_evidence_source", "auto"),
+        trait_factor_linkage_effect_input_transform=getattr(options, "trait_factor_linkage_effect_input_transform", "weighted_thresholded"),
+        trait_factor_linkage_effect_threshold=getattr(options, "trait_factor_linkage_effect_threshold", 1.0),
+        trait_factor_linkage_effect_prior_sd=getattr(options, "trait_factor_linkage_effect_prior_sd", 1.0),
+        trait_factor_linkage_effect_min_trait_neff=getattr(options, "trait_factor_linkage_effect_min_trait_neff", 10.0),
+        trait_factor_linkage_effect_min_retained_fraction=getattr(options, "trait_factor_linkage_effect_min_retained_fraction", 0.1),
+        trait_factor_linkage_notable_ln_bf=getattr(options, "trait_factor_linkage_notable_ln_bf", 3.0),
+        trait_factor_linkage_notable_ln_bf_scale=getattr(options, "trait_factor_linkage_notable_ln_bf_scale", 5.0),
+        trait_factor_linkage_membership_normalization=getattr(options, "trait_factor_linkage_membership_normalization", "max"),
+        trait_factor_linkage_membership_cap=getattr(options, "trait_factor_linkage_membership_cap", 1.0),
+        trait_factor_linkage_anchor_source=getattr(options, "trait_factor_linkage_anchor_source", "auto"),
         pheno_capture_input=options.pheno_capture_input,
         bail_fn=domain.bail,
         log_fn=domain.log,

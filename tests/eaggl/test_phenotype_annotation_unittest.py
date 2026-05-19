@@ -405,6 +405,96 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_array_equal(selected, np.array([[2.0]]))
         self.assertEqual(label, "log_bf")
 
+    def test_trait_linkage_evidence_source_auto_prefers_log_bf(self) -> None:
+        selected, label = eaggl_trait_linkage.resolve_trait_linkage_evidence_source(
+            "auto",
+            combined=np.array([[1.0]]),
+            log_bf=np.array([[2.0]]),
+            prior=np.array([[3.0]]),
+        )
+        np.testing.assert_array_equal(selected, np.array([[2.0]]))
+        self.assertEqual(label, "log_bf")
+
+    def test_trait_linkage_marginal_effect_scores_positive_factor_lift(self) -> None:
+        basis = np.array([[1.0], [0.9], [0.8], [0.7], [0.6], [0.0], [0.0], [0.0], [0.0], [0.0]])
+        feature_by_trait = np.array([[5.0], [5.0], [5.0], [5.0], [5.0], [0.0], [0.0], [0.0], [0.0], [0.0]])
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
+            basis,
+            feature_by_trait,
+            threshold_value=0.0,
+            effect_input_transform="raw",
+            effect_prior_sd=1.0,
+            effect_min_trait_neff=0.0,
+            effect_min_retained_fraction=0.0,
+            notable_ln_bf=0.0,
+        )
+        self.assertGreater(linkage["marginal_lift"][0, 0], 0.0)
+        self.assertGreater(linkage["marginal_posterior_lift"][0, 0], 0.0)
+        self.assertGreaterEqual(linkage["marginal_ln_bf"][0, 0], 0.0)
+        self.assertTrue(bool(linkage["marginal_notable"][0, 0]))
+
+    def test_trait_linkage_effect_input_transforms(self) -> None:
+        values = np.array([[0.5], [1.5], [3.0]])
+        raw = eaggl_trait_linkage._transform_effect_input(values, "raw", 1.0)
+        weighted = eaggl_trait_linkage._transform_effect_input(values, "weighted_thresholded", 1.0)
+        excess = eaggl_trait_linkage._transform_effect_input(values, "excess_thresholded", 1.0)
+        np.testing.assert_allclose(raw.ravel(), [0.5, 1.5, 3.0])
+        np.testing.assert_allclose(weighted.ravel(), [0.0, 1.5, 3.0])
+        np.testing.assert_allclose(excess.ravel(), [0.0, 0.5, 2.0])
+
+    def test_trait_linkage_joint_conditioning_separates_overlapping_factors(self) -> None:
+        basis = np.array(
+            [
+                [1.0, 1.0],
+                [1.0, 0.8],
+                [0.0, 1.0],
+                [0.0, 1.0],
+                [0.0, 0.0],
+                [0.0, 0.0],
+            ]
+        )
+        feature_by_trait = np.array([[5.0], [5.0], [0.0], [0.0], [0.0], [0.0]])
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
+            basis,
+            feature_by_trait,
+            threshold_value=0.0,
+            effect_input_transform="raw",
+            effect_prior_sd=1.0,
+        )
+        self.assertGreater(linkage["joint_ln_bf"][0, 0], linkage["joint_ln_bf"][0, 1])
+        self.assertGreater(linkage["joint_posterior_lift"][0, 0], linkage["joint_posterior_lift"][0, 1])
+
+    def test_trait_linkage_anchor_conditioning_detects_anchor_explained_signal(self) -> None:
+        basis = np.array([[1.0], [1.0], [0.0], [0.0], [0.0], [0.0]])
+        feature_by_trait = np.array([[5.0], [5.0], [0.0], [0.0], [0.0], [0.0]])
+        anchor = np.array([[5.0], [5.0], [0.0], [0.0], [0.0], [0.0]])
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
+            basis,
+            feature_by_trait,
+            anchor_feature_by_covariate=anchor,
+            threshold_value=0.0,
+            effect_input_transform="raw",
+            effect_prior_sd=1.0,
+        )
+        self.assertTrue(bool(linkage["anchor_conditional_available"][0, 0]) or np.isfinite(linkage["anchor_conditional_ln_bf"][0, 0]))
+        self.assertLessEqual(float(np.nan_to_num(linkage["anchor_conditional_ln_bf"][0, 0], nan=0.0)), 1.0)
+
+    def test_trait_linkage_missing_anchor_marks_anchor_conditional_unavailable(self) -> None:
+        basis = np.array([[1.0], [0.0], [0.0]])
+        feature_by_trait = np.array([[3.0], [0.0], [0.0]])
+        linkage = eaggl_trait_linkage.compute_trait_linkage(
+            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
+            basis,
+            feature_by_trait,
+            threshold_value=0.0,
+            effect_input_transform="raw",
+        )
+        self.assertFalse(bool(linkage["anchor_conditional_available"][0, 0]))
+        self.assertEqual(linkage["anchor_conditional_unavailable_reason"][0, 0], "anchor_support_unavailable")
+
 
 class FactorPhewasSurfaceTest(unittest.TestCase):
     def _state(self):

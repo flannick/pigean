@@ -8,7 +8,7 @@ This document maps each supported factoring workflow to:
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
 Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode. Use `--gene-sets-for-labeling` one or more times to limit factor-label candidates to selected gene-set libraries without changing the fitted loadings.
-Canonical trait linkage is the primary annotation layer and reports support-normalized projection coefficients from the same internal trait-factor matching step. Raw trait support and raw factor loadings keep their original totals; only copied internal vectors are normalized for matching. Factor-PheWAS is a secondary expert-only enrichment regression.
+Canonical trait linkage is the primary annotation layer. It reports support-normalized projection coefficients as capture/allocation metrics, and also writes Bayesian factor-effect/evidence columns that estimate marginal, joint, and anchor-conditional trait-support lifts. Raw trait support and raw factor loadings keep their original totals; only copied internal vectors are normalized for matching. Factor-PheWAS is a secondary expert-only enrichment regression.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
 
@@ -116,10 +116,11 @@ Phenotype annotation policy:
 
 1. use canonical trait linkage for the primary public phenotype annotation layer
 2. write the long-form linkage table with `--trait-factor-links-out`
-3. interpret trait linkage as linkage of the thresholded high-confidence phenotype support shape, not of a fully observed unthresholded phenotype surface or a biological probability distribution
+3. interpret capture fractions as linkage of the thresholded high-confidence phenotype support shape, not of a fully observed unthresholded phenotype surface or a biological probability distribution
 4. canonical linkage forms a masked full-space target (`s_mask / A`) by dividing masked thresholded trait support by total thresholded trait support before masking, then solves the joint/marginal projections in that full objective space
-5. use `--trait-factor-links-output-detail main` for the concise default table (`trait`, `factor`, `is_anchor`, `joint_fraction`, `marginal_fraction`, `marginal_overlap`, `joint_support_mass`, `marginal_support_mass`, `marginal_overlap_support_mass`, `low_retention_flag`, `trait_neff`, `retained_n_eff`) and `--trait-factor-links-output-detail full` when additional retained diagnostics are needed
-6. use the retained diagnostics in full-detail `trait_factor_links.out.gz` to judge whether a trait is poorly represented or highly concentrated on the current factor basis:
+5. use `--trait-factor-links-output-detail main` for the concise default table with capture aliases and Bayesian effect/evidence summaries; use `full` or `debug` when posterior SDs, probabilities, notability scores, and conditioning diagnostics are needed
+6. use `--trait-factor-linkage-evidence-source` and related `--trait-factor-linkage-*` options to control the Bayesian effect surface without changing the legacy capture source
+7. use the retained diagnostics in full-detail `trait_factor_links.out.gz` to judge whether a trait is poorly represented or highly concentrated on the current factor basis:
    - `trait_total_support`
    - `retained_trait_support`
    - `retained_fraction`

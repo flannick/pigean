@@ -193,14 +193,20 @@ Notes:
 | `--trait-linkage-source` | choose the support surface for canonical trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
 | `--trait-linkage-threshold` | strict threshold for canonical trait linkage support (`source_value > threshold`) |
 | `--trait-linkage-computation-mode` | choose the linkage computation backend: `sparse_full` by default, or `dense_full` as a debug comparison backend |
+| `--trait-factor-linkage-evidence-source` | choose the support surface for Bayesian effect/evidence scores; `auto` prefers `log_bf`, then `combined`, then `prior` |
+| `--trait-factor-linkage-effect-input-transform` | transform the evidence surface before effect fitting: `raw`, `weighted_thresholded`, or `excess_thresholded` |
+| `--trait-factor-linkage-effect-prior-sd` | prior SD for Bayesian factor-effect coefficients in selected support units |
+| `--trait-factor-linkage-anchor-source` | same-feature anchor support for anchor-conditional factor effects; use `none` to disable |
 | `--trait-factor-links-output-detail` | choose `trait_factor_links.out` column detail: `main` for concise coefficients, `full`/`debug` for retained-support diagnostics |
 | `--no-trait-linkage` | disable canonical trait linkage even when trait inputs are available |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
 
 Operational notes:
-- canonical trait linkage is the primary user-facing phenotype annotation layer and is interpreted as support-normalized trait-factor projection coefficients, not calibrated posterior probability or exact captured-support mass
-- canonical linkage writes one long table with one row per `(trait, factor)` and reports both `marginal_coefficient` and `joint_coefficient` from the same internal matching inputs: `marginal_coefficient` is the one-factor bounded projection and `joint_coefficient` is the all-factor constrained projection
+- canonical trait linkage is the primary user-facing phenotype annotation layer. The projection coefficients are capture/allocation metrics, not unconstrained trait-association effects.
+- canonical linkage writes one long table with one row per `(trait, factor)` and reports both old projection names and clearer capture aliases: `marginal_capture_fraction` is the one-factor bounded projection and `joint_capture_fraction` is the all-factor constrained projection.
+- Bayesian effect columns are written alongside capture columns. `marginal_lift` is the factor-vs-background support difference, `joint_lift` is the factor effect conditional on all other factors, and `anchor_conditional_lift` is the factor effect after removing available anchor support. The corresponding `*_ln_bf` columns are approximate log Bayes factors for those effects.
+- `posterior_lift` columns are shrunken Bayesian effect estimates. `*_notable` flags require positive posterior lift, adequate log BF, sufficient trait effective size, sufficient retained fraction, and no low-retention flag.
 - `--trait-factor-links-output-detail main` is the default concise schema: `trait`, `factor`, `is_anchor`, `joint_fraction`, `marginal_fraction`, `marginal_overlap`, `joint_support_mass`, `marginal_support_mass`, `marginal_overlap_support_mass`, `low_retention_flag`, `trait_neff`, and `retained_n_eff`; use `full` or `debug` to include additional retained-support diagnostics and explicit coefficient names
 - the target profile is normalized by total thresholded trait strength before masking, not by retained masked strength
 - raw trait support and raw factor loadings are not required to sum to `1`; only copied internal vectors are normalized for matching
@@ -448,8 +454,8 @@ The mathematical model and workflow formalization live in:
 
 For post-factor phenotype interpretation:
 - `trait_factor_links.out` is the primary phenotype annotation artifact
-- `--trait-factor-links-output-detail main` writes `trait`, `factor`, `is_anchor`, `joint_fraction`, `marginal_fraction`, `marginal_overlap`, `joint_support_mass`, `marginal_support_mass`, `marginal_overlap_support_mass`, `low_retention_flag`, `trait_neff`, and `retained_n_eff`
-- `--trait-factor-links-output-detail full` adds retained-support diagnostics, effective-size diagnostics, coefficient-scaled support totals, and joint residual
+- `--trait-factor-links-output-detail main` writes the legacy capture columns plus capture aliases and concise Bayesian effect/evidence columns
+- `--trait-factor-links-output-detail full` adds retained-support diagnostics, effective-size diagnostics, coefficient-scaled support totals, posterior SDs, posterior probabilities, notable scores, and anchor-conditional availability
 - raw trait support and raw factor loadings are not forced to sum to `1`; EAGGL preserves total support and total factor mass separately and only normalizes copied internal vectors for matching
 - it reports both `marginal_coefficient` and `joint_coefficient` from the same internal matching step, with `marginal_coefficient` treating each factor alone and `joint_coefficient` letting all factors compete under a shared sum constraint
 - `marginal_overlap = q_t^T b_k` is a direct shape-overlap metric; unlike `marginal_coefficient`, it is not divided by the factor self-norm and is less sensitive to factor breadth

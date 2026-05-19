@@ -781,6 +781,11 @@ class FactorModelState:
     trait_linkage_is_anchor: object | None = None
     trait_linkage_basis: object | None = None
     trait_linkage_score_source: object | None = None
+    trait_linkage_evidence_source: object | None = None
+    trait_linkage_effect_input_transform: object | None = None
+    trait_linkage_effect_threshold: object | None = None
+    trait_linkage_effect_prior_sd: object | None = None
+    trait_linkage_anchor_source: object | None = None
     factor_phewas_result_blocks: object | None = None
     factor_phewas_Y_betas: object | None = None
     factor_phewas_Y_ses: object | None = None
@@ -1222,6 +1227,11 @@ class EagglState(object):
         self.trait_linkage_is_anchor = None
         self.trait_linkage_basis = None
         self.trait_linkage_score_source = None
+        self.trait_linkage_evidence_source = None
+        self.trait_linkage_effect_input_transform = None
+        self.trait_linkage_effect_threshold = None
+        self.trait_linkage_effect_prior_sd = None
+        self.trait_linkage_anchor_source = None
         self.factor_phewas_result_blocks = None
 
         self.factor_phewas_Y_betas = None #phewas statistics
@@ -2103,7 +2113,7 @@ class EagglState(object):
                 return (1 - specific_weight) * loadings + specific_weight * specific_loadings
 
 
-    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, phi_selection_objective="composite", phi_selection_composite_weights=None, phi_selection_target_factor_gene_mass=100.0, phi_selection_size_log2_width=1.0, phi_selection_loading_cap=1.0, phi_selection_min_entity_total_loading=0.01, phi_selection_bridge_concentration_threshold=0.60, phi_selection_coverage_min_loading=0.05, phi_selection_gene_coverage_top_frac=0.05, phi_selection_gene_coverage_top_n=None, phi_selection_annotation_coverage_top_frac=0.05, phi_selection_annotation_coverage_top_n=None, phi_selection_tie_tolerance=0.01, phi_selection_metrics_wide_out=None, phi_selection_metrics_long_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none"):
+    def run_factor(self, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=0.005, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, phi_selection_objective="composite", phi_selection_composite_weights=None, phi_selection_target_factor_gene_mass=100.0, phi_selection_size_log2_width=1.0, phi_selection_loading_cap=1.0, phi_selection_min_entity_total_loading=0.01, phi_selection_bridge_concentration_threshold=0.60, phi_selection_coverage_min_loading=0.05, phi_selection_gene_coverage_top_frac=0.05, phi_selection_gene_coverage_top_n=None, phi_selection_annotation_coverage_top_frac=0.05, phi_selection_annotation_coverage_top_n=None, phi_selection_tie_tolerance=0.01, phi_selection_metrics_wide_out=None, phi_selection_metrics_long_out=None, max_num_gene_sets=None, max_num_discovery_gene_sets=None, gene_set_budget_mode="pruned", learn_phi_gene_set_budget_mode=None, factor_backend="full", learn_phi_backend="sentinel_pruned", online_block_size=None, online_epochs=3, online_shuffle_blocks=True, online_warm_start=True, online_max_blocks=None, online_report_out=None, blockwise_gene_set_block_size=None, blockwise_epochs=None, blockwise_shuffle_blocks=None, blockwise_warm_start=None, blockwise_max_blocks=None, blockwise_report_out=None, sketch_size=None, sketch_embedding_dim=16, sketch_selection_method="projected_kmedoids", sketch_random_seed=None, sketch_refinement_passes=0, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", trait_factor_linkage_evidence_source="auto", trait_factor_linkage_effect_input_transform="weighted_thresholded", trait_factor_linkage_effect_threshold=1.0, trait_factor_linkage_effect_prior_sd=1.0, trait_factor_linkage_effect_min_trait_neff=10.0, trait_factor_linkage_effect_min_retained_fraction=0.1, trait_factor_linkage_notable_ln_bf=3.0, trait_factor_linkage_notable_ln_bf_scale=5.0, trait_factor_linkage_membership_normalization="max", trait_factor_linkage_membership_cap=1.0, trait_factor_linkage_anchor_source="auto", no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none"):
         if max_num_discovery_gene_sets is None and max_num_gene_sets is not None:
             warn("max_num_gene_sets is deprecated for factor-stage discovery; mapping it to max_num_discovery_gene_sets")
             max_num_discovery_gene_sets = max_num_gene_sets
@@ -2240,6 +2250,17 @@ class EagglState(object):
             "trait_linkage_source": trait_linkage_source,
             "trait_linkage_threshold": trait_linkage_threshold,
             "trait_linkage_computation_mode": trait_linkage_computation_mode,
+            "trait_factor_linkage_evidence_source": trait_factor_linkage_evidence_source,
+            "trait_factor_linkage_effect_input_transform": trait_factor_linkage_effect_input_transform,
+            "trait_factor_linkage_effect_threshold": trait_factor_linkage_effect_threshold,
+            "trait_factor_linkage_effect_prior_sd": trait_factor_linkage_effect_prior_sd,
+            "trait_factor_linkage_effect_min_trait_neff": trait_factor_linkage_effect_min_trait_neff,
+            "trait_factor_linkage_effect_min_retained_fraction": trait_factor_linkage_effect_min_retained_fraction,
+            "trait_factor_linkage_notable_ln_bf": trait_factor_linkage_notable_ln_bf,
+            "trait_factor_linkage_notable_ln_bf_scale": trait_factor_linkage_notable_ln_bf_scale,
+            "trait_factor_linkage_membership_normalization": trait_factor_linkage_membership_normalization,
+            "trait_factor_linkage_membership_cap": trait_factor_linkage_membership_cap,
+            "trait_factor_linkage_anchor_source": trait_factor_linkage_anchor_source,
             "no_trait_linkage": no_trait_linkage,
             "bail_fn": bail,
             "warn_fn": warn,
@@ -3127,6 +3148,29 @@ class EagglState(object):
                 "low_retention_flag",
                 "trait_neff",
                 "retained_n_eff",
+                "joint_capture_fraction",
+                "marginal_capture_fraction",
+                "marginal_capture_overlap",
+                "retained_fraction",
+                "score_source",
+                "trait_linkage_capture_source",
+                "trait_linkage_evidence_source",
+                "trait_linkage_effect_input_transform",
+                "trait_linkage_effect_threshold",
+                "trait_linkage_effect_prior_sd",
+                "trait_linkage_anchor_source",
+                "marginal_lift",
+                "marginal_posterior_lift",
+                "marginal_ln_bf",
+                "marginal_notable",
+                "joint_lift",
+                "joint_posterior_lift",
+                "joint_ln_bf",
+                "joint_notable",
+                "anchor_conditional_lift",
+                "anchor_conditional_posterior_lift",
+                "anchor_conditional_ln_bf",
+                "anchor_conditional_notable",
             ]
             full_header = [
                 "trait",
@@ -3135,6 +3179,9 @@ class EagglState(object):
                 "joint_coefficient",
                 "marginal_coefficient",
                 "marginal_overlap",
+                "joint_capture_fraction",
+                "marginal_capture_fraction",
+                "marginal_capture_overlap",
                 "trait_total_support",
                 "retained_trait_support",
                 "retained_fraction",
@@ -3147,9 +3194,48 @@ class EagglState(object):
                 "marginal_coefficient_support_mass",
                 "marginal_overlap_support_mass",
                 "joint_residual",
+                "joint_capture_residual",
                 "score_source",
+                "trait_linkage_capture_source",
+                "trait_linkage_evidence_source",
+                "trait_linkage_effect_input_transform",
+                "trait_linkage_effect_threshold",
+                "trait_linkage_effect_prior_sd",
+                "trait_linkage_anchor_source",
                 "basis",
+                "marginal_mean_in",
+                "marginal_mean_out",
+                "marginal_lift",
+                "marginal_posterior_lift",
+                "marginal_posterior_sd",
+                "marginal_posterior_prob_positive",
+                "marginal_ln_bf",
+                "marginal_notable",
+                "marginal_notable_score",
+                "joint_lift",
+                "joint_posterior_lift",
+                "joint_posterior_sd",
+                "joint_posterior_prob_positive",
+                "joint_ln_bf",
+                "joint_notable",
+                "joint_notable_score",
+                "anchor_conditional_lift",
+                "anchor_conditional_posterior_lift",
+                "anchor_conditional_posterior_sd",
+                "anchor_conditional_posterior_prob_positive",
+                "anchor_conditional_ln_bf",
+                "anchor_conditional_notable",
+                "anchor_conditional_notable_score",
+                "anchor_conditional_available",
+                "anchor_conditional_unavailable_reason",
             ]
+            if output_detail == "debug":
+                full_header = full_header + [
+                    "joint_conditioning_num_factors",
+                    "joint_conditioning_ridge_lambda",
+                    "joint_model_available",
+                    "joint_unavailable_reason",
+                ]
             header = main_header if output_detail == "main" else full_header
             output_fh.write("%s\n" % "\t".join(header))
             is_anchor = (
@@ -3209,6 +3295,38 @@ class EagglState(object):
             )
             basis = "" if self.trait_linkage_basis is None else str(self.trait_linkage_basis)
             score_source = "" if self.trait_linkage_score_source is None else str(self.trait_linkage_score_source)
+            evidence_source = "" if getattr(self, "trait_linkage_evidence_source", None) is None else str(self.trait_linkage_evidence_source)
+            effect_transform = "" if getattr(self, "trait_linkage_effect_input_transform", None) is None else str(self.trait_linkage_effect_input_transform)
+            effect_threshold = "NA" if getattr(self, "trait_linkage_effect_threshold", None) is None else "%.6g" % float(self.trait_linkage_effect_threshold)
+            effect_prior_sd = "NA" if getattr(self, "trait_linkage_effect_prior_sd", None) is None else "%.6g" % float(self.trait_linkage_effect_prior_sd)
+            anchor_source = "" if getattr(self, "trait_linkage_anchor_source", None) is None else str(self.trait_linkage_anchor_source)
+
+            def _matrix_value(attr_name, trait_index, factor_index, default=np.nan):
+                value = getattr(self, attr_name, None)
+                if value is None:
+                    return default
+                arr = np.asarray(value)
+                if arr.ndim != 2 or trait_index >= arr.shape[0] or factor_index >= arr.shape[1]:
+                    return default
+                return arr[trait_index, factor_index]
+
+            def _fmt_float(value):
+                try:
+                    numeric = float(value)
+                except (TypeError, ValueError):
+                    return "NA"
+                if not np.isfinite(numeric):
+                    return "NA"
+                return "%.6g" % numeric
+
+            def _fmt_bool(value):
+                if value is None:
+                    return "NA"
+                try:
+                    return "1" if bool(value) else "0"
+                except (TypeError, ValueError):
+                    return "NA"
+
             for trait_index, trait_name in enumerate(self.phenos):
                 for factor_index in range(self.num_factors()):
                     main_values = [
@@ -3224,6 +3342,29 @@ class EagglState(object):
                         "1" if bool(low_retention_flags[trait_index]) else "0",
                         "%.6g" % float(trait_n_eff[trait_index]),
                         "%.6g" % float(retained_n_eff[trait_index]),
+                        "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
+                        "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
+                        "%.6g" % float(marginal_overlap[trait_index, factor_index]),
+                        "%.6g" % float(retained_fractions[trait_index]),
+                        score_source,
+                        score_source,
+                        evidence_source,
+                        effect_transform,
+                        effect_threshold,
+                        effect_prior_sd,
+                        anchor_source,
+                        _fmt_float(_matrix_value("trait_linkage_marginal_lift", trait_index, factor_index)),
+                        _fmt_float(_matrix_value("trait_linkage_marginal_posterior_lift", trait_index, factor_index)),
+                        _fmt_float(_matrix_value("trait_linkage_marginal_ln_bf", trait_index, factor_index)),
+                        _fmt_bool(_matrix_value("trait_linkage_marginal_notable", trait_index, factor_index, None)),
+                        _fmt_float(_matrix_value("trait_linkage_joint_lift", trait_index, factor_index)),
+                        _fmt_float(_matrix_value("trait_linkage_joint_posterior_lift", trait_index, factor_index)),
+                        _fmt_float(_matrix_value("trait_linkage_joint_ln_bf", trait_index, factor_index)),
+                        _fmt_bool(_matrix_value("trait_linkage_joint_notable", trait_index, factor_index, None)),
+                        _fmt_float(_matrix_value("trait_linkage_anchor_conditional_lift", trait_index, factor_index)),
+                        _fmt_float(_matrix_value("trait_linkage_anchor_conditional_posterior_lift", trait_index, factor_index)),
+                        _fmt_float(_matrix_value("trait_linkage_anchor_conditional_ln_bf", trait_index, factor_index)),
+                        _fmt_bool(_matrix_value("trait_linkage_anchor_conditional_notable", trait_index, factor_index, None)),
                     ]
                     if output_detail == "main":
                         values = main_values
@@ -3232,6 +3373,9 @@ class EagglState(object):
                             str(trait_name),
                             "Factor%d" % (factor_index + 1),
                             "1" if bool(is_anchor[trait_index]) else "0",
+                            "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
+                            "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
+                            "%.6g" % float(marginal_overlap[trait_index, factor_index]),
                             "%.6g" % float(self.trait_linkage_joint[trait_index, factor_index]),
                             "%.6g" % float(self.trait_linkage_marginal[trait_index, factor_index]),
                             "%.6g" % float(marginal_overlap[trait_index, factor_index]),
@@ -3247,9 +3391,48 @@ class EagglState(object):
                             "%.6g" % float(strengths[trait_index] * self.trait_linkage_marginal[trait_index, factor_index]),
                             "%.6g" % float(strengths[trait_index] * marginal_overlap[trait_index, factor_index]),
                             "%.6g" % float(residuals[trait_index]),
+                            "%.6g" % float(residuals[trait_index]),
                             score_source,
+                            score_source,
+                            evidence_source,
+                            effect_transform,
+                            effect_threshold,
+                            effect_prior_sd,
+                            anchor_source,
                             basis,
+                            _fmt_float(_matrix_value("trait_linkage_marginal_mean_in", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_marginal_mean_out", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_marginal_lift", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_marginal_posterior_lift", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_marginal_posterior_sd", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_marginal_posterior_prob_positive", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_marginal_ln_bf", trait_index, factor_index)),
+                            _fmt_bool(_matrix_value("trait_linkage_marginal_notable", trait_index, factor_index, None)),
+                            _fmt_float(_matrix_value("trait_linkage_marginal_notable_score", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_joint_lift", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_joint_posterior_lift", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_joint_posterior_sd", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_joint_posterior_prob_positive", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_joint_ln_bf", trait_index, factor_index)),
+                            _fmt_bool(_matrix_value("trait_linkage_joint_notable", trait_index, factor_index, None)),
+                            _fmt_float(_matrix_value("trait_linkage_joint_notable_score", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_anchor_conditional_lift", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_anchor_conditional_posterior_lift", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_anchor_conditional_posterior_sd", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_anchor_conditional_posterior_prob_positive", trait_index, factor_index)),
+                            _fmt_float(_matrix_value("trait_linkage_anchor_conditional_ln_bf", trait_index, factor_index)),
+                            _fmt_bool(_matrix_value("trait_linkage_anchor_conditional_notable", trait_index, factor_index, None)),
+                            _fmt_float(_matrix_value("trait_linkage_anchor_conditional_notable_score", trait_index, factor_index)),
+                            _fmt_bool(_matrix_value("trait_linkage_anchor_conditional_available", trait_index, factor_index, None)),
+                            str(_matrix_value("trait_linkage_anchor_conditional_unavailable_reason", trait_index, factor_index, "")),
                         ]
+                        if output_detail == "debug":
+                            values.extend([
+                                str(int(_matrix_value("trait_linkage_joint_conditioning_num_factors", trait_index, factor_index, 0))),
+                                _fmt_float(_matrix_value("trait_linkage_joint_conditioning_ridge_lambda", trait_index, factor_index)),
+                                _fmt_bool(_matrix_value("trait_linkage_joint_model_available", trait_index, factor_index, None)),
+                                str(_matrix_value("trait_linkage_joint_unavailable_reason", trait_index, factor_index, "")),
+                            ])
                     output_fh.write("%s\n" % "\t".join(values))
 
     def write_consensus_factor_diagnostics(self, output_file=None):

@@ -573,15 +573,37 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> 
             "trait": trait,
             "factor": factor,
             "is_anchor": _first(row, ["is_anchor"]),
-            "joint_fraction": parse_float(_first(row, ["joint_fraction", "joint_coefficient"])),
-            "marginal_fraction": parse_float(_first(row, ["marginal_fraction", "marginal_coefficient"])),
-            "marginal_overlap": parse_float(row.get("marginal_overlap")),
+            "joint_capture_fraction": parse_float(_first(row, ["joint_capture_fraction", "joint_fraction", "joint_coefficient"])),
+            "marginal_capture_fraction": parse_float(_first(row, ["marginal_capture_fraction", "marginal_fraction", "marginal_coefficient"])),
+            "marginal_capture_overlap": parse_float(_first(row, ["marginal_capture_overlap", "marginal_overlap"])),
             "trait_neff": neff,
             "retained_n_eff": parse_float(row.get("retained_n_eff")),
-            "joint_support_mass": parse_float(_first(row, ["joint_support_mass", "joint_coefficient_support_mass"])),
-            "marginal_support_mass": parse_float(_first(row, ["marginal_support_mass", "marginal_coefficient_support_mass"])),
-            "joint_residual": parse_float(row.get("joint_residual")),
+            "retained_fraction": parse_float(row.get("retained_fraction")),
+            "joint_capture_support_mass": parse_float(_first(row, ["joint_capture_support_mass", "joint_support_mass", "joint_coefficient_support_mass"])),
+            "marginal_capture_support_mass": parse_float(_first(row, ["marginal_capture_support_mass", "marginal_support_mass", "marginal_coefficient_support_mass"])),
+            "joint_capture_residual": parse_float(_first(row, ["joint_capture_residual", "joint_residual"])),
+            "marginal_lift": parse_float(row.get("marginal_lift")),
+            "marginal_posterior_lift": parse_float(row.get("marginal_posterior_lift")),
+            "marginal_ln_bf": parse_float(row.get("marginal_ln_bf")),
+            "marginal_notable": _first(row, ["marginal_notable"]),
+            "joint_lift": parse_float(row.get("joint_lift")),
+            "joint_posterior_lift": parse_float(row.get("joint_posterior_lift")),
+            "joint_ln_bf": parse_float(row.get("joint_ln_bf")),
+            "joint_notable": _first(row, ["joint_notable"]),
+            "anchor_conditional_lift": parse_float(row.get("anchor_conditional_lift")),
+            "anchor_conditional_posterior_lift": parse_float(row.get("anchor_conditional_posterior_lift")),
+            "anchor_conditional_ln_bf": parse_float(row.get("anchor_conditional_ln_bf")),
+            "anchor_conditional_notable": _first(row, ["anchor_conditional_notable"]),
+            "anchor_conditional_available": _first(row, ["anchor_conditional_available"]),
+            "trait_linkage_evidence_source": _first(row, ["trait_linkage_evidence_source"]),
         }
+        # Backward-compatible aliases used by older graph/dashboard code.
+        record["joint_fraction"] = record["joint_capture_fraction"]
+        record["marginal_fraction"] = record["marginal_capture_fraction"]
+        record["marginal_overlap"] = record["marginal_capture_overlap"]
+        record["joint_support_mass"] = record["joint_capture_support_mass"]
+        record["marginal_support_mass"] = record["marginal_capture_support_mass"]
+        record["joint_residual"] = record["joint_capture_residual"]
         by_factor[factor].append(record)
         if _is_truthy(record["is_anchor"]):
             if trait not in anchor_traits:
@@ -591,11 +613,17 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> 
                     "column": _anchor_column_name(trait, used_columns),
                     "metric": "joint_fraction",
                 }
-            value = record.get("joint_fraction")
+            value = record.get("joint_capture_fraction")
             if value is not None:
                 anchor_values_by_factor[factor][anchor_traits[trait]["column"]] = value
     for factor in by_factor:
-        by_factor[factor].sort(key=lambda item: item.get("joint_fraction") or -1e300, reverse=True)
+        by_factor[factor].sort(
+            key=lambda item: (
+                item.get("joint_ln_bf") if item.get("joint_ln_bf") is not None else -1e300,
+                item.get("joint_capture_fraction") if item.get("joint_capture_fraction") is not None else -1e300,
+            ),
+            reverse=True,
+        )
     return dict(by_factor), list(anchor_traits.values()), dict(anchor_values_by_factor)
 
 

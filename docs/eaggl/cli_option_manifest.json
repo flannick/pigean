@@ -3,12 +3,12 @@
     "compat_alias": 11,
     "debug_only": 6,
     "engineering": 79,
-    "method_optional": 181,
+    "method_optional": 192,
     "method_required": 11
   },
   "entrypoint": "src/eaggl/cli.py",
   "module": "eaggl.cli",
-  "num_options": 288,
+  "num_options": 299,
   "options": [
     {
       "action": null,
@@ -173,7 +173,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 462,
+      "source_line": 473,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -194,7 +194,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 463,
+      "source_line": 474,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -719,7 +719,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 484,
+      "source_line": 495,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -761,7 +761,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 480,
+      "source_line": 491,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -782,7 +782,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 485,
+      "source_line": 496,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -803,7 +803,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 483,
+      "source_line": 494,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -824,7 +824,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 482,
+      "source_line": 493,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -845,7 +845,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 481,
+      "source_line": 492,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -908,7 +908,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 457,
+      "source_line": 468,
       "summary": null,
       "type": "choice",
       "usage_references": 6
@@ -929,7 +929,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 459,
+      "source_line": 470,
       "summary": "similarity threshold used to assign retained gene sets to discovery families",
       "type": "float",
       "usage_references": 8
@@ -1370,7 +1370,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 454,
+      "source_line": 465,
       "summary": null,
       "type": "int",
       "usage_references": 15
@@ -1391,7 +1391,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 455,
+      "source_line": 466,
       "summary": null,
       "type": "float",
       "usage_references": 13
@@ -1412,7 +1412,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 452,
+      "source_line": 463,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -1433,7 +1433,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 453,
+      "source_line": 464,
       "summary": null,
       "type": "float",
       "usage_references": 12
@@ -1454,7 +1454,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 450,
+      "source_line": 461,
       "summary": null,
       "type": "int",
       "usage_references": 16
@@ -1475,7 +1475,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 451,
+      "source_line": 462,
       "summary": null,
       "type": "float",
       "usage_references": 14
@@ -1622,7 +1622,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 474,
+      "source_line": 485,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -4017,7 +4017,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 475,
+      "source_line": 486,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -4332,7 +4332,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 471,
+      "source_line": 482,
       "summary": null,
       "type": "int",
       "usage_references": 20
@@ -4479,7 +4479,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 470,
+      "source_line": 481,
       "summary": null,
       "type": "int",
       "usage_references": 20
@@ -4563,7 +4563,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 456,
+      "source_line": 467,
       "summary": null,
       "type": null,
       "usage_references": 7
@@ -4668,7 +4668,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 458,
+      "source_line": 469,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -4794,7 +4794,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 447,
+      "source_line": 458,
       "summary": "disable canonical trait linkage even when trait inputs are available",
       "type": null,
       "usage_references": 15
@@ -4836,7 +4836,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 467,
+      "source_line": 478,
       "summary": null,
       "type": "int",
       "usage_references": 36
@@ -4857,7 +4857,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 472,
+      "source_line": 483,
       "summary": null,
       "type": "int",
       "usage_references": 22
@@ -5613,7 +5613,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 473,
+      "source_line": 484,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -5809,6 +5809,237 @@
     },
     {
       "action": null,
+      "category": "method_optional",
+      "default": "auto",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_anchor_source",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-anchor-source"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-anchor-source",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 457,
+      "summary": "choose same-feature anchor support for anchor-conditional Bayesian effects: auto, combined, log_bf, prior, or none",
+      "type": "str",
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "weighted_thresholded",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_effect_input_transform",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-effect-input-transform"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-effect-input-transform",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 448,
+      "summary": "choose the transform for Bayesian trait-factor evidence input: raw, weighted_thresholded, or excess_thresholded",
+      "type": "str",
+      "usage_references": 10
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0.1",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_effect_min_retained_fraction",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-effect-min-retained-fraction"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-effect-min-retained-fraction",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 452,
+      "summary": "minimum retained support fraction required for Bayesian trait-factor notable flags",
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "10.0",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_effect_min_trait_neff",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-effect-min-trait-neff"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-effect-min-trait-neff",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 451,
+      "summary": "minimum trait effective feature count required for Bayesian trait-factor notable flags",
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "1.0",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_effect_prior_sd",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-effect-prior-sd"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-effect-prior-sd",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 450,
+      "summary": "prior standard deviation for Bayesian trait-factor effect coefficients",
+      "type": "float",
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "1.0",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_effect_threshold",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-effect-threshold"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-effect-threshold",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 449,
+      "summary": "threshold used by weighted_thresholded and excess_thresholded Bayesian trait-factor evidence transforms",
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "auto",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_evidence_source",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-evidence-source"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-evidence-source",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 447,
+      "summary": "choose the support surface for Bayesian trait-factor effect/evidence scores; auto prefers log_bf, then combined, then prior",
+      "type": "str",
+      "usage_references": 11
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "1.0",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_membership_cap",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-membership-cap"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-membership-cap",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 456,
+      "summary": "maximum soft membership value for Bayesian trait-factor effects",
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "max",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_membership_normalization",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-membership-normalization"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-membership-normalization",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 455,
+      "summary": "choose soft factor memberships for Bayesian trait-factor effects: max or raw_capped",
+      "type": "str",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "3.0",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_notable_ln_bf",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-notable-ln-bf"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-notable-ln-bf",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 453,
+      "summary": "minimum log Bayes factor required for Bayesian trait-factor notable flags",
+      "type": "float",
+      "usage_references": 12
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "5.0",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_notable_ln_bf_scale",
+      "documentation_target": "core_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-notable-ln-bf-scale"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-notable-ln-bf-scale",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 454,
+      "summary": "log Bayes factor scale used to compute Bayesian trait-factor notable scores",
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
       "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
@@ -5826,7 +6057,7 @@
       "source_line": 198,
       "summary": "write the canonical long-form trait-factor linkage table",
       "type": null,
-      "usage_references": 72
+      "usage_references": 71
     },
     {
       "action": null,
@@ -5847,7 +6078,7 @@
       "source_line": 199,
       "summary": "choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions",
       "type": null,
-      "usage_references": 15
+      "usage_references": 14
     },
     {
       "action": null,
@@ -5970,7 +6201,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 476,
+      "source_line": 487,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -6063,6 +6294,6 @@
   "visibilities": {
     "expert": 243,
     "hidden": 8,
-    "normal": 37
+    "normal": 48
   }
 }

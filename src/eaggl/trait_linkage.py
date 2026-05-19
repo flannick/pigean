@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 from scipy import sparse
 
@@ -158,15 +160,495 @@ def resolve_trait_linkage_source(
     return None, None
 
 
+def resolve_trait_linkage_evidence_source(
+    requested_source,
+    *,
+    combined=None,
+    log_bf=None,
+    prior=None,
+    log_fn=None,
+    info_level=1,
+    context_label="trait linkage evidence",
+):
+    allowed = {"auto", "combined", "log_bf", "prior"}
+    if requested_source not in allowed:
+        raise ValueError("Unknown trait linkage evidence source: %s" % requested_source)
+
+    candidates = [
+        ("log_bf", log_bf),
+        ("combined", combined),
+        ("prior", prior),
+    ]
+    if requested_source != "auto":
+        candidates = [candidate for candidate in candidates if candidate[0] == requested_source]
+
+    for label, matrix in candidates:
+        if matrix is None:
+            continue
+        dense_matrix = _sanitize_nonfinite(matrix)
+        if log_fn is not None and requested_source == "auto":
+            log_fn("Using %s support surface for %s" % (label, context_label), info_level)
+        return dense_matrix, label
+    return None, None
+
+
+def _normal_cdf(values):
+    values = np.asarray(values, dtype=float)
+    erf_values = np.vectorize(math.erf)(values / math.sqrt(2.0))
+    return 0.5 * (1.0 + erf_values)
+
+
+def _transform_effect_input(matrix, mode, threshold):
+    dense = _sanitize_nonfinite(matrix)
+    if dense is None:
+        return None
+    if mode == "raw":
+        return dense
+    if mode == "weighted_thresholded":
+        return np.where(dense > float(threshold), dense, 0.0)
+    if mode == "excess_thresholded":
+        return np.maximum(dense - float(threshold), 0.0)
+    raise ValueError("Unknown trait-factor linkage effect input transform: %s" % mode)
+
+
+def _membership_matrix(basis, normalization, cap, *, eps=1e-12):
+    W = np.maximum(_sanitize_nonfinite(basis), 0.0)
+    cap = float(cap)
+    if normalization == "max":
+        col_max = np.max(W, axis=0, keepdims=True) if W.size > 0 else np.ones((1, W.shape[1]))
+        M = W / np.maximum(col_max, eps)
+    elif normalization == "raw_capped":
+        M = W
+    else:
+        raise ValueError("Unknown trait-factor linkage membership normalization: %s" % normalization)
+    return np.clip(M, 0.0, cap)
+
+
+def _ridge_residualize(vector, design, ridge_lambda, *, eps=1e-12):
+    y = np.asarray(vector, dtype=float).ravel()
+    X = np.asarray(design, dtype=float)
+    if X.ndim == 1:
+        X = X[:, np.newaxis]
+    if X.shape[1] == 0:
+        return y - float(np.mean(y)) if y.size > 0 else y
+    XtX = X.T @ X
+    ridge = float(ridge_lambda) * np.eye(X.shape[1], dtype=float)
+    if ridge.shape[0] > 0:
+        ridge[0, 0] = 0.0
+    try:
+        coef = np.linalg.solve(XtX + ridge + eps * np.eye(X.shape[1]), X.T @ y)
+    except np.linalg.LinAlgError:
+        coef = np.linalg.pinv(XtX + ridge + eps * np.eye(X.shape[1])) @ (X.T @ y)
+    return y - X @ coef
+
+
+def _one_covariate_bayes_lm(y, x, prior_sd, *, eps=1e-12):
+    y = np.nan_to_num(np.asarray(y, dtype=float).ravel(), nan=0.0, posinf=0.0, neginf=0.0)
+    x = np.nan_to_num(np.asarray(x, dtype=float).ravel(), nan=0.0, posinf=0.0, neginf=0.0)
+    if y.shape[0] != x.shape[0] or y.shape[0] < 3:
+        return {
+            "beta_hat": np.nan,
+            "beta_var": np.nan,
+            "posterior_mean": np.nan,
+            "posterior_sd": np.nan,
+            "posterior_prob_positive": np.nan,
+            "ln_bf": np.nan,
+            "available": False,
+            "unavailable_reason": "insufficient_rows",
+        }
+    x_centered = x - float(np.mean(x))
+    y_centered = y - float(np.mean(y))
+    sxx = float(np.dot(x_centered, x_centered))
+    if sxx <= eps:
+        return {
+            "beta_hat": 0.0,
+            "beta_var": np.nan,
+            "posterior_mean": 0.0,
+            "posterior_sd": np.nan,
+            "posterior_prob_positive": np.nan,
+            "ln_bf": 0.0,
+            "available": False,
+            "unavailable_reason": "zero_covariate_variance",
+        }
+    beta_hat = float(np.dot(x_centered, y_centered) / sxx)
+    residual = y_centered - beta_hat * x_centered
+    sigma2 = float(np.dot(residual, residual) / max(1, y.shape[0] - 2))
+    sigma2 = max(sigma2, eps)
+    V = float(sigma2 / max(sxx, eps))
+    W_prior = float(prior_sd) ** 2
+    r = float(W_prior / max(W_prior + V, eps))
+    z = float(beta_hat / math.sqrt(max(V, eps)))
+    ln_bf = 0.5 * (math.log(max(1.0 - r, eps)) + r * z * z)
+    posterior_mean = float(r * beta_hat)
+    posterior_var = float(max(r * V, eps))
+    posterior_sd = math.sqrt(posterior_var)
+    posterior_prob_positive = float(_normal_cdf(np.array([posterior_mean / posterior_sd]))[0])
+    return {
+        "beta_hat": beta_hat,
+        "beta_var": V,
+        "posterior_mean": posterior_mean,
+        "posterior_sd": posterior_sd,
+        "posterior_prob_positive": posterior_prob_positive,
+        "ln_bf": float(ln_bf),
+        "available": True,
+        "unavailable_reason": "",
+    }
+
+
+def _one_covariate_bayes_lm_matrix(Y, x, prior_sd, *, eps=1e-12):
+    Y = np.nan_to_num(np.asarray(Y, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+    x = np.nan_to_num(np.asarray(x, dtype=float).ravel(), nan=0.0, posinf=0.0, neginf=0.0)
+    if Y.ndim == 1:
+        Y = Y[:, np.newaxis]
+    if Y.shape[0] != x.shape[0] or Y.shape[0] < 3:
+        n_traits = Y.shape[1] if Y.ndim == 2 else 0
+        return {
+            "beta_hat": np.full(n_traits, np.nan, dtype=float),
+            "beta_var": np.full(n_traits, np.nan, dtype=float),
+            "posterior_mean": np.full(n_traits, np.nan, dtype=float),
+            "posterior_sd": np.full(n_traits, np.nan, dtype=float),
+            "posterior_prob_positive": np.full(n_traits, np.nan, dtype=float),
+            "ln_bf": np.full(n_traits, np.nan, dtype=float),
+            "available": np.full(n_traits, False, dtype=bool),
+            "unavailable_reason": np.full(n_traits, "insufficient_rows", dtype=object),
+        }
+    x_centered = x - float(np.mean(x))
+    Y_centered = Y - np.mean(Y, axis=0, keepdims=True)
+    sxx = float(np.dot(x_centered, x_centered))
+    n_traits = Y.shape[1]
+    if sxx <= eps:
+        return {
+            "beta_hat": np.zeros(n_traits, dtype=float),
+            "beta_var": np.full(n_traits, np.nan, dtype=float),
+            "posterior_mean": np.zeros(n_traits, dtype=float),
+            "posterior_sd": np.full(n_traits, np.nan, dtype=float),
+            "posterior_prob_positive": np.full(n_traits, np.nan, dtype=float),
+            "ln_bf": np.zeros(n_traits, dtype=float),
+            "available": np.full(n_traits, False, dtype=bool),
+            "unavailable_reason": np.full(n_traits, "zero_covariate_variance", dtype=object),
+        }
+    beta_hat = np.asarray(x_centered @ Y_centered / sxx, dtype=float)
+    residual = Y_centered - x_centered[:, np.newaxis] * beta_hat[np.newaxis, :]
+    sigma2 = np.sum(np.square(residual), axis=0) / max(1, Y.shape[0] - 2)
+    sigma2 = np.maximum(sigma2, eps)
+    V = sigma2 / max(sxx, eps)
+    W_prior = float(prior_sd) ** 2
+    r = W_prior / np.maximum(W_prior + V, eps)
+    z = beta_hat / np.sqrt(np.maximum(V, eps))
+    ln_bf = 0.5 * (np.log(np.maximum(1.0 - r, eps)) + r * np.square(z))
+    posterior_mean = r * beta_hat
+    posterior_var = np.maximum(r * V, eps)
+    posterior_sd = np.sqrt(posterior_var)
+    posterior_prob_positive = _normal_cdf(posterior_mean / posterior_sd)
+    return {
+        "beta_hat": beta_hat,
+        "beta_var": V,
+        "posterior_mean": posterior_mean,
+        "posterior_sd": posterior_sd,
+        "posterior_prob_positive": posterior_prob_positive,
+        "ln_bf": ln_bf,
+        "available": np.full(n_traits, True, dtype=bool),
+        "unavailable_reason": np.full(n_traits, "", dtype=object),
+    }
+
+
+def _one_covariate_bayes_lm_from_crossproducts(xTy, yTy, sxx, n_obs, prior_sd, *, df=None, eps=1e-12):
+    xTy = np.nan_to_num(np.asarray(xTy, dtype=float).ravel(), nan=0.0, posinf=0.0, neginf=0.0)
+    yTy = np.nan_to_num(np.asarray(yTy, dtype=float).ravel(), nan=0.0, posinf=0.0, neginf=0.0)
+    n_traits = int(max(xTy.size, yTy.size))
+    if xTy.size != n_traits:
+        xTy = np.resize(xTy, n_traits)
+    if yTy.size != n_traits:
+        yTy = np.resize(yTy, n_traits)
+    if int(n_obs) < 3:
+        return {
+            "beta_hat": np.full(n_traits, np.nan, dtype=float),
+            "beta_var": np.full(n_traits, np.nan, dtype=float),
+            "posterior_mean": np.full(n_traits, np.nan, dtype=float),
+            "posterior_sd": np.full(n_traits, np.nan, dtype=float),
+            "posterior_prob_positive": np.full(n_traits, np.nan, dtype=float),
+            "ln_bf": np.full(n_traits, np.nan, dtype=float),
+            "available": np.full(n_traits, False, dtype=bool),
+            "unavailable_reason": np.full(n_traits, "insufficient_rows", dtype=object),
+        }
+    sxx = float(sxx)
+    if sxx <= eps:
+        return {
+            "beta_hat": np.zeros(n_traits, dtype=float),
+            "beta_var": np.full(n_traits, np.nan, dtype=float),
+            "posterior_mean": np.zeros(n_traits, dtype=float),
+            "posterior_sd": np.full(n_traits, np.nan, dtype=float),
+            "posterior_prob_positive": np.full(n_traits, np.nan, dtype=float),
+            "ln_bf": np.zeros(n_traits, dtype=float),
+            "available": np.full(n_traits, False, dtype=bool),
+            "unavailable_reason": np.full(n_traits, "zero_covariate_variance", dtype=object),
+        }
+    beta_hat = xTy / sxx
+    residual_sse = np.maximum(yTy - np.square(xTy) / max(sxx, eps), eps)
+    sigma2 = residual_sse / max(1, int(df) if df is not None else int(n_obs) - 2)
+    sigma2 = np.maximum(sigma2, eps)
+    V = sigma2 / max(sxx, eps)
+    W_prior = float(prior_sd) ** 2
+    r = W_prior / np.maximum(W_prior + V, eps)
+    z = beta_hat / np.sqrt(np.maximum(V, eps))
+    ln_bf = 0.5 * (np.log(np.maximum(1.0 - r, eps)) + r * np.square(z))
+    posterior_mean = r * beta_hat
+    posterior_var = np.maximum(r * V, eps)
+    posterior_sd = np.sqrt(posterior_var)
+    posterior_prob_positive = _normal_cdf(posterior_mean / posterior_sd)
+    return {
+        "beta_hat": beta_hat,
+        "beta_var": V,
+        "posterior_mean": posterior_mean,
+        "posterior_sd": posterior_sd,
+        "posterior_prob_positive": posterior_prob_positive,
+        "ln_bf": ln_bf,
+        "available": np.full(n_traits, True, dtype=bool),
+        "unavailable_reason": np.full(n_traits, "", dtype=object),
+    }
+
+
+def _residual_crossproducts_against_design(Y, x, design, ridge_lambda, *, eps=1e-12):
+    Y = np.asarray(Y, dtype=float)
+    if Y.ndim == 1:
+        Y = Y[:, np.newaxis]
+    x = np.asarray(x, dtype=float).ravel()
+    X = np.asarray(design, dtype=float)
+    if X.ndim == 1:
+        X = X[:, np.newaxis]
+    n_obs = Y.shape[0]
+    if X.shape[1] == 0:
+        x_resid = x - float(np.mean(x))
+        y_centered = Y - np.mean(Y, axis=0, keepdims=True)
+        return x_resid @ y_centered, np.sum(np.square(y_centered), axis=0), float(x_resid @ x_resid), max(1, n_obs - 2)
+    XtX = X.T @ X
+    ridge = float(ridge_lambda) * np.eye(X.shape[1], dtype=float)
+    if ridge.shape[0] > 0:
+        ridge[0, 0] = 0.0
+    system = XtX + ridge + eps * np.eye(X.shape[1])
+    XtY = X.T @ Y
+    Xtx = X.T @ x
+    try:
+        inv_XtY = np.linalg.solve(system, XtY)
+        inv_Xtx = np.linalg.solve(system, Xtx)
+    except np.linalg.LinAlgError:
+        pinv_system = np.linalg.pinv(system)
+        inv_XtY = pinv_system @ XtY
+        inv_Xtx = pinv_system @ Xtx
+    yTy = (
+        np.sum(np.square(Y), axis=0)
+        - 2.0 * np.sum(XtY * inv_XtY, axis=0)
+        + np.sum(inv_XtY * (XtX @ inv_XtY), axis=0)
+    )
+    sxx = float(x @ x - 2.0 * Xtx.T @ inv_Xtx + inv_Xtx.T @ XtX @ inv_Xtx)
+    xTy = x @ Y - Xtx.T @ inv_XtY - inv_Xtx.T @ XtY + inv_Xtx.T @ XtX @ inv_XtY
+    df = max(1, n_obs - X.shape[1] - 1)
+    return np.asarray(xTy, dtype=float), np.asarray(yTy, dtype=float), max(sxx, 0.0), df
+
+
+def _ridge_residualize_matrix(matrix, design, ridge_lambda, *, eps=1e-12):
+    Y = np.asarray(matrix, dtype=float)
+    if Y.ndim == 1:
+        Y = Y[:, np.newaxis]
+    X = np.asarray(design, dtype=float)
+    if X.ndim == 1:
+        X = X[:, np.newaxis]
+    if X.shape[1] == 0:
+        return Y - np.mean(Y, axis=0, keepdims=True)
+    XtX = X.T @ X
+    ridge = float(ridge_lambda) * np.eye(X.shape[1], dtype=float)
+    if ridge.shape[0] > 0:
+        ridge[0, 0] = 0.0
+    system = XtX + ridge + eps * np.eye(X.shape[1])
+    try:
+        coef = np.linalg.solve(system, X.T @ Y)
+    except np.linalg.LinAlgError:
+        coef = np.linalg.pinv(system) @ (X.T @ Y)
+    return Y - X @ coef
+
+
+def _effect_matrix_shape(num_traits, num_factors, fill=np.nan):
+    return np.full((int(num_traits), int(num_factors)), fill, dtype=float)
+
+
+def _compute_effect_scores(
+    full_basis,
+    evidence_feature_by_trait,
+    *,
+    anchor_feature_by_covariate=None,
+    effect_input_transform="weighted_thresholded",
+    effect_threshold=1.0,
+    effect_prior_sd=1.0,
+    effect_min_trait_neff=10.0,
+    effect_min_retained_fraction=0.1,
+    notable_ln_bf=3.0,
+    notable_ln_bf_scale=5.0,
+    membership_normalization="max",
+    membership_cap=1.0,
+    trait_n_eff=None,
+    retained_fraction=None,
+    low_retention_flag=None,
+    ridge_lambda=1e-6,
+    eps=1e-12,
+):
+    Y = _transform_effect_input(evidence_feature_by_trait, effect_input_transform, effect_threshold)
+    if full_basis is None or Y is None:
+        return {}
+    M = _membership_matrix(full_basis, membership_normalization, membership_cap, eps=eps)
+    if M.shape[0] != Y.shape[0]:
+        raise ValueError("Trait-factor linkage evidence rows must match factor basis rows")
+    num_features, num_factors = M.shape
+    num_traits = Y.shape[1]
+    ones = np.ones((num_features, 1), dtype=float)
+    trait_n_eff = np.zeros(num_traits, dtype=float) if trait_n_eff is None else np.asarray(trait_n_eff, dtype=float)
+    retained_fraction = np.ones(num_traits, dtype=float) if retained_fraction is None else np.asarray(retained_fraction, dtype=float)
+    low_retention_flag = np.zeros(num_traits, dtype=bool) if low_retention_flag is None else np.asarray(low_retention_flag, dtype=bool)
+
+    results = {
+        "effect_membership": M,
+        "marginal_mean_in": _effect_matrix_shape(num_traits, num_factors),
+        "marginal_mean_out": _effect_matrix_shape(num_traits, num_factors),
+        "marginal_lift": _effect_matrix_shape(num_traits, num_factors),
+        "marginal_posterior_lift": _effect_matrix_shape(num_traits, num_factors),
+        "marginal_posterior_sd": _effect_matrix_shape(num_traits, num_factors),
+        "marginal_posterior_prob_positive": _effect_matrix_shape(num_traits, num_factors),
+        "marginal_ln_bf": _effect_matrix_shape(num_traits, num_factors),
+        "joint_lift": _effect_matrix_shape(num_traits, num_factors),
+        "joint_posterior_lift": _effect_matrix_shape(num_traits, num_factors),
+        "joint_posterior_sd": _effect_matrix_shape(num_traits, num_factors),
+        "joint_posterior_prob_positive": _effect_matrix_shape(num_traits, num_factors),
+        "joint_ln_bf": _effect_matrix_shape(num_traits, num_factors),
+        "joint_conditioning_num_factors": np.full((num_traits, num_factors), max(0, num_factors - 1), dtype=int),
+        "joint_conditioning_ridge_lambda": np.full((num_traits, num_factors), float(ridge_lambda), dtype=float),
+        "joint_model_available": np.full((num_traits, num_factors), True, dtype=bool),
+        "joint_unavailable_reason": np.full((num_traits, num_factors), "", dtype=object),
+        "anchor_conditional_lift": _effect_matrix_shape(num_traits, num_factors),
+        "anchor_conditional_posterior_lift": _effect_matrix_shape(num_traits, num_factors),
+        "anchor_conditional_posterior_sd": _effect_matrix_shape(num_traits, num_factors),
+        "anchor_conditional_posterior_prob_positive": _effect_matrix_shape(num_traits, num_factors),
+        "anchor_conditional_ln_bf": _effect_matrix_shape(num_traits, num_factors),
+        "anchor_conditional_available": np.full((num_traits, num_factors), False, dtype=bool),
+        "anchor_conditional_unavailable_reason": np.full((num_traits, num_factors), "anchor_support_unavailable", dtype=object),
+    }
+
+    anchor_design = None
+    if anchor_feature_by_covariate is not None:
+        anchor_dense = _sanitize_nonfinite(anchor_feature_by_covariate)
+        if anchor_dense is not None and anchor_dense.shape[0] == num_features and anchor_dense.shape[1] > 0:
+            anchor_design = np.column_stack([np.ones(num_features, dtype=float), anchor_dense])
+
+    for factor_index in range(num_factors):
+        m = M[:, factor_index]
+        m_sum = float(np.sum(m))
+        out = 1.0 - m
+        out_sum = float(np.sum(out))
+        mean_in = np.asarray(m @ Y / max(m_sum, eps), dtype=float)
+        mean_out = np.asarray(out @ Y / max(out_sum, eps), dtype=float)
+        results["marginal_mean_in"][:, factor_index] = mean_in
+        results["marginal_mean_out"][:, factor_index] = mean_out
+        results["marginal_lift"][:, factor_index] = mean_in - mean_out
+        marginal_fit = _one_covariate_bayes_lm_matrix(Y, m, effect_prior_sd, eps=eps)
+        results["marginal_posterior_lift"][:, factor_index] = marginal_fit["posterior_mean"]
+        results["marginal_posterior_sd"][:, factor_index] = marginal_fit["posterior_sd"]
+        results["marginal_posterior_prob_positive"][:, factor_index] = marginal_fit["posterior_prob_positive"]
+        results["marginal_ln_bf"][:, factor_index] = marginal_fit["ln_bf"]
+
+        other = np.delete(M, factor_index, axis=1)
+        joint_design = np.column_stack([ones, other])
+        xTy, yTy, sxx, df = _residual_crossproducts_against_design(
+            Y,
+            m,
+            joint_design,
+            ridge_lambda,
+            eps=eps,
+        )
+        joint_fit = _one_covariate_bayes_lm_from_crossproducts(
+            xTy,
+            yTy,
+            sxx,
+            num_features,
+            effect_prior_sd,
+            df=df,
+            eps=eps,
+        )
+        results["joint_lift"][:, factor_index] = joint_fit["beta_hat"]
+        results["joint_posterior_lift"][:, factor_index] = joint_fit["posterior_mean"]
+        results["joint_posterior_sd"][:, factor_index] = joint_fit["posterior_sd"]
+        results["joint_posterior_prob_positive"][:, factor_index] = joint_fit["posterior_prob_positive"]
+        results["joint_ln_bf"][:, factor_index] = joint_fit["ln_bf"]
+        results["joint_model_available"][:, factor_index] = joint_fit["available"]
+        results["joint_unavailable_reason"][:, factor_index] = joint_fit["unavailable_reason"]
+
+        if anchor_design is not None:
+            xTy, yTy, sxx, df = _residual_crossproducts_against_design(
+                Y,
+                m,
+                anchor_design,
+                ridge_lambda,
+                eps=eps,
+            )
+            anchor_fit = _one_covariate_bayes_lm_from_crossproducts(
+                xTy,
+                yTy,
+                sxx,
+                num_features,
+                effect_prior_sd,
+                df=df,
+                eps=eps,
+            )
+            results["anchor_conditional_lift"][:, factor_index] = anchor_fit["beta_hat"]
+            results["anchor_conditional_posterior_lift"][:, factor_index] = anchor_fit["posterior_mean"]
+            results["anchor_conditional_posterior_sd"][:, factor_index] = anchor_fit["posterior_sd"]
+            results["anchor_conditional_posterior_prob_positive"][:, factor_index] = anchor_fit["posterior_prob_positive"]
+            results["anchor_conditional_ln_bf"][:, factor_index] = anchor_fit["ln_bf"]
+            results["anchor_conditional_available"][:, factor_index] = anchor_fit["available"]
+            results["anchor_conditional_unavailable_reason"][:, factor_index] = anchor_fit["unavailable_reason"]
+
+    for prefix in ("marginal", "joint", "anchor_conditional"):
+        posterior = np.asarray(results["%s_posterior_lift" % prefix], dtype=float)
+        ln_bf = np.asarray(results["%s_ln_bf" % prefix], dtype=float)
+        available = np.isfinite(posterior) & np.isfinite(ln_bf)
+        if prefix == "anchor_conditional":
+            available &= np.asarray(results["anchor_conditional_available"], dtype=bool)
+        notable = (
+            available
+            & (posterior > 0.0)
+            & (ln_bf >= float(notable_ln_bf))
+            & (trait_n_eff[:, np.newaxis] >= float(effect_min_trait_neff))
+            & (retained_fraction[:, np.newaxis] >= float(effect_min_retained_fraction))
+            & (~low_retention_flag[:, np.newaxis])
+        )
+        score = np.maximum(0.0, np.nan_to_num(posterior, nan=0.0)) * np.minimum(
+            1.0,
+            np.maximum(0.0, np.nan_to_num(ln_bf, nan=0.0)) / max(float(notable_ln_bf_scale), eps),
+        )
+        results["%s_notable" % prefix] = notable
+        results["%s_notable_score" % prefix] = score
+    return results
+
+
 def compute_trait_linkage(
     nnls_project_fn,
     basis,
     feature_by_trait,
     *,
     full_feature_by_trait=None,
+    evidence_feature_by_trait=None,
+    anchor_feature_by_covariate=None,
     basis_mask=None,
     threshold_mode="weighted_thresholded",
     threshold_value=1.0,
+    evidence_source_name=None,
+    effect_input_transform="weighted_thresholded",
+    effect_threshold=1.0,
+    effect_prior_sd=1.0,
+    effect_min_trait_neff=10.0,
+    effect_min_retained_fraction=0.1,
+    notable_ln_bf=3.0,
+    notable_ln_bf_scale=5.0,
+    membership_normalization="max",
+    membership_cap=1.0,
+    anchor_source_name="auto",
     strict_threshold=True,
     computation_mode="sparse_full",
     eps=1e-12,
@@ -313,7 +795,7 @@ def compute_trait_linkage(
         retained_n_eff < 5.0,
     ))
 
-    return {
+    result = {
         "prepared_feature_by_trait": masked_trait_support,
         "masked_trait_support": masked_trait_support,
         "full_trait_support": full_trait_support,
@@ -336,4 +818,30 @@ def compute_trait_linkage(
         "marginal": marginal,
         "marginal_overlap": marginal_overlap,
         "residual": residual,
+        "evidence_source": evidence_source_name,
+        "effect_input_transform": effect_input_transform,
+        "effect_threshold": float(effect_threshold),
+        "effect_prior_sd": float(effect_prior_sd),
+        "anchor_source": anchor_source_name,
     }
+    evidence_matrix = evidence_feature_by_trait if evidence_feature_by_trait is not None else full_target_feature_by_trait
+    effect_scores = _compute_effect_scores(
+        full_basis,
+        evidence_matrix,
+        anchor_feature_by_covariate=anchor_feature_by_covariate,
+        effect_input_transform=effect_input_transform,
+        effect_threshold=effect_threshold,
+        effect_prior_sd=effect_prior_sd,
+        effect_min_trait_neff=effect_min_trait_neff,
+        effect_min_retained_fraction=effect_min_retained_fraction,
+        notable_ln_bf=notable_ln_bf,
+        notable_ln_bf_scale=notable_ln_bf_scale,
+        membership_normalization=membership_normalization,
+        membership_cap=membership_cap,
+        trait_n_eff=trait_n_eff,
+        retained_fraction=retained_fraction,
+        low_retention_flag=low_retention_flag,
+        eps=eps,
+    )
+    result.update(effect_scores)
+    return result

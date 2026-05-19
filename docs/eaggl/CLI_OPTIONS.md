@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `288`
+- Total options: `299`
 - `method_required`: `11`
-- `method_optional`: `181`
+- `method_optional`: `192`
 - `engineering`: `79`
 - `compat_alias`: `11`
 - `debug_only`: `6`
 - visibility `expert`: `243`
 - visibility `hidden`: `8`
-- visibility `normal`: `37`
+- visibility `normal`: `48`
 
 ## Method Required
 
@@ -206,6 +206,17 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
+| `--trait-factor-linkage-anchor-source` | `normal` | `yes` | `core_help` | `trait_factor_linkage_anchor_source` | `auto` | choose same-feature anchor support for anchor-conditional Bayesian effects: auto, combined, log_bf, prior, or none |
+| `--trait-factor-linkage-effect-input-transform` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_input_transform` | `weighted_thresholded` | choose the transform for Bayesian trait-factor evidence input: raw, weighted_thresholded, or excess_thresholded |
+| `--trait-factor-linkage-effect-min-retained-fraction` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_min_retained_fraction` | `0.1` | minimum retained support fraction required for Bayesian trait-factor notable flags |
+| `--trait-factor-linkage-effect-min-trait-neff` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_min_trait_neff` | `10.0` | minimum trait effective feature count required for Bayesian trait-factor notable flags |
+| `--trait-factor-linkage-effect-prior-sd` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_prior_sd` | `1.0` | prior standard deviation for Bayesian trait-factor effect coefficients |
+| `--trait-factor-linkage-effect-threshold` | `normal` | `yes` | `core_help` | `trait_factor_linkage_effect_threshold` | `1.0` | threshold used by weighted_thresholded and excess_thresholded Bayesian trait-factor evidence transforms |
+| `--trait-factor-linkage-evidence-source` | `normal` | `yes` | `core_help` | `trait_factor_linkage_evidence_source` | `auto` | choose the support surface for Bayesian trait-factor effect/evidence scores; auto prefers log_bf, then combined, then prior |
+| `--trait-factor-linkage-membership-cap` | `normal` | `yes` | `core_help` | `trait_factor_linkage_membership_cap` | `1.0` | maximum soft membership value for Bayesian trait-factor effects |
+| `--trait-factor-linkage-membership-normalization` | `normal` | `yes` | `core_help` | `trait_factor_linkage_membership_normalization` | `max` | choose soft factor memberships for Bayesian trait-factor effects: max or raw_capped |
+| `--trait-factor-linkage-notable-ln-bf` | `normal` | `yes` | `core_help` | `trait_factor_linkage_notable_ln_bf` | `3.0` | minimum log Bayes factor required for Bayesian trait-factor notable flags |
+| `--trait-factor-linkage-notable-ln-bf-scale` | `normal` | `yes` | `core_help` | `trait_factor_linkage_notable_ln_bf_scale` | `5.0` | log Bayes factor scale used to compute Bayesian trait-factor notable scores |
 | `--trait-factor-links-output-detail` | `normal` | `yes` | `core_help` | `trait_factor_links_output_detail` | `main` | choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions |
 | `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the canonical trait-linkage computation backend: sparse_full is the default sparse-aware full-space implementation; dense_full is retained as a debug comparison backend |
 | `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the support surface for canonical trait linkage: combined by default, with optional expert overrides |

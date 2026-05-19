@@ -806,6 +806,19 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("--trait-factor-links-output-detail must be one of: main, full, debug", err)
         self.assertNotIn("Traceback", err)
 
+    def test_invalid_trait_factor_linkage_evidence_options_return_usage_error(self) -> None:
+        proc = self._run("factor", "--trait-factor-linkage-evidence-source", "definitely_invalid")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--trait-factor-linkage-evidence-source must be one of: auto, log_bf, combined, prior", err)
+        self.assertNotIn("Traceback", err)
+
+        proc = self._run("factor", "--trait-factor-linkage-effect-input-transform", "definitely_invalid")
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("--trait-factor-linkage-effect-input-transform must be one of: raw, weighted_thresholded, excess_thresholded", err)
+        self.assertNotIn("Traceback", err)
+
     def test_projection_only_gene_set_trait_factor_links_requires_gene_set_inputs(self) -> None:
         proc = self._run(
             "factor",
