@@ -193,10 +193,6 @@ Notes:
 | `--trait-linkage-source` | choose the support surface for simplified trait linkage; default is `combined` (expert overrides: `auto`, `log_bf`, `prior`) |
 | `--trait-linkage-threshold` | strict threshold for simplified trait linkage support (`source_value > threshold`) |
 | `--trait-linkage-computation-mode` | choose the linkage computation backend: `sparse_full` by default, or `dense_full` as a debug comparison backend |
-| `--trait-factor-linkage-evidence-source` | compatibility option retained for older commands; simplified trait linkage uses `--trait-linkage-source` |
-| `--trait-factor-linkage-effect-input-transform` | compatibility option retained for older commands |
-| `--trait-factor-linkage-effect-prior-sd` | compatibility option retained for older commands |
-| `--trait-factor-linkage-anchor-source` | compatibility option retained for older commands |
 | `--trait-factor-links-output-detail` | accepted for command compatibility; simplified linkage writes one concise schema |
 | `--no-trait-linkage` | disable simplified trait linkage even when trait inputs are available |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
@@ -449,28 +445,16 @@ The mathematical model and workflow formalization live in:
 
 For post-factor phenotype interpretation:
 - `trait_factor_links.out` is the primary phenotype annotation artifact
-- `trait_factor_links.out` writes `nnls_loading` plus factor-as-gene-set beta columns (`beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, `p_value`)
-- `--factor-gmt-out` writes the thresholded factor gene sets used for those scores
-- raw trait support and raw factor loadings are not forced to sum to `1`
-- `marginal_overlap = q_t^T b_k` is a direct shape-overlap metric; unlike `marginal_coefficient`, it is not divided by the factor self-norm and is less sensitive to factor breadth
-- `trait_total_support` is the full thresholded trait support before masking, or the total thresholded hit count under binary capture mode
-- `retained_trait_support` is the masked retained support available on the fitted factor basis
-- `retained_fraction = retained_trait_support / trait_total_support`
-- `trait_n_eff = (\sum_g s_t(g))^2 / \sum_g s_t(g)^2` reports the support-weighted effective number of genes contributing to the thresholded trait signal
-- `retained_n_eff` applies the same effective-size calculation after masking to the factorized gene universe
-- `trait_n_eff` and `retained_n_eff` are concentration diagnostics: they can be much smaller than `total_feature_count` or `retained_feature_count` when a small number of genes carries most of the support
-- `joint_coefficient_support_mass = trait_total_support * joint_coefficient`, a coefficient-scaled support total rather than exact captured-support mass
-- `marginal_coefficient_support_mass = trait_total_support * marginal_coefficient`, a coefficient-scaled support total rather than exact captured-support mass
-- `marginal_overlap_support_mass = trait_total_support * marginal_overlap`, an overlap-scaled support total
-- `total_feature_count` and `retained_feature_count` report the same diagnostic on thresholded feature counts
-- `low_retention_flag` marks traits whose retained support is very sparse or highly concentrated on the current factor basis
-- `joint_residual` is the uncaptured normalized trait mass after the joint competitive projection
+- `trait_factor_links.out` writes `nnls_loading`, which projects each selected trait support vector onto the EAGGL factor gene-loading basis with NNLS
+- `trait_neff = (\sum_g s_t(g))^2 / \sum_g s_t(g)^2` reports the support-weighted effective number of genes contributing to the thresholded trait signal
+- `factor_num_genes` and `factor_weight_sum` describe the thresholded factor gene set used for linkage
+- `trait_response_source` records the selected phenotype support column, usually `combined`
+- `--factor-gmt-out` exports the same thresholded factor gene sets for a PIGEAN `multi-y` run; factor-to-trait regression statistics such as `beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, and `p_value` are intentionally produced by PIGEAN, not by EAGGL
 - `factor_total_mass` in `factors.out` reports the raw total mass of each factor on the canonical linkage basis used for that run
 - `factor_tier` and `combined_mass_fraction` in `factors.out` report the post-fit interpretability tier next to `lambda`; the default user-facing outputs include only primary factors unless `--factor-output-scope` is widened
 - `factor_n_eff`, `factor_top_share`, `factor_top10_share`, and `broad_factor_flag` in `factors.out` summarize factor breadth on the retained projection basis; `broad_factor_flag` marks factors with `factor_n_eff >= 500` and `factor_top_share <= 0.01`
-- `--gene-stats-in` / `--gene-set-stats-in` runs treat the input statistics as an implicit `input_gene_stats` anchor; `factors.out` writes `anchor_any_joint` / `anchor_any_marginal` only when both canonical anchor joint and marginal summaries are available; the legacy `any_relevance` alias is no longer emitted
-- for factor-to-trait interpretation, filter on trait QC and rank by `joint_coefficient`, using `marginal_coefficient` and `marginal_overlap` as secondary context
-- for trait-to-factor interpretation, rank by `joint_coefficient` rather than marginal alone, and inspect or filter broad factors with `broad_factor_flag`
+- `--gene-stats-in` / `--gene-set-stats-in` runs treat the input statistics as an implicit `input_gene_stats` anchor
+- for factor-to-trait interpretation in EAGGL, rank by `nnls_loading`; for regression-style trait association strength, export `--factor-gmt-out` and run PIGEAN `multi-y`
 - `pheno_clusters.out` remains accepted as a compatibility alias for one release and writes the same long-form canonical linkage payload
 - `factor_phewas_stats.out` is a secondary enrichment table rather than the main phenotype-labeling surface
 
@@ -493,6 +477,6 @@ Current reference tests should cover:
 
 ### Simplified Trait-Factor Linkage
 
-`trait_factor_links.out(.gz)` now contains only two factor-to-trait summaries. `nnls_loading` projects each trait support vector onto the EAGGL factor gene-loading basis using NNLS. The beta columns (`beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, `p_value`) treat each EAGGL factor as a weighted gene set after zeroing gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). Use `--factor-gmt-out` to export the same thresholded factor gene sets for an external PIGEAN `multi-y` run.
+`trait_factor_links.out(.gz)` now contains only native EAGGL NNLS factor-to-trait projections. `nnls_loading` projects each trait support vector onto the EAGGL factor gene-loading basis after zeroing factor gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). Use `--factor-gmt-out` to export the same thresholded factor gene sets for an external PIGEAN `multi-y` run when factor-as-gene-set beta statistics are needed.
 
 Cluster files report raw `Factor*` loadings and `Cosine_Factor*`, where cosine is the row loading vector's cosine similarity to the one-hot factor indicator. The previous `Relative_Factor*` and `Combined_Factor*` cluster columns are no longer written.

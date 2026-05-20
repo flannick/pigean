@@ -763,17 +763,6 @@ _EXPERT_METHOD_FLAGS = {
     "--trait-linkage-computation-mode",
     "--trait-linkage-source",
     "--trait-linkage-threshold",
-    "--trait-factor-linkage-evidence-source",
-    "--trait-factor-linkage-effect-input-transform",
-    "--trait-factor-linkage-effect-threshold",
-    "--trait-factor-linkage-effect-prior-sd",
-    "--trait-factor-linkage-effect-min-trait-neff",
-    "--trait-factor-linkage-effect-min-retained-fraction",
-    "--trait-factor-linkage-notable-ln-bf",
-    "--trait-factor-linkage-notable-ln-bf-scale",
-    "--trait-factor-linkage-membership-normalization",
-    "--trait-factor-linkage-membership-cap",
-    "--trait-factor-linkage-anchor-source",
     "--trait-factor-linkage-factor-gene-threshold",
     "--factor-gmt-out",
     "--no-trait-linkage",
@@ -894,6 +883,24 @@ _HIDDEN_COMPAT_ALIAS_FLAGS = {
     "--gene-phewas-bfs-prior-col",
     "--run-phewas-from-gene-phewas-stats-in",
 }
+
+_TRAIT_FACTOR_LINKAGE_REMOVED_REGRESSION_FLAGS = {
+    "--trait-factor-linkage-evidence-source",
+    "--trait-factor-linkage-effect-input-transform",
+    "--trait-factor-linkage-effect-threshold",
+    "--trait-factor-linkage-effect-prior-sd",
+    "--trait-factor-linkage-effect-min-trait-neff",
+    "--trait-factor-linkage-effect-min-retained-fraction",
+    "--trait-factor-linkage-notable-ln-bf",
+    "--trait-factor-linkage-notable-ln-bf-scale",
+    "--trait-factor-linkage-membership-normalization",
+    "--trait-factor-linkage-membership-cap",
+    "--trait-factor-linkage-anchor-source",
+}
+_COMPAT_ALIAS_FLAGS.update(_TRAIT_FACTOR_LINKAGE_REMOVED_REGRESSION_FLAGS)
+_HIDDEN_COMPAT_ALIAS_FLAGS.update(_TRAIT_FACTOR_LINKAGE_REMOVED_REGRESSION_FLAGS)
+_EXPERT_METHOD_FLAGS.difference_update(_TRAIT_FACTOR_LINKAGE_REMOVED_REGRESSION_FLAGS)
+_CORE_VISIBLE_METHOD_FLAGS.difference_update(_TRAIT_FACTOR_LINKAGE_REMOVED_REGRESSION_FLAGS)
 
 _DEBUG_ONLY_FLAGS = {
     "--debug-just-check-header",

@@ -573,78 +573,41 @@ b_{\bullet k}^{(b)} = \frac{W_{\bullet k}^{(b)}}{S_k^{(b)} + \epsilon}.
 \end{equation}
 The raw factor loadings $W^{(b)}$ and their totals $S_k^{(b)}$ are preserved for reporting; only the copied profiles $b_{\bullet k}^{(b)}$ are used for matching.
 
-EAGGL then reports two linkage summaries from the same internal matching inputs. The \emph{marginal coefficient} of factor $k$ for trait $t$ is the one-factor bounded projection
+EAGGL then reports a single native phenotype-linkage summary: an NNLS projection of each selected trait support vector onto the factor basis,
 \begin{equation}
-m_{tk}^{(b)}
+\hat c_t^{(b)}
 =
-\arg\min_{0 \le c \le 1}
+\arg\min_{c \ge 0}
 \left\|
-q_t^{(b)} - b_{\bullet k}^{(b)} c
-\right\|_2^2,
-\label{eq:eaggl_trait_linkage_marginal}
-\end{equation}
-and the marginal overlap companion is the direct shape overlap
-\begin{equation}
-o_{tk}^{(b)} = \left(q_t^{(b)}\right)^\top b_{\bullet k}^{(b)}.
-\label{eq:eaggl_trait_linkage_marginal_overlap}
-\end{equation}
-and the \emph{joint coefficient} is the all-factor competitive projection
-\begin{equation}
-j_t^{(b)}
-=
-\arg\min_{c \ge 0,\ \mathbf{1}^\top c \le 1}
-\left\|
-q_t^{(b)} - b^{(b)} c
+s_t^{(b)} - W^{(b)} c
 \right\|_2^2.
-\label{eq:eaggl_trait_linkage_joint}
+\label{eq:eaggl_trait_linkage_nnls}
 \end{equation}
-We also report the uncaptured normalized mass
-\begin{equation}
-\rho_t^{(b)} = \max\!\left(0,\ 1 - \sum_{k=1}^K j_{tk}^{(b)}\right).
-\label{eq:eaggl_trait_linkage_residual}
-\end{equation}
-
-The coefficient $m_{tk}^{(b)}$ is interpreted as a standalone support-normalized projection coefficient linking phenotype $t$ to factor $k$ when that factor is viewed alone. Because it is divided by the factor self-norm, it remains coefficient-like and can be sensitive to factor breadth. The overlap $o_{tk}^{(b)}$ is a direct shape-overlap metric and is less affected by broad factor profiles. The coefficient $j_{tk}^{(b)}$ is interpreted as the corresponding competitive projection coefficient for factor $k$ after the other factors compete. These coefficients are not exact overlap or captured-support masses. In contrast to a projection normalized only on the retained masked slice, Eqs.~\eqref{eq:eaggl_trait_linkage_marginal} and \eqref{eq:eaggl_trait_linkage_joint} preserve the scale of the full thresholded trait while still solving on the retained factor basis. Broad phenotypes can therefore have large total thresholded support $A_t^{(b)}$ without automatically receiving inflated linkage coefficients when only a small masked subset of their support survives into the factor basis.
+The resulting coefficient \texttt{nnls\_loading} is a descriptive projection loading. It answers how much of the thresholded trait-support profile is represented by each fitted factor on the shared feature basis. It is not a Bayes factor, p-value, posterior probability, or factor-as-gene-set regression coefficient.
 
 For reporting, EAGGL writes:
 \begin{itemize}
-\item \texttt{trait\_total\_support} = $A_t^{(b)}$
-\item \texttt{retained\_trait\_support} = $\sum_f s_{t,\mathcal{M}f}^{(b)}$
-\item \texttt{retained\_fraction} = \texttt{retained\_trait\_support} / \texttt{trait\_total\_support}
-\item \texttt{trait\_n\_eff} = $\left(\sum_f s_t^{(b)}\right)^2 \big/ \sum_f \left(s_t^{(b)}\right)^2$
-\item \texttt{retained\_n\_eff} = $\left(\sum_f s_{t,\mathcal{M}f}^{(b)}\right)^2 \big/ \sum_f \left(s_{t,\mathcal{M}f}^{(b)}\right)^2$
-\item \texttt{joint\_coefficient} = $j_{tk}^{(b)}$
-\item \texttt{marginal\_coefficient} = $m_{tk}^{(b)}$
-\item \texttt{marginal\_overlap} = $o_{tk}^{(b)}$
-\item \texttt{joint\_coefficient\_support\_mass} = \texttt{trait\_total\_support} $\times$ \texttt{joint\_coefficient}, a coefficient-scaled support total rather than an exact captured-support mass
-\item \texttt{marginal\_coefficient\_support\_mass} = \texttt{trait\_total\_support} $\times$ \texttt{marginal\_coefficient}, a coefficient-scaled support total rather than an exact captured-support mass
-\item \texttt{marginal\_overlap\_support\_mass} = \texttt{trait\_total\_support} $\times$ \texttt{marginal\_overlap}, an overlap-scaled support total
-\item \texttt{factor\_tier} and \texttt{combined\_mass\_fraction} report the post-fit interpretation tier and global factor mass fraction.
-\item \texttt{factor\_total\_mass} = $S_k^{(b)}$ in the factor summary output
-\item \texttt{factor\_n\_eff} = $\left(\sum_f W_{fk}^{(b)}\right)^2 \big/ \sum_f \left(W_{fk}^{(b)}\right)^2$
-\item \texttt{factor\_top\_share} = $\max_f W_{fk}^{(b)} / S_k^{(b)}$
-\item \texttt{factor\_top10\_share} = top-10 loading mass divided by $S_k^{(b)}$
-\item \texttt{broad\_factor\_flag} = 1 when \texttt{factor\_n\_eff} $\ge 500$ and \texttt{factor\_top\_share} $\le 0.01$
+\item \texttt{nnls\_loading} = $\hat c_{tk}^{(b)}$
+\item \texttt{trait\_neff} = $\left(\sum_f s_t^{(b)}\right)^2 \big/ \sum_f \left(s_t^{(b)}\right)^2$
+\item \texttt{factor\_num\_genes}, the number of genes retained in the thresholded factor gene set
+\item \texttt{factor\_weight\_sum}, the total retained factor gene weight
+\item \texttt{trait\_response\_source}, the trait support surface used for projection
+\item \texttt{factor\_gene\_basis}, the feature basis used for projection
+\item \texttt{factor\_loading\_threshold}, the threshold used to zero factor gene loadings before linkage
 \end{itemize}
 
-The effective-size diagnostics complement the raw thresholded feature counts. A phenotype can have many retained nonzero genes but still have \texttt{trait\_n\_eff} or \texttt{retained\_n\_eff} close to $1$ when most of its support is concentrated on one or a few genes. These quantities therefore expose concentration of support mass rather than only thresholded breadth.
+Regression-style factor-to-trait association is deliberately not estimated inside this NNLS linkage writer. When beta statistics are needed, EAGGL exports the thresholded factors with \texttt{--factor-gmt-out}; those factor gene sets should then be tested with PIGEAN \texttt{multi-y}, which writes \texttt{beta}, \texttt{beta\_uncorrected}, \texttt{beta\_tilde}, standard errors, z-scores, and p-values using the same beta-stage machinery as ordinary gene sets.
 
 \paragraph{Interpretation.}
-Canonical trait linkage is a descriptive quantity. The marginal coefficients answer:
+Canonical trait linkage is descriptive. The NNLS loading answers:
 \begin{quote}
-``How much does factor $k$ link to phenotype $t$ when factor $k$ is viewed alone?''
+``How strongly is phenotype $t$ represented by factor $k$ when the phenotype support vector is projected onto the learned factor basis?''
 \end{quote}
-The joint coefficients answer:
-\begin{quote}
-``How is the retained high-confidence support profile of phenotype $t$ represented after the factors compete as a mixture of latent mechanisms?''
-\end{quote}
-These are not p-values, and they should not be interpreted as calibrated posterior probabilities that phenotype $t$ is formally associated with factor $k$.
-
-EAGGL also reports retained-basis diagnostics alongside the linkage scores: total thresholded trait support, retained masked trait support, retained fraction, total thresholded feature count, retained masked feature count, support effective sizes, and a low-retention flag for traits with very small or highly concentrated retained support.
+These loadings are useful for dashboard annotation and factor browsing. They should not be interpreted as calibrated evidence that phenotype $t$ is formally associated with factor $k$.
 
 \subsection{Choice of projection basis across workflow families}
 
-For the public gene $\times$ gene-set workflow family, the preferred basis for canonical trait linkage is the gene basis. In that case, $W^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $W^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-set support vector. Thus, the canonical linkage definition is common across workflows: EAGGL always projects one thresholded support profile onto a factor basis defined on one shared feature space, then reports both marginal and joint coefficients from those same internal matching inputs.
+For the public gene $\times$ gene-set workflow family, the preferred basis for canonical trait linkage is the gene basis. In that case, $W^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $W^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-set support vector. Thus, the canonical linkage definition is common across workflows: EAGGL always projects one thresholded support profile onto a factor basis defined on one shared feature space.
 
 \subsection{Factor-specific phenotype enrichment with thresholded binary outcomes}
 

@@ -1286,8 +1286,6 @@ def _resolve_trait_linkage_inputs(
     *,
     use_gene_set_basis,
     trait_linkage_source,
-    trait_factor_linkage_evidence_source,
-    trait_factor_linkage_anchor_source,
     trait_linkage_threshold,
     trait_linkage_computation_mode,
     pheno_capture_input,
@@ -1327,34 +1325,6 @@ def _resolve_trait_linkage_inputs(
     if feature_by_trait is None:
         return None
 
-    evidence_by_trait, evidence_source_name = eaggl_trait_linkage.resolve_trait_linkage_evidence_source(
-        trait_factor_linkage_evidence_source,
-        combined=combined,
-        log_bf=log_bf,
-        prior=prior,
-        log_fn=log_fn,
-        info_level=info_level,
-        context_label="%s Bayesian evidence" % context_label,
-    )
-
-    anchor_covariates = None
-    anchor_source_name = str(trait_factor_linkage_anchor_source)
-    if str(trait_factor_linkage_anchor_source) != "none" and state.anchor_pheno_mask is not None:
-        if str(trait_factor_linkage_anchor_source) == "auto":
-            anchor_candidates = [("combined", combined), ("log_bf", log_bf), ("prior", prior)]
-        else:
-            source_map = {"combined": combined, "log_bf": log_bf, "prior": prior}
-            anchor_candidates = [(str(trait_factor_linkage_anchor_source), source_map.get(str(trait_factor_linkage_anchor_source)))]
-        anchor_mask = np.asarray(state.anchor_pheno_mask, dtype=bool)
-        for candidate_name, candidate_matrix in anchor_candidates:
-            if candidate_matrix is None:
-                continue
-            candidate_dense = eaggl_trait_linkage._sanitize_nonfinite(candidate_matrix)
-            if candidate_dense is not None and candidate_dense.shape[1] == anchor_mask.shape[0] and np.any(anchor_mask):
-                anchor_covariates = candidate_dense[:, anchor_mask]
-                anchor_source_name = candidate_name
-                break
-
     feature_by_trait_full = feature_by_trait
     return {
         "basis": basis,
@@ -1362,10 +1332,6 @@ def _resolve_trait_linkage_inputs(
         "basis_name": basis_name,
         "feature_by_trait": feature_by_trait,
         "full_feature_by_trait": feature_by_trait_full,
-        "evidence_feature_by_trait": evidence_by_trait,
-        "evidence_source": evidence_source_name,
-        "anchor_feature_by_covariate": anchor_covariates,
-        "anchor_source": anchor_source_name if anchor_covariates is not None else "none",
         "score_source": source_name,
         "pheno_capture_input": pheno_capture_input,
         "trait_linkage_threshold": trait_linkage_threshold,
@@ -1402,8 +1368,6 @@ def _apply_canonical_trait_linkage(
         state,
         use_gene_set_basis=use_gene_set_basis,
         trait_linkage_source=trait_linkage_source,
-        trait_factor_linkage_evidence_source=trait_factor_linkage_evidence_source,
-        trait_factor_linkage_anchor_source=trait_factor_linkage_anchor_source,
         trait_linkage_threshold=trait_linkage_threshold,
         trait_linkage_computation_mode=trait_linkage_computation_mode,
         pheno_capture_input=pheno_capture_input,
@@ -1454,12 +1418,12 @@ def _apply_canonical_trait_linkage(
     state.trait_linkage_factor_loading_threshold = linkage_result["factor_loading_threshold"]
     state.trait_linkage_factor_num_genes = linkage_result["factor_num_genes"]
     state.trait_linkage_factor_weight_sum = linkage_result["factor_weight_sum"]
-    state.trait_linkage_beta = linkage_result["beta"]
-    state.trait_linkage_beta_uncorrected = linkage_result["beta_uncorrected"]
-    state.trait_linkage_beta_tilde = linkage_result["beta_tilde"]
-    state.trait_linkage_se = linkage_result["se"]
-    state.trait_linkage_z = linkage_result["z"]
-    state.trait_linkage_p_value = linkage_result["p_value"]
+    state.trait_linkage_beta = None
+    state.trait_linkage_beta_uncorrected = None
+    state.trait_linkage_beta_tilde = None
+    state.trait_linkage_se = None
+    state.trait_linkage_z = None
+    state.trait_linkage_p_value = None
     state.trait_linkage_nnls = linkage_result["nnls"]
     if state.anchor_pheno_mask is not None:
         state.trait_linkage_is_anchor = np.asarray(state.anchor_pheno_mask, dtype=bool)
@@ -2048,17 +2012,6 @@ def _build_factor_param_record(
         "trait_linkage_source": trait_linkage_source,
         "trait_linkage_threshold": float(trait_linkage_threshold),
         "trait_linkage_computation_mode": trait_linkage_computation_mode,
-        "trait_factor_linkage_evidence_source": trait_factor_linkage_evidence_source,
-        "trait_factor_linkage_effect_input_transform": trait_factor_linkage_effect_input_transform,
-        "trait_factor_linkage_effect_threshold": float(trait_factor_linkage_effect_threshold),
-        "trait_factor_linkage_effect_prior_sd": float(trait_factor_linkage_effect_prior_sd),
-        "trait_factor_linkage_effect_min_trait_neff": float(trait_factor_linkage_effect_min_trait_neff),
-        "trait_factor_linkage_effect_min_retained_fraction": float(trait_factor_linkage_effect_min_retained_fraction),
-        "trait_factor_linkage_notable_ln_bf": float(trait_factor_linkage_notable_ln_bf),
-        "trait_factor_linkage_notable_ln_bf_scale": float(trait_factor_linkage_notable_ln_bf_scale),
-        "trait_factor_linkage_membership_normalization": trait_factor_linkage_membership_normalization,
-        "trait_factor_linkage_membership_cap": float(trait_factor_linkage_membership_cap),
-        "trait_factor_linkage_anchor_source": trait_factor_linkage_anchor_source,
         "no_trait_linkage": bool(no_trait_linkage),
     }
 
@@ -4565,40 +4518,6 @@ def _finalize_factor_outputs(
         state.trait_linkage_marginal = state.trait_linkage_marginal[:, reorder_inds]
     if state.trait_linkage_marginal_overlap is not None:
         state.trait_linkage_marginal_overlap = state.trait_linkage_marginal_overlap[:, reorder_inds]
-    for attr_name in [
-        "trait_linkage_marginal_mean_in",
-        "trait_linkage_marginal_mean_out",
-        "trait_linkage_marginal_lift",
-        "trait_linkage_marginal_posterior_lift",
-        "trait_linkage_marginal_posterior_sd",
-        "trait_linkage_marginal_posterior_prob_positive",
-        "trait_linkage_marginal_ln_bf",
-        "trait_linkage_marginal_notable",
-        "trait_linkage_marginal_notable_score",
-        "trait_linkage_joint_lift",
-        "trait_linkage_joint_posterior_lift",
-        "trait_linkage_joint_posterior_sd",
-        "trait_linkage_joint_posterior_prob_positive",
-        "trait_linkage_joint_ln_bf",
-        "trait_linkage_joint_notable",
-        "trait_linkage_joint_notable_score",
-        "trait_linkage_joint_conditioning_num_factors",
-        "trait_linkage_joint_conditioning_ridge_lambda",
-        "trait_linkage_joint_model_available",
-        "trait_linkage_joint_unavailable_reason",
-        "trait_linkage_anchor_conditional_lift",
-        "trait_linkage_anchor_conditional_posterior_lift",
-        "trait_linkage_anchor_conditional_posterior_sd",
-        "trait_linkage_anchor_conditional_posterior_prob_positive",
-        "trait_linkage_anchor_conditional_ln_bf",
-        "trait_linkage_anchor_conditional_notable",
-        "trait_linkage_anchor_conditional_notable_score",
-        "trait_linkage_anchor_conditional_available",
-        "trait_linkage_anchor_conditional_unavailable_reason",
-    ]:
-        attr_value = getattr(state, attr_name, None)
-        if attr_value is not None:
-            setattr(state, attr_name, np.asarray(attr_value)[:, reorder_inds])
     if state.trait_linkage_factor_total_mass is not None:
         state.trait_linkage_factor_total_mass = state.trait_linkage_factor_total_mass[reorder_inds]
     if state.trait_linkage_factor_n_eff is not None:
@@ -6267,17 +6186,6 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "trait_linkage_source": trait_linkage_source,
         "trait_linkage_threshold": trait_linkage_threshold,
         "trait_linkage_computation_mode": trait_linkage_computation_mode,
-        "trait_factor_linkage_evidence_source": trait_factor_linkage_evidence_source,
-        "trait_factor_linkage_effect_input_transform": trait_factor_linkage_effect_input_transform,
-        "trait_factor_linkage_effect_threshold": trait_factor_linkage_effect_threshold,
-        "trait_factor_linkage_effect_prior_sd": trait_factor_linkage_effect_prior_sd,
-        "trait_factor_linkage_effect_min_trait_neff": trait_factor_linkage_effect_min_trait_neff,
-        "trait_factor_linkage_effect_min_retained_fraction": trait_factor_linkage_effect_min_retained_fraction,
-        "trait_factor_linkage_notable_ln_bf": trait_factor_linkage_notable_ln_bf,
-        "trait_factor_linkage_notable_ln_bf_scale": trait_factor_linkage_notable_ln_bf_scale,
-        "trait_factor_linkage_membership_normalization": trait_factor_linkage_membership_normalization,
-        "trait_factor_linkage_membership_cap": trait_factor_linkage_membership_cap,
-        "trait_factor_linkage_anchor_source": trait_factor_linkage_anchor_source,
         "trait_factor_linkage_factor_gene_threshold": trait_factor_linkage_factor_gene_threshold,
         "factor_gmt_out": factor_gmt_out,
         "no_trait_linkage": no_trait_linkage,

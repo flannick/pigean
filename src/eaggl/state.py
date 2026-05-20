@@ -2270,17 +2270,6 @@ class EagglState(object):
             "trait_linkage_source": trait_linkage_source,
             "trait_linkage_threshold": trait_linkage_threshold,
             "trait_linkage_computation_mode": trait_linkage_computation_mode,
-            "trait_factor_linkage_evidence_source": trait_factor_linkage_evidence_source,
-            "trait_factor_linkage_effect_input_transform": trait_factor_linkage_effect_input_transform,
-            "trait_factor_linkage_effect_threshold": trait_factor_linkage_effect_threshold,
-            "trait_factor_linkage_effect_prior_sd": trait_factor_linkage_effect_prior_sd,
-            "trait_factor_linkage_effect_min_trait_neff": trait_factor_linkage_effect_min_trait_neff,
-            "trait_factor_linkage_effect_min_retained_fraction": trait_factor_linkage_effect_min_retained_fraction,
-            "trait_factor_linkage_notable_ln_bf": trait_factor_linkage_notable_ln_bf,
-            "trait_factor_linkage_notable_ln_bf_scale": trait_factor_linkage_notable_ln_bf_scale,
-            "trait_factor_linkage_membership_normalization": trait_factor_linkage_membership_normalization,
-            "trait_factor_linkage_membership_cap": trait_factor_linkage_membership_cap,
-            "trait_factor_linkage_anchor_source": trait_factor_linkage_anchor_source,
             "trait_factor_linkage_factor_gene_threshold": trait_factor_linkage_factor_gene_threshold,
             "factor_gmt_out": factor_gmt_out,
             "no_trait_linkage": no_trait_linkage,
@@ -3157,16 +3146,6 @@ class EagglState(object):
 
         log("Writing trait-factor links to %s" % output_file, INFO)
         nnls = np.asarray(self.trait_linkage_nnls, dtype=float)
-        beta = np.asarray(self.trait_linkage_beta, dtype=float) if self.trait_linkage_beta is not None else np.full_like(nnls, np.nan)
-        beta_uncorrected = (
-            np.asarray(self.trait_linkage_beta_uncorrected, dtype=float)
-            if self.trait_linkage_beta_uncorrected is not None
-            else np.full_like(nnls, np.nan)
-        )
-        beta_tilde = np.asarray(self.trait_linkage_beta_tilde, dtype=float) if self.trait_linkage_beta_tilde is not None else np.full_like(nnls, np.nan)
-        se = np.asarray(self.trait_linkage_se, dtype=float) if self.trait_linkage_se is not None else np.full_like(nnls, np.nan)
-        z = np.asarray(self.trait_linkage_z, dtype=float) if self.trait_linkage_z is not None else np.full_like(nnls, np.nan)
-        p_value = np.asarray(self.trait_linkage_p_value, dtype=float) if self.trait_linkage_p_value is not None else np.full_like(nnls, np.nan)
         is_anchor = (
             np.asarray(self.trait_linkage_is_anchor, dtype=bool)
             if self.trait_linkage_is_anchor is not None
@@ -3205,12 +3184,6 @@ class EagglState(object):
             "factor",
             "is_anchor",
             "nnls_loading",
-            "beta",
-            "beta_uncorrected",
-            "beta_tilde",
-            "se",
-            "z",
-            "p_value",
             "trait_neff",
             "factor_num_genes",
             "factor_weight_sum",
@@ -3227,12 +3200,6 @@ class EagglState(object):
                         "Factor%d" % (factor_index + 1),
                         "1" if bool(is_anchor[trait_index]) else "0",
                         _fmt(nnls[trait_index, factor_index]),
-                        _fmt(beta[trait_index, factor_index]),
-                        _fmt(beta_uncorrected[trait_index, factor_index]),
-                        _fmt(beta_tilde[trait_index, factor_index]),
-                        _fmt(se[trait_index, factor_index]),
-                        _fmt(z[trait_index, factor_index]),
-                        _fmt(p_value[trait_index, factor_index]),
                         _fmt(trait_n_eff[trait_index]),
                         str(int(factor_num_genes[factor_index])),
                         _fmt(factor_weight_sum[factor_index]),
@@ -3755,6 +3722,14 @@ class EagglState(object):
                 return False
             row_loadings = np.where(np.isfinite(row_loadings), row_loadings, 0.0)
             return float(np.max(row_loadings)) >= cluster_row_min_max_loading
+
+        def row_cosine_loadings(row_loadings):
+            row_loadings = np.asarray(row_loadings, dtype=float)
+            row_loadings = np.where(np.isfinite(row_loadings), row_loadings, 0.0)
+            denom = float(np.linalg.norm(row_loadings))
+            if denom <= 0.0:
+                return np.zeros_like(row_loadings)
+            return row_loadings / denom
 
         run_transpose = bool(_coerce_param_value("run_transpose", True))
         phi = float(_coerce_param_value("phi", 0.0))

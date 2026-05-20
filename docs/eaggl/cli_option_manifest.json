@@ -1,9 +1,9 @@
 {
   "categories": {
-    "compat_alias": 11,
+    "compat_alias": 22,
     "debug_only": 6,
     "engineering": 80,
-    "method_optional": 193,
+    "method_optional": 182,
     "method_required": 11
   },
   "entrypoint": "src/eaggl/cli.py",
@@ -1037,7 +1037,7 @@
       "source_line": 459,
       "summary": "write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs",
       "type": null,
-      "usage_references": 11
+      "usage_references": 15
     },
     {
       "action": null,
@@ -5830,60 +5830,60 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "auto",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_anchor_source",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-anchor-source"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-anchor-source",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 457,
       "summary": "compatibility option retained for older commands",
       "type": "str",
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "weighted_thresholded",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_effect_input_transform",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-effect-input-transform"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-effect-input-transform",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 448,
       "summary": "compatibility option retained for older commands",
       "type": "str",
-      "usage_references": 10
+      "usage_references": 9
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "0.1",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_effect_min_retained_fraction",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-effect-min-retained-fraction"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-effect-min-retained-fraction",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 452,
@@ -5893,18 +5893,18 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "10.0",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_effect_min_trait_neff",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-effect-min-trait-neff"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-effect-min-trait-neff",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 451,
@@ -5914,39 +5914,39 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "1.0",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_effect_prior_sd",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-effect-prior-sd"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-effect-prior-sd",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 450,
       "summary": "compatibility option retained for older commands",
       "type": "float",
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "1.0",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_effect_threshold",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-effect-threshold"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-effect-threshold",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 449,
@@ -5956,24 +5956,24 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "auto",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_evidence_source",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-evidence-source"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-evidence-source",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 447,
       "summary": "compatibility option retained for older commands; simplified trait linkage uses --trait-linkage-source",
       "type": "str",
-      "usage_references": 10
+      "usage_references": 9
     },
     {
       "action": null,
@@ -5998,18 +5998,18 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "1.0",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_membership_cap",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-membership-cap"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-membership-cap",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 456,
@@ -6019,18 +6019,18 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "max",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_membership_normalization",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-membership-normalization"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-membership-normalization",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 455,
@@ -6040,18 +6040,18 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "3.0",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_notable_ln_bf",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-notable-ln-bf"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-notable-ln-bf",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 453,
@@ -6061,18 +6061,18 @@
     },
     {
       "action": null,
-      "category": "method_optional",
+      "category": "compat_alias",
       "default": "5.0",
       "deprecation_timeline": null,
       "dest": "trait_factor_linkage_notable_ln_bf_scale",
-      "documentation_target": "core_help",
+      "documentation_target": "internal_only",
       "flags": [
         "",
         "--trait-factor-linkage-notable-ln-bf-scale"
       ],
       "help": null,
       "primary_flag": "--trait-factor-linkage-notable-ln-bf-scale",
-      "public_visibility": "normal",
+      "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 454,
@@ -6162,7 +6162,7 @@
       "source_line": 444,
       "summary": "choose the response surface for simplified trait linkage: combined by default, with optional expert overrides",
       "type": "str",
-      "usage_references": 30
+      "usage_references": 29
     },
     {
       "action": null,
@@ -6335,7 +6335,7 @@
   ],
   "visibilities": {
     "expert": 243,
-    "hidden": 8,
-    "normal": 50
+    "hidden": 19,
+    "normal": 39
   }
 }

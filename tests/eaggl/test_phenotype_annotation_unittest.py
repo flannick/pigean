@@ -174,218 +174,6 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_array_equal(weighted, np.array([[0.0, 0.0], [1.01, 2.0]]))
         np.testing.assert_array_equal(binary, np.array([[0.0, 0.0], [1.0, 1.0]]))
 
-    def test_canonical_trait_linkage_returns_joint_and_marginal_scores(self) -> None:
-        basis = np.array(
-            [
-                [2.0, 0.0],
-                [0.0, 3.0],
-            ]
-        )
-        feature_by_trait = np.array(
-            [
-                [8.0, 1.0],
-                [2.0, 9.0],
-            ]
-        )
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
-                W,
-                X_new,
-                max_sum=max_sum,
-                max_value=max_value,
-            ),
-            basis,
-            feature_by_trait,
-        )
-        self.assertEqual(linkage["joint"].shape, (2, 2))
-        self.assertEqual(linkage["marginal"].shape, (2, 2))
-        self.assertGreater(linkage["joint"][0, 0], linkage["joint"][0, 1])
-        self.assertGreater(linkage["joint"][1, 1], linkage["joint"][1, 0])
-        self.assertTrue(np.all(linkage["joint"] >= 0))
-        self.assertTrue(np.all(np.sum(linkage["joint"], axis=1) <= 1.00001))
-
-    def test_canonical_trait_linkage_uses_closed_form_marginal_coefficients(self) -> None:
-        basis = np.array([[1.0], [1.0]])
-        feature_by_trait = np.array([[2.0], [0.0]])
-
-        def _joint_only_nnls(W, X_new, max_sum=None, max_value=None):
-            self.assertIsNone(max_value)
-            return np.zeros((X_new.shape[0], W.shape[1]))
-
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            _joint_only_nnls,
-            basis,
-            feature_by_trait,
-            threshold_value=0.0,
-        )
-
-        np.testing.assert_allclose(linkage["marginal_overlap"], [[0.5]], atol=1e-8)
-        np.testing.assert_allclose(linkage["marginal"], [[1.0]], atol=1e-8)
-
-    def test_canonical_trait_linkage_reports_factor_breadth_diagnostics(self) -> None:
-        basis = np.column_stack([
-            np.ones(600, dtype=float),
-            np.r_[100.0, np.zeros(599, dtype=float)],
-        ])
-        feature_by_trait = np.ones((600, 1), dtype=float)
-
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
-            basis,
-            feature_by_trait,
-            threshold_value=0.0,
-        )
-
-        np.testing.assert_allclose(linkage["factor_total_mass"], [600.0, 100.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["factor_n_eff"], [600.0, 1.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["factor_top_share"], [1.0 / 600.0, 1.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["factor_top10_share"], [10.0 / 600.0, 1.0], atol=1e-8)
-        np.testing.assert_array_equal(linkage["broad_factor_flag"], [True, False])
-
-    def test_canonical_trait_linkage_normalizes_by_total_strength_before_masking(self) -> None:
-        basis = np.array([[1.0]])
-        masked_feature_by_trait = np.array([[2.0]])
-        full_feature_by_trait = np.array([[2.0], [8.0]])
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
-                W,
-                X_new,
-                max_sum=max_sum,
-                max_value=max_value,
-            ),
-            basis,
-            masked_feature_by_trait,
-            full_feature_by_trait=full_feature_by_trait,
-            basis_mask=np.array([True, False]),
-        )
-
-        np.testing.assert_allclose(linkage["joint"], [[0.2]], atol=1e-8)
-        np.testing.assert_allclose(linkage["marginal"], [[0.2]], atol=1e-8)
-        np.testing.assert_allclose(linkage["trait_total_support"], [10.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["retained_trait_support"], [2.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["retained_fraction"], [0.2], atol=1e-8)
-        np.testing.assert_array_equal(linkage["total_feature_count"], [2])
-        np.testing.assert_array_equal(linkage["retained_feature_count"], [1])
-        np.testing.assert_allclose(linkage["trait_n_eff"], [100.0 / 68.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["retained_n_eff"], [1.0], atol=1e-8)
-        np.testing.assert_array_equal(linkage["low_retention_flag"], [True])
-        np.testing.assert_allclose(linkage["normalized_trait_support"], [[0.2], [0.0]], atol=1e-8)
-        np.testing.assert_allclose(np.sum(linkage["normalized_trait_support"], axis=0), linkage["retained_fraction"], atol=1e-8)
-        np.testing.assert_allclose(linkage["factor_total_mass"], [1.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["normalized_factor_basis"], [[1.0], [0.0]], atol=1e-8)
-        np.testing.assert_allclose(linkage["residual"], [0.8], atol=1e-8)
-
-    def test_canonical_trait_linkage_uses_source_threshold_and_full_space_objective(self) -> None:
-        basis = np.array([[1.0], [1.0], [1.0]])
-        full_feature_by_trait = np.array([[2.0], [2.0], [0.5]])
-        basis_mask = np.array([True, False, True])
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
-                W,
-                X_new,
-                max_sum=max_sum,
-                max_value=max_value,
-            ),
-            basis,
-            full_feature_by_trait,
-            full_feature_by_trait=full_feature_by_trait,
-            basis_mask=basis_mask,
-            threshold_mode="weighted_thresholded",
-            threshold_value=1.0,
-            strict_threshold=True,
-        )
-
-        np.testing.assert_allclose(linkage["trait_total_support"], [4.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["retained_trait_support"], [2.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["retained_fraction"], [0.5], atol=1e-8)
-        np.testing.assert_allclose(linkage["trait_n_eff"], [2.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["retained_n_eff"], [1.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["joint"], [[0.5]], atol=1e-6)
-        np.testing.assert_allclose(linkage["marginal"], [[0.5]], atol=1e-6)
-
-    def test_canonical_trait_linkage_low_retention_uses_retained_effective_size(self) -> None:
-        basis = np.ones((5, 1))
-        feature_by_trait = np.array([[96.0], [1.0], [1.0], [1.0], [1.0]])
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
-                W,
-                X_new,
-                max_sum=max_sum,
-                max_value=max_value,
-            ),
-            basis,
-            feature_by_trait,
-            threshold_value=0.0,
-        )
-
-        np.testing.assert_array_equal(linkage["retained_feature_count"], [5])
-        np.testing.assert_allclose(linkage["retained_fraction"], [1.0], atol=1e-8)
-        self.assertLess(linkage["retained_n_eff"][0], 5.0)
-        np.testing.assert_array_equal(linkage["low_retention_flag"], [True])
-
-    def test_sparse_full_trait_linkage_matches_dense_full_outputs(self) -> None:
-        basis = np.array([[1.0], [1.0], [1.0]])
-        full_feature_by_trait = sparse.csr_matrix(np.array([[2.0], [2.0], [0.5]]))
-        basis_mask = np.array([True, False, True])
-
-        dense_linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
-                W,
-                X_new,
-                max_sum=max_sum,
-                max_value=max_value,
-            ),
-            basis,
-            full_feature_by_trait.toarray(),
-            full_feature_by_trait=full_feature_by_trait.toarray(),
-            basis_mask=basis_mask,
-            threshold_mode="weighted_thresholded",
-            threshold_value=1.0,
-            strict_threshold=True,
-            computation_mode="dense_full",
-        )
-        sparse_linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
-                W,
-                X_new,
-                max_sum=max_sum,
-                max_value=max_value,
-            ),
-            basis,
-            full_feature_by_trait,
-            full_feature_by_trait=full_feature_by_trait,
-            basis_mask=basis_mask,
-            threshold_mode="weighted_thresholded",
-            threshold_value=1.0,
-            strict_threshold=True,
-            computation_mode="sparse_full",
-        )
-
-        np.testing.assert_allclose(sparse_linkage["trait_total_support"], dense_linkage["trait_total_support"], atol=1e-8)
-        np.testing.assert_allclose(sparse_linkage["retained_trait_support"], dense_linkage["retained_trait_support"], atol=1e-8)
-        np.testing.assert_allclose(sparse_linkage["retained_fraction"], dense_linkage["retained_fraction"], atol=1e-8)
-        np.testing.assert_allclose(sparse_linkage["trait_n_eff"], dense_linkage["trait_n_eff"], atol=1e-8)
-        np.testing.assert_allclose(sparse_linkage["retained_n_eff"], dense_linkage["retained_n_eff"], atol=1e-8)
-        np.testing.assert_allclose(sparse_linkage["joint"], dense_linkage["joint"], atol=1e-8)
-        np.testing.assert_allclose(sparse_linkage["marginal"], dense_linkage["marginal"], atol=1e-8)
-
-    def test_canonical_trait_linkage_preserves_factor_total_mass_separately_from_matching_copy(self) -> None:
-        basis = np.array([[2.0], [6.0]])
-        masked_feature_by_trait = np.array([[1.0], [0.0]])
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: eaggl_state.EagglState(background_prior=0.05, batch_size=10)._nnls_project_matrix(
-                W,
-                X_new,
-                max_sum=max_sum,
-                max_value=max_value,
-            ),
-            basis,
-            masked_feature_by_trait,
-        )
-
-        np.testing.assert_allclose(linkage["factor_total_mass"], [8.0], atol=1e-8)
-        np.testing.assert_allclose(linkage["normalized_factor_basis"], [[0.25], [0.75]], atol=1e-8)
-
     def test_trait_linkage_source_auto_prefers_combined_then_log_bf_then_prior(self) -> None:
         selected, label = eaggl_trait_linkage.resolve_trait_linkage_source(
             "auto",
@@ -405,95 +193,25 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_array_equal(selected, np.array([[2.0]]))
         self.assertEqual(label, "log_bf")
 
-    def test_trait_linkage_evidence_source_auto_prefers_log_bf(self) -> None:
-        selected, label = eaggl_trait_linkage.resolve_trait_linkage_evidence_source(
-            "auto",
-            combined=np.array([[1.0]]),
-            log_bf=np.array([[2.0]]),
-            prior=np.array([[3.0]]),
-        )
-        np.testing.assert_array_equal(selected, np.array([[2.0]]))
-        self.assertEqual(label, "log_bf")
+    def test_simplified_factor_trait_links_are_nnls_only(self) -> None:
+        basis = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
+        feature_by_trait = np.array([[3.0, 0.0], [0.0, 4.0]], dtype=float)
 
-    def test_trait_linkage_marginal_effect_scores_positive_factor_lift(self) -> None:
-        basis = np.array([[1.0], [0.9], [0.8], [0.7], [0.6], [0.0], [0.0], [0.0], [0.0], [0.0]])
-        feature_by_trait = np.array([[5.0], [5.0], [5.0], [5.0], [5.0], [0.0], [0.0], [0.0], [0.0], [0.0]])
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
+        def project_fn(W, X_new, max_sum=None):
+            return X_new @ W
+
+        linkage = eaggl_trait_linkage.compute_factor_trait_links(
+            project_fn,
             basis,
             feature_by_trait,
             threshold_value=0.0,
-            effect_input_transform="raw",
-            effect_prior_sd=1.0,
-            effect_min_trait_neff=0.0,
-            effect_min_retained_fraction=0.0,
-            notable_ln_bf=0.0,
         )
-        self.assertGreater(linkage["marginal_lift"][0, 0], 0.0)
-        self.assertGreater(linkage["marginal_posterior_lift"][0, 0], 0.0)
-        self.assertGreaterEqual(linkage["marginal_ln_bf"][0, 0], 0.0)
-        self.assertTrue(bool(linkage["marginal_notable"][0, 0]))
+        self.assertEqual(linkage["nnls"].shape, (2, 2))
+        self.assertNotIn("beta", linkage)
+        self.assertNotIn("beta_uncorrected", linkage)
+        self.assertNotIn("beta_tilde", linkage)
+        np.testing.assert_allclose(linkage["nnls"], [[3.0, 0.0], [0.0, 4.0]], atol=1e-8)
 
-    def test_trait_linkage_effect_input_transforms(self) -> None:
-        values = np.array([[0.5], [1.5], [3.0]])
-        raw = eaggl_trait_linkage._transform_effect_input(values, "raw", 1.0)
-        weighted = eaggl_trait_linkage._transform_effect_input(values, "weighted_thresholded", 1.0)
-        excess = eaggl_trait_linkage._transform_effect_input(values, "excess_thresholded", 1.0)
-        np.testing.assert_allclose(raw.ravel(), [0.5, 1.5, 3.0])
-        np.testing.assert_allclose(weighted.ravel(), [0.0, 1.5, 3.0])
-        np.testing.assert_allclose(excess.ravel(), [0.0, 0.5, 2.0])
-
-    def test_trait_linkage_joint_conditioning_separates_overlapping_factors(self) -> None:
-        basis = np.array(
-            [
-                [1.0, 1.0],
-                [1.0, 0.8],
-                [0.0, 1.0],
-                [0.0, 1.0],
-                [0.0, 0.0],
-                [0.0, 0.0],
-            ]
-        )
-        feature_by_trait = np.array([[5.0], [5.0], [0.0], [0.0], [0.0], [0.0]])
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
-            basis,
-            feature_by_trait,
-            threshold_value=0.0,
-            effect_input_transform="raw",
-            effect_prior_sd=1.0,
-        )
-        self.assertGreater(linkage["joint_ln_bf"][0, 0], linkage["joint_ln_bf"][0, 1])
-        self.assertGreater(linkage["joint_posterior_lift"][0, 0], linkage["joint_posterior_lift"][0, 1])
-
-    def test_trait_linkage_anchor_conditioning_detects_anchor_explained_signal(self) -> None:
-        basis = np.array([[1.0], [1.0], [0.0], [0.0], [0.0], [0.0]])
-        feature_by_trait = np.array([[5.0], [5.0], [0.0], [0.0], [0.0], [0.0]])
-        anchor = np.array([[5.0], [5.0], [0.0], [0.0], [0.0], [0.0]])
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
-            basis,
-            feature_by_trait,
-            anchor_feature_by_covariate=anchor,
-            threshold_value=0.0,
-            effect_input_transform="raw",
-            effect_prior_sd=1.0,
-        )
-        self.assertTrue(bool(linkage["anchor_conditional_available"][0, 0]) or np.isfinite(linkage["anchor_conditional_ln_bf"][0, 0]))
-        self.assertLessEqual(float(np.nan_to_num(linkage["anchor_conditional_ln_bf"][0, 0], nan=0.0)), 1.0)
-
-    def test_trait_linkage_missing_anchor_marks_anchor_conditional_unavailable(self) -> None:
-        basis = np.array([[1.0], [0.0], [0.0]])
-        feature_by_trait = np.array([[3.0], [0.0], [0.0]])
-        linkage = eaggl_trait_linkage.compute_trait_linkage(
-            lambda W, X_new, max_sum=None, max_value=None: np.zeros((X_new.shape[0], W.shape[1])),
-            basis,
-            feature_by_trait,
-            threshold_value=0.0,
-            effect_input_transform="raw",
-        )
-        self.assertFalse(bool(linkage["anchor_conditional_available"][0, 0]))
-        self.assertEqual(linkage["anchor_conditional_unavailable_reason"][0, 0], "anchor_support_unavailable")
 
 
 class FactorPhewasSurfaceTest(unittest.TestCase):
@@ -730,8 +448,8 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
         )
 
         self.assertEqual(result["nnls"].shape, (2, 2))
-        self.assertEqual(result["beta"].shape, (2, 2))
-        self.assertEqual(result["beta_uncorrected"].shape, (2, 2))
+        self.assertNotIn("beta", result)
+        self.assertNotIn("beta_uncorrected", result)
         self.assertEqual(result["factor_num_genes"].tolist(), [2, 2])
         self.assertAlmostEqual(float(result["factor_weight_sum"][0]), 0.40)
 
