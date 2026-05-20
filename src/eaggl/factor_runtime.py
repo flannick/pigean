@@ -1344,17 +1344,6 @@ def _apply_canonical_trait_linkage(
     *,
     use_gene_set_basis,
     trait_linkage_source,
-    trait_factor_linkage_evidence_source="auto",
-    trait_factor_linkage_effect_input_transform="weighted_thresholded",
-    trait_factor_linkage_effect_threshold=1.0,
-    trait_factor_linkage_effect_prior_sd=1.0,
-    trait_factor_linkage_effect_min_trait_neff=10.0,
-    trait_factor_linkage_effect_min_retained_fraction=0.1,
-    trait_factor_linkage_notable_ln_bf=3.0,
-    trait_factor_linkage_notable_ln_bf_scale=5.0,
-    trait_factor_linkage_membership_normalization="max",
-    trait_factor_linkage_membership_cap=1.0,
-    trait_factor_linkage_anchor_source="auto",
     trait_factor_linkage_factor_gene_threshold=0.05,
     factor_gmt_out=None,
     trait_linkage_threshold,
@@ -1448,17 +1437,6 @@ def project_phenos_from_loaded_factors(
     trait_linkage_source="combined",
     trait_linkage_threshold=1.0,
     trait_linkage_computation_mode="sparse_full",
-    trait_factor_linkage_evidence_source="auto",
-    trait_factor_linkage_effect_input_transform="weighted_thresholded",
-    trait_factor_linkage_effect_threshold=1.0,
-    trait_factor_linkage_effect_prior_sd=1.0,
-    trait_factor_linkage_effect_min_trait_neff=10.0,
-    trait_factor_linkage_effect_min_retained_fraction=0.1,
-    trait_factor_linkage_notable_ln_bf=3.0,
-    trait_factor_linkage_notable_ln_bf_scale=5.0,
-    trait_factor_linkage_membership_normalization="max",
-    trait_factor_linkage_membership_cap=1.0,
-    trait_factor_linkage_anchor_source="auto",
     trait_factor_linkage_factor_gene_threshold=0.05,
     factor_gmt_out=None,
     pheno_capture_input="weighted_thresholded",
@@ -1486,17 +1464,6 @@ def project_phenos_from_loaded_factors(
         state,
         use_gene_set_basis=project_phenos_from_gene_sets,
         trait_linkage_source=trait_linkage_source,
-        trait_factor_linkage_evidence_source=trait_factor_linkage_evidence_source,
-        trait_factor_linkage_effect_input_transform=trait_factor_linkage_effect_input_transform,
-        trait_factor_linkage_effect_threshold=trait_factor_linkage_effect_threshold,
-        trait_factor_linkage_effect_prior_sd=trait_factor_linkage_effect_prior_sd,
-        trait_factor_linkage_effect_min_trait_neff=trait_factor_linkage_effect_min_trait_neff,
-        trait_factor_linkage_effect_min_retained_fraction=trait_factor_linkage_effect_min_retained_fraction,
-        trait_factor_linkage_notable_ln_bf=trait_factor_linkage_notable_ln_bf,
-        trait_factor_linkage_notable_ln_bf_scale=trait_factor_linkage_notable_ln_bf_scale,
-        trait_factor_linkage_membership_normalization=trait_factor_linkage_membership_normalization,
-        trait_factor_linkage_membership_cap=trait_factor_linkage_membership_cap,
-        trait_factor_linkage_anchor_source=trait_factor_linkage_anchor_source,
         trait_factor_linkage_factor_gene_threshold=trait_factor_linkage_factor_gene_threshold,
         factor_gmt_out=factor_gmt_out,
         trait_linkage_threshold=trait_linkage_threshold,
@@ -1878,17 +1845,6 @@ def _build_factor_param_record(
     trait_linkage_source,
     trait_linkage_threshold,
     trait_linkage_computation_mode,
-    trait_factor_linkage_evidence_source,
-    trait_factor_linkage_effect_input_transform,
-    trait_factor_linkage_effect_threshold,
-    trait_factor_linkage_effect_prior_sd,
-    trait_factor_linkage_effect_min_trait_neff,
-    trait_factor_linkage_effect_min_retained_fraction,
-    trait_factor_linkage_notable_ln_bf,
-    trait_factor_linkage_notable_ln_bf_scale,
-    trait_factor_linkage_membership_normalization,
-    trait_factor_linkage_membership_cap,
-    trait_factor_linkage_anchor_source,
     no_trait_linkage,
 ):
     anchor_gene_mask_present, anchor_gene_mask_total, anchor_gene_mask_selected = _summarize_mask(anchor_gene_mask)
@@ -4660,7 +4616,7 @@ def _finalize_factor_outputs(
     return reorder_inds
 
 
-def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", trait_factor_linkage_evidence_source="auto", trait_factor_linkage_effect_input_transform="weighted_thresholded", trait_factor_linkage_effect_threshold=1.0, trait_factor_linkage_effect_prior_sd=1.0, trait_factor_linkage_effect_min_trait_neff=10.0, trait_factor_linkage_effect_min_retained_fraction=0.1, trait_factor_linkage_notable_ln_bf=3.0, trait_factor_linkage_notable_ln_bf_scale=5.0, trait_factor_linkage_membership_normalization="max", trait_factor_linkage_membership_cap=1.0, trait_factor_linkage_anchor_source="auto", trait_factor_linkage_factor_gene_threshold=0.05, factor_gmt_out=None, no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", trait_factor_linkage_factor_gene_threshold=0.05, factor_gmt_out=None, no_trait_linkage=False, factor_backend="full", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, blockwise_warm_start_state=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     warn = warn_fn
     log = log_fn
@@ -5732,17 +5688,6 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
             trait_linkage_source=trait_linkage_source,
             trait_linkage_threshold=trait_linkage_threshold,
             trait_linkage_computation_mode=trait_linkage_computation_mode,
-            trait_factor_linkage_evidence_source=trait_factor_linkage_evidence_source,
-            trait_factor_linkage_effect_input_transform=trait_factor_linkage_effect_input_transform,
-            trait_factor_linkage_effect_threshold=trait_factor_linkage_effect_threshold,
-            trait_factor_linkage_effect_prior_sd=trait_factor_linkage_effect_prior_sd,
-            trait_factor_linkage_effect_min_trait_neff=trait_factor_linkage_effect_min_trait_neff,
-            trait_factor_linkage_effect_min_retained_fraction=trait_factor_linkage_effect_min_retained_fraction,
-            trait_factor_linkage_notable_ln_bf=trait_factor_linkage_notable_ln_bf,
-            trait_factor_linkage_notable_ln_bf_scale=trait_factor_linkage_notable_ln_bf_scale,
-            trait_factor_linkage_membership_normalization=trait_factor_linkage_membership_normalization,
-            trait_factor_linkage_membership_cap=trait_factor_linkage_membership_cap,
-            trait_factor_linkage_anchor_source=trait_factor_linkage_anchor_source,
             trait_factor_linkage_factor_gene_threshold=trait_factor_linkage_factor_gene_threshold,
             factor_gmt_out=factor_gmt_out,
             pheno_capture_input=pheno_capture_input,
@@ -5968,7 +5913,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, phi_selection_objective="composite", phi_selection_composite_weights=None, phi_selection_target_factor_gene_mass=100.0, phi_selection_size_log2_width=1.0, phi_selection_loading_cap=1.0, phi_selection_min_entity_total_loading=0.01, phi_selection_bridge_concentration_threshold=0.60, phi_selection_coverage_min_loading=0.05, phi_selection_gene_coverage_top_frac=0.05, phi_selection_gene_coverage_top_n=None, phi_selection_annotation_coverage_top_frac=0.05, phi_selection_annotation_coverage_top_n=None, phi_selection_tie_tolerance=0.01, phi_selection_metrics_wide_out=None, phi_selection_metrics_long_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", trait_factor_linkage_evidence_source="auto", trait_factor_linkage_effect_input_transform="weighted_thresholded", trait_factor_linkage_effect_threshold=1.0, trait_factor_linkage_effect_prior_sd=1.0, trait_factor_linkage_effect_min_trait_neff=10.0, trait_factor_linkage_effect_min_retained_fraction=0.1, trait_factor_linkage_notable_ln_bf=3.0, trait_factor_linkage_notable_ln_bf_scale=5.0, trait_factor_linkage_membership_normalization="max", trait_factor_linkage_membership_cap=1.0, trait_factor_linkage_anchor_source="auto", trait_factor_linkage_factor_gene_threshold=0.05, factor_gmt_out=None, no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, phi_selection_objective="composite", phi_selection_composite_weights=None, phi_selection_target_factor_gene_mass=100.0, phi_selection_size_log2_width=1.0, phi_selection_loading_cap=1.0, phi_selection_min_entity_total_loading=0.01, phi_selection_bridge_concentration_threshold=0.60, phi_selection_coverage_min_loading=0.05, phi_selection_gene_coverage_top_frac=0.05, phi_selection_gene_coverage_top_n=None, phi_selection_annotation_coverage_top_frac=0.05, phi_selection_annotation_coverage_top_n=None, phi_selection_tie_tolerance=0.01, phi_selection_metrics_wide_out=None, phi_selection_metrics_long_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="combined", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", trait_factor_linkage_factor_gene_threshold=0.05, factor_gmt_out=None, no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -6328,17 +6273,6 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             trait_linkage_source=trait_linkage_source,
             trait_linkage_threshold=trait_linkage_threshold,
             trait_linkage_computation_mode=trait_linkage_computation_mode,
-            trait_factor_linkage_evidence_source=trait_factor_linkage_evidence_source,
-            trait_factor_linkage_effect_input_transform=trait_factor_linkage_effect_input_transform,
-            trait_factor_linkage_effect_threshold=trait_factor_linkage_effect_threshold,
-            trait_factor_linkage_effect_prior_sd=trait_factor_linkage_effect_prior_sd,
-            trait_factor_linkage_effect_min_trait_neff=trait_factor_linkage_effect_min_trait_neff,
-            trait_factor_linkage_effect_min_retained_fraction=trait_factor_linkage_effect_min_retained_fraction,
-            trait_factor_linkage_notable_ln_bf=trait_factor_linkage_notable_ln_bf,
-            trait_factor_linkage_notable_ln_bf_scale=trait_factor_linkage_notable_ln_bf_scale,
-            trait_factor_linkage_membership_normalization=trait_factor_linkage_membership_normalization,
-            trait_factor_linkage_membership_cap=trait_factor_linkage_membership_cap,
-            trait_factor_linkage_anchor_source=trait_factor_linkage_anchor_source,
             trait_factor_linkage_factor_gene_threshold=trait_factor_linkage_factor_gene_threshold,
             factor_gmt_out=factor_gmt_out,
             no_trait_linkage=no_trait_linkage,

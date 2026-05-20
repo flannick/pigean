@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `301`
+- Total options: `290`
 - `method_required`: `11`
 - `method_optional`: `182`
 - `engineering`: `80`
-- `compat_alias`: `22`
+- `compat_alias`: `11`
 - `debug_only`: `6`
 - visibility `expert`: `243`
-- visibility `hidden`: `19`
+- visibility `hidden`: `8`
 - visibility `normal`: `39`
 
 ## Method Required
@@ -318,17 +318,6 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--positive-controls-in` | `expert` | `yes` | `expert_help` | `positive_controls_in` | `None` | compatibility alias for --gene-list-in |
 | `--positive-controls-list` | `expert` | `yes` | `expert_help` | `positive_controls_list` | `None` | compatibility alias for --gene-list |
 | `--run-phewas-from-gene-phewas-stats-in` | `hidden` | `yes` | `internal_only` | `run_phewas_legacy_input` | `None` | compatibility alias for --run-phewas plus --gene-phewas-stats-in |
-| `--trait-factor-linkage-anchor-source` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_anchor_source` | `auto` | compatibility option retained for older commands |
-| `--trait-factor-linkage-effect-input-transform` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_effect_input_transform` | `weighted_thresholded` | compatibility option retained for older commands |
-| `--trait-factor-linkage-effect-min-retained-fraction` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_effect_min_retained_fraction` | `0.1` | compatibility option retained for older commands |
-| `--trait-factor-linkage-effect-min-trait-neff` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_effect_min_trait_neff` | `10.0` | compatibility option retained for older commands |
-| `--trait-factor-linkage-effect-prior-sd` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_effect_prior_sd` | `1.0` | compatibility option retained for older commands |
-| `--trait-factor-linkage-effect-threshold` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_effect_threshold` | `1.0` | compatibility option retained for older commands |
-| `--trait-factor-linkage-evidence-source` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_evidence_source` | `auto` | compatibility option retained for older commands; simplified trait linkage uses --trait-linkage-source |
-| `--trait-factor-linkage-membership-cap` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_membership_cap` | `1.0` | compatibility option retained for older commands |
-| `--trait-factor-linkage-membership-normalization` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_membership_normalization` | `max` | compatibility option retained for older commands |
-| `--trait-factor-linkage-notable-ln-bf` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_notable_ln_bf` | `3.0` | compatibility option retained for older commands |
-| `--trait-factor-linkage-notable-ln-bf-scale` | `hidden` | `yes` | `internal_only` | `trait_factor_linkage_notable_ln_bf_scale` | `5.0` | compatibility option retained for older commands |
 
 ## Debug Only
 

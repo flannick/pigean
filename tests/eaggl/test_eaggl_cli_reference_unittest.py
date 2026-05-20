@@ -486,28 +486,6 @@ class EagglCliReferenceTest(unittest.TestCase):
             "full",
             "--trait-linkage-source",
             "combined",
-            "--trait-factor-linkage-evidence-source",
-            "log_bf",
-            "--trait-factor-linkage-effect-input-transform",
-            "excess_thresholded",
-            "--trait-factor-linkage-effect-threshold",
-            "2.0",
-            "--trait-factor-linkage-effect-prior-sd",
-            "1.5",
-            "--trait-factor-linkage-effect-min-trait-neff",
-            "12",
-            "--trait-factor-linkage-effect-min-retained-fraction",
-            "0.2",
-            "--trait-factor-linkage-notable-ln-bf",
-            "4.0",
-            "--trait-factor-linkage-notable-ln-bf-scale",
-            "6.0",
-            "--trait-factor-linkage-membership-normalization",
-            "raw_capped",
-            "--trait-factor-linkage-membership-cap",
-            "0.8",
-            "--trait-factor-linkage-anchor-source",
-            "prior",
             "--trait-factor-linkage-factor-gene-threshold",
             "0.07",
             "--factor-gmt-out",
@@ -597,17 +575,6 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["trait_factor_links_output_detail"], "full")
         self.assertEqual(opts["trait_linkage_source"], "combined")
         self.assertEqual(opts["trait_linkage_computation_mode"], "sparse_full")
-        self.assertEqual(opts["trait_factor_linkage_evidence_source"], "log_bf")
-        self.assertEqual(opts["trait_factor_linkage_effect_input_transform"], "excess_thresholded")
-        self.assertEqual(opts["trait_factor_linkage_effect_threshold"], 2.0)
-        self.assertEqual(opts["trait_factor_linkage_effect_prior_sd"], 1.5)
-        self.assertEqual(opts["trait_factor_linkage_effect_min_trait_neff"], 12.0)
-        self.assertEqual(opts["trait_factor_linkage_effect_min_retained_fraction"], 0.2)
-        self.assertEqual(opts["trait_factor_linkage_notable_ln_bf"], 4.0)
-        self.assertEqual(opts["trait_factor_linkage_notable_ln_bf_scale"], 6.0)
-        self.assertEqual(opts["trait_factor_linkage_membership_normalization"], "raw_capped")
-        self.assertEqual(opts["trait_factor_linkage_membership_cap"], 0.8)
-        self.assertEqual(opts["trait_factor_linkage_anchor_source"], "prior")
         self.assertEqual(opts["trait_factor_linkage_factor_gene_threshold"], 0.07)
         self.assertEqual(opts["factor_gmt_out"], "factors.gmt.gz")
         self.assertEqual(opts["trait_factor_links_out"], "trait_factor_links.tsv")
@@ -801,10 +768,6 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--trait-linkage-computation-mode": ["test_factor_phewas_and_capture_defaults_round_trip", "test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-source": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-linkage-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--trait-factor-linkage-evidence-source": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--trait-factor-linkage-effect-input-transform": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--trait-factor-linkage-effect-prior-sd": ["test_reference_factor_and_labeling_flags_round_trip"],
-            "--trait-factor-linkage-anchor-source": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--trait-factor-linkage-factor-gene-threshold": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-gmt-out": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--no-trait-linkage": ["test_cli_manifest_tiers_cover_recent_factor_and_gene_list_flags"],

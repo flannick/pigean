@@ -444,17 +444,6 @@ parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type
 parser.add_option("","--trait-linkage-source",default="combined",type=str) #trait linkage support surface: combined by default; expert override: auto, log_bf, prior
 parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #strict threshold applied to the selected trait-linkage source surface
 parser.add_option("","--trait-linkage-computation-mode",default="sparse_full",type=str) #trait linkage computation backend: sparse_full (default sparse-aware full-space solve) or dense_full (debug dense equivalent)
-parser.add_option("","--trait-factor-linkage-evidence-source",default="auto",type=str) #compatibility option retained for older commands; simplified trait linkage uses --trait-linkage-source
-parser.add_option("","--trait-factor-linkage-effect-input-transform",default="weighted_thresholded",type=str) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-effect-threshold",default=1.0,type=float) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-effect-prior-sd",default=1.0,type=float) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-effect-min-trait-neff",default=10.0,type=float) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-effect-min-retained-fraction",default=0.1,type=float) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-notable-ln-bf",default=3.0,type=float) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-notable-ln-bf-scale",default=5.0,type=float) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-membership-normalization",default="max",type=str) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-membership-cap",default=1.0,type=float) #compatibility option retained for older commands
-parser.add_option("","--trait-factor-linkage-anchor-source",default="auto",type=str) #compatibility option retained for older commands
 parser.add_option("","--trait-factor-linkage-factor-gene-threshold",default=0.05,type=float) #zero EAGGL factor gene loadings below this value before factor-trait association/projection
 parser.add_option("","--factor-gmt-out",default=None) #write EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs
 parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
@@ -610,17 +599,6 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--trait-linkage-source": "choose the response surface for simplified trait linkage: combined by default, with optional expert overrides",
     "--trait-linkage-threshold": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
     "--trait-linkage-computation-mode": "choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend",
-    "--trait-factor-linkage-evidence-source": "compatibility option retained for older commands; simplified trait linkage uses --trait-linkage-source",
-    "--trait-factor-linkage-effect-input-transform": "compatibility option retained for older commands",
-    "--trait-factor-linkage-effect-threshold": "compatibility option retained for older commands",
-    "--trait-factor-linkage-effect-prior-sd": "compatibility option retained for older commands",
-    "--trait-factor-linkage-effect-min-trait-neff": "compatibility option retained for older commands",
-    "--trait-factor-linkage-effect-min-retained-fraction": "compatibility option retained for older commands",
-    "--trait-factor-linkage-notable-ln-bf": "compatibility option retained for older commands",
-    "--trait-factor-linkage-notable-ln-bf-scale": "compatibility option retained for older commands",
-    "--trait-factor-linkage-membership-normalization": "compatibility option retained for older commands",
-    "--trait-factor-linkage-membership-cap": "compatibility option retained for older commands",
-    "--trait-factor-linkage-anchor-source": "compatibility option retained for older commands",
     "--trait-factor-linkage-factor-gene-threshold": "zero EAGGL factor gene loadings below this threshold before factor-trait association/projection",
     "--factor-gmt-out": "write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs",
     "--no-trait-linkage": "disable simplified trait linkage even when trait inputs are available",
@@ -838,17 +816,6 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--phi",
     "--trait-linkage-source",
     "--trait-linkage-threshold",
-    "--trait-factor-linkage-evidence-source",
-    "--trait-factor-linkage-effect-input-transform",
-    "--trait-factor-linkage-effect-threshold",
-    "--trait-factor-linkage-effect-prior-sd",
-    "--trait-factor-linkage-effect-min-trait-neff",
-    "--trait-factor-linkage-effect-min-retained-fraction",
-    "--trait-factor-linkage-notable-ln-bf",
-    "--trait-factor-linkage-notable-ln-bf-scale",
-    "--trait-factor-linkage-membership-normalization",
-    "--trait-factor-linkage-membership-cap",
-    "--trait-factor-linkage-anchor-source",
     "--trait-factor-linkage-factor-gene-threshold",
     "--factor-gmt-out",
     "--trait-factor-links-output-detail",
@@ -885,17 +852,6 @@ _HIDDEN_COMPAT_ALIAS_FLAGS = {
 }
 
 _TRAIT_FACTOR_LINKAGE_REMOVED_REGRESSION_FLAGS = {
-    "--trait-factor-linkage-evidence-source",
-    "--trait-factor-linkage-effect-input-transform",
-    "--trait-factor-linkage-effect-threshold",
-    "--trait-factor-linkage-effect-prior-sd",
-    "--trait-factor-linkage-effect-min-trait-neff",
-    "--trait-factor-linkage-effect-min-retained-fraction",
-    "--trait-factor-linkage-notable-ln-bf",
-    "--trait-factor-linkage-notable-ln-bf-scale",
-    "--trait-factor-linkage-membership-normalization",
-    "--trait-factor-linkage-membership-cap",
-    "--trait-factor-linkage-anchor-source",
 }
 _COMPAT_ALIAS_FLAGS.update(_TRAIT_FACTOR_LINKAGE_REMOVED_REGRESSION_FLAGS)
 _HIDDEN_COMPAT_ALIAS_FLAGS.update(_TRAIT_FACTOR_LINKAGE_REMOVED_REGRESSION_FLAGS)
@@ -1547,30 +1503,8 @@ def _bootstrap_cli(argv=None):
         bail("--trait-linkage-threshold must be >= 0")
     if parsed_options.trait_linkage_computation_mode not in set(["dense_full", "sparse_full"]):
         bail("--trait-linkage-computation-mode must be one of: dense_full, sparse_full")
-    if parsed_options.trait_factor_linkage_evidence_source not in set(["auto", "log_bf", "combined", "prior"]):
-        bail("--trait-factor-linkage-evidence-source must be one of: auto, log_bf, combined, prior")
-    if parsed_options.trait_factor_linkage_effect_input_transform not in set(["raw", "weighted_thresholded", "excess_thresholded"]):
-        bail("--trait-factor-linkage-effect-input-transform must be one of: raw, weighted_thresholded, excess_thresholded")
-    if parsed_options.trait_factor_linkage_effect_threshold < 0:
-        bail("--trait-factor-linkage-effect-threshold must be >= 0")
-    if parsed_options.trait_factor_linkage_effect_prior_sd <= 0:
-        bail("--trait-factor-linkage-effect-prior-sd must be > 0")
-    if parsed_options.trait_factor_linkage_effect_min_trait_neff < 0:
-        bail("--trait-factor-linkage-effect-min-trait-neff must be >= 0")
-    if parsed_options.trait_factor_linkage_effect_min_retained_fraction < 0:
-        bail("--trait-factor-linkage-effect-min-retained-fraction must be >= 0")
-    if parsed_options.trait_factor_linkage_notable_ln_bf < 0:
-        bail("--trait-factor-linkage-notable-ln-bf must be >= 0")
-    if parsed_options.trait_factor_linkage_notable_ln_bf_scale <= 0:
-        bail("--trait-factor-linkage-notable-ln-bf-scale must be > 0")
-    if parsed_options.trait_factor_linkage_membership_normalization not in set(["max", "raw_capped"]):
-        bail("--trait-factor-linkage-membership-normalization must be one of: max, raw_capped")
-    if parsed_options.trait_factor_linkage_membership_cap <= 0:
-        bail("--trait-factor-linkage-membership-cap must be > 0")
     if parsed_options.trait_factor_linkage_factor_gene_threshold < 0:
         bail("--trait-factor-linkage-factor-gene-threshold must be >= 0")
-    if parsed_options.trait_factor_linkage_anchor_source not in set(["auto", "combined", "log_bf", "prior", "none"]):
-        bail("--trait-factor-linkage-anchor-source must be one of: auto, combined, log_bf, prior, none")
     if parsed_options.trait_factor_links_output_detail not in set(["main", "full", "debug"]):
         bail("--trait-factor-links-output-detail must be one of: main, full, debug")
     if parsed_options.factor_runs < 1:
