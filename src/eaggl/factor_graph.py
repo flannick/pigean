@@ -450,6 +450,8 @@ def read_trait_links(
                 "source_fields": {
                     "anchor": "trait",
                     "loadings": "nnls_loading",
+                    "cosine": "cosine_loading",
+                    "euclidean": "euclidean_distance",
                     "effective_size": "trait_neff or trait_n_eff",
                 },
                 "support_summary": {
@@ -589,6 +591,8 @@ def read_factor_trait_details(
             return details
         numeric_fields = [
             "nnls_loading",
+            "cosine_loading",
+            "euclidean_distance",
             "beta",
             "beta_uncorrected",
             "beta_tilde",

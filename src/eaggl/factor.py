@@ -208,7 +208,7 @@ class FactorExecutionConfig:
     label_individually: bool = False
     gene_sets_for_labeling: object = None
     gene_sets_for_labeling_id_col: object = None
-    factor_top_loading_type: str = "combined"
+    factor_top_loading_type: str = "euclidean"
     keep_original_loadings: bool = False
     project_phenos_from_gene_sets: bool = False
     pheno_capture_input: str = "weighted_thresholded"
@@ -1956,7 +1956,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
             bail_fn=None,
         ),
         gene_sets_for_labeling_id_col=getattr(options, "gene_sets_for_labeling_id_col", None),
-        factor_top_loading_type=getattr(options, "factor_top_loading_type", "combined"),
+        factor_top_loading_type=getattr(options, "factor_top_loading_type", "euclidean"),
         keep_original_loadings=getattr(options, "keep_original_loadings", False),
         project_phenos_from_gene_sets=options.project_phenos_from_gene_sets,
         pheno_capture_input=getattr(options, "pheno_capture_input", "weighted_thresholded"),

@@ -327,7 +327,7 @@ parser.add_option("","--label-include-phenos",default=False,action="store_true")
 parser.add_option("","--label-individually",default=False,action="store_true") #generate separate labels from genes, phenos, and gene sets separately
 parser.add_option("","--gene-sets-for-labeling",action="append",default=None) #file of gene set identifiers to use as candidates for factor labels; may be repeated
 parser.add_option("","--gene-sets-for-labeling-id-col",default=None,type=str) #optional header column name for --gene-sets-for-labeling; defaults to first column for GMT compatibility
-parser.add_option("","--factor-top-loading-type",default="combined",type=str) #metric used for top genes/gene sets in factors.out and factor labels: raw, specific, or combined
+parser.add_option("","--factor-top-loading-type",default="euclidean",type=str) #metric used for top genes/gene sets in factors.out and factor labels: raw, cosine, or euclidean
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--discovery-model",type="choice",choices=["gene_by_annotation","gene_by_gene"],default="gene_by_annotation") #factor discovery target: rectangular gene-by-annotation or symmetric gene-by-gene
@@ -594,6 +594,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--lmm-provider": "choose the LLM provider used for optional labeling",
     "--gene-sets-for-labeling": "restrict factor-label gene-set candidates to identifiers from one or more files; defaults to first column for GMT compatibility",
     "--gene-sets-for-labeling-id-col": "optional header column for --gene-sets-for-labeling inputs; defaults to the first column",
+    "--factor-top-loading-type": "choose top-loading metric for factor labels and factors.out summaries: euclidean (default), cosine, or raw",
     "--log-file": "write structured run logs to this file",
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--project-phenos-from-gene-sets": "project simplified trait linkage from the gene-set basis instead of the gene basis",

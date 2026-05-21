@@ -479,4 +479,6 @@ Current reference tests should cover:
 
 `trait_factor_links.out(.gz)` now contains only native EAGGL NNLS factor-to-trait projections. `nnls_loading` projects each trait support vector onto the EAGGL factor gene-loading basis after zeroing factor gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). Use `--factor-gmt-out` to export the same thresholded factor gene sets for an external PIGEAN `multi-y` run when factor-as-gene-set beta statistics are needed.
 
-Cluster files report raw `Factor*` loadings and `Cosine_Factor*`, where cosine is the row loading vector's cosine similarity to the one-hot factor indicator. The previous `Relative_Factor*` and `Combined_Factor*` cluster columns are no longer written.
+Cluster files report raw `Factor*` loadings, `Cosine_Factor*`, and `Euclidean_Factor*`. Cosine is the row loading vector's cosine similarity to the one-hot factor indicator; Euclidean is the row loading vector's distance to that indicator. The previous `Relative_Factor*` and `Combined_Factor*` cluster columns are no longer written.
+
+`--factor-top-loading-type` controls the metric used to choose top entities for `factors.out` summaries and labels. It defaults to `euclidean`; valid values are `euclidean`, `cosine`, and `raw`.

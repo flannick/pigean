@@ -103,6 +103,34 @@ def factor_basis_cosines(basis, *, eps=1e-12):
     return np.divide(dense, np.maximum(row_norms, eps), out=np.zeros_like(dense), where=row_norms > eps)
 
 
+
+
+def factor_basis_euclidean_distances(basis):
+    """Euclidean distance from each row-loading vector to each factor indicator."""
+    dense = np.maximum(_sanitize_nonfinite(basis), 0.0)
+    if dense.shape[1] == 0:
+        return np.zeros_like(dense)
+    squared_norms = np.sum(np.square(dense), axis=1, keepdims=True)
+    distances_sq = squared_norms + 1.0 - 2.0 * dense
+    return np.sqrt(np.maximum(distances_sq, 0.0))
+
+
+def factor_basis_euclidean_scores(basis):
+    """Monotone score for Euclidean closeness; larger is closer to a factor indicator."""
+    distances = factor_basis_euclidean_distances(basis)
+    return 1.0 / (1.0 + distances)
+
+
+def factor_basis_loading_geometry(basis):
+    """Return raw, cosine, Euclidean distance, and Euclidean closeness matrices."""
+    raw = np.maximum(_sanitize_nonfinite(basis), 0.0)
+    return {
+        "raw": raw,
+        "cosine": factor_basis_cosines(raw),
+        "euclidean": factor_basis_euclidean_distances(raw),
+        "euclidean_score": factor_basis_euclidean_scores(raw),
+    }
+
 def write_factor_gmt(path, genes, factor_names, basis, threshold=0.05):
     """Export weighted EAGGL factors as a GMT-like factor gene-set file."""
     if path is None:
@@ -188,10 +216,13 @@ def compute_factor_trait_links(
     nnls_loading_threshold = 0.0 if nnls_loading_threshold is None else float(nnls_loading_threshold)
     if nnls_loading_threshold > 0.0:
         nnls_loadings = np.where(nnls_loadings >= nnls_loading_threshold, nnls_loadings, 0.0)
+    loading_geometry = factor_basis_loading_geometry(nnls_loadings)
     factor_weight_sum = np.sum(retained_basis, axis=0)
     factor_num_genes = np.sum(retained_basis > 0.0, axis=0).astype(int)
     return {
         "nnls": nnls_loadings,
+        "cosine": loading_geometry["cosine"],
+        "euclidean": loading_geometry["euclidean"],
         "trait_total_support": trait_total_support,
         "trait_n_eff": trait_n_eff,
         "retained_n_eff": retained_n_eff,

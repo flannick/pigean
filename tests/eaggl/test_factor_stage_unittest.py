@@ -1083,7 +1083,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertNotIn("joint_ln_bf", content)
         self.assertIn("TraitA\tFactor1", content)
         self.assertIn("TraitB\tFactor2", content)
-        self.assertIn("trait\tfactor\tis_anchor\tnnls_loading\ttrait_neff\tfactor_num_genes\tfactor_weight_sum\ttrait_response_source\tfactor_gene_basis\tfactor_loading_threshold", concise_content)
+        self.assertIn("trait\tfactor\tis_anchor\tnnls_loading\tcosine_loading\teuclidean_distance\ttrait_neff", concise_content)
         self.assertNotIn("beta_tilde", concise_content.splitlines()[0])
 
     def test_projection_only_anchor_and_external_trait_linkage_share_normalization_logic(self) -> None:

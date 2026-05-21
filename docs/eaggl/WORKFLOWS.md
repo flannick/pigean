@@ -342,4 +342,4 @@ Post-read filtering does not tighten this threshold.
 
 EAGGL trait-factor linkage is intentionally limited to NNLS projection loadings. Factors are exported as weighted gene sets after zeroing gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). `--factor-gmt-out` writes those thresholded factor gene sets for PIGEAN `multi-y` runs when beta statistics are needed.
 
-Gene, gene-set, and phenotype cluster tables now include raw `Factor*` loadings plus `Cosine_Factor*` columns. `Cosine_FactorK` is the cosine similarity between the row's factor-loading vector and the indicator vector for factor `K`.
+Gene, gene-set, and phenotype cluster tables now include raw `Factor*` loadings, `Cosine_Factor*`, and `Euclidean_Factor*` columns. `Cosine_FactorK` is the cosine similarity between the row's factor-loading vector and the indicator vector for factor `K`; `Euclidean_FactorK` is the Euclidean distance to that same one-hot factor indicator.

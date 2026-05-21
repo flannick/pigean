@@ -50,7 +50,7 @@
       "source_line": 106,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 197
+      "usage_references": 199
     },
     {
       "action": "append",
@@ -1525,7 +1525,7 @@
     {
       "action": null,
       "category": "method_optional",
-      "default": "combined",
+      "default": "euclidean",
       "deprecation_timeline": null,
       "dest": "factor_top_loading_type",
       "documentation_target": "expert_help",
@@ -1539,9 +1539,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 330,
-      "summary": null,
+      "summary": "choose top-loading metric for factor labels and factors.out summaries: euclidean (default), cosine, or raw",
       "type": "str",
-      "usage_references": 4
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2906,7 +2906,7 @@
       "source_line": 178,
       "summary": null,
       "type": null,
-      "usage_references": 97
+      "usage_references": 99
     },
     {
       "action": null,
@@ -4293,7 +4293,7 @@
       "source_line": 277,
       "summary": null,
       "type": "int",
-      "usage_references": 85
+      "usage_references": 86
     },
     {
       "action": null,
@@ -4314,7 +4314,7 @@
       "source_line": 276,
       "summary": null,
       "type": "int",
-      "usage_references": 25
+      "usage_references": 26
     },
     {
       "action": null,
@@ -5532,7 +5532,7 @@
       "source_line": 244,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 184
+      "usage_references": 185
     },
     {
       "action": null,
@@ -6015,7 +6015,7 @@
       "source_line": 123,
       "summary": null,
       "type": "string",
-      "usage_references": 24
+      "usage_references": 32
     },
     {
       "action": "store_true",

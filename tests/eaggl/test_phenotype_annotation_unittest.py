@@ -210,6 +210,8 @@ class PhenotypeAnnotationTest(unittest.TestCase):
             threshold_value=0.0,
         )
         self.assertEqual(linkage["nnls"].shape, (2, 2))
+        np.testing.assert_allclose(linkage["cosine"], [[1.0, 0.0], [0.0, 1.0]], atol=1e-8)
+        np.testing.assert_allclose(linkage["euclidean"], [[0.0, np.sqrt(2.0)], [np.sqrt(2.0), 0.0]], atol=1e-8)
         self.assertNotIn("beta", linkage)
         self.assertNotIn("beta_uncorrected", linkage)
         self.assertNotIn("beta_tilde", linkage)
@@ -474,6 +476,37 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
         self.assertAlmostEqual(float(cosines[0, 0]), 0.6)
         self.assertAlmostEqual(float(cosines[0, 1]), 0.8)
         self.assertEqual(cosines[1, :].tolist(), [0.0, 0.0])
+
+
+    def test_factor_basis_euclidean_distances_to_factor_indicators(self) -> None:
+        basis = np.array([[2.0, 0.0], [1.0, 1.0], [0.0, 0.0]], dtype=float)
+        distances = eaggl_trait_linkage.factor_basis_euclidean_distances(basis)
+        np.testing.assert_allclose(distances[0], [1.0, np.sqrt(5.0)], atol=1e-8)
+        np.testing.assert_allclose(distances[1], [1.0, 1.0], atol=1e-8)
+        np.testing.assert_allclose(distances[2], [1.0, 1.0], atol=1e-8)
+
+    def test_trait_factor_link_writer_includes_geometry_columns(self) -> None:
+        runtime = eaggl_state.EagglState(background_prior=0.05, batch_size=10)
+        runtime.phenos = ["P1"]
+        runtime.exp_lambdak = np.array([1.0, 1.0])
+        runtime.trait_linkage_nnls = np.array([[1.0, 1.0]], dtype=float)
+        runtime.trait_linkage_n_eff = np.array([25.0], dtype=float)
+        runtime.trait_linkage_factor_num_genes = np.array([2, 3], dtype=int)
+        runtime.trait_linkage_factor_weight_sum = np.array([1.2, 1.5], dtype=float)
+        runtime.trait_linkage_score_source = "combined"
+        runtime.trait_linkage_basis = "gene"
+        runtime.trait_linkage_factor_loading_threshold = 0.05
+        runtime.trait_linkage_is_anchor = np.array([False])
+        with TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "trait_factor_links.tsv"
+            runtime.write_trait_factor_links(str(out))
+            rows = out.read_text(encoding="utf-8").strip().splitlines()
+        header = rows[0].split("\t")
+        self.assertIn("cosine_loading", header)
+        self.assertIn("euclidean_distance", header)
+        first = dict(zip(header, rows[1].split("\t")))
+        self.assertAlmostEqual(float(first["cosine_loading"]), 1.0 / np.sqrt(2.0), places=6)
+        self.assertAlmostEqual(float(first["euclidean_distance"]), 1.0, places=6)
 
     def test_factor_gmt_export_thresholds_small_gene_loadings(self) -> None:
         basis = np.array([[0.10, 0.00], [0.04, 0.50], [0.30, 0.20]], dtype=float)

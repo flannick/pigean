@@ -100,7 +100,7 @@ def _first(row: dict[str, str], names: Iterable[str], default=""):
 def factor_columns(header: list[str] | None) -> list[str]:
     if not header:
         return []
-    return [name for name in header if name.startswith("Factor") and not name.startswith(("Relative_", "Combined_", "Cosine_"))]
+    return [name for name in header if name.startswith("Factor") and not name.startswith(("Relative_", "Combined_", "Cosine_", "Euclidean_"))]
 
 
 def parse_run_spec(value: str) -> PigeanRunSpec:
@@ -508,6 +508,7 @@ def read_cluster_table(
                 "gene" if id_key == "Gene" else "gene_set": entity_id,
                 "loading": loading,
                 "cosine_loading": parse_float(row.get(f"Cosine_{factor}")),
+                "euclidean_distance": parse_float(row.get(f"Euclidean_{factor}")),
                 "cluster": _first(row, ["cluster", "Cluster"]),
                 "label": _first(row, ["label", "Label"], entity_id),
                 "combined": parse_float(_first(row, ["combined", "Combined"])),
@@ -589,6 +590,8 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str], *, 
             "factor": factor,
             "is_anchor": _first(row, ["is_anchor"]),
             "nnls_loading": parse_float(_first(row, ["nnls_loading", "joint_capture_fraction", "joint_fraction", "joint_coefficient"])),
+            "cosine_loading": parse_float(row.get("cosine_loading")),
+            "euclidean_distance": parse_float(row.get("euclidean_distance")),
             "beta": parse_float(row.get("beta")),
             "beta_uncorrected": parse_float(row.get("beta_uncorrected")),
             "beta_tilde": parse_float(row.get("beta_tilde")),
