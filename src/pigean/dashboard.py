@@ -28,6 +28,8 @@ class EagglRunSpec:
     path: Path
     group_id: str | None = None
     group_title: str | None = None
+    aggregate_phi: float | None = None
+    aggregate_root: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -194,10 +196,42 @@ def _first_existing(path: Path, names: Iterable[str]) -> Path | None:
     return None
 
 
-def read_factor_metrics(path: Path, warnings: list[str]) -> dict[str, dict]:
-    if not path.exists():
-        return {}
+def _phi_matches(value, phi: float | None) -> bool:
+    if phi is None:
+        return True
+    parsed = parse_float(value)
+    return parsed is not None and math.isclose(float(parsed), float(phi), rel_tol=1e-12, abs_tol=1e-15)
+
+
+def _read_tsv_for_phi(path: Path | None, phi: float | None, warnings: list[str]) -> list[dict[str, str]]:
+    if path is None:
+        return []
     rows = read_tsv(path, warnings)
+    if phi is None:
+        return rows
+    return [
+        row
+        for row in rows
+        if _phi_matches(_first(row, ["phi", "Phi", "candidate_phi"]), phi)
+    ]
+
+
+def _phis_from_rows(rows: list[dict[str, str]]) -> list[float]:
+    phis: list[float] = []
+    seen: set[float] = set()
+    for row in rows:
+        phi = parse_float(_first(row, ["phi", "Phi", "candidate_phi"]))
+        if phi is None:
+            continue
+        key = round(float(phi), 15)
+        if key in seen:
+            continue
+        seen.add(key)
+        phis.append(float(phi))
+    return sorted(phis)
+
+
+def _factor_metrics_from_rows(rows: list[dict[str, str]]) -> dict[str, dict]:
     metrics: dict[str, dict] = {}
     for row in rows:
         factor = _first(row, ["Factor", "factor"])
@@ -211,10 +245,36 @@ def read_factor_metrics(path: Path, warnings: list[str]) -> dict[str, dict]:
     return metrics
 
 
+def read_factor_metrics(path: Path, warnings: list[str]) -> dict[str, dict]:
+    if not path.exists():
+        return {}
+    return _factor_metrics_from_rows(read_tsv(path, warnings))
+
+
 def read_selected_phi_metrics(path: Path, warnings: list[str]) -> dict:
     if not path.exists():
         return {}
     rows = read_tsv(path, warnings)
+    if not rows:
+        return {}
+    selected = None
+    for row in rows:
+        flag = str(_first(row, ["selected", "is_selected"], "")).strip().lower()
+        if flag in {"1", "true", "t", "yes", "y"}:
+            selected = row
+            break
+    selected = selected or rows[0]
+    return {
+        key: _metric_value(value)
+        for key, value in selected.items()
+        if value not in (None, "")
+    }
+
+
+def read_phi_metrics_for_candidate(path: Path | None, phi: float | None, warnings: list[str]) -> dict:
+    if path is None or not path.exists():
+        return {}
+    rows = _read_tsv_for_phi(path, phi, warnings)
     if not rows:
         return {}
     selected = None
@@ -249,8 +309,43 @@ def _discover_phi_sweep_runs(spec: EagglPhiSweepSpec) -> list[EagglRunSpec]:
     if not candidates and (root / "factors.out.gz").exists():
         phi = _parse_phi_from_name(root.name)
         candidates.append((float("nan") if phi is None else phi, root))
+    aggregate_factors_path = _first_existing(
+        root,
+        [
+            "factor_phi_factors.out.gz",
+            "factor_phi_factors.out",
+            "factor_phi_factors.tsv.gz",
+            "factor_phi_factors.tsv",
+        ],
+    )
+    aggregate_specs: list[EagglRunSpec] = []
+    if not candidates and aggregate_factors_path is not None:
+        rows = read_tsv(aggregate_factors_path, [])
+        for phi in _phis_from_rows(rows):
+            phi_label = "%g" % phi
+            aggregate_specs.append(
+                EagglRunSpec(
+                    spec.run_id,
+                    f"{spec.mode_id}_phi_{phi_label.replace('.', 'p')}",
+                    root,
+                    group_id=spec.mode_id,
+                    group_title=f"{spec.mode_id.replace('_', ' ')} phi sweep",
+                    aggregate_phi=phi,
+                    aggregate_root=root,
+                )
+            )
     selected_phi = None
-    for report_name in ("learn_phi_report.tsv", "learn_phi_report.out", "learn_phi_report.out.gz", "phi_report.tsv", "summary.tsv"):
+    for report_name in (
+        "learn_phi_report.tsv",
+        "learn_phi_report.out",
+        "learn_phi_report.out.gz",
+        "phi_selection_metrics_wide.tsv",
+        "phi_selection_metrics_wide.tsv.gz",
+        "phi_selection_metrics_wide.out",
+        "phi_selection_metrics_wide.out.gz",
+        "phi_report.tsv",
+        "summary.tsv",
+    ):
         selected_phi = _read_selected_phi_from_report(root / report_name)
         if selected_phi is not None:
             break
@@ -267,6 +362,8 @@ def _discover_phi_sweep_runs(spec: EagglPhiSweepSpec) -> list[EagglRunSpec]:
                 group_title=f"{spec.mode_id.replace('_', ' ')} phi sweep",
             )
         )
+    if aggregate_specs:
+        specs = aggregate_specs
     if selected_phi is not None:
         specs.sort(key=lambda item: (
             0 if _parse_phi_from_name(item.mode_id) is not None and math.isclose(float(_parse_phi_from_name(item.mode_id)), float(selected_phi), rel_tol=1e-12, abs_tol=1e-15) else 1,
@@ -493,7 +590,23 @@ def read_cluster_table(
     factor_loading_min_max_frac: float | None,
     max_rows_per_factor: int,
 ) -> tuple[list[str], dict[str, list[dict]]]:
-    rows = read_tsv(path, warnings)
+    return read_cluster_rows(
+        read_tsv(path, warnings),
+        id_key,
+        threshold,
+        factor_loading_min_max_frac=factor_loading_min_max_frac,
+        max_rows_per_factor=max_rows_per_factor,
+    )
+
+
+def read_cluster_rows(
+    rows: list[dict[str, str]],
+    id_key: str,
+    threshold: float,
+    *,
+    factor_loading_min_max_frac: float | None,
+    max_rows_per_factor: int,
+) -> tuple[list[str], dict[str, list[dict]]]:
     factors = factor_columns(list(rows[0].keys()) if rows else [])
     by_factor: dict[str, list[dict]] = defaultdict(list)
     id_names = [id_key, id_key.lower(), "id", "ID"]
@@ -553,7 +666,6 @@ def _anchor_column_name(trait: str, existing: set[str]) -> str:
     return candidate
 
 
-
 def _passes_trait_factor_filters(record: dict, *, min_beta: float | None, min_beta_uncorrected: float | None, min_nnls: float | None) -> bool:
     thresholds = [
         ("beta", min_beta),
@@ -569,21 +681,141 @@ def _passes_trait_factor_filters(record: dict, *, min_beta: float | None, min_be
             return True
     return False
 
-def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str], *, min_beta: float | None = 0.01, min_beta_uncorrected: float | None = 0.05, min_nnls: float | None = 0.5) -> tuple[dict[str, list[dict]], list[dict], dict[str, dict[str, float]]]:
+
+def _trait_factor_key(row: dict[str, str]) -> tuple[str, str]:
+    trait = _first(row, ["trait", "Trait", "Trait_Internal", "pheno", "Phenotype"])
+    factor = _first(row, ["factor", "Factor", "Gene_Set", "gene_set"])
+    return trait, factor
+
+
+def _read_trait_enrichment_rows(path: Path, warnings: list[str]) -> dict[tuple[str, str], dict[str, str]]:
     if not path.exists():
-        return {}, [], {}
+        return {}
     rows = read_tsv(path, warnings)
+    by_key: dict[tuple[str, str], dict[str, str]] = {}
+    for row in rows:
+        key = _trait_factor_key(row)
+        if not key[0] or not key[1]:
+            continue
+        by_key[key] = row
+    return by_key
+
+
+def _merge_trait_projection_and_enrichment(
+    projection_rows: list[dict[str, str]],
+    enrichment_rows: dict[tuple[str, str], dict[str, str]],
+) -> list[dict[str, str]]:
+    merged: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    enrichment_field_map = [
+        ("beta", "beta"),
+        ("beta_uncorrected", "beta_uncorrected"),
+        ("beta_tilde", "beta_tilde"),
+        ("beta_tilde_internal", "beta_tilde"),
+        ("se", "se"),
+        ("se_internal", "se"),
+        ("SE", "se"),
+        ("z", "z"),
+        ("Z", "z"),
+        ("p_value", "p_value"),
+        ("p", "p_value"),
+        ("p_orig", "p_value"),
+        ("P", "p_value"),
+    ]
+    for row in projection_rows:
+        key = _trait_factor_key(row)
+        if not key[0] or not key[1]:
+            merged.append(row)
+            continue
+        seen.add(key)
+        combined = dict(row)
+        enrichment = enrichment_rows.get(key, {})
+        for src, dst in enrichment_field_map:
+            if enrichment.get(src) not in (None, ""):
+                combined[dst] = enrichment[src]
+        merged.append(combined)
+    for key, enrichment in enrichment_rows.items():
+        if key in seen:
+            continue
+        row = {
+            "trait": key[0],
+            "factor": key[1],
+            "trait_enrichment_only": "1",
+        }
+        for src, dst in enrichment_field_map:
+            if enrichment.get(src) not in (None, ""):
+                row[dst] = enrichment[src]
+        merged.append(row)
+    return merged
+
+
+def _trait_link_input_paths(path: Path) -> tuple[Path | None, Path | None, list[str]]:
+    merged_path = _first_existing(
+        path,
+        [
+            "trait_factor_links.out.gz",
+            "trait_factor_links.out",
+            "trait_factor_links.tsv.gz",
+            "trait_factor_links.tsv",
+            "pheno_clusters.out.gz",
+            "pheno_clusters.out",
+        ],
+    )
+    projection_path = _first_existing(
+        path,
+        [
+            "trait_factor_links.nnls.out.gz",
+            "trait_factor_links.nnls.out",
+            "trait_factor_links.nnls.tsv.gz",
+            "trait_factor_links.nnls.tsv",
+        ],
+    )
+    enrichment_path = _first_existing(
+        path,
+        [
+            "factor_trait_pigean_enrichments.out.gz",
+            "factor_trait_pigean_enrichments.out",
+            "factor_trait_pigean_enrichments.tsv.gz",
+            "factor_trait_pigean_enrichments.tsv",
+        ],
+    )
+    sources: list[str] = []
+    if merged_path is not None:
+        sources.append(str(merged_path))
+    if projection_path is not None:
+        sources.append(str(projection_path))
+    if enrichment_path is not None:
+        sources.append(str(enrichment_path))
+    primary_path = projection_path or merged_path
+    return primary_path, enrichment_path, sources
+
+
+def read_trait_links(
+    path: Path,
+    min_trait_neff: float,
+    warnings: list[str],
+    *,
+    enrichment_path: Path | None = None,
+    min_beta: float | None = 0.01,
+    min_beta_uncorrected: float | None = 0.05,
+    min_nnls: float | None = 0.5,
+) -> tuple[dict[str, list[dict]], list[dict], dict[str, dict[str, float]]]:
+    if not path.exists() and (enrichment_path is None or not enrichment_path.exists()):
+        return {}, [], {}
+    rows = read_tsv(path, warnings) if path.exists() else []
+    enrichment_rows = _read_trait_enrichment_rows(enrichment_path, warnings) if enrichment_path is not None else {}
+    if enrichment_rows:
+        rows = _merge_trait_projection_and_enrichment(rows, enrichment_rows)
     by_factor: dict[str, list[dict]] = defaultdict(list)
     anchor_traits: dict[str, dict] = {}
     anchor_values_by_factor: dict[str, dict[str, float]] = defaultdict(dict)
     used_columns: set[str] = set()
     for row in rows:
-        factor = _first(row, ["factor", "Factor"])
-        trait = _first(row, ["trait", "Trait", "pheno", "Phenotype"])
+        trait, factor = _trait_factor_key(row)
         if not factor or not trait:
             continue
-        neff = parse_float(_first(row, ["trait_neff", "trait_n_eff", "retained_n_eff"]), 0.0) or 0.0
-        if neff < min_trait_neff:
+        neff = parse_float(_first(row, ["trait_neff", "trait_n_eff", "retained_n_eff"]))
+        if neff is not None and neff < min_trait_neff:
             continue
         record = {
             "trait": trait,
@@ -623,6 +855,7 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str], *, 
             "trait_linkage_evidence_source": _first(row, ["trait_linkage_evidence_source"]),
             "trait_response_source": _first(row, ["trait_response_source"]),
             "factor_gene_basis": _first(row, ["factor_gene_basis"]),
+            "trait_enrichment_only": _first(row, ["trait_enrichment_only"]),
         }
         # Backward-compatible aliases used by older graph/dashboard code.
         record["joint_fraction"] = record["joint_capture_fraction"]
@@ -675,20 +908,31 @@ def _metric_summary_for_group(eaggl_run: dict) -> dict:
 def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     warnings: list[str] = []
     path = spec.path
+    aggregate_phi = spec.aggregate_phi
+    aggregate_root = spec.aggregate_root or path
+    is_aggregate_phi = aggregate_phi is not None
     if not path.exists():
         warnings.append(f"EAGGL directory does not exist: {path}")
-    factors_path = path / "factors.out.gz"
-    factor_metrics_path = _first_existing(
-        path,
-        [
-            "factor_metrics.out.gz",
-            "factor_metrics.out",
-            "factor_metrics.tsv.gz",
-            "factor_metrics.tsv",
-        ],
+    factors_path = (
+        _first_existing(aggregate_root, ["factor_phi_factors.out.gz", "factor_phi_factors.out", "factor_phi_factors.tsv.gz", "factor_phi_factors.tsv"])
+        if is_aggregate_phi
+        else path / "factors.out.gz"
+    )
+    factor_metrics_path = (
+        _first_existing(aggregate_root, ["factor_phi_metrics.out.gz", "factor_phi_metrics.out", "factor_phi_metrics.tsv.gz", "factor_phi_metrics.tsv"])
+        if is_aggregate_phi
+        else _first_existing(
+            path,
+            [
+                "factor_metrics.out.gz",
+                "factor_metrics.out",
+                "factor_metrics.tsv.gz",
+                "factor_metrics.tsv",
+            ],
+        )
     )
     phi_selection_metrics_path = _first_existing(
-        path,
+        aggregate_root if is_aggregate_phi else path,
         [
             "phi_selection_metrics_wide.out.gz",
             "phi_selection_metrics_wide.out",
@@ -706,21 +950,37 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
             "summary.tsv",
         ],
     )
-    gene_clusters_path = path / "gene_clusters.out.gz"
+    gene_clusters_path = (
+        _first_existing(aggregate_root, ["factor_phi_gene_clusters.out.gz", "factor_phi_gene_clusters.out", "factor_phi_gene_clusters.tsv.gz", "factor_phi_gene_clusters.tsv"])
+        if is_aggregate_phi
+        else path / "gene_clusters.out.gz"
+    )
     gene_loading_source_specs = [
         ("discovery", "Discovery genes", gene_clusters_path, path / "factor_graph.html"),
         ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html"),
         ("full_via_gene_sets", "Full genes: via gene sets", path / "gene_clusters_full_via_gene_sets.out.gz", path / "factor_graph.full_via_gene_sets.html"),
     ]
-    gene_set_clusters_path = path / "gene_set_clusters.out.gz"
-    factors_rows = read_tsv(factors_path, warnings) if factors_path.exists() else []
-    factor_metrics = read_factor_metrics(factor_metrics_path, warnings) if factor_metrics_path is not None else {}
-    selected_phi_metrics = read_selected_phi_metrics(phi_selection_metrics_path, warnings) if phi_selection_metrics_path is not None else {}
-    if not factors_path.exists():
+    gene_set_clusters_path = (
+        _first_existing(aggregate_root, ["factor_phi_gene_set_clusters.out.gz", "factor_phi_gene_set_clusters.out", "factor_phi_gene_set_clusters.tsv.gz", "factor_phi_gene_set_clusters.tsv"])
+        if is_aggregate_phi
+        else path / "gene_set_clusters.out.gz"
+    )
+    factors_rows = _read_tsv_for_phi(factors_path, aggregate_phi, warnings) if factors_path is not None and factors_path.exists() else []
+    factor_metrics = (
+        _factor_metrics_from_rows(_read_tsv_for_phi(factor_metrics_path, aggregate_phi, warnings))
+        if factor_metrics_path is not None and is_aggregate_phi
+        else read_factor_metrics(factor_metrics_path, warnings) if factor_metrics_path is not None else {}
+    )
+    selected_phi_metrics = (
+        read_phi_metrics_for_candidate(phi_selection_metrics_path, aggregate_phi, warnings)
+        if is_aggregate_phi
+        else read_selected_phi_metrics(phi_selection_metrics_path, warnings) if phi_selection_metrics_path is not None else {}
+    )
+    if factors_path is None or not factors_path.exists():
         warnings.append(f"missing EAGGL factors: {factors_path}")
     gene_loading_sources: dict[str, dict] = {}
     for source_id, source_label, source_path, graph_path in gene_loading_source_specs:
-        if not source_path.exists():
+        if is_aggregate_phi or not source_path.exists():
             continue
         _, source_by_factor = read_cluster_table(
             source_path,
@@ -739,11 +999,42 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
             "factor_graph_html": read_optional_text(graph_path, warnings, max_chars=None),
             "by_factor": source_by_factor,
         }
-    if not gene_clusters_path.exists():
+    if gene_clusters_path is None or not gene_clusters_path.exists():
         warnings.append(f"missing EAGGL gene clusters: {gene_clusters_path}")
-    genes_by_factor = gene_loading_sources.get("discovery", {}).get("by_factor", {})
+    if is_aggregate_phi:
+        _, genes_by_factor = (
+            read_cluster_rows(
+                _read_tsv_for_phi(gene_clusters_path, aggregate_phi, warnings),
+                "Gene",
+                args.factor_loading_threshold,
+                factor_loading_min_max_frac=args.factor_loading_min_max_frac,
+                max_rows_per_factor=args.max_factor_genes,
+            )
+            if gene_clusters_path is not None and gene_clusters_path.exists()
+            else ([], {})
+        )
+    else:
+        genes_by_factor = gene_loading_sources.get("discovery", {}).get("by_factor", {})
+    if is_aggregate_phi and genes_by_factor:
+        gene_loading_sources["discovery"] = {
+            "id": "discovery",
+            "label": "Discovery genes",
+            "path": str(gene_clusters_path),
+            "factor_graph_html_path": "",
+            "factor_graph_available": False,
+            "factor_graph_html": "",
+            "by_factor": genes_by_factor,
+        }
     _, gene_sets_by_factor = (
-        read_cluster_table(
+        read_cluster_rows(
+            _read_tsv_for_phi(gene_set_clusters_path, aggregate_phi, warnings),
+            "Gene_Set",
+            args.factor_loading_threshold,
+            factor_loading_min_max_frac=args.factor_loading_min_max_frac,
+            max_rows_per_factor=args.max_factor_gene_sets,
+        )
+        if is_aggregate_phi and gene_set_clusters_path is not None and gene_set_clusters_path.exists()
+        else read_cluster_table(
             gene_set_clusters_path,
             "Gene_Set",
             args.factor_loading_threshold,
@@ -751,15 +1042,17 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
             factor_loading_min_max_frac=args.factor_loading_min_max_frac,
             max_rows_per_factor=args.max_factor_gene_sets,
         )
-        if gene_set_clusters_path.exists()
+        if gene_set_clusters_path is not None and gene_set_clusters_path.exists()
         else ([], {})
     )
-    if not gene_set_clusters_path.exists():
+    if gene_set_clusters_path is None or not gene_set_clusters_path.exists():
         warnings.append(f"missing EAGGL gene-set clusters: {gene_set_clusters_path}")
+    trait_link_path, trait_enrichment_path, trait_link_sources = (None, None, []) if is_aggregate_phi else _trait_link_input_paths(path)
     trait_links, anchor_traits, anchor_values = read_trait_links(
-        path / "trait_factor_links.out.gz",
+        trait_link_path or (path / "__missing_trait_factor_links__"),
         args.trait_min_neff,
         warnings,
+        enrichment_path=trait_enrichment_path,
         min_beta=args.trait_factor_min_beta,
         min_beta_uncorrected=args.trait_factor_min_beta_uncorrected,
         min_nnls=args.trait_factor_min_nnls,
@@ -789,7 +1082,7 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
         factors.append(factor_record)
     factors.sort(key=lambda item: item.get("combined_mass_fraction") or -1e300, reverse=True)
     factor_graph_html_path = path / "factor_graph.html"
-    phi_value = _parse_phi_from_name(spec.mode_id) or _parse_phi_from_name(path.name) or _parse_phi_from_name(path.parent.name)
+    phi_value = aggregate_phi if aggregate_phi is not None else (_parse_phi_from_name(spec.mode_id) or _parse_phi_from_name(path.name) or _parse_phi_from_name(path.parent.name))
     return {
         "run_id": spec.run_id,
         "mode_id": spec.mode_id,
@@ -800,14 +1093,17 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
         "summary": "EAGGL run supplied on the dashboard command line.",
         "paths": {
             "run_dir": str(path),
-            "factors": str(factors_path),
+            "factors": str(factors_path) if factors_path is not None else "",
             "factor_metrics": str(factor_metrics_path) if factor_metrics_path is not None else str(path / "factor_metrics.out.gz"),
             "phi_selection_metrics": str(phi_selection_metrics_path) if phi_selection_metrics_path is not None else "",
-            "gene_clusters": str(gene_clusters_path),
+            "gene_clusters": str(gene_clusters_path) if gene_clusters_path is not None else "",
             "gene_clusters_full": str(path / "gene_clusters_full.out.gz"),
             "gene_clusters_full_via_gene_sets": str(path / "gene_clusters_full_via_gene_sets.out.gz"),
-            "gene_set_clusters": str(gene_set_clusters_path),
-            "trait_factor_links": str(path / "trait_factor_links.out.gz"),
+            "gene_set_clusters": str(gene_set_clusters_path) if gene_set_clusters_path is not None else "",
+            "trait_factor_links": str(trait_link_path or path / "trait_factor_links.out.gz"),
+            "trait_factor_projection": str(trait_link_path) if trait_link_path is not None else "",
+            "factor_trait_pigean_enrichments": str(trait_enrichment_path) if trait_enrichment_path is not None else "",
+            "trait_factor_link_sources": trait_link_sources,
             "factor_graph_html": str(factor_graph_html_path),
             "factor_graph_json": str(path / "factor_graph.json"),
             "params": str(path / "params.out"),
@@ -937,7 +1233,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build a standalone HTML dashboard from supplied PIGEAN and EAGGL outputs.")
     parser.add_argument("--pigean-run", action="append", type=parse_run_spec, default=[], help="PIGEAN run as RUN_ID:DIR; repeat for multiple runs.")
     parser.add_argument("--eaggl-run", action="append", type=parse_eaggl_spec, default=[], help="EAGGL run as RUN_ID:MODE_ID:DIR; repeat for multiple modes/runs.")
-    parser.add_argument("--eaggl-phi-sweep", action="append", type=parse_eaggl_phi_sweep_spec, default=[], help="EAGGL phi sweep bundle as RUN_ID:MODE_ID:DIR. The directory is scanned for per-phi EAGGL output directories.")
+    parser.add_argument("--eaggl-phi-sweep", action="append", type=parse_eaggl_phi_sweep_spec, default=[], help="EAGGL phi sweep bundle as RUN_ID:MODE_ID:DIR. The directory may contain per-phi EAGGL output directories or aggregate factor_phi_* learn-phi output tables.")
     parser.add_argument("--eaggl-group", action="append", type=parse_eaggl_group_spec, default=[], help="Assign a standalone EAGGL run to a dashboard group as RUN_ID:MODE_ID:GROUP_ID[:GROUP_TITLE]; repeatable.")
     parser.add_argument("--x-input", action="append", type=Path, default=None, help="Optional GMT/gene-set input for gene/gene-set membership expansions; repeatable.")
     parser.add_argument("--title", default="PIGEAN/EAGGL Dashboard")

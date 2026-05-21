@@ -133,6 +133,48 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertEqual(eaggl_run["gene_loading_sources"]["full_direct"]["by_factor"]["Factor1"][0]["gene"], "GENE1")
         self.assertEqual(eaggl_run["gene_loading_sources"]["full_via_gene_sets"]["by_factor"]["Factor1"][0]["gene"], "GENE1")
 
+    def test_dashboard_merges_separate_trait_projection_and_enrichment_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            edir = root / "eaggl"
+            self._write_eaggl_outputs(edir)
+            (edir / "trait_factor_links.out.gz").unlink()
+            _write_gz(
+                edir / "trait_factor_links.nnls.out.gz",
+                "trait\tfactor\tnnls_loading\tcosine_loading\teuclidean_distance\ttrait_neff\n"
+                "TraitA\tFactor1\t0.7\t0.8\t0.2\t300\n"
+                "TraitB\tFactor1\t0.1\t0.2\t0.9\t300\n",
+            )
+            _write_gz(
+                edir / "factor_trait_pigean_enrichments.out.gz",
+                "Trait\tGene_Set\tbeta\tbeta_uncorrected\tbeta_tilde\tse\tz\tp_value\n"
+                "TraitA\tFactor1\t0.2\t0.6\t0.9\t0.1\t9\t1e-6\n"
+                "TraitC\tFactor1\t0.3\t0.7\t1.1\t0.2\t5.5\t2e-5\n",
+            )
+            parser = dashboard.build_parser()
+            args = parser.parse_args([
+                "--eaggl-run", f"run1:gene_x_gene:{edir}",
+                "--json-out", str(root / "dashboard.json"),
+            ])
+            args.run_titles = {}
+            args.trait_ids = {}
+            payload = dashboard.build_payload(args)
+
+        eaggl_run = payload["eaggl_runs"]["run1::gene_x_gene"]
+        factor = eaggl_run["factors"][0]
+        traits = {row["trait"]: row for row in factor["phenotypes"]}
+        self.assertEqual(traits["TraitA"]["nnls_loading"], 0.7)
+        self.assertEqual(traits["TraitA"]["cosine_loading"], 0.8)
+        self.assertEqual(traits["TraitA"]["beta"], 0.2)
+        self.assertEqual(traits["TraitA"]["beta_uncorrected"], 0.6)
+        self.assertEqual(traits["TraitA"]["beta_tilde"], 0.9)
+        self.assertEqual(traits["TraitA"]["p_value"], 1e-6)
+        self.assertEqual(traits["TraitC"]["trait_enrichment_only"], "1")
+        self.assertEqual(traits["TraitC"]["beta"], 0.3)
+        self.assertNotIn("TraitB", traits)
+        self.assertTrue(eaggl_run["paths"]["trait_factor_projection"].endswith("trait_factor_links.nnls.out.gz"))
+        self.assertTrue(eaggl_run["paths"]["factor_trait_pigean_enrichments"].endswith("factor_trait_pigean_enrichments.out.gz"))
+
     def test_missing_outputs_are_recorded_as_warnings(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -194,6 +236,64 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertEqual(len(groups), 1)
         self.assertEqual(groups[0]["group_id"], "gene_x_gene")
         self.assertEqual(set(groups[0]["mode_ids"]), {"gene_x_gene_phi_0p02", "gene_x_gene_phi_0p04"})
+
+    def test_phi_sweep_bundle_loads_aggregate_factor_phi_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sweep = root / "sweep"
+            sweep.mkdir()
+            _write_gz(
+                sweep / "factor_phi_factors.out.gz",
+                "phi\tFactor\tlabel\tlambda\tcombined_mass_fraction\ttop_genes\ttop_gene_sets\n"
+                "0.02\tFactor1\timmune low\t1.0\t0.1\tGENE1\tSET1\n"
+                "0.04\tFactor1\timmune high\t2.0\t0.2\tGENE2\tSET2\n",
+            )
+            _write_gz(
+                sweep / "factor_phi_metrics.out.gz",
+                "phi\tFactor\tfactor_gene_mass\tfactor_size_score\n"
+                "0.02\tFactor1\t20\t0.5\n"
+                "0.04\tFactor1\t40\t0.9\n",
+            )
+            _write_gz(
+                sweep / "factor_phi_gene_clusters.out.gz",
+                "phi\tGene\tcombined\tcluster\tlabel\tFactor1\tCosine_Factor1\tEuclidean_Factor1\n"
+                "0.02\tGENE1\t3.0\tFactor1\timmune low\t0.8\t0.9\t0.1\n"
+                "0.04\tGENE2\t4.0\tFactor1\timmune high\t0.7\t0.8\t0.2\n",
+            )
+            _write_gz(
+                sweep / "factor_phi_gene_set_clusters.out.gz",
+                "phi\tGene_Set\tlabel\tbeta\tbeta_uncorrected\tcluster\tFactor1\tCosine_Factor1\tEuclidean_Factor1\n"
+                "0.02\tSET1\timmune\t0.2\t0.3\tFactor1\t0.6\t0.7\t0.3\n"
+                "0.04\tSET2\tmetabolic\t0.4\t0.5\tFactor1\t0.9\t0.95\t0.05\n",
+            )
+            _write_gz(
+                sweep / "phi_selection_metrics_wide.out.gz",
+                "phi\tselected\tphi_composite_score\tcoverage_score\n"
+                "0.02\t0\t0.2\t0.3\n"
+                "0.04\t1\t0.8\t0.9\n",
+            )
+            parser = dashboard.build_parser()
+            args = parser.parse_args([
+                "--eaggl-phi-sweep", f"run1:gene_x_gene:{sweep}",
+                "--json-out", str(root / "dashboard.json"),
+            ])
+            args.run_titles = {}
+            args.trait_ids = {}
+            payload = dashboard.build_payload(args)
+
+        self.assertEqual(len(payload["eaggl_runs"]), 2)
+        first_key = list(payload["eaggl_runs"])[0]
+        self.assertEqual(first_key, "run1::gene_x_gene_phi_0p04")
+        selected_run = payload["eaggl_runs"][first_key]
+        self.assertEqual(selected_run["phi"], 0.04)
+        self.assertEqual(selected_run["selected_phi_metrics"]["phi_composite_score"], 0.8)
+        factor = selected_run["factors"][0]
+        self.assertEqual(factor["label"], "immune high")
+        self.assertEqual(factor["factor_gene_mass"], 40)
+        self.assertEqual(factor["genes"][0]["gene"], "GENE2")
+        self.assertEqual(factor["gene_sets"][0]["gene_set"], "SET2")
+        self.assertFalse(selected_run["factor_graph_available"])
+        self.assertEqual(set(selected_run["gene_loading_sources"]), {"discovery"})
 
     def test_explicit_eaggl_group_combines_standalone_runs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
