@@ -270,6 +270,8 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertIn("heatmapMetricSelect", html)
         self.assertIn("data-heatmap-regex-table", html)
         self.assertIn("heatmap-regex-label", html)
+        self.assertIn("function regexMatch", html)
+        self.assertIn("new RegExp(String(raw), \"i\")", html)
         self.assertIn("data-heatmap-tip", html)
         self.assertIn("bindHeatmapTooltips", html)
         self.assertIn("factor-tabs", html)

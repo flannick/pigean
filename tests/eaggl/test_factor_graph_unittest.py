@@ -106,6 +106,38 @@ class EagglFactorGraphTest(unittest.TestCase):
         node_by_id = {node["id"]: node for node in graph["nodes"]}
         self.assertIn("TraitLowNeff", node_by_id)
 
+    def test_trait_factor_rank_field_controls_trait_provenance_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_gz(
+                root / "trait_factor_links.out.gz",
+                "trait\tfactor\tis_anchor\tnnls_loading\tbeta\tbeta_uncorrected\ttrait_neff\n"
+                "TraitNnls\tFactor1\t0\t0.9\t0.02\t0.02\t30\n"
+                "TraitBeta\tFactor1\t0\t0.1\t0.8\t0.01\t30\n"
+                "TraitUncorr\tFactor1\t0\t0.2\t0.01\t0.7\t30\n",
+            )
+            by_beta = factor_graph.read_factor_trait_details(
+                root / "trait_factor_links.out.gz",
+                ["Factor1"],
+                max_num_per_factor=3,
+                min_beta=0.0,
+                min_beta_uncorrected=0.0,
+                min_nnls=0.0,
+                rank_field="beta",
+            )
+            by_nnls = factor_graph.read_factor_trait_details(
+                root / "trait_factor_links.out.gz",
+                ["Factor1"],
+                max_num_per_factor=3,
+                min_beta=0.0,
+                min_beta_uncorrected=0.0,
+                min_nnls=0.0,
+                rank_field="nnls",
+            )
+
+        self.assertEqual(by_beta["Factor1"][0]["anchor"], "TraitBeta")
+        self.assertEqual(by_nnls["Factor1"][0]["anchor"], "TraitNnls")
+
     def test_module_cli_writes_json_and_html(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

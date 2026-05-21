@@ -70,6 +70,7 @@ class GraphConfig:
     trait_factor_min_beta: float = 0.01
     trait_factor_min_beta_uncorrected: float = 0.05
     trait_factor_min_nnls: float = 0.5
+    trait_factor_rank_field: str = "beta"
     max_anchor_support_rows_per_node: int = 20
     anchor_support_min_combined: float = 0.0
     coordinate_scale: float = 5.0
@@ -564,6 +565,16 @@ def _passes_trait_factor_detail_filters(row: dict[str, object], *, min_beta: flo
     return False
 
 
+def _trait_factor_rank_value(row: dict[str, object], field: str) -> float:
+    if field == "nnls":
+        field = "nnls_loading"
+    value = row.get(field)
+    try:
+        return float(value if value is not None else 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def read_factor_trait_details(
     path: str | Path | None,
     factors: list[str],
@@ -572,7 +583,11 @@ def read_factor_trait_details(
     min_beta: float = 0.01,
     min_beta_uncorrected: float = 0.05,
     min_nnls: float = 0.5,
+    rank_field: str = "beta",
 ) -> dict[str, list[dict[str, object]]]:
+    allowed_rank_fields = {"beta", "beta_uncorrected", "nnls", "nnls_loading"}
+    if rank_field not in allowed_rank_fields:
+        raise ValueError("trait-factor rank field must be one of: beta, beta_uncorrected, nnls")
     if path is None:
         return {}
     details: dict[str, list[dict[str, object]]] = {factor: [] for factor in factors}
@@ -642,6 +657,7 @@ def read_factor_trait_details(
     for factor, rows in details.items():
         rows.sort(
             key=lambda row: (
+                -_trait_factor_rank_value(row, rank_field),
                 -float(row.get("nnls_loading", row.get("joint_fraction", row.get("joint_coefficient", 0.0))) or 0.0),
                 -float(row.get("beta_uncorrected", 0.0) or 0.0),
                 -float(row.get("beta", 0.0) or 0.0),
@@ -2083,6 +2099,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         trait_factor_min_beta=args.trait_factor_min_beta,
         trait_factor_min_beta_uncorrected=args.trait_factor_min_beta_uncorrected,
         trait_factor_min_nnls=args.trait_factor_min_nnls,
+        trait_factor_rank_field=args.trait_factor_rank_field,
         max_anchor_support_rows_per_node=args.max_anchor_support_rows_per_node,
         anchor_support_min_combined=args.anchor_support_min_combined,
         coordinate_scale=args.coordinate_scale,
@@ -2159,6 +2176,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         min_beta=config.trait_factor_min_beta,
         min_beta_uncorrected=config.trait_factor_min_beta_uncorrected,
         min_nnls=config.trait_factor_min_nnls,
+        rank_field=config.trait_factor_rank_field,
     )
     top_gene_loadings = _top_loadings_by_factor(candidate_genes or genes, factors, top_n=5)
     top_gene_set_loadings = _top_loadings_by_factor(gene_set_candidates, factors, top_n=5)
@@ -2227,6 +2245,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trait-factor-min-beta", type=float, default=0.01, help="Embed trait-factor provenance rows when beta exceeds this threshold; OR-combined with beta_uncorrected and NNLS filters.")
     parser.add_argument("--trait-factor-min-beta-uncorrected", type=float, default=0.05, help="Embed trait-factor provenance rows when beta_uncorrected exceeds this threshold; OR-combined with beta and NNLS filters.")
     parser.add_argument("--trait-factor-min-nnls", type=float, default=0.5, help="Embed trait-factor provenance rows when NNLS loading exceeds this threshold; OR-combined with beta filters.")
+    parser.add_argument("--trait-factor-rank-field", choices=["beta", "beta_uncorrected", "nnls"], default="beta", help="Rank embedded trait-factor provenance rows by this field after filtering.")
     parser.add_argument("--max-anchor-support-rows-per-node", type=int, default=20, help="Maximum gene/gene-set phenotype support provenance rows embedded per graph node; use -1 to keep all rows.")
     parser.add_argument("--anchor-support-min-combined", type=float, default=0.0, help="Minimum combined support for gene/gene-set phenotype support provenance rows embedded in graph nodes.")
     parser.add_argument("--coordinate-scale", type=float, default=5.0)

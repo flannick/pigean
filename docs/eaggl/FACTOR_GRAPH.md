@@ -52,6 +52,7 @@ With `--eaggl-dir`, the tool looks for standard EAGGL outputs:
 - `trait_factor_links.out.gz` or `pheno_clusters.out.gz`
 
 Phenotype nodes are included when a trait-factor linkage file is present in `--eaggl-dir` or passed explicitly with `--trait-factor-links-in`.
+Factor-node trait provenance is ranked by `beta` by default. Use `--trait-factor-rank-field beta_uncorrected` or `--trait-factor-rank-field nnls` when the graph should prioritize independent enrichment or NNLS projection loadings instead.
 
 You can also pass explicit paths:
 
@@ -96,6 +97,7 @@ By default, phenotype nodes are also filtered to traits with `trait_neff > 25` w
 --gene-min-loading 0.01
 --trait-min-loading 0.005
 --trait-min-neff 25
+--trait-factor-rank-field beta
 --label-max-chars 20
 --trait-layout-mode anchored_top_factor
 --trait-coordinate-scale 0.2

@@ -77,4 +77,6 @@ If no useful groups are present, the dashboard keeps the simpler single EAGGL-ru
 
 The EAGGL Factors tab reads `factor_metrics.out.gz` when available and shows factor-level metrics together with selected phi/composite metrics. Column-header info icons describe each metric. Missing metrics are displayed as `NA`.
 
+Text column filters use case-insensitive browser regular expressions. Common Perl-style patterns such as `PPARG|PDX1`, `^GOBP_`, and `insulin.*signal` are supported; invalid regex patterns simply match no rows. Numeric column filters continue to use the selected threshold operator.
+
 By default, the embedded payload is size-controlled: genes must have combined support at least `1`, gene sets must have `beta_uncorrected` at least `0.01` when that column is available, factor gene/gene-set loadings are retained when they are at least `0.05` times the factor-specific maximum loading, phenotype projections require effective size at least `200`, and nested provenance tables are capped at `50` rows per expanded entry.
