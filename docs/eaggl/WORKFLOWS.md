@@ -8,7 +8,7 @@ This document maps each supported factoring workflow to:
 
 All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
 Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode. Use `--gene-sets-for-labeling` one or more times to limit factor-label candidates to selected gene-set libraries without changing the fitted loadings.
-Simplified trait linkage is the primary annotation layer. It reports NNLS projection loadings from selected trait support vectors onto the factor gene-loading basis. Factor-as-gene-set regression statistics are produced by exporting factors with `--factor-gmt-out` and running PIGEAN `multi-y`, not by EAGGL.
+Simplified trait linkage is the primary annotation layer. It reports fixed-W projection loadings from probability-transformed trait support vectors onto the factor basis. Factor-as-gene-set regression statistics are produced by exporting factors with `--factor-gmt-out` and running PIGEAN `multi-y`, not by EAGGL.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
 
@@ -116,9 +116,9 @@ Phenotype annotation policy:
 
 1. use simplified trait linkage for the primary public phenotype annotation layer
 2. write the long-form linkage table with `--trait-factor-links-out`
-3. interpret `nnls_loading` as projection of the selected thresholded trait support vector onto factors
+3. interpret `nnls_loading` as fixed-W projection of the selected trait support surface after converting combined/log-BF values to probabilities with `background_prior`
 4. interpret `beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, and `p_value` as factor-as-gene-set association summaries
-5. use `--trait-factor-linkage-factor-gene-threshold` to set the minimum factor gene loading included in association/projection
+5. use `--trait-factor-linkage-factor-gene-threshold` to set the minimum factor gene loading included when exporting factor GMTs for PIGEAN enrichment
 6. use `--factor-gmt-out` to export thresholded factors for a manual PIGEAN `multi-y` run
 
 Projection-only trait linkage from the gene basis:
@@ -340,6 +340,6 @@ Post-read filtering does not tighten this threshold.
 
 ### Simplified Trait Linkage
 
-EAGGL trait-factor linkage is intentionally limited to NNLS projection loadings. Factors are exported as weighted gene sets after zeroing gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). `--factor-gmt-out` writes those thresholded factor gene sets for PIGEAN `multi-y` runs when beta statistics are needed.
+EAGGL trait-factor linkage is intentionally limited to fixed-W projection loadings. Combined/log-BF phenotype values are converted to probabilities using the run `background_prior`; sparse inputs preserve implicit zeros as zero probability unless dense computation is requested. Factors are exported as weighted gene sets after zeroing gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). `--factor-gmt-out` writes those thresholded factor gene sets for PIGEAN `multi-y` runs when beta statistics are needed.
 
 Gene, gene-set, and phenotype cluster tables now include raw `Factor*` loadings, `Cosine_Factor*`, and `Euclidean_Factor*` columns. `Cosine_FactorK` is the cosine similarity between the row's factor-loading vector and the indicator vector for factor `K`; `Euclidean_FactorK` is the Euclidean distance to that same one-hot factor indicator.

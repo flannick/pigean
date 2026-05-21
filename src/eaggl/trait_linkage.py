@@ -34,9 +34,39 @@ def _sanitize_nonfinite_preserve_sparse(matrix):
         sanitized = matrix.tocsr(copy=True).astype(float)
         if sanitized.nnz > 0:
             sanitized.data = np.nan_to_num(sanitized.data, nan=0.0, posinf=0.0, neginf=0.0)
-            sanitized.eliminate_zeros()
         return sanitized
     return np.nan_to_num(_as_dense_2d(matrix), nan=0.0, posinf=0.0, neginf=0.0)
+
+
+def _as_probability_surface(matrix, source_name, *, background_log_bf, dense_full=False):
+    """Convert trait support values into probabilities for fixed-W projection.
+
+    For sparse log-BF inputs, only explicitly stored values are transformed.
+    Implicit zeros remain zero probability, which avoids densifying large PheWAS
+    surfaces and follows the sparse-input semantics used elsewhere in EAGGL.
+    """
+    if matrix is None:
+        return None
+    source_name = str(source_name)
+    if source_name not in {"combined", "log_bf", "prior"}:
+        raise ValueError("Unknown trait linkage probability source: %s" % source_name)
+
+    if sparse.issparse(matrix) and not dense_full:
+        prob = matrix.tocsr(copy=True).astype(float)
+        if prob.nnz > 0:
+            prob.data = np.nan_to_num(prob.data, nan=0.0, posinf=0.0, neginf=0.0)
+            if source_name in {"combined", "log_bf"}:
+                shifted = prob.data + float(background_log_bf)
+                prob.data = np.exp(shifted) / (1.0 + np.exp(shifted))
+            else:
+                prob.data = np.clip(prob.data, 0.0, 1.0)
+        return prob
+
+    dense = _sanitize_nonfinite(matrix)
+    if source_name in {"combined", "log_bf"}:
+        shifted = dense + float(background_log_bf)
+        return np.exp(shifted) / (1.0 + np.exp(shifted))
+    return np.clip(dense, 0.0, 1.0)
 
 
 def _compute_effective_feature_count(matrix, *, eps=1e-12):
@@ -80,7 +110,7 @@ def resolve_trait_linkage_source(
     for label, matrix in candidates:
         if matrix is None:
             continue
-        dense_matrix = _sanitize_nonfinite(matrix)
+        dense_matrix = _sanitize_nonfinite_preserve_sparse(matrix)
         if log_fn is not None and requested_source == "auto":
             log_fn("Using %s support surface for %s" % (label, context_label), info_level)
         return dense_matrix, label
@@ -147,33 +177,45 @@ def write_factor_gmt(path, genes, factor_names, basis, threshold=0.05):
 
 
 def compute_factor_trait_links(
-    nnls_project_fn,
+    fixed_w_project_fn,
     basis,
     feature_by_trait,
     *,
     basis_mask=None,
-    threshold_mode="weighted_thresholded",
-    threshold_value=1.0,
+    feature_anchor_weights=None,
+    background_log_bf=0.0,
     trait_response_source_name="combined",
     factor_loading_threshold=0.05,
     nnls_loading_threshold=0.0,
     nnls_max_value=1.0,
     computation_mode="sparse_full",
+    projection_phi=0.0,
+    projection_tol=1e-5,
+    projection_cap_loadings=True,
+    projection_normalize_loadings=False,
 ):
-    """Compute native EAGGL factor-trait links by NNLS projection only.
+    """Compute native EAGGL factor-trait links by fixed-W projection.
 
     Factor-trait beta statistics are intentionally not computed here. To obtain
     PIGEAN beta, beta_uncorrected, beta_tilde, SE, and p-value columns, export
     factors with ``write_factor_gmt`` / ``--factor-gmt-out`` and run the PIGEAN
-    multi-Y beta workflow on that GMT. Keeping this function NNLS-only avoids a
-    parallel OLS/ridge implementation with semantics that differ from PIGEAN.
+    multi-Y beta workflow on that GMT. Keeping this function projection-only
+    avoids a parallel OLS/ridge implementation with semantics that differ from
+    PIGEAN.
     """
     if computation_mode not in {"dense_full", "sparse_full"}:
         raise ValueError("Unknown trait linkage computation mode: %s" % computation_mode)
-    dense_basis = threshold_factor_gene_basis(basis, factor_loading_threshold)
+    dense_basis = np.maximum(_sanitize_nonfinite(basis), 0.0)
     target_feature_by_trait = _sanitize_nonfinite_preserve_sparse(feature_by_trait)
     if dense_basis is None or target_feature_by_trait is None:
         return None
+    dense_full = computation_mode == "dense_full"
+    probability_surface = _as_probability_surface(
+        target_feature_by_trait,
+        trait_response_source_name,
+        background_log_bf=background_log_bf,
+        dense_full=dense_full,
+    )
     expected_num_rows = target_feature_by_trait.shape[0]
     if basis_mask is None:
         retained_mask = np.full(expected_num_rows, True, dtype=bool)
@@ -194,25 +236,41 @@ def compute_factor_trait_links(
         else:
             raise ValueError("Trait linkage basis rows do not match mask length or kept rows")
 
-    full_support = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
-        target_feature_by_trait,
-        threshold_mode,
-        threshold_value=threshold_value,
-        strict_threshold=True,
-    )
+    if feature_anchor_weights is None:
+        retained_feature_anchor_weights = None
+    else:
+        feature_anchor_weights = _sanitize_nonfinite_preserve_sparse(feature_anchor_weights)
+        if feature_anchor_weights.shape[0] == expected_num_rows:
+            retained_feature_anchor_weights = feature_anchor_weights[retained_mask, :]
+        elif feature_anchor_weights.shape[0] == int(np.sum(retained_mask)):
+            retained_feature_anchor_weights = feature_anchor_weights
+        else:
+            raise ValueError("Trait linkage feature-anchor weights do not match feature rows")
+
+    full_support = probability_surface
     retained_support = full_support[retained_mask, :]
-    retained_dense = retained_support.toarray() if sparse.issparse(retained_support) else np.asarray(retained_support, dtype=float)
-    retained_dense = np.nan_to_num(retained_dense, nan=0.0, posinf=0.0, neginf=0.0)
+    retained_project_matrix = retained_support.toarray() if dense_full and sparse.issparse(retained_support) else retained_support
 
     trait_total_support = eaggl_phenotype_annotation.compute_profile_strengths(full_support)
     trait_n_eff = _compute_effective_feature_count(full_support)
     retained_n_eff = _compute_effective_feature_count(retained_support)
     nnls_max_value = None if nnls_max_value is None or float(nnls_max_value) <= 0.0 else float(nnls_max_value)
     nnls_loadings = np.asarray(
-        nnls_project_fn(retained_basis, retained_dense.T, max_sum=None, max_value=nnls_max_value),
+        fixed_w_project_fn(
+            retained_basis,
+            retained_project_matrix,
+            retained_feature_anchor_weights,
+            None,
+            phi=projection_phi,
+            tol=projection_tol,
+            cap_genes=projection_cap_loadings,
+            normalize_genes=projection_normalize_loadings,
+        ),
         dtype=float,
     )
     nnls_loadings = np.maximum(nnls_loadings, 0.0)
+    if nnls_max_value is not None:
+        nnls_loadings = np.minimum(nnls_loadings, nnls_max_value)
     nnls_loading_threshold = 0.0 if nnls_loading_threshold is None else float(nnls_loading_threshold)
     if nnls_loading_threshold > 0.0:
         nnls_loadings = np.where(nnls_loadings >= nnls_loading_threshold, nnls_loadings, 0.0)

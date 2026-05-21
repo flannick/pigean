@@ -526,11 +526,15 @@ When anchor phenotypes are present and canonical trait linkage is also computed,
 \section{Trait linkage and factor-specific phenotype enrichment}
 \label{sec:postfactor_revised}
 
-After fitting the main factorization, EAGGL can relate latent factors to additional human phenotypes in two conceptually distinct ways. The primary public annotation layer is a descriptive \emph{trait linkage} step, which estimates how strongly each phenotype's thresholded high-confidence support profile is represented by each factor. The secondary expert-only layer is an inferential \emph{enrichment} step, which asks whether a phenotype is more concentrated in one factor than expected after accounting for the anchor trait and optional covariates. These two quantities answer different scientific questions and are therefore not expected to coincide exactly.
+After fitting the main factorization, EAGGL can relate latent factors to additional human phenotypes in two conceptually distinct ways. The primary public annotation layer is a descriptive \emph{trait linkage} step, which estimates how strongly each phenotype's probability-transformed support profile is represented by each factor using the same fixed-basis projection operator used for post-factorization gene and annotation projection. The secondary expert-only layer is an inferential \emph{enrichment} step, which asks whether a phenotype is more concentrated in one factor than expected after accounting for the anchor trait and optional covariates. These two quantities answer different scientific questions and are therefore not expected to coincide exactly.
 
-\subsection{Canonical trait linkage by support-normalized thresholded projection}
+\subsection{Canonical trait linkage by fixed-basis probability projection}
 
-The external gene-by-phenotype support table can be very large. In practice, EAGGL therefore consumes a sparse thresholded representation that retains only high-confidence entries. The phenotype profile used for post-factor annotation is therefore not the full unthresholded phenotype surface. It is the thresholded support profile on a single chosen support surface. Publicly, EAGGL defaults to \texttt{--trait-linkage-source combined} and \texttt{--trait-linkage-threshold 1.0}, using a strict threshold rule (\texttt{source value} $> \theta_{\mathrm{trait}}$). Expert overrides can choose \texttt{log\_bf}, \texttt{prior}, or \texttt{auto} fallback resolution.
+The external gene-by-phenotype support table can be very large. EAGGL therefore preserves sparse inputs by default. Publicly, EAGGL defaults to \texttt{--trait-linkage-source combined}; expert overrides can choose \texttt{log\_bf}, \texttt{prior}, or \texttt{auto} fallback resolution. Combined and log-BF values are treated as log Bayes factors and converted to probabilities with the run background prior,
+\[
+p_{tf}^{(b)} = \sigma\left(s_{tf}^{(b)} + \operatorname{logit}(\pi_0)\right),
+\]
+where $\pi_0$ is \texttt{background\_prior}. If the input phenotype matrix is sparse, only explicit entries are transformed and implicit zeros remain zero probability. If dense computation is requested, all entries are transformed, so a zero log Bayes factor maps to $\pi_0$. Prior-valued inputs are treated directly as probabilities after clipping to $[0,1]$.
 
 Let $b$ denote a feature basis shared by the factors and a trait-specific support vector. In the public workflow, $b$ is the gene basis whenever gene-factor loadings are available. EAGGL uses the gene-set basis only as an expert or fallback mode when the gene basis is unavailable or the user explicitly requests \texttt{--project-phenos-from-gene-sets}. Let
 \[
@@ -540,63 +544,43 @@ denote the raw factor-loading matrix on that feature space, where $F_b$ is the n
 \[
 s_t^{(b)} \in \mathbb{R}_+^{F_b}
 \]
-denote the raw thresholded trait-support profile for phenotype $t$ on that same basis. These raw trait and factor vectors are not interpreted as biological probability distributions and are not required to sum to $1$. Their total support and total mass are meaningful quantities that are preserved separately from the copied normalized vectors used for trait-factor matching.
+denote the selected trait-support profile before probability conversion. Let $p_t^{(b)}$ denote the probability-transformed trait profile on the same basis. The raw factor loadings $W^{(b)}$ are not normalized before projection.
 
-By default, EAGGL uses a \emph{weighted thresholded} profile: retained source-support values are used for entries that strictly exceed the selected threshold and zero otherwise. As an expert sensitivity analysis, one may instead use a \emph{binary thresholded} profile, in which retained entries are coded as $1$ and absent entries as $0$ before normalization.
-
-For linkage, EAGGL first computes the total thresholded trait support on the full thresholded support surface, before applying the factor mask. Define the total thresholded trait support
+For linkage diagnostics, EAGGL computes the total trait support on the full probability surface, before applying the factor mask. Define the total trait support
 \begin{equation}
-A_t^{(b)} = \sum_{f=1}^{F_b^{\mathrm{full}}} s_{tf}^{(b,\mathrm{full})},
+A_t^{(b)} = \sum_{f=1}^{F_b^{\mathrm{full}}} p_{tf}^{(b,\mathrm{full})},
 \label{eq:eaggl_pheno_strength}
 \end{equation}
-where $s_t^{(b,\mathrm{full})}$ denotes the full thresholded support surface on basis $b$ before masking. Let $\mathcal{M}_b$ denote the retained factor mask on that basis, and let
+where $p_t^{(b,\mathrm{full})}$ denotes the full probability surface on basis $b$ before masking. Let $\mathcal{M}_b$ denote the retained factor mask on that basis, and let
 \[
-s_{t,\mathcal{M}}^{(b)}
+p_{t,\mathcal{M}}^{(b)}
 \]
-denote the masked thresholded support profile restricted to the retained factor basis rows. EAGGL then builds a full-space matching target by zeroing support outside $\mathcal{M}_b$, and keeps the normalization denominator as the full thresholded trait strength. Thus the normalized masked trait profile is
-\begin{equation}
-q_t^{(b)} = \frac{s_{t,\mathcal{M}}^{(b)}}{A_t^{(b)} + \epsilon},
-\label{eq:eaggl_pheno_profile_normalized}
-\end{equation}
-where $\epsilon>0$ is a small constant to avoid division by zero. After masking, $\sum_f q_{tf}^{(b)}$ generally equals the retained support fraction, not $1$:
-\[
-\sum_f q_{tf}^{(b)} = \frac{\sum_f s_{t,\mathcal{M}f}^{(b)}}{A_t^{(b)} + \epsilon}.
-\]
-Likewise, each factor basis vector is copied into an internally normalized profile,
-\begin{equation}
-S_k^{(b)} = \sum_{f=1}^{F_b} W_{fk}^{(b)},
-\label{eq:eaggl_factor_total_mass}
-\end{equation}
-\begin{equation}
-b_{\bullet k}^{(b)} = \frac{W_{\bullet k}^{(b)}}{S_k^{(b)} + \epsilon}.
-\label{eq:eaggl_factor_basis_normalized}
-\end{equation}
-The raw factor loadings $W^{(b)}$ and their totals $S_k^{(b)}$ are preserved for reporting; only the copied profiles $b_{\bullet k}^{(b)}$ are used for matching.
+denote the masked probability profile restricted to the retained factor basis rows.
 
-EAGGL then reports a single native phenotype-linkage summary: an NNLS projection of each selected trait support vector onto the factor basis,
+EAGGL then reports a single native phenotype-linkage summary: a fixed-basis nonnegative projection of each selected trait probability vector onto the factor basis,
 \begin{equation}
 \hat c_t^{(b)}
 =
 \arg\min_{c \ge 0}
 \left\|
-s_t^{(b)} - W^{(b)} c
+p_{t,\mathcal{M}}^{(b)} - W_{\mathcal{M}}^{(b)} c
 \right\|_2^2.
 \label{eq:eaggl_trait_linkage_nnls}
 \end{equation}
-The resulting coefficient \texttt{nnls\_loading} is a descriptive projection loading. It answers how much of the thresholded trait-support profile is represented by each fitted factor on the shared feature basis. It is not a Bayes factor, p-value, posterior probability, or factor-as-gene-set regression coefficient.
+The resulting coefficient \texttt{nnls\_loading} is a descriptive projection loading. It answers how much of the probability-transformed trait-support profile is represented by each fitted factor on the shared feature basis. It is not a Bayes factor, p-value, posterior probability, or factor-as-gene-set regression coefficient.
 
 For reporting, EAGGL writes:
 \begin{itemize}
 \item \texttt{nnls\_loading} = $\hat c_{tk}^{(b)}$
-\item \texttt{trait\_neff} = $\left(\sum_f s_t^{(b)}\right)^2 \big/ \sum_f \left(s_t^{(b)}\right)^2$
-\item \texttt{factor\_num\_genes}, the number of genes retained in the thresholded factor gene set
-\item \texttt{factor\_weight\_sum}, the total retained factor gene weight
+\item \texttt{trait\_neff} = $\left(\sum_f p_t^{(b)}\right)^2 \big/ \sum_f \left(p_t^{(b)}\right)^2$
+\item \texttt{factor\_num\_genes}, the number of positive feature loadings in the factor basis
+\item \texttt{factor\_weight\_sum}, the total factor feature weight
 \item \texttt{trait\_response\_source}, the trait support surface used for projection
 \item \texttt{factor\_gene\_basis}, the feature basis used for projection
-\item \texttt{factor\_loading\_threshold}, the threshold used to zero factor gene loadings before linkage
+\item \texttt{factor\_loading\_threshold}, the threshold used when exporting factor gene sets for PIGEAN enrichment
 \end{itemize}
 
-Regression-style factor-to-trait association is deliberately not estimated inside this NNLS linkage writer. When beta statistics are needed, EAGGL exports the thresholded factors with \texttt{--factor-gmt-out}; those factor gene sets should then be tested with PIGEAN \texttt{multi-y}, which writes \texttt{beta}, \texttt{beta\_uncorrected}, \texttt{beta\_tilde}, standard errors, z-scores, and p-values using the same beta-stage machinery as ordinary gene sets.
+Regression-style factor-to-trait association is deliberately not estimated inside this linkage writer. When beta statistics are needed, EAGGL exports the thresholded factors with \texttt{--factor-gmt-out}; those factor gene sets should then be tested with PIGEAN \texttt{multi-y}, which writes \texttt{beta}, \texttt{beta\_uncorrected}, \texttt{beta\_tilde}, standard errors, z-scores, and p-values using the same beta-stage machinery as ordinary gene sets.
 
 \paragraph{Interpretation.}
 Canonical trait linkage is descriptive. The NNLS loading answers:
@@ -607,7 +591,7 @@ These loadings are useful for dashboard annotation and factor browsing. They sho
 
 \subsection{Choice of projection basis across workflow families}
 
-For the public gene $\times$ gene-set workflow family, the preferred basis for canonical trait linkage is the gene basis. In that case, $W^{(b)}$ is the gene-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $W^{(b)}$ is the gene-set-by-factor loading matrix and $s_t^{(b)}$ is the thresholded phenotype-specific gene-set support vector. Thus, the canonical linkage definition is common across workflows: EAGGL always projects one thresholded support profile onto a factor basis defined on one shared feature space.
+For the public gene $\times$ gene-set workflow family, the preferred basis for canonical trait linkage is the gene basis. In that case, $W^{(b)}$ is the gene-by-factor loading matrix and $p_t^{(b)}$ is the probability-transformed phenotype-specific gene-support vector. If gene-level support is unavailable or gene-level factor loadings are absent, EAGGL falls back to the gene-set basis, in which $W^{(b)}$ is the gene-set-by-factor loading matrix and $p_t^{(b)}$ is the probability-transformed phenotype-specific gene-set support vector. Thus, the canonical linkage definition is common across workflows: EAGGL always projects one probability support profile onto a factor basis defined on one shared feature space.
 
 \subsection{Factor-specific phenotype enrichment with thresholded binary outcomes}
 
@@ -713,6 +697,6 @@ Such labels may be generated deterministically from the top terms or by a separa
 
 \subsection{Simplified trait-factor linkage}
 
-For downstream trait interpretation, EAGGL reports two factor-to-trait summaries. First, each factor is treated as a weighted gene set after setting small gene loadings below a configurable threshold to zero. The resulting factor gene sets are scored against trait support surfaces, yielding factor-level \texttt{beta}, \texttt{beta\_uncorrected}, \texttt{beta\_tilde}, standard error, $z$, and $p$ columns in \texttt{trait\_factor\_links.out}. Second, EAGGL projects each trait support vector onto the factor gene-loading basis by nonnegative least squares and reports the coefficient as \texttt{nnls\_loading}. These two quantities replace the older capture and lift columns in the default trait-factor linkage output.
+For downstream trait interpretation, EAGGL reports two factor-to-trait summaries. First, each factor is treated as a weighted gene set after setting small gene loadings below a configurable threshold to zero. The resulting factor gene sets are scored against trait support surfaces, yielding factor-level \texttt{beta}, \texttt{beta\_uncorrected}, \texttt{beta\_tilde}, standard error, $z$, and $p$ columns in \texttt{trait\_factor\_links.out}. Second, EAGGL converts each trait support vector to probabilities and projects it onto the factor basis with the same fixed-W projection operator used for gene/gene-set projection, reporting the coefficient as \texttt{nnls\_loading}. These two quantities replace the older capture and lift columns in the default trait-factor linkage output.
 
 Cluster output tables contain the raw factor loading for each row, a cosine column for each factor, and a Euclidean-distance column for each factor. For row loading vector $v_i$, the reported \texttt{Cosine\_Factor}$k$ value is $v_{ik}/\|v_i\|_2$, i.e. the cosine similarity between the row's full factor-loading vector and the one-hot indicator for factor $k$. The reported \texttt{Euclidean\_Factor}$k$ value is $\|v_i-e_k\|_2$, where $e_k$ is the one-hot indicator for factor $k$.

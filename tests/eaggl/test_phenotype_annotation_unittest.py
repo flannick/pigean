@@ -193,38 +193,74 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         np.testing.assert_array_equal(selected, np.array([[2.0]]))
         self.assertEqual(label, "log_bf")
 
-    def test_simplified_factor_trait_links_are_nnls_only(self) -> None:
+    def test_factor_trait_links_use_fixed_w_projection(self) -> None:
         basis = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
         feature_by_trait = np.array([[3.0, 0.0], [0.0, 4.0]], dtype=float)
 
-        def project_fn(W, X_new, max_sum=None, max_value=None):
-            projected = X_new @ W
-            if max_value is not None:
-                projected = np.minimum(projected, max_value)
+        calls = []
+
+        def project_fn(W, V_new, P_feature, P_new, phi=0.0, tol=1e-5, cap_genes=False, normalize_genes=False):
+            calls.append((P_feature, P_new, phi, tol, cap_genes, normalize_genes))
+            V = V_new.toarray() if sparse.issparse(V_new) else np.asarray(V_new, dtype=float)
+            projected = V.T @ W
+            if cap_genes:
+                projected = np.minimum(projected, 1.0)
             return projected
 
         linkage = eaggl_trait_linkage.compute_factor_trait_links(
             project_fn,
             basis,
             feature_by_trait,
-            threshold_value=0.0,
+            background_log_bf=0.0,
         )
         self.assertEqual(linkage["nnls"].shape, (2, 2))
-        np.testing.assert_allclose(linkage["cosine"], [[1.0, 0.0], [0.0, 1.0]], atol=1e-8)
-        np.testing.assert_allclose(linkage["euclidean"], [[0.0, np.sqrt(2.0)], [np.sqrt(2.0), 0.0]], atol=1e-8)
         self.assertNotIn("beta", linkage)
         self.assertNotIn("beta_uncorrected", linkage)
         self.assertNotIn("beta_tilde", linkage)
-        np.testing.assert_allclose(linkage["nnls"], [[1.0, 0.0], [0.0, 1.0]], atol=1e-8)
+        expected = 1.0 / (1.0 + np.exp(-feature_by_trait.T))
+        np.testing.assert_allclose(linkage["nnls"], expected, atol=1e-8)
+        np.testing.assert_allclose(linkage["cosine"], eaggl_trait_linkage.factor_basis_cosines(expected), atol=1e-8)
+        np.testing.assert_allclose(linkage["euclidean"], eaggl_trait_linkage.factor_basis_euclidean_distances(expected), atol=1e-8)
+        self.assertEqual(calls[0][1], None)
+        self.assertTrue(calls[0][4])
 
         uncapped = eaggl_trait_linkage.compute_factor_trait_links(
             project_fn,
             basis,
             feature_by_trait,
-            threshold_value=0.0,
             nnls_max_value=0.0,
+            projection_cap_loadings=False,
+            background_log_bf=0.0,
         )
-        np.testing.assert_allclose(uncapped["nnls"], [[3.0, 0.0], [0.0, 4.0]], atol=1e-8)
+        np.testing.assert_allclose(uncapped["nnls"], expected, atol=1e-8)
+
+    def test_trait_probability_conversion_preserves_sparse_implicit_zeros(self) -> None:
+        dense = np.array([[0.0, 2.0]], dtype=float)
+        dense_prob = eaggl_trait_linkage._as_probability_surface(
+            dense,
+            "combined",
+            background_log_bf=np.log(0.05 / 0.95),
+        )
+        self.assertAlmostEqual(float(dense_prob[0, 0]), 0.05)
+
+        sparse_input = sparse.csr_matrix(([0.0, 2.0], ([0, 0], [0, 1])), shape=(1, 3))
+        sparse_prob = eaggl_trait_linkage._as_probability_surface(
+            sparse_input,
+            "combined",
+            background_log_bf=np.log(0.05 / 0.95),
+            dense_full=False,
+        )
+        self.assertTrue(sparse.issparse(sparse_prob))
+        self.assertAlmostEqual(float(sparse_prob[0, 0]), 0.05)
+        self.assertEqual(float(sparse_prob[0, 2]), 0.0)
+
+        densified_prob = eaggl_trait_linkage._as_probability_surface(
+            sparse_input,
+            "combined",
+            background_log_bf=np.log(0.05 / 0.95),
+            dense_full=True,
+        )
+        self.assertAlmostEqual(float(densified_prob[0, 2]), 0.05)
 
 
 
@@ -433,7 +469,7 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
         self.assertIn("marginal_anchor_adjusted_binary", lines[1])
         self.assertIn("joint_anchor_adjusted_binary", lines[2])
 
-    def test_simplified_factor_trait_links_shapes_and_thresholding(self) -> None:
+    def test_factor_trait_links_shapes_and_basis_summaries(self) -> None:
         basis = np.array(
             [
                 [0.10, 0.00],
@@ -451,10 +487,11 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
             dtype=float,
         )
 
-        def project_fn(W, X_new, max_sum=None, max_value=None):
-            projected = np.maximum(X_new @ W, 0.0)
-            if max_value is not None:
-                projected = np.minimum(projected, max_value)
+        def project_fn(W, V_new, P_feature, P_new, phi=0.0, tol=1e-5, cap_genes=False, normalize_genes=False):
+            V = V_new.toarray() if sparse.issparse(V_new) else np.asarray(V_new, dtype=float)
+            projected = np.maximum(V.T @ W, 0.0)
+            if cap_genes:
+                projected = np.minimum(projected, 1.0)
             return projected
 
         result = eaggl_trait_linkage.compute_factor_trait_links(
@@ -467,8 +504,8 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
         self.assertEqual(result["nnls"].shape, (2, 2))
         self.assertNotIn("beta", result)
         self.assertNotIn("beta_uncorrected", result)
-        self.assertEqual(result["factor_num_genes"].tolist(), [2, 2])
-        self.assertAlmostEqual(float(result["factor_weight_sum"][0]), 0.40)
+        self.assertEqual(result["factor_num_genes"].tolist(), [3, 2])
+        self.assertAlmostEqual(float(result["factor_weight_sum"][0]), 0.44)
 
     def test_factor_basis_cosines_are_row_normalized_raw_loadings(self) -> None:
         basis = np.array([[3.0, 4.0], [0.0, 0.0]], dtype=float)

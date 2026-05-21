@@ -179,7 +179,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--ols` | `expert` | `yes` | `expert_help` | `ols` | `-` | - |
 | `--p-noninf` | `expert` | `yes` | `expert_help` | `p_noninf` | `None` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
-| `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | choose the simplified trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks |
+| `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | legacy trait-linkage threshold mode retained for compatibility; canonical fixed-W phenotype projection ignores it |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
 | `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors |
 | `--phi-selection-annotation-coverage-top-frac` | `expert` | `yes` | `expert_help` | `phi_selection_annotation_coverage_top_frac` | `0.05` | - |
@@ -206,12 +206,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
-| `--trait-factor-linkage-factor-gene-threshold` | `normal` | `yes` | `core_help` | `trait_factor_linkage_factor_gene_threshold` | `0.05` | zero EAGGL factor gene loadings below this threshold before factor-trait association/projection |
-| `--trait-factor-linkage-nnls-max-value` | `expert` | `yes` | `expert_help` | `trait_factor_linkage_nnls_max_value` | `1.0` | cap NNLS trait-factor loadings after projection; default 1.0 matches bounded projection outputs |
-| `--trait-factor-linkage-nnls-min-loading` | `expert` | `yes` | `expert_help` | `trait_factor_linkage_nnls_min_loading` | `0.0` | zero NNLS trait-factor loadings below this threshold after projection |
+| `--trait-factor-linkage-factor-gene-threshold` | `normal` | `yes` | `core_help` | `trait_factor_linkage_factor_gene_threshold` | `0.05` | zero EAGGL factor gene loadings below this threshold when exporting factor GMTs for PIGEAN enrichment |
+| `--trait-factor-linkage-nnls-max-value` | `expert` | `yes` | `expert_help` | `trait_factor_linkage_nnls_max_value` | `1.0` | cap fixed-W phenotype projection loadings after projection; default 1.0 matches bounded projection outputs |
+| `--trait-factor-linkage-nnls-min-loading` | `expert` | `yes` | `expert_help` | `trait_factor_linkage_nnls_min_loading` | `0.0` | zero fixed-W phenotype projection loadings below this threshold after projection |
 | `--trait-factor-links-output-detail` | `normal` | `yes` | `core_help` | `trait_factor_links_output_detail` | `main` | choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions |
 | `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend |
-| `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the response surface for simplified trait linkage: combined by default, with optional expert overrides |
+| `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the response surface for trait linkage; combined/log_bf are converted from log Bayes factors to probabilities, prior is used as probability |
 | `--trait-linkage-threshold` | `normal` | `yes` | `core_help` | `trait_linkage_threshold` | `1.0` | strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold) |
 | `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |

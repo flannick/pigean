@@ -440,13 +440,13 @@ parser.add_option("","--gene-phewas-stats-pheno-col",default=None,dest="gene_phe
 parser.add_option("","--min-gene-phewas-read-value",type="float",default=1)
 parser.add_option("","--gene-phewas-id-to-X-id",default=None) #mapping from gene ids in the phewas file to gene ids in the gmt
 parser.add_option("","--project-phenos-from-gene-sets",action='store_true',default=False) #use the gene-set basis for canonical trait linkage instead of the gene basis. This also conditions projection on the retained modeled gene sets rather than the full gene universe
-parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type=str) #trait-linkage input profile: weighted_thresholded or binary_thresholded
-parser.add_option("","--trait-linkage-source",default="combined",type=str) #trait linkage support surface: combined by default; expert override: auto, log_bf, prior
-parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #strict threshold applied to the selected trait-linkage source surface
-parser.add_option("","--trait-linkage-computation-mode",default="sparse_full",type=str) #trait linkage computation backend: sparse_full (default sparse-aware full-space solve) or dense_full (debug dense equivalent)
-parser.add_option("","--trait-factor-linkage-factor-gene-threshold",default=0.05,type=float) #zero EAGGL factor gene loadings below this value before factor-trait association/projection
-parser.add_option("","--trait-factor-linkage-nnls-min-loading",dest="trait_factor_linkage_nnls_min_loading",default=0.0,type=float) #zero NNLS trait-factor loadings below this value after projection
-parser.add_option("","--trait-factor-linkage-nnls-max-value",dest="trait_factor_linkage_nnls_max_value",default=1.0,type=float) #cap NNLS trait-factor loadings at this value after projection; use <=0 to disable
+parser.add_option("","--pheno-capture-input",default="weighted_thresholded",type=str) #legacy phenotype-capture profile mode; canonical fixed-W trait projection ignores this except for compatibility metadata
+parser.add_option("","--trait-linkage-source",default="combined",type=str) #trait linkage support surface: combined/log_bf are converted from log Bayes factors to probabilities; prior is used as probability
+parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #legacy threshold retained for compatibility; canonical fixed-W trait projection uses probability-transformed support without thresholding
+parser.add_option("","--trait-linkage-computation-mode",default="sparse_full",type=str) #trait linkage backend: sparse_full preserves implicit sparse zeros as zero probability; dense_full densifies before probability conversion
+parser.add_option("","--trait-factor-linkage-factor-gene-threshold",default=0.05,type=float) #zero EAGGL factor gene loadings below this value when exporting factor GMTs for PIGEAN enrichment
+parser.add_option("","--trait-factor-linkage-nnls-min-loading",dest="trait_factor_linkage_nnls_min_loading",default=0.0,type=float) #zero fixed-W phenotype projection loadings below this threshold after projection
+parser.add_option("","--trait-factor-linkage-nnls-max-value",dest="trait_factor_linkage_nnls_max_value",default=1.0,type=float) #cap fixed-W phenotype projection loadings at this value after projection; use <=0 to disable
 parser.add_option("","--factor-gmt-out",default=None) #write EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs
 parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
 
@@ -598,13 +598,13 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--log-file": "write structured run logs to this file",
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--project-phenos-from-gene-sets": "project simplified trait linkage from the gene-set basis instead of the gene basis",
-    "--pheno-capture-input": "choose the simplified trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
-    "--trait-linkage-source": "choose the response surface for simplified trait linkage: combined by default, with optional expert overrides",
+    "--pheno-capture-input": "legacy trait-linkage threshold mode retained for compatibility; canonical fixed-W phenotype projection ignores it",
+    "--trait-linkage-source": "choose the response surface for trait linkage; combined/log_bf are converted from log Bayes factors to probabilities, prior is used as probability",
     "--trait-linkage-threshold": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
     "--trait-linkage-computation-mode": "choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend",
-    "--trait-factor-linkage-factor-gene-threshold": "zero EAGGL factor gene loadings below this threshold before factor-trait association/projection",
-    "--trait-factor-linkage-nnls-min-loading": "zero NNLS trait-factor loadings below this threshold after projection",
-    "--trait-factor-linkage-nnls-max-value": "cap NNLS trait-factor loadings after projection; default 1.0 matches bounded projection outputs",
+    "--trait-factor-linkage-factor-gene-threshold": "zero EAGGL factor gene loadings below this threshold when exporting factor GMTs for PIGEAN enrichment",
+    "--trait-factor-linkage-nnls-min-loading": "zero fixed-W phenotype projection loadings below this threshold after projection",
+    "--trait-factor-linkage-nnls-max-value": "cap fixed-W phenotype projection loadings after projection; default 1.0 matches bounded projection outputs",
     "--factor-gmt-out": "write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs",
     "--no-trait-linkage": "disable simplified trait linkage even when trait inputs are available",
     "--clustering-params-out": "write structured clustering workflow provenance as paired JSON and TSV summaries",

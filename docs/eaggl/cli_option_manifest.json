@@ -1541,7 +1541,7 @@
       "source_line": 330,
       "summary": "choose top-loading metric for factor labels and factors.out summaries: euclidean (default), cosine, or raw",
       "type": "str",
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -5005,9 +5005,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 443,
-      "summary": "choose the simplified trait-linkage input profile: weighted thresholded support by default or binary thresholded hits for expert sensitivity checks",
+      "summary": "legacy trait-linkage threshold mode retained for compatibility; canonical fixed-W phenotype projection ignores it",
       "type": "str",
-      "usage_references": 23
+      "usage_references": 22
     },
     {
       "action": null,
@@ -5845,9 +5845,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 447,
-      "summary": "zero EAGGL factor gene loadings below this threshold before factor-trait association/projection",
+      "summary": "zero EAGGL factor gene loadings below this threshold when exporting factor GMTs for PIGEAN enrichment",
       "type": "float",
-      "usage_references": 11
+      "usage_references": 10
     },
     {
       "action": null,
@@ -5866,7 +5866,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 449,
-      "summary": "cap NNLS trait-factor loadings after projection; default 1.0 matches bounded projection outputs",
+      "summary": "cap fixed-W phenotype projection loadings after projection; default 1.0 matches bounded projection outputs",
       "type": "float",
       "usage_references": 3
     },
@@ -5887,7 +5887,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 448,
-      "summary": "zero NNLS trait-factor loadings below this threshold after projection",
+      "summary": "zero fixed-W phenotype projection loadings below this threshold after projection",
       "type": "float",
       "usage_references": 3
     },
@@ -5952,7 +5952,7 @@
       "source_line": 446,
       "summary": "choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend",
       "type": "str",
-      "usage_references": 9
+      "usage_references": 10
     },
     {
       "action": null,
@@ -5971,7 +5971,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 444,
-      "summary": "choose the response surface for simplified trait linkage: combined by default, with optional expert overrides",
+      "summary": "choose the response surface for trait linkage; combined/log_bf are converted from log Bayes factors to probabilities, prior is used as probability",
       "type": "str",
       "usage_references": 27
     },
@@ -5994,7 +5994,7 @@
       "source_line": 445,
       "summary": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
       "type": "float",
-      "usage_references": 8
+      "usage_references": 7
     },
     {
       "action": null,

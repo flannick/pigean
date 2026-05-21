@@ -1066,7 +1066,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(runtime.trait_linkage_joint.shape, (2, 2))
         self.assertGreater(runtime.trait_linkage_joint[0, 0], runtime.trait_linkage_joint[0, 1])
         self.assertGreater(runtime.trait_linkage_joint[1, 1], runtime.trait_linkage_joint[1, 0])
-        np.testing.assert_allclose(runtime.trait_linkage_n_eff, [100.0 / 68.0, 1.0], atol=1e-8)
+        np.testing.assert_allclose(runtime.trait_linkage_n_eff, [1.52211951, 1.0], atol=1e-8)
         self.assertIsNone(runtime.trait_linkage_marginal)
         self.assertIsNone(runtime.trait_linkage_beta)
         self.assertIsNone(runtime.trait_linkage_beta_uncorrected)

@@ -1300,6 +1300,7 @@ def _resolve_trait_linkage_inputs(
         combined = state.X_phewas_beta_uncorrected.T
         log_bf = state.X_phewas_beta.T if state.X_phewas_beta is not None else None
         prior = None
+        feature_anchor_weights = getattr(state, "gene_set_prob_vector", None)
         basis_name = "gene_sets"
         context_label = "gene-set trait linkage"
     else:
@@ -1310,6 +1311,7 @@ def _resolve_trait_linkage_inputs(
         combined = state.gene_pheno_combined_prior_Ys
         log_bf = state.gene_pheno_Y
         prior = state.gene_pheno_priors
+        feature_anchor_weights = getattr(state, "gene_prob_factor_vector", None)
         basis_name = "genes"
         context_label = "gene trait linkage"
 
@@ -1330,6 +1332,7 @@ def _resolve_trait_linkage_inputs(
         "basis": basis,
         "basis_mask": basis_mask,
         "basis_name": basis_name,
+        "feature_anchor_weights": feature_anchor_weights,
         "feature_by_trait": feature_by_trait,
         "full_feature_by_trait": feature_by_trait_full,
         "score_source": source_name,
@@ -1351,6 +1354,8 @@ def _apply_canonical_trait_linkage(
     trait_linkage_threshold,
     trait_linkage_computation_mode,
     pheno_capture_input,
+    projection_phi=0.0,
+    projection_tol=1e-5,
     update_anchor_relevance,
     log_fn,
     info_level,
@@ -1378,17 +1383,21 @@ def _apply_canonical_trait_linkage(
         )
 
     linkage_result = eaggl_trait_linkage.compute_factor_trait_links(
-        state._nnls_project_matrix,
+        state._project_H_with_fixed_W,
         linkage_inputs["basis"],
         linkage_inputs["feature_by_trait"],
         basis_mask=linkage_inputs["basis_mask"],
-        threshold_mode=pheno_capture_input,
-        threshold_value=trait_linkage_threshold,
+        feature_anchor_weights=linkage_inputs["feature_anchor_weights"],
+        background_log_bf=state.background_log_bf,
         trait_response_source_name=linkage_inputs["score_source"],
         factor_loading_threshold=trait_factor_linkage_factor_gene_threshold,
         nnls_loading_threshold=trait_factor_linkage_nnls_min_loading,
         nnls_max_value=trait_factor_linkage_nnls_max_value,
         computation_mode=trait_linkage_computation_mode,
+        projection_phi=projection_phi,
+        projection_tol=projection_tol,
+        projection_cap_loadings=True,
+        projection_normalize_loadings=False,
     )
     if linkage_result is None:
         return False
@@ -1433,6 +1442,16 @@ def _apply_canonical_trait_linkage(
             state.factor_anchor_marginal_relevance = anchor_joint
             state.factor_relevance = _compute_any_anchor_relevance(anchor_joint)
             state.factor_marginal_relevance = _compute_any_anchor_relevance(anchor_joint)
+    state._record_params(
+        {
+            "trait_linkage_projection_operator": "fixed_w",
+            "trait_linkage_probability_transform": "logbf_to_probability"
+            if linkage_inputs["score_source"] in {"combined", "log_bf"}
+            else "probability_clipped",
+            "trait_linkage_sparse_implicit_zero_probability": trait_linkage_computation_mode == "sparse_full",
+        },
+        overwrite=True,
+    )
     return True
 
 
@@ -1479,6 +1498,8 @@ def project_phenos_from_loaded_factors(
         trait_linkage_threshold=trait_linkage_threshold,
         trait_linkage_computation_mode=trait_linkage_computation_mode,
         pheno_capture_input=pheno_capture_input,
+        projection_phi=0.0,
+        projection_tol=1e-5,
         update_anchor_relevance=True,
         log_fn=log_fn,
         info_level=info_level,
@@ -5708,6 +5729,8 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
             trait_factor_linkage_nnls_max_value=trait_factor_linkage_nnls_max_value,
             factor_gmt_out=factor_gmt_out,
             pheno_capture_input=pheno_capture_input,
+            projection_phi=phi,
+            projection_tol=rel_tol,
             update_anchor_relevance=state.anchor_pheno_mask is not None,
             log_fn=log,
             info_level=INFO,
