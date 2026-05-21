@@ -301,6 +301,7 @@ class XData:
             num_ignored_gene_sets=post_options.num_ignored_gene_sets,
             first_for_hyper=post_options.first_for_hyper,
             max_num_gene_sets_hyper=post_options.max_num_gene_sets_hyper,
+            update_hyper_min_gene_sets=post_options.update_hyper_min_gene_sets,
             first_for_sigma_cond=post_options.first_for_sigma_cond,
             fixed_sigma_cond=fixed_sigma_cond,
             first_max_p_for_hyper=post_options.first_max_p_for_hyper,
@@ -469,6 +470,7 @@ class XReadPostOptions:
     num_ignored_gene_sets: int
     first_for_hyper: bool
     max_num_gene_sets_hyper: int | None
+    update_hyper_min_gene_sets: int
     first_for_sigma_cond: bool
     first_max_p_for_hyper: bool
     max_num_burn_in: int | None
@@ -543,6 +545,7 @@ class ReadXPipelineConfig:
     max_num_gene_sets_initial: int | None = None
     max_num_gene_sets: int | None = None
     max_num_gene_sets_hyper: int | None = None
+    update_hyper_min_gene_sets: int = 1000
     skip_betas: bool = False
     run_logistic: bool = True
     max_for_linear: float = 0.95

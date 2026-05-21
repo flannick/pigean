@@ -445,6 +445,8 @@ parser.add_option("","--trait-linkage-source",default="combined",type=str) #trai
 parser.add_option("","--trait-linkage-threshold",default=1.0,type=float) #strict threshold applied to the selected trait-linkage source surface
 parser.add_option("","--trait-linkage-computation-mode",default="sparse_full",type=str) #trait linkage computation backend: sparse_full (default sparse-aware full-space solve) or dense_full (debug dense equivalent)
 parser.add_option("","--trait-factor-linkage-factor-gene-threshold",default=0.05,type=float) #zero EAGGL factor gene loadings below this value before factor-trait association/projection
+parser.add_option("","--trait-factor-linkage-nnls-min-loading",dest="trait_factor_linkage_nnls_min_loading",default=0.0,type=float) #zero NNLS trait-factor loadings below this value after projection
+parser.add_option("","--trait-factor-linkage-nnls-max-value",dest="trait_factor_linkage_nnls_max_value",default=1.0,type=float) #cap NNLS trait-factor loadings at this value after projection; use <=0 to disable
 parser.add_option("","--factor-gmt-out",default=None) #write EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs
 parser.add_option("","--no-trait-linkage",action='store_true',default=False) #disable canonical trait linkage even when trait inputs are available
 
@@ -600,6 +602,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--trait-linkage-threshold": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
     "--trait-linkage-computation-mode": "choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend",
     "--trait-factor-linkage-factor-gene-threshold": "zero EAGGL factor gene loadings below this threshold before factor-trait association/projection",
+    "--trait-factor-linkage-nnls-min-loading": "zero NNLS trait-factor loadings below this threshold after projection",
+    "--trait-factor-linkage-nnls-max-value": "cap NNLS trait-factor loadings after projection; default 1.0 matches bounded projection outputs",
     "--factor-gmt-out": "write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs",
     "--no-trait-linkage": "disable simplified trait linkage even when trait inputs are available",
     "--clustering-params-out": "write structured clustering workflow provenance as paired JSON and TSV summaries",
@@ -1505,6 +1509,10 @@ def _bootstrap_cli(argv=None):
         bail("--trait-linkage-computation-mode must be one of: dense_full, sparse_full")
     if parsed_options.trait_factor_linkage_factor_gene_threshold < 0:
         bail("--trait-factor-linkage-factor-gene-threshold must be >= 0")
+    if parsed_options.trait_factor_linkage_nnls_min_loading < 0:
+        bail("--trait-factor-linkage-nnls-min-loading must be >= 0")
+    if parsed_options.trait_factor_linkage_nnls_max_value < 0:
+        bail("--trait-factor-linkage-nnls-max-value must be >= 0; use 0 to disable")
     if parsed_options.trait_factor_links_output_detail not in set(["main", "full", "debug"]):
         bail("--trait-factor-links-output-detail must be one of: main, full, debug")
     if parsed_options.factor_runs < 1:

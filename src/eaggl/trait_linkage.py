@@ -128,6 +128,8 @@ def compute_factor_trait_links(
     threshold_value=1.0,
     trait_response_source_name="combined",
     factor_loading_threshold=0.05,
+    nnls_loading_threshold=0.0,
+    nnls_max_value=1.0,
     computation_mode="sparse_full",
 ):
     """Compute native EAGGL factor-trait links by NNLS projection only.
@@ -177,14 +179,19 @@ def compute_factor_trait_links(
     trait_total_support = eaggl_phenotype_annotation.compute_profile_strengths(full_support)
     trait_n_eff = _compute_effective_feature_count(full_support)
     retained_n_eff = _compute_effective_feature_count(retained_support)
+    nnls_max_value = None if nnls_max_value is None or float(nnls_max_value) <= 0.0 else float(nnls_max_value)
     nnls_loadings = np.asarray(
-        nnls_project_fn(retained_basis, retained_dense.T, max_sum=None),
+        nnls_project_fn(retained_basis, retained_dense.T, max_sum=None, max_value=nnls_max_value),
         dtype=float,
     )
+    nnls_loadings = np.maximum(nnls_loadings, 0.0)
+    nnls_loading_threshold = 0.0 if nnls_loading_threshold is None else float(nnls_loading_threshold)
+    if nnls_loading_threshold > 0.0:
+        nnls_loadings = np.where(nnls_loadings >= nnls_loading_threshold, nnls_loadings, 0.0)
     factor_weight_sum = np.sum(retained_basis, axis=0)
     factor_num_genes = np.sum(retained_basis > 0.0, axis=0).astype(int)
     return {
-        "nnls": np.maximum(nnls_loadings, 0.0),
+        "nnls": nnls_loadings,
         "trait_total_support": trait_total_support,
         "trait_n_eff": trait_n_eff,
         "retained_n_eff": retained_n_eff,

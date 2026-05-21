@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `290`
+- Total options: `292`
 - `method_required`: `11`
-- `method_optional`: `182`
+- `method_optional`: `184`
 - `engineering`: `80`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `243`
+- visibility `expert`: `245`
 - visibility `hidden`: `8`
 - visibility `normal`: `39`
 
@@ -207,6 +207,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
 | `--trait-factor-linkage-factor-gene-threshold` | `normal` | `yes` | `core_help` | `trait_factor_linkage_factor_gene_threshold` | `0.05` | zero EAGGL factor gene loadings below this threshold before factor-trait association/projection |
+| `--trait-factor-linkage-nnls-max-value` | `expert` | `yes` | `expert_help` | `trait_factor_linkage_nnls_max_value` | `1.0` | cap NNLS trait-factor loadings after projection; default 1.0 matches bounded projection outputs |
+| `--trait-factor-linkage-nnls-min-loading` | `expert` | `yes` | `expert_help` | `trait_factor_linkage_nnls_min_loading` | `0.0` | zero NNLS trait-factor loadings below this threshold after projection |
 | `--trait-factor-links-output-detail` | `normal` | `yes` | `core_help` | `trait_factor_links_output_detail` | `main` | choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions |
 | `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend |
 | `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the response surface for simplified trait linkage: combined by default, with optional expert overrides |

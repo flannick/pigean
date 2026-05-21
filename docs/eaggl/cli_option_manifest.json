@@ -3,12 +3,12 @@
     "compat_alias": 11,
     "debug_only": 6,
     "engineering": 80,
-    "method_optional": 182,
+    "method_optional": 184,
     "method_required": 11
   },
   "entrypoint": "src/eaggl/cli.py",
   "module": "eaggl.cli",
-  "num_options": 290,
+  "num_options": 292,
   "options": [
     {
       "action": null,
@@ -173,7 +173,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 464,
+      "source_line": 466,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -194,7 +194,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 465,
+      "source_line": 467,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -719,7 +719,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 486,
+      "source_line": 488,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -761,7 +761,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 482,
+      "source_line": 484,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -782,7 +782,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 487,
+      "source_line": 489,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -803,7 +803,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 485,
+      "source_line": 487,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -824,7 +824,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 484,
+      "source_line": 486,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -845,7 +845,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 483,
+      "source_line": 485,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -908,7 +908,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 459,
+      "source_line": 461,
       "summary": null,
       "type": "choice",
       "usage_references": 6
@@ -929,7 +929,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 461,
+      "source_line": 463,
       "summary": "similarity threshold used to assign retained gene sets to discovery families",
       "type": "float",
       "usage_references": 8
@@ -1034,7 +1034,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 448,
+      "source_line": 450,
       "summary": "write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs",
       "type": null,
       "usage_references": 15
@@ -1391,7 +1391,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 456,
+      "source_line": 458,
       "summary": null,
       "type": "int",
       "usage_references": 15
@@ -1412,7 +1412,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 457,
+      "source_line": 459,
       "summary": null,
       "type": "float",
       "usage_references": 13
@@ -1433,7 +1433,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 454,
+      "source_line": 456,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -1454,7 +1454,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 455,
+      "source_line": 457,
       "summary": null,
       "type": "float",
       "usage_references": 12
@@ -1475,7 +1475,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 452,
+      "source_line": 454,
       "summary": null,
       "type": "int",
       "usage_references": 16
@@ -1496,7 +1496,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 453,
+      "source_line": 455,
       "summary": null,
       "type": "float",
       "usage_references": 14
@@ -1643,7 +1643,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 476,
+      "source_line": 478,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -4038,7 +4038,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 477,
+      "source_line": 479,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -4353,7 +4353,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 473,
+      "source_line": 475,
       "summary": null,
       "type": "int",
       "usage_references": 20
@@ -4500,7 +4500,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 472,
+      "source_line": 474,
       "summary": null,
       "type": "int",
       "usage_references": 20
@@ -4584,7 +4584,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 458,
+      "source_line": 460,
       "summary": null,
       "type": null,
       "usage_references": 7
@@ -4689,7 +4689,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 460,
+      "source_line": 462,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -4815,7 +4815,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 449,
+      "source_line": 451,
       "summary": "disable simplified trait linkage even when trait inputs are available",
       "type": null,
       "usage_references": 15
@@ -4857,7 +4857,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 469,
+      "source_line": 471,
       "summary": null,
       "type": "int",
       "usage_references": 36
@@ -4878,7 +4878,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 474,
+      "source_line": 476,
       "summary": null,
       "type": "int",
       "usage_references": 22
@@ -5634,7 +5634,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 475,
+      "source_line": 477,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -5851,6 +5851,48 @@
     },
     {
       "action": null,
+      "category": "method_optional",
+      "default": "1.0",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_nnls_max_value",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-nnls-max-value"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-nnls-max-value",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 449,
+      "summary": "cap NNLS trait-factor loadings after projection; default 1.0 matches bounded projection outputs",
+      "type": "float",
+      "usage_references": 3
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0.0",
+      "deprecation_timeline": null,
+      "dest": "trait_factor_linkage_nnls_min_loading",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--trait-factor-linkage-nnls-min-loading"
+      ],
+      "help": null,
+      "primary_flag": "--trait-factor-linkage-nnls-min-loading",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 448,
+      "summary": "zero NNLS trait-factor loadings below this threshold after projection",
+      "type": "float",
+      "usage_references": 3
+    },
+    {
+      "action": null,
       "category": "engineering",
       "default": "None",
       "deprecation_timeline": null,
@@ -6012,7 +6054,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 478,
+      "source_line": 480,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -6103,7 +6145,7 @@
     }
   ],
   "visibilities": {
-    "expert": 243,
+    "expert": 245,
     "hidden": 8,
     "normal": 39
   }

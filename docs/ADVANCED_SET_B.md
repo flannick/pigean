@@ -226,6 +226,13 @@ Optional expert controls:
   - requires `--no-filter-negative`, because negative beta-tilde filtering is trait-specific in the ordinary per-trait X read path
   - requires disabled gene-set pruning (`--prune-gene-sets > 1` and `--weighted-prune-gene-sets > 1`), because pruning also occurs during X read
   - if hyperparameter updates are enabled, the update is shared across traits in the vectorized batch and PIGEAN emits a warning
+- `--update-hyper both|p|sigma|none`
+  - defaults to `none` for `--multi-y-in` workflows only; non-multi-Y workflows keep their existing mode-specific default
+  - explicit user values are preserved
+- `--update-hyper-min-gene-sets <n>`
+  - defaults to `1000`
+  - if hyperparameter updates are requested but a hyper-learning batch has fewer than this many available gene sets, PIGEAN skips hyperparameter updating for that batch and prints a warning
+  - applies to the gene sets actually used for hyperparameter learning after filtering, pruning, and any `--max-num-gene-sets-hyper` reduction
 
 Primary outputs:
 - `--gene-set-stats-out`

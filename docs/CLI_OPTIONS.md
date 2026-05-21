@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `357`
+- Total options: `358`
 - `method_required`: `20`
-- `method_optional`: `192`
+- `method_optional`: `193`
 - `engineering`: `116`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `314`
+- visibility `expert`: `315`
 - visibility `hidden`: `9`
 - visibility `normal`: `34`
 
@@ -227,6 +227,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--total-num-iter-gibbs` | `normal` | `yes` | `core_help` | `total_num_iter_gibbs` | `None` | total outer Gibbs iteration budget across all restart epochs |
 | `--track-filtered-beta-uncorrected-mode` | `expert` | `yes` | `advanced_workflows` | `track_filtered_beta_uncorrected_mode` | `None` | for betas/gibbs runs, choose which ignored gene sets keep tracked beta_uncorrected sidecars: none, all, or cap_only (default) |
 | `--update-hyper` | `normal` | `yes` | `core_help` | `update_hyper` | `None` | choose whether outer Gibbs updates p, sigma, both, or neither during adaptation |
+| `--update-hyper-min-gene-sets` | `expert` | `yes` | `expert_help` | `update_hyper_min_gene_sets` | `1000` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence` | `-` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |

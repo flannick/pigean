@@ -438,6 +438,7 @@ def _run_multi_y_vectorized_betas(
         {
             "multi_y_vectorized_hyper_updates_shared": update_hyper,
             "multi_y_vectorized_beta_parallel_axis": "traits",
+            "multi_y_update_hyper_min_gene_sets": getattr(options, "update_hyper_min_gene_sets", 1000),
         },
         overwrite=True,
     )
@@ -573,6 +574,21 @@ def _run_multi_y_vectorized_betas(
                 avg_betas_m = np.zeros_like(avg_betas_uncorrected_m)
                 avg_postp_m = np.zeros_like(avg_postp_uncorrected_m)
                 if np.sum(run_mask) > 0:
+                    num_hyper_gene_sets = int(np.sum(run_mask))
+                    min_hyper_gene_sets = int(getattr(options, "update_hyper_min_gene_sets", 1000) or 0)
+                    batch_update_hyper_sigma = bool(getattr(options, "update_hyper_sigma", False))
+                    batch_update_hyper_p = bool(getattr(options, "update_hyper_p", False))
+                    if (
+                        (batch_update_hyper_sigma or batch_update_hyper_p)
+                        and min_hyper_gene_sets > 0
+                        and num_hyper_gene_sets < min_hyper_gene_sets
+                    ):
+                        services.warn(
+                            "Skipping vectorized multi-Y hyperparameter update for batch %d-%d because only %d gene sets are available for hyperparameter learning; minimum is %d"
+                            % (begin + 1, end, num_hyper_gene_sets, min_hyper_gene_sets)
+                        )
+                        batch_update_hyper_sigma = False
+                        batch_update_hyper_p = False
                     corrected_betas_m, corrected_postp_m = batch_state._calculate_non_inf_betas(
                         batch_state.p,
                         beta_tildes=beta_tildes_m[:, run_mask],
@@ -584,8 +600,8 @@ def _run_multi_y_vectorized_betas(
                         ps=batch_state.ps[run_mask] if batch_state.ps is not None else None,
                         sigma2s=batch_state.sigma2s[run_mask] if batch_state.sigma2s is not None else None,
                         is_dense_gene_set=batch_state.is_dense_gene_set[run_mask],
-                        update_hyper_sigma=getattr(options, "update_hyper_sigma", False),
-                        update_hyper_p=getattr(options, "update_hyper_p", False),
+                        update_hyper_sigma=batch_update_hyper_sigma,
+                        update_hyper_p=batch_update_hyper_p,
                         **common_sampler_kwargs,
                     )
                     corrected_betas_m = _as_trait_gene_set_matrix(corrected_betas_m, num_batch_traits)

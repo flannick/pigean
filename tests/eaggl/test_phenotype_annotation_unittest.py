@@ -197,8 +197,11 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         basis = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=float)
         feature_by_trait = np.array([[3.0, 0.0], [0.0, 4.0]], dtype=float)
 
-        def project_fn(W, X_new, max_sum=None):
-            return X_new @ W
+        def project_fn(W, X_new, max_sum=None, max_value=None):
+            projected = X_new @ W
+            if max_value is not None:
+                projected = np.minimum(projected, max_value)
+            return projected
 
         linkage = eaggl_trait_linkage.compute_factor_trait_links(
             project_fn,
@@ -210,7 +213,16 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         self.assertNotIn("beta", linkage)
         self.assertNotIn("beta_uncorrected", linkage)
         self.assertNotIn("beta_tilde", linkage)
-        np.testing.assert_allclose(linkage["nnls"], [[3.0, 0.0], [0.0, 4.0]], atol=1e-8)
+        np.testing.assert_allclose(linkage["nnls"], [[1.0, 0.0], [0.0, 1.0]], atol=1e-8)
+
+        uncapped = eaggl_trait_linkage.compute_factor_trait_links(
+            project_fn,
+            basis,
+            feature_by_trait,
+            threshold_value=0.0,
+            nnls_max_value=0.0,
+        )
+        np.testing.assert_allclose(uncapped["nnls"], [[3.0, 0.0], [0.0, 4.0]], atol=1e-8)
 
 
 
@@ -437,8 +449,11 @@ class FactorPhewasSurfaceTest(unittest.TestCase):
             dtype=float,
         )
 
-        def project_fn(W, X_new, max_sum=None):
-            return np.maximum(X_new @ W, 0.0)
+        def project_fn(W, X_new, max_sum=None, max_value=None):
+            projected = np.maximum(X_new @ W, 0.0)
+            if max_value is not None:
+                projected = np.minimum(projected, max_value)
+            return projected
 
         result = eaggl_trait_linkage.compute_factor_trait_links(
             project_fn,

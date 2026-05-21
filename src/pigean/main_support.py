@@ -449,6 +449,7 @@ def _read_x_pipeline(runtime, read_x_pipeline_config):
         maybe_learn_batch_hyper_after_x_read_fn=functools.partial(
             pigean_x_inputs_core.maybe_learn_batch_hyper_after_x_read_for_runtime,
             log_fn=log,
+            warn_fn=warn,
             debug_level=DEBUG,
         ),
         maybe_adjust_overaggressive_p_filter_after_x_read_fn=functools.partial(

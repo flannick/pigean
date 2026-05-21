@@ -490,6 +490,7 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
     num_ignored_gene_sets,
     first_for_hyper,
     max_num_gene_sets_hyper,
+    update_hyper_min_gene_sets,
     first_for_sigma_cond,
     fixed_sigma_cond,
     first_max_p_for_hyper,
@@ -508,6 +509,7 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
     betas_trace_out,
     *,
     log_fn,
+    warn_fn,
     debug_level,
 ):
     if skip_betas or runtime_state.p_values is None or (not update_hyper_p and not update_hyper_sigma) or len(runtime_state.gene_set_batches) == 0:
@@ -534,6 +536,7 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
     runtime_state.sigma2s = np.full(len(runtime_state.gene_set_batches), np.nan)
 
     first_p = None
+    learned_any_batch = False
     for ordered_batch_ind in range(len(ordered_batches)):
         if ordered_batches[ordered_batch_ind] is None:
             assert first_for_hyper
@@ -562,8 +565,13 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
             )
             gene_sets_for_hyper_mask[drop_mask] = False
 
-        if ordered_batch_ind > 0 and np.sum(gene_sets_for_hyper_mask) + batches_num_ignored[ordered_batches[ordered_batch_ind]] < 100:
-            log_fn("Skipping learning hyper for batch %s since not enough gene sets" % (ordered_batches[ordered_batch_ind]))
+        num_gene_sets_for_hyper = int(np.sum(gene_sets_for_hyper_mask))
+        min_gene_sets = 0 if update_hyper_min_gene_sets is None else int(update_hyper_min_gene_sets)
+        if min_gene_sets > 0 and num_gene_sets_for_hyper < min_gene_sets:
+            warn_fn(
+                "Skipping hyperparameter update for batch %s because only %d gene sets are available for hyperparameter learning; minimum is %d"
+                % (ordered_batches[ordered_batch_ind], num_gene_sets_for_hyper, min_gene_sets)
+            )
             continue
 
         hyper_fit = learn_hyper_for_gene_set_batch(
@@ -613,6 +621,16 @@ def maybe_learn_batch_hyper_after_x_read_for_runtime(
             first_p=first_p,
             first_max_p_for_hyper=first_max_p_for_hyper,
         )
+        learned_any_batch = True
+
+    if not learned_any_batch:
+        warn_fn(
+            "No batches met --update-hyper-min-gene-sets=%d; keeping fixed p/sigma2 defaults for all gene sets"
+            % (0 if update_hyper_min_gene_sets is None else int(update_hyper_min_gene_sets))
+        )
+        runtime_state.ps = np.full(len(runtime_state.gene_set_batches), runtime_state.p, dtype=float)
+        runtime_state.sigma2s = np.full(len(runtime_state.gene_set_batches), runtime_state.sigma2, dtype=float)
+        return
 
     finalize_batch_hyper_vectors(runtime_state=runtime_state, first_for_hyper=first_for_hyper)
     _maybe_dump_pre_gibbs_gene_sets(runtime_state, "after_hyper_learning")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
 import subprocess
 import sys
@@ -38,6 +39,15 @@ class MultiYWorkflowTest(unittest.TestCase):
             text=True,
             check=False,
         )
+
+    def _effective_config(self, mode: str, *args: str) -> dict:
+        proc = self._run(mode, *args, "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        text = (proc.stdout or "") + (proc.stderr or "")
+        start = text.find("{")
+        self.assertGreaterEqual(start, 0, msg=text)
+        config, _end = json.JSONDecoder().raw_decode(text[start:])
+        return config
 
     def _write_x(self, path: Path) -> None:
         path.write_text(
@@ -171,6 +181,94 @@ class MultiYWorkflowTest(unittest.TestCase):
                 options,
                 services,
             )
+
+    def test_multi_y_defaults_update_hyper_to_none(self) -> None:
+        x_path = self.tmpdir / "multi_y_default_update_hyper.gmt"
+        multi_y_path = self.tmpdir / "multi_y_default_update_hyper.tsv"
+        self._write_x(x_path)
+        self._write_multi_y(multi_y_path)
+        config = self._effective_config(
+            "betas",
+            "--X-in",
+            str(x_path),
+            "--multi-y-in",
+            str(multi_y_path),
+            "--gene-universe-from-x",
+            "--gene-set-stats-out",
+            str(self.tmpdir / "multi_y_default_update_hyper.out"),
+        )
+        self.assertEqual(config["options"]["update_hyper"], "none")
+        self.assertEqual(config["options"]["update_hyper_min_gene_sets"], 1000)
+
+    def test_multi_y_explicit_update_hyper_is_preserved(self) -> None:
+        x_path = self.tmpdir / "multi_y_explicit_update_hyper.gmt"
+        multi_y_path = self.tmpdir / "multi_y_explicit_update_hyper.tsv"
+        self._write_x(x_path)
+        self._write_multi_y(multi_y_path)
+        config = self._effective_config(
+            "betas",
+            "--X-in",
+            str(x_path),
+            "--multi-y-in",
+            str(multi_y_path),
+            "--gene-universe-from-x",
+            "--gene-set-stats-out",
+            str(self.tmpdir / "multi_y_explicit_update_hyper.out"),
+            "--update-hyper",
+            "p",
+            "--update-hyper-min-gene-sets",
+            "17",
+        )
+        self.assertEqual(config["options"]["update_hyper"], "p")
+        self.assertEqual(config["options"]["update_hyper_min_gene_sets"], 17)
+
+    def test_hyper_update_min_gene_sets_guard_warns_and_keeps_defaults(self) -> None:
+        from pigean import x_inputs_core as pigean_x_inputs_core
+
+        runtime = SimpleNamespace(
+            p_values=np.array([0.01, 0.02, 0.03, 0.04]),
+            gene_set_batches=np.array(["B1", "B1", "B2", "B2"], dtype=object),
+            p=0.001,
+            sigma2=0.002,
+            ps=None,
+            sigma2s=None,
+        )
+        warnings: list[str] = []
+        pigean_x_inputs_core.maybe_learn_batch_hyper_after_x_read_for_runtime(
+            runtime,
+            skip_betas=False,
+            update_hyper_p=True,
+            update_hyper_sigma=False,
+            batches=["B1", "B1", "B2", "B2"],
+            num_ignored_gene_sets=[0, 0, 0, 0],
+            first_for_hyper=False,
+            max_num_gene_sets_hyper=None,
+            update_hyper_min_gene_sets=1000,
+            first_for_sigma_cond=False,
+            fixed_sigma_cond=False,
+            first_max_p_for_hyper=False,
+            max_num_burn_in=5,
+            max_num_iter_betas=10,
+            min_num_iter_betas=5,
+            num_chains_betas=2,
+            r_threshold_burn_in_betas=1.01,
+            use_max_r_for_convergence_betas=True,
+            max_frac_sem_betas=0.01,
+            max_allowed_batch_correlation=None,
+            sigma_num_devs_to_top=2.0,
+            p_noninf_inflate=1.0,
+            sparse_solution=False,
+            sparse_frac_betas=None,
+            betas_trace_out=None,
+            log_fn=lambda *_args, **_kwargs: None,
+            warn_fn=warnings.append,
+            debug_level=1,
+        )
+        self.assertTrue(any("Skipping hyperparameter update for batch B1" in message for message in warnings))
+        self.assertTrue(any("Skipping hyperparameter update for batch B2" in message for message in warnings))
+        self.assertTrue(any("No batches met --update-hyper-min-gene-sets=1000" in message for message in warnings))
+        np.testing.assert_allclose(runtime.ps, np.full(4, 0.001))
+        np.testing.assert_allclose(runtime.sigma2s, np.full(4, 0.002))
 
     def _common_args(self, x_path: Path, multi_y_path: Path) -> list[str]:
         return [

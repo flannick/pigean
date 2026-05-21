@@ -112,6 +112,7 @@ parser.add_option("","--sigma-soft-threshold-5",type='float',default=None) #the 
 parser.add_option("","--const-sigma",action='store_true') #assign constant variance across all gene sets independent of size (default is to scale inversely to size). Overrides sigma power and sets it to 2
 
 parser.add_option("","--update-hyper",type='string',default=None,dest="update_hyper") #update either both,p,sigma,none
+parser.add_option("","--update-hyper-min-gene-sets",type=int,default=1000) #minimum gene sets in a hyperparameter-learning batch; below this, requested hyper updates are disabled for that batch
 parser.add_option("","--cross-val",action='store_true',dest="cross_val",default=None) #after initial learning of p and sigma, do cross validation to tune sigma further
 parser.add_option("","--no-cross-val",action='store_false',dest="cross_val",default=None) #after initial learning of p and sigma, do cross validation to tune sigma further
 parser.add_option("","--cross-val-num-explore-each-direction",type='int',default=3) #the number of orders of magnitude canges to try cross validation for
@@ -1675,6 +1676,12 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
         if _options.weighted_prune_gene_sets is None:
             _options.weighted_prune_gene_sets = default_prune
 
+    if (
+        getattr(_options, "multi_y_in", None) is not None
+        and not _is_option_dest_explicit("update_hyper", _cli_dests, _config_dests)
+    ):
+        _options.update_hyper = "none"
+
     # Gibbs stopping defaults.
     _options.gibbs_stopping_preset = "strict" if _options.strict_stopping else "lenient"
     for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[_options.gibbs_stopping_preset].items():
@@ -1693,6 +1700,8 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
 
     if _options.max_gb is None:
         _options.max_gb = 2.0
+    if _options.update_hyper_min_gene_sets < 0:
+        bail("Option --update-hyper-min-gene-sets must be >= 0")
     if _options.max_gb <= 0:
         bail("Option --max-gb must be > 0")
 

@@ -314,6 +314,7 @@ def build_read_x_post_options(local_vars, *, batches, num_ignored_gene_sets, ign
         num_ignored_gene_sets=num_ignored_gene_sets,
         first_for_hyper=local_vars["first_for_hyper"],
         max_num_gene_sets_hyper=local_vars["max_num_gene_sets_hyper"],
+        update_hyper_min_gene_sets=local_vars["update_hyper_min_gene_sets"],
         first_for_sigma_cond=local_vars["first_for_sigma_cond"],
         first_max_p_for_hyper=local_vars["first_max_p_for_hyper"],
         max_num_burn_in=local_vars["max_num_burn_in"],

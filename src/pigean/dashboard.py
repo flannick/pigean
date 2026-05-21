@@ -552,7 +552,23 @@ def _anchor_column_name(trait: str, existing: set[str]) -> str:
     return candidate
 
 
-def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> tuple[dict[str, list[dict]], list[dict], dict[str, dict[str, float]]]:
+
+def _passes_trait_factor_filters(record: dict, *, min_beta: float | None, min_beta_uncorrected: float | None, min_nnls: float | None) -> bool:
+    thresholds = [
+        ("beta", min_beta),
+        ("beta_uncorrected", min_beta_uncorrected),
+        ("nnls_loading", min_nnls),
+    ]
+    active = [(key, value) for key, value in thresholds if value is not None and float(value) > 0.0]
+    if not active:
+        return True
+    for key, threshold in active:
+        value = record.get(key)
+        if value is not None and value > float(threshold):
+            return True
+    return False
+
+def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str], *, min_beta: float | None = 0.01, min_beta_uncorrected: float | None = 0.05, min_nnls: float | None = 0.5) -> tuple[dict[str, list[dict]], list[dict], dict[str, dict[str, float]]]:
     if not path.exists():
         return {}, [], {}
     rows = read_tsv(path, warnings)
@@ -612,6 +628,13 @@ def read_trait_links(path: Path, min_trait_neff: float, warnings: list[str]) -> 
         record["joint_support_mass"] = record["joint_capture_support_mass"]
         record["marginal_support_mass"] = record["marginal_capture_support_mass"]
         record["joint_residual"] = record["joint_capture_residual"]
+        if not _passes_trait_factor_filters(
+            record,
+            min_beta=min_beta,
+            min_beta_uncorrected=min_beta_uncorrected,
+            min_nnls=min_nnls,
+        ):
+            continue
         by_factor[factor].append(record)
         if _is_truthy(record["is_anchor"]):
             if trait not in anchor_traits:
@@ -730,7 +753,14 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     )
     if not gene_set_clusters_path.exists():
         warnings.append(f"missing EAGGL gene-set clusters: {gene_set_clusters_path}")
-    trait_links, anchor_traits, anchor_values = read_trait_links(path / "trait_factor_links.out.gz", args.trait_min_neff, warnings)
+    trait_links, anchor_traits, anchor_values = read_trait_links(
+        path / "trait_factor_links.out.gz",
+        args.trait_min_neff,
+        warnings,
+        min_beta=args.trait_factor_min_beta,
+        min_beta_uncorrected=args.trait_factor_min_beta_uncorrected,
+        min_nnls=args.trait_factor_min_nnls,
+    )
     factors = []
     if factors_rows and not any(key in factors_rows[0] for key in ("Factor", "factor")):
         warnings.append("factors table lacks Factor/factor column")
@@ -859,6 +889,9 @@ def build_payload(args: argparse.Namespace) -> dict:
             "factor_loading": args.factor_loading_threshold,
             "factor_loading_min_max_frac": args.factor_loading_min_max_frac,
             "trait_neff": args.trait_min_neff,
+            "trait_factor_min_beta": args.trait_factor_min_beta,
+            "trait_factor_min_beta_uncorrected": args.trait_factor_min_beta_uncorrected,
+            "trait_factor_min_nnls": args.trait_factor_min_nnls,
             "max_provenance_rows_per_entry": args.max_provenance_rows_per_entry,
         },
         "warnings": warnings,
@@ -913,7 +946,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gene-set-threshold", type=float, default=0.01)
     parser.add_argument("--factor-loading-threshold", type=float, default=0.0)
     parser.add_argument("--factor-loading-min-max-frac", type=float, default=0.05, help="Keep factor gene/gene-set rows with loading at least this fraction of the factor-specific maximum; use a negative value to disable.")
-    parser.add_argument("--trait-min-neff", type=float, default=200.0)
+    parser.add_argument("--trait-min-neff", type=float, default=25.0, help="Minimum trait effective size for dashboard phenotype rows before trait-factor filters are applied.")
+    parser.add_argument("--trait-factor-min-beta", type=float, default=0.01, help="Keep trait-factor rows when beta exceeds this value; OR-combined with beta_uncorrected and NNLS filters. Use <=0 to disable.")
+    parser.add_argument("--trait-factor-min-beta-uncorrected", type=float, default=0.05, help="Keep trait-factor rows when beta_uncorrected exceeds this value; OR-combined with beta and NNLS filters. Use <=0 to disable.")
+    parser.add_argument("--trait-factor-min-nnls", type=float, default=0.5, help="Keep trait-factor rows when NNLS loading exceeds this value; OR-combined with beta filters. Use <=0 to disable.")
     parser.add_argument(
         "--default-gene-loading-source",
         choices=("discovery", "full_direct", "full_via_gene_sets"),

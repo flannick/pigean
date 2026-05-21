@@ -66,6 +66,12 @@ class GraphConfig:
     max_num_factor_nodes: int = 50
     max_num_gene_nodes_per_factor: int = 3
     max_num_trait_nodes_per_factor: int = 3
+    max_num_trait_provenance_per_factor: int = 20
+    trait_factor_min_beta: float = 0.01
+    trait_factor_min_beta_uncorrected: float = 0.05
+    trait_factor_min_nnls: float = 0.5
+    max_anchor_support_rows_per_node: int = 20
+    anchor_support_min_combined: float = 0.0
     coordinate_scale: float = 5.0
     trait_coordinate_scale: float = 0.2
     trait_layout_mode: str = "anchored_top_factor"
@@ -472,6 +478,8 @@ def read_anchor_support_rows(
     direct_col: str | None,
     indirect_col: str | None,
     source_label: str,
+    max_rows_per_node: int = 20,
+    min_combined: float = 0.0,
 ) -> dict[str, list[dict[str, object]]]:
     support: dict[str, list[dict[str, object]]] = {}
     for path in paths or []:
@@ -494,6 +502,8 @@ def read_anchor_support_rows(
                 combined = _safe_float(cols[combined_i], 0.0) if combined_i is not None and combined_i < len(cols) else None
                 direct = _safe_float(cols[direct_i], 0.0) if direct_i is not None and direct_i < len(cols) else None
                 indirect = _safe_float(cols[indirect_i], 0.0) if indirect_i is not None and indirect_i < len(cols) else None
+                if min_combined is not None and float(min_combined) > 0.0 and (combined is None or combined < float(min_combined)):
+                    continue
                 row = {
                     "anchor": anchor,
                     "combined": combined,
@@ -507,8 +517,16 @@ def read_anchor_support_rows(
                     },
                 }
                 support.setdefault(entity_id, []).append(row)
-    for rows in support.values():
-        rows.sort(key=lambda row: str(row.get("anchor", "")))
+    for entity_id, rows in list(support.items()):
+        rows.sort(
+            key=lambda row: (
+                -float(row.get("combined") or 0.0),
+                -float(row.get("direct") or 0.0),
+                str(row.get("anchor", "")),
+            )
+        )
+        if max_rows_per_node is not None and int(max_rows_per_node) >= 0:
+            support[entity_id] = rows[: int(max_rows_per_node)]
     return support
 
 
@@ -525,7 +543,34 @@ def attach_anchor_support(entities: list[EntityInfo], support_by_id: dict[str, l
     return updated
 
 
-def read_factor_trait_details(path: str | Path | None, factors: list[str]) -> dict[str, list[dict[str, object]]]:
+def _passes_trait_factor_detail_filters(row: dict[str, object], *, min_beta: float, min_beta_uncorrected: float, min_nnls: float) -> bool:
+    active = [
+        ("beta", min_beta),
+        ("beta_uncorrected", min_beta_uncorrected),
+        ("nnls_loading", min_nnls),
+    ]
+    active = [(key, float(threshold)) for key, threshold in active if threshold is not None and float(threshold) > 0.0]
+    if not active:
+        return True
+    for key, threshold in active:
+        try:
+            value = float(row.get(key, 0.0) or 0.0)
+        except (TypeError, ValueError):
+            value = 0.0
+        if value > threshold:
+            return True
+    return False
+
+
+def read_factor_trait_details(
+    path: str | Path | None,
+    factors: list[str],
+    *,
+    max_num_per_factor: int = 20,
+    min_beta: float = 0.01,
+    min_beta_uncorrected: float = 0.05,
+    min_nnls: float = 0.5,
+) -> dict[str, list[dict[str, object]]]:
     if path is None:
         return {}
     details: dict[str, list[dict[str, object]]] = {factor: [] for factor in factors}
@@ -582,9 +627,25 @@ def read_factor_trait_details(path: str | Path | None, factors: list[str]) -> di
             if "nnls_loading" in row:
                 row.setdefault("joint_fraction", row["nnls_loading"])
                 row.setdefault("joint_coefficient", row["nnls_loading"])
+            if not _passes_trait_factor_detail_filters(
+                row,
+                min_beta=min_beta,
+                min_beta_uncorrected=min_beta_uncorrected,
+                min_nnls=min_nnls,
+            ):
+                continue
             details[factor].append(row)
-    for rows in details.values():
-        rows.sort(key=lambda row: (-float(row.get("nnls_loading", row.get("joint_fraction", row.get("joint_coefficient", 0.0))) or 0.0), str(row.get("anchor", ""))))
+    for factor, rows in details.items():
+        rows.sort(
+            key=lambda row: (
+                -float(row.get("nnls_loading", row.get("joint_fraction", row.get("joint_coefficient", 0.0))) or 0.0),
+                -float(row.get("beta_uncorrected", 0.0) or 0.0),
+                -float(row.get("beta", 0.0) or 0.0),
+                str(row.get("anchor", "")),
+            )
+        )
+        if max_num_per_factor is not None and int(max_num_per_factor) >= 0:
+            details[factor] = rows[: int(max_num_per_factor)]
     return details
 
 
@@ -1991,6 +2052,8 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         direct_col=args.gene_phewas_stats_log_bf_col,
         indirect_col=args.gene_phewas_stats_prior_col,
         source_label="gene_phewas_stats",
+        max_rows_per_node=args.max_anchor_support_rows_per_node,
+        min_combined=args.anchor_support_min_combined,
     )
     gene_set_support = read_anchor_support_rows(
         args.gene_set_phewas_stats_in,
@@ -2000,6 +2063,8 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         direct_col=args.gene_set_phewas_stats_beta_col,
         indirect_col=args.gene_set_phewas_stats_beta_uncorrected_col,
         source_label="gene_set_phewas_stats",
+        max_rows_per_node=args.max_anchor_support_rows_per_node,
+        min_combined=args.anchor_support_min_combined,
     )
     config = GraphConfig(
         gene_min_loading=args.gene_min_loading,
@@ -2010,6 +2075,12 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         max_num_factor_nodes=args.max_num_factor_nodes,
         max_num_gene_nodes_per_factor=args.max_num_gene_nodes_per_factor,
         max_num_trait_nodes_per_factor=args.max_num_trait_nodes_per_factor,
+        max_num_trait_provenance_per_factor=args.max_num_trait_provenance_per_factor,
+        trait_factor_min_beta=args.trait_factor_min_beta,
+        trait_factor_min_beta_uncorrected=args.trait_factor_min_beta_uncorrected,
+        trait_factor_min_nnls=args.trait_factor_min_nnls,
+        max_anchor_support_rows_per_node=args.max_anchor_support_rows_per_node,
+        anchor_support_min_combined=args.anchor_support_min_combined,
         coordinate_scale=args.coordinate_scale,
         trait_coordinate_scale=args.trait_coordinate_scale,
         trait_layout_mode=args.trait_layout_mode,
@@ -2077,7 +2148,14 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
             min_loading_frac=config.trait_min_loading_frac,
             max_num_per_factor=config.max_num_trait_nodes_per_factor,
         )
-    factor_trait_details = read_factor_trait_details(trait_links_in, factors)
+    factor_trait_details = read_factor_trait_details(
+        trait_links_in,
+        factors,
+        max_num_per_factor=config.max_num_trait_provenance_per_factor,
+        min_beta=config.trait_factor_min_beta,
+        min_beta_uncorrected=config.trait_factor_min_beta_uncorrected,
+        min_nnls=config.trait_factor_min_nnls,
+    )
     top_gene_loadings = _top_loadings_by_factor(candidate_genes or genes, factors, top_n=5)
     top_gene_set_loadings = _top_loadings_by_factor(gene_set_candidates, factors, top_n=5)
     return build_graph(
@@ -2141,6 +2219,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-num-factor-nodes", type=int, default=50, help="Maximum factor nodes to show, ranked by relevance; use 0 to show all factors.")
     parser.add_argument("--max-num-gene-nodes-per-factor", type=int, default=3)
     parser.add_argument("--max-num-trait-nodes-per-factor", type=int, default=3)
+    parser.add_argument("--max-num-trait-provenance-per-factor", type=int, default=20, help="Maximum trait-link provenance rows embedded per factor node; use -1 to keep all rows.")
+    parser.add_argument("--trait-factor-min-beta", type=float, default=0.01, help="Embed trait-factor provenance rows when beta exceeds this threshold; OR-combined with beta_uncorrected and NNLS filters.")
+    parser.add_argument("--trait-factor-min-beta-uncorrected", type=float, default=0.05, help="Embed trait-factor provenance rows when beta_uncorrected exceeds this threshold; OR-combined with beta and NNLS filters.")
+    parser.add_argument("--trait-factor-min-nnls", type=float, default=0.5, help="Embed trait-factor provenance rows when NNLS loading exceeds this threshold; OR-combined with beta filters.")
+    parser.add_argument("--max-anchor-support-rows-per-node", type=int, default=20, help="Maximum gene/gene-set phenotype support provenance rows embedded per graph node; use -1 to keep all rows.")
+    parser.add_argument("--anchor-support-min-combined", type=float, default=0.0, help="Minimum combined support for gene/gene-set phenotype support provenance rows embedded in graph nodes.")
     parser.add_argument("--coordinate-scale", type=float, default=5.0)
     parser.add_argument("--trait-coordinate-scale", type=float, default=0.2, help="Scale trait-node displacement from the factor centroid after layout; 1.0 preserves the raw MDS distance.")
     parser.add_argument(

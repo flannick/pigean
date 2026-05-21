@@ -216,6 +216,8 @@ class FactorExecutionConfig:
     trait_linkage_threshold: float = 1.0
     trait_linkage_computation_mode: str = "sparse_full"
     trait_factor_linkage_factor_gene_threshold: float = 0.05
+    trait_factor_linkage_nnls_min_loading: float = 0.0
+    trait_factor_linkage_nnls_max_value: float = 1.0
     factor_gmt_out: object = None
     no_trait_linkage: bool = False
 
@@ -340,6 +342,8 @@ class FactorExecutionConfig:
             "trait_linkage_threshold": self.trait_linkage_threshold,
             "trait_linkage_computation_mode": self.trait_linkage_computation_mode,
             "trait_factor_linkage_factor_gene_threshold": self.trait_factor_linkage_factor_gene_threshold,
+            "trait_factor_linkage_nnls_min_loading": self.trait_factor_linkage_nnls_min_loading,
+            "trait_factor_linkage_nnls_max_value": self.trait_factor_linkage_nnls_max_value,
             "factor_gmt_out": self.factor_gmt_out,
             "no_trait_linkage": self.no_trait_linkage,
         }
@@ -1960,6 +1964,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
         trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "sparse_full"),
         trait_factor_linkage_factor_gene_threshold=getattr(options, "trait_factor_linkage_factor_gene_threshold", 0.05),
+        trait_factor_linkage_nnls_min_loading=getattr(options, "trait_factor_linkage_nnls_min_loading", 0.0),
+        trait_factor_linkage_nnls_max_value=getattr(options, "trait_factor_linkage_nnls_max_value", 1.0),
         factor_gmt_out=getattr(options, "factor_gmt_out", None),
         no_trait_linkage=bool(getattr(options, "no_trait_linkage", False)),
     )
@@ -2036,6 +2042,8 @@ def run_main_pheno_projection_stage(domain, runtime, options):
         trait_linkage_threshold=getattr(options, "trait_linkage_threshold", 1.0),
         trait_linkage_computation_mode=getattr(options, "trait_linkage_computation_mode", "sparse_full"),
         trait_factor_linkage_factor_gene_threshold=getattr(options, "trait_factor_linkage_factor_gene_threshold", 0.05),
+        trait_factor_linkage_nnls_min_loading=getattr(options, "trait_factor_linkage_nnls_min_loading", 0.0),
+        trait_factor_linkage_nnls_max_value=getattr(options, "trait_factor_linkage_nnls_max_value", 1.0),
         factor_gmt_out=getattr(options, "factor_gmt_out", None),
         pheno_capture_input=options.pheno_capture_input,
         bail_fn=domain.bail,
