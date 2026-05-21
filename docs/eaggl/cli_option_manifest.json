@@ -4816,7 +4816,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 451,
-      "summary": "disable simplified trait linkage even when trait inputs are available",
+      "summary": "disable canonical trait linkage even when trait inputs are available",
       "type": null,
       "usage_references": 15
     },
@@ -5572,7 +5572,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 442,
-      "summary": "project simplified trait linkage from the gene-set basis instead of the gene basis",
+      "summary": "project fixed-W trait linkage from the gene-set basis instead of the gene basis",
       "type": null,
       "usage_references": 34
     },
@@ -5950,7 +5950,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 446,
-      "summary": "choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend",
+      "summary": "choose the fixed-W trait-linkage computation backend: sparse_full preserves sparse implicit zeros, dense_full densifies before probability conversion",
       "type": "str",
       "usage_references": 10
     },
@@ -5992,7 +5992,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 445,
-      "summary": "strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold)",
+      "summary": "legacy compatibility option ignored by canonical fixed-W phenotype projection",
       "type": "float",
       "usage_references": 7
     },

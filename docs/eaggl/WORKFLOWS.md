@@ -114,7 +114,7 @@ PheWAS matrix inputs:
 
 Phenotype annotation policy:
 
-1. use simplified trait linkage for the primary public phenotype annotation layer
+1. use fixed-W trait linkage for the primary public phenotype annotation layer
 2. write the long-form linkage table with `--trait-factor-links-out`
 3. interpret `nnls_loading` as fixed-W projection of the selected trait support surface after converting combined/log-BF values to probabilities with `background_prior`
 4. interpret `beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, and `p_value` as factor-as-gene-set association summaries

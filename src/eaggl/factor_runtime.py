@@ -1240,47 +1240,6 @@ def _choose_gene_or_pheno_anchor_source(combined_prior_Ys, priors, Y, *, preferr
     return (None, None)
 
 
-def _project_pheno_capture_matrix(state, basis, feature_by_pheno, *, basis_name):
-    capture_weights, capture_strength = eaggl_phenotype_annotation.project_phenotype_capture(
-        state._nnls_project_matrix,
-        basis,
-        feature_by_pheno,
-        max_sum=1.0,
-    )
-    state.pheno_capture_strength = capture_strength
-    state.pheno_capture_basis = basis_name
-    return capture_weights
-
-
-def _prepare_pheno_capture_input_matrix(feature_by_pheno, mode):
-    return eaggl_phenotype_annotation.prepare_thresholded_profile_input(feature_by_pheno, mode)
-
-
-def _align_projection_inputs_to_mask(basis, feature_by_target, mask):
-    if mask is None:
-        return basis, feature_by_target
-    mask = np.asarray(mask, dtype=bool)
-    mask_sum = int(np.sum(mask))
-
-    if basis.shape[0] == mask.shape[0]:
-        basis = basis[mask, :]
-    elif basis.shape[0] != mask_sum:
-        raise ValueError(
-            "Projection basis rows %s do not match mask length %s or kept count %s"
-            % (basis.shape[0], mask.shape[0], mask_sum)
-        )
-
-    if feature_by_target.shape[0] == mask.shape[0]:
-        feature_by_target = feature_by_target[mask, :]
-    elif feature_by_target.shape[0] != mask_sum:
-        raise ValueError(
-            "Projection target rows %s do not match mask length %s or kept count %s"
-            % (feature_by_target.shape[0], mask.shape[0], mask_sum)
-        )
-
-    return basis, feature_by_target
-
-
 def _resolve_trait_linkage_inputs(
     state,
     *,
@@ -5615,64 +5574,6 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
 
     if state.exp_gene_factors is None and state.exp_gene_set_factors is None:
         bail("Something went wrong: both gene factors and gene set factors are empty")
-
-    run_legacy_pheno_capture = bool(no_trait_linkage)
-
-    if (
-        run_legacy_pheno_capture
-        and state.X_phewas_beta_uncorrected is not None
-        and state.pheno_prob_factor_vector is not None
-    ):
-        if project_phenos_from_gene_sets or state.exp_gene_factors is None:
-            pheno_matrix_to_project = state.X_phewas_beta_uncorrected.T
-            if not run_transpose:
-                pheno_matrix_to_project = pheno_matrix_to_project.T
-            basis = state.exp_gene_set_factors
-            feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
-            basis, feature_by_pheno = _align_projection_inputs_to_mask(
-                basis,
-                feature_by_pheno,
-                state.gene_set_in_discovery_mask,
-            )
-            full_pheno_factor_values = _project_pheno_capture_matrix(
-                state,
-                basis,
-                feature_by_pheno,
-                basis_name="gene_sets",
-            )
-        else:
-            pheno_matrix_to_project = state.gene_pheno_combined_prior_Ys if state.gene_pheno_combined_prior_Ys is not None else state.gene_pheno_Y
-            if not run_transpose:
-                pheno_matrix_to_project = pheno_matrix_to_project.T
-            basis = state.exp_gene_factors
-            feature_by_pheno = _prepare_pheno_capture_input_matrix(pheno_matrix_to_project, pheno_capture_input)
-            basis, feature_by_pheno = _align_projection_inputs_to_mask(
-                basis,
-                feature_by_pheno,
-                state.gene_in_discovery_mask,
-            )
-            full_pheno_factor_values = _project_pheno_capture_matrix(
-                state,
-                basis,
-                feature_by_pheno,
-                basis_name="genes",
-            )
-
-            
-        if keep_original_loadings:
-            full_pheno_factor_values[state.pheno_in_discovery_mask,:] = state.exp_pheno_factors
-        state.pheno_capture_input = pheno_capture_input
-    elif run_legacy_pheno_capture and state.exp_pheno_factors is not None:
-        state.pheno_capture_basis = "native"
-        if state.X_phewas_beta_uncorrected is not None:
-            feature_by_pheno = state.X_phewas_beta_uncorrected.T
-            if not run_transpose:
-                feature_by_pheno = feature_by_pheno.T
-            feature_by_pheno = _prepare_pheno_capture_input_matrix(feature_by_pheno, pheno_capture_input)
-            state.pheno_capture_strength = eaggl_phenotype_annotation.compute_profile_strengths(feature_by_pheno)
-            state.pheno_capture_input = pheno_capture_input
-        else:
-            state.pheno_capture_strength = np.sum(np.asarray(state.exp_pheno_factors, dtype=float), axis=1)
 
     #now gene set factor values, projecting from either phenos or genes depending on what was used
     if factor_gene_set_x_pheno and pheno_matrix_to_project is not None:

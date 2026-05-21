@@ -171,7 +171,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `-` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
-| `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable simplified trait linkage even when trait inputs are available |
+| `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable canonical trait linkage even when trait inputs are available |
 | `--no-transpose` | `expert` | `yes` | `expert_help` | `no_transpose` | `-` | - |
 | `--num-chains` | `expert` | `yes` | `expert_help` | `num_chains` | `10` | - |
 | `--num-chains-betas` | `expert` | `yes` | `expert_help` | `num_chains_betas` | `4` | - |
@@ -195,7 +195,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--phi-selection-size-log2-width` | `expert` | `yes` | `expert_help` | `phi_selection_size_log2_width` | `1.0` | - |
 | `--phi-selection-target-factor-gene-mass` | `expert` | `yes` | `expert_help` | `phi_selection_target_factor_gene_mass` | `100.0` | - |
 | `--phi-selection-tie-tolerance` | `expert` | `yes` | `expert_help` | `phi_selection_tie_tolerance` | `0.01` | - |
-| `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project simplified trait linkage from the gene-set basis instead of the gene basis |
+| `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project fixed-W trait linkage from the gene-set basis instead of the gene basis |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
@@ -210,9 +210,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--trait-factor-linkage-nnls-max-value` | `expert` | `yes` | `expert_help` | `trait_factor_linkage_nnls_max_value` | `1.0` | cap fixed-W phenotype projection loadings after projection; default 1.0 matches bounded projection outputs |
 | `--trait-factor-linkage-nnls-min-loading` | `expert` | `yes` | `expert_help` | `trait_factor_linkage_nnls_min_loading` | `0.0` | zero fixed-W phenotype projection loadings below this threshold after projection |
 | `--trait-factor-links-output-detail` | `normal` | `yes` | `core_help` | `trait_factor_links_output_detail` | `main` | choose trait-factor linkage output detail level: main for concise coefficient columns, full for retained-support diagnostics, debug for full plus future debug additions |
-| `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the simplified trait-linkage computation backend: sparse_full is default; dense_full is retained as a debug comparison backend |
+| `--trait-linkage-computation-mode` | `expert` | `yes` | `advanced_workflows` | `trait_linkage_computation_mode` | `sparse_full` | choose the fixed-W trait-linkage computation backend: sparse_full preserves sparse implicit zeros, dense_full densifies before probability conversion |
 | `--trait-linkage-source` | `normal` | `yes` | `core_help` | `trait_linkage_source` | `combined` | choose the response surface for trait linkage; combined/log_bf are converted from log Bayes factors to probabilities, prior is used as probability |
-| `--trait-linkage-threshold` | `normal` | `yes` | `core_help` | `trait_linkage_threshold` | `1.0` | strict support threshold applied to the selected trait-linkage source surface (source value must exceed this threshold) |
+| `--trait-linkage-threshold` | `normal` | `yes` | `core_help` | `trait_linkage_threshold` | `1.0` | legacy compatibility option ignored by canonical fixed-W phenotype projection |
 | `--update-hyper` | `expert` | `yes` | `expert_help` | `update_hyper` | `None` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |

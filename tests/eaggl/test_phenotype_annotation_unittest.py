@@ -18,7 +18,6 @@ if str(SRC_ROOT) not in sys.path:
 
 from eaggl import phenotype_annotation as eaggl_phenotype_annotation  # noqa: E402
 from eaggl import phewas as eaggl_phewas  # noqa: E402
-from eaggl import factor_runtime as eaggl_factor_runtime  # noqa: E402
 from eaggl import state as eaggl_state  # noqa: E402
 from eaggl import trait_linkage as eaggl_trait_linkage  # noqa: E402
 from pegs_shared import output_tables as pegs_output_tables  # noqa: E402
@@ -47,29 +46,6 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         self.assertTrue(np.all(np.sum(first, axis=1) <= 1.0000001))
         self.assertTrue(np.all(capped <= 0.2500001))
 
-    def test_compositional_projection_separates_strength_from_capture_shape(self) -> None:
-        basis = np.array(
-            [
-                [1.0, 0.0],
-                [0.0, 1.0],
-            ]
-        )
-        feature_by_pheno = np.array(
-            [
-                [8.0, 16.0],
-                [2.0, 4.0],
-            ]
-        )
-        capture, strengths = eaggl_phenotype_annotation.project_phenotype_capture(
-            lambda W, X_new, max_sum=None: np.asarray(X_new, dtype=float),
-            basis,
-            feature_by_pheno,
-            max_sum=1.0,
-        )
-        np.testing.assert_allclose(capture[0], capture[1])
-        np.testing.assert_allclose(capture[0], np.array([0.8, 0.2]))
-        np.testing.assert_allclose(strengths, np.array([10.0, 20.0]))
-
     def test_rank_top_capture_indices_uses_strength_as_tiebreak_only(self) -> None:
         capture = np.array(
             [
@@ -82,97 +58,6 @@ class PhenotypeAnnotationTest(unittest.TestCase):
         ranked = eaggl_phenotype_annotation.rank_top_capture_indices(capture, strengths, num_top=2)
         np.testing.assert_array_equal(ranked[:, 0], np.array([1, 0]))
         np.testing.assert_array_equal(ranked[:, 1], np.array([1, 2]))
-
-    def test_align_projection_inputs_keeps_pre_filtered_basis(self) -> None:
-        basis = np.array(
-            [
-                [1.0, 0.0],
-                [0.0, 1.0],
-            ]
-        )
-        feature_by_pheno = np.array(
-            [
-                [10.0, 1.0],
-                [20.0, 2.0],
-                [30.0, 3.0],
-                [40.0, 4.0],
-            ]
-        )
-        mask = np.array([True, False, True, False])
-        aligned_basis, aligned_feature = eaggl_factor_runtime._align_projection_inputs_to_mask(
-            basis,
-            feature_by_pheno,
-            mask,
-        )
-        np.testing.assert_array_equal(aligned_basis, basis)
-        np.testing.assert_array_equal(aligned_feature, feature_by_pheno[mask, :])
-
-    def test_align_projection_inputs_subsets_full_basis_when_needed(self) -> None:
-        basis = np.array(
-            [
-                [1.0, 0.0],
-                [5.0, 5.0],
-                [0.0, 1.0],
-                [6.0, 6.0],
-            ]
-        )
-        feature_by_pheno = np.array(
-            [
-                [10.0, 1.0],
-                [20.0, 2.0],
-                [30.0, 3.0],
-                [40.0, 4.0],
-            ]
-        )
-        mask = np.array([True, False, True, False])
-        aligned_basis, aligned_feature = eaggl_factor_runtime._align_projection_inputs_to_mask(
-            basis,
-            feature_by_pheno,
-            mask,
-        )
-        np.testing.assert_array_equal(aligned_basis, basis[mask, :])
-        np.testing.assert_array_equal(aligned_feature, feature_by_pheno[mask, :])
-
-    def test_prepare_thresholded_profile_input_supports_weighted_and_binary_modes(self) -> None:
-        feature_by_pheno = np.array(
-            [
-                [2.5, 0.0],
-                [0.0, 1.1],
-                [3.0, 0.0],
-            ]
-        )
-        weighted = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
-            feature_by_pheno,
-            "weighted_thresholded",
-        )
-        binary = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
-            feature_by_pheno,
-            "binary_thresholded",
-        )
-        np.testing.assert_array_equal(weighted, feature_by_pheno)
-        np.testing.assert_array_equal(binary, np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 0.0]]))
-
-    def test_prepare_thresholded_profile_input_applies_strict_threshold(self) -> None:
-        feature_by_pheno = np.array(
-            [
-                [1.0, 0.99],
-                [1.01, 2.0],
-            ]
-        )
-        weighted = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
-            feature_by_pheno,
-            "weighted_thresholded",
-            threshold_value=1.0,
-            strict_threshold=True,
-        )
-        binary = eaggl_phenotype_annotation.prepare_thresholded_profile_input(
-            feature_by_pheno,
-            "binary_thresholded",
-            threshold_value=1.0,
-            strict_threshold=True,
-        )
-        np.testing.assert_array_equal(weighted, np.array([[0.0, 0.0], [1.01, 2.0]]))
-        np.testing.assert_array_equal(binary, np.array([[0.0, 0.0], [1.0, 1.0]]))
 
     def test_trait_linkage_source_auto_prefers_combined_then_log_bf_then_prior(self) -> None:
         selected, label = eaggl_trait_linkage.resolve_trait_linkage_source(

@@ -184,22 +184,22 @@ Notes:
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
 | `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in` |
 | `--run-factor-phewas` | compute factor-level phenotype enrichment regression from `--gene-phewas-stats-in` |
-| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only simplified trait linkage, factor-PheWAS, or both without refitting factors |
-| `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only simplified trait linkage from the gene-set basis |
+| `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only fixed-W trait linkage, factor-PheWAS, or both without refitting factors |
+| `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only fixed-W trait linkage from the gene-set basis |
 | `--factor-phewas-gene-clusters-in` | compatibility alias for the older factor-PheWAS-only projection command |
-| `--project-phenos-from-gene-sets` | compute simplified trait linkage on the gene-set basis instead of the gene basis |
+| `--project-phenos-from-gene-sets` | compute fixed-W trait linkage on the gene-set basis instead of the gene basis |
 | `--pheno-capture-input` | legacy compatibility option; canonical fixed-W phenotype projection ignores threshold mode |
 | `--trait-factor-links-out` | write the simplified long-form trait-factor linkage table |
 | `--trait-linkage-source` | choose the support surface for trait linkage; `combined`/`log_bf` are converted from log Bayes factors to probabilities, `prior` is used as probability |
 | `--trait-linkage-threshold` | legacy compatibility option; canonical fixed-W phenotype projection does not threshold the probability surface |
 | `--trait-linkage-computation-mode` | choose the linkage computation backend: `sparse_full` by default, or `dense_full` as a debug comparison backend |
 | `--trait-factor-links-output-detail` | accepted for command compatibility; simplified linkage writes one concise schema |
-| `--no-trait-linkage` | disable simplified trait linkage even when trait inputs are available |
+| `--no-trait-linkage` | disable canonical trait linkage even when trait inputs are available |
 | `--factor-phewas-modes` | expert override: run multiple factor-PheWAS model surfaces in one pass and append them into one output table |
 | `--factor-phewas-full-output` | expose the full expert factor-PheWAS surface, including combined and Huber variants |
 
 Operational notes:
-- simplified trait linkage writes one long table with one row per `(trait, factor)`
+- fixed-W trait linkage writes one long table with one row per `(trait, factor)`
 - `nnls_loading` is the fixed-W projection loading of the probability-transformed trait support vector onto the factor-loading basis
 - `beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, and `p_value` treat each EAGGL factor as a weighted gene set after applying `--trait-factor-linkage-factor-gene-threshold`
 - use `--factor-gmt-out` to export those thresholded weighted factors for manual PIGEAN `multi-y` runs
