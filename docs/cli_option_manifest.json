@@ -5112,7 +5112,7 @@
       "source_line": 458,
       "summary": "run the current pigean pipeline once per trait from a long-form multi-Y table and append trait-labeled outputs",
       "type": null,
-      "usage_references": 75
+      "usage_references": 78
     },
     {
       "action": null,

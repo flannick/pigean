@@ -136,6 +136,8 @@ Status: deprecated expert compatibility path. Keep this only for reproducing leg
 
 Purpose: Produce legacy gene-level PheWAS summary output from precomputed gene-by-phenotype statistics.
 
+How it differs from `--multi-y-in`: this stage uses the PIGEAN gene-level results from the current run as predictors and regresses each phenotype's gene-level support surface against them. It reports phenotype-level regression summaries such as `log_bf_vs_log_bf` and `combined_vs_combined`. Native `--multi-y-in` instead treats each trait as a separate response surface and runs the PIGEAN beta workflow over the supplied gene-set matrix, producing trait-labelled gene-set beta, beta-tilde, SE, and p-value outputs.
+
 Required inputs:
 - Main mode run that computes input features (commonly `beta_tildes` or later modes)
 - `--run-phewas`
