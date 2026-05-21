@@ -200,7 +200,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
 | `--run-factor-phewas` | `expert` | `yes` | `advanced_workflows` | `run_factor_phewas` | `False` | run the optional factor-level phewas stage |
-| `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | run the optional gene-level phewas output stage |
+| `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | deprecated expert: run the legacy gene-level PheWAS output stage |
 | `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
@@ -319,7 +319,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--positive-controls-all-in` | `expert` | `yes` | `expert_help` | `positive_controls_all_in` | `None` | compatibility alias for standalone EAGGL gene-list background handling |
 | `--positive-controls-in` | `expert` | `yes` | `expert_help` | `positive_controls_in` | `None` | compatibility alias for --gene-list-in |
 | `--positive-controls-list` | `expert` | `yes` | `expert_help` | `positive_controls_list` | `None` | compatibility alias for --gene-list |
-| `--run-phewas-from-gene-phewas-stats-in` | `hidden` | `yes` | `internal_only` | `run_phewas_legacy_input` | `None` | compatibility alias for --run-phewas plus --gene-phewas-stats-in |
+| `--run-phewas-from-gene-phewas-stats-in` | `hidden` | `yes` | `internal_only` | `run_phewas_legacy_input` | `None` | deprecated hidden compatibility alias for --run-phewas plus --gene-phewas-stats-in |
 
 ## Debug Only
 

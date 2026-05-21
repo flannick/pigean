@@ -130,9 +130,11 @@ Primary outputs:
 Notes:
 - Use `--deterministic` (or fixed `--seed`) for cache-vs-raw parity checks.
 
-## 4) Optional gene-level PheWAS output (`--run-phewas`)
+## 4) Deprecated expert gene-level PheWAS output (`--run-phewas`)
 
-Purpose: Produce gene-level PheWAS summary output from precomputed gene-by-phenotype statistics.
+Status: deprecated expert compatibility path. Keep this only for reproducing legacy gene-level PheWAS summary tables such as `log_bf_vs_log_bf` and `combined_vs_combined`. Prefer native `--multi-y-in` for trait-wise PIGEAN beta workflows and EAGGL trait-linkage outputs for factor-to-trait summaries.
+
+Purpose: Produce legacy gene-level PheWAS summary output from precomputed gene-by-phenotype statistics.
 
 Required inputs:
 - Main mode run that computes input features (commonly `beta_tildes` or later modes)

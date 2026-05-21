@@ -182,7 +182,7 @@ Notes:
 |---|---|
 | `--gene-phewas-stats-in` | load gene-by-phenotype statistics |
 | `--gene-set-phewas-stats-in` | load gene-set-by-phenotype statistics |
-| `--run-phewas` | run a gene-level PheWAS stage from `--gene-phewas-stats-in` |
+| `--run-phewas` | deprecated expert compatibility: run a legacy gene-level PheWAS stage from `--gene-phewas-stats-in` |
 | `--run-factor-phewas` | compute factor-level phenotype enrichment regression from `--gene-phewas-stats-in` |
 | `--factor-gene-clusters-in` | load an existing `gene_clusters.out(.gz)` factor loading table and run projection-only fixed-W trait linkage, factor-PheWAS, or both without refitting factors |
 | `--factor-gene-set-clusters-in` | load an existing `gene_set_clusters.out(.gz)` factor loading table for projection-only fixed-W trait linkage from the gene-set basis |

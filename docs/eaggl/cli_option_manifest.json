@@ -5677,9 +5677,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 207,
-      "summary": "run the optional gene-level phewas output stage",
+      "summary": "deprecated expert: run the legacy gene-level PheWAS output stage",
       "type": null,
-      "usage_references": 151
+      "usage_references": 152
     },
     {
       "action": null,
@@ -5698,7 +5698,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 208,
-      "summary": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
+      "summary": "deprecated hidden compatibility alias for --run-phewas plus --gene-phewas-stats-in",
       "type": null,
       "usage_references": 51
     },

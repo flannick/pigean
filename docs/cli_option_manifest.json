@@ -5112,7 +5112,7 @@
       "source_line": 458,
       "summary": "run the current pigean pipeline once per trait from a long-form multi-Y table and append trait-labeled outputs",
       "type": null,
-      "usage_references": 73
+      "usage_references": 75
     },
     {
       "action": null,
@@ -5845,7 +5845,7 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 295,
-      "summary": "choose gene-level phewas output surface: matched or diagnostic",
+      "summary": "deprecated expert gene-level PheWAS output surface: matched or diagnostic",
       "type": null,
       "usage_references": 32
     },
@@ -5887,7 +5887,7 @@
       "replacement": null,
       "scientific_semantic_impact": "no",
       "source_line": 284,
-      "summary": "write optional advanced gene-level phewas output table",
+      "summary": "write deprecated expert gene-level PheWAS output table",
       "type": null,
       "usage_references": 44
     },
@@ -6349,9 +6349,9 @@
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 293,
-      "summary": "run the optional gene-level phewas output stage",
+      "summary": "deprecated expert: run the legacy gene-level PheWAS output stage",
       "type": null,
-      "usage_references": 151
+      "usage_references": 152
     },
     {
       "action": null,
@@ -6370,7 +6370,7 @@
       "replacement": null,
       "scientific_semantic_impact": "no",
       "source_line": 294,
-      "summary": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
+      "summary": "deprecated hidden compatibility alias for --run-phewas plus --gene-phewas-stats-in",
       "type": null,
       "usage_references": 51
     },

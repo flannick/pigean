@@ -203,8 +203,8 @@ parser.add_option("","--factor-phewas-stats-out",default=None)
 #for pheno factoring
 parser.add_option("","--gene-pheno-stats-out",default=None)
 
-#run a phewas against the gene scores
-parser.add_option("","--run-phewas",action="store_true",default=False) #run the optional gene-level phewas output stage
+#deprecated expert gene-level PheWAS output compatibility stage
+parser.add_option("","--run-phewas",action="store_true",default=False) #deprecated expert: run the legacy gene-level PheWAS output stage
 parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_legacy_input",default=None) #compatibility alias: implies --run-phewas and sets the stage-specific gene phewas input
 
 #apply a multivariate regression post-hoc between the factors and many traits. The output is a separate file with p-values
@@ -608,8 +608,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-gmt-out": "write thresholded EAGGL factors as a GMT-like gene-set file for external PIGEAN multi-Y runs",
     "--no-trait-linkage": "disable canonical trait linkage even when trait inputs are available",
     "--clustering-params-out": "write structured clustering workflow provenance as paired JSON and TSV summaries",
-    "--run-phewas": "run the optional gene-level phewas output stage",
-    "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
+    "--run-phewas": "deprecated expert: run the legacy gene-level PheWAS output stage",
+    "--run-phewas-from-gene-phewas-stats-in": "deprecated hidden compatibility alias for --run-phewas plus --gene-phewas-stats-in",
     "--seed": "set explicit random seed for deterministic reproducibility checks",
     "--warnings-file": "write warning messages to this file",
 }

@@ -182,7 +182,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--p-noninf-inflate` | `expert` | `yes` | `expert_help` | `p_noninf_inflate` | `1.0` | - |
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
 | `--phantom-region-posterior` | `expert` | `yes` | `expert_help` | `phantom_region_posterior` | `False` | - |
-| `--phewas-comparison-set` | `expert` | `yes` | `advanced_workflows` | `phewas_comparison_set` | `matched` | choose gene-level phewas output surface: matched or diagnostic |
+| `--phewas-comparison-set` | `expert` | `yes` | `advanced_workflows` | `phewas_comparison_set` | `matched` | deprecated expert gene-level PheWAS output surface: matched or diagnostic |
 | `--pigean-params-in` | `expert` | `yes` | `expert_help` | `pigean_params_in` | `None` | replay beta-stage hyperparameters and settings from a previous PIGEAN params.out file |
 | `--pigean-rerun-bundle-in` | `expert` | `yes` | `expert_help` | `pigean_rerun_bundle_in` | `None` | load bundled fixed-Y PIGEAN inputs and beta-stage defaults for betas-mode reruns |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
@@ -190,7 +190,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--r-threshold-burn-in` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in` | `1.1` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
 | `--retain-all-beta-uncorrected` | `expert` | `yes` | `advanced_workflows` | `retain_all_beta_uncorrected` | `False` | for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap |
-| `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | run the optional gene-level phewas output stage |
+| `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | deprecated expert: run the legacy gene-level PheWAS output stage |
 | `--s2g-normalize-values` | `expert` | `yes` | `expert_help` | `s2g_normalize_values` | `None` | - |
 | `--scale-region-posterior` | `expert` | `yes` | `expert_help` | `scale_region_posterior` | `False` | - |
 | `--sigma-num-devs-to-top` | `expert` | `yes` | `expert_help` | `sigma_num_devs_to_top` | `2.0` | - |
@@ -347,7 +347,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--output-detail` | `normal` | `no` | `core_help` | `output_detail` | `main` | choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions |
 | `--params-out` | `normal` | `no` | `core_help` | `params_out` | `None` | write learned hyperparameters and runtime settings |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
-| `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | write optional advanced gene-level phewas output table |
+| `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | write deprecated expert gene-level PheWAS output table |
 | `--pigean-rerun-bundle-out` | `expert` | `no` | `expert_help` | `pigean_rerun_bundle_out` | `None` | write bundled fixed-Y PIGEAN inputs for later beta-only annotation-exclusion reruns |
 | `--pre-filter-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_batch_size` | `None` | - |
 | `--pre-filter-small-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_small_batch_size` | `500` | - |
@@ -388,7 +388,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--positive-controls-list` | `expert` | `no` | `expert_help` | `positive_controls_list` | `None` | compatibility alias for --gene-list |
 | `--positive-controls-no-header` | `expert` | `no` | `expert_help` | `positive_controls_has_header` | `True` | compatibility alias for --gene-list-no-header |
 | `--positive-controls-prob-col` | `expert` | `no` | `expert_help` | `positive_controls_prob_col` | `None` | compatibility alias for --gene-list-prob-col |
-| `--run-phewas-from-gene-phewas-stats-in` | `hidden` | `no` | `internal_only` | `run_phewas_legacy_input` | `None` | compatibility alias for --run-phewas plus --gene-phewas-stats-in |
+| `--run-phewas-from-gene-phewas-stats-in` | `hidden` | `no` | `internal_only` | `run_phewas_legacy_input` | `None` | deprecated hidden compatibility alias for --run-phewas plus --gene-phewas-stats-in |
 | `--track-filtered-beta-uncorrected` | `hidden` | `no` | `internal_only` | `track_filtered_beta_uncorrected` | `None` | compatibility alias for --track-filtered-beta-uncorrected-mode all |
 
 ## Debug Only

@@ -289,10 +289,10 @@ parser.add_option("","--pigean-params-in",default=None) #replay beta-stage param
 parser.add_option("","--output-detail",default="main") #column detail level for gene/gene-set outputs: main, full, or debug
 
 
-#run a phewas against the gene scores
-parser.add_option("","--run-phewas",action="store_true",default=False) #run the optional gene-level phewas output stage
+#deprecated expert gene-level PheWAS output compatibility stage
+parser.add_option("","--run-phewas",action="store_true",default=False) #deprecated expert: run the legacy gene-level PheWAS output stage
 parser.add_option("","--run-phewas-from-gene-phewas-stats-in",dest="run_phewas_legacy_input",default=None) #compatibility alias: implies --run-phewas and sets the stage-specific gene phewas input
-parser.add_option("","--phewas-comparison-set",default="matched") #matched keeps only direct-vs-direct and combined-vs-combined; diagnostic adds cross-family contrasts
+parser.add_option("","--phewas-comparison-set",default="matched") #deprecated expert gene-level PheWAS only: matched keeps direct-vs-direct and combined-vs-combined; diagnostic adds cross-family contrasts
 
 #limit gene sets printed
 parser.add_option("","--max-no-write-gene-set-beta",type=float,default=None) #do not write gene sets to gene-set-stats-out that have absolute beta values of this or lower
@@ -619,10 +619,10 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-set-exclude-id-col": "ID column for --gene-set-exclude-in; default reads the first column",
     "--gene-set-exclude-no-header": "declare that --gene-set-exclude-in has no header row",
     "--gene-set-exclude-has-header": "declare that --gene-set-exclude-in has a header row",
-    "--run-phewas": "run the optional gene-level phewas output stage",
-    "--run-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-phewas plus --gene-phewas-stats-in",
-    "--phewas-comparison-set": "choose gene-level phewas output surface: matched or diagnostic",
-    "--phewas-stats-out": "write optional advanced gene-level phewas output table",
+    "--run-phewas": "deprecated expert: run the legacy gene-level PheWAS output stage",
+    "--run-phewas-from-gene-phewas-stats-in": "deprecated hidden compatibility alias for --run-phewas plus --gene-phewas-stats-in",
+    "--phewas-comparison-set": "deprecated expert gene-level PheWAS output surface: matched or diagnostic",
+    "--phewas-stats-out": "write deprecated expert gene-level PheWAS output table",
     "--gene-phewas-bfs-in": "input gene-phewas BFS table for advanced phewas workflows",
     "--gene-phewas-stats-in": "input gene-phewas statistics table for advanced phewas workflows",
     "--gene-phewas-bfs-id-col": "gene ID column for advanced gene-phewas input",
