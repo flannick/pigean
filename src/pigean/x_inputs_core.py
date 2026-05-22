@@ -467,15 +467,19 @@ def finalize_batch_hyper_vectors(runtime_state, first_for_hyper):
         dtype=float,
     )
 
-    assert len(runtime_state.ps) > 0 and not np.isnan(runtime_state.ps[0])
-    assert len(runtime_state.sigma2s) > 0 and not np.isnan(runtime_state.sigma2s[0])
+    finite_p = np.isfinite(runtime_state.ps)
+    finite_sigma2 = np.isfinite(runtime_state.sigma2s)
+    assert len(runtime_state.ps) > 0 and np.any(finite_p)
+    assert len(runtime_state.sigma2s) > 0 and np.any(finite_sigma2)
 
     if first_for_hyper:
-        runtime_state.ps[np.isnan(runtime_state.ps)] = runtime_state.ps[0]
-        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = runtime_state.sigma2s[0]
+        first_p = runtime_state.ps[np.where(finite_p)[0][0]]
+        first_sigma2 = runtime_state.sigma2s[np.where(finite_sigma2)[0][0]]
+        runtime_state.ps[np.isnan(runtime_state.ps)] = first_p
+        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = first_sigma2
     else:
-        runtime_state.ps[np.isnan(runtime_state.ps)] = np.mean(runtime_state.ps[~np.isnan(runtime_state.ps)])
-        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = np.mean(runtime_state.sigma2s[~np.isnan(runtime_state.sigma2s)])
+        runtime_state.ps[np.isnan(runtime_state.ps)] = np.mean(runtime_state.ps[finite_p])
+        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = np.mean(runtime_state.sigma2s[finite_sigma2])
 
     runtime_state.set_p(np.mean(runtime_state.ps))
     runtime_state.set_sigma(np.mean(runtime_state.sigma2s), runtime_state.sigma_power)

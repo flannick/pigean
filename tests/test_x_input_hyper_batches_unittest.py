@@ -8,6 +8,30 @@ from pigean import x_inputs_core as pigean_x_inputs_core
 
 
 class XInputHyperBatchTest(unittest.TestCase):
+    def test_finalize_batch_hyper_vectors_handles_skipped_initial_batches(self) -> None:
+        class _Runtime:
+            def __init__(self) -> None:
+                self.ps = [None, 0.02, None, 0.04]
+                self.sigma2s = [None, 2e-6, None, 4e-6]
+                self.p = None
+                self.sigma2 = None
+                self.sigma_power = 0.0
+
+            def set_p(self, value):
+                self.p = value
+
+            def set_sigma(self, value, sigma_power):
+                self.sigma2 = value
+                self.sigma_power = sigma_power
+
+        runtime = _Runtime()
+        pigean_x_inputs_core.finalize_batch_hyper_vectors(runtime, first_for_hyper=True)
+
+        self.assertTrue(np.allclose(runtime.ps, [0.02, 0.02, 0.02, 0.04]))
+        self.assertTrue(np.allclose(runtime.sigma2s, [2e-6, 2e-6, 2e-6, 4e-6]))
+        self.assertAlmostEqual(runtime.p, 0.025)
+        self.assertAlmostEqual(runtime.sigma2, 2.5e-6)
+
     def test_max_num_gene_sets_hyper_limits_learning_subset_to_requested_cap(self) -> None:
         class _Runtime:
             def __init__(self) -> None:
@@ -55,6 +79,7 @@ class XInputHyperBatchTest(unittest.TestCase):
                 num_ignored_gene_sets=[0],
                 first_for_hyper=False,
                 max_num_gene_sets_hyper=20,
+                update_hyper_min_gene_sets=1,
                 first_for_sigma_cond=False,
                 fixed_sigma_cond=False,
                 first_max_p_for_hyper=False,
@@ -72,6 +97,7 @@ class XInputHyperBatchTest(unittest.TestCase):
                 sparse_frac_betas=0.0,
                 betas_trace_out=None,
                 log_fn=lambda *_args, **_kwargs: None,
+                warn_fn=lambda *_args, **_kwargs: None,
                 debug_level=1,
             )
         finally:

@@ -1898,6 +1898,10 @@ def _build_factor_param_record(
     trait_linkage_source,
     trait_linkage_threshold,
     trait_linkage_computation_mode,
+    trait_factor_linkage_factor_gene_threshold,
+    trait_factor_linkage_nnls_min_loading,
+    trait_factor_linkage_nnls_max_value,
+    factor_gmt_out,
     no_trait_linkage,
 ):
     anchor_gene_mask_present, anchor_gene_mask_total, anchor_gene_mask_selected = _summarize_mask(anchor_gene_mask)
@@ -2021,6 +2025,10 @@ def _build_factor_param_record(
         "trait_linkage_source": trait_linkage_source,
         "trait_linkage_threshold": float(trait_linkage_threshold),
         "trait_linkage_computation_mode": trait_linkage_computation_mode,
+        "trait_factor_linkage_factor_gene_threshold": float(trait_factor_linkage_factor_gene_threshold),
+        "trait_factor_linkage_nnls_min_loading": float(trait_factor_linkage_nnls_min_loading),
+        "trait_factor_linkage_nnls_max_value": float(trait_factor_linkage_nnls_max_value),
+        "factor_gmt_out": factor_gmt_out,
         "no_trait_linkage": bool(no_trait_linkage),
     }
 

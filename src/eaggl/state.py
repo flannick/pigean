@@ -7188,15 +7188,17 @@ def _apply_learned_batch_hyper_values(
 
 
 def _finalize_batch_hyper_vectors(runtime_state, first_for_hyper):
-    assert(len(runtime_state.ps) > 0 and not np.isnan(runtime_state.ps[0]))
-    assert(len(runtime_state.sigma2s) > 0 and not np.isnan(runtime_state.sigma2s[0]))
+    finite_p = np.isfinite(runtime_state.ps)
+    finite_sigma2 = np.isfinite(runtime_state.sigma2s)
+    assert(len(runtime_state.ps) > 0 and np.any(finite_p))
+    assert(len(runtime_state.sigma2s) > 0 and np.any(finite_sigma2))
 
     if first_for_hyper:
-        runtime_state.ps[np.isnan(runtime_state.ps)] = runtime_state.ps[0]
-        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = runtime_state.sigma2s[0]
+        runtime_state.ps[np.isnan(runtime_state.ps)] = runtime_state.ps[np.where(finite_p)[0][0]]
+        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = runtime_state.sigma2s[np.where(finite_sigma2)[0][0]]
     else:
-        runtime_state.ps[np.isnan(runtime_state.ps)] = np.mean(runtime_state.ps[~np.isnan(runtime_state.ps)])
-        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = np.mean(runtime_state.sigma2s[~np.isnan(runtime_state.sigma2s)])
+        runtime_state.ps[np.isnan(runtime_state.ps)] = np.mean(runtime_state.ps[finite_p])
+        runtime_state.sigma2s[np.isnan(runtime_state.sigma2s)] = np.mean(runtime_state.sigma2s[finite_sigma2])
 
     runtime_state.set_p(np.mean(runtime_state.ps))
     runtime_state.set_sigma(np.mean(runtime_state.sigma2s), runtime_state.sigma_power)
@@ -7211,6 +7213,7 @@ def _maybe_learn_batch_hyper_after_x_read(
     num_ignored_gene_sets,
     first_for_hyper,
     max_num_gene_sets_hyper,
+    update_hyper_min_gene_sets,
     first_for_sigma_cond,
     fixed_sigma_cond,
     first_max_p_for_hyper,
