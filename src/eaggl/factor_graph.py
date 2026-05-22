@@ -85,6 +85,7 @@ class GraphConfig:
     colors_red_blue: bool = False
     color_by: str = "auto"
     multi_anchor: bool = False
+    anchor_trait_names: tuple[str, ...] = ()
     seed: int = 0
 
 
@@ -981,6 +982,7 @@ def build_graph(
     candidate_genes: list[EntityInfo] | None = None,
     candidate_traits: list[EntityInfo] | None = None,
     factor_trait_details: dict[str, list[dict[str, object]]] | None = None,
+    factor_trait_color_details: dict[str, list[dict[str, object]]] | None = None,
     top_gene_loadings_by_factor: dict[str, list[dict[str, object]]] | None = None,
     top_gene_set_loadings_by_factor: dict[str, list[dict[str, object]]] | None = None,
 ) -> dict:
@@ -988,6 +990,7 @@ def build_graph(
     factor_to_label = {factor.factor: factor.label for factor in factors_info}
     max_relevance = max([factor.relevance for factor in factors_info] + [1.0])
     factor_trait_details = factor_trait_details or {}
+    factor_trait_color_details = factor_trait_color_details or factor_trait_details
     top_gene_loadings_by_factor = top_gene_loadings_by_factor or {}
     top_gene_set_loadings_by_factor = top_gene_set_loadings_by_factor or {}
     entities = genes + traits
@@ -998,13 +1001,14 @@ def build_graph(
     if color_by not in {"auto", "factor", "trait"}:
         _bail("--color-by must be one of: auto, factor, trait")
     detail_anchor_names: list[str] = []
-    for rows in factor_trait_details.values():
+    for rows in factor_trait_color_details.values():
         for row in rows:
             is_anchor = str(row.get("is_anchor", "")).strip().lower() in {"1", "true", "yes"}
             anchor = str(row.get("anchor", ""))
             if is_anchor and anchor and anchor not in detail_anchor_names:
                 detail_anchor_names.append(anchor)
-    anchor_names_for_coloring = detail_anchor_names or [trait.entity_id for trait in traits]
+    configured_anchor_names = list(config.anchor_trait_names)
+    anchor_names_for_coloring = configured_anchor_names or detail_anchor_names or [trait.entity_id for trait in traits]
     use_trait_weight_colors = bool(anchor_names_for_coloring and (color_by == "trait" or (color_by == "auto" and config.multi_anchor)))
     colors = generate_distinct_colors(len(factors), start_with_red_blue=config.colors_red_blue)
     trait_colors_by_id: dict[str, tuple[float, float, float]] = {}
@@ -1013,9 +1017,9 @@ def build_graph(
         trait_colors_by_id = {anchor: trait_colors[i] for i, anchor in enumerate(anchor_names_for_coloring)}
         colors = []
         for factor in factors:
-            raw_by_anchor = {str(row.get("anchor", "")): float(row.get("joint_fraction", row.get("joint_coefficient", 0.0)) or 0.0) for row in factor_trait_details.get(factor, [])}
+            raw_by_anchor = {str(row.get("anchor", "")): float(row.get("joint_fraction", row.get("joint_coefficient", 0.0)) or 0.0) for row in factor_trait_color_details.get(factor, [])}
             factor_trait_weights = [raw_by_anchor.get(anchor, 0.0) for anchor in anchor_names_for_coloring]
-            if not any(weight > 0 for weight in factor_trait_weights):
+            if not any(weight > 0 for weight in factor_trait_weights) and not configured_anchor_names:
                 factor_trait_weights = [trait.loadings.get(factor, 0.0) for trait in traits]
             colors.append(blend_colors(trait_colors, factor_trait_weights, opacity=1.0))
     elif entity_matrix.size:
@@ -1202,7 +1206,8 @@ def build_graph(
             "resolved_color_by": "trait" if use_trait_weight_colors else "factor",
             "multi_anchor": bool(config.multi_anchor),
             "trait_count_for_coloring": int(len(anchor_names_for_coloring) if use_trait_weight_colors else 0),
-            "trait_color_weight_source": "trait_factor_links_unfiltered" if use_trait_weight_colors and factor_trait_details else "visible_trait_nodes",
+            "anchor_traits_for_coloring": list(anchor_names_for_coloring) if use_trait_weight_colors else [],
+            "trait_color_weight_source": "params_anchor_trait_names" if use_trait_weight_colors and configured_anchor_names else ("trait_factor_links_unfiltered" if use_trait_weight_colors and factor_trait_color_details else "visible_trait_nodes"),
         },
         "factors": factors,
         "factor_labels": [factor_to_label[factor] for factor in factors],
@@ -2119,6 +2124,13 @@ def _params_indicate_multi_anchor(params: dict[str, str]) -> bool:
     return False
 
 
+def _anchor_trait_names_from_params(params: dict[str, str]) -> tuple[str, ...]:
+    names = params.get("anchor_trait_names", "")
+    if not names:
+        return ()
+    return tuple(value.strip() for value in names.split(",") if value.strip())
+
+
 def _limit_factor_nodes(factors_info: list[FactorInfo], max_num_factor_nodes: int | None) -> list[FactorInfo]:
     if max_num_factor_nodes is None or max_num_factor_nodes <= 0 or len(factors_info) <= max_num_factor_nodes:
         return factors_info
@@ -2195,6 +2207,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         colors_red_blue=args.colors_red_blue,
         color_by=args.color_by,
         multi_anchor=_params_indicate_multi_anchor(params),
+        anchor_trait_names=_anchor_trait_names_from_params(params),
         seed=args.seed,
     )
     genes: list[EntityInfo] = []
@@ -2261,6 +2274,16 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         min_nnls=config.trait_factor_min_nnls,
         rank_field=config.trait_factor_rank_field,
     )
+    factor_trait_color_details = read_factor_trait_details(
+        trait_links_in,
+        factors,
+        enrichment_path=config.factor_trait_enrichments_in,
+        max_num_per_factor=-1,
+        min_beta=0.0,
+        min_beta_uncorrected=0.0,
+        min_nnls=0.0,
+        rank_field=config.trait_factor_rank_field,
+    )
     top_gene_loadings = _top_loadings_by_factor(candidate_genes or genes, factors, top_n=5)
     top_gene_set_loadings = _top_loadings_by_factor(gene_set_candidates, factors, top_n=5)
     return build_graph(
@@ -2270,6 +2293,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         config,
         candidate_genes=candidate_genes,
         factor_trait_details=factor_trait_details,
+        factor_trait_color_details=factor_trait_color_details,
         top_gene_loadings_by_factor=top_gene_loadings,
         top_gene_set_loadings_by_factor=top_gene_set_loadings,
     )

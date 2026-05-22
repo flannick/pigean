@@ -15,6 +15,7 @@ PYTHONPATH=src python -m pigean.dashboard \
 Runs are explicit and stable:
 
 - `--pigean-run RUN_ID:DIR` points to a directory containing PIGEAN outputs.
+- `--pigean-group GROUP_ID:RUN_ID[:GROUP_TITLE]` assigns PIGEAN runs to a top-level dashboard group. This is useful for multi-trait EAGGL runs where one EAGGL result is built from several trait-specific PIGEAN runs.
 - `--eaggl-run RUN_ID:MODE_ID:DIR` points to an EAGGL output directory associated with a PIGEAN `RUN_ID`.
 - Repeat both flags to compare multiple runs or EAGGL modes.
 
@@ -66,6 +67,17 @@ Pass `--x-input PATH` one or more times to enable gene/gene-set membership expan
 The HTML file embeds the dashboard data and needs no backend. If an EAGGL `factor_graph.html` is present, it is embedded in the factor section. If full-gene projection tables are present, the EAGGL panel exposes a gene-loading-source selector so the gene loading table and available source-specific factor graph can switch between discovery genes, direct full-gene projection, and gene-set-routed full-gene projection.
 
 Use `--eaggl-phi-sweep RUN_ID:MODE_ID:DIR` to point the dashboard at either a directory containing per-phi EAGGL output subdirectories such as `phi_0p005/eaggl/`, `phi_0p01/eaggl/`, and `phi_0p02/eaggl/`, or a compact learn-phi output directory containing aggregate `factor_phi_*` tables. Each phi is loaded as a separate EAGGL run and automatically grouped under one EAGGL group selector. Directory-based phis can include optional per-phi artifacts such as factor graphs and full projections. Aggregate-table phis include factors, factor metrics, gene loadings, and gene-set loadings when the corresponding `factor_phi_*` files were written. When per-phi metrics are available, the group panel shows a metric heatmap with the composite score delineated and column maxima starred.
+
+PIGEAN runs can be grouped explicitly for multi-trait dashboards:
+
+```bash
+--pigean-group multi_pre:t2d_pre:"T2D + MODY pre-exclusion"
+--pigean-group multi_pre:mody_pre:"T2D + MODY pre-exclusion"
+--pigean-group multi_post:t2d_post:"T2D + MODY post-exclusion"
+--pigean-group multi_post:mody_post:"T2D + MODY post-exclusion"
+```
+
+When PIGEAN groups are present, the dashboard shows a top-level PIGEAN group selector and then a nested selector for the PIGEAN runs in that group. If an EAGGL run has the same run ID as the selected PIGEAN group, the EAGGL panel follows the group rather than the individual trait run.
 
 Standalone EAGGL runs can be grouped explicitly:
 

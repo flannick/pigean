@@ -317,12 +317,40 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertEqual(groups[0]["group_id"], "comparison")
         self.assertEqual(set(groups[0]["mode_ids"]), {"alpha", "beta"})
 
+    def test_pigean_group_assigns_runs_to_trait_group(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            t2d = root / "t2d"
+            mody = root / "mody"
+            for pdir in (t2d, mody):
+                self._write_pigean_outputs(pdir)
+            self._write_eaggl_outputs(root / "eaggl")
+            parser = dashboard.build_parser()
+            args = parser.parse_args([
+                "--pigean-run", f"t2d_pre:{t2d}",
+                "--pigean-run", f"mody_pre:{mody}",
+                "--pigean-group", "multi_pre:t2d_pre:T2D + MODY pre-exclusion",
+                "--pigean-group", "multi_pre:mody_pre:T2D + MODY pre-exclusion",
+                "--eaggl-run", f"multi_pre:gene_x_gene:{root / 'eaggl'}",
+                "--json-out", str(root / "dashboard.json"),
+            ])
+            args.run_titles = {}
+            args.trait_ids = {}
+            payload = dashboard.build_payload(args)
+
+        self.assertEqual(payload["pigean_groups"][0]["group_id"], "multi_pre")
+        self.assertEqual(payload["pigean_groups"][0]["title"], "T2D + MODY pre-exclusion")
+        self.assertEqual(payload["pigean_groups"][0]["run_ids"], ["t2d_pre", "mody_pre"])
+        self.assertIn("multi_pre", payload["eaggl_groups"])
+
     def test_cli_rejects_malformed_run_specs(self) -> None:
         parser = dashboard.build_parser()
         with self.assertRaises(SystemExit):
             parser.parse_args(["--pigean-run", "not_a_spec", "--json-out", "x.json"])
         with self.assertRaises(SystemExit):
             parser.parse_args(["--eaggl-run", "run:mode_only", "--json-out", "x.json"])
+        with self.assertRaises(SystemExit):
+            parser.parse_args(["--pigean-group", "missing_run_id", "--json-out", "x.json"])
 
     def test_module_cli_writes_json_and_html(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -377,6 +405,8 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertIn("factor-tabs", html)
         self.assertIn("refreshEagglTable", html)
         self.assertIn("data-open-row-tab", html)
+        self.assertIn("pigeanGroupSelect", html)
+        self.assertIn("selectedEagglRunId", html)
 
 
 if __name__ == "__main__":

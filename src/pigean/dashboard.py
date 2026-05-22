@@ -22,6 +22,13 @@ class PigeanRunSpec:
 
 
 @dataclass(frozen=True)
+class PigeanGroupSpec:
+    group_id: str
+    run_id: str
+    group_title: str | None = None
+
+
+@dataclass(frozen=True)
 class EagglRunSpec:
     run_id: str
     mode_id: str
@@ -113,6 +120,17 @@ def parse_run_spec(value: str) -> PigeanRunSpec:
     if not run_id or not path:
         raise argparse.ArgumentTypeError("expected RUN_ID:DIR")
     return PigeanRunSpec(run_id=run_id, path=Path(path))
+
+
+def parse_pigean_group_spec(value: str) -> PigeanGroupSpec:
+    parts = value.split(":", 2)
+    if len(parts) not in {2, 3}:
+        raise argparse.ArgumentTypeError("expected GROUP_ID:RUN_ID[:GROUP_TITLE]")
+    group_id, run_id = [part.strip() for part in parts[:2]]
+    group_title = parts[2].strip() if len(parts) == 3 else None
+    if not group_id or not run_id:
+        raise argparse.ArgumentTypeError("expected GROUP_ID:RUN_ID[:GROUP_TITLE]")
+    return PigeanGroupSpec(group_id=group_id, run_id=run_id, group_title=group_title or None)
 
 
 def parse_eaggl_spec(value: str) -> EagglRunSpec:
@@ -1176,6 +1194,30 @@ def build_payload(args: argparse.Namespace) -> dict:
         run_id: list(groups.values())
         for run_id, groups in eaggl_groups_by_run.items()
     }
+    pigean_groups_by_id: dict[str, dict] = {}
+    for spec in args.pigean_group or []:
+        group = pigean_groups_by_id.setdefault(
+            spec.group_id,
+            {
+                "group_id": spec.group_id,
+                "title": spec.group_title or args.run_titles.get(spec.group_id) or spec.group_id.replace("_", " "),
+                "run_ids": [],
+            },
+        )
+        if spec.group_title and (not group.get("title") or group.get("title") == spec.group_id.replace("_", " ")):
+            group["title"] = spec.group_title
+        if spec.run_id not in group["run_ids"]:
+            group["run_ids"].append(spec.run_id)
+    known_runs = {run["run_id"] for run in pigean_runs}
+    for group in pigean_groups_by_id.values():
+        missing = [run_id for run_id in group["run_ids"] if run_id not in known_runs]
+        if missing:
+            warnings.append(
+                "PIGEAN group %s references missing run ids: %s"
+                % (group["group_id"], ", ".join(missing))
+            )
+        group["run_ids"] = [run_id for run_id in group["run_ids"] if run_id in known_runs]
+    pigean_groups = [group for group in pigean_groups_by_id.values() if group["run_ids"]]
     payload = {
         "schema": "pigean_dashboard/v1",
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -1197,6 +1239,7 @@ def build_payload(args: argparse.Namespace) -> dict:
         "x_inputs": [str(path) for path in args.x_input or []],
         "gene_set_membership_count": len(membership),
         "pigean_runs": pigean_runs,
+        "pigean_groups": pigean_groups,
         "eaggl_runs": eaggl_runs,
         "eaggl_groups": eaggl_groups,
     }
@@ -1232,6 +1275,7 @@ def write_html(payload: dict, path: Path, *, title: str) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build a standalone HTML dashboard from supplied PIGEAN and EAGGL outputs.")
     parser.add_argument("--pigean-run", action="append", type=parse_run_spec, default=[], help="PIGEAN run as RUN_ID:DIR; repeat for multiple runs.")
+    parser.add_argument("--pigean-group", action="append", type=parse_pigean_group_spec, default=[], help="Assign a PIGEAN run to a dashboard group as GROUP_ID:RUN_ID[:GROUP_TITLE]; repeatable.")
     parser.add_argument("--eaggl-run", action="append", type=parse_eaggl_spec, default=[], help="EAGGL run as RUN_ID:MODE_ID:DIR; repeat for multiple modes/runs.")
     parser.add_argument("--eaggl-phi-sweep", action="append", type=parse_eaggl_phi_sweep_spec, default=[], help="EAGGL phi sweep bundle as RUN_ID:MODE_ID:DIR. The directory may contain per-phi EAGGL output directories or aggregate factor_phi_* learn-phi output tables.")
     parser.add_argument("--eaggl-group", action="append", type=parse_eaggl_group_spec, default=[], help="Assign a standalone EAGGL run to a dashboard group as RUN_ID:MODE_ID:GROUP_ID[:GROUP_TITLE]; repeatable.")

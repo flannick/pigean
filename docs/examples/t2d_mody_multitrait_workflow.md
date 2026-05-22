@@ -329,6 +329,7 @@ for EAGGL_DIR in "$EAGGL_PRE" "$EAGGL_POST"; do
     --gene-set-clusters-in "$EAGGL_DIR/gene_set_clusters.out.gz" \
     --trait-factor-links-in "$EAGGL_DIR/trait_factor_links.nnls.out.gz" \
     --factor-trait-enrichments-in "$EAGGL_DIR/factor_trait_pigean_enrichments.out.gz" \
+    --color-by auto \
     --html-out "$EAGGL_DIR/factor_graph.full_via_gene_sets.html" \
     --json-out "$EAGGL_DIR/factor_graph.full_via_gene_sets.json" \
     > "$EAGGL_DIR/factor_graph.stdout.txt" \
@@ -351,6 +352,10 @@ The dashboard reads aggregate learn-phi outputs through `--eaggl-phi-sweep`; it 
   --run-title "mody_pre:MODY pre-exclusion PIGEAN" \
   --run-title "t2d_post:T2D post-exclusion PIGEAN" \
   --run-title "mody_post:MODY post-exclusion PIGEAN" \
+  --pigean-group "multi_pre:t2d_pre:T2D + MODY pre-exclusion" \
+  --pigean-group "multi_pre:mody_pre:T2D + MODY pre-exclusion" \
+  --pigean-group "multi_post:t2d_post:T2D + MODY post-exclusion" \
+  --pigean-group "multi_post:mody_post:T2D + MODY post-exclusion" \
   --eaggl-phi-sweep "multi_pre:gene_by_gene_multi:$EAGGL_PRE" \
   --eaggl-phi-sweep "multi_post:gene_by_gene_multi:$EAGGL_POST" \
   --run-title "multi_pre:T2D+MODY pre-exclusion EAGGL multi-anchor" \
