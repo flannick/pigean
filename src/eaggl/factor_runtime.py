@@ -1414,6 +1414,69 @@ def _apply_canonical_trait_linkage(
     return True
 
 
+def _apply_fixed_w_anchor_relevance(
+    state,
+    *,
+    basis,
+    feature_by_anchor,
+    feature_anchor_weights,
+    projection_phi,
+    projection_tol,
+):
+    """Project anchor probability surfaces onto factors with the canonical fixed-W operator."""
+    if basis is None or feature_by_anchor is None:
+        return False
+    basis_array = np.asarray(basis, dtype=float)
+    if basis_array.ndim != 2 or basis_array.shape[1] == 0:
+        return False
+    if sparse.issparse(feature_by_anchor):
+        feature_matrix = feature_by_anchor
+    else:
+        feature_matrix = np.asarray(feature_by_anchor, dtype=float)
+    if feature_matrix.ndim == 1:
+        feature_matrix = feature_matrix[:, np.newaxis]
+    if feature_matrix.ndim != 2:
+        raise ValueError("Anchor relevance support surface must be a 2D matrix")
+    if feature_matrix.shape[0] != basis_array.shape[0]:
+        raise ValueError(
+            "Anchor relevance support rows (%s) must match factor basis rows (%s)"
+            % (feature_matrix.shape[0], basis_array.shape[0])
+        )
+
+    linkage_result = eaggl_trait_linkage.compute_factor_trait_links(
+        state._project_H_with_fixed_W,
+        basis_array,
+        feature_matrix,
+        basis_mask=None,
+        feature_anchor_weights=feature_anchor_weights,
+        background_log_bf=state.background_log_bf,
+        trait_response_source_name="prior",
+        factor_loading_threshold=0.0,
+        nnls_loading_threshold=0.0,
+        nnls_max_value=1.0,
+        computation_mode="sparse_full",
+        projection_phi=projection_phi,
+        projection_tol=projection_tol,
+        projection_cap_loadings=True,
+        projection_normalize_loadings=False,
+    )
+    if linkage_result is None:
+        return False
+    anchor_joint = np.asarray(linkage_result["nnls"], dtype=float).T
+    state.factor_anchor_relevance = anchor_joint
+    state.factor_anchor_marginal_relevance = anchor_joint
+    state.factor_relevance = _compute_any_anchor_relevance(anchor_joint)
+    state.factor_marginal_relevance = _compute_any_anchor_relevance(anchor_joint)
+    state._record_params(
+        {
+            "factor_anchor_relevance_operator": "fixed_w_projection",
+            "factor_anchor_relevance_probability_source": "anchor_probability_surface",
+        },
+        overwrite=True,
+    )
+    return True
+
+
 def project_phenos_from_loaded_factors(
     state,
     *,
@@ -5606,17 +5669,37 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
     else:
         exp_gene_or_pheno_factors = state.exp_gene_factors
 
-    #now update relevance
+    # Update anchor relevance using the same fixed-W projection operator used
+    # for external trait projection.  This keeps anchor relevance and
+    # phenotype NNLS links on the same projection semantics.
 
     matrix_to_mult = state.exp_pheno_factors if factor_gene_set_x_pheno else state.exp_gene_factors
     vector_to_mult = state.pheno_prob_factor_vector if factor_gene_set_x_pheno else state.gene_prob_factor_vector
 
-    #matrix_to_mult: (genes, factors)
-    #vector_to_mult: (users, genes)
-    #want: (factors, users)
-
-    state.factor_anchor_relevance = state._nnls_project_matrix(matrix_to_mult, vector_to_mult.T, max_value=1).T
-    state.factor_relevance = _compute_any_anchor_relevance(state.factor_anchor_relevance)
+    if not _apply_fixed_w_anchor_relevance(
+        state,
+        basis=matrix_to_mult,
+        feature_by_anchor=vector_to_mult,
+        feature_anchor_weights=vector_to_mult,
+        projection_phi=phi,
+        projection_tol=rel_tol,
+    ):
+        num_factors = (
+            int(matrix_to_mult.shape[1])
+            if matrix_to_mult is not None and len(getattr(matrix_to_mult, "shape", ())) == 2
+            else int(len(state.exp_lambdak))
+        )
+        state.factor_anchor_relevance = np.ones((num_factors, 1), dtype=float)
+        state.factor_anchor_marginal_relevance = np.ones((num_factors, 1), dtype=float)
+        state.factor_relevance = np.ones(num_factors, dtype=float)
+        state.factor_marginal_relevance = np.ones(num_factors, dtype=float)
+        state._record_params(
+            {
+                "factor_anchor_relevance_operator": "none_default_uniform",
+                "factor_anchor_relevance_probability_source": "unavailable",
+            },
+            overwrite=True,
+        )
 
     if not no_trait_linkage:
         _apply_canonical_trait_linkage(
