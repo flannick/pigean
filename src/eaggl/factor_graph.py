@@ -71,6 +71,7 @@ class GraphConfig:
     trait_factor_min_beta_uncorrected: float = 0.05
     trait_factor_min_nnls: float = 0.5
     trait_factor_rank_field: str = "beta"
+    factor_trait_enrichments_in: str | None = None
     max_anchor_support_rows_per_node: int = 20
     anchor_support_min_combined: float = 0.0
     coordinate_scale: float = 5.0
@@ -575,10 +576,66 @@ def _trait_factor_rank_value(row: dict[str, object], field: str) -> float:
         return 0.0
 
 
+def _read_factor_trait_enrichment_details(
+    path: str | Path | None,
+    factors: list[str],
+) -> dict[tuple[str, str], dict[str, object]]:
+    if path is None:
+        return {}
+    rows: dict[tuple[str, str], dict[str, object]] = {}
+    with open_text(path) as fh:
+        header_line = fh.readline()
+        if not header_line:
+            return rows
+        header, delim = _split_header(header_line)
+        trait_i = _get_col(header, "trait", required=False)
+        if trait_i is None:
+            trait_i = _get_col(header, "Trait", required=False)
+        if trait_i is None:
+            trait_i = _get_col(header, "Trait_Internal", required=False)
+        if trait_i is None:
+            trait_i = _get_col(header, "Pheno", required=False)
+        factor_i = _get_col(header, "factor", required=False)
+        if factor_i is None:
+            factor_i = _get_col(header, "Factor", required=False)
+        if factor_i is None:
+            factor_i = _get_col(header, "Gene_Set", required=False)
+        if factor_i is None:
+            factor_i = _get_col(header, "gene_set", required=False)
+        if trait_i is None or factor_i is None:
+            return rows
+        numeric_fields = ["beta", "beta_uncorrected", "beta_tilde", "beta_tilde_internal", "se", "se_internal", "SE", "z", "Z", "p_value", "p", "p_orig", "P"]
+        numeric_indices = {field_name: _get_col(header, field_name, required=False) for field_name in numeric_fields}
+        field_map = {
+            "beta_tilde_internal": "beta_tilde",
+            "se_internal": "se",
+            "SE": "se",
+            "Z": "z",
+            "p": "p_value",
+            "p_orig": "p_value",
+            "P": "p_value",
+        }
+        for line in fh:
+            cols = line.rstrip("\n").split(delim)
+            if max(trait_i, factor_i) >= len(cols):
+                continue
+            trait = cols[trait_i]
+            factor = cols[factor_i]
+            if factor not in factors:
+                continue
+            row: dict[str, object] = {"anchor": trait, "source_table": "factor_trait_pigean_enrichments"}
+            for field_name, idx in numeric_indices.items():
+                if idx is not None and idx < len(cols):
+                    row[field_map.get(field_name, field_name)] = _safe_float(cols[idx], 0.0)
+            rows[(trait, factor)] = row
+    return rows
+
+
 def read_factor_trait_details(
     path: str | Path | None,
     factors: list[str],
     *,
+    enrichment_path: str | Path | None = None,
     max_num_per_factor: int = 20,
     min_beta: float = 0.01,
     min_beta_uncorrected: float = 0.05,
@@ -588,9 +645,22 @@ def read_factor_trait_details(
     allowed_rank_fields = {"beta", "beta_uncorrected", "nnls", "nnls_loading"}
     if rank_field not in allowed_rank_fields:
         raise ValueError("trait-factor rank field must be one of: beta, beta_uncorrected, nnls")
-    if path is None:
+    enrichment_by_key = _read_factor_trait_enrichment_details(enrichment_path, factors)
+    if path is None and not enrichment_by_key:
         return {}
     details: dict[str, list[dict[str, object]]] = {factor: [] for factor in factors}
+    seen: set[tuple[str, str]] = set()
+    if path is None:
+        for (trait, factor), row in enrichment_by_key.items():
+            if _passes_trait_factor_detail_filters(row, min_beta=min_beta, min_beta_uncorrected=min_beta_uncorrected, min_nnls=min_nnls):
+                details[factor].append(row)
+        path = None
+    if path is None:
+        for factor, rows in details.items():
+            rows.sort(key=lambda row: (-_trait_factor_rank_value(row, rank_field), str(row.get("anchor", ""))))
+            if max_num_per_factor is not None and int(max_num_per_factor) >= 0:
+                details[factor] = rows[: int(max_num_per_factor)]
+        return details
     with open_text(path) as fh:
         header_line = fh.readline()
         if not header_line:
@@ -636,6 +706,8 @@ def read_factor_trait_details(
             factor = cols[factor_i]
             if factor not in details:
                 continue
+            trait = cols[trait_i]
+            seen.add((trait, factor))
             row: dict[str, object] = {"anchor": cols[trait_i], "source_table": "trait_factor_links"}
             for field_name, idx in numeric_indices.items():
                 if idx is not None and idx < len(cols):
@@ -643,6 +715,9 @@ def read_factor_trait_details(
             for field_name, idx in string_indices.items():
                 if idx is not None and idx < len(cols):
                     row[field_name] = cols[idx]
+            row.update(enrichment_by_key.get((trait, factor), {}))
+            row["anchor"] = trait
+            row["source_table"] = "trait_factor_links+factor_trait_pigean_enrichments" if (trait, factor) in enrichment_by_key else "trait_factor_links"
             if "nnls_loading" in row:
                 row.setdefault("joint_fraction", row["nnls_loading"])
                 row.setdefault("joint_coefficient", row["nnls_loading"])
@@ -654,6 +729,12 @@ def read_factor_trait_details(
             ):
                 continue
             details[factor].append(row)
+    for (trait, factor), row in enrichment_by_key.items():
+        if (trait, factor) in seen:
+            continue
+        if not _passes_trait_factor_detail_filters(row, min_beta=min_beta, min_beta_uncorrected=min_beta_uncorrected, min_nnls=min_nnls):
+            continue
+        details[factor].append(row)
     for factor, rows in details.items():
         rows.sort(
             key=lambda row: (
@@ -2100,6 +2181,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
         trait_factor_min_beta_uncorrected=args.trait_factor_min_beta_uncorrected,
         trait_factor_min_nnls=args.trait_factor_min_nnls,
         trait_factor_rank_field=args.trait_factor_rank_field,
+        factor_trait_enrichments_in=args.factor_trait_enrichments_in,
         max_anchor_support_rows_per_node=args.max_anchor_support_rows_per_node,
         anchor_support_min_combined=args.anchor_support_min_combined,
         coordinate_scale=args.coordinate_scale,
@@ -2172,6 +2254,7 @@ def build_graph_from_files(args: argparse.Namespace) -> dict:
     factor_trait_details = read_factor_trait_details(
         trait_links_in,
         factors,
+        enrichment_path=config.factor_trait_enrichments_in,
         max_num_per_factor=config.max_num_trait_provenance_per_factor,
         min_beta=config.trait_factor_min_beta,
         min_beta_uncorrected=config.trait_factor_min_beta_uncorrected,
@@ -2199,6 +2282,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gene-clusters-in", default=None)
     parser.add_argument("--gene-set-clusters-in", default=None)
     parser.add_argument("--trait-factor-links-in", default=None)
+    parser.add_argument("--factor-trait-enrichments-in", default=None, help="Optional PIGEAN factor-trait enrichment table to merge into trait-factor graph provenance.")
     parser.add_argument("--gene-phewas-stats-in", action="append", default=None, help="Optional gene PheWAS stats for node provenance; repeat to read multiple files.")
     parser.add_argument("--gene-phewas-stats-id-col", default="Gene")
     parser.add_argument("--gene-phewas-stats-pheno-col", default="Trait")

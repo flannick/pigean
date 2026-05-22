@@ -138,6 +138,40 @@ class EagglFactorGraphTest(unittest.TestCase):
         self.assertEqual(by_beta["Factor1"][0]["anchor"], "TraitBeta")
         self.assertEqual(by_nnls["Factor1"][0]["anchor"], "TraitNnls")
 
+    def test_trait_factor_enrichment_file_merges_with_projection_details(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_gz(
+                root / "trait_factor_links.nnls.out.gz",
+                "trait\tfactor\tis_anchor\tnnls_loading\ttrait_neff\n"
+                "TraitA\tFactor1\t0\t0.9\t30\n"
+                "TraitB\tFactor1\t0\t0.1\t30\n",
+            )
+            _write_gz(
+                root / "factor_trait_pigean_enrichments.out.gz",
+                "Trait\tGene_Set\tbeta\tbeta_uncorrected\tbeta_tilde\tse\tp_value\n"
+                "TraitA\tFactor1\t0.8\t0.9\t1.1\t0.2\t1e-5\n"
+                "TraitC\tFactor1\t0.7\t0.8\t1.0\t0.3\t2e-4\n",
+            )
+            details = factor_graph.read_factor_trait_details(
+                root / "trait_factor_links.nnls.out.gz",
+                ["Factor1"],
+                enrichment_path=root / "factor_trait_pigean_enrichments.out.gz",
+                max_num_per_factor=3,
+                min_beta=0.0,
+                min_beta_uncorrected=0.0,
+                min_nnls=0.0,
+                rank_field="beta",
+            )
+
+        rows = {row["anchor"]: row for row in details["Factor1"]}
+        self.assertEqual(rows["TraitA"]["nnls_loading"], 0.9)
+        self.assertEqual(rows["TraitA"]["beta"], 0.8)
+        self.assertEqual(rows["TraitA"]["beta_uncorrected"], 0.9)
+        self.assertEqual(rows["TraitA"]["p_value"], 1e-5)
+        self.assertEqual(rows["TraitC"]["beta"], 0.7)
+        self.assertNotIn("beta", rows["TraitB"])
+
     def test_module_cli_writes_json_and_html(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
