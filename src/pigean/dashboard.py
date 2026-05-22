@@ -324,9 +324,6 @@ def _discover_phi_sweep_runs(spec: EagglPhiSweepSpec) -> list[EagglRunSpec]:
         if phi is None:
             continue
         candidates.append((phi, run_dir))
-    if not candidates and (root / "factors.out.gz").exists():
-        phi = _parse_phi_from_name(root.name)
-        candidates.append((float("nan") if phi is None else phi, root))
     aggregate_factors_path = _first_existing(
         root,
         [
@@ -352,6 +349,9 @@ def _discover_phi_sweep_runs(spec: EagglPhiSweepSpec) -> list[EagglRunSpec]:
                     aggregate_root=root,
                 )
             )
+    if not candidates and not aggregate_specs and (root / "factors.out.gz").exists():
+        phi = _parse_phi_from_name(root.name)
+        candidates.append((float("nan") if phi is None else phi, root))
     selected_phi = None
     for report_name in (
         "learn_phi_report.tsv",
@@ -1296,7 +1296,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--default-gene-loading-source",
         choices=("discovery", "full_direct", "full_via_gene_sets"),
-        default="discovery",
+        default="full_direct",
         help="Initial EAGGL gene-loading source when multiple projections are available.",
     )
     parser.add_argument("--max-genes-per-run", type=int, default=5000)

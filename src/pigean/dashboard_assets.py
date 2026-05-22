@@ -289,6 +289,8 @@ function renderEagglTableRegion(eaggl) {
   }));
   const cols = [
     {key:"label",label:"Mechanism",definition:"Factor label assigned from top loadings; badge shows the internal Factor identifier.",render:r=>`${esc(r.label || r.factor)} <span class="badge">${esc(r.factor)}</span>`},
+    {key:"top_genes",label:"Top gene loadings",definition:"Expand to inspect top genes for this factor under the selected dashboard gene-loading source.",filterValue:r=>factorGenesFromSource(eaggl, r).map(g=>`${g.gene} ${g.label || ""}`).join(" "),render:(r,k)=>factorInlineDetails(eaggl,r,"genes",k)},
+    {key:"top_gene_sets",label:"Top gene set loadings",definition:"Expand to inspect top gene-set/annotation loadings for this factor.",filterValue:r=>(r.gene_sets || []).map(gs=>`${gs.gene_set} ${gs.label || ""}`).join(" "),render:(r,k)=>factorInlineDetails(eaggl,r,"gene_sets",k)},
     {key:"lambda",label:"Lambda",numeric:true,definition:"NMF factor strength/ARD scale reported by EAGGL for this factor."},
     {key:"mass",label:"Mass",numeric:true,definition:"Combined mass fraction from factors.out: the factor's share of total retained factor loading mass."},
     {key:"factor_gene_mass",label:"Gene mass",numeric:true,definition:"Sum of capped nonnegative gene loadings for this factor; used by the composite factor-size score when available."},
@@ -308,9 +310,7 @@ function renderEagglTableRegion(eaggl) {
     {key:"phi_reconstruction_score",label:"Phi recon.",numeric:true,definition:"Run-level composite component: clipped reconstruction R2 for the target matrix under the learned factors."},
     {key:"phi_coherence_score",label:"Phi coherence",numeric:true,definition:"Run-level composite component: within-factor target enrichment over background."},
     {key:"phi_factor_balance_score",label:"Phi balance",numeric:true,definition:"Run-level composite component: normalized entropy of factor mass utilization; larger means mass is not dominated by a few factors."},
-    {key:"phi_annotation_bridge_qc_score",label:"Bridge QC",numeric:true,definition:"Run-level composite component: one minus weighted fraction of annotation bridge exclusions. Marked NA if bridge metrics are unavailable."},
-    {key:"top_genes",label:"Top gene loadings",definition:"Expand to inspect top genes for this factor under the selected dashboard gene-loading source.",filterValue:r=>factorGenesFromSource(eaggl, r).map(g=>`${g.gene} ${g.label || ""}`).join(" "),render:(r,k)=>factorInlineDetails(eaggl,r,"genes",k)},
-    {key:"top_gene_sets",label:"Top gene set loadings",definition:"Expand to inspect top gene-set/annotation loadings for this factor.",filterValue:r=>(r.gene_sets || []).map(gs=>`${gs.gene_set} ${gs.label || ""}`).join(" "),render:(r,k)=>factorInlineDetails(eaggl,r,"gene_sets",k)}
+    {key:"phi_annotation_bridge_qc_score",label:"Bridge QC",numeric:true,definition:"Run-level composite component: one minus weighted fraction of annotation bridge exclusions. Marked NA if bridge metrics are unavailable."}
   ];
   const factorTableId = `factors:${eaggl.run_id}:${eaggl.mode_id}`;
   if (state.eagglSection === "genes") return loadingHeatmap(eaggl, "genes");
