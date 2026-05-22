@@ -14,7 +14,7 @@ The commands assume they are run from the `pigean/` repository root.
 
 ## Input Files
 
-The example uses files under `bundles/model_large-2026.02.22/data/`. The bundle includes the mouse/MSigDB libraries, the large libraries used below, reference gene files, and a large gene-PHEWAS file used for phenotype projection and factor-trait enrichment. The bundled gene-PHEWAS has traits containing `HP_` or `exomes_` removed.
+The example uses files under `bundles/model_large-2026.02.22/data/`. The bundle includes the mouse/MSigDB libraries, the retained large libraries used below, reference gene files, and a large gene-PHEWAS file used for phenotype projection and factor-trait enrichment. The bundled gene-PHEWAS has traits containing `HP_` or `exomes_` removed.
 
 ```bash
 ROOT="$PWD"
@@ -38,10 +38,8 @@ PHEWAS="$DATA/all.gene_stats.large.gt1.out.gz"
 
 X_MOUSE="$DATA/gene_set_list_mouse_2024.txt"
 X_MSIGDB="$DATA/gene_set_list_msigdb_nohp.txt"
-X_MESH="$DATA/gene_set_list_mesh.txt"
 X_OCR="$DATA/gene_set_list_ocr_human.txt"
 X_STRING="$DATA/gene_set_list_string_notext_medium.txt"
-X_POPS="$DATA/gene_set_list_pops_sparse_small.txt"
 
 PIGEAN0="$BASE/no_exclusions/pigean"
 EAGGL0="$BASE/no_exclusions/eaggl_learn_phi"
@@ -121,10 +119,8 @@ DASH_JSON="$DASH/t2d_default_exclusion_dashboard.json"
   --exons-loc-file-huge "$GENE_LOC_EXONS" \
   --X-in "$X_MOUSE" \
   --X-in "$X_MSIGDB" \
-  --X-in "$X_MESH" \
   --X-in "$X_OCR" \
   --X-in "$X_STRING" \
-  --X-in "$X_POPS" \
   --gene-stats-out "$PIGEAN0_GENE_STATS" \
   --gene-set-stats-out "$PIGEAN0_GENE_SET_STATS" \
   --params-out "$PIGEAN0_PARAMS" \
@@ -151,10 +147,8 @@ DASH_JSON="$DASH/t2d_default_exclusion_dashboard.json"
   --cluster-row-min-max-loading 0 \
   --X-in "$X_MOUSE" \
   --X-in "$X_MSIGDB" \
-  --X-in "$X_MESH" \
   --X-in "$X_OCR" \
   --X-in "$X_STRING" \
-  --X-in "$X_POPS" \
   --gene-sets-for-labeling "$X_MOUSE" \
   --gene-sets-for-labeling "$X_MSIGDB" \
   --gene-stats-in "$PIGEAN0_GENE_STATS" \
@@ -203,10 +197,8 @@ EXCLUDE_DEFAULT="$EAGGL0_SUGGESTED_EXCLUDE"
   --exons-loc-file-huge "$GENE_LOC_EXONS" \
   --X-in "$X_MOUSE" \
   --X-in "$X_MSIGDB" \
-  --X-in "$X_MESH" \
   --X-in "$X_OCR" \
   --X-in "$X_STRING" \
-  --X-in "$X_POPS" \
   --gene-set-exclude-in "$EXCLUDE_DEFAULT" \
   --gene-stats-out "$PIGEAN1_GENE_STATS" \
   --gene-set-stats-out "$PIGEAN1_GENE_SET_STATS" \
@@ -234,10 +226,8 @@ EXCLUDE_DEFAULT="$EAGGL0_SUGGESTED_EXCLUDE"
   --cluster-row-min-max-loading 0 \
   --X-in "$X_MOUSE" \
   --X-in "$X_MSIGDB" \
-  --X-in "$X_MESH" \
   --X-in "$X_OCR" \
   --X-in "$X_STRING" \
-  --X-in "$X_POPS" \
   --gene-sets-for-labeling "$X_MOUSE" \
   --gene-sets-for-labeling "$X_MSIGDB" \
   --gene-stats-in "$PIGEAN1_GENE_STATS" \
@@ -460,10 +450,8 @@ The dashboard reads the aggregate learn-phi outputs directly through `--eaggl-ph
   --eaggl-group default_exclusions:gene_by_gene_selected:gene_by_gene_learn_phi:"gene by gene learn phi" \
   --x-input "$X_MOUSE" \
   --x-input "$X_MSIGDB" \
-  --x-input "$X_MESH" \
   --x-input "$X_OCR" \
   --x-input "$X_STRING" \
-  --x-input "$X_POPS" \
   --default-gene-loading-source full_via_gene_sets \
   --html-out "$DASH_HTML" \
   --json-out "$DASH_JSON" \
