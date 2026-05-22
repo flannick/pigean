@@ -1,4 +1,4 @@
-# Example Use Case For T2D
+# T2D Default Annotation-Exclusion Workflow
 
 This example runs a complete T2D PIGEAN/EAGGL workflow:
 
