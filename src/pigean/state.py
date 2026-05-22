@@ -3106,20 +3106,19 @@ class PigeanState(object):
                     if prob_col is not None:
                         try:
                             prob = float(cols[prob_col])
-                            if prob <= 0 or prob >= 1:
-                                if prob > max_prob:
-                                    warn("Probabilities must be in (0,1); observed %s for %s and reset to %s" % (prob, gene, max_prob))
-                                    prob = max_prob
-                                if prob < min_prob:
-                                    warn("Probabilities must be in (0,1); observed %s for %s and reset to %s" % (prob, gene, min_prob))
-                                    prob = min_prob
-                                continue
+                            if prob > max_prob:
+                                warn("Probability %.3g for %s exceeds maximum %.3g; capping to %.3g" % (prob, gene, max_prob, max_prob))
+                                prob = max_prob
+                            elif prob < min_prob:
+                                warn("Probability %.3g for %s is below minimum %.3g; capping to %.3g" % (prob, gene, min_prob, min_prob))
+                                prob = min_prob
                         except ValueError:
                             if not cols[prob_col] == "NA":
                                 warn("Skipping unconvertible prob value %s for gene %s" % (cols[prob_col], gene))
                             continue
 
                     if prob > max_prob:
+                        warn("Probability %.3g for %s exceeds maximum %.3g; capping to %.3g" % (prob, gene, max_prob, max_prob))
                         prob = max_prob
                     log_bf = np.log(prob / (1 - prob)) - self.background_log_bf
                     if gene not in self.gene_to_positive_controls:

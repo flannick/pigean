@@ -913,6 +913,33 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertIsInstance(parsed.gene_in_combined, dict)
             self.assertEqual(len(parsed.gene_in_combined), 0)
 
+    def test_parse_gene_bfs_file_caps_high_probability(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "gene_probs.tsv"
+            path.write_text("Gene\tprob\nGENE_A\t1.2\nGENE_B\t0.99\n", encoding="utf-8")
+            warnings = []
+            parsed = pegs_utils.parse_gene_bfs_file(
+                str(path),
+                gene_bfs_id_col="Gene",
+                gene_bfs_log_bf_col=None,
+                gene_bfs_combined_col=None,
+                gene_bfs_prob_col="prob",
+                gene_bfs_prior_col=None,
+                background_log_bf=0.0,
+                gene_label_map=None,
+                open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
+                get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
+                    col, header, require_match=required
+                ),
+                warn_fn=warnings.append,
+                bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            )
+
+            expected = np.log(0.99 / 0.01)
+            self.assertAlmostEqual(parsed.gene_in_bfs["GENE_A"], expected)
+            self.assertAlmostEqual(parsed.gene_in_bfs["GENE_B"], expected)
+            self.assertTrue(any("capping to 0.99" in warning for warning in warnings))
+
     def test_parse_gene_covariates_file_and_align_helpers(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "gene_covs.tsv"

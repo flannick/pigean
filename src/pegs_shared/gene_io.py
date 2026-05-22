@@ -327,7 +327,10 @@ def parse_gene_bfs_file(
                             % (cols[prob_col], gene)
                         )
                     continue
-                if prob <= 0 or prob >= 1:
+                if prob >= 1:
+                    warn_fn("Probability %.3g exceeds maximum 0.99 for gene %s; capping to 0.99" % (prob, gene))
+                    prob = 0.99
+                elif prob <= 0:
                     warn_fn("Skipping probability %.3g outside of (0,1)" % (prob))
                     continue
                 bf = np.log(prob / (1 - prob)) - background_log_bf

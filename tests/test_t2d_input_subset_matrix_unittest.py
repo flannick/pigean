@@ -291,6 +291,49 @@ class T2DInputSubsetMatrixTest(unittest.TestCase):
         self.assertEqual(list_rows["TCF7L2"]["positive_control"], "NA")
         self.assertGreater(float(both_rows["TCF7L2"]["positive_control"]), 0.0)
 
+    def test_positive_controls_probability_above_max_is_capped_not_ignored(self) -> None:
+        high_prob_file = self.tmpdir / "high_probability_positive_controls.tsv"
+        capped_prob_file = self.tmpdir / "capped_probability_positive_controls.tsv"
+        high_prob_file.write_text("gene\tprob\nTCF7L2\t1.2\n", encoding="utf-8")
+        capped_prob_file.write_text("gene\tprob\nTCF7L2\t0.99\n", encoding="utf-8")
+
+        def run_with(path: Path, name: str):
+            out_prefix = self.tmpdir / name
+            cmd = self._base_cmd(out_prefix) + [
+                "--positive-controls-in",
+                str(path),
+                "--positive-controls-id-col",
+                "gene",
+                "--positive-controls-prob-col",
+                "prob",
+                "--positive-controls-all-in",
+                str(self.fixture_root / "toy_positive_controls_all.tsv"),
+                "--positive-controls-all-id-col",
+                "gene",
+            ]
+            proc = subprocess.run(
+                cmd,
+                cwd=self.repo_root,
+                env=self._env(),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                raise AssertionError(proc.stdout + proc.stderr)
+            return self._load_rows(out_prefix.with_suffix(".gene_stats.out"), "Gene"), proc
+
+        high_rows, high_proc = run_with(high_prob_file, "pc_high_prob")
+        capped_rows, _ = run_with(capped_prob_file, "pc_capped_prob")
+
+        self.assertGreater(float(high_rows["TCF7L2"]["positive_control"]), 0.0)
+        self.assertAlmostEqual(
+            float(high_rows["TCF7L2"]["positive_control"]),
+            float(capped_rows["TCF7L2"]["positive_control"]),
+            places=9,
+        )
+        self.assertIn("capping to 0.99", high_proc.stderr + high_proc.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
