@@ -1043,6 +1043,32 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
             "factor_graph_html": "",
             "by_factor": genes_by_factor,
         }
+    selected_flag = str(selected_phi_metrics.get("selected", "")).strip().lower()
+    selected_candidate = selected_flag in {"1", "1.0", "true", "t", "yes", "y"}
+    if is_aggregate_phi and selected_candidate:
+        for source_id, source_label, source_path, graph_path in (
+            ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html"),
+            ("full_via_gene_sets", "Full genes: via gene sets", path / "gene_clusters_full_via_gene_sets.out.gz", path / "factor_graph.full_via_gene_sets.html"),
+        ):
+            if not source_path.exists():
+                continue
+            _, source_by_factor = read_cluster_table(
+                source_path,
+                "Gene",
+                args.factor_loading_threshold,
+                warnings,
+                factor_loading_min_max_frac=args.factor_loading_min_max_frac,
+                max_rows_per_factor=args.max_factor_genes,
+            )
+            gene_loading_sources[source_id] = {
+                "id": source_id,
+                "label": source_label,
+                "path": str(source_path),
+                "factor_graph_html_path": str(graph_path),
+                "factor_graph_available": graph_path.exists(),
+                "factor_graph_html": read_optional_text(graph_path, warnings, max_chars=None),
+                "by_factor": source_by_factor,
+            }
     _, gene_sets_by_factor = (
         read_cluster_rows(
             _read_tsv_for_phi(gene_set_clusters_path, aggregate_phi, warnings),

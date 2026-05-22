@@ -272,6 +272,12 @@ class DashboardPayloadTest(unittest.TestCase):
                 "0.02\t0\t0.2\t0.3\n"
                 "0.04\t1\t0.8\t0.9\n",
             )
+            _write_gz(
+                sweep / "gene_clusters_full_via_gene_sets.out.gz",
+                "Gene\tcombined\tcluster\tlabel\tFactor1\tCosine_Factor1\tEuclidean_Factor1\n"
+                "GENE9\t4.0\tFactor1\tselected full\t0.5\t0.6\t0.4\n",
+            )
+            (sweep / "factor_graph.full_via_gene_sets.html").write_text("<html>selected graph</html>", encoding="utf-8")
             parser = dashboard.build_parser()
             args = parser.parse_args([
                 "--eaggl-phi-sweep", f"run1:gene_x_gene:{sweep}",
@@ -293,7 +299,8 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertEqual(factor["genes"][0]["gene"], "GENE2")
         self.assertEqual(factor["gene_sets"][0]["gene_set"], "SET2")
         self.assertFalse(selected_run["factor_graph_available"])
-        self.assertEqual(set(selected_run["gene_loading_sources"]), {"discovery"})
+        self.assertEqual(set(selected_run["gene_loading_sources"]), {"discovery", "full_via_gene_sets"})
+        self.assertTrue(selected_run["gene_loading_sources"]["full_via_gene_sets"]["factor_graph_available"])
 
     def test_explicit_eaggl_group_combines_standalone_runs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
