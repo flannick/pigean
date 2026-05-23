@@ -268,7 +268,12 @@ function renderFactorGraphSlot(eaggl) { const graph = selectedFactorGraph(eaggl)
 function createFactorGraphNode(eaggl) { const graph = selectedFactorGraph(eaggl); const graphFrame = graph.html ? `<iframe class="factor-graph-frame" srcdoc="${esc(graph.html)}"></iframe>` : ""; const wrapper = document.createElement("div"); wrapper.id = "factor-graph-mounted"; wrapper.dataset.graphKey = factorGraphKey(eaggl); wrapper.innerHTML = graphFrame ? `<details class="factor-graph-accordion" open><summary>Factor graph</summary><div class="factor-graph-body"><p class="note">Interactive graph generated from ${esc(graph.label)} gene loadings.</p>${graphFrame}<p class="path">${esc(graph.path || "")}</p></div></details>` : `<details class="factor-graph-accordion"><summary>Factor graph</summary><div class="factor-graph-body empty">No factor graph was generated for this EAGGL run and gene-loading source.</div></details>`; return wrapper; }
 function mountFactorGraph(eaggl, existingGraph) { const slot = document.getElementById("factor-graph-slot"); if (!slot) return; slot.replaceWith(existingGraph || createFactorGraphNode(eaggl)); }
 function renderEagglTableRegion(eaggl) {
-  const selectedMetrics = eaggl.selected_phi_metrics || {};
+  const anchorCols = (eaggl.anchor_traits || []).map(a => ({
+    key:a.column,
+    label:`${a.trait} relevance`,
+    numeric:true,
+    definition:`Anchor-specific factor relevance/capture for anchor trait ${a.trait}.`
+  }));
   const rows = (eaggl.factors || []).map(f => ({
     ...f,
     mass:f.combined_mass_fraction,
@@ -276,15 +281,6 @@ function renderEagglTableRegion(eaggl) {
     n_gene_sets:(f.gene_sets || []).length,
     n_traits:(f.phenotypes || []).length,
     selected_phi:selectedPhiMetric(eaggl, "phi"),
-    phi_composite_score:selectedPhiMetric(eaggl, "phi_composite_score"),
-    phi_factor_size_score:selectedPhiMetric(eaggl, "factor_size_score"),
-    phi_nonoverlap_score:selectedPhiMetric(eaggl, "nonoverlap_score"),
-    phi_entity_concentration_score:selectedPhiMetric(eaggl, "entity_concentration_score"),
-    phi_coverage_score:selectedPhiMetric(eaggl, "coverage_score"),
-    phi_reconstruction_score:selectedPhiMetric(eaggl, "reconstruction_score"),
-    phi_coherence_score:selectedPhiMetric(eaggl, "coherence_score"),
-    phi_factor_balance_score:selectedPhiMetric(eaggl, "factor_balance_score"),
-    phi_annotation_bridge_qc_score:selectedPhiMetric(eaggl, "annotation_bridge_qc_score"),
     per_factor_size_score:f.factor_size_score,
   }));
   const cols = [
@@ -292,6 +288,9 @@ function renderEagglTableRegion(eaggl) {
     {key:"top_genes",label:"Top gene loadings",definition:"Expand to inspect top genes for this factor under the selected dashboard gene-loading source.",filterValue:r=>factorGenesFromSource(eaggl, r).map(g=>`${g.gene} ${g.label || ""}`).join(" "),render:(r,k)=>factorInlineDetails(eaggl,r,"genes",k)},
     {key:"top_gene_sets",label:"Top gene set loadings",definition:"Expand to inspect top gene-set/annotation loadings for this factor.",filterValue:r=>(r.gene_sets || []).map(gs=>`${gs.gene_set} ${gs.label || ""}`).join(" "),render:(r,k)=>factorInlineDetails(eaggl,r,"gene_sets",k)},
     {key:"lambda",label:"Lambda",numeric:true,definition:"NMF factor strength/ARD scale reported by EAGGL for this factor."},
+    {key:"anchor_any_joint",label:"Anchor joint relevance",numeric:true,definition:"Factor relevance to the aggregate anchor support surface after joint factor capture/projection."},
+    {key:"anchor_any_marginal",label:"Anchor marginal relevance",numeric:true,definition:"Factor relevance to the aggregate anchor support surface from marginal factor overlap/capture."},
+    ...anchorCols,
     {key:"mass",label:"Mass",numeric:true,definition:"Combined mass fraction from factors.out: the factor's share of total retained factor loading mass."},
     {key:"factor_gene_mass",label:"Gene mass",numeric:true,definition:"Sum of capped nonnegative gene loadings for this factor; used by the composite factor-size score when available."},
     {key:"per_factor_size_score",label:"Size score",numeric:true,definition:"Per-factor score for closeness to the target factor gene mass. It is 1 at the target and decreases for smaller or larger factors."},
@@ -301,22 +300,13 @@ function renderEagglTableRegion(eaggl) {
     {key:"within_factor_target_mean",label:"Target mean",numeric:true,definition:"Mean target value among entities weighted by this factor's loadings."},
     {key:"factor_gene_bridge_count",label:"Gene bridges",numeric:true,definition:"Count of genes flagged as bridge-like for this factor by phi-selection support metrics, when available."},
     {key:"factor_annotation_bridge_count",label:"Annot bridges",numeric:true,definition:"Count of annotations flagged as bridge-like for this factor by phi-selection support metrics, when available."},
-    {key:"selected_phi",label:"Phi",numeric:true,definition:"Candidate phi selected for this EAGGL run."},
-    {key:"phi_composite_score",label:"Composite",numeric:true,definition:"Final weighted composite phi-selection score for the selected candidate. Larger is better."},
-    {key:"phi_factor_size_score",label:"Phi size",numeric:true,definition:"Run-level composite component: how close factor gene masses are to the target size."},
-    {key:"phi_nonoverlap_score",label:"Phi nonoverlap",numeric:true,definition:"Run-level composite component: one minus high quantile soft factor overlap; larger means less redundant factors."},
-    {key:"phi_entity_concentration_score",label:"Phi concentr.",numeric:true,definition:"Run-level composite component: genes/annotations concentrate into few factors rather than bridging many factors."},
-    {key:"phi_coverage_score",label:"Phi coverage",numeric:true,definition:"Run-level composite component: high-priority genes and annotations are covered by at least one factor."},
-    {key:"phi_reconstruction_score",label:"Phi recon.",numeric:true,definition:"Run-level composite component: clipped reconstruction R2 for the target matrix under the learned factors."},
-    {key:"phi_coherence_score",label:"Phi coherence",numeric:true,definition:"Run-level composite component: within-factor target enrichment over background."},
-    {key:"phi_factor_balance_score",label:"Phi balance",numeric:true,definition:"Run-level composite component: normalized entropy of factor mass utilization; larger means mass is not dominated by a few factors."},
-    {key:"phi_annotation_bridge_qc_score",label:"Bridge QC",numeric:true,definition:"Run-level composite component: one minus weighted fraction of annotation bridge exclusions. Marked NA if bridge metrics are unavailable."}
+    {key:"selected_phi",label:"Phi",numeric:true,definition:"Candidate phi selected for this EAGGL run."}
   ];
   const factorTableId = `factors:${eaggl.run_id}:${eaggl.mode_id}`;
   if (state.eagglSection === "genes") return loadingHeatmap(eaggl, "genes");
   if (state.eagglSection === "gene_sets") return loadingHeatmap(eaggl, "gene_sets");
   if (state.eagglSection === "phenotypes") return renderPhenotypes(eaggl);
-  return `<h2>EAGGL factors</h2>${factorMetricSummary(eaggl)}<p class="note">Factor detail subtables inherit parent filters. Click column info icons for metric definitions. Phi composite columns are run-level selected-candidate metrics repeated across factor rows for sorting/filtering.</p>${tableHtml(factorTableId, rows, cols, {hasDetail: factorHasDetail, detailRenderer:(row,key)=>factorRowDetails(eaggl,row,key)})}`;
+  return `<h2>EAGGL factors</h2>${factorMetricSummary(eaggl)}<p class="note">Factor detail subtables inherit parent filters. Click column info icons for metric definitions. Run-level phi-selection metrics are shown in the selected-run summary and phi-sweep heatmap; this table keeps factor-level metrics and anchor-specific relevance.</p>${tableHtml(factorTableId, rows, cols, {hasDetail: factorHasDetail, detailRenderer:(row,key)=>factorRowDetails(eaggl,row,key)})}`;
 }
 function renderEagglPanel(runId) {
   const eaggl = selectedEaggl(runId);

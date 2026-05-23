@@ -244,9 +244,9 @@ class DashboardPayloadTest(unittest.TestCase):
             sweep.mkdir()
             _write_gz(
                 sweep / "factor_phi_factors.out.gz",
-                "phi\tFactor\tlabel\tlambda\tcombined_mass_fraction\ttop_genes\ttop_gene_sets\n"
-                "0.02\tFactor1\timmune low\t1.0\t0.1\tGENE1\tSET1\n"
-                "0.04\tFactor1\timmune high\t2.0\t0.2\tGENE2\tSET2\n",
+                "phi\tFactor\tlabel\tlambda\tcombined_mass_fraction\tanchor_any_joint\tanchor_any_marginal\ttop_genes\ttop_gene_sets\n"
+                "0.02\tFactor1\timmune low\t1.0\t0.1\t0.11\t0.12\tGENE1\tSET1\n"
+                "0.04\tFactor1\timmune high\t2.0\t0.2\t0.21\t0.22\tGENE2\tSET2\n",
             )
             _write_gz(
                 sweep / "factor_phi_metrics.out.gz",
@@ -277,6 +277,12 @@ class DashboardPayloadTest(unittest.TestCase):
                 "Gene\tcombined\tcluster\tlabel\tFactor1\tCosine_Factor1\tEuclidean_Factor1\n"
                 "GENE9\t4.0\tFactor1\tselected full\t0.5\t0.6\t0.4\n",
             )
+            _write_gz(
+                sweep / "trait_factor_links.out.gz",
+                "trait\tfactor\tis_anchor\tjoint_fraction\tmarginal_fraction\ttrait_neff\n"
+                "TraitA\tFactor1\t1\t0.7\t0.8\t300\n"
+                "TraitB\tFactor1\t1\t0.6\t0.7\t300\n",
+            )
             (sweep / "factor_graph.full_via_gene_sets.html").write_text("<html>selected graph</html>", encoding="utf-8")
             parser = dashboard.build_parser()
             args = parser.parse_args([
@@ -295,12 +301,17 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertEqual(selected_run["selected_phi_metrics"]["phi_composite_score"], 0.8)
         factor = selected_run["factors"][0]
         self.assertEqual(factor["label"], "immune high")
+        self.assertEqual(factor["anchor_any_joint"], 0.21)
+        self.assertEqual(factor["anchor_any_marginal"], 0.22)
         self.assertEqual(factor["factor_gene_mass"], 40)
         self.assertEqual(factor["genes"][0]["gene"], "GENE2")
         self.assertEqual(factor["gene_sets"][0]["gene_set"], "SET2")
         self.assertFalse(selected_run["factor_graph_available"])
         self.assertEqual(set(selected_run["gene_loading_sources"]), {"discovery", "full_via_gene_sets"})
         self.assertTrue(selected_run["gene_loading_sources"]["full_via_gene_sets"]["factor_graph_available"])
+        self.assertEqual([item["trait"] for item in selected_run["anchor_traits"]], ["TraitA", "TraitB"])
+        self.assertEqual(factor[selected_run["anchor_traits"][0]["column"]], 0.7)
+        self.assertEqual(factor[selected_run["anchor_traits"][1]["column"]], 0.6)
 
     def test_explicit_eaggl_group_combines_standalone_runs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -397,7 +408,7 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertIn("data-column-info", html)
         self.assertIn("groupSelect", html)
         self.assertIn("phi-metric-heatmap", html)
-        self.assertIn("Phi composite columns are run-level selected-candidate metrics", html)
+        self.assertIn("Run-level phi-selection metrics are shown in the selected-run summary", html)
         self.assertIn("restoreFocus", html)
         self.assertIn("data-column-filter-table", html)
         self.assertIn("numeric-filter", html)

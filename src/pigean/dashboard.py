@@ -1091,7 +1091,11 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     )
     if gene_set_clusters_path is None or not gene_set_clusters_path.exists():
         warnings.append(f"missing EAGGL gene-set clusters: {gene_set_clusters_path}")
-    trait_link_path, trait_enrichment_path, trait_link_sources = (None, None, []) if is_aggregate_phi else _trait_link_input_paths(path)
+    trait_link_path, trait_enrichment_path, trait_link_sources = (
+        _trait_link_input_paths(path)
+        if (not is_aggregate_phi or selected_candidate)
+        else (None, None, [])
+    )
     trait_links, anchor_traits, anchor_values = read_trait_links(
         trait_link_path or (path / "__missing_trait_factor_links__"),
         args.trait_min_neff,
@@ -1112,6 +1116,8 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
                 "factor": factor,
                 "label": _first(row, ["label", "Label"], factor),
                 "lambda": parse_float(row.get("lambda")),
+                "anchor_any_joint": parse_float(row.get("anchor_any_joint")),
+                "anchor_any_marginal": parse_float(row.get("anchor_any_marginal")),
                 "factor_tier": _first(row, ["factor_tier", "tier"]),
                 "combined_mass_fraction": parse_float(row.get("combined_mass_fraction")),
                 "top_genes": [item.strip() for item in (_first(row, ["top_genes"])).replace(";", ",").split(",") if item.strip()],
