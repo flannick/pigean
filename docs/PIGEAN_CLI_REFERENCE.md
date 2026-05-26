@@ -6,7 +6,6 @@ Use this document for practical command shapes and option semantics.
 Use `docs/CLI_OPTIONS.md` for the exhaustive machine-generated parser inventory.
 Use `README.md` for the full repository documentation map.
 Use `docs/ADVANCED_SET_B.md` for retained advanced workflows such as HuGE cache I/O, precomputed stats ingestion, deprecated expert output PheWAS, PheWAS-as-Y beta sampling, and native multi-Y trait batching.
-Use `docs/examples/cell_state_multi_y_pipeline.md` for the all-cell-state full-universe multi-Y PIGEAN beta workflow.
 The gene-level PheWAS output stage (`--run-phewas`) is deprecated expert compatibility functionality. It regresses each phenotype's gene-level support surface against the current run's PIGEAN gene-level results, producing summaries such as `log_bf_vs_log_bf` and `combined_vs_combined`. It is not the same as native `--multi-y-in`, which treats each trait as a separate response and estimates gene-set beta outputs for the supplied gene-set matrix. Prefer native `--multi-y-in` for trait-wise PIGEAN beta workflows and EAGGL trait-linkage outputs for factor-to-trait summaries. If this legacy stage is used, the default is the matched comparison set; use `--phewas-comparison-set diagnostic` only when you explicitly want the cross-family diagnostics.
 Optional downstream analyses use explicit `--run-*` booleans with separate `--*-in` / `--*-out` flags. Older hybrid flags remain compatibility aliases but are not the canonical documented surface.
 
