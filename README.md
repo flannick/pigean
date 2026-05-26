@@ -68,6 +68,7 @@ Use this as the index for the repo documentation set.
 ### User workflow and interoperability docs
 
 - `docs/ADVANCED_SET_B.md`: supported advanced PIGEAN workflows, especially precomputed inputs and PheWAS-related paths
+- `docs/examples/cell_state_multi_y_pipeline.md`: all-cell-state multi-Y PIGEAN beta workflow using repo-local `dat/` inputs
 - `docs/EAGGL_INTEROP.md`: PIGEAN to EAGGL handoff bundle workflow
 - `docs/eaggl/INTEROP.md`: EAGGL-specific interoperability notes
 - `docs/eaggl/WORKFLOWS.md`: human-written EAGGL workflow guide

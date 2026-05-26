@@ -1,0 +1,52 @@
+liver_hepatocyte_hepatocyte_identity	Aizarani et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1373-2	ALB	APOB	APOA1	TTR	HNF4A	ASGR1	FGA	FGB	FGG	HP
+liver_hepatocyte_periportal_hepatocyte	Payen et al., JHEP Reports 2021 | https://www.jhep-reports.eu/article/S2589-5559%2821%2900054-9/fulltext	CPS1	HAL	ASS1	ASL	OTC	PCK1	SLC22A1	SDS	ARG1	GLS2
+liver_hepatocyte_pericentral_hepatocyte	Payen et al., JHEP Reports 2021 | https://www.jhep-reports.eu/article/S2589-5559%2821%2900054-9/fulltext	GLUL	CYP2E1	CYP1A2	CYP3A4	CYP2C9	CYP2C8	CYP2B6	RHBG	ADH1B	SLC1A2
+liver_hepatocyte_bile_acid_transport_metabolism	Aizarani et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1373-2	CYP7A1	CYP8B1	BAAT	HSD3B7	SLC10A1	SLCO1B1	SLCO1B3	ABCB11	ABCC2	NR1H4
+liver_hepatocyte_acute_phase_inflammatory_hepatocyte	Aizarani et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1373-2	CRP	SAA1	SAA2	ORM1	ORM2	HAMP	SERPINA1	SERPINA3	FGA	FGG
+liver_hepatocyte_proliferating_hepatocyte	Ramachandran et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1631-3	MKI67	TOP2A	PCNA	MCM2	MCM5	CENPF	CCNB1	CDK1	TYMS	UBE2C
+liver_endothelial_liver_sinusoidal_endothelial_identity	Aizarani et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1373-2	CLEC4G	CLEC4M	STAB1	STAB2	LYVE1	MRC1	FCN2	OIT3	DNASE1L3	GPR182
+liver_endothelial_macrovascular_endothelial_identity	Aizarani et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1373-2	PECAM1	VWF	CD34	PLVAP	AQP1	EMCN	KDR	FLT1	ESAM	SOX17
+liver_endothelial_portal_venous_endothelial	Ramachandran et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1631-3	ACKR1	PLVAP	VWF	CD34	SELE	ICAM1	VCAM1	EMCN	AQP1	CCL14
+liver_endothelial_lymphatic_endothelial	Aizarani et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1373-2	PROX1	PDPN	FLT4	LYVE1	CCL21	MMRN1	TFF3	RELN	TBX1	FOXC2
+liver_endothelial_angiogenic_endothelial	Guilliams et al., Cell 2022 | https://www.sciencedirect.com/science/article/pii/S0092867421014811	KDR	FLT1	ANGPT2	DLL4	NOTCH4	ESM1	CXCR4	MMP14	SOX17	ID1
+liver_endothelial_activated_scar_associated_endothelial	Ramachandran et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1631-3	ACKR1	PLVAP	VWF	CCL2	ICAM1	VCAM1	SELE	COL15A1	CXCL8	ANGPT2
+liver_hepatic_stellate_cell_quiescent_hepatic_stellate	Payen et al., JHEP Reports 2021 | https://www.jhep-reports.eu/article/S2589-5559%2821%2900054-9/fulltext	LRAT	RBP1	RGS5	RELN	LIFR	COLEC10	COLEC11	ADIRF	DCN	CYGB
+liver_hepatic_stellate_cell_activated_fibrogenic_hepatic_stellate	Ramachandran et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1631-3	ACTA2	COL1A1	COL1A2	COL3A1	LOX	TIMP1	POSTN	BGN	LUM	PDGFRB
+liver_hepatic_stellate_cell_inflammatory_hepatic_stellate	Andrews et al., Hepatology Communications 2022 | https://journals.lww.com/hepcomm/fulltext/2022/04000/single_cell%2C_single_nucleus%2C_and_spatial_rna.14.aspx	IL6	CXCL8	CCL2	CXCL2	CXCL3	NFKBIA	TNFAIP3	SOCS3	JUNB	FOS
+liver_hepatic_stellate_cell_proliferating_hepatic_stellate	Ramachandran et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1631-3	MKI67	TOP2A	PCNA	MCM2	MCM5	CENPF	CCNB1	CDK1	TYMS	UBE2C
+liver_hepatic_stellate_cell_scar_associated_mesenchymal	Ramachandran et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1631-3	PDGFRA	PDGFRB	THY1	COL1A1	COL1A2	COL3A1	CTHRC1	POSTN	TAGLN	ACTA2
+liver_cholangiocyte_cholangiocyte_identity	Aizarani et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1373-2	EPCAM	KRT19	KRT7	SOX9	MUC1	TACSTD2	CLDN4	ANXA4	CFTR	SLC4A2
+liver_cholangiocyte_small_duct_cholangiocyte	Andrews et al., Hepatology Communications 2022 | https://journals.lww.com/hepcomm/fulltext/2022/04000/single_cell%2C_single_nucleus%2C_and_spatial_rna.14.aspx	KRT7	KRT19	CFTR	SLC4A2	CLDN10	BICC1	DCDC2	SCGN	ITGB8	SNAP25
+liver_cholangiocyte_large_duct_mucinous_cholangiocyte	Andrews et al., Hepatology Communications 2022 | https://journals.lww.com/hepcomm/fulltext/2022/04000/single_cell%2C_single_nucleus%2C_and_spatial_rna.14.aspx	MUC5B	MUC5AC	TFF1	TFF2	TFF3	AQP1	CFTR	SLC26A3	SLC26A6	ANXA4
+liver_cholangiocyte_ductular_reaction_progenitor_like	Aizarani et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1373-2	SOX9	EPCAM	TACSTD2	PROM1	CD24	SPP1	KRT19	ANXA3	CLDN4	KRT7
+liver_cholangiocyte_inflammatory_activated_cholangiocyte	Andrews et al., Hepatology Communications 2022 | https://journals.lww.com/hepcomm/fulltext/2022/04000/single_cell%2C_single_nucleus%2C_and_spatial_rna.14.aspx	SPP1	CXCL8	CXCL1	CXCL2	CCL20	ICAM1	NFKBIA	TNFAIP3	IFITM3	HLA-DRA
+liver_macrophage_kupffer_cell_identity	MacParland et al., Nature Communications 2018 | https://www.nature.com/articles/s41467-018-06318-7	MARCO	CD5L	TIMD4	VSIG4	CLEC4F	CD163	C1QA	C1QB	C1QC	VCAM1
+liver_macrophage_monocyte_derived_inflammatory_macrophage	MacParland et al., Nature Communications 2018 | https://www.nature.com/articles/s41467-018-06318-7	S100A8	S100A9	FCN1	VCAN	LYZ	LGALS3	CCR2	LST1	CTSS	MNDA
+liver_macrophage_scar_lipid_associated_macrophage	Ramachandran et al., Nature 2019 | https://www.nature.com/articles/s41586-019-1631-3	TREM2	CD9	SPP1	GPNMB	APOE	FABP5	CD63	LPL	CTSB	CSTB
+liver_macrophage_interferon_response_macrophage	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	CXCL10	GBP1	IRF7
+liver_macrophage_antigen_presentation_macrophage	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	HLA-DRA	HLA-DRB1	HLA-DPA1	HLA-DPB1	CD74	HLA-DQA1	HLA-DQB1	CIITA	CTSL	CST3
+liver_t_cell_t_cell_identity	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	CD3D	CD3E	CD3G	TRAC	TRBC1	TRBC2	LCK	CD2	LAT	IL7R
+liver_t_cell_naive_memory_cd4_t_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	CD4	IL7R	CCR7	LTB	TCF7	LEF1	SELL	MAL	CD40LG	ANXA1
+liver_t_cell_cytotoxic_cd8_t_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	CD8A	CD8B	NKG7	GZMB	GZMH	PRF1	GNLY	CST7	CCL5	FGFBP2
+liver_t_cell_liver_resident_memory_t_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	CXCR6	CD69	ITGAE	ZNF683	RUNX3	KLRB1	GZMK	XCL1	XCL2	CCL5
+liver_t_cell_regulatory_t_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	FOXP3	IL2RA	CTLA4	TIGIT	IKZF2	TNFRSF18	TNFRSF4	CCR8	BATF	LAYN
+liver_t_cell_mait_innate_like_t_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	TRAV1-2	KLRB1	SLC4A10	DPP4	IL7R	CCR6	RORC	ZBTB16	CXCR6	GZMK
+liver_t_cell_exhausted_antigen_engaged_t_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	PDCD1	LAG3	HAVCR2	TIGIT	TOX	CTLA4	CXCL13	ENTPD1	IFNG	GZMB
+liver_nk_cell_nk_cell_identity	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	NKG7	KLRD1	KLRF1	GNLY	PRF1	GZMB	FCER1G	TYROBP	NCR1	FCGR3A
+liver_nk_cell_liver_resident_nk_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	CXCR6	CD69	KLRB1	GZMK	XCL1	XCL2	CD160	KLRC1	ZNF683	IL7R
+liver_nk_cell_cytotoxic_nk_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	FGFBP2	GZMB	GZMH	PRF1	GNLY	NKG7	CST7	FCGR3A	KLRD1	KLRF1
+liver_nk_cell_adaptive_nk_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	KLRC2	FCGR3A	ZEB2	TBX21	KLRD1	GZMB	PRF1	CCL5	FCRL6	CD7
+liver_nk_cell_interferon_response_nk_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	IRF7	IFI6	IFI44L
+liver_b_cell_b_cell_identity	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	MS4A1	CD79A	CD79B	CD74	HLA-DRA	HLA-DRB1	BANK1	CD22	PAX5	BLK
+liver_b_cell_naive_b_cell	Hao et al., Nature Genetics 2022 | https://pmc.ncbi.nlm.nih.gov/articles/PMC9633381/	IGHD	IGHM	TCL1A	IL4R	FCER2	BACH2	CCR7	CD22	MS4A1	BANK1
+liver_b_cell_memory_b_cell	Hao et al., Nature Genetics 2022 | https://pmc.ncbi.nlm.nih.gov/articles/PMC9633381/	CD27	TNFRSF13B	FCRL4	FCRL5	AIM2	IGHA1	IGHG1	IGHG3	CD79A	MS4A1
+liver_b_cell_plasma_cell	Hao et al., Nature Genetics 2022 | https://pmc.ncbi.nlm.nih.gov/articles/PMC9633381/	MZB1	XBP1	PRDM1	JCHAIN	SDC1	CD38	DERL3	FKBP11	IGKC	IGHA1
+liver_b_cell_activated_antigen_presentation_b_cell	Zhao et al., Cell Discovery 2020 | https://www.nature.com/articles/s41421-020-0157-z	CD83	CD69	HLA-DRA	HLA-DRB1	HLA-DPA1	HLA-DPB1	CD86	NFKBIA	NFKBIZ	CXCR5
+liver_mast_cell_mast_cell_identity	Jiang et al., Journal of Allergy and Clinical Immunology 2020 | https://pmc.ncbi.nlm.nih.gov/articles/PMC7756890/	KIT	TPSAB1	TPSB2	CPA3	HDC	MS4A2	GATA2	FCER1A	HPGDS	MCEMP1
+liver_mast_cell_tryptase_mast_cell	Jiang et al., Journal of Allergy and Clinical Immunology 2020 | https://pmc.ncbi.nlm.nih.gov/articles/PMC7756890/	TPSAB1	TPSB2	TPSD1	HDC	KIT	MS4A2	FCER1A	GATA2	HPGDS	CPA3
+liver_mast_cell_chymase_mast_cell	Jiang et al., Journal of Allergy and Clinical Immunology 2020 | https://pmc.ncbi.nlm.nih.gov/articles/PMC7756890/	CMA1	CPA3	CTSG	TPSAB1	TPSB2	KIT	MS4A2	HDC	GATA2	MCEMP1
+liver_mast_cell_activated_inflammatory_mast_cell	Jiang et al., Journal of Allergy and Clinical Immunology 2020 | https://pmc.ncbi.nlm.nih.gov/articles/PMC7756890/	IL1RL1	CXCL8	CCL2	CCL3	CCL4	JUN	FOS	EGR1	NFKBIA	TNFAIP3
+liver_schwann_cell_schwann_cell_identity	Gerber et al., eLife 2021 | https://elifesciences.org/articles/58591	SOX10	S100B	PLP1	MPZ	PMP22	MBP	PRX	ERBB3	NGFR	GFRA3
+liver_schwann_cell_myelinating_schwann_cell	Gerber et al., eLife 2021 | https://elifesciences.org/articles/58591	MPZ	MBP	PRX	MAG	PMP22	EGR2	MAL	PLLP	PLP1	NCMAP
+liver_schwann_cell_nonmyelinating_schwann_cell	Gerber et al., eLife 2021 | https://elifesciences.org/articles/58591	NGFR	NCAM1	L1CAM	CDH19	S100B	SOX10	GFRA3	ERBB3	GAP43	SCN7A
+liver_schwann_cell_repair_activated_schwann_cell	Patel et al., EMBO Reports 2024 | https://pmc.ncbi.nlm.nih.gov/articles/PMC11358533/	JUN	SOX2	NGFR	GDNF	SHH	BDNF	NRG1	GAP43	OLIG1	EGR1

@@ -256,6 +256,9 @@ Semantics:
 - Because the long-form multi-Y inputs are continuous support vectors, the CLI auto-enables `--linear` unless you explicitly pass `--no-linear`.
 - `--multi-y-in` cannot be combined with other primary Y sources such as `--gwas-in`, `--gene-stats-in`, or gene-list inputs.
 
+Example:
+- `docs/examples/cell_state_multi_y_pipeline.md` records the all-cell-state full-universe PIGEAN beta workflow with HPO/exomes traits removed. The example uses repo-local `dat/` GMT/Excel artifacts and the bundled large multi-Y gene-statistics table.
+
 Retired interface:
 - The old `--betas-from-phewas` and `--betas-uncorrected-from-phewas` flags have been removed. Use `--multi-y-in` for multi-trait beta workflows.
 

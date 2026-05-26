@@ -1,0 +1,74 @@
+vat_aspc_multipotent_adventitial_aspc	ASPC|multipotent_adventitial_aspc|portal_default	PDGFRA	CD34	DCN	LUM	DPP4	PI16	CFD	APOD	COL1A1	COL1A2
+vat_aspc_adipogenic_preadipocyte_aspc	ASPC|adipogenic_preadipocyte_aspc|portal_flagged	PPARG	CEBPA	LPL	FABP4	ADIPOQ	AQP7	SCD	FASN	GPAM	CIDEA
+vat_aspc_cd55_icam1_apc_axis	ASPC|cd55_icam1_apc_axis|portal_flagged	CD55	ICAM1	CD9	F3	PDGFRA	APOD	THY1	C7	EFEMP1	COL14A1
+vat_aspc_inflammatory_aspc	ASPC|inflammatory_aspc|portal_flagged	IL6	CXCL8	CCL2	CXCL2	CXCL3	PTGS2	NFKBIA	TNFAIP3	PLAUR	ICAM1
+vat_aspc_fibrotic_ecm_aspc	ASPC|fibrotic_ecm_aspc|portal_default	COL1A1	COL1A2	COL3A1	COL6A1	COL6A3	FN1	LOX	POSTN	MMP2	TIMP1
+vat_adipocyte_mature_lipid_storage_adipocyte	adipocyte|mature_lipid_storage_adipocyte|portal_default	ADIPOQ	LEP	PLIN1	FABP4	FABP5	LPL	LIPE	PNPLA2	CIDEC	AQP7
+vat_adipocyte_insulin_responsive_lipogenic_adipocyte	adipocyte|insulin_responsive_lipogenic_adipocyte|portal_default	SLC2A4	IRS1	AKT2	PPARG	CEBPA	FASN	ACACA	DGAT2	ELOVL6	SCD
+vat_adipocyte_inflammatory_saa_adipocyte	adipocyte|inflammatory_saa_adipocyte|portal_flagged	SAA1	SAA2	CCL2	CXCL2	CXCL3	IL6	NFKBIA	TNFAIP3	SOCS3	PTGS2
+vat_adipocyte_thermogenic_beige_like_adipocyte	adipocyte|thermogenic_beige_like_adipocyte|portal_flagged	UCP1	DIO2	PPARGC1A	CIDEA	ELOVL3	PDK4	CPT1B	PLIN5	CKMT1A	ACADM
+vat_adipocyte_hypoxic_er_stress_adipocyte	adipocyte|hypoxic_er_stress_adipocyte|portal_flagged	HIF1A	VEGFA	ADM	EGLN3	DDIT3	HSPA5	XBP1	ATF4	CHAC1	GDF15
+vat_adipocyte_ecm_hypertrophic_adipocyte	adipocyte|ecm_hypertrophic_adipocyte|portal_flagged	COL6A1	COL6A3	FN1	MMP2	TIMP1	THBS1	LGALS3	SERPINE1	LOX	POSTN
+vat_mesothelium_mesothelial_identity	mesothelium|mesothelial_identity|portal_default	WT1	MSLN	UPK3B	LRRN4	KRT8	KRT18	KRT19	PDPN	C3	GPM6A
+vat_mesothelium_adipose_serosal_mesothelium	mesothelium|adipose_serosal_mesothelium|portal_flagged	ALDH1A2	WT1	MSLN	UPK3B	C3	GPM6A	PDPN	KRT19	KRT8	LRRN4
+vat_mesothelium_inflammatory_complement_mesothelium	mesothelium|inflammatory_complement_mesothelium|portal_flagged	C3	CFB	CFD	CXCL8	CCL2	IL6	ICAM1	NFKBIA	TNFAIP3	PTGS2
+vat_mesothelium_mesenchymal_transition_mesothelium	mesothelium|mesenchymal_transition_mesothelium|portal_flagged	VIM	FN1	COL1A1	COL1A2	TAGLN	ACTA2	SNAI2	ZEB1	MMP2	MMP14
+vat_endothelial_capillary_endothelial	endothelial|capillary_endothelial|portal_default	CA4	RGCC	IFI27	CLEC14A	ESAM	CLDN5	PECAM1	EMCN	PLVAP	VWF
+vat_endothelial_arterial_endothelial	endothelial|arterial_endothelial|portal_default	GJA5	SOX17	EFNB2	HEY1	DLL4	NOTCH4	CXCR4	BMX	ENG	PECAM1
+vat_endothelial_venous_endothelial	endothelial|venous_endothelial|portal_default	ACKR1	VCAM1	NR2F2	VWF	SELE	SELP	MMRN1	APLNR	PLVAP	EMCN
+vat_endothelial_adipose_lipid_transport_endothelial	endothelial|adipose_lipid_transport_endothelial|portal_flagged	FABP4	CD36	LPL	GPIHBP1	PLTP	APOE	PPARG	PPARA	ANGPTL4	KLF2
+vat_endothelial_angiogenic_endothelial	endothelial|angiogenic_endothelial|portal_flagged	KDR	FLT1	ANGPT2	ESM1	DLL4	APLNR	SOX17	MMP14	COL18A1	VEGFC
+vat_endothelial_inflammatory_endothelial	endothelial|inflammatory_endothelial|portal_flagged	ICAM1	VCAM1	SELE	SELP	CXCL8	CCL2	NFKBIA	TNFAIP3	HLA-DRA	HLA-DRB1
+vat_lec_lymphatic_endothelial_identity	LEC|lymphatic_endothelial_identity|portal_default	PROX1	LYVE1	PDPN	FLT4	CCL21	MMRN1	PTPRB	CLDN5	PECAM1	SOX18
+vat_lec_initial_capillary_lec	LEC|initial_capillary_lec|portal_default	LYVE1	CCL21	MMRN1	PROX1	PDPN	FLT4	ACKR4	TBX1	RELN	FOXC2
+vat_lec_collecting_valve_lec	LEC|collecting_valve_lec|portal_flagged	FOXC2	GATA2	ITGA9	FLT4	PROX1	CELSR1	EFNB2	GJA4	MMRN1	CLDN11
+vat_lec_inflammatory_lec	LEC|inflammatory_lec|portal_flagged	ICAM1	VCAM1	CCL2	CXCL8	HLA-DRA	HLA-DRB1	CD74	NFKBIA	TNFAIP3	CXCL10
+vat_smc_contractile_smc_identity	SMC|contractile_smc_identity|portal_default	ACTA2	MYH11	TAGLN	CNN1	MYLK	SMTN	TPM2	LMOD1	DES	PLN
+vat_smc_synthetic_remodeling_smc	SMC|synthetic_remodeling_smc|portal_flagged	COL1A1	COL1A2	FN1	VCAN	MMP2	MMP9	TIMP1	THBS1	LOX	POSTN
+vat_smc_inflammatory_smc	SMC|inflammatory_smc|portal_flagged	CCL2	CXCL8	IL6	ICAM1	VCAM1	NFKBIA	TNFAIP3	PTGS2	SOCS3	JUNB
+vat_smc_proliferating_smc	SMC|proliferating_smc|portal_flagged	MKI67	TOP2A	STMN1	CENPF	PCNA	UBE2C	TYMS	CDK1	CCNB1	HMGB2
+vat_pericyte_pericyte_mural_identity	pericyte|pericyte_mural_identity|portal_default	RGS5	PDGFRB	CSPG4	MCAM	NOTCH3	KCNJ8	ABCC9	COX4I2	NDUFA4L2	HIGD1B
+vat_pericyte_contractile_pericyte	pericyte|contractile_pericyte|portal_default	ACTA2	TAGLN	MYL9	MYH11	TPM2	PLN	CNN1	MYLK	DES	LMOD1
+vat_pericyte_activated_fibrotic_pericyte	pericyte|activated_fibrotic_pericyte|portal_flagged	COL1A1	COL1A2	COL3A1	DCN	LUM	FN1	POSTN	LOX	MMP2	TIMP1
+vat_pericyte_inflammatory_pericyte	pericyte|inflammatory_pericyte|portal_flagged	CCL2	CXCL8	IL6	ICAM1	NFKBIA	TNFAIP3	PTGS2	SOCS3	CXCL2	JUNB
+vat_macrophage_resident_m2_like_macrophage	macrophage|resident_m2_like_macrophage|portal_default	MRC1	CD163	MSR1	MAF	FOLR2	C1QA	C1QB	C1QC	LYVE1	SELENOP
+vat_macrophage_lipid_associated_macrophage	macrophage|lipid_associated_macrophage|portal_default	TREM2	CD9	APOE	LPL	CTSB	CTSD	GPNMB	SPP1	LGALS3	FABP5
+vat_macrophage_inflammatory_macrophage	macrophage|inflammatory_macrophage|portal_default	IL1B	TNF	CXCL8	CCL2	CCL3	CCL4	NFKBIA	PTGS2	FCN1	S100A8
+vat_macrophage_antigen_presenting_macrophage	macrophage|antigen_presenting_macrophage|portal_default	HLA-DRA	HLA-DRB1	HLA-DPA1	HLA-DPB1	CD74	CIITA	HLA-DQA1	HLA-DQB1	B2M	TAP1
+vat_macrophage_interferon_response_macrophage	macrophage|interferon_response_macrophage|portal_flagged	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	IRF7	IFI44L	CXCL10
+vat_macrophage_proliferating_macrophage	macrophage|proliferating_macrophage|portal_flagged	MKI67	TOP2A	STMN1	CENPF	TYMS	HMGB2	PCNA	UBE2C	CDK1	CCNB1
+vat_monocyte_classical_inflammatory_monocyte	monocyte|classical_inflammatory_monocyte|portal_default	CD14	LST1	S100A8	S100A9	FCN1	VCAN	CCR2	LYZ	CTSS	LGALS3
+vat_monocyte_nonclassical_patrolling_monocyte	monocyte|nonclassical_patrolling_monocyte|portal_default	FCGR3A	MS4A7	LILRB2	CX3CR1	IFITM3	RHOB	LST1	AIF1	CDKN1C	LILRA5
+vat_monocyte_monocyte_to_macrophage_transition	monocyte|monocyte_to_macrophage_transition|portal_flagged	APOE	C1QA	C1QB	C1QC	LGALS3	TREM2	LPL	CTSB	MRC1	MSR1
+vat_monocyte_interferon_response_monocyte	monocyte|interferon_response_monocyte|portal_flagged	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	IRF7	IFI44L	IFI6
+vat_dendritic_cell_cdc2	dendritic cell|cdc2|portal_default	CD1C	FCER1A	CLEC10A	CD1E	CD1A	HLA-DRA	HLA-DPB1	CD74	ITGAX	CST3
+vat_dendritic_cell_cdc1	dendritic cell|cdc1|portal_default	CLEC9A	XCR1	BATF3	CADM1	IRF8	CLNK	WDFY4	THBD	IDO1	FLT3
+vat_dendritic_cell_pdc	dendritic cell|pdc|portal_default	CLEC4C	LILRA4	IRF7	GZMB	PLD4	TCF4	IL3RA	SCT	SPIB	JCHAIN
+vat_dendritic_cell_mature_migratory_dc	dendritic cell|mature_migratory_dc|portal_flagged	LAMP3	CCR7	FSCN1	CCL19	CCL22	CD83	CD80	CD40	RELB	IL7R
+vat_dendritic_cell_inflammatory_dc3_like	dendritic cell|inflammatory_dc3_like|portal_flagged	CD14	FCN1	S100A8	S100A9	LYZ	VCAN	CD1C	CLEC10A	CCR2	IL1B
+vat_t_cell_naive_central_memory_t_cell	T cell|naive_central_memory_t_cell|portal_default	CCR7	LTB	IL7R	LEF1	TCF7	SELL	MAL	CD3D	CD3E	CD27
+vat_t_cell_cytotoxic_effector_t_cell	T cell|cytotoxic_effector_t_cell|portal_default	CD8A	CD8B	GZMB	GZMH	PRF1	NKG7	GNLY	CCL5	CST7	IFNG
+vat_t_cell_regulatory_t_cell	T cell|regulatory_t_cell|portal_default	FOXP3	IL2RA	CTLA4	IKZF2	TIGIT	TNFRSF18	TNFRSF4	CCR8	BATF	LAIR2
+vat_t_cell_th1_inflammatory_t_cell	T cell|th1_inflammatory_t_cell|portal_flagged	TBX21	IFNG	CXCR3	STAT1	IL12RB2	CCL5	GZMK	CXCL13	CD40LG	TNF
+vat_t_cell_exhausted_dysfunctional_t_cell	T cell|exhausted_dysfunctional_t_cell|portal_flagged	PDCD1	LAG3	HAVCR2	TIGIT	CTLA4	TOX	CXCL13	ENTPD1	EOMES	LAYN
+vat_t_cell_proliferating_t_cell	T cell|proliferating_t_cell|portal_flagged	MKI67	TOP2A	STMN1	CENPF	HMGB2	PCNA	UBE2C	TYMS	CDK1	CCNB1
+vat_nk_cell_cytotoxic_nk_cell	NK cell|cytotoxic_nk_cell|portal_default	NKG7	GNLY	PRF1	GZMB	GZMH	CST7	KLRD1	FCGR3A	CCL5	SPON2
+vat_nk_cell_cd56bright_regulatory_nk_cell	NK cell|cd56bright_regulatory_nk_cell|portal_flagged	XCL1	XCL2	KLRC1	KLRC3	GZMK	IL7R	KIT	SELL	CCR7	FCER1G
+vat_nk_cell_interferon_response_nk_cell	NK cell|interferon_response_nk_cell|portal_flagged	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	IRF7	IFI44L	IFI6
+vat_nk_cell_proliferating_nk_cell	NK cell|proliferating_nk_cell|portal_flagged	MKI67	TOP2A	STMN1	CENPF	HMGB2	PCNA	UBE2C	TYMS	CDK1	CCNB1
+vat_b_cell_naive_b_cell	B cell|naive_b_cell|portal_default	MS4A1	CD79A	CD79B	BANK1	CD37	CD22	PAX5	TCL1A	IGHD	IGHM
+vat_b_cell_memory_b_cell	B cell|memory_b_cell|portal_default	MS4A1	CD79A	CD79B	BANK1	CD27	TNFRSF13B	CD82	HLA-DRA	IGHG1	IGHA1
+vat_b_cell_activated_germinal_center_like_b_cell	B cell|activated_germinal_center_like_b_cell|portal_flagged	AICDA	BCL6	RGS13	MEF2B	BACH2	SLC2A1	CD38	MKI67	STMN1	BIRC5
+vat_b_cell_plasma_cell	B cell|plasma_cell|portal_default	MZB1	XBP1	PRDM1	JCHAIN	SDC1	IGKC	IGHA1	IGHG1	FKBP11	DERL3
+vat_b_cell_interferon_response_b_cell	B cell|interferon_response_b_cell|portal_flagged	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	IRF7	IFI44L	IFI6
+vat_mast_cell_mast_cell_identity	mast cell|mast_cell_identity|portal_default	TPSAB1	TPSB2	CPA3	KIT	MS4A2	HDC	HPSE	GATA2	GCSAML	SLC18A2
+vat_mast_cell_connective_tissue_protease_rich_mast_cell	mast cell|connective_tissue_protease_rich_mast_cell|portal_default	CMA1	CPA3	CTSG	TPSAB1	TPSB2	MCEMP1	HDC	KIT	MS4A2	GATA2
+vat_mast_cell_activated_inflammatory_mast_cell	mast cell|activated_inflammatory_mast_cell|portal_flagged	CXCL8	CCL2	CCL3	CCL4	NFKBIA	TNFAIP3	ICAM1	FOS	JUN	PTGS2
+vat_neutrophil_mature_neutrophil	neutrophil|mature_neutrophil|portal_default	S100A8	S100A9	FCN1	LYZ	CSF3R	CXCR2	FCGR3B	MNDA	AQP9	NAMPT
+vat_neutrophil_activated_inflammatory_neutrophil	neutrophil|activated_inflammatory_neutrophil|portal_flagged	IL1B	CXCL8	CCL3	CCL4	NFKBIA	TNFAIP3	PTGS2	ICAM1	FOS	JUN
+vat_neutrophil_interferon_response_neutrophil	neutrophil|interferon_response_neutrophil|portal_flagged	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	IRF7	IFI44L	IFI6
+vat_neutrophil_immature_granulocytic_neutrophil	neutrophil|immature_granulocytic_neutrophil|portal_flagged	MPO	ELANE	AZU1	CTSG	PRTN3	LTF	CAMP	DEFA4	OLFM4	MMP8
+vat_endometrium_endometrial_epithelial_identity	endometrium|endometrial_epithelial_identity|qc_only	EPCAM	KRT8	KRT18	KRT19	MUC1	PAX8	SOX17	CLDN4	TACSTD2	LTF
+vat_endometrium_endometrial_stromal_identity	endometrium|endometrial_stromal_identity|qc_only	DCN	LUM	COL1A1	COL1A2	COL3A1	PDGFRA	THY1	HOXA10	IGFBP1	LEFTY1
+vat_endometrium_decidualized_stromal	endometrium|decidualized_stromal|qc_only	IGFBP1	PRL	LEFTY2	WNT4	FOXO1	HAND2	IL15	CXCL14	IGFBP6	PEG10
+vat_endometrium_ciliated_endometrial_epithelium	endometrium|ciliated_endometrial_epithelium|qc_only	FOXJ1	TPPP3	PIFO	DNAH5	CCDC40	DRC1	EPCAM	KRT18	TUBB4B	CAPS

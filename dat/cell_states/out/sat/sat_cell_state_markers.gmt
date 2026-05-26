@@ -1,0 +1,64 @@
+sat_aspc_multipotent_adventitial_aspc	Conservative adipose progenitor/adventitial FAP panel; use as ASPC identity and early progenitor state.	CD34	PDGFRA	DPP4	PI16	CD55	SLPI	SEMA3C	THY1	DCN	LUM
+sat_aspc_committed_preadipocyte	Committed preadipocyte/adipogenic ASPC panel; validate against mature adipocyte leakage.	ICAM1	NABP1	ABHD5	ATF3	APOD	CFD	CXCL14	LPL	PPARG	CEBPD
+sat_aspc_f3_cxcl12_adipogenesis_regulatory_aspc	CD142/F3 and ECM-rich adipogenesis-regulatory or fibrotic ASPC-like state; can overlap activated fibroblast programs.	F3	CXCL12	ABCA8	SVEP1	COL1A1	COL3A1	FN1	POSTN	CTHRC1	MMP2
+sat_aspc_cd74_antigen_presenting_aspc	MHC-II-positive stromal state; check for immune doublets and batch effects before interpretation.	CD74	HLA-DRA	HLA-DRB1	HLA-DPA1	HLA-DPB1	CIITA	CXCL12	CCL19	CD34	PDGFRA
+sat_aspc_proliferating_aspc	Generic cell-cycle program within ASPC; not adipose-specific.	MKI67	TOP2A	CENPF	UBE2C	NUSAP1	BIRC5	CCNB1	CDK1	TYMS	STMN1
+sat_adipocyte_white_adipocyte_lipid_storage	Mature white adipocyte identity and lipid storage panel.	ADIPOQ	PLIN1	FABP4	LPL	LIPE	DGAT2	PPARG	CIDEC	CIDEA	AQP7
+sat_adipocyte_insulin_responsive_lipogenic_adipocyte	Insulin signaling, glucose transport and lipogenesis panel for mature adipocytes.	SLC2A4	IRS1	INSR	AKT2	PDE3B	ACACB	FASN	SCD	ELOVL6	DGAT2
+sat_adipocyte_lep_high_endocrine_adipocyte	Adipokine/endocrine adipocyte panel; CCL2/VEGFA can reflect stress or stromal interaction.	LEP	ADIPOQ	CFD	RBP4	ANGPTL4	NAMPT	SERPINA12	IGF1	VEGFA	CCL2
+sat_adipocyte_saa_inflammatory_adipocyte	Inflammatory adipocyte/adipokine state; verify parent adipocyte purity and dissociation effects.	SAA1	SAA2	IL6	CCL2	CXCL2	CXCL3	ICAM1	TNFAIP3	NFKBIA	SOCS3
+sat_adipocyte_beige_thermogenic_adipocyte	Beige or thermogenic adipocyte panel; UCP1 may be sparse in human SAT.	UCP1	CIDEA	PPARGC1A	DIO2	ELOVL3	PDK4	PLIN5	NRG4	CITED1	KCNK3
+sat_endothelial_capillary_endothelial	Blood capillary endothelial panel for adipose tissue.	RGCC	CA4	PLVAP	KDR	CLDN5	RAMP2	ESAM	EMCN	AQP1	CD34
+sat_endothelial_arterial_endothelial	Arterial endothelial panel.	GJA5	SOX17	HEY1	EFNB2	DLL4	NRP1	CXCR4	FBLN5	BMX	SEMA3G
+sat_endothelial_venous_endothelial	Venous endothelial panel; some adhesion genes also rise with inflammation.	ACKR1	VWF	NR2F2	VCAM1	SELP	CCL14	MMRN1	APLNR	PLVAP	SELE
+sat_endothelial_lipid_transport_endothelial	Adipose endothelial lipid transport/metabolic program; cross-check against adipocyte ambient RNA.	FABP4	CD36	GPIHBP1	LPL	ANGPTL4	PLIN2	APOE	LIPA	FABP5	CPT1A
+sat_endothelial_angiogenic_endothelial	Angiogenic and proliferative endothelial response; generic growth program.	ESM1	KDR	FLT1	ANGPT2	DLL4	PGF	APLN	CXCR4	MKI67	TOP2A
+sat_endothelial_inflammatory_endothelial	Activated inflammatory endothelial response; check disease, donor and dissociation covariates.	ICAM1	VCAM1	SELE	CCL2	CXCL8	NFKBIA	TNFAIP3	HLA-B	HLA-DRA	IFIT1
+sat_smc_contractile_smc	Canonical contractile vascular smooth muscle identity.	ACTA2	MYH11	TAGLN	CNN1	SMTN	MYL9	TPM2	LMOD1	CALD1	PLN
+sat_smc_synthetic_remodeling_smc	Synthetic/remodeling SMC program; can overlap fibroblast and pericyte ECM states.	COL1A1	COL1A2	COL3A1	FN1	VCAN	PDGFRB	MMP2	TIMP1	SERPINE1	LOX
+sat_smc_inflammatory_smc	Inflammatory SMC response; generic activation program.	CCL2	CXCL8	ICAM1	VCAM1	IL6	NFKBIA	TNFAIP3	PTGS2	JUN	FOS
+sat_smc_proliferating_smc	Generic cell-cycle program within SMC.	MKI67	TOP2A	CENPF	UBE2C	BIRC5	CCNB1	CDK1	TYMS	STMN1	HMGB2
+sat_pericyte_canonical_pericyte	Canonical pericyte and mural-cell identity panel.	RGS5	PDGFRB	CSPG4	MCAM	NOTCH3	ABCC9	KCNJ8	COLEC11	HIGD1B	GJA4
+sat_pericyte_contractile_pericyte	Contractile mural/pericyte program; may overlap SMC.	ACTA2	TAGLN	MYL9	TPM2	CNN1	PLN	CALD1	LMOD1	RGS5	MCAM
+sat_pericyte_ecm_remodeling_pericyte	ECM-remodeling pericyte/fibrotic mural state; check ASPC and fibroblast overlap.	COL1A1	COL1A2	COL3A1	FN1	POSTN	DCN	LUM	MMP2	TIMP1	CTHRC1
+sat_pericyte_angiogenic_support_pericyte	Pericyte vascular support and basement-membrane interaction panel.	ANGPT1	PDGFRB	NOTCH3	NID1	LAMA2	COL4A1	COL4A2	VEGFA	APOD	RGS5
+sat_lec_canonical_lymphatic_endothelial	Canonical lymphatic endothelial cell identity panel.	PROX1	FLT4	LYVE1	PDPN	CCL21	MMRN1	NRP2	SOX18	FOXC2	RELN
+sat_lec_collecting_valve_lec	Collecting or valve-like lymphatic endothelial program; validate spatially if possible.	FOXC2	GATA2	ITGA9	EFNB2	CLDN11	PROX1	FLT4	GJC2	ANGPT2	MMRN1
+sat_lec_immune_interacting_inflammatory_lec	Inflammatory or immune-interacting LEC state; check immune doublets and MHC-II artifacts.	CCL21	CCL19	CXCL12	ICAM1	VCAM1	HLA-DRA	HLA-DPA1	CD74	CXCL8	TNFAIP3
+sat_lec_angiogenic_proliferating_lec	Angiogenic and cell-cycle LEC program; generic growth response.	MKI67	TOP2A	CENPF	KDR	FLT4	ESM1	APLN	ANGPT2	DLL4	CCNB1
+sat_macrophage_resident_m2_like_macrophage	Adipose resident M2-like macrophage panel.	FOLR2	LYVE1	MRC1	CD163	MSR1	C1QA	C1QB	C1QC	SELENOP	STAB1
+sat_macrophage_lipid_associated_macrophage	Lipid-associated macrophage panel conserved in metabolic adipose contexts.	TREM2	CD9	GPNMB	LPL	APOE	LGALS3	CTSB	CTSD	FABP5	CD63
+sat_macrophage_inflammatory_mox_macrophage	Inflammatory/redox metabolic macrophage program; subcutaneous WAT Mox-like context.	CCL2	CXCL2	CXCL8	IL1B	TNF	NFKBIA	TNFAIP3	SOD2	HMOX1	PLAUR
+sat_macrophage_antigen_presenting_macrophage	MHC-II and antigen-presentation macrophage panel.	HLA-DRA	HLA-DRB1	HLA-DPA1	HLA-DPB1	CD74	CIITA	CD86	CD40	FCGR1A	CTSS
+sat_macrophage_proliferating_macrophage	Generic cell-cycle macrophage program.	MKI67	TOP2A	CENPF	STMN1	TYMS	UBE2C	BIRC5	PCNA	CDK1	CCNB1
+sat_monocyte_classical_monocyte	Classical inflammatory monocyte identity panel.	S100A8	S100A9	S100A12	VCAN	LYZ	CD14	FCN1	LST1	CTSS	MNDA
+sat_monocyte_nonclassical_monocyte	Non-classical monocyte identity panel.	FCGR3A	MS4A7	LST1	IFITM3	RHOB	HLA-DRA	LILRB1	CX3CR1	CDKN1C	ABI3
+sat_monocyte_intermediate_antigen_presenting_monocyte	Intermediate/APC-like monocyte state.	HLA-DRA	HLA-DRB1	CD74	CD14	FCGR3A	LYZ	CTSS	FCN1	LILRB2	CD86
+sat_monocyte_interferon_response_monocyte	Generic type-I interferon response program.	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	IRF7	CXCL10	RSAD2
+sat_dendritic_cell_cdc1	Conventional dendritic cell 1 panel.	CLEC9A	XCR1	BATF3	IRF8	CADM1	THBD	CLNK	IDO1	HLA-DRA	CD74
+sat_dendritic_cell_cdc2	Conventional dendritic cell 2 panel.	CD1C	FCER1A	CLEC10A	CD1E	CD1A	HLA-DRA	IRF4	FCGR2B	CST3	LST1
+sat_dendritic_cell_mature_ccr7_dendritic_cell	Mature migratory/CCR7 dendritic cell panel.	CCR7	LAMP3	FSCN1	CCL19	CCL22	CD83	IL7R	RELB	NFKBIA	BIRC3
+sat_dendritic_cell_plasmacytoid_dendritic_cell	Plasmacytoid dendritic cell panel.	IL3RA	CLEC4C	LILRA4	TCF4	IRF7	ITM2C	PLD4	SCT	JCHAIN	GZMB
+sat_dendritic_cell_monocyte_derived_inflammatory_dc	Inflammatory monocyte-derived DC-like state; can overlap monocytes.	CD14	FCN1	S100A8	S100A9	VCAN	LYZ	CD1C	FCER1A	CCR2	CCL2
+sat_mast_cell_tryptase_positive_mast_cell	Tryptase-positive mast cell identity panel.	KIT	TPSAB1	TPSB2	CPA3	HDC	MS4A2	GATA2	HPSE	FCER1G	SLC18A2
+sat_mast_cell_chymase_carboxypeptidase_mast_cell	Chymase and carboxypeptidase mast cell panel.	CMA1	CPA3	CTSG	TPSAB1	TPSB2	KIT	HDC	MCEMP1	GATA2	MS4A2
+sat_mast_cell_activated_inflammatory_mast_cell	Activated mast cell response; generic activation and stress markers.	IL1RL1	CCL2	CXCL8	FOS	JUN	NFKBIA	TNFAIP3	HSPA1A	EGR1	DUSP1
+sat_t_cell_naive_central_memory_t_cell	Naive or central-memory T cell panel.	CCR7	SELL	IL7R	TCF7	LEF1	MAL	LTB	CD3D	CD3E	TRAC
+sat_t_cell_th1_activated_cd4_t_cell	Th1-polarized activated CD4 T cell panel.	TBX21	IFNG	CXCR3	CCL5	IL12RB2	STAT4	CD40LG	TNF	GZMK	CD69
+sat_t_cell_regulatory_t_cell	Regulatory T cell panel.	FOXP3	IL2RA	CTLA4	IKZF2	TIGIT	TNFRSF18	CCR8	IL10	BATF	LAYN
+sat_t_cell_cytotoxic_cd8_t_cell	Cytotoxic CD8 T cell panel.	CD8A	CD8B	GZMB	PRF1	NKG7	GNLY	CCL5	GZMH	CST7	KLRD1
+sat_t_cell_tissue_resident_exhausted_t_cell	Tissue-resident memory and exhausted/dysfunctional T cell panel.	ITGAE	CXCR6	CD69	ZNF683	RUNX3	PDCD1	LAG3	TIGIT	TOX	GZMK
+sat_t_cell_proliferating_t_cell	Generic cell-cycle program within T cells.	MKI67	TOP2A	CENPF	STMN1	TYMS	UBE2C	HMGB2	PCNA	CCNB1	CDK1
+sat_nk_cell_cytotoxic_nk_cell	Cytotoxic NK cell panel.	NKG7	GNLY	PRF1	GZMB	GZMH	KLRD1	KLRF1	CTSW	FGFBP2	FCGR3A
+sat_nk_cell_cd16_adaptive_like_nk_cell	CD16-positive or adaptive-like NK cell panel.	FCGR3A	KLRC2	KLRD1	NKG7	GNLY	PRF1	GZMB	CCL5	TBX21	ZEB2
+sat_nk_cell_gzmk_il7r_nk_nkt_like	Cytokine/GZMK NK or NKT-like panel; check T-cell marker contamination.	IL7R	GZMK	XCL1	XCL2	CCL5	KLRB1	CXCR6	ZNF683	NKG7	KLRC1
+sat_nk_cell_interferon_response_nk_cell	Generic type-I interferon response program.	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	IRF7	RSAD2	IFI6
+sat_nk_cell_proliferating_nk_cell	Generic cell-cycle program within NK cells.	MKI67	TOP2A	CENPF	TYMS	UBE2C	BIRC5	PCNA	STMN1	CCNB1	CDK1
+sat_b_cell_naive_b_cell	Naive B cell panel.	MS4A1	CD79A	CD79B	BANK1	TCL1A	IGHD	IGHM	PAX5	CD37	FCER2
+sat_b_cell_memory_activated_b_cell	Memory or activated B cell panel.	MS4A1	CD79A	CD79B	CD27	CD38	TNFRSF13B	HLA-DRA	CD74	FCRL3	AIM2
+sat_b_cell_plasma_plasmablast	Plasma cell or plasmablast panel.	MZB1	XBP1	JCHAIN	PRDM1	IRF4	SDC1	IGKC	IGLC2	DERL3	FKBP11
+sat_b_cell_interferon_response_b_cell	Generic type-I interferon response program.	ISG15	IFIT1	IFIT3	MX1	OAS1	STAT1	IRF7	CXCL10	HLA-DRA	CD74
+sat_neutrophil_mature_neutrophil	Mature neutrophil identity panel.	S100A8	S100A9	FCGR3B	CSF3R	CXCR2	MNDA	LST1	AQP9	PROK2	NAMPT
+sat_neutrophil_inflammatory_activated_neutrophil	Inflammatory activated neutrophil response.	IL1B	CXCL8	CCL3	CCL4	NFKBIA	TNFAIP3	FOS	JUN	ICAM1	PLAUR
+sat_neutrophil_degranulating_neutrophil	Granule and degranulation neutrophil panel.	ELANE	MPO	AZU1	PRTN3	CTSG	LTF	DEFA3	CAMP	MMP9	OLFM4
+sat_neutrophil_interferon_response_neutrophil	Generic type-I interferon response program.	ISG15	IFIT1	IFIT2	IFIT3	MX1	OAS1	STAT1	RSAD2	IFI6	IFI44L
