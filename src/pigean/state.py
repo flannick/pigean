@@ -35,6 +35,7 @@ import pegs_shared.gene_io as pegs_gene_io
 import pegs_shared.huge_cache as pegs_huge_cache
 import pegs_shared.io_common as pegs_io_common
 import pegs_shared.phewas as pegs_phewas
+import pegs_shared.probability as pegs_probability
 import pegs_shared.output_tables as pegs_output_tables
 import pegs_shared.regression as pegs_regression
 import pegs_shared.runtime_matrix as pegs_runtime_matrix
@@ -1040,7 +1041,7 @@ class PigeanState(object):
 
         cur_gene_po = None
         if cap:
-            cur_gene_prob_causal[cur_gene_prob_causal > 0.999] = 0.999
+            cur_gene_prob_causal[cur_gene_prob_causal > pegs_probability.DEFAULT_MAX_PROBABILITY] = pegs_probability.DEFAULT_MAX_PROBABILITY
             cur_gene_po = cur_gene_prob_causal / (1 - cur_gene_prob_causal)
 
         return (cur_gene_prob_causal, cur_gene_indices, cur_gene_po)
@@ -3019,7 +3020,7 @@ class PigeanState(object):
             self.combine_huge_scores()
             return (gene_bf, extra_genes, extra_gene_bf)
 
-    def read_positive_controls(self, positive_controls_in, positive_controls_id_col=None, positive_controls_prob_col=None, positive_controls_default_prob=0.95, positive_controls_has_header=True, positive_controls_list=None, positive_controls_all_in=None, positive_controls_all_id_col=None, positive_controls_all_has_header=True, hold_out_chrom=None, gene_loc_file=None, **kwargs):
+    def read_positive_controls(self, positive_controls_in, positive_controls_id_col=None, positive_controls_prob_col=None, positive_controls_default_prob=0.95, positive_controls_has_header=True, positive_controls_list=None, positive_controls_all_in=None, positive_controls_all_id_col=None, positive_controls_all_has_header=True, hold_out_chrom=None, gene_loc_file=None, max_probability=pegs_probability.DEFAULT_MAX_PROBABILITY, **kwargs):
         if positive_controls_in is None and positive_controls_list is None:
             bail(
                 "Require --gene-list-in/--gene-list "
@@ -3036,8 +3037,9 @@ class PigeanState(object):
                 bail_fn=bail,
             )
 
+        max_probability = pegs_probability.validate_max_probability(max_probability, bail_fn=bail)
         if positive_controls_default_prob >= 1:
-            positive_controls_default_prob = 0.99
+            positive_controls_default_prob = max_probability
         if positive_controls_default_prob <= 0:
             positive_controls_default_prob = 0.01
 
@@ -3101,7 +3103,7 @@ class PigeanState(object):
                         warn("Skipping due to too few columns in line: %s" % line)
                         continue
 
-                    max_prob = 0.99
+                    max_prob = max_probability
                     min_prob = 1e-4 * self.background_prior
                     if prob_col is not None:
                         try:
@@ -3572,14 +3574,14 @@ class PigeanState(object):
             high_p = low_p * 2
 
         if high_p_posterior >= 1:
-            po_high = 0.99/0.01
+            po_high = pegs_probability.DEFAULT_MAX_PROBABILITY/(1 - pegs_probability.DEFAULT_MAX_PROBABILITY)
         elif high_p_posterior <=0 :
             po_high = 0.001/0.999
         else:
             po_high = high_p_posterior / (1 - high_p_posterior)
 
         if low_p_posterior >= 1:
-            po_low = 0.99/0.01
+            po_low = pegs_probability.DEFAULT_MAX_PROBABILITY/(1 - pegs_probability.DEFAULT_MAX_PROBABILITY)
         elif low_p_posterior <=0 :
             po_low = 0.001/0.999
         else:
@@ -3593,7 +3595,7 @@ class PigeanState(object):
 
         if allelic_var_k > 1:
             #reset high_p_posterior
-            max_allelic_var_k = 0.99;
+            max_allelic_var_k = pegs_probability.DEFAULT_MAX_PROBABILITY
             po_high = po_low / np.exp(max_allelic_var_k * (np.square(z_low) - np.square(z_high)) / 2)
             log("allelic_var_k overflow; adjusting --high-p-posterior to %.4g" % (po_high/(1+po_high)))
             ratio = po_low / po_high
@@ -5080,6 +5082,7 @@ class PigeanState(object):
             log_fun=log_fun,
             debug_level=DEBUG,
             trace_level=TRACE,
+            warn_fn=warn,
         )
 
     def _finalize_regression(self, beta_tildes, ses, se_inflation_factors):
@@ -10223,7 +10226,7 @@ def _apply_gibbs_final_state(state, final_summary, adjust_priors):
     state.beta_tildes = final_summary["avg_beta_tildes_v"]
     state.z_scores = final_summary["avg_z_scores_v"]
     state.p_values = 2 * scipy.stats.norm.cdf(-np.abs(state.z_scores))
-    state.ses = np.full(state.beta_tildes.shape, 100.0)
+    state.ses = np.full(state.beta_tildes.shape, pegs_regression.NEUTRAL_BETA_TILDE_SE)
     state.ses[state.z_scores != 0] = np.abs(state.beta_tildes[state.z_scores != 0] / state.z_scores[state.z_scores != 0])
 
     state.betas = final_summary["avg_betas_v"]

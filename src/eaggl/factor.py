@@ -10,6 +10,7 @@ import numpy as np
 import scipy.sparse as sparse
 
 from pegs_shared.gene_io import parse_gene_bfs_file, parse_gene_set_statistics_file
+from pegs_shared.probability import DEFAULT_MAX_PROBABILITY
 from pegs_shared.ydata import sync_phewas_runtime_state
 
 from . import gene_list_inputs as eaggl_gene_list_inputs
@@ -1403,6 +1404,7 @@ def _append_labeled_gene_stats(domain, runtime, label, path, options):
         gene_bfs_prob_col=options.gene_stats_prob_col,
         gene_bfs_prior_col=options.gene_stats_prior_col,
         background_log_bf=runtime.background_log_bf,
+        max_probability=getattr(options, "max_probability", DEFAULT_MAX_PROBABILITY),
         gene_label_map=runtime.gene_label_map,
         open_text_fn=domain.open_gz,
         get_col_fn=runtime._get_col,

@@ -7,6 +7,8 @@ import sys
 
 import numpy as np
 
+from pegs_shared.probability import DEFAULT_MAX_PROBABILITY, validate_max_probability
+
 try:
     from .pegs_cli_errors import CliConfigError, CliOptionGroup, CliOptionParser, CliUsageError, SUPPRESS_HELP
 except ImportError:
@@ -188,6 +190,7 @@ parser.add_option("","--gene-list-id-col",dest="positive_controls_id_col",defaul
 parser.add_option("","--gene-list-prob-col",dest="positive_controls_prob_col",default=None)
 parser.add_option("","--gene-list",type="string",action="callback",callback=get_comma_separated_args,dest="positive_controls_list",default=None) #specify comma separated list of genes on the command line
 parser.add_option("","--gene-list-default-prob",type=float,dest="positive_controls_default_prob",default=0.95)
+parser.add_option("","--max-probability",type=float,default=DEFAULT_MAX_PROBABILITY) # maximum probability used when capping probability inputs before log-odds conversion
 parser.add_option("","--gene-list-no-header",action="store_false", dest="positive_controls_has_header", default=True)
 parser.add_option("","--gene-list-all-in",dest="positive_controls_all_in",default=None) #all genes to use in gene-list analysis. If specified add these on top of the selected genes
 parser.add_option("","--gene-list-all-id-col",dest="positive_controls_all_id_col",default=None)
@@ -1428,6 +1431,8 @@ def _is_advanced_option_explicit(dest, cli_dests, config_dests):
 
 def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     # HuGE cache read/write dispatch must be explicit.
+    _options.max_probability = validate_max_probability(_options.max_probability, bail_fn=bail)
+
     if _options.huge_statistics_in is not None and _options.huge_statistics_out is not None:
         bail("Do not pass both --huge-statistics-in and --huge-statistics-out in the same run")
     if _options.huge_statistics_out is not None and _options.gwas_in is None:

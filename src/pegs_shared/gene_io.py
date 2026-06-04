@@ -5,6 +5,7 @@ import scipy.stats
 
 from pegs_shared.cli import _default_bail
 from pegs_shared.io_common import resolve_column_index
+from pegs_shared.probability import DEFAULT_MAX_PROBABILITY, validate_max_probability
 from pegs_shared.types import (
     AlignedGeneBfs,
     AlignedGeneCovariates,
@@ -235,7 +236,8 @@ def parse_gene_bfs_file(
     gene_bfs_prob_col,
     gene_bfs_prior_col,
     background_log_bf,
-    gene_label_map,
+    max_probability=DEFAULT_MAX_PROBABILITY,
+    gene_label_map=None,
     open_text_fn,
     get_col_fn,
     log_fn=None,
@@ -248,6 +250,7 @@ def parse_gene_bfs_file(
         log_fn = lambda _msg: None
     if warn_fn is None:
         warn_fn = lambda _msg: None
+    max_probability = validate_max_probability(max_probability, bail_fn=bail_fn)
 
     if gene_bfs_in is None:
         bail_fn("Require --gene-stats-in for this operation")
@@ -337,9 +340,9 @@ def parse_gene_bfs_file(
                     bail_fn("Probability for gene %s is not finite" % gene)
                 if prob < 0 or prob > 1:
                     bail_fn("Probability %.3g for gene %s is outside [0,1]" % (prob, gene))
-                if prob > 0.99:
-                    warn_fn("Probability %.3g exceeds maximum 0.99 for gene %s; capping to 0.99" % (prob, gene))
-                    prob = 0.99
+                if prob > max_probability:
+                    warn_fn("Probability %.3g exceeds maximum %.3g for gene %s; capping to %.3g" % (prob, max_probability, gene, max_probability))
+                    prob = max_probability
                 if prob == 0:
                     bf = 0.0
                 else:
@@ -551,6 +554,7 @@ def load_aligned_gene_bfs(
     gene_bfs_prob_col=None,
     gene_bfs_prior_col=None,
     background_log_bf=0.0,
+    max_probability=DEFAULT_MAX_PROBABILITY,
     gene_label_map=None,
     open_text_fn=None,
     get_col_fn=None,
@@ -566,6 +570,7 @@ def load_aligned_gene_bfs(
         gene_bfs_prob_col=gene_bfs_prob_col,
         gene_bfs_prior_col=gene_bfs_prior_col,
         background_log_bf=background_log_bf,
+        max_probability=max_probability,
         gene_label_map=gene_label_map,
         open_text_fn=open_text_fn,
         get_col_fn=get_col_fn,

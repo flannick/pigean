@@ -8,6 +8,7 @@ import numpy as np
 import scipy.sparse as sparse
 
 from pegs_shared.io_common import resolve_column_index
+from pegs_shared.probability import DEFAULT_MAX_PROBABILITY
 from pegs_utils import infer_columns_from_table_file
 
 
@@ -600,7 +601,7 @@ def read_huge_input_credible_sets(
                 try:
                     ppa = float(cols[ppa_col])
                     if ppa > 1:
-                        ppa = 0.99
+                        ppa = DEFAULT_MAX_PROBABILITY
                     elif ppa < 0:
                         ppa = 0
                 except ValueError:

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from pegs_shared.io_common import detect_table_delimiter, open_text_with_retry, resolve_column_index, split_table_line
+from pegs_shared.probability import DEFAULT_MAX_PROBABILITY, validate_max_probability
 
 from . import main_support as pigean_main_support
 from . import phewas as pigean_phewas
@@ -243,7 +244,8 @@ def _warn_if_log_bf_values_look_like_probabilities(values, label, services):
         )
 
 
-def _probability_matrix_to_relative_log_bf(prob_values, *, background_log_bf, label, services, max_prob=0.99):
+def _probability_matrix_to_relative_log_bf(prob_values, *, background_log_bf, label, services, max_prob=DEFAULT_MAX_PROBABILITY):
+    max_prob = validate_max_probability(max_prob, bail_fn=services.bail)
     probs = np.asarray(prob_values, dtype=float).copy()
     finite = np.isfinite(probs)
     if not np.all(finite):
@@ -294,6 +296,7 @@ def _select_multi_y_response_matrix(batch_Y, batch_combined, batch_prob, options
             background_log_bf=background_log_bf,
             label="--multi-y-response-col prob",
             services=services,
+            max_prob=getattr(options, "max_probability", DEFAULT_MAX_PROBABILITY),
         )
     services.bail("Unsupported --multi-y-response-col value: %s" % response)
 
@@ -328,6 +331,7 @@ def _record_multi_y_params(
             "multi_y_prior_col": columns.prior_col_name,
             "multi_y_prob_col": columns.prob_col_name,
             "multi_y_response_col": getattr(options, "multi_y_response_col", "combined"),
+            "max_probability": getattr(options, "max_probability", DEFAULT_MAX_PROBABILITY),
             "multi_y_trait_blacklist_in": getattr(options, "multi_y_trait_blacklist_in", None),
             "multi_y_trait_blacklist_requested": trait_blacklist_requested,
             "multi_y_trait_blacklist_matched": trait_blacklist_matched,

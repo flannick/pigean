@@ -16,9 +16,75 @@ import scipy.sparse as sparse
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 import pegs_utils  # noqa: E402
+import pegs_shared.regression as pegs_regression  # noqa: E402
 
 
 class PegsUtilsBundleTest(unittest.TestCase):
+
+    def test_logistic_beta_tildes_degenerate_outcome_returns_neutral_warning(self) -> None:
+        X = sparse.csr_matrix(
+            np.array(
+                [
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                    [1.0, 1.0],
+                    [0.0, 0.0],
+                ]
+            )
+        )
+        warnings = []
+        result = pegs_regression.compute_logistic_beta_tildes(
+            X,
+            np.array([0.5, 0.5, 0.5, 0.5]),
+            warn_fn=warnings.append,
+        )
+        beta_tildes, ses, z_scores, p_values, se_inflation, alpha_tildes, diverged = result
+        self.assertTrue(np.all(beta_tildes == 0))
+        self.assertTrue(np.all(ses == pegs_regression.NEUTRAL_BETA_TILDE_SE))
+        self.assertTrue(np.all(z_scores == 0))
+        self.assertTrue(np.all(p_values == 1))
+        self.assertIsNone(se_inflation)
+        self.assertTrue(np.all(alpha_tildes == 0))
+        self.assertTrue(np.all(diverged))
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("No outcome variation", warnings[0])
+        self.assertIn("--linear", warnings[0])
+        self.assertIn("--use-sampling-for-betas", warnings[0])
+
+    def test_logistic_beta_tildes_degenerate_row_does_not_abort_batch(self) -> None:
+        X = sparse.csr_matrix(
+            np.array(
+                [
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                    [1.0, 1.0],
+                    [0.0, 0.0],
+                ]
+            )
+        )
+        Y = np.array(
+            [
+                [0.5, 0.5, 0.5, 0.5],
+                [1.0, 0.0, 1.0, 0.0],
+            ]
+        )
+        warnings = []
+        beta_tildes, ses, z_scores, p_values, _se_inflation, _alpha_tildes, diverged = pegs_regression.compute_logistic_beta_tildes(
+            X,
+            Y,
+            warn_fn=warnings.append,
+        )
+        self.assertEqual(beta_tildes.shape, (2, 2))
+        self.assertTrue(np.all(beta_tildes[0, :] == 0))
+        self.assertTrue(np.all(ses[0, :] == pegs_regression.NEUTRAL_BETA_TILDE_SE))
+        self.assertTrue(np.all(z_scores[0, :] == 0))
+        self.assertTrue(np.all(p_values[0, :] == 1))
+        self.assertTrue(np.all(diverged[0, :]))
+        self.assertTrue(np.all(np.isfinite(beta_tildes[1, :])))
+        self.assertTrue(np.all(np.isfinite(ses[1, :])))
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("1 trait vector", warnings[0])
+
     def test_get_tar_write_mode_for_bundle_path(self) -> None:
         self.assertEqual(
             pegs_utils.get_tar_write_mode_for_bundle_path("handoff.tar.gz"),
@@ -900,6 +966,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
                 gene_bfs_prob_col="prob",
                 gene_bfs_prior_col=None,
                 background_log_bf=0.0,
+                max_probability=0.95,
                 gene_label_map=None,
                 open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
                 get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
@@ -916,7 +983,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
     def test_parse_gene_bfs_file_caps_high_probability(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "gene_probs.tsv"
-            path.write_text("Gene\tprob\nGENE_A\t1.0\nGENE_B\t0.99\n", encoding="utf-8")
+            path.write_text("Gene\tprob\nGENE_A\t1.0\nGENE_B\t0.95\n", encoding="utf-8")
             warnings = []
             parsed = pegs_utils.parse_gene_bfs_file(
                 str(path),
@@ -926,6 +993,7 @@ class PegsUtilsBundleTest(unittest.TestCase):
                 gene_bfs_prob_col="prob",
                 gene_bfs_prior_col=None,
                 background_log_bf=0.0,
+                max_probability=0.95,
                 gene_label_map=None,
                 open_text_fn=lambda p: open(p, "rt", encoding="utf-8"),
                 get_col_fn=lambda col, header, required=True: pegs_utils.resolve_column_index(
@@ -935,10 +1003,10 @@ class PegsUtilsBundleTest(unittest.TestCase):
                 bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
             )
 
-            expected = np.log(0.99 / 0.01)
+            expected = np.log(0.95 / 0.05)
             self.assertAlmostEqual(parsed.gene_in_bfs["GENE_A"], expected)
             self.assertAlmostEqual(parsed.gene_in_bfs["GENE_B"], expected)
-            self.assertTrue(any("capping to 0.99" in warning for warning in warnings))
+            self.assertTrue(any("capping to 0.95" in warning for warning in warnings))
 
     def test_parse_gene_bfs_file_rejects_out_of_range_probability(self) -> None:
         with tempfile.TemporaryDirectory() as td:

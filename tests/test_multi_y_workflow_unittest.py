@@ -192,7 +192,7 @@ class MultiYWorkflowTest(unittest.TestCase):
         from pigean import multi_y as pigean_multi_y
 
         warnings = []
-        options = SimpleNamespace(multi_y_response_col="prob")
+        options = SimpleNamespace(multi_y_response_col="prob", max_probability=0.95)
         services = SimpleNamespace(
             bail=lambda message: (_ for _ in ()).throw(ValueError(message)),
             warn=warnings.append,
@@ -208,9 +208,9 @@ class MultiYWorkflowTest(unittest.TestCase):
         )
         np.testing.assert_allclose(
             selected,
-            np.array([[np.log(0.8 / 0.2), np.log(0.99 / 0.01)], [0.0, 0.0]]),
+            np.array([[np.log(0.8 / 0.2), np.log(0.95 / 0.05)], [0.0, 0.0]]),
         )
-        self.assertTrue(any("capping to 0.99" in warning for warning in warnings))
+        self.assertTrue(any("capping to 0.95" in warning for warning in warnings))
 
     def test_multi_y_response_prob_rejects_out_of_range_values(self) -> None:
         from pigean import multi_y as pigean_multi_y

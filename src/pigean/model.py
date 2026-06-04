@@ -79,6 +79,7 @@ def compute_logistic_beta_tildes(
     log_fun,
     debug_level,
     trace_level,
+    warn_fn=None,
 ):
     return pegs_regression.compute_logistic_beta_tildes(
         X,
@@ -98,6 +99,7 @@ def compute_logistic_beta_tildes(
         trace_level=trace_level,
         runtime_Y=runtime.Y,
         runtime_Y_for_regression=runtime.Y_for_regression,
+        warn_fn=warn_fn,
     )
 
 
@@ -694,7 +696,7 @@ def calculate_gene_set_statistics(state, gwas_in=None, exomes_in=None, positive_
         z_scores = avg_z_scores / tot_its
 
         p_values = 2*scipy.stats.norm.cdf(-np.abs(z_scores))
-        ses = np.full(beta_tildes.shape, 100.0)
+        ses = np.full(beta_tildes.shape, pegs_regression.NEUTRAL_BETA_TILDE_SE)
         ses[z_scores != 0] = np.abs(beta_tildes[z_scores != 0] / z_scores[z_scores != 0])
 
         se_inflation_factors = None
@@ -1192,7 +1194,7 @@ def calculate_priors(state, max_gene_set_p=None, num_gene_batches=None, correct_
                 ignore_mask = np.logical_or(ignore_mask, p_values > max_gene_set_p)
 
                 beta_tildes[ignore_mask] = 0
-                ses[ignore_mask] = max(state.ses) * 100
+                ses[ignore_mask] = pegs_regression.get_neutral_beta_tilde_se(state.ses)
 
                 full_beta_tildes_m[batch_ind,:] = beta_tildes
                 full_ses_m[batch_ind,:] = ses

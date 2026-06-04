@@ -6,6 +6,23 @@ import scipy.stats
 import scipy.sparse as sparse
 
 from pegs_shared.cli import _default_bail
+from pegs_shared.probability import DEFAULT_MAX_PROBABILITY
+
+
+NEUTRAL_BETA_TILDE_SE = 100.0
+
+
+def get_neutral_beta_tilde_se(reference_ses=None):
+    if reference_ses is None or np.size(reference_ses) == 0:
+        return NEUTRAL_BETA_TILDE_SE
+    finite_ses = np.asarray(reference_ses, dtype=float)
+    finite_ses = finite_ses[np.isfinite(finite_ses)]
+    if finite_ses.size == 0:
+        return NEUTRAL_BETA_TILDE_SE
+    max_se = np.max(finite_ses)
+    if max_se <= 0:
+        return NEUTRAL_BETA_TILDE_SE
+    return max(max_se * 100, NEUTRAL_BETA_TILDE_SE)
 
 
 def finalize_regression_outputs(beta_tildes, ses, se_inflation_factors, *, log_fn=None, warn_fn=None, trace_level=0):
@@ -19,9 +36,10 @@ def finalize_regression_outputs(beta_tildes, ses, se_inflation_factors, *, log_f
         if np.sum(empty_mask) > 0 and log_fn is not None:
             log_fn("Zeroing out %d betas due to negative ses" % (np.sum(empty_mask)), trace_level)
 
-        ses[empty_mask] = max_se * 100 if max_se > 0 else 100
+        fallback_se = get_neutral_beta_tilde_se(ses)
+        ses[empty_mask] = fallback_se
         beta_tildes[ses <= 0] = 0
-        ses[ses <= 0] = max_se * 100 if max_se > 0 else 100
+        ses[ses <= 0] = fallback_se
 
     z_scores = np.zeros(beta_tildes.shape)
     ses_positive_mask = ses > 0
@@ -158,6 +176,7 @@ def compute_logistic_beta_tildes(
     trace_level=0,
     runtime_Y=None,
     runtime_Y_for_regression=None,
+    warn_fn=None,
 ):
     if finalize_regression_fn is None:
         finalize_regression_fn = finalize_regression_outputs
@@ -165,6 +184,8 @@ def compute_logistic_beta_tildes(
         bail_fn = _default_bail
     if log_fun is None:
         log_fun = lambda *args, **kwargs: None
+    if warn_fn is None:
+        warn_fn = lambda *args, **kwargs: None
 
     log_fun("Calculating logistic beta tildes")
 
@@ -206,8 +227,69 @@ def compute_logistic_beta_tildes(
 
     log_fun("Outcomes: %d=1, %d=0; mean=%.3g" % (np.sum(Y == 1), np.sum(Y == 0), np.mean(Y)), trace_level)
 
-    if np.var(Y) == 0:
-        bail_fn("Error: need at least one sample with a different outcome")
+    def _neutral_logistic_result(num_rows, vector_output=False):
+        shape = (num_rows, X.shape[1])
+        beta_tildes = np.zeros(shape, dtype=float)
+        ses = np.full(shape, NEUTRAL_BETA_TILDE_SE, dtype=float)
+        z_scores = np.zeros(shape, dtype=float)
+        p_values = np.ones(shape, dtype=float)
+        alpha_tildes = np.zeros(shape, dtype=float)
+        diverged_mask = np.full(shape, True, dtype=bool)
+        if vector_output:
+            return (
+                np.squeeze(beta_tildes, axis=0),
+                np.squeeze(ses, axis=0),
+                np.squeeze(z_scores, axis=0),
+                np.squeeze(p_values, axis=0),
+                None,
+                np.squeeze(alpha_tildes, axis=0),
+                np.squeeze(diverged_mask, axis=0),
+            )
+        return (beta_tildes, ses, z_scores, p_values, None, alpha_tildes, diverged_mask)
+
+    row_variance = np.var(Y, axis=1)
+    degenerate_rows = row_variance == 0
+    if np.any(degenerate_rows):
+        warn_fn(
+            "No outcome variation after logistic dichotomization for %d trait vector(s); "
+            "writing neutral beta-tilde statistics (beta_tilde=0, SE=%.3g, Z=0, P=1). "
+            "For continuous or heavily tied support surfaces, consider --linear; for probabilistic binary "
+            "sampling, consider --use-sampling-for-betas, although sampling can also produce all-zero or all-one draws."
+            % (np.sum(degenerate_rows), NEUTRAL_BETA_TILDE_SE)
+        )
+        if np.all(degenerate_rows):
+            return _neutral_logistic_result(Y.shape[0], vector_output=orig_vector)
+
+        good_rows = ~degenerate_rows
+        good_result = compute_logistic_beta_tildes(
+            X,
+            Y[good_rows, :],
+            scale_factors=scale_factors,
+            mean_shifts=mean_shifts,
+            resid_correlation_matrix=resid_correlation_matrix,
+            convert_to_dichotomous=False,
+            rel_tol=rel_tol,
+            X_stacked=None,
+            append_pseudo=append_pseudo,
+            calc_x_shift_scale_fn=calc_x_shift_scale_fn,
+            finalize_regression_fn=finalize_regression_fn,
+            bail_fn=bail_fn,
+            log_fun=log_fun,
+            debug_level=debug_level,
+            trace_level=trace_level,
+            runtime_Y=None,
+            runtime_Y_for_regression=None,
+            warn_fn=warn_fn,
+        )
+        neutral_result = _neutral_logistic_result(Y.shape[0], vector_output=False)
+        merged = list(neutral_result)
+        for idx in (0, 1, 2, 3, 5, 6):
+            merged[idx][good_rows, :] = good_result[idx]
+        merged[4] = None
+        if good_result[4] is not None:
+            merged[4] = np.ones_like(merged[1])
+            merged[4][good_rows, :] = good_result[4]
+        return tuple(merged)
 
     len_Y = Y.shape[1]
     num_chains = Y.shape[0]
@@ -236,7 +318,7 @@ def compute_logistic_beta_tildes(
     compute_mask = np.full(len(beta_tildes), True)
     diverged_mask = np.full(len(beta_tildes), False)
 
-    def __compute_Y_R(_X, _beta_tildes, _alpha_tildes, max_cap=0.999):
+    def __compute_Y_R(_X, _beta_tildes, _alpha_tildes, max_cap=DEFAULT_MAX_PROBABILITY):
         exp_X_stacked_beta_alpha = _X.multiply(_beta_tildes)
         exp_X_stacked_beta_alpha.data += (_X != 0).multiply(_alpha_tildes).data
         max_val = 100
@@ -343,7 +425,7 @@ def compute_logistic_beta_tildes(
         variance_denom[denom_zero] = 1
 
         variances = X_stacked.power(2).multiply(V).sum(axis=0).A1 - np.power(X_stacked.multiply(V).sum(axis=0).A1, 2) / variance_denom
-        variances[denom_zero] = 100
+        variances[denom_zero] = NEUTRAL_BETA_TILDE_SE
 
         additional_diverged_mask = np.logical_and(~diverged_mask, np.logical_or(np.logical_or(variances < 0, denom_zero), params_too_large_mask))
         if np.sum(additional_diverged_mask) > 0:
